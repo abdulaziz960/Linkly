@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id            String         @id
+  name          String
+  phone         String
+  initial       String
+  conversations Conversation[]
+
+  @@map("customers")
+}
+
+model Conversation {
+  id            String            @id
+  customerId    String            @map("customer_id")
+  lastMessage   String            @map("last_message")
+  status        String
+  assignee      String
+  unread        Int               @default(0)
+  windowExpired Int               @default(0) @map("window_expired")
+  customer      Customer          @relation(fields: [customerId], references: [id])
+  messages      Message[]
+  tags          ConversationTag[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id
+  conversationId String       @map("conversation_id")
+  direction      String
+  text           String
+  time           String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  @@map("messages")
+}
+
+model Employee {
+  id          String       @id
+  name        String
+  role        String
+  status      String
+  permissions String
+  email       String
+  initial     String
+  teams       TeamMember[]
+
+  @@map("employees")
+}
+
+model Team {
+  id        String       @id
+  name      String
+  lead      String
+  routing   String
+  members   TeamMember[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  teamId     String   @map("team_id")
+  employeeId String   @map("employee_id")
+  team       Team     @relation(fields: [teamId], references: [id])
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  @@id([teamId, employeeId])
+  @@map("team_members")
+}
+
+model Tag {
+  id          String @id
+  name        String @unique
+  color       String
+  description String
+
+  @@map("tags")
+}
+
+model ConversationTag {
+  conversationId String       @map("conversation_id")
+  tagName        String       @map("tag_name")
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  @@id([conversationId, tagName])
+  @@map("conversation_tags")
+}
+
+model Template {
+  name        String @id
+  message     String
+  type        String
+  category    String @default("MARKETING")
+  language    String
+  status      String
+  headerType  String @default("NONE") @map("header_type")
+  headerText  String @default("") @map("header_text")
+  headerMedia String @default("") @map("header_media")
+  footer      String @default("")
+  buttonType  String @default("NONE") @map("button_type")
+  buttonText  String @default("") @map("button_text")
+  buttonPhone String @default("") @map("button_phone")
+  buttonUrl   String @default("") @map("button_url")
+  metaId      String @default("") @map("meta_id")
+  syncedAt    String @default("-") @map("synced_at")
+  lastUsed    String @map("last_used")
+
+  @@map("templates")
+}
+
+model QuickReply {
+  id       String @id
+  shortcut String
+  text     String
+  team     String
+  usage    Int    @default(0)
+
+  @@map("quick_replies")
+}
+
+model AutomationRule {
+  id          String @id
+  name        String
+  description String
+  createdAt   String @map("created_at")
+  enabled     Int    @default(1)
+
+  @@map("automation_rules")
+}
+
+model Campaign {
+  id        String @id
+  name      String
+  sent      Int    @default(0)
+  total     Int    @default(0)
+  progress  String
+  status    String
+  updatedAt String @map("updated_at")
+
+  @@map("campaigns")
+}
+
+model WorkSchedule {
+  id       String @id
+  team     String
+  days     String
+  start    String
+  end      String
+  status   String
+  holidays String
+
+  @@map("work_schedules")
+}
+
+model Lead {
+  id          String @id
+  customer    String
+  interest    String
+  budget      String
+  stage       String
+  employee    String
+  lastContact String @map("last_contact")
+
+  @@map("leads")
+}
+
+model IntegrationSetting {
+  id            String @id
+  provider      String
+  status        String
+  businessName  String @map("business_name")
+  wabaName      String @map("waba_name")
+  phoneNumber   String @map("phone_number")
+  phoneNumberId String @map("phone_number_id")
+  wabaId        String @map("waba_id")
+  appId         String @map("app_id")
+  configId      String @default("") @map("config_id")
+  verifyToken   String @map("verify_token")
+  accessToken   String @map("access_token")
+  webhookUrl    String @map("webhook_url")
+  updatedAt     String @map("updated_at")
+
+  @@map("integration_settings")
+}
