@@ -26,6 +26,7 @@ import type {
 } from "../app/dashboard/types";
 
 let seedPromise: Promise<void> | null = null;
+const defaultMetaAppId = "1296230909161568";
 
 async function ensureSchema() {
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS customers (
@@ -366,7 +367,7 @@ async function seedDatabase() {
         phoneNumber: "+966 50 123 4567",
         phoneNumberId: "328992863638694",
         wabaId: "369021316291991",
-        appId: "",
+        appId: defaultMetaAppId,
         configId: "",
         verifyToken: "audiencew_webhook_verify",
         accessToken: "",
@@ -554,6 +555,13 @@ export async function getIntegrationSettings(): Promise<IntegrationSettings> {
     where: { id: "meta-whatsapp" }
   });
 
+  if (!settings.appId) {
+    await prisma.integrationSetting.update({
+      where: { id: settings.id },
+      data: { appId: defaultMetaAppId }
+    });
+  }
+
   return {
     id: settings.id,
     provider: settings.provider as IntegrationSettings["provider"],
@@ -563,7 +571,7 @@ export async function getIntegrationSettings(): Promise<IntegrationSettings> {
     phoneNumber: settings.phoneNumber,
     phoneNumberId: settings.phoneNumberId,
     wabaId: settings.wabaId,
-    appId: settings.appId,
+    appId: settings.appId || defaultMetaAppId,
     configId: settings.configId,
     verifyToken: settings.verifyToken,
     accessToken: settings.accessToken,
