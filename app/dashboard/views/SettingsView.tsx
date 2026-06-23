@@ -82,6 +82,57 @@ export default function SettingsView() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    function readMetaMessage(data: unknown) {
+      if (typeof data === "string") {
+        try {
+          return JSON.parse(data);
+        } catch {
+          return null;
+        }
+      }
+      return data && typeof data === "object" ? data : null;
+    }
+
+    async function handleMetaMessage(event: MessageEvent) {
+      if (!["https://www.facebook.com", "https://web.facebook.com"].includes(event.origin)) return;
+
+      const payload = readMetaMessage(event.data) as {
+        type?: string;
+        event?: string;
+        data?: {
+          business_id?: string;
+          waba_id?: string;
+          whatsapp_business_account_id?: string;
+          phone_number_id?: string;
+          phone_number?: string;
+        };
+      } | null;
+
+      if (payload?.type !== "WA_EMBEDDED_SIGNUP" || payload.event !== "FINISH") return;
+
+      const metaData = payload.data ?? {};
+      const patch: Partial<IntegrationSettings> = {
+        status: "connected",
+        wabaId: metaData.waba_id || metaData.whatsapp_business_account_id || settings.wabaId,
+        phoneNumberId: metaData.phone_number_id || settings.phoneNumberId,
+        phoneNumber: metaData.phone_number || settings.phoneNumber
+      };
+
+      const response = await fetch("/api/settings/integration", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch)
+      });
+      const updatedSettings = await response.json();
+      setSettings(updatedSettings);
+      setWizardStep(4);
+    }
+
+    window.addEventListener("message", handleMetaMessage);
+    return () => window.removeEventListener("message", handleMetaMessage);
+  }, [settings.phoneNumber, settings.phoneNumberId, settings.wabaId]);
+
   function updateField(field: keyof IntegrationSettings, value: string) {
     setSettings((current) => ({ ...current, [field]: value }));
   }
@@ -114,7 +165,7 @@ export default function SettingsView() {
     }
 
     const redirectOrigin = window.location.hostname === "localhost" ? publicAppUrl : window.location.origin;
-    const redirectUri = `${redirectOrigin}/dashboard`;
+    const redirectUri = `${redirectOrigin}/api/meta/callback`;
     const metaUrl = new URL("https://www.facebook.com/v22.0/dialog/oauth");
     metaUrl.searchParams.set("app_id", settings.appId);
     metaUrl.searchParams.set("client_id", settings.appId);

@@ -27,7 +27,140 @@ import type {
 
 let seedPromise: Promise<void> | null = null;
 
+async function ensureSchema() {
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS customers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    initial TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    last_message TEXT NOT NULL,
+    status TEXT NOT NULL,
+    assignee TEXT NOT NULL,
+    unread INTEGER NOT NULL DEFAULT 0,
+    window_expired INTEGER NOT NULL DEFAULT 0
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    text TEXT NOT NULL,
+    time TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS employees (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    status TEXT NOT NULL,
+    permissions TEXT NOT NULL,
+    email TEXT NOT NULL,
+    initial TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS teams (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    lead TEXT NOT NULL,
+    routing TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS team_members (
+    team_id TEXT NOT NULL,
+    employee_id TEXT NOT NULL,
+    PRIMARY KEY (team_id, employee_id)
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT NOT NULL,
+    description TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_tags (
+    conversation_id TEXT NOT NULL,
+    tag_name TEXT NOT NULL,
+    PRIMARY KEY (conversation_id, tag_name)
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS templates (
+    name TEXT PRIMARY KEY,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'MARKETING',
+    language TEXT NOT NULL,
+    status TEXT NOT NULL,
+    header_type TEXT NOT NULL DEFAULT 'NONE',
+    header_text TEXT NOT NULL DEFAULT '',
+    header_media TEXT NOT NULL DEFAULT '',
+    footer TEXT NOT NULL DEFAULT '',
+    button_type TEXT NOT NULL DEFAULT 'NONE',
+    button_text TEXT NOT NULL DEFAULT '',
+    button_phone TEXT NOT NULL DEFAULT '',
+    button_url TEXT NOT NULL DEFAULT '',
+    meta_id TEXT NOT NULL DEFAULT '',
+    synced_at TEXT NOT NULL DEFAULT '-',
+    last_used TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS quick_replies (
+    id TEXT PRIMARY KEY,
+    shortcut TEXT NOT NULL,
+    text TEXT NOT NULL,
+    team TEXT NOT NULL,
+    usage INTEGER NOT NULL DEFAULT 0
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS automation_rules (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaigns (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    sent INTEGER NOT NULL DEFAULT 0,
+    total INTEGER NOT NULL DEFAULT 0,
+    progress TEXT NOT NULL,
+    status TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS work_schedules (
+    id TEXT PRIMARY KEY,
+    team TEXT NOT NULL,
+    days TEXT NOT NULL,
+    start TEXT NOT NULL,
+    end TEXT NOT NULL,
+    status TEXT NOT NULL,
+    holidays TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS leads (
+    id TEXT PRIMARY KEY,
+    customer TEXT NOT NULL,
+    interest TEXT NOT NULL,
+    budget TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    employee TEXT NOT NULL,
+    last_contact TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS integration_settings (
+    id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    status TEXT NOT NULL,
+    business_name TEXT NOT NULL,
+    waba_name TEXT NOT NULL,
+    phone_number TEXT NOT NULL,
+    phone_number_id TEXT NOT NULL,
+    waba_id TEXT NOT NULL,
+    app_id TEXT NOT NULL,
+    config_id TEXT NOT NULL DEFAULT '',
+    verify_token TEXT NOT NULL,
+    access_token TEXT NOT NULL,
+    webhook_url TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+}
+
 async function seedDatabase() {
+  await ensureSchema();
   await prisma.$transaction(async (tx) => {
     for (const conversation of initialConversations) {
       await tx.customer.upsert({
