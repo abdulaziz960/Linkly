@@ -370,7 +370,7 @@ export default function SettingsView() {
             </label>
             <label>
               Access Token
-              <input value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} placeholder="يحفظ لاحقًا بشكل مشفر في النسخة الإنتاجية" />
+              <input value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} />
             </label>
           </div>
 
