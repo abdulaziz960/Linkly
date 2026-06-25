@@ -1,24 +1,20 @@
 .login-page {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(360px, 520px) 1fr;
-  gap: 32px;
-  align-items: stretch;
-  padding: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
   background:
     radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 34%),
     linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
 }
 
-.login-panel,
-.login-preview {
+.login-panel {
+  width: min(100%, 520px);
   border: 1px solid #e2e8f0;
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
-}
-
-.login-panel {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -158,135 +154,13 @@
   box-shadow: 0 22px 42px rgba(15, 23, 42, 0.22);
 }
 
-.login-preview {
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 22px;
-  padding: clamp(28px, 6vw, 72px);
-}
-
-.login-preview::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(rgba(37, 99, 235, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(37, 99, 235, 0.05) 1px, transparent 1px);
-  background-size: 42px 42px;
-  pointer-events: none;
-}
-
-.preview-card,
-.preview-grid,
-.preview-inbox {
-  position: relative;
-  z-index: 1;
-}
-
-.preview-card.primary {
-  max-width: 560px;
-  padding: 34px;
-  border-radius: 24px;
-  background: #0f172a;
-  color: #ffffff;
-}
-
-.preview-card span,
-.preview-grid span {
-  display: block;
-  color: #94a3b8;
-  font-weight: 800;
-  margin-bottom: 10px;
-}
-
-.preview-card b {
-  display: block;
-  font-size: 64px;
-  line-height: 1;
-  letter-spacing: 0;
-}
-
-.preview-card small {
-  display: block;
-  margin-top: 14px;
-  color: #cbd5e1;
-  font-weight: 700;
-}
-
-.preview-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 240px));
-  gap: 18px;
-}
-
-.preview-grid div {
-  padding: 24px;
-  border: 1px solid #e2e8f0;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.82);
-}
-
-.preview-grid b {
-  color: #0f172a;
-  font-size: 28px;
-}
-
-.preview-inbox {
-  display: grid;
-  gap: 12px;
-  max-width: 640px;
-}
-
-.preview-inbox div {
-  display: grid;
-  grid-template-columns: 46px 1fr;
-  gap: 4px 14px;
-  align-items: center;
-  padding: 18px;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.preview-inbox span {
-  grid-row: span 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-weight: 900;
-}
-
-.preview-inbox p {
-  margin: 0;
-  color: #0f172a;
-  font-weight: 900;
-}
-
-.preview-inbox b {
-  color: #64748b;
-  font-size: 14px;
-}
-
 @media (max-width: 900px) {
   .login-page {
-    grid-template-columns: 1fr;
     padding: 18px;
   }
 
   .login-panel {
     min-height: calc(100vh - 36px);
-  }
-
-  .login-preview {
-    display: none;
   }
 
   .login-brand {

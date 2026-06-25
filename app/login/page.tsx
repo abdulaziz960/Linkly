@@ -45,41 +45,6 @@ export default function LoginPage() {
           </Link>
         </form>
       </section>
-
-      <aside className="login-preview" aria-label="ملخص المنصة">
-        <div className="preview-card primary">
-          <span>محادثات اليوم</span>
-          <b>128</b>
-          <small>42 محادثة مسندة للفريق</small>
-        </div>
-        <div className="preview-grid">
-          <div>
-            <span>متوسط الرد</span>
-            <b>4 د</b>
-          </div>
-          <div>
-            <span>حالة الربط</span>
-            <b>متصل</b>
-          </div>
-        </div>
-        <div className="preview-inbox">
-          <div>
-            <span>ن</span>
-            <p>نورة القحطاني</p>
-            <b>تم تحويل الطلب لقسم الشحن</b>
-          </div>
-          <div>
-            <span>س</span>
-            <p>سارة العتيبي</p>
-            <b>هل يقدر يوصل اليوم؟</b>
-          </div>
-          <div>
-            <span>ع</span>
-            <p>عبدالله الحربي</p>
-            <b>العرض ما زال متاح؟</b>
-          </div>
-        </div>
-      </aside>
     </main>
   );
 }
