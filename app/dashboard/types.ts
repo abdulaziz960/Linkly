@@ -30,6 +30,7 @@ export type Message = {
   direction: "in" | "out" | "note";
   text: string;
   time: string;
+  author?: string;
   attachment?: MessageAttachment;
 };
 

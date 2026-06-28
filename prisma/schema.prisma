@@ -38,6 +38,7 @@ model Message {
   direction      String
   text           String
   time           String
+  author         String       @default("")
   conversation   Conversation @relation(fields: [conversationId], references: [id])
 
   @@map("messages")

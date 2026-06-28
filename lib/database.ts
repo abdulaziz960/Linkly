@@ -82,8 +82,13 @@ async function ensureSchema() {
     conversation_id TEXT NOT NULL,
     direction TEXT NOT NULL,
     text TEXT NOT NULL,
-    time TEXT NOT NULL
+    time TEXT NOT NULL,
+    author TEXT NOT NULL DEFAULT ''
   )`);
+  const messageColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(messages)`);
+  if (!messageColumns.some((column) => column.name === "author")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN author TEXT NOT NULL DEFAULT ''`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS employees (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -240,7 +245,8 @@ async function seedDatabase() {
             conversationId: conversation.id,
             direction: message.direction,
             text: message.text,
-            time: message.time
+            time: message.time,
+            author: message.author ?? ""
           }
         });
       }
@@ -486,7 +492,8 @@ export async function getConversations(): Promise<Conversation[]> {
       id: message.id,
       direction: message.direction as Message["direction"],
       text: message.text,
-      time: message.time
+      time: message.time,
+      author: message.author || undefined
     }))
   }));
 }

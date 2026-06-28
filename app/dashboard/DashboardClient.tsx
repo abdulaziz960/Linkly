@@ -317,7 +317,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       id: `m-${Date.now()}`,
       direction: composerMode === "note" ? "note" : "out",
       text: message.trim(),
-      time: "الآن"
+      time: "الآن",
+      author: initialUser.name
     };
 
     updateConversation({
@@ -351,7 +352,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
           id: `m-${Date.now()}`,
           direction: "out",
           text: template.message,
-          time: "الآن"
+          time: "الآن",
+          author: initialUser.name
         }
       ]
     });
@@ -376,6 +378,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       direction: "out",
       text: attachment.type === "image" ? `صورة: ${attachment.name}` : `تسجيل صوتي: ${attachment.name}`,
       time: "الآن",
+      author: initialUser.name,
       attachment
     };
 
@@ -443,6 +446,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             activeConversation={activeConversation}
             assigneeOptions={[...employees.map((employee) => employee.name), "بدون موظف"]}
             canChangeAssignee={canViewAllConversations}
+            canDeleteAnyMessage={canViewAllConversations}
             canReopenConversation={canReopenConversations}
             chatPanel={chatPanel}
             composerMode={composerMode}
@@ -455,6 +459,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             mobileChatOpen={mobileChatOpen}
             selectedTemplate={selectedTemplate}
             templates={templates}
+            currentUserName={initialUser.name}
             visibleConversations={visibleConversations}
             onChangeAssignee={handleAssigneeChange}
             onChangeChatPanel={setChatPanel}

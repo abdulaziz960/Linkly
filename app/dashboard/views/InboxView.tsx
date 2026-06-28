@@ -10,6 +10,7 @@ type InboxViewProps = {
   assignedOnly: boolean;
   assigneeOptions: string[];
   canChangeAssignee: boolean;
+  canDeleteAnyMessage: boolean;
   canReopenConversation: boolean;
   chatPanel: ChatPanel;
   composerMode: ComposerMode;
@@ -21,6 +22,7 @@ type InboxViewProps = {
   search: string;
   selectedTemplate: string;
   templates: MessageTemplate[];
+  currentUserName: string;
   visibleConversations: Conversation[];
   onChangeAssignee: (assignee: string) => void;
   onChangeChatPanel: (panel: ChatPanel) => void;
@@ -43,6 +45,7 @@ export default function InboxView({
   assignedOnly,
   assigneeOptions,
   canChangeAssignee,
+  canDeleteAnyMessage,
   canReopenConversation,
   chatPanel,
   composerMode,
@@ -54,6 +57,7 @@ export default function InboxView({
   search,
   selectedTemplate,
   templates,
+  currentUserName,
   visibleConversations,
   onChangeAssignee,
   onChangeChatPanel,
@@ -242,12 +246,14 @@ export default function InboxView({
             <div className="messages">
               {activeConversation.messages.map((item) => (
                 <div className={`message-bubble ${item.direction}`} key={item.id}>
-                  {item.direction === "out" && item.text !== "تم حذف هذه الرسالة" ? (
+                  {item.direction === "out" &&
+                  item.text !== "تم حذف هذه الرسالة" &&
+                  (canDeleteAnyMessage || item.author === currentUserName) ? (
                     <button className="message-delete" type="button" onClick={() => onDeleteMessage(item.id)}>
                       حذف
                     </button>
                   ) : null}
-                  {item.direction === "note" ? <b>ملاحظة خاصة، عبدالعزيز الكيالي</b> : null}
+                  {item.direction === "note" ? <b>ملاحظة خاصة، {item.author || currentUserName}</b> : null}
                   {item.attachment && item.text !== "تم حذف هذه الرسالة" ? (
                     item.attachment.type === "image" ? (
                       <img className="message-attachment-image" src={item.attachment.url} alt={item.attachment.name} />

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getCurrentUser } from "../../../../../lib/auth";
 import { prisma } from "../../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
@@ -12,6 +13,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
+  const user = await getCurrentUser();
   const body = (await request.json()) as {
     direction?: string;
     text?: string;
@@ -29,7 +31,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
           conversationId: id,
           direction: body.direction || "out",
           text,
-          time: "الآن"
+          time: "الآن",
+          author: user?.name ?? ""
         }
       });
 
