@@ -151,6 +151,14 @@ export type WorkSchedule = {
   holidays: "مفعلة" | "غير مفعلة";
 };
 
+export type DashboardUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  tenantId: string;
+};
+
 export type IntegrationSettings = {
   id: string;
   provider: "whatsapp_cloud" | "external";

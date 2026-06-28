@@ -1,16 +1,21 @@
 "use client";
 
-import type { ViewKey } from "../types";
+import type { DashboardUser, ViewKey } from "../types";
 import { navItems } from "../data/navigation";
 
 type DashboardSidebarProps = {
   activeView: ViewKey;
+  user: DashboardUser;
   profileStatus: "متصل" | "غير متصل";
   onChangeView: (view: ViewKey) => void;
   onOpenProfile: () => void;
 };
 
-export default function DashboardSidebar({ activeView, profileStatus, onChangeView, onOpenProfile }: DashboardSidebarProps) {
+function getInitial(name: string) {
+  return name.trim().charAt(0) || "ع";
+}
+
+export default function DashboardSidebar({ activeView, user, profileStatus, onChangeView, onOpenProfile }: DashboardSidebarProps) {
   return (
     <aside className="dashboard-sidebar">
       <div className="brand">
@@ -40,10 +45,10 @@ export default function DashboardSidebar({ activeView, profileStatus, onChangeVi
         <span>WhatsApp Cloud API متصل وجاهز لاستقبال الرسائل.</span>
       </div>
       <button className="account-btn" type="button" onClick={onOpenProfile}>
-        <span className="account-avatar">ع</span>
+        <span className="account-avatar">{getInitial(user.name)}</span>
         <span>
-          <b>عبدالعزيز الكيالي</b>
-          <small>مالك الحساب</small>
+          <b>{user.name}</b>
+          <small>{user.role}</small>
           <em className={profileStatus === "متصل" ? "online" : "offline"}>{profileStatus}</em>
         </span>
       </button>

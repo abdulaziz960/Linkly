@@ -22,6 +22,7 @@ import type {
   Conversation,
   ConversationFilter,
   Customer,
+  DashboardUser,
   Employee,
   Lead,
   MessageAttachment,
@@ -35,7 +36,15 @@ import type {
 import DashboardViewRouter from "./views/DashboardViewRouter";
 import InboxView from "./views/InboxView";
 
-export default function DashboardClient() {
+type DashboardClientProps = {
+  initialUser: DashboardUser;
+};
+
+function getNameInitial(name: string) {
+  return name.trim().charAt(0) || "ع";
+}
+
+export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   const [conversations, setConversations] = useState(initialConversations);
   const [customers, setCustomers] = useState<Customer[]>(
@@ -71,6 +80,7 @@ export default function DashboardClient() {
   const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) ?? conversations[0];
   const currentEmployee = employees.find((employee) => employee.id === "emp-owner") ?? employees[0];
   const currentProfileStatus = currentEmployee?.status === "غير متصل" ? "غير متصل" : "متصل";
+  const accountInitial = getNameInitial(initialUser.name);
 
   async function fetchData<T>(path: string) {
     const response = await fetch(path);
@@ -329,6 +339,7 @@ export default function DashboardClient() {
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""}`}>
       <DashboardSidebar
         activeView={activeView}
+        user={initialUser}
         profileStatus={currentProfileStatus}
         onChangeView={handleViewChange}
         onOpenProfile={() => setProfileOpen(true)}
@@ -400,16 +411,16 @@ export default function DashboardClient() {
               {profilePanel === "main" ? (
                 <>
                   <div className="account-summary">
-                    <span className="account-avatar large">ع</span>
+                    <span className="account-avatar large">{accountInitial}</span>
                     <div>
-                      <b>عبدالعزيز الكيالي</b>
-                      <span>مالك الحساب · موقع الماجدية</span>
+                      <b>{initialUser.name}</b>
+                      <span>{initialUser.role} · موقع الماجدية</span>
                       <em className={currentProfileStatus === "متصل" ? "online" : "offline"}>{currentProfileStatus}</em>
                     </div>
                   </div>
                   <div className="account-info-grid">
-                    <div><span>البريد الإلكتروني</span><b>abdulaziz@audiencew.sa</b></div>
-                    <div><span>الدور</span><b>مالك الحساب</b></div>
+                    <div><span>البريد الإلكتروني</span><b>{initialUser.email}</b></div>
+                    <div><span>الدور</span><b>{initialUser.role}</b></div>
                     <div><span>الباقة</span><b>باقة النمو</b></div>
                     <div><span>حالة الربط</span><b>WhatsApp Cloud API متصل</b></div>
                   </div>
@@ -446,7 +457,7 @@ export default function DashboardClient() {
                   <div><span>تسجيل الدخول</span><b>البريد الإلكتروني وكلمة المرور</b></div>
                   <div><span>التحقق الثنائي</span><b>غير مفعل</b></div>
                   <div><span>آخر دخول</span><b>اليوم · الرياض</b></div>
-                  <div><span>الصلاحيات</span><b>مالك الحساب</b></div>
+                  <div><span>الصلاحيات</span><b>{initialUser.role}</b></div>
                   <p className="muted-copy">تظهر هنا إعدادات الحماية، الجلسات، والتحقق الثنائي عند ربط نظام الدخول الحقيقي.</p>
                 </div>
               )}

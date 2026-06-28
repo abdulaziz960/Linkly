@@ -10,5 +10,5 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  return <DashboardClient />;
+  return <DashboardClient initialUser={user} />;
 }
