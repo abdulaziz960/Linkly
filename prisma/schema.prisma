@@ -190,3 +190,15 @@ model IntegrationSetting {
 
   @@map("integration_settings")
 }
+
+model UserAccount {
+  id           String @id
+  name         String
+  email        String @unique
+  passwordHash String @map("password_hash")
+  role         String
+  tenantId     String @default("tenant-demo") @map("tenant_id")
+  createdAt    String @map("created_at")
+
+  @@map("user_accounts")
+}

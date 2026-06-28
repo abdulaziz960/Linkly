@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { createHash } from "crypto";
 import { initialConversations } from "../app/dashboard/data/conversations";
 import { automationRules } from "../app/dashboard/data/automations";
 import { campaigns } from "../app/dashboard/data/campaigns";
@@ -27,6 +28,22 @@ import type {
 
 let seedPromise: Promise<void> | null = null;
 const defaultMetaAppId = "1296230909161568";
+const defaultLoginEmail = "admin@audiencew.sa";
+const defaultLoginPassword = "AudienceW123";
+
+export type UserAccount = {
+  id: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+  role: string;
+  tenantId: string;
+  createdAt: string;
+};
+
+function hashPassword(password: string) {
+  return createHash("sha256").update(password).digest("hex");
+}
 
 async function ensureSchema() {
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS customers (
@@ -157,6 +174,15 @@ async function ensureSchema() {
     access_token TEXT NOT NULL,
     webhook_url TEXT NOT NULL,
     updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS user_accounts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
+    created_at TEXT NOT NULL
   )`);
 }
 
@@ -375,6 +401,19 @@ async function seedDatabase() {
         updatedAt: "اليوم"
       }
     });
+
+    await tx.$executeRawUnsafe(
+      `INSERT INTO user_accounts (id, name, email, password_hash, role, tenant_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(email) DO NOTHING`,
+      "user-owner",
+      "عبدالعزيز الكيالي",
+      defaultLoginEmail,
+      hashPassword(defaultLoginPassword),
+      "مالك الحساب",
+      "tenant-demo",
+      "اليوم"
+    );
   });
 }
 
@@ -578,4 +617,37 @@ export async function getIntegrationSettings(): Promise<IntegrationSettings> {
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };
+}
+
+export async function getUserAccountById(id: string): Promise<UserAccount | null> {
+  await ensureSeeded();
+  const rows = await prisma.$queryRawUnsafe<UserAccount[]>(
+    `SELECT id, name, email, password_hash AS passwordHash, role, tenant_id AS tenantId, created_at AS createdAt
+     FROM user_accounts
+     WHERE id = ?
+     LIMIT 1`,
+    id
+  );
+
+  return rows[0] ?? null;
+}
+
+export async function verifyUserCredentials(email: string, password: string): Promise<Omit<UserAccount, "passwordHash"> | null> {
+  await ensureSeeded();
+  const normalizedEmail = email.trim().toLowerCase();
+  const rows = await prisma.$queryRawUnsafe<UserAccount[]>(
+    `SELECT id, name, email, password_hash AS passwordHash, role, tenant_id AS tenantId, created_at AS createdAt
+     FROM user_accounts
+     WHERE lower(email) = ?
+     LIMIT 1`,
+    normalizedEmail
+  );
+  const user = rows[0];
+
+  if (!user || user.passwordHash !== hashPassword(password)) {
+    return null;
+  }
+
+  const { passwordHash: _passwordHash, ...safeUser } = user;
+  return safeUser;
 }

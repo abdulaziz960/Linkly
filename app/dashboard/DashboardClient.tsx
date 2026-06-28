@@ -426,7 +426,9 @@ export default function DashboardClient() {
                     <button className="btn danger" type="button" onClick={() => {
                       if (window.confirm("هل تريد تسجيل الخروج من لوحة AudienceW؟")) {
                         setProfileOpen(false);
-                        window.location.href = "/login";
+                        fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+                          window.location.href = "/login";
+                        });
                       }
                     }}>تسجيل الخروج</button>
                   </div>

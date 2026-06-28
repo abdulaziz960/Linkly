@@ -1,4 +1,4 @@
-import Link from "next/link";
+import LoginForm from "./LoginForm";
 import "./login.css";
 
 export const metadata = {
@@ -21,28 +21,7 @@ export default function LoginPage() {
           <p>مرحباً بعودتك</p>
         </div>
 
-        <form className="login-form">
-          <label>
-            البريد الإلكتروني
-            <input type="email" name="email" placeholder="name@company.com" autoComplete="email" />
-          </label>
-          <label>
-            كلمة المرور
-            <input type="password" name="password" placeholder="••••••••" autoComplete="current-password" />
-          </label>
-
-          <div className="login-options">
-            <label className="remember-option">
-              <input type="checkbox" name="remember" />
-              <span>تذكرني</span>
-            </label>
-            <a href="#">نسيت كلمة المرور؟</a>
-          </div>
-
-          <Link className="login-submit" href="/dashboard">
-            تسجيل الدخول
-          </Link>
-        </form>
+        <LoginForm />
       </section>
     </main>
   );
