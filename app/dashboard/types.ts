@@ -19,11 +19,18 @@ export type ConversationFilter = "all" | ConversationStatus;
 export type ChatPanel = "chat" | "profile";
 export type ComposerMode = "reply" | "note";
 
+export type MessageAttachment = {
+  type: "image" | "audio";
+  url: string;
+  name: string;
+};
+
 export type Message = {
   id: string;
   direction: "in" | "out" | "note";
   text: string;
   time: string;
+  attachment?: MessageAttachment;
 };
 
 export type Conversation = {

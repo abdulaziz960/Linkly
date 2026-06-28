@@ -1145,6 +1145,21 @@
   font-size: 11px;
 }
 
+.message-attachment-image {
+  display: block;
+  width: min(320px, 100%);
+  max-height: 260px;
+  border-radius: 12px;
+  object-fit: cover;
+  margin-bottom: 8px;
+}
+
+.message-attachment-audio {
+  display: block;
+  width: min(320px, 100%);
+  margin-bottom: 8px;
+}
+
 .window-notice {
   margin: 12px;
   border: 1px solid #fdba74;
@@ -1178,11 +1193,38 @@
 
 .composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: end;
   gap: 10px;
   padding: 12px;
   border-top: 1px solid var(--line);
   background: #fff;
+}
+
+.attachment-button {
+  min-height: 58px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  padding: 0 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.attachment-button:hover {
+  background: #eef2f7;
+}
+
+.attachment-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.attachment-button.recording {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .composer textarea {

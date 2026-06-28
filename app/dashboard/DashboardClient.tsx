@@ -24,6 +24,7 @@ import type {
   Customer,
   Employee,
   Lead,
+  MessageAttachment,
   MessageTemplate,
   QuickReply,
   Tag,
@@ -268,6 +269,24 @@ export default function DashboardClient() {
     await loadDashboardData();
   }
 
+  function handleSendAttachment(attachment: MessageAttachment) {
+    if (activeConversation.windowExpired) return;
+
+    const nextMessage: Conversation["messages"][number] = {
+      id: `m-${Date.now()}`,
+      direction: "out",
+      text: attachment.type === "image" ? `صورة: ${attachment.name}` : `تسجيل صوتي: ${attachment.name}`,
+      time: "الآن",
+      attachment
+    };
+
+    updateConversation({
+      ...activeConversation,
+      lastMessage: attachment.type === "image" ? "تم إرسال صورة" : "تم إرسال تسجيل صوتي",
+      messages: [...activeConversation.messages, nextMessage]
+    });
+  }
+
   async function handleDeleteMessage(messageId: string) {
     updateConversation({
       ...activeConversation,
@@ -344,6 +363,7 @@ export default function DashboardClient() {
             onCloseConversation={handleConversationStatusToggle}
             onDeleteMessage={handleDeleteMessage}
             onSend={handleSend}
+            onSendAttachment={handleSendAttachment}
             onSendTemplate={handleSendTemplate}
             onSetMobileChatOpen={setMobileChatOpen}
           />

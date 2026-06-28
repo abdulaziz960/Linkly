@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent } from "react";
+import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import FilterButton from "../components/FilterButton";
-import type { ChatPanel, ComposerMode, Conversation, ConversationFilter, MessageTemplate } from "../types";
+import type { ChatPanel, ComposerMode, Conversation, ConversationFilter, MessageAttachment, MessageTemplate } from "../types";
 import { statusLabel } from "../utils/conversation";
 
 type InboxViewProps = {
@@ -30,6 +30,7 @@ type InboxViewProps = {
   onCloseConversation: () => void;
   onDeleteMessage: (messageId: string) => void;
   onSend: (event: FormEvent<HTMLFormElement>) => void;
+  onSendAttachment: (attachment: MessageAttachment) => void;
   onSendTemplate: () => void;
   onSetMobileChatOpen: (isOpen: boolean) => void;
 };
@@ -59,9 +60,69 @@ export default function InboxView({
   onCloseConversation,
   onDeleteMessage,
   onSend,
+  onSendAttachment,
   onSendTemplate,
   onSetMobileChatOpen
 }: InboxViewProps) {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    onSendAttachment({
+      type: "image",
+      url: URL.createObjectURL(file),
+      name: file.name
+    });
+    event.target.value = "";
+  }
+
+  async function handleAudioToggle() {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      window.alert("تسجيل الصوت غير مدعوم في هذا المتصفح.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        stream.getTracks().forEach((track) => track.stop());
+        setIsRecording(false);
+
+        if (!audioBlob.size) return;
+        onSendAttachment({
+          type: "audio",
+          url: URL.createObjectURL(audioBlob),
+          name: `voice-${Date.now()}.webm`
+        });
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch {
+      setIsRecording(false);
+      window.alert("تعذر تشغيل الميكروفون. تأكد من السماح للمتصفح باستخدام الميكروفون.");
+    }
+  }
+
   return (
     <section className={`inbox-grid ${mobileChatOpen ? "chat-open" : ""}`}>
       <aside className="conversation-column">
@@ -164,6 +225,15 @@ export default function InboxView({
                     </button>
                   ) : null}
                   {item.direction === "note" ? <b>ملاحظة خاصة، عبدالعزيز الكيالي</b> : null}
+                  {item.attachment && item.text !== "تم حذف هذه الرسالة" ? (
+                    item.attachment.type === "image" ? (
+                      <img className="message-attachment-image" src={item.attachment.url} alt={item.attachment.name} />
+                    ) : (
+                      <audio className="message-attachment-audio" controls src={item.attachment.url}>
+                        <track kind="captions" />
+                      </audio>
+                    )
+                  ) : null}
                   <span>{item.text}</span>
                   <small>{item.time}</small>
                 </div>
@@ -203,6 +273,23 @@ export default function InboxView({
               </button>
             </div>
             <form className="composer" onSubmit={onSend}>
+              <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageChange} />
+              <button
+                className="attachment-button"
+                disabled={activeConversation.windowExpired}
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+              >
+                صورة
+              </button>
+              <button
+                className={`attachment-button ${isRecording ? "recording" : ""}`}
+                disabled={activeConversation.windowExpired}
+                type="button"
+                onClick={handleAudioToggle}
+              >
+                {isRecording ? "إيقاف" : "تسجيل صوت"}
+              </button>
               <textarea
                 disabled={activeConversation.windowExpired}
                 onChange={(event) => onChangeMessage(event.target.value)}
