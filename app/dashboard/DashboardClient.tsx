@@ -212,6 +212,12 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, [activeView, allowedViews]);
 
   useEffect(() => {
+    if (!canViewAllConversations && filter !== "assigned") {
+      setFilter("assigned");
+    }
+  }, [canViewAllConversations, filter]);
+
+  useEffect(() => {
     if (!scopedConversations.length) return;
 
     if (!scopedConversations.some((conversation) => conversation.id === activeConversationId)) {
@@ -434,6 +440,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             conversations={scopedConversations}
             counts={counts}
             filter={filter}
+            assignedOnly={!canViewAllConversations}
             message={message}
             search={conversationSearch}
             mobileChatOpen={mobileChatOpen}

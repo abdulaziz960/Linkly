@@ -35,7 +35,7 @@ export const initialConversations: Conversation[] = [
     phone: "+966503456789",
     initial: "ن",
     lastMessage: "تم تحويل الطلب لقسم الشحن",
-    status: "closed",
+    status: "assigned",
     assignee: "نورة القحطاني",
     windowExpired: true,
     tags: ["شحن", "شكوى"],

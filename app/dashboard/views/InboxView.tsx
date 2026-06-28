@@ -7,6 +7,7 @@ import { statusLabel } from "../utils/conversation";
 
 type InboxViewProps = {
   activeConversation: Conversation;
+  assignedOnly: boolean;
   assigneeOptions: string[];
   chatPanel: ChatPanel;
   composerMode: ComposerMode;
@@ -37,6 +38,7 @@ type InboxViewProps = {
 
 export default function InboxView({
   activeConversation,
+  assignedOnly,
   assigneeOptions,
   chatPanel,
   composerMode,
@@ -130,25 +132,31 @@ export default function InboxView({
           <h1>المحادثات</h1>
         </div>
         <div className="conversation-tabs">
-          <FilterButton active={filter === "all"} count={counts.all} label="الكل" onClick={() => onChangeFilter("all")} />
+          {!assignedOnly ? (
+            <FilterButton active={filter === "all"} count={counts.all} label="الكل" onClick={() => onChangeFilter("all")} />
+          ) : null}
           <FilterButton
-            active={filter === "assigned"}
+            active={assignedOnly || filter === "assigned"}
             count={counts.assigned}
             label="مسندة"
             onClick={() => onChangeFilter("assigned")}
           />
-          <FilterButton
-            active={filter === "unassigned"}
-            count={counts.unassigned}
-            label="غير مسندة"
-            onClick={() => onChangeFilter("unassigned")}
-          />
-          <FilterButton
-            active={filter === "closed"}
-            count={counts.closed}
-            label="مغلقة"
-            onClick={() => onChangeFilter("closed")}
-          />
+          {!assignedOnly ? (
+            <>
+              <FilterButton
+                active={filter === "unassigned"}
+                count={counts.unassigned}
+                label="غير مسندة"
+                onClick={() => onChangeFilter("unassigned")}
+              />
+              <FilterButton
+                active={filter === "closed"}
+                count={counts.closed}
+                label="مغلقة"
+                onClick={() => onChangeFilter("closed")}
+              />
+            </>
+          ) : null}
         </div>
         <div className="search-box">
           <input value={search} onChange={(event) => onChangeSearch(event.target.value)} placeholder="بحث باسم العميل أو الرقم" />
