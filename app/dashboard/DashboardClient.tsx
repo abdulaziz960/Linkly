@@ -86,6 +86,14 @@ function canSeeAllConversations(user: DashboardUser, employee?: Employee) {
   return user.role === "مالك الحساب" || employee?.permissions === "الكل";
 }
 
+function isApprovedMarketingTemplate(template: MessageTemplate) {
+  return (
+    template.status === "معتمد" &&
+    template.type !== "خدمة" &&
+    (template.category === "MARKETING" || template.type === "تسويق")
+  );
+}
+
 export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   const [conversations, setConversations] = useState(initialConversations);
@@ -124,6 +132,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       ? employees.find((employee) => employee.id === "emp-owner")
       : employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase())) ?? employees[0];
   const canViewAllConversations = canSeeAllConversations(initialUser, currentEmployee);
+  const approvedMarketingTemplates = useMemo(() => templates.filter(isApprovedMarketingTemplate), [templates]);
   const scopedConversations = useMemo(() => {
     if (canViewAllConversations) return conversations;
 
@@ -191,7 +200,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       if (nextTemplates?.length) {
         setTemplates(nextTemplates);
         setSelectedTemplate((currentTemplate) =>
-          nextTemplates.some((template) => template.name === currentTemplate) ? currentTemplate : nextTemplates[0].name
+          nextTemplates.some((template) => template.name === currentTemplate && isApprovedMarketingTemplate(template))
+            ? currentTemplate
+            : nextTemplates.find(isApprovedMarketingTemplate)?.name || nextTemplates[0].name
         );
       }
       if (nextQuickReplies) setQuickReplies(nextQuickReplies);
@@ -227,6 +238,13 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       setActiveConversationId(scopedConversations[0].id);
     }
   }, [activeConversationId, scopedConversations]);
+
+  useEffect(() => {
+    if (!approvedMarketingTemplates.length) return;
+    if (!approvedMarketingTemplates.some((template) => template.name === selectedTemplate)) {
+      setSelectedTemplate(approvedMarketingTemplates[0].name);
+    }
+  }, [approvedMarketingTemplates, selectedTemplate]);
 
   const counts = useMemo<Record<ConversationFilter, number>>(() => {
     return {
@@ -342,7 +360,13 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   async function handleSendTemplate() {
     if (activeConversation.status === "closed") return;
 
-    const template = templates.find((item) => item.name === selectedTemplate) ?? templates[0];
+    const template =
+      approvedMarketingTemplates.find((item) => item.name === selectedTemplate) ?? approvedMarketingTemplates[0];
+    if (!template) {
+      window.alert("لا توجد قوالب تسويقية معتمدة متاحة للإرسال.");
+      return;
+    }
+
     updateConversation({
       ...activeConversation,
       lastMessage: template.message,

@@ -78,6 +78,12 @@ export default function InboxView({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const reopenTemplates = templates.filter(
+    (template) =>
+      template.status === "معتمد" &&
+      template.type !== "خدمة" &&
+      (template.category === "MARKETING" || template.type === "تسويق")
+  );
   const isClosed = activeConversation.status === "closed";
   const isComposerDisabled = activeConversation.windowExpired || isClosed;
   const canToggleConversation = !isClosed || canReopenConversation;
@@ -276,14 +282,18 @@ export default function InboxView({
                   لإعادة فتح المحادثة.
                 </span>
                 <div>
-                  <select value={selectedTemplate} onChange={(event) => onChangeSelectedTemplate(event.target.value)}>
-                    {templates.map((template) => (
+                  <select
+                    value={reopenTemplates.some((template) => template.name === selectedTemplate) ? selectedTemplate : reopenTemplates[0]?.name || ""}
+                    disabled={!reopenTemplates.length}
+                    onChange={(event) => onChangeSelectedTemplate(event.target.value)}
+                  >
+                    {reopenTemplates.length ? reopenTemplates.map((template) => (
                       <option key={template.name} value={template.name}>
                         {template.name}
                       </option>
-                    ))}
+                    )) : <option value="">لا توجد قوالب تسويقية معتمدة</option>}
                   </select>
-                  <button className="btn primary" type="button" onClick={onSendTemplate}>
+                  <button className="btn primary" type="button" disabled={!reopenTemplates.length} onClick={onSendTemplate}>
                     إرسال قالب
                   </button>
                 </div>
