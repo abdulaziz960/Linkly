@@ -405,7 +405,8 @@
 }
 
 .chat-head select,
-.window-notice select {
+.window-notice select,
+.readonly-assignee {
   min-height: 40px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -414,6 +415,11 @@
   padding: 0 10px;
   font-weight: 900;
   outline: none;
+}
+
+.readonly-assignee {
+  display: inline-flex;
+  align-items: center;
 }
 
 .btn {

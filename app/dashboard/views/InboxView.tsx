@@ -9,6 +9,7 @@ type InboxViewProps = {
   activeConversation: Conversation;
   assignedOnly: boolean;
   assigneeOptions: string[];
+  canChangeAssignee: boolean;
   chatPanel: ChatPanel;
   composerMode: ComposerMode;
   conversations: Conversation[];
@@ -40,6 +41,7 @@ export default function InboxView({
   activeConversation,
   assignedOnly,
   assigneeOptions,
+  canChangeAssignee,
   chatPanel,
   composerMode,
   conversations,
@@ -200,11 +202,15 @@ export default function InboxView({
           </button>
           <label>
             مسند إلى
-            <select value={activeConversation.assignee} onChange={(event) => onChangeAssignee(event.target.value)}>
-              {assigneeOptions.map((member) => (
-                <option key={member}>{member}</option>
-              ))}
-            </select>
+            {canChangeAssignee ? (
+              <select value={activeConversation.assignee} onChange={(event) => onChangeAssignee(event.target.value)}>
+                {assigneeOptions.map((member) => (
+                  <option key={member}>{member}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="readonly-assignee">{activeConversation.assignee}</span>
+            )}
           </label>
           <button className={activeConversation.status === "closed" ? "btn soft" : "btn danger"} type="button" onClick={onCloseConversation}>
             {activeConversation.status === "closed" ? "فتح المحادثة" : "إغلاق"}

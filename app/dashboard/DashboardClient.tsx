@@ -437,6 +437,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
           <InboxView
             activeConversation={activeConversation}
             assigneeOptions={[...employees.map((employee) => employee.name), "بدون موظف"]}
+            canChangeAssignee={canViewAllConversations}
             chatPanel={chatPanel}
             composerMode={composerMode}
             conversations={scopedConversations}
