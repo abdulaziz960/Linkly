@@ -30,6 +30,22 @@ let seedPromise: Promise<void> | null = null;
 const defaultMetaAppId = "1296230909161568";
 const defaultLoginEmail = "admin@audiencew.sa";
 const defaultLoginPassword = "AudienceW123";
+const demoUserAccounts = [
+  {
+    id: "user-owner",
+    name: "عبدالعزيز الكيالي",
+    email: defaultLoginEmail,
+    password: defaultLoginPassword,
+    role: "مالك الحساب"
+  },
+  {
+    id: "user-support",
+    name: "نورة القحطاني",
+    email: "noura@audiencew.sa",
+    password: "AudienceW123",
+    role: "موظف دعم"
+  }
+];
 
 export type UserAccount = {
   id: string;
@@ -402,18 +418,20 @@ async function seedDatabase() {
       }
     });
 
-    await tx.$executeRawUnsafe(
-      `INSERT INTO user_accounts (id, name, email, password_hash, role, tenant_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(email) DO NOTHING`,
-      "user-owner",
-      "عبدالعزيز الكيالي",
-      defaultLoginEmail,
-      hashPassword(defaultLoginPassword),
-      "مالك الحساب",
-      "tenant-demo",
-      "اليوم"
-    );
+    for (const account of demoUserAccounts) {
+      await tx.$executeRawUnsafe(
+        `INSERT INTO user_accounts (id, name, email, password_hash, role, tenant_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(email) DO NOTHING`,
+        account.id,
+        account.name,
+        account.email,
+        hashPassword(account.password),
+        account.role,
+        "tenant-demo",
+        "اليوم"
+      );
+    }
   });
 }
 
