@@ -82,6 +82,10 @@ function getAllowedViews(user: DashboardUser, employee?: Employee): ViewKey[] {
   return views.size ? Array.from(views) : ["inbox"];
 }
 
+function canSeeAllConversations(user: DashboardUser, employee?: Employee) {
+  return user.role === "مالك الحساب" || employee?.permissions === "الكل";
+}
+
 export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   const [conversations, setConversations] = useState(initialConversations);
@@ -115,11 +119,20 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
 
-  const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) ?? conversations[0];
   const currentEmployee =
     (initialUser.role === "مالك الحساب"
       ? employees.find((employee) => employee.id === "emp-owner")
       : employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase())) ?? employees[0];
+  const canViewAllConversations = canSeeAllConversations(initialUser, currentEmployee);
+  const scopedConversations = useMemo(() => {
+    if (canViewAllConversations) return conversations;
+
+    return conversations.filter((conversation) => conversation.assignee === currentEmployee.name);
+  }, [canViewAllConversations, conversations, currentEmployee.name]);
+  const activeConversation =
+    scopedConversations.find((conversation) => conversation.id === activeConversationId) ??
+    scopedConversations[0] ??
+    conversations[0];
   const currentProfileStatus = currentEmployee?.status === "غير متصل" ? "غير متصل" : "متصل";
   const accountInitial = getNameInitial(initialUser.name);
   const allowedViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
@@ -196,19 +209,27 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     }
   }, [activeView, allowedViews]);
 
+  useEffect(() => {
+    if (!scopedConversations.length) return;
+
+    if (!scopedConversations.some((conversation) => conversation.id === activeConversationId)) {
+      setActiveConversationId(scopedConversations[0].id);
+    }
+  }, [activeConversationId, scopedConversations]);
+
   const counts = useMemo<Record<ConversationFilter, number>>(() => {
     return {
-      all: conversations.length,
-      assigned: conversations.filter((conversation) => conversation.status === "assigned").length,
-      unassigned: conversations.filter((conversation) => conversation.status === "unassigned").length,
-      closed: conversations.filter((conversation) => conversation.status === "closed").length
+      all: scopedConversations.length,
+      assigned: scopedConversations.filter((conversation) => conversation.status === "assigned").length,
+      unassigned: scopedConversations.filter((conversation) => conversation.status === "unassigned").length,
+      closed: scopedConversations.filter((conversation) => conversation.status === "closed").length
     };
-  }, [conversations]);
+  }, [scopedConversations]);
 
   const visibleConversations = useMemo(() => {
     const query = conversationSearch.trim().toLowerCase();
 
-    return conversations.filter((conversation) => {
+    return scopedConversations.filter((conversation) => {
       const matchesFilter = filter === "all" || conversation.status === filter;
       const matchesSearch = query
         ? [conversation.customer, conversation.phone, conversation.lastMessage, conversation.assignee, ...conversation.tags]
@@ -219,7 +240,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
       return matchesFilter && matchesSearch;
     });
-  }, [conversationSearch, conversations, filter]);
+  }, [conversationSearch, scopedConversations, filter]);
 
   function updateConversation(nextConversation: Conversation) {
     setConversations((current) =>
@@ -236,6 +257,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
   function handleOpenConversation(conversationId: string) {
     if (!allowedViews.includes("inbox")) return;
+    if (!canViewAllConversations && !scopedConversations.some((conversation) => conversation.id === conversationId)) return;
 
     setActiveConversationId(conversationId);
     setActiveView("inbox");
@@ -407,7 +429,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             assigneeOptions={[...employees.map((employee) => employee.name), "بدون موظف"]}
             chatPanel={chatPanel}
             composerMode={composerMode}
-            conversations={conversations}
+            conversations={scopedConversations}
             counts={counts}
             filter={filter}
             message={message}
