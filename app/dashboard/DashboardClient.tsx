@@ -128,7 +128,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     if (canViewAllConversations) return conversations;
 
     return conversations.filter(
-      (conversation) => conversation.assignee === currentEmployee.name && conversation.status === "assigned"
+      (conversation) =>
+        conversation.assignee === currentEmployee.name &&
+        (conversation.status === "assigned" || conversation.status === "closed")
     );
   }, [canViewAllConversations, conversations, currentEmployee.name]);
   const activeConversation =
@@ -212,7 +214,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, [activeView, allowedViews]);
 
   useEffect(() => {
-    if (!canViewAllConversations && filter !== "assigned") {
+    if (!canViewAllConversations && filter !== "assigned" && filter !== "closed") {
       setFilter("assigned");
     }
   }, [canViewAllConversations, filter]);

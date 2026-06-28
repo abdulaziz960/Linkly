@@ -142,21 +142,19 @@ export default function InboxView({
             onClick={() => onChangeFilter("assigned")}
           />
           {!assignedOnly ? (
-            <>
-              <FilterButton
-                active={filter === "unassigned"}
-                count={counts.unassigned}
-                label="غير مسندة"
-                onClick={() => onChangeFilter("unassigned")}
-              />
-              <FilterButton
-                active={filter === "closed"}
-                count={counts.closed}
-                label="مغلقة"
-                onClick={() => onChangeFilter("closed")}
-              />
-            </>
+            <FilterButton
+              active={filter === "unassigned"}
+              count={counts.unassigned}
+              label="غير مسندة"
+              onClick={() => onChangeFilter("unassigned")}
+            />
           ) : null}
+          <FilterButton
+            active={filter === "closed"}
+            count={counts.closed}
+            label="مغلقة"
+            onClick={() => onChangeFilter("closed")}
+          />
         </div>
         <div className="search-box">
           <input value={search} onChange={(event) => onChangeSearch(event.target.value)} placeholder="بحث باسم العميل أو الرقم" />
