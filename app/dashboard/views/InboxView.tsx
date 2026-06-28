@@ -10,6 +10,7 @@ type InboxViewProps = {
   assignedOnly: boolean;
   assigneeOptions: string[];
   canChangeAssignee: boolean;
+  canReopenConversation: boolean;
   chatPanel: ChatPanel;
   composerMode: ComposerMode;
   conversations: Conversation[];
@@ -42,6 +43,7 @@ export default function InboxView({
   assignedOnly,
   assigneeOptions,
   canChangeAssignee,
+  canReopenConversation,
   chatPanel,
   composerMode,
   conversations,
@@ -72,6 +74,9 @@ export default function InboxView({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const isClosed = activeConversation.status === "closed";
+  const isComposerDisabled = activeConversation.windowExpired || isClosed;
+  const canToggleConversation = !isClosed || canReopenConversation;
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -212,8 +217,14 @@ export default function InboxView({
               <span className="readonly-assignee">{activeConversation.assignee}</span>
             )}
           </label>
-          <button className={activeConversation.status === "closed" ? "btn soft" : "btn danger"} type="button" onClick={onCloseConversation}>
-            {activeConversation.status === "closed" ? "فتح المحادثة" : "إغلاق"}
+          <button
+            className={isClosed ? "btn soft" : "btn danger"}
+            disabled={!canToggleConversation}
+            title={!canToggleConversation ? "فتح المحادثة متاح للمالك أو المشرف فقط" : undefined}
+            type="button"
+            onClick={onCloseConversation}
+          >
+            {isClosed ? (canReopenConversation ? "فتح المحادثة" : "مغلقة") : "إغلاق"}
           </button>
         </div>
 
@@ -288,7 +299,7 @@ export default function InboxView({
               <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageChange} />
               <button
                 className="attachment-button"
-                disabled={activeConversation.windowExpired}
+                disabled={isComposerDisabled}
                 aria-label="إرفاق صورة"
                 title="إرفاق صورة"
                 type="button"
@@ -298,7 +309,7 @@ export default function InboxView({
               </button>
               <button
                 className={`attachment-button ${isRecording ? "recording" : ""}`}
-                disabled={activeConversation.windowExpired}
+                disabled={isComposerDisabled}
                 aria-label={isRecording ? "إيقاف التسجيل" : "تسجيل صوت"}
                 title={isRecording ? "إيقاف التسجيل" : "تسجيل صوت"}
                 type="button"
@@ -316,12 +327,18 @@ export default function InboxView({
                 )}
               </button>
               <textarea
-                disabled={activeConversation.windowExpired}
+                disabled={isComposerDisabled}
                 onChange={(event) => onChangeMessage(event.target.value)}
-                placeholder={activeConversation.windowExpired ? "أرسل قالب أولاً حتى يرد العميل" : "اكتب رسالتك هنا"}
+                placeholder={
+                  isClosed
+                    ? "المحادثة مغلقة"
+                    : activeConversation.windowExpired
+                      ? "أرسل قالب أولاً حتى يرد العميل"
+                      : "اكتب رسالتك هنا"
+                }
                 value={message}
               />
-              <button className="btn primary" disabled={activeConversation.windowExpired} type="submit">
+              <button className="btn primary" disabled={isComposerDisabled} type="submit">
                 إرسال
               </button>
             </form>

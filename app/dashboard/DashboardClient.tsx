@@ -140,6 +140,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const currentProfileStatus = currentEmployee?.status === "غير متصل" ? "غير متصل" : "متصل";
   const accountInitial = getNameInitial(initialUser.name);
   const allowedViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
+  const canReopenConversations = canViewAllConversations || currentEmployee.role === "مشرف";
 
   async function fetchData<T>(path: string) {
     const response = await fetch(path);
@@ -292,6 +293,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   async function handleConversationStatusToggle() {
+    if (activeConversation.status === "closed" && !canReopenConversations) return;
+
     const status = activeConversation.status === "closed" ? "assigned" : "closed";
     updateConversation({
       ...activeConversation,
@@ -308,7 +311,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!message.trim() || activeConversation.windowExpired) return;
+    if (!message.trim() || activeConversation.windowExpired || activeConversation.status === "closed") return;
 
     const nextMessage: Conversation["messages"][number] = {
       id: `m-${Date.now()}`,
@@ -336,6 +339,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   async function handleSendTemplate() {
+    if (activeConversation.status === "closed") return;
+
     const template = templates.find((item) => item.name === selectedTemplate) ?? templates[0];
     updateConversation({
       ...activeConversation,
@@ -364,7 +369,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   function handleSendAttachment(attachment: MessageAttachment) {
-    if (activeConversation.windowExpired) return;
+    if (activeConversation.windowExpired || activeConversation.status === "closed") return;
 
     const nextMessage: Conversation["messages"][number] = {
       id: `m-${Date.now()}`,
@@ -438,6 +443,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             activeConversation={activeConversation}
             assigneeOptions={[...employees.map((employee) => employee.name), "بدون موظف"]}
             canChangeAssignee={canViewAllConversations}
+            canReopenConversation={canReopenConversations}
             chatPanel={chatPanel}
             composerMode={composerMode}
             conversations={scopedConversations}
