@@ -19,7 +19,6 @@ export default function LoginPage() {
 
         <div className="login-copy">
           <p>مرحباً بعودتك</p>
-          <h1>سجّل دخولك لإدارة المحادثات، الفرق، الحملات، والربط من مكان واحد.</h1>
         </div>
 
         <form className="login-form">
