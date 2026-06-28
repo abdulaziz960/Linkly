@@ -91,6 +91,10 @@
   padding: 12px;
 }
 
+.sidebar-footer {
+  margin-top: auto;
+}
+
 .tenant-card b,
 .sidebar-footer b {
   display: block;
