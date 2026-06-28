@@ -277,18 +277,31 @@ export default function InboxView({
               <button
                 className="attachment-button"
                 disabled={activeConversation.windowExpired}
+                aria-label="إرفاق صورة"
+                title="إرفاق صورة"
                 type="button"
                 onClick={() => imageInputRef.current?.click()}
               >
-                صورة
+                +
               </button>
               <button
                 className={`attachment-button ${isRecording ? "recording" : ""}`}
                 disabled={activeConversation.windowExpired}
+                aria-label={isRecording ? "إيقاف التسجيل" : "تسجيل صوت"}
+                title={isRecording ? "إيقاف التسجيل" : "تسجيل صوت"}
                 type="button"
                 onClick={handleAudioToggle}
               >
-                {isRecording ? "إيقاف" : "تسجيل صوت"}
+                {isRecording ? (
+                  <span aria-hidden="true" className="stop-icon" />
+                ) : (
+                  <svg aria-hidden="true" className="mic-icon" viewBox="0 0 24 24">
+                    <path d="M12 14c1.7 0 3-1.3 3-3V6c0-1.7-1.3-3-3-3S9 4.3 9 6v5c0 1.7 1.3 3 3 3Z" />
+                    <path d="M17 10v1a5 5 0 0 1-10 0v-1" />
+                    <path d="M12 16v4" />
+                    <path d="M8 20h8" />
+                  </svg>
+                )}
               </button>
               <textarea
                 disabled={activeConversation.windowExpired}
