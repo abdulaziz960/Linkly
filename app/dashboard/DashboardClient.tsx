@@ -127,7 +127,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const scopedConversations = useMemo(() => {
     if (canViewAllConversations) return conversations;
 
-    return conversations.filter((conversation) => conversation.assignee === currentEmployee.name);
+    return conversations.filter(
+      (conversation) => conversation.assignee === currentEmployee.name && conversation.status === "assigned"
+    );
   }, [canViewAllConversations, conversations, currentEmployee.name]);
   const activeConversation =
     scopedConversations.find((conversation) => conversation.id === activeConversationId) ??
