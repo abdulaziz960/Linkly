@@ -5,7 +5,7 @@ import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import { initialConversations } from "./data/conversations";
 import { employees as initialEmployees } from "./data/employees";
-import { viewTitles } from "./data/navigation";
+import { navItems, viewTitles } from "./data/navigation";
 import { tags as initialTags } from "./data/tags";
 import { teams as initialTeams } from "./data/teams";
 import { templates as initialTemplates } from "./data/templates";
@@ -44,6 +44,44 @@ function getNameInitial(name: string) {
   return name.trim().charAt(0) || "ع";
 }
 
+const allViewKeys: ViewKey[] = navItems.map((item) => item.key);
+
+const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
+  { keyword: "محادثات", views: ["inbox"] },
+  { keyword: "عملاء", views: ["contacts"] },
+  { keyword: "وسوم", views: ["tags"] },
+  { keyword: "قوالب", views: ["templates"] },
+  { keyword: "ردود", views: ["quickReplies"] },
+  { keyword: "رد آلي", views: ["bot"] },
+  { keyword: "أتمتة", views: ["automations"] },
+  { keyword: "حملات", views: ["campaigns"] },
+  { keyword: "ساعات", views: ["workHours"] },
+  { keyword: "تقارير", views: ["reports"] },
+  { keyword: "محتملون", views: ["leads"] },
+  { keyword: "فرق", views: ["teams"] },
+  { keyword: "موظفين", views: ["employees"] },
+  { keyword: "صلاحيات", views: ["employees"] },
+  { keyword: "ربط", views: ["settings"] }
+];
+
+function getAllowedViews(user: DashboardUser, employee?: Employee): ViewKey[] {
+  const permissions = employee?.permissions ?? "";
+
+  if (user.role === "مالك الحساب" || permissions === "الكل") {
+    return allViewKeys;
+  }
+
+  const views = new Set<ViewKey>();
+
+  permissionViewMap.forEach((permission) => {
+    if (permissions.includes(permission.keyword)) {
+      permission.views.forEach((view) => views.add(view));
+    }
+  });
+
+  return views.size ? Array.from(views) : ["inbox"];
+}
+
 export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   const [conversations, setConversations] = useState(initialConversations);
@@ -78,9 +116,13 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
 
   const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) ?? conversations[0];
-  const currentEmployee = employees.find((employee) => employee.id === "emp-owner") ?? employees[0];
+  const currentEmployee =
+    (initialUser.role === "مالك الحساب"
+      ? employees.find((employee) => employee.id === "emp-owner")
+      : employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase())) ?? employees[0];
   const currentProfileStatus = currentEmployee?.status === "غير متصل" ? "غير متصل" : "متصل";
   const accountInitial = getNameInitial(initialUser.name);
+  const allowedViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
 
   async function fetchData<T>(path: string) {
     const response = await fetch(path);
@@ -148,6 +190,12 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     loadDashboardData();
   }, []);
 
+  useEffect(() => {
+    if (!allowedViews.includes(activeView)) {
+      setActiveView(allowedViews[0] ?? "inbox");
+    }
+  }, [activeView, allowedViews]);
+
   const counts = useMemo<Record<ConversationFilter, number>>(() => {
     return {
       all: conversations.length,
@@ -180,11 +228,15 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   function handleViewChange(view: ViewKey) {
+    if (!allowedViews.includes(view)) return;
+
     setActiveView(view);
     setMenuOpen(false);
   }
 
   function handleOpenConversation(conversationId: string) {
+    if (!allowedViews.includes("inbox")) return;
+
     setActiveConversationId(conversationId);
     setActiveView("inbox");
     setChatPanel("chat");
@@ -339,6 +391,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""}`}>
       <DashboardSidebar
         activeView={activeView}
+        allowedViews={allowedViews}
         user={initialUser}
         profileStatus={currentProfileStatus}
         onChangeView={handleViewChange}

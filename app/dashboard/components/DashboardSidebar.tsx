@@ -5,6 +5,7 @@ import { navItems } from "../data/navigation";
 
 type DashboardSidebarProps = {
   activeView: ViewKey;
+  allowedViews: ViewKey[];
   user: DashboardUser;
   profileStatus: "متصل" | "غير متصل";
   onChangeView: (view: ViewKey) => void;
@@ -15,7 +16,16 @@ function getInitial(name: string) {
   return name.trim().charAt(0) || "ع";
 }
 
-export default function DashboardSidebar({ activeView, user, profileStatus, onChangeView, onOpenProfile }: DashboardSidebarProps) {
+export default function DashboardSidebar({
+  activeView,
+  allowedViews,
+  user,
+  profileStatus,
+  onChangeView,
+  onOpenProfile
+}: DashboardSidebarProps) {
+  const visibleNavItems = navItems.filter((item) => allowedViews.includes(item.key));
+
   return (
     <aside className="dashboard-sidebar">
       <div className="brand">
@@ -29,7 +39,7 @@ export default function DashboardSidebar({ activeView, user, profileStatus, onCh
         <span>باقة النمو</span>
       </div>
       <nav className="dashboard-nav">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <button
             className={activeView === item.key ? "active" : ""}
             key={item.key}
