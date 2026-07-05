@@ -68,7 +68,7 @@ export default function SettingsView() {
   const [copied, setCopied] = useState("");
   const [wizardStep, setWizardStep] = useState(1);
   const [testRecipient, setTestRecipient] = useState("");
-  const [testMessage, setTestMessage] = useState("رسالة اختبار من AudienceW");
+  const [testMessage, setTestMessage] = useState("");
   const [testSending, setTestSending] = useState(false);
   const [testFeedback, setTestFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const showIntegrationData = wizardStep >= 3 || settings.status === "connected";
@@ -154,6 +154,26 @@ export default function SettingsView() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(settings)
+    });
+    const data = await response.json();
+    setSettings(data);
+    setSaving(false);
+  }
+
+  async function resetIntegrationData() {
+    setSaving(true);
+    const response = await fetch("/api/settings/integration", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        accessToken: ""
+      })
     });
     const data = await response.json();
     setSettings(data);
@@ -361,6 +381,9 @@ export default function SettingsView() {
               <p>هذه البيانات تحفظ ربط Meta الحالي وتستخدم في استقبال رسائل WhatsApp داخل المنصة.</p>
             </div>
             <span className={`connection-pill ${settings.status}`}>{statusLabel[settings.status]}</span>
+            <button className="soft-action" disabled={saving || loading} type="button" onClick={resetIntegrationData}>
+              مسح بيانات الربط
+            </button>
             <button className="primary-action" disabled={saving || loading} type="submit">
               {saving ? "جاري الحفظ..." : "حفظ الإعدادات"}
             </button>

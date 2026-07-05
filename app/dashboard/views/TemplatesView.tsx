@@ -39,7 +39,7 @@ export default function TemplatesView({
   const emptyForm = useMemo<TemplateFormState>(
     () => ({
       name: "",
-      message: "السلام عليكم ورحمة الله وبركاته\nالرجاء الرد على الرسالة لخدمتكم",
+      message: "",
       type: "تسويق",
       category: "MARKETING",
       language: "ar",

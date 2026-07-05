@@ -45,11 +45,7 @@ const marketingMessagePrices: PricingTier[] = [
   { range: "500k إلى 1m", min: 500001, max: 1000000, rate: 0.012, exampleMessages: 500000 }
 ];
 
-const initialBalanceHistory: BalanceTransaction[] = [
-  { id: "TX-1004", balance: -2, usage: "تم استخدامه بواسطة الحملة التعريفية الأولى", date: "2025-12-18T12:26:23.901385+03:00", status: "تم التحقق" },
-  { id: "TX-1003", balance: -162, usage: "تم استخدامه بواسطة الحملة التعريفية الأولى", date: "2025-12-18T12:07:16.757635+03:00", status: "تم التحقق" },
-  { id: "TX-1002", balance: 500, usage: "شحن رصيد حملات", date: "2025-12-16T18:11:51.647538+03:00", status: "تم التحقق", cost: 15 }
-];
+const initialBalanceHistory: BalanceTransaction[] = [];
 
 export default function CampaignsView({
   campaigns,
@@ -459,7 +455,7 @@ export default function CampaignsView({
               </label>
               <label>
                 <span>ملاحظة اختيارية</span>
-                <textarea placeholder="مثال: شحن رصيد حملات لموقع الماجدية" />
+                <textarea placeholder="مثال: شحن رصيد حملات للعميل" />
               </label>
               <p className="field-hint">الرصيد هنا مخصص للحملات التسويقية فقط. يتم احتساب تكلفة الشحن تلقائيًا حسب شريحة عدد الرسائل المختارة، ولا تشمل الأسعار رسوم Meta أو أي تكاليف خارجية.</p>
             </div>

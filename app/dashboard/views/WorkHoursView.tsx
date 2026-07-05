@@ -14,7 +14,7 @@ export default function WorkHoursView({
   teams: Team[];
   workSchedules: WorkSchedule[];
 }) {
-  const emptyForm = useMemo<ScheduleForm>(() => ({ team: teams[0]?.name || "الدعم", days: "الأحد - الخميس", start: "9:00 ص", end: "6:00 م", status: "نشط", holidays: "غير مفعلة" }), [teams]);
+  const emptyForm = useMemo<ScheduleForm>(() => ({ team: teams[0]?.name || "", days: "", start: "", end: "", status: "نشط", holidays: "غير مفعلة" }), [teams]);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<ScheduleForm>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -69,7 +69,13 @@ export default function WorkHoursView({
           <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label="حفظ جدول عمل" onSubmit={submitSchedule} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head"><button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setFormOpen(false)}>×</button><h2>{form.id ? "تعديل جدول" : "إضافة جدول"}</h2></header>
             <div className="account-modal-body form-grid">
-              <label><span>الفريق</span><select value={form.team} onChange={(event) => setForm((current) => ({ ...current, team: event.target.value }))}>{teams.map((team) => <option key={team.id}>{team.name}</option>)}</select></label>
+              <label>
+                <span>الفريق</span>
+                <select value={form.team} onChange={(event) => setForm((current) => ({ ...current, team: event.target.value }))}>
+                  {!teams.length ? <option value="">لا توجد فرق بعد</option> : null}
+                  {teams.map((team) => <option key={team.id}>{team.name}</option>)}
+                </select>
+              </label>
               <label><span>أيام العمل</span><input value={form.days} onChange={(event) => setForm((current) => ({ ...current, days: event.target.value }))} /></label>
               <div className="split-fields">
                 <label><span>بداية الدوام</span><input value={form.start} onChange={(event) => setForm((current) => ({ ...current, start: event.target.value }))} /></label>

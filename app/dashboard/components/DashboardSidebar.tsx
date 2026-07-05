@@ -35,8 +35,8 @@ export default function DashboardSidebar({
         AudienceW
       </div>
       <div className="tenant-card">
-        <b>موقع الماجدية</b>
-        <span>باقة النمو</span>
+        <b>حساب العميل</b>
+        <span>لم يتم تحديد الباقة</span>
       </div>
       <nav className="dashboard-nav">
         {visibleNavItems.map((item) => (
@@ -52,7 +52,7 @@ export default function DashboardSidebar({
       </nav>
       <div className="sidebar-footer">
         <b>حالة الربط</b>
-        <span>WhatsApp Cloud API متصل وجاهز لاستقبال الرسائل.</span>
+        <span>لم يتم ربط WhatsApp Cloud API بعد.</span>
       </div>
       <button className="account-btn" type="button" onClick={onOpenProfile}>
         <span className="account-avatar">{getInitial(user.name)}</span>

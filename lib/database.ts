@@ -283,6 +283,78 @@ async function ensureSchema() {
 async function seedDatabase() {
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
+    await tx.conversationTag.deleteMany({ where: { conversationId: { in: ["c-1", "c-2", "c-3", "c-4"] } } });
+    await tx.message.deleteMany({ where: { conversationId: { in: ["c-1", "c-2", "c-3", "c-4"] } } });
+    await tx.conversation.deleteMany({ where: { id: { in: ["c-1", "c-2", "c-3", "c-4"] } } });
+    await tx.customer.deleteMany({ where: { id: { in: ["c-1", "c-2", "c-3", "c-4"] } } });
+    await tx.tag.deleteMany({ where: { id: { in: ["tag-vip", "tag-shipping", "tag-payment", "tag-complaint", "tag-followup"] } } });
+    await tx.template.deleteMany({
+      where: {
+        name: {
+          in: [
+            "welcome",
+            "marketing_offer",
+            "order_confirmation",
+            "order_confirmation_v1",
+            "jaspers_market_image_cta_v1",
+            "jaspers_market_order_confirmation_v1"
+          ]
+        }
+      }
+    });
+    await tx.quickReply.deleteMany({ where: { id: { in: ["qr-address", "qr-hours", "qr-payment", "qr-return"] } } });
+    await tx.automationRule.deleteMany({ where: { id: { in: ["auto-hiring", "auto-complaints"] } } });
+    await tx.campaign.deleteMany({ where: { id: { in: ["camp-intro-1", "camp-intro-2"] } } });
+    await tx.workSchedule.deleteMany({ where: { id: { in: ["wh-support", "wh-shipping", "wh-sales"] } } });
+    await tx.lead.deleteMany({ where: { id: { in: ["lead-sarah", "lead-noura", "lead-store"] } } });
+    await tx.teamMember.deleteMany({ where: { teamId: { in: ["team-support", "team-shipping", "team-sales"] } } });
+    await tx.team.deleteMany({ where: { id: { in: ["team-support", "team-shipping", "team-sales"] } } });
+    await tx.employee.deleteMany({ where: { id: { in: ["emp-sarah", "emp-abdullah"] } } });
+    await tx.$executeRawUnsafe(`DELETE FROM provider_clients WHERE id IN ('client-majidia', 'client-realty-demo', 'client-store-demo')`);
+    await tx.$executeRawUnsafe(`DELETE FROM provider_subscriptions WHERE id IN ('sub-majidia', 'sub-realty-demo', 'sub-store-demo')`);
+    await tx.$executeRawUnsafe(`DELETE FROM admin_logs WHERE id IN ('log-1', 'log-2', 'log-3', 'log-4')`);
+
+    const existingIntegration = await tx.integrationSetting.findUnique({ where: { id: "meta-whatsapp" } });
+    const hasLegacyDemoData =
+      existingIntegration?.businessName === "شركة الجمهور المخصص للدعاية والإعلان" ||
+      existingIntegration?.wabaName === "AudienceW WhatsApp Business Account" ||
+      existingIntegration?.phoneNumber === "+966 50 123 4567" ||
+      existingIntegration?.phoneNumberId === "328992863638694" ||
+      existingIntegration?.wabaId === "369021316291991";
+
+    if (hasLegacyDemoData) {
+      await tx.conversationTag.deleteMany({});
+      await tx.message.deleteMany({});
+      await tx.conversation.deleteMany({});
+      await tx.customer.deleteMany({});
+      await tx.tag.deleteMany({});
+      await tx.template.deleteMany({});
+      await tx.quickReply.deleteMany({});
+      await tx.automationRule.deleteMany({});
+      await tx.campaign.deleteMany({});
+      await tx.workSchedule.deleteMany({});
+      await tx.lead.deleteMany({});
+      await tx.teamMember.deleteMany({});
+      await tx.team.deleteMany({});
+      await tx.employee.deleteMany({ where: { id: { notIn: ["emp-owner", "emp-noura"] } } });
+      await tx.integrationSetting.update({
+        where: { id: "meta-whatsapp" },
+        data: {
+          status: "pending",
+          businessName: "",
+          wabaName: "",
+          phoneNumber: "",
+          phoneNumberId: "",
+          wabaId: "",
+          accessToken: "",
+          updatedAt: "اليوم"
+        }
+      });
+      await tx.$executeRawUnsafe(`DELETE FROM provider_clients`);
+      await tx.$executeRawUnsafe(`DELETE FROM provider_subscriptions`);
+      await tx.$executeRawUnsafe(`DELETE FROM admin_logs`);
+    }
+
     for (const conversation of initialConversations) {
       await tx.customer.upsert({
         where: { id: conversation.id },
@@ -342,17 +414,21 @@ async function seedDatabase() {
     }
 
     for (const employee of employees) {
+      const employeeData = {
+        name: employee.name,
+        role: employee.role,
+        status: employee.status,
+        permissions: employee.permissions,
+        email: employee.email,
+        initial: employee.initial
+      };
+
       await tx.employee.upsert({
         where: { id: employee.id },
-        update: {},
+        update: employeeData,
         create: {
           id: employee.id,
-          name: employee.name,
-          role: employee.role,
-          status: employee.status,
-          permissions: employee.permissions,
-          email: employee.email,
-          initial: employee.initial
+          ...employeeData
         }
       });
     }
@@ -483,11 +559,11 @@ async function seedDatabase() {
         id: "meta-whatsapp",
         provider: "whatsapp_cloud",
         status: "pending",
-        businessName: "شركة الجمهور المخصص للدعاية والإعلان",
-        wabaName: "AudienceW WhatsApp Business Account",
-        phoneNumber: "+966 50 123 4567",
-        phoneNumberId: "328992863638694",
-        wabaId: "369021316291991",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
         appId: defaultMetaAppId,
         configId: "",
         verifyToken: "audiencew_webhook_verify",
@@ -512,53 +588,7 @@ async function seedDatabase() {
       );
     }
 
-    const providerClients = [
-      {
-        id: "tenant-almajdiah",
-        company: "موقع الماجدية",
-        owner: "عبدالعزيز الكيالي",
-        plan: "باقة النمو",
-        status: "بانتظار الربط",
-        subscriptionStatus: "مدفوع",
-        renewal: "2026-07-30",
-        phone: "+966 50 123 4567",
-        wabaId: "369021316291991",
-        conversations: initialConversations.length,
-        employees: employees.length,
-        lastActivity: "قبل 8 دقائق",
-        createdAt: "2026-06-29"
-      },
-      {
-        id: "tenant-demo-realestate",
-        company: "شركة عقارية تجريبية",
-        owner: "نورة القحطاني",
-        plan: "باقة البداية",
-        status: "تجربة",
-        subscriptionStatus: "تجريبي",
-        renewal: "2026-07-14",
-        phone: "+966 55 210 3300",
-        wabaId: "بانتظار الربط",
-        conversations: 38,
-        employees: 3,
-        lastActivity: "اليوم",
-        createdAt: "2026-06-25"
-      },
-      {
-        id: "tenant-retail",
-        company: "متجر تجريبي",
-        owner: "سارة العتيبي",
-        plan: "باقة النمو",
-        status: "نشط",
-        subscriptionStatus: "مدفوع",
-        renewal: "2026-08-01",
-        phone: "+966 50 880 1144",
-        wabaId: "398201551902",
-        conversations: 126,
-        employees: 7,
-        lastActivity: "أمس",
-        createdAt: "2026-06-20"
-      }
-    ];
+    const providerClients: ProviderClient[] = [];
 
     for (const client of providerClients) {
       await tx.$executeRawUnsafe(
@@ -584,41 +614,7 @@ async function seedDatabase() {
       );
     }
 
-    const providerSubscriptions = [
-      {
-        id: "sub-almajdiah",
-        clientId: "tenant-almajdiah",
-        clientName: "موقع الماجدية",
-        plan: "باقة النمو",
-        status: "مدفوع",
-        amount: 499,
-        renewal: "2026-07-30",
-        billingCycle: "شهري",
-        paymentMethod: "تحويل بنكي"
-      },
-      {
-        id: "sub-realestate",
-        clientId: "tenant-demo-realestate",
-        clientName: "شركة عقارية تجريبية",
-        plan: "باقة البداية",
-        status: "تجريبي",
-        amount: 0,
-        renewal: "2026-07-14",
-        billingCycle: "تجربة 14 يوم",
-        paymentMethod: "بدون دفع"
-      },
-      {
-        id: "sub-retail",
-        clientId: "tenant-retail",
-        clientName: "متجر تجريبي",
-        plan: "باقة النمو",
-        status: "مدفوع",
-        amount: 499,
-        renewal: "2026-08-01",
-        billingCycle: "شهري",
-        paymentMethod: "بطاقة"
-      }
-    ];
+    const providerSubscriptions: ProviderSubscription[] = [];
 
     for (const subscription of providerSubscriptions) {
       await tx.$executeRawUnsafe(
@@ -639,44 +635,7 @@ async function seedDatabase() {
       );
     }
 
-    const adminLogs = [
-      {
-        id: "log-meta-sync",
-        at: "اليوم 18:22",
-        clientId: "tenant-almajdiah",
-        clientName: "موقع الماجدية",
-        source: "Meta Webhook",
-        level: "معلومة",
-        message: "تم تحديث حالة الربط وبيانات WABA بنجاح."
-      },
-      {
-        id: "log-template-sync",
-        at: "اليوم 17:48",
-        clientId: "tenant-almajdiah",
-        clientName: "موقع الماجدية",
-        source: "Templates",
-        level: "معلومة",
-        message: "تمت مزامنة قوالب WhatsApp من Meta."
-      },
-      {
-        id: "log-campaign",
-        at: "اليوم 16:05",
-        clientId: "tenant-almajdiah",
-        clientName: "موقع الماجدية",
-        source: "Campaigns",
-        level: "معلومة",
-        message: "تم تسجيل حملات جديدة داخل الحساب."
-      },
-      {
-        id: "log-trial",
-        at: "أمس 21:10",
-        clientId: "tenant-demo-realestate",
-        clientName: "شركة عقارية تجريبية",
-        source: "Subscription",
-        level: "تنبيه",
-        message: "تجربة مجانية تحتاج متابعة قبل انتهاء المدة."
-      }
-    ];
+    const adminLogs: AdminLog[] = [];
 
     for (const log of adminLogs) {
       await tx.$executeRawUnsafe(

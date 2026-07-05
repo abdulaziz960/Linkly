@@ -94,6 +94,18 @@ function isApprovedMarketingTemplate(template: MessageTemplate) {
   );
 }
 
+const emptyConversation: Conversation = {
+  id: "",
+  customer: "لا توجد محادثة",
+  phone: "",
+  initial: "-",
+  lastMessage: "",
+  status: "closed",
+  assignee: "بدون موظف",
+  tags: [],
+  messages: []
+};
+
 export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   const [conversations, setConversations] = useState(initialConversations);
@@ -115,13 +127,13 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
   const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>(initialWorkSchedules);
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
-  const [activeConversationId, setActiveConversationId] = useState(initialConversations[0].id);
+  const [activeConversationId, setActiveConversationId] = useState(initialConversations[0]?.id ?? "");
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [conversationSearch, setConversationSearch] = useState("");
   const [chatPanel, setChatPanel] = useState<ChatPanel>("chat");
   const [composerMode, setComposerMode] = useState<ComposerMode>("reply");
   const [message, setMessage] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState(initialTemplates[0].name);
+  const [selectedTemplate, setSelectedTemplate] = useState(initialTemplates[0]?.name ?? "");
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -151,7 +163,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const activeConversation =
     scopedConversations.find((conversation) => conversation.id === activeConversationId) ??
     scopedConversations[0] ??
-    conversations[0];
+    conversations[0] ??
+    emptyConversation;
   const currentProfileStatus = currentEmployee?.status === "غير متصل" ? "غير متصل" : "متصل";
   const accountInitial = getNameInitial(initialUser.name);
   const allowedViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
@@ -301,6 +314,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   async function handleAssigneeChange(assignee: string) {
+    if (!activeConversation.id) return;
+
     const status = assignee === "بدون موظف" ? "unassigned" : "assigned";
     updateConversation({
       ...activeConversation,
@@ -317,6 +332,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   async function handleConversationStatusToggle() {
+    if (!activeConversation.id) return;
     if (activeConversation.status === "closed" && !canReopenConversations) return;
 
     const status = activeConversation.status === "closed" ? "assigned" : "closed";
@@ -335,6 +351,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!activeConversation.id) return;
     if (!message.trim() || activeConversation.windowExpired || activeConversation.status === "closed") return;
 
     const nextMessage: Conversation["messages"][number] = {
@@ -364,6 +381,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   async function handleSendTemplate() {
+    if (!activeConversation.id) return;
     if (activeConversation.status === "closed") return;
 
     const template =
@@ -401,6 +419,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   function handleSendAttachment(attachment: MessageAttachment) {
+    if (!activeConversation.id) return;
     if (activeConversation.windowExpired || activeConversation.status === "closed") return;
 
     const nextMessage: Conversation["messages"][number] = {
@@ -420,6 +439,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   async function handleDeleteMessage(messageId: string) {
+    if (!activeConversation.id) return;
+
     updateConversation({
       ...activeConversation,
       lastMessage: "تم حذف هذه الرسالة",
@@ -542,15 +563,15 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                     <span className="account-avatar large">{accountInitial}</span>
                     <div>
                       <b>{initialUser.name}</b>
-                      <span>{initialUser.role} · موقع الماجدية</span>
+                      <span>{initialUser.role}</span>
                       <em className={currentProfileStatus === "متصل" ? "online" : "offline"}>{currentProfileStatus}</em>
                     </div>
                   </div>
                   <div className="account-info-grid">
                     <div><span>البريد الإلكتروني</span><b>{initialUser.email}</b></div>
                     <div><span>الدور</span><b>{initialUser.role}</b></div>
-                    <div><span>الباقة</span><b>باقة النمو</b></div>
-                    <div><span>حالة الربط</span><b>WhatsApp Cloud API متصل</b></div>
+                    <div><span>الباقة</span><b>لم يتم تحديد الباقة</b></div>
+                    <div><span>حالة الربط</span><b>لم يتم الربط بعد</b></div>
                   </div>
                   <div className="profile-actions">
                     <button

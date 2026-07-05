@@ -13,10 +13,7 @@ const nodeTypes = ["إرسال رسالة", "إرسال قائمة قصيرة", 
 
 export default function BotView() {
   const [builderOpen, setBuilderOpen] = useState(false);
-  const [nodes, setNodes] = useState<BotNode[]>([
-    { id: 1, type: "إرسال رسالة", title: "رسالة ترحيب", content: "أهلاً بك، كيف نقدر نخدمك؟" },
-    { id: 2, type: "إرسال قائمة طويلة", title: "قائمة اختيارات", content: "مبيعات، دعم، شحن، موظف" }
-  ]);
+  const [nodes, setNodes] = useState<BotNode[]>([]);
   const [nodeType, setNodeType] = useState(nodeTypes[0]);
   const [nodeTitle, setNodeTitle] = useState("");
   const [nodeContent, setNodeContent] = useState("");
@@ -50,9 +47,15 @@ export default function BotView() {
       <div className="bot-canvas">
         <div className="bot-toolbar"><b>مخطط الرد الآلي</b><span>ابدأ من أول رسالة ثم اربط الخطوات حسب اختيار العميل</span></div>
         <div className="bot-node start"><b>البداية</b><small>عند وصول رسالة جديدة</small></div>
-        <div className="bot-node reply"><b>{nodes[0]?.title || "رسالة ترحيب"}</b><small>{nodes[0]?.content || "أهلاً بك، كيف نقدر نخدمك؟"}</small></div>
-        <div className="bot-node menu-node"><b>{nodes[1]?.title || "قائمة اختيارات"}</b><small>{nodes[1]?.content || "مبيعات، دعم، شحن، موظف"}</small></div>
-        <div className="bot-node action"><b>تحويل لفريق</b><small>إسناد المحادثة حسب الاختيار</small></div>
+        {nodes.map((node, index) => (
+          <div className={`bot-node ${index % 2 ? "menu-node" : "reply"}`} key={node.id}>
+            <b>{node.title}</b>
+            <small>{node.content}</small>
+          </div>
+        ))}
+        {!nodes.length ? (
+          <div className="bot-node reply"><b>لا توجد عقد بعد</b><small>اضغط إنشاء رد آلي لإضافة أول عقدة.</small></div>
+        ) : null}
         <div className="bot-menu-preview">
           <b>إضافة عقدة</b>
           <span>إرسال رسالة</span>

@@ -12,11 +12,12 @@ export async function POST(request: NextRequest) {
     message?: string;
   };
   const to = normalizeWhatsAppPhone(body.to || "");
-  const message = body.message?.trim() || "رسالة اختبار من AudienceW";
+  const message = body.message?.trim() || "";
 
   if (!settings.phoneNumberId) return jsonError("Phone Number ID مطلوب قبل إرسال رسالة اختبار");
   if (!settings.accessToken) return jsonError("Access Token مطلوب قبل إرسال رسالة اختبار");
   if (!to) return jsonError("رقم المستلم مطلوب");
+  if (!message) return jsonError("نص رسالة الاختبار مطلوب");
 
   const response = await fetch(`https://graph.facebook.com/v22.0/${settings.phoneNumberId}/messages`, {
     method: "POST",

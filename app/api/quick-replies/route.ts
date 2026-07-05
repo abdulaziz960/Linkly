@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       id: `qr-${Date.now()}`,
       shortcut: body.shortcut.trim(),
       text: body.text.trim(),
-      team: body.team?.trim() || "الدعم",
+      team: body.team?.trim() || "",
       usage: body.usage ?? 0
     }
   });

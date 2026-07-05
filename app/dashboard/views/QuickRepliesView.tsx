@@ -20,7 +20,7 @@ export default function QuickRepliesView({
   quickReplies: QuickReply[];
   teams: Team[];
 }) {
-  const emptyForm = useMemo<ReplyForm>(() => ({ shortcut: "مثال: /", text: "", team: teams[0]?.name || "الدعم", usage: 0 }), [teams]);
+  const emptyForm = useMemo<ReplyForm>(() => ({ shortcut: "", text: "", team: teams[0]?.name || "", usage: 0 }), [teams]);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<ReplyForm>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -98,7 +98,13 @@ export default function QuickRepliesView({
             <div className="account-modal-body form-grid">
               <div className="split-fields">
                 <label><span>الاختصار</span><input value={form.shortcut} onChange={(event) => setForm((current) => ({ ...current, shortcut: event.target.value }))} required /></label>
-                <label><span>الفريق</span><select value={form.team} onChange={(event) => setForm((current) => ({ ...current, team: event.target.value }))}>{teams.map((team) => <option key={team.id}>{team.name}</option>)}</select></label>
+                <label>
+                  <span>الفريق</span>
+                  <select value={form.team} onChange={(event) => setForm((current) => ({ ...current, team: event.target.value }))}>
+                    {!teams.length ? <option value="">لا توجد فرق بعد</option> : null}
+                    {teams.map((team) => <option key={team.id}>{team.name}</option>)}
+                  </select>
+                </label>
               </div>
               <label><span>نص الرد</span><textarea rows={5} value={form.text} onChange={(event) => setForm((current) => ({ ...current, text: event.target.value }))} required /></label>
             </div>
