@@ -57,6 +57,44 @@ export type UserAccount = {
   createdAt: string;
 };
 
+export type ProviderClient = {
+  id: string;
+  company: string;
+  owner: string;
+  plan: string;
+  status: "نشط" | "تجربة" | "بانتظار الربط";
+  subscriptionStatus: "مدفوع" | "تجريبي" | "قيد التجهيز";
+  renewal: string;
+  phone: string;
+  wabaId: string;
+  conversations: number;
+  employees: number;
+  lastActivity: string;
+  createdAt: string;
+};
+
+export type ProviderSubscription = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  plan: string;
+  status: "مدفوع" | "تجريبي" | "قيد التجهيز";
+  amount: number;
+  renewal: string;
+  billingCycle: string;
+  paymentMethod: string;
+};
+
+export type AdminLog = {
+  id: string;
+  at: string;
+  clientId: string;
+  clientName: string;
+  source: string;
+  level: "معلومة" | "تنبيه" | "خطأ";
+  message: string;
+};
+
 function hashPassword(password: string) {
   return createHash("sha256").update(password).digest("hex");
 }
@@ -204,6 +242,41 @@ async function ensureSchema() {
     role TEXT NOT NULL,
     tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
     created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS provider_clients (
+    id TEXT PRIMARY KEY,
+    company TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    plan TEXT NOT NULL,
+    status TEXT NOT NULL,
+    subscription_status TEXT NOT NULL,
+    renewal TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    waba_id TEXT NOT NULL,
+    conversations INTEGER NOT NULL DEFAULT 0,
+    employees INTEGER NOT NULL DEFAULT 0,
+    last_activity TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS provider_subscriptions (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    client_name TEXT NOT NULL,
+    plan TEXT NOT NULL,
+    status TEXT NOT NULL,
+    amount INTEGER NOT NULL DEFAULT 0,
+    renewal TEXT NOT NULL,
+    billing_cycle TEXT NOT NULL,
+    payment_method TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS admin_logs (
+    id TEXT PRIMARY KEY,
+    at TEXT NOT NULL,
+    client_id TEXT NOT NULL,
+    client_name TEXT NOT NULL,
+    source TEXT NOT NULL,
+    level TEXT NOT NULL,
+    message TEXT NOT NULL
   )`);
 }
 
@@ -438,6 +511,187 @@ async function seedDatabase() {
         "اليوم"
       );
     }
+
+    const providerClients = [
+      {
+        id: "tenant-almajdiah",
+        company: "موقع الماجدية",
+        owner: "عبدالعزيز الكيالي",
+        plan: "باقة النمو",
+        status: "بانتظار الربط",
+        subscriptionStatus: "مدفوع",
+        renewal: "2026-07-30",
+        phone: "+966 50 123 4567",
+        wabaId: "369021316291991",
+        conversations: initialConversations.length,
+        employees: employees.length,
+        lastActivity: "قبل 8 دقائق",
+        createdAt: "2026-06-29"
+      },
+      {
+        id: "tenant-demo-realestate",
+        company: "شركة عقارية تجريبية",
+        owner: "نورة القحطاني",
+        plan: "باقة البداية",
+        status: "تجربة",
+        subscriptionStatus: "تجريبي",
+        renewal: "2026-07-14",
+        phone: "+966 55 210 3300",
+        wabaId: "بانتظار الربط",
+        conversations: 38,
+        employees: 3,
+        lastActivity: "اليوم",
+        createdAt: "2026-06-25"
+      },
+      {
+        id: "tenant-retail",
+        company: "متجر تجريبي",
+        owner: "سارة العتيبي",
+        plan: "باقة النمو",
+        status: "نشط",
+        subscriptionStatus: "مدفوع",
+        renewal: "2026-08-01",
+        phone: "+966 50 880 1144",
+        wabaId: "398201551902",
+        conversations: 126,
+        employees: 7,
+        lastActivity: "أمس",
+        createdAt: "2026-06-20"
+      }
+    ];
+
+    for (const client of providerClients) {
+      await tx.$executeRawUnsafe(
+        `INSERT INTO provider_clients (
+          id, company, owner, plan, status, subscription_status, renewal, phone, waba_id,
+          conversations, employees, last_activity, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO NOTHING`,
+        client.id,
+        client.company,
+        client.owner,
+        client.plan,
+        client.status,
+        client.subscriptionStatus,
+        client.renewal,
+        client.phone,
+        client.wabaId,
+        client.conversations,
+        client.employees,
+        client.lastActivity,
+        client.createdAt
+      );
+    }
+
+    const providerSubscriptions = [
+      {
+        id: "sub-almajdiah",
+        clientId: "tenant-almajdiah",
+        clientName: "موقع الماجدية",
+        plan: "باقة النمو",
+        status: "مدفوع",
+        amount: 499,
+        renewal: "2026-07-30",
+        billingCycle: "شهري",
+        paymentMethod: "تحويل بنكي"
+      },
+      {
+        id: "sub-realestate",
+        clientId: "tenant-demo-realestate",
+        clientName: "شركة عقارية تجريبية",
+        plan: "باقة البداية",
+        status: "تجريبي",
+        amount: 0,
+        renewal: "2026-07-14",
+        billingCycle: "تجربة 14 يوم",
+        paymentMethod: "بدون دفع"
+      },
+      {
+        id: "sub-retail",
+        clientId: "tenant-retail",
+        clientName: "متجر تجريبي",
+        plan: "باقة النمو",
+        status: "مدفوع",
+        amount: 499,
+        renewal: "2026-08-01",
+        billingCycle: "شهري",
+        paymentMethod: "بطاقة"
+      }
+    ];
+
+    for (const subscription of providerSubscriptions) {
+      await tx.$executeRawUnsafe(
+        `INSERT INTO provider_subscriptions (
+          id, client_id, client_name, plan, status, amount, renewal, billing_cycle, payment_method
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO NOTHING`,
+        subscription.id,
+        subscription.clientId,
+        subscription.clientName,
+        subscription.plan,
+        subscription.status,
+        subscription.amount,
+        subscription.renewal,
+        subscription.billingCycle,
+        subscription.paymentMethod
+      );
+    }
+
+    const adminLogs = [
+      {
+        id: "log-meta-sync",
+        at: "اليوم 18:22",
+        clientId: "tenant-almajdiah",
+        clientName: "موقع الماجدية",
+        source: "Meta Webhook",
+        level: "معلومة",
+        message: "تم تحديث حالة الربط وبيانات WABA بنجاح."
+      },
+      {
+        id: "log-template-sync",
+        at: "اليوم 17:48",
+        clientId: "tenant-almajdiah",
+        clientName: "موقع الماجدية",
+        source: "Templates",
+        level: "معلومة",
+        message: "تمت مزامنة قوالب WhatsApp من Meta."
+      },
+      {
+        id: "log-campaign",
+        at: "اليوم 16:05",
+        clientId: "tenant-almajdiah",
+        clientName: "موقع الماجدية",
+        source: "Campaigns",
+        level: "معلومة",
+        message: "تم تسجيل حملات جديدة داخل الحساب."
+      },
+      {
+        id: "log-trial",
+        at: "أمس 21:10",
+        clientId: "tenant-demo-realestate",
+        clientName: "شركة عقارية تجريبية",
+        source: "Subscription",
+        level: "تنبيه",
+        message: "تجربة مجانية تحتاج متابعة قبل انتهاء المدة."
+      }
+    ];
+
+    for (const log of adminLogs) {
+      await tx.$executeRawUnsafe(
+        `INSERT INTO admin_logs (id, at, client_id, client_name, source, level, message)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO NOTHING`,
+        log.id,
+        log.at,
+        log.clientId,
+        log.clientName,
+        log.source,
+        log.level,
+        log.message
+      );
+    }
   });
 }
 
@@ -642,6 +896,106 @@ export async function getIntegrationSettings(): Promise<IntegrationSettings> {
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };
+}
+
+export async function getProviderClients(): Promise<ProviderClient[]> {
+  await ensureSeeded();
+  const rows = await prisma.$queryRawUnsafe<
+    Array<{
+      id: string;
+      company: string;
+      owner: string;
+      plan: string;
+      status: ProviderClient["status"];
+      subscriptionStatus: ProviderClient["subscriptionStatus"];
+      renewal: string;
+      phone: string;
+      wabaId: string;
+      conversations: number;
+      employees: number;
+      lastActivity: string;
+      createdAt: string;
+    }>
+  >(
+    `SELECT
+      id,
+      company,
+      owner,
+      plan,
+      status,
+      subscription_status AS subscriptionStatus,
+      renewal,
+      phone,
+      waba_id AS wabaId,
+      conversations,
+      employees,
+      last_activity AS lastActivity,
+      created_at AS createdAt
+    FROM provider_clients
+    ORDER BY created_at DESC`
+  );
+
+  return rows;
+}
+
+export async function getProviderSubscriptions(): Promise<ProviderSubscription[]> {
+  await ensureSeeded();
+  const rows = await prisma.$queryRawUnsafe<
+    Array<{
+      id: string;
+      clientId: string;
+      clientName: string;
+      plan: string;
+      status: ProviderSubscription["status"];
+      amount: number;
+      renewal: string;
+      billingCycle: string;
+      paymentMethod: string;
+    }>
+  >(
+    `SELECT
+      id,
+      client_id AS clientId,
+      client_name AS clientName,
+      plan,
+      status,
+      amount,
+      renewal,
+      billing_cycle AS billingCycle,
+      payment_method AS paymentMethod
+    FROM provider_subscriptions
+    ORDER BY renewal ASC`
+  );
+
+  return rows;
+}
+
+export async function getAdminLogs(): Promise<AdminLog[]> {
+  await ensureSeeded();
+  const rows = await prisma.$queryRawUnsafe<
+    Array<{
+      id: string;
+      at: string;
+      clientId: string;
+      clientName: string;
+      source: string;
+      level: AdminLog["level"];
+      message: string;
+    }>
+  >(
+    `SELECT
+      id,
+      at,
+      client_id AS clientId,
+      client_name AS clientName,
+      source,
+      level,
+      message
+    FROM admin_logs
+    ORDER BY id ASC`
+  );
+
+  return rows;
 }
 
 export async function getUserAccountById(id: string): Promise<UserAccount | null> {

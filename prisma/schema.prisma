@@ -203,3 +203,47 @@ model UserAccount {
 
   @@map("user_accounts")
 }
+
+model ProviderClient {
+  id                 String @id
+  company            String
+  owner              String
+  plan               String
+  status             String
+  subscriptionStatus String @map("subscription_status")
+  renewal            String
+  phone              String
+  wabaId             String @map("waba_id")
+  conversations      Int    @default(0)
+  employees          Int    @default(0)
+  lastActivity       String @map("last_activity")
+  createdAt          String @map("created_at")
+
+  @@map("provider_clients")
+}
+
+model ProviderSubscription {
+  id            String @id
+  clientId      String @map("client_id")
+  clientName    String @map("client_name")
+  plan          String
+  status        String
+  amount        Int    @default(0)
+  renewal       String
+  billingCycle  String @map("billing_cycle")
+  paymentMethod String @map("payment_method")
+
+  @@map("provider_subscriptions")
+}
+
+model AdminLog {
+  id         String @id
+  at         String
+  clientId   String @map("client_id")
+  clientName String @map("client_name")
+  source     String
+  level      String
+  message    String
+
+  @@map("admin_logs")
+}

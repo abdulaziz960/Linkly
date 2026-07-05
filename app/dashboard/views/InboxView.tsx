@@ -255,9 +255,7 @@ export default function InboxView({
                   {item.direction === "out" &&
                   item.text !== "تم حذف هذه الرسالة" &&
                   (canDeleteAnyMessage || item.author === currentUserName) ? (
-                    <button className="message-delete" type="button" onClick={() => onDeleteMessage(item.id)}>
-                      حذف
-                    </button>
+                    <button className="message-delete" type="button" aria-label="حذف الرسالة" title="حذف الرسالة" onClick={() => onDeleteMessage(item.id)} />
                   ) : null}
                   {item.direction === "note" ? <b>ملاحظة خاصة، {item.author || currentUserName}</b> : null}
                   {item.attachment && item.text !== "تم حذف هذه الرسالة" ? (

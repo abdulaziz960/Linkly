@@ -1103,6 +1103,7 @@
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 13px 14px;
+  padding-left: 34px;
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
   line-height: 1.8;
   position: relative;
@@ -1110,19 +1111,32 @@
 
 .message-delete {
   position: absolute;
-  inset-inline-start: 8px;
-  top: 6px;
+  left: 10px;
+  top: 10px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
-  border-radius: 999px;
   background: transparent;
   color: #64748b;
-  padding: 3px 6px;
-  font-size: 11px;
-  font-weight: 900;
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.message-delete::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
 }
 
 .message-delete:hover {
-  background: #e2e8f0;
+  color: #0f172a;
 }
 
 .message-bubble.in {
@@ -2494,7 +2508,8 @@
 }
 
 .settings-form,
-.webhook-card {
+.webhook-card,
+.meta-test-card {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: #fff;
@@ -2539,7 +2554,9 @@
 }
 
 .settings-fields input,
-.settings-fields select {
+.settings-fields select,
+.meta-test-grid input,
+.meta-test-grid textarea {
   min-height: 52px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -2548,6 +2565,59 @@
   padding: 0 14px;
   font: inherit;
   font-weight: 800;
+}
+
+.meta-test-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.meta-test-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) 1fr;
+  gap: 14px;
+}
+
+.meta-test-grid label {
+  display: grid;
+  gap: 8px;
+  color: #334155;
+  font-weight: 900;
+}
+
+.meta-test-grid textarea {
+  min-height: 92px;
+  padding: 14px;
+  resize: vertical;
+}
+
+.meta-test-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.meta-test-actions small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.meta-test-feedback {
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-weight: 900;
+}
+
+.meta-test-feedback.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.meta-test-feedback.error {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .primary-action,
@@ -3030,6 +3100,7 @@
   .provider-grid,
   .meta-steps,
   .settings-fields,
+  .meta-test-grid,
   .stats-grid,
   .stats-grid.reports,
   .cards-grid,

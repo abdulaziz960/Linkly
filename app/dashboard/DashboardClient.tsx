@@ -142,6 +142,12 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         (conversation.status === "assigned" || conversation.status === "closed")
     );
   }, [canViewAllConversations, conversations, currentEmployee.name]);
+  const scopedCustomers = useMemo<Customer[]>(() => {
+    if (canViewAllConversations) return customers;
+
+    const allowedCustomerIds = new Set(scopedConversations.map((conversation) => conversation.id));
+    return customers.filter((customer) => allowedCustomerIds.has(customer.id));
+  }, [canViewAllConversations, customers, scopedConversations]);
   const activeConversation =
     scopedConversations.find((conversation) => conversation.id === activeConversationId) ??
     scopedConversations[0] ??
@@ -502,8 +508,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
           />
         ) : (
           <DashboardViewRouter
-            conversations={conversations}
-            customers={customers}
+            conversations={scopedConversations}
+            customers={scopedCustomers}
             employees={employees}
             quickReplies={quickReplies}
             automationRules={automationRules}

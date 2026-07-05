@@ -67,6 +67,10 @@ export default function SettingsView() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState("");
   const [wizardStep, setWizardStep] = useState(1);
+  const [testRecipient, setTestRecipient] = useState("");
+  const [testMessage, setTestMessage] = useState("رسالة اختبار من AudienceW");
+  const [testSending, setTestSending] = useState(false);
+  const [testFeedback, setTestFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const showIntegrationData = wizardStep >= 3 || settings.status === "connected";
 
   const webhookUrl = useMemo(() => {
@@ -156,12 +160,36 @@ export default function SettingsView() {
     setSaving(false);
   }
 
+  async function sendTestMessage() {
+    setTestSending(true);
+    setTestFeedback(null);
+
+    const response = await fetch("/api/meta/test-message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: testRecipient,
+        message: testMessage
+      })
+    });
+    const result = await response.json();
+
+    if (response.ok && result.ok) {
+      setTestFeedback({ type: "success", text: "تم إرسال رسالة الاختبار. إذا رد العميل ستظهر محادثته داخل صندوق الوارد." });
+    } else {
+      setTestFeedback({ type: "error", text: result.error || "تعذر إرسال رسالة الاختبار" });
+    }
+
+    setTestSending(false);
+  }
+
   function openMetaWindow() {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return false;
 
     if (!settings.appId) {
-      window.open("https://developers.facebook.com/apps/", "audiencew-meta-apps", "width=1100,height=820");
-      return;
+      const metaAppsWindow = window.open("https://developers.facebook.com/apps/", "audiencew-meta-apps", "width=1100,height=820");
+      if (!metaAppsWindow) window.location.href = "https://developers.facebook.com/apps/";
+      return true;
     }
 
     const redirectOrigin = window.location.hostname === "localhost" ? publicAppUrl : window.location.origin;
@@ -186,7 +214,11 @@ export default function SettingsView() {
         }
       })
     );
-    window.open(metaUrl.toString(), "audiencew-meta-connect", "width=960,height=780");
+    const metaWindow = window.open(metaUrl.toString(), "audiencew-meta-connect", "width=960,height=780");
+    if (!metaWindow) {
+      window.location.href = metaUrl.toString();
+    }
+    return true;
   }
 
   function renderWizardContent() {
@@ -309,7 +341,10 @@ export default function SettingsView() {
               عودة
             </button>
             <button className="btn primary" type="button" onClick={() => {
-              if (wizardStep === 3) openMetaWindow();
+              if (wizardStep === 3) {
+                openMetaWindow();
+                return;
+              }
               setWizardStep((step) => Math.min(4, step + 1));
             }}>
               {wizardStep === 3 ? "فتح نافذة Meta" : wizardStep === 4 ? "إنهاء" : "التالي"}
@@ -372,6 +407,36 @@ export default function SettingsView() {
               Access Token
               <input value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} />
             </label>
+          </div>
+
+          <div className="meta-test-card">
+            <div>
+              <h3>تجربة رقم التست</h3>
+              <p>أضف رقمك في قائمة أرقام الاختبار داخل Meta، ثم أرسل رسالة للتأكد من الإرسال والاستقبال.</p>
+            </div>
+            <div className="meta-test-grid">
+              <label>
+                رقم المستلم
+                <input
+                  dir="ltr"
+                  inputMode="tel"
+                  placeholder="9665xxxxxxxx"
+                  value={testRecipient}
+                  onChange={(event) => setTestRecipient(event.target.value)}
+                />
+              </label>
+              <label>
+                نص الرسالة
+                <textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} />
+              </label>
+            </div>
+            <div className="meta-test-actions">
+              <button className="primary-action" disabled={testSending || !testRecipient.trim()} type="button" onClick={sendTestMessage}>
+                {testSending ? "جاري الإرسال..." : "إرسال رسالة اختبار"}
+              </button>
+              <small>الاستقبال يحتاج أن يكون الويبهوك مفعّلًا على رابط الاستضافة.</small>
+            </div>
+            {testFeedback && <p className={`meta-test-feedback ${testFeedback.type}`}>{testFeedback.text}</p>}
           </div>
 
           <div className="webhook-card">
