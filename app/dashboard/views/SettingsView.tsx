@@ -212,6 +212,8 @@ export default function SettingsView() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        phoneNumberId: settings.phoneNumberId,
+        accessToken: settings.accessToken,
         to: testRecipient,
         message: testMessage
       })
