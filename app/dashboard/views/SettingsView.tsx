@@ -219,7 +219,7 @@ export default function SettingsView() {
     metaUrl.searchParams.set("client_id", settings.appId);
     metaUrl.searchParams.set("redirect_uri", redirectUri);
     metaUrl.searchParams.set("response_type", "code");
-    metaUrl.searchParams.set("scope", "business_management,whatsapp_business_management,whatsapp_business_messaging");
+    metaUrl.searchParams.set("scope", "whatsapp_business_management,whatsapp_business_messaging");
     if (settings.configId) {
       metaUrl.searchParams.set("config_id", settings.configId);
     }
