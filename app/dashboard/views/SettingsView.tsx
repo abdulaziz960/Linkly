@@ -147,9 +147,7 @@ export default function SettingsView() {
     window.setTimeout(() => setCopied(""), 1600);
   }
 
-  async function saveSettings(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
+  async function persistSettings() {
     const response = await fetch("/api/settings/integration", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -157,6 +155,13 @@ export default function SettingsView() {
     });
     const data = await response.json();
     setSettings(data);
+    return data;
+  }
+
+  async function saveSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    await persistSettings();
     setSaving(false);
   }
 
@@ -183,6 +188,25 @@ export default function SettingsView() {
   async function sendTestMessage() {
     setTestSending(true);
     setTestFeedback(null);
+
+    const missingField =
+      !settings.phoneNumberId.trim()
+        ? "Phone Number ID"
+        : !settings.accessToken.trim()
+          ? "Access Token"
+          : !testRecipient.trim()
+            ? "رقم المستلم"
+            : !testMessage.trim()
+              ? "نص الرسالة"
+              : "";
+
+    if (missingField) {
+      setTestFeedback({ type: "error", text: `${missingField} مطلوب قبل إرسال رسالة اختبار` });
+      setTestSending(false);
+      return;
+    }
+
+    await persistSettings();
 
     const response = await fetch("/api/meta/test-message", {
       method: "POST",
