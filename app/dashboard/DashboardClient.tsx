@@ -44,6 +44,11 @@ function getNameInitial(name: string) {
   return name.trim().charAt(0) || "ع";
 }
 
+async function readApiError(response: Response) {
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  return payload?.error || "تعذر تنفيذ العملية";
+}
+
 const allViewKeys: ViewKey[] = navItems.map((item) => item.key);
 
 const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
@@ -352,31 +357,26 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeConversation.id) return;
-    if (!message.trim() || activeConversation.windowExpired || activeConversation.status === "closed") return;
+    const text = message.trim();
+    const direction = composerMode === "note" ? "note" : "out";
+    if (!text || activeConversation.status === "closed") return;
+    if (activeConversation.windowExpired && direction !== "note") return;
 
-    const nextMessage: Conversation["messages"][number] = {
-      id: `m-${Date.now()}`,
-      direction: composerMode === "note" ? "note" : "out",
-      text: message.trim(),
-      time: "الآن",
-      author: initialUser.name
-    };
-
-    updateConversation({
-      ...activeConversation,
-      lastMessage: nextMessage.text,
-      messages: [...activeConversation.messages, nextMessage]
-    });
-    setMessage("");
-
-    await fetch(`/api/conversations/${activeConversation.id}/messages`, {
+    const response = await fetch(`/api/conversations/${activeConversation.id}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        direction: composerMode === "note" ? "note" : "out",
-        text: nextMessage.text
+        direction,
+        text
       })
     });
+
+    if (!response.ok) {
+      window.alert(await readApiError(response));
+      return;
+    }
+
+    setMessage("");
     await loadDashboardData();
   }
 
@@ -391,30 +391,24 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       return;
     }
 
-    updateConversation({
-      ...activeConversation,
-      lastMessage: template.message,
-      messages: [
-        ...activeConversation.messages,
-        {
-          id: `m-${Date.now()}`,
-          direction: "out",
-          text: template.message,
-          time: "الآن",
-          author: initialUser.name
-        }
-      ]
-    });
-
-    await fetch(`/api/conversations/${activeConversation.id}/messages`, {
+    const response = await fetch(`/api/conversations/${activeConversation.id}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         direction: "out",
         text: template.message,
+        messageType: "template",
+        templateName: template.name,
+        templateLanguage: template.language || "ar",
         forceWindowExpired: true
       })
     });
+
+    if (!response.ok) {
+      window.alert(await readApiError(response));
+      return;
+    }
+
     await loadDashboardData();
   }
 
