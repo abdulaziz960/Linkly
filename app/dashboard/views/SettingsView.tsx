@@ -171,6 +171,7 @@ export default function SettingsView() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        reset: true,
         status: "pending",
         businessName: "",
         wabaName: "",
