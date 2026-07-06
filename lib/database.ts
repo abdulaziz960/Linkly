@@ -27,8 +27,15 @@ import type {
 } from "../app/dashboard/types";
 
 let seedPromise: Promise<void> | null = null;
-const defaultMetaAppId = "1296230909161568";
+const defaultMetaAppId = process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";
 const defaultLoginEmail = "admin@audiencew.sa";
+const legacyDemoPhoneNumbers = new Set(["+966 50 123 4567"]);
+const legacyDemoPhoneNumberIds = new Set(["328992863638694"]);
+const legacyDemoWabaIds = new Set(["369021316291991"]);
+
+function cleanIntegrationValue(value?: string | null) {
+  return value?.trim() ?? "";
+}
 const defaultLoginPassword = "AudienceW123";
 const demoUserAccounts = [
   {
@@ -314,13 +321,23 @@ async function seedDatabase() {
     await tx.$executeRawUnsafe(`DELETE FROM provider_subscriptions WHERE id IN ('sub-majidia', 'sub-realty-demo', 'sub-store-demo')`);
     await tx.$executeRawUnsafe(`DELETE FROM admin_logs WHERE id IN ('log-1', 'log-2', 'log-3', 'log-4')`);
 
-    const existingIntegration = await tx.integrationSetting.findUnique({ where: { id: "meta-whatsapp" } });
-    const hasLegacyDemoData =
-      existingIntegration?.businessName === "شركة الجمهور المخصص للدعاية والإعلان" ||
-      existingIntegration?.wabaName === "AudienceW WhatsApp Business Account" ||
-      existingIntegration?.phoneNumber === "+966 50 123 4567" ||
-      existingIntegration?.phoneNumberId === "328992863638694" ||
-      existingIntegration?.wabaId === "369021316291991";
+      const existingIntegration = await tx.integrationSetting.findUnique({ where: { id: "meta-whatsapp" } });
+      const integrationPhoneNumber = cleanIntegrationValue(existingIntegration?.phoneNumber);
+      const integrationPhoneNumberId = cleanIntegrationValue(existingIntegration?.phoneNumberId);
+      const integrationWabaId = cleanIntegrationValue(existingIntegration?.wabaId);
+      const integrationAccessToken = cleanIntegrationValue(existingIntegration?.accessToken);
+      const hasRealIntegrationData =
+        Boolean(integrationAccessToken) ||
+        Boolean(integrationPhoneNumber && !legacyDemoPhoneNumbers.has(integrationPhoneNumber)) ||
+        Boolean(integrationPhoneNumberId && !legacyDemoPhoneNumberIds.has(integrationPhoneNumberId)) ||
+        Boolean(integrationWabaId && !legacyDemoWabaIds.has(integrationWabaId));
+      const hasLegacyDemoData =
+        !hasRealIntegrationData &&
+        (existingIntegration?.businessName === "شركة الجمهور المخصص للدعاية والإعلان" ||
+          existingIntegration?.wabaName === "AudienceW WhatsApp Business Account" ||
+          legacyDemoPhoneNumbers.has(integrationPhoneNumber) ||
+          legacyDemoPhoneNumberIds.has(integrationPhoneNumberId) ||
+          legacyDemoWabaIds.has(integrationWabaId));
 
     if (hasLegacyDemoData) {
       await tx.conversationTag.deleteMany({});
@@ -832,7 +849,7 @@ export async function getIntegrationSettings(): Promise<IntegrationSettings> {
     where: { id: "meta-whatsapp" }
   });
 
-  if (!settings.appId) {
+  if (!settings.appId && defaultMetaAppId) {
     await prisma.integrationSetting.update({
       where: { id: settings.id },
       data: { appId: defaultMetaAppId }

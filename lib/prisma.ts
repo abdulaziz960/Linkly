@@ -1,7 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "file:/tmp/audiencew.sqlite";
+  if (isProduction) {
+    throw new Error("DATABASE_URL is required in production. Configure a persistent database for AudienceW before deploying.");
+  }
+
+  process.env.DATABASE_URL = "file:./dev.db";
 }
 
 const globalForPrisma = globalThis as unknown as {

@@ -38,6 +38,12 @@ function getFallbackInitial(name: string, phone: string, initial?: string) {
   return initial?.trim() || name.trim().charAt(0) || phone.slice(-1) || "ع";
 }
 
+function getPhoneFromConversationId(id: string) {
+  const value = id.trim();
+  if (!value.startsWith("conv-")) return "";
+  return value.slice(5);
+}
+
 async function findOrCreateConversation(id: string, snapshot?: ConversationSnapshot) {
   const existing = await prisma.conversation.findUnique({
     where: { id },
@@ -46,7 +52,7 @@ async function findOrCreateConversation(id: string, snapshot?: ConversationSnaps
 
   if (existing) return existing;
 
-  const phone = normalizeWhatsAppPhone(snapshot?.phone ?? "");
+  const phone = normalizeWhatsAppPhone(snapshot?.phone ?? getPhoneFromConversationId(id));
   if (!phone) return null;
 
   const existingCustomer = await prisma.customer.findFirst({ where: { phone } });
