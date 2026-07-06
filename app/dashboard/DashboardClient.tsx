@@ -111,6 +111,33 @@ const emptyConversation: Conversation = {
   messages: []
 };
 
+const CONVERSATIONS_CACHE_KEY = "audiencew:dashboard-conversations";
+const CUSTOMERS_CACHE_KEY = "audiencew:dashboard-customers";
+
+function readCachedList<T>(key: string): T[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const value = window.localStorage.getItem(key);
+    if (!value) return [];
+
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedList<T>(key: string, value: T[]) {
+  if (typeof window === "undefined" || !value.length) return;
+
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // The dashboard can keep working even if browser storage is unavailable.
+  }
+}
+
 export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   const [conversations, setConversations] = useState(initialConversations);
@@ -212,12 +239,16 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       ]);
 
       if (nextConversations?.length) {
+        writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
         setConversations(nextConversations);
         setActiveConversationId((currentId) =>
           nextConversations.some((conversation) => conversation.id === currentId) ? currentId : nextConversations[0].id
         );
       }
-      if (nextCustomers?.length) setCustomers(nextCustomers);
+      if (nextCustomers?.length) {
+        writeCachedList(CUSTOMERS_CACHE_KEY, nextCustomers);
+        setCustomers(nextCustomers);
+      }
       if (nextEmployees?.length) setEmployees(nextEmployees);
       if (nextTeams?.length) setTeams(nextTeams);
       if (nextTags) setTags(nextTags);
@@ -240,8 +271,32 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   useEffect(() => {
+    const cachedConversations = readCachedList<Conversation>(CONVERSATIONS_CACHE_KEY);
+    const cachedCustomers = readCachedList<Customer>(CUSTOMERS_CACHE_KEY);
+
+    if (cachedConversations.length) {
+      setConversations(cachedConversations);
+      setActiveConversationId((currentId) =>
+        currentId && cachedConversations.some((conversation) => conversation.id === currentId)
+          ? currentId
+          : cachedConversations[0].id
+      );
+    }
+
+    if (cachedCustomers.length) {
+      setCustomers(cachedCustomers);
+    }
+
     loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    writeCachedList(CONVERSATIONS_CACHE_KEY, conversations);
+  }, [conversations]);
+
+  useEffect(() => {
+    writeCachedList(CUSTOMERS_CACHE_KEY, customers);
+  }, [customers]);
 
   useEffect(() => {
     if (!allowedViews.includes(activeView)) {
@@ -296,9 +351,14 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, [conversationSearch, scopedConversations, filter]);
 
   function updateConversation(nextConversation: Conversation) {
-    setConversations((current) =>
-      current.map((conversation) => (conversation.id === nextConversation.id ? nextConversation : conversation))
-    );
+    setConversations((current) => {
+      const nextConversations = current.map((conversation) =>
+        conversation.id === nextConversation.id ? nextConversation : conversation
+      );
+
+      writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
+      return nextConversations;
+    });
   }
 
   function handleViewChange(view: ViewKey) {
