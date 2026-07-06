@@ -129,7 +129,7 @@ function readCachedList<T>(key: string): T[] {
 }
 
 function writeCachedList<T>(key: string, value: T[]) {
-  if (typeof window === "undefined" || !value.length) return;
+  if (typeof window === "undefined") return;
 
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
@@ -197,6 +197,14 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     scopedConversations[0] ??
     conversations[0] ??
     emptyConversation;
+  const activeConversationSnapshot = {
+    id: activeConversation.id,
+    customer: activeConversation.customer,
+    phone: activeConversation.phone,
+    initial: activeConversation.initial,
+    assignee: activeConversation.assignee,
+    status: activeConversation.status
+  };
   const currentProfileStatus = currentEmployee?.status === "غير متصل" ? "غير متصل" : "متصل";
   const accountInitial = getNameInitial(initialUser.name);
   const allowedViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
@@ -207,7 +215,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     if (!response.ok) return null;
 
     const payload = (await response.json()) as { ok: boolean; data?: T };
-    return payload.ok && payload.data ? payload.data : null;
+    return payload.ok && payload.data !== undefined ? payload.data : null;
   }
 
   async function loadDashboardData() {
@@ -238,14 +246,16 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         fetchData<Lead[]>("/api/leads")
       ]);
 
-      if (nextConversations?.length) {
+      if (nextConversations) {
         writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
         setConversations(nextConversations);
         setActiveConversationId((currentId) =>
-          nextConversations.some((conversation) => conversation.id === currentId) ? currentId : nextConversations[0].id
+          currentId && nextConversations.some((conversation) => conversation.id === currentId)
+            ? currentId
+            : nextConversations[0]?.id ?? ""
         );
       }
-      if (nextCustomers?.length) {
+      if (nextCustomers) {
         writeCachedList(CUSTOMERS_CACHE_KEY, nextCustomers);
         setCustomers(nextCustomers);
       }
@@ -446,7 +456,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         direction,
-        text
+        text,
+        conversation: activeConversationSnapshot
       })
     });
 
@@ -479,7 +490,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         messageType: "template",
         templateName: template.name,
         templateLanguage: template.language || "ar",
-        forceWindowExpired: true
+        forceWindowExpired: true,
+        conversation: activeConversationSnapshot
       })
     });
 

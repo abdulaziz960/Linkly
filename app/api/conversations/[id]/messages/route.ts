@@ -11,6 +11,15 @@ type RouteContext = {
   }>;
 };
 
+type ConversationSnapshot = {
+  id?: string;
+  customer?: string;
+  phone?: string;
+  initial?: string;
+  assignee?: string;
+  status?: string;
+};
+
 export const runtime = "nodejs";
 
 function normalizeTemplateLanguage(language?: string) {
@@ -18,6 +27,68 @@ function normalizeTemplateLanguage(language?: string) {
   if (!value || value === "Arabic" || value === "العربية") return "ar";
   if (value === "English" || value === "الإنجليزية") return "en_US";
   return value;
+}
+
+function normalizeConversationStatus(status?: string) {
+  if (status === "assigned" || status === "closed" || status === "unassigned") return status;
+  return "unassigned";
+}
+
+function getFallbackInitial(name: string, phone: string, initial?: string) {
+  return initial?.trim() || name.trim().charAt(0) || phone.slice(-1) || "ع";
+}
+
+async function findOrCreateConversation(id: string, snapshot?: ConversationSnapshot) {
+  const existing = await prisma.conversation.findUnique({
+    where: { id },
+    include: { customer: true }
+  });
+
+  if (existing) return existing;
+
+  const phone = normalizeWhatsAppPhone(snapshot?.phone ?? "");
+  if (!phone) return null;
+
+  const existingCustomer = await prisma.customer.findFirst({ where: { phone } });
+
+  if (existingCustomer) {
+    const byCustomerPhone = await prisma.conversation.findFirst({
+      where: { customerId: existingCustomer.id },
+      include: { customer: true }
+    });
+
+    if (byCustomerPhone) return byCustomerPhone;
+  }
+
+  const customerName = snapshot?.customer?.trim() || `عميل ${phone.slice(-4) || "واتساب"}`;
+  const customerId = existingCustomer?.id ?? `wa-${phone}`;
+  const conversationId = id || snapshot?.id?.trim() || `conv-${phone}`;
+  const initial = getFallbackInitial(customerName, phone, snapshot?.initial);
+  const assignee = snapshot?.assignee?.trim() || "بدون موظف";
+  const status = normalizeConversationStatus(snapshot?.status);
+
+  return prisma.$transaction(async (tx) => {
+    await tx.customer.upsert({
+      where: { id: customerId },
+      update: { name: customerName, phone, initial },
+      create: { id: customerId, name: customerName, phone, initial }
+    });
+
+    return tx.conversation.upsert({
+      where: { id: conversationId },
+      update: { customerId, assignee, status },
+      create: {
+        id: conversationId,
+        customerId,
+        lastMessage: "",
+        status,
+        assignee,
+        unread: 0,
+        windowExpired: 0
+      },
+      include: { customer: true }
+    });
+  });
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -30,16 +101,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     messageType?: "text" | "template";
     templateName?: string;
     templateLanguage?: string;
+    conversation?: ConversationSnapshot;
   };
   const text = body.text?.trim();
   const direction = body.direction || "out";
 
   if (!text) return jsonError("نص الرسالة مطلوب");
 
-  const conversation = await prisma.conversation.findUnique({
-    where: { id },
-    include: { customer: true }
-  });
+  const conversation = await findOrCreateConversation(id, body.conversation);
 
   if (!conversation) return jsonError("المحادثة غير موجودة", 404);
 
@@ -48,7 +117,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const message = await prisma.message.create({
         data: {
           id: `m-${Date.now()}`,
-          conversationId: id,
+          conversationId: conversation.id,
           direction,
           text,
           time: "الآن",
@@ -116,8 +185,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const message = await prisma.$transaction(async (tx) => {
       const created = await tx.message.create({
         data: {
-          id: metaResponse?.messages?.[0]?.id ? `wa-${metaResponse.messages[0].id}` : `m-${Date.now()}`,
-          conversationId: id,
+          id: metaResponse?.messages?.[0]?.id ? `wa-out-${metaResponse.messages[0].id}` : `m-${Date.now()}`,
+          conversationId: conversation.id,
           direction,
           text,
           time: "الآن",
@@ -126,7 +195,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
 
       await tx.conversation.update({
-        where: { id },
+        where: { id: conversation.id },
         data: {
           lastMessage: text,
           windowExpired: body.forceWindowExpired ? 1 : undefined
@@ -139,6 +208,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonOk(message);
   } catch (error) {
     console.error("Conversation message send failed", error);
-    return jsonError("تعذر إرسال الرسالة", 404);
+    return jsonError("تعذر إرسال الرسالة", 500);
   }
 }
