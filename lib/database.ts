@@ -294,6 +294,45 @@ async function ensureSchema() {
 async function seedDatabase() {
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
+    await tx.integrationSetting.upsert({
+      where: { id: "meta-whatsapp" },
+      update: {},
+      create: {
+        id: "meta-whatsapp",
+        provider: "whatsapp_cloud",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: defaultMetaAppId,
+        configId: "",
+        verifyToken: "audiencew_webhook_verify",
+        accessToken: "",
+        webhookUrl: "/api/meta/webhook",
+        updatedAt: "اليوم"
+      }
+    });
+
+    for (const account of demoUserAccounts) {
+      await tx.userAccount.upsert({
+        where: { email: account.email },
+        update: {},
+        create: {
+          id: account.id,
+          name: account.name,
+          email: account.email,
+          passwordHash: hashPassword(account.password),
+          role: account.role,
+          tenantId: "tenant-demo",
+          createdAt: "اليوم"
+        }
+      });
+    }
+
+    return;
+
     await tx.conversationTag.deleteMany({ where: { conversationId: { in: ["c-1", "c-2", "c-3", "c-4"] } } });
     await tx.message.deleteMany({ where: { conversationId: { in: ["c-1", "c-2", "c-3", "c-4"] } } });
     await tx.conversation.deleteMany({ where: { id: { in: ["c-1", "c-2", "c-3", "c-4"] } } });

@@ -12,3 +12,5 @@ app/generated/
 .vercel/
 preview_pdf/
 *.php
+.vercel
+.env*
