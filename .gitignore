@@ -7,6 +7,7 @@ npm-debug.log*
 .env.local
 data/*.sqlite
 data/*.db
+prisma/.generated/
 app/generated/
 .vercel/
 preview_pdf/

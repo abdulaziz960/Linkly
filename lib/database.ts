@@ -28,6 +28,8 @@ import type {
 
 let seedPromise: Promise<void> | null = null;
 const defaultMetaAppId = process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";
+const isPostgresDatabase =
+  process.env.DATABASE_URL?.startsWith("postgres://") || process.env.DATABASE_URL?.startsWith("postgresql://");
 const defaultLoginEmail = "admin@audiencew.sa";
 const legacyDemoPhoneNumbers = new Set(["+966 50 123 4567"]);
 const legacyDemoPhoneNumberIds = new Set(["328992863638694"]);
@@ -107,6 +109,8 @@ function hashPassword(password: string) {
 }
 
 async function ensureSchema() {
+  if (isPostgresDatabase) return;
+
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS customers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -591,18 +595,19 @@ async function seedDatabase() {
     });
 
     for (const account of demoUserAccounts) {
-      await tx.$executeRawUnsafe(
-        `INSERT INTO user_accounts (id, name, email, password_hash, role, tenant_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(email) DO NOTHING`,
-        account.id,
-        account.name,
-        account.email,
-        hashPassword(account.password),
-        account.role,
-        "tenant-demo",
-        "اليوم"
-      );
+      await tx.userAccount.upsert({
+        where: { email: account.email },
+        update: {},
+        create: {
+          id: account.id,
+          name: account.name,
+          email: account.email,
+          passwordHash: hashPassword(account.password),
+          role: account.role,
+          tenantId: "tenant-demo",
+          createdAt: "اليوم"
+        }
+      });
     }
 
     const providerClients: ProviderClient[] = [];
