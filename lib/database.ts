@@ -981,28 +981,13 @@ export async function getAdminLogs(): Promise<AdminLog[]> {
 
 export async function getUserAccountById(id: string): Promise<UserAccount | null> {
   await ensureSeeded();
-  const rows = await prisma.$queryRawUnsafe<UserAccount[]>(
-    `SELECT id, name, email, password_hash AS passwordHash, role, tenant_id AS tenantId, created_at AS createdAt
-     FROM user_accounts
-     WHERE id = ?
-     LIMIT 1`,
-    id
-  );
-
-  return rows[0] ?? null;
+  return prisma.userAccount.findUnique({ where: { id } });
 }
 
 export async function verifyUserCredentials(email: string, password: string): Promise<Omit<UserAccount, "passwordHash"> | null> {
   await ensureSeeded();
   const normalizedEmail = email.trim().toLowerCase();
-  const rows = await prisma.$queryRawUnsafe<UserAccount[]>(
-    `SELECT id, name, email, password_hash AS passwordHash, role, tenant_id AS tenantId, created_at AS createdAt
-     FROM user_accounts
-     WHERE lower(email) = ?
-     LIMIT 1`,
-    normalizedEmail
-  );
-  const user = rows[0];
+  const user = await prisma.userAccount.findUnique({ where: { email: normalizedEmail } });
 
   if (!user || user.passwordHash !== hashPassword(password)) {
     return null;
