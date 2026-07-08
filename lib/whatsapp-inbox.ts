@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { formatMessageTime } from "./time";
 
 type StoreWhatsAppMessageInput = {
   phone: string;
@@ -12,14 +13,6 @@ type StoreWhatsAppMessageInput = {
 
 export function normalizeWhatsAppPhone(phone: string) {
   return phone.replace(/[^\d]/g, "");
-}
-
-function formatMessageTime(date = new Date()) {
-  return new Intl.DateTimeFormat("ar-SA", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Riyadh"
-  }).format(date);
 }
 
 function getCustomerName(phone: string, name?: string) {

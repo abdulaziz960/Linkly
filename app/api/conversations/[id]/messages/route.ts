@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { getIntegrationSettings } from "../../../../../lib/database";
 import { prisma } from "../../../../../lib/prisma";
+import { formatMessageTime } from "../../../../../lib/time";
 import { normalizeWhatsAppPhone } from "../../../../../lib/whatsapp-inbox";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
@@ -119,6 +120,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!conversation) return jsonError("المحادثة غير موجودة", 404);
 
   try {
+    const now = new Date();
+    const sentAt = now.toISOString();
+    const messageTime = formatMessageTime(now);
+
     if (direction === "note") {
       const message = await prisma.$transaction(async (tx) => {
         const created = await tx.message.create({
@@ -127,7 +132,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             conversationId: conversation.id,
             direction,
             text,
-            time: "الآن",
+            time: messageTime,
             author: user?.name ?? ""
           }
         });
@@ -136,7 +141,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           where: { id: conversation.id },
           data: {
             lastMessage: text,
-            lastActivityAt: new Date().toISOString()
+            lastActivityAt: sentAt
           }
         });
 
@@ -207,7 +212,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           conversationId: conversation.id,
           direction,
           text,
-          time: "الآن",
+          time: messageTime,
           author: user?.name ?? ""
         }
       });
@@ -217,7 +222,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         data: {
           lastMessage: text,
           windowExpired: body.forceWindowExpired ? 1 : undefined,
-          lastActivityAt: new Date().toISOString()
+          lastActivityAt: sentAt
         }
       });
 

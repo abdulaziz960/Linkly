@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import { navItems, viewTitles } from "./data/navigation";
+import { formatMessageTime } from "../../lib/time";
 import type {
   AutomationRule,
   Campaign,
@@ -497,7 +498,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       id: `m-${Date.now()}`,
       direction: "out",
       text: attachment.type === "image" ? `صورة: ${attachment.name}` : `تسجيل صوتي: ${attachment.name}`,
-      time: "الآن",
+      time: formatMessageTime(),
       author: initialUser.name,
       attachment
     };
