@@ -3,17 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
-import { initialConversations } from "./data/conversations";
-import { employees as initialEmployees } from "./data/employees";
 import { navItems, viewTitles } from "./data/navigation";
-import { tags as initialTags } from "./data/tags";
-import { teams as initialTeams } from "./data/teams";
-import { templates as initialTemplates } from "./data/templates";
-import { quickReplies as initialQuickReplies } from "./data/quickReplies";
-import { automationRules as initialAutomationRules } from "./data/automations";
-import { campaigns as initialCampaigns } from "./data/campaigns";
-import { workSchedules as initialWorkSchedules } from "./data/workHours";
-import { leads as initialLeads } from "./data/leads";
 import type {
   AutomationRule,
   Campaign,
@@ -114,20 +104,6 @@ const emptyConversation: Conversation = {
 const CONVERSATIONS_CACHE_KEY = "audiencew:dashboard-conversations";
 const CUSTOMERS_CACHE_KEY = "audiencew:dashboard-customers";
 
-function readCachedList<T>(key: string): T[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const value = window.localStorage.getItem(key);
-    if (!value) return [];
-
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 function writeCachedList<T>(key: string, value: T[]) {
   if (typeof window === "undefined") return;
 
@@ -140,41 +116,42 @@ function writeCachedList<T>(key: string, value: T[]) {
 
 export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
-  const [conversations, setConversations] = useState(initialConversations);
-  const [customers, setCustomers] = useState<Customer[]>(
-    initialConversations.map((conversation) => ({
-      id: conversation.id,
-      name: conversation.customer,
-      phone: conversation.phone,
-      initial: conversation.initial,
-      tags: conversation.tags
-    }))
-  );
-  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
-  const [teams, setTeams] = useState<Team[]>(initialTeams);
-  const [tags, setTags] = useState<Tag[]>(initialTags);
-  const [templates, setTemplates] = useState<MessageTemplate[]>(initialTemplates);
-  const [quickReplies, setQuickReplies] = useState<QuickReply[]>(initialQuickReplies);
-  const [automationRules, setAutomationRules] = useState<AutomationRule[]>(initialAutomationRules);
-  const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
-  const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>(initialWorkSchedules);
-  const [leads, setLeads] = useState<Lead[]>(initialLeads);
-  const [activeConversationId, setActiveConversationId] = useState(initialConversations[0]?.id ?? "");
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+  const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState("");
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [conversationSearch, setConversationSearch] = useState("");
   const [chatPanel, setChatPanel] = useState<ChatPanel>("chat");
   const [composerMode, setComposerMode] = useState<ComposerMode>("reply");
   const [message, setMessage] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState(initialTemplates[0]?.name ?? "");
+  const [selectedTemplate, setSelectedTemplate] = useState("");
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
 
+  const fallbackEmployee: Employee = {
+    id: initialUser.id,
+    name: initialUser.name,
+    role: initialUser.role === "مالك الحساب" || initialUser.role === "مشرف" ? initialUser.role : "موظف دعم",
+    status: "متصل",
+    permissions: initialUser.role === "مالك الحساب" ? "الكل" : "",
+    email: initialUser.email,
+    initial: getNameInitial(initialUser.name)
+  };
   const currentEmployee =
     (initialUser.role === "مالك الحساب"
       ? employees.find((employee) => employee.id === "emp-owner")
-      : employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase())) ?? employees[0];
+      : employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase())) ?? fallbackEmployee;
   const canViewAllConversations = canSeeAllConversations(initialUser, currentEmployee);
   const approvedMarketingTemplates = useMemo(() => templates.filter(isApprovedMarketingTemplate), [templates]);
   const scopedConversations = useMemo(() => {
@@ -281,21 +258,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   useEffect(() => {
-    const cachedConversations = readCachedList<Conversation>(CONVERSATIONS_CACHE_KEY);
-    const cachedCustomers = readCachedList<Customer>(CUSTOMERS_CACHE_KEY);
-
-    if (cachedConversations.length) {
-      setConversations(cachedConversations);
-      setActiveConversationId((currentId) =>
-        currentId && cachedConversations.some((conversation) => conversation.id === currentId)
-          ? currentId
-          : cachedConversations[0].id
-      );
-    }
-
-    if (cachedCustomers.length) {
-      setCustomers(cachedCustomers);
-    }
+    window.localStorage.removeItem(CONVERSATIONS_CACHE_KEY);
+    window.localStorage.removeItem(CUSTOMERS_CACHE_KEY);
 
     loadDashboardData();
   }, []);
