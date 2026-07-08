@@ -498,7 +498,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         direction: "out",
-        text: attachment.type === "image" ? `صورة: ${attachment.name}` : `تسجيل صوتي: ${attachment.name}`,
+        text: "",
         attachment: {
           type: attachment.type,
           name: attachment.name,

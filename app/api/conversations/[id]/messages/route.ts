@@ -177,7 +177,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     conversation?: ConversationSnapshot;
   };
   const attachment = body.attachment?.type && body.attachment.name && body.attachment.dataUrl ? body.attachment : undefined;
-  const text = body.text?.trim() || (attachment?.type === "image" ? `صورة: ${attachment.name}` : attachment?.type === "audio" ? `تسجيل صوتي: ${attachment.name}` : "");
+  const text = body.text?.trim() || (attachment?.type === "image" ? "صورة" : attachment?.type === "audio" ? "تسجيل صوتي" : "");
   const direction = body.direction || "out";
 
   if (!text) return jsonError("نص الرسالة مطلوب");

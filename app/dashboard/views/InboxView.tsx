@@ -348,7 +348,7 @@ export default function InboxView({
                       </audio>
                     )
                   ) : null}
-                  <span>{item.text}</span>
+                  {item.attachment && (item.text === "صورة" || item.text === "تسجيل صوتي") ? null : <span>{item.text}</span>}
                   <small>{item.time}</small>
                 </div>
               ))}
