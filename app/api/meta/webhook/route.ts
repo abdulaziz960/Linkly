@@ -34,9 +34,54 @@ function getMessageText(message: Record<string, any>) {
   return "رسالة واردة من WhatsApp";
 }
 
+async function getIncomingAttachment(message: Record<string, any>, accessToken: string) {
+  const media = message.audio || message.image;
+  const mediaId = media?.id;
+  if (!mediaId || !accessToken) return undefined;
+
+  const mediaResponse = await fetch(`https://graph.facebook.com/v22.0/${mediaId}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+  const mediaPayload = await mediaResponse.json().catch(() => null);
+  const mediaUrl = mediaPayload?.url;
+  const mimeType = mediaPayload?.mime_type || media?.mime_type || (message.audio ? "audio/ogg" : "image/jpeg");
+  if (!mediaResponse.ok || !mediaUrl) return undefined;
+
+  const fileResponse = await fetch(mediaUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+  if (!fileResponse.ok) return undefined;
+
+  const buffer = Buffer.from(await fileResponse.arrayBuffer());
+  const extension = mimeType.includes("ogg")
+    ? "ogg"
+    : mimeType.includes("mpeg")
+      ? "mp3"
+      : mimeType.includes("mp4")
+        ? "m4a"
+        : mimeType.includes("png")
+          ? "png"
+          : mimeType.includes("webp")
+            ? "webp"
+            : "jpg";
+
+  return {
+    type: message.audio ? "audio" as const : "image" as const,
+    url: `data:${mimeType};base64,${buffer.toString("base64")}`,
+    name: `${message.audio ? "voice" : "image"}-${mediaId}.${extension}`,
+    mimeType,
+    metaMediaId: mediaId
+  };
+}
+
 export async function POST(request: NextRequest) {
   const payload = await request.json();
-  await getIntegrationSettings();
+  const settings = await getIntegrationSettings();
+  const accessToken = settings.accessToken?.trim() || "";
   const savedMessages: string[] = [];
   const entries = Array.isArray(payload.entry) ? payload.entry : [];
 
@@ -53,6 +98,7 @@ export async function POST(request: NextRequest) {
 
         const contact = contacts.find((item: Record<string, any>) => item.wa_id === message.from);
         const text = getMessageText(message);
+        const attachment = await getIncomingAttachment(message, accessToken);
 
         await storeWhatsAppMessage({
           phone: message.from,
@@ -60,7 +106,8 @@ export async function POST(request: NextRequest) {
           text,
           direction: "in",
           messageId: message.id,
-          receivedAt: message.timestamp ? new Date(Number(message.timestamp) * 1000) : undefined
+          receivedAt: message.timestamp ? new Date(Number(message.timestamp) * 1000) : undefined,
+          attachment
         });
 
         savedMessages.push(message.id || message.from);

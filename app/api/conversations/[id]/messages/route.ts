@@ -72,6 +72,10 @@ function isSupportedWhatsAppAudio(mimeType: string) {
   ].some((supportedType) => mimeType.toLowerCase().startsWith(supportedType));
 }
 
+function isWhatsAppVoiceNote(mimeType: string) {
+  return mimeType.toLowerCase().includes("audio/ogg");
+}
+
 async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, attachment: Required<Pick<AttachmentPayload, "type" | "name" | "dataUrl">> & AttachmentPayload) {
   const parsed = parseDataUrl(attachment.dataUrl);
   if (!parsed) throw new Error("INVALID_ATTACHMENT");
@@ -244,18 +248,32 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const payload = isAttachmentMessage && uploadedMedia
-      ? {
+      ? attachment?.type === "audio" && !isWhatsAppVoiceNote(uploadedMedia.mimeType)
+        ? {
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to,
+            type: "document",
+            document: {
+              id: uploadedMedia.id,
+              filename: attachment.name || "voice-message.m4a"
+            }
+          }
+        : {
           messaging_product: "whatsapp",
+          recipient_type: "individual",
           to,
           type: attachment?.type,
           [attachment?.type === "image" ? "image" : "audio"]: {
             id: uploadedMedia.id,
+            ...(attachment?.type === "audio" && isWhatsAppVoiceNote(uploadedMedia.mimeType) ? { voice: true } : {}),
             ...(attachment?.type === "image" && body.text?.trim() ? { caption: body.text.trim() } : {})
           }
         }
       : isTemplateMessage
       ? {
           messaging_product: "whatsapp",
+          recipient_type: "individual",
           to,
           type: "template",
           template: {
@@ -267,6 +285,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
       : {
           messaging_product: "whatsapp",
+          recipient_type: "individual",
           to,
           type: "text",
           text: {

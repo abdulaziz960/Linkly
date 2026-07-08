@@ -9,6 +9,13 @@ type StoreWhatsAppMessageInput = {
   messageId?: string;
   author?: string;
   receivedAt?: Date;
+  attachment?: {
+    type: "image" | "audio";
+    url: string;
+    name: string;
+    mimeType?: string;
+    metaMediaId?: string;
+  };
 };
 
 export function normalizeWhatsAppPhone(phone: string) {
@@ -72,7 +79,12 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
         direction: input.direction,
         text: input.text,
         time: formatMessageTime(),
-        author: input.author || ""
+        author: input.author || "",
+        attachmentType: input.attachment?.type ?? "",
+        attachmentUrl: input.attachment?.url ?? "",
+        attachmentName: input.attachment?.name ?? "",
+        attachmentMime: input.attachment?.mimeType ?? "",
+        metaMediaId: input.attachment?.metaMediaId ?? ""
       }
     });
 
