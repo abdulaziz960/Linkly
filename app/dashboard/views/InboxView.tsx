@@ -379,6 +379,12 @@ export default function InboxView({
               </button>
               <textarea
                 disabled={isComposerDisabled}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }}
                 onChange={(event) => onChangeMessage(event.target.value)}
                 placeholder={
                   isClosed
