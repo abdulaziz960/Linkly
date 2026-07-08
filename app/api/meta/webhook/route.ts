@@ -63,9 +63,13 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
 
   let buffer: Buffer<ArrayBufferLike> = Buffer.from(await fileResponse.arrayBuffer());
   if (message.audio) {
-    const converted = await convertAudioToMp3(buffer, mimeType);
-    buffer = converted.buffer;
-    mimeType = converted.mimeType;
+    try {
+      const converted = await convertAudioToMp3(buffer, mimeType);
+      buffer = converted.buffer;
+      mimeType = converted.mimeType;
+    } catch (error) {
+      console.error("Incoming audio conversion failed", error);
+    }
   }
 
   const extension = mimeType.includes("ogg")

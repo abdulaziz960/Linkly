@@ -96,14 +96,19 @@ async function normalizeAudioAttachment(attachment: AttachmentPayload) {
     throw new Error("UNSUPPORTED_AUDIO_FORMAT");
   }
 
-  const converted = await convertAudioToMp3(parsed.buffer, mimeType);
+  try {
+    const converted = await convertAudioToMp3(parsed.buffer, mimeType);
 
-  return {
-    ...attachment,
-    name: getConvertedAudioName(attachment.name),
-    dataUrl: `data:${converted.mimeType};base64,${converted.buffer.toString("base64")}`,
-    mimeType: converted.mimeType
-  };
+    return {
+      ...attachment,
+      name: getConvertedAudioName(attachment.name),
+      dataUrl: `data:${converted.mimeType};base64,${converted.buffer.toString("base64")}`,
+      mimeType: converted.mimeType
+    };
+  } catch (error) {
+    console.error("Outgoing audio conversion failed", error);
+    return attachment;
+  }
 }
 
 async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, attachment: Required<Pick<AttachmentPayload, "type" | "name" | "dataUrl">> & AttachmentPayload) {

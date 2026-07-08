@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true
+  reactStrictMode: true,
+  outputFileTracingIncludes: {
+    "/api/**/*": ["./node_modules/ffmpeg-static/ffmpeg"]
+  }
 };
 
 export default nextConfig;
