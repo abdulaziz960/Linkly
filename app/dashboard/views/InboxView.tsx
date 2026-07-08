@@ -354,7 +354,11 @@ export default function InboxView({
                       </>
                     )
                   ) : null}
-                  {item.attachment && (item.text === "صورة" || item.text === "تسجيل صوتي") ? null : <span>{item.text}</span>}
+                  {item.attachment?.type === "audio" && item.text !== "تم حذف هذه الرسالة" ? (
+                    <span>{`${item.text}: ${item.attachment.name}`}</span>
+                  ) : item.attachment && item.text === "صورة" ? null : (
+                    <span>{item.text}</span>
+                  )}
                   <small>{item.time}</small>
                 </div>
               ))}
