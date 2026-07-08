@@ -363,12 +363,22 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
   function handleOpenConversation(conversationId: string) {
     if (!allowedViews.includes("inbox")) return;
-    if (!canViewAllConversations && !scopedConversations.some((conversation) => conversation.id === conversationId)) return;
+    const conversation = scopedConversations.find((item) => item.id === conversationId);
+    if (!canViewAllConversations && !conversation) return;
 
     setActiveConversationId(conversationId);
     setActiveView("inbox");
     setChatPanel("chat");
     setMobileChatOpen(true);
+
+    if (conversation?.unread) {
+      updateConversation({ ...conversation, unread: undefined });
+      void fetch(`/api/conversations/${conversationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unread: 0 })
+      });
+    }
   }
 
   async function handleAssigneeChange(assignee: string) {
@@ -567,7 +577,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             onChangeFilter={setFilter}
             onChangeMessage={setMessage}
             onChangeSearch={setConversationSearch}
-            onChangeSelectedConversation={setActiveConversationId}
+            onChangeSelectedConversation={handleOpenConversation}
             onChangeSelectedTemplate={setSelectedTemplate}
             onCloseConversation={handleConversationStatusToggle}
             onDeleteMessage={handleDeleteMessage}

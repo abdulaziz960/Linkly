@@ -15,6 +15,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const body = (await request.json()) as {
     assignee?: string;
     status?: string;
+    unread?: number;
     windowExpired?: boolean;
     tags?: string[];
   };
@@ -38,6 +39,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         data: {
           assignee: body.assignee,
           status: body.status,
+          unread: typeof body.unread === "number" ? Math.max(0, body.unread) : undefined,
           windowExpired: typeof body.windowExpired === "boolean" ? (body.windowExpired ? 1 : 0) : undefined
         }
       });
