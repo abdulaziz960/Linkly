@@ -49,6 +49,19 @@ type AudioRecorderState = {
   sampleRate: number;
 };
 
+type LameJsRuntime = {
+  Mp3Encoder: new (channels: number, sampleRate: number, kbps: number) => {
+    encodeBuffer(samples: Int16Array): Int8Array;
+    flush(): Int8Array;
+  };
+};
+
+declare global {
+  interface Window {
+    lamejs?: LameJsRuntime;
+  }
+}
+
 function readFileAsDataUrl(file: File | Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -58,8 +71,39 @@ function readFileAsDataUrl(file: File | Blob) {
   });
 }
 
+function loadLameJs() {
+  if (window.lamejs?.Mp3Encoder) return Promise.resolve(window.lamejs);
+
+  return new Promise<LameJsRuntime>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-audio-encoder="lamejs"]');
+
+    function resolveLoadedEncoder() {
+      if (window.lamejs?.Mp3Encoder) {
+        resolve(window.lamejs);
+      } else {
+        reject(new Error("MP3_ENCODER_UNAVAILABLE"));
+      }
+    }
+
+    if (existingScript) {
+      existingScript.addEventListener("load", resolveLoadedEncoder, { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("MP3_ENCODER_LOAD_FAILED")), { once: true });
+      resolveLoadedEncoder();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "/vendor/lame.all.js";
+    script.async = true;
+    script.dataset.audioEncoder = "lamejs";
+    script.onload = resolveLoadedEncoder;
+    script.onerror = () => reject(new Error("MP3_ENCODER_LOAD_FAILED"));
+    document.head.appendChild(script);
+  });
+}
+
 async function encodeMp3(chunks: Float32Array[], sampleRate: number) {
-  const lamejs = await import("lamejs");
+  const lamejs = await loadLameJs();
   const encoder = new lamejs.Mp3Encoder(1, sampleRate, 64);
   const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
   const samples = new Int16Array(totalLength);
