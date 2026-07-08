@@ -53,23 +53,31 @@ function getPhoneFromConversationId(id: string) {
 }
 
 function parseDataUrl(dataUrl?: string) {
-  const match = dataUrl?.match(/^data:([^;,]+);base64,(.+)$/);
+  const match = dataUrl?.match(/^data:([^,]+);base64,(.+)$/);
   if (!match) return null;
 
+  const mediaType = match[1].replace(/\s+/g, "");
+
   return {
-    mimeType: match[1],
+    mimeType: mediaType,
     buffer: Buffer.from(match[2], "base64")
   };
 }
 
+function getBaseMimeType(mimeType: string) {
+  return mimeType.split(";")[0].trim().toLowerCase();
+}
+
 function isSupportedWhatsAppAudio(mimeType: string) {
+  const baseMimeType = getBaseMimeType(mimeType);
+
   return [
     "audio/aac",
     "audio/mp4",
     "audio/mpeg",
     "audio/amr",
     "audio/ogg"
-  ].some((supportedType) => mimeType.toLowerCase().startsWith(supportedType));
+  ].includes(baseMimeType);
 }
 
 async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, attachment: Required<Pick<AttachmentPayload, "type" | "name" | "dataUrl">> & AttachmentPayload) {
@@ -77,7 +85,7 @@ async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, a
   if (!parsed) throw new Error("INVALID_ATTACHMENT");
   if (parsed.buffer.length > 8 * 1024 * 1024) throw new Error("ATTACHMENT_TOO_LARGE");
 
-  const mimeType = attachment.mimeType || parsed.mimeType;
+  const mimeType = (attachment.mimeType || parsed.mimeType).replace(/\s+/g, "");
   if (attachment.type === "audio" && !isSupportedWhatsAppAudio(mimeType)) {
     throw new Error("UNSUPPORTED_AUDIO_FORMAT");
   }

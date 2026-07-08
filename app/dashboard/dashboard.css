@@ -1274,6 +1274,20 @@
   margin-bottom: 8px;
 }
 
+.message-attachment-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #eef2f7;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .window-notice {
   margin: 12px;
   border: 1px solid #fdba74;

@@ -46,7 +46,8 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
   });
   const mediaPayload = await mediaResponse.json().catch(() => null);
   const mediaUrl = mediaPayload?.url;
-  const mimeType = mediaPayload?.mime_type || media?.mime_type || (message.audio ? "audio/ogg" : "image/jpeg");
+  const mimeType = String(mediaPayload?.mime_type || media?.mime_type || (message.audio ? "audio/ogg" : "image/jpeg"))
+    .replace(/\s+/g, "");
   if (!mediaResponse.ok || !mediaUrl) return undefined;
 
   const fileResponse = await fetch(mediaUrl, {

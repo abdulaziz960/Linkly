@@ -343,9 +343,15 @@ export default function InboxView({
                     item.attachment.type === "image" ? (
                       <img className="message-attachment-image" src={item.attachment.url} alt={item.attachment.name} />
                     ) : (
-                      <audio className="message-attachment-audio" controls src={item.attachment.url}>
-                        <track kind="captions" />
-                      </audio>
+                      <>
+                        <audio className="message-attachment-audio" controls>
+                          <source src={item.attachment.url} type={item.attachment.mimeType || "audio/ogg"} />
+                          <track kind="captions" />
+                        </audio>
+                        <a className="message-attachment-link" href={item.attachment.url} download={item.attachment.name}>
+                          فتح الصوت
+                        </a>
+                      </>
                     )
                   ) : null}
                   {item.attachment && (item.text === "صورة" || item.text === "تسجيل صوتي") ? null : <span>{item.text}</span>}
