@@ -62,12 +62,26 @@ function parseDataUrl(dataUrl?: string) {
   };
 }
 
+function isSupportedWhatsAppAudio(mimeType: string) {
+  return [
+    "audio/aac",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/amr",
+    "audio/ogg"
+  ].some((supportedType) => mimeType.toLowerCase().startsWith(supportedType));
+}
+
 async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, attachment: Required<Pick<AttachmentPayload, "type" | "name" | "dataUrl">> & AttachmentPayload) {
   const parsed = parseDataUrl(attachment.dataUrl);
   if (!parsed) throw new Error("INVALID_ATTACHMENT");
   if (parsed.buffer.length > 8 * 1024 * 1024) throw new Error("ATTACHMENT_TOO_LARGE");
 
   const mimeType = attachment.mimeType || parsed.mimeType;
+  if (attachment.type === "audio" && !isSupportedWhatsAppAudio(mimeType)) {
+    throw new Error("UNSUPPORTED_AUDIO_FORMAT");
+  }
+
   const formData = new FormData();
   formData.set("messaging_product", "whatsapp");
   formData.set("type", mimeType);
@@ -313,6 +327,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
     if (error instanceof Error && error.message === "ATTACHMENT_TOO_LARGE") {
       return jsonError("حجم المرفق كبير، الحد الأقصى 8 ميجا", 400);
+    }
+    if (error instanceof Error && error.message === "UNSUPPORTED_AUDIO_FORMAT") {
+      return jsonError("صيغة التسجيل الصوتي غير مدعومة في واتساب. جرّب التسجيل من متصفح يدعم audio/ogg أو audio/mp4.", 400);
     }
     return jsonError("تعذر إرسال الرسالة", 500);
   }

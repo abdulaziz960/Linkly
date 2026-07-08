@@ -49,6 +49,19 @@ function readFileAsDataUrl(file: File | Blob) {
   });
 }
 
+function getSupportedAudioMimeType() {
+  const types = ["audio/ogg;codecs=opus", "audio/mp4", "audio/mpeg", "audio/ogg"];
+
+  return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+}
+
+function getAudioFileName(mimeType: string) {
+  if (mimeType.includes("mp4")) return `voice-${Date.now()}.m4a`;
+  if (mimeType.includes("mpeg")) return `voice-${Date.now()}.mp3`;
+  if (mimeType.includes("ogg")) return `voice-${Date.now()}.ogg`;
+  return `voice-${Date.now()}`;
+}
+
 function formatConversationAge(conversation: Conversation) {
   if (!conversation.lastActivityAt) {
     return conversation.messages.at(-1)?.time || "";
@@ -156,7 +169,14 @@ export default function InboxView({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const mimeType = getSupportedAudioMimeType();
+      if (!mimeType) {
+        stream.getTracks().forEach((track) => track.stop());
+        window.alert("المتصفح يسجل بصيغة غير مدعومة في واتساب. جرّب Chrome أو Safari محدّث.");
+        return;
+      }
+
+      const recorder = new MediaRecorder(stream, { mimeType });
       audioChunksRef.current = [];
       mediaRecorderRef.current = recorder;
 
@@ -165,7 +185,7 @@ export default function InboxView({
       };
 
       recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || mimeType });
         stream.getTracks().forEach((track) => track.stop());
         setIsRecording(false);
 
@@ -179,7 +199,7 @@ export default function InboxView({
         await onSendAttachment({
           type: "audio",
           url: dataUrl,
-          name: `voice-${Date.now()}.webm`,
+          name: getAudioFileName(audioBlob.type),
           mimeType: audioBlob.type
         });
       };
