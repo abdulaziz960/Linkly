@@ -256,11 +256,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
           messaging_product: "whatsapp",
           recipient_type: "individual",
           to,
-          type: attachment?.type,
-          [attachment?.type === "image" ? "image" : "audio"]: {
-            id: uploadedMedia.id,
-            ...(attachment?.type === "image" && body.text?.trim() ? { caption: body.text.trim() } : {})
-          }
+          ...(attachment?.type === "image"
+            ? {
+                type: "image",
+                image: {
+                  id: uploadedMedia.id,
+                  ...(body.text?.trim() ? { caption: body.text.trim() } : {})
+                }
+              }
+            : {
+                type: "document",
+                document: {
+                  id: uploadedMedia.id,
+                  filename: attachment?.name || "voice.m4a"
+                }
+              })
         }
       : isTemplateMessage
       ? {
