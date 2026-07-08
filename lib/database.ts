@@ -124,8 +124,13 @@ async function ensureSchema() {
     status TEXT NOT NULL,
     assignee TEXT NOT NULL,
     unread INTEGER NOT NULL DEFAULT 0,
-    window_expired INTEGER NOT NULL DEFAULT 0
+    window_expired INTEGER NOT NULL DEFAULT 0,
+    last_activity_at TEXT NOT NULL DEFAULT ''
   )`);
+  const conversationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(conversations)`);
+  if (!conversationColumns.some((column) => column.name === "last_activity_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN last_activity_at TEXT NOT NULL DEFAULT ''`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL,
@@ -437,7 +442,8 @@ async function seedDatabase() {
           status: conversation.status,
           assignee: conversation.assignee,
           unread: conversation.unread ?? 0,
-          windowExpired: conversation.windowExpired ? 1 : 0
+          windowExpired: conversation.windowExpired ? 1 : 0,
+          lastActivityAt: conversation.lastActivityAt ?? ""
         }
       });
 
@@ -744,6 +750,9 @@ export async function getCustomers(): Promise<Customer[]> {
 export async function getConversations(): Promise<Conversation[]> {
   await ensureSeeded();
   const conversations = await prisma.conversation.findMany({
+    orderBy: {
+      lastActivityAt: "desc"
+    },
     include: {
       customer: true,
       messages: true,
@@ -761,6 +770,7 @@ export async function getConversations(): Promise<Conversation[]> {
     assignee: conversation.assignee,
     unread: conversation.unread || undefined,
     windowExpired: Boolean(conversation.windowExpired) || undefined,
+    lastActivityAt: conversation.lastActivityAt || undefined,
     tags: conversation.tags.map((tag) => tag.tagName),
     messages: conversation.messages.map<Message>((message) => ({
       id: message.id,

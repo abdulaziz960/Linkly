@@ -40,6 +40,31 @@ type InboxViewProps = {
   onSetMobileChatOpen: (isOpen: boolean) => void;
 };
 
+function formatConversationAge(conversation: Conversation) {
+  if (!conversation.lastActivityAt) {
+    return conversation.messages.at(-1)?.time || "";
+  }
+
+  const activityTime = new Date(conversation.lastActivityAt).getTime();
+  if (Number.isNaN(activityTime)) return "";
+
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - activityTime) / 60000));
+  if (diffMinutes < 1) return "الآن";
+  if (diffMinutes < 60) return `منذ ${diffMinutes} د`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `منذ ${diffHours} س`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `منذ ${diffDays} يوم`;
+
+  return new Intl.DateTimeFormat("ar-SA", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Riyadh"
+  }).format(new Date(activityTime));
+}
+
 export default function InboxView({
   activeConversation,
   assignedOnly,
@@ -196,6 +221,7 @@ export default function InboxView({
               </span>
               <span className="conversation-meta">
                 {conversation.unread ? <strong>{conversation.unread}</strong> : null}
+                {formatConversationAge(conversation) ? <small className="conversation-age">{formatConversationAge(conversation)}</small> : null}
                 <em className={conversation.status}>{statusLabel(conversation.status)}</em>
                 <small>{conversation.assignee}</small>
               </span>

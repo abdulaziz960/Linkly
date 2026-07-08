@@ -120,15 +120,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   try {
     if (direction === "note") {
-      const message = await prisma.message.create({
-        data: {
-          id: `m-${Date.now()}`,
-          conversationId: conversation.id,
-          direction,
-          text,
-          time: "الآن",
-          author: user?.name ?? ""
-        }
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            id: `m-${Date.now()}`,
+            conversationId: conversation.id,
+            direction,
+            text,
+            time: "الآن",
+            author: user?.name ?? ""
+          }
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: text,
+            lastActivityAt: new Date().toISOString()
+          }
+        });
+
+        return created;
       });
 
       return jsonOk(message);
@@ -204,7 +216,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         where: { id: conversation.id },
         data: {
           lastMessage: text,
-          windowExpired: body.forceWindowExpired ? 1 : undefined
+          windowExpired: body.forceWindowExpired ? 1 : undefined,
+          lastActivityAt: new Date().toISOString()
         }
       });
 

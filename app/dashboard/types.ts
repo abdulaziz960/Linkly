@@ -44,6 +44,7 @@ export type Conversation = {
   assignee: string;
   unread?: number;
   windowExpired?: boolean;
+  lastActivityAt?: string;
   tags: string[];
   messages: Message[];
 };

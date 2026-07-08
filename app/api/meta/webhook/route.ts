@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
           name: contact?.profile?.name,
           text,
           direction: "in",
-          messageId: message.id
+          messageId: message.id,
+          receivedAt: message.timestamp ? new Date(Number(message.timestamp) * 1000) : undefined
         });
 
         savedMessages.push(message.id || message.from);

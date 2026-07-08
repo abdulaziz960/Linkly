@@ -387,6 +387,11 @@
   font-weight: 800;
 }
 
+.conversation-meta .conversation-age {
+  color: #64748b;
+  font-size: 11px;
+}
+
 .mobile-back {
   display: none;
 }

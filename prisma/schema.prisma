@@ -25,6 +25,7 @@ model Conversation {
   assignee      String
   unread        Int               @default(0)
   windowExpired Int               @default(0) @map("window_expired")
+  lastActivityAt String           @default("") @map("last_activity_at")
   customer      Customer          @relation(fields: [customerId], references: [id])
   messages      Message[]
   tags          ConversationTag[]

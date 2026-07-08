@@ -7,6 +7,7 @@ type StoreWhatsAppMessageInput = {
   direction: "in" | "out";
   messageId?: string;
   author?: string;
+  receivedAt?: Date;
 };
 
 export function normalizeWhatsAppPhone(phone: string) {
@@ -31,6 +32,7 @@ function getCustomerInitial(name: string, phone: string) {
 }
 
 export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
+  const activityAt = (input.receivedAt ?? new Date()).toISOString();
   const phone = normalizeWhatsAppPhone(input.phone);
   const name = getCustomerName(phone, input.name);
   const customerId = `wa-${phone}`;
@@ -63,7 +65,8 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
         status: "unassigned",
         assignee: "بدون موظف",
         unread: 0,
-        windowExpired: 0
+        windowExpired: 0,
+        lastActivityAt: activityAt
       }
     });
 
@@ -85,7 +88,8 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
       data: {
         lastMessage: input.text,
         unread: input.direction === "in" ? { increment: 1 } : undefined,
-        windowExpired: 0
+        windowExpired: 0,
+        lastActivityAt: activityAt
       }
     });
 
