@@ -1107,6 +1107,82 @@
   scrollbar-gutter: stable;
 }
 
+.conversation-empty-state {
+  flex: 1 1 0;
+  min-height: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 24px;
+  padding: 32px;
+  text-align: center;
+}
+
+.conversation-empty-state p {
+  margin: 0;
+  color: #1f2937;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.conversation-empty-icon {
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  background: #eef2f8;
+  position: relative;
+  overflow: hidden;
+}
+
+.conversation-empty-icon::before,
+.conversation-empty-icon::after,
+.conversation-empty-icon span,
+.conversation-empty-icon i {
+  content: "";
+  position: absolute;
+  display: block;
+}
+
+.conversation-empty-icon::before {
+  width: 70px;
+  height: 54px;
+  border-radius: 26px;
+  background: #d6dbea;
+  left: 42px;
+  top: 48px;
+  box-shadow: inset 0 -14px 0 rgba(198, 204, 224, 0.55);
+}
+
+.conversation-empty-icon::after {
+  width: 30px;
+  height: 22px;
+  border-radius: 18px;
+  background: #8ec5ff;
+  left: 46px;
+  top: 84px;
+  box-shadow: 35px -34px 0 14px transparent;
+}
+
+.conversation-empty-icon span {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #aab2cc;
+  left: 62px;
+  top: 70px;
+  box-shadow: 20px 0 0 #aab2cc, 40px 0 0 #aab2cc, -18px 28px 0 -2px #ffffff, -3px 28px 0 -2px #ffffff, 12px 28px 0 -2px #ffffff;
+}
+
+.conversation-empty-icon i {
+  width: 44px;
+  height: 10px;
+  border-radius: 999px;
+  background: #e3e8f2;
+  left: 6px;
+  top: 38px;
+  box-shadow: 126px 78px 0 #e3e8f2, 106px 102px 0 #e3e8f2;
+}
+
 .message-bubble {
   max-width: 72%;
   border: 1px solid var(--line);

@@ -208,6 +208,16 @@ export default function InboxView({
       </aside>
 
       <section className="chat-column">
+        {!hasActiveConversation ? (
+          <div className="conversation-empty-state">
+            <div className="conversation-empty-icon" aria-hidden="true">
+              <span />
+              <i />
+            </div>
+            <p>لا يوجد محادثة حاليا، الرجاء اختيار محادثة من قائمة المحادثات</p>
+          </div>
+        ) : (
+          <>
         <div className="chat-head">
           <button className="mobile-back" type="button" onClick={() => onSetMobileChatOpen(false)}>
             رجوع
@@ -383,6 +393,8 @@ export default function InboxView({
               <p>الموظف المسؤول: {activeConversation.assignee}</p>
             </div>
           </div>
+        )}
+          </>
         )}
       </section>
     </section>
