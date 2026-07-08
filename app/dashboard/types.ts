@@ -23,6 +23,7 @@ export type MessageAttachment = {
   type: "image" | "audio";
   url: string;
   name: string;
+  mimeType?: string;
 };
 
 export type Message = {

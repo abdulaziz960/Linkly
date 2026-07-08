@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import { navItems, viewTitles } from "./data/navigation";
-import { formatMessageTime } from "../../lib/time";
 import type {
   AutomationRule,
   Campaign,
@@ -490,24 +489,32 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     await loadDashboardData();
   }
 
-  function handleSendAttachment(attachment: MessageAttachment) {
+  async function handleSendAttachment(attachment: MessageAttachment) {
     if (!activeConversation.id) return;
     if (activeConversation.windowExpired || activeConversation.status === "closed") return;
 
-    const nextMessage: Conversation["messages"][number] = {
-      id: `m-${Date.now()}`,
-      direction: "out",
-      text: attachment.type === "image" ? `صورة: ${attachment.name}` : `تسجيل صوتي: ${attachment.name}`,
-      time: formatMessageTime(),
-      author: initialUser.name,
-      attachment
-    };
-
-    updateConversation({
-      ...activeConversation,
-      lastMessage: attachment.type === "image" ? "تم إرسال صورة" : "تم إرسال تسجيل صوتي",
-      messages: [...activeConversation.messages, nextMessage]
+    const response = await fetch(`/api/conversations/${activeConversation.id}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        direction: "out",
+        text: attachment.type === "image" ? `صورة: ${attachment.name}` : `تسجيل صوتي: ${attachment.name}`,
+        attachment: {
+          type: attachment.type,
+          name: attachment.name,
+          dataUrl: attachment.url,
+          mimeType: attachment.mimeType
+        },
+        conversation: activeConversationSnapshot
+      })
     });
+
+    if (!response.ok) {
+      window.alert(await readApiError(response));
+      return;
+    }
+
+    await loadDashboardData();
   }
 
   async function handleDeleteMessage(messageId: string) {

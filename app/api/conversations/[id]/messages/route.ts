@@ -21,6 +21,13 @@ type ConversationSnapshot = {
   status?: string;
 };
 
+type AttachmentPayload = {
+  type?: "image" | "audio";
+  name?: string;
+  dataUrl?: string;
+  mimeType?: string;
+};
+
 export const runtime = "nodejs";
 
 function normalizeTemplateLanguage(language?: string) {
@@ -43,6 +50,46 @@ function getPhoneFromConversationId(id: string) {
   const value = id.trim();
   if (!value.startsWith("conv-")) return "";
   return value.slice(5);
+}
+
+function parseDataUrl(dataUrl?: string) {
+  const match = dataUrl?.match(/^data:([^;,]+);base64,(.+)$/);
+  if (!match) return null;
+
+  return {
+    mimeType: match[1],
+    buffer: Buffer.from(match[2], "base64")
+  };
+}
+
+async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, attachment: Required<Pick<AttachmentPayload, "type" | "name" | "dataUrl">> & AttachmentPayload) {
+  const parsed = parseDataUrl(attachment.dataUrl);
+  if (!parsed) throw new Error("INVALID_ATTACHMENT");
+  if (parsed.buffer.length > 8 * 1024 * 1024) throw new Error("ATTACHMENT_TOO_LARGE");
+
+  const mimeType = attachment.mimeType || parsed.mimeType;
+  const formData = new FormData();
+  formData.set("messaging_product", "whatsapp");
+  formData.set("type", mimeType);
+  formData.set("file", new Blob([new Uint8Array(parsed.buffer)], { type: mimeType }), attachment.name);
+
+  const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/media`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    },
+    body: formData
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || !payload?.id) {
+    throw new Error(payload?.error?.message || "MEDIA_UPLOAD_FAILED");
+  }
+
+  return {
+    id: payload.id as string,
+    mimeType
+  };
 }
 
 async function findOrCreateConversation(id: string, snapshot?: ConversationSnapshot) {
@@ -108,9 +155,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     messageType?: "text" | "template";
     templateName?: string;
     templateLanguage?: string;
+    attachment?: AttachmentPayload;
     conversation?: ConversationSnapshot;
   };
-  const text = body.text?.trim();
+  const attachment = body.attachment?.type && body.attachment.name && body.attachment.dataUrl ? body.attachment : undefined;
+  const text = body.text?.trim() || (attachment?.type === "image" ? `صورة: ${attachment.name}` : attachment?.type === "audio" ? `تسجيل صوتي: ${attachment.name}` : "");
   const direction = body.direction || "out";
 
   if (!text) return jsonError("نص الرسالة مطلوب");
@@ -156,6 +205,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const accessToken = settings.accessToken?.trim();
     const to = normalizeWhatsAppPhone(conversation.customer.phone);
     const isTemplateMessage = body.messageType === "template" || Boolean(body.templateName);
+    const isAttachmentMessage = Boolean(attachment);
 
     if (!phoneNumberId) return jsonError("Phone Number ID مطلوب قبل إرسال الرسالة");
     if (!accessToken) return jsonError("Access Token مطلوب قبل إرسال الرسالة");
@@ -169,7 +219,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return jsonError("اسم قالب WhatsApp مطلوب قبل الإرسال");
     }
 
-    const payload = isTemplateMessage
+    let uploadedMedia: { id: string; mimeType: string } | null = null;
+    if (attachment) {
+      uploadedMedia = await uploadWhatsAppMedia(phoneNumberId, accessToken, {
+        type: attachment.type as "image" | "audio",
+        name: attachment.name as string,
+        dataUrl: attachment.dataUrl as string,
+        mimeType: attachment.mimeType
+      });
+    }
+
+    const payload = isAttachmentMessage && uploadedMedia
+      ? {
+          messaging_product: "whatsapp",
+          to,
+          type: attachment?.type,
+          [attachment?.type === "image" ? "image" : "audio"]: {
+            id: uploadedMedia.id,
+            ...(attachment?.type === "image" && body.text?.trim() ? { caption: body.text.trim() } : {})
+          }
+        }
+      : isTemplateMessage
       ? {
           messaging_product: "whatsapp",
           to,
@@ -214,6 +284,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
           text,
           time: messageTime,
           author: user?.name ?? ""
+          ,
+          attachmentType: attachment?.type ?? "",
+          attachmentUrl: attachment?.dataUrl ?? "",
+          attachmentName: attachment?.name ?? "",
+          attachmentMime: uploadedMedia?.mimeType ?? attachment?.mimeType ?? "",
+          metaMediaId: uploadedMedia?.id ?? ""
         }
       });
 
@@ -232,6 +308,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonOk(message);
   } catch (error) {
     console.error("Conversation message send failed", error);
+    if (error instanceof Error && error.message === "INVALID_ATTACHMENT") {
+      return jsonError("ملف المرفق غير صالح", 400);
+    }
+    if (error instanceof Error && error.message === "ATTACHMENT_TOO_LARGE") {
+      return jsonError("حجم المرفق كبير، الحد الأقصى 8 ميجا", 400);
+    }
     return jsonError("تعذر إرسال الرسالة", 500);
   }
 }

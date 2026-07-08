@@ -35,10 +35,19 @@ type InboxViewProps = {
   onCloseConversation: () => void;
   onDeleteMessage: (messageId: string) => void;
   onSend: (event: FormEvent<HTMLFormElement>) => void;
-  onSendAttachment: (attachment: MessageAttachment) => void;
+  onSendAttachment: (attachment: MessageAttachment) => void | Promise<void>;
   onSendTemplate: () => void;
   onSetMobileChatOpen: (isOpen: boolean) => void;
 };
+
+function readFileAsDataUrl(file: File | Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 function formatConversationAge(conversation: Conversation) {
   if (!conversation.lastActivityAt) {
@@ -114,14 +123,22 @@ export default function InboxView({
   const isComposerDisabled = !hasActiveConversation || activeConversation.windowExpired || isClosed;
   const canToggleConversation = hasActiveConversation && (!isClosed || canReopenConversation);
 
-  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    onSendAttachment({
+    const dataUrl = await readFileAsDataUrl(file).catch(() => "");
+    if (!dataUrl) {
+      window.alert("تعذر قراءة الصورة.");
+      event.target.value = "";
+      return;
+    }
+
+    await onSendAttachment({
       type: "image",
-      url: URL.createObjectURL(file),
-      name: file.name
+      url: dataUrl,
+      name: file.name,
+      mimeType: file.type
     });
     event.target.value = "";
   }
@@ -147,16 +164,23 @@ export default function InboxView({
         if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" });
         stream.getTracks().forEach((track) => track.stop());
         setIsRecording(false);
 
         if (!audioBlob.size) return;
-        onSendAttachment({
+        const dataUrl = await readFileAsDataUrl(audioBlob).catch(() => "");
+        if (!dataUrl) {
+          window.alert("تعذر تجهيز التسجيل الصوتي.");
+          return;
+        }
+
+        await onSendAttachment({
           type: "audio",
-          url: URL.createObjectURL(audioBlob),
-          name: `voice-${Date.now()}.webm`
+          url: dataUrl,
+          name: `voice-${Date.now()}.webm`,
+          mimeType: audioBlob.type
         });
       };
 

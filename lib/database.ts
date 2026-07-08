@@ -137,11 +137,21 @@ async function ensureSchema() {
     direction TEXT NOT NULL,
     text TEXT NOT NULL,
     time TEXT NOT NULL,
-    author TEXT NOT NULL DEFAULT ''
+    author TEXT NOT NULL DEFAULT '',
+    attachment_type TEXT NOT NULL DEFAULT '',
+    attachment_url TEXT NOT NULL DEFAULT '',
+    attachment_name TEXT NOT NULL DEFAULT '',
+    attachment_mime TEXT NOT NULL DEFAULT '',
+    meta_media_id TEXT NOT NULL DEFAULT ''
   )`);
   const messageColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(messages)`);
   if (!messageColumns.some((column) => column.name === "author")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN author TEXT NOT NULL DEFAULT ''`);
+  }
+  for (const columnName of ["attachment_type", "attachment_url", "attachment_name", "attachment_mime", "meta_media_id"]) {
+    if (!messageColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
+    }
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS employees (
     id TEXT PRIMARY KEY,
@@ -457,7 +467,12 @@ async function seedDatabase() {
             direction: message.direction,
             text: message.text,
             time: message.time,
-            author: message.author ?? ""
+            author: message.author ?? "",
+            attachmentType: message.attachment?.type ?? "",
+            attachmentUrl: message.attachment?.url ?? "",
+            attachmentName: message.attachment?.name ?? "",
+            attachmentMime: "",
+            metaMediaId: ""
           }
         });
       }
@@ -777,7 +792,13 @@ export async function getConversations(): Promise<Conversation[]> {
       direction: message.direction as Message["direction"],
       text: message.text,
       time: message.time,
-      author: message.author || undefined
+      author: message.author || undefined,
+      attachment: message.attachmentType && message.attachmentUrl ? {
+        type: message.attachmentType as NonNullable<Message["attachment"]>["type"],
+        url: message.attachmentUrl,
+        name: message.attachmentName || message.text,
+        mimeType: message.attachmentMime || undefined
+      } : undefined
     }))
   }));
 }

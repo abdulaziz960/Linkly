@@ -40,6 +40,11 @@ model Message {
   text           String
   time           String
   author         String       @default("")
+  attachmentType String       @default("") @map("attachment_type")
+  attachmentUrl  String       @default("") @map("attachment_url")
+  attachmentName String       @default("") @map("attachment_name")
+  attachmentMime String       @default("") @map("attachment_mime")
+  metaMediaId    String       @default("") @map("meta_media_id")
   conversation   Conversation @relation(fields: [conversationId], references: [id])
 
   @@map("messages")
