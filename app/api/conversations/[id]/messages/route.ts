@@ -72,6 +72,10 @@ function isSupportedWhatsAppAudio(mimeType: string) {
   ].some((supportedType) => mimeType.toLowerCase().startsWith(supportedType));
 }
 
+function isWhatsAppVoiceNote(mimeType: string) {
+  return mimeType.toLowerCase().includes("audio/ogg");
+}
+
 async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, attachment: Required<Pick<AttachmentPayload, "type" | "name" | "dataUrl">> & AttachmentPayload) {
   const parsed = parseDataUrl(attachment.dataUrl);
   if (!parsed) throw new Error("INVALID_ATTACHMENT");
@@ -251,7 +255,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           type: attachment?.type,
           [attachment?.type === "image" ? "image" : "audio"]: {
             id: uploadedMedia.id,
-            ...(attachment?.type === "audio" ? { voice: true } : {}),
+            ...(attachment?.type === "audio" && isWhatsAppVoiceNote(uploadedMedia.mimeType) ? { voice: true } : {}),
             ...(attachment?.type === "image" && body.text?.trim() ? { caption: body.text.trim() } : {})
           }
         }
@@ -290,6 +294,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const metaResponse = await response.json().catch(() => null);
 
     if (!response.ok) {
+      console.error("WhatsApp message send failed", {
+        status: response.status,
+        error: metaResponse?.error,
+        messageType: payload.type,
+        attachmentType: attachment?.type,
+        attachmentMime: uploadedMedia?.mimeType
+      });
       return jsonError(metaResponse?.error?.message || "تعذر إرسال الرسالة عبر WhatsApp", response.status);
     }
 
