@@ -85,8 +85,9 @@ export default function InboxView({
       (template.category === "MARKETING" || template.type === "تسويق")
   );
   const isClosed = activeConversation.status === "closed";
-  const isComposerDisabled = activeConversation.windowExpired || isClosed;
-  const canToggleConversation = !isClosed || canReopenConversation;
+  const hasActiveConversation = Boolean(activeConversation.id);
+  const isComposerDisabled = !hasActiveConversation || activeConversation.windowExpired || isClosed;
+  const canToggleConversation = hasActiveConversation && (!isClosed || canReopenConversation);
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];

@@ -171,8 +171,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, [canViewAllConversations, customers, scopedConversations]);
   const activeConversation =
     scopedConversations.find((conversation) => conversation.id === activeConversationId) ??
-    scopedConversations[0] ??
-    conversations[0] ??
     emptyConversation;
   const activeConversationSnapshot = {
     id: activeConversation.id,
@@ -229,7 +227,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         setActiveConversationId((currentId) =>
           currentId && nextConversations.some((conversation) => conversation.id === currentId)
             ? currentId
-            : nextConversations[0]?.id ?? ""
+            : ""
         );
       }
       if (nextCustomers) {
@@ -304,12 +302,26 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, [canViewAllConversations, filter]);
 
   useEffect(() => {
-    if (!scopedConversations.length) return;
-
-    if (!scopedConversations.some((conversation) => conversation.id === activeConversationId)) {
-      setActiveConversationId(scopedConversations[0].id);
+    if (activeConversationId && !scopedConversations.some((conversation) => conversation.id === activeConversationId)) {
+      setActiveConversationId("");
     }
   }, [activeConversationId, scopedConversations]);
+
+  useEffect(() => {
+    const clearActiveConversation = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || activeView !== "inbox" || !activeConversationId) return;
+
+      setActiveConversationId("");
+      setChatPanel("chat");
+      setMobileChatOpen(false);
+    };
+
+    window.addEventListener("keydown", clearActiveConversation);
+
+    return () => {
+      window.removeEventListener("keydown", clearActiveConversation);
+    };
+  }, [activeConversationId, activeView]);
 
   useEffect(() => {
     if (!approvedMarketingTemplates.length) return;
