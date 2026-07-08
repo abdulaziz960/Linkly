@@ -92,6 +92,18 @@ export async function POST(request: NextRequest) {
       const value = change.value || {};
       const contacts = Array.isArray(value.contacts) ? value.contacts : [];
       const messages = Array.isArray(value.messages) ? value.messages : [];
+      const statuses = Array.isArray(value.statuses) ? value.statuses : [];
+
+      for (const status of statuses) {
+        if (status.status === "failed" || status.errors?.length) {
+          console.error("WhatsApp delivery status failed", {
+            messageId: status.id,
+            recipientId: status.recipient_id,
+            status: status.status,
+            errors: status.errors
+          });
+        }
+      }
 
       for (const message of messages) {
         if (!message.from) continue;
