@@ -40,28 +40,6 @@ type InboxViewProps = {
   onSetMobileChatOpen: (isOpen: boolean) => void;
 };
 
-type AudioRecorderState = {
-  context: AudioContext;
-  processor: ScriptProcessorNode;
-  source: MediaStreamAudioSourceNode;
-  stream: MediaStream;
-  chunks: Float32Array[];
-  sampleRate: number;
-};
-
-type LameJsRuntime = {
-  Mp3Encoder: new (channels: number, sampleRate: number, kbps: number) => {
-    encodeBuffer(samples: Int16Array): Int8Array;
-    flush(): Int8Array;
-  };
-};
-
-declare global {
-  interface Window {
-    lamejs?: LameJsRuntime;
-  }
-}
-
 function readFileAsDataUrl(file: File | Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -71,66 +49,17 @@ function readFileAsDataUrl(file: File | Blob) {
   });
 }
 
-function loadLameJs() {
-  if (window.lamejs?.Mp3Encoder) return Promise.resolve(window.lamejs);
+function getSupportedAudioMimeType() {
+  const types = ["audio/mp4", "audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/webm", "audio/ogg"];
 
-  return new Promise<LameJsRuntime>((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>('script[data-audio-encoder="lamejs"]');
-
-    function resolveLoadedEncoder() {
-      if (window.lamejs?.Mp3Encoder) {
-        resolve(window.lamejs);
-      } else {
-        reject(new Error("MP3_ENCODER_UNAVAILABLE"));
-      }
-    }
-
-    if (existingScript) {
-      existingScript.addEventListener("load", resolveLoadedEncoder, { once: true });
-      existingScript.addEventListener("error", () => reject(new Error("MP3_ENCODER_LOAD_FAILED")), { once: true });
-      resolveLoadedEncoder();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "/vendor/lame.all.js";
-    script.async = true;
-    script.dataset.audioEncoder = "lamejs";
-    script.onload = resolveLoadedEncoder;
-    script.onerror = () => reject(new Error("MP3_ENCODER_LOAD_FAILED"));
-    document.head.appendChild(script);
-  });
+  return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
 
-async function encodeMp3(chunks: Float32Array[], sampleRate: number) {
-  const lamejs = await loadLameJs();
-  const encoder = new lamejs.Mp3Encoder(1, sampleRate, 64);
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const samples = new Int16Array(totalLength);
-  let offset = 0;
-
-  for (const chunk of chunks) {
-    for (let index = 0; index < chunk.length; index += 1) {
-      const sample = Math.max(-1, Math.min(1, chunk[index]));
-      samples[offset + index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-    }
-    offset += chunk.length;
-  }
-
-  const mp3Chunks: Uint8Array[] = [];
-  for (let index = 0; index < samples.length; index += 1152) {
-    const encoded = encoder.encodeBuffer(samples.subarray(index, index + 1152));
-    if (encoded.length) mp3Chunks.push(new Uint8Array(encoded));
-  }
-
-  const finalChunk = encoder.flush();
-  if (finalChunk.length) mp3Chunks.push(new Uint8Array(finalChunk));
-
-  return new Blob(mp3Chunks.map((chunk) => {
-    const buffer = new ArrayBuffer(chunk.byteLength);
-    new Uint8Array(buffer).set(chunk);
-    return buffer;
-  }), { type: "audio/mpeg" });
+function getAudioFileName(mimeType: string) {
+  if (mimeType.includes("mp4")) return `voice-${Date.now()}.m4a`;
+  if (mimeType.includes("webm")) return `voice-${Date.now()}.webm`;
+  if (mimeType.includes("ogg")) return `voice-${Date.now()}.ogg`;
+  return `voice-${Date.now()}`;
 }
 
 function formatConversationAge(conversation: Conversation) {
@@ -193,7 +122,8 @@ export default function InboxView({
   onSetMobileChatOpen
 }: InboxViewProps) {
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const audioRecorderRef = useRef<AudioRecorderState | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const reopenTemplates = templates.filter(
     (template) =>
@@ -226,41 +156,9 @@ export default function InboxView({
     event.target.value = "";
   }
 
-  async function stopAudioRecording() {
-    const recorder = audioRecorderRef.current;
-    audioRecorderRef.current = null;
-    if (!recorder) return;
-
-    recorder.processor.disconnect();
-    recorder.source.disconnect();
-    recorder.stream.getTracks().forEach((track) => track.stop());
-    await recorder.context.close().catch(() => undefined);
-    setIsRecording(false);
-
-    if (!recorder.chunks.length) return;
-    const audioBlob = await encodeMp3(recorder.chunks, recorder.sampleRate).catch(() => null);
-    if (!audioBlob?.size) {
-      window.alert("تعذر تجهيز التسجيل الصوتي.");
-      return;
-    }
-
-    const dataUrl = await readFileAsDataUrl(audioBlob).catch(() => "");
-    if (!dataUrl) {
-      window.alert("تعذر تجهيز التسجيل الصوتي.");
-      return;
-    }
-
-    await onSendAttachment({
-      type: "audio",
-      url: dataUrl,
-      name: `voice-${Date.now()}.mp3`,
-      mimeType: "audio/mpeg"
-    });
-  }
-
   async function handleAudioToggle() {
     if (isRecording) {
-      await stopAudioRecording();
+      mediaRecorderRef.current?.stop();
       return;
     }
 
@@ -271,25 +169,42 @@ export default function InboxView({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const AudioContextConstructor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextConstructor) {
+      const mimeType = getSupportedAudioMimeType();
+      if (!mimeType) {
         stream.getTracks().forEach((track) => track.stop());
-        window.alert("تسجيل الصوت غير مدعوم في هذا المتصفح.");
+        window.alert("المتصفح يسجل بصيغة غير مدعومة. جرّب تحديث المتصفح.");
         return;
       }
-      const context = new AudioContextConstructor();
-      const source = context.createMediaStreamSource(stream);
-      const processor = context.createScriptProcessor(4096, 1, 1);
-      const chunks: Float32Array[] = [];
 
-      processor.onaudioprocess = (event) => {
-        chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
-        event.outputBuffer.getChannelData(0).fill(0);
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
-      source.connect(processor);
-      processor.connect(context.destination);
-      audioRecorderRef.current = { context, processor, source, stream, chunks, sampleRate: context.sampleRate };
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || mimeType });
+        stream.getTracks().forEach((track) => track.stop());
+        setIsRecording(false);
+
+        if (!audioBlob.size) return;
+        const dataUrl = await readFileAsDataUrl(audioBlob).catch(() => "");
+        if (!dataUrl) {
+          window.alert("تعذر تجهيز التسجيل الصوتي.");
+          return;
+        }
+
+        await onSendAttachment({
+          type: "audio",
+          url: dataUrl,
+          name: getAudioFileName(audioBlob.type),
+          mimeType: audioBlob.type
+        });
+      };
+
+      recorder.start();
       setIsRecording(true);
     } catch {
       setIsRecording(false);

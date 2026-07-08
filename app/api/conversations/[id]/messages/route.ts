@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
+import { convertAudioToMp3 } from "../../../../../lib/audio-conversion";
 import { getIntegrationSettings } from "../../../../../lib/database";
 import { prisma } from "../../../../../lib/prisma";
 import { formatMessageTime } from "../../../../../lib/time";
@@ -78,6 +79,31 @@ function isSupportedWhatsAppAudio(mimeType: string) {
     "audio/amr",
     "audio/ogg"
   ].includes(baseMimeType);
+}
+
+function getConvertedAudioName(fileName?: string) {
+  return `${fileName?.replace(/\.[^.]+$/, "") || `voice-${Date.now()}`}.mp3`;
+}
+
+async function normalizeAudioAttachment(attachment: AttachmentPayload) {
+  if (attachment.type !== "audio") return attachment;
+
+  const parsed = parseDataUrl(attachment.dataUrl);
+  if (!parsed) throw new Error("INVALID_ATTACHMENT");
+
+  const mimeType = (attachment.mimeType || parsed.mimeType).replace(/\s+/g, "");
+  if (!isSupportedWhatsAppAudio(mimeType)) {
+    throw new Error("UNSUPPORTED_AUDIO_FORMAT");
+  }
+
+  const converted = await convertAudioToMp3(parsed.buffer, mimeType);
+
+  return {
+    ...attachment,
+    name: getConvertedAudioName(attachment.name),
+    dataUrl: `data:${converted.mimeType};base64,${converted.buffer.toString("base64")}`,
+    mimeType: converted.mimeType
+  };
 }
 
 async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, attachment: Required<Pick<AttachmentPayload, "type" | "name" | "dataUrl">> & AttachmentPayload) {
@@ -242,12 +268,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     let uploadedMedia: { id: string; mimeType: string } | null = null;
+    const normalizedAttachment = attachment ? await normalizeAudioAttachment(attachment) : undefined;
     if (attachment) {
       uploadedMedia = await uploadWhatsAppMedia(phoneNumberId, accessToken, {
-        type: attachment.type as "image" | "audio",
-        name: attachment.name as string,
-        dataUrl: attachment.dataUrl as string,
-        mimeType: attachment.mimeType
+        type: normalizedAttachment?.type as "image" | "audio",
+        name: normalizedAttachment?.name as string,
+        dataUrl: normalizedAttachment?.dataUrl as string,
+        mimeType: normalizedAttachment?.mimeType
       });
     }
 
@@ -318,9 +345,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
           author: user?.name ?? ""
           ,
           attachmentType: attachment?.type ?? "",
-          attachmentUrl: attachment?.dataUrl ?? "",
-          attachmentName: attachment?.name ?? "",
-          attachmentMime: uploadedMedia?.mimeType ?? attachment?.mimeType ?? "",
+          attachmentUrl: normalizedAttachment?.dataUrl ?? "",
+          attachmentName: normalizedAttachment?.name ?? "",
+          attachmentMime: uploadedMedia?.mimeType ?? normalizedAttachment?.mimeType ?? "",
           metaMediaId: uploadedMedia?.id ?? ""
         }
       });
