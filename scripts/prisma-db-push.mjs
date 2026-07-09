@@ -8,6 +8,11 @@ if (provider !== "postgresql") {
   process.exit(0);
 }
 
+if (process.env.VERCEL) {
+  console.log("Skipping Prisma db push during Vercel build");
+  process.exit(0);
+}
+
 console.log(`Pushing Prisma schema to ${provider} database`);
 
 const result = spawnSync("npx", ["prisma", "db", "push", "--schema", schemaPath], {
