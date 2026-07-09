@@ -104,7 +104,7 @@ export type AdminLog = {
   message: string;
 };
 
-function hashPassword(password: string) {
+export function hashPassword(password: string) {
   return createHash("sha256").update(password).digest("hex");
 }
 
@@ -267,6 +267,13 @@ async function ensureSchema() {
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL,
     tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS employee_invites (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
     created_at TEXT NOT NULL
   )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS provider_clients (

@@ -48,8 +48,13 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
 
   try {
+    const employee = await prisma.employee.findUnique({ where: { id } });
+    if (!employee) return jsonError("تعذر حذف الموظف", 404);
+
     await prisma.$transaction([
       prisma.teamMember.deleteMany({ where: { employeeId: id } }),
+      prisma.employeeInvite.deleteMany({ where: { email: employee.email } }),
+      prisma.userAccount.deleteMany({ where: { email: employee.email } }),
       prisma.employee.delete({ where: { id } })
     ]);
 

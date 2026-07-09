@@ -58,15 +58,18 @@ export default function EmployeesView({
   const [form, setForm] = useState<EmployeeFormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   function openCreateForm() {
     setError("");
+    setNotice("");
     setForm(emptyForm);
     setFormOpen(true);
   }
 
   function openEditForm(employee: Employee) {
     setError("");
+    setNotice("");
     setForm({
       id: employee.id,
       name: employee.name,
@@ -115,7 +118,11 @@ export default function EmployeesView({
         permissions: formatPermissions(form.permissions)
       })
     });
-    const payload = (await response.json()) as { ok: boolean; error?: string };
+    const payload = (await response.json()) as {
+      ok: boolean;
+      error?: string;
+      data?: Employee & { inviteDelivery?: { message?: string } };
+    };
 
     if (!payload.ok) {
       setError(payload.error || "تعذر حفظ الموظف");
@@ -125,7 +132,12 @@ export default function EmployeesView({
 
     await onRefreshData();
     setSaving(false);
-    setFormOpen(false);
+    if (form.id) {
+      setFormOpen(false);
+      return;
+    }
+
+    setNotice(payload.data?.inviteDelivery?.message || "تم حفظ الموظف.");
   }
 
   async function deleteEmployee(employee: Employee) {
@@ -234,6 +246,7 @@ export default function EmployeesView({
                 </div>
               </div>
               {error ? <p className="form-error">{error}</p> : null}
+              {notice ? <p className="form-success">{notice}</p> : null}
             </div>
             <footer className="modal-foot">
               <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>إلغاء</button>

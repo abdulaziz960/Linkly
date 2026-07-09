@@ -210,6 +210,16 @@ model UserAccount {
   @@map("user_accounts")
 }
 
+model EmployeeInvite {
+  id        String @id
+  email     String
+  tokenHash String @unique @map("token_hash")
+  expiresAt String @map("expires_at")
+  createdAt String @map("created_at")
+
+  @@map("employee_invites")
+}
+
 model ProviderClient {
   id                 String @id
   company            String

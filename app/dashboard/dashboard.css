@@ -846,6 +846,16 @@
   font-weight: 900;
 }
 
+.form-success {
+  margin: 0;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  background: #f0fdf4;
+  color: #15803d;
+  padding: 10px 12px;
+  font-weight: 900;
+}
+
 .form-intro {
   display: grid;
   gap: 6px;
