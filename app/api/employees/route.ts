@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
+import { getCurrentUser } from "../../../lib/auth";
 import { getEmployees } from "../../../lib/database";
+import { employeeLimitReachedMessage, getEmployeeLimitForTenant } from "../../../lib/employee-limits";
 import { prisma } from "../../../lib/prisma";
 import { jsonError, jsonOk } from "../_utils/json";
 
@@ -10,6 +12,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return jsonError("غير مصرح", 401);
+
   const body = (await request.json()) as {
     name?: string;
     email?: string;
@@ -22,6 +27,15 @@ export async function POST(request: NextRequest) {
 
   if (!name) return jsonError("اسم الموظف مطلوب");
   if (!email) return jsonError("البريد الإلكتروني مطلوب");
+
+  const [employeeCount, employeeLimit] = await Promise.all([
+    prisma.employee.count(),
+    getEmployeeLimitForTenant(user.tenantId)
+  ]);
+
+  if (employeeCount >= employeeLimit) {
+    return jsonError(employeeLimitReachedMessage, 403);
+  }
 
   const employee = await prisma.employee.create({
     data: {

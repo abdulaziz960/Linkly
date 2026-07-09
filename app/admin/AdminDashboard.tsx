@@ -19,9 +19,9 @@ type AdminDashboardProps = {
 const numberFormatter = new Intl.NumberFormat("ar-SA");
 const EXTRA_USER_PRICE = 65;
 const PLAN_USER_LIMITS: Record<string, number> = {
-  "باقة البداية": 3,
-  "باقة النمو": 10,
-  "باقة الأعمال": 25
+  "باقة البداية": 1,
+  "باقة النمو": 3,
+  "باقة الأعمال": 10
 };
 
 function formatNumber(value: number) {
