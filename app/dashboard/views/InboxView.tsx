@@ -62,6 +62,12 @@ function getAudioFileName(mimeType: string) {
   return `voice-${Date.now()}`;
 }
 
+const quickEmojis = [
+  "😀", "😄", "😂", "😊", "😍", "🥰", "👍", "👏",
+  "🙏", "👌", "💪", "❤️", "🔥", "🎉", "✅", "⭐",
+  "📌", "📞", "💬", "🕐", "🚚", "💳", "🧾", "✨"
+];
+
 function formatConversationAge(conversation: Conversation) {
   if (!conversation.lastActivityAt) {
     return conversation.messages.at(-1)?.time || "";
@@ -125,6 +131,7 @@ export default function InboxView({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const reopenTemplates = templates.filter(
     (template) =>
       template.status === "معتمد" &&
@@ -210,6 +217,11 @@ export default function InboxView({
       setIsRecording(false);
       window.alert("تعذر تشغيل الميكروفون. تأكد من السماح للمتصفح باستخدام الميكروفون.");
     }
+  }
+
+  function handleEmojiSelect(emoji: string) {
+    onChangeMessage(`${message}${emoji}`);
+    setIsEmojiPickerOpen(false);
   }
 
   return (
@@ -402,6 +414,27 @@ export default function InboxView({
             </div>
             <form className="composer" onSubmit={onSend}>
               <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageChange} />
+              <div className="emoji-picker-wrap">
+                <button
+                  className="attachment-button"
+                  disabled={isComposerDisabled}
+                  aria-label="إضافة إيموجي"
+                  title="إضافة إيموجي"
+                  type="button"
+                  onClick={() => setIsEmojiPickerOpen((isOpen) => !isOpen)}
+                >
+                  ☺
+                </button>
+                {isEmojiPickerOpen && !isComposerDisabled ? (
+                  <div className="emoji-picker" role="menu" aria-label="الإيموجيز">
+                    {quickEmojis.map((emoji) => (
+                      <button key={emoji} type="button" onClick={() => handleEmojiSelect(emoji)}>
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
               <button
                 className="attachment-button"
                 disabled={isComposerDisabled}
