@@ -23,7 +23,7 @@ type ConversationSnapshot = {
 };
 
 type AttachmentPayload = {
-  type?: "image" | "audio";
+  type?: "image" | "audio" | "document";
   name?: string;
   dataUrl?: string;
   mimeType?: string;
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     conversation?: ConversationSnapshot;
   };
   const attachment = body.attachment?.type && body.attachment.name && body.attachment.dataUrl ? body.attachment : undefined;
-  const text = body.text?.trim() || (attachment?.type === "image" ? "صورة" : attachment?.type === "audio" ? "تسجيل صوتي" : "");
+  const text = body.text?.trim() || (attachment?.type === "image" ? "صورة" : attachment?.type === "audio" ? "تسجيل صوتي" : attachment?.type === "document" ? "مستند" : "");
   const direction = body.direction || "out";
 
   if (!text) return jsonError("نص الرسالة مطلوب");
@@ -276,7 +276,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const normalizedAttachment = attachment ? await normalizeAudioAttachment(attachment) : undefined;
     if (attachment) {
       uploadedMedia = await uploadWhatsAppMedia(phoneNumberId, accessToken, {
-        type: normalizedAttachment?.type as "image" | "audio",
+        type: normalizedAttachment?.type as "image" | "audio" | "document",
         name: normalizedAttachment?.name as string,
         dataUrl: normalizedAttachment?.dataUrl as string,
         mimeType: normalizedAttachment?.mimeType
@@ -289,9 +289,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
           recipient_type: "individual",
           to,
           type: attachment?.type,
-          [attachment?.type === "image" ? "image" : "audio"]: {
+          [attachment?.type === "image" ? "image" : attachment?.type === "document" ? "document" : "audio"]: {
             id: uploadedMedia.id,
-            ...(attachment?.type === "image" && body.text?.trim() ? { caption: body.text.trim() } : {})
+            ...(attachment?.type === "document" ? { filename: normalizedAttachment?.name || attachment.name } : {}),
+            ...((attachment?.type === "image" || attachment?.type === "document") && body.text?.trim() ? { caption: body.text.trim() } : {})
           }
         }
       : isTemplateMessage

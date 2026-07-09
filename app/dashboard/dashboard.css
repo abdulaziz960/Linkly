@@ -1282,6 +1282,36 @@
   margin-bottom: 8px;
 }
 
+.message-attachment-document {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 10px;
+  max-width: min(340px, 100%);
+  min-width: min(260px, 100%);
+  margin-bottom: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.message-attachment-document > span {
+  grid-row: span 2;
+  font-size: 24px;
+}
+
+.message-attachment-document b {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.message-attachment-document small {
+  margin: 0;
+}
+
 .message-attachment-link {
   display: inline-flex;
   align-items: center;
@@ -1329,7 +1359,7 @@
 
 .composer {
   display: grid;
-  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto auto auto minmax(0, 1fr) auto;
   align-items: end;
   gap: 10px;
   padding: 12px;

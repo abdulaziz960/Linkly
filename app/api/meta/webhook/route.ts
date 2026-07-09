@@ -28,6 +28,7 @@ function getMessageText(message: Record<string, any>) {
   if (message.image?.caption) return message.image.caption;
   if (message.document?.caption) return message.document.caption;
   if (message.document?.filename) return message.document.filename;
+  if (message.document) return "مستند وارد";
   if (message.image) return "صورة واردة";
   if (message.audio) return "رسالة صوتية واردة";
   if (message.video) return "فيديو وارد";
@@ -36,7 +37,7 @@ function getMessageText(message: Record<string, any>) {
 }
 
 async function getIncomingAttachment(message: Record<string, any>, accessToken: string) {
-  const media = message.audio || message.image || message.sticker;
+  const media = message.audio || message.image || message.sticker || message.document;
   const mediaId = media?.id;
   if (!mediaId || !accessToken) return undefined;
 
@@ -47,7 +48,7 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
   });
   const mediaPayload = await mediaResponse.json().catch(() => null);
   const mediaUrl = mediaPayload?.url;
-  let mimeType = String(mediaPayload?.mime_type || media?.mime_type || (message.audio ? "audio/ogg" : message.sticker ? "image/webp" : "image/jpeg"))
+  let mimeType = String(mediaPayload?.mime_type || media?.mime_type || (message.audio ? "audio/ogg" : message.sticker ? "image/webp" : message.document ? "application/octet-stream" : "image/jpeg"))
     .replace(/\s+/g, "");
   if (message.audio && mimeType === "audio/ogg") {
     mimeType = "audio/ogg;codecs=opus";
@@ -79,15 +80,17 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
       : mimeType.includes("mp4")
         ? "m4a"
         : mimeType.includes("png")
-          ? "png"
-          : mimeType.includes("webp")
-            ? "webp"
+        ? "png"
+        : mimeType.includes("webp")
+          ? "webp"
+          : message.document
+            ? message.document.filename?.split(".").pop() || "bin"
             : "jpg";
 
   return {
-    type: message.audio ? "audio" as const : message.sticker ? "sticker" as const : "image" as const,
+    type: message.audio ? "audio" as const : message.sticker ? "sticker" as const : message.document ? "document" as const : "image" as const,
     url: `data:${mimeType};base64,${buffer.toString("base64")}`,
-    name: `${message.audio ? "voice" : message.sticker ? "sticker" : "image"}-${mediaId}.${extension}`,
+    name: message.document?.filename || `${message.audio ? "voice" : message.sticker ? "sticker" : "image"}-${mediaId}.${extension}`,
     mimeType,
     metaMediaId: mediaId
   };

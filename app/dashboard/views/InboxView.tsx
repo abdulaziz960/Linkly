@@ -128,6 +128,7 @@ export default function InboxView({
   onSetMobileChatOpen
 }: InboxViewProps) {
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -159,6 +160,26 @@ export default function InboxView({
       url: dataUrl,
       name: file.name,
       mimeType: file.type
+    });
+    event.target.value = "";
+  }
+
+  async function handleDocumentChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const dataUrl = await readFileAsDataUrl(file).catch(() => "");
+    if (!dataUrl) {
+      window.alert("تعذر قراءة المستند.");
+      event.target.value = "";
+      return;
+    }
+
+    await onSendAttachment({
+      type: "document",
+      url: dataUrl,
+      name: file.name,
+      mimeType: file.type || "application/octet-stream"
     });
     event.target.value = "";
   }
@@ -358,6 +379,12 @@ export default function InboxView({
                         src={item.attachment.url}
                         alt={item.attachment.name}
                       />
+                    ) : item.attachment.type === "document" ? (
+                      <a className="message-attachment-document" href={item.attachment.url} download={item.attachment.name}>
+                        <span aria-hidden="true">📄</span>
+                        <b>{item.attachment.name}</b>
+                        <small>فتح المستند</small>
+                      </a>
                     ) : (
                       <>
                         <audio className="message-attachment-audio" controls>
@@ -372,7 +399,7 @@ export default function InboxView({
                   ) : null}
                   {item.attachment?.type === "audio" && item.text !== "تم حذف هذه الرسالة" ? (
                     <span>{`${item.text}: ${item.attachment.name}`}</span>
-                  ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد") ? null : (
+                  ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد" || item.text === "مستند" || item.text === item.attachment.name) ? null : (
                     <span>{item.text}</span>
                   )}
                   <small>{item.time}</small>
@@ -418,6 +445,13 @@ export default function InboxView({
             </div>
             <form className="composer" onSubmit={onSend}>
               <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageChange} />
+              <input
+                ref={documentInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv,application/zip"
+                hidden
+                onChange={handleDocumentChange}
+              />
               <div className="emoji-picker-wrap">
                 <button
                   className="attachment-button"
@@ -448,6 +482,16 @@ export default function InboxView({
                 onClick={() => imageInputRef.current?.click()}
               >
                 +
+              </button>
+              <button
+                className="attachment-button"
+                disabled={isComposerDisabled}
+                aria-label="إرفاق مستند"
+                title="إرفاق مستند"
+                type="button"
+                onClick={() => documentInputRef.current?.click()}
+              >
+                📎
               </button>
               <button
                 className={`attachment-button ${isRecording ? "recording" : ""}`}
