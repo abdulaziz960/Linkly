@@ -1506,6 +1506,49 @@
   font-weight: 900;
 }
 
+.profile-tags-field {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-tags-field select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-weight: 900;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.profile-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-tag-list > button,
+.profile-tag-list > span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-weight: 900;
+  padding: 7px 10px;
+}
+
+.profile-tag-list > button {
+  cursor: pointer;
+}
+
+.profile-tag-list > button span {
+  margin-inline-start: 8px;
+  color: var(--muted);
+}
+
 .page-card {
   margin: 24px;
 }

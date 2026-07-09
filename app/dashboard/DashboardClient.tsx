@@ -411,6 +411,27 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     await loadDashboardData();
   }
 
+  async function handleConversationTagsChange(nextTags: string[]) {
+    if (!activeConversation.id) return;
+
+    updateConversation({
+      ...activeConversation,
+      tags: nextTags
+    });
+
+    const response = await fetch(`/api/conversations/${activeConversation.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tags: nextTags })
+    });
+
+    if (!response.ok) {
+      window.alert(await readApiError(response));
+    }
+
+    await loadDashboardData();
+  }
+
   async function handleConversationStatusToggle() {
     if (!activeConversation.id) return;
     if (activeConversation.status === "closed" && !canReopenConversations) return;
@@ -590,6 +611,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             selectedTemplate={selectedTemplate}
             templates={templates}
             currentUserName={initialUser.name}
+            tags={tags}
             visibleConversations={visibleConversations}
             onChangeAssignee={handleAssigneeChange}
             onChangeChatPanel={setChatPanel}
@@ -599,6 +621,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             onChangeSearch={setConversationSearch}
             onChangeSelectedConversation={handleOpenConversation}
             onChangeSelectedTemplate={setSelectedTemplate}
+            onChangeTags={handleConversationTagsChange}
             onCloseConversation={handleConversationStatusToggle}
             onDeleteMessage={handleDeleteMessage}
             onSend={handleSend}

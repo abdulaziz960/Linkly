@@ -2,7 +2,7 @@
 
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import FilterButton from "../components/FilterButton";
-import type { ChatPanel, ComposerMode, Conversation, ConversationFilter, MessageAttachment, MessageTemplate } from "../types";
+import type { ChatPanel, ComposerMode, Conversation, ConversationFilter, MessageAttachment, MessageTemplate, Tag } from "../types";
 import { statusLabel } from "../utils/conversation";
 
 type InboxViewProps = {
@@ -23,6 +23,7 @@ type InboxViewProps = {
   selectedTemplate: string;
   templates: MessageTemplate[];
   currentUserName: string;
+  tags: Tag[];
   visibleConversations: Conversation[];
   onChangeAssignee: (assignee: string) => void;
   onChangeChatPanel: (panel: ChatPanel) => void;
@@ -32,6 +33,7 @@ type InboxViewProps = {
   onChangeSearch: (search: string) => void;
   onChangeSelectedConversation: (conversationId: string) => void;
   onChangeSelectedTemplate: (templateName: string) => void;
+  onChangeTags: (tags: string[]) => void | Promise<void>;
   onCloseConversation: () => void;
   onDeleteMessage: (messageId: string) => void;
   onSend: (event: FormEvent<HTMLFormElement>) => void;
@@ -111,6 +113,7 @@ export default function InboxView({
   selectedTemplate,
   templates,
   currentUserName,
+  tags,
   visibleConversations,
   onChangeAssignee,
   onChangeChatPanel,
@@ -120,6 +123,7 @@ export default function InboxView({
   onChangeSearch,
   onChangeSelectedConversation,
   onChangeSelectedTemplate,
+  onChangeTags,
   onCloseConversation,
   onDeleteMessage,
   onSend,
@@ -143,6 +147,7 @@ export default function InboxView({
   const hasActiveConversation = Boolean(activeConversation.id);
   const isComposerDisabled = !hasActiveConversation || activeConversation.windowExpired || isClosed;
   const canToggleConversation = hasActiveConversation && (!isClosed || canReopenConversation);
+  const availableTags = tags.filter((tag) => !activeConversation.tags.includes(tag.name));
 
   async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -243,6 +248,15 @@ export default function InboxView({
   function handleEmojiSelect(emoji: string) {
     onChangeMessage(`${message}${emoji}`);
     setIsEmojiPickerOpen(false);
+  }
+
+  async function handleAddTag(tagName: string) {
+    if (!tagName || activeConversation.tags.includes(tagName)) return;
+    await onChangeTags([...activeConversation.tags, tagName]);
+  }
+
+  async function handleRemoveTag(tagName: string) {
+    await onChangeTags(activeConversation.tags.filter((tag) => tag !== tagName));
   }
 
   return (
@@ -550,7 +564,35 @@ export default function InboxView({
                 </div>
                 <div>
                   <dt>الوسوم</dt>
-                  <dd>{activeConversation.tags.join("، ")}</dd>
+                  <dd className="profile-tags-field">
+                    <select
+                      aria-label="اختيار وسم"
+                      disabled={!hasActiveConversation || !availableTags.length}
+                      value=""
+                      onChange={(event) => {
+                        void handleAddTag(event.target.value);
+                      }}
+                    >
+                      <option value="">{availableTags.length ? "اختر وسم" : "لا توجد وسوم متاحة"}</option>
+                      {availableTags.map((tag) => (
+                        <option key={tag.id} value={tag.name}>
+                          {tag.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="profile-tag-list">
+                      {activeConversation.tags.length ? (
+                        activeConversation.tags.map((tagName) => (
+                          <button key={tagName} type="button" onClick={() => void handleRemoveTag(tagName)}>
+                            {tagName}
+                            <span aria-hidden="true">×</span>
+                          </button>
+                        ))
+                      ) : (
+                        <span>لا توجد وسوم</span>
+                      )}
+                    </div>
+                  </dd>
                 </div>
               </dl>
             </div>
