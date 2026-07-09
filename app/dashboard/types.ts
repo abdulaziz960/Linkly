@@ -20,7 +20,7 @@ export type ChatPanel = "chat" | "profile";
 export type ComposerMode = "reply" | "note";
 
 export type MessageAttachment = {
-  type: "image" | "audio";
+  type: "image" | "audio" | "sticker";
   url: string;
   name: string;
   mimeType?: string;

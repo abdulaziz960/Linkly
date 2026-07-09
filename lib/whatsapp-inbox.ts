@@ -10,7 +10,7 @@ type StoreWhatsAppMessageInput = {
   author?: string;
   receivedAt?: Date;
   attachment?: {
-    type: "image" | "audio";
+    type: "image" | "audio" | "sticker";
     url: string;
     name: string;
     mimeType?: string;

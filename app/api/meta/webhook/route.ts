@@ -36,7 +36,7 @@ function getMessageText(message: Record<string, any>) {
 }
 
 async function getIncomingAttachment(message: Record<string, any>, accessToken: string) {
-  const media = message.audio || message.image;
+  const media = message.audio || message.image || message.sticker;
   const mediaId = media?.id;
   if (!mediaId || !accessToken) return undefined;
 
@@ -47,7 +47,7 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
   });
   const mediaPayload = await mediaResponse.json().catch(() => null);
   const mediaUrl = mediaPayload?.url;
-  let mimeType = String(mediaPayload?.mime_type || media?.mime_type || (message.audio ? "audio/ogg" : "image/jpeg"))
+  let mimeType = String(mediaPayload?.mime_type || media?.mime_type || (message.audio ? "audio/ogg" : message.sticker ? "image/webp" : "image/jpeg"))
     .replace(/\s+/g, "");
   if (message.audio && mimeType === "audio/ogg") {
     mimeType = "audio/ogg;codecs=opus";
@@ -85,9 +85,9 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
             : "jpg";
 
   return {
-    type: message.audio ? "audio" as const : "image" as const,
+    type: message.audio ? "audio" as const : message.sticker ? "sticker" as const : "image" as const,
     url: `data:${mimeType};base64,${buffer.toString("base64")}`,
-    name: `${message.audio ? "voice" : "image"}-${mediaId}.${extension}`,
+    name: `${message.audio ? "voice" : message.sticker ? "sticker" : "image"}-${mediaId}.${extension}`,
     mimeType,
     metaMediaId: mediaId
   };

@@ -352,8 +352,12 @@ export default function InboxView({
                   ) : null}
                   {item.direction === "note" ? <b>ملاحظة خاصة، {item.author || currentUserName}</b> : null}
                   {item.attachment && item.text !== "تم حذف هذه الرسالة" ? (
-                    item.attachment.type === "image" ? (
-                      <img className="message-attachment-image" src={item.attachment.url} alt={item.attachment.name} />
+                    item.attachment.type === "image" || item.attachment.type === "sticker" ? (
+                      <img
+                        className={item.attachment.type === "sticker" ? "message-attachment-sticker" : "message-attachment-image"}
+                        src={item.attachment.url}
+                        alt={item.attachment.name}
+                      />
                     ) : (
                       <>
                         <audio className="message-attachment-audio" controls>
@@ -368,7 +372,7 @@ export default function InboxView({
                   ) : null}
                   {item.attachment?.type === "audio" && item.text !== "تم حذف هذه الرسالة" ? (
                     <span>{`${item.text}: ${item.attachment.name}`}</span>
-                  ) : item.attachment && item.text === "صورة" ? null : (
+                  ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد") ? null : (
                     <span>{item.text}</span>
                   )}
                   <small>{item.time}</small>
