@@ -107,7 +107,7 @@ async function normalizeAudioAttachment(attachment: AttachmentPayload) {
     };
   } catch (error) {
     console.error("Outgoing audio conversion failed", error);
-    return attachment;
+    throw new Error("AUDIO_CONVERSION_FAILED");
   }
 }
 
@@ -381,6 +381,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
     if (error instanceof Error && error.message === "UNSUPPORTED_AUDIO_FORMAT") {
       return jsonError("صيغة التسجيل الصوتي غير مدعومة في واتساب. جرّب التسجيل من متصفح يدعم audio/ogg أو audio/mp4.", 400);
+    }
+    if (error instanceof Error && error.message === "AUDIO_CONVERSION_FAILED") {
+      return jsonError("تعذر تجهيز التسجيل الصوتي للإرسال عبر واتساب. جرّب تسجيل جديد.", 500);
     }
     return jsonError("تعذر إرسال الرسالة", 500);
   }
