@@ -1,14 +1,11 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import ffmpegPath from "ffmpeg-static";
 
 const execFileAsync = promisify(execFile);
-const require = createRequire(import.meta.url);
 
 function extensionFromMimeType(mimeType: string) {
   const normalized = mimeType.toLowerCase();
@@ -23,10 +20,10 @@ function extensionFromMimeType(mimeType: string) {
 
 function getFfmpegPath() {
   const candidates = [
-    ffmpegPath || "",
     path.join(process.cwd(), "node_modules", "ffmpeg-static", "ffmpeg"),
+    path.join(process.cwd(), ".next", "server", "node_modules", "ffmpeg-static", "ffmpeg"),
     path.join("/var/task", "node_modules", "ffmpeg-static", "ffmpeg"),
-    path.join(path.dirname(require.resolve("ffmpeg-static/package.json")), "ffmpeg")
+    path.join("/var/task", ".next", "server", "node_modules", "ffmpeg-static", "ffmpeg")
   ];
 
   const existingPath = candidates.find((candidate) => candidate && existsSync(candidate));
