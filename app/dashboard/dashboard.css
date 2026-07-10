@@ -856,6 +856,20 @@
   font-weight: 900;
 }
 
+.activation-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 42px;
+  border-radius: 12px;
+  background: var(--text);
+  color: #fff;
+  padding: 0 16px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
 .form-intro {
   display: grid;
   gap: 6px;

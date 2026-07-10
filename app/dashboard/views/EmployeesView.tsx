@@ -59,10 +59,12 @@ export default function EmployeesView({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [activationUrl, setActivationUrl] = useState("");
 
   function openCreateForm() {
     setError("");
     setNotice("");
+    setActivationUrl("");
     setForm(emptyForm);
     setFormOpen(true);
   }
@@ -70,6 +72,7 @@ export default function EmployeesView({
   function openEditForm(employee: Employee) {
     setError("");
     setNotice("");
+    setActivationUrl("");
     setForm({
       id: employee.id,
       name: employee.name,
@@ -121,7 +124,7 @@ export default function EmployeesView({
     const payload = (await response.json()) as {
       ok: boolean;
       error?: string;
-      data?: Employee & { inviteDelivery?: { message?: string } };
+      data?: Employee & { inviteDelivery?: { message?: string; activationUrl?: string } };
     };
 
     if (!payload.ok) {
@@ -138,6 +141,7 @@ export default function EmployeesView({
     }
 
     setNotice(payload.data?.inviteDelivery?.message || "تم حفظ الموظف.");
+    setActivationUrl(payload.data?.inviteDelivery?.activationUrl || "");
   }
 
   async function deleteEmployee(employee: Employee) {
@@ -247,6 +251,11 @@ export default function EmployeesView({
               </div>
               {error ? <p className="form-error">{error}</p> : null}
               {notice ? <p className="form-success">{notice}</p> : null}
+              {activationUrl ? (
+                <a className="activation-link" href={activationUrl} target="_blank" rel="noreferrer">
+                  فتح رابط التفعيل
+                </a>
+              ) : null}
             </div>
             <footer className="modal-foot">
               <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>إلغاء</button>

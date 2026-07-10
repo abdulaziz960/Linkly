@@ -7,6 +7,7 @@ type SendActivationEmailInput = {
 type EmailDeliveryResult = {
   sent: boolean;
   message: string;
+  activationUrl?: string;
 };
 
 const resendApiKey = process.env.RESEND_API_KEY;
@@ -21,7 +22,8 @@ export async function sendActivationEmail({ to, name, activationUrl }: SendActiv
 
     return {
       sent: false,
-      message: "تم إنشاء الموظف، لكن خدمة البريد غير مفعلة بعد. أضف RESEND_API_KEY لإرسال رابط التفعيل تلقائياً."
+      message: "تم إنشاء الموظف، لكن خدمة البريد غير مفعلة بعد. استخدم رابط التفعيل أدناه للتجربة.",
+      activationUrl
     };
   }
 
@@ -58,7 +60,8 @@ export async function sendActivationEmail({ to, name, activationUrl }: SendActiv
 
     return {
       sent: false,
-      message: "تم إنشاء الموظف، لكن تعذر إرسال رابط التفعيل عبر البريد. تحقق من إعدادات البريد."
+      message: "تم إنشاء الموظف، لكن تعذر إرسال رابط التفعيل عبر البريد. استخدم رابط التفعيل أدناه للتجربة.",
+      activationUrl
     };
   }
 
