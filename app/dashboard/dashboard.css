@@ -3414,8 +3414,9 @@
 }
 
 .channel-icon-whatsapp {
-  background: #e8f8ef !important;
-  color: #25d366 !important;
+  background: linear-gradient(135deg, #25d366, #128c7e) !important;
+  color: #fff !important;
+  box-shadow: 0 12px 24px rgba(37, 211, 102, 0.25);
 }
 
 .channel-icon-whatsapp svg,
@@ -3423,6 +3424,11 @@
 .channel-icon-telegram svg {
   fill: currentColor;
   stroke: none;
+}
+
+.channel-icon-whatsapp svg {
+  width: 34px;
+  height: 34px;
 }
 
 .channel-icon-facebook {
