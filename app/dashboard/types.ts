@@ -1,6 +1,7 @@
 export type ViewKey =
   | "inbox"
   | "contacts"
+  | "communicationChannels"
   | "tags"
   | "bot"
   | "automations"
@@ -120,6 +121,19 @@ export type AutomationRule = {
   id: string;
   name: string;
   description: string;
+  trigger: string;
+  action: string;
+  target: string;
+  delayMinutes: number;
+  conditions: Array<{
+    field: string;
+    operator: string;
+    value: string;
+  }>;
+  actions: Array<{
+    type: string;
+    target: string;
+  }>;
   createdAt: string;
   enabled: boolean;
 };

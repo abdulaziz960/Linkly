@@ -4,6 +4,7 @@ import type {
   Conversation,
   Customer,
   Employee,
+  IntegrationSettings,
   Lead,
   MessageTemplate,
   QuickReply,
@@ -15,6 +16,7 @@ import type {
 import AutomationsView from "./AutomationsView";
 import BotView from "./BotView";
 import CampaignsView from "./CampaignsView";
+import CommunicationChannelsView from "./CommunicationChannelsView";
 import ContactsView from "./ContactsView";
 import EmployeesView from "./EmployeesView";
 import LeadsView from "./LeadsView";
@@ -38,6 +40,8 @@ type DashboardViewRouterProps = {
   tags: Tag[];
   teams: Team[];
   templates: MessageTemplate[];
+  integrationStatus: IntegrationSettings["status"];
+  onIntegrationChange: (settings: IntegrationSettings) => void;
   onRefreshData: () => Promise<void>;
   onOpenConversation: (conversationId: string) => void;
   view: ViewKey;
@@ -53,16 +57,30 @@ export default function DashboardViewRouter({
   workSchedules,
   leads,
   onOpenConversation,
+  onIntegrationChange,
   onRefreshData,
   tags,
   teams,
   templates,
+  integrationStatus,
   view
 }: DashboardViewRouterProps) {
   if (view === "contacts") return <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
+  if (view === "communicationChannels") return <CommunicationChannelsView integrationStatus={integrationStatus} />;
   if (view === "tags") return <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "bot") return <BotView />;
-  if (view === "automations") return <AutomationsView automationRules={automationRules} onRefreshData={onRefreshData} />;
+  if (view === "automations") {
+    return (
+      <AutomationsView
+        automationRules={automationRules}
+        employees={employees}
+        tags={tags}
+        teams={teams}
+        templates={templates}
+        onRefreshData={onRefreshData}
+      />
+    );
+  }
   if (view === "campaigns") return <CampaignsView campaigns={campaigns} templates={templates} onRefreshData={onRefreshData} />;
   if (view === "templates") return <TemplatesView templates={templates} onRefreshData={onRefreshData} />;
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
@@ -71,6 +89,6 @@ export default function DashboardViewRouter({
   if (view === "leads") return <LeadsView employees={employees} leads={leads} onRefreshData={onRefreshData} />;
   if (view === "teams") return <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "employees") return <EmployeesView employees={employees} onRefreshData={onRefreshData} />;
-  if (view === "settings") return <SettingsView />;
+  if (view === "settings") return <SettingsView onIntegrationChange={onIntegrationChange} />;
   return null;
 }

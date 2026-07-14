@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import { navItems, viewTitles } from "./data/navigation";
@@ -14,6 +14,7 @@ import type {
   Customer,
   DashboardUser,
   Employee,
+  IntegrationSettings,
   Lead,
   MessageAttachment,
   MessageTemplate,
@@ -44,6 +45,7 @@ const allViewKeys: ViewKey[] = navItems.map((item) => item.key);
 const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "محادثات", views: ["inbox"] },
   { keyword: "عملاء", views: ["contacts"] },
+  { keyword: "قنوات", views: ["communicationChannels"] },
   { keyword: "وسوم", views: ["tags"] },
   { keyword: "قوالب", views: ["templates"] },
   { keyword: "ردود", views: ["quickReplies"] },
@@ -56,7 +58,7 @@ const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "فرق", views: ["teams"] },
   { keyword: "موظفين", views: ["employees"] },
   { keyword: "صلاحيات", views: ["employees"] },
-  { keyword: "ربط", views: ["settings"] }
+  { keyword: "ربط", views: ["communicationChannels", "settings"] }
 ];
 
 function getAllowedViews(user: DashboardUser, employee?: Employee): ViewKey[] {
@@ -138,6 +140,11 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
+  const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
+
+  const handleIntegrationChange = useCallback((settings: IntegrationSettings) => {
+    setIntegrationStatus(settings.status);
+  }, []);
 
   const fallbackEmployee: Employee = {
     id: initialUser.id,
@@ -169,6 +176,13 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     const allowedCustomerIds = new Set(scopedConversations.map((conversation) => conversation.id));
     return customers.filter((customer) => allowedCustomerIds.has(customer.id));
   }, [canViewAllConversations, customers, scopedConversations]);
+
+  useEffect(() => {
+    fetch("/api/settings/integration")
+      .then((response) => response.json())
+      .then((settings: IntegrationSettings) => setIntegrationStatus(settings.status))
+      .catch(() => setIntegrationStatus("pending"));
+  }, []);
   const activeConversation =
     scopedConversations.find((conversation) => conversation.id === activeConversationId) ??
     emptyConversation;
@@ -373,19 +387,50 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     setMenuOpen(false);
   }
 
-  function handleOpenConversation(conversationId: string) {
+  async function handleOpenConversation(conversationId: string) {
     if (!allowedViews.includes("inbox")) return;
-    const conversation = scopedConversations.find((item) => item.id === conversationId);
+    let conversation = scopedConversations.find((item) => item.id === conversationId);
+
+    if (!conversation) {
+      const response = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId: conversationId })
+      });
+
+      if (!response.ok) {
+        window.alert(await readApiError(response));
+        return;
+      }
+
+      const payload = (await response.json()) as { ok: boolean; data?: Conversation; error?: string };
+      if (!payload.ok || !payload.data) {
+        window.alert(payload.error || "تعذر فتح محادثة العميل");
+        return;
+      }
+
+      conversation = payload.data;
+      setConversations((current) => {
+        const exists = current.some((item) => item.id === payload.data?.id);
+        const nextConversations = exists
+          ? current.map((item) => (item.id === payload.data?.id ? payload.data as Conversation : item))
+          : [payload.data as Conversation, ...current];
+
+        writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
+        return nextConversations;
+      });
+    }
+
     if (!canViewAllConversations && !conversation) return;
 
-    setActiveConversationId(conversationId);
+    setActiveConversationId(conversation.id);
     setActiveView("inbox");
     setChatPanel("chat");
     setMobileChatOpen(true);
 
     if (conversation?.unread) {
       updateConversation({ ...conversation, unread: undefined });
-      void fetch(`/api/conversations/${conversationId}`, {
+      void fetch(`/api/conversations/${conversation.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ unread: 0 })
@@ -583,6 +628,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       <DashboardSidebar
         activeView={activeView}
         allowedViews={allowedViews}
+        integrationStatus={integrationStatus}
         user={initialUser}
         profileStatus={currentProfileStatus}
         onChangeView={handleViewChange}
@@ -610,6 +656,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             mobileChatOpen={mobileChatOpen}
             selectedTemplate={selectedTemplate}
             templates={templates}
+            quickReplies={quickReplies}
             currentUserName={initialUser.name}
             tags={tags}
             visibleConversations={visibleConversations}
@@ -642,6 +689,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             tags={tags}
             teams={teams}
             templates={templates}
+            integrationStatus={integrationStatus}
+            onIntegrationChange={handleIntegrationChange}
             onRefreshData={loadDashboardData}
             onOpenConversation={handleOpenConversation}
             view={activeView}

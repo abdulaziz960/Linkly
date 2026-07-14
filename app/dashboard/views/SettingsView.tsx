@@ -45,7 +45,7 @@ const wizardSteps = [
   }
 ];
 
-type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "email" | "google_maps";
+export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "email" | "google_maps";
 
 const channels: Array<{ id: ChannelId; title: string; description: string; active: boolean }> = [
   { id: "whatsapp", title: "واتساب", description: "Support your customers on WhatsApp", active: true },
@@ -73,7 +73,7 @@ type SettingsViewProps = {
   onIntegrationChange?: (settings: IntegrationSettings) => void;
 };
 
-function ChannelIcon({ id }: { id: ChannelId }) {
+export function ChannelIcon({ id }: { id: ChannelId }) {
   if (id === "whatsapp") {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">

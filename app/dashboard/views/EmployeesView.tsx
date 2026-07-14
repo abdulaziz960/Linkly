@@ -15,6 +15,7 @@ type EmployeeFormState = {
 const permissionOptions = [
   "المحادثات",
   "العملاء",
+  "قنوات التواصل",
   "الوسوم",
   "الرد الآلي",
   "الحملات",

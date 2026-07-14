@@ -3504,6 +3504,118 @@
   cursor: not-allowed;
 }
 
+.communication-channels-page {
+  gap: 20px;
+}
+
+.channels-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  padding: 22px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+}
+
+.channels-hero span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.channels-hero h2 {
+  margin: 7px 0;
+  font-size: 28px;
+}
+
+.channels-hero p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.8;
+}
+
+.channels-summary {
+  min-width: 150px;
+  border-radius: 16px;
+  background: #f8fafc;
+  padding: 18px;
+  text-align: center;
+}
+
+.channels-summary b {
+  display: block;
+  font-size: 34px;
+}
+
+.channels-summary span {
+  color: var(--muted);
+}
+
+.channels-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.communication-channel-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 150px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  padding: 18px;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.04);
+}
+
+.communication-channel-card b {
+  display: block;
+  font-size: 20px;
+}
+
+.communication-channel-card small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.7;
+}
+
+.communication-channel-card em {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.communication-channel-card.connected {
+  border-color: #22c55e;
+  box-shadow: 0 14px 34px rgba(34, 197, 94, 0.12);
+}
+
+.communication-channel-card.connected em {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.communication-channel-card.coming_soon {
+  opacity: 0.76;
+}
+
 .api-provider-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 260px));
@@ -3779,6 +3891,7 @@
   .composer,
   .profile-panel,
   .provider-grid,
+  .channels-grid,
   .meta-steps,
   .settings-fields,
   .meta-test-grid,
@@ -3813,6 +3926,14 @@
 
   .page-hero {
     display: grid;
+  }
+
+  .channels-hero {
+    display: grid;
+  }
+
+  .channels-summary {
+    width: 100%;
   }
 
   .automation-modal {
