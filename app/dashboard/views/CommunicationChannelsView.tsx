@@ -29,7 +29,7 @@ const channels: Array<{
     id: "instagram",
     title: "Instagram",
     description: "رسائل إنستقرام والتعليقات بعد تفعيل ربط Meta.",
-    status: "coming_soon"
+    status: "connected"
   },
   {
     id: "facebook",
@@ -53,7 +53,7 @@ const channels: Array<{
     id: "telegram",
     title: "تيليجرام",
     description: "ربط بوت أو قناة تيليجرام لاستقبال الرسائل.",
-    status: "coming_soon"
+    status: "connected"
   },
   {
     id: "email",
