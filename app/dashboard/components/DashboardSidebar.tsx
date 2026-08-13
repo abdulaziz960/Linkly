@@ -43,8 +43,19 @@ export default function DashboardSidebar({
         {visibleNavItems.map((item) => item.key === "communicationChannels" ? (
           <Fragment key={item.key}>
             <div className="dashboard-nav-section">قنوات التواصل</div>
-            {(["Instagram", "تيليجرام", "البريد الإلكتروني"] as const).map((channel) => (
-              <button key={channel} type="button" onClick={() => onChangeView("inbox")}>{channel}</button>
+            {([
+              { label: "Instagram", view: "inbox" },
+              { label: "تيليجرام", view: "inbox" },
+              { label: "البريد الإلكتروني", view: "communicationChannels" }
+            ] as const).map((channel) => (
+              <button
+                className={activeView === channel.view ? "active" : ""}
+                key={channel.label}
+                type="button"
+                onClick={() => onChangeView(channel.view)}
+              >
+                {channel.label}
+              </button>
             ))}
           </Fragment>
         ) : (
