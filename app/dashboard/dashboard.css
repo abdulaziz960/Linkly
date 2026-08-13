@@ -3464,6 +3464,13 @@
   stroke: currentColor;
 }
 
+.email-setup-card{grid-column:1/-1;align-items:center;grid-template-columns:auto minmax(220px,1fr) auto;gap:16px}
+.email-setup-actions{display:flex;gap:8px;flex-wrap:wrap}.email-setup-actions button,.email-manual-connect button{border:0;border-radius:10px;background:#7c3aed;color:#fff;padding:10px 14px;font:inherit;font-weight:800;cursor:pointer}.email-setup-actions button+button{background:#2563eb}
+.email-webhook{grid-column:2/-1;display:grid;gap:7px;padding:14px;border:1px solid #ede9fe;border-radius:12px;background:#faf7ff}.email-webhook code{direction:ltr;text-align:left;overflow-wrap:anywhere;color:#5b21b6;font-size:12px}.email-webhook small{color:#6b7280}
+.email-manual-connect,.email-resend{grid-column:2/-1;display:flex;gap:8px;align-items:end;flex-wrap:wrap}.email-manual-connect label{display:grid;gap:5px;font-size:12px;font-weight:800;color:#58466f}.email-manual-connect input,.email-resend input{max-width:330px}.email-manual-connect small{color:#15803d;font-weight:700}
+.email-resend{padding:14px;border:1px solid #ede9fe;border-radius:12px;background:#fff;align-items:center}.email-resend b,.email-resend small{width:100%}.email-resend small{color:#6b7280}.email-resend code{direction:ltr}.email-resend button:disabled{opacity:.65;cursor:wait}
+@media(max-width:720px){.email-setup-card{grid-template-columns:auto 1fr}.email-setup-actions,.email-webhook,.email-manual-connect,.email-resend{grid-column:1/-1}}
+
 .channel-icon-google_maps {
   background: #eef7ff !important;
   color: #4285f4 !important;

@@ -628,7 +628,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       <DashboardSidebar
         activeView={activeView}
         allowedViews={allowedViews}
-        integrationStatus={integrationStatus}
         user={initialUser}
         profileStatus={currentProfileStatus}
         onChangeView={handleViewChange}
@@ -656,7 +655,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             mobileChatOpen={mobileChatOpen}
             selectedTemplate={selectedTemplate}
             templates={templates}
-            quickReplies={quickReplies}
             currentUserName={initialUser.name}
             tags={tags}
             visibleConversations={visibleConversations}

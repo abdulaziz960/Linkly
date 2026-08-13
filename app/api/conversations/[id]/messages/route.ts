@@ -5,6 +5,7 @@ import { getIntegrationSettings } from "../../../../../lib/database";
 import { prisma } from "../../../../../lib/prisma";
 import { formatMessageTime } from "../../../../../lib/time";
 import { normalizeWhatsAppPhone } from "../../../../../lib/whatsapp-inbox";
+import { sendEmailMessage } from "../../../../../lib/email-channel";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 type RouteContext = {
@@ -250,6 +251,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return created;
       });
 
+      return jsonOk(message);
+    }
+
+    if (conversation.id.startsWith("email-")) {
+      if (attachment) return jsonError("إرفاق الملفات عبر البريد سيتم إضافته في الخطوة التالية.");
+      await sendEmailMessage(conversation.customer.phone, text);
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({ data: { id: `email-out-${Date.now()}`, conversationId: conversation.id, direction: "out", text, time: messageTime, author: user?.name ?? "" } });
+        await tx.conversation.update({ where: { id: conversation.id }, data: { lastMessage: text, lastActivityAt: sentAt } });
+        return created;
+      });
       return jsonOk(message);
     }
 

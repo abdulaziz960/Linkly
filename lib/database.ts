@@ -260,6 +260,22 @@ async function ensureSchema() {
     webhook_url TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS email_integrations (
+    id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    status TEXT NOT NULL,
+    sender_name TEXT NOT NULL DEFAULT '',
+    email_address TEXT NOT NULL DEFAULT '',
+    webhook_secret TEXT NOT NULL DEFAULT '',
+    access_token TEXT NOT NULL DEFAULT '',
+    refresh_token TEXT NOT NULL DEFAULT '',
+    token_expires_at TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+  )`);
+  const emailIntegrationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(email_integrations)`);
+  if (!emailIntegrationColumns.some((column) => column.name === "sender_name")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN sender_name TEXT NOT NULL DEFAULT ''`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS user_accounts (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -316,6 +332,17 @@ async function ensureSchema() {
 async function seedDatabase() {
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
+    await tx.emailIntegration.upsert({
+      where: { id: "primary-email" },
+      update: {},
+      create: {
+        id: "primary-email",
+        provider: "webhook",
+        status: "not_connected",
+        webhookSecret: process.env.EMAIL_WEBHOOK_SECRET || createHash("sha256").update("audiencew-email-webhook").digest("hex"),
+        updatedAt: new Date().toISOString()
+      }
+    });
     await tx.integrationSetting.upsert({
       where: { id: "meta-whatsapp" },
       update: {},
@@ -952,6 +979,30 @@ export async function getIntegrationSettings(): Promise<IntegrationSettings> {
     verifyToken: settings.verifyToken,
     accessToken: settings.accessToken,
     webhookUrl: settings.webhookUrl,
+    updatedAt: settings.updatedAt
+  };
+}
+
+export type EmailIntegrationSettings = {
+  id: string;
+  provider: "webhook" | "gmail" | "outlook";
+  status: "connected" | "not_connected" | "pending";
+  emailAddress: string;
+  senderName: string;
+  webhookSecret: string;
+  updatedAt: string;
+};
+
+export async function getEmailIntegrationSettings(): Promise<EmailIntegrationSettings> {
+  await ensureSeeded();
+  const settings = await prisma.emailIntegration.findUniqueOrThrow({ where: { id: "primary-email" } });
+  return {
+    id: settings.id,
+    provider: settings.provider as EmailIntegrationSettings["provider"],
+    status: settings.status as EmailIntegrationSettings["status"],
+    senderName: settings.senderName,
+    emailAddress: settings.emailAddress,
+    webhookSecret: settings.webhookSecret,
     updatedAt: settings.updatedAt
   };
 }

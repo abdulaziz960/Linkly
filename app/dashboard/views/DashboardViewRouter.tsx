@@ -73,10 +73,6 @@ export default function DashboardViewRouter({
     return (
       <AutomationsView
         automationRules={automationRules}
-        employees={employees}
-        tags={tags}
-        teams={teams}
-        templates={templates}
         onRefreshData={onRefreshData}
       />
     );

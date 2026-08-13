@@ -220,6 +220,21 @@ model EmployeeInvite {
   @@map("employee_invites")
 }
 
+model EmailIntegration {
+  id            String @id
+  provider      String
+  status        String
+  senderName    String @default("") @map("sender_name")
+  emailAddress  String @default("") @map("email_address")
+  webhookSecret String @default("") @map("webhook_secret")
+  accessToken   String @default("") @map("access_token")
+  refreshToken  String @default("") @map("refresh_token")
+  tokenExpiresAt String @default("") @map("token_expires_at")
+  updatedAt     String @map("updated_at")
+
+  @@map("email_integrations")
+}
+
 model ProviderClient {
   id                 String @id
   company            String
