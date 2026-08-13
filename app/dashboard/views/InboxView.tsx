@@ -95,6 +95,18 @@ function formatConversationAge(conversation: Conversation) {
   }).format(new Date(activityTime));
 }
 
+// Email providers occasionally include transport metadata in the plain-text body.
+// Keep the inbox focused on the actual message, including for records received
+// before the email integration formatting was corrected.
+function formatEmailContent(text: string) {
+  return text
+    .replace(/^-{2,}\s*Forwarded message\s*-{2,}[\s\S]*?^To:.*(?:\r?\n|$)/gim, "")
+    .replace(/^[a-f0-9]{16,}$/gim, "")
+    .replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/gim, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export default function InboxView({
   activeConversation,
   assignedOnly,
@@ -308,7 +320,7 @@ export default function InboxView({
               <span className="avatar">{conversation.initial}</span>
               <span className="conversation-copy">
                 <b>{conversation.customer}</b>
-                <small>{conversation.lastMessage}</small>
+                <small>{formatEmailContent(conversation.lastMessage)}</small>
               </span>
               <span className="conversation-meta">
                 {conversation.unread ? <strong>{conversation.unread}</strong> : null}
@@ -414,7 +426,7 @@ export default function InboxView({
                   {item.attachment?.type === "audio" && item.text !== "تم حذف هذه الرسالة" ? (
                     <span>{`${item.text}: ${item.attachment.name}`}</span>
                   ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد" || item.text === "مستند" || item.text === item.attachment.name) ? null : (
-                    <span>{item.text}</span>
+                    <span>{formatEmailContent(item.text)}</span>
                   )}
                   <small>{item.time}</small>
                 </div>
