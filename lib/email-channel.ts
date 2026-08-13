@@ -10,6 +10,10 @@ function baseUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
 }
 
+function envValue(value?: string) {
+  return value?.split(/\s+/).find(Boolean)?.trim() || "";
+}
+
 function createOAuthState(provider: EmailProvider, owner: OAuthOwner) {
   const payload = Buffer.from(JSON.stringify({ provider, ...owner, issuedAt: Date.now() })).toString("base64url");
   const signature = createHmac("sha256", oauthSecret).update(payload).digest("base64url");
@@ -34,7 +38,7 @@ export function verifyOAuthState(state: string | null): (OAuthOwner & { provider
 }
 
 export function getOAuthUrl(provider: EmailProvider, owner: OAuthOwner) {
-  const clientId = provider === "gmail" ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID;
+  const clientId = envValue(provider === "gmail" ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID);
   if (!clientId) return null;
   const redirectUri = `${baseUrl()}/api/email/oauth/${provider}/callback`;
   const state = createOAuthState(provider, owner);
@@ -49,8 +53,8 @@ export function getOAuthUrl(provider: EmailProvider, owner: OAuthOwner) {
 }
 
 export async function saveOAuthConnection(provider: EmailProvider, code: string, tenantId: string) {
-  const clientId = provider === "gmail" ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID;
-  const clientSecret = provider === "gmail" ? process.env.GOOGLE_CLIENT_SECRET : process.env.MICROSOFT_CLIENT_SECRET;
+  const clientId = envValue(provider === "gmail" ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID);
+  const clientSecret = envValue(provider === "gmail" ? process.env.GOOGLE_CLIENT_SECRET : process.env.MICROSOFT_CLIENT_SECRET);
   if (!clientId || !clientSecret) throw new Error("OAuth credentials are not configured");
   const redirectUri = `${baseUrl()}/api/email/oauth/${provider}/callback`;
   const tokenUrl = provider === "gmail" ? "https://oauth2.googleapis.com/token" : "https://login.microsoftonline.com/common/oauth2/v2.0/token";
