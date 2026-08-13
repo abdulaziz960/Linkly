@@ -44,7 +44,6 @@ type DashboardViewRouterProps = {
   onIntegrationChange: (settings: IntegrationSettings) => void;
   onRefreshData: () => Promise<void>;
   onOpenConversation: (conversationId: string) => void;
-  onChangeView: (view: ViewKey) => void;
   view: ViewKey;
 };
 
@@ -58,7 +57,6 @@ export default function DashboardViewRouter({
   workSchedules,
   leads,
   onOpenConversation,
-  onChangeView,
   onIntegrationChange,
   onRefreshData,
   tags,
@@ -87,8 +85,6 @@ export default function DashboardViewRouter({
   if (view === "leads") return <LeadsView employees={employees} leads={leads} onRefreshData={onRefreshData} />;
   if (view === "teams") return <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "employees") return <EmployeesView employees={employees} onRefreshData={onRefreshData} />;
-  if (view === "settings") {
-    return <SettingsView onIntegrationChange={onIntegrationChange} onOpenCommunicationChannels={() => onChangeView("communicationChannels")} />;
-  }
+  if (view === "settings") return <SettingsView onIntegrationChange={onIntegrationChange} />;
   return null;
 }

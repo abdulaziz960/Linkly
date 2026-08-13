@@ -51,9 +51,9 @@ const channels: Array<{ id: ChannelId; title: string; description: string; activ
   { id: "whatsapp", title: "واتساب", description: "Support your customers on WhatsApp", active: true },
   { id: "facebook", title: "فيسبوك", description: "Connect your Facebook page", active: false },
   { id: "website", title: "الموقع الإلكتروني", description: "Create a live-chat widget", active: false },
-  { id: "instagram", title: "Instagram", description: "متصلة بالمنصة", active: true },
-  { id: "telegram", title: "تيليجرام", description: "متصلة بالمنصة", active: true },
-  { id: "email", title: "البريد الإلكتروني", description: "إدارة ربط Gmail وإعدادات البريد", active: true },
+  { id: "instagram", title: "Instagram", description: "Connect your instagram account", active: false },
+  { id: "telegram", title: "تيليجرام", description: "Configure Telegram channel using Bot token", active: false },
+  { id: "email", title: "البريد الإلكتروني", description: "Connect with Gmail, Outlook, or other providers", active: false },
   { id: "google_maps", title: "خرائط Google", description: "Connect your Google Maps business profile", active: false }
 ];
 
@@ -71,7 +71,6 @@ type IntegrationResponse = IntegrationSettings & {
 
 type SettingsViewProps = {
   onIntegrationChange?: (settings: IntegrationSettings) => void;
-  onOpenCommunicationChannels?: () => void;
 };
 
 export function ChannelIcon({ id }: { id: ChannelId }) {
@@ -135,7 +134,7 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
   );
 }
 
-export default function SettingsView({ onIntegrationChange, onOpenCommunicationChannels }: SettingsViewProps) {
+export default function SettingsView({ onIntegrationChange }: SettingsViewProps) {
   const [settings, setSettings] = useState<IntegrationSettings>(emptySettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -370,13 +369,7 @@ export default function SettingsView({ onIntegrationChange, onOpenCommunicationC
                 key={channel.id}
                 type="button"
                 disabled={!channel.active}
-                onClick={() => {
-                  if (channel.id === "whatsapp") {
-                    setWizardStep(2);
-                    return;
-                  }
-                  onOpenCommunicationChannels?.();
-                }}
+                onClick={() => setWizardStep(2)}
               >
                 <span className={`channel-icon channel-icon-${channel.id}`}>
                   <ChannelIcon id={channel.id} />

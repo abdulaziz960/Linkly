@@ -691,7 +691,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             onIntegrationChange={handleIntegrationChange}
             onRefreshData={loadDashboardData}
             onOpenConversation={handleOpenConversation}
-            onChangeView={setActiveView}
             view={activeView}
           />
         )}
