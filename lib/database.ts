@@ -109,7 +109,21 @@ export function hashPassword(password: string) {
 }
 
 async function ensureSchema() {
-  if (isPostgresDatabase) return;
+  if (isPostgresDatabase) {
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS email_integrations (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      status TEXT NOT NULL,
+      sender_name TEXT NOT NULL DEFAULT '',
+      email_address TEXT NOT NULL DEFAULT '',
+      webhook_secret TEXT NOT NULL DEFAULT '',
+      access_token TEXT NOT NULL DEFAULT '',
+      refresh_token TEXT NOT NULL DEFAULT '',
+      token_expires_at TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )`);
+    return;
+  }
 
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS customers (
     id TEXT PRIMARY KEY,
