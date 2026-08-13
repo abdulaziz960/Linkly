@@ -7,7 +7,10 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   const settings = await getEmailIntegrationSettings();
   const secret = request.headers.get("x-audiencew-email-secret") || request.nextUrl.searchParams.get("secret");
-  if (!secret || secret !== settings.webhookSecret) return NextResponse.json({ error: "Unauthorized webhook" }, { status: 401 });
+  const configuredSecret = process.env.EMAIL_WEBHOOK_SECRET;
+  if (!secret || (secret !== settings.webhookSecret && secret !== configuredSecret)) {
+    return NextResponse.json({ error: "Unauthorized webhook" }, { status: 401 });
+  }
   const body = await request.json();
   const from = typeof body.from === "string" ? body.from : "";
   const text = typeof body.text === "string" ? body.text : typeof body.html === "string" ? body.html.replace(/<[^>]*>/g, " ") : "";

@@ -52,6 +52,17 @@ export async function sendEmailMessage(to: string, text: string, subject = "رس
     if (response.ok) return;
     throw new Error("تعذر الإرسال عبر Outlook. أعد ربط الحساب إذا انتهت صلاحية التفويض.");
   }
+  const googleScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
+  const googleScriptSecret = process.env.GOOGLE_APPS_SCRIPT_SECRET;
+  if (googleScriptUrl && googleScriptSecret) {
+    const response = await fetch(googleScriptUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ secret: googleScriptSecret, to, subject, text })
+    });
+    if (response.ok) return;
+    throw new Error("تعذر الإرسال عبر Google Script. تحقق من نشر السكربت وصلاحيات Gmail.");
+  }
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("اربط Gmail أو Outlook، أو أضف RESEND_API_KEY لتفعيل الإرسال.");
   const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: process.env.EMAIL_FROM || "AudienceW <onboarding@resend.dev>", to, subject, text }) });
