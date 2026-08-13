@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import type { DashboardUser, ViewKey } from "../types";
 import { navItems } from "../data/navigation";
 
@@ -39,7 +40,14 @@ export default function DashboardSidebar({
         <span>لم يتم تحديد الباقة</span>
       </div>
       <nav className="dashboard-nav">
-        {visibleNavItems.map((item) => (
+        {visibleNavItems.map((item) => item.key === "communicationChannels" ? (
+          <Fragment key={item.key}>
+            <div className="dashboard-nav-section">قنوات التواصل</div>
+            {(["Instagram", "تيليجرام", "البريد الإلكتروني"] as const).map((channel) => (
+              <button key={channel} type="button" onClick={() => onChangeView("inbox")}>{channel}</button>
+            ))}
+          </Fragment>
+        ) : (
           <button
             className={activeView === item.key ? "active" : ""}
             key={item.key}

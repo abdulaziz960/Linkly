@@ -137,6 +137,13 @@
   min-height: 0;
 }
 
+.dashboard-nav-section {
+  padding: 12px 12px 2px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .dashboard-nav button {
   min-height: 44px;
   border: 0;
