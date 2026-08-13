@@ -1007,9 +1007,22 @@ export type EmailIntegrationSettings = {
   updatedAt: string;
 };
 
-export async function getEmailIntegrationSettings(): Promise<EmailIntegrationSettings> {
+export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Promise<EmailIntegrationSettings> {
   await ensureSeeded();
-  const settings = await prisma.emailIntegration.findUniqueOrThrow({ where: { id: "primary-email" } });
+  const tenantSettings = await prisma.emailIntegration.findUnique({ where: { id: `email:${tenantId}` } });
+  const settings = tenantSettings ?? (tenantId === "tenant-demo"
+    ? await prisma.emailIntegration.findUniqueOrThrow({ where: { id: "primary-email" } })
+    : await prisma.emailIntegration.create({
+      data: {
+        id: `email:${tenantId}`,
+        provider: "gmail",
+        status: "not_connected",
+        senderName: "",
+        emailAddress: "",
+        webhookSecret: createHash("sha256").update(`audiencew-email-${tenantId}-${Date.now()}`).digest("hex"),
+        updatedAt: new Date().toISOString()
+      }
+    }));
   return {
     id: settings.id,
     provider: settings.provider as EmailIntegrationSettings["provider"],

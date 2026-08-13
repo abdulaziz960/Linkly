@@ -72,8 +72,28 @@ export default function CommunicationChannelsView({ integrationStatus }: Communi
   const [feedback, setFeedback] = useState("");
   const [resendKey, setResendKey] = useState("");
   const [testingKey, setTestingKey] = useState(false);
+  const [connectingGoogle, setConnectingGoogle] = useState(false);
+  async function refreshEmail() {
+    const response = await fetch("/api/email/integration", { cache: "no-store" });
+    if (response.ok) setEmail(await response.json());
+  }
   useEffect(() => {
-    fetch("/api/email/integration").then((response) => response.ok ? response.json() : null).then(setEmail).catch(() => null);
+    refreshEmail().catch(() => null);
+    const receiveOAuthResult = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      let data = event.data;
+      if (typeof data === "string") try { data = JSON.parse(data); } catch { return; }
+      if (data?.type !== "audiencew:email-oauth") return;
+      setConnectingGoogle(false);
+      if (data.status === "connected") {
+        setFeedback(`تم ربط Gmail بنجاح${data.emailAddress ? `: ${data.emailAddress}` : ""}.`);
+        refreshEmail().catch(() => null);
+      } else {
+        setFeedback("تعذر ربط Gmail. حاول مرة أخرى.");
+      }
+    };
+    window.addEventListener("message", receiveOAuthResult);
+    return () => window.removeEventListener("message", receiveOAuthResult);
   }, []);
   const visibleChannels = channels.map((channel) => (
     channel.id === "whatsapp"
@@ -117,6 +137,28 @@ export default function CommunicationChannelsView({ integrationStatus }: Communi
         <div>
           <b>ربط البريد الإلكتروني عبر Webhook</b>
           <small>استخدم Webhook البريد مع Zapier أو Make أو أي مزود يدعم إرسال Webhook عند وصول بريد جديد.</small>
+        </div>
+        <div className="email-google-connect">
+          <b>ربط Gmail مباشرة</b>
+          <small>اختر حساب Google الذي تريد استخدامه لاستقبال وإرسال البريد. تُغلق نافذة الربط تلقائيًا بعد النجاح.</small>
+          <button type="button" disabled={connectingGoogle} onClick={() => {
+            setConnectingGoogle(true);
+            setFeedback("");
+            const popup = window.open("/api/email/oauth/gmail", "audiencew-gmail-oauth", "popup=yes,width=560,height=720");
+            if (!popup) {
+              setConnectingGoogle(false);
+              setFeedback("اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى.");
+              return;
+            }
+            const timer = window.setInterval(() => {
+              if (popup.closed) {
+                window.clearInterval(timer);
+                setConnectingGoogle(false);
+                refreshEmail().catch(() => null);
+              }
+            }, 500);
+          }}>{connectingGoogle ? "جارٍ ربط Google…" : email?.provider === "gmail" && email.status === "connected" ? "إعادة ربط Gmail" : "ربط حساب Gmail"}</button>
+          {email?.provider === "gmail" && email.status === "connected" ? <small>{email.senderName ? `${email.senderName} — ` : ""}{email.emailAddress}</small> : null}
         </div>
         <div className="email-manual-connect">
           <label>اسم المرسل<input value={email?.senderName || ""} onChange={(event) => setEmail((current) => current ? { ...current, senderName: event.target.value } : current)} placeholder="فريق AudienceW" /></label>

@@ -16,10 +16,13 @@ function key(value: string) {
 }
 
 export async function storeIncomingEmail(input: IncomingEmail) {
-  const email = input.from.trim().toLowerCase();
+  const from = input.from.trim();
+  const addressMatch = from.match(/<([^>]+)>/);
+  const email = (addressMatch?.[1] || from).trim().toLowerCase();
   const customerId = `email-${key(email)}`;
   const conversationId = `email-${key(email)}`;
-  const name = input.fromName?.trim() || email;
+  const headerName = from.replace(/<[^>]+>/, "").replace(/^[\s\"']+|[\s\"']+$/g, "");
+  const name = input.fromName?.trim() || headerName || email;
   const subject = input.subject?.trim();
   const text = subject ? `${subject}\n\n${input.text}` : input.text;
   const activityAt = (input.receivedAt ?? new Date()).toISOString();
