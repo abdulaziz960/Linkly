@@ -174,6 +174,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [testSending, setTestSending] = useState(false);
   const [testFeedback, setTestFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const metaSignupDataRef = useRef<MetaSignupData>({});
+  const hasSelectedChannelRef = useRef(false);
   const isInstagram = selectedChannel === "instagram";
   const isFacebook = selectedChannel === "facebook";
   const isTelegram = selectedChannel === "telegram";
@@ -282,6 +283,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }, [isConnected, isEmail, isFacebook, isGoogleMaps, isInstagram, isTelegram, isX]);
 
   useEffect(() => {
+    const isFirstLoad = !hasSelectedChannelRef.current;
+    hasSelectedChannelRef.current = true;
     setLoading(true);
     fetch(`/api/settings/integration?channel=${selectedChannel}`)
       .then((response) => response.json())
@@ -289,7 +292,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         setSettings(data);
         if (data.status === "connected") {
           setWizardStep(4);
-        } else {
+        } else if (!isFirstLoad) {
           setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" ? 3 : selectedChannel === "google_maps" || selectedChannel === "email" ? 4 : 2);
         }
         onIntegrationChange?.(data);
