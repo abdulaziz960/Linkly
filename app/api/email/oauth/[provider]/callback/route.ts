@@ -3,9 +3,12 @@ import { saveOAuthConnection, verifyOAuthState } from "../../../../../../lib/ema
 
 export const runtime = "nodejs";
 
-function popupResult(origin: string, status: "connected" | "error", emailAddress = "") {
+function popupResult(origin: string, status: "connected" | "error", emailAddress = "", detail = "") {
   const payload = JSON.stringify({ type: "audiencew:email-oauth", status, emailAddress });
-  return new NextResponse(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>ربط البريد</title></head><body><p>${status === "connected" ? "تم ربط Gmail بنجاح. سيتم إغلاق النافذة." : "تعذر ربط Gmail. يمكنك إغلاق النافذة والمحاولة مجددًا."}</p><script>if(window.opener){window.opener.postMessage(${JSON.stringify(payload)},${JSON.stringify(origin)});window.close();}</script></body></html>`, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+  const message = status === "connected"
+    ? "تم ربط Gmail بنجاح. سيتم إغلاق النافذة."
+    : `تعذر ربط Gmail${detail ? `: ${detail}` : ""}. يمكنك إغلاق النافذة والمحاولة مجددًا.`;
+  return new NextResponse(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>ربط البريد</title></head><body><p>${message}</p><script>if(window.opener){window.opener.postMessage(${JSON.stringify(payload)},${JSON.stringify(origin)});window.close();}</script></body></html>`, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ provider: string }> }) {
@@ -13,12 +16,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const code = request.nextUrl.searchParams.get("code");
   const state = verifyOAuthState(request.nextUrl.searchParams.get("state"));
   const origin = request.nextUrl.origin;
-  if ((provider !== "gmail" && provider !== "outlook") || !code || !state || state.provider !== provider) return popupResult(origin, "error");
+  if (provider !== "gmail" && provider !== "outlook") return popupResult(origin, "error", "", "مزود غير معروف");
+  if (!code) return popupResult(origin, "error", "", "لم يصل رمز التفويض (code) من Google");
+  if (!state || state.provider !== provider) return popupResult(origin, "error", "", "فشل التحقق من حالة الطلب (state) - جرّب من جديد");
   try {
     const emailAddress = await saveOAuthConnection(provider, code, state.tenantId);
     return popupResult(origin, "connected", emailAddress);
   } catch (error) {
     console.error("Email OAuth callback failed", error);
-    return popupResult(origin, "error");
+    const detail = error instanceof Error ? error.message : "خطأ غير معروف";
+    return popupResult(origin, "error", "", detail);
   }
 }
