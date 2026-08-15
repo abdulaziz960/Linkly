@@ -44,8 +44,8 @@ export default function DashboardSidebar({
           <Fragment key={item.key}>
             <div className="dashboard-nav-section">قنوات التواصل</div>
             {([
-              { label: "Instagram", view: "inbox" },
-              { label: "تيليجرام", view: "inbox" },
+              { label: "Instagram", view: "communicationChannels" },
+              { label: "تيليجرام", view: "communicationChannels" },
               { label: "البريد الإلكتروني", view: "communicationChannels" }
             ] as const).map((channel) => (
               <button
