@@ -118,12 +118,13 @@ export async function GET(request: NextRequest) {
   const wantsJson = request.headers.get("accept")?.includes("application/json");
 
   if (channel === "instagram" && code) {
+    const appId = settings.appId.trim() || process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";
     const appSecret = process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
     const redirectUri = `${request.nextUrl.origin}/api/meta/callback`;
 
-    if (settings.appId && appSecret) {
+    if (appId && appSecret) {
       const tokenForm = new URLSearchParams();
-      tokenForm.set("client_id", settings.appId);
+      tokenForm.set("client_id", appId);
       tokenForm.set("client_secret", appSecret);
       tokenForm.set("grant_type", "authorization_code");
       tokenForm.set("redirect_uri", redirectUri);
