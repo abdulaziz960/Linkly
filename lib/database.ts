@@ -120,8 +120,10 @@ async function ensureSchema() {
       access_token TEXT NOT NULL DEFAULT '',
       refresh_token TEXT NOT NULL DEFAULT '',
       token_expires_at TEXT NOT NULL DEFAULT '',
+      last_synced_at TEXT NOT NULL DEFAULT '',
       updated_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN IF NOT EXISTS last_synced_at TEXT NOT NULL DEFAULT ''`);
     return;
   }
 
@@ -284,11 +286,15 @@ async function ensureSchema() {
     access_token TEXT NOT NULL DEFAULT '',
     refresh_token TEXT NOT NULL DEFAULT '',
     token_expires_at TEXT NOT NULL DEFAULT '',
+    last_synced_at TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL
   )`);
   const emailIntegrationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(email_integrations)`);
   if (!emailIntegrationColumns.some((column) => column.name === "sender_name")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN sender_name TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!emailIntegrationColumns.some((column) => column.name === "last_synced_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN last_synced_at TEXT NOT NULL DEFAULT ''`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS user_accounts (
     id TEXT PRIMARY KEY,
