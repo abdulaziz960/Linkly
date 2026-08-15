@@ -846,7 +846,18 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {isEmail ? (
             <div className="telegram-help-card">
               <div>
-                <h3>طريقة ربط البريد الإلكتروني</h3>
+                <h3>ربط Gmail مباشرة (موصى به)</h3>
+                <p>اربط حساب Gmail عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي.</p>
+              </div>
+              <a className="btn primary" href="/api/email/oauth/gmail" style={{ display: "inline-block", width: "fit-content" }}>
+                ربط Gmail
+              </a>
+            </div>
+          ) : null}
+          {isEmail ? (
+            <div className="telegram-help-card">
+              <div>
+                <h3>طريقة ربط البريد الإلكتروني عبر Webhook (بديل)</h3>
                 <p>استخدم Webhook البريد مع Zapier أو Make أو أي مزود يدعم إرسال Webhook عند وصول بريد جديد.</p>
               </div>
               <ol>
