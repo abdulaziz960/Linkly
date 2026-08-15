@@ -140,6 +140,40 @@ type GmailMessagePart = {
   parts?: GmailMessagePart[];
 };
 
+const automatedLocalParts = [
+  "noreply",
+  "no-reply",
+  "donotreply",
+  "do-not-reply",
+  "notifications",
+  "notification",
+  "notify",
+  "alerts",
+  "alert",
+  "security",
+  "billing",
+  "updates",
+  "update",
+  "newsletter",
+  "newsletters",
+  "marketing",
+  "mailer-daemon",
+  "postmaster"
+];
+
+function isAutomatedSender(headers: Array<{ name: string; value: string }>): boolean {
+  const get = (name: string) => headers.find((header) => header.name.toLowerCase() === name.toLowerCase())?.value || "";
+
+  if (get("List-Unsubscribe") || get("List-Id")) return true;
+  if (/\bbulk\b/i.test(get("Precedence"))) return true;
+
+  const from = get("From").toLowerCase();
+  const emailMatch = from.match(/<([^>]+)>/);
+  const address = (emailMatch?.[1] || from).trim();
+  const localPart = address.split("@")[0] || "";
+  return automatedLocalParts.some((marker) => localPart === marker || localPart.startsWith(`${marker}-`) || localPart.startsWith(`${marker}.`));
+}
+
 function extractPlainText(payload?: GmailMessagePart): string {
   if (!payload) return "";
   if (payload.mimeType === "text/plain" && payload.body?.data) {
@@ -189,6 +223,7 @@ export async function syncGmailInbox(tenantId = "tenant-demo"): Promise<{ synced
     const headers: Array<{ name: string; value: string }> = message.payload?.headers || [];
     const from = headers.find((header) => header.name === "From")?.value || "";
     if (!from) continue;
+    if (isAutomatedSender(headers)) continue;
     const subject = headers.find((header) => header.name === "Subject")?.value || "";
     const text = extractPlainText(message.payload) || message.snippet || "";
     await storeIncomingEmail({
