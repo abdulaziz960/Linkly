@@ -135,8 +135,8 @@ export default function CommunicationChannelsView({ integrationStatus }: Communi
       <article className="communication-channel-card email-setup-card">
         <span className="channel-icon channel-icon-email"><ChannelIcon id="email" /></span>
         <div>
-          <b>ربط البريد الإلكتروني عبر Webhook</b>
-          <small>استخدم Webhook البريد مع Zapier أو Make أو أي مزود يدعم إرسال Webhook عند وصول بريد جديد.</small>
+          <b>ربط البريد الإلكتروني عبر Webhook (معطّل)</b>
+          <small>تم إيقاف هذا المسار لأنه كان يستورد كل بريد وارد بدون تمييز. استخدم "ربط Gmail مباشرة" أدناه بدلاً منه.</small>
         </div>
         <div className="email-google-connect">
           <b>ربط Gmail مباشرة</b>
