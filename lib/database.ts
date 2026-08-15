@@ -30,7 +30,7 @@ let seedPromise: Promise<void> | null = null;
 const defaultMetaAppId = process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";
 const isPostgresDatabase =
   process.env.DATABASE_URL?.startsWith("postgres://") || process.env.DATABASE_URL?.startsWith("postgresql://");
-const defaultLoginEmail = "admin@audiencew.sa";
+const defaultLoginEmail = "test@audiencew.sa";
 const legacyDemoPhoneNumbers = new Set(["+966 50 123 4567"]);
 const legacyDemoPhoneNumberIds = new Set(["328992863638694"]);
 const legacyDemoWabaIds = new Set(["369021316291991"]);
@@ -386,8 +386,8 @@ async function seedDatabase() {
 
     for (const account of demoUserAccounts) {
       await tx.userAccount.upsert({
-        where: { email: account.email },
-        update: {},
+        where: { id: account.id },
+        update: { email: account.email, name: account.name, role: account.role },
         create: {
           id: account.id,
           name: account.name,
@@ -710,8 +710,8 @@ async function seedDatabase() {
 
     for (const account of demoUserAccounts) {
       await tx.userAccount.upsert({
-        where: { email: account.email },
-        update: {},
+        where: { id: account.id },
+        update: { email: account.email, name: account.name, role: account.role },
         create: {
           id: account.id,
           name: account.name,
