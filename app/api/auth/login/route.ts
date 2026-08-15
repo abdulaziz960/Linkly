@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "بيانات الدخول غير صحيحة" }, { status: 401 });
   }
 
-  const response = NextResponse.json({ user });
+  const response = NextResponse.json({ user, onboardingRequired: false, redirectTo: "/dashboard?view=inbox" });
   response.cookies.set(authCookieName, createSessionToken(user.id), {
     httpOnly: true,
     sameSite: "lax",

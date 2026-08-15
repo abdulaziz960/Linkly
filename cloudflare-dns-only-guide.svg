@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="860" viewBox="0 0 1400 860">
+  <rect width="1400" height="860" fill="#f4f7fb"/>
+  <rect x="70" y="70" width="1260" height="720" rx="28" fill="#ffffff" stroke="#d9e1ec" stroke-width="3"/>
+  <text x="700" y="135" text-anchor="middle" font-family="Arial, sans-serif" font-size="44" font-weight="700" fill="#0f172a">Cloudflare DNS</text>
+  <text x="700" y="185" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#64748b">المطلوب: اجعل السحابة رمادية DNS only</text>
+
+  <rect x="120" y="240" width="1160" height="84" rx="18" fill="#eef3f8"/>
+  <text x="170" y="293" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#334155">Type</text>
+  <text x="360" y="293" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#334155">Name</text>
+  <text x="585" y="293" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#334155">Target</text>
+  <text x="1050" y="293" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#334155">Proxy status</text>
+
+  <rect x="120" y="340" width="1160" height="130" rx="22" fill="#ffffff" stroke="#d9e1ec" stroke-width="3"/>
+  <text x="170" y="420" font-family="Arial, sans-serif" font-size="30" fill="#0f172a">CNAME</text>
+  <text x="360" y="420" font-family="Arial, sans-serif" font-size="30" fill="#0f172a">audiencew</text>
+  <text x="585" y="420" font-family="Arial, sans-serif" font-size="25" fill="#0f172a">0f7b999726ca3f08.vercel-dns-017.com</text>
+  <g transform="translate(1005 374)">
+    <path d="M45 65h138c24 0 43-17 43-39s-19-40-43-40c-7 0-14 2-20 5C155-8 136-22 113-22c-29 0-53 20-59 47-3-1-6-1-9-1-22 0-40 18-40 40s18 41 40 41Z" fill="#d1d5db"/>
+    <text x="115" y="120" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#374151">DNS only</text>
+  </g>
+
+  <g transform="translate(190 545)">
+    <rect x="0" y="0" width="440" height="135" rx="24" fill="#fff7ed" stroke="#fdba74" stroke-width="3"/>
+    <path d="M72 78h108c19 0 34-14 34-31s-15-31-34-31c-6 0-11 1-16 4-7-15-22-24-40-24-23 0-42 16-47 37-2-1-5-1-7-1-18 0-32 14-32 32s14 32 34 32Z" fill="#f97316"/>
+    <text x="270" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#9a3412">لا تخليها برتقالية</text>
+    <text x="270" y="96" text-anchor="middle" font-family="Arial, sans-serif" font-size="23" fill="#9a3412">Proxied يسبب خطأ 525</text>
+    <line x1="42" y1="112" x2="220" y2="12" stroke="#dc2626" stroke-width="10" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(770 545)">
+    <rect x="0" y="0" width="440" height="135" rx="24" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+    <path d="M72 78h108c19 0 34-14 34-31s-15-31-34-31c-6 0-11 1-16 4-7-15-22-24-40-24-23 0-42 16-47 37-2-1-5-1-7-1-18 0-32 14-32 32s14 32 34 32Z" fill="#d1d5db"/>
+    <text x="270" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#334155">خليها رمادية</text>
+    <text x="270" y="96" text-anchor="middle" font-family="Arial, sans-serif" font-size="23" fill="#334155">DNS only</text>
+    <circle cx="404" cy="36" r="22" fill="#22c55e"/>
+    <path d="M393 36l8 8 16-18" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <text x="700" y="735" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#475569">اضغط على السحابة البرتقالية مرة واحدة، إذا صارت رمادية خلاص احفظ التغيير.</text>
+</svg>

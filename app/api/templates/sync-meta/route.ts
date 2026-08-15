@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
+import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 
 export const runtime = "nodejs";
@@ -30,7 +31,8 @@ function mapButtonType(type?: string) {
 }
 
 export async function POST() {
-  const integration = await getIntegrationSettings();
+  const user = await getCurrentUser();
+  const integration = await getIntegrationSettings("whatsapp", user?.tenantId);
 
   if (!integration.wabaId || !integration.accessToken) {
     return NextResponse.json({

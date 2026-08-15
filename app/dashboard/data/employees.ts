@@ -13,9 +13,9 @@ export const employees: Employee[] = [
   {
     id: "emp-noura",
     name: "نورة القحطاني",
-    role: "موظف دعم",
+    role: "مالك الحساب",
     status: "متصل",
-    permissions: "محادثات + عملاء",
+    permissions: "الكل",
     email: "noura@audiencew.sa",
     initial: "ن"
   }

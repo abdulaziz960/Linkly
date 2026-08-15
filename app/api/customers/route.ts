@@ -1,15 +1,21 @@
 import { NextRequest } from "next/server";
 import { getCustomers } from "../../../lib/database";
+import { getCurrentUser } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  return jsonOk(await getCustomers());
+  const user = await getCurrentUser();
+  if (!user) return jsonError("غير مصرح", 401);
+  return jsonOk(await getCustomers(user.tenantId));
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return jsonError("غير مصرح", 401);
+
   const body = (await request.json()) as { name?: string; phone?: string };
   const name = body.name?.trim();
   const phone = body.phone?.trim();
@@ -24,7 +30,8 @@ export async function POST(request: NextRequest) {
         id,
         name,
         phone,
-        initial: name.slice(0, 1)
+        initial: name.slice(0, 1),
+        tenantId: user.tenantId
       }
     });
 
@@ -32,11 +39,13 @@ export async function POST(request: NextRequest) {
       data: {
         id,
         customerId: id,
+        channel: "whatsapp",
         lastMessage: "لا توجد رسائل بعد",
         status: "unassigned",
         assignee: "بدون موظف",
         unread: 0,
-        windowExpired: 1
+        windowExpired: 1,
+        tenantId: user.tenantId
       }
     });
 

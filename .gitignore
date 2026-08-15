@@ -14,3 +14,5 @@ preview_pdf/
 *.php
 .vercel
 .env*
+.claude/
+tsconfig.tsbuildinfo

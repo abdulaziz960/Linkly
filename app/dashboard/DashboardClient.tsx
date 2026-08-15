@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import { navItems, viewTitles } from "./data/navigation";
@@ -10,6 +10,8 @@ import type {
   ChatPanel,
   ComposerMode,
   Conversation,
+  ConversationChannel,
+  ConversationChannelFilter,
   ConversationFilter,
   Customer,
   DashboardUser,
@@ -45,7 +47,6 @@ const allViewKeys: ViewKey[] = navItems.map((item) => item.key);
 const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "محادثات", views: ["inbox"] },
   { keyword: "عملاء", views: ["contacts"] },
-  { keyword: "قنوات", views: ["communicationChannels"] },
   { keyword: "وسوم", views: ["tags"] },
   { keyword: "قوالب", views: ["templates"] },
   { keyword: "ردود", views: ["quickReplies"] },
@@ -58,7 +59,7 @@ const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "فرق", views: ["teams"] },
   { keyword: "موظفين", views: ["employees"] },
   { keyword: "صلاحيات", views: ["employees"] },
-  { keyword: "ربط", views: ["communicationChannels", "settings"] }
+  { keyword: "ربط", views: ["settings"] }
 ];
 
 function getAllowedViews(user: DashboardUser, employee?: Employee): ViewKey[] {
@@ -83,16 +84,13 @@ function canSeeAllConversations(user: DashboardUser, employee?: Employee) {
   return user.role === "مالك الحساب" || employee?.permissions === "الكل";
 }
 
-function isApprovedMarketingTemplate(template: MessageTemplate) {
-  return (
-    template.status === "معتمد" &&
-    template.type !== "خدمة" &&
-    (template.category === "MARKETING" || template.type === "تسويق")
-  );
+function isApprovedTemplate(template: MessageTemplate) {
+  return template.status === "معتمد";
 }
 
 const emptyConversation: Conversation = {
   id: "",
+  channel: "whatsapp",
   customer: "لا توجد محادثة",
   phone: "",
   initial: "-",
@@ -105,6 +103,17 @@ const emptyConversation: Conversation = {
 
 const CONVERSATIONS_CACHE_KEY = "audiencew:dashboard-conversations";
 const CUSTOMERS_CACHE_KEY = "audiencew:dashboard-customers";
+const DASHBOARD_VIEW_KEY = "audiencew:dashboard-active-view";
+const DASHBOARD_CHANNEL_KEY = "audiencew:dashboard-active-channel";
+const conversationChannels: ConversationChannel[] = ["whatsapp", "instagram", "x", "facebook", "google_maps", "website", "telegram", "email"];
+
+function isViewKey(value: string | null): value is ViewKey {
+  return !!value && allViewKeys.includes(value as ViewKey);
+}
+
+function isConversationChannel(value: string | null): value is ConversationChannel {
+  return !!value && conversationChannels.includes(value as ConversationChannel);
+}
 
 function writeCachedList<T>(key: string, value: T[]) {
   if (typeof window === "undefined") return;
@@ -117,6 +126,7 @@ function writeCachedList<T>(key: string, value: T[]) {
 }
 
 export default function DashboardClient({ initialUser }: DashboardClientProps) {
+  const restoredNavigationRef = useRef(false);
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -131,6 +141,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
   const [filter, setFilter] = useState<ConversationFilter>("all");
+  const [selectedChannel, setSelectedChannel] = useState<ConversationChannelFilter>("all");
   const [conversationSearch, setConversationSearch] = useState("");
   const [chatPanel, setChatPanel] = useState<ChatPanel>("chat");
   const [composerMode, setComposerMode] = useState<ComposerMode>("reply");
@@ -141,8 +152,44 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
+  const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
+  const [facebookStatus, setFacebookStatus] = useState<IntegrationSettings["status"]>("pending");
+  const [telegramStatus, setTelegramStatus] = useState<IntegrationSettings["status"]>("pending");
+  const [xStatus, setXStatus] = useState<IntegrationSettings["status"]>("pending");
+  const [googleMapsStatus, setGoogleMapsStatus] = useState<IntegrationSettings["status"]>("pending");
+  const [emailStatus, setEmailStatus] = useState<IntegrationSettings["status"]>("pending");
 
   const handleIntegrationChange = useCallback((settings: IntegrationSettings) => {
+    if (settings.provider === "instagram" || settings.id === "meta-instagram") {
+      setInstagramStatus(settings.status);
+      return;
+    }
+
+    if (settings.provider === "telegram" || settings.id === "telegram-bot") {
+      setTelegramStatus(settings.status);
+      return;
+    }
+
+    if (settings.provider === "facebook" || settings.id === "meta-facebook") {
+      setFacebookStatus(settings.status);
+      return;
+    }
+
+    if (settings.provider === "x" || settings.id === "x-channel") {
+      setXStatus(settings.status);
+      return;
+    }
+
+    if (settings.provider === "google_maps" || settings.id === "google-maps") {
+      setGoogleMapsStatus(settings.status);
+      return;
+    }
+
+    if (settings.provider === "email" || settings.id === "email-channel") {
+      setEmailStatus(settings.status);
+      return;
+    }
+
     setIntegrationStatus(settings.status);
   }, []);
 
@@ -160,7 +207,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       ? employees.find((employee) => employee.id === "emp-owner")
       : employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase())) ?? fallbackEmployee;
   const canViewAllConversations = canSeeAllConversations(initialUser, currentEmployee);
-  const approvedMarketingTemplates = useMemo(() => templates.filter(isApprovedMarketingTemplate), [templates]);
+  const approvedTemplates = useMemo(() => templates.filter(isApprovedTemplate), [templates]);
   const scopedConversations = useMemo(() => {
     if (canViewAllConversations) return conversations;
 
@@ -176,15 +223,44 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     const allowedCustomerIds = new Set(scopedConversations.map((conversation) => conversation.id));
     return customers.filter((customer) => allowedCustomerIds.has(customer.id));
   }, [canViewAllConversations, customers, scopedConversations]);
+  const channelFilteredConversations = useMemo(() => {
+    if (selectedChannel === "all") return scopedConversations;
+
+    return scopedConversations.filter((conversation) => (conversation.channel || "whatsapp") === selectedChannel);
+  }, [scopedConversations, selectedChannel]);
 
   useEffect(() => {
     fetch("/api/settings/integration")
       .then((response) => response.json())
       .then((settings: IntegrationSettings) => setIntegrationStatus(settings.status))
       .catch(() => setIntegrationStatus("pending"));
+    fetch("/api/settings/integration?channel=instagram")
+      .then((response) => response.json())
+      .then((settings: IntegrationSettings) => setInstagramStatus(settings.status))
+      .catch(() => setInstagramStatus("pending"));
+    fetch("/api/settings/integration?channel=facebook")
+      .then((response) => response.json())
+      .then((settings: IntegrationSettings) => setFacebookStatus(settings.status))
+      .catch(() => setFacebookStatus("pending"));
+    fetch("/api/settings/integration?channel=telegram")
+      .then((response) => response.json())
+      .then((settings: IntegrationSettings) => setTelegramStatus(settings.status))
+      .catch(() => setTelegramStatus("pending"));
+    fetch("/api/settings/integration?channel=x")
+      .then((response) => response.json())
+      .then((settings: IntegrationSettings) => setXStatus(settings.status))
+      .catch(() => setXStatus("pending"));
+    fetch("/api/settings/integration?channel=google_maps")
+      .then((response) => response.json())
+      .then((settings: IntegrationSettings) => setGoogleMapsStatus(settings.status))
+      .catch(() => setGoogleMapsStatus("pending"));
+    fetch("/api/settings/integration?channel=email")
+      .then((response) => response.json())
+      .then((settings: IntegrationSettings) => setEmailStatus(settings.status))
+      .catch(() => setEmailStatus("pending"));
   }, []);
   const activeConversation =
-    scopedConversations.find((conversation) => conversation.id === activeConversationId) ??
+    channelFilteredConversations.find((conversation) => conversation.id === activeConversationId) ??
     emptyConversation;
   const activeConversationSnapshot = {
     id: activeConversation.id,
@@ -198,6 +274,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const accountInitial = getNameInitial(initialUser.name);
   const allowedViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
   const canReopenConversations = canViewAllConversations || currentEmployee.role === "مشرف";
+  const canDeleteConversations = initialUser.role === "مالك الحساب" || initialUser.role === "مسؤول الحساب";
 
   async function fetchData<T>(path: string) {
     const response = await fetch(path);
@@ -254,9 +331,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       if (nextTemplates?.length) {
         setTemplates(nextTemplates);
         setSelectedTemplate((currentTemplate) =>
-          nextTemplates.some((template) => template.name === currentTemplate && isApprovedMarketingTemplate(template))
+          nextTemplates.some((template) => template.name === currentTemplate && isApprovedTemplate(template))
             ? currentTemplate
-            : nextTemplates.find(isApprovedMarketingTemplate)?.name || nextTemplates[0].name
+            : nextTemplates.find(isApprovedTemplate)?.name || nextTemplates[0].name
         );
       }
       if (nextQuickReplies) setQuickReplies(nextQuickReplies);
@@ -268,6 +345,32 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       // Keep local fallback data visible if the API is temporarily unavailable.
     }
   }
+
+  useEffect(() => {
+    if (googleMapsStatus !== "connected") return;
+
+    let syncing = false;
+    let cancelled = false;
+
+    async function syncGoogleReviews() {
+      if (syncing || cancelled) return;
+      syncing = true;
+      try {
+        const response = await fetch("/api/google/reviews/sync", { method: "POST" });
+        if (response.ok && !cancelled) await loadDashboardData();
+      } finally {
+        syncing = false;
+      }
+    }
+
+    void syncGoogleReviews();
+    const intervalId = window.setInterval(syncGoogleReviews, 5 * 60 * 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [googleMapsStatus]);
 
   useEffect(() => {
     window.localStorage.removeItem(CONVERSATIONS_CACHE_KEY);
@@ -296,12 +399,71 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, []);
 
   useEffect(() => {
+    if (xStatus !== "connected") return;
+
+    let syncing = false;
+    const syncXMessages = async () => {
+      if (syncing || document.visibilityState !== "visible") return;
+      syncing = true;
+      try {
+        const response = await fetch("/api/x/sync", { method: "POST" });
+        if (response.ok) {
+          await loadDashboardData();
+        }
+      } finally {
+        syncing = false;
+      }
+    };
+
+    void syncXMessages();
+    const intervalId = window.setInterval(syncXMessages, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [xStatus]);
+
+  useEffect(() => {
     writeCachedList(CONVERSATIONS_CACHE_KEY, conversations);
   }, [conversations]);
 
   useEffect(() => {
     writeCachedList(CUSTOMERS_CACHE_KEY, customers);
   }, [customers]);
+
+  useEffect(() => {
+    if (restoredNavigationRef.current || typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const requestedView = params.get("view") || window.localStorage.getItem(DASHBOARD_VIEW_KEY);
+    const requestedChannel = params.get("channel") || window.localStorage.getItem(DASHBOARD_CHANNEL_KEY);
+
+    if (isViewKey(requestedView) && allowedViews.includes(requestedView)) {
+      setActiveView(requestedView);
+    }
+
+    if (isConversationChannel(requestedChannel)) {
+      setSelectedChannel(requestedChannel);
+    }
+
+    restoredNavigationRef.current = true;
+  }, [allowedViews]);
+
+  useEffect(() => {
+    if (!restoredNavigationRef.current || typeof window === "undefined") return;
+
+    window.localStorage.setItem(DASHBOARD_VIEW_KEY, activeView);
+    window.localStorage.setItem(DASHBOARD_CHANNEL_KEY, selectedChannel);
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", activeView);
+
+    if (activeView === "inbox" && selectedChannel !== "all") {
+      url.searchParams.set("channel", selectedChannel);
+    } else {
+      url.searchParams.delete("channel");
+    }
+
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [activeView, selectedChannel]);
 
   useEffect(() => {
     if (!allowedViews.includes(activeView)) {
@@ -316,10 +478,10 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, [canViewAllConversations, filter]);
 
   useEffect(() => {
-    if (activeConversationId && !scopedConversations.some((conversation) => conversation.id === activeConversationId)) {
+    if (activeConversationId && !channelFilteredConversations.some((conversation) => conversation.id === activeConversationId)) {
       setActiveConversationId("");
     }
-  }, [activeConversationId, scopedConversations]);
+  }, [activeConversationId, channelFilteredConversations]);
 
   useEffect(() => {
     const clearActiveConversation = (event: KeyboardEvent) => {
@@ -338,25 +500,25 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, [activeConversationId, activeView]);
 
   useEffect(() => {
-    if (!approvedMarketingTemplates.length) return;
-    if (!approvedMarketingTemplates.some((template) => template.name === selectedTemplate)) {
-      setSelectedTemplate(approvedMarketingTemplates[0].name);
+    if (!approvedTemplates.length) return;
+    if (!approvedTemplates.some((template) => template.name === selectedTemplate)) {
+      setSelectedTemplate(approvedTemplates[0].name);
     }
-  }, [approvedMarketingTemplates, selectedTemplate]);
+  }, [approvedTemplates, selectedTemplate]);
 
   const counts = useMemo<Record<ConversationFilter, number>>(() => {
     return {
-      all: scopedConversations.length,
-      assigned: scopedConversations.filter((conversation) => conversation.status === "assigned").length,
-      unassigned: scopedConversations.filter((conversation) => conversation.status === "unassigned").length,
-      closed: scopedConversations.filter((conversation) => conversation.status === "closed").length
+      all: channelFilteredConversations.length,
+      assigned: channelFilteredConversations.filter((conversation) => conversation.status === "assigned").length,
+      unassigned: channelFilteredConversations.filter((conversation) => conversation.status === "unassigned").length,
+      closed: channelFilteredConversations.filter((conversation) => conversation.status === "closed").length
     };
-  }, [scopedConversations]);
+  }, [channelFilteredConversations]);
 
   const visibleConversations = useMemo(() => {
     const query = conversationSearch.trim().toLowerCase();
 
-    return scopedConversations.filter((conversation) => {
+    return channelFilteredConversations.filter((conversation) => {
       const matchesFilter = filter === "all" || conversation.status === filter;
       const matchesSearch = query
         ? [conversation.customer, conversation.phone, conversation.lastMessage, conversation.assignee, ...conversation.tags]
@@ -367,7 +529,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
       return matchesFilter && matchesSearch;
     });
-  }, [conversationSearch, scopedConversations, filter]);
+  }, [channelFilteredConversations, conversationSearch, filter]);
 
   function updateConversation(nextConversation: Conversation) {
     setConversations((current) => {
@@ -383,7 +545,18 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   function handleViewChange(view: ViewKey) {
     if (!allowedViews.includes(view)) return;
 
+    if (view === "inbox") {
+      setSelectedChannel("all");
+    }
     setActiveView(view);
+    setMenuOpen(false);
+  }
+
+  function handleChannelChange(channel: ConversationChannel) {
+    if (!allowedViews.includes("inbox")) return;
+
+    setSelectedChannel(channel);
+    setActiveView("inbox");
     setMenuOpen(false);
   }
 
@@ -424,6 +597,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     if (!canViewAllConversations && !conversation) return;
 
     setActiveConversationId(conversation.id);
+    if (activeView !== "inbox") {
+      setSelectedChannel("all");
+    }
     setActiveView("inbox");
     setChatPanel("chat");
     setMobileChatOpen(true);
@@ -441,18 +617,29 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   async function handleAssigneeChange(assignee: string) {
     if (!activeConversation.id) return;
 
+    await handleAssignConversation(activeConversation.id, assignee);
+  }
+
+  async function handleAssignConversation(conversationId: string, assignee: string) {
+    if (!canViewAllConversations) return;
+    const conversation = conversations.find((item) => item.id === conversationId);
+    if (!conversation) return;
+
     const status = assignee === "بدون موظف" ? "unassigned" : "assigned";
     updateConversation({
-      ...activeConversation,
+      ...conversation,
       assignee,
       status
     });
 
-    await fetch(`/api/conversations/${activeConversation.id}`, {
+    const response = await fetch(`/api/conversations/${conversationId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ assignee, status })
     });
+    if (!response.ok) {
+      window.alert(await readApiError(response));
+    }
     await loadDashboardData();
   }
 
@@ -495,7 +682,56 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     await loadDashboardData();
   }
 
-  async function handleSend(event: FormEvent<HTMLFormElement>) {
+  async function handleDeleteConversationById(conversationId: string) {
+    if (!conversationId || !canDeleteConversations) return;
+    const conversation = conversations.find((item) => item.id === conversationId);
+    if (!conversation) return;
+    if (!window.confirm(`حذف محادثة ${conversation.customer}؟ سيتم حذف الرسائل من صندوق المحادثات فقط.`)) return;
+
+    const deletedConversationId = conversation.id;
+    const response = await fetch(`/api/conversations/${deletedConversationId}`, {
+      method: "DELETE"
+    });
+
+    if (!response.ok) {
+      window.alert(await readApiError(response));
+      return;
+    }
+
+    setConversations((current) => {
+      const nextConversations = current.filter((conversation) => conversation.id !== deletedConversationId);
+      writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
+      return nextConversations;
+    });
+    setActiveConversationId("");
+    setChatPanel("chat");
+    setMobileChatOpen(false);
+    await loadDashboardData();
+  }
+
+  async function handleMarkConversationUnread(conversationId: string) {
+    const conversation = conversations.find((item) => item.id === conversationId);
+    if (!conversation) return;
+
+    updateConversation({
+      ...conversation,
+      unread: Math.max(1, conversation.unread || 0)
+    });
+
+    const response = await fetch(`/api/conversations/${conversationId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unread: Math.max(1, conversation.unread || 0) })
+    });
+
+    if (!response.ok) {
+      window.alert(await readApiError(response));
+    }
+
+    await loadDashboardData();
+  }
+
+  async function handleSend(event: FormEvent<HTMLFormElement>, replyToMessageId?: string) {
     event.preventDefault();
     if (!activeConversation.id) return;
     const text = message.trim();
@@ -509,6 +745,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       body: JSON.stringify({
         direction,
         text,
+        replyToMessageId,
         conversation: activeConversationSnapshot
       })
     });
@@ -527,7 +764,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     if (activeConversation.status === "closed") return;
 
     const template =
-      approvedMarketingTemplates.find((item) => item.name === selectedTemplate) ?? approvedMarketingTemplates[0];
+      approvedTemplates.find((item) => item.name === selectedTemplate) ?? approvedTemplates[0];
     if (!template) {
       window.alert("لا توجد قوالب تسويقية معتمدة متاحة للإرسال.");
       return;
@@ -571,6 +808,29 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
           dataUrl: attachment.url,
           mimeType: attachment.mimeType
         },
+        conversation: activeConversationSnapshot
+      })
+    });
+
+    if (!response.ok) {
+      window.alert(await readApiError(response));
+      return;
+    }
+
+    await loadDashboardData();
+  }
+
+  async function handleSendCommentReply(messageId: string, text: string) {
+    if (!activeConversation.id) return;
+    if (activeConversation.status === "closed") return;
+
+    const response = await fetch(`/api/conversations/${activeConversation.id}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        direction: "out",
+        text,
+        replyToCommentId: messageId,
         conversation: activeConversationSnapshot
       })
     });
@@ -629,9 +889,17 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         activeView={activeView}
         allowedViews={allowedViews}
         integrationStatus={integrationStatus}
+        instagramStatus={instagramStatus}
+        facebookStatus={facebookStatus}
+        telegramStatus={telegramStatus}
+        xStatus={xStatus}
+        googleMapsStatus={googleMapsStatus}
+        emailStatus={emailStatus}
         user={initialUser}
         profileStatus={currentProfileStatus}
+        selectedChannel={selectedChannel}
         onChangeView={handleViewChange}
+        onChangeChannel={handleChannelChange}
         onOpenProfile={() => setProfileOpen(true)}
       />
 
@@ -643,11 +911,12 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             activeConversation={activeConversation}
             assigneeOptions={[...employees.map((employee) => employee.name), "بدون موظف"]}
             canChangeAssignee={canViewAllConversations}
+            canDeleteConversation={canDeleteConversations}
             canDeleteAnyMessage={canViewAllConversations}
             canReopenConversation={canReopenConversations}
             chatPanel={chatPanel}
             composerMode={composerMode}
-            conversations={scopedConversations}
+            conversations={channelFilteredConversations}
             counts={counts}
             filter={filter}
             assignedOnly={!canViewAllConversations}
@@ -669,10 +938,14 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             onChangeSelectedConversation={handleOpenConversation}
             onChangeSelectedTemplate={setSelectedTemplate}
             onChangeTags={handleConversationTagsChange}
+            onAssignConversation={handleAssignConversation}
             onCloseConversation={handleConversationStatusToggle}
+            onDeleteConversationById={handleDeleteConversationById}
             onDeleteMessage={handleDeleteMessage}
+            onMarkConversationUnread={handleMarkConversationUnread}
             onSend={handleSend}
             onSendAttachment={handleSendAttachment}
+            onSendCommentReply={handleSendCommentReply}
             onSendTemplate={handleSendTemplate}
             onSetMobileChatOpen={setMobileChatOpen}
           />
@@ -711,9 +984,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
               {profilePanel === "main" ? (
                 <>
                   <div className="account-summary">
-                    <span className="account-avatar large">{accountInitial}</span>
-                    <div>
-                      <b>{initialUser.name}</b>
+                      <span className="account-avatar large">{accountInitial}</span>
+                      <div>
+                        <b>{initialUser.name}</b>
                       <span>{initialUser.role}</span>
                       <em className={currentProfileStatus === "متصل" ? "online" : "offline"}>{currentProfileStatus}</em>
                     </div>

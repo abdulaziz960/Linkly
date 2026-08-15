@@ -32,7 +32,12 @@ export default function LoginForm() {
       return;
     }
 
-    router.push("/dashboard");
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("audiencew:dashboard-active-view", "inbox");
+      window.localStorage.removeItem("audiencew:dashboard-active-channel");
+    }
+
+    router.push("/dashboard?view=inbox");
     router.refresh();
   }
 

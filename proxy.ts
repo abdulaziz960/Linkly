@@ -3,11 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 const legacyRedirects: Record<string, string> = {
   "/index.html": "/",
   "/dashboard.html": "/dashboard",
-  "/admin.html": "/dashboard",
+  "/admin.html": "/dashboard?view=inbox",
   "/contact.html": "/",
-  "/data-deletion.html": "/",
-  "/privacy.html": "/",
-  "/terms.html": "/"
+  "/data-deletion.html": "/data-deletion",
+  "/privacy.html": "/privacy",
+  "/terms.html": "/terms"
 };
 
 export function proxy(request: NextRequest) {

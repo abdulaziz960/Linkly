@@ -16,7 +16,6 @@ import type {
 import AutomationsView from "./AutomationsView";
 import BotView from "./BotView";
 import CampaignsView from "./CampaignsView";
-import CommunicationChannelsView from "./CommunicationChannelsView";
 import ContactsView from "./ContactsView";
 import EmployeesView from "./EmployeesView";
 import LeadsView from "./LeadsView";
@@ -66,7 +65,6 @@ export default function DashboardViewRouter({
   view
 }: DashboardViewRouterProps) {
   if (view === "contacts") return <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
-  if (view === "communicationChannels") return <CommunicationChannelsView integrationStatus={integrationStatus} />;
   if (view === "tags") return <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "bot") return <BotView />;
   if (view === "automations") {

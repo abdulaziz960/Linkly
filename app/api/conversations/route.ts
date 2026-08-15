@@ -1,8 +1,56 @@
+import { NextRequest } from "next/server";
 import { getConversations } from "../../../lib/database";
-import { jsonOk } from "../_utils/json";
+import { getCurrentUser } from "../../../lib/auth";
+import { prisma } from "../../../lib/prisma";
+import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  return jsonOk(await getConversations());
+  const user = await getCurrentUser();
+  if (!user) return jsonError("غير مصرح", 401);
+  return jsonOk(await getConversations(user.tenantId));
+}
+
+export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return jsonError("غير مصرح", 401);
+
+  const body = (await request.json()) as { customerId?: string };
+  const customerId = body.customerId?.trim();
+
+  if (!customerId) return jsonError("العميل مطلوب");
+
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    include: { conversations: true }
+  });
+
+  if (!customer) return jsonError("لم يتم العثور على العميل", 404);
+  if (customer.tenantId !== user.tenantId) return jsonError("لم يتم العثور على العميل", 404);
+
+  const conversationId = customer.conversations[0]?.id || customer.id;
+
+  if (!customer.conversations.length) {
+    await prisma.conversation.create({
+      data: {
+        id: conversationId,
+        customerId: customer.id,
+        channel: "whatsapp",
+        lastMessage: "لا توجد رسائل بعد",
+        status: "unassigned",
+        assignee: "بدون موظف",
+        unread: 0,
+        windowExpired: 1,
+        tenantId: user.tenantId
+      }
+    });
+  }
+
+  const conversations = await getConversations(user.tenantId);
+  const conversation = conversations.find((item) => item.id === conversationId);
+
+  if (!conversation) return jsonError("تعذر فتح محادثة العميل");
+
+  return jsonOk(conversation);
 }

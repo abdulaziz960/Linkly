@@ -3,7 +3,6 @@ import type { NavItem, ViewKey } from "../types";
 export const navItems: NavItem[] = [
   { key: "inbox", label: "المحادثات" },
   { key: "contacts", label: "العملاء" },
-  { key: "communicationChannels", label: "قنوات التواصل" },
   { key: "tags", label: "الوسوم" },
   { key: "bot", label: "الرد الآلي" },
   { key: "automations", label: "الأتمتة" },
@@ -21,7 +20,6 @@ export const navItems: NavItem[] = [
 export const viewTitles: Record<ViewKey, string> = {
   inbox: "المحادثات",
   contacts: "العملاء",
-  communicationChannels: "قنوات التواصل",
   tags: "الوسوم",
   bot: "الرد الآلي",
   automations: "الأتمتة",

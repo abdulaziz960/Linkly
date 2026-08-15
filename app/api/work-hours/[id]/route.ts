@@ -12,7 +12,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     return jsonOk(await prisma.workSchedule.update({
       where: { id },
-      data: { team: body.team, days: body.days, start: body.start, end: body.end, status: body.status, holidays: body.holidays }
+      data: {
+        team: body.team?.trim(),
+        days: body.days?.trim() || undefined,
+        start: body.start?.trim() || undefined,
+        end: body.end?.trim() || undefined,
+        status: body.status,
+        holidays: body.holidays
+      }
     }));
   } catch {
     return jsonError("تعذر تحديث جدول العمل", 404);

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { convertAudioToMp3 } from "../../../../lib/audio-conversion";
 import { getIntegrationSettings } from "../../../../lib/database";
+import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
+import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
+import { maybeSendLeadAiReply } from "../../../../lib/lead-ai";
 import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 
 export const runtime = "nodejs";
@@ -34,6 +37,122 @@ function getMessageText(message: Record<string, any>) {
   if (message.video) return "فيديو وارد";
   if (message.sticker) return "ملصق وارد";
   return "رسالة واردة من WhatsApp";
+}
+
+function getInstagramText(message: Record<string, any>) {
+  if (message.message?.text) return message.message.text;
+  if (message.text) return message.text;
+  if (message.value?.text) return message.value.text;
+  if (message.postback?.title) return message.postback.title;
+  if (Array.isArray(message.message?.attachments) && message.message.attachments.length) return "مرفق وارد من Instagram";
+  return "رسالة واردة من Instagram";
+}
+
+function getFacebookText(message: Record<string, any>) {
+  if (message.message?.text) return message.message.text;
+  if (message.text) return message.text;
+  if (message.postback?.title) return message.postback.title;
+  if (Array.isArray(message.message?.attachments) && message.message.attachments.length) return "مرفق وارد من Facebook";
+  return "رسالة واردة من Facebook";
+}
+
+function hasInstagramMessageContent(event: Record<string, any>) {
+  return Boolean(
+    event.message?.text ||
+      event.text ||
+      event.value?.text ||
+      event.postback?.title ||
+      (Array.isArray(event.message?.attachments) && event.message.attachments.length)
+  );
+}
+
+type InstagramProfile = {
+  name?: string;
+  username?: string;
+};
+
+type InstagramCommentSource = {
+  type: string;
+  id?: string;
+  url?: string;
+  label?: string;
+};
+
+async function getInstagramSenderProfile(instagramUserId: string, accessToken: string): Promise<InstagramProfile | undefined> {
+  if (!instagramUserId || !accessToken) return undefined;
+
+  const fields = "username,name";
+  const endpoints = [
+    `https://graph.instagram.com/v22.0/${instagramUserId}`,
+    `https://graph.facebook.com/v22.0/${instagramUserId}`
+  ];
+
+  for (const endpoint of endpoints) {
+    const url = new URL(endpoint);
+    url.searchParams.set("fields", fields);
+    url.searchParams.set("access_token", accessToken);
+
+    try {
+      const response = await fetch(url);
+      const payload = await response.json().catch(() => null);
+      if (response.ok && payload) {
+        return {
+          name: typeof payload.name === "string" ? payload.name : undefined,
+          username: typeof payload.username === "string" ? payload.username : undefined
+        };
+      }
+    } catch (error) {
+      console.error("Instagram sender profile lookup failed", error);
+    }
+  }
+
+  return undefined;
+}
+
+async function getInstagramMediaSource(media: Record<string, any> | undefined, accessToken: string): Promise<InstagramCommentSource | undefined> {
+  const mediaId = String(media?.id || media?.media_id || "");
+  const directUrl = typeof media?.permalink === "string" ? media.permalink : "";
+  const directLabel = typeof media?.caption === "string" ? media.caption : "";
+
+  if (!mediaId && !directUrl) return undefined;
+
+  const source: InstagramCommentSource = {
+    type: "instagram_post",
+    id: mediaId || undefined,
+    url: directUrl || undefined,
+    label: directLabel ? `بوست: ${directLabel.slice(0, 70)}` : "البوست المرتبط بالتعليق"
+  };
+
+  if (source.url || !mediaId || !accessToken) return source;
+
+  const endpoints = [
+    `https://graph.instagram.com/v22.0/${mediaId}`,
+    `https://graph.facebook.com/v22.0/${mediaId}`
+  ];
+
+  for (const endpoint of endpoints) {
+    const url = new URL(endpoint);
+    url.searchParams.set("fields", "permalink,caption,media_type");
+    url.searchParams.set("access_token", accessToken);
+
+    try {
+      const response = await fetch(url);
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload) continue;
+
+      const permalink = typeof payload.permalink === "string" ? payload.permalink : "";
+      const caption = typeof payload.caption === "string" ? payload.caption : "";
+      return {
+        ...source,
+        url: permalink || source.url,
+        label: caption ? `بوست: ${caption.slice(0, 70)}` : source.label
+      };
+    } catch (error) {
+      console.error("Instagram media lookup failed", error);
+    }
+  }
+
+  return source;
 }
 
 async function getIncomingAttachment(message: Record<string, any>, accessToken: string) {
@@ -99,15 +218,86 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
 export async function POST(request: NextRequest) {
   const payload = await request.json();
   const settings = await getIntegrationSettings();
+  const instagramSettings = await getIntegrationSettings("instagram");
+  const facebookSettings = await getIntegrationSettings("facebook");
   const accessToken = settings.accessToken?.trim() || "";
+  const instagramAccessToken = instagramSettings.accessToken?.trim() || accessToken;
   const savedMessages: string[] = [];
   const entries = Array.isArray(payload.entry) ? payload.entry : [];
 
   for (const entry of entries) {
+    const instagramMessaging = Array.isArray(entry.messaging) ? entry.messaging : [];
+    for (const event of instagramMessaging) {
+      const senderId = event.sender?.id;
+      if (!senderId) continue;
+      const facebookPageId = facebookSettings.wabaId?.trim();
+      const recipientId = String(event.recipient?.id || entry.id || "");
+      const isFacebookPageEvent = Boolean(facebookPageId && recipientId === facebookPageId);
+
+      if (isFacebookPageEvent) {
+        const isEchoMessage = event.message?.is_echo === true || event.message?.is_deleted === true;
+        if (senderId === facebookPageId || isEchoMessage || !hasInstagramMessageContent(event)) {
+          continue;
+        }
+
+        await storeFacebookMessage({
+          facebookUserId: senderId,
+          text: getFacebookText(event),
+          direction: "in",
+          messageId: event.message?.mid || event.postback?.mid,
+          receivedAt: event.timestamp ? new Date(Number(event.timestamp)) : undefined,
+          replyToMessageId: event.message?.reply_to?.mid || event.reply_to?.mid || event.reply_to?.id
+        });
+        savedMessages.push(event.message?.mid || senderId);
+        continue;
+      }
+
+      const instagramAccountId = instagramSettings.wabaId?.trim();
+      const isEchoMessage = event.message?.is_echo === true || event.message?.is_deleted === true;
+      if (senderId === instagramAccountId || isEchoMessage || !hasInstagramMessageContent(event)) {
+        continue;
+      }
+
+      const text = getInstagramText(event);
+      const profile = await getInstagramSenderProfile(senderId, instagramAccessToken);
+      await storeInstagramMessage({
+        instagramUserId: senderId,
+        name: profile?.username || profile?.name,
+        text,
+        direction: "in",
+        messageId: event.message?.mid || event.postback?.mid,
+        receivedAt: event.timestamp ? new Date(Number(event.timestamp)) : undefined,
+        replyToMessageId: event.message?.reply_to?.mid || event.reply_to?.mid || event.reply_to?.id
+      });
+      savedMessages.push(event.message?.mid || senderId);
+    }
+
     const changes = Array.isArray(entry.changes) ? entry.changes : [];
 
     for (const change of changes) {
       const value = change.value || {};
+      if (change.field === "comments" || value.media || value.comment_id || value.from?.id) {
+        const instagramUserId = value.from?.id || value.user_id || value.sender_id || value.id;
+        if (instagramUserId) {
+          if (instagramUserId === instagramSettings.wabaId?.trim()) continue;
+          const text = value.text || value.message || "تعليق وارد من Instagram";
+          const fallbackName = value.from?.username || value.from?.name;
+          const profile = fallbackName ? undefined : await getInstagramSenderProfile(instagramUserId, instagramAccessToken);
+          const source = await getInstagramMediaSource(value.media, instagramAccessToken);
+          await storeInstagramMessage({
+            instagramUserId,
+            name: fallbackName || profile?.username || profile?.name,
+            text: `تعليق: ${text}`,
+            direction: "in",
+            messageId: value.comment_id || value.id,
+            receivedAt: value.created_time ? new Date(Number(value.created_time) * 1000) : undefined,
+            source
+          });
+          savedMessages.push(value.comment_id || value.id || instagramUserId);
+          continue;
+        }
+      }
+
       const contacts = Array.isArray(value.contacts) ? value.contacts : [];
       const messages = Array.isArray(value.messages) ? value.messages : [];
       const statuses = Array.isArray(value.statuses) ? value.statuses : [];
@@ -130,14 +320,22 @@ export async function POST(request: NextRequest) {
         const text = getMessageText(message);
         const attachment = await getIncomingAttachment(message, accessToken);
 
-        await storeWhatsAppMessage({
+        const stored = await storeWhatsAppMessage({
           phone: message.from,
           name: contact?.profile?.name,
           text,
           direction: "in",
           messageId: message.id,
           receivedAt: message.timestamp ? new Date(Number(message.timestamp) * 1000) : undefined,
-          attachment
+          attachment,
+          replyToMessageId: message.context?.id
+        });
+
+        void maybeSendLeadAiReply({
+          conversationId: stored.conversationId,
+          customerName: contact?.profile?.name || `عميل ${String(message.from).slice(-4)}`,
+          customerPhone: message.from,
+          incomingText: text
         });
 
         savedMessages.push(message.id || message.from);

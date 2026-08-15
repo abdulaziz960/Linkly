@@ -3,6 +3,7 @@ import type { Conversation } from "../types";
 export const initialConversations: Conversation[] = [
   {
     id: "c-1",
+    channel: "whatsapp",
     customer: "سارة العتيبي",
     phone: "+966 50 123 4567",
     initial: "س",
@@ -18,6 +19,7 @@ export const initialConversations: Conversation[] = [
   },
   {
     id: "c-2",
+    channel: "whatsapp",
     customer: "محمد الحربي",
     phone: "+966 55 888 1200",
     initial: "م",
@@ -32,6 +34,7 @@ export const initialConversations: Conversation[] = [
   },
   {
     id: "c-3",
+    channel: "whatsapp",
     customer: "متجر لمسة",
     phone: "+966 53 420 9090",
     initial: "ل",
@@ -46,6 +49,7 @@ export const initialConversations: Conversation[] = [
   },
   {
     id: "c-4",
+    channel: "whatsapp",
     customer: "عبدالله السالم",
     phone: "+966 56 310 4400",
     initial: "ع",

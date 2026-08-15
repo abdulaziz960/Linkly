@@ -28,6 +28,13 @@ import type {
 
 let seedPromise: Promise<void> | null = null;
 const defaultMetaAppId = process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";
+const defaultMetaConfigId =
+  process.env.NEXT_PUBLIC_META_CONFIG_ID ||
+  process.env.META_CONFIG_ID ||
+  process.env.WHATSAPP_CONFIGURATION_ID ||
+  "";
+const defaultGoogleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "";
+const defaultGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
 const isPostgresDatabase =
   process.env.DATABASE_URL?.startsWith("postgres://") || process.env.DATABASE_URL?.startsWith("postgresql://");
 const defaultLoginEmail = "admin@audiencew.sa";
@@ -42,17 +49,21 @@ const defaultLoginPassword = "AudienceW123";
 const demoUserAccounts = [
   {
     id: "user-owner",
+    employeeId: "emp-owner",
     name: "عبدالعزيز الكيالي",
     email: defaultLoginEmail,
     password: defaultLoginPassword,
-    role: "مالك الحساب"
+    role: "مالك الحساب",
+    tenantId: "tenant-demo"
   },
   {
     id: "user-support",
+    employeeId: "emp-noura",
     name: "نورة القحطاني",
     email: "noura@audiencew.sa",
     password: "AudienceW123",
-    role: "موظف دعم"
+    role: "مالك الحساب",
+    tenantId: "tenant-noura"
   }
 ];
 
@@ -108,26 +119,72 @@ export function hashPassword(password: string) {
   return createHash("sha256").update(password).digest("hex");
 }
 
-async function ensureSchema() {
-  if (isPostgresDatabase) return;
+export async function ensureSchema() {
+  if (isPostgresDatabase) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'whatsapp'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_activity_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS created_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS author TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_type TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_url TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_name TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_mime TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS meta_media_id TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS source_id TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS source_url TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS source_label TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_message_id TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_text TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_author TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_consumer_key TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_consumer_secret TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_bearer_token TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_access_token TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_access_token_secret TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS google_account_id TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS google_location_id TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS google_refresh_token TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    return;
+  }
 
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS customers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     phone TEXT NOT NULL,
-    initial TEXT NOT NULL
+    initial TEXT NOT NULL,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'
   )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY,
     customer_id TEXT NOT NULL,
+    channel TEXT NOT NULL DEFAULT 'whatsapp',
     last_message TEXT NOT NULL,
     status TEXT NOT NULL,
     assignee TEXT NOT NULL,
     unread INTEGER NOT NULL DEFAULT 0,
     window_expired INTEGER NOT NULL DEFAULT 0,
-    last_activity_at TEXT NOT NULL DEFAULT ''
+    last_activity_at TEXT NOT NULL DEFAULT '',
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'
   )`);
+  const customerColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(customers)`);
+  if (!customerColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+  }
   const conversationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(conversations)`);
+  if (!conversationColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+  }
+  if (!conversationColumns.some((column) => column.name === "channel")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN channel TEXT NOT NULL DEFAULT 'whatsapp'`);
+  }
   if (!conversationColumns.some((column) => column.name === "last_activity_at")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN last_activity_at TEXT NOT NULL DEFAULT ''`);
   }
@@ -142,13 +199,23 @@ async function ensureSchema() {
     attachment_url TEXT NOT NULL DEFAULT '',
     attachment_name TEXT NOT NULL DEFAULT '',
     attachment_mime TEXT NOT NULL DEFAULT '',
-    meta_media_id TEXT NOT NULL DEFAULT ''
+    meta_media_id TEXT NOT NULL DEFAULT '',
+    source_type TEXT NOT NULL DEFAULT '',
+    source_id TEXT NOT NULL DEFAULT '',
+    source_url TEXT NOT NULL DEFAULT '',
+    source_label TEXT NOT NULL DEFAULT '',
+    reply_to_message_id TEXT NOT NULL DEFAULT '',
+    reply_to_text TEXT NOT NULL DEFAULT '',
+    reply_to_author TEXT NOT NULL DEFAULT ''
   )`);
   const messageColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(messages)`);
+  if (!messageColumns.some((column) => column.name === "created_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN created_at TEXT NOT NULL DEFAULT ''`);
+  }
   if (!messageColumns.some((column) => column.name === "author")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN author TEXT NOT NULL DEFAULT ''`);
   }
-  for (const columnName of ["attachment_type", "attachment_url", "attachment_name", "attachment_mime", "meta_media_id"]) {
+  for (const columnName of ["attachment_type", "attachment_url", "attachment_name", "attachment_mime", "meta_media_id", "source_type", "source_id", "source_url", "source_label", "reply_to_message_id", "reply_to_text", "reply_to_author"]) {
     if (!messageColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
@@ -160,8 +227,13 @@ async function ensureSchema() {
     status TEXT NOT NULL,
     permissions TEXT NOT NULL,
     email TEXT NOT NULL,
-    initial TEXT NOT NULL
+    initial TEXT NOT NULL,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'
   )`);
+  const employeeColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(employees)`);
+  if (!employeeColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE employees ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS teams (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -214,9 +286,34 @@ async function ensureSchema() {
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT NOT NULL,
+    trigger TEXT NOT NULL DEFAULT 'رسالة واردة',
+    action TEXT NOT NULL DEFAULT 'تعيين المحادثة',
+    target TEXT NOT NULL DEFAULT 'بدون موظف',
+    delay_minutes INTEGER NOT NULL DEFAULT 0,
+    conditions_json TEXT NOT NULL DEFAULT '[]',
+    actions_json TEXT NOT NULL DEFAULT '[]',
     created_at TEXT NOT NULL,
     enabled INTEGER NOT NULL DEFAULT 1
   )`);
+  const automationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(automation_rules)`);
+  const automationTextColumns = [
+    ["trigger", "رسالة واردة"],
+    ["action", "تعيين المحادثة"],
+    ["target", "بدون موظف"]
+  ];
+  for (const [columnName, defaultValue] of automationTextColumns) {
+    if (!automationColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE automation_rules ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT '${defaultValue}'`);
+    }
+  }
+  if (!automationColumns.some((column) => column.name === "delay_minutes")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE automation_rules ADD COLUMN delay_minutes INTEGER NOT NULL DEFAULT 0`);
+  }
+  for (const columnName of ["conditions_json", "actions_json"]) {
+    if (!automationColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE automation_rules ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT '[]'`);
+    }
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaigns (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -238,12 +335,25 @@ async function ensureSchema() {
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS leads (
     id TEXT PRIMARY KEY,
     customer TEXT NOT NULL,
+    phone TEXT NOT NULL DEFAULT '',
     interest TEXT NOT NULL,
     budget TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
     stage TEXT NOT NULL,
     employee TEXT NOT NULL,
-    last_contact TEXT NOT NULL
+    last_contact TEXT NOT NULL,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'
   )`);
+  const leadColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(leads)`);
+  for (const columnName of ["phone", "source", "notes"]) {
+    if (!leadColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
+    }
+  }
+  if (!leadColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS integration_settings (
     id TEXT PRIMARY KEY,
     provider TEXT NOT NULL,
@@ -257,9 +367,33 @@ async function ensureSchema() {
     config_id TEXT NOT NULL DEFAULT '',
     verify_token TEXT NOT NULL,
     access_token TEXT NOT NULL,
+    x_consumer_key TEXT NOT NULL DEFAULT '',
+    x_consumer_secret TEXT NOT NULL DEFAULT '',
+    x_bearer_token TEXT NOT NULL DEFAULT '',
+    x_access_token TEXT NOT NULL DEFAULT '',
+    x_access_token_secret TEXT NOT NULL DEFAULT '',
+    google_account_id TEXT NOT NULL DEFAULT '',
+    google_location_id TEXT NOT NULL DEFAULT '',
+    google_refresh_token TEXT NOT NULL DEFAULT '',
     webhook_url TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
+  for (const statement of [
+    `ALTER TABLE integration_settings ADD COLUMN x_consumer_key TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN x_consumer_secret TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN x_bearer_token TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN x_access_token TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN x_access_token_secret TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN google_account_id TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN google_location_id TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN google_refresh_token TEXT NOT NULL DEFAULT ''`
+  ]) {
+    try {
+      await prisma.$executeRawUnsafe(statement);
+    } catch {
+      // Existing databases already have this column.
+    }
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS user_accounts (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -336,19 +470,166 @@ async function seedDatabase() {
         updatedAt: "اليوم"
       }
     });
+    await tx.integrationSetting.upsert({
+      where: { id: "meta-instagram" },
+      update: {},
+      create: {
+        id: "meta-instagram",
+        provider: "instagram",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: defaultMetaAppId,
+        configId: "",
+        verifyToken: "audiencew_webhook_verify",
+        accessToken: "",
+        webhookUrl: "/api/meta/webhook",
+        updatedAt: "اليوم"
+      }
+    });
+    await tx.integrationSetting.upsert({
+      where: { id: "meta-facebook" },
+      update: {},
+      create: {
+        id: "meta-facebook",
+        provider: "facebook",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: defaultMetaAppId,
+        configId: "",
+        verifyToken: "audiencew_webhook_verify",
+        accessToken: "",
+        webhookUrl: "/api/meta/webhook",
+        updatedAt: "اليوم"
+      }
+    });
+    await tx.integrationSetting.upsert({
+      where: { id: "telegram-bot" },
+      update: {},
+      create: {
+        id: "telegram-bot",
+        provider: "telegram",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: "",
+        configId: "",
+        verifyToken: "audiencew_telegram_secret",
+        accessToken: "",
+        webhookUrl: "/api/telegram/webhook",
+        updatedAt: "اليوم"
+      }
+    });
+    await tx.integrationSetting.upsert({
+      where: { id: "x-channel" },
+      update: {},
+      create: {
+        id: "x-channel",
+        provider: "x",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: "",
+        configId: "",
+        verifyToken: "audiencew_x_secret",
+        accessToken: "",
+        webhookUrl: "/api/x/webhook",
+        updatedAt: "اليوم"
+      }
+    });
+    await tx.integrationSetting.upsert({
+      where: { id: "google-maps" },
+      update: {},
+      create: {
+        id: "google-maps",
+        provider: "google_maps",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: defaultGoogleClientId,
+        configId: "",
+        verifyToken: "audiencew_google_secret",
+        accessToken: "",
+        webhookUrl: "/api/google/reviews/sync",
+        updatedAt: "اليوم"
+      }
+    });
+    await tx.integrationSetting.upsert({
+      where: { id: "email-channel" },
+      update: {},
+      create: {
+        id: "email-channel",
+        provider: "email",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: "",
+        configId: "",
+        verifyToken: "audiencew_email_secret",
+        accessToken: "",
+        webhookUrl: "/api/email/inbound",
+        updatedAt: "اليوم"
+      }
+    });
 
     for (const account of demoUserAccounts) {
       await tx.userAccount.upsert({
         where: { email: account.email },
-        update: {},
+        update: {
+          name: account.name,
+          role: account.role,
+          tenantId: account.tenantId
+        },
         create: {
           id: account.id,
           name: account.name,
           email: account.email,
           passwordHash: hashPassword(account.password),
           role: account.role,
-          tenantId: "tenant-demo",
+          tenantId: account.tenantId,
           createdAt: "اليوم"
+        }
+      });
+
+      await tx.employee.upsert({
+        where: { id: account.employeeId },
+        update: {
+          name: account.name,
+          email: account.email,
+          role: account.role,
+          status: "متصل",
+          permissions: "الكل",
+          initial: account.name.slice(0, 1),
+          tenantId: account.tenantId
+        },
+        create: {
+          id: account.employeeId,
+          name: account.name,
+          email: account.email,
+          role: account.role,
+          status: "متصل",
+          permissions: "الكل",
+          initial: account.name.slice(0, 1),
+          tenantId: account.tenantId
         }
       });
     }
@@ -455,6 +736,7 @@ async function seedDatabase() {
         create: {
           id: conversation.id,
           customerId: conversation.id,
+          channel: conversation.channel ?? "whatsapp",
           lastMessage: conversation.lastMessage,
           status: conversation.status,
           assignee: conversation.assignee,
@@ -479,7 +761,14 @@ async function seedDatabase() {
             attachmentUrl: message.attachment?.url ?? "",
             attachmentName: message.attachment?.name ?? "",
             attachmentMime: "",
-            metaMediaId: ""
+            metaMediaId: "",
+            sourceType: "",
+            sourceId: "",
+            sourceUrl: "",
+            sourceLabel: "",
+            replyToMessageId: "",
+            replyToText: "",
+            replyToAuthor: ""
           }
         });
       }
@@ -508,7 +797,8 @@ async function seedDatabase() {
         status: employee.status,
         permissions: employee.permissions,
         email: employee.email,
-        initial: employee.initial
+        initial: employee.initial,
+        tenantId: employee.email === "noura@audiencew.sa" ? "tenant-noura" : "tenant-demo"
       };
 
       await tx.employee.upsert({
@@ -602,7 +892,16 @@ async function seedDatabase() {
         where: { id: rule.id },
         update: {},
         create: {
-          ...rule,
+          id: rule.id,
+          name: rule.name,
+          description: rule.description,
+          trigger: rule.trigger,
+          action: rule.action,
+          target: rule.target,
+          delayMinutes: rule.delayMinutes,
+          conditionsJson: JSON.stringify(rule.conditions),
+          actionsJson: JSON.stringify(rule.actions),
+          createdAt: rule.createdAt,
           enabled: rule.enabled ? 1 : 0
         }
       });
@@ -631,11 +930,15 @@ async function seedDatabase() {
         create: {
           id: lead.id,
           customer: lead.customer,
+          phone: lead.phone || "",
           interest: lead.interest,
           budget: lead.budget,
+          source: lead.source || "",
+          notes: lead.notes || "",
           stage: lead.stage,
           employee: lead.employee,
-          lastContact: lead.lastContact
+          lastContact: lead.lastContact,
+          tenantId: lead.tenantId || "tenant-demo"
         }
       });
     }
@@ -660,19 +963,166 @@ async function seedDatabase() {
         updatedAt: "اليوم"
       }
     });
+    await tx.integrationSetting.upsert({
+      where: { id: "meta-instagram" },
+      update: {},
+      create: {
+        id: "meta-instagram",
+        provider: "instagram",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: defaultMetaAppId,
+        configId: "",
+        verifyToken: "audiencew_webhook_verify",
+        accessToken: "",
+        webhookUrl: "/api/meta/webhook",
+        updatedAt: "اليوم"
+      }
+    });
+    await tx.integrationSetting.upsert({
+      where: { id: "meta-facebook" },
+      update: {},
+      create: {
+        id: "meta-facebook",
+        provider: "facebook",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: defaultMetaAppId,
+        configId: "",
+        verifyToken: "audiencew_webhook_verify",
+        accessToken: "",
+        webhookUrl: "/api/meta/webhook",
+        updatedAt: "اليوم"
+      }
+    });
+    await tx.integrationSetting.upsert({
+      where: { id: "telegram-bot" },
+      update: {},
+      create: {
+        id: "telegram-bot",
+        provider: "telegram",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: "",
+        configId: "",
+        verifyToken: "audiencew_telegram_secret",
+        accessToken: "",
+        webhookUrl: "/api/telegram/webhook",
+        updatedAt: "اليوم"
+      }
+    });
+    await tx.integrationSetting.upsert({
+      where: { id: "x-channel" },
+      update: {},
+      create: {
+        id: "x-channel",
+        provider: "x",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: "",
+        configId: "",
+        verifyToken: "audiencew_x_secret",
+        accessToken: "",
+        webhookUrl: "/api/x/webhook",
+        updatedAt: "اليوم"
+      }
+    });
+    await tx.integrationSetting.upsert({
+      where: { id: "google-maps" },
+      update: {},
+      create: {
+        id: "google-maps",
+        provider: "google_maps",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: defaultGoogleClientId,
+        configId: "",
+        verifyToken: "audiencew_google_secret",
+        accessToken: "",
+        webhookUrl: "/api/google/reviews/sync",
+        updatedAt: "اليوم"
+      }
+    });
+    await tx.integrationSetting.upsert({
+      where: { id: "email-channel" },
+      update: {},
+      create: {
+        id: "email-channel",
+        provider: "email",
+        status: "pending",
+        businessName: "",
+        wabaName: "",
+        phoneNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        appId: "",
+        configId: "",
+        verifyToken: "audiencew_email_secret",
+        accessToken: "",
+        webhookUrl: "/api/email/inbound",
+        updatedAt: "اليوم"
+      }
+    });
 
     for (const account of demoUserAccounts) {
       await tx.userAccount.upsert({
         where: { email: account.email },
-        update: {},
+        update: {
+          name: account.name,
+          role: account.role,
+          tenantId: account.tenantId
+        },
         create: {
           id: account.id,
           name: account.name,
           email: account.email,
           passwordHash: hashPassword(account.password),
           role: account.role,
-          tenantId: "tenant-demo",
+          tenantId: account.tenantId,
           createdAt: "اليوم"
+        }
+      });
+
+      await tx.employee.upsert({
+        where: { id: account.employeeId },
+        update: {
+          name: account.name,
+          email: account.email,
+          role: account.role,
+          status: "متصل",
+          permissions: "الكل",
+          initial: account.name.slice(0, 1),
+          tenantId: account.tenantId
+        },
+        create: {
+          id: account.employeeId,
+          name: account.name,
+          email: account.email,
+          role: account.role,
+          status: "متصل",
+          permissions: "الكل",
+          initial: account.name.slice(0, 1),
+          tenantId: account.tenantId
         }
       });
     }
@@ -748,11 +1198,48 @@ async function ensureSeeded() {
   await seedPromise;
 }
 
-export async function getCustomers(): Promise<Customer[]> {
+function parseAutomationConditions(value: string): AutomationRule["conditions"] {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((condition) => condition && typeof condition === "object")
+      .map((condition) => ({
+        field: typeof condition.field === "string" ? condition.field : "الرسالة تحتوي على",
+        operator: typeof condition.operator === "string" ? condition.operator : "يساوي",
+        value: typeof condition.value === "string" ? condition.value : ""
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function parseAutomationActions(value: string): AutomationRule["actions"] {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((action) => action && typeof action === "object")
+      .map((action) => ({
+        type: typeof action.type === "string" ? action.type : "فتح المحادثة",
+        target: typeof action.target === "string" ? action.target : "لا يحتاج اختيار"
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getCustomers(tenantId = "tenant-demo"): Promise<Customer[]> {
   await ensureSeeded();
   const customers = await prisma.customer.findMany({
+    where: { tenantId },
     include: {
       conversations: {
+        orderBy: {
+          lastActivityAt: "desc"
+        },
         include: {
           tags: true
         }
@@ -760,18 +1247,38 @@ export async function getCustomers(): Promise<Customer[]> {
     }
   });
 
-  return customers.map((customer) => ({
-    id: customer.id,
-    name: customer.name,
-    phone: customer.phone,
-    initial: customer.initial,
-    tags: Array.from(new Set(customer.conversations.flatMap((conversation) => conversation.tags.map((tag) => tag.tagName))))
-  }));
+  return customers.map((customer) => {
+    const channels = customer.id.startsWith("ig-")
+      ? ["instagram" as const]
+      : customer.id.startsWith("fb-")
+        ? ["facebook" as const]
+      : customer.id.startsWith("tg-")
+        ? ["telegram" as const]
+        : customer.id.startsWith("x-")
+          ? ["x" as const]
+          : customer.id.startsWith("gm-")
+            ? ["google_maps" as const]
+          : customer.id.startsWith("email-")
+            ? ["email" as const]
+          : customer.conversations.length
+            ? Array.from(new Set(customer.conversations.map((conversation) => conversation.channel as Customer["channels"][number])))
+            : ["whatsapp" as const];
+
+    return {
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      initial: customer.initial,
+      channels,
+      tags: Array.from(new Set(customer.conversations.flatMap((conversation) => conversation.tags.map((tag) => tag.tagName))))
+    };
+  });
 }
 
-export async function getConversations(): Promise<Conversation[]> {
+export async function getConversations(tenantId = "tenant-demo"): Promise<Conversation[]> {
   await ensureSeeded();
   const conversations = await prisma.conversation.findMany({
+    where: { tenantId },
     orderBy: {
       lastActivityAt: "desc"
     },
@@ -782,37 +1289,70 @@ export async function getConversations(): Promise<Conversation[]> {
     }
   });
 
-  return conversations.map((conversation) => ({
-    id: conversation.id,
-    customer: conversation.customer.name,
-    phone: conversation.customer.phone,
-    initial: conversation.customer.initial,
-    lastMessage: conversation.lastMessage,
-    status: conversation.status as Conversation["status"],
-    assignee: conversation.assignee,
-    unread: conversation.unread || undefined,
-    windowExpired: Boolean(conversation.windowExpired) || undefined,
-    lastActivityAt: conversation.lastActivityAt || undefined,
-    tags: conversation.tags.map((tag) => tag.tagName),
-    messages: conversation.messages.map<Message>((message) => ({
+  const now = Date.now();
+  const dayInMs = 24 * 60 * 60 * 1000;
+
+  return conversations.map((conversation) => {
+    const messages = conversation.messages.map<Message>((message) => ({
       id: message.id,
       direction: message.direction as Message["direction"],
       text: message.text,
       time: message.time,
+      createdAt: message.createdAt || undefined,
       author: message.author || undefined,
       attachment: message.attachmentType && message.attachmentUrl ? {
         type: message.attachmentType as NonNullable<Message["attachment"]>["type"],
         url: message.attachmentUrl,
         name: message.attachmentName || message.text,
         mimeType: message.attachmentMime || undefined
+      } : undefined,
+      source: message.sourceType || message.sourceId || message.sourceUrl || message.sourceLabel ? {
+        type: message.sourceType || "post",
+        id: message.sourceId || undefined,
+        url: message.sourceUrl || undefined,
+        label: message.sourceLabel || undefined
+      } : undefined,
+      replyTo: message.replyToMessageId || message.replyToText || message.replyToAuthor ? {
+        messageId: message.replyToMessageId || undefined,
+        text: message.replyToText || undefined,
+        author: message.replyToAuthor || undefined
       } : undefined
-    }))
-  }));
+    }));
+    const lastCustomerMessage = conversation.messages
+      .filter((message) => message.direction === "in" && message.createdAt)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    const lastCustomerMessageAt = lastCustomerMessage?.createdAt ? new Date(lastCustomerMessage.createdAt).getTime() : NaN;
+    const isWhatsAppWindowExpired =
+      (conversation.channel || "whatsapp") === "whatsapp" &&
+      (Number.isNaN(lastCustomerMessageAt)
+        ? Boolean(conversation.windowExpired)
+        : now - lastCustomerMessageAt >= dayInMs);
+
+    return {
+      id: conversation.id,
+      channel: (conversation.channel || "whatsapp") as Conversation["channel"],
+      customer: conversation.customer.name,
+      phone: conversation.customer.phone,
+      initial: conversation.customer.initial,
+      lastMessage: conversation.lastMessage,
+      status: conversation.status as Conversation["status"],
+      assignee: conversation.assignee,
+      unread: conversation.unread || undefined,
+      windowExpired: isWhatsAppWindowExpired || undefined,
+      lastActivityAt: conversation.lastActivityAt || undefined,
+      firstMessageTime: messages[0]?.time,
+      lastMessageTime: messages.at(-1)?.time,
+      firstMessageAt: messages.find((message) => message.createdAt)?.createdAt,
+      lastMessageAt: messages.findLast((message) => message.createdAt)?.createdAt || conversation.lastActivityAt || undefined,
+      tags: conversation.tags.map((tag) => tag.tagName),
+      messages
+    };
+  });
 }
 
-export async function getEmployees(): Promise<Employee[]> {
+export async function getEmployees(tenantId = "tenant-demo"): Promise<Employee[]> {
   await ensureSeeded();
-  const rows = await prisma.employee.findMany();
+  const rows = await prisma.employee.findMany({ where: { tenantId } });
 
   return rows.map((employee) => ({
     id: employee.id,
@@ -885,6 +1425,12 @@ export async function getAutomationRules(): Promise<AutomationRule[]> {
     id: rule.id,
     name: rule.name,
     description: rule.description,
+    trigger: rule.trigger,
+    action: rule.action,
+    target: rule.target,
+    delayMinutes: rule.delayMinutes,
+    conditions: parseAutomationConditions(rule.conditionsJson),
+    actions: parseAutomationActions(rule.actionsJson),
     createdAt: rule.createdAt,
     enabled: Boolean(rule.enabled)
   }));
@@ -920,21 +1466,93 @@ export async function getWorkSchedules(): Promise<WorkSchedule[]> {
   }));
 }
 
-export async function getLeads(): Promise<Lead[]> {
+export async function getLeads(tenantId = "tenant-demo"): Promise<Lead[]> {
   await ensureSeeded();
-  return prisma.lead.findMany();
+  return prisma.lead.findMany({ where: { tenantId } });
 }
 
-export async function getIntegrationSettings(): Promise<IntegrationSettings> {
-  await ensureSeeded();
-  const settings = await prisma.integrationSetting.findUniqueOrThrow({
-    where: { id: "meta-whatsapp" }
-  });
+export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email";
 
-  if (!settings.appId && defaultMetaAppId) {
+export function getIntegrationBaseId(channel: IntegrationChannel) {
+  if (channel === "instagram") return "meta-instagram";
+  if (channel === "facebook") return "meta-facebook";
+  if (channel === "telegram") return "telegram-bot";
+  if (channel === "x") return "x-channel";
+  if (channel === "google_maps") return "google-maps";
+  if (channel === "email") return "email-channel";
+  return "meta-whatsapp";
+}
+
+export function getTenantIntegrationId(channel: IntegrationChannel, tenantId = "tenant-demo") {
+  const baseId = getIntegrationBaseId(channel);
+  return !tenantId || tenantId === "tenant-demo" ? baseId : `${tenantId}:${baseId}`;
+}
+
+export async function getIntegrationSettings(channel: IntegrationChannel = "whatsapp", tenantId = "tenant-demo"): Promise<IntegrationSettings> {
+  await ensureSeeded();
+  const id = getTenantIntegrationId(channel, tenantId);
+  const existingSettings = await prisma.integrationSetting.findUnique({
+    where: { id }
+  });
+  const settings = existingSettings ?? await prisma.integrationSetting.create({
+    data: {
+      id,
+      provider: channel === "instagram"
+        ? "instagram"
+        : channel === "facebook"
+          ? "facebook"
+          : channel === "telegram"
+            ? "telegram"
+            : channel === "x"
+              ? "x"
+              : channel === "google_maps"
+                ? "google_maps"
+              : channel === "email"
+                ? "email"
+              : "whatsapp_cloud",
+      status: "pending",
+      businessName: "",
+      wabaName: "",
+      phoneNumber: "",
+      phoneNumberId: "",
+      wabaId: "",
+      appId: channel === "telegram" || channel === "x" || channel === "email" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
+      configId: "",
+      verifyToken: channel === "telegram" ? "audiencew_telegram_secret" : channel === "x" ? "audiencew_x_secret" : channel === "google_maps" ? "audiencew_google_secret" : channel === "email" ? "audiencew_email_secret" : "audiencew_webhook_verify",
+      accessToken: "",
+      webhookUrl: channel === "telegram" ? "/api/telegram/webhook" : channel === "x" ? "/api/x/webhook" : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : "/api/meta/webhook",
+      updatedAt: "اليوم"
+    }
+  });
+  const whatsappSettings = channel === "instagram" || channel === "facebook"
+    ? await prisma.integrationSetting.findUnique({ where: { id: getTenantIntegrationId("whatsapp", tenantId) } })
+    : null;
+  const providerMetaSettings = tenantId !== "tenant-demo" && channel !== "telegram" && channel !== "x" && channel !== "google_maps" && channel !== "email"
+    ? await prisma.integrationSetting.findUnique({ where: { id: "meta-whatsapp" } })
+    : null;
+  const fallbackAppId = channel === "google_maps"
+    ? settings.appId || defaultGoogleClientId
+    : channel === "x" || channel === "email"
+    ? settings.appId
+    : channel === "instagram" || channel === "facebook"
+    ? settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || ""
+    : settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || "";
+  const fallbackConfigId = channel === "google_maps"
+    ? settings.configId || defaultGoogleClientSecret
+    : channel === "telegram" || channel === "x" || channel === "email"
+      ? settings.configId
+      : settings.configId || defaultMetaConfigId || whatsappSettings?.configId || providerMetaSettings?.configId || "";
+
+  if (!settings.appId && fallbackAppId) {
     await prisma.integrationSetting.update({
       where: { id: settings.id },
-      data: { appId: defaultMetaAppId }
+      data: { appId: fallbackAppId }
+    });
+  }
+  if (!settings.configId && fallbackConfigId) {
+    await prisma.integrationSetting.update({
+      where: { id: settings.id },
+      data: { configId: fallbackConfigId }
     });
   }
 
@@ -947,10 +1565,18 @@ export async function getIntegrationSettings(): Promise<IntegrationSettings> {
     phoneNumber: settings.phoneNumber,
     phoneNumberId: settings.phoneNumberId,
     wabaId: settings.wabaId,
-    appId: settings.appId || defaultMetaAppId,
-    configId: settings.configId,
+    appId: fallbackAppId,
+    configId: fallbackConfigId,
     verifyToken: settings.verifyToken,
     accessToken: settings.accessToken,
+    xConsumerKey: settings.xConsumerKey,
+    xConsumerSecret: settings.xConsumerSecret,
+    xBearerToken: settings.xBearerToken,
+    xAccessToken: settings.xAccessToken,
+    xAccessTokenSecret: settings.xAccessTokenSecret,
+    googleAccountId: settings.googleAccountId,
+    googleLocationId: settings.googleLocationId,
+    googleRefreshToken: settings.googleRefreshToken,
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };

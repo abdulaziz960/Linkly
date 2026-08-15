@@ -10,7 +10,10 @@ import { jsonError, jsonOk } from "../_utils/json";
 export const runtime = "nodejs";
 
 export async function GET() {
-  return jsonOk(await getEmployees());
+  const user = await getCurrentUser();
+  if (!user) return jsonError("غير مصرح", 401);
+
+  return jsonOk(await getEmployees(user.tenantId));
 }
 
 export async function POST(request: NextRequest) {
@@ -31,7 +34,7 @@ export async function POST(request: NextRequest) {
   if (!email) return jsonError("البريد الإلكتروني مطلوب");
 
   const [employeeCount, employeeLimit] = await Promise.all([
-    prisma.employee.count(),
+    prisma.employee.count({ where: { tenantId: user.tenantId } }),
     getEmployeeLimitForTenant(user.tenantId)
   ]);
 
@@ -58,7 +61,8 @@ export async function POST(request: NextRequest) {
         role,
         status: body.status || "متصل",
         permissions: body.permissions || "محادثات فقط",
-        initial: name.slice(0, 1)
+        initial: name.slice(0, 1),
+        tenantId: user.tenantId
       }
     });
 

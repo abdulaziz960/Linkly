@@ -6,15 +6,53 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export const runtime = "nodejs";
 
+type AutomationConditionInput = { field?: string; operator?: string; value?: string };
+type AutomationActionInput = { type?: string; target?: string };
+
+function cleanConditions(conditions?: AutomationConditionInput[]) {
+  if (!Array.isArray(conditions)) return undefined;
+
+  return JSON.stringify(conditions.map((condition) => ({
+    field: condition.field?.trim() || "الرسالة تحتوي على",
+    operator: condition.operator?.trim() || "يساوي",
+    value: condition.value?.trim() || ""
+  })));
+}
+
+function cleanActions(actions?: AutomationActionInput[]) {
+  if (!Array.isArray(actions)) return undefined;
+
+  return JSON.stringify(actions.map((action) => ({
+    type: action.type?.trim() || "فتح المحادثة",
+    target: action.target?.trim() || "لا يحتاج اختيار"
+  })));
+}
+
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
-  const body = (await request.json()) as { name?: string; description?: string; enabled?: boolean };
+  const body = (await request.json()) as {
+    name?: string;
+    description?: string;
+    trigger?: string;
+    action?: string;
+    target?: string;
+    delayMinutes?: number;
+    conditions?: AutomationConditionInput[];
+    actions?: AutomationActionInput[];
+    enabled?: boolean;
+  };
   try {
     return jsonOk(await prisma.automationRule.update({
       where: { id },
       data: {
         name: body.name?.trim(),
         description: body.description?.trim(),
+        trigger: body.trigger?.trim(),
+        action: body.action?.trim(),
+        target: body.target?.trim(),
+        delayMinutes: typeof body.delayMinutes === "number" ? Math.max(0, body.delayMinutes) : undefined,
+        conditionsJson: cleanConditions(body.conditions),
+        actionsJson: cleanActions(body.actions),
         enabled: typeof body.enabled === "boolean" ? (body.enabled ? 1 : 0) : undefined
       }
     }));

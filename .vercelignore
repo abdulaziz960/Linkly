@@ -1,0 +1,12 @@
+.env
+.env*
+.next/
+.npm-cache/
+node_modules/
+data/*.sqlite
+data/*.db
+prisma/.generated/
+app/generated/
+preview_pdf/
+*.php
+*.log

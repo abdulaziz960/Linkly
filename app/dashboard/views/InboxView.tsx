@@ -1,8 +1,18 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import FilterButton from "../components/FilterButton";
-import type { ChatPanel, ComposerMode, Conversation, ConversationFilter, MessageAttachment, MessageTemplate, Tag } from "../types";
+import type {
+  ChatPanel,
+  ComposerMode,
+  Conversation,
+  ConversationChannel,
+  ConversationFilter,
+  MessageAttachment,
+  MessageTemplate,
+  QuickReply,
+  Tag
+} from "../types";
 import { statusLabel } from "../utils/conversation";
 
 type InboxViewProps = {
@@ -10,6 +20,7 @@ type InboxViewProps = {
   assignedOnly: boolean;
   assigneeOptions: string[];
   canChangeAssignee: boolean;
+  canDeleteConversation: boolean;
   canDeleteAnyMessage: boolean;
   canReopenConversation: boolean;
   chatPanel: ChatPanel;
@@ -22,6 +33,7 @@ type InboxViewProps = {
   search: string;
   selectedTemplate: string;
   templates: MessageTemplate[];
+  quickReplies: QuickReply[];
   currentUserName: string;
   tags: Tag[];
   visibleConversations: Conversation[];
@@ -34,10 +46,14 @@ type InboxViewProps = {
   onChangeSelectedConversation: (conversationId: string) => void;
   onChangeSelectedTemplate: (templateName: string) => void;
   onChangeTags: (tags: string[]) => void | Promise<void>;
+  onAssignConversation: (conversationId: string, assignee: string) => void | Promise<void>;
   onCloseConversation: () => void;
+  onDeleteConversationById: (conversationId: string) => void | Promise<void>;
   onDeleteMessage: (messageId: string) => void;
-  onSend: (event: FormEvent<HTMLFormElement>) => void;
+  onMarkConversationUnread: (conversationId: string) => void | Promise<void>;
+  onSend: (event: FormEvent<HTMLFormElement>, replyToMessageId?: string) => void | Promise<void>;
   onSendAttachment: (attachment: MessageAttachment) => void | Promise<void>;
+  onSendCommentReply: (messageId: string, text: string) => void | Promise<void>;
   onSendTemplate: () => void;
   onSetMobileChatOpen: (isOpen: boolean) => void;
 };
@@ -70,6 +86,21 @@ const quickEmojis = [
   "📌", "📞", "💬", "🕐", "🚚", "💳", "🧾", "✨"
 ];
 
+const channelLabels: Record<ConversationChannel, string> = {
+  whatsapp: "واتساب",
+  instagram: "Instagram",
+  x: "X",
+  facebook: "فيسبوك",
+  google_maps: "خرائط Google",
+  website: "الموقع الإلكتروني",
+  telegram: "تيليجرام",
+  email: "البريد الإلكتروني"
+};
+
+function getChannelLabel(conversation: Conversation) {
+  return channelLabels[conversation.channel || "whatsapp"];
+}
+
 function formatConversationAge(conversation: Conversation) {
   if (!conversation.lastActivityAt) {
     return conversation.messages.at(-1)?.time || "";
@@ -95,11 +126,66 @@ function formatConversationAge(conversation: Conversation) {
   }).format(new Date(activityTime));
 }
 
+function getConversationStartTime(conversation: Conversation) {
+  return conversation.firstMessageTime || conversation.messages[0]?.time || "";
+}
+
+function getConversationLastTime(conversation: Conversation) {
+  return conversation.lastMessageTime || conversation.messages.at(-1)?.time || "";
+}
+
+function getRelativeConversationTime(isoDate?: string) {
+  if (!isoDate) return "";
+
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const diffDays = Math.round((today - targetDay) / 86400000);
+
+  if (diffDays === 0) {
+    return new Intl.DateTimeFormat("ar-SA", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Asia/Riyadh"
+    }).format(date);
+  }
+  if (diffDays === 1) return "قبل يوم";
+  if (diffDays < 7) return `قبل ${diffDays} أيام`;
+  if (diffDays < 30) return `قبل ${Math.floor(diffDays / 7)} أسبوع`;
+  if (diffDays < 365) return `قبل ${Math.floor(diffDays / 30)} شهر`;
+
+  return new Intl.DateTimeFormat("ar-SA", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Riyadh"
+  }).format(date);
+}
+
+function getConversationTimeLabel(isoDate: string | undefined, fallbackTime: string) {
+  const time = isoDate ? getRelativeConversationTime(isoDate) : fallbackTime;
+
+  if (!time) return "";
+  return time;
+}
+
+function isInstagramCommentMessage(channel: ConversationChannel, text: string, direction: string) {
+  return channel === "instagram" && direction === "in" && text.startsWith("تعليق:");
+}
+
+function getMessagePreview(text: string) {
+  const value = text.trim() || "رسالة";
+  return value.length > 90 ? `${value.slice(0, 90)}...` : value;
+}
+
 export default function InboxView({
   activeConversation,
   assignedOnly,
   assigneeOptions,
   canChangeAssignee,
+  canDeleteConversation,
   canDeleteAnyMessage,
   canReopenConversation,
   chatPanel,
@@ -112,6 +198,7 @@ export default function InboxView({
   search,
   selectedTemplate,
   templates,
+  quickReplies,
   currentUserName,
   tags,
   visibleConversations,
@@ -124,30 +211,95 @@ export default function InboxView({
   onChangeSelectedConversation,
   onChangeSelectedTemplate,
   onChangeTags,
+  onAssignConversation,
   onCloseConversation,
+  onDeleteConversationById,
   onDeleteMessage,
+  onMarkConversationUnread,
   onSend,
   onSendAttachment,
+  onSendCommentReply,
   onSendTemplate,
   onSetMobileChatOpen
 }: InboxViewProps) {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [conversationMenu, setConversationMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
+  const [messageMenu, setMessageMenu] = useState<{ messageId: string; x: number; y: number } | null>(null);
+  const [replyTargetId, setReplyTargetId] = useState("");
+  const [commentReplyTarget, setCommentReplyTarget] = useState<string>("");
+  const [commentReplyText, setCommentReplyText] = useState("");
   const reopenTemplates = templates.filter(
-    (template) =>
-      template.status === "معتمد" &&
-      template.type !== "خدمة" &&
-      (template.category === "MARKETING" || template.type === "تسويق")
+    (template) => template.status === "معتمد"
   );
   const isClosed = activeConversation.status === "closed";
   const hasActiveConversation = Boolean(activeConversation.id);
   const isComposerDisabled = !hasActiveConversation || activeConversation.windowExpired || isClosed;
+  const quickReplyMatch = message.match(/(?:^|\s)(\/[^\s]*)$/);
+  const quickReplyQuery = quickReplyMatch?.[1]?.toLowerCase() || "";
+  const quickReplySuggestions = quickReplyQuery
+    ? quickReplies
+        .filter((reply) =>
+          reply.shortcut.toLowerCase().startsWith(quickReplyQuery) ||
+          reply.text.toLowerCase().includes(quickReplyQuery.slice(1))
+        )
+        .slice(0, 6)
+    : [];
+  const shouldShowQuickReplySuggestions = !isComposerDisabled && Boolean(quickReplyQuery) && quickReplySuggestions.length > 0;
   const canToggleConversation = hasActiveConversation && (!isClosed || canReopenConversation);
   const availableTags = tags.filter((tag) => !activeConversation.tags.includes(tag.name));
+  const contextConversation = conversationMenu
+    ? visibleConversations.find((conversation) => conversation.id === conversationMenu.conversationId)
+    : null;
+  const contextMessage = messageMenu
+    ? activeConversation.messages.find((item) => item.id === messageMenu.messageId)
+    : null;
+  const replyTarget = replyTargetId
+    ? activeConversation.messages.find((item) => item.id === replyTargetId)
+    : null;
+
+  useEffect(() => {
+    if (!conversationMenu) return;
+
+    const closeMenu = () => setConversationMenu(null);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [conversationMenu]);
+
+  useEffect(() => {
+    if (!messageMenu) return;
+
+    const closeMenu = () => setMessageMenu(null);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [messageMenu]);
 
   async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -250,6 +402,14 @@ export default function InboxView({
     setIsEmojiPickerOpen(false);
   }
 
+  function handleQuickReplySelect(reply: QuickReply) {
+    if (quickReplyMatch) {
+      onChangeMessage(`${message.slice(0, quickReplyMatch.index)}${quickReplyMatch[0].startsWith(" ") ? " " : ""}${reply.text}`);
+    } else {
+      onChangeMessage(reply.text);
+    }
+  }
+
   async function handleAddTag(tagName: string) {
     if (!tagName || activeConversation.tags.includes(tagName)) return;
     await onChangeTags([...activeConversation.tags, tagName]);
@@ -257,6 +417,22 @@ export default function InboxView({
 
   async function handleRemoveTag(tagName: string) {
     await onChangeTags(activeConversation.tags.filter((tag) => tag !== tagName));
+  }
+
+  function startMessageReply(messageId: string) {
+    setMessageMenu(null);
+    setReplyTargetId(messageId);
+    onChangeComposerMode("reply");
+    window.setTimeout(() => messageInputRef.current?.focus(), 0);
+  }
+
+  async function handleCommentReplySubmit(messageId: string) {
+    const reply = commentReplyText.trim();
+    if (!reply) return;
+
+    await onSendCommentReply(messageId, reply);
+    setCommentReplyTarget("");
+    setCommentReplyText("");
   }
 
   return (
@@ -299,6 +475,14 @@ export default function InboxView({
               className={`conversation-card ${activeConversation.id === conversation.id ? "active" : ""}`}
               key={conversation.id}
               type="button"
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setConversationMenu({
+                  conversationId: conversation.id,
+                  x: Math.max(12, Math.min(event.clientX, window.innerWidth - 252)),
+                  y: Math.max(12, Math.min(event.clientY, window.innerHeight - 360))
+                });
+              }}
               onClick={() => {
                 onChangeSelectedConversation(conversation.id);
                 onChangeChatPanel("chat");
@@ -307,12 +491,20 @@ export default function InboxView({
             >
               <span className="avatar">{conversation.initial}</span>
               <span className="conversation-copy">
+                <em className={`channel-badge ${conversation.channel || "whatsapp"}`}>{getChannelLabel(conversation)}</em>
                 <b>{conversation.customer}</b>
                 <small>{conversation.lastMessage}</small>
               </span>
               <span className="conversation-meta">
                 {conversation.unread ? <strong>{conversation.unread}</strong> : null}
-                {formatConversationAge(conversation) ? <small className="conversation-age">{formatConversationAge(conversation)}</small> : null}
+                <span className="conversation-times">
+                  {getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation)) ? (
+                    <small>{getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation))}</small>
+                  ) : null}
+                  {getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation)) ? (
+                    <small>{getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation))}</small>
+                  ) : null}
+                </span>
                 <em className={conversation.status}>{statusLabel(conversation.status)}</em>
                 <small>{conversation.assignee}</small>
               </span>
@@ -320,6 +512,55 @@ export default function InboxView({
           ))}
           {!visibleConversations.length ? (
             <p className="muted-copy">لا توجد محادثات مطابقة للبحث الحالي.</p>
+          ) : null}
+          {contextConversation ? (
+            <div
+              className="conversation-context-menu"
+              style={{ left: conversationMenu?.x, top: conversationMenu?.y }}
+              role="menu"
+              aria-label="خيارات المحادثة"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <b>{contextConversation.customer}</b>
+              <button
+                type="button"
+                onClick={() => {
+                  setConversationMenu(null);
+                  void onMarkConversationUnread(contextConversation.id);
+                }}
+              >
+                تعيين كغير مقروء
+              </button>
+              {canChangeAssignee ? (
+                <div className="context-menu-section">
+                  <span>إسناد إلى</span>
+                  {assigneeOptions.map((assignee) => (
+                    <button
+                      key={assignee}
+                      type="button"
+                      onClick={() => {
+                        setConversationMenu(null);
+                        void onAssignConversation(contextConversation.id, assignee);
+                      }}
+                    >
+                      {assignee}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {canDeleteConversation ? (
+                <button
+                  className="danger"
+                  type="button"
+                  onClick={() => {
+                    setConversationMenu(null);
+                    void onDeleteConversationById(contextConversation.id);
+                  }}
+                >
+                  حذف المحادثة
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </aside>
@@ -341,7 +582,8 @@ export default function InboxView({
           </button>
           <span className="avatar">{activeConversation.initial}</span>
           <button className="chat-customer" type="button" onClick={() => onChangeChatPanel("profile")}>
-            {activeConversation.customer}
+            <small className={`channel-badge ${activeConversation.channel || "whatsapp"}`}>{getChannelLabel(activeConversation)}</small>
+            <b>{activeConversation.customer}</b>
           </button>
           <label>
             مسند إلى
@@ -379,13 +621,41 @@ export default function InboxView({
           <div className="chat-panel">
             <div className="messages">
               {activeConversation.messages.map((item) => (
-                <div className={`message-bubble ${item.direction}`} key={item.id}>
+                <div
+                  className={`message-bubble ${item.direction}`}
+                  key={item.id}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setMessageMenu({
+                      messageId: item.id,
+                      x: Math.max(12, Math.min(event.clientX, window.innerWidth - 230)),
+                      y: Math.max(12, Math.min(event.clientY, window.innerHeight - 150))
+                    });
+                  }}
+                >
+                  {item.text !== "تم حذف هذه الرسالة" ? (
+                    <button
+                      className="message-reply-action"
+                      type="button"
+                      aria-label="رد على الرسالة"
+                      title="رد على الرسالة"
+                      onClick={() => startMessageReply(item.id)}
+                    >
+                      ↩
+                    </button>
+                  ) : null}
                   {item.direction === "out" &&
                   item.text !== "تم حذف هذه الرسالة" &&
                   (canDeleteAnyMessage || item.author === currentUserName) ? (
                     <button className="message-delete" type="button" aria-label="حذف الرسالة" title="حذف الرسالة" onClick={() => onDeleteMessage(item.id)} />
                   ) : null}
                   {item.direction === "note" ? <b>ملاحظة خاصة، {item.author || currentUserName}</b> : null}
+                  {item.replyTo ? (
+                    <span className="message-reply-preview">
+                      <b>رد على {item.replyTo.author || "رسالة مرتبطة"}</b>
+                      <span>{getMessagePreview(item.replyTo.text || "رسالة")}</span>
+                    </span>
+                  ) : null}
                   {item.attachment && item.text !== "تم حذف هذه الرسالة" ? (
                     item.attachment.type === "image" || item.attachment.type === "sticker" ? (
                       <img
@@ -416,16 +686,83 @@ export default function InboxView({
                   ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد" || item.text === "مستند" || item.text === item.attachment.name) ? null : (
                     <span>{item.text}</span>
                   )}
+                  {item.source ? (
+                    item.source.url ? (
+                      <a className="message-source-card" href={item.source.url} target="_blank" rel="noreferrer">
+                        <b>{item.source.label || "البوست المرتبط بالتعليق"}</b>
+                        <small>فتح البوست</small>
+                      </a>
+                    ) : (
+                      <span className="message-source-card">
+                        <b>{item.source.label || "البوست المرتبط بالتعليق"}</b>
+                        {item.source.id ? <small>{item.source.id}</small> : null}
+                      </span>
+                    )
+                  ) : null}
+                  {isInstagramCommentMessage(activeConversation.channel, item.text, item.direction) ? (
+                    commentReplyTarget === item.id ? (
+                      <div className="comment-reply-box">
+                        <textarea
+                          autoFocus
+                          placeholder="اكتب ردك على التعليق"
+                          value={commentReplyText}
+                          onChange={(event) => setCommentReplyText(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+                            event.preventDefault();
+                            void handleCommentReplySubmit(item.id);
+                          }}
+                        />
+                        <div>
+                          <button type="button" onClick={() => void handleCommentReplySubmit(item.id)}>
+                            إرسال الرد
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCommentReplyTarget("");
+                              setCommentReplyText("");
+                            }}
+                          >
+                            إلغاء
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="comment-reply-trigger"
+                        type="button"
+                        onClick={() => {
+                          setCommentReplyTarget(item.id);
+                          setCommentReplyText("");
+                        }}
+                      >
+                        رد على التعليق
+                      </button>
+                    )
+                  ) : null}
                   <small>{item.time}</small>
                 </div>
               ))}
             </div>
+            {contextMessage ? (
+              <div
+                className="message-context-menu"
+                style={{ left: messageMenu?.x, top: messageMenu?.y }}
+                role="menu"
+                aria-label="خيارات الرسالة"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button type="button" onClick={() => startMessageReply(contextMessage.id)}>
+                  رد على الرسالة
+                </button>
+              </div>
+            ) : null}
             {activeConversation.windowExpired ? (
               <div className="window-notice">
                 <b>انتهت نافذة الرد خلال 24 ساعة</b>
                 <span>
-                  يمكنك فقط الرد على هذه المحادثة باستخدام رسالة قالب بسبب قيد نافذة الـ ٢٤ ساعة ،اختر قالب WhatsApp معتمد
-                  لإعادة فتح المحادثة.
+                  مر أكثر من 24 ساعة على آخر رسالة من العميل. لا يمكن إرسال رد عادي الآن، اختر قالب WhatsApp معتمد لإعادة فتح المحادثة.
                 </span>
                 <div>
                   <select
@@ -444,110 +781,143 @@ export default function InboxView({
                   </button>
                 </div>
               </div>
-            ) : null}
-            <div className="composer-modes">
-              <button className={composerMode === "reply" ? "active" : ""} type="button" onClick={() => onChangeComposerMode("reply")}>
-                إضافة رد
-              </button>
-              <button
-                className={composerMode === "note" ? "active note" : "note"}
-                type="button"
-                onClick={() => onChangeComposerMode("note")}
-              >
-                كتابة ملاحظة خاصة
-              </button>
-            </div>
-            <form className="composer" onSubmit={onSend}>
-              <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageChange} />
-              <input
-                ref={documentInputRef}
-                type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv,application/zip"
-                hidden
-                onChange={handleDocumentChange}
-              />
-              <div className="emoji-picker-wrap">
-                <button
-                  className="attachment-button"
-                  disabled={isComposerDisabled}
-                  aria-label="إضافة إيموجي"
-                  title="إضافة إيموجي"
-                  type="button"
-                  onClick={() => setIsEmojiPickerOpen((isOpen) => !isOpen)}
-                >
-                  ☺
-                </button>
-                {isEmojiPickerOpen && !isComposerDisabled ? (
-                  <div className="emoji-picker" role="menu" aria-label="الإيموجيز">
-                    {quickEmojis.map((emoji) => (
-                      <button key={emoji} type="button" onClick={() => handleEmojiSelect(emoji)}>
-                        {emoji}
-                      </button>
-                    ))}
+            ) : (
+              <>
+                <div className="composer-modes">
+                  <button className={composerMode === "reply" ? "active" : ""} type="button" onClick={() => onChangeComposerMode("reply")}>
+                    إضافة رد
+                  </button>
+                  <button
+                    className={composerMode === "note" ? "active note" : "note"}
+                    type="button"
+                    onClick={() => onChangeComposerMode("note")}
+                  >
+                    كتابة ملاحظة خاصة
+                  </button>
+                </div>
+                {replyTarget ? (
+                  <div className="composer-reply-preview">
+                    <div>
+                      <b>رد على {replyTarget.direction === "out" ? replyTarget.author || "أنت" : activeConversation.customer}</b>
+                      <span>{getMessagePreview(replyTarget.text)}</span>
+                    </div>
+                    <button type="button" aria-label="إلغاء الرد" title="إلغاء الرد" onClick={() => setReplyTargetId("")}>
+                      ×
+                    </button>
                   </div>
                 ) : null}
-              </div>
-              <button
-                className="attachment-button"
-                disabled={isComposerDisabled}
-                aria-label="إرفاق صورة"
-                title="إرفاق صورة"
-                type="button"
-                onClick={() => imageInputRef.current?.click()}
-              >
-                +
-              </button>
-              <button
-                className="attachment-button"
-                disabled={isComposerDisabled}
-                aria-label="إرفاق مستند"
-                title="إرفاق مستند"
-                type="button"
-                onClick={() => documentInputRef.current?.click()}
-              >
-                📎
-              </button>
-              <button
-                className={`attachment-button ${isRecording ? "recording" : ""}`}
-                disabled={isComposerDisabled}
-                aria-label={isRecording ? "إيقاف التسجيل" : "تسجيل صوت"}
-                title={isRecording ? "إيقاف التسجيل" : "تسجيل صوت"}
-                type="button"
-                onClick={handleAudioToggle}
-              >
-                {isRecording ? (
-                  <span aria-hidden="true" className="stop-icon" />
-                ) : (
-                  <svg aria-hidden="true" className="mic-icon" viewBox="0 0 24 24">
-                    <path d="M12 14c1.7 0 3-1.3 3-3V6c0-1.7-1.3-3-3-3S9 4.3 9 6v5c0 1.7 1.3 3 3 3Z" />
-                    <path d="M17 10v1a5 5 0 0 1-10 0v-1" />
-                    <path d="M12 16v4" />
-                    <path d="M8 20h8" />
-                  </svg>
-                )}
-              </button>
-              <textarea
-                disabled={isComposerDisabled}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+                <form
+                  className="composer"
+                  onSubmit={async (event) => {
+                    await onSend(event, replyTarget?.id);
+                    setReplyTargetId("");
+                  }}
+                >
+                  <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageChange} />
+                  <input
+                    ref={documentInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv,application/zip"
+                    hidden
+                    onChange={handleDocumentChange}
+                  />
+                  <div className="emoji-picker-wrap">
+                    <button
+                      className="attachment-button"
+                      disabled={isComposerDisabled}
+                      aria-label="إضافة إيموجي"
+                      title="إضافة إيموجي"
+                      type="button"
+                      onClick={() => setIsEmojiPickerOpen((isOpen) => !isOpen)}
+                    >
+                      ☺
+                    </button>
+                    {isEmojiPickerOpen && !isComposerDisabled ? (
+                      <div className="emoji-picker" role="menu" aria-label="الإيموجيز">
+                        {quickEmojis.map((emoji) => (
+                          <button key={emoji} type="button" onClick={() => handleEmojiSelect(emoji)}>
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    className="attachment-button"
+                    disabled={isComposerDisabled}
+                    aria-label="إرفاق صورة"
+                    title="إرفاق صورة"
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                  >
+                    +
+                  </button>
+                  <button
+                    className="attachment-button"
+                    disabled={isComposerDisabled}
+                    aria-label="إرفاق مستند"
+                    title="إرفاق مستند"
+                    type="button"
+                    onClick={() => documentInputRef.current?.click()}
+                  >
+                    📎
+                  </button>
+                  <button
+                    className={`attachment-button ${isRecording ? "recording" : ""}`}
+                    disabled={isComposerDisabled}
+                    aria-label={isRecording ? "إيقاف التسجيل" : "تسجيل صوت"}
+                    title={isRecording ? "إيقاف التسجيل" : "تسجيل صوت"}
+                    type="button"
+                    onClick={handleAudioToggle}
+                  >
+                    {isRecording ? (
+                      <span aria-hidden="true" className="stop-icon" />
+                    ) : (
+                      <svg aria-hidden="true" className="mic-icon" viewBox="0 0 24 24">
+                        <path d="M12 14c1.7 0 3-1.3 3-3V6c0-1.7-1.3-3-3-3S9 4.3 9 6v5c0 1.7 1.3 3 3 3Z" />
+                        <path d="M17 10v1a5 5 0 0 1-10 0v-1" />
+                        <path d="M12 16v4" />
+                        <path d="M8 20h8" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="quick-reply-picker-wrap composer-message-wrap">
+                    {shouldShowQuickReplySuggestions ? (
+                      <div className="quick-reply-picker" role="menu" aria-label="الردود السريعة">
+                        {quickReplySuggestions.map((reply) => (
+                          <button key={reply.id} type="button" onClick={() => handleQuickReplySelect(reply)}>
+                            <b>{reply.shortcut}</b>
+                            <span>{reply.text}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    <textarea
+                      ref={messageInputRef}
+                      disabled={isComposerDisabled}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey && shouldShowQuickReplySuggestions && quickReplySuggestions[0]) {
+                          event.preventDefault();
+                          handleQuickReplySelect(quickReplySuggestions[0]);
+                          return;
+                        }
 
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }}
-                onChange={(event) => onChangeMessage(event.target.value)}
-                placeholder={
-                  isClosed
-                    ? "المحادثة مغلقة"
-                    : activeConversation.windowExpired
-                      ? "أرسل قالب أولاً حتى يرد العميل"
-                      : "اكتب رسالتك هنا"
-                }
-                value={message}
-              />
-              <button className="btn primary" disabled={isComposerDisabled} type="submit">
-                إرسال
-              </button>
-            </form>
+                        if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+
+                        event.preventDefault();
+                        event.currentTarget.form?.requestSubmit();
+                      }}
+                      onChange={(event) => onChangeMessage(event.target.value)}
+                      placeholder={isClosed ? "المحادثة مغلقة" : "اكتب رسالتك هنا"}
+                      value={message}
+                    />
+                  </div>
+                  <button className="btn primary" disabled={isComposerDisabled} type="submit">
+                    إرسال
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         ) : (
           <div className="profile-panel">
@@ -557,6 +927,10 @@ export default function InboxView({
                 <div>
                   <dt>الاسم</dt>
                   <dd>{activeConversation.customer}</dd>
+                </div>
+                <div>
+                  <dt>القناة</dt>
+                  <dd>{getChannelLabel(activeConversation)}</dd>
                 </div>
                 <div>
                   <dt>رقم الجوال</dt>

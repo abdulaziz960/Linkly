@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
     data: {
       id: `wh-${Date.now()}`,
       team: body.team.trim(),
-      days: body.days || "الأحد - الخميس",
-      start: body.start || "9:00 ص",
-      end: body.end || "6:00 م",
+      days: body.days?.trim() || "الأحد - الخميس",
+      start: body.start?.trim() || "09:00",
+      end: body.end?.trim() || "18:00",
       status: body.status || "نشط",
       holidays: body.holidays || "غير مفعلة"
     }

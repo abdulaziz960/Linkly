@@ -5,12 +5,44 @@ import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
 
+type AutomationConditionInput = { field?: string; operator?: string; value?: string };
+type AutomationActionInput = { type?: string; target?: string };
+
+function cleanConditions(conditions?: AutomationConditionInput[]) {
+  if (!Array.isArray(conditions)) return [];
+
+  return conditions.map((condition) => ({
+    field: condition.field?.trim() || "الرسالة تحتوي على",
+    operator: condition.operator?.trim() || "يساوي",
+    value: condition.value?.trim() || ""
+  }));
+}
+
+function cleanActions(actions?: AutomationActionInput[]) {
+  if (!Array.isArray(actions)) return [];
+
+  return actions.map((action) => ({
+    type: action.type?.trim() || "فتح المحادثة",
+    target: action.target?.trim() || "لا يحتاج اختيار"
+  }));
+}
+
 export async function GET() {
   return jsonOk(await getAutomationRules());
 }
 
 export async function POST(request: NextRequest) {
-  const body = (await request.json()) as { name?: string; description?: string; enabled?: boolean };
+  const body = (await request.json()) as {
+    name?: string;
+    description?: string;
+    trigger?: string;
+    action?: string;
+    target?: string;
+    delayMinutes?: number;
+    conditions?: AutomationConditionInput[];
+    actions?: AutomationActionInput[];
+    enabled?: boolean;
+  };
   if (!body.name?.trim()) return jsonError("اسم قاعدة الأتمتة مطلوب");
 
   const rule = await prisma.automationRule.create({
@@ -18,6 +50,12 @@ export async function POST(request: NextRequest) {
       id: `auto-${Date.now()}`,
       name: body.name.trim(),
       description: body.description?.trim() || "",
+      trigger: body.trigger?.trim() || "رسالة واردة",
+      action: body.action?.trim() || "تعيين المحادثة",
+      target: body.target?.trim() || "بدون موظف",
+      delayMinutes: Math.max(0, Number(body.delayMinutes) || 0),
+      conditionsJson: JSON.stringify(cleanConditions(body.conditions)),
+      actionsJson: JSON.stringify(cleanActions(body.actions)),
       createdAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       enabled: body.enabled === false ? 0 : 1
     }

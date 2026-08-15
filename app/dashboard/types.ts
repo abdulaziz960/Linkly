@@ -1,7 +1,6 @@
 export type ViewKey =
   | "inbox"
   | "contacts"
-  | "communicationChannels"
   | "tags"
   | "bot"
   | "automations"
@@ -17,6 +16,8 @@ export type ViewKey =
 
 export type ConversationStatus = "assigned" | "unassigned" | "closed";
 export type ConversationFilter = "all" | ConversationStatus;
+export type ConversationChannel = "whatsapp" | "instagram" | "x" | "facebook" | "google_maps" | "website" | "telegram" | "email";
+export type ConversationChannelFilter = "all" | ConversationChannel;
 export type ChatPanel = "chat" | "profile";
 export type ComposerMode = "reply" | "note";
 
@@ -32,12 +33,25 @@ export type Message = {
   direction: "in" | "out" | "note";
   text: string;
   time: string;
+  createdAt?: string;
   author?: string;
   attachment?: MessageAttachment;
+  source?: {
+    type: string;
+    id?: string;
+    url?: string;
+    label?: string;
+  };
+  replyTo?: {
+    messageId?: string;
+    text?: string;
+    author?: string;
+  };
 };
 
 export type Conversation = {
   id: string;
+  channel: ConversationChannel;
   customer: string;
   phone: string;
   initial: string;
@@ -47,6 +61,10 @@ export type Conversation = {
   unread?: number;
   windowExpired?: boolean;
   lastActivityAt?: string;
+  firstMessageTime?: string;
+  lastMessageTime?: string;
+  firstMessageAt?: string;
+  lastMessageAt?: string;
   tags: string[];
   messages: Message[];
 };
@@ -56,6 +74,7 @@ export type Customer = {
   name: string;
   phone: string;
   initial: string;
+  channels: ConversationChannel[];
   tags: string[];
 };
 
@@ -151,11 +170,15 @@ export type Campaign = {
 export type Lead = {
   id: string;
   customer: string;
+  phone?: string;
   interest: string;
   budget: string;
+  source?: string;
+  notes?: string;
   stage: string;
   employee: string;
   lastContact: string;
+  tenantId?: string;
 };
 
 export type WorkSchedule = {
@@ -178,7 +201,7 @@ export type DashboardUser = {
 
 export type IntegrationSettings = {
   id: string;
-  provider: "whatsapp_cloud" | "external";
+  provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "external";
   status: "connected" | "not_connected" | "pending";
   businessName: string;
   wabaName: string;
@@ -189,6 +212,14 @@ export type IntegrationSettings = {
   configId: string;
   verifyToken: string;
   accessToken: string;
+  xConsumerKey: string;
+  xConsumerSecret: string;
+  xBearerToken: string;
+  xAccessToken: string;
+  xAccessTokenSecret: string;
+  googleAccountId: string;
+  googleLocationId: string;
+  googleRefreshToken: string;
   webhookUrl: string;
   updatedAt: string;
 };

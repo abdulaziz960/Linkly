@@ -2,9 +2,13 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { convertAudioToMp3 } from "../../../../../lib/audio-conversion";
 import { getIntegrationSettings } from "../../../../../lib/database";
+import { sendEmailReply } from "../../../../../lib/email";
+import { sendGmailMessage } from "../../../../../lib/google-gmail";
+import { replyToGoogleReview } from "../../../../../lib/google-business";
 import { prisma } from "../../../../../lib/prisma";
 import { formatMessageTime } from "../../../../../lib/time";
 import { normalizeWhatsAppPhone } from "../../../../../lib/whatsapp-inbox";
+import { sendXDirectMessage, XApiError } from "../../../../../lib/x-api";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 type RouteContext = {
@@ -28,6 +32,16 @@ type AttachmentPayload = {
   dataUrl?: string;
   mimeType?: string;
 };
+
+class MetaSendError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "MetaSendError";
+    this.status = status;
+  }
+}
 
 export const runtime = "nodejs";
 
@@ -83,6 +97,13 @@ function isSupportedWhatsAppAudio(mimeType: string) {
 
 function getConvertedAudioName(fileName?: string) {
   return `${fileName?.replace(/\.[^.]+$/, "") || `voice-${Date.now()}`}.mp3`;
+}
+
+function getWhatsAppContextMessageId(messageId?: string) {
+  if (!messageId) return "";
+  if (messageId.startsWith("wa-out-")) return messageId.slice("wa-out-".length);
+  if (messageId.startsWith("wa-")) return messageId.slice("wa-".length);
+  return messageId.startsWith("wamid.") ? messageId : "";
 }
 
 async function normalizeAudioAttachment(attachment: AttachmentPayload) {
@@ -145,9 +166,179 @@ async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, a
   };
 }
 
-async function findOrCreateConversation(id: string, snapshot?: ConversationSnapshot) {
-  const existing = await prisma.conversation.findUnique({
-    where: { id },
+function getInstagramReplyMessageId(messageId?: string) {
+  if (!messageId) return "";
+  if (messageId.startsWith("ig-out-")) return messageId.slice("ig-out-".length);
+  if (messageId.startsWith("ig-")) return messageId.slice("ig-".length);
+  return "";
+}
+
+function getTelegramReplyMessageId(messageId?: string) {
+  if (!messageId) return undefined;
+  const value = messageId.startsWith("tg-out-") ? messageId.slice("tg-out-".length) : messageId.startsWith("tg-") ? messageId.slice("tg-".length) : messageId;
+  const numericId = Number(value.split("-").at(-1));
+  return Number.isFinite(numericId) ? numericId : undefined;
+}
+
+async function sendInstagramTextMessage(instagramAccountId: string, accessToken: string, recipientId: string, text: string, replyToMessageId?: string) {
+  const replyTo = getInstagramReplyMessageId(replyToMessageId);
+  const buildPayload = (includeReplyTo: boolean) => ({
+    recipient: {
+      id: recipientId
+    },
+    message: {
+      text
+    },
+    ...(includeReplyTo && replyTo ? { reply_to: { mid: replyTo } } : {})
+  });
+
+  const send = (includeReplyTo: boolean) => fetch(`https://graph.instagram.com/v22.0/${instagramAccountId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(buildPayload(includeReplyTo))
+  });
+
+  let response = await send(Boolean(replyTo));
+  let payload = await response.json().catch(() => null);
+
+  if (!response.ok && replyTo && String(payload?.error?.message || "").toLowerCase().includes("invalid parameter")) {
+    console.error("Instagram reply_to rejected; retrying as plain message", {
+      status: response.status,
+      error: payload?.error,
+      instagramAccountId,
+      recipientId,
+      replyTo
+    });
+    response = await send(false);
+    payload = await response.json().catch(() => null);
+  }
+
+  if (!response.ok) {
+    console.error("Instagram message send failed", {
+      status: response.status,
+      error: payload?.error,
+      instagramAccountId,
+      recipientId
+    });
+    throw new MetaSendError(payload?.error?.message || "تعذر إرسال الرسالة عبر Instagram", response.status);
+  }
+
+  return payload as { message_id?: string; recipient_id?: string };
+}
+
+async function sendInstagramCommentReply(commentId: string, accessToken: string, text: string) {
+  const cleanCommentId = commentId.replace(/^ig-/, "").trim();
+  const response = await fetch(`https://graph.instagram.com/v22.0/${cleanCommentId}/replies`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      message: text
+    })
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    console.error("Instagram comment reply failed", {
+      status: response.status,
+      error: payload?.error,
+      commentId: cleanCommentId
+    });
+    throw new MetaSendError(payload?.error?.message || "تعذر الرد على تعليق Instagram", response.status);
+  }
+
+  return payload as { id?: string };
+}
+
+async function sendFacebookTextMessage(pageAccessToken: string, recipientId: string, text: string) {
+  const response = await fetch("https://graph.facebook.com/v22.0/me/messages", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${pageAccessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      recipient: { id: recipientId },
+      message: { text }
+    })
+  });
+  const payload = await response.json().catch(() => null) as {
+    message_id?: string;
+    recipient_id?: string;
+    error?: { message?: string };
+  } | null;
+
+  if (!response.ok) {
+    console.error("Facebook message send failed", {
+      status: response.status,
+      error: payload?.error,
+      recipientId
+    });
+    throw new MetaSendError(payload?.error?.message || "تعذر إرسال الرسالة عبر Facebook", response.status);
+  }
+
+  return payload;
+}
+
+async function sendTelegramTextMessage(botToken: string, chatId: string, text: string, replyToMessageId?: string) {
+  const replyTo = getTelegramReplyMessageId(replyToMessageId);
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      ...(replyTo ? { reply_parameters: { message_id: replyTo } } : {})
+    })
+  });
+  const payload = await response.json().catch(() => null) as {
+    ok?: boolean;
+    result?: { message_id?: number };
+    description?: string;
+  } | null;
+
+  if (!response.ok || !payload?.ok) {
+    console.error("Telegram message send failed", {
+      status: response.status,
+      description: payload?.description,
+      chatId
+    });
+    throw new MetaSendError(payload?.description || "تعذر إرسال الرسالة عبر Telegram", response.status);
+  }
+
+  return payload.result;
+}
+
+async function isWhatsAppReplyWindowExpired(conversationId: string, fallbackExpired: boolean) {
+  const lastCustomerMessage = await prisma.message.findFirst({
+    where: {
+      conversationId,
+      direction: "in",
+      createdAt: {
+        not: ""
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+
+  if (!lastCustomerMessage?.createdAt) return fallbackExpired;
+
+  const lastCustomerMessageAt = new Date(lastCustomerMessage.createdAt).getTime();
+  if (Number.isNaN(lastCustomerMessageAt)) return fallbackExpired;
+
+  return Date.now() - lastCustomerMessageAt >= 24 * 60 * 60 * 1000;
+}
+
+async function findOrCreateConversation(id: string, tenantId: string, snapshot?: ConversationSnapshot) {
+  const existing = await prisma.conversation.findFirst({
+    where: { id, tenantId },
     include: { customer: true }
   });
 
@@ -156,11 +347,11 @@ async function findOrCreateConversation(id: string, snapshot?: ConversationSnaps
   const phone = normalizeWhatsAppPhone(snapshot?.phone ?? getPhoneFromConversationId(id));
   if (!phone) return null;
 
-  const existingCustomer = await prisma.customer.findFirst({ where: { phone } });
+  const existingCustomer = await prisma.customer.findFirst({ where: { phone, tenantId } });
 
   if (existingCustomer) {
     const byCustomerPhone = await prisma.conversation.findFirst({
-      where: { customerId: existingCustomer.id },
+      where: { customerId: existingCustomer.id, tenantId },
       include: { customer: true }
     });
 
@@ -168,8 +359,9 @@ async function findOrCreateConversation(id: string, snapshot?: ConversationSnaps
   }
 
   const customerName = snapshot?.customer?.trim() || `عميل ${phone.slice(-4) || "واتساب"}`;
-  const customerId = existingCustomer?.id ?? `wa-${phone}`;
-  const conversationId = id || snapshot?.id?.trim() || `conv-${phone}`;
+  const scopedPrefix = tenantId === "tenant-demo" ? "" : `${tenantId}-`;
+  const customerId = existingCustomer?.id ?? `${scopedPrefix}wa-${phone}`;
+  const conversationId = `${scopedPrefix}${id || snapshot?.id?.trim() || `conv-${phone}`}`;
   const initial = getFallbackInitial(customerName, phone, snapshot?.initial);
   const assignee = snapshot?.assignee?.trim() || "بدون موظف";
   const status = normalizeConversationStatus(snapshot?.status);
@@ -178,7 +370,7 @@ async function findOrCreateConversation(id: string, snapshot?: ConversationSnaps
     await tx.customer.upsert({
       where: { id: customerId },
       update: { name: customerName, phone, initial },
-      create: { id: customerId, name: customerName, phone, initial }
+      create: { id: customerId, name: customerName, phone, initial, tenantId }
     });
 
     return tx.conversation.upsert({
@@ -187,11 +379,13 @@ async function findOrCreateConversation(id: string, snapshot?: ConversationSnaps
       create: {
         id: conversationId,
         customerId,
+        channel: "whatsapp",
         lastMessage: "",
         status,
         assignee,
         unread: 0,
-        windowExpired: 0
+        windowExpired: 0,
+        tenantId
       },
       include: { customer: true }
     });
@@ -201,6 +395,8 @@ async function findOrCreateConversation(id: string, snapshot?: ConversationSnaps
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const user = await getCurrentUser();
+  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+
   const body = (await request.json()) as {
     direction?: string;
     text?: string;
@@ -210,6 +406,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     templateLanguage?: string;
     attachment?: AttachmentPayload;
     conversation?: ConversationSnapshot;
+    replyToCommentId?: string;
+    replyToMessageId?: string;
   };
   const attachment = body.attachment?.type && body.attachment.name && body.attachment.dataUrl ? body.attachment : undefined;
   const text = body.text?.trim() || (attachment?.type === "image" ? "صورة" : attachment?.type === "audio" ? "تسجيل صوتي" : attachment?.type === "document" ? "مستند" : "");
@@ -217,7 +415,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   if (!text) return jsonError("نص الرسالة مطلوب");
 
-  const conversation = await findOrCreateConversation(id, body.conversation);
+  const conversation = await findOrCreateConversation(id, user.tenantId, body.conversation);
 
   if (!conversation) return jsonError("المحادثة غير موجودة", 404);
 
@@ -225,6 +423,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const now = new Date();
     const sentAt = now.toISOString();
     const messageTime = formatMessageTime(now);
+    const replyToMessage = body.replyToMessageId
+      ? await prisma.message.findUnique({
+          where: { id: body.replyToMessageId }
+        })
+      : null;
+    const replyToData = replyToMessage
+      ? {
+          replyToMessageId: replyToMessage.id,
+          replyToText: (replyToMessage.text || "رسالة").slice(0, 220),
+          replyToAuthor: replyToMessage.direction === "out"
+            ? replyToMessage.author || user?.name || "أنت"
+            : conversation.customer.name
+        }
+      : {
+          replyToMessageId: "",
+          replyToText: "",
+          replyToAuthor: ""
+        };
 
     if (direction === "note") {
       const message = await prisma.$transaction(async (tx) => {
@@ -235,7 +451,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
             direction,
             text,
             time: messageTime,
-            author: user?.name ?? ""
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData
           }
         });
 
@@ -253,17 +471,359 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return jsonOk(message);
     }
 
-    const settings = await getIntegrationSettings();
+    if (conversation.channel === "google_maps") {
+      if (attachment) return jsonError("إرسال المرفقات في خرائط Google غير مفعل، اكتب رد نصي على التقييم.", 400);
+
+      const googleSettings = await getIntegrationSettings("google_maps", user?.tenantId);
+      const reviewMessage = replyToMessage?.sourceType === "google_review"
+        ? replyToMessage
+        : await prisma.message.findFirst({
+            where: {
+              conversationId: conversation.id,
+              sourceType: "google_review",
+              sourceId: { not: "" }
+            },
+            orderBy: { createdAt: "desc" }
+          });
+      const reviewId = reviewMessage?.sourceId || conversation.customer.phone;
+
+      if (!googleSettings.accessToken.trim() || !googleSettings.googleLocationId.trim()) {
+        return jsonError("ربط خرائط Google غير مكتمل قبل الرد على التقييم");
+      }
+      if (!reviewId?.trim()) {
+        return jsonError("معرف تقييم Google غير موجود في هذه المحادثة");
+      }
+
+      await replyToGoogleReview(googleSettings, reviewId, text);
+
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            id: `gm-out-${reviewId}-${Date.now()}`,
+            conversationId: conversation.id,
+            direction,
+            text,
+            time: messageTime,
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData,
+            sourceType: "google_review_reply",
+            sourceId: reviewId,
+            sourceUrl: reviewMessage?.sourceUrl || "",
+            sourceLabel: reviewMessage?.sourceLabel || "رد على تقييم Google"
+          }
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: text,
+            lastActivityAt: sentAt
+          }
+        });
+
+        return created;
+      });
+
+      return jsonOk(message);
+    }
+
+    if (conversation.channel === "telegram") {
+      if (attachment) return jsonError("إرسال المرفقات في Telegram غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
+
+      const telegramSettings = await getIntegrationSettings("telegram", user?.tenantId);
+      const botToken = telegramSettings.accessToken?.trim();
+      const chatId = conversation.customer.phone?.trim();
+
+      if (!botToken) return jsonError("Bot Token مطلوب قبل إرسال الرسالة عبر Telegram");
+      if (!chatId) return jsonError("معرّف محادثة Telegram غير موجود في ملف المحادثة");
+
+      const telegramResponse = await sendTelegramTextMessage(botToken, chatId, text, replyToMessage?.id);
+
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            id: telegramResponse?.message_id ? `tg-out-${chatId}-${telegramResponse.message_id}` : `m-${Date.now()}`,
+            conversationId: conversation.id,
+            direction,
+            text,
+            time: messageTime,
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData
+          }
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: text,
+            lastActivityAt: sentAt
+          }
+        });
+
+        return created;
+      });
+
+      return jsonOk(message);
+    }
+
+    if (conversation.channel === "x") {
+      if (attachment) return jsonError("إرسال المرفقات في X غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
+
+      const xSettings = await getIntegrationSettings("x", user?.tenantId);
+      const recipientId = conversation.customer.phone?.trim();
+
+      if (!recipientId) return jsonError("معرّف عميل X غير موجود في ملف المحادثة");
+      if (recipientId === xSettings.wabaId?.trim() || recipientId === xSettings.phoneNumber?.replace(/^@/, "").trim()) {
+        return jsonError("هذه محادثة حساب X المرتبط نفسه وليست عميلاً. اختر محادثة عميل أخرى من القائمة.", 400);
+      }
+
+      const xResponse = await sendXDirectMessage(xSettings, recipientId, text);
+
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            id: xResponse?.dm_event_id ? `x-out-${xResponse.dm_event_id}` : `m-${Date.now()}`,
+            conversationId: conversation.id,
+            direction,
+            text,
+            time: messageTime,
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData,
+            sourceType: "x_dm",
+            sourceId: xResponse?.dm_conversation_id || ""
+          }
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: text,
+            lastActivityAt: sentAt
+          }
+        });
+
+        return created;
+      });
+
+      return jsonOk(message);
+    }
+
+    if (conversation.channel === "email") {
+      if (attachment) return jsonError("إرسال المرفقات عبر البريد غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
+
+      const emailSettings = await getIntegrationSettings("email", user?.tenantId);
+      const recipientEmail = conversation.customer.phone?.trim();
+      const senderEmail = emailSettings.phoneNumber?.trim();
+      const senderName = emailSettings.businessName?.trim() || "AudienceW";
+      const from = senderEmail
+        ? senderEmail.includes("<")
+          ? senderEmail
+          : `${senderName} <${senderEmail}>`
+        : undefined;
+      const latestEmailMessage = await prisma.message.findFirst({
+        where: {
+          conversationId: conversation.id,
+          sourceType: "email"
+        },
+        orderBy: { createdAt: "desc" }
+      });
+
+      if (!recipientEmail) return jsonError("بريد العميل غير موجود في ملف المحادثة");
+
+      const subject = latestEmailMessage?.sourceLabel
+        ? `Re: ${latestEmailMessage.sourceLabel}`
+        : "رد من AudienceW";
+      const emailResponse = emailSettings.googleRefreshToken && senderEmail
+        ? await sendGmailMessage({
+            refreshToken: emailSettings.googleRefreshToken,
+            from: senderEmail,
+            to: recipientEmail,
+            subject,
+            text
+          })
+        : await sendEmailReply({
+            to: recipientEmail,
+            text,
+            subject,
+            from,
+            apiKey: emailSettings.accessToken
+          });
+
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            id: emailResponse?.id ? `email-out-${emailResponse.id}` : `m-${Date.now()}`,
+            conversationId: conversation.id,
+            direction,
+            text,
+            time: messageTime,
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData,
+            sourceType: "email_reply",
+            sourceId: emailResponse?.id || "",
+            sourceLabel: latestEmailMessage?.sourceLabel || "رد بريد إلكتروني"
+          }
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: text,
+            lastActivityAt: sentAt
+          }
+        });
+
+        return created;
+      });
+
+      return jsonOk(message);
+    }
+
+    if (conversation.channel === "facebook") {
+      if (attachment) return jsonError("إرسال المرفقات في Facebook غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
+
+      const facebookSettings = await getIntegrationSettings("facebook", user?.tenantId);
+      const pageAccessToken = facebookSettings.accessToken?.trim();
+      const recipientId = conversation.customer.phone?.trim();
+
+      if (!pageAccessToken) return jsonError("Page Access Token مطلوب قبل إرسال الرسالة عبر Facebook");
+      if (!recipientId) return jsonError("معرّف عميل Facebook غير موجود في ملف المحادثة");
+      if (recipientId === facebookSettings.wabaId?.trim()) {
+        return jsonError("هذه محادثة صفحة Facebook المرتبطة نفسها وليست عميلاً. اختر محادثة عميل أخرى من القائمة.", 400);
+      }
+
+      const metaResponse = await sendFacebookTextMessage(pageAccessToken, recipientId, text);
+
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            id: metaResponse?.message_id ? `fb-out-${metaResponse.message_id}` : `m-${Date.now()}`,
+            conversationId: conversation.id,
+            direction,
+            text,
+            time: messageTime,
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData
+          }
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: text,
+            lastActivityAt: sentAt
+          }
+        });
+
+        return created;
+      });
+
+      return jsonOk(message);
+    }
+
+    if (conversation.channel === "instagram") {
+      if (attachment) return jsonError("إرسال المرفقات في Instagram غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
+
+      const instagramSettings = await getIntegrationSettings("instagram", user?.tenantId);
+      const instagramAccountId = instagramSettings.wabaId?.trim();
+      const instagramAccessToken = instagramSettings.accessToken?.trim();
+      const recipientId = conversation.customer.phone?.trim();
+
+      if (!instagramAccessToken) return jsonError("Access Token مطلوب قبل إرسال الرسالة عبر Instagram");
+
+      if (body.replyToCommentId) {
+        const replyToCommentId = body.replyToCommentId;
+        const cleanReplyToCommentId = replyToCommentId.replace(/^ig-/, "");
+        const metaResponse = await sendInstagramCommentReply(replyToCommentId, instagramAccessToken, text);
+
+        const message = await prisma.$transaction(async (tx) => {
+          const sourceMessage = await tx.message.findUnique({
+            where: { id: replyToCommentId }
+          });
+          const created = await tx.message.create({
+            data: {
+              id: metaResponse?.id ? `ig-comment-reply-${metaResponse.id}` : `m-${Date.now()}`,
+              conversationId: conversation.id,
+              direction,
+              text: `رد على التعليق: ${text}`,
+            time: messageTime,
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData,
+            sourceType: sourceMessage?.sourceType || "instagram_comment",
+              sourceId: sourceMessage?.sourceId || cleanReplyToCommentId,
+              sourceUrl: sourceMessage?.sourceUrl || "",
+              sourceLabel: sourceMessage?.sourceLabel || "التعليق المرتبط"
+            }
+          });
+
+          await tx.conversation.update({
+            where: { id: conversation.id },
+            data: {
+              lastMessage: text,
+              lastActivityAt: sentAt
+            }
+          });
+
+          return created;
+        });
+
+        return jsonOk(message);
+      }
+
+      if (!instagramAccountId) return jsonError("Instagram Account ID مطلوب قبل إرسال الرسالة");
+      if (!recipientId) return jsonError("معرّف عميل Instagram غير موجود في ملف المحادثة");
+      if (recipientId === instagramAccountId) {
+        return jsonError("هذه محادثة حساب Instagram المرتبط نفسه وليست عميلاً. اختر محادثة عميل أخرى من القائمة.", 400);
+      }
+
+      const metaResponse = await sendInstagramTextMessage(instagramAccountId, instagramAccessToken, recipientId, text, replyToMessage?.id);
+
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            id: metaResponse?.message_id ? `ig-out-${metaResponse.message_id}` : `m-${Date.now()}`,
+            conversationId: conversation.id,
+            direction,
+            text,
+            time: messageTime,
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData
+          }
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: text,
+            lastActivityAt: sentAt
+          }
+        });
+
+        return created;
+      });
+
+      return jsonOk(message);
+    }
+
+    const settings = await getIntegrationSettings("whatsapp", user?.tenantId);
     const phoneNumberId = settings.phoneNumberId?.trim();
     const accessToken = settings.accessToken?.trim();
     const to = normalizeWhatsAppPhone(conversation.customer.phone);
     const isTemplateMessage = body.messageType === "template" || Boolean(body.templateName);
     const isAttachmentMessage = Boolean(attachment);
+    const isReplyWindowExpired = await isWhatsAppReplyWindowExpired(conversation.id, Boolean(conversation.windowExpired));
 
     if (!phoneNumberId) return jsonError("Phone Number ID مطلوب قبل إرسال الرسالة");
     if (!accessToken) return jsonError("Access Token مطلوب قبل إرسال الرسالة");
     if (!to) return jsonError("رقم العميل غير موجود في ملف المحادثة");
-    if (conversation.windowExpired && !isTemplateMessage) {
+    if (isReplyWindowExpired && !isTemplateMessage) {
       return jsonError("انتهت نافذة الرد خلال 24 ساعة. استخدم قالب WhatsApp معتمد لإعادة فتح المحادثة.");
     }
 
@@ -283,12 +843,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
 
+    const whatsappContextMessageId = getWhatsAppContextMessageId(replyToMessage?.id);
+    const whatsappContext = whatsappContextMessageId ? { context: { message_id: whatsappContextMessageId } } : {};
+
     const payload = isAttachmentMessage && uploadedMedia
       ? {
           messaging_product: "whatsapp",
           recipient_type: "individual",
           to,
           type: attachment?.type,
+          ...whatsappContext,
           [attachment?.type === "image" ? "image" : attachment?.type === "document" ? "document" : "audio"]: {
             id: uploadedMedia.id,
             ...(attachment?.type === "document" ? { filename: normalizedAttachment?.name || attachment.name } : {}),
@@ -301,6 +865,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           recipient_type: "individual",
           to,
           type: "template",
+          ...whatsappContext,
           template: {
             name: templateName,
             language: {
@@ -313,6 +878,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           recipient_type: "individual",
           to,
           type: "text",
+          ...whatsappContext,
           text: {
             preview_url: false,
             body: text
@@ -348,8 +914,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
           direction,
           text,
           time: messageTime,
+          createdAt: sentAt,
           author: user?.name ?? ""
           ,
+          ...replyToData,
           attachmentType: attachment?.type ?? "",
           attachmentUrl: normalizedAttachment?.dataUrl ?? "",
           attachmentName: normalizedAttachment?.name ?? "",
@@ -384,6 +952,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
     if (error instanceof Error && error.message === "AUDIO_CONVERSION_FAILED") {
       return jsonError("تعذر تجهيز التسجيل الصوتي للإرسال عبر واتساب. جرّب تسجيل جديد.", 500);
+    }
+    if (error instanceof MetaSendError) {
+      if (error.message.toLowerCase().includes("access token") || error.message.toLowerCase().includes("session has expired")) {
+        return jsonError("انتهت صلاحية ربط Instagram. أعد ربط Instagram من صفحة الإعدادات والربط ثم جرّب الإرسال من جديد.", 401);
+      }
+      return jsonError(error.message, error.status);
+    }
+    if (error instanceof XApiError) {
+      if (error.status === 401) {
+        return jsonError("انتهت صلاحية ربط X. أعد ربط X من صفحة الإعدادات والربط ثم جرّب الإرسال من جديد.", 401);
+      }
+      return jsonError(error.message, error.status);
+    }
+    if (error instanceof Error && error.message === "EMAIL_PROVIDER_NOT_CONFIGURED") {
+      return jsonError("إرسال البريد غير مفعل بعد. أضف RESEND_API_KEY في Vercel أو احفظ Resend API Key في إعدادات البريد.", 400);
+    }
+    if (error instanceof Error && error.message === "EMAIL_SEND_FAILED") {
+      return jsonError("تعذر إرسال البريد الإلكتروني. تأكد من بريد الإرسال وإعدادات Resend.", 400);
     }
     return jsonError("تعذر إرسال الرسالة", 500);
   }

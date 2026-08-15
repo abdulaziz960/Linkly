@@ -1,12 +1,14 @@
 import { NextRequest } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
+import { getCurrentUser } from "../../../../lib/auth";
 import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-  const settings = await getIntegrationSettings();
+  const user = await getCurrentUser();
+  const settings = await getIntegrationSettings("whatsapp", user?.tenantId);
   const body = (await request.json()) as {
     phoneNumberId?: string;
     accessToken?: string;

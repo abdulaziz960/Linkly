@@ -17,8 +17,11 @@ export default function LeadsView({
   const emptyForm = useMemo<LeadForm>(
     () => ({
       customer: "",
+      phone: "",
       interest: "",
       budget: "",
+      source: "",
+      notes: "",
       stage: "مهتم",
       employee: employees[0]?.name || "بدون موظف",
       lastContact: "اليوم"
@@ -38,7 +41,7 @@ export default function LeadsView({
 
     return leads.filter((lead) => {
       const matchesQuery = normalizedQuery
-        ? [lead.customer, lead.interest, lead.budget, lead.stage, lead.employee, lead.lastContact]
+        ? [lead.customer, lead.phone, lead.interest, lead.budget, lead.source, lead.notes, lead.stage, lead.employee, lead.lastContact]
             .join(" ")
             .toLowerCase()
             .includes(normalizedQuery)
@@ -82,7 +85,7 @@ export default function LeadsView({
         <div className="panel-head"><h2>العملاء المحتملون للعقار</h2><span /><button className="btn soft" type="button" onClick={() => setFilterOpen((current) => !current)}>تصفية</button><button className="btn primary" type="button" onClick={() => openForm()}>إضافة عميل محتمل</button></div>
         {filterOpen ? (
           <div className="inline-filter leads-filter">
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="بحث باسم العميل، الاهتمام، الميزانية..." />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="بحث باسم العميل، الرقم، المصدر، الاهتمام..." />
             <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
               <option>الكل</option>
               {stages.map((stage) => <option key={stage}>{stage}</option>)}
@@ -97,17 +100,17 @@ export default function LeadsView({
         ) : null}
         <div className="panel-body table-wrap">
           <table>
-            <thead><tr><th>العميل</th><th>الاهتمام</th><th>الميزانية</th><th>المرحلة</th><th>الموظف</th><th>آخر تواصل</th><th>إجراء</th></tr></thead>
+            <thead><tr><th>العميل</th><th>الجوال</th><th>المصدر</th><th>الاهتمام</th><th>الميزانية</th><th>المرحلة</th><th>الموظف</th><th>آخر تواصل</th><th>إجراء</th></tr></thead>
             <tbody>
               {filteredLeads.map((lead) => (
                 <tr key={lead.id}>
-                  <td>{lead.customer}</td><td>{lead.interest}</td><td>{lead.budget}</td><td><span className="state warn">{lead.stage}</span></td><td>{lead.employee}</td><td>{lead.lastContact}</td>
+                  <td>{lead.customer}</td><td dir="ltr">{lead.phone || "-"}</td><td>{lead.source || "-"}</td><td>{lead.interest}</td><td>{lead.budget}</td><td><span className="state warn">{lead.stage}</span></td><td>{lead.employee}</td><td>{lead.lastContact}</td>
                   <td className="row-actions"><button className="btn soft" type="button" onClick={() => openForm(lead)}>تعديل</button><button className="btn danger" type="button" onClick={() => deleteLead(lead)}>حذف</button></td>
                 </tr>
               ))}
               {!filteredLeads.length ? (
                 <tr>
-                  <td colSpan={7}>لا توجد نتائج مطابقة للفلترة الحالية.</td>
+                  <td colSpan={9}>لا توجد نتائج مطابقة للفلترة الحالية.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -121,11 +124,14 @@ export default function LeadsView({
             <header className="modal-head"><button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setFormOpen(false)}>×</button><h2>{form.id ? "تعديل عميل محتمل" : "إضافة عميل محتمل"}</h2></header>
             <div className="account-modal-body form-grid">
               <label><span>اسم العميل</span><input value={form.customer} onChange={(event) => setForm((current) => ({ ...current, customer: event.target.value }))} required /></label>
+              <label><span>رقم الجوال</span><input dir="ltr" value={form.phone || ""} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
               <label><span>الاهتمام</span><input value={form.interest} onChange={(event) => setForm((current) => ({ ...current, interest: event.target.value }))} /></label>
+              <label><span>المصدر</span><input value={form.source || ""} onChange={(event) => setForm((current) => ({ ...current, source: event.target.value }))} placeholder="Zapier / Meta Ads / Google Ads" /></label>
               <div className="split-fields">
                 <label><span>الميزانية</span><input value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))} /></label>
                 <label><span>المرحلة</span><input value={form.stage} onChange={(event) => setForm((current) => ({ ...current, stage: event.target.value }))} /></label>
               </div>
+              <label className="full"><span>ملاحظات الليد</span><textarea rows={3} value={form.notes || ""} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /></label>
               <div className="split-fields">
                 <label><span>الموظف</span><select value={form.employee} onChange={(event) => setForm((current) => ({ ...current, employee: event.target.value }))}>{employees.map((employee) => <option key={employee.id}>{employee.name}</option>)}<option>بدون موظف</option></select></label>
                 <label><span>آخر تواصل</span><input value={form.lastContact} onChange={(event) => setForm((current) => ({ ...current, lastContact: event.target.value }))} /></label>

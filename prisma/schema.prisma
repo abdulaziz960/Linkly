@@ -12,6 +12,7 @@ model Customer {
   name          String
   phone         String
   initial       String
+  tenantId      String         @default("tenant-demo") @map("tenant_id")
   conversations Conversation[]
 
   @@map("customers")
@@ -20,12 +21,14 @@ model Customer {
 model Conversation {
   id            String            @id
   customerId    String            @map("customer_id")
+  channel       String            @default("whatsapp")
   lastMessage   String            @map("last_message")
   status        String
   assignee      String
   unread        Int               @default(0)
   windowExpired Int               @default(0) @map("window_expired")
   lastActivityAt String           @default("") @map("last_activity_at")
+  tenantId      String            @default("tenant-demo") @map("tenant_id")
   customer      Customer          @relation(fields: [customerId], references: [id])
   messages      Message[]
   tags          ConversationTag[]
@@ -39,12 +42,20 @@ model Message {
   direction      String
   text           String
   time           String
+  createdAt      String       @default("") @map("created_at")
   author         String       @default("")
   attachmentType String       @default("") @map("attachment_type")
   attachmentUrl  String       @default("") @map("attachment_url")
   attachmentName String       @default("") @map("attachment_name")
   attachmentMime String       @default("") @map("attachment_mime")
   metaMediaId    String       @default("") @map("meta_media_id")
+  sourceType     String       @default("") @map("source_type")
+  sourceId       String       @default("") @map("source_id")
+  sourceUrl      String       @default("") @map("source_url")
+  sourceLabel    String       @default("") @map("source_label")
+  replyToMessageId String     @default("") @map("reply_to_message_id")
+  replyToText      String     @default("") @map("reply_to_text")
+  replyToAuthor    String     @default("") @map("reply_to_author")
   conversation   Conversation @relation(fields: [conversationId], references: [id])
 
   @@map("messages")
@@ -58,6 +69,7 @@ model Employee {
   permissions String
   email       String
   initial     String
+  tenantId    String       @default("tenant-demo") @map("tenant_id")
   teams       TeamMember[]
 
   @@map("employees")
@@ -137,6 +149,12 @@ model AutomationRule {
   id          String @id
   name        String
   description String
+  trigger     String @default("رسالة واردة")
+  action      String @default("تعيين المحادثة")
+  target      String @default("بدون موظف")
+  delayMinutes Int   @default(0) @map("delay_minutes")
+  conditionsJson String @default("[]") @map("conditions_json")
+  actionsJson    String @default("[]") @map("actions_json")
   createdAt   String @map("created_at")
   enabled     Int    @default(1)
 
@@ -170,11 +188,15 @@ model WorkSchedule {
 model Lead {
   id          String @id
   customer    String
+  phone       String @default("")
   interest    String
   budget      String
+  source      String @default("")
+  notes       String @default("")
   stage       String
   employee    String
   lastContact String @map("last_contact")
+  tenantId    String @default("tenant-demo") @map("tenant_id")
 
   @@map("leads")
 }
@@ -192,6 +214,14 @@ model IntegrationSetting {
   configId      String @default("") @map("config_id")
   verifyToken   String @map("verify_token")
   accessToken   String @map("access_token")
+  xConsumerKey  String @default("") @map("x_consumer_key")
+  xConsumerSecret String @default("") @map("x_consumer_secret")
+  xBearerToken String @default("") @map("x_bearer_token")
+  xAccessToken String @default("") @map("x_access_token")
+  xAccessTokenSecret String @default("") @map("x_access_token_secret")
+  googleAccountId String @default("") @map("google_account_id")
+  googleLocationId String @default("") @map("google_location_id")
+  googleRefreshToken String @default("") @map("google_refresh_token")
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 

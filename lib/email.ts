@@ -10,8 +10,45 @@ type EmailDeliveryResult = {
   activationUrl?: string;
 };
 
+type SendEmailReplyInput = {
+  to: string;
+  text: string;
+  subject?: string;
+  from?: string;
+  apiKey?: string;
+};
+
 const resendApiKey = process.env.RESEND_API_KEY;
 const fromEmail = process.env.EMAIL_FROM || "AudienceW <onboarding@resend.dev>";
+
+export async function sendEmailReply({ to, text, subject, from, apiKey }: SendEmailReplyInput) {
+  const key = apiKey?.trim() || resendApiKey;
+  if (!key) {
+    throw new Error("EMAIL_PROVIDER_NOT_CONFIGURED");
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from: from?.trim() || fromEmail,
+      to,
+      subject: subject?.trim() || "رد من AudienceW",
+      text
+    })
+  });
+
+  const payload = await response.json().catch(() => null) as { id?: string; message?: string; error?: string } | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.message || payload?.error || "EMAIL_SEND_FAILED");
+  }
+
+  return payload;
+}
 
 export async function sendActivationEmail({ to, name, activationUrl }: SendActivationEmailInput): Promise<EmailDeliveryResult> {
   if (!resendApiKey) {
