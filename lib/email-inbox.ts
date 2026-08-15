@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { formatMessageTime } from "./time";
 
 export type IncomingEmail = {
   tenantId: string;
@@ -87,4 +88,54 @@ export async function storeEmailMessage(input: IncomingEmail) {
   });
 
   return { customer, conversation, message };
+}
+
+function key(value: string) {
+  return crypto.createHash("sha256").update(value.trim().toLowerCase()).digest("hex").slice(0, 24);
+}
+
+type LegacyIncomingEmail = {
+  from: string;
+  fromName?: string;
+  subject?: string;
+  text: string;
+  messageId?: string;
+  receivedAt?: Date;
+};
+
+export async function storeIncomingEmail(input: LegacyIncomingEmail) {
+  const from = input.from.trim();
+  const addressMatch = from.match(/<([^>]+)>/);
+  const email = (addressMatch?.[1] || from).trim().toLowerCase();
+  const customerId = `email-${key(email)}`;
+  const conversationId = `email-${key(email)}`;
+  const headerName = from.replace(/<[^>]+>/, "").replace(/^[\s\"']+|[\s\"']+$/g, "");
+  const name = input.fromName?.trim() || headerName || email;
+  const subject = input.subject?.trim();
+  const text = subject ? `${subject}\n\n${input.text}` : input.text;
+  const activityAt = (input.receivedAt ?? new Date()).toISOString();
+  const messageId = `email-in-${key(input.messageId || `${email}-${activityAt}-${text}`)}`;
+
+  return prisma.$transaction(async (tx) => {
+    await tx.customer.upsert({
+      where: { id: customerId },
+      update: { name, phone: email, initial: name.charAt(0) || "ب" },
+      create: { id: customerId, name, phone: email, initial: name.charAt(0) || "ب" }
+    });
+    await tx.conversation.upsert({
+      where: { id: conversationId },
+      update: { channel: "email" },
+      create: { id: conversationId, customerId, channel: "email", lastMessage: text, status: "unassigned", assignee: "بدون موظف", unread: 0, windowExpired: 0, lastActivityAt: activityAt }
+    });
+    await tx.message.upsert({
+      where: { id: messageId },
+      update: {},
+      create: { id: messageId, conversationId, direction: "in", text, time: formatMessageTime(), author: "" }
+    });
+    await tx.conversation.update({
+      where: { id: conversationId },
+      data: { lastMessage: text, unread: { increment: 1 }, lastActivityAt: activityAt, windowExpired: 0 }
+    });
+    return { conversationId, messageId };
+  });
 }

@@ -140,16 +140,16 @@ export type AutomationRule = {
   id: string;
   name: string;
   description: string;
-  trigger: string;
-  action: string;
-  target: string;
-  delayMinutes: number;
-  conditions: Array<{
+  trigger?: string;
+  action?: string;
+  target?: string;
+  delayMinutes?: number;
+  conditions?: Array<{
     field: string;
     operator: string;
     value: string;
   }>;
-  actions: Array<{
+  actions?: Array<{
     type: string;
     target: string;
   }>;

@@ -15,9 +15,9 @@ if (process.env.VERCEL) {
 
 console.log(`Pushing Prisma schema to ${provider} database`);
 
-const result = spawnSync("npx", ["prisma", "db", "push", "--schema", schemaPath], {
-  stdio: "inherit",
-  shell: process.platform === "win32"
-});
+const isWindows = process.platform === "win32";
+const result = isWindows
+  ? spawnSync(`npx prisma db push --schema "${schemaPath}"`, { stdio: "inherit", shell: true })
+  : spawnSync("npx", ["prisma", "db", "push", "--schema", schemaPath], { stdio: "inherit" });
 
 process.exit(result.status ?? 1);

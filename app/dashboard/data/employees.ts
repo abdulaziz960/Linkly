@@ -7,7 +7,7 @@ export const employees: Employee[] = [
     role: "مالك الحساب",
     status: "متصل",
     permissions: "الكل",
-    email: "admin@audiencew.sa",
+    email: "test@audiencew.sa",
     initial: "ع"
   },
   {

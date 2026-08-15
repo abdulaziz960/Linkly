@@ -37,7 +37,7 @@ const defaultGoogleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || proces
 const defaultGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
 const isPostgresDatabase =
   process.env.DATABASE_URL?.startsWith("postgres://") || process.env.DATABASE_URL?.startsWith("postgresql://");
-const defaultLoginEmail = "admin@audiencew.sa";
+const defaultLoginEmail = "test@audiencew.sa";
 const legacyDemoPhoneNumbers = new Set(["+966 50 123 4567"]);
 const legacyDemoPhoneNumberIds = new Set(["328992863638694"]);
 const legacyDemoWabaIds = new Set(["369021316291991"]);
@@ -152,6 +152,20 @@ export async function ensureSchema() {
     await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS email_integrations (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      status TEXT NOT NULL,
+      sender_name TEXT NOT NULL DEFAULT '',
+      email_address TEXT NOT NULL DEFAULT '',
+      webhook_secret TEXT NOT NULL DEFAULT '',
+      access_token TEXT NOT NULL DEFAULT '',
+      refresh_token TEXT NOT NULL DEFAULT '',
+      token_expires_at TEXT NOT NULL DEFAULT '',
+      last_synced_at TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN IF NOT EXISTS last_synced_at TEXT NOT NULL DEFAULT ''`);
     return;
   }
 
@@ -394,6 +408,26 @@ export async function ensureSchema() {
       // Existing databases already have this column.
     }
   }
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS email_integrations (
+    id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    status TEXT NOT NULL,
+    sender_name TEXT NOT NULL DEFAULT '',
+    email_address TEXT NOT NULL DEFAULT '',
+    webhook_secret TEXT NOT NULL DEFAULT '',
+    access_token TEXT NOT NULL DEFAULT '',
+    refresh_token TEXT NOT NULL DEFAULT '',
+    token_expires_at TEXT NOT NULL DEFAULT '',
+    last_synced_at TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+  )`);
+  const emailIntegrationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(email_integrations)`);
+  if (!emailIntegrationColumns.some((column) => column.name === "sender_name")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN sender_name TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!emailIntegrationColumns.some((column) => column.name === "last_synced_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN last_synced_at TEXT NOT NULL DEFAULT ''`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS user_accounts (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -450,6 +484,17 @@ export async function ensureSchema() {
 async function seedDatabase() {
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
+    await tx.emailIntegration.upsert({
+      where: { id: "primary-email" },
+      update: {},
+      create: {
+        id: "primary-email",
+        provider: "webhook",
+        status: "not_connected",
+        webhookSecret: process.env.EMAIL_WEBHOOK_SECRET || createHash("sha256").update("audiencew-email-webhook").digest("hex"),
+        updatedAt: new Date().toISOString()
+      }
+    });
     await tx.integrationSetting.upsert({
       where: { id: "meta-whatsapp" },
       update: {},
@@ -593,12 +638,8 @@ async function seedDatabase() {
 
     for (const account of demoUserAccounts) {
       await tx.userAccount.upsert({
-        where: { email: account.email },
-        update: {
-          name: account.name,
-          role: account.role,
-          tenantId: account.tenantId
-        },
+        where: { id: account.id },
+        update: { email: account.email, name: account.name, role: account.role, tenantId: account.tenantId },
         create: {
           id: account.id,
           name: account.name,
@@ -1086,12 +1127,8 @@ async function seedDatabase() {
 
     for (const account of demoUserAccounts) {
       await tx.userAccount.upsert({
-        where: { email: account.email },
-        update: {
-          name: account.name,
-          role: account.role,
-          tenantId: account.tenantId
-        },
+        where: { id: account.id },
+        update: { email: account.email, name: account.name, role: account.role, tenantId: account.tenantId },
         create: {
           id: account.id,
           name: account.name,
@@ -1578,6 +1615,43 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     googleLocationId: settings.googleLocationId,
     googleRefreshToken: settings.googleRefreshToken,
     webhookUrl: settings.webhookUrl,
+    updatedAt: settings.updatedAt
+  };
+}
+
+export type EmailIntegrationSettings = {
+  id: string;
+  provider: "webhook" | "gmail" | "outlook";
+  status: "connected" | "not_connected" | "pending";
+  emailAddress: string;
+  senderName: string;
+  webhookSecret: string;
+  updatedAt: string;
+};
+
+export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Promise<EmailIntegrationSettings> {
+  await ensureSeeded();
+  const tenantSettings = await prisma.emailIntegration.findUnique({ where: { id: `email:${tenantId}` } });
+  const settings = tenantSettings ?? (tenantId === "tenant-demo"
+    ? await prisma.emailIntegration.findUniqueOrThrow({ where: { id: "primary-email" } })
+    : await prisma.emailIntegration.create({
+      data: {
+        id: `email:${tenantId}`,
+        provider: "gmail",
+        status: "not_connected",
+        senderName: "",
+        emailAddress: "",
+        webhookSecret: createHash("sha256").update(`audiencew-email-${tenantId}-${Date.now()}`).digest("hex"),
+        updatedAt: new Date().toISOString()
+      }
+    }));
+  return {
+    id: settings.id,
+    provider: settings.provider as EmailIntegrationSettings["provider"],
+    status: settings.status as EmailIntegrationSettings["status"],
+    senderName: settings.senderName,
+    emailAddress: settings.emailAddress,
+    webhookSecret: settings.webhookSecret,
     updatedAt: settings.updatedAt
   };
 }

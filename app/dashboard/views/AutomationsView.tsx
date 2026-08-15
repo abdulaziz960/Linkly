@@ -119,12 +119,12 @@ export default function AutomationsView({
       id: duplicate ? undefined : rule.id,
       name: duplicate ? `${rule.name} - نسخة` : rule.name,
       description: rule.description,
-      trigger: rule.trigger,
-      action: rule.action,
-      target: rule.target,
-      delayMinutes: rule.delayMinutes,
-      conditions: rule.conditions.length ? rule.conditions : [{ field: "الرسالة تحتوي على", operator: "يساوي", value: rule.description || rule.name }],
-      actions: rule.actions.length ? rule.actions : [{ type: rule.action, target: rule.target }],
+      trigger: rule.trigger || "",
+      action: rule.action || "",
+      target: rule.target || "",
+      delayMinutes: rule.delayMinutes || 0,
+      conditions: rule.conditions?.length ? rule.conditions : [{ field: "الرسالة تحتوي على", operator: "يساوي", value: rule.description || rule.name }],
+      actions: rule.actions?.length ? rule.actions : [{ type: rule.action || "", target: rule.target || "" }],
       enabled: rule.enabled
     } : emptyForm);
     setFormOpen(true);

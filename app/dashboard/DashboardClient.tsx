@@ -422,6 +422,22 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, [xStatus]);
 
   useEffect(() => {
+    const syncEmailInbox = () => {
+      if (document.visibilityState !== "visible") return;
+      fetch("/api/email/sync", { method: "POST" })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((result: { synced?: number } | null) => {
+          if (result?.synced) void loadDashboardData();
+        })
+        .catch(() => {});
+    };
+
+    syncEmailInbox();
+    const intervalId = window.setInterval(syncEmailInbox, 30000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
     writeCachedList(CONVERSATIONS_CACHE_KEY, conversations);
   }, [conversations]);
 
@@ -921,11 +937,11 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             filter={filter}
             assignedOnly={!canViewAllConversations}
             message={message}
+            quickReplies={quickReplies}
             search={conversationSearch}
             mobileChatOpen={mobileChatOpen}
             selectedTemplate={selectedTemplate}
             templates={templates}
-            quickReplies={quickReplies}
             currentUserName={initialUser.name}
             tags={tags}
             visibleConversations={visibleConversations}
