@@ -296,6 +296,22 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, []);
 
   useEffect(() => {
+    const syncEmailInbox = () => {
+      if (document.visibilityState !== "visible") return;
+      fetch("/api/email/sync", { method: "POST" })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((result: { synced?: number } | null) => {
+          if (result?.synced) void loadDashboardData();
+        })
+        .catch(() => {});
+    };
+
+    syncEmailInbox();
+    const intervalId = window.setInterval(syncEmailInbox, 30000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
     writeCachedList(CONVERSATIONS_CACHE_KEY, conversations);
   }, [conversations]);
 

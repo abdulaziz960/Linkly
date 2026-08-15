@@ -230,6 +230,7 @@ model EmailIntegration {
   accessToken   String @default("") @map("access_token")
   refreshToken  String @default("") @map("refresh_token")
   tokenExpiresAt String @default("") @map("token_expires_at")
+  lastSyncedAt  String @default("") @map("last_synced_at")
   updatedAt     String @map("updated_at")
 
   @@map("email_integrations")
