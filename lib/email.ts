@@ -44,7 +44,8 @@ export async function sendEmailReply({ to, text, subject, from, apiKey }: SendEm
   const payload = await response.json().catch(() => null) as { id?: string; message?: string; error?: string } | null;
 
   if (!response.ok) {
-    throw new Error(payload?.message || payload?.error || "EMAIL_SEND_FAILED");
+    console.error("Resend email send failed", { status: response.status, payload });
+    throw new Error(payload?.message || payload?.error || `EMAIL_SEND_FAILED (${response.status})`);
   }
 
   return payload;

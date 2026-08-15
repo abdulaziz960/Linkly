@@ -968,8 +968,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (error instanceof Error && error.message === "EMAIL_PROVIDER_NOT_CONFIGURED") {
       return jsonError("إرسال البريد غير مفعل بعد. أضف RESEND_API_KEY في Vercel أو احفظ Resend API Key في إعدادات البريد.", 400);
     }
-    if (error instanceof Error && error.message === "EMAIL_SEND_FAILED") {
-      return jsonError("تعذر إرسال البريد الإلكتروني. تأكد من بريد الإرسال وإعدادات Resend.", 400);
+    if (error instanceof Error && error.message.startsWith("EMAIL_SEND_FAILED")) {
+      return jsonError(`تعذر إرسال البريد الإلكتروني عبر Resend: ${error.message}`, 400);
+    }
+    if (error instanceof Error && conversation.channel === "email") {
+      return jsonError(`تعذر إرسال البريد الإلكتروني: ${error.message}`, 400);
     }
     return jsonError("تعذر إرسال الرسالة", 500);
   }
