@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { convertAudioToMp3 } from "../../../../../lib/audio-conversion";
 import { getIntegrationSettings } from "../../../../../lib/database";
-import { sendEmailReply } from "../../../../../lib/email";
+import { sendEmailMessage } from "../../../../../lib/email-channel";
 import { sendGmailMessage } from "../../../../../lib/google-gmail";
 import { replyToGoogleReview } from "../../../../../lib/google-business";
 import { prisma } from "../../../../../lib/prisma";
@@ -636,7 +636,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const subject = latestEmailMessage?.sourceLabel
         ? `Re: ${latestEmailMessage.sourceLabel}`
         : "رد من AudienceW";
-      const emailResponse = emailSettings.googleRefreshToken && senderEmail
+      const emailResponse: { id?: string } | undefined = emailSettings.googleRefreshToken && senderEmail
         ? await sendGmailMessage({
             refreshToken: emailSettings.googleRefreshToken,
             from: senderEmail,
@@ -644,13 +644,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             subject,
             text
           })
-        : await sendEmailReply({
-            to: recipientEmail,
-            text,
-            subject,
-            from,
-            apiKey: emailSettings.accessToken
-          });
+        : (await sendEmailMessage(recipientEmail, text, subject, user?.tenantId), undefined);
 
       const message = await prisma.$transaction(async (tx) => {
         const created = await tx.message.create({

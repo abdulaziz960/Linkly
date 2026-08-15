@@ -105,8 +105,8 @@ async function getValidAccessToken(integration: EmailIntegration): Promise<strin
 
 export async function sendEmailMessage(to: string, text: string, subject = "رسالة من AudienceW", tenantId = "tenant-demo") {
   const integration = await prisma.emailIntegration.findUnique({ where: { id: `email:${tenantId}` } })
-    ?? await prisma.emailIntegration.findUniqueOrThrow({ where: { id: "primary-email" } });
-  if (integration.provider === "gmail" && integration.accessToken) {
+    ?? await prisma.emailIntegration.findUnique({ where: { id: "primary-email" } });
+  if (integration?.provider === "gmail" && integration.accessToken) {
     const accessToken = await getValidAccessToken(integration);
     const fromHeader = integration.senderName ? `${integration.senderName} <${integration.emailAddress}>` : integration.emailAddress;
     const raw = Buffer.from([`To: ${to}`, `From: ${fromHeader}`, `Subject: ${subject}`, "Content-Type: text/plain; charset=UTF-8", "", text].join("\r\n")).toString("base64url");
@@ -114,7 +114,7 @@ export async function sendEmailMessage(to: string, text: string, subject = "رس
     if (response.ok) return;
     throw new Error("تعذر الإرسال عبر Gmail. أعد ربط الحساب إذا انتهت صلاحية التفويض.");
   }
-  if (integration.provider === "outlook" && integration.accessToken) {
+  if (integration?.provider === "outlook" && integration.accessToken) {
     const accessToken = await getValidAccessToken(integration);
     const response = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { subject, body: { contentType: "Text", content: text }, toRecipients: [{ emailAddress: { address: to } }] }, saveToSentItems: true }) });
     if (response.ok) return;
