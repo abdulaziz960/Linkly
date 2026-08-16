@@ -381,6 +381,10 @@ export async function PATCH(request: NextRequest) {
     data[field] = value;
   }
 
+  if (body.reset !== true && (channel === "telegram" || channel === "x") && user.tenantId && user.tenantId !== "tenant-demo") {
+    data.webhookUrl = `/api/${channel}/webhook?tenant=${user.tenantId}`;
+  }
+
   const connectionCheck: ConnectionCheck = body.reset === true
     ? { status: "pending", message: "غير مكتمل: لم يتم حفظ بيانات الربط بعد", missingFields: [] as string[] }
     : channel === "telegram"
