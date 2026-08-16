@@ -101,14 +101,16 @@ type LegacyIncomingEmail = {
   text: string;
   messageId?: string;
   receivedAt?: Date;
+  tenantId?: string;
 };
 
 export async function storeIncomingEmail(input: LegacyIncomingEmail) {
+  const tenantId = input.tenantId || "tenant-demo";
   const from = input.from.trim();
   const addressMatch = from.match(/<([^>]+)>/);
   const email = (addressMatch?.[1] || from).trim().toLowerCase();
-  const customerId = `email-${key(email)}`;
-  const conversationId = `email-${key(email)}`;
+  const customerId = `email-${key(`${tenantId}:${email}`)}`;
+  const conversationId = `email-${key(`${tenantId}:${email}`)}`;
   const headerName = from.replace(/<[^>]+>/, "").replace(/^[\s\"']+|[\s\"']+$/g, "");
   const name = input.fromName?.trim() || headerName || email;
   const subject = input.subject?.trim();
@@ -120,12 +122,12 @@ export async function storeIncomingEmail(input: LegacyIncomingEmail) {
     await tx.customer.upsert({
       where: { id: customerId },
       update: { name, phone: email, initial: name.charAt(0) || "ب" },
-      create: { id: customerId, name, phone: email, initial: name.charAt(0) || "ب" }
+      create: { id: customerId, tenantId, name, phone: email, initial: name.charAt(0) || "ب" }
     });
     await tx.conversation.upsert({
       where: { id: conversationId },
       update: { channel: "email" },
-      create: { id: conversationId, customerId, channel: "email", lastMessage: text, status: "unassigned", assignee: "بدون موظف", unread: 0, windowExpired: 0, lastActivityAt: activityAt }
+      create: { id: conversationId, tenantId, customerId, channel: "email", lastMessage: text, status: "unassigned", assignee: "بدون موظف", unread: 0, windowExpired: 0, lastActivityAt: activityAt }
     });
     await tx.message.upsert({
       where: { id: messageId },
