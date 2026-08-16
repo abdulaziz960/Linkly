@@ -319,6 +319,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         const data = await response.json() as IntegrationResponse;
         setSettings(data);
         onIntegrationChange?.(data);
+        setSaveFeedback({
+          type: data.status === "connected" ? "success" : "error",
+          text: data.connectionMessage || (data.status === "connected" ? "تم الاتصال بنجاح" : "الربط غير مكتمل")
+        });
         setWizardStep(4);
         setLoading(false);
         return;
