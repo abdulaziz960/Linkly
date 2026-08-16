@@ -61,7 +61,7 @@ const wizardSteps = [
   }
 ];
 
-export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "x" | "email" | "google_maps";
+export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "x" | "email" | "google_maps" | "tiktok";
 
 const channels: Array<{ id: ChannelId; title: string; description: string; active: boolean }> = [
   { id: "whatsapp", title: "واتساب", description: "Support your customers on WhatsApp", active: true },
@@ -71,7 +71,8 @@ const channels: Array<{ id: ChannelId; title: string; description: string; activ
   { id: "telegram", title: "تيليجرام", description: "Configure Telegram channel using Bot token", active: true },
   { id: "x", title: "X", description: "ربط حساب X عبر OAuth", active: true },
   { id: "email", title: "البريد الإلكتروني", description: "استقبال وردود البريد عبر Webhook", active: true },
-  { id: "google_maps", title: "خرائط Google", description: "Connect your Google Business Profile", active: true }
+  { id: "google_maps", title: "خرائط Google", description: "Connect your Google Business Profile", active: true },
+  { id: "tiktok", title: "TikTok", description: "بانتظار موافقة TikTok على Business Messaging", active: true }
 ];
 
 const providers = [
@@ -153,6 +154,14 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
     );
   }
 
+  if (id === "tiktok") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M16.6 5.82c-.86-.86-1.35-2.03-1.35-3.24h-3.15v13.6c0 1.46-1.19 2.65-2.65 2.65a2.65 2.65 0 0 1 0-5.3c.27 0 .53.04.78.11V10.5a5.8 5.8 0 0 0-.78-.05 5.8 5.8 0 1 0 5.8 5.8V9.4a7.34 7.34 0 0 0 4.3 1.38V7.62a4.32 4.32 0 0 1-2.95-1.8Z" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M5 6h14v9H8.8L5 18.5V6Z" />
@@ -163,7 +172,7 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
 
 export default function SettingsView({ onIntegrationChange }: SettingsViewProps) {
   const [settings, setSettings] = useState<IntegrationSettings>(emptySettings);
-  const [selectedChannel, setSelectedChannel] = useState<"whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website">("whatsapp");
+  const [selectedChannel, setSelectedChannel] = useState<"whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok">("whatsapp");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -182,6 +191,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const isGoogleMaps = selectedChannel === "google_maps";
   const isEmail = selectedChannel === "email";
   const isWebsite = selectedChannel === "website";
+  const isTikTok = selectedChannel === "tiktok";
   const isWhatsApp = selectedChannel === "whatsapp";
   const isConnected = settings.status === "connected";
   const showIntegrationData = (isTelegram || isGoogleMaps || isEmail || isWebsite ? wizardStep >= 4 : wizardStep >= 3) || isConnected;
@@ -546,7 +556,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   type="button"
                   disabled={!channel.active}
                   onClick={() => {
-                    if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "email" || channel.id === "website") {
+                    if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "email" || channel.id === "website" || channel.id === "tiktok") {
                       setSelectedChannel(channel.id);
                       setWizardStep(4);
                     }
@@ -589,9 +599,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 type="button"
                 disabled={!channel.active}
                 onClick={() => {
-                  if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "email" || channel.id === "website") {
+                  if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "email" || channel.id === "website" || channel.id === "tiktok") {
                     setSelectedChannel(channel.id);
-                    setWizardStep(channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" ? 3 : channel.id === "email" || channel.id === "website" ? 4 : 2);
+                    setWizardStep(channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "tiktok" || channel.id === "google_maps" ? 3 : channel.id === "email" || channel.id === "website" ? 4 : 2);
                   }
                 }}
               >
@@ -862,6 +872,19 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </ol>
             </div>
           ) : null}
+          {isTikTok ? (
+            <div className="telegram-help-card">
+              <div>
+                <h3>ربط TikTok Business Messaging</h3>
+                <p>هذه القناة قيد التجهيز - إرسال واستقبال الرسائل الفعلي بينتظر موافقة TikTok على صلاحية Business Messaging Partner لحسابك. تقدر تحفظ بيانات التطبيق الآن وتكمل التفعيل بعد ما توافق عليك TikTok.</p>
+              </div>
+              <ol>
+                <li>سجّل حساب TikTok Business وقدّم على TikTok API for Business.</li>
+                <li>اطلب صلاحية "Business Messaging" كـ Messaging Partner من TikTok.</li>
+                <li>بعد الموافقة، انسخ App Key وApp Secret وAccess Token واحفظهم هنا.</li>
+              </ol>
+            </div>
+          ) : null}
           {isEmail ? (
             <div className="telegram-help-card">
               <div>
@@ -913,7 +936,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <div className="settings-form-head">
             <div>
               <h2>{isWebsite ? "ودجت الموقع الإلكتروني" : isGoogleMaps ? "ربط Google Business" : isWhatsApp ? "ربط واتساب" : "بيانات الربط والويبهوك"}</h2>
-              <p>{isWebsite ? "مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى." : isEmail ? "هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook وإرسال الردود عبر Resend." : isGoogleMaps ? "لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة." : isX ? "هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا." : isTelegram ? "هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة." : isFacebook ? "هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة." : isInstagram ? "هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة." : "اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط."}</p>
+              <p>{isWebsite ? "مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى." : isEmail ? "هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook وإرسال الردود عبر Resend." : isGoogleMaps ? "لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة." : isX ? "هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا." : isTikTok ? "احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging." : isTelegram ? "هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة." : isFacebook ? "هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة." : isInstagram ? "هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة." : "اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط."}</p>
             </div>
             <span className={`connection-pill ${settings.status}`}>{statusLabel[settings.status]}</span>
             {!isWebsite ? <button className="soft-action" disabled={saving || loading} type="button" onClick={resetIntegrationData}>
@@ -930,10 +953,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <input value={settings.businessName} onChange={(event) => updateField("businessName", event.target.value)} />
             </label> : null}
             <label>
-              {isEmail ? "اسم قناة البريد" : isX ? "اسم حساب X" : isTelegram ? "اسم بوت Telegram" : isFacebook ? "اسم صفحة Facebook" : isInstagram ? "اسم حساب Instagram" : "حساب واتساب للأعمال"}
+              {isEmail ? "اسم قناة البريد" : isX ? "اسم حساب X" : isTikTok ? "اسم حساب TikTok" : isTelegram ? "اسم بوت Telegram" : isFacebook ? "اسم صفحة Facebook" : isInstagram ? "اسم حساب Instagram" : "حساب واتساب للأعمال"}
               <input value={settings.wabaName} onChange={(event) => updateField("wabaName", event.target.value)} readOnly={isWhatsApp} placeholder={isWhatsApp ? "يظهر بعد اكتمال الربط من Meta" : undefined} />
             </label>
-            {!isInstagram && !isFacebook && !isTelegram && !isX && !isEmail ? <label>
+            {!isInstagram && !isFacebook && !isTelegram && !isX && !isEmail && !isTikTok ? <label>
               رقم واتساب
               <input value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} readOnly={isWhatsApp} placeholder="يظهر بعد اكتمال الربط من Meta" />
             </label> : null}
@@ -947,6 +970,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                       ? "تم حفظ البريد ورابط الويبهوك."
                     : isX
                       ? "تم حفظ مفاتيح X. التفعيل الكامل يعتمد على صلاحيات API."
+                      : isTikTok
+                      ? "تم حفظ بيانات TikTok."
                       : isGoogleMaps
                         ? "تم حفظ حساب خرائط Google والموقع."
                       : isFacebook
@@ -1044,6 +1069,21 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 <label>
                   Webhook Secret
                   <input dir="ltr" value={settings.verifyToken} onChange={(event) => updateField("verifyToken", event.target.value)} placeholder="audiencew_x_secret" />
+                </label>
+              </>
+            ) : isTikTok ? (
+              <>
+                <label>
+                  App Key
+                  <input dir="ltr" value={settings.appId} onChange={(event) => updateField("appId", event.target.value)} placeholder="TikTok App Key" />
+                </label>
+                <label>
+                  App Secret
+                  <input dir="ltr" value={settings.configId} onChange={(event) => updateField("configId", event.target.value)} placeholder="TikTok App Secret" />
+                </label>
+                <label>
+                  Access Token
+                  <input dir="ltr" value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} placeholder="يصدر بعد موافقة TikTok" />
                 </label>
               </>
             ) : null}

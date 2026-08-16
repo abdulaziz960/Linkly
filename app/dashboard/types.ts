@@ -16,7 +16,7 @@ export type ViewKey =
 
 export type ConversationStatus = "assigned" | "unassigned" | "closed";
 export type ConversationFilter = "all" | ConversationStatus;
-export type ConversationChannel = "whatsapp" | "instagram" | "x" | "facebook" | "google_maps" | "website" | "telegram" | "email";
+export type ConversationChannel = "whatsapp" | "instagram" | "x" | "facebook" | "google_maps" | "website" | "telegram" | "email" | "tiktok";
 export type ConversationChannelFilter = "all" | ConversationChannel;
 export type ChatPanel = "chat" | "profile";
 export type ComposerMode = "reply" | "note";
@@ -201,7 +201,7 @@ export type DashboardUser = {
 
 export type IntegrationSettings = {
   id: string;
-  provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "external";
+  provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "external";
   status: "connected" | "not_connected" | "pending";
   businessName: string;
   wabaName: string;

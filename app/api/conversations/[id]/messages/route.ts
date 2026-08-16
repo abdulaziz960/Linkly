@@ -471,6 +471,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return jsonOk(message);
     }
 
+    if (conversation.channel === "tiktok") {
+      return jsonError("إرسال رسائل TikTok غير مفعل بعد - بانتظار موافقة TikTok على صلاحية Business Messaging لحسابك.", 400);
+    }
+
     if (conversation.channel === "website") {
       if (attachment) return jsonError("إرسال المرفقات عبر ودجت الموقع غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
 

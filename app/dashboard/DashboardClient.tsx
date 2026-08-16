@@ -105,7 +105,7 @@ const CONVERSATIONS_CACHE_KEY = "audiencew:dashboard-conversations";
 const CUSTOMERS_CACHE_KEY = "audiencew:dashboard-customers";
 const DASHBOARD_VIEW_KEY = "audiencew:dashboard-active-view";
 const DASHBOARD_CHANNEL_KEY = "audiencew:dashboard-active-channel";
-const conversationChannels: ConversationChannel[] = ["whatsapp", "instagram", "x", "facebook", "google_maps", "website", "telegram", "email"];
+const conversationChannels: ConversationChannel[] = ["whatsapp", "instagram", "x", "facebook", "google_maps", "website", "telegram", "email", "tiktok"];
 
 function isViewKey(value: string | null): value is ViewKey {
   return !!value && allViewKeys.includes(value as ViewKey);

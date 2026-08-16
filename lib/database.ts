@@ -1508,7 +1508,7 @@ export async function getLeads(tenantId = "tenant-demo"): Promise<Lead[]> {
   return prisma.lead.findMany({ where: { tenantId } });
 }
 
-export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website";
+export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok";
 
 export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "instagram") return "meta-instagram";
@@ -1518,6 +1518,7 @@ export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "google_maps") return "google-maps";
   if (channel === "email") return "email-channel";
   if (channel === "website") return "website-channel";
+  if (channel === "tiktok") return "tiktok-channel";
   return "meta-whatsapp";
 }
 
@@ -1549,6 +1550,8 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
                 ? "email"
               : channel === "website"
                 ? "website"
+              : channel === "tiktok"
+                ? "tiktok"
               : "whatsapp_cloud",
       status: channel === "website" ? "connected" : "pending",
       businessName: "",
@@ -1556,30 +1559,30 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
       phoneNumber: "",
       phoneNumberId: "",
       wabaId: "",
-      appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
+      appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
       configId: "",
-      verifyToken: channel === "telegram" || channel === "x" ? randomUUID() : channel === "google_maps" ? "audiencew_google_secret" : channel === "email" ? "audiencew_email_secret" : channel === "website" ? randomUUID() : "audiencew_webhook_verify",
+      verifyToken: channel === "telegram" || channel === "x" ? randomUUID() : channel === "google_maps" ? "audiencew_google_secret" : channel === "email" ? "audiencew_email_secret" : channel === "website" || channel === "tiktok" ? randomUUID() : "audiencew_webhook_verify",
       accessToken: "",
-      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : "/api/meta/webhook",
+      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : channel === "tiktok" ? `/api/tiktok/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : "/api/meta/webhook",
       updatedAt: "اليوم"
     }
   });
   const whatsappSettings = channel === "instagram" || channel === "facebook"
     ? await prisma.integrationSetting.findUnique({ where: { id: getTenantIntegrationId("whatsapp", tenantId) } })
     : null;
-  const providerMetaSettings = tenantId !== "tenant-demo" && channel !== "telegram" && channel !== "x" && channel !== "google_maps" && channel !== "email" && channel !== "website"
+  const providerMetaSettings = tenantId !== "tenant-demo" && channel !== "telegram" && channel !== "x" && channel !== "google_maps" && channel !== "email" && channel !== "website" && channel !== "tiktok"
     ? await prisma.integrationSetting.findUnique({ where: { id: "meta-whatsapp" } })
     : null;
   const fallbackAppId = channel === "google_maps"
     ? settings.appId || defaultGoogleClientId
-    : channel === "x" || channel === "email" || channel === "website"
+    : channel === "x" || channel === "email" || channel === "website" || channel === "tiktok"
     ? settings.appId
     : channel === "instagram" || channel === "facebook"
     ? settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || ""
     : settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || "";
   const fallbackConfigId = channel === "google_maps"
     ? settings.configId || defaultGoogleClientSecret
-    : channel === "telegram" || channel === "x" || channel === "email" || channel === "website"
+    : channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok"
       ? settings.configId
       : settings.configId || defaultMetaConfigId || whatsappSettings?.configId || providerMetaSettings?.configId || "";
 
