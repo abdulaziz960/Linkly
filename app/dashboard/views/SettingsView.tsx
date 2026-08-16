@@ -1020,6 +1020,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             {!isGoogleMaps && !isWhatsApp && !isWebsite ? <button className="primary-action" disabled={saving || loading} type="submit">
               {saving ? "جاري الحفظ..." : "حفظ الإعدادات"}
             </button> : null}
+            {isWhatsApp ? <button className="primary-action" disabled={saving || loading} type="button" onClick={async () => { setSaving(true); await persistSettings(); setSaving(false); }}>
+              {saving ? "جاري التحقق..." : "تحقق من الحالة"}
+            </button> : null}
           </div>
 
           {!isGoogleMaps && !isWebsite ? <div className="settings-fields">
