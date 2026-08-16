@@ -25,7 +25,7 @@ const allowedFields = [
   "webhookUrl"
 ] as const;
 
-type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email";
+type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website";
 type IntegrationField = (typeof allowedFields)[number];
 type ConnectionCheck = {
   status: string;
@@ -89,7 +89,7 @@ const emailRequiredConnectionFields: Array<{ field: IntegrationField; label: str
 
 function getIntegrationChannel(request: NextRequest): IntegrationChannel {
   const channel = request.nextUrl.searchParams.get("channel");
-  if (channel === "instagram" || channel === "facebook" || channel === "telegram" || channel === "x" || channel === "google_maps" || channel === "email") return channel;
+  if (channel === "instagram" || channel === "facebook" || channel === "telegram" || channel === "x" || channel === "google_maps" || channel === "email" || channel === "website") return channel;
   return "whatsapp";
 }
 
