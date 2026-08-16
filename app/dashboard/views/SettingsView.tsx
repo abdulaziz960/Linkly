@@ -168,6 +168,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [copied, setCopied] = useState("");
+  const [showCredentials, setShowCredentials] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [testRecipient, setTestRecipient] = useState("");
   const [testMessage, setTestMessage] = useState("");
@@ -1021,25 +1022,28 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </>
             ) : isWhatsApp ? null : (
               <>
+                <button className="soft-action" type="button" onClick={() => setShowCredentials((value) => !value)} style={{ width: "fit-content" }}>
+                  {showCredentials ? "إخفاء بيانات الاعتماد" : "إظهار بيانات الاعتماد"}
+                </button>
                 <label>
                   App ID
-                  <input value={settings.appId || (!isInstagram && !isFacebook ? publicMetaAppId : "")} onChange={(event) => updateField("appId", event.target.value)} placeholder="ضع App ID من Meta" />
+                  <input type={showCredentials ? "text" : "password"} value={settings.appId || (!isInstagram && !isFacebook ? publicMetaAppId : "")} onChange={(event) => updateField("appId", event.target.value)} placeholder="ضع App ID من Meta" />
                 </label>
                 {!isFacebook ? <label>
                   Configuration ID
-                  <input value={settings.configId || (!isInstagram ? publicMetaConfigId : "")} onChange={(event) => updateField("configId", event.target.value)} placeholder="ضع Configuration ID من Facebook Login for Business" />
+                  <input type={showCredentials ? "text" : "password"} value={settings.configId || (!isInstagram ? publicMetaConfigId : "")} onChange={(event) => updateField("configId", event.target.value)} placeholder="ضع Configuration ID من Facebook Login for Business" />
                 </label> : null}
                 <label>
                   {isFacebook ? "Facebook Page ID" : isInstagram ? "Instagram Account ID" : "WABA ID"}
-                  <input value={settings.wabaId} onChange={(event) => updateField("wabaId", event.target.value)} />
+                  <input type={showCredentials ? "text" : "password"} value={settings.wabaId} onChange={(event) => updateField("wabaId", event.target.value)} />
                 </label>
                 {!isInstagram && !isFacebook ? <label>
                   Phone Number ID
-                  <input value={settings.phoneNumberId} onChange={(event) => updateField("phoneNumberId", event.target.value)} />
+                  <input type={showCredentials ? "text" : "password"} value={settings.phoneNumberId} onChange={(event) => updateField("phoneNumberId", event.target.value)} />
                 </label> : null}
                 <label>
                   {isFacebook ? "Page Access Token" : "Access Token"}
-                  <input value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} />
+                  <input type={showCredentials ? "text" : "password"} value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} />
                 </label>
               </>
             )}
