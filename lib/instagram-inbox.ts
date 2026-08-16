@@ -7,6 +7,7 @@ type StoreInstagramMessageInput = {
   name?: string;
   text: string;
   direction: "in" | "out";
+  tenantId?: string;
   messageId?: string;
   author?: string;
   receivedAt?: Date;
@@ -37,9 +38,11 @@ export async function storeInstagramMessage(input: StoreInstagramMessageInput) {
 
   const activityAt = (input.receivedAt ?? new Date()).toISOString();
   const instagramUserId = input.instagramUserId.replace(/\s+/g, "");
+  const tenantId = input.tenantId || "tenant-demo";
   const name = getCustomerName(instagramUserId, input.name);
-  const customerId = `ig-${instagramUserId}`;
-  const conversationId = `ig-${instagramUserId}`;
+  const scopedPrefix = tenantId === "tenant-demo" ? "" : `${tenantId}-`;
+  const customerId = `${scopedPrefix}ig-${instagramUserId}`;
+  const conversationId = `${scopedPrefix}ig-${instagramUserId}`;
   const messageId = input.messageId ? `ig-${input.messageId}` : `ig-${input.direction}-${instagramUserId}-${Date.now()}`;
 
   return prisma.$transaction(async (tx) => {
@@ -54,13 +57,15 @@ export async function storeInstagramMessage(input: StoreInstagramMessageInput) {
       update: {
         name: customerName,
         phone: instagramUserId,
-        initial: getCustomerInitial(customerName, instagramUserId)
+        initial: getCustomerInitial(customerName, instagramUserId),
+        tenantId
       },
       create: {
         id: customerId,
         name: customerName,
         phone: instagramUserId,
-        initial: getCustomerInitial(customerName, instagramUserId)
+        initial: getCustomerInitial(customerName, instagramUserId),
+        tenantId
       }
     });
 
@@ -76,7 +81,8 @@ export async function storeInstagramMessage(input: StoreInstagramMessageInput) {
         assignee: "بدون موظف",
         unread: 0,
         windowExpired: 0,
-        lastActivityAt: activityAt
+        lastActivityAt: activityAt,
+        tenantId
       }
     });
 

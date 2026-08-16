@@ -7,6 +7,7 @@ type StoreFacebookMessageInput = {
   name?: string;
   text: string;
   direction: "in" | "out";
+  tenantId?: string;
   messageId?: string;
   author?: string;
   receivedAt?: Date;
@@ -27,9 +28,11 @@ export async function storeFacebookMessage(input: StoreFacebookMessageInput) {
 
   const activityAt = (input.receivedAt ?? new Date()).toISOString();
   const facebookUserId = input.facebookUserId.replace(/\s+/g, "");
+  const tenantId = input.tenantId || "tenant-demo";
   const name = getCustomerName(facebookUserId, input.name);
-  const customerId = `fb-${facebookUserId}`;
-  const conversationId = `fb-${facebookUserId}`;
+  const scopedPrefix = tenantId === "tenant-demo" ? "" : `${tenantId}-`;
+  const customerId = `${scopedPrefix}fb-${facebookUserId}`;
+  const conversationId = `${scopedPrefix}fb-${facebookUserId}`;
   const messageId = input.messageId ? `fb-${input.messageId}` : `fb-${input.direction}-${facebookUserId}-${Date.now()}`;
 
   return prisma.$transaction(async (tx) => {
@@ -38,13 +41,15 @@ export async function storeFacebookMessage(input: StoreFacebookMessageInput) {
       update: {
         name,
         phone: facebookUserId,
-        initial: getCustomerInitial(name, facebookUserId)
+        initial: getCustomerInitial(name, facebookUserId),
+        tenantId
       },
       create: {
         id: customerId,
         name,
         phone: facebookUserId,
-        initial: getCustomerInitial(name, facebookUserId)
+        initial: getCustomerInitial(name, facebookUserId),
+        tenantId
       }
     });
 
@@ -60,7 +65,8 @@ export async function storeFacebookMessage(input: StoreFacebookMessageInput) {
         assignee: "بدون موظف",
         unread: 0,
         windowExpired: 0,
-        lastActivityAt: activityAt
+        lastActivityAt: activityAt,
+        tenantId
       }
     });
 

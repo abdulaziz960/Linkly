@@ -5,8 +5,21 @@ import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
 import { maybeSendLeadAiReply } from "../../../../lib/lead-ai";
 import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
+import { prisma } from "../../../../lib/prisma";
 
 export const runtime = "nodejs";
+
+type MetaAccount = { tenantId: string; accessToken: string; wabaId: string };
+
+async function resolveMetaAccount(provider: "instagram" | "facebook", accountId: string): Promise<MetaAccount | null> {
+  if (!accountId) return null;
+
+  const row = await prisma.integrationSetting.findFirst({ where: { provider, wabaId: accountId } });
+  if (!row) return null;
+
+  const tenantId = row.id.includes(":") ? row.id.split(":")[0] : "tenant-demo";
+  return { tenantId, accessToken: row.accessToken?.trim() || "", wabaId: row.wabaId };
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -218,25 +231,30 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
 export async function POST(request: NextRequest) {
   const payload = await request.json();
   const settings = await getIntegrationSettings();
-  const instagramSettings = await getIntegrationSettings("instagram");
-  const facebookSettings = await getIntegrationSettings("facebook");
   const accessToken = settings.accessToken?.trim() || "";
-  const instagramAccessToken = instagramSettings.accessToken?.trim() || accessToken;
   const savedMessages: string[] = [];
   const entries = Array.isArray(payload.entry) ? payload.entry : [];
+  const accountCache = new Map<string, MetaAccount | null>();
+
+  async function lookupMetaAccount(provider: "instagram" | "facebook", accountId: string) {
+    const cacheKey = `${provider}:${accountId}`;
+    if (accountCache.has(cacheKey)) return accountCache.get(cacheKey) ?? null;
+    const account = await resolveMetaAccount(provider, accountId);
+    accountCache.set(cacheKey, account);
+    return account;
+  }
 
   for (const entry of entries) {
     const instagramMessaging = Array.isArray(entry.messaging) ? entry.messaging : [];
     for (const event of instagramMessaging) {
       const senderId = event.sender?.id;
       if (!senderId) continue;
-      const facebookPageId = facebookSettings.wabaId?.trim();
       const recipientId = String(event.recipient?.id || entry.id || "");
-      const isFacebookPageEvent = Boolean(facebookPageId && recipientId === facebookPageId);
+      const facebookAccount = await lookupMetaAccount("facebook", recipientId);
 
-      if (isFacebookPageEvent) {
+      if (facebookAccount) {
         const isEchoMessage = event.message?.is_echo === true || event.message?.is_deleted === true;
-        if (senderId === facebookPageId || isEchoMessage || !hasInstagramMessageContent(event)) {
+        if (senderId === facebookAccount.wabaId || isEchoMessage || !hasInstagramMessageContent(event)) {
           continue;
         }
 
@@ -244,6 +262,7 @@ export async function POST(request: NextRequest) {
           facebookUserId: senderId,
           text: getFacebookText(event),
           direction: "in",
+          tenantId: facebookAccount.tenantId,
           messageId: event.message?.mid || event.postback?.mid,
           receivedAt: event.timestamp ? new Date(Number(event.timestamp)) : undefined,
           replyToMessageId: event.message?.reply_to?.mid || event.reply_to?.mid || event.reply_to?.id
@@ -252,19 +271,22 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const instagramAccountId = instagramSettings.wabaId?.trim();
+      const instagramAccount = await lookupMetaAccount("instagram", recipientId);
+      if (!instagramAccount) continue;
+
       const isEchoMessage = event.message?.is_echo === true || event.message?.is_deleted === true;
-      if (senderId === instagramAccountId || isEchoMessage || !hasInstagramMessageContent(event)) {
+      if (senderId === instagramAccount.wabaId || isEchoMessage || !hasInstagramMessageContent(event)) {
         continue;
       }
 
       const text = getInstagramText(event);
-      const profile = await getInstagramSenderProfile(senderId, instagramAccessToken);
+      const profile = await getInstagramSenderProfile(senderId, instagramAccount.accessToken);
       await storeInstagramMessage({
         instagramUserId: senderId,
         name: profile?.username || profile?.name,
         text,
         direction: "in",
+        tenantId: instagramAccount.tenantId,
         messageId: event.message?.mid || event.postback?.mid,
         receivedAt: event.timestamp ? new Date(Number(event.timestamp)) : undefined,
         replyToMessageId: event.message?.reply_to?.mid || event.reply_to?.mid || event.reply_to?.id
@@ -279,16 +301,19 @@ export async function POST(request: NextRequest) {
       if (change.field === "comments" || value.media || value.comment_id || value.from?.id) {
         const instagramUserId = value.from?.id || value.user_id || value.sender_id || value.id;
         if (instagramUserId) {
-          if (instagramUserId === instagramSettings.wabaId?.trim()) continue;
+          const instagramAccount = await lookupMetaAccount("instagram", String(entry.id || ""));
+          if (!instagramAccount) continue;
+          if (instagramUserId === instagramAccount.wabaId) continue;
           const text = value.text || value.message || "تعليق وارد من Instagram";
           const fallbackName = value.from?.username || value.from?.name;
-          const profile = fallbackName ? undefined : await getInstagramSenderProfile(instagramUserId, instagramAccessToken);
-          const source = await getInstagramMediaSource(value.media, instagramAccessToken);
+          const profile = fallbackName ? undefined : await getInstagramSenderProfile(instagramUserId, instagramAccount.accessToken);
+          const source = await getInstagramMediaSource(value.media, instagramAccount.accessToken);
           await storeInstagramMessage({
             instagramUserId,
             name: fallbackName || profile?.username || profile?.name,
             text: `تعليق: ${text}`,
             direction: "in",
+            tenantId: instagramAccount.tenantId,
             messageId: value.comment_id || value.id,
             receivedAt: value.created_time ? new Date(Number(value.created_time) * 1000) : undefined,
             source
