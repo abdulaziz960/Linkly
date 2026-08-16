@@ -583,9 +583,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             })}
           </div>
           <div className="connected-channel-note">
-            <b>{isWebsite ? "ودجت الموقع جاهز" : isEmail ? "البريد الإلكتروني متصل" : isGoogleMaps ? "خرائط Google متصلة" : isX ? "X جاهز للربط" : isTelegram ? "تيليجرام متصل" : isFacebook ? "فيسبوك متصل" : isInstagram ? "Instagram متصل" : "واتساب متصل"}</b>
+            <b>{isWebsite ? "ودجت الموقع جاهز" : isSms ? "SMS متصل" : isTikTok ? "TikTok محفوظ" : isEmail ? "البريد الإلكتروني متصل" : isGoogleMaps ? "خرائط Google متصلة" : isX ? "X جاهز للربط" : isTelegram ? "تيليجرام متصل" : isFacebook ? "فيسبوك متصل" : isInstagram ? "Instagram متصل" : "واتساب متصل"}</b>
             <span>يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل.</span>
-            {!isEmail && !isGoogleMaps && !isX && !isTelegram && !isWebsite ? (
+            {!isEmail && !isGoogleMaps && !isX && !isTelegram && !isWebsite && !isTikTok && !isSms ? (
               <button type="button" onClick={openMetaWindow}>
                 {isFacebook ? "ربط صفحة Facebook" : isInstagram ? "ربط Instagram" : "ربط واتساب جديد"}
               </button>
@@ -747,6 +747,36 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         );
       }
 
+      if (isTikTok) {
+        return (
+          <div className="meta-wizard-panel">
+            <div className="meta-signup-card">
+              <span className="provider-round-icon">T</span>
+              <h3>ربط TikTok Business Messaging</h3>
+              <p>هذه القناة قيد التجهيز وتنتظر موافقة TikTok على صلاحية Business Messaging لحسابك. تقدر تحفظ بيانات التطبيق الآن وتكمل التفعيل بعد الموافقة.</p>
+              <button type="button" onClick={() => setWizardStep(4)}>
+                إدخال بيانات TikTok
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      if (isSms) {
+        return (
+          <div className="meta-wizard-panel">
+            <div className="meta-signup-card">
+              <span className="provider-round-icon">#</span>
+              <h3>ربط SMS عبر Unifonic</h3>
+              <p>اربط حساب Unifonic لإرسال رسائل SMS لعملائك. استقبال الردود قيد التجهيز، لكن الإرسال يشتغل مباشرة بعد حفظ AppSid واسم المرسل.</p>
+              <button type="button" onClick={() => setWizardStep(4)}>
+                إدخال بيانات Unifonic
+              </button>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="meta-wizard-panel">
           <div className="meta-signup-card">
@@ -837,13 +867,13 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   connectGoogleMaps();
                   return;
                 }
-                if (wizardStep === 3 && !isTelegram && !isX && !isGoogleMaps) {
+                if (wizardStep === 3 && !isTelegram && !isX && !isGoogleMaps && !isTikTok && !isSms) {
                   openMetaWindow();
                   return;
                 }
                 setWizardStep((step) => Math.min(4, step + 1));
               }}>
-                {wizardStep === 3 ? (isGoogleMaps ? "ربط Google" : isTelegram || isX ? "إدخال البيانات" : "فتح نافذة Meta") : wizardStep === 4 ? "إنهاء" : "التالي"}
+                {wizardStep === 3 ? (isGoogleMaps ? "ربط Google" : isTelegram || isX || isTikTok || isSms ? "إدخال البيانات" : "فتح نافذة Meta") : wizardStep === 4 ? "إنهاء" : "التالي"}
               </button> : null}
             </div>
           ) : null}
@@ -1169,7 +1199,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             </div>
           ) : null}
 
-          {!isInstagram && !isFacebook && !isTelegram && !isX && !isGoogleMaps && !isEmail && !isWebsite && settings.status === "connected" ? <div className="meta-test-card">
+          {!isInstagram && !isFacebook && !isTelegram && !isX && !isGoogleMaps && !isEmail && !isWebsite && !isTikTok && !isSms && settings.status === "connected" ? <div className="meta-test-card">
             <div>
               <h3>تجربة رقم التست</h3>
               <p>أضف رقمك في قائمة أرقام الاختبار داخل Meta، ثم أرسل رسالة للتأكد من الإرسال والاستقبال.</p>
