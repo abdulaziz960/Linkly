@@ -127,6 +127,7 @@ function writeCachedList<T>(key: string, value: T[]) {
 
 export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const restoredNavigationRef = useRef(false);
+  const loadDashboardDataSeqRef = useRef(0);
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -285,6 +286,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   async function loadDashboardData() {
+    const requestId = ++loadDashboardDataSeqRef.current;
     try {
       const [
         nextConversations,
@@ -311,6 +313,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         fetchData<WorkSchedule[]>("/api/work-hours"),
         fetchData<Lead[]>("/api/leads")
       ]);
+
+      if (requestId !== loadDashboardDataSeqRef.current) return;
 
       if (nextConversations) {
         writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
