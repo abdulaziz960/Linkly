@@ -5,6 +5,7 @@ import { getIntegrationSettings } from "../../../../../lib/database";
 import { sendEmailMessage } from "../../../../../lib/email-channel";
 import { sendGmailMessage } from "../../../../../lib/google-gmail";
 import { replyToGoogleReview } from "../../../../../lib/google-business";
+import { sendUnifonicSms } from "../../../../../lib/sms-send";
 import { prisma } from "../../../../../lib/prisma";
 import { formatMessageTime } from "../../../../../lib/time";
 import { normalizeWhatsAppPhone } from "../../../../../lib/whatsapp-inbox";
@@ -473,6 +474,51 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (conversation.channel === "tiktok") {
       return jsonError("إرسال رسائل TikTok غير مفعل بعد - بانتظار موافقة TikTok على صلاحية Business Messaging لحسابك.", 400);
+    }
+
+    if (conversation.channel === "sms") {
+      if (attachment) return jsonError("إرسال المرفقات عبر SMS غير مدعوم، جرّب إرسال نص فقط.", 400);
+
+      const smsSettings = await getIntegrationSettings("sms", user?.tenantId);
+      const appSid = smsSettings.appId?.trim();
+      const senderId = smsSettings.phoneNumber?.trim();
+      const to = conversation.customer.phone?.trim();
+
+      if (!appSid || !senderId) return jsonError("أكمل بيانات Unifonic (AppSid واسم المرسل) من صفحة الإعدادات قبل الإرسال");
+      if (!to) return jsonError("رقم جوال العميل غير موجود في ملف المحادثة");
+
+      try {
+        await sendUnifonicSms({ appSid, senderId, to, text });
+      } catch (error) {
+        return jsonError(error instanceof Error ? error.message : "تعذر إرسال الرسالة عبر Unifonic", 502);
+      }
+
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            id: `m-${Date.now()}`,
+            conversationId: conversation.id,
+            direction,
+            text,
+            time: messageTime,
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData
+          }
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: text,
+            lastActivityAt: sentAt
+          }
+        });
+
+        return created;
+      });
+
+      return jsonOk(message);
     }
 
     if (conversation.channel === "website") {

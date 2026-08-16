@@ -95,7 +95,8 @@ const channelLabels: Record<ConversationChannel, string> = {
   website: "الموقع الإلكتروني",
   telegram: "تيليجرام",
   email: "البريد الإلكتروني",
-  tiktok: "TikTok"
+  tiktok: "TikTok",
+  sms: "رسائل SMS"
 };
 
 function getChannelLabel(conversation: Conversation) {

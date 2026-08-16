@@ -25,7 +25,7 @@ const allowedFields = [
   "webhookUrl"
 ] as const;
 
-type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok";
+type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms";
 type IntegrationField = (typeof allowedFields)[number];
 type ConnectionCheck = {
   status: string;
@@ -93,9 +93,14 @@ const tiktokRequiredConnectionFields: Array<{ field: IntegrationField; label: st
   { field: "accessToken", label: "Access Token" }
 ];
 
+const smsRequiredConnectionFields: Array<{ field: IntegrationField; label: string }> = [
+  { field: "appId", label: "AppSid" },
+  { field: "phoneNumber", label: "اسم/رقم المرسل (Sender ID)" }
+];
+
 function getIntegrationChannel(request: NextRequest): IntegrationChannel {
   const channel = request.nextUrl.searchParams.get("channel");
-  if (channel === "instagram" || channel === "facebook" || channel === "telegram" || channel === "x" || channel === "google_maps" || channel === "email" || channel === "website" || channel === "tiktok") return channel;
+  if (channel === "instagram" || channel === "facebook" || channel === "telegram" || channel === "x" || channel === "google_maps" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms") return channel;
   return "whatsapp";
 }
 
@@ -118,6 +123,8 @@ function getMissingConnectionFields(settings: Partial<Record<IntegrationField, s
           ? emailRequiredConnectionFields
         : channel === "tiktok"
           ? tiktokRequiredConnectionFields
+        : channel === "sms"
+          ? smsRequiredConnectionFields
         : whatsappRequiredConnectionFields;
 
   return requiredConnectionFields
@@ -245,6 +252,27 @@ async function verifyTikTokConnection(
     message: "تم حفظ بيانات TikTok. الإرسال والاستقبال الفعلي بينتظر تفعيل صلاحية Business Messaging من TikTok.",
     missingFields: [],
     verifiedName: settings.businessName || "TikTok"
+  };
+}
+
+async function verifySmsConnection(
+  settings: Partial<Record<IntegrationField, string>>
+): Promise<ConnectionCheck> {
+  const missingFields = getMissingConnectionFields(settings, "sms");
+
+  if (missingFields.length) {
+    return {
+      status: "pending",
+      message: `غير مكتمل: أكمل ${missingFields.join("، ")}`,
+      missingFields
+    };
+  }
+
+  return {
+    status: "connected",
+    message: "متصل: تم حفظ بيانات Unifonic بنجاح",
+    missingFields: [],
+    verifiedName: settings.phoneNumber || "Unifonic SMS"
   };
 }
 
@@ -428,12 +456,14 @@ export async function PATCH(request: NextRequest) {
         ? await verifyEmailConnection({ ...existingSettings, ...data })
       : channel === "tiktok"
         ? await verifyTikTokConnection({ ...existingSettings, ...data })
+      : channel === "sms"
+        ? await verifySmsConnection({ ...existingSettings, ...data })
       : await verifyMetaConnection({ ...existingSettings, ...data }, channel);
   const settings = await prisma.integrationSetting.update({
     where: { id: getIntegrationId(channel, user.tenantId) },
     data: {
       ...data,
-      provider: channel === "instagram" ? "instagram" : channel === "facebook" ? "facebook" : channel === "telegram" ? "telegram" : channel === "x" ? "x" : channel === "google_maps" ? "google_maps" : channel === "email" ? "email" : channel === "tiktok" ? "tiktok" : data.provider,
+      provider: channel === "instagram" ? "instagram" : channel === "facebook" ? "facebook" : channel === "telegram" ? "telegram" : channel === "x" ? "x" : channel === "google_maps" ? "google_maps" : channel === "email" ? "email" : channel === "tiktok" ? "tiktok" : channel === "sms" ? "unifonic" : data.provider,
       status: connectionCheck.status,
       updatedAt: new Intl.DateTimeFormat("ar-SA", {
         dateStyle: "medium",
