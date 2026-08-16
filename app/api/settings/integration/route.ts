@@ -298,7 +298,8 @@ async function verifyMetaConnection(settings: Partial<Record<IntegrationField, s
   }
 
   const metaObjectId = channel === "instagram" || channel === "facebook" ? settings.wabaId : settings.phoneNumberId;
-  const url = new URL(`https://graph.facebook.com/v22.0/${metaObjectId}`);
+  const graphHost = channel === "instagram" ? "https://graph.instagram.com" : "https://graph.facebook.com";
+  const url = new URL(`${graphHost}/v22.0/${metaObjectId}`);
   url.searchParams.set("fields", channel === "instagram" ? "id,username,name" : channel === "facebook" ? "id,name" : "id,display_phone_number,verified_name");
 
   try {
