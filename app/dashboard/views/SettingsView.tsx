@@ -313,6 +313,17 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     }
 
     async function handleMetaMessage(event: MessageEvent) {
+      if (event.origin === window.location.origin && (event.data as { type?: string } | null)?.type === "audiencew:meta-connected") {
+        setLoading(true);
+        const response = await fetch(`/api/settings/integration?channel=${selectedChannel}`);
+        const data = await response.json() as IntegrationResponse;
+        setSettings(data);
+        onIntegrationChange?.(data);
+        setWizardStep(4);
+        setLoading(false);
+        return;
+      }
+
       if (!["https://www.facebook.com", "https://web.facebook.com"].includes(event.origin)) return;
 
       const payload = readMetaMessage(event.data) as {

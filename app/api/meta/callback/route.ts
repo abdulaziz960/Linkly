@@ -90,6 +90,14 @@ async function fetchWhatsAppBusinessDetails(wabaId: string, accessToken: string)
   return payload;
 }
 
+function closePopupAndRedirect(origin: string, redirectPath: string) {
+  const fallbackUrl = `${origin}${redirectPath}`;
+  return new NextResponse(
+    `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الربط</title></head><body><p>تم. سيتم إغلاق النافذة...</p><script>if(window.opener){window.opener.postMessage({type:"audiencew:meta-connected"},${JSON.stringify(origin)});window.close();}else{window.location.href=${JSON.stringify(fallbackUrl)};}</script></body></html>`,
+    { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }
+  );
+}
+
 async function subscribeWhatsAppBusinessAccount(wabaId: string, accessToken: string) {
   if (!wabaId || !accessToken) return;
 
@@ -185,7 +193,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return NextResponse.redirect(new URL("/dashboard?meta=instagram-callback", request.url));
+    return closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=instagram-callback&view=settings");
   }
 
   if (channel === "facebook" && code) {
@@ -246,7 +254,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.redirect(new URL("/dashboard?meta=facebook-callback", request.url));
+    return closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=facebook-callback&view=settings");
   }
 
   if (channel === "whatsapp" && (wabaId || phoneNumberId || businessId || code)) {
@@ -293,5 +301,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  return NextResponse.redirect(new URL("/dashboard?meta=callback", request.url));
+  return closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=callback&view=settings");
 }
