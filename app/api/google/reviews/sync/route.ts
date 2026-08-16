@@ -50,6 +50,7 @@ async function syncReviews() {
     if (!reviewId) continue;
 
     await storeGoogleMapsReview({
+      tenantId: user?.tenantId,
       reviewId,
       reviewerName: review.reviewer?.displayName,
       rating: review.starRating ? ratingMap[review.starRating] : undefined,

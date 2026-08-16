@@ -471,6 +471,37 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return jsonOk(message);
     }
 
+    if (conversation.channel === "website") {
+      if (attachment) return jsonError("إرسال المرفقات عبر ودجت الموقع غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
+
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            id: `m-${Date.now()}`,
+            conversationId: conversation.id,
+            direction,
+            text,
+            time: messageTime,
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData
+          }
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: text,
+            lastActivityAt: sentAt
+          }
+        });
+
+        return created;
+      });
+
+      return jsonOk(message);
+    }
+
     if (conversation.channel === "google_maps") {
       if (attachment) return jsonError("إرسال المرفقات في خرائط Google غير مفعل، اكتب رد نصي على التقييم.", 400);
 

@@ -236,7 +236,8 @@ export async function syncGmailInbox(tenantId = "tenant-demo"): Promise<{ synced
       subject,
       text,
       messageId: message.id,
-      receivedAt: message.internalDate ? new Date(Number(message.internalDate)) : undefined
+      receivedAt: message.internalDate ? new Date(Number(message.internalDate)) : undefined,
+      tenantId
     });
     synced += 1;
   }

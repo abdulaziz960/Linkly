@@ -57,7 +57,8 @@ function getTelegramText(message: NonNullable<TelegramUpdate["message"]>) {
 }
 
 export async function POST(request: NextRequest) {
-  const settings = await getIntegrationSettings("telegram");
+  const tenantId = request.nextUrl.searchParams.get("tenant")?.trim() || "tenant-demo";
+  const settings = await getIntegrationSettings("telegram", tenantId);
   const secret = settings.verifyToken?.trim();
 
   if (secret) {
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
   }
 
   await storeTelegramMessage({
+    tenantId,
     chatId: String(chatId),
     name: getTelegramName(message),
     text: getTelegramText(message),

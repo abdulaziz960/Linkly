@@ -66,7 +66,7 @@ export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "tel
 const channels: Array<{ id: ChannelId; title: string; description: string; active: boolean }> = [
   { id: "whatsapp", title: "واتساب", description: "Support your customers on WhatsApp", active: true },
   { id: "facebook", title: "فيسبوك", description: "Connect your Facebook page", active: true },
-  { id: "website", title: "الموقع الإلكتروني", description: "Create a live-chat widget", active: false },
+  { id: "website", title: "الموقع الإلكتروني", description: "Create a live-chat widget", active: true },
   { id: "instagram", title: "Instagram", description: "Connect your instagram account", active: true },
   { id: "telegram", title: "تيليجرام", description: "Configure Telegram channel using Bot token", active: true },
   { id: "x", title: "X", description: "ربط حساب X عبر OAuth", active: true },
@@ -163,7 +163,7 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
 
 export default function SettingsView({ onIntegrationChange }: SettingsViewProps) {
   const [settings, setSettings] = useState<IntegrationSettings>(emptySettings);
-  const [selectedChannel, setSelectedChannel] = useState<"whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email">("whatsapp");
+  const [selectedChannel, setSelectedChannel] = useState<"whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website">("whatsapp");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -181,9 +181,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const isX = selectedChannel === "x";
   const isGoogleMaps = selectedChannel === "google_maps";
   const isEmail = selectedChannel === "email";
+  const isWebsite = selectedChannel === "website";
   const isWhatsApp = selectedChannel === "whatsapp";
   const isConnected = settings.status === "connected";
-  const showIntegrationData = (isTelegram || isGoogleMaps || isEmail ? wizardStep >= 4 : wizardStep >= 3) || isConnected;
+  const showIntegrationData = (isTelegram || isGoogleMaps || isEmail || isWebsite ? wizardStep >= 4 : wizardStep >= 3) || isConnected;
 
   const webhookUrl = useMemo(() => {
     if (typeof window === "undefined") return settings.webhookUrl;
@@ -197,7 +198,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     return `https://t.me/${username}`;
   }, [isTelegram, settings.status, settings.wabaName]);
   const currentWizardSteps = useMemo(() => {
-    const channelName = isEmail ? "البريد الإلكتروني" : isGoogleMaps ? "خرائط Google" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب";
+    const channelName = isWebsite ? "الموقع الإلكتروني" : isEmail ? "البريد الإلكتروني" : isGoogleMaps ? "خرائط Google" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب";
 
     return wizardSteps.map((step, index) => {
       if (index === 0) {
@@ -545,7 +546,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   type="button"
                   disabled={!channel.active}
                   onClick={() => {
-                    if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "email") {
+                    if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "email" || channel.id === "website") {
                       setSelectedChannel(channel.id);
                       setWizardStep(4);
                     }
@@ -561,9 +562,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             })}
           </div>
           <div className="connected-channel-note">
-            <b>{isEmail ? "البريد الإلكتروني متصل" : isGoogleMaps ? "خرائط Google متصلة" : isX ? "X جاهز للربط" : isTelegram ? "تيليجرام متصل" : isFacebook ? "فيسبوك متصل" : isInstagram ? "Instagram متصل" : "واتساب متصل"}</b>
+            <b>{isWebsite ? "ودجت الموقع جاهز" : isEmail ? "البريد الإلكتروني متصل" : isGoogleMaps ? "خرائط Google متصلة" : isX ? "X جاهز للربط" : isTelegram ? "تيليجرام متصل" : isFacebook ? "فيسبوك متصل" : isInstagram ? "Instagram متصل" : "واتساب متصل"}</b>
             <span>يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل.</span>
-            {!isEmail && !isGoogleMaps && !isX && !isTelegram ? (
+            {!isEmail && !isGoogleMaps && !isX && !isTelegram && !isWebsite ? (
               <button type="button" onClick={openMetaWindow}>
                 {isFacebook ? "ربط صفحة Facebook" : isInstagram ? "ربط Instagram" : "ربط واتساب جديد"}
               </button>
@@ -588,9 +589,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 type="button"
                 disabled={!channel.active}
                 onClick={() => {
-                  if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "email") {
+                  if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "email" || channel.id === "website") {
                     setSelectedChannel(channel.id);
-                    setWizardStep(channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" ? 3 : channel.id === "email" ? 4 : 2);
+                    setWizardStep(channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" ? 3 : channel.id === "email" || channel.id === "website" ? 4 : 2);
                   }
                 }}
               >
@@ -887,21 +888,43 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </ol>
             </div>
           ) : null}
+          {isWebsite ? (
+            <div className="telegram-help-card">
+              <div>
+                <h3>ودجت الدردشة الحية لموقعك</h3>
+                <p>انسخ الكود التالي والصقه قبل إغلاق وسم &lt;/body&gt; في أي صفحة بموقعك. راح تظهر فقاعة دردشة لكل زوار الموقع، ورسائلهم بتظهر مباشرة هنا كمحادثات قناة "الموقع الإلكتروني".</p>
+              </div>
+              <div className="copy-row">
+                <span>{`<script src="${publicAppUrl}/widget.js" data-site-key="${settings.verifyToken}" async></script>`}</span>
+                <button
+                  type="button"
+                  onClick={() => copyValue("website-embed", `<script src="${publicAppUrl}/widget.js" data-site-key="${settings.verifyToken}" async></script>`)}
+                >
+                  {copied === "website-embed" ? "تم النسخ" : "نسخ الكود"}
+                </button>
+              </div>
+              <ol>
+                <li>افتح محرر موقعك (أو نظام إدارة المحتوى) وأضف الكود بالأعلى في كل الصفحات.</li>
+                <li>الزائر يكتب اسمه وبريده أول مرة، بعدها تظهر له نافذة الدردشة مباشرة.</li>
+                <li>ردودك من هذه اللوحة تصل للزائر خلال ثوانٍ داخل نفس النافذة.</li>
+              </ol>
+            </div>
+          ) : null}
           <div className="settings-form-head">
             <div>
-              <h2>{isGoogleMaps ? "ربط Google Business" : isWhatsApp ? "ربط واتساب" : "بيانات الربط والويبهوك"}</h2>
-              <p>{isEmail ? "هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook وإرسال الردود عبر Resend." : isGoogleMaps ? "لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة." : isX ? "هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا." : isTelegram ? "هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة." : isFacebook ? "هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة." : isInstagram ? "هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة." : "اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط."}</p>
+              <h2>{isWebsite ? "ودجت الموقع الإلكتروني" : isGoogleMaps ? "ربط Google Business" : isWhatsApp ? "ربط واتساب" : "بيانات الربط والويبهوك"}</h2>
+              <p>{isWebsite ? "مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى." : isEmail ? "هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook وإرسال الردود عبر Resend." : isGoogleMaps ? "لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة." : isX ? "هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا." : isTelegram ? "هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة." : isFacebook ? "هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة." : isInstagram ? "هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة." : "اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط."}</p>
             </div>
             <span className={`connection-pill ${settings.status}`}>{statusLabel[settings.status]}</span>
-            <button className="soft-action" disabled={saving || loading} type="button" onClick={resetIntegrationData}>
+            {!isWebsite ? <button className="soft-action" disabled={saving || loading} type="button" onClick={resetIntegrationData}>
               مسح بيانات الربط
-            </button>
-            {!isGoogleMaps && !isWhatsApp ? <button className="primary-action" disabled={saving || loading} type="submit">
+            </button> : null}
+            {!isGoogleMaps && !isWhatsApp && !isWebsite ? <button className="primary-action" disabled={saving || loading} type="submit">
               {saving ? "جاري الحفظ..." : "حفظ الإعدادات"}
             </button> : null}
           </div>
 
-          {!isGoogleMaps ? <div className="settings-fields">
+          {!isGoogleMaps && !isWebsite ? <div className="settings-fields">
             {!isWhatsApp ? <label>
               اسم النشاط التجاري
               <input value={settings.businessName} onChange={(event) => updateField("businessName", event.target.value)} />
@@ -1068,7 +1091,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             </div>
           ) : null}
 
-          {!isInstagram && !isFacebook && !isTelegram && !isX && !isGoogleMaps && !isEmail && settings.status === "connected" ? <div className="meta-test-card">
+          {!isInstagram && !isFacebook && !isTelegram && !isX && !isGoogleMaps && !isEmail && !isWebsite && settings.status === "connected" ? <div className="meta-test-card">
             <div>
               <h3>تجربة رقم التست</h3>
               <p>أضف رقمك في قائمة أرقام الاختبار داخل Meta، ثم أرسل رسالة للتأكد من الإرسال والاستقبال.</p>
@@ -1098,7 +1121,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             {testFeedback && <p className={`meta-test-feedback ${testFeedback.type}`}>{testFeedback.text}</p>}
           </div> : null}
 
-          {!isGoogleMaps && !isWhatsApp ? <div className="webhook-card">
+          {!isGoogleMaps && !isWhatsApp && !isWebsite ? <div className="webhook-card">
             <div>
               <h3>إعدادات الويبهوك</h3>
               <p>{isEmail ? "انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة." : isGoogleMaps ? "هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة." : isX ? "استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات." : isTelegram ? "سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة." : isFacebook ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger." : isInstagram ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram." : "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp."}</p>

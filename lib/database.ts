@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { initialConversations } from "../app/dashboard/data/conversations";
 import { automationRules } from "../app/dashboard/data/automations";
 import { campaigns } from "../app/dashboard/data/campaigns";
@@ -1508,7 +1508,7 @@ export async function getLeads(tenantId = "tenant-demo"): Promise<Lead[]> {
   return prisma.lead.findMany({ where: { tenantId } });
 }
 
-export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email";
+export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website";
 
 export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "instagram") return "meta-instagram";
@@ -1517,6 +1517,7 @@ export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "x") return "x-channel";
   if (channel === "google_maps") return "google-maps";
   if (channel === "email") return "email-channel";
+  if (channel === "website") return "website-channel";
   return "meta-whatsapp";
 }
 
@@ -1546,37 +1547,39 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
                 ? "google_maps"
               : channel === "email"
                 ? "email"
+              : channel === "website"
+                ? "website"
               : "whatsapp_cloud",
-      status: "pending",
+      status: channel === "website" ? "connected" : "pending",
       businessName: "",
       wabaName: "",
       phoneNumber: "",
       phoneNumberId: "",
       wabaId: "",
-      appId: channel === "telegram" || channel === "x" || channel === "email" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
+      appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
       configId: "",
-      verifyToken: channel === "telegram" ? "audiencew_telegram_secret" : channel === "x" ? "audiencew_x_secret" : channel === "google_maps" ? "audiencew_google_secret" : channel === "email" ? "audiencew_email_secret" : "audiencew_webhook_verify",
+      verifyToken: channel === "telegram" || channel === "x" ? randomUUID() : channel === "google_maps" ? "audiencew_google_secret" : channel === "email" ? "audiencew_email_secret" : channel === "website" ? randomUUID() : "audiencew_webhook_verify",
       accessToken: "",
-      webhookUrl: channel === "telegram" ? "/api/telegram/webhook" : channel === "x" ? "/api/x/webhook" : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : "/api/meta/webhook",
+      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : "/api/meta/webhook",
       updatedAt: "اليوم"
     }
   });
   const whatsappSettings = channel === "instagram" || channel === "facebook"
     ? await prisma.integrationSetting.findUnique({ where: { id: getTenantIntegrationId("whatsapp", tenantId) } })
     : null;
-  const providerMetaSettings = tenantId !== "tenant-demo" && channel !== "telegram" && channel !== "x" && channel !== "google_maps" && channel !== "email"
+  const providerMetaSettings = tenantId !== "tenant-demo" && channel !== "telegram" && channel !== "x" && channel !== "google_maps" && channel !== "email" && channel !== "website"
     ? await prisma.integrationSetting.findUnique({ where: { id: "meta-whatsapp" } })
     : null;
   const fallbackAppId = channel === "google_maps"
     ? settings.appId || defaultGoogleClientId
-    : channel === "x" || channel === "email"
+    : channel === "x" || channel === "email" || channel === "website"
     ? settings.appId
     : channel === "instagram" || channel === "facebook"
     ? settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || ""
     : settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || "";
   const fallbackConfigId = channel === "google_maps"
     ? settings.configId || defaultGoogleClientSecret
-    : channel === "telegram" || channel === "x" || channel === "email"
+    : channel === "telegram" || channel === "x" || channel === "email" || channel === "website"
       ? settings.configId
       : settings.configId || defaultMetaConfigId || whatsappSettings?.configId || providerMetaSettings?.configId || "";
 
@@ -1617,6 +1620,16 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };
+}
+
+export async function resolveWebsiteTenantId(siteKey: string): Promise<string | null> {
+  if (!siteKey) return null;
+  const settings = await prisma.integrationSetting.findFirst({
+    where: { provider: "website", verifyToken: siteKey }
+  });
+  if (!settings) return null;
+  const baseId = getIntegrationBaseId("website");
+  return settings.id === baseId ? "tenant-demo" : settings.id.slice(0, settings.id.length - baseId.length - 1);
 }
 
 export type EmailIntegrationSettings = {

@@ -188,6 +188,8 @@ function formatEmailContent(text: string) {
     .replace(/^-{2,}\s*Forwarded message\s*-{2,}[\s\S]*?^To:.*(?:\r?\n|$)/gim, "")
     .replace(/^[a-f0-9]{16,}$/gim, "")
     .replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/gim, "")
+    .replace(/\bOn .{0,300}?\bwrote:[\s\S]*$/i, "")
+    .replace(/^>.*$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

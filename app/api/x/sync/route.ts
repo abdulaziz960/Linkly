@@ -80,6 +80,7 @@ export async function POST() {
   });
 
   const stored = await Promise.all(incomingEvents.map((event) => storeXMessage({
+    tenantId: user?.tenantId,
     xUserId: String(event.sender_id),
     name: getUserName(users, String(event.sender_id)),
     text: event.text || "رسالة واردة من X",

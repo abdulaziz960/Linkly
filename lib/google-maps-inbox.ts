@@ -3,6 +3,7 @@ import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 
 type StoreGoogleMapsReviewInput = {
+  tenantId?: string;
   reviewId: string;
   reviewerName?: string;
   rating?: number;
@@ -26,6 +27,7 @@ function getReviewText(input: StoreGoogleMapsReviewInput) {
 export async function storeGoogleMapsReview(input: StoreGoogleMapsReviewInput) {
   await ensureSchema();
 
+  const tenantId = input.tenantId || "tenant-demo";
   const cleanReviewId = input.reviewId.trim();
   const activityAt = (input.receivedAt ?? new Date()).toISOString();
   const customerName = getCustomerName(input);
@@ -44,6 +46,7 @@ export async function storeGoogleMapsReview(input: StoreGoogleMapsReviewInput) {
       },
       create: {
         id: customerId,
+        tenantId,
         name: customerName,
         phone: cleanReviewId,
         initial: customerName.charAt(0) || "G"
@@ -58,6 +61,7 @@ export async function storeGoogleMapsReview(input: StoreGoogleMapsReviewInput) {
       },
       create: {
         id: conversationId,
+        tenantId,
         customerId,
         channel: "google_maps",
         lastMessage: reviewText,
