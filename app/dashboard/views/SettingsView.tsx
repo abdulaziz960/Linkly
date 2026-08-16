@@ -219,7 +219,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     return `https://t.me/${username}`;
   }, [isTelegram, settings.status, settings.wabaName]);
   const currentWizardSteps = useMemo(() => {
-    const channelName = isWebsite ? "الموقع الإلكتروني" : isEmail ? "البريد الإلكتروني" : isGoogleMaps ? "خرائط Google" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب";
+    const channelName = isWebsite ? "الموقع الإلكتروني" : isTikTok ? "TikTok" : isSms ? "SMS" : isEmail ? "البريد الإلكتروني" : isGoogleMaps ? "خرائط Google" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب";
 
     return wizardSteps.map((step, index) => {
       if (index === 0) {
@@ -260,6 +260,16 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 title: "إنشاء قناة Instagram",
                 description: "قم بالمصادقة على حساب Instagram المرتبط بصفحة Facebook."
               }
+            : isTikTok
+              ? {
+                  title: "تقديم على TikTok API",
+                  description: "أنشئ حساب TikTok Business واطلب صلاحية Business Messaging."
+                }
+            : isSms
+              ? {
+                  title: "إنشاء حساب Unifonic",
+                  description: "سجّل حساب Unifonic وسجّل نشاطك التجاري."
+                }
             : step;
       }
 
@@ -294,6 +304,16 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 title: "ربط Instagram",
                 description: "افتح نافذة Meta واختر حساب Instagram والصلاحيات."
               }
+            : isTikTok
+              ? {
+                  title: "بيانات TikTok",
+                  description: "احفظ App Key وApp Secret وAccess Token بعد الموافقة."
+                }
+            : isSms
+              ? {
+                  title: "بيانات Unifonic",
+                  description: "أدخل AppSid واسم المرسل (Sender ID)."
+                }
             : step;
       }
 
@@ -302,7 +322,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         description: isConnected ? `أصبحت قناة ${channelName} جاهزة الآن.` : `لم تكتمل قناة ${channelName} بعد.`
       };
     });
-  }, [isConnected, isEmail, isFacebook, isGoogleMaps, isInstagram, isTelegram, isX]);
+  }, [isConnected, isEmail, isFacebook, isGoogleMaps, isInstagram, isTelegram, isX, isTikTok, isSms, isWebsite]);
 
   useEffect(() => {
     const isFirstLoad = !hasSelectedChannelRef.current;
