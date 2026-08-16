@@ -329,7 +329,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         return;
       }
 
-      if (!["https://www.facebook.com", "https://web.facebook.com"].includes(event.origin)) return;
+      if (!["https://www.facebook.com", "https://web.facebook.com", "https://business.facebook.com"].includes(event.origin)) return;
 
       const payload = readMetaMessage(event.data) as {
         type?: string;
