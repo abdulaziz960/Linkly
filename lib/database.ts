@@ -1558,9 +1558,9 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
       wabaId: "",
       appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
       configId: "",
-      verifyToken: channel === "telegram" ? "audiencew_telegram_secret" : channel === "x" ? "audiencew_x_secret" : channel === "google_maps" ? "audiencew_google_secret" : channel === "email" ? "audiencew_email_secret" : channel === "website" ? randomUUID() : "audiencew_webhook_verify",
+      verifyToken: channel === "telegram" || channel === "x" ? randomUUID() : channel === "google_maps" ? "audiencew_google_secret" : channel === "email" ? "audiencew_email_secret" : channel === "website" ? randomUUID() : "audiencew_webhook_verify",
       accessToken: "",
-      webhookUrl: channel === "telegram" ? "/api/telegram/webhook" : channel === "x" ? "/api/x/webhook" : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : "/api/meta/webhook",
+      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : "/api/meta/webhook",
       updatedAt: "اليوم"
     }
   });

@@ -31,7 +31,8 @@ function hmacSha256Base64(secret: string, value: string | Buffer) {
 }
 
 function verifySignature(rawBody: string, signature: string | null, secret: string) {
-  if (!signature || !secret) return true;
+  if (!secret) return true;
+  if (!signature) return false;
   const expected = `sha256=${hmacSha256Base64(secret, rawBody)}`;
   const expectedBuffer = Buffer.from(expected);
   const signatureBuffer = Buffer.from(signature);
@@ -145,7 +146,8 @@ function parseXEvents(payload: Record<string, any>, ownUserId: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const settings = await getIntegrationSettings("x");
+  const tenantId = request.nextUrl.searchParams.get("tenant")?.trim() || "tenant-demo";
+  const settings = await getIntegrationSettings("x", tenantId);
   const crcToken = request.nextUrl.searchParams.get("crc_token");
   const consumerSecret = settings.xConsumerSecret.trim();
 
@@ -168,7 +170,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const settings = await getIntegrationSettings("x");
+  const tenantId = request.nextUrl.searchParams.get("tenant")?.trim() || "tenant-demo";
+  const settings = await getIntegrationSettings("x", tenantId);
   const rawBody = await request.text();
   const signature = request.headers.get("x-twitter-webhooks-signature");
   const consumerSecret = settings.xConsumerSecret.trim();
@@ -179,7 +182,7 @@ export async function POST(request: NextRequest) {
 
   const payload = JSON.parse(rawBody || "{}") as Record<string, any>;
   const events = parseXEvents(payload, settings.wabaId.trim());
-  const stored = await Promise.all(events.map((event) => storeXMessage(event)));
+  const stored = await Promise.all(events.map((event) => storeXMessage({ ...event, tenantId })));
 
   return NextResponse.json({
     ok: true,

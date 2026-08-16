@@ -1,8 +1,10 @@
+import crypto from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 
 type StoreTelegramMessageInput = {
+  tenantId?: string;
   chatId: string;
   name?: string;
   text: string;
@@ -12,6 +14,11 @@ type StoreTelegramMessageInput = {
   receivedAt?: Date;
   replyToMessageId?: string;
 };
+
+function scopedId(tenantId: string, chatId: string) {
+  if (tenantId === "tenant-demo") return `tg-${chatId}`;
+  return `tg-${crypto.createHash("sha256").update(`${tenantId}:${chatId}`).digest("hex").slice(0, 24)}`;
+}
 
 function getCustomerName(chatId: string, name?: string) {
   const cleanName = name?.trim();
@@ -25,11 +32,12 @@ function getCustomerInitial(name: string, chatId: string) {
 export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
   await ensureSchema();
 
+  const tenantId = input.tenantId || "tenant-demo";
   const activityAt = (input.receivedAt ?? new Date()).toISOString();
   const chatId = input.chatId.replace(/\s+/g, "");
   const name = getCustomerName(chatId, input.name);
-  const customerId = `tg-${chatId}`;
-  const conversationId = `tg-${chatId}`;
+  const customerId = scopedId(tenantId, chatId);
+  const conversationId = scopedId(tenantId, chatId);
   const messageId = input.messageId ? `tg-${input.messageId}` : `tg-${input.direction}-${chatId}-${Date.now()}`;
 
   return prisma.$transaction(async (tx) => {
@@ -42,6 +50,7 @@ export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
       },
       create: {
         id: customerId,
+        tenantId,
         name,
         phone: chatId,
         initial: getCustomerInitial(name, chatId)
@@ -53,6 +62,7 @@ export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
       update: {},
       create: {
         id: conversationId,
+        tenantId,
         customerId,
         channel: "telegram",
         lastMessage: input.text,
