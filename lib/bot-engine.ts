@@ -182,11 +182,27 @@ async function executeFrom(
   startIndex: number,
   ctx: { tenantId: string; conversationId: string; recipientId: string }
 ) {
+  // Titles that some list node points to via "=>" are branch entry points,
+  // not natural continuations of whatever happens to sit above them in the
+  // list. Without this, jumping into one sibling branch and falling through
+  // positionally would also run the next sibling branch right after it.
+  const branchTargetTitles = new Set(
+    nodes
+      .filter((node) => LIST_NODE_TYPES.has(node.type))
+      .flatMap((node) => parseListOptions(node.content).map((option) => option.target))
+      .filter(Boolean)
+  );
+
   for (let i = startIndex; i < nodes.length; i++) {
     const node = nodes[i];
 
     if (node.type === "إرسال رسالة") {
       await sendBotText(channel, { ...ctx, text: node.content });
+      const nextNode = nodes[i + 1];
+      if (nextNode && branchTargetTitles.has(nextNode.title)) {
+        await prisma.conversation.update({ where: { id: ctx.conversationId }, data: { botWaitingNodeTitle: "" } });
+        return;
+      }
       continue;
     }
 
