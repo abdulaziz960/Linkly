@@ -1,9 +1,58 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Employee, Lead } from "../types";
 
 type LeadForm = Omit<Lead, "id"> & { id?: string };
+
+function LeadsImportCard() {
+  const [open, setOpen] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [secret, setSecret] = useState("");
+  const [copied, setCopied] = useState<"url" | "secret" | null>(null);
+
+  useEffect(() => {
+    if (!open || webhookUrl) return;
+    fetch("/api/settings/integration?channel=leads")
+      .then((response) => response.json())
+      .then((data: { webhookUrl?: string; verifyToken?: string }) => {
+        const path = data.webhookUrl || "/api/zapier/leads";
+        setWebhookUrl(`${window.location.origin}${path}`);
+        setSecret(data.verifyToken || "");
+      })
+      .catch(() => {});
+  }, [open, webhookUrl]);
+
+  function copy(value: string, field: "url" | "secret") {
+    navigator.clipboard?.writeText(value).then(() => {
+      setCopied(field);
+      setTimeout(() => setCopied(null), 1500);
+    });
+  }
+
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h2>استيراد تلقائي من Zapier / إعلانات Meta وGoogle</h2>
+        <span />
+        <button className="btn soft" type="button" onClick={() => setOpen((current) => !current)}>
+          {open ? "إخفاء" : "عرض رابط الاستيراد"}
+        </button>
+      </div>
+      {open ? (
+        <div className="panel-body">
+          <p className="muted-copy">وصّل أي مصدر ليدات (Zapier، Make، نموذج إعلانات Meta أو Google) بهذا الرابط ليضاف كل ليد جديد هنا تلقائيًا، مع فتح محادثة واتساب معه فورًا.</p>
+          <div className="telegram-steps">
+            <div><span>1</span><b>رابط الويبهوك</b><small className="copy-row"><span dir="ltr">{webhookUrl || "..."}</span><button className="btn soft" type="button" onClick={() => copy(webhookUrl, "url")}>{copied === "url" ? "تم النسخ" : "نسخ"}</button></small></div>
+            <div><span>2</span><b>Secret Token</b><small className="copy-row"><span dir="ltr">{secret || "..."}</span><button className="btn soft" type="button" onClick={() => copy(secret, "secret")}>{copied === "secret" ? "تم النسخ" : "نسخ"}</button></small></div>
+            <div><span>3</span><b>أرسله بهيدر</b><small dir="ltr">Authorization: Bearer {"{secret}"}</small></div>
+            <div><span>4</span><b>الحقول المتوقعة</b><small>name, phone, interest, budget, source, notes (JSON)</small></div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default function LeadsView({
   employees,
@@ -81,6 +130,7 @@ export default function LeadsView({
 
   return (
     <section className="page-stack">
+      <LeadsImportCard />
       <div className="panel">
         <div className="panel-head"><h2>العملاء المحتملون للعقار</h2><span /><button className="btn soft" type="button" onClick={() => setFilterOpen((current) => !current)}>تصفية</button><button className="btn primary" type="button" onClick={() => openForm()}>إضافة عميل محتمل</button></div>
         {filterOpen ? (

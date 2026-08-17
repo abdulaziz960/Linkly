@@ -1718,7 +1718,7 @@ export async function getLeads(tenantId = "tenant-demo"): Promise<Lead[]> {
   return prisma.lead.findMany({ where: { tenantId } });
 }
 
-export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms";
+export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms" | "leads";
 
 export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "instagram") return "meta-instagram";
@@ -1730,6 +1730,7 @@ export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "website") return "website-channel";
   if (channel === "tiktok") return "tiktok-channel";
   if (channel === "sms") return "sms-channel";
+  if (channel === "leads") return "leads-zapier";
   return "meta-whatsapp";
 }
 
@@ -1765,18 +1766,20 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
                 ? "tiktok"
               : channel === "sms"
                 ? "unifonic"
+              : channel === "leads"
+                ? "leads"
               : "whatsapp_cloud",
-      status: channel === "website" ? "connected" : "pending",
+      status: channel === "website" || channel === "leads" ? "connected" : "pending",
       businessName: "",
       wabaName: "",
       phoneNumber: "",
       phoneNumberId: "",
       wabaId: "",
-      appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
+      appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "leads" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
       configId: "",
-      verifyToken: channel === "telegram" || channel === "x" ? randomUUID() : channel === "google_maps" ? "audiencew_google_secret" : channel === "email" ? "audiencew_email_secret" : channel === "website" || channel === "tiktok" || channel === "sms" ? randomUUID() : "audiencew_webhook_verify",
+      verifyToken: channel === "telegram" || channel === "x" ? randomUUID() : channel === "google_maps" ? "audiencew_google_secret" : channel === "email" ? "audiencew_email_secret" : channel === "website" || channel === "tiktok" || channel === "sms" || channel === "leads" ? randomUUID() : "audiencew_webhook_verify",
       accessToken: "",
-      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : channel === "tiktok" ? `/api/tiktok/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "sms" ? `/api/sms/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : "/api/meta/webhook",
+      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : channel === "tiktok" ? `/api/tiktok/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "sms" ? `/api/sms/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "leads" ? `/api/zapier/leads${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : "/api/meta/webhook",
       updatedAt: "اليوم"
     }
   });

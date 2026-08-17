@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { ensureSchema, getTenantIntegrationId } from "../../../../lib/database";
+import { ensureSchema, getIntegrationSettings, getTenantIntegrationId } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { jsonError, jsonOk } from "../../_utils/json";
@@ -30,10 +30,17 @@ function getZapierToken(request: NextRequest) {
   return request.headers.get("x-audiencew-zapier-secret") || request.nextUrl.searchParams.get("token") || "";
 }
 
-function requireZapierSecret(request: NextRequest) {
-  const expected = process.env.ZAPIER_LEADS_SECRET || "";
-  if (!expected) return true;
-  return getZapierToken(request) === expected;
+async function resolveTenantId(request: NextRequest, body: ZapierLeadPayload) {
+  return request.nextUrl.searchParams.get("tenant")?.trim() || body.tenantId?.trim() || process.env.ZAPIER_DEFAULT_TENANT_ID || "tenant-demo";
+}
+
+async function requireZapierSecret(request: NextRequest, tenantId: string) {
+  const token = getZapierToken(request);
+  const envSecret = process.env.ZAPIER_LEADS_SECRET || "";
+  if (envSecret && token === envSecret) return true;
+
+  const integration = await getIntegrationSettings("leads", tenantId);
+  return Boolean(integration.verifyToken) && token === integration.verifyToken;
 }
 
 function pickName(body: ZapierLeadPayload) {
@@ -45,13 +52,13 @@ function pickPhone(body: ZapierLeadPayload) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!requireZapierSecret(request)) return jsonError("توكن Zapier غير صحيح", 401);
-
   const body = (await request.json().catch(() => null)) as ZapierLeadPayload | null;
   if (!body) return jsonError("بيانات Zapier غير صحيحة", 400);
   await ensureSchema();
 
-  const tenantId = body.tenantId?.trim() || process.env.ZAPIER_DEFAULT_TENANT_ID || "tenant-demo";
+  const tenantId = await resolveTenantId(request, body);
+  if (!(await requireZapierSecret(request, tenantId))) return jsonError("توكن Zapier غير صحيح", 401);
+
   const customer = pickName(body);
   const phone = pickPhone(body);
   if (!phone) return jsonError("رقم الجوال مطلوب من Zapier", 400);

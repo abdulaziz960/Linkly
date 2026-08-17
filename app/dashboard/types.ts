@@ -201,7 +201,7 @@ export type DashboardUser = {
 
 export type IntegrationSettings = {
   id: string;
-  provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "unifonic" | "gmail" | "outlook" | "external";
+  provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "unifonic" | "gmail" | "outlook" | "external" | "leads";
   status: "connected" | "not_connected" | "pending";
   businessName: string;
   wabaName: string;
