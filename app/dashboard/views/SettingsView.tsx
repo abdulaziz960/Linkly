@@ -360,6 +360,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     }
 
     async function handleMetaMessage(event: MessageEvent) {
+      console.log("[AudienceW debug] window message event", { origin: event.origin, data: event.data });
+
       if (event.origin === window.location.origin && (event.data as { type?: string } | null)?.type === "audiencew:meta-connected") {
         setLoading(true);
         const response = await fetch(`/api/settings/integration?channel=${selectedChannel}`);
@@ -375,13 +377,18 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         return;
       }
 
-      if (!["https://www.facebook.com", "https://web.facebook.com", "https://business.facebook.com"].includes(event.origin)) return;
+      if (!["https://www.facebook.com", "https://web.facebook.com", "https://business.facebook.com"].includes(event.origin)) {
+        console.log("[AudienceW debug] ignored postMessage from unexpected origin", event.origin, event.data);
+        return;
+      }
 
       const payload = readMetaMessage(event.data) as {
         type?: string;
         event?: string;
         data?: MetaSignupData;
       } | null;
+
+      console.log("[AudienceW debug] meta postMessage received", { origin: event.origin, raw: event.data, parsed: payload, selectedChannel });
 
       if (selectedChannel !== "whatsapp" || payload?.type !== "WA_EMBEDDED_SIGNUP" || payload.event !== "FINISH") return;
 
