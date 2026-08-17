@@ -247,6 +247,12 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }, [wizardStep, isGoogleMaps, isEmail, isWebsite]);
 
   useEffect(() => {
+    if (isWhatsApp) {
+      void loadFacebookSdk(settings.appId || publicMetaAppId);
+    }
+  }, [isWhatsApp, settings.appId]);
+
+  useEffect(() => {
     if (!isGmail && !isOutlook) return;
     fetch("/api/email/integration")
       .then((response) => (response.ok ? response.json() : null))
