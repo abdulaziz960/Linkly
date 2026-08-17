@@ -155,6 +155,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [themePreference, setThemePreference] = useState<"light" | "dark" | "system">("system");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [language, setLanguage] = useState<"ar" | "en">("ar");
+  const [draftStatus, setDraftStatus] = useState<Employee["status"]>("متصل");
+  const [draftTheme, setDraftTheme] = useState<"light" | "dark" | "system">("system");
+  const [draftLanguage, setDraftLanguage] = useState<"ar" | "en">("ar");
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -308,6 +311,17 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const allowedViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
   const canReopenConversations = canViewAllConversations || currentEmployee.role === "مشرف";
   const canDeleteConversations = initialUser.role === "مالك الحساب" || initialUser.role === "مسؤول الحساب";
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    setDraftStatus(currentProfileStatus);
+    setDraftTheme(themePreference);
+    setDraftLanguage(language);
+    // Sync drafts only at the moment the dialog opens - re-running this
+    // whenever currentProfileStatus/themePreference/language change would
+    // overwrite the user's in-progress picks with the still-unsaved values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileOpen]);
 
   async function fetchData<T>(path: string) {
     const response = await fetch(path);
@@ -1051,7 +1065,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                       <div>
                         <b>{initialUser.name}</b>
                       <span>{initialUser.role}</span>
-                      <em className={currentProfileStatus === "متصل" ? "online" : currentProfileStatus === "مشغول" ? "busy" : "offline"}>{currentProfileStatus}</em>
+                      <em className={draftStatus === "متصل" ? "online" : draftStatus === "مشغول" ? "busy" : "offline"}>{draftStatus}</em>
                     </div>
                   </div>
                   <div className="account-info-grid">
@@ -1065,8 +1079,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                       <button
                         key={status}
                         type="button"
-                        className={`${currentProfileStatus === status ? "active" : ""} ${status === "متصل" ? "online" : status === "مشغول" ? "busy" : "offline"}`}
-                        onClick={() => handleProfileStatusChange(status)}
+                        className={`${draftStatus === status ? "active" : ""} ${status === "متصل" ? "online" : status === "مشغول" ? "busy" : "offline"}`}
+                        onClick={() => setDraftStatus(status)}
                       >
                         {status}
                       </button>
@@ -1079,8 +1093,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                         <button
                           key={value}
                           type="button"
-                          className={themePreference === value ? "active" : ""}
-                          onClick={() => setThemePreference(value)}
+                          className={draftTheme === value ? "active" : ""}
+                          onClick={() => setDraftTheme(value)}
                         >
                           {label}
                         </button>
@@ -1088,20 +1102,20 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                     </div>
                   </div>
                   <div className="theme-picker">
-                    <span>{language === "en" ? "Language" : "اللغة"}</span>
+                    <span>{draftLanguage === "en" ? "Language" : "اللغة"}</span>
                     <div className="theme-picker-options">
                       {([["ar", "العربية"], ["en", "English"]] as const).map(([value, label]) => (
                         <button
                           key={value}
                           type="button"
-                          className={language === value ? "active" : ""}
-                          onClick={() => setLanguage(value)}
+                          className={draftLanguage === value ? "active" : ""}
+                          onClick={() => setDraftLanguage(value)}
                         >
                           {label}
                         </button>
                       ))}
                     </div>
-                    {language === "en" ? (
+                    {draftLanguage === "en" ? (
                       <small className="theme-picker-note">English currently covers the sidebar navigation only — the rest of the dashboard stays in Arabic.</small>
                     ) : null}
                   </div>
@@ -1138,8 +1152,32 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             </div>
             <footer className="modal-foot">
               {profilePanel === "main" ? null : <button className="btn soft" type="button" onClick={() => setProfilePanel("main")}>رجوع</button>}
-              <button className="btn soft" type="button" onClick={() => { setProfileOpen(false); setProfilePanel("main"); }}>إلغاء</button>
-              <button className="btn primary" type="button" onClick={() => setProfileOpen(false)}>حفظ</button>
+              <button
+                className="btn soft"
+                type="button"
+                onClick={() => {
+                  setDraftStatus(currentProfileStatus);
+                  setDraftTheme(themePreference);
+                  setDraftLanguage(language);
+                  setProfileOpen(false);
+                  setProfilePanel("main");
+                }}
+              >
+                إلغاء
+              </button>
+              <button
+                className="btn primary"
+                type="button"
+                onClick={() => {
+                  if (draftStatus !== currentProfileStatus) void handleProfileStatusChange(draftStatus);
+                  setThemePreference(draftTheme);
+                  setLanguage(draftLanguage);
+                  setProfileOpen(false);
+                  setProfilePanel("main");
+                }}
+              >
+                حفظ
+              </button>
             </footer>
           </section>
         </div>
