@@ -136,6 +136,25 @@
   gap: 5px;
   overflow: auto;
   min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.dashboard-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dashboard-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dashboard-nav::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 999px;
+}
+
+.dashboard-nav::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 .dashboard-nav-section {
@@ -187,10 +206,13 @@
 
 .nav-channel-group > span,
 .nav-channel-group > small {
-  padding: 2px 4px;
+  padding: 14px 4px 6px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
+  letter-spacing: 0.02em;
 }
 
 .nav-channel-group button {
