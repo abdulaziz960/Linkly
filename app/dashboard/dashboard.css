@@ -3898,7 +3898,8 @@
   padding: 10px 0 10px 22px;
 }
 
-.meta-wizard-rail div {
+.meta-wizard-rail div,
+.meta-wizard-rail button {
   position: relative;
   display: grid;
   gap: 8px;
