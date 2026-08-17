@@ -25,7 +25,9 @@ async function exchangeInstagramLongLivedToken(shortLivedToken: string, appSecre
 }
 
 async function exchangeWhatsAppCodeForToken(appId: string, appSecret: string, code: string) {
-  if (!appId || !appSecret || !code) return "";
+  if (!appId || !appSecret || !code) {
+    return { token: "", error: `missing ${!appId ? "appId" : !appSecret ? "appSecret" : "code"}` };
+  }
 
   // The code from FB.login()'s popup-based Embedded Signup is not tied to a
   // redirect_uri (no browser redirect ever happens), so this exchange must
@@ -44,10 +46,10 @@ async function exchangeWhatsAppCodeForToken(appId: string, appSecret: string, co
 
   if (!response.ok || !payload?.access_token) {
     console.error("WhatsApp embedded signup token exchange failed", payload);
-    return "";
+    return { token: "", error: payload?.error?.message || `http ${response.status}` };
   }
 
-  return payload.access_token;
+  return { token: payload.access_token, error: "" };
 }
 
 async function fetchWhatsAppPhoneDetails(phoneNumberId: string, accessToken: string) {
@@ -284,7 +286,8 @@ export async function GET(request: NextRequest) {
   if (channel === "whatsapp" && (wabaId || phoneNumberId || businessId || code)) {
     const appSecret = process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
     const appId = techProviderMetaAppId;
-    const accessToken = code ? await exchangeWhatsAppCodeForToken(appId, appSecret, code) : settings.accessToken;
+    const exchangeResult = code ? await exchangeWhatsAppCodeForToken(appId, appSecret, code) : { token: settings.accessToken, error: "" };
+    const accessToken = exchangeResult.token;
     const effectiveWabaId = wabaId || settings.wabaId;
     const effectivePhoneNumberId = phoneNumberId || settings.phoneNumberId;
     const phoneDetails = accessToken ? await fetchWhatsAppPhoneDetails(effectivePhoneNumberId, accessToken) : null;
@@ -319,7 +322,9 @@ export async function GET(request: NextRequest) {
     if (wantsJson) {
       return NextResponse.json({
         ok: true,
-        connected: Boolean(effectiveWabaId && effectivePhoneNumberId && accessToken)
+        connected: Boolean(effectiveWabaId && effectivePhoneNumberId && accessToken),
+        // TEMP debug field — remove once WhatsApp token exchange is confirmed working.
+        debugTokenError: exchangeResult.error || undefined
       });
     }
   }
