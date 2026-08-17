@@ -2249,6 +2249,8 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 12px;
+  background: var(--surface);
+  color: var(--ink);
   resize: vertical;
   outline: none;
 }
@@ -3645,6 +3647,8 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 12px;
+  background: var(--surface);
+  color: var(--ink);
   resize: vertical;
   outline: none;
 }
