@@ -116,6 +116,7 @@ export default function WorkHoursView({
       <div className="panel">
         <div className="panel-head"><h2>ساعات العمل</h2><span /><button className="btn primary" type="button" onClick={() => openForm()}>إضافة جدول</button></div>
         <div className="panel-body table-wrap">
+          <p className="muted-copy">عند وجود جدول "نشط"، يرسل النظام تلقائيًا رد "خارج أوقات الدوام" لأول رسالة تصل من عميل خارج الأوقات المحددة (مرة واحدة يوميًا لكل محادثة). بدون أي جدول نشط، لا يوجد أي قيد على الاستقبال.</p>
           <table>
             <thead><tr><th>الفريق</th><th>أيام العمل</th><th>بداية الدوام</th><th>نهاية الدوام</th><th>الحالة</th><th>العطل الرسمية</th><th>إجراء</th></tr></thead>
             <tbody>

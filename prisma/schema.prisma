@@ -31,6 +31,7 @@ model Conversation {
   tenantId      String            @default("tenant-demo") @map("tenant_id")
   botRanAt      String            @default("") @map("bot_ran_at")
   botWaitingNodeTitle String      @default("") @map("bot_waiting_node_title")
+  offHoursNotifiedAt String       @default("") @map("off_hours_notified_at")
   customer      Customer          @relation(fields: [customerId], references: [id])
   messages      Message[]
   tags          ConversationTag[]
@@ -235,6 +236,7 @@ model CampaignPayment {
 
 model WorkSchedule {
   id       String @id
+  tenantId String @default("tenant-demo") @map("tenant_id")
   team     String
   days     String
   start    String

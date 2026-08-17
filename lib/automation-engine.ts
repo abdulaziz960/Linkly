@@ -9,6 +9,7 @@ import { sendXTextMessage } from "./x-send";
 import { sendWebsiteTextMessage } from "./website-send";
 import { sendEmailMessage } from "./email-channel";
 import { sendUnifonicSms } from "./sms-send";
+import { checkOffHoursAutoReply } from "./work-hours";
 
 export type AutomationTrigger =
   | "تم إنشاء رسالة"
@@ -285,6 +286,8 @@ export async function runInboundMessageAutomations(conversationId: string, tenan
   } catch (error) {
     console.error(`Automations failed for conversation ${conversationId}`, error);
   }
+
+  await checkOffHoursAutoReply(conversationId, tenantId);
 }
 
 /**

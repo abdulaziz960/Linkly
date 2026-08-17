@@ -253,6 +253,8 @@ export async function ensureSchema() {
       console.error("Template table primary key migration failed", error);
     }
     await prisma.$executeRawUnsafe(`ALTER TABLE quick_replies ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS off_hours_notified_at TEXT NOT NULL DEFAULT ''`);
     return;
   }
 
@@ -294,6 +296,9 @@ export async function ensureSchema() {
   }
   if (!conversationColumns.some((column) => column.name === "bot_waiting_node_title")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN bot_waiting_node_title TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "off_hours_notified_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN off_hours_notified_at TEXT NOT NULL DEFAULT ''`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
@@ -520,6 +525,7 @@ export async function ensureSchema() {
   )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS work_schedules (
     id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
     team TEXT NOT NULL,
     days TEXT NOT NULL,
     start TEXT NOT NULL,
@@ -527,6 +533,10 @@ export async function ensureSchema() {
     status TEXT NOT NULL,
     holidays TEXT NOT NULL
   )`);
+  const workScheduleColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(work_schedules)`);
+  if (!workScheduleColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE work_schedules ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS leads (
     id TEXT PRIMARY KEY,
     customer TEXT NOT NULL,
@@ -1688,9 +1698,9 @@ export async function getCampaigns(tenantId = "tenant-demo"): Promise<Campaign[]
   }));
 }
 
-export async function getWorkSchedules(): Promise<WorkSchedule[]> {
+export async function getWorkSchedules(tenantId = "tenant-demo"): Promise<WorkSchedule[]> {
   await ensureSeeded();
-  const rows = await prisma.workSchedule.findMany();
+  const rows = await prisma.workSchedule.findMany({ where: { tenantId } });
 
   return rows.map((schedule) => ({
     id: schedule.id,
