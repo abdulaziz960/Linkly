@@ -90,7 +90,7 @@ function loadFacebookSdk(appId: string): Promise<void> {
 
   facebookSdkPromise = new Promise((resolve) => {
     w.fbAsyncInit = () => {
-      w.FB.init({ appId, xfbml: false, version: "v22.0" });
+      w.FB.init({ appId, xfbml: false, version: "v26.0" });
       resolve();
     };
 
