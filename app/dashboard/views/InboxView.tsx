@@ -14,6 +14,7 @@ import type {
   Tag
 } from "../types";
 import { statusLabel } from "../utils/conversation";
+import { ChannelIcon } from "./SettingsView";
 
 type InboxViewProps = {
   activeConversation: Conversation;
@@ -507,7 +508,10 @@ export default function InboxView({
             >
               <span className="avatar">{conversation.initial}</span>
               <span className="conversation-copy">
-                <em className={`channel-badge ${conversation.channel || "whatsapp"}`}>{getChannelLabel(conversation)}</em>
+                <em className={`channel-badge ${conversation.channel || "whatsapp"}`}>
+                  <ChannelIcon id={conversation.channel || "whatsapp"} />
+                  {getChannelLabel(conversation)}
+                </em>
                 <b>{conversation.customer}</b>
                 <small>{formatEmailContent(conversation.lastMessage)}</small>
               </span>
@@ -598,7 +602,10 @@ export default function InboxView({
           </button>
           <span className="avatar">{activeConversation.initial}</span>
           <button className="chat-customer" type="button" onClick={() => onChangeChatPanel("profile")}>
-            <small className={`channel-badge ${activeConversation.channel || "whatsapp"}`}>{getChannelLabel(activeConversation)}</small>
+            <small className={`channel-badge ${activeConversation.channel || "whatsapp"}`}>
+              <ChannelIcon id={activeConversation.channel || "whatsapp"} />
+              {getChannelLabel(activeConversation)}
+            </small>
             <b>{activeConversation.customer}</b>
           </button>
           <label>

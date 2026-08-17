@@ -217,11 +217,41 @@
 }
 
 .nav-channel-dot {
-  width: 8px;
-  height: 8px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   flex-shrink: 0;
+  display: grid;
+  place-items: center;
   background: #3730a3;
+  color: #fff;
+}
+
+.nav-channel-dot svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nav-channel-dot.whatsapp,
+.nav-channel-dot.facebook,
+.nav-channel-dot.telegram,
+.nav-channel-dot.x,
+.nav-channel-dot.tiktok {
+  color: #fff;
+}
+
+.nav-channel-dot.whatsapp svg,
+.nav-channel-dot.facebook svg,
+.nav-channel-dot.telegram svg,
+.nav-channel-dot.x svg,
+.nav-channel-dot.tiktok svg {
+  fill: currentColor;
+  stroke: none;
 }
 
 .nav-channel-dot.whatsapp { background: #15803d; }
@@ -512,13 +542,24 @@
   line-height: 1.4;
 }
 
-.channel-badge::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: currentColor;
+.channel-badge svg {
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.channel-badge.whatsapp svg,
+.channel-badge.facebook svg,
+.channel-badge.telegram svg,
+.channel-badge.x svg,
+.channel-badge.tiktok svg {
+  fill: currentColor;
+  stroke: none;
 }
 
 .channel-badge.whatsapp {
