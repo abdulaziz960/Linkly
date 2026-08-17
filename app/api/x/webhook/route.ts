@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { storeXMessage } from "../../../../lib/x-inbox";
+import { runChannelBot } from "../../../../lib/bot-engine";
 
 export const runtime = "nodejs";
 
@@ -183,6 +184,15 @@ export async function POST(request: NextRequest) {
   const payload = JSON.parse(rawBody || "{}") as Record<string, any>;
   const events = parseXEvents(payload, settings.wabaId.trim());
   const stored = await Promise.all(events.map((event) => storeXMessage({ ...event, tenantId })));
+
+  events.forEach((event, index) => {
+    if (event.direction !== "in" || event.source?.type !== "x_dm") return;
+    void runChannelBot("x", {
+      tenantId,
+      conversationId: stored[index].conversationId,
+      recipientId: event.xUserId
+    });
+  });
 
   return NextResponse.json({
     ok: true,

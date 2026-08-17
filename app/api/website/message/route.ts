@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveWebsiteTenantId } from "@/lib/database";
 import { storeWebsiteMessage } from "@/lib/website-inbox";
+import { runChannelBot } from "@/lib/bot-engine";
 import { withCors } from "../../_utils/cors";
 
 export const runtime = "nodejs";
@@ -38,6 +39,11 @@ export async function POST(request: NextRequest) {
       name: body?.name,
       email: body?.email,
       text
+    });
+    void runChannelBot("website", {
+      tenantId,
+      conversationId,
+      recipientId: visitorId
     });
     return withCors(NextResponse.json({ ok: true, conversationId }));
   } catch (error) {

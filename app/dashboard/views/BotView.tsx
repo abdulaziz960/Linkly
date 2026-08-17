@@ -9,13 +9,17 @@ type BotNode = {
   content: string;
 };
 
-type BotChannel = "whatsapp" | "telegram";
+type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x" | "website";
 
 const nodeTypes = ["إرسال رسالة", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "تحويل لفريق", "إغلاق المحادثة"];
 
 const channels: { id: BotChannel; label: string }[] = [
   { id: "whatsapp", label: "واتساب" },
-  { id: "telegram", label: "تيليجرام" }
+  { id: "telegram", label: "تيليجرام" },
+  { id: "instagram", label: "إنستقرام" },
+  { id: "facebook", label: "فيسبوك" },
+  { id: "x", label: "X" },
+  { id: "website", label: "الموقع" }
 ];
 
 export default function BotView() {
