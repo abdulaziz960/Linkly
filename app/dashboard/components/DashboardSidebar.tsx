@@ -64,14 +64,6 @@ export default function DashboardSidebar({
         </span>
         AudienceW
       </div>
-      <button className="account-btn account-btn-top" type="button" onClick={onOpenProfile}>
-        <span className="account-avatar">{getInitial(user.name)}</span>
-        <span>
-          <b>{user.name}</b>
-          <small>{user.role}</small>
-          <em className={profileStatus === "متصل" ? "online" : "offline"}>{profileStatus}</em>
-        </span>
-      </button>
       <div className="tenant-card">
         <b>حساب العميل</b>
         <span>لم يتم تحديد الباقة</span>
@@ -111,6 +103,14 @@ export default function DashboardSidebar({
           </Fragment>
         ))}
       </nav>
+      <button className="account-btn" type="button" onClick={onOpenProfile}>
+        <span className="account-avatar">{getInitial(user.name)}</span>
+        <span>
+          <b>{user.name}</b>
+          <small>{user.role}</small>
+          <em className={profileStatus === "متصل" ? "online" : "offline"}>{profileStatus}</em>
+        </span>
+      </button>
     </aside>
   );
 }
