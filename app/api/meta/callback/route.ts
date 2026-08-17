@@ -24,13 +24,16 @@ async function exchangeInstagramLongLivedToken(shortLivedToken: string, appSecre
   return payload.access_token;
 }
 
-async function exchangeWhatsAppCodeForToken(appId: string, appSecret: string, code: string, redirectUri: string) {
+async function exchangeWhatsAppCodeForToken(appId: string, appSecret: string, code: string) {
   if (!appId || !appSecret || !code) return "";
 
+  // The code from FB.login()'s popup-based Embedded Signup is not tied to a
+  // redirect_uri (no browser redirect ever happens), so this exchange must
+  // NOT send redirect_uri — doing so causes Meta to reject the code and the
+  // exchange silently returns no access_token.
   const url = new URL("https://graph.facebook.com/v22.0/oauth/access_token");
   url.searchParams.set("client_id", appId);
   url.searchParams.set("client_secret", appSecret);
-  url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("code", code);
 
   const response = await fetch(url);
@@ -281,8 +284,7 @@ export async function GET(request: NextRequest) {
   if (channel === "whatsapp" && (wabaId || phoneNumberId || businessId || code)) {
     const appSecret = process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
     const appId = techProviderMetaAppId;
-    const redirectUri = `${request.nextUrl.origin}/api/meta/callback`;
-    const accessToken = code ? await exchangeWhatsAppCodeForToken(appId, appSecret, code, redirectUri) : settings.accessToken;
+    const accessToken = code ? await exchangeWhatsAppCodeForToken(appId, appSecret, code) : settings.accessToken;
     const effectiveWabaId = wabaId || settings.wabaId;
     const effectivePhoneNumberId = phoneNumberId || settings.phoneNumberId;
     const phoneDetails = accessToken ? await fetchWhatsAppPhoneDetails(effectivePhoneNumberId, accessToken) : null;
