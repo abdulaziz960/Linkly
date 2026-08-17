@@ -60,13 +60,10 @@
 }
 
 .landing .logo-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: var(--ink);
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  overflow: hidden;
 }
 
 .landing .logo-mark img {
@@ -984,10 +981,6 @@
 .landing .site-footer .logo {
   color: #f6f1e6;
   margin-bottom: 12px;
-}
-
-.landing .site-footer .logo-mark {
-  background: #f6f1e6;
 }
 
 .landing .site-footer p {

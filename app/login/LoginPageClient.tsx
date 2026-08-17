@@ -27,7 +27,7 @@ export default function LoginPageClient() {
         </div>
 
         <div className="login-brand">
-          <img src="/assets/audiencew-logo.png" alt="" />
+          <img src="/assets/audiencew-logo.svg" alt="" />
           <div>
             <span>AudienceW</span>
             <b>{text.tagline}</b>

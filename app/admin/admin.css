@@ -38,7 +38,7 @@
   border-radius: 8px;
   display: grid;
   place-items: center;
-  background: #eef2ff;
+  background: #f2ddc8;
   color: #101827;
   font-weight: 800;
 }
@@ -171,7 +171,7 @@
   top: 0;
   bottom: 0;
   width: 5px;
-  background: #2563eb;
+  background: #a8431f;
 }
 
 .admin-command-copy span,
@@ -266,7 +266,7 @@
 }
 
 .admin-metrics article.accent-blue::before {
-  background: #2563eb;
+  background: #a8431f;
 }
 
 .admin-metrics article.accent-green::before {
@@ -723,8 +723,8 @@
 
 .admin-client-form input:focus,
 .admin-client-form select:focus {
-  outline: 3px solid rgba(37, 99, 235, 0.14);
-  border-color: #2563eb;
+  outline: 3px solid rgba(168, 67, 31, 0.14);
+  border-color: #a8431f;
 }
 
 .admin-user-limit-modal {

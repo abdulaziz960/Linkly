@@ -63,7 +63,7 @@ export default function DashboardSidebar({
     <aside className="dashboard-sidebar">
       <div className="brand">
         <span className="brand-mark">
-          <img src="/assets/audiencew-logo.png" alt="" />
+          <img src="/assets/audiencew-logo.svg" alt="" />
         </span>
         AudienceW
       </div>

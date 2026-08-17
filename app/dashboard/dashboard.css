@@ -1,17 +1,17 @@
 :root {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-soft: #f8fafc;
-  --ink: #111827;
-  --muted: #64748b;
-  --text-secondary: #334155;
-  --line: #e5e7eb;
-  --brand: #111827;
+  --bg: #fbf8f2;
+  --surface: #fffdf8;
+  --surface-soft: #f6f1e6;
+  --ink: #1c1710;
+  --muted: #6f6350;
+  --text-secondary: #4a4235;
+  --line: #e4d9c3;
+  --brand: #a8431f;
   --ok: #16a34a;
   --warn: #d97706;
   --danger: #dc2626;
   --radius: 14px;
-  --shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  --shadow: 0 18px 48px rgba(28, 23, 16, 0.08);
 }
 
 /* Dark mode is currently scoped to the areas rolled out so far: the
@@ -20,13 +20,13 @@
    built from. Other pages still render with these tokens, so they get
    partial dark coverage for free, but haven't been individually audited. */
 .dashboard-shell[data-theme="dark"] {
-  --bg: #0b1220;
-  --surface: #111827;
-  --surface-soft: #1e2a3f;
-  --ink: #f1f5f9;
-  --muted: #94a3b8;
-  --text-secondary: #cbd5e1;
-  --line: #2b3a52;
+  --bg: #17130e;
+  --surface: #221c14;
+  --surface-soft: #2c2419;
+  --ink: #f6f1e6;
+  --muted: #a99f8c;
+  --text-secondary: #d9d0bf;
+  --line: #3a3123;
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
 }
 
@@ -99,6 +99,10 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.dashboard-shell[data-theme="dark"] .brand-mark img {
+  filter: invert(1);
 }
 
 .tenant-card,
@@ -213,8 +217,8 @@
 }
 
 .dashboard-nav button.active {
-  background: #eef2ff;
-  color: #3730a3;
+  background: #f2ddc8;
+  color: #7d3016;
 }
 
 .dashboard-nav button.active::before {
@@ -225,7 +229,7 @@
   bottom: 8px;
   width: 3px;
   border-radius: 999px;
-  background: #4338ca;
+  background: #7d3016;
 }
 
 .nav-channel-group {
@@ -275,7 +279,7 @@
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  background: #3730a3;
+  background: #7d3016;
   color: #fff;
 }
 
@@ -337,8 +341,8 @@
 }
 
 .account-btn-top {
-  background: linear-gradient(135deg, #eef2ff, #ffffff);
-  border-color: #e0e7ff;
+  background: linear-gradient(135deg, #f2ddc8, #ffffff);
+  border-color: #f2ddc8;
 }
 
 .account-btn-top b {
@@ -350,8 +354,8 @@
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
-  color: #3730a3;
+  background: linear-gradient(135deg, #f2ddc8, #f2ddc8);
+  color: #7d3016;
   display: grid;
   place-items: center;
   font-weight: 900;
@@ -619,8 +623,8 @@
   gap: 5px;
   border-radius: 999px;
   padding: 3px 10px;
-  background: #eef2ff;
-  color: #3730a3;
+  background: #f2ddc8;
+  color: #7d3016;
   font-size: 11px;
   font-style: normal;
   font-weight: 800;
@@ -658,8 +662,8 @@
 }
 
 .channel-badge.facebook {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #f2ddc8;
+  color: #7d3016;
 }
 
 .channel-badge.google_maps {
@@ -693,8 +697,8 @@
 }
 
 .channel-badge.sms {
-  background: #e0e7ff;
-  color: #4338ca;
+  background: #f2ddc8;
+  color: #7d3016;
 }
 
 .conversation-copy .channel-badge {
@@ -1104,7 +1108,7 @@
 .template-editor select:focus,
 .template-editor textarea:focus {
   outline: 0;
-  border-color: #3b82f6;
+  border-color: #a8431f;
   background: var(--surface);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
@@ -1174,7 +1178,7 @@
   border-top: 1px solid var(--line);
   border-radius: 0;
   background: var(--surface);
-  color: #2563eb;
+  color: #a8431f;
   padding: 12px 6px 4px;
   font-weight: 900;
   font-size: 16px;
@@ -1955,7 +1959,7 @@
 
 .message-source-card small {
   margin: 0;
-  color: #2563eb;
+  color: #a8431f;
   font-weight: 800;
 }
 
@@ -2514,8 +2518,8 @@
   align-items: center;
   min-height: 30px;
   border-radius: 999px;
-  background: #eef2ff;
-  color: #3730a3;
+  background: #f2ddc8;
+  color: #7d3016;
   padding: 5px 10px;
   font-size: 12px;
   font-weight: 900;
@@ -2753,8 +2757,8 @@
 
 .campaign-tabs .section-tab.active {
   background: transparent;
-  border-color: #3b82f6;
-  color: #1d4ed8;
+  border-color: #a8431f;
+  color: #7d3016;
 }
 
 .campaign-board {
@@ -3034,7 +3038,7 @@
 .charge-presets button:hover {
   border-color: #2d95ed;
   background: #eff6ff;
-  color: #1d4ed8;
+  color: #7d3016;
 }
 
 .balance-selected-package {
@@ -3460,7 +3464,7 @@
 }
 
 .toggle.on {
-  background: #3b82f6;
+  background: #a8431f;
 }
 
 .toggle.on:before {
@@ -3534,7 +3538,7 @@
 .bot-toggle input {
   width: 16px;
   height: 16px;
-  accent-color: var(--accent, #2563eb);
+  accent-color: var(--accent, #a8431f);
 }
 
 .bot-toolbar {
@@ -3572,7 +3576,7 @@
   white-space: pre-line;
 }
 
-.bot-node.start { background: #1d4ed8; }
+.bot-node.start { background: #7d3016; }
 .bot-node.reply { border-color: rgba(37,99,235,.35); }
 .bot-node.menu-node { border-color: rgba(217,119,6,.35); }
 
@@ -3790,7 +3794,7 @@
 }
 
 .telegram-help-card {
-  border: 1px solid #dbeafe;
+  border: 1px solid #f2ddc8;
   border-radius: 16px;
   background: #f8fbff;
   padding: 18px;
@@ -3799,7 +3803,7 @@
 }
 
 .provider-connect-card {
-  border: 1px solid #dbeafe;
+  border: 1px solid #f2ddc8;
   border-radius: 16px;
   background: #f8fbff;
   padding: 16px 18px;
@@ -4163,7 +4167,7 @@
   justify-content: space-between;
   gap: 14px;
   padding: 18px;
-  border: 1px solid #dbeafe;
+  border: 1px solid #f2ddc8;
   border-radius: 16px;
   background: var(--surface-soft);
 }
@@ -4210,7 +4214,7 @@
 
 .copy-row button {
   background: #eff6ff;
-  color: #1d4ed8;
+  color: #7d3016;
 }
 
 .copy-row button:disabled {
@@ -4273,13 +4277,13 @@
 
 .meta-wizard-rail .active span,
 .meta-wizard-rail .done span {
-  border-color: #3b82f6;
+  border-color: #a8431f;
   background: #eff6ff;
-  color: #2563eb;
+  color: #a8431f;
 }
 
 .meta-wizard-rail .active strong {
-  color: #2563eb;
+  color: #a8431f;
 }
 
 .meta-wizard-content {
@@ -4425,7 +4429,7 @@
 }
 
 .email-setup-card{grid-column:1/-1;align-items:center;grid-template-columns:auto minmax(220px,1fr) auto;gap:16px}
-.email-setup-actions{display:flex;gap:8px;flex-wrap:wrap}.email-setup-actions button,.email-manual-connect button{border:0;border-radius:10px;background:#7c3aed;color:#fff;padding:10px 14px;font:inherit;font-weight:800;cursor:pointer}.email-setup-actions button+button{background:#2563eb}
+.email-setup-actions{display:flex;gap:8px;flex-wrap:wrap}.email-setup-actions button,.email-manual-connect button{border:0;border-radius:10px;background:#a8431f;color:#fff;padding:10px 14px;font:inherit;font-weight:800;cursor:pointer}.email-setup-actions button+button{background:#a8431f}
 .email-webhook{grid-column:2/-1;display:grid;gap:7px;padding:14px;border:1px solid #ede9fe;border-radius:12px;background:#faf7ff}.email-webhook code{direction:ltr;text-align:left;overflow-wrap:anywhere;color:#5b21b6;font-size:12px}.email-webhook small{color:#6b7280}
 .email-manual-connect,.email-resend{grid-column:2/-1;display:flex;gap:8px;align-items:end;flex-wrap:wrap}.email-manual-connect label{display:grid;gap:5px;font-size:12px;font-weight:800;color:#58466f}.email-manual-connect input,.email-resend input{max-width:330px}.email-manual-connect small{color:#15803d;font-weight:700}
 .email-resend{padding:14px;border:1px solid #ede9fe;border-radius:12px;background: var(--surface);align-items:center}.email-resend b,.email-resend small{width:100%}.email-resend small{color:#6b7280}.email-resend code{direction:ltr}.email-resend button:disabled{opacity:.65;cursor:wait}
@@ -4457,8 +4461,8 @@
 }
 
 .channel-icon-sms {
-  background: #eef2ff !important;
-  color: #4338ca !important;
+  background: #f2ddc8 !important;
+  color: #7d3016 !important;
 }
 
 .channel-card b,
@@ -4744,7 +4748,7 @@
 }
 
 .telegram-steps div {
-  border: 1px solid #dbeafe;
+  border: 1px solid #f2ddc8;
   border-radius: 14px;
   background: #f8fbff;
   padding: 14px;
@@ -4775,7 +4779,7 @@
 
 .google-business-summary {
   width: min(100%, 760px);
-  border: 1px solid #dbeafe;
+  border: 1px solid #f2ddc8;
   border-radius: 16px;
   background: #f8fbff;
   padding: 16px;
@@ -4886,7 +4890,7 @@
 .meta-help button {
   border: 0;
   background: transparent;
-  color: #2563eb;
+  color: #a8431f;
   text-decoration: underline;
   font: inherit;
   font-weight: 900;
@@ -4950,8 +4954,8 @@
 }
 
 .provider-card.selected {
-  border-color: #2563eb;
-  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.12);
+  border-color: #a8431f;
+  box-shadow: 0 12px 32px rgba(168, 67, 31, 0.12);
 }
 
 .provider-card span {

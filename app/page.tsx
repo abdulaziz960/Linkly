@@ -3,7 +3,7 @@ import "./landing.css";
 const landingMarkup = `<div class="landing" id="landingPage">
   <header class="topbar">
     <div class="topbar-inner">
-      <div class="logo"><span class="logo-mark"><img src="/assets/audiencew-logo.png" alt=""></span>AudienceW</div>
+      <div class="logo"><span class="logo-mark"><img src="/assets/audiencew-logo.svg" alt=""></span>AudienceW</div>
       <input class="nav-toggle" id="navToggle" type="checkbox" aria-label="فتح القائمة">
       <label class="menu-toggle" id="menuToggle" for="navToggle" aria-label="فتح القائمة">
         <span></span><span></span><span></span>
@@ -230,8 +230,10 @@ const landingMarkup = `<div class="landing" id="landingPage">
           <div class="status-list">
             <div class="status-row"><span class="status-icon">و</span><div><b>واتساب Cloud API</b><span>رسائل، قوالب، واختبار إرسال</span></div><span class="chip">جاهز</span></div>
             <div class="status-row"><span class="status-icon">إ</span><div><b>إنستقرام وفيسبوك</b><span>رسائل وتعليقات عبر Meta</span></div><span class="chip">جاهز</span></div>
+            <div class="status-row"><span class="status-icon">ب</span><div><b>البريد الإلكتروني</b><span>ربط Gmail مباشر، إرسال واستقبال</span></div><span class="chip">جاهز</span></div>
             <div class="status-row"><span class="status-icon">ق</span><div><b>تقييمات خرائط قوقل</b><span>مزامنة والرد من المنصة</span></div><span class="chip">جاهز</span></div>
-            <div class="status-row"><span class="status-icon">+</span><div><b>Telegram والبريد وX</b><span>قنوات إضافية حسب مفاتيح كل مزود</span></div><span class="chip pending">تحتاج إعداد</span></div>
+            <div class="status-row"><span class="status-icon">آ</span><div><b>الرد الآلي</b><span>سيناريوهات ترحيب وتحويل تلقائي لكل قناة</span></div><span class="chip">جاهز</span></div>
+            <div class="status-row"><span class="status-icon">+</span><div><b>Telegram وX وTikTok وSMS وودجت الموقع</b><span>جاهزة للربط، تحتاج مفاتيح كل مزود</span></div><span class="chip pending">تحتاج مفاتيح</span></div>
           </div>
         </div>
         <div class="status-panel">
@@ -267,7 +269,7 @@ const landingMarkup = `<div class="landing" id="landingPage">
   <footer class="site-footer">
     <div class="footer-inner">
       <div>
-        <div class="logo"><span class="logo-mark"><img src="/assets/audiencew-logo.png" alt=""></span>AudienceW</div>
+        <div class="logo"><span class="logo-mark"><img src="/assets/audiencew-logo-light.svg" alt=""></span>AudienceW</div>
         <p>منصة لإدارة محادثات العملاء عبر واتساب بزنس وإنستقرام وتقييمات خرائط قوقل، لفرق الدعم والمبيعات اللي تبي تشتغل من مكان واحد.</p>
       </div>
       <nav class="footer-links" aria-label="روابط مهمة">

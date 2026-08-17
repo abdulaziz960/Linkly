@@ -5,7 +5,7 @@
   justify-content: center;
   padding: 24px;
   background:
-    radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 34%),
+    radial-gradient(circle at top right, rgba(168, 67, 31, 0.12), transparent 34%),
     linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
 }
 
@@ -83,7 +83,7 @@
 
 .login-copy p {
   margin: 0;
-  color: #2563eb;
+  color: #a8431f;
   font-weight: 800;
 }
 
@@ -122,9 +122,9 @@
 }
 
 .login-form input:focus {
-  border-color: #2563eb;
+  border-color: #a8431f;
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 4px rgba(168, 67, 31, 0.12);
 }
 
 .login-options {
@@ -148,11 +148,11 @@
   width: 18px;
   min-height: 18px;
   height: 18px;
-  accent-color: #2563eb;
+  accent-color: #a8431f;
 }
 
 .login-options a {
-  color: #2563eb;
+  color: #a8431f;
   font-size: 14px;
   font-weight: 800;
   text-decoration: none;
