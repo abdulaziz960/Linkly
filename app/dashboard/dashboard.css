@@ -2892,7 +2892,7 @@
   width: min(100%, 360px);
   min-height: 52px;
   border-radius: 8px;
-  background: #2d95ed;
+  background: #a8431f;
   font-size: 17px;
 }
 
@@ -2936,7 +2936,7 @@
   min-height: 52px;
   padding-inline: 26px;
   border-radius: 8px;
-  background: #2d95ed;
+  background: #a8431f;
   color: #fff;
 }
 
@@ -3072,8 +3072,8 @@
 }
 
 .charge-presets button:hover {
-  border-color: #2d95ed;
-  background: #eff6ff;
+  border-color: #a8431f;
+  background: #f2ddc8;
   color: #7d3016;
 }
 
@@ -3153,7 +3153,7 @@
   gap: 10px;
   margin: 0;
   padding: 0 20px 0 0;
-  border-inline-end: 4px solid #2d95ed;
+  border-inline-end: 4px solid #a8431f;
   list-style: none;
 }
 
@@ -3474,7 +3474,7 @@
 }
 
 .campaign-pages button.active {
-  background: #2d95ed;
+  background: #a8431f;
   color: #fff;
 }
 
@@ -4249,7 +4249,7 @@
 }
 
 .copy-row button {
-  background: #eff6ff;
+  background: #f2ddc8;
   color: #7d3016;
 }
 
@@ -4314,7 +4314,7 @@
 .meta-wizard-rail .active span,
 .meta-wizard-rail .done span {
   border-color: #a8431f;
-  background: #eff6ff;
+  background: #f2ddc8;
   color: #a8431f;
 }
 
