@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getBotNodes, saveBotNodes, type BotChannel, type BotNodeInput } from "../../../../lib/bot-engine";
+import { getBotNodes, saveBotNodes, botChannels, type BotChannel, type BotNodeInput } from "../../../../lib/bot-engine";
 import { getCurrentUser } from "../../../../lib/auth";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 function getChannel(request: NextRequest): BotChannel {
   const value = request.nextUrl.searchParams.get("channel");
-  return value === "telegram" ? "telegram" : "whatsapp";
+  return (botChannels as string[]).includes(value || "") ? (value as BotChannel) : "whatsapp";
 }
 
 export async function GET(request: NextRequest) {

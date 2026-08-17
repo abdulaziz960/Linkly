@@ -4,7 +4,7 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
 import { maybeSendLeadAiReply } from "../../../../lib/lead-ai";
-import { runWhatsAppBot } from "../../../../lib/bot-engine";
+import { runWhatsAppBot, runChannelBot } from "../../../../lib/bot-engine";
 import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { prisma } from "../../../../lib/prisma";
 
@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        await storeFacebookMessage({
+        const storedFacebook = await storeFacebookMessage({
           facebookUserId: senderId,
           text: getFacebookText(event),
           direction: "in",
@@ -267,6 +267,11 @@ export async function POST(request: NextRequest) {
           messageId: event.message?.mid || event.postback?.mid,
           receivedAt: event.timestamp ? new Date(Number(event.timestamp)) : undefined,
           replyToMessageId: event.message?.reply_to?.mid || event.reply_to?.mid || event.reply_to?.id
+        });
+        void runChannelBot("facebook", {
+          tenantId: facebookAccount.tenantId,
+          conversationId: storedFacebook.conversationId,
+          recipientId: senderId
         });
         savedMessages.push(event.message?.mid || senderId);
         continue;
@@ -282,7 +287,7 @@ export async function POST(request: NextRequest) {
 
       const text = getInstagramText(event);
       const profile = await getInstagramSenderProfile(senderId, instagramAccount.accessToken);
-      await storeInstagramMessage({
+      const storedInstagram = await storeInstagramMessage({
         instagramUserId: senderId,
         name: profile?.username || profile?.name,
         text,
@@ -291,6 +296,11 @@ export async function POST(request: NextRequest) {
         messageId: event.message?.mid || event.postback?.mid,
         receivedAt: event.timestamp ? new Date(Number(event.timestamp)) : undefined,
         replyToMessageId: event.message?.reply_to?.mid || event.reply_to?.mid || event.reply_to?.id
+      });
+      void runChannelBot("instagram", {
+        tenantId: instagramAccount.tenantId,
+        conversationId: storedInstagram.conversationId,
+        recipientId: senderId
       });
       savedMessages.push(event.message?.mid || senderId);
     }

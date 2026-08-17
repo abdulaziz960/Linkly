@@ -2,10 +2,14 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { sendWhatsAppTextMessage } from "./whatsapp-send";
 import { sendTelegramTextMessage } from "./telegram-send";
+import { sendInstagramTextMessage } from "./instagram-send";
+import { sendFacebookTextMessage } from "./facebook-send";
+import { sendXTextMessage } from "./x-send";
+import { sendWebsiteTextMessage } from "./website-send";
 
-export type BotChannel = "whatsapp" | "telegram";
+export type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x" | "website";
 
-export const botChannels: BotChannel[] = ["whatsapp", "telegram"];
+export const botChannels: BotChannel[] = ["whatsapp", "telegram", "instagram", "facebook", "x", "website"];
 
 export type BotNodeInput = {
   type: string;
@@ -97,10 +101,48 @@ async function sendBotText(channel: BotChannel, args: { tenantId: string; conver
     });
   }
 
-  return sendTelegramTextMessage({
-    tenantId: args.tenantId,
+  if (channel === "telegram") {
+    return sendTelegramTextMessage({
+      tenantId: args.tenantId,
+      conversationId: args.conversationId,
+      chatId: args.recipientId,
+      text: args.text,
+      author: BOT_AUTHOR
+    });
+  }
+
+  if (channel === "instagram") {
+    return sendInstagramTextMessage({
+      tenantId: args.tenantId,
+      conversationId: args.conversationId,
+      recipientId: args.recipientId,
+      text: args.text,
+      author: BOT_AUTHOR
+    });
+  }
+
+  if (channel === "facebook") {
+    return sendFacebookTextMessage({
+      tenantId: args.tenantId,
+      conversationId: args.conversationId,
+      recipientId: args.recipientId,
+      text: args.text,
+      author: BOT_AUTHOR
+    });
+  }
+
+  if (channel === "x") {
+    return sendXTextMessage({
+      tenantId: args.tenantId,
+      conversationId: args.conversationId,
+      recipientId: args.recipientId,
+      text: args.text,
+      author: BOT_AUTHOR
+    });
+  }
+
+  return sendWebsiteTextMessage({
     conversationId: args.conversationId,
-    chatId: args.recipientId,
     text: args.text,
     author: BOT_AUTHOR
   });
