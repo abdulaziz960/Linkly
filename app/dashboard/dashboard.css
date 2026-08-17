@@ -136,24 +136,37 @@
   gap: 5px;
   overflow: auto;
   min-height: 0;
+}
+
+.dashboard-nav,
+.conversation-list,
+.messages {
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
 }
 
-.dashboard-nav::-webkit-scrollbar {
+.dashboard-nav::-webkit-scrollbar,
+.conversation-list::-webkit-scrollbar,
+.messages::-webkit-scrollbar {
   width: 6px;
 }
 
-.dashboard-nav::-webkit-scrollbar-track {
+.dashboard-nav::-webkit-scrollbar-track,
+.conversation-list::-webkit-scrollbar-track,
+.messages::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.dashboard-nav::-webkit-scrollbar-thumb {
+.dashboard-nav::-webkit-scrollbar-thumb,
+.conversation-list::-webkit-scrollbar-thumb,
+.messages::-webkit-scrollbar-thumb {
   background: #d1d5db;
   border-radius: 999px;
 }
 
-.dashboard-nav::-webkit-scrollbar-thumb:hover {
+.dashboard-nav::-webkit-scrollbar-thumb:hover,
+.conversation-list::-webkit-scrollbar-thumb:hover,
+.messages::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
 
