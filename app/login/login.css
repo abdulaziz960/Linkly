@@ -21,6 +21,30 @@
   padding: clamp(28px, 5vw, 56px);
 }
 
+.login-lang-toggle {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.login-lang-toggle button {
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #64748b;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.login-lang-toggle button.active {
+  border-color: #0f172a;
+  background: #0f172a;
+  color: #fff;
+}
+
 .login-brand {
   display: flex;
   align-items: center;

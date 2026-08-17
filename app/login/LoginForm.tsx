@@ -3,8 +3,30 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function LoginForm() {
+const copy = {
+  ar: {
+    email: "البريد الإلكتروني",
+    password: "كلمة المرور",
+    remember: "تذكرني",
+    forgot: "نسيت كلمة المرور؟",
+    submit: "تسجيل الدخول",
+    submitting: "جاري الدخول...",
+    genericError: "تعذر تسجيل الدخول"
+  },
+  en: {
+    email: "Email",
+    password: "Password",
+    remember: "Remember me",
+    forgot: "Forgot password?",
+    submit: "Sign in",
+    submitting: "Signing in...",
+    genericError: "Couldn't sign in"
+  }
+};
+
+export default function LoginForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
   const router = useRouter();
+  const text = copy[lang];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -28,7 +50,9 @@ export default function LoginForm() {
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setError(data.message || "تعذر تسجيل الدخول");
+      // The backend only returns Arabic error messages today, so an
+      // English-language login still shows an Arabic error string here.
+      setError(data.message || text.genericError);
       return;
     }
 
@@ -44,7 +68,7 @@ export default function LoginForm() {
   return (
     <form className="login-form" onSubmit={handleSubmit}>
       <label>
-        البريد الإلكتروني
+        {text.email}
         <input
           type="email"
           name="email"
@@ -56,7 +80,7 @@ export default function LoginForm() {
         />
       </label>
       <label>
-        كلمة المرور
+        {text.password}
         <input
           type="password"
           name="password"
@@ -76,15 +100,15 @@ export default function LoginForm() {
             checked={remember}
             onChange={(event) => setRemember(event.target.checked)}
           />
-          <span>تذكرني</span>
+          <span>{text.remember}</span>
         </label>
-        <a href="#">نسيت كلمة المرور؟</a>
+        <a href="#">{text.forgot}</a>
       </div>
 
       {error ? <p className="login-error">{error}</p> : null}
 
       <button className="login-submit" type="submit" disabled={loading}>
-        {loading ? "جاري الدخول..." : "تسجيل الدخول"}
+        {loading ? text.submitting : text.submit}
       </button>
     </form>
   );

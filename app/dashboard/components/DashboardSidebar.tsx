@@ -2,7 +2,7 @@
 
 import { Fragment } from "react";
 import type { ConversationChannel, ConversationChannelFilter, DashboardUser, ViewKey } from "../types";
-import { navItems } from "../data/navigation";
+import { navItems, navItemLabelsEn } from "../data/navigation";
 import { ChannelIcon } from "../views/SettingsView";
 
 type DashboardSidebarProps = {
@@ -18,6 +18,7 @@ type DashboardSidebarProps = {
   user: DashboardUser;
   profileStatus: "متصل" | "مشغول" | "غير متصل";
   selectedChannel: ConversationChannelFilter;
+  language?: "ar" | "en";
   onChangeView: (view: ViewKey) => void;
   onChangeChannel: (channel: ConversationChannel) => void;
   onOpenProfile: () => void;
@@ -40,10 +41,12 @@ export default function DashboardSidebar({
   user,
   profileStatus,
   selectedChannel,
+  language = "ar",
   onChangeView,
   onChangeChannel,
   onOpenProfile
 }: DashboardSidebarProps) {
+  const isEnglish = language === "en";
   const visibleNavItems = navItems.filter((item) => allowedViews.includes(item.key));
   const connected = integrationStatus === "connected";
   const linkedChannels: Array<{ key: ConversationChannel; label: string; connected: boolean }> = [
@@ -65,8 +68,8 @@ export default function DashboardSidebar({
         AudienceW
       </div>
       <div className="tenant-card">
-        <b>حساب العميل</b>
-        <span>لم يتم تحديد الباقة</span>
+        <b>{isEnglish ? "Account" : "حساب العميل"}</b>
+        <span>{isEnglish ? "No plan selected" : "لم يتم تحديد الباقة"}</span>
       </div>
       <nav className="dashboard-nav">
         {visibleNavItems.map((item) => (
@@ -76,11 +79,11 @@ export default function DashboardSidebar({
               type="button"
               onClick={() => onChangeView(item.key)}
             >
-              {item.label}
+              {isEnglish ? navItemLabelsEn[item.key] : item.label}
             </button>
             {item.key === "inbox" ? (
               <div className="nav-channel-group">
-                <span>قنوات التواصل</span>
+                <span>{isEnglish ? "Channels" : "قنوات التواصل"}</span>
                 {visibleLinkedChannels.length ? (
                   visibleLinkedChannels.map((channel) => (
                     <button
@@ -96,7 +99,7 @@ export default function DashboardSidebar({
                     </button>
                   ))
                 ) : (
-                  <small>لا توجد قنوات مربوطة</small>
+                  <small>{isEnglish ? "No channels connected" : "لا توجد قنوات مربوطة"}</small>
                 )}
               </div>
             ) : null}
