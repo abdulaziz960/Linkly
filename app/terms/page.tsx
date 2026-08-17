@@ -63,6 +63,7 @@ export default function TermsPage() {
           <Link href="/privacy">سياسة الخصوصية</Link>
           <Link href="/data-deletion">حذف البيانات</Link>
           <Link href="/">الصفحة الرئيسية</Link>
+          <Link href="/en/terms">English</Link>
         </nav>
       </section>
     </main>

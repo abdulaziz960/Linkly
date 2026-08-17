@@ -65,6 +65,7 @@ export default function PrivacyPage() {
           <Link href="/terms">شروط الاستخدام</Link>
           <Link href="/data-deletion">حذف البيانات</Link>
           <Link href="/">الصفحة الرئيسية</Link>
+          <Link href="/en/privacy">English</Link>
         </nav>
       </section>
     </main>

@@ -239,9 +239,9 @@ const landingMarkup = `<div class="landing" id="landingPage" dir="ltr" lang="en"
         <p>A platform for managing customer conversations across WhatsApp Business, Instagram, and Google Maps reviews, for support and sales teams who want to work from one place.</p>
       </div>
       <nav class="footer-links" aria-label="Important links">
-        <a href="/privacy">Privacy policy</a>
-        <a href="/terms">Terms of use</a>
-        <a href="/data-deletion">Data deletion</a>
+        <a href="/en/privacy">Privacy policy</a>
+        <a href="/en/terms">Terms of use</a>
+        <a href="/en/data-deletion">Data deletion</a>
         <a href="#trial">Contact us</a>
       </nav>
       <p class="footer-note">All rights reserved to Al-Jumhoor Custom Advertising Company.</p>

@@ -53,6 +53,7 @@ export default function DataDeletionPage() {
           <Link href="/privacy">سياسة الخصوصية</Link>
           <Link href="/terms">شروط الاستخدام</Link>
           <Link href="/">الصفحة الرئيسية</Link>
+          <Link href="/en/data-deletion">English</Link>
         </nav>
       </section>
     </main>
