@@ -154,6 +154,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [themePreference, setThemePreference] = useState<"light" | "dark" | "system">("system");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const [language, setLanguage] = useState<"ar" | "en">("ar");
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -237,7 +238,14 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   useEffect(() => {
     const stored = window.localStorage.getItem("audiencew-theme");
     if (stored === "light" || stored === "dark" || stored === "system") setThemePreference(stored);
+
+    const storedLanguage = window.localStorage.getItem("audiencew-language");
+    if (storedLanguage === "ar" || storedLanguage === "en") setLanguage(storedLanguage);
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("audiencew-language", language);
+  }, [language]);
 
   useEffect(() => {
     window.localStorage.setItem("audiencew-theme", themePreference);
@@ -951,6 +959,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         emailStatus={emailStatus}
         user={initialUser}
         profileStatus={currentProfileStatus}
+        language={language}
         selectedChannel={selectedChannel}
         onChangeView={handleViewChange}
         onChangeChannel={handleChannelChange}
@@ -1077,6 +1086,24 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                         </button>
                       ))}
                     </div>
+                  </div>
+                  <div className="theme-picker">
+                    <span>{language === "en" ? "Language" : "اللغة"}</span>
+                    <div className="theme-picker-options">
+                      {([["ar", "العربية"], ["en", "English"]] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={language === value ? "active" : ""}
+                          onClick={() => setLanguage(value)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {language === "en" ? (
+                      <small className="theme-picker-note">English currently covers the sidebar navigation only — the rest of the dashboard stays in Arabic.</small>
+                    ) : null}
                   </div>
                   <div className="profile-actions">
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>الفواتير والاشتراك</button>

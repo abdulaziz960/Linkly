@@ -1545,6 +1545,13 @@
   color: #fff;
 }
 
+.theme-picker-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
 .status-picker button {
   border: 1px solid var(--line);
   border-radius: 999px;

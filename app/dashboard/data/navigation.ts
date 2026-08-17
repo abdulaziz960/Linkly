@@ -17,6 +17,25 @@ export const navItems: NavItem[] = [
   { key: "settings", label: "الإعدادات والربط" }
 ];
 
+// English labels currently cover the sidebar navigation only (a partial,
+// limited-scope rollout) - the rest of the dashboard's UI text stays Arabic.
+export const navItemLabelsEn: Record<ViewKey, string> = {
+  inbox: "Conversations",
+  contacts: "Customers",
+  tags: "Tags",
+  bot: "Auto-reply",
+  automations: "Automations",
+  campaigns: "Campaigns",
+  templates: "Templates",
+  quickReplies: "Quick replies",
+  workHours: "Work hours",
+  reports: "Reports",
+  leads: "Leads (CRM)",
+  teams: "Teams",
+  employees: "Employees & permissions",
+  settings: "Settings & channels"
+};
+
 export const viewTitles: Record<ViewKey, string> = {
   inbox: "المحادثات",
   contacts: "العملاء",
