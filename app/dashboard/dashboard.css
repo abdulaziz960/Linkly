@@ -427,6 +427,33 @@
   border-bottom: 1px solid var(--line);
   background: #fff;
   overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.conversation-tabs::-webkit-scrollbar,
+.chat-tabs::-webkit-scrollbar,
+.composer-modes::-webkit-scrollbar {
+  height: 6px;
+}
+
+.conversation-tabs::-webkit-scrollbar-track,
+.chat-tabs::-webkit-scrollbar-track,
+.composer-modes::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conversation-tabs::-webkit-scrollbar-thumb,
+.chat-tabs::-webkit-scrollbar-thumb,
+.composer-modes::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 999px;
+}
+
+.conversation-tabs::-webkit-scrollbar-thumb:hover,
+.chat-tabs::-webkit-scrollbar-thumb:hover,
+.composer-modes::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 .conversation-tabs button,
@@ -4661,6 +4688,21 @@
     display: flex;
     overflow-x: auto;
     gap: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+  }
+
+  .settings-rail::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .settings-rail::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .settings-rail::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 999px;
   }
 
   .settings-rail button {
