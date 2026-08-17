@@ -284,7 +284,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (channel === "whatsapp" && (wabaId || phoneNumberId || businessId || code)) {
-    const appSecret = process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
+    // WhatsApp always uses AudienceW's own tech-provider Meta app (see
+    // techProviderMetaAppId above), which is a different Meta app from the
+    // per-tenant Instagram/Facebook app — so it needs its own app secret,
+    // never META_APP_SECRET/FACEBOOK_APP_SECRET (those belong to the
+    // Instagram app and caused "Error validating client secret").
+    const appSecret = process.env.WHATSAPP_META_APP_SECRET || "";
     const appId = techProviderMetaAppId;
     const exchangeResult = code ? await exchangeWhatsAppCodeForToken(appId, appSecret, code) : { token: settings.accessToken, error: "" };
     const accessToken = exchangeResult.token;
