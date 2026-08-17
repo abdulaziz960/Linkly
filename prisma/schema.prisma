@@ -80,6 +80,7 @@ model Employee {
 
 model Team {
   id        String       @id
+  tenantId  String       @default("tenant-demo") @map("tenant_id")
   name      String
   lead      String
   routing   String

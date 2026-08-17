@@ -92,6 +92,43 @@ function evaluateCondition(
   return true;
 }
 
+/**
+ * "تلقائي بالتساوي" means assignments should spread across the team, so we
+ * pick whichever member currently has the fewest open conversations rather
+ * than always handing everything to the team lead.
+ */
+async function pickTeamAssignee(
+  team: { lead: string; routing: string; members: Array<{ employee: { name: string } }> } | null,
+  tenantId: string
+): Promise<string> {
+  if (!team) return "";
+
+  const memberNames = Array.from(new Set(team.members.map((member) => member.employee.name).filter(Boolean)));
+  if (team.routing !== "تلقائي بالتساوي" || !memberNames.length) {
+    return team.lead?.trim() || "";
+  }
+
+  const counts = await prisma.conversation.groupBy({
+    by: ["assignee"],
+    where: { tenantId, assignee: { in: memberNames }, status: { not: "closed" } },
+    _count: { assignee: true }
+  });
+  const countByName = new Map(memberNames.map((name) => [name, 0]));
+  for (const row of counts) countByName.set(row.assignee, row._count.assignee);
+
+  let picked = memberNames[0];
+  let lowest = Infinity;
+  for (const name of memberNames) {
+    const count = countByName.get(name) ?? 0;
+    if (count < lowest) {
+      lowest = count;
+      picked = name;
+    }
+  }
+
+  return picked;
+}
+
 async function sendChannelText(channel: string, args: { tenantId: string; conversationId: string; recipientId: string; text: string }) {
   const base = { tenantId: args.tenantId, conversationId: args.conversationId, text: args.text, author: AUTOMATION_AUTHOR };
 
@@ -177,10 +214,14 @@ async function executeAction(action: StoredAction, tenantId: string, conversatio
 
   if (action.type === "إسناد إلى فريق") {
     if (isUnsetPlaceholder(action.target)) return;
-    const team = await prisma.team.findFirst({ where: { name: action.target } });
+    const team = await prisma.team.findFirst({
+      where: { name: action.target, tenantId },
+      include: { members: { include: { employee: true } } }
+    });
+    const assignee = await pickTeamAssignee(team, tenantId);
     await prisma.conversation.update({
       where: { id: conversationId },
-      data: { assignee: team?.lead?.trim() || action.target, status: "assigned" }
+      data: { assignee: assignee || action.target, status: "assigned" }
     });
     return;
   }

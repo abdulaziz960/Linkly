@@ -126,7 +126,6 @@ export default function TeamsView({
                   <td>{team.routing}</td>
                   <td className="row-actions">
                     <button className="btn soft" type="button" onClick={() => setMembersOpen(team)}>عرض</button>
-                    <button className="btn soft" type="button" onClick={() => openEditForm(team)}>إضافة عضو</button>
                     <button className="btn soft" type="button" onClick={() => openEditForm(team)}>تعديل</button>
                     <button className="btn danger" type="button" onClick={() => deleteTeam(team)}>حذف</button>
                   </td>

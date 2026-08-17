@@ -255,6 +255,7 @@ export async function ensureSchema() {
     await prisma.$executeRawUnsafe(`ALTER TABLE quick_replies ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS off_hours_notified_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     return;
   }
 
@@ -348,10 +349,15 @@ export async function ensureSchema() {
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS teams (
     id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
     name TEXT NOT NULL,
     lead TEXT NOT NULL,
     routing TEXT NOT NULL
   )`);
+  const teamColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(teams)`);
+  if (!teamColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE teams ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS team_members (
     team_id TEXT NOT NULL,
     employee_id TEXT NOT NULL,
@@ -1612,9 +1618,10 @@ export async function getEmployees(tenantId = "tenant-demo"): Promise<Employee[]
   }));
 }
 
-export async function getTeams(): Promise<Team[]> {
+export async function getTeams(tenantId = "tenant-demo"): Promise<Team[]> {
   await ensureSeeded();
   const rows = await prisma.team.findMany({
+    where: { tenantId },
     include: {
       members: true
     }
