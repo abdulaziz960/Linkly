@@ -423,9 +423,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     };
   }, [selectedChannel]);
 
-  async function toggleChannelBot() {
+  async function toggleChannelBot(target?: boolean) {
     if (!botSupportedChannels.includes(selectedChannel)) return;
-    const next = !channelBotEnabled;
+    const next = target ?? !channelBotEnabled;
+    if (next === channelBotEnabled) return;
     setChannelBotEnabled(next);
     setChannelBotLoading(true);
     await fetch(`/api/bot/settings?channel=${selectedChannel}`, {
@@ -748,14 +749,24 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {botSupportedChannels.includes(selectedChannel) ? (
             <div className="channel-bot-picker">
               <span>وكيل الرد التلقائي لهذه القناة</span>
-              <select
-                disabled={channelBotLoading}
-                value={channelBotEnabled ? "on" : "off"}
-                onChange={() => toggleChannelBot()}
-              >
-                <option value="off">بدون (رد يدوي فقط)</option>
-                <option value="on">الرد الآلي مفعّل</option>
-              </select>
+              <div className="channel-bot-toggle" role="group" aria-label="وكيل الرد التلقائي لهذه القناة">
+                <button
+                  type="button"
+                  className={!channelBotEnabled ? "active" : ""}
+                  disabled={channelBotLoading}
+                  onClick={() => toggleChannelBot(false)}
+                >
+                  بدون (رد يدوي فقط)
+                </button>
+                <button
+                  type="button"
+                  className={channelBotEnabled ? "active" : ""}
+                  disabled={channelBotLoading}
+                  onClick={() => toggleChannelBot(true)}
+                >
+                  الرد الآلي مفعّل
+                </button>
+              </div>
               <small>عدّل خطوات الرد من صفحة "الرد الآلي" في القائمة الجانبية.</small>
             </div>
           ) : null}
