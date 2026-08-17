@@ -3,7 +3,7 @@ import "./landing.css";
 const landingMarkup = `<div class="landing" id="landingPage">
   <header class="topbar">
     <div class="topbar-inner">
-      <div class="logo"><span class="logo-mark"><img src="/assets/audiencew-logo.svg" alt=""></span>AudienceW</div>
+      <div class="logo"><span class="logo-mark"><img src="/assets/audiencew-logo.png" alt=""></span>AudienceW</div>
       <input class="nav-toggle" id="navToggle" type="checkbox" aria-label="فتح القائمة">
       <label class="menu-toggle" id="menuToggle" for="navToggle" aria-label="فتح القائمة">
         <span></span><span></span><span></span>
@@ -234,7 +234,7 @@ const landingMarkup = `<div class="landing" id="landingPage">
   <footer class="site-footer">
     <div class="footer-inner">
       <div>
-        <div class="logo"><span class="logo-mark"><img src="/assets/audiencew-logo-light.svg" alt=""></span>AudienceW</div>
+        <div class="logo"><span class="logo-mark"><img src="/assets/audiencew-logo-light.png" alt=""></span>AudienceW</div>
         <p>منصة لإدارة محادثات العملاء عبر واتساب بزنس وإنستقرام وتقييمات خرائط قوقل، لفرق الدعم والمبيعات اللي تبي تشتغل من مكان واحد.</p>
       </div>
       <nav class="footer-links" aria-label="روابط مهمة">
