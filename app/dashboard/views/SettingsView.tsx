@@ -221,6 +221,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [testMessage, setTestMessage] = useState("");
   const [testSending, setTestSending] = useState(false);
   const [testFeedback, setTestFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [oauthEmailStatus, setOauthEmailStatus] = useState<{ provider: "webhook" | "gmail" | "outlook"; status: "connected" | "not_connected" | "pending"; emailAddress: string } | null>(null);
   const metaSignupDataRef = useRef<MetaSignupData>({});
   const hasSelectedChannelRef = useRef(false);
   const isInstagram = selectedChannel === "instagram";
@@ -235,13 +236,23 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const isTikTok = selectedChannel === "tiktok";
   const isSms = selectedChannel === "sms";
   const isWhatsApp = selectedChannel === "whatsapp";
-  const isConnected = settings.status === "connected";
+  const isConnected = (isGmail || isOutlook)
+    ? oauthEmailStatus?.status === "connected" && oauthEmailStatus.provider === selectedChannel
+    : settings.status === "connected";
   const showIntegrationData = (isTelegram || isGoogleMaps || isEmail || isWebsite ? wizardStep >= 4 : wizardStep >= 3) || isConnected;
 
   useEffect(() => {
     if (wizardStep !== 2) return;
     setWizardStep(isGoogleMaps || isEmail || isWebsite ? 4 : 3);
   }, [wizardStep, isGoogleMaps, isEmail, isWebsite]);
+
+  useEffect(() => {
+    if (!isGmail && !isOutlook) return;
+    fetch("/api/email/integration")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => setOauthEmailStatus(data))
+      .catch(() => {});
+  }, [isGmail, isOutlook]);
 
   const webhookUrl = useMemo(() => {
     if (typeof window === "undefined") return settings.webhookUrl;
@@ -675,7 +686,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           </div>
           <div className="connected-channel-note">
             <b>{isWebsite ? "ودجت الموقع جاهز" : isSms ? "SMS متصل" : isTikTok ? "TikTok محفوظ" : isGmail ? "Gmail متصل" : isOutlook ? "Outlook متصل" : isGoogleMaps ? "خرائط Google متصلة" : isX ? "X جاهز للربط" : isTelegram ? "تيليجرام متصل" : isFacebook ? "فيسبوك متصل" : isInstagram ? "Instagram متصل" : "واتساب متصل"}</b>
-            <span>يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل.</span>
+            <span>
+              {(isGmail || isOutlook) && oauthEmailStatus?.emailAddress
+                ? `الحساب المتصل: ${oauthEmailStatus.emailAddress}`
+                : "يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل."}
+            </span>
             {!isEmail && !isGoogleMaps && !isX && !isTelegram && !isWebsite && !isTikTok && !isSms ? (
               <button type="button" onClick={openMetaWindow}>
                 {isFacebook ? "ربط صفحة Facebook" : isInstagram ? "ربط Instagram" : "ربط واتساب جديد"}
