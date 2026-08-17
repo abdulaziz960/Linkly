@@ -88,6 +88,7 @@ export default function DashboardSidebar({
                       type="button"
                       onClick={() => onChangeChannel(channel.key)}
                     >
+                      <span className={`nav-channel-dot ${channel.key}`} aria-hidden="true" />
                       {channel.label}
                     </button>
                   ))
