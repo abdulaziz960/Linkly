@@ -319,6 +319,15 @@
   box-shadow: 0 6px 16px rgba(67, 56, 202, 0.1);
 }
 
+.account-btn-top {
+  background: linear-gradient(135deg, #eef2ff, #ffffff);
+  border-color: #e0e7ff;
+}
+
+.account-btn-top b {
+  font-size: 16px;
+}
+
 .account-avatar,
 .avatar {
   width: 40px;
@@ -456,8 +465,8 @@
 }
 
 .conversation-tabs button {
-  padding: 6px 8px;
-  font-size: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
 }
 
 .conversation-tabs button.active,
@@ -470,13 +479,13 @@
 .conversation-tabs span {
   display: inline-grid;
   place-items: center;
-  min-width: 18px;
-  height: 18px;
+  min-width: 20px;
+  height: 20px;
   margin-inline-start: 4px;
   border-radius: 999px;
   background: #fff;
   color: #334155;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .search-box {
@@ -3622,6 +3631,10 @@
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   gap: 34px;
+}
+
+.settings-onboarding.connected {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .settings-onboarding-main {
