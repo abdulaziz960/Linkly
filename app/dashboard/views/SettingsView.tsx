@@ -84,6 +84,9 @@ function apiChannel(channel: ChannelId) {
   return channel === "gmail" || channel === "outlook" ? "email" : channel;
 }
 
+// Channels the auto-reply bot engine currently supports (lib/bot-engine.ts).
+const botSupportedChannels: ChannelId[] = ["whatsapp", "telegram", "instagram", "facebook", "x", "website"];
+
 const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://audiencew.audience.sa";
 const publicMetaAppId = process.env.NEXT_PUBLIC_META_APP_ID || "1296230909161568";
 const publicMetaConfigId = process.env.NEXT_PUBLIC_META_CONFIG_ID || "1428169365888624";
@@ -226,6 +229,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [testSending, setTestSending] = useState(false);
   const [testFeedback, setTestFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [oauthEmailStatus, setOauthEmailStatus] = useState<{ provider: "webhook" | "gmail" | "outlook"; status: "connected" | "not_connected" | "pending"; emailAddress: string } | null>(null);
+  const [channelBotEnabled, setChannelBotEnabled] = useState(false);
+  const [channelBotLoading, setChannelBotLoading] = useState(false);
   const metaSignupDataRef = useRef<MetaSignupData>({});
   const hasSelectedChannelRef = useRef(false);
   const isInstagram = selectedChannel === "instagram";
@@ -398,6 +403,38 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       })
       .finally(() => setLoading(false));
   }, [onIntegrationChange, selectedChannel]);
+
+  useEffect(() => {
+    if (!botSupportedChannels.includes(selectedChannel)) {
+      setChannelBotEnabled(false);
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/bot/settings?channel=${selectedChannel}`)
+      .then((response) => response.json())
+      .then((data: { ok: boolean; data?: { enabled: boolean } }) => {
+        if (!cancelled && data.ok) setChannelBotEnabled(Boolean(data.data?.enabled));
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedChannel]);
+
+  async function toggleChannelBot() {
+    if (!botSupportedChannels.includes(selectedChannel)) return;
+    const next = !channelBotEnabled;
+    setChannelBotEnabled(next);
+    setChannelBotLoading(true);
+    await fetch(`/api/bot/settings?channel=${selectedChannel}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next })
+    }).catch(() => {});
+    setChannelBotLoading(false);
+  }
 
   useEffect(() => {
     function readMetaMessage(data: unknown) {
@@ -708,6 +745,20 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </button>
             ) : null}
           </div>
+          {botSupportedChannels.includes(selectedChannel) ? (
+            <div className="channel-bot-picker">
+              <span>وكيل الرد التلقائي لهذه القناة</span>
+              <select
+                disabled={channelBotLoading}
+                value={channelBotEnabled ? "on" : "off"}
+                onChange={() => toggleChannelBot()}
+              >
+                <option value="off">بدون (رد يدوي فقط)</option>
+                <option value="on">الرد الآلي مفعّل</option>
+              </select>
+              <small>عدّل خطوات الرد من صفحة "الرد الآلي" في القائمة الجانبية.</small>
+            </div>
+          ) : null}
         </div>
       );
     }
