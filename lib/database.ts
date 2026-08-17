@@ -240,6 +240,18 @@ export async function ensureSchema() {
       created_at TEXT NOT NULL,
       completed_at TEXT NOT NULL DEFAULT ''
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD COLUMN IF NOT EXISTS id TEXT`);
+    await prisma.$executeRawUnsafe(`UPDATE templates SET id = 'tmpl-' || tenant_id || '-' || name WHERE id IS NULL`);
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE templates ALTER COLUMN id SET NOT NULL`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE templates DROP CONSTRAINT IF EXISTS templates_pkey`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD CONSTRAINT templates_pkey PRIMARY KEY (id)`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE templates DROP CONSTRAINT IF EXISTS templates_name_tenant_id_key`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD CONSTRAINT templates_name_tenant_id_key UNIQUE (name, tenant_id)`);
+    } catch (error) {
+      console.error("Template table primary key migration failed", error);
+    }
     return;
   }
 
@@ -351,7 +363,9 @@ export async function ensureSchema() {
     PRIMARY KEY (conversation_id, tag_name)
   )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS templates (
-    name TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
+    name TEXT NOT NULL,
     message TEXT NOT NULL,
     type TEXT NOT NULL,
     category TEXT NOT NULL DEFAULT 'MARKETING',
@@ -367,8 +381,38 @@ export async function ensureSchema() {
     button_url TEXT NOT NULL DEFAULT '',
     meta_id TEXT NOT NULL DEFAULT '',
     synced_at TEXT NOT NULL DEFAULT '-',
-    last_used TEXT NOT NULL
+    last_used TEXT NOT NULL,
+    UNIQUE(name, tenant_id)
   )`);
+  const templateColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(templates)`);
+  if (!templateColumns.some((column) => column.name === "id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE templates RENAME TO templates_old`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE templates (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
+      name TEXT NOT NULL,
+      message TEXT NOT NULL,
+      type TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'MARKETING',
+      language TEXT NOT NULL,
+      status TEXT NOT NULL,
+      header_type TEXT NOT NULL DEFAULT 'NONE',
+      header_text TEXT NOT NULL DEFAULT '',
+      header_media TEXT NOT NULL DEFAULT '',
+      footer TEXT NOT NULL DEFAULT '',
+      button_type TEXT NOT NULL DEFAULT 'NONE',
+      button_text TEXT NOT NULL DEFAULT '',
+      button_phone TEXT NOT NULL DEFAULT '',
+      button_url TEXT NOT NULL DEFAULT '',
+      meta_id TEXT NOT NULL DEFAULT '',
+      synced_at TEXT NOT NULL DEFAULT '-',
+      last_used TEXT NOT NULL,
+      UNIQUE(name, tenant_id)
+    )`);
+    await prisma.$executeRawUnsafe(`INSERT INTO templates (id, tenant_id, name, message, type, category, language, status, header_type, header_text, header_media, footer, button_type, button_text, button_phone, button_url, meta_id, synced_at, last_used)
+      SELECT 'tmpl-tenant-demo-' || name, 'tenant-demo', name, message, type, category, language, status, header_type, header_text, header_media, footer, button_type, button_text, button_phone, button_url, meta_id, synced_at, last_used FROM templates_old`);
+    await prisma.$executeRawUnsafe(`DROP TABLE templates_old`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS quick_replies (
     id TEXT PRIMARY KEY,
     shortcut TEXT NOT NULL,
@@ -1044,9 +1088,11 @@ async function seedDatabase() {
 
     for (const template of templates) {
       await tx.template.upsert({
-        where: { name: template.name },
+        where: { name_tenantId: { name: template.name, tenantId: "tenant-demo" } },
         update: {},
         create: {
+          id: `tmpl-tenant-demo-${template.name}`,
+          tenantId: "tenant-demo",
           name: template.name,
           message: template.message,
           type: template.type ?? "خدمة",
@@ -1572,9 +1618,9 @@ export async function getTags(tenantId = "tenant-demo"): Promise<Tag[]> {
   return prisma.tag.findMany({ where: { tenantId } });
 }
 
-export async function getTemplates(): Promise<MessageTemplate[]> {
+export async function getTemplates(tenantId?: string): Promise<MessageTemplate[]> {
   await ensureSeeded();
-  const rows = await prisma.template.findMany();
+  const rows = await prisma.template.findMany({ where: tenantId ? { tenantId } : undefined });
 
   return rows.map((template) => ({
     name: template.name,

@@ -217,20 +217,13 @@ export default function TemplatesView({
                   <select value={form.headerType} onChange={(event) => setForm((current) => ({ ...current, headerType: event.target.value as TemplateFormState["headerType"] }))}>
                     <option value="NONE">لا شيء</option>
                     <option value="TEXT">نص</option>
-                    <option value="IMAGE">صورة</option>
-                    <option value="VIDEO">VIDEO</option>
                   </select>
+                  <small className="field-hint">عناوين الصور والفيديو غير مدعومة حاليًا في الإرسال إلى Meta.</small>
                 </label>
                 {form.headerType === "TEXT" ? (
                   <label>
                     <span>نص العنوان</span>
                     <input value={form.headerText} onChange={(event) => setForm((current) => ({ ...current, headerText: event.target.value }))} />
-                  </label>
-                ) : null}
-                {form.headerType === "IMAGE" || form.headerType === "VIDEO" ? (
-                  <label>
-                    <span>ملف العنوان</span>
-                    <input type="file" onChange={(event) => setForm((current) => ({ ...current, headerMedia: event.target.files?.[0]?.name || "" }))} />
                   </label>
                 ) : null}
                 <label>

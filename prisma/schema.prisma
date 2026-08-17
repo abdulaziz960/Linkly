@@ -117,7 +117,9 @@ model ConversationTag {
 }
 
 model Template {
-  name        String @id
+  id          String @id
+  tenantId    String @default("tenant-demo") @map("tenant_id")
+  name        String
   message     String
   type        String
   category    String @default("MARKETING")
@@ -135,6 +137,7 @@ model Template {
   syncedAt    String @default("-") @map("synced_at")
   lastUsed    String @map("last_used")
 
+  @@unique([name, tenantId])
   @@map("templates")
 }
 

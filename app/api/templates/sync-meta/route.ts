@@ -32,7 +32,11 @@ function mapButtonType(type?: string) {
 
 export async function POST() {
   const user = await getCurrentUser();
-  const integration = await getIntegrationSettings("whatsapp", user?.tenantId);
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
+  }
+
+  const integration = await getIntegrationSettings("whatsapp", user.tenantId);
 
   if (!integration.wabaId || !integration.accessToken) {
     return NextResponse.json({
@@ -83,7 +87,7 @@ export async function POST() {
     const buttonType = mapButtonType(firstButton?.type);
 
     await prisma.template.upsert({
-      where: { name: template.name },
+      where: { name_tenantId: { name: template.name, tenantId: user.tenantId } },
       update: {
         message: body,
         type: mapCategory(category),
@@ -101,6 +105,8 @@ export async function POST() {
         syncedAt
       },
       create: {
+        id: `tmpl-${user.tenantId}-${template.name}`,
+        tenantId: user.tenantId,
         name: template.name,
         message: body,
         type: mapCategory(category),

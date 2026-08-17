@@ -1,23 +1,30 @@
 import { NextRequest } from "next/server";
-import { getTemplates } from "../../../lib/database";
+import { getTemplates, getIntegrationSettings } from "../../../lib/database";
+import { getCurrentUser } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
+import { createMetaTemplate, isMetaWhatsAppConfigured } from "../../../lib/meta-templates";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
 const templateNameRegex = /^[a-z0-9_]+$/;
 
 export async function GET() {
-  return jsonOk(await getTemplates());
+  const user = await getCurrentUser();
+  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+
+  return jsonOk(await getTemplates(user.tenantId));
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+
   const body = (await request.json()) as {
     name?: string;
     message?: string;
     type?: string;
     category?: string;
     language?: string;
-    status?: string;
     headerType?: string;
     headerText?: string;
     headerMedia?: string;
@@ -34,24 +41,57 @@ export async function POST(request: NextRequest) {
   if (!templateNameRegex.test(name)) return jsonError("اسم القالب يجب أن يكون بالإنجليزية فقط: حروف صغيرة، أرقام، وشرطة سفلية مثل welcome_message");
   if (!message) return jsonError("نص القالب مطلوب");
 
+  const integration = await getIntegrationSettings("whatsapp", user.tenantId);
+  if (!isMetaWhatsAppConfigured(integration)) {
+    return jsonError("أدخل WABA ID و Access Token في بيانات الربط قبل إنشاء قوالب واتساب.");
+  }
+
+  const category = body.category || "MARKETING";
+  const language = body.language || "ar";
+  const headerType = body.headerType || "NONE";
+  const headerText = body.headerText || "";
+  const footer = body.footer || "";
+  const buttonType = body.buttonType || "NONE";
+  const buttonText = body.buttonText || "";
+  const buttonPhone = body.buttonPhone || "";
+  const buttonUrl = body.buttonUrl || "";
+
+  const metaResult = await createMetaTemplate(integration, {
+    name,
+    category,
+    language,
+    headerType,
+    headerText,
+    message,
+    footer,
+    buttonType,
+    buttonText,
+    buttonPhone,
+    buttonUrl
+  });
+
+  if (!metaResult.ok) return jsonError(metaResult.error);
+
   try {
     const template = await prisma.template.create({
       data: {
+        id: `tmpl-${user.tenantId}-${name}`,
+        tenantId: user.tenantId,
         name,
         message,
         type: body.type || "خدمة",
-        category: body.category || "MARKETING",
-        language: body.language || "ar",
-        status: body.status || "قيد المراجعة",
-        headerType: body.headerType || "NONE",
-        headerText: body.headerText || "",
+        category,
+        language,
+        status: metaResult.status,
+        headerType,
+        headerText,
         headerMedia: body.headerMedia || "",
-        footer: body.footer || "",
-        buttonType: body.buttonType || "NONE",
-        buttonText: body.buttonText || "",
-        buttonPhone: body.buttonPhone || "",
-        buttonUrl: body.buttonUrl || "",
-        metaId: "",
+        footer,
+        buttonType,
+        buttonText,
+        buttonPhone,
+        buttonUrl,
+        metaId: metaResult.id,
         syncedAt: "-",
         lastUsed: "-"
       }
@@ -59,6 +99,6 @@ export async function POST(request: NextRequest) {
 
     return jsonOk(template);
   } catch {
-    return jsonError("تعذر إضافة القالب. تأكد أن الاسم غير مكرر.");
+    return jsonError("تم إرساله لـ Meta لكن تعذر حفظه محليًا. تأكد أن الاسم غير مكرر.");
   }
 }

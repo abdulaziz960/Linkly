@@ -191,7 +191,7 @@ async function executeAction(action: StoredAction, tenantId: string, conversatio
 
   if (action.type === "إرسال قالب") {
     if (isUnsetPlaceholder(action.target)) return;
-    const template = await prisma.template.findUnique({ where: { name: action.target } });
+    const template = await prisma.template.findFirst({ where: { name: action.target, tenantId } });
     if (!template) return;
 
     const conversation = await loadConversationContext(conversationId);

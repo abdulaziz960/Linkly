@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   if (!templateName) return jsonError("اختر قالب معتمد قبل إنشاء الحملة");
   if (!(file instanceof File)) return jsonError("ارفع ملف Excel أو CSV يحتوي على أرقام العملاء");
 
-  const template = await prisma.template.findUnique({ where: { name: templateName } });
+  const template = await prisma.template.findFirst({ where: { name: templateName, tenantId: user.tenantId } });
   if (!template) return jsonError("القالب المختار غير موجود");
   if (template.status !== "معتمد") return jsonError("لازم يكون القالب معتمد من Meta قبل استخدامه بحملة");
 
