@@ -379,6 +379,11 @@
   color: #475569;
 }
 
+.account-btn em.busy {
+  background: var(--warn);
+  color: #fff;
+}
+
 .dashboard-main {
   grid-column: 1;
   grid-row: 1;
@@ -1477,6 +1482,45 @@
 .account-summary em.offline {
   background: #f1f5f9;
   color: #475569;
+}
+
+.account-summary em.busy {
+  background: var(--warn);
+  color: #fff;
+}
+
+.status-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-picker button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  padding: 8px 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.status-picker button.active.online {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: #fff;
+}
+
+.status-picker button.active.busy {
+  border-color: var(--warn);
+  background: var(--warn);
+  color: #fff;
+}
+
+.status-picker button.active.offline {
+  border-color: #475569;
+  background: #475569;
+  color: #fff;
 }
 
 .account-info-grid {
