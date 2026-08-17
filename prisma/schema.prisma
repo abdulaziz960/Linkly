@@ -97,9 +97,10 @@ model TeamMember {
 
 model Tag {
   id          String @id
-  name        String @unique
+  name        String
   color       String
   description String
+  tenantId    String @default("tenant-demo") @map("tenant_id")
 
   @@map("tags")
 }

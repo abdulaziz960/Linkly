@@ -111,7 +111,14 @@ export default function TagsView({
               {filteredTags.map((tag) => (
                 <tr key={tag.id}>
                   <td><b>{tag.name}</b></td>
-                  <td><input aria-label={`لون وسم ${tag.name}`} type="color" defaultValue={tag.color} /></td>
+                  <td>
+                    <span
+                      className="tag-color-swatch"
+                      role="img"
+                      aria-label={`لون وسم ${tag.name}`}
+                      style={{ background: tag.color }}
+                    />
+                  </td>
                   <td>{tag.description}</td>
                   <td>{getTagUsage(tag.name)} محادثة</td>
                   <td className="row-actions">
@@ -122,7 +129,7 @@ export default function TagsView({
                 </tr>
               ))}
               {!filteredTags.length ? (
-                <tr><td colSpan={5}>لا توجد وسوم مطابقة للبحث.</td></tr>
+                <tr><td colSpan={5}>{tags.length ? "لا توجد وسوم مطابقة للبحث." : "لا توجد وسوم بعد، اضغط \"إضافة وسم\" لإنشاء أول وسم."}</td></tr>
               ) : null}
             </tbody>
           </table>

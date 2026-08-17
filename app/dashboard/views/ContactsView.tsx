@@ -9,7 +9,7 @@ type CustomerFormState = {
   phone: string;
 };
 
-type CustomerChannelTab = Extract<ConversationChannel, "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email">;
+type CustomerChannelTab = Extract<ConversationChannel, "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "sms" | "tiktok">;
 
 const customerTabs: { key: CustomerChannelTab; label: string }[] = [
   { key: "whatsapp", label: "عملاء الواتساب" },
@@ -18,7 +18,10 @@ const customerTabs: { key: CustomerChannelTab; label: string }[] = [
   { key: "telegram", label: "عملاء تيليجرام" },
   { key: "x", label: "عملاء X" },
   { key: "google_maps", label: "عملاء خرائط Google" },
-  { key: "email", label: "عملاء البريد الإلكتروني" }
+  { key: "email", label: "عملاء البريد الإلكتروني" },
+  { key: "website", label: "عملاء الموقع الإلكتروني" },
+  { key: "sms", label: "عملاء SMS" },
+  { key: "tiktok", label: "عملاء TikTok" }
 ];
 
 function getCustomerChannels(customer: Customer): ConversationChannel[] {
@@ -28,6 +31,9 @@ function getCustomerChannels(customer: Customer): ConversationChannel[] {
   if (customer.id.startsWith("x-")) return ["x"];
   if (customer.id.startsWith("gm-")) return ["google_maps"];
   if (customer.id.startsWith("email-")) return ["email"];
+  if (customer.id.startsWith("web-")) return ["website"];
+  if (customer.id.startsWith("sms-")) return ["sms"];
+  if (customer.id.startsWith("tt-")) return ["tiktok"];
   return customer.channels?.length ? customer.channels : ["whatsapp"];
 }
 
@@ -59,6 +65,12 @@ export default function ContactsView({
         ? "معرف تقييم Google"
       : activeTab === "email"
         ? "البريد الإلكتروني"
+      : activeTab === "website"
+        ? "معرّف الزائر"
+      : activeTab === "sms"
+        ? "رقم الجوال"
+      : activeTab === "tiktok"
+        ? "معرف TikTok"
         : "معرف X";
 
   const tabCounts = useMemo(() => ({
@@ -68,7 +80,10 @@ export default function ContactsView({
     telegram: customers.filter((customer) => getCustomerChannels(customer).includes("telegram")).length,
     x: customers.filter((customer) => getCustomerChannels(customer).includes("x")).length,
     google_maps: customers.filter((customer) => getCustomerChannels(customer).includes("google_maps")).length,
-    email: customers.filter((customer) => getCustomerChannels(customer).includes("email")).length
+    email: customers.filter((customer) => getCustomerChannels(customer).includes("email")).length,
+    website: customers.filter((customer) => getCustomerChannels(customer).includes("website")).length,
+    sms: customers.filter((customer) => getCustomerChannels(customer).includes("sms")).length,
+    tiktok: customers.filter((customer) => getCustomerChannels(customer).includes("tiktok")).length
   }), [customers]);
 
   const filteredCustomers = useMemo(() => {
