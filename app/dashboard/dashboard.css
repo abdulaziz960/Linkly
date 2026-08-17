@@ -4187,12 +4187,23 @@
   stroke: none;
 }
 
-.channel-icon-email {
+.channel-icon-email,
+.channel-icon-gmail {
   background: #fff4f2 !important;
   color: #ea4335 !important;
 }
 
-.channel-icon-email svg {
+.channel-icon-email svg,
+.channel-icon-gmail svg {
+  stroke: currentColor;
+}
+
+.channel-icon-outlook {
+  background: #eaf4fd !important;
+  color: #0072c6 !important;
+}
+
+.channel-icon-outlook svg {
   stroke: currentColor;
 }
 

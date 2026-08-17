@@ -61,7 +61,7 @@ const wizardSteps = [
   }
 ];
 
-export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "x" | "email" | "google_maps" | "tiktok" | "sms";
+export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "x" | "email" | "gmail" | "outlook" | "google_maps" | "tiktok" | "sms";
 
 const channels: Array<{ id: ChannelId; title: string; description: string; active: boolean }> = [
   { id: "whatsapp", title: "واتساب", description: "Support your customers on WhatsApp", active: true },
@@ -70,11 +70,19 @@ const channels: Array<{ id: ChannelId; title: string; description: string; activ
   { id: "instagram", title: "Instagram", description: "Connect your instagram account", active: true },
   { id: "telegram", title: "تيليجرام", description: "Configure Telegram channel using Bot token", active: true },
   { id: "x", title: "X", description: "ربط حساب X عبر OAuth", active: true },
-  { id: "email", title: "البريد الإلكتروني", description: "استقبال وردود البريد عبر Webhook", active: true },
+  { id: "gmail", title: "Gmail", description: "ربط Gmail مباشرة عبر OAuth", active: true },
+  { id: "outlook", title: "Outlook", description: "ربط Outlook / Microsoft 365 عبر OAuth", active: true },
   { id: "google_maps", title: "خرائط Google", description: "Connect your Google Business Profile", active: true },
   { id: "tiktok", title: "TikTok", description: "بانتظار موافقة TikTok على Business Messaging", active: true },
   { id: "sms", title: "SMS", description: "إرسال واستقبال رسائل SMS عبر Unifonic", active: true }
 ];
+
+// Gmail and Outlook are shown as separate channel cards, but both still
+// read/write the single shared "email" integration record on the backend -
+// only one provider can be connected per tenant at a time.
+function apiChannel(channel: ChannelId) {
+  return channel === "gmail" || channel === "outlook" ? "email" : channel;
+}
 
 const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://audiencew.audience.sa";
 const publicMetaAppId = process.env.NEXT_PUBLIC_META_APP_ID || "1296230909161568";
@@ -158,7 +166,7 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
     );
   }
 
-  if (id === "email") {
+  if (id === "gmail" || id === "outlook") {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <rect x="3" y="5" width="18" height="14" rx="2.2" />
@@ -203,7 +211,7 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
 
 export default function SettingsView({ onIntegrationChange }: SettingsViewProps) {
   const [settings, setSettings] = useState<IntegrationSettings>(emptySettings);
-  const [selectedChannel, setSelectedChannel] = useState<"whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms">("whatsapp");
+  const [selectedChannel, setSelectedChannel] = useState<"whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "gmail" | "outlook" | "website" | "tiktok" | "sms">("whatsapp");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -220,7 +228,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const isTelegram = selectedChannel === "telegram";
   const isX = selectedChannel === "x";
   const isGoogleMaps = selectedChannel === "google_maps";
-  const isEmail = selectedChannel === "email";
+  const isGmail = selectedChannel === "gmail";
+  const isOutlook = selectedChannel === "outlook";
+  const isEmail = isGmail || isOutlook;
   const isWebsite = selectedChannel === "website";
   const isTikTok = selectedChannel === "tiktok";
   const isSms = selectedChannel === "sms";
@@ -245,7 +255,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     return `https://t.me/${username}`;
   }, [isTelegram, settings.status, settings.wabaName]);
   const currentWizardSteps = useMemo(() => {
-    const channelName = isWebsite ? "الموقع الإلكتروني" : isTikTok ? "TikTok" : isSms ? "SMS" : isEmail ? "البريد الإلكتروني" : isGoogleMaps ? "خرائط Google" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب";
+    const channelName = isWebsite ? "الموقع الإلكتروني" : isTikTok ? "TikTok" : isSms ? "SMS" : isGmail ? "Gmail" : isOutlook ? "Outlook" : isGoogleMaps ? "خرائط Google" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب";
 
     return wizardSteps.map((step, index) => {
       if (index === 0) {
@@ -354,14 +364,14 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     const isFirstLoad = !hasSelectedChannelRef.current;
     hasSelectedChannelRef.current = true;
     setLoading(true);
-    fetch(`/api/settings/integration?channel=${selectedChannel}`)
+    fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`)
       .then((response) => response.json())
       .then((data: IntegrationSettings) => {
         setSettings(data);
         if (data.status === "connected") {
           setWizardStep(4);
         } else if (!isFirstLoad) {
-          setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "email" || selectedChannel === "website" ? 4 : 2);
+          setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "gmail" || selectedChannel === "outlook" || selectedChannel === "website" ? 4 : 2);
         }
         onIntegrationChange?.(data);
       })
@@ -385,7 +395,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
       if (event.origin === window.location.origin && (event.data as { type?: string } | null)?.type === "audiencew:meta-connected") {
         setLoading(true);
-        const response = await fetch(`/api/settings/integration?channel=${selectedChannel}`);
+        const response = await fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`);
         const data = await response.json() as IntegrationResponse;
         setSettings(data);
         onIntegrationChange?.(data);
@@ -422,7 +432,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         phoneNumber: metaData.phone_number || settings.phoneNumber
       };
 
-      const response = await fetch(`/api/settings/integration?channel=${selectedChannel}`, {
+      const response = await fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch)
@@ -449,7 +459,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }
 
   async function persistSettings() {
-    const response = await fetch(`/api/settings/integration?channel=${selectedChannel}`, {
+    const response = await fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(settings)
@@ -473,7 +483,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   async function resetIntegrationData() {
     setSaving(true);
-    const response = await fetch(`/api/settings/integration?channel=${selectedChannel}`, {
+    const response = await fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -493,7 +503,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     const data = await response.json() as IntegrationResponse;
     setSettings(data);
     onIntegrationChange?.(data);
-    setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "email" || selectedChannel === "website" ? 4 : 2);
+    setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "gmail" || selectedChannel === "outlook" || selectedChannel === "website" ? 4 : 2);
     setSaveFeedback({ type: "error", text: data.connectionMessage || "تم مسح بيانات الربط" });
     setSaving(false);
   }
@@ -648,7 +658,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   type="button"
                   disabled={!channel.active}
                   onClick={() => {
-                    if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "email" || channel.id === "website" || channel.id === "tiktok" || channel.id === "sms") {
+                    if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "gmail" || channel.id === "outlook" || channel.id === "website" || channel.id === "tiktok" || channel.id === "sms") {
                       setSelectedChannel(channel.id);
                       setWizardStep(4);
                     }
@@ -664,7 +674,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             })}
           </div>
           <div className="connected-channel-note">
-            <b>{isWebsite ? "ودجت الموقع جاهز" : isSms ? "SMS متصل" : isTikTok ? "TikTok محفوظ" : isEmail ? "البريد الإلكتروني متصل" : isGoogleMaps ? "خرائط Google متصلة" : isX ? "X جاهز للربط" : isTelegram ? "تيليجرام متصل" : isFacebook ? "فيسبوك متصل" : isInstagram ? "Instagram متصل" : "واتساب متصل"}</b>
+            <b>{isWebsite ? "ودجت الموقع جاهز" : isSms ? "SMS متصل" : isTikTok ? "TikTok محفوظ" : isGmail ? "Gmail متصل" : isOutlook ? "Outlook متصل" : isGoogleMaps ? "خرائط Google متصلة" : isX ? "X جاهز للربط" : isTelegram ? "تيليجرام متصل" : isFacebook ? "فيسبوك متصل" : isInstagram ? "Instagram متصل" : "واتساب متصل"}</b>
             <span>يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل.</span>
             {!isEmail && !isGoogleMaps && !isX && !isTelegram && !isWebsite && !isTikTok && !isSms ? (
               <button type="button" onClick={openMetaWindow}>
@@ -691,9 +701,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 type="button"
                 disabled={!channel.active}
                 onClick={() => {
-                  if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "email" || channel.id === "website" || channel.id === "tiktok" || channel.id === "sms") {
+                  if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "gmail" || channel.id === "outlook" || channel.id === "website" || channel.id === "tiktok" || channel.id === "sms") {
                     setSelectedChannel(channel.id);
-                    setWizardStep(channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "tiktok" || channel.id === "sms" || channel.id === "whatsapp" || channel.id === "google_maps" ? 3 : channel.id === "email" || channel.id === "website" ? 4 : 2);
+                    setWizardStep(channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "tiktok" || channel.id === "sms" || channel.id === "whatsapp" || channel.id === "google_maps" ? 3 : channel.id === "gmail" || channel.id === "outlook" || channel.id === "website" ? 4 : 2);
                   }
                 }}
               >
@@ -1008,7 +1018,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </ol>
             </div>
           ) : null}
-          {isEmail ? (
+          {isGmail ? (
             <div className="provider-connect-card">
               <span className="provider-connect-icon gmail" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
@@ -1017,15 +1027,15 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 </svg>
               </span>
               <div className="provider-connect-copy">
-                <h3>ربط Gmail مباشرة (موصى به)</h3>
-                <p>اربط حساب Gmail عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي.</p>
+                <h3>ربط Gmail مباشرة</h3>
+                <p>اربط حساب Gmail عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي. ملاحظة: Gmail وOutlook يشتركان بنفس خانة الربط - ربط أحدهما يفصل الآخر تلقائياً.</p>
               </div>
               <a className="btn primary" href="/api/email/oauth/gmail">
                 ربط Gmail
               </a>
             </div>
           ) : null}
-          {isEmail ? (
+          {isOutlook ? (
             <div className="provider-connect-card">
               <span className="provider-connect-icon outlook" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
@@ -1036,7 +1046,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </span>
               <div className="provider-connect-copy">
                 <h3>ربط Outlook مباشرة</h3>
-                <p>اربط حساب Outlook / Microsoft 365 عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي.</p>
+                <p>اربط حساب Outlook / Microsoft 365 عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي. ملاحظة: Gmail وOutlook يشتركان بنفس خانة الربط - ربط أحدهما يفصل الآخر تلقائياً.</p>
               </div>
               <a className="btn primary" href="/api/email/oauth/outlook">
                 ربط Outlook
