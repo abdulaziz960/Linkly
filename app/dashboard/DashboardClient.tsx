@@ -152,6 +152,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [themePreference, setThemePreference] = useState<"light" | "dark" | "system">("system");
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -231,6 +233,26 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
     return scopedConversations.filter((conversation) => (conversation.channel || "whatsapp") === selectedChannel);
   }, [scopedConversations, selectedChannel]);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("audiencew-theme");
+    if (stored === "light" || stored === "dark" || stored === "system") setThemePreference(stored);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("audiencew-theme", themePreference);
+
+    if (themePreference !== "system") {
+      setResolvedTheme(themePreference);
+      return;
+    }
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const applySystemTheme = () => setResolvedTheme(media.matches ? "dark" : "light");
+    applySystemTheme();
+    media.addEventListener("change", applySystemTheme);
+    return () => media.removeEventListener("change", applySystemTheme);
+  }, [themePreference]);
 
   useEffect(() => {
     fetch("/api/settings/integration")
@@ -916,7 +938,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   return (
-    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""}`}>
+    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""}`} data-theme={resolvedTheme}>
       <DashboardSidebar
         activeView={activeView}
         allowedViews={allowedViews}
@@ -1040,6 +1062,21 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                         {status}
                       </button>
                     ))}
+                  </div>
+                  <div className="theme-picker">
+                    <span>المظهر</span>
+                    <div className="theme-picker-options">
+                      {([["light", "فاتح"], ["dark", "داكن"], ["system", "النظام"]] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={themePreference === value ? "active" : ""}
+                          onClick={() => setThemePreference(value)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="profile-actions">
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>الفواتير والاشتراك</button>
