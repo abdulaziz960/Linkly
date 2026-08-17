@@ -3,6 +3,7 @@
 import { Fragment } from "react";
 import type { ConversationChannel, ConversationChannelFilter, DashboardUser, ViewKey } from "../types";
 import { navItems } from "../data/navigation";
+import { ChannelIcon } from "../views/SettingsView";
 
 type DashboardSidebarProps = {
   activeView: ViewKey;
@@ -88,7 +89,9 @@ export default function DashboardSidebar({
                       type="button"
                       onClick={() => onChangeChannel(channel.key)}
                     >
-                      <span className={`nav-channel-dot ${channel.key}`} aria-hidden="true" />
+                      <span className={`nav-channel-dot ${channel.key}`} aria-hidden="true">
+                        <ChannelIcon id={channel.key} />
+                      </span>
                       {channel.label}
                     </button>
                   ))

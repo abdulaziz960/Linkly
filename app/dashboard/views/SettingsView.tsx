@@ -76,11 +76,6 @@ const channels: Array<{ id: ChannelId; title: string; description: string; activ
   { id: "sms", title: "SMS", description: "إرسال واستقبال رسائل SMS عبر Unifonic", active: true }
 ];
 
-const providers = [
-  { id: "cloud", icon: "☏", title: "واتساب السحابية", description: "Quick setup through Meta", active: true },
-  { id: "twilio", icon: "◎", title: "تويليو", description: "Connect via Twilio credentials", active: false }
-];
-
 const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://audiencew.audience.sa";
 const publicMetaAppId = process.env.NEXT_PUBLIC_META_APP_ID || "1296230909161568";
 const publicMetaConfigId = process.env.NEXT_PUBLIC_META_CONFIG_ID || "1428169365888624";
@@ -208,9 +203,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const showIntegrationData = (isTelegram || isGoogleMaps || isEmail || isWebsite ? wizardStep >= 4 : wizardStep >= 3) || isConnected;
 
   useEffect(() => {
-    if (wizardStep !== 2 || isWhatsApp) return;
+    if (wizardStep !== 2) return;
     setWizardStep(isGoogleMaps || isEmail || isWebsite ? 4 : 3);
-  }, [wizardStep, isWhatsApp, isGoogleMaps, isEmail, isWebsite]);
+  }, [wizardStep, isGoogleMaps, isEmail, isWebsite]);
 
   const webhookUrl = useMemo(() => {
     if (typeof window === "undefined") return settings.webhookUrl;
@@ -340,7 +335,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         if (data.status === "connected") {
           setWizardStep(4);
         } else if (!isFirstLoad) {
-          setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" ? 3 : selectedChannel === "google_maps" || selectedChannel === "email" || selectedChannel === "website" ? 4 : 2);
+          setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "email" || selectedChannel === "website" ? 4 : 2);
         }
         onIntegrationChange?.(data);
       })
@@ -472,7 +467,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     const data = await response.json() as IntegrationResponse;
     setSettings(data);
     onIntegrationChange?.(data);
-    setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" ? 3 : selectedChannel === "google_maps" || selectedChannel === "email" || selectedChannel === "website" ? 4 : 2);
+    setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "email" || selectedChannel === "website" ? 4 : 2);
     setSaveFeedback({ type: "error", text: data.connectionMessage || "تم مسح بيانات الربط" });
     setSaving(false);
   }
@@ -644,7 +639,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 onClick={() => {
                   if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "email" || channel.id === "website" || channel.id === "tiktok" || channel.id === "sms") {
                     setSelectedChannel(channel.id);
-                    setWizardStep(channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "tiktok" || channel.id === "sms" || channel.id === "google_maps" ? 3 : channel.id === "email" || channel.id === "website" ? 4 : 2);
+                    setWizardStep(channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "tiktok" || channel.id === "sms" || channel.id === "whatsapp" || channel.id === "google_maps" ? 3 : channel.id === "email" || channel.id === "website" ? 4 : 2);
                   }
                 }}
               >
@@ -653,32 +648,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 </span>
                 <b>{channel.title}</b>
                 <small>{channel.id === "x" ? "غير متاح حالياً" : channel.description}</small>
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    if (wizardStep === 2) {
-      return (
-        <div className="meta-wizard-panel">
-          <div className="meta-wizard-title ltr-title">
-            <h3>Select your API provider</h3>
-            <p>Choose your WhatsApp provider. You can connect directly through Meta which requires no setup, or connect through Twilio using your account credentials.</p>
-          </div>
-          <div className="api-provider-grid">
-            {providers.map((provider) => (
-              <button
-                className={`api-provider-card ${provider.active ? "selected" : ""}`}
-                key={provider.id}
-                type="button"
-                disabled={!provider.active}
-                onClick={() => setWizardStep(3)}
-              >
-                <span>{provider.icon}</span>
-                <b>{provider.title}</b>
-                <small>{provider.description}</small>
               </button>
             ))}
           </div>
@@ -901,7 +870,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <div className="settings-onboarding-actions">
               <button className="btn soft" type="button" disabled={wizardStep === 1} onClick={() => setWizardStep((step) => {
                 const prev = Math.max(1, step - 1);
-                return prev === 2 && !isWhatsApp ? 1 : prev;
+                return prev === 2 ? 1 : prev;
               })}>
                 عودة
               </button>
