@@ -103,10 +103,6 @@ export default function DashboardSidebar({
           </Fragment>
         ))}
       </nav>
-      <div className={`sidebar-footer integration-${integrationStatus}`}>
-        <b>حالة الربط</b>
-        <span>{connected ? "WhatsApp Cloud API متصل." : "الربط غير مكتمل. أكمل بيانات Meta من الإعدادات."}</span>
-      </div>
       <button className="account-btn" type="button" onClick={onOpenProfile}>
         <span className="account-avatar">{getInitial(user.name)}</span>
         <span>

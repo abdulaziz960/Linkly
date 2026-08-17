@@ -902,21 +902,23 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   return (
     <section className="page-stack settings-page">
-      <div className="settings-onboarding">
-        <aside className="meta-wizard-rail settings-rail">
-          {currentWizardSteps.map((step, index) => {
-            const stepNumber = index + 1;
-            const done = wizardStep > stepNumber;
-            const active = wizardStep === stepNumber;
-            return (
-              <button className={active ? "active" : done ? "done" : ""} key={step.title} type="button" onClick={() => setWizardStep(stepNumber)}>
-                <span>{done ? "✓" : stepNumber}</span>
-                <strong>{step.title}</strong>
-                <p>{step.description}</p>
-              </button>
-            );
-          })}
-        </aside>
+      <div className={`settings-onboarding ${isConnected ? "connected" : ""}`}>
+        {!isConnected ? (
+          <aside className="meta-wizard-rail settings-rail">
+            {currentWizardSteps.map((step, index) => {
+              const stepNumber = index + 1;
+              const done = wizardStep > stepNumber;
+              const active = wizardStep === stepNumber;
+              return (
+                <button className={active ? "active" : done ? "done" : ""} key={step.title} type="button" onClick={() => setWizardStep(stepNumber)}>
+                  <span>{done ? "✓" : stepNumber}</span>
+                  <strong>{step.title}</strong>
+                  <p>{step.description}</p>
+                </button>
+              );
+            })}
+          </aside>
+        ) : null}
 
         <div className="settings-onboarding-main">
           {renderWizardContent()}
@@ -1014,6 +1016,17 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </div>
               <a className="btn primary" href="/api/email/oauth/gmail" style={{ display: "inline-block", width: "fit-content" }}>
                 ربط Gmail
+              </a>
+            </div>
+          ) : null}
+          {isEmail ? (
+            <div className="telegram-help-card">
+              <div>
+                <h3>ربط Outlook مباشرة</h3>
+                <p>اربط حساب Outlook / Microsoft 365 عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي.</p>
+              </div>
+              <a className="btn primary" href="/api/email/oauth/outlook" style={{ display: "inline-block", width: "fit-content" }}>
+                ربط Outlook
               </a>
             </div>
           ) : null}

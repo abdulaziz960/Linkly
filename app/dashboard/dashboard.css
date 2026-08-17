@@ -138,6 +138,38 @@
   min-height: 0;
 }
 
+.dashboard-nav,
+.conversation-list,
+.messages {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.dashboard-nav::-webkit-scrollbar,
+.conversation-list::-webkit-scrollbar,
+.messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dashboard-nav::-webkit-scrollbar-track,
+.conversation-list::-webkit-scrollbar-track,
+.messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dashboard-nav::-webkit-scrollbar-thumb,
+.conversation-list::-webkit-scrollbar-thumb,
+.messages::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 999px;
+}
+
+.dashboard-nav::-webkit-scrollbar-thumb:hover,
+.conversation-list::-webkit-scrollbar-thumb:hover,
+.messages::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
 .dashboard-nav-section {
   padding: 12px 12px 2px;
   color: #64748b;
@@ -187,10 +219,13 @@
 
 .nav-channel-group > span,
 .nav-channel-group > small {
-  padding: 2px 4px;
+  padding: 14px 4px 6px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
+  letter-spacing: 0.02em;
 }
 
 .nav-channel-group button {
@@ -282,6 +317,15 @@
 .account-btn:hover {
   border-color: #c7d2fe;
   box-shadow: 0 6px 16px rgba(67, 56, 202, 0.1);
+}
+
+.account-btn-top {
+  background: linear-gradient(135deg, #eef2ff, #ffffff);
+  border-color: #e0e7ff;
+}
+
+.account-btn-top b {
+  font-size: 16px;
 }
 
 .account-avatar,
@@ -392,6 +436,20 @@
   border-bottom: 1px solid var(--line);
   background: #fff;
   overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.conversation-tabs {
+  flex-wrap: wrap;
+  overflow: visible;
+  gap: 5px;
+  padding: 8px;
+}
+
+.chat-tabs::-webkit-scrollbar,
+.composer-modes::-webkit-scrollbar {
+  display: none;
 }
 
 .conversation-tabs button,
@@ -406,6 +464,11 @@
   white-space: nowrap;
 }
 
+.conversation-tabs button {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
 .conversation-tabs button.active,
 .chat-tabs button.active,
 .composer-modes button.active {
@@ -416,9 +479,9 @@
 .conversation-tabs span {
   display: inline-grid;
   place-items: center;
-  min-width: 22px;
-  height: 22px;
-  margin-inline-start: 5px;
+  min-width: 20px;
+  height: 20px;
+  margin-inline-start: 4px;
   border-radius: 999px;
   background: #fff;
   color: #334155;
@@ -643,9 +706,10 @@
   min-width: 22px;
   height: 22px;
   border-radius: 999px;
-  background: #334155;
+  background: #ef4444;
   color: #fff;
   font-size: 12px;
+  font-weight: 900;
 }
 
 .conversation-meta em {
@@ -3570,6 +3634,10 @@
   gap: 34px;
 }
 
+.settings-onboarding.connected {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .settings-onboarding-main {
   display: grid;
   grid-template-rows: 1fr auto;
@@ -4626,6 +4694,21 @@
     display: flex;
     overflow-x: auto;
     gap: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+  }
+
+  .settings-rail::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .settings-rail::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .settings-rail::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 999px;
   }
 
   .settings-rail button {
