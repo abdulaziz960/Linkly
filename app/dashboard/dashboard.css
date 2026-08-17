@@ -3581,6 +3581,60 @@
   gap: 14px;
 }
 
+.provider-connect-card {
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  background: #f8fbff;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.provider-connect-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+}
+
+.provider-connect-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.provider-connect-icon.gmail {
+  background: linear-gradient(135deg, #ea4335, #c5221f);
+}
+
+.provider-connect-icon.outlook {
+  background: linear-gradient(135deg, #0072c6, #0a5ca8);
+}
+
+.provider-connect-copy {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.provider-connect-copy h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.provider-connect-copy p {
+  margin: 0;
+  color: #475569;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.provider-connect-card .btn {
+  flex-shrink: 0;
+}
+
 .telegram-help-card h3 {
   margin: 0 0 6px;
 }
@@ -4133,12 +4187,23 @@
   stroke: none;
 }
 
-.channel-icon-email {
+.channel-icon-email,
+.channel-icon-gmail {
   background: #fff4f2 !important;
   color: #ea4335 !important;
 }
 
-.channel-icon-email svg {
+.channel-icon-email svg,
+.channel-icon-gmail svg {
+  stroke: currentColor;
+}
+
+.channel-icon-outlook {
+  background: #eaf4fd !important;
+  color: #0072c6 !important;
+}
+
+.channel-icon-outlook svg {
   stroke: currentColor;
 }
 
