@@ -3566,7 +3566,7 @@
   background: #fff;
   padding: 36px;
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 300px minmax(0, 1fr);
   gap: 34px;
 }
 
@@ -3848,13 +3848,14 @@
 
 .copy-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
 }
 
 .copy-row span {
   min-height: 48px;
+  min-width: 0;
   display: flex;
   align-items: center;
   border: 1px solid var(--line);
@@ -3865,6 +3866,7 @@
   overflow: auto;
   color: #334155;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .copy-row button {
@@ -3883,7 +3885,7 @@
 
 .meta-wizard-body {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 28px;
   min-height: 620px;
 }
