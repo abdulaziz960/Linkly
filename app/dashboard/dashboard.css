@@ -3566,7 +3566,7 @@
   background: #fff;
   padding: 36px;
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 300px minmax(0, 1fr);
   gap: 34px;
 }
 
@@ -3848,13 +3848,14 @@
 
 .copy-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
 }
 
 .copy-row span {
   min-height: 48px;
+  min-width: 0;
   display: flex;
   align-items: center;
   border: 1px solid var(--line);
@@ -3865,6 +3866,7 @@
   overflow: auto;
   color: #334155;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .copy-row button {
@@ -3883,7 +3885,7 @@
 
 .meta-wizard-body {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 28px;
   min-height: 620px;
 }
@@ -3896,7 +3898,8 @@
   padding: 10px 0 10px 22px;
 }
 
-.meta-wizard-rail div {
+.meta-wizard-rail div,
+.meta-wizard-rail button {
   position: relative;
   display: grid;
   gap: 8px;
@@ -4612,6 +4615,22 @@
   .inbox-grid {
     height: calc(100vh - 58px);
     min-height: calc(100vh - 58px);
+  }
+
+  .settings-onboarding {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .settings-rail {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+  }
+
+  .settings-rail button {
+    flex: 0 0 auto;
+    min-width: 220px;
   }
 }
 
