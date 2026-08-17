@@ -15,7 +15,7 @@ export type ViewKey =
   | "settings";
 
 export type ConversationStatus = "assigned" | "unassigned" | "closed";
-export type ConversationFilter = "all" | ConversationStatus;
+export type ConversationFilter = "all" | ConversationStatus | "mine" | "unread";
 export type ConversationChannel = "whatsapp" | "instagram" | "x" | "facebook" | "google_maps" | "website" | "telegram" | "email" | "tiktok" | "sms";
 export type ConversationChannelFilter = "all" | ConversationChannel;
 export type ChatPanel = "chat" | "profile";
