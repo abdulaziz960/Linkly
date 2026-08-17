@@ -199,6 +199,47 @@ export async function ensureSchema() {
       run_at TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaigns (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      sent INTEGER NOT NULL DEFAULT 0,
+      total INTEGER NOT NULL DEFAULT 0,
+      progress TEXT NOT NULL,
+      status TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'whatsapp'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS template_name TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS scheduled_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipients (
+      id TEXT PRIMARY KEY,
+      campaign_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
+      phone TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'قيد الإرسال',
+      error TEXT NOT NULL DEFAULT '',
+      message_id TEXT NOT NULL DEFAULT '',
+      sent_at TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balances (
+      tenant_id TEXT PRIMARY KEY,
+      balance INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      messages INTEGER NOT NULL,
+      amount DOUBLE PRECISION NOT NULL,
+      status TEXT NOT NULL DEFAULT 'قيد الانتظار',
+      moyasar_id TEXT NOT NULL DEFAULT '',
+      payment_url TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      completed_at TEXT NOT NULL DEFAULT ''
+    )`);
     return;
   }
 
@@ -386,6 +427,46 @@ export async function ensureSchema() {
     progress TEXT NOT NULL,
     status TEXT NOT NULL,
     updated_at TEXT NOT NULL
+  )`);
+  const campaignColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(campaigns)`);
+  const campaignTextColumns = [
+    ["tenant_id", "tenant-demo"],
+    ["channel", "whatsapp"],
+    ["template_name", ""],
+    ["scheduled_at", ""]
+  ];
+  for (const [columnName, defaultValue] of campaignTextColumns) {
+    if (!campaignColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT '${defaultValue}'`);
+    }
+  }
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipients (
+    id TEXT PRIMARY KEY,
+    campaign_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
+    phone TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'قيد الإرسال',
+    error TEXT NOT NULL DEFAULT '',
+    message_id TEXT NOT NULL DEFAULT '',
+    sent_at TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balances (
+    tenant_id TEXT PRIMARY KEY,
+    balance INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    messages INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'قيد الانتظار',
+    moyasar_id TEXT NOT NULL DEFAULT '',
+    payment_url TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    completed_at TEXT NOT NULL DEFAULT ''
   )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS work_schedules (
     id TEXT PRIMARY KEY,
@@ -1540,9 +1621,9 @@ export async function getAutomationRules(tenantId = "tenant-demo"): Promise<Auto
   }));
 }
 
-export async function getCampaigns(): Promise<Campaign[]> {
+export async function getCampaigns(tenantId = "tenant-demo"): Promise<Campaign[]> {
   await ensureSeeded();
-  const rows = await prisma.campaign.findMany();
+  const rows = await prisma.campaign.findMany({ where: { tenantId } });
 
   return rows.map((campaign) => ({
     id: campaign.id,

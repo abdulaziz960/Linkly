@@ -177,15 +177,56 @@ model AutomationQueueItem {
 }
 
 model Campaign {
-  id        String @id
-  name      String
-  sent      Int    @default(0)
-  total     Int    @default(0)
-  progress  String
-  status    String
-  updatedAt String @map("updated_at")
+  id           String @id
+  tenantId     String @default("tenant-demo") @map("tenant_id")
+  name         String
+  channel      String @default("whatsapp")
+  templateName String @default("") @map("template_name")
+  scheduledAt  String @default("") @map("scheduled_at")
+  sent         Int    @default(0)
+  total        Int    @default(0)
+  progress     String
+  status       String
+  updatedAt    String @map("updated_at")
 
   @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id         String @id
+  campaignId String @map("campaign_id")
+  tenantId   String @default("tenant-demo") @map("tenant_id")
+  phone      String
+  name       String @default("")
+  status     String @default("قيد الإرسال")
+  error      String @default("")
+  messageId  String @default("") @map("message_id")
+  sentAt     String @default("") @map("sent_at")
+  createdAt  String @map("created_at")
+
+  @@map("campaign_recipients")
+}
+
+model CampaignBalance {
+  tenantId  String @id @map("tenant_id")
+  balance   Int    @default(0)
+  updatedAt String @map("updated_at")
+
+  @@map("campaign_balances")
+}
+
+model CampaignPayment {
+  id          String @id
+  tenantId    String @map("tenant_id")
+  messages    Int
+  amount      Float
+  status      String @default("قيد الانتظار")
+  moyasarId   String @default("") @map("moyasar_id")
+  paymentUrl  String @default("") @map("payment_url")
+  createdAt   String @map("created_at")
+  completedAt String @default("") @map("completed_at")
+
+  @@map("campaign_payments")
 }
 
 model WorkSchedule {
