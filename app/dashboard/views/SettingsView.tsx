@@ -207,6 +207,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const isConnected = settings.status === "connected";
   const showIntegrationData = (isTelegram || isGoogleMaps || isEmail || isWebsite ? wizardStep >= 4 : wizardStep >= 3) || isConnected;
 
+  useEffect(() => {
+    if (wizardStep !== 2 || isWhatsApp) return;
+    setWizardStep(isGoogleMaps || isEmail || isWebsite ? 4 : 3);
+  }, [wizardStep, isWhatsApp, isGoogleMaps, isEmail, isWebsite]);
+
   const webhookUrl = useMemo(() => {
     if (typeof window === "undefined") return settings.webhookUrl;
     if (settings.webhookUrl.startsWith("http")) return settings.webhookUrl;
@@ -887,7 +892,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {renderWizardContent()}
           {!isConnected ? (
             <div className="settings-onboarding-actions">
-              <button className="btn soft" type="button" disabled={wizardStep === 1} onClick={() => setWizardStep((step) => Math.max(1, step - 1))}>
+              <button className="btn soft" type="button" disabled={wizardStep === 1} onClick={() => setWizardStep((step) => {
+                const prev = Math.max(1, step - 1);
+                return prev === 2 && !isWhatsApp ? 1 : prev;
+              })}>
                 عودة
               </button>
               {!(isGoogleMaps && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
