@@ -16,7 +16,7 @@ type DashboardSidebarProps = {
   googleMapsStatus: "connected" | "not_connected" | "pending";
   emailStatus: "connected" | "not_connected" | "pending";
   user: DashboardUser;
-  profileStatus: "متصل" | "غير متصل";
+  profileStatus: "متصل" | "مشغول" | "غير متصل";
   selectedChannel: ConversationChannelFilter;
   onChangeView: (view: ViewKey) => void;
   onChangeChannel: (channel: ConversationChannel) => void;
@@ -108,7 +108,7 @@ export default function DashboardSidebar({
         <span>
           <b>{user.name}</b>
           <small>{user.role}</small>
-          <em className={profileStatus === "متصل" ? "online" : "offline"}>{profileStatus}</em>
+          <em className={profileStatus === "متصل" ? "online" : profileStatus === "مشغول" ? "busy" : "offline"}>{profileStatus}</em>
         </span>
       </button>
     </aside>

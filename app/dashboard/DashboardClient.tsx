@@ -132,7 +132,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [ownerStatus, setOwnerStatus] = useState<"متصل" | "غير متصل">("متصل");
+  const [ownerStatus, setOwnerStatus] = useState<Employee["status"]>("متصل");
   const [teams, setTeams] = useState<Team[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -273,7 +273,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     assignee: activeConversation.assignee,
     status: activeConversation.status
   };
-  const currentProfileStatus = currentEmployee?.status === "غير متصل" ? "غير متصل" : "متصل";
+  const currentProfileStatus = currentEmployee?.status ?? "متصل";
   const accountInitial = getNameInitial(initialUser.name);
   const allowedViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
   const canReopenConversations = canViewAllConversations || currentEmployee.role === "مشرف";
@@ -887,8 +887,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     await loadDashboardData();
   }
 
-  async function handleProfileStatusToggle() {
-    const nextStatus: Employee["status"] = currentProfileStatus === "متصل" ? "غير متصل" : "متصل";
+  async function handleProfileStatusChange(nextStatus: Employee["status"]) {
+    if (nextStatus === currentProfileStatus) return;
 
     if (!matchedEmployee) {
       setOwnerStatus(nextStatus);
@@ -1020,7 +1020,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                       <div>
                         <b>{initialUser.name}</b>
                       <span>{initialUser.role}</span>
-                      <em className={currentProfileStatus === "متصل" ? "online" : "offline"}>{currentProfileStatus}</em>
+                      <em className={currentProfileStatus === "متصل" ? "online" : currentProfileStatus === "مشغول" ? "busy" : "offline"}>{currentProfileStatus}</em>
                     </div>
                   </div>
                   <div className="account-info-grid">
@@ -1029,14 +1029,19 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                     <div><span>الباقة</span><b>لم يتم تحديد الباقة</b></div>
                     <div><span>حالة الربط</span><b>لم يتم الربط بعد</b></div>
                   </div>
+                  <div className="status-picker">
+                    {(["متصل", "مشغول", "غير متصل"] as const).map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        className={`${currentProfileStatus === status ? "active" : ""} ${status === "متصل" ? "online" : status === "مشغول" ? "busy" : "offline"}`}
+                        onClick={() => handleProfileStatusChange(status)}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
                   <div className="profile-actions">
-                    <button
-                      className="btn soft"
-                      type="button"
-                      onClick={handleProfileStatusToggle}
-                    >
-                      تغيير الحالة
-                    </button>
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>الفواتير والاشتراك</button>
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("security")}>الأمان</button>
                     <button className="btn danger" type="button" onClick={() => {

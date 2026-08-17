@@ -379,6 +379,11 @@
   color: #475569;
 }
 
+.account-btn em.busy {
+  background: var(--warn);
+  color: #fff;
+}
+
 .dashboard-main {
   grid-column: 1;
   grid-row: 1;
@@ -1479,6 +1484,45 @@
   color: #475569;
 }
 
+.account-summary em.busy {
+  background: var(--warn);
+  color: #fff;
+}
+
+.status-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-picker button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  padding: 8px 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.status-picker button.active.online {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: #fff;
+}
+
+.status-picker button.active.busy {
+  border-color: var(--warn);
+  background: var(--warn);
+  color: #fff;
+}
+
+.status-picker button.active.offline {
+  border-color: #475569;
+  background: #475569;
+  color: #fff;
+}
+
 .account-info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2560,6 +2604,40 @@
   margin-top: 6px;
   color: var(--ok);
   font-weight: 800;
+}
+
+.activity-heatmap {
+  display: grid;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.activity-heatmap-hours,
+.activity-heatmap-row {
+  display: grid;
+  grid-template-columns: 70px repeat(8, minmax(28px, 1fr));
+  align-items: center;
+  gap: 6px;
+}
+
+.activity-heatmap-hours span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.activity-heatmap-day {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.activity-heatmap-cell {
+  height: 22px;
+  border-radius: 5px;
+  background: var(--brand);
 }
 
 .section-tabs {
@@ -4379,6 +4457,36 @@
   font: inherit;
   font-weight: 900;
   cursor: pointer;
+}
+
+.channel-bot-picker {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px 16px;
+  text-align: right;
+}
+
+.channel-bot-picker span {
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.channel-bot-picker select {
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 800;
+  background: #fff;
+}
+
+.channel-bot-picker small {
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .communication-channels-page {
