@@ -948,12 +948,22 @@
 .account-modal {
   width: min(720px, 100%);
   max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 22px;
   background: var(--surface);
   box-shadow: 0 28px 80px rgba(15, 23, 42, 0.24);
   direction: rtl;
+}
+
+.account-modal .modal-head {
+  flex-shrink: 0;
+}
+
+.account-modal .modal-foot {
+  flex-shrink: 0;
 }
 
 .form-modal {
@@ -996,6 +1006,8 @@
   display: grid;
   gap: 16px;
   padding: 20px;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
