@@ -533,15 +533,20 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       all: channelFilteredConversations.length,
       assigned: channelFilteredConversations.filter((conversation) => conversation.status === "assigned").length,
       unassigned: channelFilteredConversations.filter((conversation) => conversation.status === "unassigned").length,
-      closed: channelFilteredConversations.filter((conversation) => conversation.status === "closed").length
+      closed: channelFilteredConversations.filter((conversation) => conversation.status === "closed").length,
+      mine: channelFilteredConversations.filter((conversation) => conversation.assignee === initialUser.name).length,
+      unread: channelFilteredConversations.filter((conversation) => (conversation.unread || 0) > 0).length
     };
-  }, [channelFilteredConversations]);
+  }, [channelFilteredConversations, initialUser.name]);
 
   const visibleConversations = useMemo(() => {
     const query = conversationSearch.trim().toLowerCase();
 
     return channelFilteredConversations.filter((conversation) => {
-      const matchesFilter = filter === "all" || conversation.status === filter;
+      const matchesFilter = filter === "all"
+        || (filter === "mine" ? conversation.assignee === initialUser.name
+          : filter === "unread" ? (conversation.unread || 0) > 0
+          : conversation.status === filter);
       const matchesSearch = query
         ? [conversation.customer, conversation.phone, conversation.lastMessage, conversation.assignee, ...conversation.tags]
             .join(" ")
@@ -551,7 +556,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
       return matchesFilter && matchesSearch;
     });
-  }, [channelFilteredConversations, conversationSearch, filter]);
+  }, [channelFilteredConversations, conversationSearch, filter, initialUser.name]);
 
   function updateConversation(nextConversation: Conversation) {
     setConversations((current) => {

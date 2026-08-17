@@ -129,6 +129,29 @@ function formatConversationAge(conversation: Conversation) {
   }).format(new Date(activityTime));
 }
 
+function getWaitBadge(conversation: Conversation) {
+  if (conversation.status === "closed") return null;
+
+  const lastMessage = conversation.messages.at(-1);
+  if (!lastMessage || lastMessage.direction !== "in") return null;
+
+  const referenceTime = lastMessage.createdAt || conversation.lastActivityAt;
+  if (!referenceTime) return null;
+
+  const elapsedTime = new Date(referenceTime).getTime();
+  if (Number.isNaN(elapsedTime)) return null;
+
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - elapsedTime) / 60000));
+  const tier = diffMinutes >= 120 ? "overdue" : diffMinutes >= 15 ? "warning" : "fresh";
+  const label = diffMinutes < 60
+    ? `${diffMinutes} د`
+    : diffMinutes < 1440
+      ? `${Math.floor(diffMinutes / 60)} س`
+      : `${Math.floor(diffMinutes / 1440)} يوم`;
+
+  return { tier, label };
+}
+
 function getConversationStartTime(conversation: Conversation) {
   return conversation.firstMessageTime || conversation.messages[0]?.time || "";
 }
@@ -463,6 +486,12 @@ export default function InboxView({
             <FilterButton active={filter === "all"} count={counts.all} label="الكل" onClick={() => onChangeFilter("all")} />
           ) : null}
           <FilterButton
+            active={filter === "mine"}
+            count={counts.mine}
+            label="لي"
+            onClick={() => onChangeFilter("mine")}
+          />
+          <FilterButton
             active={assignedOnly || filter === "assigned"}
             count={counts.assigned}
             label="مسندة"
@@ -476,6 +505,12 @@ export default function InboxView({
               onClick={() => onChangeFilter("unassigned")}
             />
           ) : null}
+          <FilterButton
+            active={filter === "unread"}
+            count={counts.unread}
+            label="غير مقروء"
+            onClick={() => onChangeFilter("unread")}
+          />
           <FilterButton
             active={filter === "closed"}
             count={counts.closed}
@@ -517,6 +552,15 @@ export default function InboxView({
               </span>
               <span className="conversation-meta">
                 {conversation.unread ? <strong>{conversation.unread}</strong> : null}
+                {(() => {
+                  const waitBadge = getWaitBadge(conversation);
+                  return waitBadge ? (
+                    <span className={`wait-badge tier-${waitBadge.tier}`}>
+                      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 7v5l3 3M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                      {waitBadge.label}
+                    </span>
+                  ) : null;
+                })()}
                 <span className="conversation-times">
                   {getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation)) ? (
                     <small>{getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation))}</small>
