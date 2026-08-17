@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     replyToMessageId: message.reply_to_message?.message_id ? String(message.reply_to_message.message_id) : undefined
   });
 
-  void runTelegramBot({
+  await runTelegramBot({
     tenantId,
     conversationId: stored.conversationId,
     chatId: String(chatId),

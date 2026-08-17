@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       email: body?.email,
       text
     });
-    void runChannelBot("website", {
+    await runChannelBot("website", {
       tenantId,
       conversationId,
       recipientId: visitorId,
