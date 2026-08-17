@@ -448,6 +448,7 @@ export default function InboxView({
     } else {
       onChangeMessage(reply.text);
     }
+    fetch(`/api/quick-replies/${reply.id}/use`, { method: "POST" }).catch(() => {});
   }
 
   async function handleAddTag(tagName: string) {

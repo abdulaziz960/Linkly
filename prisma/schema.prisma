@@ -143,6 +143,7 @@ model Template {
 
 model QuickReply {
   id       String @id
+  tenantId String @default("tenant-demo") @map("tenant_id")
   shortcut String
   text     String
   team     String

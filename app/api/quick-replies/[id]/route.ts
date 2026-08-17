@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -7,10 +8,16 @@ type RouteContext = { params: Promise<{ id: string }> };
 export const runtime = "nodejs";
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  const user = await getCurrentUser();
+  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+
   const { id } = await context.params;
   const body = (await request.json()) as { shortcut?: string; text?: string; team?: string; usage?: number };
   if (!body.shortcut?.trim()) return jsonError("الاختصار مطلوب");
   if (!body.text?.trim()) return jsonError("نص الرد مطلوب");
+
+  const existing = await prisma.quickReply.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!existing) return jsonError("تعذر تحديث الرد", 404);
 
   try {
     return jsonOk(await prisma.quickReply.update({
@@ -19,7 +26,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         shortcut: body.shortcut.trim(),
         text: body.text.trim(),
         team: body.team?.trim() || "",
-        usage: body.usage ?? 0
+        usage: body.usage ?? existing.usage
       }
     }));
   } catch {
@@ -28,7 +35,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
+  const user = await getCurrentUser();
+  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+
   const { id } = await context.params;
+  const existing = await prisma.quickReply.findFirst({ where: { id, tenantId: user.tenantId } });
+  if (!existing) return jsonError("تعذر حذف الرد", 404);
+
   try {
     await prisma.quickReply.delete({ where: { id } });
     return jsonOk({ id });

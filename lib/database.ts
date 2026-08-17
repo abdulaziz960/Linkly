@@ -252,6 +252,7 @@ export async function ensureSchema() {
     } catch (error) {
       console.error("Template table primary key migration failed", error);
     }
+    await prisma.$executeRawUnsafe(`ALTER TABLE quick_replies ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     return;
   }
 
@@ -415,11 +416,16 @@ export async function ensureSchema() {
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS quick_replies (
     id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
     shortcut TEXT NOT NULL,
     text TEXT NOT NULL,
     team TEXT NOT NULL,
     usage INTEGER NOT NULL DEFAULT 0
   )`);
+  const quickReplyColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(quick_replies)`);
+  if (!quickReplyColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE quick_replies ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS automation_rules (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -1643,9 +1649,9 @@ export async function getTemplates(tenantId?: string): Promise<MessageTemplate[]
   }));
 }
 
-export async function getQuickReplies(): Promise<QuickReply[]> {
+export async function getQuickReplies(tenantId = "tenant-demo"): Promise<QuickReply[]> {
   await ensureSeeded();
-  return prisma.quickReply.findMany();
+  return prisma.quickReply.findMany({ where: { tenantId } });
 }
 
 export async function getAutomationRules(tenantId = "tenant-demo"): Promise<AutomationRule[]> {
