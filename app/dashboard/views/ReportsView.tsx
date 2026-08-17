@@ -66,13 +66,12 @@ const heatmapBlockHours = [0, 3, 6, 9, 12, 15, 18, 21];
 
 function buildActivityHeatmap(conversations: Conversation[]) {
   const grid = heatmapDayLabels.map(() => heatmapBlockHours.map(() => 0));
-  const cutoff = Date.now() - 7 * 86400000;
 
   for (const conversation of conversations) {
     for (const item of conversation.messages) {
       if (!item.createdAt) continue;
       const time = new Date(item.createdAt).getTime();
-      if (Number.isNaN(time) || time < cutoff) continue;
+      if (Number.isNaN(time)) continue;
 
       const date = new Date(time);
       const dayIndex = date.getDay();
@@ -85,6 +84,48 @@ function buildActivityHeatmap(conversations: Conversation[]) {
   return { grid, max };
 }
 
+function toLocalDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function todayDateInputValue() {
+  return toLocalDateInputValue(new Date());
+}
+
+function daysAgoDateInputValue(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return toLocalDateInputValue(date);
+}
+
+/**
+ * Restricts each conversation's messages to the given date range and drops
+ * conversations with no activity in that range, so every stat below reflects
+ * the selected period instead of all-time data. Status/assignee fields are
+ * the conversation's current values (this app doesn't keep a history log),
+ * which is the best approximation available for a past period.
+ */
+function restrictConversationsToRange(conversations: Conversation[], from: string, to: string): Conversation[] {
+  const fromTime = new Date(`${from}T00:00:00`).getTime();
+  const toTime = new Date(`${to}T23:59:59.999`).getTime();
+  if (Number.isNaN(fromTime) || Number.isNaN(toTime)) return conversations;
+
+  const restricted: Conversation[] = [];
+  for (const conversation of conversations) {
+    const messages = conversation.messages.filter((item) => {
+      if (!item.createdAt) return false;
+      const time = new Date(item.createdAt).getTime();
+      return !Number.isNaN(time) && time >= fromTime && time <= toTime;
+    });
+    if (messages.length) restricted.push({ ...conversation, messages });
+  }
+
+  return restricted;
+}
+
 export default function ReportsView({
   conversations,
   employees,
@@ -95,36 +136,42 @@ export default function ReportsView({
   teams: Team[];
 }) {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [dateFrom, setDateFrom] = useState("2026-06-08");
-  const [dateTo, setDateTo] = useState("2026-06-14");
+  const [dateFrom, setDateFrom] = useState(() => daysAgoDateInputValue(6));
+  const [dateTo, setDateTo] = useState(() => todayDateInputValue());
+  const [appliedFrom, setAppliedFrom] = useState(() => daysAgoDateInputValue(6));
+  const [appliedTo, setAppliedTo] = useState(() => todayDateInputValue());
   const [appliedPeriod, setAppliedPeriod] = useState("آخر 7 أيام");
 
+  const rangeConversations = useMemo(
+    () => restrictConversationsToRange(conversations, appliedFrom, appliedTo),
+    [conversations, appliedFrom, appliedTo]
+  );
+
   const reportStats = useMemo(() => {
-    const total = conversations.length;
-    const open = conversations.filter((conversation) => conversation.status !== "closed").length;
-    const closed = conversations.filter((conversation) => conversation.status === "closed").length;
-    const unassigned = conversations.filter((conversation) => conversation.status === "unassigned").length;
-    const windowExpired = conversations.filter((conversation) => conversation.windowExpired).length;
-    const withoutAttendance = conversations.filter((conversation) => conversation.assignee === "بدون موظف").length;
+    const total = rangeConversations.length;
+    const open = rangeConversations.filter((conversation) => conversation.status !== "closed").length;
+    const closed = rangeConversations.filter((conversation) => conversation.status === "closed").length;
+    const unassigned = rangeConversations.filter((conversation) => conversation.status === "unassigned").length;
+    const windowExpired = rangeConversations.filter((conversation) => conversation.windowExpired).length;
+    const withoutAttendance = rangeConversations.filter((conversation) => conversation.assignee === "بدون موظف").length;
 
     return [
-      ["إجمالي المحادثات", String(total), "حسب البيانات الحالية"],
+      ["إجمالي المحادثات", String(total), "خلال الفترة المحددة"],
       ["المحادثات المفتوحة", String(open), total ? `${Math.round((open / total) * 100)}% من الإجمالي` : "لا توجد بيانات"],
       ["المحادثات المغلقة", String(closed), "تم إنهاؤها بنجاح"],
       ["غير مسندة", String(unassigned), "تحتاج توزيع"],
-      ["متوسط وقت الرد", averageReplyLabel(conversations), "محسوب من الرسائل الفعلية"],
+      ["متوسط وقت الرد", averageReplyLabel(rangeConversations), "محسوب من الرسائل الفعلية"],
       ["أطول انتظار حالي", longestOpenWaitLabel(conversations), "لمحادثة لم يُرد عليها بعد"],
       ["خارج أوقات الدوام", String(windowExpired), "انتهت نافذة الرد أو تحتاج قالب"],
-      ["أثناء العطل الرسمية", "0", "حسب إعدادات العطل"],
       ["بدون حضور", String(withoutAttendance), "لا يوجد موظف مسند"]
     ];
-  }, [conversations]);
+  }, [rangeConversations, conversations]);
 
-  const activityHeatmap = useMemo(() => buildActivityHeatmap(conversations), [conversations]);
+  const activityHeatmap = useMemo(() => buildActivityHeatmap(rangeConversations), [rangeConversations]);
 
   const employeeRows = useMemo(() => {
     return employees.map((employee) => {
-      const assigned = conversations.filter((conversation) => conversation.assignee === employee.name);
+      const assigned = rangeConversations.filter((conversation) => conversation.assignee === employee.name);
       const closed = assigned.filter((conversation) => conversation.status === "closed");
       const notAnswered = assigned.filter((conversation) => conversation.unread);
 
@@ -136,33 +183,39 @@ export default function ReportsView({
         avgReply: averageReplyLabel(assigned)
       };
     });
-  }, [conversations, employees]);
+  }, [rangeConversations, employees]);
 
   const teamRows = useMemo(() => {
     return teams.map((team) => {
       const memberNames = team.memberIds
         .map((memberId) => employees.find((employee) => employee.id === memberId)?.name)
         .filter(Boolean) as string[];
-      const teamConversations = conversations.filter((conversation) => memberNames.includes(conversation.assignee));
+      const teamConversations = rangeConversations.filter((conversation) => memberNames.includes(conversation.assignee));
       const closed = teamConversations.filter((conversation) => conversation.status === "closed").length;
       const offHours = teamConversations.filter((conversation) => conversation.windowExpired).length;
       const withoutAttendance = teamConversations.filter((conversation) => conversation.assignee === "بدون موظف").length;
 
-      return [team.name, String(teamConversations.length), averageReplyLabel(teamConversations), String(closed), String(offHours), "0", String(withoutAttendance)];
+      return [team.name, String(teamConversations.length), averageReplyLabel(teamConversations), String(closed), String(offHours), String(withoutAttendance)];
     });
-  }, [conversations, employees, teams]);
+  }, [rangeConversations, employees, teams]);
 
   const selectedEmployeeConversations = selectedEmployee
     ? conversations.filter((conversation) => conversation.assignee === selectedEmployee.name)
     : [];
 
   function applyFilter() {
-    setAppliedPeriod(`${dateFrom} إلى ${dateTo}`);
+    setAppliedFrom(dateFrom);
+    setAppliedTo(dateTo);
+    setAppliedPeriod(dateFrom === dateTo ? dateFrom : `${dateFrom} إلى ${dateTo}`);
   }
 
   function applyLastSevenDays() {
-    setDateFrom("2026-06-16");
-    setDateTo("2026-06-22");
+    const from = daysAgoDateInputValue(6);
+    const to = todayDateInputValue();
+    setDateFrom(from);
+    setDateTo(to);
+    setAppliedFrom(from);
+    setAppliedTo(to);
     setAppliedPeriod("آخر 7 أيام");
   }
 
@@ -177,7 +230,7 @@ export default function ReportsView({
   function exportTeamsReport() {
     downloadCsv(
       "team-performance.csv",
-      ["الفريق", "المحادثات", "متوسط الرد", "مغلقة", "رسائل خارج الدوام", "رسائل العطل", "بدون حضور"],
+      ["الفريق", "المحادثات", "متوسط الرد", "مغلقة", "رسائل خارج الدوام", "بدون حضور"],
       teamRows
     );
   }
@@ -199,7 +252,7 @@ export default function ReportsView({
         ))}
       </div>
       <div className="panel">
-        <div className="panel-head"><h2>حركة المحادثات (آخر 7 أيام)</h2></div>
+        <div className="panel-head"><h2>حركة المحادثات ({appliedPeriod})</h2></div>
         <div className="panel-body">
           <div className="activity-heatmap">
             <div className="activity-heatmap-hours">
@@ -246,7 +299,7 @@ export default function ReportsView({
         <div className="panel-head"><h2>أداء الفرق</h2><span /><button className="btn soft" type="button" onClick={exportTeamsReport}>تصدير تقرير</button></div>
         <div className="panel-body table-wrap">
           <table>
-            <thead><tr><th>الفريق</th><th>المحادثات</th><th>متوسط الرد</th><th>مغلقة</th><th>رسائل خارج الدوام</th><th>رسائل العطل</th><th>بدون حضور</th></tr></thead>
+            <thead><tr><th>الفريق</th><th>المحادثات</th><th>متوسط الرد</th><th>مغلقة</th><th>رسائل خارج الدوام</th><th>بدون حضور</th></tr></thead>
             <tbody>{teamRows.map((row) => <tr key={row[0]}>{row.map((cell, index) => <td key={`${row[0]}-${index}`}>{cell}</td>)}</tr>)}</tbody>
           </table>
         </div>
