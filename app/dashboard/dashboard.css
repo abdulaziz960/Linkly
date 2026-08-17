@@ -180,6 +180,7 @@
   border-radius: 10px;
   display: flex;
   align-items: center;
+  gap: 8px;
   justify-content: flex-start;
   padding-inline: 12px;
   font-size: 13px;
@@ -190,6 +191,25 @@
   background: #ecfdf5;
   color: #166534;
 }
+
+.nav-channel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: #3730a3;
+}
+
+.nav-channel-dot.whatsapp { background: #15803d; }
+.nav-channel-dot.instagram { background: #be185d; }
+.nav-channel-dot.facebook { background: #1d4ed8; }
+.nav-channel-dot.google_maps { background: #b91c1c; }
+.nav-channel-dot.website { background: #334155; }
+.nav-channel-dot.telegram { background: #0369a1; }
+.nav-channel-dot.x { background: #0f172a; }
+.nav-channel-dot.email { background: #92400e; }
+.nav-channel-dot.tiktok { background: #be123c; }
+.nav-channel-dot.sms { background: #4338ca; }
 
 .account-btn {
   width: 100%;
@@ -451,54 +471,74 @@
   max-width: 100%;
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   border-radius: 999px;
-  padding: 0;
-  background: transparent;
+  padding: 3px 10px;
+  background: #eef2ff;
   color: #3730a3;
   font-size: 11px;
   font-style: normal;
-  font-weight: 900;
+  font-weight: 800;
   line-height: 1.4;
 }
 
+.channel-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
 .channel-badge.whatsapp {
-  background: transparent;
-  color: #166534;
+  background: #dcfce7;
+  color: #15803d;
 }
 
 .channel-badge.instagram {
-  background: transparent;
-  color: #9d174d;
+  background: #fce7f3;
+  color: #be185d;
 }
 
 .channel-badge.facebook {
-  background: transparent;
+  background: #dbeafe;
   color: #1d4ed8;
 }
 
 .channel-badge.google_maps {
-  background: transparent;
+  background: #fee2e2;
   color: #b91c1c;
 }
 
 .channel-badge.website {
-  background: transparent;
+  background: #e2e8f0;
   color: #334155;
 }
 
 .channel-badge.telegram {
-  background: transparent;
+  background: #e0f2fe;
   color: #0369a1;
 }
 
 .channel-badge.x {
-  background: transparent;
+  background: #f1f5f9;
   color: #0f172a;
 }
 
 .channel-badge.email {
-  background: transparent;
+  background: #fef3c7;
   color: #92400e;
+}
+
+.channel-badge.tiktok {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.channel-badge.sms {
+  background: #e0e7ff;
+  color: #4338ca;
 }
 
 .conversation-copy .channel-badge {
@@ -3980,6 +4020,21 @@
 .channel-icon-google_maps svg circle {
   fill: #fbbc04;
   stroke: #ea4335;
+}
+
+.channel-icon-tiktok {
+  background: #0f172a !important;
+  color: #25f4ee !important;
+}
+
+.channel-icon-tiktok svg {
+  fill: currentColor;
+  stroke: none;
+}
+
+.channel-icon-sms {
+  background: #eef2ff !important;
+  color: #4338ca !important;
 }
 
 .channel-card b,
