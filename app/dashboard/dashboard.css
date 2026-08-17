@@ -75,6 +75,7 @@
   overflow: hidden;
   display: grid;
   place-items: center;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
 }
 
 .brand-mark img {
@@ -145,20 +146,37 @@
 }
 
 .dashboard-nav button {
+  position: relative;
   min-height: 44px;
   border: 0;
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   background: transparent;
   color: #475569;
   text-align: right;
   font-weight: 800;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.dashboard-nav button:hover,
-.dashboard-nav button.active {
+.dashboard-nav button:hover {
   background: #f1f5f9;
   color: var(--ink);
+}
+
+.dashboard-nav button.active {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.dashboard-nav button.active::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: #4338ca;
 }
 
 .nav-channel-group {
@@ -185,11 +203,17 @@
   padding-inline: 12px;
   font-size: 13px;
   text-align: right;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nav-channel-group button:hover {
+  background: #f8fafc;
 }
 
 .nav-channel-group button.channel-active {
   background: #ecfdf5;
   color: #166534;
+  font-weight: 900;
 }
 
 .nav-channel-dot {
@@ -222,6 +246,12 @@
   gap: 10px;
   padding: 12px;
   text-align: right;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.account-btn:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 6px 16px rgba(67, 56, 202, 0.1);
 }
 
 .account-avatar,
@@ -229,8 +259,8 @@
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: #f1f5f9;
-  color: #334155;
+  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+  color: #3730a3;
   display: grid;
   place-items: center;
   font-weight: 900;
