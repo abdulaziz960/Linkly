@@ -685,6 +685,14 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     window.location.href = "/api/x/connect";
   }
 
+  function connectTikTokAccount() {
+    if (typeof window === "undefined") return;
+    const tiktokWindow = window.open("/api/tiktok/connect", "audiencew-tiktok-connect", "width=520,height=760");
+    if (!tiktokWindow) {
+      window.location.href = "/api/tiktok/connect";
+    }
+  }
+
   async function connectGoogleMaps() {
     window.location.href = "/api/google/connect";
   }
@@ -734,15 +742,15 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             })}
           </div>
           <div className="connected-channel-note">
-            <b>{isWebsite ? "ودجت الموقع جاهز" : isSms ? "SMS متصل" : isTikTok ? "TikTok محفوظ" : isGmail ? "Gmail متصل" : isOutlook ? "Outlook متصل" : isGoogleMaps ? "خرائط Google متصلة" : isX ? "X جاهز للربط" : isTelegram ? "تيليجرام متصل" : isFacebook ? "فيسبوك متصل" : isInstagram ? "Instagram متصل" : "واتساب متصل"}</b>
+            <b>{isWebsite ? "ودجت الموقع جاهز" : isSms ? "SMS متصل" : isTikTok ? "TikTok متصل" : isGmail ? "Gmail متصل" : isOutlook ? "Outlook متصل" : isGoogleMaps ? "خرائط Google متصلة" : isX ? "X جاهز للربط" : isTelegram ? "تيليجرام متصل" : isFacebook ? "فيسبوك متصل" : isInstagram ? "Instagram متصل" : "واتساب متصل"}</b>
             <span>
               {(isGmail || isOutlook) && oauthEmailStatus?.emailAddress
                 ? `الحساب المتصل: ${oauthEmailStatus.emailAddress}`
                 : "يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل."}
             </span>
-            {!isEmail && !isGoogleMaps && !isX && !isTelegram && !isWebsite && !isTikTok && !isSms ? (
-              <button type="button" onClick={openMetaWindow}>
-                {isFacebook ? "ربط صفحة Facebook" : isInstagram ? "ربط Instagram" : "ربط واتساب جديد"}
+            {!isEmail && !isGoogleMaps && !isX && !isTelegram && !isWebsite && !isSms ? (
+              <button type="button" onClick={isTikTok ? connectTikTokAccount : openMetaWindow}>
+                {isTikTok ? "ربط حساب TikTok آخر" : isFacebook ? "ربط صفحة Facebook" : isInstagram ? "ربط Instagram" : "ربط واتساب جديد"}
               </button>
             ) : null}
           </div>
@@ -905,10 +913,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <div className="meta-wizard-panel">
             <div className="meta-signup-card">
               <span className="provider-round-icon">T</span>
-              <h3>ربط TikTok Business Messaging</h3>
-              <p>هذه القناة قيد التجهيز وتنتظر موافقة TikTok على صلاحية Business Messaging لحسابك. تقدر تحفظ بيانات التطبيق الآن وتكمل التفعيل بعد الموافقة.</p>
-              <button type="button" onClick={() => setWizardStep(4)}>
-                إدخال بيانات TikTok
+              <h3>ربط حساب TikTok</h3>
+              <p>سجّل الدخول بحساب TikTok الخاص بنشاطك التجاري وسيتم حفظ بيانات الحساب تلقائياً. إرسال واستقبال الرسائل والتعليقات الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging لحسابنا.</p>
+              <button type="button" onClick={connectTikTokAccount}>
+                تسجيل الدخول عبر TikTok
               </button>
             </div>
           </div>
@@ -1319,21 +1327,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 <label>
                   Webhook Secret
                   <input dir="ltr" value={settings.verifyToken} onChange={(event) => updateField("verifyToken", event.target.value)} placeholder="audiencew_x_secret" />
-                </label>
-              </>
-            ) : isTikTok ? (
-              <>
-                <label>
-                  App Key
-                  <input dir="ltr" value={settings.appId} onChange={(event) => updateField("appId", event.target.value)} placeholder="TikTok App Key" />
-                </label>
-                <label>
-                  App Secret
-                  <input dir="ltr" value={settings.configId} onChange={(event) => updateField("configId", event.target.value)} placeholder="TikTok App Secret" />
-                </label>
-                <label>
-                  Access Token
-                  <input dir="ltr" value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} placeholder="يصدر بعد موافقة TikTok" />
                 </label>
               </>
             ) : isSms ? (
