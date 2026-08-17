@@ -1022,6 +1022,17 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {isEmail ? (
             <div className="telegram-help-card">
               <div>
+                <h3>ربط Outlook مباشرة</h3>
+                <p>اربط حساب Outlook / Microsoft 365 عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي.</p>
+              </div>
+              <a className="btn primary" href="/api/email/oauth/outlook" style={{ display: "inline-block", width: "fit-content" }}>
+                ربط Outlook
+              </a>
+            </div>
+          ) : null}
+          {isEmail ? (
+            <div className="telegram-help-card">
+              <div>
                 <h3>طريقة ربط البريد الإلكتروني عبر Webhook (بديل)</h3>
                 <p>استخدم Webhook البريد مع Zapier أو Make أو أي مزود يدعم إرسال Webhook عند وصول بريد جديد.</p>
               </div>
