@@ -2314,6 +2314,14 @@
   flex-wrap: wrap;
 }
 
+.tag-color-swatch {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
 .icon-actions button {
   width: 36px;
   height: 36px;

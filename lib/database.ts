@@ -124,6 +124,8 @@ export async function ensureSchema() {
     await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE tags ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE tags DROP CONSTRAINT IF EXISTS tags_name_key`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'whatsapp'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_activity_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS created_at TEXT NOT NULL DEFAULT ''`);
@@ -1419,9 +1421,9 @@ export async function getTeams(): Promise<Team[]> {
   }));
 }
 
-export async function getTags(): Promise<Tag[]> {
+export async function getTags(tenantId = "tenant-demo"): Promise<Tag[]> {
   await ensureSeeded();
-  return prisma.tag.findMany();
+  return prisma.tag.findMany({ where: { tenantId } });
 }
 
 export async function getTemplates(): Promise<MessageTemplate[]> {
