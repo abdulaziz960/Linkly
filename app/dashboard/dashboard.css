@@ -4613,6 +4613,22 @@
     height: calc(100vh - 58px);
     min-height: calc(100vh - 58px);
   }
+
+  .settings-onboarding {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .settings-rail {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+  }
+
+  .settings-rail button {
+    flex: 0 0 auto;
+    min-width: 220px;
+  }
 }
 
 @media (max-width: 720px) {
