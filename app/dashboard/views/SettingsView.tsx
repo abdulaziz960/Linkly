@@ -606,12 +606,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           config_id: configId,
           response_type: "code",
           override_default_response_type: true,
-          auth_type: "rerequest",
           extras: {
-            setup: {},
-            featureType: "",
             sessionInfoVersion: "3",
-            version: "v4"
+            version: "v3",
+            featureType: "whatsapp_business_app_onboarding",
+            is_hosted_es: true
           }
         } as any
       );
