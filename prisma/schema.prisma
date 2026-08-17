@@ -302,7 +302,7 @@ model ProviderSubscription {
 
 model BotSettings {
   id        String @id
-  tenantId  String @unique @map("tenant_id")
+  tenantId  String @map("tenant_id")
   channel   String @default("whatsapp")
   enabled   Int    @default(0)
   updatedAt String @map("updated_at")

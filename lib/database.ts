@@ -176,6 +176,9 @@ export async function ensureSchema() {
       enabled INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE bot_settings DROP CONSTRAINT IF EXISTS bot_settings_tenant_id_key`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE bot_nodes ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'whatsapp'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE bot_settings ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'whatsapp'`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS bot_nodes (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL,

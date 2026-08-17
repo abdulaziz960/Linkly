@@ -9,9 +9,17 @@ type BotNode = {
   content: string;
 };
 
+type BotChannel = "whatsapp" | "telegram";
+
 const nodeTypes = ["إرسال رسالة", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "تحويل لفريق", "إغلاق المحادثة"];
 
+const channels: { id: BotChannel; label: string }[] = [
+  { id: "whatsapp", label: "واتساب" },
+  { id: "telegram", label: "تيليجرام" }
+];
+
 export default function BotView() {
+  const [channel, setChannel] = useState<BotChannel>("whatsapp");
   const [builderOpen, setBuilderOpen] = useState(false);
   const [nodes, setNodes] = useState<BotNode[]>([]);
   const [enabled, setEnabled] = useState(false);
@@ -22,20 +30,26 @@ export default function BotView() {
   const [nodeContent, setNodeContent] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
     (async () => {
       const [settingsRes, nodesRes] = await Promise.all([
-        fetch("/api/bot/settings").then((response) => response.json()).catch(() => null),
-        fetch("/api/bot/nodes").then((response) => response.json()).catch(() => null)
+        fetch(`/api/bot/settings?channel=${channel}`).then((response) => response.json()).catch(() => null),
+        fetch(`/api/bot/nodes?channel=${channel}`).then((response) => response.json()).catch(() => null)
       ]);
-      if (settingsRes?.ok) setEnabled(Boolean(settingsRes.data?.enabled));
-      if (nodesRes?.ok) setNodes(nodesRes.data || []);
+      if (cancelled) return;
+      setEnabled(settingsRes?.ok ? Boolean(settingsRes.data?.enabled) : false);
+      setNodes(nodesRes?.ok ? nodesRes.data || [] : []);
       setLoading(false);
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [channel]);
 
   async function persistNodes(nextNodes: BotNode[]) {
     setSaving(true);
-    await fetch("/api/bot/nodes", {
+    await fetch(`/api/bot/nodes?channel=${channel}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nodes: nextNodes.map(({ type, title, content }) => ({ type, title, content })) })
@@ -46,7 +60,7 @@ export default function BotView() {
   async function toggleEnabled() {
     const next = !enabled;
     setEnabled(next);
-    await fetch("/api/bot/settings", {
+    await fetch(`/api/bot/settings?channel=${channel}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled: next })
@@ -79,24 +93,40 @@ export default function BotView() {
     await persistNodes(nextNodes);
   }
 
+  const channelLabel = channels.find((item) => item.id === channel)?.label || "";
+
   return (
     <section className="page-stack">
       <div className="page-hero">
         <div>
           <h1>الرد الآلي</h1>
-          <p>أنشئ روبوت واتساب يرحب بالعميل من أول رسالة، يعرض له الخيارات المناسبة، يرسل ردوداً جاهزة، ويحوّل المحادثة للفريق الصحيح عند الحاجة. تعمل الخطوات بالترتيب على أول رسالة في كل محادثة جديدة.</p>
+          <p>أنشئ روبوت محادثة يرحب بالعميل من أول رسالة، يعرض له الخيارات المناسبة، يرسل ردوداً جاهزة، ويحوّل المحادثة للفريق الصحيح عند الحاجة. لكل قناة إعداد وخطوات مستقلة، وتعمل الخطوات بالترتيب على أول رسالة في كل محادثة جديدة.</p>
         </div>
         <div className="bot-hero-actions">
           <label className="bot-toggle">
             <input type="checkbox" checked={enabled} onChange={toggleEnabled} disabled={loading} />
-            <span>{enabled ? "الرد الآلي مفعّل" : "الرد الآلي متوقف"}</span>
+            <span>{enabled ? `الرد الآلي مفعّل (${channelLabel})` : `الرد الآلي متوقف (${channelLabel})`}</span>
           </label>
           <button className="btn primary" type="button" onClick={() => setBuilderOpen(true)}>＋ إضافة خطوة</button>
         </div>
       </div>
+
+      <div className="bot-channel-tabs">
+        {channels.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={`bot-channel-tab ${channel === item.id ? "active" : ""}`}
+            onClick={() => setChannel(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       <div className="bot-canvas">
-        <div className="bot-toolbar"><b>مخطط الرد الآلي (واتساب)</b><span>الخطوات تُنفَّذ بالترتيب من الأعلى للأسفل عند وصول أول رسالة من عميل جديد</span></div>
-        <div className="bot-node start"><b>البداية</b><small>عند وصول رسالة جديدة على واتساب</small></div>
+        <div className="bot-toolbar"><b>مخطط الرد الآلي ({channelLabel})</b><span>الخطوات تُنفَّذ بالترتيب من الأعلى للأسفل عند وصول أول رسالة من عميل جديد</span></div>
+        <div className="bot-node start"><b>البداية</b><small>عند وصول رسالة جديدة على {channelLabel}</small></div>
         {nodes.map((node, index) => (
           <div className={`bot-node ${index % 2 ? "menu-node" : "reply"}`} key={node.id}>
             <b>{node.title}</b>
@@ -113,7 +143,7 @@ export default function BotView() {
           <div className="account-modal form-modal bot-builder-modal" role="dialog" aria-modal="true" aria-label="إدارة خطوات الرد الآلي" onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
               <button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setBuilderOpen(false)}>×</button>
-              <h2>خطوات الرد الآلي</h2>
+              <h2>خطوات الرد الآلي — {channelLabel}</h2>
             </header>
             <div className="account-modal-body">
               <form className="form-grid" onSubmit={addNode}>

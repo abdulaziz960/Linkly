@@ -1,6 +1,11 @@
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { sendWhatsAppTextMessage } from "./whatsapp-send";
+import { sendTelegramTextMessage } from "./telegram-send";
+
+export type BotChannel = "whatsapp" | "telegram";
+
+export const botChannels: BotChannel[] = ["whatsapp", "telegram"];
 
 export type BotNodeInput = {
   type: string;
@@ -14,36 +19,42 @@ export type BotNode = BotNodeInput & {
 
 const BOT_AUTHOR = "الرد الآلي";
 
-export async function getBotSettings(tenantId = "tenant-demo") {
+function settingsId(tenantId: string, channel: BotChannel) {
+  return `bot-settings-${tenantId}-${channel}`;
+}
+
+export async function getBotSettings(tenantId = "tenant-demo", channel: BotChannel = "whatsapp") {
   await ensureSchema();
-  const row = await prisma.botSettings.findUnique({ where: { tenantId } });
+  const row = await prisma.botSettings.findUnique({ where: { id: settingsId(tenantId, channel) } });
   return { enabled: row ? row.enabled === 1 : false };
 }
 
-export async function setBotEnabled(tenantId: string, enabled: boolean) {
+export async function setBotEnabled(tenantId: string, channel: BotChannel, enabled: boolean) {
   await ensureSchema();
+  const id = settingsId(tenantId, channel);
   await prisma.botSettings.upsert({
-    where: { tenantId },
+    where: { id },
     update: { enabled: enabled ? 1 : 0, updatedAt: new Date().toISOString() },
     create: {
-      id: `bot-settings-${tenantId}`,
+      id,
       tenantId,
+      channel,
       enabled: enabled ? 1 : 0,
       updatedAt: new Date().toISOString()
     }
   });
 }
 
-export async function getBotNodes(tenantId = "tenant-demo"): Promise<BotNode[]> {
+export async function getBotNodes(tenantId = "tenant-demo", channel: BotChannel = "whatsapp"): Promise<BotNode[]> {
   await ensureSchema();
-  const rows = await prisma.botNode.findMany({ where: { tenantId }, orderBy: { position: "asc" } });
+  const rows = await prisma.botNode.findMany({ where: { tenantId, channel }, orderBy: { position: "asc" } });
   return rows.map((row) => ({ id: row.id, type: row.type, title: row.title, content: row.content }));
 }
 
-export async function saveBotNodes(tenantId: string, nodes: BotNodeInput[]) {
+export async function saveBotNodes(tenantId: string, channel: BotChannel, nodes: BotNodeInput[]) {
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
-    await tx.botNode.deleteMany({ where: { tenantId } });
+    await tx.botNode.deleteMany({ where: { tenantId, channel } });
     let position = 0;
     for (const node of nodes) {
       const title = node.title.trim() || node.type;
@@ -51,8 +62,9 @@ export async function saveBotNodes(tenantId: string, nodes: BotNodeInput[]) {
       if (!content) continue;
       await tx.botNode.create({
         data: {
-          id: `bot-node-${tenantId}-${Date.now()}-${position}`,
+          id: `bot-node-${tenantId}-${channel}-${Date.now()}-${position}`,
           tenantId,
+          channel,
           position,
           type: node.type,
           title,
@@ -74,15 +86,35 @@ function formatListMessage(title: string, content: string) {
   return numbered ? `${title}\n${numbered}` : title;
 }
 
-export async function runWhatsAppBot(input: { tenantId: string; conversationId: string; phone: string }) {
+async function sendBotText(channel: BotChannel, args: { tenantId: string; conversationId: string; recipientId: string; text: string }) {
+  if (channel === "whatsapp") {
+    return sendWhatsAppTextMessage({
+      tenantId: args.tenantId,
+      conversationId: args.conversationId,
+      to: args.recipientId,
+      text: args.text,
+      author: BOT_AUTHOR
+    });
+  }
+
+  return sendTelegramTextMessage({
+    tenantId: args.tenantId,
+    conversationId: args.conversationId,
+    chatId: args.recipientId,
+    text: args.text,
+    author: BOT_AUTHOR
+  });
+}
+
+export async function runChannelBot(channel: BotChannel, input: { tenantId: string; conversationId: string; recipientId: string }) {
   const tenantId = input.tenantId || "tenant-demo";
-  const settings = await getBotSettings(tenantId);
+  const settings = await getBotSettings(tenantId, channel);
   if (!settings.enabled) return;
 
   const conversation = await prisma.conversation.findUnique({ where: { id: input.conversationId } });
   if (!conversation || conversation.botRanAt) return;
 
-  const nodes = await getBotNodes(tenantId);
+  const nodes = await getBotNodes(tenantId, channel);
   if (!nodes.length) return;
 
   await prisma.conversation.update({
@@ -92,21 +124,9 @@ export async function runWhatsAppBot(input: { tenantId: string; conversationId: 
 
   for (const node of nodes) {
     if (node.type === "إرسال رسالة") {
-      await sendWhatsAppTextMessage({
-        tenantId,
-        conversationId: input.conversationId,
-        to: input.phone,
-        text: node.content,
-        author: BOT_AUTHOR
-      });
+      await sendBotText(channel, { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, text: node.content });
     } else if (node.type === "إرسال قائمة قصيرة" || node.type === "إرسال قائمة طويلة") {
-      await sendWhatsAppTextMessage({
-        tenantId,
-        conversationId: input.conversationId,
-        to: input.phone,
-        text: formatListMessage(node.title, node.content),
-        author: BOT_AUTHOR
-      });
+      await sendBotText(channel, { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, text: formatListMessage(node.title, node.content) });
     } else if (node.type === "تحويل لفريق") {
       await prisma.conversation.update({
         where: { id: input.conversationId },
@@ -115,13 +135,7 @@ export async function runWhatsAppBot(input: { tenantId: string; conversationId: 
       break;
     } else if (node.type === "إغلاق المحادثة") {
       if (node.content.trim()) {
-        await sendWhatsAppTextMessage({
-          tenantId,
-          conversationId: input.conversationId,
-          to: input.phone,
-          text: node.content,
-          author: BOT_AUTHOR
-        });
+        await sendBotText(channel, { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, text: node.content });
       }
       await prisma.conversation.update({
         where: { id: input.conversationId },
@@ -130,4 +144,12 @@ export async function runWhatsAppBot(input: { tenantId: string; conversationId: 
       break;
     }
   }
+}
+
+export async function runWhatsAppBot(input: { tenantId: string; conversationId: string; phone: string }) {
+  return runChannelBot("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone });
+}
+
+export async function runTelegramBot(input: { tenantId: string; conversationId: string; chatId: string }) {
+  return runChannelBot("telegram", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.chatId });
 }

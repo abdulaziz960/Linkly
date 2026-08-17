@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { storeTelegramMessage } from "../../../../lib/telegram-inbox";
+import { runTelegramBot } from "../../../../lib/bot-engine";
 
 export const runtime = "nodejs";
 
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  await storeTelegramMessage({
+  const stored = await storeTelegramMessage({
     tenantId,
     chatId: String(chatId),
     name: getTelegramName(message),
@@ -85,6 +86,12 @@ export async function POST(request: NextRequest) {
     messageId: message.message_id ? `${chatId}-${message.message_id}` : update?.update_id ? `${chatId}-${update.update_id}` : undefined,
     receivedAt: message.date ? new Date(message.date * 1000) : new Date(),
     replyToMessageId: message.reply_to_message?.message_id ? String(message.reply_to_message.message_id) : undefined
+  });
+
+  void runTelegramBot({
+    tenantId,
+    conversationId: stored.conversationId,
+    chatId: String(chatId)
   });
 
   return NextResponse.json({ ok: true });
