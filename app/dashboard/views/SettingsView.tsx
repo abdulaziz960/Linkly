@@ -1009,23 +1009,36 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             </div>
           ) : null}
           {isEmail ? (
-            <div className="telegram-help-card">
-              <div>
+            <div className="provider-connect-card">
+              <span className="provider-connect-icon gmail" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M3 6.5 12 13l9-6.5" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M3 6.2A1.2 1.2 0 0 1 4.2 5h15.6A1.2 1.2 0 0 1 21 6.2v11.6a1.2 1.2 0 0 1-1.2 1.2H4.2A1.2 1.2 0 0 1 3 17.8Z" fill="none" stroke="#fff" strokeWidth="1.8" />
+                </svg>
+              </span>
+              <div className="provider-connect-copy">
                 <h3>ربط Gmail مباشرة (موصى به)</h3>
                 <p>اربط حساب Gmail عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي.</p>
               </div>
-              <a className="btn primary" href="/api/email/oauth/gmail" style={{ display: "inline-block", width: "fit-content" }}>
+              <a className="btn primary" href="/api/email/oauth/gmail">
                 ربط Gmail
               </a>
             </div>
           ) : null}
           {isEmail ? (
-            <div className="telegram-help-card">
-              <div>
+            <div className="provider-connect-card">
+              <span className="provider-connect-icon outlook" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <rect x="2.5" y="5" width="13" height="14" rx="1.5" fill="#fff" />
+                  <path d="M6.2 12c0-2 1.3-3.4 2.9-3.4S12 10 12 12s-1.3 3.4-2.9 3.4S6.2 14 6.2 12Z" fill="none" stroke="#0072c6" strokeWidth="1.6" />
+                  <path d="M15.5 7.5 21 6v12l-5.5-1.5Z" fill="#fff" />
+                </svg>
+              </span>
+              <div className="provider-connect-copy">
                 <h3>ربط Outlook مباشرة</h3>
                 <p>اربط حساب Outlook / Microsoft 365 عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي.</p>
               </div>
-              <a className="btn primary" href="/api/email/oauth/outlook" style={{ display: "inline-block", width: "fit-content" }}>
+              <a className="btn primary" href="/api/email/oauth/outlook">
                 ربط Outlook
               </a>
             </div>
