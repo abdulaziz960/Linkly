@@ -431,7 +431,11 @@
   -ms-overflow-style: none;
 }
 
-.conversation-tabs::-webkit-scrollbar,
+.conversation-tabs {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
 .chat-tabs::-webkit-scrollbar,
 .composer-modes::-webkit-scrollbar {
   display: none;
