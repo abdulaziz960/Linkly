@@ -22,6 +22,16 @@ async function resolveMetaAccount(provider: "instagram" | "facebook", accountId:
   return { tenantId, accessToken: row.accessToken?.trim() || "", wabaId: row.wabaId };
 }
 
+async function resolveWhatsAppAccount(phoneNumberId: string): Promise<MetaAccount | null> {
+  if (!phoneNumberId) return null;
+
+  const row = await prisma.integrationSetting.findFirst({ where: { provider: "whatsapp_cloud", phoneNumberId } });
+  if (!row) return null;
+
+  const tenantId = row.id.includes(":") ? row.id.split(":")[0] : "tenant-demo";
+  return { tenantId, accessToken: row.accessToken?.trim() || "", wabaId: row.wabaId };
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const mode = searchParams.get("hub.mode");
@@ -231,8 +241,6 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
 
 export async function POST(request: NextRequest) {
   const payload = await request.json();
-  const settings = await getIntegrationSettings();
-  const accessToken = settings.accessToken?.trim() || "";
   const savedMessages: string[] = [];
   const entries = Array.isArray(payload.entry) ? payload.entry : [];
   const accountCache = new Map<string, MetaAccount | null>();
@@ -241,6 +249,14 @@ export async function POST(request: NextRequest) {
     const cacheKey = `${provider}:${accountId}`;
     if (accountCache.has(cacheKey)) return accountCache.get(cacheKey) ?? null;
     const account = await resolveMetaAccount(provider, accountId);
+    accountCache.set(cacheKey, account);
+    return account;
+  }
+
+  async function lookupWhatsAppAccount(phoneNumberId: string) {
+    const cacheKey = `whatsapp:${phoneNumberId}`;
+    if (accountCache.has(cacheKey)) return accountCache.get(cacheKey) ?? null;
+    const account = await resolveWhatsAppAccount(phoneNumberId);
     accountCache.set(cacheKey, account);
     return account;
   }
@@ -337,6 +353,8 @@ export async function POST(request: NextRequest) {
       const contacts = Array.isArray(value.contacts) ? value.contacts : [];
       const messages = Array.isArray(value.messages) ? value.messages : [];
       const statuses = Array.isArray(value.statuses) ? value.statuses : [];
+      const phoneNumberId = String(value.metadata?.phone_number_id || "");
+      const whatsappAccount = phoneNumberId ? await lookupWhatsAppAccount(phoneNumberId) : null;
 
       for (const status of statuses) {
         if (status.status === "failed" || status.errors?.length) {
@@ -349,18 +367,21 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      if (!whatsappAccount) continue;
+
       for (const message of messages) {
         if (!message.from) continue;
 
         const contact = contacts.find((item: Record<string, any>) => item.wa_id === message.from);
         const text = getMessageText(message);
-        const attachment = await getIncomingAttachment(message, accessToken);
+        const attachment = await getIncomingAttachment(message, whatsappAccount.accessToken);
 
         const stored = await storeWhatsAppMessage({
           phone: message.from,
           name: contact?.profile?.name,
           text,
           direction: "in",
+          tenantId: whatsappAccount.tenantId,
           messageId: message.id,
           receivedAt: message.timestamp ? new Date(Number(message.timestamp) * 1000) : undefined,
           attachment,
@@ -368,7 +389,7 @@ export async function POST(request: NextRequest) {
         });
 
         void runWhatsAppBot({
-          tenantId: "tenant-demo",
+          tenantId: whatsappAccount.tenantId,
           conversationId: stored.conversationId,
           phone: message.from
         });
