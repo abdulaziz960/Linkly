@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans_Arabic } from "next/font/google";
+import { Tajawal } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-const appFont = IBM_Plex_Sans_Arabic({
+const appFont = Tajawal({
   subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "700", "800", "900"],
   variable: "--font-app",
   display: "swap"
 });
