@@ -10,6 +10,17 @@
   --ok: #16a34a;
   --warn: #d97706;
   --danger: #dc2626;
+  --status-ok-bg: #dcfce7;
+  --status-ok-bg-soft: #f0fdf4;
+  --status-warn-bg: #fef3c7;
+  --status-warn-bg-soft: #fff7ed;
+  --status-danger-bg: #fee2e2;
+  --status-danger-bg-soft: #fff1f2;
+  --status-info-bg: #f0f9ff;
+  --status-ok-text: #166534;
+  --status-warn-text: #9a3412;
+  --status-danger-text: #991b1b;
+  --status-info-text: #0369a1;
   --radius: 14px;
   --shadow: 0 18px 48px rgba(28, 23, 16, 0.08);
 }
@@ -22,11 +33,22 @@
 .dashboard-shell[data-theme="dark"] {
   --bg: #17130e;
   --surface: #221c14;
-  --surface-soft: #2c2419;
+  --surface-soft: #362c1d;
   --ink: #f6f1e6;
   --muted: #a99f8c;
   --text-secondary: #d9d0bf;
-  --line: #3a3123;
+  --line: #4a3c27;
+  --status-ok-bg: #1e3a2a;
+  --status-ok-bg-soft: #1a2e22;
+  --status-warn-bg: #3a2e12;
+  --status-warn-bg-soft: #33240f;
+  --status-danger-bg: #3a1a1f;
+  --status-danger-bg-soft: #3a1a1f;
+  --status-info-bg: #16283a;
+  --status-ok-text: #7fd9a0;
+  --status-warn-text: #f0b27a;
+  --status-danger-text: #f3a9a9;
+  --status-info-text: #7ec8f0;
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
 }
 
@@ -134,22 +156,22 @@
 
 .sidebar-footer.integration-connected {
   border-color: #bbf7d0;
-  background: #f0fdf4;
+  background: var(--status-ok-bg-soft);
 }
 
 .sidebar-footer.integration-connected span {
-  color: #166534;
+  color: var(--status-ok-text);
 }
 
 .sidebar-footer.integration-pending,
 .sidebar-footer.integration-not_connected {
   border-color: #fed7aa;
-  background: #fff7ed;
+  background: var(--status-warn-bg-soft);
 }
 
 .sidebar-footer.integration-pending span,
 .sidebar-footer.integration-not_connected span {
-  color: #9a3412;
+  color: var(--status-warn-text);
 }
 
 .dashboard-nav {
@@ -268,7 +290,7 @@
 
 .nav-channel-group button.channel-active {
   background: #ecfdf5;
-  color: #166534;
+  color: var(--status-ok-text);
   font-weight: 900;
 }
 
@@ -652,7 +674,7 @@
 }
 
 .channel-badge.whatsapp {
-  background: #dcfce7;
+  background: var(--status-ok-bg);
   color: #15803d;
 }
 
@@ -667,8 +689,8 @@
 }
 
 .channel-badge.google_maps {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
 }
 
 .channel-badge.website {
@@ -678,7 +700,7 @@
 
 .channel-badge.telegram {
   background: #e0f2fe;
-  color: #0369a1;
+  color: var(--status-info-text);
 }
 
 .channel-badge.x {
@@ -687,8 +709,8 @@
 }
 
 .channel-badge.email {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--status-warn-bg);
+  color: var(--status-warn-text);
 }
 
 .channel-badge.tiktok {
@@ -747,13 +769,13 @@
 }
 
 .conversation-meta em.assigned {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--status-ok-bg);
+  color: var(--status-ok-text);
 }
 
 .conversation-meta em.unassigned {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--status-warn-bg);
+  color: var(--status-warn-text);
 }
 
 .conversation-meta em.closed {
@@ -792,18 +814,18 @@
 }
 
 .wait-badge.tier-fresh {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--status-ok-bg);
+  color: var(--status-ok-text);
 }
 
 .wait-badge.tier-warning {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--status-warn-bg);
+  color: var(--status-warn-text);
 }
 
 .wait-badge.tier-overdue {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
 }
 
 .conversation-times {
@@ -907,8 +929,14 @@
 
 .btn.danger {
   border-color: #fecdd3;
-  background: #fff1f2;
+  background: var(--status-danger-bg-soft);
   color: var(--danger);
+}
+
+.dashboard-shell[data-theme="dark"] .btn.danger {
+  border-color: #6b2530;
+  background: #3a1a1f;
+  color: #f3a9b4;
 }
 
 .modal-backdrop {
@@ -954,7 +982,7 @@
   justify-content: flex-start;
   border-top: 1px solid var(--line);
   border-bottom: 0;
-  background: var(--surface-soft);
+  background: var(--surface);
 }
 
 .icon-btn {
@@ -1288,7 +1316,7 @@
   margin: 0;
   border: 1px solid #fecdd3;
   border-radius: 12px;
-  background: #fff1f2;
+  background: var(--status-danger-bg-soft);
   color: var(--danger);
   padding: 10px 12px;
   font-weight: 900;
@@ -1298,7 +1326,7 @@
   margin: 0;
   border: 1px solid #bbf7d0;
   border-radius: 12px;
-  background: #f0fdf4;
+  background: var(--status-ok-bg-soft);
   color: #15803d;
   padding: 10px 12px;
   font-weight: 900;
@@ -1805,7 +1833,7 @@
   max-width: 82%;
   align-self: center;
   border-color: #fecaca;
-  background: #fff1f2;
+  background: var(--status-danger-bg-soft);
   color: #7f1d1d;
 }
 
@@ -2028,8 +2056,8 @@
   margin: 12px;
   border: 1px solid #fdba74;
   border-radius: 18px;
-  background: #fff7ed;
-  color: #9a3412;
+  background: var(--status-warn-bg-soft);
+  color: var(--status-warn-text);
   display: grid;
   gap: 12px;
   padding: 16px;
@@ -2051,8 +2079,8 @@
 }
 
 .composer-modes .note.active {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
 }
 
 .composer-reply-preview {
@@ -2227,8 +2255,8 @@
 
 .attachment-button.recording {
   border-color: #fecaca;
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
 }
 
 .mic-icon {
@@ -2617,13 +2645,13 @@
 }
 
 .state.ok {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--status-ok-bg);
+  color: var(--status-ok-text);
 }
 
 .state.warn {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--status-warn-bg);
+  color: var(--status-warn-text);
 }
 
 .state.muted,
@@ -3236,7 +3264,7 @@
   align-items: center;
   gap: 7px;
   border-radius: 999px;
-  background: #dcfce7;
+  background: var(--status-ok-bg);
   color: #22c55e;
   padding: 7px 13px;
   font-size: 14px;
@@ -3264,7 +3292,7 @@
 
 .campaign-warning {
   border-radius: 12px;
-  background: #fff7ed;
+  background: var(--status-warn-bg-soft);
   color: #f97316;
   padding: 16px 18px;
   font-weight: 700;
@@ -3722,18 +3750,18 @@
 }
 
 .connection-pill.connected {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--status-ok-bg);
+  color: var(--status-ok-text);
 }
 
 .connection-pill.pending {
-  background: #fff7ed;
-  color: #9a3412;
+  background: var(--status-warn-bg-soft);
+  color: var(--status-warn-text);
 }
 
 .connection-pill.not_connected {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
 }
 
 .connection-status-box {
@@ -3759,22 +3787,22 @@
 
 .connection-status-box.connected {
   border-color: #bbf7d0;
-  background: #f0fdf4;
+  background: var(--status-ok-bg-soft);
 }
 
 .connection-status-box.connected span {
-  color: #166534;
+  color: var(--status-ok-text);
 }
 
 .connection-status-box.pending,
 .connection-status-box.not_connected {
   border-color: #fed7aa;
-  background: #fff7ed;
+  background: var(--status-warn-bg-soft);
 }
 
 .connection-status-box.pending span,
 .connection-status-box.not_connected span {
-  color: #9a3412;
+  color: var(--status-warn-text);
 }
 
 .settings-save-feedback {
@@ -3784,13 +3812,13 @@
 }
 
 .settings-save-feedback.success {
-  background: #f0fdf4;
-  color: #166534;
+  background: var(--status-ok-bg-soft);
+  color: var(--status-ok-text);
 }
 
 .settings-save-feedback.error {
-  background: #fff7ed;
-  color: #9a3412;
+  background: var(--status-warn-bg-soft);
+  color: var(--status-warn-text);
 }
 
 .telegram-help-card {
@@ -3878,7 +3906,7 @@
 .telegram-link-card {
   border: 1px solid #bae6fd;
   border-radius: 16px;
-  background: #f0f9ff;
+  background: var(--status-info-bg);
   padding: 18px;
   display: grid;
   gap: 14px;
@@ -3889,7 +3917,7 @@
 }
 
 .telegram-link-card small {
-  color: #0369a1;
+  color: var(--status-info-text);
   font-weight: 900;
   line-height: 1.7;
 }
@@ -4014,7 +4042,7 @@
   display: grid;
   place-items: center;
   background: #e0f2fe;
-  color: #0369a1;
+  color: var(--status-info-text);
   font-weight: 900;
 }
 
@@ -4122,13 +4150,13 @@
 }
 
 .meta-test-feedback.success {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--status-ok-bg);
+  color: var(--status-ok-text);
 }
 
 .meta-test-feedback.error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
 }
 
 .primary-action,
@@ -4493,8 +4521,8 @@
 .connected-channel-note {
   border: 1px solid #bbf7d0;
   border-radius: 14px;
-  background: #f0fdf4;
-  color: #166534;
+  background: var(--status-ok-bg-soft);
+  color: var(--status-ok-text);
   padding: 14px 16px;
   display: grid;
   gap: 5px;
@@ -4681,7 +4709,7 @@
 }
 
 .communication-channel-card.connected em {
-  background: #dcfce7;
+  background: var(--status-ok-bg);
   color: #15803d;
 }
 
@@ -4763,7 +4791,7 @@
   display: grid;
   place-items: center;
   background: #e0f2fe;
-  color: #0369a1;
+  color: var(--status-info-text);
   font-weight: 900;
 }
 
@@ -4853,8 +4881,8 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: #dcfce7;
-  color: #166534;
+  background: var(--status-ok-bg);
+  color: var(--status-ok-text);
   font-size: 30px;
   font-weight: 900;
 }
@@ -4865,7 +4893,7 @@
 }
 
 .meta-summary-card.pending h3 {
-  color: #9a3412;
+  color: var(--status-warn-text);
 }
 
 .summary-list {
