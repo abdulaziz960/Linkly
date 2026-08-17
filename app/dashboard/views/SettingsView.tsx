@@ -87,6 +87,10 @@ function apiChannel(channel: ChannelId) {
 const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://audiencew.audience.sa";
 const publicMetaAppId = process.env.NEXT_PUBLIC_META_APP_ID || "1296230909161568";
 const publicMetaConfigId = process.env.NEXT_PUBLIC_META_CONFIG_ID || "1428169365888624";
+// WhatsApp Embedded Signup always uses AudienceW's own tech-provider Meta app,
+// never the per-tenant Instagram/Facebook app id from NEXT_PUBLIC_META_APP_ID.
+const techProviderMetaAppId = "1296230909161568";
+const techProviderMetaConfigId = "1428169365888624";
 
 let facebookSdkPromise: Promise<void> | null = null;
 
@@ -248,7 +252,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   useEffect(() => {
     if (isWhatsApp) {
-      void loadFacebookSdk(settings.appId || publicMetaAppId);
+      void loadFacebookSdk(techProviderMetaAppId);
     }
   }, [isWhatsApp, settings.appId]);
 
@@ -573,8 +577,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     if (typeof window === "undefined") return false;
 
     if (selectedChannel === "whatsapp") {
-      const appId = settings.appId || publicMetaAppId;
-      const configId = settings.configId || publicMetaConfigId;
+      const appId = techProviderMetaAppId;
+      const configId = techProviderMetaConfigId;
 
       if (!appId) {
         window.alert("تحتاج App ID من تطبيق Meta لتشغيل الربط المباشر. احفظه في إعدادات Vercel ثم حاول من جديد.");
