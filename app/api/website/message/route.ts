@@ -40,10 +40,11 @@ export async function POST(request: NextRequest) {
       email: body?.email,
       text
     });
-    void runChannelBot("website", {
+    await runChannelBot("website", {
       tenantId,
       conversationId,
-      recipientId: visitorId
+      recipientId: visitorId,
+      incomingText: text
     });
     return withCors(NextResponse.json({ ok: true, conversationId }));
   } catch (error) {

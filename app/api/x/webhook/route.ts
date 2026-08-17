@@ -185,14 +185,15 @@ export async function POST(request: NextRequest) {
   const events = parseXEvents(payload, settings.wabaId.trim());
   const stored = await Promise.all(events.map((event) => storeXMessage({ ...event, tenantId })));
 
-  events.forEach((event, index) => {
-    if (event.direction !== "in" || event.source?.type !== "x_dm") return;
-    void runChannelBot("x", {
+  for (const [index, event] of events.entries()) {
+    if (event.direction !== "in" || event.source?.type !== "x_dm") continue;
+    await runChannelBot("x", {
       tenantId,
       conversationId: stored[index].conversationId,
-      recipientId: event.xUserId
+      recipientId: event.xUserId,
+      incomingText: event.text
     });
-  });
+  }
 
   return NextResponse.json({
     ok: true,

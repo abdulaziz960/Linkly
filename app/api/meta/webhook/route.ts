@@ -284,10 +284,11 @@ export async function POST(request: NextRequest) {
           receivedAt: event.timestamp ? new Date(Number(event.timestamp)) : undefined,
           replyToMessageId: event.message?.reply_to?.mid || event.reply_to?.mid || event.reply_to?.id
         });
-        void runChannelBot("facebook", {
+        await runChannelBot("facebook", {
           tenantId: facebookAccount.tenantId,
           conversationId: storedFacebook.conversationId,
-          recipientId: senderId
+          recipientId: senderId,
+          incomingText: getFacebookText(event)
         });
         savedMessages.push(event.message?.mid || senderId);
         continue;
@@ -313,10 +314,11 @@ export async function POST(request: NextRequest) {
         receivedAt: event.timestamp ? new Date(Number(event.timestamp)) : undefined,
         replyToMessageId: event.message?.reply_to?.mid || event.reply_to?.mid || event.reply_to?.id
       });
-      void runChannelBot("instagram", {
+      await runChannelBot("instagram", {
         tenantId: instagramAccount.tenantId,
         conversationId: storedInstagram.conversationId,
-        recipientId: senderId
+        recipientId: senderId,
+        incomingText: text
       });
       savedMessages.push(event.message?.mid || senderId);
     }
@@ -388,13 +390,14 @@ export async function POST(request: NextRequest) {
           replyToMessageId: message.context?.id
         });
 
-        void runWhatsAppBot({
+        await runWhatsAppBot({
           tenantId: whatsappAccount.tenantId,
           conversationId: stored.conversationId,
-          phone: message.from
+          phone: message.from,
+          incomingText: text
         });
 
-        void maybeSendLeadAiReply({
+        await maybeSendLeadAiReply({
           conversationId: stored.conversationId,
           customerName: contact?.profile?.name || `عميل ${String(message.from).slice(-4)}`,
           customerPhone: message.from,
