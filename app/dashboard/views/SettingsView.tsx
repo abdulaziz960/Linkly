@@ -335,7 +335,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         if (data.status === "connected") {
           setWizardStep(4);
         } else if (!isFirstLoad) {
-          setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" ? 3 : selectedChannel === "google_maps" || selectedChannel === "email" ? 4 : 2);
+          setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" ? 3 : selectedChannel === "google_maps" || selectedChannel === "email" || selectedChannel === "website" ? 4 : 2);
         }
         onIntegrationChange?.(data);
       })
@@ -460,7 +460,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     const data = await response.json() as IntegrationResponse;
     setSettings(data);
     onIntegrationChange?.(data);
-    setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" ? 3 : selectedChannel === "google_maps" || selectedChannel === "email" ? 4 : 2);
+    setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" ? 3 : selectedChannel === "google_maps" || selectedChannel === "email" || selectedChannel === "website" ? 4 : 2);
     setSaveFeedback({ type: "error", text: data.connectionMessage || "تم مسح بيانات الربط" });
     setSaving(false);
   }
