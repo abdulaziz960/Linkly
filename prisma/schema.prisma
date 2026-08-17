@@ -29,6 +29,7 @@ model Conversation {
   windowExpired Int               @default(0) @map("window_expired")
   lastActivityAt String           @default("") @map("last_activity_at")
   tenantId      String            @default("tenant-demo") @map("tenant_id")
+  botRanAt      String            @default("") @map("bot_ran_at")
   customer      Customer          @relation(fields: [customerId], references: [id])
   messages      Message[]
   tags          ConversationTag[]
@@ -297,6 +298,29 @@ model ProviderSubscription {
   paymentMethod String @map("payment_method")
 
   @@map("provider_subscriptions")
+}
+
+model BotSettings {
+  id        String @id
+  tenantId  String @unique @map("tenant_id")
+  channel   String @default("whatsapp")
+  enabled   Int    @default(0)
+  updatedAt String @map("updated_at")
+
+  @@map("bot_settings")
+}
+
+model BotNode {
+  id        String @id
+  tenantId  String @map("tenant_id")
+  channel   String @default("whatsapp")
+  position  Int    @default(0)
+  type      String
+  title     String
+  content   String
+  createdAt String @map("created_at")
+
+  @@map("bot_nodes")
 }
 
 model AdminLog {

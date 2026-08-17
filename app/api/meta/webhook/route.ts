@@ -4,6 +4,7 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
 import { maybeSendLeadAiReply } from "../../../../lib/lead-ai";
+import { runWhatsAppBot } from "../../../../lib/bot-engine";
 import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { prisma } from "../../../../lib/prisma";
 
@@ -354,6 +355,12 @@ export async function POST(request: NextRequest) {
           receivedAt: message.timestamp ? new Date(Number(message.timestamp) * 1000) : undefined,
           attachment,
           replyToMessageId: message.context?.id
+        });
+
+        void runWhatsAppBot({
+          tenantId: "tenant-demo",
+          conversationId: stored.conversationId,
+          phone: message.from
         });
 
         void maybeSendLeadAiReply({

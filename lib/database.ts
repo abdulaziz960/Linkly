@@ -168,6 +168,24 @@ export async function ensureSchema() {
       updated_at TEXT NOT NULL
     )`);
     await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN IF NOT EXISTS last_synced_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS bot_ran_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS bot_settings (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL UNIQUE,
+      channel TEXT NOT NULL DEFAULT 'whatsapp',
+      enabled INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS bot_nodes (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      channel TEXT NOT NULL DEFAULT 'whatsapp',
+      position INTEGER NOT NULL DEFAULT 0,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`);
     return;
   }
 
@@ -203,6 +221,9 @@ export async function ensureSchema() {
   }
   if (!conversationColumns.some((column) => column.name === "last_activity_at")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN last_activity_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "bot_ran_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN bot_ran_at TEXT NOT NULL DEFAULT ''`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
@@ -480,6 +501,23 @@ export async function ensureSchema() {
     source TEXT NOT NULL,
     level TEXT NOT NULL,
     message TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS bot_settings (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL UNIQUE,
+    channel TEXT NOT NULL DEFAULT 'whatsapp',
+    enabled INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS bot_nodes (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    channel TEXT NOT NULL DEFAULT 'whatsapp',
+    position INTEGER NOT NULL DEFAULT 0,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL
   )`);
 }
 

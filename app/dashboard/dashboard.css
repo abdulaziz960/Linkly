@@ -3295,8 +3295,15 @@
 }
 
 .bot-canvas {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  max-height: 560px;
+  overflow-x: hidden;
+  overflow-y: auto;
   min-height: 430px;
-  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 18px;
   background-color: #0f1b2a;
@@ -3304,6 +3311,32 @@
   background-size: 28px 28px;
   position: relative;
   box-shadow: var(--shadow);
+}
+
+.bot-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.bot-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 800;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.bot-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent, #2563eb);
 }
 
 .bot-toolbar {
@@ -3323,13 +3356,13 @@
 }
 
 .bot-node {
-  position: absolute;
-  min-width: 150px;
+  min-width: 220px;
+  max-width: 420px;
   border: 1px solid rgba(255,255,255,.08);
   border-radius: 12px;
   background: #111827;
   color: #fff;
-  padding: 12px;
+  padding: 12px 14px;
   box-shadow: 0 14px 36px rgba(0,0,0,.25);
 }
 
@@ -3338,36 +3371,12 @@
   margin-top: 6px;
   color: #94a3b8;
   font-weight: 800;
+  white-space: pre-line;
 }
 
-.bot-node.start { right: 70px; top: 150px; }
-.bot-node.reply { right: 360px; top: 108px; }
-.bot-node.menu-node { right: 360px; top: 255px; }
-.bot-node.action { right: 690px; top: 215px; }
-
-.bot-menu-preview {
-  position: absolute;
-  left: 70px;
-  top: 168px;
-  min-width: 170px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 12px;
-  background: #111827;
-  color: #e5e7eb;
-}
-
-.bot-menu-preview b,
-.bot-menu-preview span {
-  display: block;
-  padding: 11px 14px;
-  border-bottom: 1px solid rgba(255,255,255,.06);
-}
-
-.bot-menu-preview b {
-  background: #2563eb;
-  color: #fff;
-}
+.bot-node.start { background: #1d4ed8; }
+.bot-node.reply { border-color: rgba(37,99,235,.35); }
+.bot-node.menu-node { border-color: rgba(217,119,6,.35); }
 
 .bot-builder-modal {
   width: min(980px, 100%);
@@ -4974,13 +4983,4 @@
     flex-wrap: wrap;
   }
 
-  .bot-node.action {
-    right: 40px;
-    top: 340px;
-  }
-
-  .bot-node.reply,
-  .bot-node.menu-node {
-    right: 220px;
-  }
 }
