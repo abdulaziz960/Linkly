@@ -836,9 +836,17 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           ? "بعد إكمال ربط Facebook سيتم حفظ الصفحة والصلاحيات، وستظهر القناة في صندوق المحادثات عند استقبال أول رسالة."
         : isInstagram
           ? "بعد إكمال ربط Instagram سيتم حفظ الحساب والصلاحيات، وستظهر القناة في صندوق المحادثات عند استقبال أول حدث."
+        : isTikTok
+          ? "تم حفظ بيانات TikTok. الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging."
+        : isSms
+          ? "تم حفظ بيانات Unifonic. الرد على أي محادثة SMS من المنصة يرسل رسالة فعلية الآن."
         : "بعد إكمال نافذة Meta سيتم حفظ حافظة الأعمال، حساب واتساب، رقم الهاتف، والصلاحيات في بيانات الربط."
       : isGoogleMaps
         ? settings.phoneNumber || "تمت مصادقة Google، لكن لم يكتمل تفعيل قراءة بيانات النشاط التجاري بعد. بعد موافقة Google Business Profile API اضغط ربط Google مرة أخرى لاختيار الحساب والموقع."
+      : isTikTok
+        ? "احفظ App Key وApp Secret وAccess Token بعد ما توافق عليك TikTok."
+      : isSms
+        ? "أدخل AppSid واسم المرسل (Sender ID) من حساب Unifonic."
       : "أكمل الربط أولاً حتى تصبح القناة جاهزة داخل المنصة.";
 
     return (
@@ -849,8 +857,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <p>{summaryText}</p>
               <div className="summary-list">
                 <b>{settings.businessName || "حافظة الأعمال"}</b>
-                <b>{settings.wabaName || (isEmail ? "قناة البريد" : isGoogleMaps ? "موقع Google" : isX ? "حساب X" : isTelegram ? "بوت Telegram" : isFacebook ? "صفحة Facebook" : isInstagram ? "حساب Instagram" : "حساب واتساب للأعمال")}</b>
-                <b>{isEmail ? settings.phoneNumber || "بريد الإرسال" : isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || "رقم واتساب"}</b>
+                <b>{settings.wabaName || (isEmail ? "قناة البريد" : isGoogleMaps ? "موقع Google" : isX ? "حساب X" : isTikTok ? "حساب TikTok" : isSms ? "قناة SMS" : isTelegram ? "بوت Telegram" : isFacebook ? "صفحة Facebook" : isInstagram ? "حساب Instagram" : "حساب واتساب للأعمال")}</b>
+                <b>{isEmail ? settings.phoneNumber || "بريد الإرسال" : isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTikTok ? settings.appId || "TikTok App Key" : isSms ? settings.phoneNumber || "Sender ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || "رقم واتساب"}</b>
               </div>
         </div>
       </div>
