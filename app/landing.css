@@ -87,6 +87,22 @@
   font-size: 15px;
 }
 
+.landing .lang-link {
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.landing .lang-link:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
 .landing .nav-links a:hover {
   background: var(--panel);
   color: var(--ink);

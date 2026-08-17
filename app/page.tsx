@@ -14,6 +14,7 @@ const landingMarkup = `<div class="landing" id="landingPage">
         <a href="#pricing">الأسعار</a>
         <a href="#faq">أسئلة</a>
       </nav>
+      <a class="lang-link" href="/en">English</a>
       <a class="btn ghost" href="/dashboard">دخول</a>
       <a class="btn primary" href="#trial">جرّبها</a>
     </div>
