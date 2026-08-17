@@ -287,7 +287,8 @@ export async function POST(request: NextRequest) {
         void runChannelBot("facebook", {
           tenantId: facebookAccount.tenantId,
           conversationId: storedFacebook.conversationId,
-          recipientId: senderId
+          recipientId: senderId,
+          incomingText: getFacebookText(event)
         });
         savedMessages.push(event.message?.mid || senderId);
         continue;
@@ -316,7 +317,8 @@ export async function POST(request: NextRequest) {
       void runChannelBot("instagram", {
         tenantId: instagramAccount.tenantId,
         conversationId: storedInstagram.conversationId,
-        recipientId: senderId
+        recipientId: senderId,
+        incomingText: text
       });
       savedMessages.push(event.message?.mid || senderId);
     }
@@ -391,7 +393,8 @@ export async function POST(request: NextRequest) {
         void runWhatsAppBot({
           tenantId: whatsappAccount.tenantId,
           conversationId: stored.conversationId,
-          phone: message.from
+          phone: message.from,
+          incomingText: text
         });
 
         void maybeSendLeadAiReply({

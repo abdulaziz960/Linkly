@@ -169,6 +169,7 @@ export async function ensureSchema() {
     )`);
     await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN IF NOT EXISTS last_synced_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS bot_ran_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS bot_waiting_node_title TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS bot_settings (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL UNIQUE,
@@ -227,6 +228,9 @@ export async function ensureSchema() {
   }
   if (!conversationColumns.some((column) => column.name === "bot_ran_at")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN bot_ran_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "bot_waiting_node_title")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN bot_waiting_node_title TEXT NOT NULL DEFAULT ''`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,

@@ -91,7 +91,8 @@ export async function POST(request: NextRequest) {
   void runTelegramBot({
     tenantId,
     conversationId: stored.conversationId,
-    chatId: String(chatId)
+    chatId: String(chatId),
+    incomingText: getTelegramText(message)
   });
 
   return NextResponse.json({ ok: true });

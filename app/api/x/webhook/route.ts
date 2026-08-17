@@ -190,7 +190,8 @@ export async function POST(request: NextRequest) {
     void runChannelBot("x", {
       tenantId,
       conversationId: stored[index].conversationId,
-      recipientId: event.xUserId
+      recipientId: event.xUserId,
+      incomingText: event.text
     });
   });
 

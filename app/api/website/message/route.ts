@@ -43,7 +43,8 @@ export async function POST(request: NextRequest) {
     void runChannelBot("website", {
       tenantId,
       conversationId,
-      recipientId: visitorId
+      recipientId: visitorId,
+      incomingText: text
     });
     return withCors(NextResponse.json({ ok: true, conversationId }));
   } catch (error) {

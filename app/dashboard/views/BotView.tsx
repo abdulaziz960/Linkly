@@ -98,13 +98,14 @@ export default function BotView() {
   }
 
   const channelLabel = channels.find((item) => item.id === channel)?.label || "";
+  const isListType = nodeType === "إرسال قائمة قصيرة" || nodeType === "إرسال قائمة طويلة";
 
   return (
     <section className="page-stack">
       <div className="page-hero">
         <div>
           <h1>الرد الآلي</h1>
-          <p>أنشئ روبوت محادثة يرحب بالعميل من أول رسالة، يعرض له الخيارات المناسبة، يرسل ردوداً جاهزة، ويحوّل المحادثة للفريق الصحيح عند الحاجة. لكل قناة إعداد وخطوات مستقلة، وتعمل الخطوات بالترتيب على أول رسالة في كل محادثة جديدة.</p>
+          <p>أنشئ روبوت محادثة يرحب بالعميل من أول رسالة، يعرض له الخيارات المناسبة، يرسل ردوداً جاهزة، ويحوّل المحادثة للفريق الصحيح عند الحاجة. لكل قناة إعداد وخطوات مستقلة. عند خطوة "قائمة" يتوقف الرد الآلي وينتظر رد العميل، ثم يتفرّع لخطوة مختلفة حسب اختياره — استخدم رمز {"=>"} بعد كل خيار لتحديد اسم الخطوة التي ينتقل لها.</p>
         </div>
         <div className="bot-hero-actions">
           <label className="bot-toggle">
@@ -129,7 +130,7 @@ export default function BotView() {
       </div>
 
       <div className="bot-canvas">
-        <div className="bot-toolbar"><b>مخطط الرد الآلي ({channelLabel})</b><span>الخطوات تُنفَّذ بالترتيب من الأعلى للأسفل عند وصول أول رسالة من عميل جديد</span></div>
+        <div className="bot-toolbar"><b>مخطط الرد الآلي ({channelLabel})</b><span>الخطوات تُنفَّذ بالترتيب، وتتوقف عند أي خطوة "قائمة" لحين رد العميل، ثم تتفرّع حسب اختياره</span></div>
         <div className="bot-node start"><b>البداية</b><small>عند وصول رسالة جديدة على {channelLabel}</small></div>
         {nodes.map((node, index) => (
           <div className={`bot-node ${index % 2 ? "menu-node" : "reply"}`} key={node.id}>
@@ -164,8 +165,20 @@ export default function BotView() {
                   </label>
                 </div>
                 <label>
-                  <span>{nodeType === "تحويل لفريق" ? "اسم الفريق أو الموظف" : "المحتوى أو الخيارات (كل خيار بسطر مستقل للقوائم)"}</span>
-                  <textarea value={nodeContent} onChange={(event) => setNodeContent(event.target.value)} placeholder="اكتب الرسالة أو الخيارات التي ستُرسل للعميل" rows={4} required />
+                  <span>
+                    {nodeType === "تحويل لفريق"
+                      ? "اسم الفريق أو الموظف"
+                      : isListType
+                        ? "الخيارات (كل خيار بسطر مستقل، وأضف => اسم الخطوة الهدف للتفرّع)"
+                        : "المحتوى"}
+                  </span>
+                  <textarea
+                    value={nodeContent}
+                    onChange={(event) => setNodeContent(event.target.value)}
+                    placeholder={isListType ? "مثال:\nتتبع الطلب => تتبع الطلب\nالتحدث لموظف => تحويل للدعم" : "اكتب الرسالة التي ستُرسل للعميل"}
+                    rows={4}
+                    required
+                  />
                 </label>
                 <button className="btn primary" type="submit" disabled={saving}>＋ إضافة خطوة</button>
               </form>

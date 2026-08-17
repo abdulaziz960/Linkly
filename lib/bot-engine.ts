@@ -22,6 +22,7 @@ export type BotNode = BotNodeInput & {
 };
 
 const BOT_AUTHOR = "الرد الآلي";
+const LIST_NODE_TYPES = new Set(["إرسال قائمة قصيرة", "إرسال قائمة طويلة"]);
 
 function settingsId(tenantId: string, channel: BotChannel) {
   return `bot-settings-${tenantId}-${channel}`;
@@ -81,13 +82,37 @@ export async function saveBotNodes(tenantId: string, channel: BotChannel, nodes:
   });
 }
 
-function formatListMessage(title: string, content: string) {
-  const options = content
+// List-node option lines look like "نص الخيار" or "نص الخيار => اسم الخطوة الهدف".
+// The arrow part is optional - options without one are just displayed text with
+// no branch (the flow does nothing further until an agent steps in).
+function parseListOptions(content: string) {
+  return content
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean);
-  const numbered = options.map((option, index) => `${index + 1}. ${option}`).join("\n");
+    .filter(Boolean)
+    .map((line) => {
+      const [label, target] = line.split("=>").map((part) => part.trim());
+      return { label: label || line, target: target || "" };
+    });
+}
+
+function formatListMessage(title: string, content: string) {
+  const options = parseListOptions(content);
+  const numbered = options.map((option, index) => `${index + 1}. ${option.label}`).join("\n");
   return numbered ? `${title}\n${numbered}` : title;
+}
+
+function matchListReply(node: BotNode, incomingText: string): string | null {
+  const options = parseListOptions(node.content);
+  const trimmed = incomingText.trim();
+
+  const numeric = /^\d+$/.test(trimmed) ? Number(trimmed) : null;
+  if (numeric && options[numeric - 1]?.target) return options[numeric - 1].target;
+
+  const byLabel = options.find((option) =>
+    option.target && (trimmed.includes(option.label) || option.label.includes(trimmed))
+  );
+  return byLabel?.target || null;
 }
 
 async function sendBotText(channel: BotChannel, args: { tenantId: string; conversationId: string; recipientId: string; text: string }) {
@@ -148,50 +173,104 @@ async function sendBotText(channel: BotChannel, args: { tenantId: string; conver
   });
 }
 
-export async function runChannelBot(channel: BotChannel, input: { tenantId: string; conversationId: string; recipientId: string }) {
+// Runs nodes in order starting at startIndex. Stops (and saves a "waiting"
+// cursor) when it hits a list node, since that needs a customer reply before
+// the flow can continue. Team-transfer/close nodes end the flow entirely.
+async function executeFrom(
+  channel: BotChannel,
+  nodes: BotNode[],
+  startIndex: number,
+  ctx: { tenantId: string; conversationId: string; recipientId: string }
+) {
+  for (let i = startIndex; i < nodes.length; i++) {
+    const node = nodes[i];
+
+    if (node.type === "إرسال رسالة") {
+      await sendBotText(channel, { ...ctx, text: node.content });
+      continue;
+    }
+
+    if (LIST_NODE_TYPES.has(node.type)) {
+      await sendBotText(channel, { ...ctx, text: formatListMessage(node.title, node.content) });
+      await prisma.conversation.update({
+        where: { id: ctx.conversationId },
+        data: { botWaitingNodeTitle: node.title }
+      });
+      return;
+    }
+
+    if (node.type === "تحويل لفريق") {
+      await prisma.conversation.update({
+        where: { id: ctx.conversationId },
+        data: { status: "unassigned", assignee: node.content.trim() || "بدون موظف", botWaitingNodeTitle: "" }
+      });
+      return;
+    }
+
+    if (node.type === "إغلاق المحادثة") {
+      if (node.content.trim()) {
+        await sendBotText(channel, { ...ctx, text: node.content });
+      }
+      await prisma.conversation.update({
+        where: { id: ctx.conversationId },
+        data: { status: "closed", botWaitingNodeTitle: "" }
+      });
+      return;
+    }
+  }
+
+  await prisma.conversation.update({
+    where: { id: ctx.conversationId },
+    data: { botWaitingNodeTitle: "" }
+  });
+}
+
+export async function runChannelBot(
+  channel: BotChannel,
+  input: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string }
+) {
   const tenantId = input.tenantId || "tenant-demo";
   const settings = await getBotSettings(tenantId, channel);
   if (!settings.enabled) return;
 
   const conversation = await prisma.conversation.findUnique({ where: { id: input.conversationId } });
-  if (!conversation || conversation.botRanAt) return;
+  if (!conversation) return;
 
   const nodes = await getBotNodes(tenantId, channel);
   if (!nodes.length) return;
 
-  await prisma.conversation.update({
-    where: { id: input.conversationId },
-    data: { botRanAt: new Date().toISOString() }
-  });
+  const ctx = { tenantId, conversationId: input.conversationId, recipientId: input.recipientId };
 
-  for (const node of nodes) {
-    if (node.type === "إرسال رسالة") {
-      await sendBotText(channel, { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, text: node.content });
-    } else if (node.type === "إرسال قائمة قصيرة" || node.type === "إرسال قائمة طويلة") {
-      await sendBotText(channel, { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, text: formatListMessage(node.title, node.content) });
-    } else if (node.type === "تحويل لفريق") {
-      await prisma.conversation.update({
-        where: { id: input.conversationId },
-        data: { status: "unassigned", assignee: node.content.trim() || "بدون موظف" }
-      });
-      break;
-    } else if (node.type === "إغلاق المحادثة") {
-      if (node.content.trim()) {
-        await sendBotText(channel, { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, text: node.content });
-      }
-      await prisma.conversation.update({
-        where: { id: input.conversationId },
-        data: { status: "closed" }
-      });
-      break;
+  if (!conversation.botRanAt) {
+    await prisma.conversation.update({
+      where: { id: input.conversationId },
+      data: { botRanAt: new Date().toISOString() }
+    });
+    await executeFrom(channel, nodes, 0, ctx);
+    return;
+  }
+
+  if (conversation.botWaitingNodeTitle) {
+    const waitingNode = nodes.find((node) => node.title === conversation.botWaitingNodeTitle);
+    if (!waitingNode) {
+      await prisma.conversation.update({ where: { id: input.conversationId }, data: { botWaitingNodeTitle: "" } });
+      return;
     }
+
+    const targetTitle = matchListReply(waitingNode, input.incomingText || "");
+    if (!targetTitle) return;
+
+    const targetIndex = nodes.findIndex((node) => node.title === targetTitle);
+    if (targetIndex === -1) return;
+
+    await executeFrom(channel, nodes, targetIndex, ctx);
   }
 }
 
-export async function runWhatsAppBot(input: { tenantId: string; conversationId: string; phone: string }) {
-  return runChannelBot("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone });
+export async function runWhatsAppBot(input: { tenantId: string; conversationId: string; phone: string; incomingText?: string }) {
+  return runChannelBot("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, incomingText: input.incomingText });
 }
 
-export async function runTelegramBot(input: { tenantId: string; conversationId: string; chatId: string }) {
-  return runChannelBot("telegram", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.chatId });
+export async function runTelegramBot(input: { tenantId: string; conversationId: string; chatId: string; incomingText?: string }) {
+  return runChannelBot("telegram", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.chatId, incomingText: input.incomingText });
 }
