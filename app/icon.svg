@@ -1,6 +1,6 @@
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <path id="petal" d="M39,44 L61,44 L61,21 A11,11 0 0 0 39,21 Z" />
+    <path id="petal" d="M41,28 L59,28 L59,15 A9,9 0 0 0 41,15 Z" />
   </defs>
   <g transform="rotate(45 50 50)" fill="#1c1710">
     <use href="#petal" />
