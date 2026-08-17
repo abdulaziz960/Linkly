@@ -217,41 +217,6 @@ const landingMarkup = `<div class="landing" id="landingPage">
       </div>
     </section>
 
-    <section class="section wrap" id="readiness">
-      <div class="section-head">
-        <span>جاهزية المنصة</span>
-        <h2>هذا وضع القنوات الحين، بدون تجميل</h2>
-        <p class="section-lead">النسخة اللايف شغالة، وكل قناة تحتاج مفاتيحها الرسمية من Meta أو Google عند ربطها لحساب العميل.</p>
-      </div>
-      <div class="status-grid">
-        <div class="status-panel">
-          <h3>القنوات في لوحة الربط</h3>
-          <p>ابدأ بواتساب، ثم وسّع لإنستقرام وخرائط قوقل وبقية القنوات حسب حاجتك.</p>
-          <div class="status-list">
-            <div class="status-row"><span class="status-icon">و</span><div><b>واتساب Cloud API</b><span>رسائل، قوالب، واختبار إرسال</span></div><span class="chip">جاهز</span></div>
-            <div class="status-row"><span class="status-icon">إ</span><div><b>إنستقرام وفيسبوك</b><span>رسائل وتعليقات عبر Meta</span></div><span class="chip">جاهز</span></div>
-            <div class="status-row"><span class="status-icon">ب</span><div><b>البريد الإلكتروني</b><span>ربط Gmail مباشر، إرسال واستقبال</span></div><span class="chip">جاهز</span></div>
-            <div class="status-row"><span class="status-icon">ق</span><div><b>تقييمات خرائط قوقل</b><span>مزامنة والرد من المنصة</span></div><span class="chip">جاهز</span></div>
-            <div class="status-row"><span class="status-icon">آ</span><div><b>الرد الآلي</b><span>سيناريوهات ترحيب وتحويل تلقائي لكل قناة</span></div><span class="chip">جاهز</span></div>
-            <div class="status-row"><span class="status-icon">+</span><div><b>Telegram وX وTikTok وSMS وودجت الموقع</b><span>جاهزة للربط، تحتاج مفاتيح كل مزود</span></div><span class="chip pending">تحتاج مفاتيح</span></div>
-          </div>
-        </div>
-        <div class="status-panel">
-          <h3>حالة الإطلاق</h3>
-          <p>النسخة الإنتاجية منشورة ومربوطة بالدومين الرسمي.</p>
-          <div class="live-box">
-            <div><span>الدومين الرسمي</span><b>audiencew.audience.sa</b></div>
-            <div><span>حالة الخدمة</span><b>Online</b></div>
-            <div><span>بيئة التشغيل</span><b>Vercel</b></div>
-          </div>
-          <div class="status-actions">
-            <a class="btn primary" href="/dashboard">فتح لوحة التحكم</a>
-            <a class="btn ghost" href="#trial">اطلب إعداد القنوات</a>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section class="section wrap" id="faq">
       <div class="section-head">
         <span>أسئلة</span>
