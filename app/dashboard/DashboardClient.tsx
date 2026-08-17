@@ -132,6 +132,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [ownerStatus, setOwnerStatus] = useState<"متصل" | "غير متصل">("متصل");
   const [teams, setTeams] = useState<Team[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -198,15 +199,16 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     id: initialUser.id,
     name: initialUser.name,
     role: initialUser.role === "مالك الحساب" || initialUser.role === "مشرف" ? initialUser.role : "موظف دعم",
-    status: "متصل",
+    status: ownerStatus,
     permissions: initialUser.role === "مالك الحساب" ? "الكل" : "",
     email: initialUser.email,
     initial: getNameInitial(initialUser.name)
   };
-  const currentEmployee =
-    (initialUser.role === "مالك الحساب"
+  const matchedEmployee =
+    initialUser.role === "مالك الحساب"
       ? employees.find((employee) => employee.id === "emp-owner")
-      : employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase())) ?? fallbackEmployee;
+      : employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase());
+  const currentEmployee = matchedEmployee ?? fallbackEmployee;
   const canViewAllConversations = canSeeAllConversations(initialUser, currentEmployee);
   const approvedTemplates = useMemo(() => templates.filter(isApprovedTemplate), [templates]);
   const scopedConversations = useMemo(() => {
@@ -881,15 +883,20 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   async function handleProfileStatusToggle() {
-    if (!currentEmployee) return;
     const nextStatus: Employee["status"] = currentProfileStatus === "متصل" ? "غير متصل" : "متصل";
-    const nextEmployee = { ...currentEmployee, status: nextStatus };
+
+    if (!matchedEmployee) {
+      setOwnerStatus(nextStatus);
+      return;
+    }
+
+    const nextEmployee = { ...matchedEmployee, status: nextStatus };
 
     setEmployees((current) =>
-      current.map((employee) => (employee.id === currentEmployee.id ? nextEmployee : employee))
+      current.map((employee) => (employee.id === matchedEmployee.id ? nextEmployee : employee))
     );
 
-    await fetch(`/api/employees/${currentEmployee.id}`, {
+    await fetch(`/api/employees/${matchedEmployee.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
