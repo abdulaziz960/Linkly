@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getCampaigns } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
-import { parseRecipientFile, activateDueScheduledCampaigns, processCampaignBatch } from "../../../lib/campaign-engine";
+import { parseRecipientFile, activateDueScheduledCampaigns, processCampaignBatch, getCampaignBalance } from "../../../lib/campaign-engine";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
 
   const template = await prisma.template.findUnique({ where: { name: templateName } });
   if (!template) return jsonError("القالب المختار غير موجود");
+  if (template.status !== "معتمد") return jsonError("لازم يكون القالب معتمد من Meta قبل استخدامه بحملة");
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const recipients = parseRecipientFile(buffer, file.name);
@@ -82,5 +83,10 @@ export async function POST(request: NextRequest) {
 
   const campaigns = await getCampaigns(user.tenantId);
   const campaign = campaigns.find((item) => item.id === campaignId);
-  return jsonOk(campaign);
+  const balance = await getCampaignBalance(user.tenantId);
+  const balanceWarning = !isScheduledFuture && balance < recipients.length
+    ? `تنبيه: رصيدك الحالي (${balance.toLocaleString("en-US")} رسالة) أقل من عدد المستلمين (${recipients.length.toLocaleString("en-US")}). بيتم الإرسال حسب الرصيد المتاح فقط وتتوقف الحملة بعده.`
+    : undefined;
+
+  return jsonOk({ ...campaign, balanceWarning });
 }

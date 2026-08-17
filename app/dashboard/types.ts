@@ -163,7 +163,7 @@ export type Campaign = {
   sent: number;
   total: number;
   progress: string;
-  status: "الحملة أنجزت" | "قيد الإرسال" | "مجدولة";
+  status: "الحملة أنجزت" | "قيد الإرسال" | "مجدولة" | "ملغاة";
   updatedAt: string;
 };
 

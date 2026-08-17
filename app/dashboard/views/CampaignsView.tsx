@@ -222,8 +222,8 @@ export default function CampaignsView({
     body.set("file", campaignFile);
 
     const response = await fetch("/api/campaigns", { method: "POST", body });
+    const payload = await response.json().catch(() => null);
     if (!response.ok) {
-      const payload = await response.json().catch(() => null);
       setFormError(payload?.error || "تعذر إنشاء الحملة");
       setSaving(false);
       return;
@@ -232,11 +232,22 @@ export default function CampaignsView({
     await onRefreshData();
     setSaving(false);
     setFormOpen(false);
+    if (payload?.data?.balanceWarning) window.alert(payload.data.balanceWarning);
   }
 
   async function deleteCampaign(campaign: Campaign) {
     if (!window.confirm(`حذف حملة ${campaign.name}؟`)) return;
     await fetch(`/api/campaigns/${campaign.id}`, { method: "DELETE" });
+    await onRefreshData();
+  }
+
+  async function stopCampaign(campaign: Campaign) {
+    if (!window.confirm(`إيقاف حملة ${campaign.name}؟ الأرقام اللي ما وصلها الإرسال بعد بتبقى موقوفة.`)) return;
+    await fetch(`/api/campaigns/${campaign.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "ملغاة" })
+    });
     await onRefreshData();
   }
 
@@ -302,10 +313,13 @@ export default function CampaignsView({
                     <td><div className="campaign-name"><span className="campaign-thumb">▧</span><span><b>{campaign.name}</b></span></div></td>
                     <td>{campaign.sent}/{campaign.total}</td>
                     <td><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
-                    <td><span className="state ok">{campaign.status}</span></td>
+                    <td><span className={campaign.status === "ملغاة" ? "state off" : "state ok"}>{campaign.status}</span></td>
                     <td><span className="campaign-date">◴ {campaign.updatedAt}</span></td>
                     <td className="row-actions">
                       <button className="campaign-report" type="button" onClick={() => openReport(campaign)}>↗ تقرير الحملة</button>
+                      {campaign.status === "قيد الإرسال" || campaign.status === "مجدولة" ? (
+                        <button className="btn soft" type="button" onClick={() => stopCampaign(campaign)}>إيقاف</button>
+                      ) : null}
                       <button className="btn soft" type="button" onClick={() => openForm(campaign)}>تعديل الاسم</button>
                       <button className="btn danger" type="button" onClick={() => deleteCampaign(campaign)}>حذف</button>
                     </td>
