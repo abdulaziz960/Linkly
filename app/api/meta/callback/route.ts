@@ -112,6 +112,27 @@ async function subscribeWhatsAppBusinessAccount(wabaId: string, accessToken: str
   }
 }
 
+async function registerWhatsAppPhoneNumber(phoneNumberId: string, accessToken: string) {
+  if (!phoneNumberId || !accessToken) return;
+
+  const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/register`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      pin: "000000"
+    })
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    console.error("WhatsApp phone number registration failed", payload);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const requestedChannel = searchParams.get("state") || searchParams.get("channel") || "";
@@ -269,6 +290,10 @@ export async function GET(request: NextRequest) {
 
     if (accessToken && effectiveWabaId) {
       await subscribeWhatsAppBusinessAccount(effectiveWabaId, accessToken);
+    }
+
+    if (accessToken && effectivePhoneNumberId) {
+      await registerWhatsAppPhoneNumber(effectivePhoneNumberId, accessToken);
     }
 
     await prisma.integrationSetting.update({
