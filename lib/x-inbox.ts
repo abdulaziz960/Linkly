@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
+import { runInboundMessageAutomations } from "./automation-engine";
 
 type StoreXMessageInput = {
   tenantId?: string;
@@ -114,5 +115,10 @@ export async function storeXMessage(input: StoreXMessageInput) {
     });
 
     return message;
+  }).then(async (result) => {
+    if (input.direction === "in") {
+      await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+    }
+    return result;
   });
 }

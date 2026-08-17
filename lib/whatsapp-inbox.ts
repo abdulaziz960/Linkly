@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
+import { runInboundMessageAutomations } from "./automation-engine";
 
 type StoreWhatsAppMessageInput = {
   phone: string;
@@ -133,5 +134,10 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
       conversationId,
       message
     };
+  }).then(async (result) => {
+    if (input.direction === "in") {
+      await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+    }
+    return result;
   });
 }

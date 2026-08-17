@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { formatMessageTime } from "./time";
+import { runInboundMessageAutomations } from "./automation-engine";
 
 export type IncomingEmail = {
   tenantId: string;
@@ -87,6 +88,8 @@ export async function storeEmailMessage(input: IncomingEmail) {
     update: {},
   });
 
+  await runInboundMessageAutomations(conversation.id, tenantId, body);
+
   return { customer, conversation, message };
 }
 
@@ -139,5 +142,8 @@ export async function storeIncomingEmail(input: LegacyIncomingEmail) {
       data: { lastMessage: text, unread: { increment: 1 }, lastActivityAt: activityAt, windowExpired: 0 }
     });
     return { conversationId, messageId };
+  }).then(async (result) => {
+    await runInboundMessageAutomations(result.conversationId, tenantId, text);
+    return result;
   });
 }

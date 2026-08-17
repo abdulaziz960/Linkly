@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getAutomationRules } from "../../../lib/database";
+import { getCurrentUser } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
 import { jsonError, jsonOk } from "../_utils/json";
 
@@ -28,10 +29,15 @@ function cleanActions(actions?: AutomationActionInput[]) {
 }
 
 export async function GET() {
-  return jsonOk(await getAutomationRules());
+  const user = await getCurrentUser();
+  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  return jsonOk(await getAutomationRules(user.tenantId));
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+
   const body = (await request.json()) as {
     name?: string;
     description?: string;
@@ -48,6 +54,7 @@ export async function POST(request: NextRequest) {
   const rule = await prisma.automationRule.create({
     data: {
       id: `auto-${Date.now()}`,
+      tenantId: user.tenantId,
       name: body.name.trim(),
       description: body.description?.trim() || "",
       trigger: body.trigger?.trim() || "رسالة واردة",

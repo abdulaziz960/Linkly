@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -30,6 +31,9 @@ function cleanActions(actions?: AutomationActionInput[]) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
+  const user = await getCurrentUser();
+  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+
   const body = (await request.json()) as {
     name?: string;
     description?: string;
@@ -42,6 +46,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     enabled?: boolean;
   };
   try {
+    const existing = await prisma.automationRule.findFirst({ where: { id, tenantId: user.tenantId } });
+    if (!existing) return jsonError("تعذر تحديث الأتمتة", 404);
+
     return jsonOk(await prisma.automationRule.update({
       where: { id },
       data: {
@@ -63,7 +70,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
+  const user = await getCurrentUser();
+  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+
   try {
+    const existing = await prisma.automationRule.findFirst({ where: { id, tenantId: user.tenantId } });
+    if (!existing) return jsonError("تعذر حذف الأتمتة", 404);
+
     await prisma.automationRule.delete({ where: { id } });
     return jsonOk({ id });
   } catch {

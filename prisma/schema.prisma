@@ -150,6 +150,7 @@ model QuickReply {
 
 model AutomationRule {
   id          String @id
+  tenantId    String @default("tenant-demo") @map("tenant_id")
   name        String
   description String
   trigger     String @default("رسالة واردة")
@@ -162,6 +163,17 @@ model AutomationRule {
   enabled     Int    @default(1)
 
   @@map("automation_rules")
+}
+
+model AutomationQueueItem {
+  id             String @id
+  ruleId         String @map("rule_id")
+  conversationId String @map("conversation_id")
+  tenantId       String @default("tenant-demo") @map("tenant_id")
+  runAt          String @map("run_at")
+  createdAt      String @map("created_at")
+
+  @@map("automation_queue")
 }
 
 model Campaign {

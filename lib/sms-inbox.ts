@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
+import { runInboundMessageAutomations } from "./automation-engine";
 
 /**
  * Storage helper for inbound SMS, ready to be called once the Unifonic
@@ -91,5 +92,10 @@ export async function storeSmsMessage(input: StoreSmsMessageInput) {
     });
 
     return message;
+  }).then(async (result) => {
+    if (input.direction === "in") {
+      await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+    }
+    return result;
   });
 }

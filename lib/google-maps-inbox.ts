@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
+import { runInboundMessageAutomations } from "./automation-engine";
 
 type StoreGoogleMapsReviewInput = {
   tenantId?: string;
@@ -73,6 +74,8 @@ export async function storeGoogleMapsReview(input: StoreGoogleMapsReviewInput) {
       }
     });
 
+    const existingMessage = await tx.message.findUnique({ where: { id: messageId }, select: { id: true } });
+
     const message = await tx.message.upsert({
       where: { id: messageId },
       update: {
@@ -115,6 +118,11 @@ export async function storeGoogleMapsReview(input: StoreGoogleMapsReviewInput) {
       });
     }
 
-    return { conversationId, message };
+    return { conversationId, message, isNew: !existingMessage };
+  }).then(async (result) => {
+    if (result.isNew) {
+      await runInboundMessageAutomations(result.conversationId, tenantId, reviewText);
+    }
+    return result;
   });
 }

@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
+import { runInboundMessageAutomations } from "./automation-engine";
 
 /**
  * TikTok's Business Messaging API requires approved Messaging Partner
@@ -107,5 +108,10 @@ export async function storeTikTokMessage(input: StoreTikTokMessageInput) {
     });
 
     return message;
+  }).then(async (result) => {
+    if (input.direction === "in") {
+      await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+    }
+    return result;
   });
 }

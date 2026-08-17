@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { formatMessageTime } from "./time";
+import { runInboundMessageAutomations } from "./automation-engine";
 
 function stableId(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex").slice(0, 24);
@@ -73,5 +74,8 @@ export async function storeWebsiteMessage(input: IncomingWebsiteMessage) {
     });
 
     return { conversationId: id, message };
+  }).then(async (result) => {
+    await runInboundMessageAutomations(result.conversationId, tenantId, text);
+    return result;
   });
 }

@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
+import { runInboundMessageAutomations } from "./automation-engine";
 
 type StoreFacebookMessageInput = {
   facebookUserId: string;
@@ -117,5 +118,10 @@ export async function storeFacebookMessage(input: StoreFacebookMessageInput) {
       conversationId,
       message
     };
+  }).then(async (result) => {
+    if (input.direction === "in") {
+      await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+    }
+    return result;
   });
 }

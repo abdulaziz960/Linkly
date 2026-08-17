@@ -190,6 +190,15 @@ export async function ensureSchema() {
       content TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS automation_queue (
+      id TEXT PRIMARY KEY,
+      rule_id TEXT NOT NULL,
+      conversation_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
+      run_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`);
     return;
   }
 
@@ -358,6 +367,17 @@ export async function ensureSchema() {
       await prisma.$executeRawUnsafe(`ALTER TABLE automation_rules ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT '[]'`);
     }
   }
+  if (!automationColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE automation_rules ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+  }
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS automation_queue (
+    id TEXT PRIMARY KEY,
+    rule_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
+    run_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaigns (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -1501,9 +1521,9 @@ export async function getQuickReplies(): Promise<QuickReply[]> {
   return prisma.quickReply.findMany();
 }
 
-export async function getAutomationRules(): Promise<AutomationRule[]> {
+export async function getAutomationRules(tenantId = "tenant-demo"): Promise<AutomationRule[]> {
   await ensureSeeded();
-  const rows = await prisma.automationRule.findMany();
+  const rows = await prisma.automationRule.findMany({ where: { tenantId } });
 
   return rows.map((rule) => ({
     id: rule.id,

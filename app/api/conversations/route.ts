@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getConversations } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
+import { processDueAutomations } from "../../../lib/automation-engine";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
@@ -9,6 +10,9 @@ export const runtime = "nodejs";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return jsonError("غير مصرح", 401);
+  processDueAutomations(user.tenantId).catch((error) => {
+    console.error("Automation queue processing failed", error);
+  });
   return jsonOk(await getConversations(user.tenantId));
 }
 
