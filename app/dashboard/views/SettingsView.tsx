@@ -80,6 +80,32 @@ const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://audiencew.audie
 const publicMetaAppId = process.env.NEXT_PUBLIC_META_APP_ID || "1296230909161568";
 const publicMetaConfigId = process.env.NEXT_PUBLIC_META_CONFIG_ID || "1428169365888624";
 
+let facebookSdkPromise: Promise<void> | null = null;
+
+function loadFacebookSdk(appId: string): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  const w = window as typeof window & { FB?: any; fbAsyncInit?: () => void };
+  if (w.FB) return Promise.resolve();
+  if (facebookSdkPromise) return facebookSdkPromise;
+
+  facebookSdkPromise = new Promise((resolve) => {
+    w.fbAsyncInit = () => {
+      w.FB.init({ appId, xfbml: false, version: "v22.0" });
+      resolve();
+    };
+
+    if (!document.getElementById("facebook-jssdk")) {
+      const script = document.createElement("script");
+      script.id = "facebook-jssdk";
+      script.src = "https://connect.facebook.net/en_US/sdk.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  });
+
+  return facebookSdkPromise;
+}
+
 type IntegrationResponse = IntegrationSettings & {
   connectionMessage?: string;
   missingFields?: string[];
@@ -533,11 +559,39 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         return false;
       }
 
-      const metaUrl = "/api/meta/whatsapp-onboard";
-      const metaWindow = window.open(metaUrl, "audiencew-meta-connect", "width=960,height=780");
-      if (!metaWindow) {
-        window.location.href = metaUrl;
+      await loadFacebookSdk(appId);
+      const w = window as typeof window & { FB?: any };
+      if (!w.FB) {
+        window.alert("تعذر تحميل نافذة Meta. تأكد من اتصالك بالإنترنت وحاول من جديد.");
+        return false;
       }
+
+      w.FB.login(
+        (response: { authResponse?: { code?: string } }) => {
+          const code = response?.authResponse?.code;
+          console.log("[AudienceW debug] FB.login response", response);
+          if (!code) return;
+
+          fetch(`/api/meta/callback?channel=whatsapp&code=${encodeURIComponent(code)}`, {
+            headers: { Accept: "application/json" }
+          })
+            .then((res) => res.json())
+            .then((data) => console.log("[AudienceW debug] whatsapp code exchange result", data))
+            .finally(() => {
+              window.postMessage({ type: "audiencew:meta-connected" }, window.location.origin);
+            });
+        },
+        {
+          config_id: configId,
+          response_type: "code",
+          override_default_response_type: true,
+          extras: {
+            setup: {},
+            featureType: "",
+            sessionInfoVersion: "3"
+          }
+        } as any
+      );
 
       return true;
     }
