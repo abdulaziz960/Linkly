@@ -2562,6 +2562,40 @@
   font-weight: 800;
 }
 
+.activity-heatmap {
+  display: grid;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.activity-heatmap-hours,
+.activity-heatmap-row {
+  display: grid;
+  grid-template-columns: 70px repeat(8, minmax(28px, 1fr));
+  align-items: center;
+  gap: 6px;
+}
+
+.activity-heatmap-hours span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.activity-heatmap-day {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.activity-heatmap-cell {
+  height: 22px;
+  border-radius: 5px;
+  background: var(--brand);
+}
+
 .section-tabs {
   display: flex;
   gap: 8px;
