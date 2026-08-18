@@ -297,6 +297,31 @@ export async function ensureSchema() {
     } catch (error) {
       console.error("Plans name uniqueness migration failed", error);
     }
+    // One-time repair: an earlier deploy of this feature created "plans" with
+    // only id/name (English placeholders), before monthly_price/employee_limit
+    // existed as columns - those rows got the bare column defaults (0/1) once
+    // the columns were added above. Backfill them with the real tier values.
+    await prisma.$executeRawUnsafe(
+      `UPDATE plans SET name = $1, monthly_price = $2, employee_limit = $3, sort_order = $4, created_at = COALESCE(NULLIF(created_at, ''), 'اليوم'), updated_at = COALESCE(NULLIF(updated_at, ''), 'اليوم') WHERE name = 'Starter'`,
+      "باقة البداية",
+      249,
+      1,
+      1
+    );
+    await prisma.$executeRawUnsafe(
+      `UPDATE plans SET name = $1, monthly_price = $2, employee_limit = $3, sort_order = $4, created_at = COALESCE(NULLIF(created_at, ''), 'اليوم'), updated_at = COALESCE(NULLIF(updated_at, ''), 'اليوم') WHERE name = 'Growth'`,
+      "باقة النمو",
+      499,
+      3,
+      2
+    );
+    await prisma.$executeRawUnsafe(
+      `UPDATE plans SET name = $1, monthly_price = $2, employee_limit = $3, sort_order = $4, created_at = COALESCE(NULLIF(created_at, ''), 'اليوم'), updated_at = COALESCE(NULLIF(updated_at, ''), 'اليوم') WHERE name = 'Business'`,
+      "باقة الأعمال",
+      999,
+      10,
+      3
+    );
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL UNIQUE,
