@@ -358,14 +358,37 @@ export async function ensureSchema() {
       console.error("Subscriptions tenant_id constraint migration failed", error);
     }
     // The subscriptions table pre-existed in prod (see CREATE TABLE IF NOT
-    // EXISTS above) with a leftover "workspace_id" NOT NULL column from
-    // whatever created it originally - it isn't part of this schema and
-    // nothing here writes to it, so new inserts violated the NOT NULL
-    // constraint. Drop the constraint rather than guess a value for it.
+    // EXISTS above) with leftover NOT NULL columns from whatever created it
+    // originally (workspace_id, plan_id, ...) - none of them are part of
+    // this schema and nothing here writes to them, so every insert violated
+    // one NOT NULL constraint after another. Rather than fix these one at a
+    // time as each surfaces, find every NOT NULL column outside our known
+    // set and relax it in one pass.
     try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ALTER COLUMN workspace_id DROP NOT NULL`);
+      const knownColumns = [
+        "id",
+        "tenant_id",
+        "company_name",
+        "owner_name",
+        "owner_email",
+        "plan",
+        "status",
+        "employee_limit",
+        "amount",
+        "billing_cycle",
+        "renewal_at",
+        "created_at",
+        "updated_at"
+      ];
+      const strayColumns = await prisma.$queryRawUnsafe<Array<{ column_name: string }>>(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'subscriptions' AND is_nullable = 'NO' AND column_default IS NULL`
+      );
+      for (const { column_name } of strayColumns) {
+        if (knownColumns.includes(column_name)) continue;
+        await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ALTER COLUMN "${column_name}" DROP NOT NULL`);
+      }
     } catch (error) {
-      console.error("Subscriptions workspace_id constraint relax failed", error);
+      console.error("Subscriptions stray-column constraint relax failed", error);
     }
     // Same leftover placeholder batch (see plans repair above) included a
     // fourth "Enterprise" row never part of the three-tier design - drop it
