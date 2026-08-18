@@ -284,6 +284,19 @@ export async function ensureSchema() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS monthly_price INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS employee_limit INTEGER NOT NULL DEFAULT 1`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS active INTEGER NOT NULL DEFAULT 1`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS created_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS updated_at TEXT NOT NULL DEFAULT ''`);
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE plans DROP CONSTRAINT IF EXISTS plans_name_key`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD CONSTRAINT plans_name_key UNIQUE (name)`);
+    } catch (error) {
+      console.error("Plans name uniqueness migration failed", error);
+    }
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL UNIQUE,
