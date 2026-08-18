@@ -1,4 +1,5 @@
 import "./landing.css";
+import TrialFormEnhancer from "./TrialFormEnhancer";
 
 const landingMarkup = `<div class="landing" id="landingPage">
   <header class="topbar">
@@ -175,17 +176,17 @@ const landingMarkup = `<div class="landing" id="landingPage">
           <div>
             <span class="eyebrow">يبدأ خلال دقايق</span>
             <h2 id="authTitle">جرّب AudienceW</h2>
-            <p>عبّي بيانات نشاطك، ونحدد معك القنوات المناسبة قبل أي اشتراك.</p>
+            <p>سجّل الآن وحسابك ينشأ فورًا — بدون انتظار رد من أحد.</p>
           </div>
           <ul>
-            <li>تجربة مخصصة حسب قنواتك الحالية</li>
-            <li>مراجعة أولية لطريقة تواصلك مع عملائك</li>
-            <li>نساعدك تختار الباقة المناسبة</li>
+            <li>حساب دخول حقيقي جاهز فورًا بعد التسجيل</li>
+            <li>تجربة مجانية ١٤ يوم</li>
+            <li>تقدر تختار الباقة المناسبة بعدها</li>
           </ul>
         </aside>
         <section class="trial-form">
           <h2 id="authModeTitle">بيانات التواصل</h2>
-          <p>خلّها مختصرة — نحتاجها فقط عشان نرتب التجربة ونفهم حجم فريقك وقنواتك.</p>
+          <p>خلّها مختصرة — نحتاجها فقط عشان ننشئ حسابك ونفهم حجم فريقك وقنواتك.</p>
           <form id="trialForm" class="form-grid">
             <input type="hidden" name="intent" value="trial">
             <input type="hidden" name="auth_provider" value="form">
@@ -193,7 +194,7 @@ const landingMarkup = `<div class="landing" id="landingPage">
             <label>اسم النشاط<input name="company_name" required placeholder="مثال: متجر الجودة"></label>
             <label>اسمك<input name="contact_name" required placeholder="اسمك الكامل"></label>
             <label>البريد الإلكتروني<input name="email" type="email" required placeholder="name@company.com"></label>
-            <label>رقم الجوال<input name="phone" required placeholder="05xxxxxxxx"></label>
+            <label>رقم الجوال<input name="phone" placeholder="05xxxxxxxx"></label>
             <div class="choice-field">
               <div class="choice-title">حجم فريقك</div>
               <div class="choice-grid">
@@ -211,9 +212,9 @@ const landingMarkup = `<div class="landing" id="landingPage">
                 <label class="choice-option"><input type="checkbox" name="channels" value="Google Maps"><b>خرائط قوقل</b><span>تقييمات وردود</span></label>
               </div>
             </div>
-            <label class="full"><button class="btn primary" type="submit" style="width:100%">أرسل طلب التجربة</button></label>
+            <label class="full"><button class="btn primary" type="submit" style="width:100%">ابدأ تجربتك الآن</button></label>
           </form>
-          <p class="form-note">بعد الإرسال، يتواصل معك فريقنا خلال يوم عمل لتجهيز تجربة مناسبة لقنواتك وطريقة شغلك.</p>
+          <p class="form-note">بمجرد التسجيل ينشأ حسابك فورًا وتنتقل مباشرة لتفعيله وتعيين كلمة المرور.</p>
         </section>
       </div>
     </section>
@@ -250,5 +251,10 @@ const landingMarkup = `<div class="landing" id="landingPage">
 </div>`;
 
 export default function HomePage() {
-  return <div dangerouslySetInnerHTML={{ __html: landingMarkup }} />;
+  return (
+    <>
+      <div dangerouslySetInnerHTML={{ __html: landingMarkup }} />
+      <TrialFormEnhancer />
+    </>
+  );
 }
