@@ -96,6 +96,10 @@
 }
 
 .admin-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   color: var(--admin-muted);
   text-decoration: none;
   border-radius: 8px;
@@ -112,6 +116,25 @@
 .admin-nav a.active {
   background: var(--admin-ink);
   color: #ffffff;
+}
+
+.admin-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-nav a.active .admin-nav-badge {
+  background: #ffffff;
+  color: var(--admin-ink);
 }
 
 .admin-profile {
@@ -898,6 +921,56 @@
   color: var(--admin-muted);
   font-weight: 700;
   margin-top: 4px;
+}
+
+.admin-sound-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--admin-ink);
+  cursor: pointer;
+  margin-inline-start: auto;
+}
+
+.admin-notification-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 0;
+  box-shadow: inset 0 -1px 0 var(--admin-line);
+}
+
+.admin-notification-row:last-child {
+  box-shadow: none;
+}
+
+.admin-notification-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-notification-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.admin-notification-body > span {
+  color: var(--admin-muted);
+  font-weight: 700;
+}
+
+.admin-notification-at {
+  flex: 0 0 auto;
+  color: var(--admin-muted);
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .admin-integration {
