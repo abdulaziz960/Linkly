@@ -19,7 +19,9 @@ export default function AdminSidebar({ user }: { user: AdminUser }) {
   return (
     <aside className="admin-sidebar">
       <div className="admin-brand">
-        <span className="admin-brand-mark">A</span>
+        <span className="admin-brand-mark">
+          <img src="/assets/audiencew-logo.png" alt="" />
+        </span>
         <div>
           <strong>AudienceW</strong>
           <span>لوحة المزوّد</span>

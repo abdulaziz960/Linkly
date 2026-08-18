@@ -70,6 +70,13 @@
   flex: 0 0 auto;
 }
 
+.admin-brand-mark img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: invert(1);
+}
+
 .admin-brand strong,
 .admin-profile strong {
   display: block;
