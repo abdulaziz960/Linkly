@@ -2,18 +2,31 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import type { PlanRow, SubscriptionRow } from "../types";
-import { EXTRA_USER_PRICE, formatNumber, statusClass } from "../utils";
+import { EXTRA_USER_PRICE, formatNumber, getRenewalAlert, statusClass } from "../utils";
 
 type ClientsViewProps = {
   subscriptions: SubscriptionRow[];
   plans: PlanRow[];
 };
 
+const STATUS_FILTERS = ["الكل", "نشط", "تجربة", "متوقف"];
+const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
+  { value: "recent", label: "الأحدث" },
+  { value: "name", label: "اسم العميل" },
+  { value: "renewal", label: "أقرب تجديد" },
+  { value: "revenue", label: "أعلى إيراد" }
+];
+
+type SortKey = "recent" | "name" | "renewal" | "revenue";
+
 export default function ClientsView({ subscriptions, plans }: ClientsViewProps) {
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("الكل");
+  const [sortBy, setSortBy] = useState<SortKey>("recent");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState("");
@@ -146,12 +159,65 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     router.refresh();
   }
 
+  const activeCount = subscriptions.filter((s) => s.status === "نشط").length;
+  const trialCount = subscriptions.filter((s) => s.status === "تجربة").length;
+  const atRiskCount = subscriptions.filter((s) => getRenewalAlert(s) !== null).length;
+
+  const visibleClients = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    const filtered = subscriptions.filter((client) => {
+      if (statusFilter !== "الكل" && client.status !== statusFilter) return false;
+      if (!query) return true;
+      return (
+        client.companyName.toLowerCase().includes(query) ||
+        client.ownerName.toLowerCase().includes(query) ||
+        client.ownerEmail.toLowerCase().includes(query)
+      );
+    });
+
+    const sorted = [...filtered];
+    if (sortBy === "name") {
+      sorted.sort((a, b) => a.companyName.localeCompare(b.companyName, "ar"));
+    } else if (sortBy === "renewal") {
+      sorted.sort((a, b) => (a.renewalAt || "9999").localeCompare(b.renewalAt || "9999"));
+    } else if (sortBy === "revenue") {
+      sorted.sort((a, b) => b.amount - a.amount);
+    }
+    return sorted;
+  }, [subscriptions, searchQuery, statusFilter, sortBy]);
+
   return (
     <>
+      <section className="admin-section">
+        <div className="admin-metrics">
+          <article>
+            <span>إجمالي العملاء</span>
+            <strong>{formatNumber(subscriptions.length)}</strong>
+            <small>عدد الحسابات الحقيقية على المنصة</small>
+          </article>
+          <article>
+            <span>نشط</span>
+            <strong>{formatNumber(activeCount)}</strong>
+            <small>اشتراكات فعّالة حاليًا</small>
+          </article>
+          <article>
+            <span>تجربة</span>
+            <strong>{formatNumber(trialCount)}</strong>
+            <small>لم تتحول لاشتراك مدفوع بعد</small>
+          </article>
+          <article>
+            <span>يحتاج متابعة</span>
+            <strong>{formatNumber(atRiskCount)}</strong>
+            <small>تجديد قريب أو متأخر</small>
+          </article>
+        </div>
+      </section>
+
       <section className="admin-card">
         <div className="admin-card-head">
           <div>
-            <h2>العملاء</h2>
+            <h2>العملاء ({formatNumber(visibleClients.length)} من {formatNumber(subscriptions.length)})</h2>
             <p>كل عميل وتحته حالة اشتراكه الحقيقية، عدد الموظفين الفعلي، والمحادثات المستخدمة.</p>
           </div>
           <div className="admin-card-actions">
@@ -160,8 +226,38 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
             </button>
           </div>
         </div>
+
+        <div className="admin-toolbar">
+          <input
+            type="search"
+            className="admin-search-input"
+            placeholder="ابحث بالاسم أو البريد الإلكتروني..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
+          <div className="admin-filter-chips">
+            {STATUS_FILTERS.map((status) => (
+              <button
+                key={status}
+                type="button"
+                className={`admin-filter-chip ${statusFilter === status ? "active" : ""}`}
+                onClick={() => setStatusFilter(status)}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortKey)}>
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                ترتيب: {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="admin-client-cards">
-          {subscriptions.map((client) => {
+          {visibleClients.map((client) => {
             const extraUserCount = Math.max(0, client.employeeCount - client.employeeLimit);
             const extraUserAmount = extraUserCount * EXTRA_USER_PRICE;
             const invoiceTotal = client.amount + extraUserAmount;
@@ -169,9 +265,12 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
             return (
               <article className="admin-client-card" key={client.tenantId}>
                 <div className="admin-client-summary">
-                  <div>
-                    <strong>{client.companyName}</strong>
-                    <span>{client.ownerName} · {client.ownerEmail}</span>
+                  <div className="admin-client-summary-main">
+                    <span className="admin-client-avatar">{client.companyName.slice(0, 1) || "ع"}</span>
+                    <div>
+                      <strong>{client.companyName}</strong>
+                      <span>{client.ownerName} · {client.ownerEmail}</span>
+                    </div>
                   </div>
                   <span className={`admin-pill ${statusClass(client.status)}`}>{client.status}</span>
                 </div>
@@ -218,7 +317,11 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
               </article>
             );
           })}
-          {!subscriptions.length ? <p className="admin-empty-state">لا يوجد عملاء بعد. اضغط "إضافة عميل" لإنشاء أول حساب.</p> : null}
+          {!subscriptions.length ? (
+            <p className="admin-empty-state">لا يوجد عملاء بعد. اضغط "إضافة عميل" لإنشاء أول حساب.</p>
+          ) : !visibleClients.length ? (
+            <p className="admin-empty-state">لا توجد نتائج مطابقة للبحث أو الفلتر الحالي.</p>
+          ) : null}
         </div>
       </section>
 

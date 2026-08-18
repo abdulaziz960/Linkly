@@ -550,6 +550,68 @@
   color: #ffffff;
 }
 
+.admin-toolbar {
+  padding: 16px 20px;
+  box-shadow: inset 0 -1px 0 var(--admin-line);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--admin-surface-soft);
+}
+
+.admin-search-input {
+  flex: 1 1 220px;
+  min-width: 200px;
+  min-height: 42px;
+  box-shadow: var(--admin-shadow-border);
+  border: 0;
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  padding: 0 14px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.admin-filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-filter-chip {
+  border: 0;
+  cursor: pointer;
+  padding: 9px 14px;
+  border-radius: 999px;
+  box-shadow: var(--admin-shadow-border);
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  font-weight: 800;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.admin-filter-chip.active {
+  background: var(--admin-ink);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.admin-toolbar select {
+  min-height: 42px;
+  box-shadow: var(--admin-shadow-border);
+  border: 0;
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  padding: 0 12px;
+  font-weight: 800;
+  font-size: 13px;
+}
+
 .admin-client-cards {
   padding: 18px;
   display: grid;
@@ -573,6 +635,26 @@
   background: var(--admin-surface);
 }
 
+.admin-client-summary-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.admin-client-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--admin-ink);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 15px;
+  flex: 0 0 auto;
+}
+
 .admin-client-summary strong,
 .admin-client-summary span {
   display: block;
@@ -581,6 +663,13 @@
 .admin-client-summary strong {
   font-size: 18px;
   font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-client-summary-main div {
+  min-width: 0;
 }
 
 .admin-client-summary div span {
