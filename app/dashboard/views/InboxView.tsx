@@ -215,6 +215,11 @@ function formatEmailContent(text: string) {
     .replace(/^[a-f0-9]{16,}$/gim, "")
     .replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/gim, "")
     .replace(/\bOn .{0,300}?\bwrote:[\s\S]*$/i, "")
+    // Gmail's Arabic-locale quoted-reply header, e.g. "في أحد، ١٦ أغسطس،
+    // ٢٠٢٦ في ١٠:٠٦ م، كتب Name <email>:" followed by the quoted text.
+    // \b doesn't work around Arabic letters in JS regex (they aren't \w),
+    // so this omits it rather than silently failing to match.
+    .replace(/في\s.{0,300}?كتب\s.{0,200}?<[^<>]+>\s*:[\s\S]*$/, "")
     .replace(/^>.*$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
