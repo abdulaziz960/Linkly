@@ -7,7 +7,8 @@ function nowTimestamp() {
   return new Intl.DateTimeFormat("ar-SA", {
     dateStyle: "medium",
     timeStyle: "short",
-    timeZone: "Asia/Riyadh"
+    timeZone: "Asia/Riyadh",
+    numberingSystem: "latn"
   }).format(new Date());
 }
 

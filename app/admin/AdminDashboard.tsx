@@ -62,7 +62,7 @@ type AdminDashboardProps = {
   team: TeamRow[];
 };
 
-const numberFormatter = new Intl.NumberFormat("ar-SA");
+const numberFormatter = new Intl.NumberFormat("ar-SA", { numberingSystem: "latn" });
 const EXTRA_USER_PRICE = 65;
 const RENEWAL_SOON_DAYS = 7;
 
