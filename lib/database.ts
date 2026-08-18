@@ -81,7 +81,15 @@ export type UserAccount = {
 // Real AudienceW staff allowed into /admin. isPlatformAdmin defaults to 0 for
 // every account (including every tenant's own "مالك الحساب"), so without this
 // backfill nobody - not even platform staff - can reach the provider dashboard.
+// If any of these emails already has (or later gets) a real login account,
+// it's flagged isPlatformAdmin=1 automatically.
 const platformAdminEmails = ["abdulaziz@audience.sa", "xcoode25@gmail.com"];
+
+// Subset of platformAdminEmails allowed to have a brand-new login account
+// auto-created for them when one doesn't exist yet (see seedDatabase below).
+// Deliberately narrower than platformAdminEmails - an email only reaches this
+// list once its owner has actually confirmed they want an account created.
+const autoCreatePlatformAdminEmails = ["abdulaziz@audience.sa"];
 
 export type ProviderClient = {
   id: string;
@@ -991,9 +999,11 @@ async function seedDatabase() {
 
     // Real AudienceW staff (platformAdminEmails) need an actual login account
     // to ever reach /admin - unlike tenant owners, nothing else in the app
-    // creates one for them. Only creates the account when missing; never
-    // touches passwordHash on an existing one (they set that themselves via
-    // /forgot-password -> /activate).
+    // creates one for them. Flags isPlatformAdmin on any existing account for
+    // the full list; only auto-creates a brand-new account for the narrower
+    // autoCreatePlatformAdminEmails list. Never touches passwordHash on an
+    // existing account (they set that themselves via /forgot-password ->
+    // /activate).
     for (const email of platformAdminEmails) {
       const existingAdminAccount = await tx.userAccount.findUnique({ where: { email } });
       if (existingAdminAccount) {
@@ -1002,6 +1012,8 @@ async function seedDatabase() {
         }
         continue;
       }
+
+      if (!autoCreatePlatformAdminEmails.includes(email)) continue;
 
       await tx.userAccount.create({
         data: {
