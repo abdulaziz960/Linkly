@@ -64,7 +64,6 @@
 }
 
 .admin-notif-bell-wrap {
-  position: relative;
   flex: 0 0 auto;
 }
 
@@ -95,7 +94,7 @@
 .admin-notif-dropdown {
   position: absolute;
   top: calc(100% + 8px);
-  left: 0;
+  right: 0;
   width: 320px;
   max-width: 80vw;
   background: var(--admin-surface);
