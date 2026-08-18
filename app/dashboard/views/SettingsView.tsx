@@ -231,6 +231,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [oauthEmailStatus, setOauthEmailStatus] = useState<{ provider: "webhook" | "gmail" | "outlook"; status: "connected" | "not_connected" | "pending"; emailAddress: string } | null>(null);
   const [channelBotEnabled, setChannelBotEnabled] = useState(false);
   const [channelBotLoading, setChannelBotLoading] = useState(false);
+  const [showWebhookToken, setShowWebhookToken] = useState(false);
   const metaSignupDataRef = useRef<MetaSignupData>({});
   const hasSelectedChannelRef = useRef(false);
   const isInstagram = selectedChannel === "instagram";
@@ -254,6 +255,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     if (wizardStep !== 2) return;
     setWizardStep(isGoogleMaps || isEmail || isWebsite ? 4 : 3);
   }, [wizardStep, isGoogleMaps, isEmail, isWebsite]);
+
+  useEffect(() => {
+    setShowWebhookToken(false);
+  }, [selectedChannel]);
 
   useEffect(() => {
     if (isWhatsApp) {
@@ -531,6 +536,22 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       text: data.connectionMessage || (data.status === "connected" ? "تم الاتصال بنجاح" : "الربط غير مكتمل")
     });
     return data;
+  }
+
+  async function regenerateWebhookToken() {
+    const nextToken = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `audiencew_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    setSaving(true);
+    const response = await fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...settings, verifyToken: nextToken })
+    });
+    const data = await response.json() as IntegrationResponse;
+    setSettings(data);
+    onIntegrationChange?.(data);
+    setShowWebhookToken(true);
+    setSaveFeedback({ type: "success", text: "تم توليد توكن جديد. لا تنسَ تحديثه في إعدادات الويبهوك الخارجية." });
+    setSaving(false);
   }
 
   async function saveSettings(event: FormEvent<HTMLFormElement>) {
@@ -1426,8 +1447,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
           {!isGoogleMaps && !isWhatsApp && !isWebsite ? <div className="webhook-card">
             <div>
-              <h3>إعدادات الويبهوك</h3>
-              <p>{isEmail ? "انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة." : isGoogleMaps ? "هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة." : isX ? "استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات." : isTelegram ? "سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة." : isFacebook ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger." : isInstagram ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram." : "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp."}</p>
+              <h3>إعدادات الويبهوك — {isEmail ? (isGmail ? "Gmail" : isOutlook ? "Outlook" : "البريد الإلكتروني") : isTikTok ? "TikTok" : isSms ? "SMS" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب"}</h3>
+              <p>{isEmail ? "انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة." : isGoogleMaps ? "هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة." : isX ? "استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات." : isTelegram ? "سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة." : isFacebook ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger." : isInstagram ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram." : isTikTok ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق TikTok لاستقبال رسائل وتعليقات TikTok بعد موافقة Business Messaging." : "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp."}</p>
             </div>
             <div className="copy-row">
               <span>{webhookUrl}</span>
@@ -1436,10 +1457,18 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </button>
             </div>
             <div className="copy-row">
-              <span>{settings.verifyToken}</span>
-              <button type="button" onClick={() => copyValue("token", settings.verifyToken)}>
-                {copied === "token" ? "تم النسخ" : isTelegram || isX || isEmail ? "نسخ Secret Token" : "نسخ التوكن"}
-              </button>
+              <span className="webhook-token-value">{showWebhookToken ? settings.verifyToken : "•".repeat(Math.min(settings.verifyToken.length || 24, 32))}</span>
+              <div className="copy-row-actions">
+                <button type="button" className="icon-toggle" onClick={() => setShowWebhookToken((current) => !current)} aria-label={showWebhookToken ? "إخفاء التوكن" : "إظهار التوكن"}>
+                  {showWebhookToken ? "🙈" : "👁"}
+                </button>
+                <button type="button" onClick={() => copyValue("token", settings.verifyToken)}>
+                  {copied === "token" ? "تم النسخ" : isTelegram || isX || isEmail ? "نسخ Secret Token" : "نسخ التوكن"}
+                </button>
+                <button type="button" className="secondary-action" disabled={saving} onClick={regenerateWebhookToken}>
+                  توليد توكن جديد
+                </button>
+              </div>
             </div>
           </div> : null}
         </form>
