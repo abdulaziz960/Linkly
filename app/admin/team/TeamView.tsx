@@ -1,9 +1,10 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import type { FormEvent } from "react";
 import type { TeamRow } from "../types";
+import { formatNumber } from "../utils";
 
 type TeamViewProps = {
   team: TeamRow[];
@@ -12,12 +13,22 @@ type TeamViewProps = {
 
 export default function TeamView({ team, currentUserId }: TeamViewProps) {
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
   const [isTeamInviteOpen, setIsTeamInviteOpen] = useState(false);
   const [isTeamSaving, setIsTeamSaving] = useState(false);
   const [teamFormError, setTeamFormError] = useState("");
   const [teamInviteNotice, setTeamInviteNotice] = useState("");
   const [teamActivationUrl, setTeamActivationUrl] = useState("");
   const [revokingId, setRevokingId] = useState("");
+
+  const oldestMember = team.length ? [...team].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] : null;
+  const newestMember = team.length ? [...team].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] : null;
+
+  const visibleTeam = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return team;
+    return team.filter((member) => member.name.toLowerCase().includes(query) || member.email.toLowerCase().includes(query));
+  }, [team, searchQuery]);
 
   async function handleInviteTeamMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,10 +84,35 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
 
   return (
     <>
+      <section className="admin-section">
+        <div className="admin-metrics">
+          <article>
+            <span>إجمالي الأعضاء</span>
+            <strong>{formatNumber(team.length)}</strong>
+            <small>يملكون صلاحية الوصول للوحة</small>
+          </article>
+          <article>
+            <span>أقدم عضو</span>
+            <strong>{oldestMember ? oldestMember.name : "—"}</strong>
+            <small>{oldestMember ? oldestMember.createdAt : "لا يوجد بعد"}</small>
+          </article>
+          <article>
+            <span>أحدث عضو</span>
+            <strong>{newestMember ? newestMember.name : "—"}</strong>
+            <small>{newestMember ? newestMember.createdAt : "لا يوجد بعد"}</small>
+          </article>
+          <article>
+            <span>حسابك</span>
+            <strong>{team.find((m) => m.id === currentUserId)?.name || "—"}</strong>
+            <small>أنت مسجّل دخول بهذا الحساب</small>
+          </article>
+        </div>
+      </section>
+
       <section className="admin-card">
         <div className="admin-card-head">
           <div>
-            <h2>فريق المنصة</h2>
+            <h2>فريق المنصة ({formatNumber(visibleTeam.length)} من {formatNumber(team.length)})</h2>
             <p>الأعضاء الذين يملكون صلاحية الوصول لهذه اللوحة.</p>
           </div>
           <div className="admin-card-actions">
@@ -85,25 +121,44 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
             </button>
           </div>
         </div>
-        <div className="admin-list">
-          {team.map((member) => (
-            <div className="admin-list-row" key={member.id}>
-              <div>
-                <strong>{member.name}</strong>
-                <span dir="ltr">{member.email}</span>
-              </div>
-              <span className="admin-pill is-good">{member.createdAt}</span>
-              {member.id !== currentUserId ? (
-                <button type="button" disabled={revokingId === member.id} onClick={() => handleRevokeTeamMember(member.id)}>
-                  {revokingId === member.id ? "جاري الإزالة..." : "إزالة الصلاحية"}
-                </button>
-              ) : (
-                <span className="admin-pill is-warn">أنت</span>
-              )}
-            </div>
-          ))}
-          {team.length === 0 ? <p className="admin-empty-state">لا يوجد أعضاء بعد.</p> : null}
+
+        <div className="admin-toolbar">
+          <input
+            type="search"
+            className="admin-search-input"
+            placeholder="ابحث بالاسم أو البريد الإلكتروني..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
         </div>
+
+        <div className="admin-team-cards">
+          {visibleTeam.map((member) => {
+            const isSelf = member.id === currentUserId;
+            return (
+              <article className="admin-team-card" key={member.id}>
+                <div className="admin-team-avatar">{member.name.slice(0, 1) || "ع"}</div>
+                <div className="admin-team-info">
+                  <strong>{member.name}</strong>
+                  <span dir="ltr">{member.email}</span>
+                  <small>عضو منذ {member.createdAt}</small>
+                </div>
+                {isSelf ? (
+                  <span className="admin-pill is-warn">أنت</span>
+                ) : (
+                  <button type="button" disabled={revokingId === member.id} onClick={() => handleRevokeTeamMember(member.id)}>
+                    {revokingId === member.id ? "جاري الإزالة..." : "إزالة الصلاحية"}
+                  </button>
+                )}
+              </article>
+            );
+          })}
+        </div>
+        {team.length === 0 ? (
+          <p className="admin-empty-state">لا يوجد أعضاء بعد.</p>
+        ) : visibleTeam.length === 0 ? (
+          <p className="admin-empty-state">لا توجد نتائج مطابقة للبحث.</p>
+        ) : null}
       </section>
 
       {isTeamInviteOpen ? (
