@@ -357,6 +357,16 @@ export async function ensureSchema() {
     } catch (error) {
       console.error("Subscriptions tenant_id constraint migration failed", error);
     }
+    // The subscriptions table pre-existed in prod (see CREATE TABLE IF NOT
+    // EXISTS above) with a leftover "workspace_id" NOT NULL column from
+    // whatever created it originally - it isn't part of this schema and
+    // nothing here writes to it, so new inserts violated the NOT NULL
+    // constraint. Drop the constraint rather than guess a value for it.
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ALTER COLUMN workspace_id DROP NOT NULL`);
+    } catch (error) {
+      console.error("Subscriptions workspace_id constraint relax failed", error);
+    }
     // Same leftover placeholder batch (see plans repair above) included a
     // fourth "Enterprise" row never part of the three-tier design - drop it
     // now that we can confirm no subscription references it.
