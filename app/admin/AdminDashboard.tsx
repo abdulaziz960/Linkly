@@ -35,11 +35,31 @@ type PaymentRow = {
   completedAt: string;
 };
 
+type PlanRow = {
+  id: string;
+  name: string;
+  monthlyPrice: number;
+  employeeLimit: number;
+  sortOrder: number;
+  active: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type TeamRow = {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+};
+
 type AdminDashboardProps = {
   user: { id: string; name: string; email: string };
   subscriptions: SubscriptionRow[];
   logs: AdminLog[];
   payments: PaymentRow[];
+  plans: PlanRow[];
+  team: TeamRow[];
 };
 
 const numberFormatter = new Intl.NumberFormat("ar-SA");
@@ -80,10 +100,25 @@ function getRenewalAlert(subscription: SubscriptionRow): { label: string; tier: 
   return null;
 }
 
-export default function AdminDashboard({ user, subscriptions, logs, payments }: AdminDashboardProps) {
+export default function AdminDashboard({ user, subscriptions, logs, payments, plans, team }: AdminDashboardProps) {
   const router = useRouter();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedPaymentClient, setSelectedPaymentClient] = useState("all");
+  const [isTeamInviteOpen, setIsTeamInviteOpen] = useState(false);
+  const [isTeamSaving, setIsTeamSaving] = useState(false);
+  const [teamFormError, setTeamFormError] = useState("");
+  const [teamInviteNotice, setTeamInviteNotice] = useState("");
+  const [teamActivationUrl, setTeamActivationUrl] = useState("");
+  const [revokingId, setRevokingId] = useState("");
+  const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
+  const [isPlanSaving, setIsPlanSaving] = useState(false);
+  const [planFormError, setPlanFormError] = useState("");
+  const [editPlan, setEditPlan] = useState<PlanRow | null>(null);
+  const [editPlanPrice, setEditPlanPrice] = useState("");
+  const [editPlanLimit, setEditPlanLimit] = useState("");
+  const [editPlanActive, setEditPlanActive] = useState(true);
+  const [isEditPlanSaving, setIsEditPlanSaving] = useState(false);
+  const [editPlanError, setEditPlanError] = useState("");
   const [limitClient, setLimitClient] = useState<SubscriptionRow | null>(null);
   const [limitValue, setLimitValue] = useState("");
   const [isLimitSaving, setIsLimitSaving] = useState(false);
@@ -236,6 +271,128 @@ export default function AdminDashboard({ user, subscriptions, logs, payments }: 
     router.refresh();
   }
 
+  async function handleInviteTeamMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsTeamSaving(true);
+    setTeamFormError("");
+    setTeamInviteNotice("");
+    setTeamActivationUrl("");
+
+    const formData = new FormData(event.currentTarget);
+    const payload = {
+      name: String(formData.get("name") || ""),
+      email: String(formData.get("email") || "")
+    };
+
+    const response = await fetch("/api/admin/team", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = (await response.json()) as {
+      ok: boolean;
+      error?: string;
+      data?: { delivery?: { message?: string; activationUrl?: string } };
+    };
+
+    setIsTeamSaving(false);
+
+    if (!response.ok || !result.ok) {
+      setTeamFormError(result.error || "تعذر إضافة العضو");
+      return;
+    }
+
+    setTeamInviteNotice(result.data?.delivery?.message || "تم إنشاء الحساب.");
+    setTeamActivationUrl(result.data?.delivery?.activationUrl || "");
+    router.refresh();
+  }
+
+  async function handleRevokeTeamMember(memberId: string) {
+    if (!window.confirm("هل تريد إزالة صلاحية الأدمن عن هذا العضو؟")) return;
+
+    setRevokingId(memberId);
+    const response = await fetch(`/api/admin/team/${memberId}`, { method: "DELETE" });
+    const result = (await response.json()) as { ok: boolean; error?: string };
+    setRevokingId("");
+
+    if (!response.ok || !result.ok) {
+      window.alert(result.error || "تعذر إزالة الصلاحية");
+      return;
+    }
+
+    router.refresh();
+  }
+
+  async function handleCreatePlan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsPlanSaving(true);
+    setPlanFormError("");
+
+    const formData = new FormData(event.currentTarget);
+    const payload = {
+      name: String(formData.get("name") || ""),
+      monthlyPrice: Number(formData.get("monthlyPrice") || 0),
+      employeeLimit: Number(formData.get("employeeLimit") || 1)
+    };
+
+    const response = await fetch("/api/admin/plans", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = (await response.json()) as { ok: boolean; error?: string };
+
+    setIsPlanSaving(false);
+
+    if (!response.ok || !result.ok) {
+      setPlanFormError(result.error || "تعذر إنشاء الباقة");
+      return;
+    }
+
+    setIsAddPlanOpen(false);
+    router.refresh();
+  }
+
+  function openEditPlan(plan: PlanRow) {
+    setEditPlan(plan);
+    setEditPlanPrice(String(plan.monthlyPrice));
+    setEditPlanLimit(String(plan.employeeLimit));
+    setEditPlanActive(plan.active === 1);
+    setEditPlanError("");
+  }
+
+  async function handleUpdatePlan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editPlan) return;
+
+    const monthlyPrice = Number(editPlanPrice);
+    const employeeLimit = Number(editPlanLimit);
+    if (!Number.isFinite(monthlyPrice) || monthlyPrice < 0 || !Number.isFinite(employeeLimit) || employeeLimit < 1) {
+      setEditPlanError("تحقق من السعر وحد المستخدمين");
+      return;
+    }
+
+    setIsEditPlanSaving(true);
+    setEditPlanError("");
+
+    const response = await fetch(`/api/admin/plans/${editPlan.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ monthlyPrice, employeeLimit, active: editPlanActive })
+    });
+    const result = (await response.json()) as { ok: boolean; error?: string };
+
+    setIsEditPlanSaving(false);
+
+    if (!response.ok || !result.ok) {
+      setEditPlanError(result.error || "تعذر تحديث الباقة");
+      return;
+    }
+
+    setEditPlan(null);
+    router.refresh();
+  }
+
   return (
     <main className="admin-shell" dir="rtl">
       <aside className="admin-sidebar">
@@ -254,6 +411,8 @@ export default function AdminDashboard({ user, subscriptions, logs, payments }: 
           <a href="#clients">العملاء</a>
           <a href="#alerts">تنبيهات التجديد</a>
           <a href="#payments">المدفوعات</a>
+          <a href="#plans">الباقات</a>
+          <a href="#team">الفريق</a>
           <a href="#logs">السجلات</a>
         </nav>
 
@@ -452,6 +611,86 @@ export default function AdminDashboard({ user, subscriptions, logs, payments }: 
           {filteredPayments.length === 0 ? <p className="admin-empty-state">لا توجد مدفوعات مسجّلة حتى الآن.</p> : null}
         </section>
 
+        <section className="admin-card" id="plans">
+          <div className="admin-card-head">
+            <div>
+              <h2>الباقات</h2>
+              <p>الباقات المعروضة عند إضافة عميل جديد وسعرها الشهري وحد المستخدمين.</p>
+            </div>
+            <div className="admin-card-actions">
+              <button type="button" onClick={() => { setIsAddPlanOpen(true); setPlanFormError(""); }}>
+                إضافة باقة
+              </button>
+            </div>
+          </div>
+          <div className="admin-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>الباقة</th>
+                  <th>السعر الشهري</th>
+                  <th>حد المستخدمين</th>
+                  <th>الحالة</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {plans.map((plan) => (
+                  <tr key={plan.id}>
+                    <td>{plan.name}</td>
+                    <td>{formatNumber(plan.monthlyPrice)} ر.س</td>
+                    <td>{formatNumber(plan.employeeLimit)}</td>
+                    <td>
+                      <span className={`admin-pill ${plan.active === 1 ? "is-good" : "is-danger"}`}>
+                        {plan.active === 1 ? "مفعّلة" : "معطّلة"}
+                      </span>
+                    </td>
+                    <td>
+                      <button type="button" onClick={() => openEditPlan(plan)}>
+                        تعديل
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {plans.length === 0 ? <p className="admin-empty-state">لا توجد باقات بعد.</p> : null}
+        </section>
+
+        <section className="admin-card" id="team">
+          <div className="admin-card-head">
+            <div>
+              <h2>فريق المنصة</h2>
+              <p>الأعضاء الذين يملكون صلاحية الوصول لهذه اللوحة.</p>
+            </div>
+            <div className="admin-card-actions">
+              <button type="button" onClick={() => { setIsTeamInviteOpen(true); setTeamFormError(""); setTeamInviteNotice(""); setTeamActivationUrl(""); }}>
+                إضافة عضو
+              </button>
+            </div>
+          </div>
+          <div className="admin-list">
+            {team.map((member) => (
+              <div className="admin-list-row" key={member.id}>
+                <div>
+                  <strong>{member.name}</strong>
+                  <span dir="ltr">{member.email}</span>
+                </div>
+                <span className="admin-pill is-good">{member.createdAt}</span>
+                {member.id !== user.id ? (
+                  <button type="button" disabled={revokingId === member.id} onClick={() => handleRevokeTeamMember(member.id)}>
+                    {revokingId === member.id ? "جاري الإزالة..." : "إزالة الصلاحية"}
+                  </button>
+                ) : (
+                  <span className="admin-pill is-warn">أنت</span>
+                )}
+              </div>
+            ))}
+            {team.length === 0 ? <p className="admin-empty-state">لا يوجد أعضاء بعد.</p> : null}
+          </div>
+        </section>
+
         <section className="admin-grid lower">
           <article className="admin-card" id="logs">
             <div className="admin-card-head">
@@ -545,10 +784,22 @@ export default function AdminDashboard({ user, subscriptions, logs, payments }: 
                 </label>
                 <label>
                   الباقة
-                  <select name="plan" defaultValue="باقة النمو">
-                    <option>باقة البداية</option>
-                    <option>باقة النمو</option>
-                    <option>باقة الأعمال</option>
+                  <select name="plan" defaultValue={plans.find((p) => p.active === 1)?.name || "باقة النمو"}>
+                    {plans.length
+                      ? plans
+                          .filter((p) => p.active === 1)
+                          .map((p) => (
+                            <option key={p.id} value={p.name}>
+                              {p.name} ({formatNumber(p.monthlyPrice)} ر.س)
+                            </option>
+                          ))
+                      : (
+                        <>
+                          <option>باقة البداية</option>
+                          <option>باقة النمو</option>
+                          <option>باقة الأعمال</option>
+                        </>
+                      )}
                   </select>
                 </label>
                 <label>
@@ -696,6 +947,160 @@ export default function AdminDashboard({ user, subscriptions, logs, payments }: 
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {isTeamInviteOpen ? (
+        <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="team-invite-title">
+          <div className="admin-modal-card">
+            <div className="admin-modal-head">
+              <div>
+                <h2 id="team-invite-title">إضافة عضو لفريق المنصة</h2>
+                <p>ينشئ هذا حساب دخول حقيقي بصلاحية أدمن ويرسل رابط تفعيل على بريده.</p>
+              </div>
+              <button type="button" onClick={() => { setIsTeamInviteOpen(false); setTeamInviteNotice(""); setTeamActivationUrl(""); }} aria-label="إغلاق">
+                ×
+              </button>
+            </div>
+
+            {teamInviteNotice ? (
+              <div className="admin-invite-result">
+                <p>{teamInviteNotice}</p>
+                {teamActivationUrl ? (
+                  <a className="activation-link" href={teamActivationUrl} target="_blank" rel="noreferrer">
+                    فتح رابط التفعيل
+                  </a>
+                ) : null}
+                <div className="admin-form-actions">
+                  <button type="button" onClick={() => { setIsTeamInviteOpen(false); setTeamInviteNotice(""); setTeamActivationUrl(""); }}>
+                    تم
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form className="admin-client-form" onSubmit={handleInviteTeamMember}>
+                <label>
+                  الاسم
+                  <input name="name" placeholder="اسم العضو" required />
+                </label>
+                <label>
+                  البريد الإلكتروني
+                  <input name="email" type="email" dir="ltr" placeholder="admin@example.com" required />
+                </label>
+
+                {teamFormError ? <p className="admin-form-error">{teamFormError}</p> : null}
+
+                <div className="admin-form-actions">
+                  <button type="button" onClick={() => setIsTeamInviteOpen(false)}>
+                    إلغاء
+                  </button>
+                  <button type="submit" disabled={isTeamSaving}>
+                    {isTeamSaving ? "جاري الحفظ..." : "إضافة"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {isAddPlanOpen ? (
+        <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="add-plan-title">
+          <div className="admin-modal-card admin-user-limit-modal">
+            <div className="admin-modal-head">
+              <div>
+                <h2 id="add-plan-title">إضافة باقة جديدة</h2>
+              </div>
+              <button type="button" onClick={() => setIsAddPlanOpen(false)} aria-label="إغلاق">
+                ×
+              </button>
+            </div>
+
+            <form className="admin-client-form" onSubmit={handleCreatePlan}>
+              <label>
+                اسم الباقة
+                <input name="name" placeholder="مثال: باقة الأعمال" required />
+              </label>
+              <label>
+                السعر الشهري (ر.س)
+                <input name="monthlyPrice" type="number" min="0" defaultValue="0" required />
+              </label>
+              <label>
+                حد المستخدمين
+                <input name="employeeLimit" type="number" min="1" defaultValue="1" required />
+              </label>
+
+              {planFormError ? <p className="admin-form-error">{planFormError}</p> : null}
+
+              <div className="admin-form-actions">
+                <button type="button" onClick={() => setIsAddPlanOpen(false)}>
+                  إلغاء
+                </button>
+                <button type="submit" disabled={isPlanSaving}>
+                  {isPlanSaving ? "جاري الحفظ..." : "إنشاء الباقة"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {editPlan ? (
+        <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="edit-plan-title">
+          <div className="admin-modal-card admin-user-limit-modal">
+            <div className="admin-modal-head">
+              <div>
+                <h2 id="edit-plan-title">تعديل الباقة</h2>
+              </div>
+              <button type="button" onClick={() => setEditPlan(null)} aria-label="إغلاق">
+                ×
+              </button>
+            </div>
+
+            <form className="admin-client-form" onSubmit={handleUpdatePlan}>
+              <label>
+                الباقة
+                <input value={editPlan.name} readOnly />
+              </label>
+              <label>
+                السعر الشهري (ر.س)
+                <input
+                  type="number"
+                  min="0"
+                  value={editPlanPrice}
+                  onChange={(event) => setEditPlanPrice(event.target.value)}
+                />
+              </label>
+              <label>
+                حد المستخدمين
+                <input
+                  type="number"
+                  min="1"
+                  value={editPlanLimit}
+                  onChange={(event) => setEditPlanLimit(event.target.value)}
+                />
+              </label>
+              <label className="admin-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={editPlanActive}
+                  onChange={(event) => setEditPlanActive(event.target.checked)}
+                />
+                مفعّلة (تظهر عند إضافة عميل جديد)
+              </label>
+
+              {editPlanError ? <p className="admin-form-error">{editPlanError}</p> : null}
+
+              <div className="admin-form-actions">
+                <button type="button" onClick={() => setEditPlan(null)}>
+                  إلغاء
+                </button>
+                <button type="submit" disabled={isEditPlanSaving}>
+                  {isEditPlanSaving ? "جاري الحفظ..." : "حفظ"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}

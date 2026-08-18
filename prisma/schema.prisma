@@ -362,6 +362,19 @@ model ProviderSubscription {
   @@map("provider_subscriptions")
 }
 
+model Plan {
+  id            String @id
+  name          String @unique
+  monthlyPrice  Int    @default(0) @map("monthly_price")
+  employeeLimit Int    @default(1) @map("employee_limit")
+  sortOrder     Int    @default(0) @map("sort_order")
+  active        Int    @default(1)
+  createdAt     String @map("created_at")
+  updatedAt     String @map("updated_at")
+
+  @@map("plans")
+}
+
 model Subscription {
   id            String @id
   tenantId      String @unique @map("tenant_id")

@@ -274,6 +274,16 @@ export async function ensureSchema() {
     for (const email of platformAdminEmails) {
       await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = $1`, email);
     }
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS plans (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      monthly_price INTEGER NOT NULL DEFAULT 0,
+      employee_limit INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL UNIQUE,
@@ -759,6 +769,16 @@ export async function ensureSchema() {
     level TEXT NOT NULL,
     message TEXT NOT NULL
   )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS plans (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    monthly_price INTEGER NOT NULL DEFAULT 0,
+    employee_limit INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL UNIQUE,
@@ -1027,6 +1047,24 @@ async function seedDatabase() {
           createdAt: "اليوم"
         }
       });
+    }
+
+    // One-time seed: only runs while the plans table is empty, so admin
+    // edits made afterward (price/limit/active changes) are never clobbered
+    // by this re-running on a later cold start.
+    const existingPlanCount = await tx.plan.count();
+    if (existingPlanCount === 0) {
+      const nowLabel = "اليوم";
+      const defaultPlans = [
+        { id: "plan-starter", name: "باقة البداية", monthlyPrice: 249, employeeLimit: 1, sortOrder: 1 },
+        { id: "plan-growth", name: "باقة النمو", monthlyPrice: 499, employeeLimit: 3, sortOrder: 2 },
+        { id: "plan-business", name: "باقة الأعمال", monthlyPrice: 999, employeeLimit: 10, sortOrder: 3 }
+      ];
+      for (const plan of defaultPlans) {
+        await tx.plan.create({
+          data: { ...plan, active: 1, createdAt: nowLabel, updatedAt: nowLabel }
+        });
+      }
     }
 
     return;

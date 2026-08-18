@@ -96,7 +96,8 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
   const tenantId = `tenant-${randomUUID()}`;
   const employeeId = `emp-${Date.now()}`;
   const userId = `user-${employeeId}`;
-  const employeeLimit = planEmployeeLimits[input.plan] ?? planEmployeeLimits["باقة النمو"];
+  const planRow = await prisma.plan.findUnique({ where: { name: input.plan } });
+  const employeeLimit = planRow?.employeeLimit ?? planEmployeeLimits[input.plan] ?? planEmployeeLimits["باقة النمو"];
   const activationToken = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(activationToken).digest("hex");
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString();

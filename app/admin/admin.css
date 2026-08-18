@@ -759,6 +759,18 @@
   font-weight: 800;
 }
 
+.admin-client-form label.admin-checkbox-label {
+  grid-auto-flow: column;
+  justify-content: start;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-client-form label.admin-checkbox-label input {
+  width: auto;
+  min-height: 0;
+}
+
 .admin-client-form input,
 .admin-client-form select {
   width: 100%;
