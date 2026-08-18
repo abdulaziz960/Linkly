@@ -4074,6 +4074,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+.settings-form-head .primary-action,
+.settings-form-head .soft-action {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .settings-form h2,
@@ -4186,7 +4193,8 @@
   cursor: default;
 }
 
-.secondary-action {
+.secondary-action,
+.soft-action {
   min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -4196,6 +4204,11 @@
   font: inherit;
   font-weight: 900;
   cursor: pointer;
+}
+
+.soft-action:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .x-connect-card {
