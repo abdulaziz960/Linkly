@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { ensureSchema } from "./database";
 import { planEmployeeLimits } from "./subscriptions";
 
 export const employeeLimitReachedMessage =
@@ -7,6 +8,7 @@ export const employeeLimitReachedMessage =
 const defaultEmployeeLimit = planEmployeeLimits["باقة النمو"];
 
 export async function getEmployeeLimitForTenant(tenantId?: string) {
+  await ensureSchema().catch(() => {});
   const subscription = tenantId
     ? await prisma.subscription.findUnique({ where: { tenantId } }).catch(() => null)
     : null;

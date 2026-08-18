@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureSchema } from "../../../../../lib/database";
 import { prisma } from "../../../../../lib/prisma";
 import { verifyMoyasarWebhookSecret } from "../../../../../lib/moyasar";
 import { logAdminAction } from "../../../../../lib/subscriptions";
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized webhook" }, { status: 401 });
   }
 
+  await ensureSchema();
   const invoiceId = body.data?.id;
   const status = body.data?.status;
   if (!invoiceId || status !== "paid") {

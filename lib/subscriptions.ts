@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { prisma } from "./prisma";
-import { hashPassword } from "./database";
+import { ensureSchema } from "./database";
 import { sendActivationEmail } from "./email";
 
 export const planEmployeeLimits: Record<string, number> = {
@@ -18,6 +18,7 @@ function nowTimestamp() {
 }
 
 export async function getSubscriptions() {
+  await ensureSchema();
   const subscriptions = await prisma.subscription.findMany({ orderBy: { createdAt: "desc" } });
 
   return Promise.all(
@@ -33,6 +34,7 @@ export async function getSubscriptions() {
 }
 
 export async function getSubscriptionForTenant(tenantId: string) {
+  await ensureSchema();
   return prisma.subscription.findUnique({ where: { tenantId } });
 }
 
@@ -69,6 +71,7 @@ type CreateTenantInput = {
  * it only wrote to a disconnected demo table.
  */
 export async function createTenantWithSubscription(input: CreateTenantInput) {
+  await ensureSchema();
   const email = input.ownerEmail.trim().toLowerCase();
   const existingAccount = await prisma.userAccount.findUnique({ where: { email } });
   if (existingAccount) throw new Error("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة");
@@ -167,6 +170,7 @@ type UpdateSubscriptionInput = {
 };
 
 export async function updateSubscription(tenantId: string, input: UpdateSubscriptionInput, adminName: string) {
+  await ensureSchema();
   const existing = await prisma.subscription.findUnique({ where: { tenantId } });
   if (!existing) throw new Error("الاشتراك غير موجود");
 
