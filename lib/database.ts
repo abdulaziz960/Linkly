@@ -357,6 +357,12 @@ export async function ensureSchema() {
     } catch (error) {
       console.error("Subscriptions tenant_id constraint migration failed", error);
     }
+    // Same leftover placeholder batch (see plans repair above) included a
+    // fourth "Enterprise" row never part of the three-tier design - drop it
+    // now that we can confirm no subscription references it.
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM plans WHERE name = 'Enterprise' AND NOT EXISTS (SELECT 1 FROM subscriptions WHERE subscriptions.plan = plans.name)`
+    );
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscription_payments (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL,
