@@ -236,22 +236,22 @@ export default function AdminDashboard({ user, subscriptions, logs }: AdminDashb
 
         <section className="admin-section" id="overview">
           <div className="admin-metrics">
-            <article className="accent-blue">
+            <article>
               <span>إجمالي العملاء</span>
               <strong>{formatNumber(subscriptions.length)}</strong>
               <small>{formatNumber(activeClients)} نشط · {formatNumber(trialClients)} تجربة</small>
             </article>
-            <article className="accent-green">
+            <article>
               <span>اشتراكات نشطة</span>
               <strong>{formatNumber(activeClients)}</strong>
               <small>{formatNumber(subscriptions.length - activeClients)} غير نشطة</small>
             </article>
-            <article className="accent-slate">
+            <article>
               <span>إيراد شهري متوقع</span>
               <strong>{formatNumber(monthlyRevenue)}</strong>
               <small>ريال من الاشتراكات النشطة</small>
             </article>
-            <article className="accent-amber">
+            <article>
               <span>محادثات تحت الإدارة</span>
               <strong>{formatNumber(totalConversations)}</strong>
               <small>مجمعة من كل حسابات العملاء</small>
