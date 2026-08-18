@@ -1457,19 +1457,16 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </button>
             </div>
             <div className="copy-row">
-              <span className="webhook-token-value">{showWebhookToken ? settings.verifyToken : "•".repeat(Math.min(settings.verifyToken.length || 24, 32))}</span>
-              <div className="copy-row-actions">
-                <button type="button" onClick={() => setShowWebhookToken((current) => !current)}>
-                  {showWebhookToken ? "إخفاء" : "إظهار"}
-                </button>
-                <button type="button" onClick={() => copyValue("token", settings.verifyToken)}>
-                  {copied === "token" ? "تم النسخ" : isTelegram || isX || isEmail ? "نسخ Secret Token" : "نسخ التوكن"}
-                </button>
-                <button type="button" className="secondary-action" disabled={saving} onClick={regenerateWebhookToken}>
-                  توليد توكن جديد
-                </button>
-              </div>
+              <button type="button" className="webhook-token-value" onClick={() => setShowWebhookToken((current) => !current)} title={showWebhookToken ? "اضغط للإخفاء" : "اضغط للإظهار"}>
+                {showWebhookToken ? settings.verifyToken : "•".repeat(Math.min(settings.verifyToken.length || 24, 32))}
+              </button>
+              <button type="button" onClick={() => copyValue("token", settings.verifyToken)}>
+                {copied === "token" ? "تم النسخ" : isTelegram || isX || isEmail ? "نسخ Secret Token" : "نسخ التوكن"}
+              </button>
             </div>
+            <button type="button" className="webhook-token-regenerate" disabled={saving} onClick={regenerateWebhookToken}>
+              توليد توكن جديد
+            </button>
           </div> : null}
         </form>
       )}
