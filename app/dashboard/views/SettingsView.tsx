@@ -1031,11 +1031,19 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <span>{isConnected ? "✓" : "!"}</span>
           <h3>{summaryTitle}</h3>
               <p>{summaryText}</p>
-              <div className="summary-list">
-                <b>{settings.businessName || "حافظة الأعمال"}</b>
-                <b>{settings.wabaName || (isEmail ? "قناة البريد" : isGoogleMaps ? "موقع Google" : isX ? "حساب X" : isTikTok ? "حساب TikTok" : isSms ? "قناة SMS" : isTelegram ? "بوت Telegram" : isFacebook ? "صفحة Facebook" : isInstagram ? "حساب Instagram" : "حساب واتساب للأعمال")}</b>
-                <b>{isEmail ? settings.phoneNumber || "بريد الإرسال" : isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTikTok ? settings.appId || "TikTok App Key" : isSms ? settings.phoneNumber || "Sender ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || "رقم واتساب"}</b>
-              </div>
+              {isEmail ? (
+                isConnected ? (
+                  <div className="summary-list">
+                    <b>{oauthEmailStatus?.emailAddress || "قناة البريد"}</b>
+                  </div>
+                ) : null
+              ) : (
+                <div className="summary-list">
+                  <b>{settings.businessName || "حافظة الأعمال"}</b>
+                  <b>{settings.wabaName || (isGoogleMaps ? "موقع Google" : isX ? "حساب X" : isTikTok ? "حساب TikTok" : isSms ? "قناة SMS" : isTelegram ? "بوت Telegram" : isFacebook ? "صفحة Facebook" : isInstagram ? "حساب Instagram" : "حساب واتساب للأعمال")}</b>
+                  <b>{isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTikTok ? settings.appId || "TikTok App Key" : isSms ? settings.phoneNumber || "Sender ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || "رقم واتساب"}</b>
+                </div>
+              )}
         </div>
       </div>
     );
@@ -1222,7 +1230,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <h2>{isWebsite ? "ودجت الموقع الإلكتروني" : isGoogleMaps ? "ربط Google Business" : isWhatsApp ? "ربط واتساب" : hideManualEmailSetup ? (isConnected ? "حساب البريد المرتبط" : "قناة Outlook") : "بيانات الربط والويبهوك"}</h2>
               <p>{isWebsite ? "مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى." : hideManualEmailSetup ? (isConnected ? "الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب." : "اربط حساب Outlook من الأعلى لتفعيل القناة.") : isEmail ? "هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook وإرسال الردود عبر Resend." : isGoogleMaps ? "لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة." : isX ? "هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا." : isTikTok ? "احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging." : isSms ? "بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز." : isTelegram ? "هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة." : isFacebook ? "هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة." : isInstagram ? "هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة." : "اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط."}</p>
             </div>
-            <span className={`connection-pill ${settings.status}`}>{statusLabel[settings.status]}</span>
+            <span className={`connection-pill ${isEmail ? (isConnected ? "connected" : "pending") : settings.status}`}>
+              {isEmail ? (isConnected ? statusLabel.connected : statusLabel.pending) : statusLabel[settings.status]}
+            </span>
             {!isWebsite ? <button className="soft-action" disabled={saving || loading} type="button" onClick={resetIntegrationData}>
               مسح بيانات الربط
             </button> : null}
