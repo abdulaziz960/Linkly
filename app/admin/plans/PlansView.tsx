@@ -6,7 +6,12 @@ import type { FormEvent } from "react";
 import type { PlanRow } from "../types";
 import { formatNumber } from "../utils";
 
-export default function PlansView({ plans }: { plans: PlanRow[] }) {
+type PlansViewProps = {
+  plans: PlanRow[];
+  subscriberCounts: Record<string, number>;
+};
+
+export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
   const router = useRouter();
   const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
   const [isPlanSaving, setIsPlanSaving] = useState(false);
@@ -17,6 +22,11 @@ export default function PlansView({ plans }: { plans: PlanRow[] }) {
   const [editPlanActive, setEditPlanActive] = useState(true);
   const [isEditPlanSaving, setIsEditPlanSaving] = useState(false);
   const [editPlanError, setEditPlanError] = useState("");
+  const [togglingId, setTogglingId] = useState("");
+
+  const activeCount = plans.filter((p) => p.active === 1).length;
+  const totalSubscribers = plans.reduce((sum, p) => sum + (subscriberCounts[p.name] || 0), 0);
+  const averagePrice = plans.length ? Math.round(plans.reduce((sum, p) => sum + p.monthlyPrice, 0) / plans.length) : 0;
 
   async function handleCreatePlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,8 +98,44 @@ export default function PlansView({ plans }: { plans: PlanRow[] }) {
     router.refresh();
   }
 
+  async function handleToggleActive(plan: PlanRow) {
+    setTogglingId(plan.id);
+    const response = await fetch(`/api/admin/plans/${plan.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: plan.active !== 1 })
+    });
+    setTogglingId("");
+    if (response.ok) router.refresh();
+  }
+
   return (
     <>
+      <section className="admin-section">
+        <div className="admin-metrics">
+          <article>
+            <span>إجمالي الباقات</span>
+            <strong>{formatNumber(plans.length)}</strong>
+            <small>{formatNumber(activeCount)} مفعّلة</small>
+          </article>
+          <article>
+            <span>مشتركون</span>
+            <strong>{formatNumber(totalSubscribers)}</strong>
+            <small>عميل موزّع على كل الباقات</small>
+          </article>
+          <article>
+            <span>متوسط السعر الشهري</span>
+            <strong>{formatNumber(averagePrice)}</strong>
+            <small>ريال عبر كل الباقات</small>
+          </article>
+          <article>
+            <span>باقات معطّلة</span>
+            <strong>{formatNumber(plans.length - activeCount)}</strong>
+            <small>لا تظهر عند إضافة عميل جديد</small>
+          </article>
+        </div>
+      </section>
+
       <section className="admin-card">
         <div className="admin-card-head">
           <div>
@@ -102,37 +148,46 @@ export default function PlansView({ plans }: { plans: PlanRow[] }) {
             </button>
           </div>
         </div>
-        <div className="admin-table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>الباقة</th>
-                <th>السعر الشهري</th>
-                <th>حد المستخدمين</th>
-                <th>الحالة</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {plans.map((plan) => (
-                <tr key={plan.id}>
-                  <td>{plan.name}</td>
-                  <td>{formatNumber(plan.monthlyPrice)} ر.س</td>
-                  <td>{formatNumber(plan.employeeLimit)}</td>
-                  <td>
-                    <span className={`admin-pill ${plan.active === 1 ? "is-good" : "is-danger"}`}>
-                      {plan.active === 1 ? "مفعّلة" : "معطّلة"}
-                    </span>
-                  </td>
-                  <td>
-                    <button type="button" onClick={() => openEditPlan(plan)}>
-                      تعديل
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+        <div className="admin-plan-cards">
+          {plans.map((plan) => {
+            const subscribers = subscriberCounts[plan.name] || 0;
+            return (
+              <article className={`admin-plan-card ${plan.active !== 1 ? "is-inactive" : ""}`} key={plan.id}>
+                <div className="admin-plan-card-top">
+                  <strong>{plan.name}</strong>
+                  <label className="admin-switch">
+                    <input
+                      type="checkbox"
+                      checked={plan.active === 1}
+                      disabled={togglingId === plan.id}
+                      onChange={() => handleToggleActive(plan)}
+                    />
+                    <span />
+                  </label>
+                </div>
+                <div className="admin-plan-price">
+                  <strong>{formatNumber(plan.monthlyPrice)}</strong>
+                  <span>ر.س / شهريًا</span>
+                </div>
+                <ul className="admin-plan-facts">
+                  <li>
+                    <span>حد المستخدمين</span>
+                    <strong>{formatNumber(plan.employeeLimit)}</strong>
+                  </li>
+                  <li>
+                    <span>المشتركون</span>
+                    <strong>{formatNumber(subscribers)}</strong>
+                  </li>
+                </ul>
+                <div className="admin-plan-card-actions">
+                  <button type="button" onClick={() => openEditPlan(plan)}>
+                    تعديل الباقة
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
         {plans.length === 0 ? <p className="admin-empty-state">لا توجد باقات بعد.</p> : null}
       </section>

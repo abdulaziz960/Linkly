@@ -641,6 +641,151 @@
   gap: 14px;
 }
 
+.admin-plan-cards {
+  padding: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.admin-plan-card {
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-card);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  transition: opacity 0.15s ease;
+}
+
+.admin-plan-card.is-inactive {
+  opacity: 0.55;
+}
+
+.admin-plan-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-plan-card-top strong {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.admin-plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.admin-plan-price strong {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.admin-plan-price span {
+  color: var(--admin-muted);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.admin-plan-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.admin-plan-facts li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 8px;
+  background: var(--admin-surface-soft);
+  padding: 10px 12px;
+}
+
+.admin-plan-facts span {
+  color: var(--admin-muted);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.admin-plan-facts strong {
+  font-weight: 800;
+}
+
+.admin-plan-card-actions button {
+  width: 100%;
+  box-shadow: var(--admin-shadow-border);
+  border: 0;
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.admin-plan-card-actions button:hover {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+
+.admin-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.admin-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.admin-switch span {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  box-shadow: var(--admin-shadow-border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.admin-switch span::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.admin-switch input:checked + span {
+  background: var(--admin-ink);
+}
+
+.admin-switch input:checked + span::before {
+  transform: translateX(16px);
+}
+
+.admin-switch input:disabled + span {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .admin-client-card {
   border-radius: var(--admin-radius);
   background: var(--admin-surface);
