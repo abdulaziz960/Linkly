@@ -829,11 +829,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 onClick={() => {
                   if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "gmail" || channel.id === "outlook" || channel.id === "website" || channel.id === "tiktok" || channel.id === "sms") {
                     setSelectedChannel(channel.id);
-                    // Website and Email (Gmail/Outlook) have no real step
-                    // 2/3 content of their own - Website's "setup" is just
-                    // the embed code, and Email connects directly via OAuth
-                    // - so both jump straight to step 4.
-                    setWizardStep(channel.id === "website" || channel.id === "gmail" || channel.id === "outlook" ? 4 : 2);
+                    // Step 2 doesn't exist for any channel - go straight to
+                    // the real connect step (3), or step 4 for channels
+                    // whose only "setup" is entering data directly.
+                    setWizardStep(channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "tiktok" || channel.id === "sms" || channel.id === "whatsapp" || channel.id === "google_maps" ? 3 : 4);
                   }
                 }}
               >
@@ -844,18 +843,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 <small>{channel.description}</small>
               </button>
             ))}
-          </div>
-        </div>
-      );
-    }
-
-    if (wizardStep === 2) {
-      const step = currentWizardSteps[1];
-      return (
-        <div className="meta-wizard-panel">
-          <div className="meta-wizard-title">
-            <h3>{step.title}</h3>
-            <p>{step.description}</p>
           </div>
         </div>
       );
@@ -1086,7 +1073,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <div className="settings-onboarding-actions">
               <button className="btn soft" type="button" disabled={wizardStep === 1} onClick={() => setWizardStep((step) => {
                 if (isWebsite || isEmail) return 1;
-                return Math.max(1, step - 1);
+                const prev = Math.max(1, step - 1);
+                return prev === 2 ? 1 : prev;
               })}>
                 عودة
               </button>
