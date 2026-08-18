@@ -31,25 +31,25 @@
    built from. Other pages still render with these tokens, so they get
    partial dark coverage for free, but haven't been individually audited. */
 .dashboard-shell[data-theme="dark"] {
-  --bg: #17130e;
-  --surface: #221c14;
-  --surface-soft: #362c1d;
-  --ink: #f6f1e6;
-  --muted: #a99f8c;
-  --text-secondary: #d9d0bf;
-  --line: #4a3c27;
-  --status-ok-bg: #1e3a2a;
-  --status-ok-bg-soft: #1a2e22;
-  --status-warn-bg: #3a2e12;
-  --status-warn-bg-soft: #33240f;
-  --status-danger-bg: #3a1a1f;
-  --status-danger-bg-soft: #3a1a1f;
-  --status-info-bg: #16283a;
+  --bg: #0a0a0a;
+  --surface: #171717;
+  --surface-soft: #262626;
+  --ink: #f5f5f5;
+  --muted: #a3a3a3;
+  --text-secondary: #d4d4d4;
+  --line: #333333;
+  --status-ok-bg: #132119;
+  --status-ok-bg-soft: #0f1a14;
+  --status-warn-bg: #241c0c;
+  --status-warn-bg-soft: #1f180a;
+  --status-danger-bg: #241211;
+  --status-danger-bg-soft: #1f0f0e;
+  --status-info-bg: #10202e;
   --status-ok-text: #7fd9a0;
   --status-warn-text: #f0b27a;
   --status-danger-text: #f3a9a9;
   --status-info-text: #7ec8f0;
-  --shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+  --shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
 }
 
 .dashboard-shell {
