@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
-import { updateSubscription } from "../../../../../lib/subscriptions";
+import { deleteTenant, updateSubscription } from "../../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -28,5 +28,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return jsonOk(subscription);
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر تحديث الاشتراك", 404);
+  }
+}
+
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const admin = await requirePlatformAdmin();
+  if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
+
+  const { id: tenantId } = await params;
+
+  try {
+    const result = await deleteTenant(tenantId);
+    return jsonOk(result);
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "تعذر حذف العميل", 404);
   }
 }

@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { AdminUser } from "./types";
-import { useAdminNotifications } from "./useAdminNotifications";
+import NotificationBell from "./NotificationBell";
 
 const navItems = [
   { href: "/admin", label: "نظرة عامة" },
   { href: "/admin/clients", label: "العملاء" },
-  { href: "/admin/notifications", label: "الإشعارات" },
   { href: "/admin/alerts", label: "تنبيهات التجديد" },
   { href: "/admin/payments", label: "المدفوعات" },
   { href: "/admin/plans", label: "الباقات" },
@@ -18,7 +17,6 @@ const navItems = [
 
 export default function AdminSidebar({ user }: { user: AdminUser }) {
   const pathname = usePathname();
-  const { unreadCount } = useAdminNotifications();
 
   return (
     <aside className="admin-sidebar">
@@ -29,15 +27,13 @@ export default function AdminSidebar({ user }: { user: AdminUser }) {
         <div>
           <strong>AudienceW</strong>
         </div>
+        <NotificationBell />
       </div>
 
       <nav className="admin-nav" aria-label="تنقل لوحة المزوّد">
         {navItems.map((item) => (
           <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""} prefetch>
             {item.label}
-            {item.href === "/admin/notifications" && unreadCount > 0 ? (
-              <span className="admin-nav-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>
-            ) : null}
           </Link>
         ))}
       </nav>

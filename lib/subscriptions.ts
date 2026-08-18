@@ -225,3 +225,25 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
 
   return updated;
 }
+
+/**
+ * Permanently deletes a client: their subscription, login account, employee
+ * record, pending invites, payment history, and activity log. Used for
+ * removing test/mistaken accounts - there is no undo.
+ */
+export async function deleteTenant(tenantId: string) {
+  await ensureSchema();
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+  if (!subscription) throw new Error("الاشتراك غير موجود");
+
+  await prisma.$transaction([
+    prisma.subscriptionPayment.deleteMany({ where: { tenantId } }),
+    prisma.adminLog.deleteMany({ where: { clientId: tenantId } }),
+    prisma.employeeInvite.deleteMany({ where: { email: subscription.ownerEmail } }),
+    prisma.employee.deleteMany({ where: { tenantId } }),
+    prisma.userAccount.deleteMany({ where: { tenantId } }),
+    prisma.subscription.delete({ where: { tenantId } })
+  ]);
+
+  return { companyName: subscription.companyName };
+}

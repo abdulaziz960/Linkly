@@ -42,6 +42,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
   const [isCharging, setIsCharging] = useState(false);
   const [chargeError, setChargeError] = useState("");
   const [chargeUrl, setChargeUrl] = useState("");
+  const [deletingId, setDeletingId] = useState("");
 
   function openLimitEditor(client: SubscriptionRow) {
     setLimitClient(client);
@@ -85,6 +86,22 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     setChargeAmount(String(client.amount || 499));
     setChargeError("");
     setChargeUrl("");
+  }
+
+  async function handleDeleteClient(client: SubscriptionRow) {
+    if (!window.confirm(`حذف "${client.companyName}" نهائيًا؟ هذا يحذف حساب الدخول وسجل المدفوعات والحركة، ولا يمكن التراجع.`)) return;
+
+    setDeletingId(client.tenantId);
+    const response = await fetch(`/api/admin/clients/${client.tenantId}`, { method: "DELETE" });
+    const result = (await response.json()) as { ok: boolean; error?: string };
+    setDeletingId("");
+
+    if (!response.ok || !result.ok) {
+      window.alert(result.error || "تعذر حذف العميل");
+      return;
+    }
+
+    router.refresh();
   }
 
   async function handleCharge(event: FormEvent<HTMLFormElement>) {
@@ -313,6 +330,14 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                   <Link href={`/admin/logs?client=${client.tenantId}`}>سجل الحركة</Link>
                   <button type="button" onClick={() => openLimitEditor(client)}>
                     تعديل حد المستخدمين
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-danger-action"
+                    disabled={deletingId === client.tenantId}
+                    onClick={() => handleDeleteClient(client)}
+                  >
+                    {deletingId === client.tenantId ? "جاري الحذف..." : "حذف العميل"}
                   </button>
                 </div>
               </article>
