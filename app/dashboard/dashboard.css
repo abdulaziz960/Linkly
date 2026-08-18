@@ -3832,7 +3832,7 @@
 .telegram-help-card {
   border: 1px solid #f2ddc8;
   border-radius: 16px;
-  background: #f8fbff;
+  background: var(--surface-soft);
   padding: 18px;
   display: grid;
   gap: 14px;
@@ -3841,7 +3841,7 @@
 .provider-connect-card {
   border: 1px solid #f2ddc8;
   border-radius: 16px;
-  background: #f8fbff;
+  background: var(--surface-soft);
   padding: 16px 18px;
   display: flex;
   align-items: center;
@@ -4172,7 +4172,7 @@
   min-height: 48px;
   border: 0;
   border-radius: 12px;
-  background: #111827;
+  background: var(--brand);
   color: #fff;
   padding: 0 18px;
   font: inherit;
@@ -4187,7 +4187,7 @@
 
 .secondary-action {
   min-height: 44px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);
   color: var(--ink);
@@ -4517,8 +4517,8 @@
 
 .channel-card.selected,
 .api-provider-card.selected {
-  border-color: #2583ff;
-  box-shadow: 0 12px 28px rgba(37, 131, 255, 0.12);
+  border-color: #a8431f;
+  box-shadow: 0 12px 28px rgba(168, 67, 31, 0.12);
 }
 
 .channel-card.disabled {
@@ -4542,7 +4542,7 @@
 }
 
 .connected-channel-note span {
-  color: #15803d;
+  color: var(--status-ok-text);
   font-weight: 800;
   line-height: 1.7;
 }
@@ -4552,7 +4552,7 @@
   min-height: 42px;
   border: 0;
   border-radius: 10px;
-  background: #0f172a;
+  background: var(--brand);
   color: #fff;
   padding: 0 18px;
   font: inherit;
@@ -4599,7 +4599,7 @@
 }
 
 .channel-bot-toggle button.active {
-  background: #0f172a;
+  background: var(--brand);
   color: #fff;
 }
 
@@ -4786,7 +4786,7 @@
 .telegram-steps div {
   border: 1px solid #f2ddc8;
   border-radius: 14px;
-  background: #f8fbff;
+  background: var(--surface-soft);
   padding: 14px;
   display: grid;
   gap: 6px;
@@ -4798,7 +4798,7 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: #e0f2fe;
+  background: var(--status-info-bg);
   color: var(--status-info-text);
   font-weight: 900;
 }
@@ -4817,7 +4817,7 @@
   width: min(100%, 760px);
   border: 1px solid #f2ddc8;
   border-radius: 16px;
-  background: #f8fbff;
+  background: var(--surface-soft);
   padding: 16px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
