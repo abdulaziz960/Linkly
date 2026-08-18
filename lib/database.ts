@@ -273,6 +273,26 @@ export async function ensureSchema() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS tenant_id TEXT`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS company_name TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS owner_name TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS owner_email TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'باقة النمو'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'تجربة'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS employee_limit INTEGER NOT NULL DEFAULT 3`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS amount INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS billing_cycle TEXT NOT NULL DEFAULT 'شهري'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS renewal_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS created_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TEXT NOT NULL DEFAULT ''`);
+    try {
+      await prisma.$executeRawUnsafe(`UPDATE subscriptions SET tenant_id = id WHERE tenant_id IS NULL`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ALTER COLUMN tenant_id SET NOT NULL`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_tenant_id_key`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_tenant_id_key UNIQUE (tenant_id)`);
+    } catch (error) {
+      console.error("Subscriptions tenant_id constraint migration failed", error);
+    }
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscription_payments (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL,
@@ -283,6 +303,13 @@ export async function ensureSchema() {
       created_at TEXT NOT NULL,
       completed_at TEXT NOT NULL DEFAULT ''
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS amount DOUBLE PRECISION NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'قيد الانتظار'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS moyasar_id TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS payment_url TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS created_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS completed_at TEXT NOT NULL DEFAULT ''`);
     return;
   }
 
