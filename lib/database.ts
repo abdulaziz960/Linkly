@@ -78,6 +78,11 @@ export type UserAccount = {
   createdAt: string;
 };
 
+// Real AudienceW staff allowed into /admin. isPlatformAdmin defaults to 0 for
+// every account (including every tenant's own "مالك الحساب"), so without this
+// backfill nobody - not even platform staff - can reach the provider dashboard.
+const platformAdminEmails = ["abdulaziz@audience.sa", "xcoode25@gmail.com"];
+
 export type ProviderClient = {
   id: string;
   company: string;
@@ -258,6 +263,9 @@ export async function ensureSchema() {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS off_hours_notified_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS is_platform_admin INTEGER NOT NULL DEFAULT 0`);
+    for (const email of platformAdminEmails) {
+      await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = ?`, email);
+    }
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL UNIQUE,
@@ -697,6 +705,9 @@ export async function ensureSchema() {
   const userAccountColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(user_accounts)`);
   if (!userAccountColumns.some((column) => column.name === "is_platform_admin")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN is_platform_admin INTEGER NOT NULL DEFAULT 0`);
+  }
+  for (const email of platformAdminEmails) {
+    await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = ?`, email);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS employee_invites (
     id TEXT PRIMARY KEY,
