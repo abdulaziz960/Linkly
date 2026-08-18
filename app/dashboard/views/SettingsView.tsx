@@ -1052,13 +1052,23 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       <div className={`settings-onboarding ${isConnected ? "connected" : ""}`}>
         {!isConnected ? (
           <aside className="meta-wizard-rail settings-rail">
-            {currentWizardSteps.map((step, index) => {
-              const stepNumber = index + 1;
-              const done = wizardStep > stepNumber;
-              const active = wizardStep === stepNumber;
+            {(isWebsite || isEmail
+              ? [
+                  { ...currentWizardSteps[0], target: 1 },
+                  { ...currentWizardSteps[3], target: 4 }
+                ]
+              : [
+                  { ...currentWizardSteps[0], target: 1 },
+                  { ...currentWizardSteps[2], target: 3 },
+                  { ...currentWizardSteps[3], target: 4 }
+                ]
+            ).map((step, index) => {
+              const displayNumber = index + 1;
+              const done = wizardStep > step.target;
+              const active = wizardStep === step.target;
               return (
-                <button className={active ? "active" : done ? "done" : ""} key={step.title} type="button" onClick={() => setWizardStep(stepNumber)}>
-                  <span>{done ? "✓" : stepNumber}</span>
+                <button className={active ? "active" : done ? "done" : ""} key={step.title} type="button" onClick={() => setWizardStep(step.target)}>
+                  <span>{done ? "✓" : displayNumber}</span>
                   <strong>{step.title}</strong>
                   <p>{step.description}</p>
                 </button>
