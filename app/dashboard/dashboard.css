@@ -1,12 +1,12 @@
 :root {
-  --bg: #fbf8f2;
-  --surface: #fffdf8;
-  --surface-soft: #f6f1e6;
-  --ink: #1c1710;
-  --muted: #6f6350;
-  --text-secondary: #4a4235;
-  --line: #e4d9c3;
-  --brand: #a8431f;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-soft: #fafafa;
+  --ink: #171717;
+  --muted: #6b7280;
+  --text-secondary: #404040;
+  --line: #e5e5e5;
+  --brand: #171717;
   --ok: #16a34a;
   --warn: #d97706;
   --danger: #dc2626;
@@ -22,7 +22,7 @@
   --status-danger-text: #991b1b;
   --status-info-text: #0369a1;
   --radius: 14px;
-  --shadow: 0 18px 48px rgba(28, 23, 16, 0.08);
+  --shadow: 0 18px 48px rgba(0, 0, 0, 0.08);
 }
 
 /* Dark mode is currently scoped to the areas rolled out so far: the
@@ -1144,7 +1144,7 @@
 .template-editor select:focus,
 .template-editor textarea:focus {
   outline: 0;
-  border-color: #a8431f;
+  border-color: var(--brand);
   background: var(--surface);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
@@ -1214,7 +1214,7 @@
   border-top: 1px solid var(--line);
   border-radius: 0;
   background: var(--surface);
-  color: #a8431f;
+  color: var(--brand);
   padding: 12px 6px 4px;
   font-weight: 900;
   font-size: 16px;
@@ -1995,7 +1995,7 @@
 
 .message-source-card small {
   margin: 0;
-  color: #a8431f;
+  color: var(--brand);
   font-weight: 800;
 }
 
@@ -2793,7 +2793,7 @@
 
 .campaign-tabs .section-tab.active {
   background: transparent;
-  border-color: #a8431f;
+  border-color: var(--brand);
   color: #7d3016;
 }
 
@@ -2892,7 +2892,7 @@
   width: min(100%, 360px);
   min-height: 52px;
   border-radius: 8px;
-  background: #a8431f;
+  background: var(--brand);
   font-size: 17px;
 }
 
@@ -2936,7 +2936,7 @@
   min-height: 52px;
   padding-inline: 26px;
   border-radius: 8px;
-  background: #a8431f;
+  background: var(--brand);
   color: #fff;
 }
 
@@ -3072,7 +3072,7 @@
 }
 
 .charge-presets button:hover {
-  border-color: #a8431f;
+  border-color: var(--brand);
   background: #f2ddc8;
   color: #7d3016;
 }
@@ -3153,7 +3153,7 @@
   gap: 10px;
   margin: 0;
   padding: 0 20px 0 0;
-  border-inline-end: 4px solid #a8431f;
+  border-inline-end: 4px solid var(--brand);
   list-style: none;
 }
 
@@ -3474,7 +3474,7 @@
 }
 
 .campaign-pages button.active {
-  background: #a8431f;
+  background: var(--brand);
   color: #fff;
 }
 
@@ -3500,7 +3500,7 @@
 }
 
 .toggle.on {
-  background: #a8431f;
+  background: var(--brand);
 }
 
 .toggle.on:before {
@@ -3574,7 +3574,7 @@
 .bot-toggle input {
   width: 16px;
   height: 16px;
-  accent-color: var(--accent, #a8431f);
+  accent-color: var(--accent, var(--brand));
 }
 
 .bot-toolbar {
@@ -4313,13 +4313,13 @@
 
 .meta-wizard-rail .active span,
 .meta-wizard-rail .done span {
-  border-color: #a8431f;
+  border-color: var(--brand);
   background: #f2ddc8;
-  color: #a8431f;
+  color: var(--brand);
 }
 
 .meta-wizard-rail .active strong {
-  color: #a8431f;
+  color: var(--brand);
 }
 
 .meta-wizard-content {
@@ -4465,7 +4465,7 @@
 }
 
 .email-setup-card{grid-column:1/-1;align-items:center;grid-template-columns:auto minmax(220px,1fr) auto;gap:16px}
-.email-setup-actions{display:flex;gap:8px;flex-wrap:wrap}.email-setup-actions button,.email-manual-connect button{border:0;border-radius:10px;background:#a8431f;color:#fff;padding:10px 14px;font:inherit;font-weight:800;cursor:pointer}.email-setup-actions button+button{background:#a8431f}
+.email-setup-actions{display:flex;gap:8px;flex-wrap:wrap}.email-setup-actions button,.email-manual-connect button{border:0;border-radius:10px;background:var(--brand);color:#fff;padding:10px 14px;font:inherit;font-weight:800;cursor:pointer}.email-setup-actions button+button{background:var(--brand)}
 .email-webhook{grid-column:2/-1;display:grid;gap:7px;padding:14px;border:1px solid #ede9fe;border-radius:12px;background:#faf7ff}.email-webhook code{direction:ltr;text-align:left;overflow-wrap:anywhere;color:#5b21b6;font-size:12px}.email-webhook small{color:#6b7280}
 .email-manual-connect,.email-resend{grid-column:2/-1;display:flex;gap:8px;align-items:end;flex-wrap:wrap}.email-manual-connect label{display:grid;gap:5px;font-size:12px;font-weight:800;color:#58466f}.email-manual-connect input,.email-resend input{max-width:330px}.email-manual-connect small{color:#15803d;font-weight:700}
 .email-resend{padding:14px;border:1px solid #ede9fe;border-radius:12px;background: var(--surface);align-items:center}.email-resend b,.email-resend small{width:100%}.email-resend small{color:#6b7280}.email-resend code{direction:ltr}.email-resend button:disabled{opacity:.65;cursor:wait}
@@ -4517,7 +4517,7 @@
 
 .channel-card.selected,
 .api-provider-card.selected {
-  border-color: #a8431f;
+  border-color: var(--brand);
   box-shadow: 0 12px 28px rgba(168, 67, 31, 0.12);
 }
 
@@ -4926,7 +4926,7 @@
 .meta-help button {
   border: 0;
   background: transparent;
-  color: #a8431f;
+  color: var(--brand);
   text-decoration: underline;
   font: inherit;
   font-weight: 900;
@@ -4990,7 +4990,7 @@
 }
 
 .provider-card.selected {
-  border-color: #a8431f;
+  border-color: var(--brand);
   box-shadow: 0 12px 32px rgba(168, 67, 31, 0.12);
 }
 
