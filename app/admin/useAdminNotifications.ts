@@ -61,13 +61,13 @@ function playChime() {
 export function useAdminNotifications() {
   const [items, setItems] = useState<AdminNotification[]>([]);
   const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set());
-  const [soundEnabled, setSoundEnabledState] = useState(true);
-  const soundEnabledRef = useRef(true);
+  const [soundEnabled, setSoundEnabledState] = useState(false);
+  const soundEnabledRef = useRef(false);
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(SOUND_STORAGE_KEY);
-    const enabled = stored !== "off";
+    const enabled = stored === "on";
     setSoundEnabledState(enabled);
     soundEnabledRef.current = enabled;
   }, []);
