@@ -8,7 +8,9 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
-  const settings = await getIntegrationSettings("whatsapp", user?.tenantId);
+  if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+
+  const settings = await getIntegrationSettings("whatsapp", user.tenantId);
   const body = (await request.json()) as {
     phoneNumberId?: string;
     accessToken?: string;
@@ -49,6 +51,7 @@ export async function POST(request: NextRequest) {
   }
 
   await storeWhatsAppMessage({
+    tenantId: user.tenantId,
     phone: to,
     name: `رقم اختبار ${to.slice(-4)}`,
     text: message,

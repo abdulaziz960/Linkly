@@ -143,13 +143,19 @@ export async function GET(request: NextRequest) {
   const requestedChannel = searchParams.get("state") || searchParams.get("channel") || "";
   const channel = requestedChannel === "instagram" || requestedChannel === "facebook" ? requestedChannel : "whatsapp";
   const user = await getCurrentUser();
-  const settings = await getIntegrationSettings(channel, user?.tenantId);
+  const wantsJson = request.headers.get("accept")?.includes("application/json");
+
+  if (!user) {
+    if (wantsJson) return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
+    return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+  }
+
+  const settings = await getIntegrationSettings(channel, user.tenantId);
   const wabaId = searchParams.get("waba_id") || searchParams.get("whatsapp_business_account_id") || "";
   const phoneNumberId = searchParams.get("phone_number_id") || "";
   const businessId = searchParams.get("business_id") || "";
   const phoneNumber = searchParams.get("phone_number") || "";
   const code = searchParams.get("code") || "";
-  const wantsJson = request.headers.get("accept")?.includes("application/json");
 
   if (channel === "instagram" && code) {
     const appId = settings.appId.trim() || process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";

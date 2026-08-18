@@ -67,7 +67,9 @@ export async function GET(request: NextRequest) {
   const account = userInfoPayload?.data?.user;
 
   const user = await getCurrentUser();
-  const settings = await getIntegrationSettings("tiktok", user?.tenantId);
+  if (!user) return closePopup(origin, "انتهت جلستك. سجّل الدخول من جديد وحاول الربط مرة أخرى.");
+
+  const settings = await getIntegrationSettings("tiktok", user.tenantId);
 
   await prisma.integrationSetting.update({
     where: { id: settings.id },

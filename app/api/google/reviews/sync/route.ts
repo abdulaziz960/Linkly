@@ -29,7 +29,9 @@ const ratingMap: Record<string, number> = {
 
 async function syncReviews() {
   const user = await getCurrentUser();
-  const settings = await getIntegrationSettings("google_maps", user?.tenantId);
+  if (!user) return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
+
+  const settings = await getIntegrationSettings("google_maps", user.tenantId);
   const accountId = normalizeGoogleResourceId(settings.googleAccountId);
   const locationId = normalizeGoogleResourceId(settings.googleLocationId);
 
@@ -50,7 +52,7 @@ async function syncReviews() {
     if (!reviewId) continue;
 
     await storeGoogleMapsReview({
-      tenantId: user?.tenantId,
+      tenantId: user.tenantId,
       reviewId,
       reviewerName: review.reviewer?.displayName,
       rating: review.starRating ? ratingMap[review.starRating] : undefined,

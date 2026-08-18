@@ -3,7 +3,6 @@ import { getCurrentUser } from "../../../../../lib/auth";
 import { convertAudioToMp3 } from "../../../../../lib/audio-conversion";
 import { getIntegrationSettings } from "../../../../../lib/database";
 import { sendEmailMessage } from "../../../../../lib/email-channel";
-import { sendGmailMessage } from "../../../../../lib/google-gmail";
 import { replyToGoogleReview } from "../../../../../lib/google-business";
 import { sendUnifonicSms } from "../../../../../lib/sms-send";
 import { prisma } from "../../../../../lib/prisma";
@@ -695,15 +694,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (conversation.channel === "email") {
       if (attachment) return jsonError("إرسال المرفقات عبر البريد غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
 
-      const emailSettings = await getIntegrationSettings("email", user?.tenantId);
       const recipientEmail = conversation.customer.phone?.trim();
-      const senderEmail = emailSettings.phoneNumber?.trim();
-      const senderName = emailSettings.businessName?.trim() || "AudienceW";
-      const from = senderEmail
-        ? senderEmail.includes("<")
-          ? senderEmail
-          : `${senderName} <${senderEmail}>`
-        : undefined;
       const latestEmailMessage = await prisma.message.findFirst({
         where: {
           conversationId: conversation.id,
@@ -717,20 +708,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const subject = latestEmailMessage?.sourceLabel
         ? `Re: ${latestEmailMessage.sourceLabel}`
         : "رد من AudienceW";
-      const emailResponse: { id?: string } | undefined = emailSettings.googleRefreshToken && senderEmail
-        ? await sendGmailMessage({
-            refreshToken: emailSettings.googleRefreshToken,
-            from: senderEmail,
-            to: recipientEmail,
-            subject,
-            text
-          })
-        : (await sendEmailMessage(recipientEmail, text, subject, user?.tenantId), undefined);
+      await sendEmailMessage(recipientEmail, text, subject, user?.tenantId);
 
       const message = await prisma.$transaction(async (tx) => {
         const created = await tx.message.create({
           data: {
-            id: emailResponse?.id ? `email-out-${emailResponse.id}` : `m-${Date.now()}`,
+            id: `m-${Date.now()}`,
             conversationId: conversation.id,
             direction,
             text,
@@ -739,7 +722,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             author: user?.name ?? "",
             ...replyToData,
             sourceType: "email_reply",
-            sourceId: emailResponse?.id || "",
+            sourceId: "",
             sourceLabel: latestEmailMessage?.sourceLabel || "رد بريد إلكتروني"
           }
         });

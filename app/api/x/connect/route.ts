@@ -11,7 +11,9 @@ function base64Url(input: Buffer) {
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
-  const settings = await getIntegrationSettings("x", user?.tenantId);
+  if (!user) return NextResponse.redirect(new URL("/login", request.url));
+
+  const settings = await getIntegrationSettings("x", user.tenantId);
   const clientId = settings.appId.trim();
   const redirectUri = `${request.nextUrl.origin}/api/x/callback`;
 

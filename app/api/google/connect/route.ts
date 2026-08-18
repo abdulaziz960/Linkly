@@ -6,7 +6,9 @@ import { getGoogleRedirectUri, googleBusinessScope } from "../../../../lib/googl
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
-  const settings = await getIntegrationSettings("google_maps", user?.tenantId);
+  if (!user) return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+
+  const settings = await getIntegrationSettings("google_maps", user.tenantId);
   const clientId = settings.appId.trim();
 
   if (!clientId || !settings.configId.trim()) {

@@ -37,7 +37,9 @@ function getUserName(users: Map<string, XUser>, id: string) {
 
 export async function POST() {
   const user = await getCurrentUser();
-  const settings = await getIntegrationSettings("x", user?.tenantId);
+  if (!user) return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
+
+  const settings = await getIntegrationSettings("x", user.tenantId);
   const ownUserId = settings.wabaId.trim();
 
   if (!ownUserId) {
@@ -80,7 +82,7 @@ export async function POST() {
   });
 
   const stored = await Promise.all(incomingEvents.map((event) => storeXMessage({
-    tenantId: user?.tenantId,
+    tenantId: user.tenantId,
     xUserId: String(event.sender_id),
     name: getUserName(users, String(event.sender_id)),
     text: event.text || "رسالة واردة من X",

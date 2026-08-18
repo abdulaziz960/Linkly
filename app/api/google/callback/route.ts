@@ -54,7 +54,9 @@ export async function GET(request: NextRequest) {
   }
 
   const user = await getCurrentUser();
-  const settings = await getIntegrationSettings("google_maps", user?.tenantId);
+  if (!user) return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+
+  const settings = await getIntegrationSettings("google_maps", user.tenantId);
   const redirectUri = getGoogleRedirectUri(request);
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -114,7 +116,7 @@ export async function GET(request: NextRequest) {
   }
 
   await prisma.integrationSetting.update({
-    where: { id: "google-maps" },
+    where: { id: settings.id },
     data: {
       provider: "google_maps",
       status,

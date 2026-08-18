@@ -13,8 +13,10 @@ function getChannel(request: NextRequest): Extract<IntegrationChannel, "whatsapp
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
+  if (!user) return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+
   const channel = getChannel(request);
-  const settings = await getIntegrationSettings(channel, user?.tenantId);
+  const settings = await getIntegrationSettings(channel, user.tenantId);
   const appId = channel === "whatsapp"
     ? techProviderMetaAppId
     : settings.appId.trim() || process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";

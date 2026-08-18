@@ -39,7 +39,9 @@ export async function GET(request: NextRequest) {
   }
 
   const user = await getCurrentUser();
-  const settings = await getIntegrationSettings("x", user?.tenantId);
+  if (!user) return NextResponse.redirect(new URL("/login", request.url));
+
+  const settings = await getIntegrationSettings("x", user.tenantId);
   const clientId = settings.appId.trim();
   const clientSecret = settings.configId.trim();
   const redirectUri = `${request.nextUrl.origin}/api/x/callback`;
@@ -80,7 +82,7 @@ export async function GET(request: NextRequest) {
   }
 
   await prisma.integrationSetting.update({
-    where: { id: "x-channel" },
+    where: { id: settings.id },
     data: {
       provider: "x",
       status: "connected",

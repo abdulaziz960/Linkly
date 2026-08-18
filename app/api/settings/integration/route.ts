@@ -200,15 +200,43 @@ async function verifyXConnection(
     };
   }
 
-  return {
-    status: settings.accessToken?.trim() ? "connected" : "pending",
-    message: settings.accessToken?.trim()
-      ? "متصل: تم حفظ حساب X بنجاح"
-      : "تم حفظ تطبيق X. اضغط ربط X لإكمال المصادقة بحسابك.",
-    missingFields: [],
-    verifiedName: settings.wabaName || settings.wabaId || "X",
-    displayPhoneNumber: settings.wabaId
-  };
+  const accessToken = settings.accessToken?.trim();
+  if (!accessToken) {
+    return {
+      status: "pending",
+      message: "تم حفظ تطبيق X. اضغط ربط X لإكمال المصادقة بحسابك.",
+      missingFields: []
+    };
+  }
+
+  try {
+    const response = await fetch("https://api.x.com/2/users/me?user.fields=username,name", {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const result = await response.json().catch(() => null) as { data?: { id?: string; username?: string; name?: string } } | null;
+
+    if (!response.ok || !result?.data?.id) {
+      return {
+        status: "pending",
+        message: "انتهت صلاحية ربط X أو تم إلغاؤه. اضغط ربط X لإعادة المصادقة.",
+        missingFields: []
+      };
+    }
+
+    return {
+      status: "connected",
+      message: "متصل: تم التحقق من حساب X بنجاح",
+      missingFields: [],
+      verifiedName: result.data.username ? `@${result.data.username}` : result.data.name || settings.wabaName || "X",
+      displayPhoneNumber: result.data.id
+    };
+  } catch {
+    return {
+      status: "pending",
+      message: "تعذر الوصول إلى X للتحقق من الربط",
+      missingFields: []
+    };
+  }
 }
 
 async function verifyEmailConnection(

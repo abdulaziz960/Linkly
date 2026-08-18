@@ -736,7 +736,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                     <ChannelIcon id={channel.id} />
                   </span>
                   <b>{channel.title}</b>
-                  <small>{channel.id === "x" ? "غير متاح حالياً" : selected ? "القناة متصلة، بياناتها ظاهرة بالأسفل" : channel.description}</small>
+                  <small>{selected ? "القناة متصلة، بياناتها ظاهرة بالأسفل" : channel.description}</small>
                 </button>
               );
             })}
@@ -807,7 +807,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   <ChannelIcon id={channel.id} />
                 </span>
                 <b>{channel.title}</b>
-                <small>{channel.id === "x" ? "غير متاح حالياً" : channel.description}</small>
+                <small>{channel.description}</small>
               </button>
             ))}
           </div>
