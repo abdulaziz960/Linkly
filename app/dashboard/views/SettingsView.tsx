@@ -1460,7 +1460,18 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <span className="webhook-token-value">{showWebhookToken ? settings.verifyToken : "•".repeat(Math.min(settings.verifyToken.length || 24, 32))}</span>
               <div className="copy-row-actions">
                 <button type="button" className="icon-toggle" onClick={() => setShowWebhookToken((current) => !current)} aria-label={showWebhookToken ? "إخفاء التوكن" : "إظهار التوكن"}>
-                  {showWebhookToken ? "🙈" : "👁"}
+                  {showWebhookToken ? (
+                    <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 3l18 18" />
+                      <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
+                      <path d="M9.36 5.3A10.94 10.94 0 0 1 12 5c5 0 9 4 10 7-.42 1.27-1.24 2.6-2.36 3.77M6.6 6.6C4.6 7.9 3.02 9.8 2 12c1 3 5 7 10 7 1.2 0 2.34-.22 3.4-.6" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
                 </button>
                 <button type="button" onClick={() => copyValue("token", settings.verifyToken)}>
                   {copied === "token" ? "تم النسخ" : isTelegram || isX || isEmail ? "نسخ Secret Token" : "نسخ التوكن"}
