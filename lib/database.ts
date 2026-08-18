@@ -27,6 +27,7 @@ import type {
 } from "../app/dashboard/types";
 
 let seedPromise: Promise<void> | null = null;
+let schemaPromise: Promise<void> | null = null;
 const defaultMetaAppId = process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";
 const defaultMetaConfigId =
   process.env.NEXT_PUBLIC_META_CONFIG_ID ||
@@ -133,7 +134,7 @@ export function hashPassword(password: string) {
   return createHash("sha256").update(password).digest("hex");
 }
 
-export async function ensureSchema() {
+async function runSchemaMigrations() {
   if (isPostgresDatabase) {
     await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
@@ -898,6 +899,22 @@ export async function ensureSchema() {
     content TEXT NOT NULL,
     created_at TEXT NOT NULL
   )`);
+}
+
+/**
+ * runSchemaMigrations() is hundreds of ALTER/CREATE TABLE IF NOT EXISTS
+ * statements - idempotent, but expensive to replay on every call. It was
+ * being invoked directly (uncached) from 30+ call sites across the app,
+ * so nearly every request - including every inbound channel webhook -
+ * re-ran the entire migration list against Postgres. Cache it per
+ * serverless instance the same way seedDatabase() already is below.
+ */
+export async function ensureSchema() {
+  schemaPromise ??= runSchemaMigrations().catch((error) => {
+    schemaPromise = null;
+    throw error;
+  });
+  await schemaPromise;
 }
 
 async function seedDatabase() {
