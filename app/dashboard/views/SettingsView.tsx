@@ -550,7 +550,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     setSettings(data);
     onIntegrationChange?.(data);
     setShowWebhookToken(true);
-    setSaveFeedback({ type: "success", text: "تم توليد توكن جديد. لا تنسَ تحديثه في إعدادات الويبهوك الخارجية." });
+    setSaveFeedback({ type: "success", text: "تم إنشاء توكن جديد والتوكن القديم لم يعد يعمل — حدّثه في إعدادات الويبهوك الخارجية قبل ما ينقطع الاستقبال." });
     setSaving(false);
   }
 
@@ -1066,18 +1066,14 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               })}>
                 عودة
               </button>
-              {!(isGoogleMaps && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
+              {!((isGoogleMaps || isWhatsApp || isInstagram || isFacebook) && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
                 if (wizardStep === 3 && isGoogleMaps) {
                   connectGoogleMaps();
                   return;
                 }
-                if (wizardStep === 3 && !isTelegram && !isX && !isGoogleMaps && !isTikTok && !isSms) {
-                  openMetaWindow();
-                  return;
-                }
                 setWizardStep((step) => Math.min(4, step + 1));
               }}>
-                {wizardStep === 3 ? (isGoogleMaps ? "ربط Google" : isTelegram || isX || isTikTok || isSms ? "إدخال البيانات" : "فتح نافذة Meta") : wizardStep === 4 ? "إنهاء" : "التالي"}
+                {wizardStep === 3 ? (isGoogleMaps ? "ربط Google" : "إدخال البيانات") : wizardStep === 4 ? "إنهاء" : "التالي"}
               </button> : null}
             </div>
           ) : null}
@@ -1465,7 +1461,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </button>
             </div>
             <button type="button" className="webhook-token-regenerate" disabled={saving} onClick={regenerateWebhookToken}>
-              توليد توكن جديد
+              إنشاء توكن جديد وإيقاف القديم
             </button>
           </div> : null}
         </form>
