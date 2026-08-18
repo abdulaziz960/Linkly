@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const authorizeUrl = new URL("https://www.tiktok.com/v2/auth/authorize/");
   authorizeUrl.searchParams.set("client_key", clientKey);
   authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("scope", "user.info.basic");
+  authorizeUrl.searchParams.set("scope", "user.info.profile");
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("state", state);
   authorizeUrl.searchParams.set("code_challenge", codeChallenge);
