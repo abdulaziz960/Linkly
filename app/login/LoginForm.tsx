@@ -102,7 +102,7 @@ export default function LoginForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
           />
           <span>{text.remember}</span>
         </label>
-        <a href="#">{text.forgot}</a>
+        <a href="/forgot-password">{text.forgot}</a>
       </div>
 
       {error ? <p className="login-error">{error}</p> : null}
