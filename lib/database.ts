@@ -264,7 +264,7 @@ export async function ensureSchema() {
     await prisma.$executeRawUnsafe(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS is_platform_admin INTEGER NOT NULL DEFAULT 0`);
     for (const email of platformAdminEmails) {
-      await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = ?`, email);
+      await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = $1`, email);
     }
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
       id TEXT PRIMARY KEY,
