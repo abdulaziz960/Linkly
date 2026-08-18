@@ -1543,11 +1543,19 @@ async function seedDatabase() {
         log.message
       );
     }
-  });
+  }, { timeout: 20000, maxWait: 10000 });
 }
 
 async function ensureSeeded() {
-  seedPromise ??= seedDatabase();
+  // If seeding fails, seedPromise must not stay set to the rejected promise -
+  // `??=` only re-runs seedDatabase() when seedPromise is null/undefined, so a
+  // single transient failure (e.g. a cold-start DB timeout) would otherwise
+  // permanently break every request this server instance ever handles again,
+  // since it keeps awaiting and re-throwing that same cached rejection.
+  seedPromise ??= seedDatabase().catch((error) => {
+    seedPromise = null;
+    throw error;
+  });
   await seedPromise;
 }
 
