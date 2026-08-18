@@ -250,6 +250,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     ? oauthEmailStatus?.status === "connected" && oauthEmailStatus.provider === selectedChannel
     : settings.status === "connected";
   const showIntegrationData = (isTelegram || isGoogleMaps || isEmail || isWebsite ? wizardStep >= 4 : wizardStep >= 3) || isConnected;
+  // Outlook always hides the manual Webhook setup UI (per product decision -
+  // Gmail and Outlook share one connection slot, and Outlook isn't meant to
+  // offer the manual fallback path at all). Gmail still shows it until OAuth
+  // is actually connected.
+  const hideManualEmailSetup = isOutlook || (isGmail && isConnected);
 
   useEffect(() => {
     if (wizardStep !== 2) return;
@@ -1175,7 +1180,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </a>
             </div>
           ) : null}
-          {isEmail && !isConnected ? (
+          {isEmail && !hideManualEmailSetup ? (
             <div className="telegram-help-card">
               <div>
                 <h3>طريقة ربط البريد الإلكتروني عبر Webhook (بديل)</h3>
@@ -1214,14 +1219,14 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           ) : null}
           <div className="settings-form-head">
             <div>
-              <h2>{isWebsite ? "ودجت الموقع الإلكتروني" : isGoogleMaps ? "ربط Google Business" : isWhatsApp ? "ربط واتساب" : (isGmail || isOutlook) && isConnected ? "حساب البريد المرتبط" : "بيانات الربط والويبهوك"}</h2>
-              <p>{isWebsite ? "مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى." : (isGmail || isOutlook) && isConnected ? "الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب." : isEmail ? "هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook وإرسال الردود عبر Resend." : isGoogleMaps ? "لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة." : isX ? "هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا." : isTikTok ? "احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging." : isSms ? "بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز." : isTelegram ? "هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة." : isFacebook ? "هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة." : isInstagram ? "هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة." : "اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط."}</p>
+              <h2>{isWebsite ? "ودجت الموقع الإلكتروني" : isGoogleMaps ? "ربط Google Business" : isWhatsApp ? "ربط واتساب" : hideManualEmailSetup ? (isConnected ? "حساب البريد المرتبط" : "قناة Outlook") : "بيانات الربط والويبهوك"}</h2>
+              <p>{isWebsite ? "مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى." : hideManualEmailSetup ? (isConnected ? "الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب." : "اربط حساب Outlook من الأعلى لتفعيل القناة.") : isEmail ? "هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook وإرسال الردود عبر Resend." : isGoogleMaps ? "لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة." : isX ? "هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا." : isTikTok ? "احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging." : isSms ? "بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز." : isTelegram ? "هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة." : isFacebook ? "هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة." : isInstagram ? "هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة." : "اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط."}</p>
             </div>
             <span className={`connection-pill ${settings.status}`}>{statusLabel[settings.status]}</span>
             {!isWebsite ? <button className="soft-action" disabled={saving || loading} type="button" onClick={resetIntegrationData}>
               مسح بيانات الربط
             </button> : null}
-            {!isGoogleMaps && !isWhatsApp && !isWebsite && !((isGmail || isOutlook) && isConnected) ? <button className="primary-action" disabled={saving || loading} type="submit">
+            {!isGoogleMaps && !isWhatsApp && !isWebsite && !(hideManualEmailSetup) ? <button className="primary-action" disabled={saving || loading} type="submit">
               {saving ? "جاري الحفظ..." : "حفظ الإعدادات"}
             </button> : null}
             {isWhatsApp ? <button className="primary-action" disabled={saving || loading} type="button" onClick={async () => { setSaving(true); await persistSettings(); setSaving(false); }}>
@@ -1229,7 +1234,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             </button> : null}
           </div>
 
-          {!isGoogleMaps && !isWebsite && !((isGmail || isOutlook) && isConnected) ? <div className="settings-fields">
+          {!isGoogleMaps && !isWebsite && !(hideManualEmailSetup) ? <div className="settings-fields">
             {!isWhatsApp ? <label>
               اسم النشاط التجاري
               <input value={settings.businessName} onChange={(event) => updateField("businessName", event.target.value)} />
@@ -1441,7 +1446,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             {testFeedback && <p className={`meta-test-feedback ${testFeedback.type}`}>{testFeedback.text}</p>}
           </div> : null}
 
-          {!isGoogleMaps && !isWhatsApp && !isWebsite && !isInstagram && !isFacebook && !((isGmail || isOutlook) && isConnected) ? <div className="webhook-card">
+          {!isGoogleMaps && !isWhatsApp && !isWebsite && !isInstagram && !isFacebook && !(hideManualEmailSetup) ? <div className="webhook-card">
             <div>
               <h3>إعدادات الويبهوك — {isEmail ? (isGmail ? "Gmail" : isOutlook ? "Outlook" : "البريد الإلكتروني") : isTikTok ? "TikTok" : isSms ? "SMS" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب"}</h3>
               <p>{isEmail ? "انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة." : isGoogleMaps ? "هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة." : isX ? "استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات." : isTelegram ? "سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة." : isFacebook ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger." : isInstagram ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram." : isTikTok ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق TikTok لاستقبال رسائل وتعليقات TikTok بعد موافقة Business Messaging." : "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp."}</p>
