@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { AdminUser } from "./types";
 
@@ -24,15 +25,14 @@ export default function AdminSidebar({ user }: { user: AdminUser }) {
         </span>
         <div>
           <strong>AudienceW</strong>
-          <span>لوحة المزوّد</span>
         </div>
       </div>
 
       <nav className="admin-nav" aria-label="تنقل لوحة المزوّد">
         {navItems.map((item) => (
-          <a key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}>
+          <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""} prefetch>
             {item.label}
-          </a>
+          </Link>
         ))}
       </nav>
 

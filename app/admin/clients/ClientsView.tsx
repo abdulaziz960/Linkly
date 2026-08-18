@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent } from "react";
@@ -209,7 +210,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                   <button type="button" onClick={() => openChargeModal(client)}>
                     شحن / تجديد الاشتراك
                   </button>
-                  <a href={`/admin/logs?client=${client.tenantId}`}>سجل الحركة</a>
+                  <Link href={`/admin/logs?client=${client.tenantId}`}>سجل الحركة</Link>
                   <button type="button" onClick={() => openLimitEditor(client)}>
                     تعديل حد المستخدمين
                   </button>
