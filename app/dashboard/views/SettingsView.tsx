@@ -257,11 +257,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const hideManualEmailSetup = isOutlook || (isGmail && isConnected);
 
   useEffect(() => {
-    if (wizardStep !== 2) return;
-    setWizardStep(isGoogleMaps || isEmail || isWebsite ? 4 : 3);
-  }, [wizardStep, isGoogleMaps, isEmail, isWebsite]);
-
-  useEffect(() => {
     setShowWebhookToken(false);
   }, [selectedChannel]);
 
@@ -834,7 +829,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 onClick={() => {
                   if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "gmail" || channel.id === "outlook" || channel.id === "website" || channel.id === "tiktok" || channel.id === "sms") {
                     setSelectedChannel(channel.id);
-                    setWizardStep(channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "tiktok" || channel.id === "sms" || channel.id === "whatsapp" || channel.id === "google_maps" ? 3 : channel.id === "gmail" || channel.id === "outlook" || channel.id === "website" ? 4 : 2);
+                    // Website has no meaningful step 2/3 content of its own
+                    // (its "setup" is just the embed code shown at step 4),
+                    // so it keeps jumping straight there.
+                    setWizardStep(channel.id === "website" ? 4 : 2);
                   }
                 }}
               >
@@ -845,6 +843,18 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 <small>{channel.description}</small>
               </button>
             ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (wizardStep === 2) {
+      const step = currentWizardSteps[1];
+      return (
+        <div className="meta-wizard-panel">
+          <div className="meta-wizard-title">
+            <h3>{step.title}</h3>
+            <p>{step.description}</p>
           </div>
         </div>
       );
