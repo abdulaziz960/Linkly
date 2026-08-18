@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../lib/auth";
 import { getAdminLogs } from "../../lib/database";
-import { getSubscriptions } from "../../lib/subscriptions";
+import { getSubscriptions, getSubscriptionPayments } from "../../lib/subscriptions";
 import AdminDashboard from "./AdminDashboard";
 import "./admin.css";
 
@@ -16,7 +16,11 @@ export default async function AdminPage() {
     redirect("/dashboard");
   }
 
-  const [subscriptions, logs] = await Promise.all([getSubscriptions(), getAdminLogs()]);
+  const [subscriptions, logs, payments] = await Promise.all([
+    getSubscriptions(),
+    getAdminLogs(),
+    getSubscriptionPayments()
+  ]);
 
-  return <AdminDashboard user={user} subscriptions={subscriptions} logs={logs} />;
+  return <AdminDashboard user={user} subscriptions={subscriptions} logs={logs} payments={payments} />;
 }

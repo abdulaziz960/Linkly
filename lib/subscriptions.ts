@@ -38,6 +38,21 @@ export async function getSubscriptionForTenant(tenantId: string) {
   return prisma.subscription.findUnique({ where: { tenantId } });
 }
 
+export async function getSubscriptionPayments() {
+  await ensureSchema();
+  const [payments, subscriptions] = await Promise.all([
+    prisma.subscriptionPayment.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.subscription.findMany({ select: { tenantId: true, companyName: true } })
+  ]);
+
+  const companyNameByTenant = new Map(subscriptions.map((s) => [s.tenantId, s.companyName]));
+
+  return payments.map((payment) => ({
+    ...payment,
+    companyName: companyNameByTenant.get(payment.tenantId) || payment.tenantId
+  }));
+}
+
 export async function logAdminAction(tenantId: string, clientName: string, message: string, level: "معلومة" | "تنبيه" | "خطأ" = "معلومة") {
   await prisma.adminLog.create({
     data: {

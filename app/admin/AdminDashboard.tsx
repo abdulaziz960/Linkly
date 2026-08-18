@@ -23,14 +23,28 @@ type SubscriptionRow = {
   conversationCount: number;
 };
 
+type PaymentRow = {
+  id: string;
+  tenantId: string;
+  companyName: string;
+  amount: number;
+  status: string;
+  moyasarId: string;
+  paymentUrl: string;
+  createdAt: string;
+  completedAt: string;
+};
+
 type AdminDashboardProps = {
   user: { id: string; name: string; email: string };
   subscriptions: SubscriptionRow[];
   logs: AdminLog[];
+  payments: PaymentRow[];
 };
 
 const numberFormatter = new Intl.NumberFormat("ar-SA");
 const EXTRA_USER_PRICE = 65;
+const RENEWAL_SOON_DAYS = 7;
 
 function formatNumber(value: number) {
   return numberFormatter.format(value);
@@ -42,9 +56,34 @@ function statusClass(status: string) {
   return "is-danger";
 }
 
-export default function AdminDashboard({ user, subscriptions, logs }: AdminDashboardProps) {
+function parseRenewalDate(renewalAt: string) {
+  if (!renewalAt) return null;
+  const date = new Date(`${renewalAt}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getRenewalAlert(subscription: SubscriptionRow): { label: string; tier: "overdue" | "soon" } | null {
+  if (subscription.status !== "نشط") return null;
+  const renewalDate = parseRenewalDate(subscription.renewalAt);
+  if (!renewalDate) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((renewalDate.getTime() - today.getTime()) / 86400000);
+
+  if (diffDays < 0) {
+    return { label: `متأخر ${formatNumber(Math.abs(diffDays))} يوم`, tier: "overdue" };
+  }
+  if (diffDays <= RENEWAL_SOON_DAYS) {
+    return { label: diffDays === 0 ? "يتجدد اليوم" : `يتجدد خلال ${formatNumber(diffDays)} يوم`, tier: "soon" };
+  }
+  return null;
+}
+
+export default function AdminDashboard({ user, subscriptions, logs, payments }: AdminDashboardProps) {
   const router = useRouter();
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [selectedPaymentClient, setSelectedPaymentClient] = useState("all");
   const [limitClient, setLimitClient] = useState<SubscriptionRow | null>(null);
   const [limitValue, setLimitValue] = useState("");
   const [isLimitSaving, setIsLimitSaving] = useState(false);
@@ -69,6 +108,11 @@ export default function AdminDashboard({ user, subscriptions, logs }: AdminDashb
   }, 0);
   const totalConversations = subscriptions.reduce((sum, s) => sum + s.conversationCount, 0);
   const filteredLogs = selectedLogClient === "all" ? logs : logs.filter((log) => log.clientId === selectedLogClient);
+  const filteredPayments = selectedPaymentClient === "all" ? payments : payments.filter((payment) => payment.tenantId === selectedPaymentClient);
+  const renewalAlerts = subscriptions
+    .map((subscription) => ({ subscription, alert: getRenewalAlert(subscription) }))
+    .filter((item): item is { subscription: SubscriptionRow; alert: { label: string; tier: "overdue" | "soon" } } => item.alert !== null)
+    .sort((a, b) => (a.alert.tier === "overdue" ? 0 : 1) - (b.alert.tier === "overdue" ? 0 : 1));
 
   function showClientLogs(tenantId: string) {
     setSelectedLogClient(tenantId);
@@ -208,6 +252,8 @@ export default function AdminDashboard({ user, subscriptions, logs }: AdminDashb
             نظرة عامة
           </a>
           <a href="#clients">العملاء</a>
+          <a href="#alerts">تنبيهات التجديد</a>
+          <a href="#payments">المدفوعات</a>
           <a href="#logs">السجلات</a>
         </nav>
 
@@ -333,6 +379,77 @@ export default function AdminDashboard({ user, subscriptions, logs }: AdminDashb
             })}
             {!subscriptions.length ? <p className="admin-empty-state">لا يوجد عملاء بعد. اضغط "إضافة عميل" لإنشاء أول حساب.</p> : null}
           </div>
+        </section>
+
+        <section className="admin-card" id="alerts">
+          <div className="admin-card-head">
+            <div>
+              <h2>تنبيهات التجديد</h2>
+              <p>اشتراكات نشطة تحتاج متابعة: تجديد قريب خلال {formatNumber(RENEWAL_SOON_DAYS)} أيام أو متأخرة عن موعدها.</p>
+            </div>
+          </div>
+          <div className="admin-list">
+            {renewalAlerts.map(({ subscription, alert }) => (
+              <div className="admin-list-row" key={subscription.tenantId}>
+                <div>
+                  <strong>{subscription.companyName}</strong>
+                  <span>{subscription.plan} · التجديد: {subscription.renewalAt || "غير محدد"}</span>
+                </div>
+                <span className={`admin-pill ${alert.tier === "overdue" ? "is-danger" : "is-warn"}`}>{alert.label}</span>
+                <button type="button" onClick={() => openChargeModal(subscription)}>
+                  شحن الاشتراك
+                </button>
+              </div>
+            ))}
+            {!renewalAlerts.length ? <p className="admin-empty-state">لا توجد اشتراكات تحتاج متابعة حاليًا.</p> : null}
+          </div>
+        </section>
+
+        <section className="admin-card" id="payments">
+          <div className="admin-card-head">
+            <div>
+              <h2>المدفوعات</h2>
+              <p>سجل كل طلبات الدفع عبر Moyasar لكل عميل، بحالتها الفعلية.</p>
+            </div>
+            <label className="admin-log-filter">
+              العميل
+              <select value={selectedPaymentClient} onChange={(event) => setSelectedPaymentClient(event.target.value)}>
+                <option value="all">كل العملاء</option>
+                {subscriptions.map((client) => (
+                  <option key={client.tenantId} value={client.tenantId}>
+                    {client.companyName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="admin-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>العميل</th>
+                  <th>المبلغ</th>
+                  <th>الحالة</th>
+                  <th>معرّف Moyasar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPayments.map((payment) => (
+                  <tr key={payment.id}>
+                    <td>{payment.completedAt || payment.createdAt}</td>
+                    <td>{payment.companyName}</td>
+                    <td>{formatNumber(payment.amount)} ر.س</td>
+                    <td>
+                      <span className={`admin-pill ${statusClass(payment.status)}`}>{payment.status}</span>
+                    </td>
+                    <td dir="ltr">{payment.moyasarId || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filteredPayments.length === 0 ? <p className="admin-empty-state">لا توجد مدفوعات مسجّلة حتى الآن.</p> : null}
         </section>
 
         <section className="admin-grid lower">
