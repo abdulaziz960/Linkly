@@ -759,7 +759,7 @@ export default function InboxView({
                   ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد" || item.text === "مستند" || item.text === item.attachment.name) ? null : (
                     <span>{formatEmailContent(item.text)}</span>
                   )}
-                  {item.source ? (
+                  {item.source && activeConversation.channel !== "email" ? (
                     item.source.url ? (
                       <a className="message-source-card" href={item.source.url} target="_blank" rel="noreferrer">
                         <b>{item.source.label || "البوست المرتبط بالتعليق"}</b>

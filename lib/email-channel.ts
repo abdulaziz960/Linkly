@@ -113,7 +113,10 @@ export async function sendEmailMessage(to: string, text: string, subject = "رس
     ?? await prisma.emailIntegration.findUnique({ where: { id: "primary-email" } });
   if (integration?.provider === "gmail" && integration.accessToken) {
     const accessToken = await getValidAccessToken(integration);
-    const fromHeader = integration.senderName ? `${encodeHeaderWord(integration.senderName)} <${integration.emailAddress}>` : integration.emailAddress;
+    // Always brand outgoing mail as AudienceW rather than the connected
+    // Google account's own profile name (e.g. the owner's personal name),
+    // which is what customers used to see as the sender.
+    const fromHeader = `${encodeHeaderWord("AudienceW")} <${integration.emailAddress}>`;
     const raw = Buffer.from([`To: ${to}`, `From: ${fromHeader}`, `Subject: ${encodeHeaderWord(subject)}`, "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "", text].join("\r\n")).toString("base64url");
     const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ raw }) });
     if (response.ok) return;
