@@ -292,13 +292,14 @@ model IntegrationSetting {
 }
 
 model UserAccount {
-  id           String @id
-  name         String
-  email        String @unique
-  passwordHash String @map("password_hash")
-  role         String
-  tenantId     String @default("tenant-demo") @map("tenant_id")
-  createdAt    String @map("created_at")
+  id              String @id
+  name            String
+  email           String @unique
+  passwordHash    String @map("password_hash")
+  role            String
+  tenantId        String @default("tenant-demo") @map("tenant_id")
+  isPlatformAdmin Int    @default(0) @map("is_platform_admin")
+  createdAt       String @map("created_at")
 
   @@map("user_accounts")
 }
@@ -359,6 +360,37 @@ model ProviderSubscription {
   paymentMethod String @map("payment_method")
 
   @@map("provider_subscriptions")
+}
+
+model Subscription {
+  id            String @id
+  tenantId      String @unique @map("tenant_id")
+  companyName   String @map("company_name")
+  ownerName     String @map("owner_name")
+  ownerEmail    String @map("owner_email")
+  plan          String @default("باقة النمو")
+  status        String @default("تجربة")
+  employeeLimit Int    @default(3) @map("employee_limit")
+  amount        Int    @default(0)
+  billingCycle  String @default("شهري") @map("billing_cycle")
+  renewalAt     String @default("") @map("renewal_at")
+  createdAt     String @map("created_at")
+  updatedAt     String @map("updated_at")
+
+  @@map("subscriptions")
+}
+
+model SubscriptionPayment {
+  id          String @id
+  tenantId    String @map("tenant_id")
+  amount      Float
+  status      String @default("قيد الانتظار")
+  moyasarId   String @default("") @map("moyasar_id")
+  paymentUrl  String @default("") @map("payment_url")
+  createdAt   String @map("created_at")
+  completedAt String @default("") @map("completed_at")
+
+  @@map("subscription_payments")
 }
 
 model BotSettings {

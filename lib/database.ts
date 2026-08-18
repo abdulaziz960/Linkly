@@ -74,6 +74,7 @@ export type UserAccount = {
   passwordHash: string;
   role: string;
   tenantId: string;
+  isPlatformAdmin: number;
   createdAt: string;
 };
 
@@ -256,6 +257,32 @@ export async function ensureSchema() {
     await prisma.$executeRawUnsafe(`ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS off_hours_notified_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS is_platform_admin INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL UNIQUE,
+      company_name TEXT NOT NULL,
+      owner_name TEXT NOT NULL,
+      owner_email TEXT NOT NULL,
+      plan TEXT NOT NULL DEFAULT 'باقة النمو',
+      status TEXT NOT NULL DEFAULT 'تجربة',
+      employee_limit INTEGER NOT NULL DEFAULT 3,
+      amount INTEGER NOT NULL DEFAULT 0,
+      billing_cycle TEXT NOT NULL DEFAULT 'شهري',
+      renewal_at TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscription_payments (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      amount DOUBLE PRECISION NOT NULL,
+      status TEXT NOT NULL DEFAULT 'قيد الانتظار',
+      moyasar_id TEXT NOT NULL DEFAULT '',
+      payment_url TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      completed_at TEXT NOT NULL DEFAULT ''
+    )`);
     return;
   }
 
@@ -637,8 +664,13 @@ export async function ensureSchema() {
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL,
     tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
+    is_platform_admin INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
   )`);
+  const userAccountColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(user_accounts)`);
+  if (!userAccountColumns.some((column) => column.name === "is_platform_admin")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN is_platform_admin INTEGER NOT NULL DEFAULT 0`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS employee_invites (
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL,
@@ -680,6 +712,31 @@ export async function ensureSchema() {
     source TEXT NOT NULL,
     level TEXT NOT NULL,
     message TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL UNIQUE,
+    company_name TEXT NOT NULL,
+    owner_name TEXT NOT NULL,
+    owner_email TEXT NOT NULL,
+    plan TEXT NOT NULL DEFAULT 'باقة النمو',
+    status TEXT NOT NULL DEFAULT 'تجربة',
+    employee_limit INTEGER NOT NULL DEFAULT 3,
+    amount INTEGER NOT NULL DEFAULT 0,
+    billing_cycle TEXT NOT NULL DEFAULT 'شهري',
+    renewal_at TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscription_payments (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    amount REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'قيد الانتظار',
+    moyasar_id TEXT NOT NULL DEFAULT '',
+    payment_url TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    completed_at TEXT NOT NULL DEFAULT ''
   )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS bot_settings (
     id TEXT PRIMARY KEY,

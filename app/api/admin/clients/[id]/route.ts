@@ -1,49 +1,32 @@
 import { NextRequest } from "next/server";
-import { getCurrentUser } from "../../../../../lib/auth";
-import { prisma } from "../../../../../lib/prisma";
+import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
+import { updateSubscription } from "../../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
-  if (!user) return jsonError("غير مصرح", 401);
-  if (user.role !== "مالك الحساب") return jsonError("لا تملك صلاحية الوصول", 403);
+  const admin = await requirePlatformAdmin();
+  if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
-  const { id } = await params;
-  const body = (await request.json()) as { employees?: number };
-  const employees = Number(body.employees);
+  const { id: tenantId } = await params;
+  const body = (await request.json()) as {
+    employeeLimit?: number;
+    plan?: string;
+    status?: string;
+    amount?: number;
+    billingCycle?: string;
+    renewalAt?: string;
+  };
 
-  if (!Number.isFinite(employees) || employees < 1) {
+  if (body.employeeLimit !== undefined && (!Number.isFinite(body.employeeLimit) || body.employeeLimit < 1)) {
     return jsonError("حد المستخدمين غير صحيح");
   }
 
-  const client = await prisma.providerClient.findUnique({ where: { id } });
-  if (!client) return jsonError("العميل غير موجود", 404);
-
-  const now = new Date();
-
-  await prisma.$transaction(async (tx) => {
-    await tx.providerClient.update({
-      where: { id },
-      data: {
-        employees,
-        lastActivity: "تم تحديث حد المستخدمين"
-      }
-    });
-
-    await tx.adminLog.create({
-      data: {
-        id: `log-${Date.now()}`,
-        at: now.toLocaleString("ar-SA"),
-        clientId: id,
-        clientName: client.company,
-        source: "Provider Admin",
-        level: "معلومة",
-        message: `تم تعديل حد المستخدمين من ${client.employees} إلى ${employees} بواسطة ${user.name}.`
-      }
-    });
-  });
-
-  return jsonOk({ id, employees });
+  try {
+    const subscription = await updateSubscription(tenantId, body, admin.name);
+    return jsonOk(subscription);
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "تعذر تحديث الاشتراك", 404);
+  }
 }

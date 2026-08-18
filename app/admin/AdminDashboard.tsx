@@ -3,158 +3,170 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent } from "react";
-import type { AdminLog, ProviderClient, ProviderSubscription } from "../../lib/database";
-import type { Campaign, DashboardUser, IntegrationSettings, MessageTemplate } from "../dashboard/types";
+import type { AdminLog } from "../../lib/database";
+
+type SubscriptionRow = {
+  id: string;
+  tenantId: string;
+  companyName: string;
+  ownerName: string;
+  ownerEmail: string;
+  plan: string;
+  status: string;
+  employeeLimit: number;
+  amount: number;
+  billingCycle: string;
+  renewalAt: string;
+  createdAt: string;
+  updatedAt: string;
+  employeeCount: number;
+  conversationCount: number;
+};
 
 type AdminDashboardProps = {
-  user: DashboardUser;
-  clients: ProviderClient[];
-  subscriptions: ProviderSubscription[];
+  user: { id: string; name: string; email: string };
+  subscriptions: SubscriptionRow[];
   logs: AdminLog[];
-  campaigns: Campaign[];
-  templates: MessageTemplate[];
-  integration: IntegrationSettings;
 };
 
 const numberFormatter = new Intl.NumberFormat("ar-SA");
 const EXTRA_USER_PRICE = 65;
-const PLAN_USER_LIMITS: Record<string, number> = {
-  "باقة البداية": 1,
-  "باقة النمو": 3,
-  "باقة الأعمال": 10
-};
 
 function formatNumber(value: number) {
   return numberFormatter.format(value);
 }
 
-function getPlanUserLimit(plan: string) {
-  return PLAN_USER_LIMITS[plan] ?? PLAN_USER_LIMITS["باقة البداية"];
-}
-
-function getExtraUserCount(client: ProviderClient, plan: string) {
-  return Math.max(0, client.employees - getPlanUserLimit(plan));
-}
-
-function getExtraUserAmount(client: ProviderClient, plan: string) {
-  return getExtraUserCount(client, plan) * EXTRA_USER_PRICE;
-}
-
 function statusClass(status: string) {
-  if (status === "نشط" || status === "connected" || status === "مدفوع") return "is-good";
-  if (
-    status === "تجربة" ||
-    status === "pending" ||
-    status === "تجريبي" ||
-    status === "تنبيه" ||
-    status === "قيد التجهيز" ||
-    status === "بانتظار الربط" ||
-    status === "بانتظار الإكمال"
-  )
-    return "is-warn";
+  if (status === "نشط" || status === "مكتمل" || status === "مدفوع") return "is-good";
+  if (status === "تجربة" || status === "قيد الانتظار" || status === "معلومة" || status === "تنبيه") return "is-warn";
   return "is-danger";
 }
 
-export default function AdminDashboard({
-  user,
-  clients,
-  subscriptions,
-  logs,
-  campaigns,
-  templates,
-  integration
-}: AdminDashboardProps) {
+export default function AdminDashboard({ user, subscriptions, logs }: AdminDashboardProps) {
   const router = useRouter();
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [userLimitClient, setUserLimitClient] = useState<ProviderClient | null>(null);
-  const [userLimitValue, setUserLimitValue] = useState("");
-  const [isUserLimitSaving, setIsUserLimitSaving] = useState(false);
-  const [userLimitError, setUserLimitError] = useState("");
+  const [limitClient, setLimitClient] = useState<SubscriptionRow | null>(null);
+  const [limitValue, setLimitValue] = useState("");
+  const [isLimitSaving, setIsLimitSaving] = useState(false);
+  const [limitError, setLimitError] = useState("");
+  const [chargeClient, setChargeClient] = useState<SubscriptionRow | null>(null);
+  const [chargeAmount, setChargeAmount] = useState("");
+  const [isCharging, setIsCharging] = useState(false);
+  const [chargeError, setChargeError] = useState("");
+  const [chargeUrl, setChargeUrl] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [inviteNotice, setInviteNotice] = useState("");
+  const [activationUrl, setActivationUrl] = useState("");
   const [selectedLogClient, setSelectedLogClient] = useState("all");
-  const activeClients = clients.filter((client) => client.status === "نشط").length;
-  const trialClients = clients.filter((client) => client.status === "تجربة").length;
-  const pendingClients = clients.filter((client) => client.status === "بانتظار الربط").length;
-  const totalConversations = clients.reduce((sum, client) => sum + client.conversations, 0);
-  const connectedClients = clients.filter((client) => client.wabaId !== "بانتظار الربط").length;
-  const approvedTemplates = templates.filter((template) => template.status === "معتمد").length;
-  const activeCampaigns = campaigns.filter((campaign) => campaign.status !== "الحملة أنجزت").length;
-  const monthlyRevenue = clients.reduce((sum, client) => {
-    const subscription = getSubscription(client);
-    if (!subscription || subscription.status !== "مدفوع") return sum;
-    return sum + subscription.amount + getExtraUserAmount(client, subscription.plan);
+
+  const activeClients = subscriptions.filter((s) => s.status === "نشط").length;
+  const trialClients = subscriptions.filter((s) => s.status === "تجربة").length;
+  const monthlyRevenue = subscriptions.reduce((sum, s) => {
+    if (s.status !== "نشط") return sum;
+    const extra = Math.max(0, s.employeeCount - s.employeeLimit) * EXTRA_USER_PRICE;
+    return sum + s.amount + extra;
   }, 0);
-  const pendingSubscriptions = subscriptions.filter((subscription) => subscription.status !== "مدفوع");
-  const recentLogs = logs.slice(0, 5);
-  const filteredLogs =
-    selectedLogClient === "all" ? logs : logs.filter((log) => log.clientId === selectedLogClient);
+  const totalConversations = subscriptions.reduce((sum, s) => sum + s.conversationCount, 0);
+  const filteredLogs = selectedLogClient === "all" ? logs : logs.filter((log) => log.clientId === selectedLogClient);
 
-  function getSubscription(client: ProviderClient) {
-    return subscriptions.find((subscription) => subscription.clientId === client.id);
-  }
-
-  function showClientLogs(clientId: string) {
-    setSelectedLogClient(clientId);
+  function showClientLogs(tenantId: string) {
+    setSelectedLogClient(tenantId);
     window.setTimeout(() => document.getElementById("logs")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }
 
-  function openUserLimitEditor(client: ProviderClient) {
-    setUserLimitClient(client);
-    setUserLimitValue(String(client.employees));
-    setUserLimitError("");
+  function openLimitEditor(client: SubscriptionRow) {
+    setLimitClient(client);
+    setLimitValue(String(client.employeeLimit));
+    setLimitError("");
   }
 
-  async function handleUpdateUserLimit(event: FormEvent<HTMLFormElement>) {
+  async function handleUpdateLimit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!userLimitClient) return;
+    if (!limitClient) return;
 
-    const employees = Number(userLimitValue);
-    if (!Number.isFinite(employees) || employees < 1) {
-      setUserLimitError("اكتب حد مستخدمين صحيح");
+    const employeeLimit = Number(limitValue);
+    if (!Number.isFinite(employeeLimit) || employeeLimit < 1) {
+      setLimitError("اكتب حد مستخدمين صحيح");
       return;
     }
 
-    setIsUserLimitSaving(true);
-    setUserLimitError("");
+    setIsLimitSaving(true);
+    setLimitError("");
 
-    const response = await fetch(`/api/admin/clients/${userLimitClient.id}`, {
+    const response = await fetch(`/api/admin/clients/${limitClient.tenantId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employees })
+      body: JSON.stringify({ employeeLimit })
     });
     const result = (await response.json()) as { ok: boolean; error?: string };
 
-    setIsUserLimitSaving(false);
+    setIsLimitSaving(false);
 
     if (!response.ok || !result.ok) {
-      setUserLimitError(result.error || "تعذر تحديث حد المستخدمين");
+      setLimitError(result.error || "تعذر تحديث حد المستخدمين");
       return;
     }
 
-    setUserLimitClient(null);
+    setLimitClient(null);
     router.refresh();
+  }
+
+  function openChargeModal(client: SubscriptionRow) {
+    setChargeClient(client);
+    setChargeAmount(String(client.amount || 499));
+    setChargeError("");
+    setChargeUrl("");
+  }
+
+  async function handleCharge(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!chargeClient) return;
+
+    const amount = Number(chargeAmount);
+    if (!Number.isFinite(amount) || amount < 1) {
+      setChargeError("اكتب قيمة فاتورة صحيحة");
+      return;
+    }
+
+    setIsCharging(true);
+    setChargeError("");
+    setChargeUrl("");
+
+    const response = await fetch("/api/admin/subscriptions/charge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenantId: chargeClient.tenantId, amount })
+    });
+    const result = (await response.json()) as { ok: boolean; paymentUrl?: string; error?: string };
+
+    setIsCharging(false);
+
+    if (!response.ok || !result.ok || !result.paymentUrl) {
+      setChargeError(result.error || "تعذر إنشاء طلب الدفع");
+      return;
+    }
+
+    setChargeUrl(result.paymentUrl);
   }
 
   async function handleCreateClient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
     setFormError("");
+    setInviteNotice("");
+    setActivationUrl("");
 
     const formData = new FormData(event.currentTarget);
     const payload = {
       company: String(formData.get("company") || ""),
       owner: String(formData.get("owner") || ""),
+      ownerEmail: String(formData.get("ownerEmail") || ""),
       plan: String(formData.get("plan") || ""),
       status: String(formData.get("status") || ""),
-      subscriptionStatus: String(formData.get("subscriptionStatus") || ""),
       renewal: String(formData.get("renewal") || ""),
-      phone: String(formData.get("phone") || ""),
-      wabaId: String(formData.get("wabaId") || ""),
-      employees: Number(formData.get("employees") || 1),
       amount: Number(formData.get("amount") || 0),
-      billingCycle: String(formData.get("billingCycle") || ""),
-      paymentMethod: String(formData.get("paymentMethod") || "")
+      billingCycle: String(formData.get("billingCycle") || "")
     };
 
     const response = await fetch("/api/admin/clients", {
@@ -162,7 +174,11 @@ export default function AdminDashboard({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-    const result = (await response.json()) as { ok: boolean; error?: string };
+    const result = (await response.json()) as {
+      ok: boolean;
+      error?: string;
+      data?: { inviteDelivery?: { message?: string; activationUrl?: string } };
+    };
 
     setIsSaving(false);
 
@@ -171,7 +187,8 @@ export default function AdminDashboard({
       return;
     }
 
-    setIsAddOpen(false);
+    setInviteNotice(result.data?.inviteDelivery?.message || "تم إنشاء الحساب.");
+    setActivationUrl(result.data?.inviteDelivery?.activationUrl || "");
     router.refresh();
   }
 
@@ -191,8 +208,6 @@ export default function AdminDashboard({
             نظرة عامة
           </a>
           <a href="#clients">العملاء</a>
-          <a href="#subscriptions">الاشتراكات</a>
-          <a href="#integrations">الربط</a>
           <a href="#logs">السجلات</a>
         </nav>
 
@@ -210,241 +225,117 @@ export default function AdminDashboard({
           <div className="admin-header-copy">
             <p>لوحة التحكم الأساسية</p>
             <h1>إدارة عملاء AudienceW من مكان واحد</h1>
-            <span>تابع الاشتراكات، الربط، السجلات، وحالة التشغيل لكل عميل.</span>
+            <span>كل عميل هنا حساب حقيقي فعلي — إنشاء عميل جديد ينشئ حساب دخول حقيقي له فورًا.</span>
           </div>
           <div className="admin-header-actions">
-            <a href="/dashboard">لوحة العميل</a>
             <button type="button" onClick={() => setIsAddOpen(true)}>
               إضافة عميل
             </button>
           </div>
         </header>
 
-        <section className="admin-command-center" aria-label="ملخص التشغيل">
-          <div className="admin-command-copy">
-            <span>تشغيل المنصة</span>
-            <strong>{connectedClients === clients.length ? "كل الحسابات مربوطة" : "يوجد حسابات تحتاج متابعة"}</strong>
-            <p>
-              {formatNumber(connectedClients)} حساب WhatsApp مربوط من أصل {formatNumber(clients.length)} عميل.
-            </p>
-          </div>
-          <div className="admin-command-actions">
-            <button type="button" onClick={() => setIsAddOpen(true)}>
-              إنشاء عميل جديد
-            </button>
-            <a href="#logs">مراجعة السجلات</a>
-          </div>
-        </section>
-
         <section className="admin-section" id="overview">
           <div className="admin-metrics">
             <article className="accent-blue">
               <span>إجمالي العملاء</span>
-              <strong>{formatNumber(clients.length)}</strong>
+              <strong>{formatNumber(subscriptions.length)}</strong>
               <small>{formatNumber(activeClients)} نشط · {formatNumber(trialClients)} تجربة</small>
             </article>
             <article className="accent-green">
               <span>اشتراكات نشطة</span>
               <strong>{formatNumber(activeClients)}</strong>
-              <small>{formatNumber(pendingClients)} بانتظار إكمال الربط</small>
+              <small>{formatNumber(subscriptions.length - activeClients)} غير نشطة</small>
             </article>
             <article className="accent-slate">
               <span>إيراد شهري متوقع</span>
               <strong>{formatNumber(monthlyRevenue)}</strong>
-              <small>ريال من الاشتراكات المدفوعة</small>
+              <small>ريال من الاشتراكات النشطة</small>
             </article>
             <article className="accent-amber">
               <span>محادثات تحت الإدارة</span>
               <strong>{formatNumber(totalConversations)}</strong>
-              <small>مجمعة من حسابات العملاء</small>
-            </article>
-            <article className="accent-cyan">
-              <span>حسابات WhatsApp مربوطة</span>
-              <strong>{formatNumber(connectedClients)}</strong>
-              <small>من أصل {formatNumber(clients.length)} حساب</small>
+              <small>مجمعة من كل حسابات العملاء</small>
             </article>
           </div>
         </section>
 
-        <section className="admin-ops-grid">
-          <article className="admin-ops-card">
-            <span>قوالب WhatsApp</span>
-            <strong>{formatNumber(approvedTemplates)} معتمد</strong>
-            <p>{formatNumber(activeCampaigns)} حملة قيد المتابعة حاليًا.</p>
-          </article>
-          <article className="admin-ops-card">
-            <span>اشتراكات تحتاج إجراء</span>
-            <strong>{formatNumber(pendingSubscriptions.length)}</strong>
-            <p>تجارب أو حسابات بانتظار تجهيز الدفع أو الربط.</p>
-          </article>
-          <article className="admin-ops-card">
-            <span>آخر سجل</span>
-            <strong>{logs[0]?.level || "معلومة"}</strong>
-            <p>{logs[0]?.message || "لا توجد سجلات جديدة."}</p>
-          </article>
-        </section>
-
         <section className="admin-card" id="clients">
-            <div className="admin-card-head">
-              <div>
-                <h2>العملاء</h2>
-                <p>كل عميل وتحته حالة الربط، الاشتراك، الفواتير، الحملات، وشحن محفظة الرسائل.</p>
-              </div>
-              <div className="admin-card-actions">
-                <button type="button">تصدير</button>
-                <button type="button" onClick={() => setIsAddOpen(true)}>
-                  إضافة
-                </button>
-              </div>
+          <div className="admin-card-head">
+            <div>
+              <h2>العملاء</h2>
+              <p>كل عميل وتحته حالة اشتراكه الحقيقية، عدد الموظفين الفعلي، والمحادثات المستخدمة.</p>
             </div>
-            <div className="admin-client-cards">
-              {clients.map((client) => {
-                const subscription = getSubscription(client);
-                const plan = subscription?.plan || client.plan;
-                const baseInvoiceAmount = subscription?.amount || 0;
-                const planUserLimit = getPlanUserLimit(plan);
-                const extraUserCount = getExtraUserCount(client, plan);
-                const extraUserAmount = getExtraUserAmount(client, plan);
-                const invoiceTotal = baseInvoiceAmount + extraUserAmount;
-                const isConnected = client.wabaId !== "بانتظار الربط";
-                const clientCampaignLogs = logs.filter((log) => log.clientId === client.id && log.source === "Campaigns").length;
-                const walletBalance = Math.max(0, 500 - client.conversations);
-
-                return (
-                  <article className="admin-client-card" key={client.id}>
-                    <div className="admin-client-summary">
-                      <div>
-                        <strong>{client.company}</strong>
-                        <span>{client.owner}</span>
-                      </div>
-                      <span className={`admin-pill ${statusClass(client.status)}`}>{client.status}</span>
-                    </div>
-
-                    <div className="admin-client-status-grid">
-                      <div>
-                        <span>حالة الربط</span>
-                        <strong>
-                          <span className={`admin-status-dot ${isConnected ? "is-online" : ""}`} />
-                          {isConnected ? "مربوط" : "بانتظار الربط"}
-                        </strong>
-                        <small>{isConnected ? `WABA: ${client.wabaId}` : "لم يكتمل ربط Meta بعد"}</small>
-                      </div>
-                      <div>
-                        <span>الاشتراك</span>
-                        <strong>{subscription?.plan || client.plan}</strong>
-                        <small>{subscription?.status || client.subscriptionStatus}</small>
-                      </div>
-                      <div>
-                        <span>حد المستخدمين</span>
-                        <strong>
-                          {formatNumber(client.employees)} / {formatNumber(planUserLimit)}
-                        </strong>
-                        <small>
-                          {extraUserCount > 0
-                            ? `${formatNumber(extraUserCount)} إضافي × ${formatNumber(EXTRA_USER_PRICE)} ر.س`
-                            : "ضمن حد الباقة"}
-                        </small>
-                      </div>
-                      <div>
-                        <span>الفاتورة الشهرية</span>
-                        <strong>{formatNumber(invoiceTotal)} ر.س</strong>
-                        <small>
-                          {formatNumber(baseInvoiceAmount)} ر.س اشتراك
-                          {extraUserAmount > 0 ? ` + ${formatNumber(extraUserAmount)} ر.س مستخدمين` : ""}
-                        </small>
-                      </div>
-                      <div>
-                        <span>الحملات</span>
-                        <strong>{formatNumber(clientCampaignLogs || (client.status === "نشط" ? activeCampaigns : 0))}</strong>
-                        <small>{formatNumber(client.conversations)} محادثة مستخدمة</small>
-                      </div>
-                      <div>
-                        <span>محفظة الرسائل</span>
-                        <strong>{formatNumber(walletBalance)}</strong>
-                        <small>رسالة تسويقية متاحة تقديريًا</small>
-                      </div>
-                    </div>
-
-                    <div className="admin-client-actions">
-                      <a className="admin-link-button" href="/dashboard">
-                        فتح لوحة العميل
-                      </a>
-                      <button type="button" onClick={() => showClientLogs(client.id)}>
-                        سجل الحركة
-                      </button>
-                      <button type="button" onClick={() => openUserLimitEditor(client)}>
-                        تعديل حد المستخدمين
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="admin-card-actions">
+              <button type="button" onClick={() => setIsAddOpen(true)}>
+                إضافة
+              </button>
             </div>
-        </section>
+          </div>
+          <div className="admin-client-cards">
+            {subscriptions.map((client) => {
+              const extraUserCount = Math.max(0, client.employeeCount - client.employeeLimit);
+              const extraUserAmount = extraUserCount * EXTRA_USER_PRICE;
+              const invoiceTotal = client.amount + extraUserAmount;
 
-        <section className="admin-grid">
-          <article className="admin-card compact" id="subscriptions">
-            <div className="admin-card-head">
-              <div>
-                <h2>الاشتراكات</h2>
-                <p>متابعة الباقات والتجديدات القريبة.</p>
-              </div>
-            </div>
-            <div className="admin-list">
-              {subscriptions.map((subscription) => {
-                const client = clients.find((item) => item.id === subscription.clientId);
-                const extraAmount = client ? getExtraUserAmount(client, subscription.plan) : 0;
-                const invoiceTotal = subscription.amount + extraAmount;
-
-                return (
-                  <div className="admin-list-row" key={subscription.id}>
+              return (
+                <article className="admin-client-card" key={client.tenantId}>
+                  <div className="admin-client-summary">
                     <div>
-                      <strong>{subscription.clientName}</strong>
-                      <span>
-                        {subscription.plan} · {formatNumber(invoiceTotal)} ر.س
-                        {extraAmount > 0 ? ` شامل ${formatNumber(extraAmount)} ر.س مستخدمين إضافيين` : ""} · التجديد{" "}
-                        {subscription.renewal}
-                      </span>
+                      <strong>{client.companyName}</strong>
+                      <span>{client.ownerName} · {client.ownerEmail}</span>
                     </div>
-                    <span className={`admin-pill ${statusClass(subscription.status)}`}>{subscription.status}</span>
+                    <span className={`admin-pill ${statusClass(client.status)}`}>{client.status}</span>
                   </div>
-                );
-              })}
-            </div>
-          </article>
+
+                  <div className="admin-client-status-grid">
+                    <div>
+                      <span>الباقة</span>
+                      <strong>{client.plan}</strong>
+                      <small>{client.billingCycle}</small>
+                    </div>
+                    <div>
+                      <span>حد المستخدمين</span>
+                      <strong>{formatNumber(client.employeeCount)} / {formatNumber(client.employeeLimit)}</strong>
+                      <small>
+                        {extraUserCount > 0
+                          ? `${formatNumber(extraUserCount)} إضافي × ${formatNumber(EXTRA_USER_PRICE)} ر.س`
+                          : "ضمن حد الباقة"}
+                      </small>
+                    </div>
+                    <div>
+                      <span>الفاتورة الشهرية</span>
+                      <strong>{formatNumber(invoiceTotal)} ر.س</strong>
+                      <small>
+                        {formatNumber(client.amount)} ر.س اشتراك
+                        {extraUserAmount > 0 ? ` + ${formatNumber(extraUserAmount)} ر.س مستخدمين` : ""}
+                      </small>
+                    </div>
+                    <div>
+                      <span>المحادثات</span>
+                      <strong>{formatNumber(client.conversationCount)}</strong>
+                      <small>التجديد: {client.renewalAt || "غير محدد"}</small>
+                    </div>
+                  </div>
+
+                  <div className="admin-client-actions">
+                    <button type="button" onClick={() => openChargeModal(client)}>
+                      شحن / تجديد الاشتراك
+                    </button>
+                    <button type="button" onClick={() => showClientLogs(client.tenantId)}>
+                      سجل الحركة
+                    </button>
+                    <button type="button" onClick={() => openLimitEditor(client)}>
+                      تعديل حد المستخدمين
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+            {!subscriptions.length ? <p className="admin-empty-state">لا يوجد عملاء بعد. اضغط "إضافة عميل" لإنشاء أول حساب.</p> : null}
+          </div>
         </section>
 
         <section className="admin-grid lower">
-          <article className="admin-card" id="integrations">
-            <div className="admin-card-head">
-              <div>
-                <h2>الربط والويبهوك</h2>
-                <p>حالة الربط العامة للحسابات التي تعتمد على Meta WhatsApp Cloud API.</p>
-              </div>
-            </div>
-            <div className="admin-integration">
-              <div>
-                <span>حالة الربط</span>
-                <strong>
-                  <span className={`admin-status-dot ${integration.status === "connected" ? "is-online" : ""}`} />
-                  {integration.status === "connected" ? "متصل" : "بانتظار الإكمال"}
-                </strong>
-              </div>
-              <div>
-                <span>App ID</span>
-                <strong>{integration.appId}</strong>
-              </div>
-              <div>
-                <span>Phone Number ID</span>
-                <strong>{integration.phoneNumberId}</strong>
-              </div>
-              <div>
-                <span>Webhook</span>
-                <strong>{integration.webhookUrl}</strong>
-              </div>
-            </div>
-          </article>
-
           <article className="admin-card" id="logs">
             <div className="admin-card-head">
               <div>
@@ -455,9 +346,9 @@ export default function AdminDashboard({
                 العميل
                 <select value={selectedLogClient} onChange={(event) => setSelectedLogClient(event.target.value)}>
                   <option value="all">كل العملاء</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.company}
+                  {subscriptions.map((client) => (
+                    <option key={client.tenantId} value={client.tenantId}>
+                      {client.companyName}
                     </option>
                   ))}
                 </select>
@@ -489,9 +380,7 @@ export default function AdminDashboard({
                 </tbody>
               </table>
             </div>
-            {filteredLogs.length === 0 ? (
-              <p className="admin-empty-state">لا توجد سجلات لهذا العميل حتى الآن.</p>
-            ) : null}
+            {filteredLogs.length === 0 ? <p className="admin-empty-state">لا توجد سجلات لهذا العميل حتى الآن.</p> : null}
           </article>
         </section>
       </section>
@@ -502,99 +391,91 @@ export default function AdminDashboard({
             <div className="admin-modal-head">
               <div>
                 <h2 id="add-client-title">إضافة عميل جديد</h2>
-                <p>أدخل بيانات العميل والاشتراك الأولي، وبعدها نقدر نربط حساب Meta من لوحة العميل.</p>
+                <p>ينشئ هذا حساب دخول حقيقي فورًا ويرسل رابط تفعيل لصاحب الحساب على بريده.</p>
               </div>
-              <button type="button" onClick={() => setIsAddOpen(false)} aria-label="إغلاق">
+              <button type="button" onClick={() => { setIsAddOpen(false); setInviteNotice(""); setActivationUrl(""); }} aria-label="إغلاق">
                 ×
               </button>
             </div>
 
-            <form className="admin-client-form" onSubmit={handleCreateClient}>
-              <label>
-                اسم العميل
-                <input name="company" placeholder="مثال: متجر الرياض" required />
-              </label>
-              <label>
-                المسؤول
-                <input name="owner" placeholder="اسم صاحب الحساب أو المسؤول" required />
-              </label>
-              <label>
-                الباقة
-                <select name="plan" defaultValue="باقة النمو">
-                  <option>باقة البداية</option>
-                  <option>باقة النمو</option>
-                  <option>باقة الأعمال</option>
-                </select>
-              </label>
-              <label>
-                حالة العميل
-                <select name="status" defaultValue="تجربة">
-                  <option>تجربة</option>
-                  <option>نشط</option>
-                  <option>بانتظار الربط</option>
-                </select>
-              </label>
-              <label>
-                حالة الاشتراك
-                <select name="subscriptionStatus" defaultValue="تجريبي">
-                  <option>تجريبي</option>
-                  <option>مدفوع</option>
-                  <option>قيد التجهيز</option>
-                </select>
-              </label>
-              <label>
-                تاريخ التجديد
-                <input name="renewal" type="date" />
-              </label>
-              <label>
-                رقم واتساب
-                <input name="phone" placeholder="+966 5x xxx xxxx" />
-              </label>
-              <label>
-                WABA ID
-                <input name="wabaId" placeholder="يترك فارغ إذا لم يربط بعد" />
-              </label>
-              <label>
-                حد المستخدمين
-                <input name="employees" type="number" min="1" defaultValue="1" />
-              </label>
-              <label>
-                قيمة الباقة الأساسية
-                <input name="amount" type="number" min="0" defaultValue="0" />
-              </label>
-              <label>
-                دورة الفوترة
-                <select name="billingCycle" defaultValue="تجربة 14 يوم">
-                  <option>تجربة 14 يوم</option>
-                  <option>شهري</option>
-                  <option>سنوي</option>
-                </select>
-              </label>
-              <label>
-                طريقة الدفع
-                <select name="paymentMethod" defaultValue="بدون دفع">
-                  <option>بدون دفع</option>
-                  <option>تحويل بنكي</option>
-                  <option>بطاقة</option>
-                </select>
-              </label>
-
-              {formError ? <p className="admin-form-error">{formError}</p> : null}
-
-              <div className="admin-form-actions">
-                <button type="button" onClick={() => setIsAddOpen(false)}>
-                  إلغاء
-                </button>
-                <button type="submit" disabled={isSaving}>
-                  {isSaving ? "جاري الحفظ..." : "حفظ العميل"}
-                </button>
+            {inviteNotice ? (
+              <div className="admin-invite-result">
+                <p>{inviteNotice}</p>
+                {activationUrl ? (
+                  <a className="activation-link" href={activationUrl} target="_blank" rel="noreferrer">
+                    فتح رابط التفعيل
+                  </a>
+                ) : null}
+                <div className="admin-form-actions">
+                  <button type="button" onClick={() => { setIsAddOpen(false); setInviteNotice(""); setActivationUrl(""); }}>
+                    تم
+                  </button>
+                </div>
               </div>
-            </form>
+            ) : (
+              <form className="admin-client-form" onSubmit={handleCreateClient}>
+                <label>
+                  اسم الشركة/العميل
+                  <input name="company" placeholder="مثال: متجر الرياض" required />
+                </label>
+                <label>
+                  اسم صاحب الحساب
+                  <input name="owner" placeholder="اسم صاحب الحساب" required />
+                </label>
+                <label>
+                  البريد الإلكتروني لصاحب الحساب
+                  <input name="ownerEmail" type="email" dir="ltr" placeholder="owner@example.com" required />
+                </label>
+                <label>
+                  الباقة
+                  <select name="plan" defaultValue="باقة النمو">
+                    <option>باقة البداية</option>
+                    <option>باقة النمو</option>
+                    <option>باقة الأعمال</option>
+                  </select>
+                </label>
+                <label>
+                  حالة الاشتراك
+                  <select name="status" defaultValue="تجربة">
+                    <option>تجربة</option>
+                    <option>نشط</option>
+                    <option>متوقف</option>
+                  </select>
+                </label>
+                <label>
+                  تاريخ التجديد
+                  <input name="renewal" type="date" />
+                </label>
+                <label>
+                  قيمة الباقة الشهرية
+                  <input name="amount" type="number" min="0" defaultValue="0" />
+                </label>
+                <label>
+                  دورة الفوترة
+                  <select name="billingCycle" defaultValue="تجربة 14 يوم">
+                    <option>تجربة 14 يوم</option>
+                    <option>شهري</option>
+                    <option>سنوي</option>
+                  </select>
+                </label>
+
+                {formError ? <p className="admin-form-error">{formError}</p> : null}
+
+                <div className="admin-form-actions">
+                  <button type="button" onClick={() => setIsAddOpen(false)}>
+                    إلغاء
+                  </button>
+                  <button type="submit" disabled={isSaving}>
+                    {isSaving ? "جاري الحفظ..." : "إنشاء الحساب"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       ) : null}
 
-      {userLimitClient ? (
+      {limitClient ? (
         <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="user-limit-title">
           <div className="admin-modal-card admin-user-limit-modal">
             <div className="admin-modal-head">
@@ -602,63 +483,102 @@ export default function AdminDashboard({
                 <h2 id="user-limit-title">تعديل حد المستخدمين</h2>
                 <p>أي مستخدم فوق حد الباقة يضاف تلقائيًا للفاتورة الشهرية بقيمة 65 ريال للمستخدم.</p>
               </div>
-              <button type="button" onClick={() => setUserLimitClient(null)} aria-label="إغلاق">
+              <button type="button" onClick={() => setLimitClient(null)} aria-label="إغلاق">
                 ×
               </button>
             </div>
 
-            <form className="admin-client-form" onSubmit={handleUpdateUserLimit}>
+            <form className="admin-client-form" onSubmit={handleUpdateLimit}>
               <label>
                 العميل
-                <input value={userLimitClient.company} readOnly />
+                <input value={limitClient.companyName} readOnly />
               </label>
               <label>
                 الباقة
-                <input value={userLimitClient.plan} readOnly />
+                <input value={limitClient.plan} readOnly />
               </label>
               <label>
-                حد الباقة الأساسي
-                <input value={`${formatNumber(getPlanUserLimit(userLimitClient.plan))} مستخدم`} readOnly />
+                عدد الموظفين الحالي فعليًا
+                <input value={`${formatNumber(limitClient.employeeCount)} موظف`} readOnly />
               </label>
               <label>
                 الحد المطلوب
                 <input
                   type="number"
                   min="1"
-                  value={userLimitValue}
-                  onChange={(event) => setUserLimitValue(event.target.value)}
+                  value={limitValue}
+                  onChange={(event) => setLimitValue(event.target.value)}
                 />
               </label>
 
-              <div className="admin-billing-preview">
-                <div>
-                  <span>مستخدمون إضافيون</span>
-                  <strong>
-                    {formatNumber(Math.max(0, Number(userLimitValue || 0) - getPlanUserLimit(userLimitClient.plan)))}
-                  </strong>
-                </div>
-                <div>
-                  <span>إضافة تلقائية للفاتورة</span>
-                  <strong>
-                    {formatNumber(
-                      Math.max(0, Number(userLimitValue || 0) - getPlanUserLimit(userLimitClient.plan)) * EXTRA_USER_PRICE
-                    )}{" "}
-                    ر.س
-                  </strong>
-                </div>
-              </div>
-
-              {userLimitError ? <p className="admin-form-error">{userLimitError}</p> : null}
+              {limitError ? <p className="admin-form-error">{limitError}</p> : null}
 
               <div className="admin-form-actions">
-                <button type="button" onClick={() => setUserLimitClient(null)}>
+                <button type="button" onClick={() => setLimitClient(null)}>
                   إلغاء
                 </button>
-                <button type="submit" disabled={isUserLimitSaving}>
-                  {isUserLimitSaving ? "جاري الحفظ..." : "حفظ الحد"}
+                <button type="submit" disabled={isLimitSaving}>
+                  {isLimitSaving ? "جاري الحفظ..." : "حفظ الحد"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {chargeClient ? (
+        <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="charge-title">
+          <div className="admin-modal-card admin-user-limit-modal">
+            <div className="admin-modal-head">
+              <div>
+                <h2 id="charge-title">شحن / تجديد الاشتراك</h2>
+                <p>ينشئ رابط دفع Moyasar حقيقي لإرساله للعميل. عند الدفع يتفعّل الاشتراك تلقائيًا.</p>
+              </div>
+              <button type="button" onClick={() => setChargeClient(null)} aria-label="إغلاق">
+                ×
+              </button>
+            </div>
+
+            {chargeUrl ? (
+              <div className="admin-invite-result">
+                <p>تم إنشاء رابط الدفع. أرسله للعميل ليكمل الدفع:</p>
+                <a className="activation-link" href={chargeUrl} target="_blank" rel="noreferrer">
+                  فتح رابط الدفع
+                </a>
+                <div className="admin-form-actions">
+                  <button type="button" onClick={() => setChargeClient(null)}>
+                    تم
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form className="admin-client-form" onSubmit={handleCharge}>
+                <label>
+                  العميل
+                  <input value={chargeClient.companyName} readOnly />
+                </label>
+                <label>
+                  قيمة الفاتورة (ر.س)
+                  <input
+                    type="number"
+                    min="1"
+                    value={chargeAmount}
+                    onChange={(event) => setChargeAmount(event.target.value)}
+                  />
+                </label>
+
+                {chargeError ? <p className="admin-form-error">{chargeError}</p> : null}
+
+                <div className="admin-form-actions">
+                  <button type="button" onClick={() => setChargeClient(null)}>
+                    إلغاء
+                  </button>
+                  <button type="submit" disabled={isCharging}>
+                    {isCharging ? "جاري الإنشاء..." : "إنشاء رابط الدفع"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       ) : null}

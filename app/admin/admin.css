@@ -772,6 +772,30 @@
   font-weight: 800;
 }
 
+.admin-invite-result {
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.admin-invite-result p {
+  margin: 0;
+  color: #334155;
+  font-weight: 800;
+  line-height: 1.7;
+}
+
+.admin-invite-result .activation-link {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 8px;
+  background: #a8431f;
+  color: #ffffff;
+  padding: 12px 18px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
 .admin-form-actions {
   grid-column: 1 / -1;
   border-top: 1px solid #e4eaf2;
