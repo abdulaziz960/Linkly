@@ -829,10 +829,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 onClick={() => {
                   if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "gmail" || channel.id === "outlook" || channel.id === "website" || channel.id === "tiktok" || channel.id === "sms") {
                     setSelectedChannel(channel.id);
-                    // Website has no meaningful step 2/3 content of its own
-                    // (its "setup" is just the embed code shown at step 4),
-                    // so it keeps jumping straight there.
-                    setWizardStep(channel.id === "website" ? 4 : 2);
+                    // Website and Email (Gmail/Outlook) have no real step
+                    // 2/3 content of their own - Website's "setup" is just
+                    // the embed code, and Email connects directly via OAuth
+                    // - so both jump straight to step 4.
+                    setWizardStep(channel.id === "website" || channel.id === "gmail" || channel.id === "outlook" ? 4 : 2);
                   }
                 }}
               >
@@ -1084,8 +1085,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {!isConnected ? (
             <div className="settings-onboarding-actions">
               <button className="btn soft" type="button" disabled={wizardStep === 1} onClick={() => setWizardStep((step) => {
-                if (isWebsite) return 1;
-                if (isEmail && step === 4) return 2;
+                if (isWebsite || isEmail) return 1;
                 return Math.max(1, step - 1);
               })}>
                 عودة
@@ -1095,10 +1095,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   connectGoogleMaps();
                   return;
                 }
-                // Email's step 3 is just the manual-webhook explainer, which
-                // is secondary now that Gmail/Outlook connect directly via
-                // OAuth - skip straight to step 4 where that OAuth button is.
-                setWizardStep((step) => (isEmail && step === 2 ? 4 : Math.min(4, step + 1)));
+                setWizardStep((step) => Math.min(4, step + 1));
               }}>
                 {wizardStep === 3 ? (isGoogleMaps ? "ربط Google" : "إدخال البيانات") : wizardStep === 4 ? "إنهاء" : "التالي"}
               </button> : null}
