@@ -5,6 +5,7 @@
  * is set in the environment; until then createMoyasarInvoice throws a
  * clear "not configured" error the API route turns into a friendly message.
  */
+import { timingSafeEqual } from "crypto";
 
 type CreateInvoiceInput = {
   amount: number; // SAR
@@ -70,6 +71,9 @@ export async function createMoyasarInvoice(input: CreateInvoiceInput): Promise<M
  */
 export function verifyMoyasarWebhookSecret(receivedSecret: string | null | undefined) {
   const expected = process.env.MOYASAR_WEBHOOK_SECRET?.trim();
-  if (!expected) return false;
-  return Boolean(receivedSecret) && receivedSecret === expected;
+  if (!expected || !receivedSecret) return false;
+
+  const expectedBuffer = Buffer.from(expected);
+  const receivedBuffer = Buffer.from(receivedSecret);
+  return expectedBuffer.length === receivedBuffer.length && timingSafeEqual(expectedBuffer, receivedBuffer);
 }
