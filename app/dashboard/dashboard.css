@@ -4235,8 +4235,19 @@
 
 .webhook-card {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 18px;
+  padding: 20px;
+}
+
+.webhook-field {
+  display: grid;
+  gap: 8px;
+}
+
+.webhook-field-label {
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .copy-row {
@@ -4265,6 +4276,7 @@
 .copy-row button {
   background: #f2ddc8;
   color: #7d3016;
+  white-space: nowrap;
 }
 
 .copy-row button:disabled {

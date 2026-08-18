@@ -1446,23 +1446,29 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <h3>إعدادات الويبهوك — {isEmail ? (isGmail ? "Gmail" : isOutlook ? "Outlook" : "البريد الإلكتروني") : isTikTok ? "TikTok" : isSms ? "SMS" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب"}</h3>
               <p>{isEmail ? "انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة." : isGoogleMaps ? "هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة." : isX ? "استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات." : isTelegram ? "سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة." : isFacebook ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger." : isInstagram ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram." : isTikTok ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق TikTok لاستقبال رسائل وتعليقات TikTok بعد موافقة Business Messaging." : "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp."}</p>
             </div>
-            <div className="copy-row">
-              <span>{webhookUrl}</span>
-              <button type="button" onClick={() => copyValue("webhook", webhookUrl)}>
-                {copied === "webhook" ? "تم النسخ" : "نسخ الرابط"}
+            <div className="webhook-field">
+              <span className="webhook-field-label">رابط الويبهوك</span>
+              <div className="copy-row">
+                <span>{webhookUrl}</span>
+                <button type="button" onClick={() => copyValue("webhook", webhookUrl)}>
+                  {copied === "webhook" ? "تم النسخ" : "نسخ الرابط"}
+                </button>
+              </div>
+            </div>
+            <div className="webhook-field">
+              <span className="webhook-field-label">{isTelegram || isX || isEmail ? "Secret Token" : "Verify Token"}</span>
+              <div className="copy-row">
+                <button type="button" className="webhook-token-value" onClick={() => setShowWebhookToken((current) => !current)} title={showWebhookToken ? "اضغط للإخفاء" : "اضغط للإظهار"}>
+                  {showWebhookToken ? settings.verifyToken : "•".repeat(Math.min(settings.verifyToken.length || 24, 32))}
+                </button>
+                <button type="button" onClick={() => copyValue("token", settings.verifyToken)}>
+                  {copied === "token" ? "تم النسخ" : isTelegram || isX || isEmail ? "نسخ Secret Token" : "نسخ التوكن"}
+                </button>
+              </div>
+              <button type="button" className="webhook-token-regenerate" disabled={saving} onClick={regenerateWebhookToken}>
+                إنشاء توكن جديد وإيقاف القديم
               </button>
             </div>
-            <div className="copy-row">
-              <button type="button" className="webhook-token-value" onClick={() => setShowWebhookToken((current) => !current)} title={showWebhookToken ? "اضغط للإخفاء" : "اضغط للإظهار"}>
-                {showWebhookToken ? settings.verifyToken : "•".repeat(Math.min(settings.verifyToken.length || 24, 32))}
-              </button>
-              <button type="button" onClick={() => copyValue("token", settings.verifyToken)}>
-                {copied === "token" ? "تم النسخ" : isTelegram || isX || isEmail ? "نسخ Secret Token" : "نسخ التوكن"}
-              </button>
-            </div>
-            <button type="button" className="webhook-token-regenerate" disabled={saving} onClick={regenerateWebhookToken}>
-              إنشاء توكن جديد وإيقاف القديم
-            </button>
           </div> : null}
         </form>
       )}
