@@ -1084,8 +1084,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {!isConnected ? (
             <div className="settings-onboarding-actions">
               <button className="btn soft" type="button" disabled={wizardStep === 1} onClick={() => setWizardStep((step) => {
-                const prev = Math.max(1, step - 1);
-                return prev === 2 ? 1 : prev;
+                if (isWebsite) return 1;
+                if (isEmail && step === 4) return 2;
+                return Math.max(1, step - 1);
               })}>
                 عودة
               </button>
@@ -1094,7 +1095,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   connectGoogleMaps();
                   return;
                 }
-                setWizardStep((step) => Math.min(4, step + 1));
+                // Email's step 3 is just the manual-webhook explainer, which
+                // is secondary now that Gmail/Outlook connect directly via
+                // OAuth - skip straight to step 4 where that OAuth button is.
+                setWizardStep((step) => (isEmail && step === 2 ? 4 : Math.min(4, step + 1)));
               }}>
                 {wizardStep === 3 ? (isGoogleMaps ? "ربط Google" : "إدخال البيانات") : wizardStep === 4 ? "إنهاء" : "التالي"}
               </button> : null}
