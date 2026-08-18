@@ -22,7 +22,12 @@ export async function GET(request: NextRequest) {
   const authorizeUrl = new URL("https://www.tiktok.com/v2/auth/authorize/");
   authorizeUrl.searchParams.set("client_key", clientKey);
   authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("scope", "user.info.profile");
+  // Only the scope(s) actually approved/active on the TikTok app's Production
+  // Scopes page will be accepted here - requesting an unapproved scope (even
+  // one added during app review, before it's approved) makes TikTok reject
+  // the whole authorize request. user.info.stats is what's currently active;
+  // switch to user.info.profile once TikTok approves it.
+  authorizeUrl.searchParams.set("scope", "user.info.stats");
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("state", state);
   authorizeUrl.searchParams.set("code_challenge", codeChallenge);
