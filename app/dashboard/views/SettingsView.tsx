@@ -542,6 +542,14 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   async function resetIntegrationData() {
     setSaving(true);
+    // Meta channels (whatsapp/instagram/facebook) derive appId/configId from a
+    // shared fallback chain (per-tenant value -> env var), and a stale saved
+    // value here has repeatedly caused connect attempts to silently use the
+    // wrong Meta app. Clear it on reset so the correct fallback takes over.
+    // Other channels (X, Google Maps, TikTok's stored env, SMS) store real
+    // per-tenant app credentials the user typed in themselves, so those must
+    // survive a reset.
+    const isMetaChannel = selectedChannel === "whatsapp" || selectedChannel === "instagram" || selectedChannel === "facebook";
     const response = await fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -556,7 +564,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         accessToken: "",
         googleAccountId: "",
         googleLocationId: "",
-        googleRefreshToken: ""
+        googleRefreshToken: "",
+        ...(isMetaChannel ? { appId: "", configId: "" } : {})
       })
     });
     const data = await response.json() as IntegrationResponse;
