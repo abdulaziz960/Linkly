@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 
 export const runtime = "nodejs";
@@ -34,6 +35,9 @@ export async function POST() {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
+  }
+  if (!(await userHasViewPermission(user, "templates"))) {
+    return NextResponse.json({ ok: false, error: "لا تملك صلاحية الوصول لهذه الميزة" }, { status: 403 });
   }
 
   const integration = await getIntegrationSettings("whatsapp", user.tenantId);

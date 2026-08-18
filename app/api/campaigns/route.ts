@@ -3,6 +3,7 @@ import { getCampaigns } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
 import { parseRecipientFile, activateDueScheduledCampaigns, processCampaignBatch, getCampaignBalance } from "../../../lib/campaign-engine";
+import { userHasViewPermission } from "../../../lib/permissions-server";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
@@ -10,6 +11,7 @@ export const runtime = "nodejs";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  if (!(await userHasViewPermission(user, "campaigns"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   await activateDueScheduledCampaigns(user.tenantId).catch((error) => console.error("Campaign scheduling check failed", error));
   processCampaignBatch(user.tenantId).catch((error) => console.error("Campaign batch send failed", error));
@@ -20,6 +22,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  if (!(await userHasViewPermission(user, "campaigns"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const formData = await request.formData().catch(() => null);
   if (!formData) return jsonError("بيانات الطلب غير صحيحة");

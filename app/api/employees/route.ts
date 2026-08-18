@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createHash, randomBytes } from "crypto";
 import { getCurrentUser } from "../../../lib/auth";
+import { userHasViewPermission } from "../../../lib/permissions-server";
 import { getEmployees } from "../../../lib/database";
 import { sendActivationEmail } from "../../../lib/email";
 import { employeeLimitReachedMessage, getEmployeeLimitForTenant } from "../../../lib/employee-limits";
@@ -13,12 +14,15 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return jsonError("غير مصرح", 401);
 
+  // Every tenant member can read the roster (needed for assignee pickers
+  // and to resolve their own permissions) - only managing employees is gated.
   return jsonOk(await getEmployees(user.tenantId));
 }
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return jsonError("غير مصرح", 401);
+  if (!(await userHasViewPermission(user, "employees"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const body = (await request.json()) as {
     name?: string;
@@ -42,8 +46,13 @@ export async function POST(request: NextRequest) {
     return jsonError(employeeLimitReachedMessage, 403);
   }
 
-  const existingEmployee = await prisma.employee.findFirst({ where: { email } });
+  const existingEmployee = await prisma.employee.findFirst({ where: { email, tenantId: user.tenantId } });
   if (existingEmployee) return jsonError("يوجد موظف مسجل بهذا البريد الإلكتروني", 409);
+
+  const existingAccount = await prisma.userAccount.findUnique({ where: { email } });
+  if (existingAccount && existingAccount.tenantId !== user.tenantId) {
+    return jsonError("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة", 409);
+  }
 
   const activationToken = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(activationToken).digest("hex");

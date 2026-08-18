@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings, getTenantIntegrationId } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 
 const allowedFields = [
@@ -410,7 +411,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
   }
 
-  const settings = await getIntegrationSettings(getIntegrationChannel(request), user.tenantId);
+  const channel = getIntegrationChannel(request);
+  if (!(await userHasViewPermission(user, channel === "leads" ? "leads" : "settings"))) {
+    return NextResponse.json({ message: "لا تملك صلاحية الوصول لهذه الميزة" }, { status: 403 });
+  }
+
+  const settings = await getIntegrationSettings(channel, user.tenantId);
   return NextResponse.json(settings);
 }
 
@@ -419,6 +425,10 @@ export async function PATCH(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
+  }
+
+  if (!(await userHasViewPermission(user, getIntegrationChannel(request) === "leads" ? "leads" : "settings"))) {
+    return NextResponse.json({ message: "لا تملك صلاحية الوصول لهذه الميزة" }, { status: 403 });
   }
 
   const channel = getIntegrationChannel(request);

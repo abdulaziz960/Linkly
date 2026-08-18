@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getTemplates, getIntegrationSettings } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
+import { userHasViewPermission } from "../../../lib/permissions-server";
 import { prisma } from "../../../lib/prisma";
 import { createMetaTemplate, isMetaWhatsAppConfigured } from "../../../lib/meta-templates";
 import { jsonError, jsonOk } from "../_utils/json";
@@ -18,6 +19,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  if (!(await userHasViewPermission(user, "templates"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const body = (await request.json()) as {
     name?: string;

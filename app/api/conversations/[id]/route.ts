@@ -75,8 +75,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   const user = await getCurrentUser();
 
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
-  if (user.role !== "مالك الحساب" && user.role !== "مسؤول الحساب") {
-    return jsonError("حذف المحادثات متاح لمسؤول الحساب فقط", 403);
+  if (user.role !== "مالك الحساب" && user.role !== "مشرف") {
+    return jsonError("حذف المحادثات متاح لمالك الحساب أو المشرف فقط", 403);
   }
 
   try {

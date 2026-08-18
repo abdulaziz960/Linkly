@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
-import { navItems, viewTitles } from "./data/navigation";
+import { viewTitles } from "./data/navigation";
 import type {
   AutomationRule,
   Campaign,
@@ -28,6 +28,7 @@ import type {
 } from "./types";
 import DashboardViewRouter from "./views/DashboardViewRouter";
 import InboxView from "./views/InboxView";
+import { allViewKeys, computeAllowedViews, canSeeAllConversations as sharedCanSeeAllConversations } from "../../lib/permissions";
 
 type DashboardClientProps = {
   initialUser: DashboardUser;
@@ -42,46 +43,12 @@ async function readApiError(response: Response) {
   return payload?.error || "تعذر تنفيذ العملية";
 }
 
-const allViewKeys: ViewKey[] = navItems.map((item) => item.key);
-
-const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
-  { keyword: "محادثات", views: ["inbox"] },
-  { keyword: "عملاء", views: ["contacts"] },
-  { keyword: "وسوم", views: ["tags"] },
-  { keyword: "قوالب", views: ["templates"] },
-  { keyword: "ردود", views: ["quickReplies"] },
-  { keyword: "رد آلي", views: ["bot"] },
-  { keyword: "أتمتة", views: ["automations"] },
-  { keyword: "حملات", views: ["campaigns"] },
-  { keyword: "ساعات", views: ["workHours"] },
-  { keyword: "تقارير", views: ["reports"] },
-  { keyword: "محتملون", views: ["leads"] },
-  { keyword: "فرق", views: ["teams"] },
-  { keyword: "موظفين", views: ["employees"] },
-  { keyword: "صلاحيات", views: ["employees"] },
-  { keyword: "ربط", views: ["settings"] }
-];
-
 function getAllowedViews(user: DashboardUser, employee?: Employee): ViewKey[] {
-  const permissions = employee?.permissions ?? "";
-
-  if (user.role === "مالك الحساب" || permissions === "الكل") {
-    return allViewKeys;
-  }
-
-  const views = new Set<ViewKey>();
-
-  permissionViewMap.forEach((permission) => {
-    if (permissions.includes(permission.keyword)) {
-      permission.views.forEach((view) => views.add(view));
-    }
-  });
-
-  return views.size ? Array.from(views) : ["inbox"];
+  return computeAllowedViews(user.role, employee?.permissions ?? "");
 }
 
 function canSeeAllConversations(user: DashboardUser, employee?: Employee) {
-  return user.role === "مالك الحساب" || employee?.permissions === "الكل";
+  return sharedCanSeeAllConversations(user.role, employee);
 }
 
 function isApprovedTemplate(template: MessageTemplate) {
@@ -310,7 +277,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const accountInitial = getNameInitial(initialUser.name);
   const allowedViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
   const canReopenConversations = canViewAllConversations || currentEmployee.role === "مشرف";
-  const canDeleteConversations = initialUser.role === "مالك الحساب" || initialUser.role === "مسؤول الحساب";
+  const canDeleteConversations = initialUser.role === "مالك الحساب" || initialUser.role === "مشرف";
 
   useEffect(() => {
     if (!profileOpen) return;

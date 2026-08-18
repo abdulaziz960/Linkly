@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
+import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { prisma } from "../../../../../lib/prisma";
 import { calculateChargeAmount } from "../../../../../lib/campaign-engine";
 import { createMoyasarInvoice, isMoyasarConfigured } from "../../../../../lib/moyasar";
@@ -14,6 +15,7 @@ function baseUrl() {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  if (!(await userHasViewPermission(user, "campaigns"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const body = (await request.json()) as { messages?: number };
   const messages = Math.max(0, Math.floor(Number(body.messages) || 0));

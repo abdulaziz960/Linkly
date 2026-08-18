@@ -365,10 +365,15 @@ export async function ensureSchema() {
   )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS tags (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     color TEXT NOT NULL,
-    description TEXT NOT NULL
+    description TEXT NOT NULL,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'
   )`);
+  const tagColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(tags)`);
+  if (!tagColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE tags ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_tags (
     conversation_id TEXT NOT NULL,
     tag_name TEXT NOT NULL,

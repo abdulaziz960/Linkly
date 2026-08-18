@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getAutomationRules } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
+import { userHasViewPermission } from "../../../lib/permissions-server";
 import { prisma } from "../../../lib/prisma";
 import { jsonError, jsonOk } from "../_utils/json";
 
@@ -31,12 +32,14 @@ function cleanActions(actions?: AutomationActionInput[]) {
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  if (!(await userHasViewPermission(user, "automations"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
   return jsonOk(await getAutomationRules(user.tenantId));
 }
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  if (!(await userHasViewPermission(user, "automations"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const body = (await request.json()) as {
     name?: string;

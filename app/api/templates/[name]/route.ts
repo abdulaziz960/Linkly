@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { deleteMetaTemplate, editMetaTemplate, isMetaWhatsAppConfigured } from "../../../../lib/meta-templates";
@@ -17,6 +18,7 @@ const templateNameRegex = /^[a-z0-9_]+$/;
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  if (!(await userHasViewPermission(user, "templates"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const { name } = await context.params;
   const templateName = decodeURIComponent(name);
@@ -110,6 +112,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  if (!(await userHasViewPermission(user, "templates"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const { name } = await context.params;
   const templateName = decodeURIComponent(name);

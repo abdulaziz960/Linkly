@@ -1,4 +1,5 @@
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 import { getCampaignBalance } from "../../../../lib/campaign-engine";
 import { jsonError, jsonOk } from "../../_utils/json";
@@ -8,6 +9,7 @@ export const runtime = "nodejs";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+  if (!(await userHasViewPermission(user, "campaigns"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const balance = await getCampaignBalance(user.tenantId);
   const payments = await prisma.campaignPayment.findMany({

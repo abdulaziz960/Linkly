@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { getTags } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
+import { userHasViewPermission } from "../../../lib/permissions-server";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
@@ -15,6 +16,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return jsonError("غير مصرح", 401);
+  if (!(await userHasViewPermission(user, "tags"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const body = (await request.json()) as { name?: string; color?: string; description?: string };
   const name = body.name?.trim();

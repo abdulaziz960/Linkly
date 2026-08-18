@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "../../../../lib/prisma";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = {
@@ -14,6 +15,7 @@ export const runtime = "nodejs";
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const user = await getCurrentUser();
   if (!user) return jsonError("غير مصرح", 401);
+  if (!(await userHasViewPermission(user, "tags"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const { id } = await context.params;
   const body = (await request.json()) as { name?: string; color?: string; description?: string };
@@ -46,6 +48,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   const user = await getCurrentUser();
   if (!user) return jsonError("غير مصرح", 401);
+  if (!(await userHasViewPermission(user, "tags"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const { id } = await context.params;
 
