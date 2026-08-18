@@ -1,4 +1,5 @@
 import "../landing.css";
+import TrialFormEnhancer from "../TrialFormEnhancer";
 
 const landingMarkup = `<div class="landing" id="landingPage" dir="ltr" lang="en">
   <header class="topbar">
@@ -175,17 +176,17 @@ const landingMarkup = `<div class="landing" id="landingPage" dir="ltr" lang="en"
           <div>
             <span class="eyebrow">Live in minutes</span>
             <h2 id="authTitle">Try AudienceW</h2>
-            <p>Tell us about your business, and we'll work out the right channels with you before any subscription.</p>
+            <p>Sign up now and your account is ready instantly — no waiting on anyone.</p>
           </div>
           <ul>
-            <li>A trial tailored to your current channels</li>
-            <li>An initial look at how you talk to customers today</li>
-            <li>We help you pick the right plan</li>
+            <li>A real login account ready right after signup</li>
+            <li>14-day free trial</li>
+            <li>Pick the right plan afterward</li>
           </ul>
         </aside>
         <section class="trial-form">
           <h2 id="authModeTitle">Contact details</h2>
-          <p>Keep it short — we only need this to set up the trial and understand your team's size and channels.</p>
+          <p>Keep it short — we only need this to set up your account and understand your team's size and channels.</p>
           <form id="trialForm" class="form-grid">
             <input type="hidden" name="intent" value="trial">
             <input type="hidden" name="auth_provider" value="form">
@@ -193,7 +194,7 @@ const landingMarkup = `<div class="landing" id="landingPage" dir="ltr" lang="en"
             <label>Business name<input name="company_name" required placeholder="e.g. Quality Store"></label>
             <label>Your name<input name="contact_name" required placeholder="Full name"></label>
             <label>Email<input name="email" type="email" required placeholder="name@company.com"></label>
-            <label>Phone number<input name="phone" required placeholder="05xxxxxxxx"></label>
+            <label>Phone number<input name="phone" placeholder="05xxxxxxxx"></label>
             <div class="choice-field">
               <div class="choice-title">Team size</div>
               <div class="choice-grid">
@@ -211,9 +212,9 @@ const landingMarkup = `<div class="landing" id="landingPage" dir="ltr" lang="en"
                 <label class="choice-option"><input type="checkbox" name="channels" value="Google Maps"><b>Google Maps</b><span>Reviews &amp; replies</span></label>
               </div>
             </div>
-            <label class="full"><button class="btn primary" type="submit" style="width:100%">Send trial request</button></label>
+            <label class="full"><button class="btn primary" type="submit" style="width:100%">Start your trial now</button></label>
           </form>
-          <p class="form-note">After you submit, our team will reach out within one business day to set up a trial that fits your channels and how you work.</p>
+          <p class="form-note">Once you sign up, your account is created instantly and you'll go straight to activating it and setting your password.</p>
         </section>
       </div>
     </section>
@@ -250,5 +251,10 @@ const landingMarkup = `<div class="landing" id="landingPage" dir="ltr" lang="en"
 </div>`;
 
 export default function HomePageEn() {
-  return <div dangerouslySetInnerHTML={{ __html: landingMarkup }} />;
+  return (
+    <>
+      <div dangerouslySetInnerHTML={{ __html: landingMarkup }} />
+      <TrialFormEnhancer />
+    </>
+  );
 }
