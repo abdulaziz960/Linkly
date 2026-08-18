@@ -1441,7 +1441,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             {testFeedback && <p className={`meta-test-feedback ${testFeedback.type}`}>{testFeedback.text}</p>}
           </div> : null}
 
-          {!isGoogleMaps && !isWhatsApp && !isWebsite && !isInstagram && !isFacebook ? <div className="webhook-card">
+          {!isGoogleMaps && !isWhatsApp && !isWebsite && !isInstagram && !isFacebook && !((isGmail || isOutlook) && isConnected) ? <div className="webhook-card">
             <div>
               <h3>إعدادات الويبهوك — {isEmail ? (isGmail ? "Gmail" : isOutlook ? "Outlook" : "البريد الإلكتروني") : isTikTok ? "TikTok" : isSms ? "SMS" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب"}</h3>
               <p>{isEmail ? "انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة." : isGoogleMaps ? "هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة." : isX ? "استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات." : isTelegram ? "سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة." : isFacebook ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger." : isInstagram ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram." : isTikTok ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق TikTok لاستقبال رسائل وتعليقات TikTok بعد موافقة Business Messaging." : "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp."}</p>
