@@ -17,7 +17,13 @@ export async function GET(request: NextRequest) {
 
   const channel = getChannel(request);
   const settings = await getIntegrationSettings(channel, user.tenantId);
-  const appId = channel === "whatsapp"
+  // Instagram uses its own standalone "Instagram API with Instagram Login" app
+  // (instagram.com/oauth/authorize), whose App ID is NOT a valid classic
+  // Facebook Platform app ID. Facebook Pages need a real classic app for
+  // facebook.com/dialog/oauth, so it reuses AudienceW's WhatsApp tech-provider
+  // app (already a verified, working classic Meta app) instead of falling
+  // back to the Instagram-only app ID, which produced "Invalid App ID".
+  const appId = channel === "whatsapp" || channel === "facebook"
     ? techProviderMetaAppId
     : settings.appId.trim() || process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";
   const configId = channel === "whatsapp" ? techProviderMetaConfigId : settings.configId.trim();

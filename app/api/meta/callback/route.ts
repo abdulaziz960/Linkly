@@ -229,12 +229,16 @@ export async function GET(request: NextRequest) {
   }
 
   if (channel === "facebook" && code) {
-    const appSecret = process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
+    // Must match the client_id actually sent to facebook.com/dialog/oauth in
+    // /api/meta/connect (AudienceW's WhatsApp tech-provider app, not the
+    // Instagram-only app_id that used to live in settings.appId).
+    const appId = techProviderMetaAppId;
+    const appSecret = process.env.WHATSAPP_META_APP_SECRET || "";
     const redirectUri = `${request.nextUrl.origin}/api/meta/callback`;
 
-    if (settings.appId && appSecret) {
+    if (appId && appSecret) {
       const tokenUrl = new URL("https://graph.facebook.com/v22.0/oauth/access_token");
-      tokenUrl.searchParams.set("client_id", settings.appId);
+      tokenUrl.searchParams.set("client_id", appId);
       tokenUrl.searchParams.set("client_secret", appSecret);
       tokenUrl.searchParams.set("redirect_uri", redirectUri);
       tokenUrl.searchParams.set("code", code);
