@@ -989,6 +989,34 @@ async function seedDatabase() {
       });
     }
 
+    // Real AudienceW staff (platformAdminEmails) need an actual login account
+    // to ever reach /admin - unlike tenant owners, nothing else in the app
+    // creates one for them. Only creates the account when missing; never
+    // touches passwordHash on an existing one (they set that themselves via
+    // /forgot-password -> /activate).
+    for (const email of platformAdminEmails) {
+      const existingAdminAccount = await tx.userAccount.findUnique({ where: { email } });
+      if (existingAdminAccount) {
+        if (existingAdminAccount.isPlatformAdmin !== 1) {
+          await tx.userAccount.update({ where: { email }, data: { isPlatformAdmin: 1 } });
+        }
+        continue;
+      }
+
+      await tx.userAccount.create({
+        data: {
+          id: `user-platform-${createHash("sha256").update(email).digest("hex").slice(0, 10)}`,
+          name: email.split("@")[0],
+          email,
+          passwordHash: "",
+          role: "مالك الحساب",
+          tenantId: "tenant-demo",
+          isPlatformAdmin: 1,
+          createdAt: "اليوم"
+        }
+      });
+    }
+
     return;
 
     await tx.conversationTag.deleteMany({ where: { conversationId: { in: ["c-1", "c-2", "c-3", "c-4"] } } });
