@@ -4309,19 +4309,28 @@
 
 .webhook-token-regenerate {
   justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: none !important;
   border: none;
-  padding: 0;
-  color: var(--muted);
-  font-weight: 700;
+  padding: 4px 0;
+  color: var(--brand);
+  font-weight: 800;
   font-size: 13px;
-  text-decoration: underline;
+  text-decoration: none;
   cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.webhook-token-regenerate:hover {
+  opacity: 0.75;
 }
 
 .webhook-token-regenerate:disabled {
   color: #94a3b8;
   cursor: default;
+  opacity: 1;
 }
 
 .meta-connect-modal {
