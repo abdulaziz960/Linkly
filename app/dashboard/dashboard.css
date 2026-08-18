@@ -4279,6 +4279,11 @@
   white-space: nowrap;
 }
 
+.copy-row button.webhook-token-value {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+}
+
 .copy-row button:disabled {
   color: #94a3b8;
   cursor: default;
