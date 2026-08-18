@@ -9,6 +9,7 @@ import { formatNumber, getRenewalAlert, RENEWAL_SOON_DAYS } from "../utils";
 export default function AlertsView({ subscriptions }: { subscriptions: SubscriptionRow[] }) {
   const [chargeClient, setChargeClient] = useState<SubscriptionRow | null>(null);
   const [chargeAmount, setChargeAmount] = useState("");
+  const [chargeGateway, setChargeGateway] = useState<"moyasar" | "stripe">("moyasar");
   const [isCharging, setIsCharging] = useState(false);
   const [chargeError, setChargeError] = useState("");
   const [chargeUrl, setChargeUrl] = useState("");
@@ -42,7 +43,7 @@ export default function AlertsView({ subscriptions }: { subscriptions: Subscript
     const response = await fetch("/api/admin/subscriptions/charge", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenantId: chargeClient.tenantId, amount })
+      body: JSON.stringify({ tenantId: chargeClient.tenantId, amount, gateway: chargeGateway })
     });
     const result = (await response.json()) as { ok: boolean; paymentUrl?: string; error?: string };
 
@@ -88,7 +89,7 @@ export default function AlertsView({ subscriptions }: { subscriptions: Subscript
             <div className="admin-modal-head">
               <div>
                 <h2 id="charge-title">شحن / تجديد الاشتراك</h2>
-                <p>ينشئ رابط دفع Moyasar حقيقي لإرساله للعميل. عند الدفع يتفعّل الاشتراك تلقائيًا.</p>
+                <p>ينشئ رابط دفع حقيقي لإرساله للعميل. عند الدفع يتفعّل الاشتراك تلقائيًا.</p>
               </div>
               <button type="button" onClick={() => setChargeClient(null)} aria-label="إغلاق">
                 ×
@@ -112,6 +113,13 @@ export default function AlertsView({ subscriptions }: { subscriptions: Subscript
                 <label>
                   العميل
                   <input value={chargeClient.companyName} readOnly />
+                </label>
+                <label>
+                  بوابة الدفع
+                  <select value={chargeGateway} onChange={(event) => setChargeGateway(event.target.value as "moyasar" | "stripe")}>
+                    <option value="moyasar">Moyasar</option>
+                    <option value="stripe">Stripe (وضع اختبار)</option>
+                  </select>
                 </label>
                 <label>
                   قيمة الفاتورة (ر.س)
