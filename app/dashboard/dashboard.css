@@ -5722,7 +5722,8 @@
 
 .dashboard-main {
   height: calc(100dvh - 8px);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   border: 1px solid #d5c0af;
   border-inline-end: 0;
   border-radius: 22px 0 0 22px;
