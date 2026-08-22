@@ -5466,12 +5466,13 @@
   text-decoration: none;
   font-size: 13px;
 }
-.sidebar-billing-link span { color: #e7a98f; font-size: 20px; }
+.sidebar-billing-link > span:first-child { color: #e7a98f; font-size: 20px; }
 @media (max-width: 1180px) { .sidebar-billing-link b { display: none; } .sidebar-billing-link { justify-content: center; padding: 9px; } }
 
 /* AudienceW warm workspace — visual system based on the approved inbox reference. */
 .dashboard-shell,
 .dashboard-shell[data-theme="dark"] {
+  --dashboard-sidebar-width: 88px;
   --bg: #f3ede3;
   --surface: #fffdf9;
   --surface-soft: #f7f1e8;
@@ -5481,7 +5482,7 @@
   --line: #eadbce;
   --brand: #b55332;
   --radius: 16px;
-  grid-template-columns: minmax(0, 1fr) 76px;
+  grid-template-columns: minmax(0, 1fr) var(--dashboard-sidebar-width);
   gap: 0;
   min-height: 100dvh;
   padding: 4px;
@@ -5489,7 +5490,7 @@
 }
 
 .dashboard-sidebar {
-  width: 76px;
+  width: var(--dashboard-sidebar-width);
   gap: 14px;
   padding: 16px 10px;
   border: 0;
@@ -5526,7 +5527,16 @@
   align-content: start;
   gap: 8px;
   padding: 4px 0;
-  overflow-x: visible;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+
+.dashboard-nav::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .dashboard-nav button {
@@ -5565,30 +5575,37 @@
   stroke-linejoin: round;
 }
 
-.dashboard-nav-label {
+.sidebar-tooltip {
   position: fixed;
   z-index: 80;
-  inset-inline-end: 78px;
+  top: var(--sidebar-tooltip-top, 50%);
+  right: calc(var(--dashboard-sidebar-width) + 14px);
+  left: auto;
   width: max-content;
   max-width: 220px;
   pointer-events: none;
   opacity: 0;
-  transform: translateX(5px);
+  transform: translate(6px, -50%);
   padding: 8px 11px;
   border: 1px solid #46372c;
   border-radius: 9px;
   background: #211811;
   color: #fffaf3;
+  direction: rtl;
   box-shadow: 0 8px 24px rgba(32, 21, 15, 0.2);
   font-size: 12px;
   white-space: nowrap;
   transition: 0.15s ease;
 }
 
-.dashboard-nav button:hover .dashboard-nav-label,
-.dashboard-nav button:focus-visible .dashboard-nav-label {
+.dashboard-nav button:hover .sidebar-tooltip,
+.dashboard-nav button:focus-visible .sidebar-tooltip,
+.sidebar-billing-link:hover .sidebar-tooltip,
+.sidebar-billing-link:focus-visible .sidebar-tooltip,
+.account-btn:hover .sidebar-tooltip,
+.account-btn:focus-visible .sidebar-tooltip {
   opacity: 1;
-  transform: translateX(0);
+  transform: translate(0, -50%);
 }
 
 .dashboard-sidebar .account-btn {
@@ -6019,7 +6036,7 @@
   }
 
   .dashboard-sidebar {
-    width: 76px;
+    width: var(--dashboard-sidebar-width);
     border-radius: 18px 0 0 18px;
   }
 

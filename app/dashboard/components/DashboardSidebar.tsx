@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type FocusEvent, type MouseEvent, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { ConversationChannel, ConversationChannelFilter, DashboardUser, ViewKey } from "../types";
@@ -28,6 +28,11 @@ type DashboardSidebarProps = {
 
 function getInitial(name: string) {
   return name.trim().charAt(0) || "ع";
+}
+
+function positionSidebarTooltip(event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) {
+  const bounds = event.currentTarget.getBoundingClientRect();
+  event.currentTarget.style.setProperty("--sidebar-tooltip-top", `${bounds.top + bounds.height / 2}px`);
 }
 
 function DashboardNavIcon({ view }: { view: ViewKey }) {
@@ -102,10 +107,12 @@ export default function DashboardSidebar({
               className={activeView === item.key && (item.key !== "inbox" || selectedChannel === "all") ? "active" : ""}
               type="button"
               onClick={() => onChangeView(item.key)}
-              title={isEnglish ? navItemLabelsEn[item.key] : item.label}
+              onMouseEnter={positionSidebarTooltip}
+              onFocus={positionSidebarTooltip}
+              aria-label={isEnglish ? navItemLabelsEn[item.key] : item.label}
             >
               <DashboardNavIcon view={item.key} />
-              <span className="dashboard-nav-label">{isEnglish ? navItemLabelsEn[item.key] : item.label}</span>
+              <span className="dashboard-nav-label sidebar-tooltip">{isEnglish ? navItemLabelsEn[item.key] : item.label}</span>
             </button>
             {item.key === "inbox" ? (
               <div className="nav-channel-group">
@@ -132,11 +139,26 @@ export default function DashboardSidebar({
           </Fragment>
         ))}
       </nav>
-      <Link className="sidebar-billing-link" href="/billing" title={isEnglish ? "Plans and billing" : "الباقات والاشتراك"}>
-        <span aria-hidden="true">◈</span><b>{isEnglish ? "Plans & billing" : "الباقات والاشتراك"}</b>
+      <Link
+        className="sidebar-billing-link"
+        href="/billing"
+        onMouseEnter={positionSidebarTooltip}
+        onFocus={positionSidebarTooltip}
+        aria-label={isEnglish ? "Plans and billing" : "الباقات والاشتراك"}
+      >
+        <span aria-hidden="true">◈</span>
+        <span className="sidebar-tooltip">{isEnglish ? "Plans & billing" : "الباقات والاشتراك"}</span>
       </Link>
-      <button className="account-btn" type="button" onClick={onOpenProfile}>
+      <button
+        className="account-btn"
+        type="button"
+        onClick={onOpenProfile}
+        onMouseEnter={positionSidebarTooltip}
+        onFocus={positionSidebarTooltip}
+        aria-label={isEnglish ? "Profile" : "الملف الشخصي"}
+      >
         <span className="account-avatar">{getInitial(user.name)}</span>
+        <span className="sidebar-tooltip">{isEnglish ? "Profile" : "الملف الشخصي"}</span>
         <span>
           <b>{user.name}</b>
           <small>{user.role}</small>
