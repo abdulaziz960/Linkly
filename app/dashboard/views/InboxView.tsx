@@ -680,9 +680,12 @@ export default function InboxView({
                   }}
                 >
                   {item.direction !== "note" ? (
-                    <span className={`message-channel-mark ${activeConversation.channel || "whatsapp"}`}>
+                    <span
+                      className={`message-channel-mark ${activeConversation.channel || "whatsapp"}`}
+                      aria-label={`${getChannelLabel(activeConversation)} — ${item.direction === "in" ? activeConversation.customer : item.author || currentUserName}`}
+                    >
                       <ChannelIcon id={activeConversation.channel || "whatsapp"} />
-                      <span>{getChannelLabel(activeConversation)}</span>
+                      <span>{item.direction === "in" ? activeConversation.customer : item.author || currentUserName}</span>
                     </span>
                   ) : null}
                   {item.text !== "تم حذف هذه الرسالة" ? (

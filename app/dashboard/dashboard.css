@@ -1824,6 +1824,8 @@
   font-size: 11px;
   font-weight: 800;
   line-height: 1.2;
+  overflow: visible;
+  max-height: none;
 }
 
 .message-channel-mark svg {
@@ -6056,7 +6058,7 @@
   white-space: nowrap;
 }
 
-.message-bubble > span:not(.message-reply-preview):not(.message-source-card) {
+.message-bubble > span:not(.message-reply-preview):not(.message-source-card):not(.message-channel-mark) {
   display: block;
   max-height: 320px;
   overflow: auto;
@@ -6066,7 +6068,7 @@
   scrollbar-width: thin;
 }
 
-.message-bubble.in > span:not(.message-reply-preview):not(.message-source-card) {
+.message-bubble.in > span:not(.message-reply-preview):not(.message-source-card):not(.message-channel-mark) {
   text-align: start;
 }
 
@@ -6194,7 +6196,7 @@
 
   .composer textarea { padding-inline: 6px; font-size: 16px; }
 
-  .message-bubble > span:not(.message-reply-preview):not(.message-source-card) { max-height: 260px; }
+  .message-bubble > span:not(.message-reply-preview):not(.message-source-card):not(.message-channel-mark) { max-height: 260px; }
 }
 
 @media (max-width: 430px) {
