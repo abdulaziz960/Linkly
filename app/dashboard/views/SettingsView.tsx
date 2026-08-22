@@ -228,7 +228,19 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
 
 export default function SettingsView({ onIntegrationChange }: SettingsViewProps) {
   const [settings, setSettings] = useState<IntegrationSettings>(emptySettings);
-  const [selectedChannel, setSelectedChannel] = useState<"whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "gmail" | "outlook" | "website" | "tiktok" | "sms">("whatsapp");
+  const [selectedChannel, setSelectedChannel] = useState<"whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "gmail" | "outlook" | "website" | "tiktok" | "sms">(() => {
+    // Popups fall back to a full-page redirect (e.g. "?meta=tiktok-callback")
+    // when window.opener isn't available instead of just closing themselves,
+    // so land on the channel that was actually just connected instead of
+    // always defaulting to WhatsApp.
+    if (typeof window === "undefined") return "whatsapp";
+    const meta = new URLSearchParams(window.location.search).get("meta") || "";
+    if (meta === "instagram-callback") return "instagram";
+    if (meta === "facebook-callback") return "facebook";
+    if (meta === "tiktok-callback") return "tiktok";
+    if (meta === "callback") return "whatsapp";
+    return "whatsapp";
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
