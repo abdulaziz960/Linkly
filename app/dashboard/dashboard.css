@@ -566,7 +566,19 @@
   gap: 12px;
   padding: 15px 14px;
   text-align: right;
+  border-inline-start: 3px solid var(--conversation-channel, transparent);
 }
+
+.conversation-card.channel-whatsapp { --conversation-channel: #25d366; }
+.conversation-card.channel-instagram { --conversation-channel: #d62976; }
+.conversation-card.channel-facebook { --conversation-channel: #1877f2; }
+.conversation-card.channel-telegram { --conversation-channel: #229ed9; }
+.conversation-card.channel-x { --conversation-channel: #111827; }
+.conversation-card.channel-email { --conversation-channel: #6366f1; }
+.conversation-card.channel-tiktok { --conversation-channel: #ff3b5c; }
+.conversation-card.channel-google_maps { --conversation-channel: #ea4335; }
+.conversation-card.channel-website { --conversation-channel: #8b5cf6; }
+.conversation-card.channel-sms { --conversation-channel: #d97706; }
 
 .conversation-card:hover,
 .conversation-card.active {
@@ -1785,6 +1797,53 @@
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
   line-height: 1.8;
   position: relative;
+  --channel-accent: #7d5848;
+  --channel-border: #e5d5c7;
+  --channel-incoming: #fffdf9;
+  --channel-outgoing: #f6e4d8;
+}
+
+.message-bubble.channel-whatsapp { --channel-accent: #128c7e; --channel-border: #b8e5d2; --channel-incoming: #f0fbf6; --channel-outgoing: #dcf8c6; }
+.message-bubble.channel-instagram { --channel-accent: #c13584; --channel-border: #f3bedb; --channel-incoming: #fff4fa; --channel-outgoing: #fce0ef; }
+.message-bubble.channel-facebook { --channel-accent: #1877f2; --channel-border: #bfd8fb; --channel-incoming: #f3f8ff; --channel-outgoing: #dceaff; }
+.message-bubble.channel-telegram { --channel-accent: #168acd; --channel-border: #b9dff3; --channel-incoming: #f1faff; --channel-outgoing: #d9f1fc; }
+.message-bubble.channel-x { --channel-accent: #111827; --channel-border: #cbd5e1; --channel-incoming: #f8fafc; --channel-outgoing: #e5e7eb; }
+.message-bubble.channel-email { --channel-accent: #4f46e5; --channel-border: #c7d2fe; --channel-incoming: #f5f5ff; --channel-outgoing: #e4e7ff; }
+.message-bubble.channel-tiktok { --channel-accent: #e11d48; --channel-border: #fecdd3; --channel-incoming: #fff5f7; --channel-outgoing: #ffe1e7; }
+.message-bubble.channel-google_maps { --channel-accent: #c5221f; --channel-border: #f5c2bd; --channel-incoming: #fff7f5; --channel-outgoing: #ffe4df; }
+.message-bubble.channel-website { --channel-accent: #7c3aed; --channel-border: #ddd6fe; --channel-incoming: #faf7ff; --channel-outgoing: #eee7ff; }
+.message-bubble.channel-sms { --channel-accent: #b45309; --channel-border: #f5d49a; --channel-incoming: #fffbeb; --channel-outgoing: #fef0c7; }
+
+.message-bubble .message-channel-mark {
+  width: max-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--channel-accent);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.message-channel-mark svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.message-channel-mark.whatsapp svg,
+.message-channel-mark.facebook svg,
+.message-channel-mark.telegram svg,
+.message-channel-mark.x svg,
+.message-channel-mark.tiktok svg {
+  fill: currentColor;
+  stroke: none;
 }
 
 .message-delete,
@@ -1827,12 +1886,14 @@
 
 .message-bubble.in {
   align-self: flex-start;
-  background: var(--surface);
+  border-color: var(--channel-border);
+  background: var(--channel-incoming);
 }
 
 .message-bubble.out {
   align-self: flex-end;
-  background: var(--surface-soft);
+  border-color: var(--channel-border);
+  background: var(--channel-outgoing);
 }
 
 .message-bubble.note {
@@ -5758,11 +5819,9 @@
   margin: 0 0 4px;
   padding: 0;
   background: transparent;
-  color: #ad91a8;
   font-size: 10px;
 }
 
-.conversation-copy .channel-badge svg,
 .conversation-meta > em,
 .conversation-meta > small,
 .conversation-times small:nth-child(2) {
@@ -5803,7 +5862,6 @@
 .chat-customer .channel-badge {
   padding: 0;
   background: transparent;
-  color: #2f9b66;
 }
 
 .chat-head label {
@@ -5846,13 +5904,14 @@
 }
 
 .message-bubble.in {
-  background: #fffdf9;
+  border-color: var(--channel-border);
+  background: var(--channel-incoming);
 }
 
 .message-bubble.out {
-  border-color: #e9cbb9;
-  background: #f6e4d8;
-  color: #9a482d;
+  border-color: var(--channel-border);
+  background: var(--channel-outgoing);
+  color: #38251b;
 }
 
 .composer-modes {

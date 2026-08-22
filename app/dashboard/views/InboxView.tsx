@@ -503,7 +503,7 @@ export default function InboxView({
         <div className="conversation-list">
           {visibleConversations.map((conversation) => (
             <button
-              className={`conversation-card ${activeConversation.id === conversation.id ? "active" : ""}`}
+              className={`conversation-card channel-${conversation.channel || "whatsapp"} ${activeConversation.id === conversation.id ? "active" : ""}`}
               key={conversation.id}
               type="button"
               onContextMenu={(event) => {
@@ -668,7 +668,7 @@ export default function InboxView({
             <div className="messages">
               {activeConversation.messages.map((item) => (
                 <div
-                  className={`message-bubble ${item.direction}`}
+                  className={`message-bubble ${item.direction} channel-${activeConversation.channel || "whatsapp"}`}
                   key={item.id}
                   onContextMenu={(event) => {
                     event.preventDefault();
@@ -679,6 +679,12 @@ export default function InboxView({
                     });
                   }}
                 >
+                  {item.direction !== "note" ? (
+                    <span className={`message-channel-mark ${activeConversation.channel || "whatsapp"}`}>
+                      <ChannelIcon id={activeConversation.channel || "whatsapp"} />
+                      <span>{getChannelLabel(activeConversation)}</span>
+                    </span>
+                  ) : null}
                   {item.text !== "تم حذف هذه الرسالة" ? (
                     <button
                       className="message-reply-action"
