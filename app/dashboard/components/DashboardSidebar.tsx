@@ -2,7 +2,6 @@
 
 import { Fragment, type FocusEvent, type MouseEvent, type ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import type { ConversationChannel, ConversationChannelFilter, DashboardUser, ViewKey } from "../types";
 import { navItems, navItemLabelsEn } from "../data/navigation";
 import { ChannelIcon } from "../views/SettingsView";
@@ -90,12 +89,6 @@ export default function DashboardSidebar({
 
   return (
     <aside className="dashboard-sidebar">
-      <div className="brand">
-        <span className="brand-mark">
-          <Image src="/assets/audiencew-logo.png" alt="" width={44} height={44} />
-        </span>
-        AudienceW
-      </div>
       <div className="tenant-card">
         <b>{isEnglish ? "Account" : "حساب العميل"}</b>
         <span>{isEnglish ? "No plan selected" : "لم يتم تحديد الباقة"}</span>
