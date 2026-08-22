@@ -134,6 +134,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [draftStatus, setDraftStatus] = useState<Employee["status"]>("متصل");
   const [draftTheme, setDraftTheme] = useState<"light" | "dark" | "system">("system");
   const [draftLanguage, setDraftLanguage] = useState<"ar" | "en">("ar");
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileFeedback, setProfileFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -220,13 +223,21 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
     const storedLanguage = window.localStorage.getItem("audiencew-language");
     if (storedLanguage === "ar" || storedLanguage === "en") setLanguage(storedLanguage);
-  }, []);
+
+    const storedOwnerStatus = window.localStorage.getItem(`audiencew-profile-status:${initialUser.id}`);
+    if (storedOwnerStatus === "متصل" || storedOwnerStatus === "مشغول" || storedOwnerStatus === "غير متصل") {
+      setOwnerStatus(storedOwnerStatus);
+    }
+    setPreferencesLoaded(true);
+  }, [initialUser.id]);
 
   useEffect(() => {
+    if (!preferencesLoaded) return;
     window.localStorage.setItem("audiencew-language", language);
-  }, [language]);
+  }, [language, preferencesLoaded]);
 
   useEffect(() => {
+    if (!preferencesLoaded) return;
     window.localStorage.setItem("audiencew-theme", themePreference);
 
     if (themePreference !== "system") {
@@ -239,7 +250,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     applySystemTheme();
     media.addEventListener("change", applySystemTheme);
     return () => media.removeEventListener("change", applySystemTheme);
-  }, [themePreference]);
+  }, [preferencesLoaded, themePreference]);
 
   useEffect(() => {
     fetch("/api/settings/integration")
@@ -293,6 +304,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     setDraftStatus(currentProfileStatus);
     setDraftTheme(themePreference);
     setDraftLanguage(language);
+    setProfileFeedback(null);
     // Sync drafts only at the moment the dialog opens - re-running this
     // whenever currentProfileStatus/themePreference/language change would
     // overwrite the user's in-progress picks with the still-unsaved values.
@@ -904,6 +916,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
     if (!matchedEmployee) {
       setOwnerStatus(nextStatus);
+      window.localStorage.setItem(`audiencew-profile-status:${initialUser.id}`, nextStatus);
       return;
     }
 
@@ -913,7 +926,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       current.map((employee) => (employee.id === matchedEmployee.id ? nextEmployee : employee))
     );
 
-    await fetch(`/api/employees/${matchedEmployee.id}`, {
+    const response = await fetch(`/api/employees/${matchedEmployee.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -924,7 +937,28 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         permissions: nextEmployee.permissions
       })
     });
+    if (!response.ok) {
+      await loadDashboardData();
+      throw new Error(await readApiError(response));
+    }
     await loadDashboardData();
+  }
+
+  async function handleProfileSave() {
+    setProfileSaving(true);
+    setProfileFeedback(null);
+    try {
+      if (draftStatus !== currentProfileStatus) await handleProfileStatusChange(draftStatus);
+      setThemePreference(draftTheme);
+      setLanguage(draftLanguage);
+      window.localStorage.setItem("audiencew-theme", draftTheme);
+      window.localStorage.setItem("audiencew-language", draftLanguage);
+      setProfileFeedback({ type: "success", message: "تم حفظ الحالة والمظهر واللغة بنجاح." });
+    } catch (error) {
+      setProfileFeedback({ type: "error", message: error instanceof Error ? error.message : "تعذر حفظ إعدادات الملف الشخصي." });
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   return (
@@ -1046,6 +1080,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                         key={status}
                         type="button"
                         className={`${draftStatus === status ? "active" : ""} ${status === "متصل" ? "online" : status === "مشغول" ? "busy" : "offline"}`}
+                        aria-pressed={draftStatus === status}
                         onClick={() => setDraftStatus(status)}
                       >
                         {status}
@@ -1060,6 +1095,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                           key={value}
                           type="button"
                           className={draftTheme === value ? "active" : ""}
+                          aria-pressed={draftTheme === value}
                           onClick={() => setDraftTheme(value)}
                         >
                           {label}
@@ -1075,6 +1111,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                           key={value}
                           type="button"
                           className={draftLanguage === value ? "active" : ""}
+                          aria-pressed={draftLanguage === value}
                           onClick={() => setDraftLanguage(value)}
                         >
                           {label}
@@ -1115,6 +1152,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                   <p className="muted-copy">تظهر هنا إعدادات الحماية، الجلسات، والتحقق الثنائي عند ربط نظام الدخول الحقيقي.</p>
                 </div>
               )}
+              {profileFeedback ? <p className={`profile-save-feedback ${profileFeedback.type}`} role="status">{profileFeedback.message}</p> : null}
             </div>
             <footer className="modal-foot">
               {profilePanel === "main" ? null : <button className="btn soft" type="button" onClick={() => setProfilePanel("main")}>رجوع</button>}
@@ -1134,15 +1172,10 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
               <button
                 className="btn primary"
                 type="button"
-                onClick={() => {
-                  if (draftStatus !== currentProfileStatus) void handleProfileStatusChange(draftStatus);
-                  setThemePreference(draftTheme);
-                  setLanguage(draftLanguage);
-                  setProfileOpen(false);
-                  setProfilePanel("main");
-                }}
+                disabled={profileSaving}
+                onClick={() => void handleProfileSave()}
               >
-                حفظ
+                {profileSaving ? "جاري الحفظ..." : "حفظ"}
               </button>
             </footer>
           </section>

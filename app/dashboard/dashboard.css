@@ -1590,6 +1590,7 @@
   padding: 8px 16px;
   font-weight: 900;
   cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
 }
 
 .theme-picker-options button.active {
@@ -1613,6 +1614,34 @@
   padding: 8px 16px;
   font-weight: 900;
   cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+}
+
+.theme-picker-options button:hover,
+.status-picker button:hover {
+  transform: translateY(-1px);
+}
+
+.profile-save-feedback {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.profile-save-feedback.success {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.profile-save-feedback.error {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .status-picker button.active.online {
@@ -5533,8 +5562,7 @@
 @media (max-width: 1180px) { .sidebar-billing-link b { display: none; } .sidebar-billing-link { justify-content: center; padding: 9px; } }
 
 /* AudienceW warm workspace — visual system based on the approved inbox reference. */
-.dashboard-shell,
-.dashboard-shell[data-theme="dark"] {
+.dashboard-shell {
   --dashboard-sidebar-width: 88px;
   --bg: #ece2d6;
   --surface: #fffdf8;
@@ -6001,6 +6029,121 @@
 
 .conversation-empty-icon {
   background: #efe3d8;
+}
+
+/* Keep the warm AudienceW identity while making the profile theme control
+   produce a clearly different, readable workspace. */
+.dashboard-shell[data-theme="dark"] {
+  --bg: #15100d;
+  --surface: #211915;
+  --surface-soft: #2c211b;
+  --ink: #fff5ec;
+  --muted: #c7b2a3;
+  --text-secondary: #ead8ca;
+  --line: #4b392f;
+  --brand: #b85431;
+  background: #15100d;
+}
+
+.dashboard-shell[data-theme="dark"] .dashboard-main,
+.dashboard-shell[data-theme="dark"] .conversation-column {
+  border-color: #4b392f;
+  background: #211915;
+}
+
+.dashboard-shell[data-theme="dark"] .chat-column,
+.dashboard-shell[data-theme="dark"] .messages,
+.dashboard-shell[data-theme="dark"] .composer-modes,
+.dashboard-shell[data-theme="dark"] .conversation-empty-state {
+  background: #18120f;
+}
+
+.dashboard-shell[data-theme="dark"] .column-head,
+.dashboard-shell[data-theme="dark"] .chat-head,
+.dashboard-shell[data-theme="dark"] .conversation-tabs,
+.dashboard-shell[data-theme="dark"] .chat-tabs,
+.dashboard-shell[data-theme="dark"] .mobile-topbar {
+  border-color: #4b392f;
+  background: #251c17;
+}
+
+.dashboard-shell[data-theme="dark"] .conversation-tabs button,
+.dashboard-shell[data-theme="dark"] .chat-tabs button,
+.dashboard-shell[data-theme="dark"] .composer-modes button {
+  border-color: #4b392f;
+  background: #3a2b23;
+  color: #ead8ca;
+}
+
+.dashboard-shell[data-theme="dark"] .conversation-tabs button.active,
+.dashboard-shell[data-theme="dark"] .chat-tabs button.active,
+.dashboard-shell[data-theme="dark"] .composer-modes button.active {
+  border-color: #b85431;
+  background: #b85431;
+  color: #fff;
+}
+
+.dashboard-shell[data-theme="dark"] .search-box input,
+.dashboard-shell[data-theme="dark"] .chat-head select,
+.dashboard-shell[data-theme="dark"] .readonly-assignee,
+.dashboard-shell[data-theme="dark"] .composer {
+  border-color: #5a4337;
+  background: #2a201a;
+  color: #fff5ec;
+}
+
+.dashboard-shell[data-theme="dark"] .conversation-card {
+  border-color: #3f3028;
+  background: #211915;
+}
+
+.dashboard-shell[data-theme="dark"] .conversation-card:hover {
+  background: #2c211b;
+}
+
+.dashboard-shell[data-theme="dark"] .conversation-card.active {
+  border-color: #b85431;
+  background: #3c291f;
+}
+
+.dashboard-shell[data-theme="dark"] .conversation-copy b,
+.dashboard-shell[data-theme="dark"] .chat-customer b {
+  color: #fff3e8;
+}
+
+.dashboard-shell[data-theme="dark"] .conversation-copy small,
+.dashboard-shell[data-theme="dark"] .chat-head label,
+.dashboard-shell[data-theme="dark"] .conversation-empty-state p,
+.dashboard-shell[data-theme="dark"] .composer textarea::placeholder {
+  color: #c7b2a3;
+}
+
+.dashboard-shell[data-theme="dark"] .avatar,
+.dashboard-shell[data-theme="dark"] .attachment-button {
+  background: #4b3024;
+  color: #ffd9c5;
+}
+
+.dashboard-shell[data-theme="dark"] .composer-reply-preview {
+  border-color: #5a4337;
+  border-right-color: #b85431;
+  background: #30231d;
+}
+
+.dashboard-shell[data-theme="dark"] .profile-save-feedback.success {
+  border-color: #347a50;
+  background: #173222;
+  color: #a7efbf;
+}
+
+.dashboard-shell[data-theme="dark"] .profile-save-feedback.error {
+  border-color: #8f403b;
+  background: #3a1a18;
+  color: #ffc0ba;
+}
+
+.dashboard-shell[data-theme="dark"] .message-bubble.out {
+  color: #fff5ec;
 }
 
 /* Responsive inbox ergonomics */
