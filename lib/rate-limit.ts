@@ -7,6 +7,8 @@ function rateLimitKey(namespace: string, identifier: string) {
   return createHash("sha256").update(`${namespace}:${identifier}`).digest("hex");
 }
 async function ensureRateLimitTable() {
+  if (process.env.NODE_ENV === "production") return;
+
   tablePromise ??= prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS rate_limits (
     key TEXT PRIMARY KEY,
     count INTEGER NOT NULL DEFAULT 0,
