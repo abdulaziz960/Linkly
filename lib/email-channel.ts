@@ -142,10 +142,7 @@ export async function sendEmailMessage(to: string, text: string, subject = "رس
     if (response.ok && payload?.ok) return;
     throw new Error("تعذر الإرسال عبر Google Script. تحقق من نشر السكربت وصلاحيات Gmail.");
   }
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error("اربط Gmail أو Outlook، أو أضف RESEND_API_KEY لتفعيل الإرسال.");
-  const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: process.env.EMAIL_FROM || "AudienceW <onboarding@resend.dev>", to, subject, text }) });
-  if (!response.ok) throw new Error("تعذر إرسال البريد عبر خدمة الإرسال.");
+  throw new Error("اربط Gmail أو Outlook لتفعيل إرسال البريد.");
 }
 
 type GmailMessagePart = {

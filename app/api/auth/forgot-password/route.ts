@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     message: genericMessage,
-    // Only present when RESEND_API_KEY isn't configured - lets the reset
+    // Only present when no mail provider is configured - lets the reset
     // still work end-to-end without a real mail provider.
     activationUrl: process.env.NODE_ENV !== "production" && !delivery.sent ? delivery.activationUrl : undefined
   });
