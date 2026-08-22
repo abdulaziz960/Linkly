@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { encryptSecret } from "./secret-storage";
 import type { IntegrationSettings } from "../app/dashboard/types";
 
 type XApiErrorPayload = {
@@ -76,11 +77,11 @@ export async function refreshXAccessToken(settings: IntegrationSettings) {
   }
 
   await prisma.integrationSetting.update({
-    where: { id: "x-channel" },
+    where: { id: settings.id },
     data: {
-      accessToken: payload.access_token,
-      xAccessToken: payload.access_token,
-      xAccessTokenSecret: payload.refresh_token || refreshToken
+      accessToken: encryptSecret(payload.access_token),
+      xAccessToken: encryptSecret(payload.access_token),
+      xAccessTokenSecret: encryptSecret(payload.refresh_token || refreshToken)
     }
   });
 

@@ -332,10 +332,9 @@ export async function runInboundMessageAutomations(conversationId: string, tenan
 }
 
 /**
- * Runs any queued (delayed) automation actions whose time has come. Has no
- * dedicated scheduler behind it - it's invoked opportunistically from the
- * conversations list endpoint, which the dashboard already polls every few
- * seconds while a session is open.
+ * Runs queued automation actions whose time has come. Each item is claimed
+ * atomically before execution so concurrent cron and dashboard requests do
+ * not execute the same action twice.
  */
 export async function processDueAutomations(tenantId = "tenant-demo") {
   await ensureSchema();
@@ -348,10 +347,13 @@ export async function processDueAutomations(tenantId = "tenant-demo") {
   if (!due.length) return;
 
   for (const item of due) {
+    const claim = await prisma.automationQueueItem.deleteMany({
+      where: { id: item.id, tenantId: item.tenantId, runAt: item.runAt }
+    });
+    if (claim.count !== 1) continue;
     const rule = await prisma.automationRule.findUnique({ where: { id: item.ruleId } });
     if (rule?.enabled) {
       await executeRule(rule, item.tenantId, item.conversationId);
     }
-    await prisma.automationQueueItem.delete({ where: { id: item.id } }).catch(() => undefined);
   }
 }

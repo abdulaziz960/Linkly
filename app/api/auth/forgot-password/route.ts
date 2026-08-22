@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomBytes } from "crypto";
 import { prisma } from "../../../../lib/prisma";
 import { sendActivationEmail } from "../../../../lib/email";
+import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,11 @@ export async function POST(request: NextRequest) {
 
   if (!email) {
     return NextResponse.json({ ok: false, error: "البريد الإلكتروني مطلوب" }, { status: 400 });
+  }
+
+  const rateLimit = await consumeRateLimit("password-reset", requestIdentifier(request, email), 3, 60 * 60 * 1000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ ok: true, message: genericMessage }, { headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } });
   }
 
   const user = await prisma.userAccount.findUnique({ where: { email } });
@@ -41,7 +47,9 @@ export async function POST(request: NextRequest) {
     })
   ]);
 
-  const origin = request.nextUrl.origin;
+  const origin = process.env.NODE_ENV === "production"
+    ? "https://audiencew.audience.sa"
+    : (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || request.nextUrl.origin).replace(/\/$/, "");
   const activationUrl = `${origin}/activate?token=${resetToken}`;
   const delivery = await sendActivationEmail({ to: email, name: user.name, activationUrl });
 
@@ -50,6 +58,6 @@ export async function POST(request: NextRequest) {
     message: genericMessage,
     // Only present when RESEND_API_KEY isn't configured - lets the reset
     // still work end-to-end without a real mail provider.
-    activationUrl: delivery.sent ? undefined : delivery.activationUrl
+    activationUrl: process.env.NODE_ENV !== "production" && !delivery.sent ? delivery.activationUrl : undefined
   });
 }

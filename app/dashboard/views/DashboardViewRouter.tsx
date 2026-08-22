@@ -39,7 +39,6 @@ type DashboardViewRouterProps = {
   tags: Tag[];
   teams: Team[];
   templates: MessageTemplate[];
-  integrationStatus: IntegrationSettings["status"];
   onIntegrationChange: (settings: IntegrationSettings) => void;
   onRefreshData: () => Promise<void>;
   onOpenConversation: (conversationId: string) => void;
@@ -61,7 +60,6 @@ export default function DashboardViewRouter({
   tags,
   teams,
   templates,
-  integrationStatus,
   view
 }: DashboardViewRouterProps) {
   if (view === "contacts") return <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;

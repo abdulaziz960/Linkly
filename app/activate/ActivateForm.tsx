@@ -35,7 +35,7 @@ export default function ActivateForm() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/dashboard?view=settings&welcome=1");
     router.refresh();
   }
 

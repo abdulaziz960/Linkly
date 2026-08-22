@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
+import { encryptSecret } from "../../../../lib/secret-storage";
 
 const techProviderMetaAppId = "1296230909161568";
 
@@ -202,7 +203,7 @@ export async function GET(request: NextRequest) {
             businessName: accountsPayload?.account_type || settings.businessName,
             wabaName: accountsPayload?.username || accountsPayload?.name || settings.wabaName,
             wabaId: instagramId || settings.wabaId,
-            accessToken: longLivedAccessToken,
+            accessToken: encryptSecret(longLivedAccessToken),
             updatedAt: new Intl.DateTimeFormat("ar-SA", {
               dateStyle: "medium",
               timeStyle: "short",
@@ -278,7 +279,7 @@ export async function GET(request: NextRequest) {
               wabaName: page.name || settings.wabaName,
               phoneNumber: page.name || settings.phoneNumber,
               wabaId: page.id,
-              accessToken: page.access_token,
+              accessToken: encryptSecret(page.access_token),
               updatedAt: new Intl.DateTimeFormat("ar-SA", {
                 dateStyle: "medium",
                 timeStyle: "short",
@@ -325,7 +326,7 @@ export async function GET(request: NextRequest) {
         wabaId: effectiveWabaId,
         phoneNumberId: effectivePhoneNumberId,
         phoneNumber: phoneDetails?.display_phone_number || phoneNumber || settings.phoneNumber,
-        accessToken: accessToken || settings.accessToken,
+        accessToken: encryptSecret(accessToken || settings.accessToken),
         updatedAt: new Intl.DateTimeFormat("ar-SA", {
           dateStyle: "medium",
           timeStyle: "short",
@@ -338,8 +339,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         ok: true,
         connected: Boolean(effectiveWabaId && effectivePhoneNumberId && accessToken),
-        // TEMP debug field — remove once WhatsApp token exchange is confirmed working.
-        debugTokenError: exchangeResult.error || undefined
+        message: exchangeResult.error ? "تعذر إكمال تبادل رمز Meta" : undefined
       });
     }
   }

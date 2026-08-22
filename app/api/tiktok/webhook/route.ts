@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -16,16 +16,16 @@ export const runtime = "nodejs";
  * verify the request per TikTok's actual signing scheme, parse the event,
  * and call storeTikTokMessage() from lib/tiktok-inbox.ts.
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   return NextResponse.json({
-    ok: true,
-    note: "TikTok Business Messaging webhook not wired up yet - pending Messaging Partner approval."
-  });
+    ok: false,
+    error: "TikTok Business Messaging is pending provider approval."
+  }, { status: 501 });
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   return NextResponse.json({
-    ok: true,
-    note: "TikTok Business Messaging webhook not wired up yet - pending Messaging Partner approval."
-  });
+    ok: false,
+    error: "TikTok Business Messaging is pending provider approval."
+  }, { status: 501 });
 }

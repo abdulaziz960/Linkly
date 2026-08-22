@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import { viewTitles } from "./data/navigation";
@@ -92,7 +93,15 @@ function writeCachedList<T>(key: string, value: T[]) {
   }
 }
 
+async function fetchData<T>(path: string) {
+  const response = await fetch(path);
+  if (!response.ok) return null;
+  const payload = (await response.json()) as { ok: boolean; data?: T };
+  return payload.ok && payload.data !== undefined ? payload.data : null;
+}
+
 export default function DashboardClient({ initialUser }: DashboardClientProps) {
+  const router = useRouter();
   const restoredNavigationRef = useRef(false);
   const loadDashboardDataSeqRef = useRef(0);
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
@@ -290,15 +299,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileOpen]);
 
-  async function fetchData<T>(path: string) {
-    const response = await fetch(path);
-    if (!response.ok) return null;
-
-    const payload = (await response.json()) as { ok: boolean; data?: T };
-    return payload.ok && payload.data !== undefined ? payload.data : null;
-  }
-
-  async function loadDashboardData() {
+  const loadDashboardData = useCallback(async () => {
     const requestId = ++loadDashboardDataSeqRef.current;
     try {
       const [
@@ -361,7 +362,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     } catch {
       // Keep local fallback data visible if the API is temporarily unavailable.
     }
-  }
+  }, []);
 
   useEffect(() => {
     if (googleMapsStatus !== "connected") return;
@@ -387,14 +388,14 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [googleMapsStatus]);
+  }, [googleMapsStatus, loadDashboardData]);
 
   useEffect(() => {
     window.localStorage.removeItem(CONVERSATIONS_CACHE_KEY);
     window.localStorage.removeItem(CUSTOMERS_CACHE_KEY);
 
     loadDashboardData();
-  }, []);
+  }, [loadDashboardData]);
 
   useEffect(() => {
     const refreshWhenVisible = () => {
@@ -413,7 +414,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
-  }, []);
+  }, [loadDashboardData]);
 
   useEffect(() => {
     if (xStatus !== "connected") return;
@@ -436,7 +437,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     const intervalId = window.setInterval(syncXMessages, 30000);
 
     return () => window.clearInterval(intervalId);
-  }, [xStatus]);
+  }, [loadDashboardData, xStatus]);
 
   useEffect(() => {
     const syncEmailInbox = () => {
@@ -452,7 +453,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     syncEmailInbox();
     const intervalId = window.setInterval(syncEmailInbox, 30000);
     return () => window.clearInterval(intervalId);
-  }, []);
+  }, [loadDashboardData]);
 
   useEffect(() => {
     writeCachedList(CONVERSATIONS_CACHE_KEY, conversations);
@@ -960,7 +961,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             canReopenConversation={canReopenConversations}
             chatPanel={chatPanel}
             composerMode={composerMode}
-            conversations={channelFilteredConversations}
             counts={counts}
             filter={filter}
             assignedOnly={!canViewAllConversations}
@@ -1006,7 +1006,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             tags={tags}
             teams={teams}
             templates={templates}
-            integrationStatus={integrationStatus}
             onIntegrationChange={handleIntegrationChange}
             onRefreshData={loadDashboardData}
             onOpenConversation={handleOpenConversation}
@@ -1093,7 +1092,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                       if (window.confirm("هل تريد تسجيل الخروج من لوحة AudienceW؟")) {
                         setProfileOpen(false);
                         fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-                          window.location.href = "/login";
+                          router.replace("/login");
                         });
                       }
                     }}>تسجيل الخروج</button>

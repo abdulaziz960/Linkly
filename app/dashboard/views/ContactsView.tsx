@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import type { ConversationChannel, Customer } from "../types";
+import { ChannelIcon } from "./SettingsView";
 
 type CustomerFormState = {
   id?: string;
@@ -12,16 +13,16 @@ type CustomerFormState = {
 type CustomerChannelTab = Extract<ConversationChannel, "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "sms" | "tiktok">;
 
 const customerTabs: { key: CustomerChannelTab; label: string }[] = [
-  { key: "whatsapp", label: "عملاء الواتساب" },
-  { key: "instagram", label: "عملاء الانستقرام" },
-  { key: "facebook", label: "عملاء فيسبوك" },
-  { key: "telegram", label: "عملاء تيليجرام" },
-  { key: "x", label: "عملاء X" },
-  { key: "google_maps", label: "عملاء خرائط Google" },
-  { key: "email", label: "عملاء البريد الإلكتروني" },
-  { key: "website", label: "عملاء الموقع الإلكتروني" },
-  { key: "sms", label: "عملاء SMS" },
-  { key: "tiktok", label: "عملاء TikTok" }
+  { key: "whatsapp", label: "واتساب" },
+  { key: "instagram", label: "إنستغرام" },
+  { key: "facebook", label: "فيسبوك" },
+  { key: "telegram", label: "تيليجرام" },
+  { key: "x", label: "X" },
+  { key: "google_maps", label: "خرائط Google" },
+  { key: "email", label: "البريد الإلكتروني" },
+  { key: "website", label: "الموقع" },
+  { key: "sms", label: "SMS" },
+  { key: "tiktok", label: "TikTok" }
 ];
 
 function getCustomerChannels(customer: Customer): ConversationChannel[] {
@@ -152,6 +153,13 @@ export default function ContactsView({
           <button className="btn primary" type="button" onClick={openCreateForm}>إضافة عميل</button>
         </div>
         <div className="panel-body table-wrap">
+          <div className="contacts-summary">
+            <div>
+              <span>إجمالي العملاء</span>
+              <strong>{customers.length}</strong>
+            </div>
+            <p>اختر المنصة لعرض العملاء القادمين منها وإدارة بياناتهم ومحادثاتهم.</p>
+          </div>
           <div className="section-tabs contacts-tabs" role="tablist" aria-label="تصنيف العملاء حسب القناة">
             {customerTabs.map((tab) => (
               <button
@@ -162,7 +170,9 @@ export default function ContactsView({
                 aria-selected={activeTab === tab.key}
                 onClick={() => setActiveTab(tab.key)}
               >
-                {tab.label} <span>{tabCounts[tab.key]}</span>
+                <span className={`contact-channel-logo ${tab.key}`} aria-hidden="true"><ChannelIcon id={tab.key} /></span>
+                <span className="contact-channel-copy"><b>{tab.label}</b><small>عميل</small></span>
+                <strong>{tabCounts[tab.key]}</strong>
               </button>
             ))}
           </div>

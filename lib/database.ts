@@ -1,5 +1,7 @@
 import { prisma } from "./prisma";
 import { createHash, randomUUID } from "crypto";
+import { hashPassword, verifyPassword } from "./passwords";
+import { decryptSecret, encryptSecret, integrationSecretFields } from "./secret-storage";
 import { initialConversations } from "../app/dashboard/data/conversations";
 import { automationRules } from "../app/dashboard/data/automations";
 import { campaigns } from "../app/dashboard/data/campaigns";
@@ -46,14 +48,14 @@ const legacyDemoWabaIds = new Set(["369021316291991"]);
 function cleanIntegrationValue(value?: string | null) {
   return value?.trim() ?? "";
 }
-const defaultLoginPassword = "AudienceW123";
-const demoUserAccounts = [
+const developmentDemoPassword = process.env.DEMO_LOGIN_PASSWORD?.trim() || "";
+const demoUserAccounts = developmentDemoPassword ? [
   {
     id: "user-owner",
     employeeId: "emp-owner",
     name: "عبدالعزيز الكيالي",
     email: defaultLoginEmail,
-    password: defaultLoginPassword,
+    password: developmentDemoPassword,
     role: "مالك الحساب",
     tenantId: "tenant-demo"
   },
@@ -62,11 +64,11 @@ const demoUserAccounts = [
     employeeId: "emp-noura",
     name: "نورة القحطاني",
     email: "noura@audiencew.sa",
-    password: "AudienceW123",
+    password: developmentDemoPassword,
     role: "مالك الحساب",
     tenantId: "tenant-noura"
   }
-];
+] : [];
 
 export type UserAccount = {
   id: string;
@@ -76,6 +78,7 @@ export type UserAccount = {
   role: string;
   tenantId: string;
   isPlatformAdmin: number;
+  sessionVersion: number;
   createdAt: string;
 };
 
@@ -130,9 +133,7 @@ export type AdminLog = {
   message: string;
 };
 
-export function hashPassword(password: string) {
-  return createHash("sha256").update(password).digest("hex");
-}
+export { hashPassword } from "./passwords";
 
 async function runSchemaMigrations() {
   if (isPostgresDatabase) {
@@ -272,6 +273,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS off_hours_notified_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS is_platform_admin INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0`);
     for (const email of platformAdminEmails) {
       await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = $1`, email);
     }
@@ -796,11 +798,15 @@ async function runSchemaMigrations() {
     role TEXT NOT NULL,
     tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
     is_platform_admin INTEGER NOT NULL DEFAULT 0,
+    session_version INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
   )`);
   const userAccountColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(user_accounts)`);
   if (!userAccountColumns.some((column) => column.name === "is_platform_admin")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN is_platform_admin INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!userAccountColumns.some((column) => column.name === "session_version")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0`);
   }
   for (const email of platformAdminEmails) {
     await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = ?`, email);
@@ -910,6 +916,7 @@ async function runSchemaMigrations() {
  * serverless instance the same way seedDatabase() already is below.
  */
 export async function ensureSchema() {
+  if (process.env.NODE_ENV === "production") return;
   schemaPromise ??= runSchemaMigrations().catch((error) => {
     schemaPromise = null;
     throw error;
@@ -927,7 +934,7 @@ async function seedDatabase() {
         id: "primary-email",
         provider: "webhook",
         status: "not_connected",
-        webhookSecret: process.env.EMAIL_WEBHOOK_SECRET || createHash("sha256").update("audiencew-email-webhook").digest("hex"),
+        webhookSecret: encryptSecret(process.env.EMAIL_WEBHOOK_SECRET || randomUUID()),
         updatedAt: new Date().toISOString()
       }
     });
@@ -945,7 +952,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: defaultMetaAppId,
         configId: "",
-        verifyToken: "audiencew_webhook_verify",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/meta/webhook",
         updatedAt: "اليوم"
@@ -965,7 +972,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: defaultMetaAppId,
         configId: "",
-        verifyToken: "audiencew_webhook_verify",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/meta/webhook",
         updatedAt: "اليوم"
@@ -985,7 +992,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: defaultMetaAppId,
         configId: "",
-        verifyToken: "audiencew_webhook_verify",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/meta/webhook",
         updatedAt: "اليوم"
@@ -1005,7 +1012,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: "",
         configId: "",
-        verifyToken: "audiencew_telegram_secret",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/telegram/webhook",
         updatedAt: "اليوم"
@@ -1025,7 +1032,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: "",
         configId: "",
-        verifyToken: "audiencew_x_secret",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/x/webhook",
         updatedAt: "اليوم"
@@ -1045,7 +1052,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: defaultGoogleClientId,
         configId: "",
-        verifyToken: "audiencew_google_secret",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/google/reviews/sync",
         updatedAt: "اليوم"
@@ -1065,14 +1072,14 @@ async function seedDatabase() {
         wabaId: "",
         appId: "",
         configId: "",
-        verifyToken: "audiencew_email_secret",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/email/inbound",
         updatedAt: "اليوم"
       }
     });
 
-    for (const account of demoUserAccounts) {
+    for (const account of process.env.NODE_ENV === "production" ? [] : demoUserAccounts) {
       await tx.userAccount.upsert({
         where: { id: account.id },
         update: { email: account.email, name: account.name, role: account.role, tenantId: account.tenantId },
@@ -1486,7 +1493,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: defaultMetaAppId,
         configId: "",
-        verifyToken: "audiencew_webhook_verify",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/meta/webhook",
         updatedAt: "اليوم"
@@ -1506,7 +1513,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: defaultMetaAppId,
         configId: "",
-        verifyToken: "audiencew_webhook_verify",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/meta/webhook",
         updatedAt: "اليوم"
@@ -1526,7 +1533,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: defaultMetaAppId,
         configId: "",
-        verifyToken: "audiencew_webhook_verify",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/meta/webhook",
         updatedAt: "اليوم"
@@ -1546,7 +1553,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: "",
         configId: "",
-        verifyToken: "audiencew_telegram_secret",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/telegram/webhook",
         updatedAt: "اليوم"
@@ -1566,7 +1573,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: "",
         configId: "",
-        verifyToken: "audiencew_x_secret",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/x/webhook",
         updatedAt: "اليوم"
@@ -1586,7 +1593,7 @@ async function seedDatabase() {
         wabaId: "",
         appId: defaultGoogleClientId,
         configId: "",
-        verifyToken: "audiencew_google_secret",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/google/reviews/sync",
         updatedAt: "اليوم"
@@ -1606,14 +1613,14 @@ async function seedDatabase() {
         wabaId: "",
         appId: "",
         configId: "",
-        verifyToken: "audiencew_email_secret",
+        verifyToken: randomUUID(),
         accessToken: "",
         webhookUrl: "/api/email/inbound",
         updatedAt: "اليوم"
       }
     });
 
-    for (const account of demoUserAccounts) {
+    for (const account of process.env.NODE_ENV === "production" ? [] : demoUserAccounts) {
       await tx.userAccount.upsert({
         where: { id: account.id },
         update: { email: account.email, name: account.name, role: account.role, tenantId: account.tenantId },
@@ -1719,6 +1726,7 @@ async function seedDatabase() {
 }
 
 async function ensureSeeded() {
+  if (process.env.NODE_ENV === "production") return;
   // If seeding fails, seedPromise must not stay set to the rejected promise -
   // `??=` only re-runs seedDatabase() when seedPromise is null/undefined, so a
   // single transient failure (e.g. a cold-start DB timeout) would otherwise
@@ -2064,12 +2072,21 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
       wabaId: "",
       appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "leads" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
       configId: "",
-      verifyToken: channel === "telegram" || channel === "x" ? randomUUID() : channel === "google_maps" ? "audiencew_google_secret" : channel === "email" ? "audiencew_email_secret" : channel === "website" || channel === "tiktok" || channel === "sms" || channel === "leads" ? randomUUID() : "audiencew_webhook_verify",
+      verifyToken: randomUUID(),
       accessToken: "",
       webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : channel === "tiktok" ? `/api/tiktok/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "sms" ? `/api/sms/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "leads" ? `/api/zapier/leads${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : "/api/meta/webhook",
       updatedAt: "اليوم"
     }
   });
+  const encryptedUpdates: Record<string, string> = {};
+  for (const field of integrationSecretFields) {
+    if (field === "verifyToken" && settings.provider === "website") continue;
+    const value = settings[field];
+    if (value && !value.startsWith("enc:v1:")) encryptedUpdates[field] = encryptSecret(value);
+  }
+  if (Object.keys(encryptedUpdates).length) {
+    await prisma.integrationSetting.update({ where: { id: settings.id }, data: encryptedUpdates });
+  }
   const whatsappSettings = channel === "instagram" || channel === "facebook"
     ? await prisma.integrationSetting.findUnique({ where: { id: getTenantIntegrationId("whatsapp", tenantId) } })
     : null;
@@ -2083,11 +2100,12 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     : channel === "instagram" || channel === "facebook"
     ? settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || ""
     : settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || "";
+  const storedConfigId = decryptSecret(settings.configId);
   const fallbackConfigId = channel === "google_maps"
-    ? settings.configId || defaultGoogleClientSecret
+    ? storedConfigId || defaultGoogleClientSecret
     : channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms"
-      ? settings.configId
-      : settings.configId || defaultMetaConfigId || whatsappSettings?.configId || providerMetaSettings?.configId || "";
+      ? storedConfigId
+      : storedConfigId || defaultMetaConfigId || decryptSecret(whatsappSettings?.configId) || decryptSecret(providerMetaSettings?.configId) || "";
 
   if (!settings.appId && fallbackAppId) {
     await prisma.integrationSetting.update({
@@ -2098,7 +2116,7 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
   if (!settings.configId && fallbackConfigId) {
     await prisma.integrationSetting.update({
       where: { id: settings.id },
-      data: { configId: fallbackConfigId }
+      data: { configId: encryptSecret(fallbackConfigId) }
     });
   }
 
@@ -2113,16 +2131,16 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     wabaId: settings.wabaId,
     appId: fallbackAppId,
     configId: fallbackConfigId,
-    verifyToken: settings.verifyToken,
-    accessToken: settings.accessToken,
+    verifyToken: decryptSecret(settings.verifyToken),
+    accessToken: decryptSecret(settings.accessToken),
     xConsumerKey: settings.xConsumerKey,
-    xConsumerSecret: settings.xConsumerSecret,
-    xBearerToken: settings.xBearerToken,
-    xAccessToken: settings.xAccessToken,
-    xAccessTokenSecret: settings.xAccessTokenSecret,
+    xConsumerSecret: decryptSecret(settings.xConsumerSecret),
+    xBearerToken: decryptSecret(settings.xBearerToken),
+    xAccessToken: decryptSecret(settings.xAccessToken),
+    xAccessTokenSecret: decryptSecret(settings.xAccessTokenSecret),
     googleAccountId: settings.googleAccountId,
     googleLocationId: settings.googleLocationId,
-    googleRefreshToken: settings.googleRefreshToken,
+    googleRefreshToken: decryptSecret(settings.googleRefreshToken),
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };
@@ -2160,17 +2178,24 @@ export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Pro
         status: "not_connected",
         senderName: "",
         emailAddress: "",
-        webhookSecret: createHash("sha256").update(`audiencew-email-${tenantId}-${Date.now()}`).digest("hex"),
+        webhookSecret: encryptSecret(randomUUID()),
         updatedAt: new Date().toISOString()
       }
     }));
+  const encryptedUpdates: { webhookSecret?: string; accessToken?: string; refreshToken?: string } = {};
+  if (settings.webhookSecret && !settings.webhookSecret.startsWith("enc:v1:")) encryptedUpdates.webhookSecret = encryptSecret(settings.webhookSecret);
+  if (settings.accessToken && !settings.accessToken.startsWith("enc:v1:")) encryptedUpdates.accessToken = encryptSecret(settings.accessToken);
+  if (settings.refreshToken && !settings.refreshToken.startsWith("enc:v1:")) encryptedUpdates.refreshToken = encryptSecret(settings.refreshToken);
+  if (Object.keys(encryptedUpdates).length > 0) {
+    await prisma.emailIntegration.update({ where: { id: settings.id }, data: encryptedUpdates });
+  }
   return {
     id: settings.id,
     provider: settings.provider as EmailIntegrationSettings["provider"],
     status: settings.status as EmailIntegrationSettings["status"],
     senderName: settings.senderName,
     emailAddress: settings.emailAddress,
-    webhookSecret: settings.webhookSecret,
+    webhookSecret: decryptSecret(encryptedUpdates.webhookSecret || settings.webhookSecret),
     updatedAt: settings.updatedAt
   };
 }
@@ -2285,10 +2310,19 @@ export async function verifyUserCredentials(email: string, password: string): Pr
   const normalizedEmail = email.trim().toLowerCase();
   const user = await prisma.userAccount.findUnique({ where: { email: normalizedEmail } });
 
-  if (!user || user.passwordHash !== hashPassword(password)) {
+  if (!user) {
     return null;
+  }
+  const verification = verifyPassword(password, user.passwordHash);
+  if (!verification.valid) return null;
+  if (verification.needsRehash) {
+    await prisma.userAccount.update({
+      where: { id: user.id },
+      data: { passwordHash: hashPassword(password) }
+    });
   }
 
   const { passwordHash: _passwordHash, ...safeUser } = user;
+  void _passwordHash;
   return safeUser;
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Provider webhook payloads are polymorphic and validated at each access boundary. */
 import { NextRequest, NextResponse } from "next/server";
 import { convertAudioToMp3 } from "../../../../lib/audio-conversion";
 import { getIntegrationSettings } from "../../../../lib/database";
@@ -7,8 +8,18 @@ import { maybeSendLeadAiReply } from "../../../../lib/lead-ai";
 import { runWhatsAppBot, runChannelBot } from "../../../../lib/bot-engine";
 import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { prisma } from "../../../../lib/prisma";
+import { decryptSecret } from "../../../../lib/secret-storage";
+import { verifyPrefixedHmac } from "../../../../lib/webhook-security";
 
 export const runtime = "nodejs";
+
+function verifyMetaSignature(rawBody: string, signature: string | null) {
+  return verifyPrefixedHmac(rawBody, signature, [
+    process.env.WHATSAPP_META_APP_SECRET,
+    process.env.META_APP_SECRET,
+    process.env.FACEBOOK_APP_SECRET
+  ], "hex");
+}
 
 type MetaAccount = { tenantId: string; accessToken: string; wabaId: string };
 
@@ -19,7 +30,7 @@ async function resolveMetaAccount(provider: "instagram" | "facebook", accountId:
   if (!row) return null;
 
   const tenantId = row.id.includes(":") ? row.id.split(":")[0] : "tenant-demo";
-  return { tenantId, accessToken: row.accessToken?.trim() || "", wabaId: row.wabaId };
+  return { tenantId, accessToken: decryptSecret(row.accessToken).trim(), wabaId: row.wabaId };
 }
 
 async function resolveWhatsAppAccount(phoneNumberId: string): Promise<MetaAccount | null> {
@@ -29,7 +40,7 @@ async function resolveWhatsAppAccount(phoneNumberId: string): Promise<MetaAccoun
   if (!row) return null;
 
   const tenantId = row.id.includes(":") ? row.id.split(":")[0] : "tenant-demo";
-  return { tenantId, accessToken: row.accessToken?.trim() || "", wabaId: row.wabaId };
+  return { tenantId, accessToken: decryptSecret(row.accessToken).trim(), wabaId: row.wabaId };
 }
 
 export async function GET(request: NextRequest) {
@@ -240,7 +251,11 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
 }
 
 export async function POST(request: NextRequest) {
-  const payload = await request.json();
+  const rawBody = await request.text();
+  if (!verifyMetaSignature(rawBody, request.headers.get("x-hub-signature-256"))) {
+    return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
+  }
+  const payload = JSON.parse(rawBody || "{}");
   const savedMessages: string[] = [];
   const entries = Array.isArray(payload.entry) ? payload.entry : [];
   const accountCache = new Map<string, MetaAccount | null>();

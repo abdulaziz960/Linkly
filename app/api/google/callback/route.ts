@@ -3,6 +3,7 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { getGoogleRedirectUri } from "../../../../lib/google-business";
 import { prisma } from "../../../../lib/prisma";
+import { encryptSecret } from "../../../../lib/secret-storage";
 
 type GoogleTokenPayload = {
   access_token?: string;
@@ -125,8 +126,8 @@ export async function GET(request: NextRequest) {
       phoneNumber: locationAddress,
       googleAccountId,
       googleLocationId,
-      accessToken: tokenPayload.access_token,
-      googleRefreshToken: tokenPayload.refresh_token || settings.googleRefreshToken,
+      accessToken: encryptSecret(tokenPayload.access_token),
+      googleRefreshToken: encryptSecret(tokenPayload.refresh_token || settings.googleRefreshToken),
       webhookUrl: "/api/google/reviews/sync",
       updatedAt: updatedAt()
     }

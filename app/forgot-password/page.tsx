@@ -1,4 +1,5 @@
 import ForgotPasswordForm from "./ForgotPasswordForm";
+import Image from "next/image";
 import "../login/login.css";
 
 export const metadata = {
@@ -10,7 +11,7 @@ export default function ForgotPasswordPage() {
     <main className="login-page">
       <section className="login-panel" aria-label="استعادة كلمة المرور">
         <div className="login-brand">
-          <img src="/assets/audiencew-logo.png" alt="" />
+          <Image src="/assets/audiencew-logo.png" alt="" width={44} height={44} />
           <div>
             <span>AudienceW</span>
             <b>منصة إدارة محادثات واتساب للأعمال</b>

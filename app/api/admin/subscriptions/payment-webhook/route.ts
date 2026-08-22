@@ -29,30 +29,37 @@ export async function POST(request: NextRequest) {
   }
 
   const payment = await prisma.subscriptionPayment.findFirst({ where: { moyasarId: invoiceId } });
-  if (!payment || payment.status === "مكتمل") {
+  if (!payment) {
     return NextResponse.json({ ok: true, alreadyProcessed: true });
   }
-
-  await prisma.subscriptionPayment.update({
-    where: { id: payment.id },
-    data: { status: "مكتمل", completedAt: new Date().toISOString() }
-  });
 
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: payment.tenantId } });
   if (subscription) {
     const renewalAt = new Date();
     renewalAt.setMonth(renewalAt.getMonth() + 1);
 
-    await prisma.subscription.update({
-      where: { tenantId: payment.tenantId },
-      data: {
-        status: "نشط",
-        renewalAt: renewalAt.toISOString().slice(0, 10),
-        updatedAt: new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", numberingSystem: "latn" }).format(new Date())
-      }
+    const activated = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.subscriptionPayment.updateMany({
+        where: { id: payment.id, status: { not: "مكتمل" } },
+        data: { status: "مكتمل", completedAt: new Date().toISOString() }
+      });
+      if (claimed.count !== 1) return false;
+      await tx.subscription.update({
+        where: { tenantId: payment.tenantId },
+        data: {
+          status: "نشط",
+          renewalAt: renewalAt.toISOString().slice(0, 10),
+          updatedAt: new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", numberingSystem: "latn" }).format(new Date())
+        }
+      });
+      return true;
     });
 
+    if (!activated) return NextResponse.json({ ok: true, alreadyProcessed: true });
+
     await logAdminAction(payment.tenantId, subscription.companyName, `تم استلام دفعة اشتراك بقيمة ${payment.amount} ر.س عبر Moyasar، وتم تجديد الاشتراك.`);
+  } else {
+    return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });

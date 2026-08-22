@@ -4,25 +4,37 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/prisma-generate.mjs && next dev",
-    "build": "node scripts/prisma-generate.mjs && node scripts/prisma-db-push.mjs && next build",
+    "build": "node scripts/prisma-generate.mjs && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "postinstall": "node scripts/prisma-generate.mjs",
-    "db:push": "node scripts/prisma-db-push.mjs"
+    "db:push": "node scripts/prisma-db-push.mjs",
+    "db:migrate:deploy": "node scripts/prisma-migrate-deploy.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "exceljs": "^4.4.0",
     "ffmpeg-static": "^5.3.0",
-    "next": "16.2.9",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
-    "xlsx": "^0.18.5"
+    "next": "^16.3.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/node": "^22.15.32",
-    "@types/react": "^19.2.3",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.2",
     "prisma": "^6.19.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0",
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
   }
 }

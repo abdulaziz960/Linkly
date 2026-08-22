@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import type { IntegrationSettings } from "../app/dashboard/types";
 import { prisma } from "./prisma";
+import { encryptSecret } from "./secret-storage";
 
 export const googleBusinessScope = "https://www.googleapis.com/auth/business.manage";
 const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://audiencew.audience.sa";
@@ -42,7 +43,7 @@ export async function refreshGoogleAccessToken(settings: IntegrationSettings) {
   await prisma.integrationSetting.update({
     where: { id: settings.id },
     data: {
-      accessToken: payload.access_token,
+      accessToken: encryptSecret(payload.access_token),
       updatedAt: new Intl.DateTimeFormat("ar-SA", {
         dateStyle: "medium",
         timeStyle: "short",

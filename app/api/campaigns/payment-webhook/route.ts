@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
-import { creditCampaignBalance } from "../../../../lib/campaign-engine";
 import { verifyMoyasarWebhookSecret } from "../../../../lib/moyasar";
 
 export const runtime = "nodejs";
@@ -28,18 +27,24 @@ export async function POST(request: NextRequest) {
   }
 
   const payment = await prisma.campaignPayment.findFirst({ where: { moyasarId: invoiceId } });
-  if (!payment || payment.status === "مكتمل") {
+  if (!payment) {
     return NextResponse.json({ ok: true, alreadyProcessed: true });
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.campaignPayment.update({
-      where: { id: payment.id },
+  const credited = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.campaignPayment.updateMany({
+      where: { id: payment.id, status: { not: "مكتمل" } },
       data: { status: "مكتمل", completedAt: new Date().toISOString() }
     });
+    if (claimed.count !== 1) return false;
+    await tx.campaignBalance.upsert({
+      where: { tenantId: payment.tenantId },
+      update: { balance: { increment: payment.messages }, updatedAt: new Date().toISOString() },
+      create: { tenantId: payment.tenantId, balance: payment.messages, updatedAt: new Date().toISOString() }
+    });
+    return true;
   });
-
-  await creditCampaignBalance(payment.tenantId, payment.messages);
+  if (!credited) return NextResponse.json({ ok: true, alreadyProcessed: true });
 
   return NextResponse.json({ ok: true });
 }

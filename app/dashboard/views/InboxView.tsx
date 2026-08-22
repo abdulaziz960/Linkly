@@ -26,7 +26,6 @@ type InboxViewProps = {
   canReopenConversation: boolean;
   chatPanel: ChatPanel;
   composerMode: ComposerMode;
-  conversations: Conversation[];
   counts: Record<ConversationFilter, number>;
   filter: ConversationFilter;
   message: string;
@@ -102,31 +101,6 @@ const channelLabels: Record<ConversationChannel, string> = {
 
 function getChannelLabel(conversation: Conversation) {
   return channelLabels[conversation.channel || "whatsapp"];
-}
-
-function formatConversationAge(conversation: Conversation) {
-  if (!conversation.lastActivityAt) {
-    return conversation.messages.at(-1)?.time || "";
-  }
-
-  const activityTime = new Date(conversation.lastActivityAt).getTime();
-  if (Number.isNaN(activityTime)) return "";
-
-  const diffMinutes = Math.max(0, Math.floor((Date.now() - activityTime) / 60000));
-  if (diffMinutes < 1) return "الآن";
-  if (diffMinutes < 60) return `منذ ${diffMinutes} د`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `منذ ${diffHours} س`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `منذ ${diffDays} يوم`;
-
-  return new Intl.DateTimeFormat("ar-SA", {
-    day: "numeric",
-    month: "short",
-    timeZone: "Asia/Riyadh"
-  }).format(new Date(activityTime));
 }
 
 function getWaitBadge(conversation: Conversation) {
@@ -235,7 +209,6 @@ export default function InboxView({
   canReopenConversation,
   chatPanel,
   composerMode,
-  conversations,
   counts,
   filter,
   message,
@@ -731,11 +704,15 @@ export default function InboxView({
                   ) : null}
                   {item.attachment && item.text !== "تم حذف هذه الرسالة" ? (
                     item.attachment.type === "image" || item.attachment.type === "sticker" ? (
-                      <img
-                        className={item.attachment.type === "sticker" ? "message-attachment-sticker" : "message-attachment-image"}
-                        src={item.attachment.url}
-                        alt={item.attachment.name}
-                      />
+                      <>
+                        {/* Provider and user attachments can be data/blob URLs, which next/image does not support. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          className={item.attachment.type === "sticker" ? "message-attachment-sticker" : "message-attachment-image"}
+                          src={item.attachment.url}
+                          alt={item.attachment.name}
+                        />
+                      </>
                     ) : item.attachment.type === "document" ? (
                       <a className="message-attachment-document" href={item.attachment.url} download={item.attachment.name}>
                         <span aria-hidden="true">📄</span>
@@ -903,7 +880,7 @@ export default function InboxView({
                       type="button"
                       onClick={() => setIsEmojiPickerOpen((isOpen) => !isOpen)}
                     >
-                      ☺
+                      <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8.5 10h.01M15.5 10h.01M8.5 14c1 1.4 2.2 2 3.5 2s2.5-.6 3.5-2" /></svg>
                     </button>
                     {isEmojiPickerOpen && !isComposerDisabled ? (
                       <div className="emoji-picker" role="menu" aria-label="الإيموجيز">
@@ -923,7 +900,7 @@ export default function InboxView({
                     type="button"
                     onClick={() => imageInputRef.current?.click()}
                   >
-                    +
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" /><circle cx="9" cy="10" r="1.5" /><path d="m5 17 4.5-4 3.5 3 2.5-2 3.5 3" /></svg>
                   </button>
                   <button
                     className="attachment-button"
@@ -933,7 +910,7 @@ export default function InboxView({
                     type="button"
                     onClick={() => documentInputRef.current?.click()}
                   >
-                    📎
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 12 5.5-5.5a3 3 0 0 1 4.2 4.2L11 18.4a5 5 0 0 1-7.1-7.1l8-8" /></svg>
                   </button>
                   <button
                     className={`attachment-button ${isRecording ? "recording" : ""}`}
@@ -967,6 +944,7 @@ export default function InboxView({
                     ) : null}
                     <textarea
                       ref={messageInputRef}
+                      rows={1}
                       disabled={isComposerDisabled}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" && !event.shiftKey && shouldShowQuickReplySuggestions && quickReplySuggestions[0]) {

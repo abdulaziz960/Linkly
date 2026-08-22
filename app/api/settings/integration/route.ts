@@ -3,6 +3,7 @@ import { getIntegrationSettings, getTenantIntegrationId } from "../../../../lib/
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
+import { encryptSecret, integrationSecretFields, maskIntegrationSecrets, SECRET_MASK } from "../../../../lib/secret-storage";
 
 const allowedFields = [
   "provider",
@@ -35,6 +36,13 @@ type ConnectionCheck = {
   verifiedName?: string;
   displayPhoneNumber?: string;
 };
+const secretFieldSet = new Set<string>(integrationSecretFields);
+
+function serializeSettings<T extends Record<string, unknown>>(settings: T, channel: IntegrationChannel) {
+  const masked = maskIntegrationSecrets(settings);
+  if (channel === "website" && typeof settings.verifyToken === "string") (masked as Record<string, unknown>).verifyToken = settings.verifyToken;
+  return masked;
+}
 
 const whatsappRequiredConnectionFields: Array<{ field: IntegrationField; label: string }> = [
   { field: "phoneNumberId", label: "Phone Number ID" },
@@ -445,7 +453,7 @@ export async function GET(request: NextRequest) {
   }
 
   const settings = await getIntegrationSettings(channel, user.tenantId);
-  return NextResponse.json(settings);
+  return NextResponse.json(serializeSettings(settings, channel));
 }
 
 export async function PATCH(request: NextRequest) {
@@ -471,12 +479,19 @@ export async function PATCH(request: NextRequest) {
     const value = body[field].trim();
     const previousValue = existingSettings[field];
 
+    const shouldProtect = secretFieldSet.has(field) && !(channel === "website" && field === "verifyToken");
+    if (shouldProtect && value === SECRET_MASK) continue;
+
     if (!allowBlankOverwrite && value === "" && previousValue.trim() !== "") {
       continue;
     }
 
-    data[field] = value;
+    data[field] = shouldProtect && value ? encryptSecret(value) : value;
   }
+
+  const verificationData = Object.fromEntries(
+    Object.entries(data).map(([field, value]) => [field, secretFieldSet.has(field) ? (value ? body[field].trim() : value) : value])
+  ) as Partial<Record<IntegrationField, string>>;
 
   if (body.reset !== true && (channel === "telegram" || channel === "x") && user.tenantId && user.tenantId !== "tenant-demo") {
     data.webhookUrl = `/api/${channel}/webhook?tenant=${user.tenantId}`;
@@ -485,18 +500,18 @@ export async function PATCH(request: NextRequest) {
   const connectionCheck: ConnectionCheck = body.reset === true
     ? { status: "pending", message: "غير مكتمل: لم يتم حفظ بيانات الربط بعد", missingFields: [] as string[] }
     : channel === "telegram"
-      ? await verifyTelegramConnection(request, { ...existingSettings, ...data })
+      ? await verifyTelegramConnection(request, { ...existingSettings, ...verificationData })
       : channel === "x"
-        ? await verifyXConnection({ ...existingSettings, ...data })
+        ? await verifyXConnection({ ...existingSettings, ...verificationData })
       : channel === "google_maps"
-        ? await verifyGoogleMapsConnection({ ...existingSettings, ...data })
+          ? await verifyGoogleMapsConnection({ ...existingSettings, ...verificationData })
       : channel === "email"
-        ? await verifyEmailConnection({ ...existingSettings, ...data })
+          ? await verifyEmailConnection({ ...existingSettings, ...verificationData })
       : channel === "tiktok"
-        ? await verifyTikTokConnection({ ...existingSettings, ...data })
+          ? await verifyTikTokConnection({ ...existingSettings, ...verificationData })
       : channel === "sms"
-        ? await verifySmsConnection({ ...existingSettings, ...data })
-      : await verifyMetaConnection({ ...existingSettings, ...data }, channel);
+          ? await verifySmsConnection({ ...existingSettings, ...verificationData })
+      : await verifyMetaConnection({ ...existingSettings, ...verificationData }, channel);
   const settings = await prisma.integrationSetting.update({
     where: { id: getIntegrationId(channel, user.tenantId) },
     data: {
@@ -527,20 +542,20 @@ export async function PATCH(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({
+    return NextResponse.json(serializeSettings({
       ...refreshedSettings,
       provider: refreshedSettings.provider,
       status: refreshedSettings.status,
       connectionMessage: connectionCheck.message,
       missingFields: connectionCheck.missingFields
-    });
+    }, channel));
   }
 
-  return NextResponse.json({
+  return NextResponse.json(serializeSettings({
     ...settings,
     provider: settings.provider,
     status: settings.status,
     connectionMessage: connectionCheck.message,
     missingFields: connectionCheck.missingFields
-  });
+  }, channel));
 }

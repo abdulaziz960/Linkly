@@ -11,6 +11,16 @@ type MetaSignupData = {
   phone_number?: string;
 };
 
+type FacebookSdk = {
+  init: (options: { appId: string; xfbml: boolean; version: string }) => void;
+  login: (
+    callback: (response: { authResponse?: { code?: string } }) => void,
+    options: Record<string, unknown>
+  ) => void;
+};
+
+type FacebookWindow = typeof window & { FB?: FacebookSdk; fbAsyncInit?: () => void };
+
 const emptySettings: IntegrationSettings = {
   id: "meta-whatsapp",
   provider: "whatsapp_cloud",
@@ -88,8 +98,6 @@ function apiChannel(channel: ChannelId) {
 const botSupportedChannels: ChannelId[] = ["whatsapp", "telegram", "instagram", "facebook", "x", "website"];
 
 const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://audiencew.audience.sa";
-const publicMetaAppId = process.env.NEXT_PUBLIC_META_APP_ID || "1296230909161568";
-const publicMetaConfigId = process.env.NEXT_PUBLIC_META_CONFIG_ID || "1428169365888624";
 // WhatsApp Embedded Signup always uses AudienceW's own tech-provider Meta app,
 // never the per-tenant Instagram/Facebook app id from NEXT_PUBLIC_META_APP_ID.
 const techProviderMetaAppId = "1296230909161568";
@@ -99,13 +107,15 @@ let facebookSdkPromise: Promise<void> | null = null;
 
 function loadFacebookSdk(appId: string): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
-  const w = window as typeof window & { FB?: any; fbAsyncInit?: () => void };
+  const w = window as FacebookWindow;
   if (w.FB) return Promise.resolve();
   if (facebookSdkPromise) return facebookSdkPromise;
 
   facebookSdkPromise = new Promise((resolve) => {
     w.fbAsyncInit = () => {
-      w.FB.init({ appId, xfbml: false, version: "v26.0" });
+      const sdk = w.FB;
+      if (!sdk) return;
+      sdk.init({ appId, xfbml: false, version: "v26.0" });
       resolve();
     };
 
@@ -389,7 +399,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         description: isConnected ? `أصبحت قناة ${channelName} جاهزة الآن.` : `لم تكتمل قناة ${channelName} بعد.`
       };
     });
-  }, [isConnected, isEmail, isFacebook, isGoogleMaps, isInstagram, isTelegram, isX, isTikTok, isSms, isWebsite]);
+  }, [isConnected, isEmail, isFacebook, isGmail, isGoogleMaps, isInstagram, isOutlook, isTelegram, isX, isTikTok, isSms, isWebsite]);
 
   useEffect(() => {
     const isFirstLoad = !hasSelectedChannelRef.current;
@@ -510,7 +520,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
     window.addEventListener("message", handleMetaMessage);
     return () => window.removeEventListener("message", handleMetaMessage);
-  }, [selectedChannel, settings.phoneNumber, settings.phoneNumberId, settings.wabaId]);
+  }, [onIntegrationChange, selectedChannel, settings.phoneNumber, settings.phoneNumberId, settings.wabaId]);
 
   function updateField(field: keyof IntegrationSettings, value: string) {
     setSettings((current) => ({ ...current, [field]: value }));
@@ -659,7 +669,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       }
 
       await loadFacebookSdk(appId);
-      const w = window as typeof window & { FB?: any };
+      const w = window as FacebookWindow;
       if (!w.FB) {
         window.alert("تعذر تحميل نافذة Meta. تأكد من اتصالك بالإنترنت وحاول من جديد.");
         return false;
@@ -668,14 +678,13 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       w.FB.login(
         (response: { authResponse?: { code?: string } }) => {
           const code = response?.authResponse?.code;
-          console.log("[AudienceW debug] FB.login response", response);
           if (!code) return;
 
           fetch(`/api/meta/callback?channel=whatsapp&code=${encodeURIComponent(code)}`, {
             headers: { Accept: "application/json" }
           })
             .then((res) => res.json())
-            .then((data) => console.log("[AudienceW debug] whatsapp code exchange result", data))
+            .then(() => undefined)
             .finally(() => {
               window.postMessage({ type: "audiencew:meta-connected" }, window.location.origin);
             });
@@ -690,7 +699,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             featureType: "whatsapp_business_app_onboarding",
             is_hosted_es: true
           }
-        } as any
+        }
       );
 
       return true;
@@ -699,7 +708,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     const metaUrl = `/api/meta/connect?channel=${selectedChannel}`;
     const metaWindow = window.open(metaUrl, "audiencew-meta-connect", "width=960,height=780");
     if (!metaWindow) {
-      window.location.href = metaUrl;
+      window.location.assign(new URL(metaUrl, window.location.origin).toString());
     }
     return true;
   }
@@ -712,19 +721,19 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     }
 
     await persistSettings();
-    window.location.href = "/api/x/connect";
+    window.location.assign(new URL("/api/x/connect", window.location.origin).toString());
   }
 
   function connectTikTokAccount() {
     if (typeof window === "undefined") return;
     const tiktokWindow = window.open("/api/tiktok/connect", "audiencew-tiktok-connect", "width=520,height=760");
     if (!tiktokWindow) {
-      window.location.href = "/api/tiktok/connect";
+      window.location.assign(new URL("/api/tiktok/connect", window.location.origin).toString());
     }
   }
 
   async function connectGoogleMaps() {
-    window.location.href = "/api/google/connect";
+    window.location.assign(new URL("/api/google/connect", window.location.origin).toString());
   }
 
   async function syncGoogleReviews() {

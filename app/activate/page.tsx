@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Image from "next/image";
 import ActivateForm from "./ActivateForm";
 import "../login/login.css";
 
@@ -11,7 +12,7 @@ export default function ActivatePage() {
     <main className="login-page">
       <section className="login-panel" aria-label="تفعيل حساب AudienceW">
         <div className="login-brand">
-          <img src="/assets/audiencew-logo.png" alt="" />
+          <Image src="/assets/audiencew-logo.png" alt="" width={44} height={44} />
           <div>
             <span>AudienceW</span>
             <b>إنشاء كلمة سر لحساب الموظف</b>

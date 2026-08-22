@@ -17,10 +17,16 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   const user = await getCurrentUser();
 
   try {
-    const message = await prisma.message.findUnique({ where: { id: messageId } });
-    if (!message || message.conversationId !== id) return jsonError("الرسالة غير موجودة", 404);
-    if (message.direction !== "out") return jsonError("يمكن حذف رسائلك فقط");
     if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+    const message = await prisma.message.findFirst({
+      where: {
+        id: messageId,
+        conversationId: id,
+        conversation: { tenantId: user.tenantId }
+      }
+    });
+    if (!message) return jsonError("الرسالة غير موجودة", 404);
+    if (message.direction !== "out") return jsonError("يمكن حذف رسائلك فقط");
     if (user.role !== "مالك الحساب" && message.author !== user.name) return jsonError("يمكن حذف رسائلك فقط", 403);
 
     const deletedText = "تم حذف هذه الرسالة";
@@ -33,7 +39,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       });
 
       await tx.conversation.update({
-        where: { id },
+        where: { id, tenantId: user.tenantId },
         data: {
           lastMessage: deletedText
         }

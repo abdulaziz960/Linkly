@@ -1,17 +1,29 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { getUserAccountById } from "./database";
+import { prisma } from "./prisma";
 
 export const authCookieName = "audiencew_session";
 
-const authSecret = process.env.AUTH_SECRET || "audiencew-local-dev-secret";
+const ephemeralDevelopmentSecret = randomBytes(32).toString("hex");
 
-function signPayload(payload: string) {
-  return createHmac("sha256", authSecret).update(payload).digest("hex");
+function getAuthSecret() {
+  const configured = process.env.AUTH_SECRET?.trim() || process.env.OAUTH_STATE_SECRET?.trim();
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SECRET or OAUTH_STATE_SECRET must be configured in production");
+  }
+  return ephemeralDevelopmentSecret;
 }
 
-export function createSessionToken(userId: string) {
-  const payload = `${userId}.${Date.now()}`;
+function signPayload(payload: string) {
+  return createHmac("sha256", getAuthSecret()).update(payload).digest("hex");
+}
+
+export function createSessionToken(userId: string, maxAgeSeconds = 60 * 60 * 24, sessionVersion = 0) {
+  const issuedAt = Date.now();
+  const expiresAt = issuedAt + maxAgeSeconds * 1000;
+  const payload = `${userId}.${issuedAt}.${expiresAt}.${sessionVersion}`;
   const signature = signPayload(payload);
   return `${payload}.${signature}`;
 }
@@ -22,12 +34,18 @@ export function verifySessionToken(token?: string) {
   }
 
   const parts = token.split(".");
-  if (parts.length !== 3) {
+  if (parts.length !== 5) {
     return null;
   }
 
-  const [userId, issuedAt, signature] = parts;
-  const payload = `${userId}.${issuedAt}`;
+  const [userId, issuedAt, expiresAt, sessionVersion, signature] = parts;
+  const issuedAtNumber = Number(issuedAt);
+  const expiresAtNumber = Number(expiresAt);
+  const sessionVersionNumber = Number(sessionVersion);
+  if (!userId || !Number.isFinite(issuedAtNumber) || !Number.isFinite(expiresAtNumber) || !Number.isInteger(sessionVersionNumber)) return null;
+  if (issuedAtNumber > Date.now() + 60_000 || expiresAtNumber <= Date.now() || expiresAtNumber <= issuedAtNumber) return null;
+
+  const payload = `${userId}.${issuedAt}.${expiresAt}.${sessionVersion}`;
   const expected = signPayload(payload);
   const actualBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
@@ -36,22 +54,40 @@ export function verifySessionToken(token?: string) {
     return null;
   }
 
-  return userId;
+  return { userId, sessionVersion: sessionVersionNumber };
 }
 
-export async function getCurrentUser() {
-  const cookieStore = await cookies();
-  const userId = verifySessionToken(cookieStore.get(authCookieName)?.value);
+export async function getSubscriptionAccess(tenantId: string) {
+  const subscription = await prisma.subscription.findUnique({
+    where: { tenantId },
+    select: { status: true, renewalAt: true }
+  });
+  if (!subscription) return { expired: false };
+  const expiry = subscription.renewalAt ? new Date(subscription.renewalAt).getTime() : Number.NaN;
+  const expired = subscription.status === "تجربة" && Number.isFinite(expiry) && expiry <= Date.now();
+  return { expired, status: subscription.status, renewalAt: subscription.renewalAt };
+}
 
-  if (!userId) {
+export async function getCurrentUser(options: { allowExpired?: boolean } = {}) {
+  const cookieStore = await cookies();
+  const session = verifySessionToken(cookieStore.get(authCookieName)?.value);
+
+  if (!session) {
     return null;
   }
 
-  const user = await getUserAccountById(userId);
+  const user = await getUserAccountById(session.userId);
   if (!user) {
     return null;
   }
+  if (user.sessionVersion !== session.sessionVersion) return null;
+
+  const subscriptionAccess = user.isPlatformAdmin === 1
+    ? { expired: false }
+    : await getSubscriptionAccess(user.tenantId);
+  if (subscriptionAccess.expired && !options.allowExpired) return null;
 
   const { passwordHash: _passwordHash, ...safeUser } = user;
-  return safeUser;
+  void _passwordHash;
+  return { ...safeUser, subscriptionExpired: subscriptionAccess.expired };
 }

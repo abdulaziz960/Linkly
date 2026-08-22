@@ -299,6 +299,7 @@ model UserAccount {
   role            String
   tenantId        String @default("tenant-demo") @map("tenant_id")
   isPlatformAdmin Int    @default(0) @map("is_platform_admin")
+  sessionVersion  Int    @default(0) @map("session_version")
   createdAt       String @map("created_at")
 
   @@map("user_accounts")
@@ -439,4 +440,12 @@ model AdminLog {
   message    String
 
   @@map("admin_logs")
+}
+
+model RateLimit {
+  key     String @id
+  count   Int    @default(0)
+  resetAt String @map("reset_at")
+
+  @@map("rate_limits")
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { AdminUser } from "./types";
 import NotificationBell from "./NotificationBell";
@@ -22,7 +23,7 @@ export default function AdminSidebar({ user }: { user: AdminUser }) {
     <aside className="admin-sidebar">
       <div className="admin-brand">
         <span className="admin-brand-mark">
-          <img src="/assets/audiencew-logo.png" alt="" />
+          <Image src="/assets/audiencew-logo.png" alt="" width={44} height={44} />
         </span>
         <div>
           <strong>AudienceW</strong>

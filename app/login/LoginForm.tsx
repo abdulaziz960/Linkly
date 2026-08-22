@@ -56,12 +56,12 @@ export default function LoginForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
       return;
     }
 
+    const data = await response.json().catch(() => ({})) as { redirectTo?: string; onboardingRequired?: boolean };
     if (typeof window !== "undefined") {
-      window.localStorage.setItem("audiencew:dashboard-active-view", "inbox");
+      window.localStorage.setItem("audiencew:dashboard-active-view", data.onboardingRequired ? "settings" : "inbox");
       window.localStorage.removeItem("audiencew:dashboard-active-channel");
     }
-
-    router.push("/dashboard?view=inbox");
+    router.push(data.redirectTo || "/dashboard?view=inbox");
     router.refresh();
   }
 
@@ -105,7 +105,7 @@ export default function LoginForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
         <a href="/forgot-password">{text.forgot}</a>
       </div>
 
-      {error ? <p className="login-error">{error}</p> : null}
+      {error ? <p className="login-error" role="alert">{error}</p> : null}
 
       <button className="login-submit" type="submit" disabled={loading}>
         {loading ? text.submitting : text.submit}

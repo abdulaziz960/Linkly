@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import LoginForm from "./LoginForm";
 
 const copy = {
@@ -22,12 +23,12 @@ export default function LoginPageClient() {
     <main className="login-page" dir={lang === "ar" ? "rtl" : "ltr"}>
       <section className="login-panel" aria-label={lang === "ar" ? "تسجيل الدخول إلى AudienceW" : "Sign in to AudienceW"}>
         <div className="login-lang-toggle">
-          <button type="button" className={lang === "ar" ? "active" : ""} onClick={() => setLang("ar")}>العربية</button>
-          <button type="button" className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>English</button>
+          <button type="button" aria-pressed={lang === "ar"} className={lang === "ar" ? "active" : ""} onClick={() => setLang("ar")}>العربية</button>
+          <button type="button" aria-pressed={lang === "en"} className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>English</button>
         </div>
 
         <div className="login-brand">
-          <img src="/assets/audiencew-logo.png" alt="" />
+          <Image src="/assets/audiencew-logo.png" alt="" width={54} height={54} />
           <div>
             <span>AudienceW</span>
             <b>{text.tagline}</b>
@@ -35,7 +36,7 @@ export default function LoginPageClient() {
         </div>
 
         <div className="login-copy">
-          <p>{text.welcome}</p>
+          <h1>{text.welcome}</h1>
         </div>
 
         <LoginForm lang={lang} />

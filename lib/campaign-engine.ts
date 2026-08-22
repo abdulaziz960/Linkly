@@ -1,11 +1,12 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { prisma } from "./prisma";
 import { ensureSchema, getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
 
 export type ParsedRecipient = { phone: string; name: string };
 
-const MAX_RECIPIENTS = 20000;
+export const MAX_CAMPAIGN_RECIPIENTS = 10_000;
+export const MAX_CAMPAIGN_FILE_BYTES = 5 * 1024 * 1024;
 
 const marketingMessagePrices = [
   { min: 1000, max: 5000, rate: 0.03 },
@@ -41,21 +42,35 @@ function parseCsv(text: string): ParsedRecipient[] {
     .map((cells) => ({ phone: normalizeWhatsAppPhone(cells[0] || ""), name: cells[1] || "" }));
 }
 
-function parseSpreadsheet(buffer: Buffer): ParsedRecipient[] {
-  const workbook = XLSX.read(buffer, { type: "buffer" });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  if (!sheet) return [];
-
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: false, defval: "" });
-  return rows
-    .map((row) => [String(row[0] ?? "").trim(), String(row[1] ?? "").trim()])
-    .filter(([phone]) => looksLikePhone(phone))
-    .map(([phone, name]) => ({ phone: normalizeWhatsAppPhone(phone), name }));
+function cellText(value: ExcelJS.CellValue) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "object") {
+    if ("text" in value) return String(value.text).trim();
+    if ("result" in value) return String(value.result ?? "").trim();
+    if ("richText" in value) return value.richText.map((part) => part.text).join("").trim();
+  }
+  return String(value).trim();
 }
 
-export function parseRecipientFile(buffer: Buffer, filename: string): ParsedRecipient[] {
+async function parseSpreadsheet(buffer: Buffer): Promise<ParsedRecipient[]> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return [];
+
+  const rows: ParsedRecipient[] = [];
+  sheet.eachRow({ includeEmpty: false }, (row) => {
+    if (rows.length >= MAX_CAMPAIGN_RECIPIENTS) return;
+    const phone = cellText(row.getCell(1).value);
+    const name = cellText(row.getCell(2).value);
+    if (looksLikePhone(phone)) rows.push({ phone: normalizeWhatsAppPhone(phone), name });
+  });
+  return rows;
+}
+
+export async function parseRecipientFile(buffer: Buffer, filename: string): Promise<ParsedRecipient[]> {
   const isCsv = filename.toLowerCase().endsWith(".csv");
-  const parsed = isCsv ? parseCsv(buffer.toString("utf-8")) : parseSpreadsheet(buffer);
+  const parsed = isCsv ? parseCsv(buffer.toString("utf-8")) : await parseSpreadsheet(buffer);
 
   const seen = new Set<string>();
   const deduped: ParsedRecipient[] = [];
@@ -63,7 +78,7 @@ export function parseRecipientFile(buffer: Buffer, filename: string): ParsedReci
     if (!recipient.phone || seen.has(recipient.phone)) continue;
     seen.add(recipient.phone);
     deduped.push(recipient);
-    if (deduped.length >= MAX_RECIPIENTS) break;
+    if (deduped.length >= MAX_CAMPAIGN_RECIPIENTS) break;
   }
   return deduped;
 }
@@ -80,6 +95,14 @@ async function adjustCampaignBalance(tenantId: string, delta: number) {
     update: { balance: { increment: delta }, updatedAt: new Date().toISOString() },
     create: { tenantId, balance: Math.max(0, delta), updatedAt: new Date().toISOString() }
   });
+}
+
+async function reserveCampaignCredit(tenantId: string) {
+  const result = await prisma.campaignBalance.updateMany({
+    where: { tenantId, balance: { gte: 1 } },
+    data: { balance: { decrement: 1 }, updatedAt: new Date().toISOString() }
+  });
+  return result.count === 1;
 }
 
 /** Credits confirmed, paid balance - called from the Moyasar webhook once a payment succeeds. */
@@ -129,10 +152,8 @@ export async function activateDueScheduledCampaigns(tenantId: string) {
 
 /**
  * Sends a small batch of still-pending recipients across this tenant's
- * active campaigns. Invoked opportunistically from GET /api/campaigns,
- * which the dashboard already polls every few seconds - so a campaign
- * with a few thousand recipients drains gradually while the dashboard
- * stays open, without needing a dedicated background worker.
+ * active campaigns. It is called by the protected cron endpoint and the
+ * dashboard polling fallback.
  */
 export async function processCampaignBatch(tenantId: string, batchSize = 5) {
   await ensureSchema();
@@ -163,9 +184,13 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
 
     for (const recipient of pending) {
       remainingBudget -= 1;
-      const balance = await getCampaignBalance(tenantId);
-
-      if (balance <= 0) {
+      const claimed = await prisma.campaignRecipient.updateMany({
+        where: { id: recipient.id, tenantId, campaignId: campaign.id, status: "قيد الإرسال" },
+        data: { status: "جارٍ الإرسال" }
+      });
+      if (claimed.count !== 1) continue;
+      const hasCredit = await reserveCampaignCredit(tenantId);
+      if (!hasCredit) {
         await prisma.campaignRecipient.update({
           where: { id: recipient.id },
           data: { status: "فشل الإرسال", error: "الرصيد غير كافٍ" }
@@ -173,10 +198,19 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
         continue;
       }
 
-      const result = await sendWhatsAppTemplate(tenantId, recipient.phone, campaign.templateName, "ar");
+      let result: Awaited<ReturnType<typeof sendWhatsAppTemplate>>;
+      try {
+        result = await sendWhatsAppTemplate(tenantId, recipient.phone, campaign.templateName, "ar");
+      } catch {
+        await adjustCampaignBalance(tenantId, 1);
+        await prisma.campaignRecipient.update({
+          where: { id: recipient.id },
+          data: { status: "فشل الإرسال", error: "تعذر الاتصال بمزود واتساب" }
+        });
+        continue;
+      }
 
       if (result.ok) {
-        await adjustCampaignBalance(tenantId, -1);
         await prisma.campaignRecipient.update({
           where: { id: recipient.id },
           data: { status: "تم الإرسال", messageId: result.messageId, sentAt: new Date().toISOString(), error: "" }
@@ -186,6 +220,7 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
           data: { sent: { increment: 1 } }
         });
       } else {
+        await adjustCampaignBalance(tenantId, 1);
         await prisma.campaignRecipient.update({
           where: { id: recipient.id },
           data: { status: "فشل الإرسال", error: result.error }
@@ -195,7 +230,9 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
 
     const updatedCampaign = await prisma.campaign.findUnique({ where: { id: campaign.id } });
     if (updatedCampaign) {
-      const stillPending = await prisma.campaignRecipient.count({ where: { campaignId: campaign.id, status: "قيد الإرسال" } });
+      const stillPending = await prisma.campaignRecipient.count({
+        where: { campaignId: campaign.id, status: { in: ["قيد الإرسال", "جارٍ الإرسال"] } }
+      });
       await prisma.campaign.update({
         where: { id: campaign.id },
         data: {

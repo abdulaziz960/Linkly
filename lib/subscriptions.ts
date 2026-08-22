@@ -20,18 +20,18 @@ function nowTimestamp() {
 
 export async function getSubscriptions() {
   await ensureSchema();
-  const subscriptions = await prisma.subscription.findMany({ orderBy: { createdAt: "desc" } });
-
-  return Promise.all(
-    subscriptions.map(async (subscription) => {
-      const [employeeCount, conversationCount] = await Promise.all([
-        prisma.employee.count({ where: { tenantId: subscription.tenantId } }),
-        prisma.conversation.count({ where: { tenantId: subscription.tenantId } })
-      ]);
-
-      return { ...subscription, employeeCount, conversationCount };
-    })
-  );
+  const [subscriptions, employeeCounts, conversationCounts] = await Promise.all([
+    prisma.subscription.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.employee.groupBy({ by: ["tenantId"], _count: { _all: true } }),
+    prisma.conversation.groupBy({ by: ["tenantId"], _count: { _all: true } })
+  ]);
+  const employeesByTenant = new Map(employeeCounts.map((row) => [row.tenantId, row._count._all]));
+  const conversationsByTenant = new Map(conversationCounts.map((row) => [row.tenantId, row._count._all]));
+  return subscriptions.map((subscription) => ({
+    ...subscription,
+    employeeCount: employeesByTenant.get(subscription.tenantId) ?? 0,
+    conversationCount: conversationsByTenant.get(subscription.tenantId) ?? 0
+  }));
 }
 
 export async function getSubscriptionForTenant(tenantId: string) {
@@ -171,7 +171,9 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
     });
   });
 
-  const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const origin = process.env.NODE_ENV === "production"
+    ? "https://audiencew.audience.sa"
+    : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const activationUrl = `${origin.replace(/\/$/, "")}/activate?token=${activationToken}`;
   const inviteDelivery = await sendActivationEmail({ to: email, name: input.ownerName, activationUrl });
 

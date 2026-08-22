@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -15,9 +15,9 @@ export const runtime = "nodejs";
  * param and call storeSmsMessage() from lib/sms-inbox.ts with the
  * sender phone number and message body from the actual payload.
  */
-export async function POST(request: NextRequest) {
+export async function POST() {
   return NextResponse.json({
-    ok: true,
-    note: "Unifonic inbound SMS webhook not wired up yet - payload format needs confirming against a live account."
-  });
+    ok: false,
+    error: "SMS inbound messaging is not enabled for this deployment."
+  }, { status: 501 });
 }

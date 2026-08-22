@@ -1,260 +1,82 @@
-import "./landing.css";
-import TrialFormEnhancer from "./TrialFormEnhancer";
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import logo from "../public/assets/audiencew-logo.png";
+import LandingNav from "./LandingNav";
+import s from "./page.module.css";
 
-const landingMarkup = `<div class="landing" id="landingPage">
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="logo"><span class="logo-mark"><img src="/assets/audiencew-logo.png" alt=""></span>AudienceW</div>
-      <input class="nav-toggle" id="navToggle" type="checkbox" aria-label="فتح القائمة">
-      <label class="menu-toggle" id="menuToggle" for="navToggle" aria-label="فتح القائمة">
-        <span></span><span></span><span></span>
-      </label>
-      <nav class="nav-links">
-        <a href="#channels">القنوات</a>
-        <a href="#workflow">طريقة الشغل</a>
-        <a href="#pricing">الأسعار</a>
-        <a href="#faq">أسئلة</a>
-      </nav>
-      <a class="lang-link" href="/en">English</a>
-      <a class="btn ghost" href="/dashboard">دخول</a>
-      <a class="btn primary" href="#trial">جرّبها</a>
-    </div>
-  </header>
+export const metadata: Metadata = {
+  title: "AudienceW | محادثات عملائك وفريقك في مكان واحد",
+  description: "منصة سعودية تجمع محادثات واتساب وإنستقرام والبريد وتيليجرام وتيك توك وتساعد فرق الخدمة والمبيعات على التوزيع والمتابعة من مكان واحد.",
+  alternates: { canonical: "/" },
+  openGraph: { title: "AudienceW | كل محادثات عملائك في مكان واحد", description: "صندوق وارد موحد، توزيع للمحادثات، أتمتة وتقارير لفريقك.", locale: "ar_SA", type: "website" }
+};
 
-  <main>
-    <section class="hero wrap">
-      <div>
-        <span class="eyebrow">واتساب · إنستقرام · تقييمات قوقل</span>
-        <h1>عميلك يكتب لك من ثلاث أماكن، وأنت <em>تتابعها من مكان واحد</em></h1>
-        <p>رسالة واتساب، تعليق إنستقرام، تقييم على خرائط قوقل — كلها توصل لصندوق وارد واحد، توزّعها على فريقك، وترد قبل ما يمل العميل من الانتظار.</p>
-        <div class="hero-actions">
-          <a class="btn primary" href="#trial">جرّب AudienceW مجانًا</a>
-          <a class="btn ghost" href="#channels">شوف كيف تشتغل</a>
-        </div>
-        <div class="hero-note">لا حاجة لبطاقة دفع الآن · فريقنا يجهز لك القنوات بنفسه</div>
-        <div class="hero-metrics">
-          <div class="metric"><b>٣</b><span>قنوات تربطها بدقايق</span></div>
-          <div class="metric"><b>واحد</b><span>صندوق وارد لكل الفريق</span></div>
-          <div class="metric"><b>صفر</b><span>رسائل تضيع بين التطبيقات</span></div>
-        </div>
-      </div>
-      <div class="product-shot">
-        <div class="shot-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span><strong>صندوق الوارد</strong></div>
-        <div class="shot-body">
-          <div class="shot-row"><div class="shot-avatar">و</div><div><b>سارة</b><p>أبغى أعرف تفاصيل باقة النمو، عندكم فريق مبيعات؟</p></div><span class="pill">واتساب</span></div>
-          <div class="shot-row"><div class="shot-avatar">إ</div><div><b>@rakan.st</b><p>هل التوصيل متاح للرياض؟ علّق تحت البوست</p></div><span class="pill">إنستقرام</span></div>
-          <div class="shot-row"><div class="shot-avatar">ق</div><div><b>تقييم جديد</b><p>٥ نجوم — «خدمة سريعة ورد ممتاز، جربتهم مرتين»</p></div><span class="pill">قوقل</span></div>
-          <div class="shot-row"><div class="shot-avatar">ن</div><div><b>أُسندت لنورة</b><p>محادثة سارة انتقلت لقسم المبيعات ووُسمت «مهتمة»</p></div><span class="pill">فريق الدعم</span></div>
-        </div>
-      </div>
-    </section>
+const features = [
+  ["صندوق وارد موحد", "اجمع المحادثات في مساحة عمل واحدة مع سجل واضح لكل عميل."],
+  ["توزيع المحادثات", "عيّن كل محادثة لموظف أو فريق واعرف المسؤول عنها فورًا."],
+  ["حالات ووسوم", "نظّم المتابعة بالحالات والوسوم والخطوة التالية."],
+  ["تعاون الفريق", "صلاحيات وسياق مشترك يمنعان تكرار الرد أو ضياع المحادثة."],
+  ["ردود وأتمتة", "ردود سريعة وقواعد ترحيب وتحويل وتصعيد تقلل العمل اليدوي."],
+  ["تقارير تشغيلية", "تابع حجم المحادثات وزمن الرد وأداء الفرق ومراحل العملاء."]
+] as const;
+const faqs = [
+  ["هل أقدر أستخدم أكثر من موظف؟", "نعم. أضف الموظفين وحدد أدوارهم وفرقهم وصلاحياتهم من لوحة واحدة."],
+  ["هل أقدر أربط رقم واتساب الحالي؟", "يعتمد على حالة الرقم ومتطلبات WhatsApp Cloud API لدى Meta، ونساعدك في مراجعة مسار الربط."],
+  ["هل أحتاج رقم واتساب جديد؟", "ليس دائمًا. نراجع وضع رقمك الحالي أولًا ثم نحدد أفضل مسار."],
+  ["هل تدعمون WhatsApp Business API؟", "نعم، الربط التشغيلي مبني على واجهات WhatsApp Cloud API الرسمية."],
+  ["هل يوجد API؟", "تتوفر Webhooks وواجهات تكامل ضمن باقة التوسع وفق نطاق التكامل المطلوب."],
+  ["هل أقدر ألغي الاشتراك؟", "يمكن جدولة الإلغاء لنهاية الفترة الحالية من شاشة الفوترة."],
+  ["هل يوجد رسم تجهيز؟", "خدمة تجهيز حسابات Meta والربط الكامل اختيارية وتكلف 500 ريال مرة واحدة."],
+  ["كيف تُحتسب رسوم واتساب؟", "رسوم رسائل WhatsApp الرسمية من Meta، إن وجدت، منفصلة عن اشتراك AudienceW."],
+  ["هل بيانات العملاء آمنة؟", "تستخدم المنصة صلاحيات مستخدمين، وتشفيرًا لأسرار التكاملات، وجلسات محددة المدة، وسجلات تشغيل للمساعدة في تتبع النشاط."]
+] as const;
+const plans = [
+  { name:"البداية", price:"249", cta:"ابدأ التجربة", items:["مستخدم واحد","صندوق وارد مشترك","ردود سريعة ووسوم","تقارير أساسية"] },
+  { name:"النمو", price:"499", cta:"جرّب باقة النمو", featured:true, items:["حتى 3 مستخدمين","توزيع المحادثات","رد آلي وقواعد تحويل","تقارير أداء وSLA"] },
+  { name:"الأعمال", price:"999", cta:"جرّب باقة الأعمال", items:["حتى 10 مستخدمين","فرق متعددة","Webhooks وAPI","دعم أولوية"] }
+] as const;
+const jsonLd = { "@context":"https://schema.org", "@graph":[
+  { "@type":"Organization", name:"AudienceW", url:"https://audiencew.audience.sa", logo:"https://audiencew.audience.sa/icon.png" },
+  { "@type":"SoftwareApplication", name:"AudienceW", applicationCategory:"BusinessApplication", operatingSystem:"Web", offers:{"@type":"AggregateOffer",lowPrice:"249",highPrice:"999",priceCurrency:"SAR"} },
+  { "@type":"FAQPage", mainEntity:faqs.map(([q,a])=>({"@type":"Question",name:q,acceptedAnswer:{"@type":"Answer",text:a}})) }
+]};
 
-    <section class="section first wrap" id="channels">
-      <div class="section-head">
-        <span>القنوات</span>
-        <h2>ثلاث قنوات، كل وحدة فيها طبيعة مختلفة</h2>
-        <p class="section-lead">ما نحاول نخليها متشابهة بالقوة. كل قناة تظهر بالشكل اللي يناسبها، لكن الرد والإسناد والمتابعة بنفس الطريقة.</p>
-      </div>
-      <div class="channel-grid">
-        <div class="channel-card lead">
-          <span class="channel-tag">الأكثر استخدامًا</span>
-          <h3>واتساب بزنس</h3>
-          <p>رسائل، قوالب رسمية، مرفقات وتسجيلات صوتية، ونافذة الـ٢٤ ساعة واضحة داخل كل محادثة بدل ما تتفاجئ إنها انتهت.</p>
-        </div>
-        <div class="channel-card">
-          <span class="channel-tag">رسائل وتعليقات</span>
-          <h3>إنستقرام</h3>
-          <p>الرسائل الخاصة والتعليقات على المنشورات توصلك بنفس الصندوق، مع اسم الحساب وسياق المنشور اللي علّق تحته.</p>
-        </div>
-        <div class="channel-card">
-          <span class="channel-tag">سمعة النشاط</span>
-          <h3>تقييمات خرائط قوقل</h3>
-          <p>تقييم جديد بخمس نجوم أو بشكوى؟ يوصلك فورًا وترد عليه باسم نشاطك التجاري بدل ما يفوتك أسبوع.</p>
-        </div>
-      </div>
-    </section>
-
-    <section class="section wrap">
-      <div class="story">
-        <p class="story-quote">"كنت أفتح ثلاث تطبيقات كل صباح، وأنسى أرد على تعليقات إنستقرام غالبًا."</p>
-        <div class="story-body">
-          <p>هذا اللي يصير مع أغلب الفرق: <strong>مو إن الرسائل كثيرة، المشكلة إنها متفرقة.</strong> رسالة هنا، تعليق هناك، تقييم ما أحد شافه إلا بعد أسبوع.</p>
-          <p>AudienceW ما يلغي القنوات ولا يبدّلها بشات بوت غريب — يجمعها بمكان واحد فيه <strong>حالة واضحة لكل محادثة</strong> (مين ردّ، مين ينتظر، مين أُغلقت)، ووسوم وإسناد تعرف فيها مين مسؤول عن كل عميل.</p>
-        </div>
-      </div>
-    </section>
-
-    <section class="section wrap" id="workflow">
-      <div class="section-head">
-        <span>طريقة الشغل</span>
-        <h2>من أول ربط لحد أول رد، أربع خطوات</h2>
-      </div>
-      <div class="timeline">
-        <div class="tl-step"><b>١</b><h3>اربط قنواتك</h3><p>واتساب وإنستقرام عبر Meta، وخرائط قوقل عبر Google Business Profile.</p></div>
-        <div class="tl-step"><b>٢</b><h3>أضف فريقك</h3><p>حدد الموظفين والأقسام، وحدد مين يشوف مين من المحادثات.</p></div>
-        <div class="tl-step"><b>٣</b><h3>جهّز ردودك الجاهزة</h3><p>ردود سريعة وقوالب لأكثر الأسئلة تكرارًا، جاهزة قبل ما تحتاجها.</p></div>
-        <div class="tl-step"><b>٤</b><h3>راقب وطوّر</h3><p>زمن الرد، مين متأخر، ومن وين توصلك أغلب الاستفسارات.</p></div>
-      </div>
-    </section>
-
-    <section class="section wrap">
-      <div class="section-head">
-        <span>أمثلة حقيقية</span>
-        <h2>هذا اللي يصير جوّا الصندوق فعليًا</h2>
-      </div>
-      <div class="examples">
-        <div class="message-card">
-          <div class="message-top"><strong>رسالة واتساب</strong><span class="pill">مبيعات</span></div>
-          <div class="message-bubble">أهلًا سارة، شفنا اهتمامك بباقة النمو. تناسبك مكالمة ٥ دقايق اليوم العصر؟</div>
-          <div class="mini-stat"><span>وقت الرد</span><b>أقل من دقيقتين</b></div>
-        </div>
-        <div class="message-card">
-          <div class="message-top"><strong>تعليق إنستقرام</strong><span class="pill">دعم</span></div>
-          <div class="message-bubble">تم الرد على تعليق @rakan.st المرتبط بمنشور "عرض نهاية الأسبوع": التوصيل متاح للرياض وجدة.</div>
-          <div class="mini-stat"><span>ربط تلقائي</span><b>بالمنشور نفسه</b></div>
-        </div>
-        <div class="message-card">
-          <div class="message-top"><strong>تقييم قوقل</strong><span class="pill">سمعة</span></div>
-          <div class="message-bubble">شكرًا لك! يسعدنا إنك جربتنا مرتين ورضيت عن الخدمة. بانتظار زيارتك الجاية.</div>
-          <div class="mini-stat"><span>تقييمات هالأسبوع</span><b>١٨</b></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section wrap" id="pricing">
-      <div class="section-head">
-        <span>الأسعار</span>
-        <h2>اختر حسب حجم فريقك، مو حسب توقعاتنا لك</h2>
-      </div>
-      <div class="pricing" id="landingPlans">
-        <div class="plan">
-          <div class="plan-name"><h3>البداية</h3></div>
-          <p class="plan-lead">لصاحب المشروع اللي يرد بنفسه أو بموظف أو اثنين.</p>
-          <div class="plan-price"><b>١٩٩</b><span>ريال / شهريًا</span></div>
-          <ul>
-            <li>٣ مستخدمين</li>
-            <li>صندوق وارد مشترك</li>
-            <li>ربط واتساب</li>
-            <li>ردود سريعة ووسوم</li>
-            <li>تقارير أساسية</li>
-          </ul>
-          <a class="btn ghost" href="#trial">ابدأ بهذي</a>
-        </div>
-        <div class="plan featured">
-          <div class="plan-name"><h3>النمو</h3><span class="plan-tag">الأكثر اختيارًا</span></div>
-          <p class="plan-lead">لفريق يوزّع المحادثات ويحتاج واتساب وإنستقرام مع بعض.</p>
-          <div class="plan-price"><b>٤٩٩</b><span>ريال / شهريًا</span></div>
-          <ul>
-            <li>حتى ١٠ مستخدمين</li>
-            <li>واتساب + إنستقرام</li>
-            <li>توزيع المحادثات على الفريق</li>
-            <li>رد آلي وقواعد تحويل</li>
-            <li>تقارير أداء ومؤشر SLA</li>
-          </ul>
-          <a class="btn primary" href="#trial">ابدأ بهذي</a>
-        </div>
-        <div class="plan">
-          <div class="plan-name"><h3>التوسّع</h3></div>
-          <p class="plan-lead">لشركة عندها أكثر من فرع وتحتاج تكاملات إضافية.</p>
-          <div class="plan-price"><b>٩٩٩</b><span>ريال / شهريًا</span></div>
-          <ul>
-            <li>حتى ٣٠ مستخدم</li>
-            <li>واتساب + إنستقرام + قوقل</li>
-            <li>فروع وفرق متعددة</li>
-            <li>Webhooks و API</li>
-            <li>دعم أولوية</li>
-          </ul>
-          <a class="btn ghost" href="#trial">ابدأ بهذي</a>
-        </div>
-      </div>
-      <p class="pricing-note">رسوم رسائل واتساب الرسمية، إن وُجدت، تُحسب حسب تسعير Meta بشكل منفصل عن الاشتراك.</p>
-    </section>
-
-    <section class="section wrap" id="trial">
-      <div class="trial-panel">
-        <aside class="trial-side">
-          <div>
-            <span class="eyebrow">يبدأ خلال دقايق</span>
-            <h2 id="authTitle">جرّب AudienceW</h2>
-            <p>سجّل الآن وحسابك ينشأ فورًا — بدون انتظار رد من أحد.</p>
-          </div>
-          <ul>
-            <li>حساب دخول حقيقي جاهز فورًا بعد التسجيل</li>
-            <li>تجربة مجانية ١٤ يوم</li>
-            <li>تقدر تختار الباقة المناسبة بعدها</li>
-          </ul>
-        </aside>
-        <section class="trial-form">
-          <h2 id="authModeTitle">بيانات التواصل</h2>
-          <p>خلّها مختصرة — نحتاجها فقط عشان ننشئ حسابك ونفهم حجم فريقك وقنواتك.</p>
-          <form id="trialForm" class="form-grid">
-            <input type="hidden" name="intent" value="trial">
-            <input type="hidden" name="auth_provider" value="form">
-            <input type="hidden" name="plan_name" value="النمو">
-            <label>اسم النشاط<input name="company_name" required placeholder="مثال: متجر الجودة"></label>
-            <label>اسمك<input name="contact_name" required placeholder="اسمك الكامل"></label>
-            <label>البريد الإلكتروني<input name="email" type="email" required placeholder="name@company.com"></label>
-            <label>رقم الجوال<input name="phone" placeholder="05xxxxxxxx"></label>
-            <div class="choice-field">
-              <div class="choice-title">حجم فريقك</div>
-              <div class="choice-grid">
-                <label class="choice-option"><input type="radio" name="team_size" value="1-3" checked><b>١-٣</b><span>فريق صغير</span></label>
-                <label class="choice-option"><input type="radio" name="team_size" value="4-10"><b>٤-١٠</b><span>تشغيل يومي</span></label>
-                <label class="choice-option"><input type="radio" name="team_size" value="11-30"><b>١١-٣٠</b><span>عدة أقسام</span></label>
-                <label class="choice-option"><input type="radio" name="team_size" value="30+"><b>٣٠+</b><span>حجم كبير</span></label>
-              </div>
-            </div>
-            <div class="choice-field">
-              <div class="choice-title">القنوات اللي تحتاجها</div>
-              <div class="choice-grid plans">
-                <label class="choice-option"><input type="checkbox" name="channels" value="واتساب" checked><b>واتساب</b><span>رسائل وقوالب</span></label>
-                <label class="choice-option"><input type="checkbox" name="channels" value="إنستقرام"><b>إنستقرام</b><span>رسائل وتعليقات</span></label>
-                <label class="choice-option"><input type="checkbox" name="channels" value="Google Maps"><b>خرائط قوقل</b><span>تقييمات وردود</span></label>
-              </div>
-            </div>
-            <label class="full"><button class="btn primary" type="submit" style="width:100%">ابدأ تجربتك الآن</button></label>
-          </form>
-          <p class="form-note">بمجرد التسجيل ينشأ حسابك فورًا وتنتقل مباشرة لتفعيله وتعيين كلمة المرور.</p>
-        </section>
-      </div>
-    </section>
-
-    <section class="section wrap" id="faq">
-      <div class="section-head">
-        <span>أسئلة</span>
-        <h2>أسئلة يسألها أغلب العملاء</h2>
-      </div>
-      <div class="faq">
-        <div class="faq-item"><h3>ردّي على تعليقات إنستقرام يفوتني كثير، تحلّونها؟</h3><p>التعليق يوصلك بنفس صندوق واتساب، مربوط بالمنشور واسم صاحب الحساب — ما تحتاج تفتح تطبيق ثاني.</p></div>
-        <div class="faq-item"><h3>لو ما عندي خرائط قوقل مفعّلة بعد؟</h3><p>نساعدك تربط Google Business Profile وقت التجربة، وبعدها تبدأ التقييمات توصل المنصة تلقائيًا.</p></div>
-        <div class="faq-item"><h3>يقدر أكثر من موظف يشتغل بنفس الوقت؟</h3><p>إي، توزّع المحادثات على فريقك حسب القسم أو حالة الموظف، وكل واحد يشوف بس اللي مسؤول عنه.</p></div>
-        <div class="faq-item"><h3>فيه رد آلي خارج أوقات الدوام؟</h3><p>إي، تحدد رسالة ترحيب وخارج الدوام، وتحويل تلقائي لموظف أو قسم معيّن حسب نوع الاستفسار.</p></div>
-      </div>
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <div>
-        <div class="logo"><span class="logo-mark"><img src="/assets/audiencew-logo-light.png" alt=""></span>AudienceW</div>
-        <p>منصة لإدارة محادثات العملاء عبر واتساب بزنس وإنستقرام وتقييمات خرائط قوقل، لفرق الدعم والمبيعات اللي تبي تشتغل من مكان واحد.</p>
-      </div>
-      <nav class="footer-links" aria-label="روابط مهمة">
-        <a href="/privacy">سياسة الخصوصية</a>
-        <a href="/terms">شروط الاستخدام</a>
-        <a href="/data-deletion">حذف البيانات</a>
-        <a href="#trial">تواصل معنا</a>
-      </nav>
-      <p class="footer-note">جميع الحقوق محفوظة لشركة الجمهور المخصص للدعاية والإعلان.</p>
-    </div>
-  </footer>
-</div>`;
-
-export default function HomePage() {
-  return (
-    <>
-      <div dangerouslySetInnerHTML={{ __html: landingMarkup }} />
-      <TrialFormEnhancer />
-    </>
-  );
+function Check(){return <span className={s.check} aria-hidden="true">✓</span>}
+type Platform = "whatsapp" | "instagram" | "email" | "telegram" | "tiktok";
+function PlatformLogo({platform}:{platform:Platform}){
+  if(platform==="instagram") return <svg className={s.platformLogo} viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" className={s.logoDot}/></svg>;
+  if(platform==="email") return <svg className={s.platformLogo} viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg>;
+  if(platform==="telegram") return <svg className={s.platformLogo} viewBox="0 0 24 24" aria-hidden="true"><path className={s.logoFill} d="M21.4 3.2 18.2 20c-.2 1.2-.9 1.5-1.9.9l-4.9-3.6-2.3 2.3c-.3.3-.5.5-1 .5l.4-5 9-8.1c.4-.4-.1-.6-.6-.2L5.8 13.7 1 12.2c-1-.3-1.1-1 .2-1.5L20 3.4c.9-.3 1.7.2 1.4-.2Z"/></svg>;
+  if(platform==="tiktok") return <svg className={s.platformLogo} viewBox="0 0 24 24" aria-hidden="true"><path className={s.logoFill} d="M15.2 3c.4 2.3 1.7 3.7 3.8 4.1v3.2a9 9 0 0 1-3.8-1.2v6.1a5.8 5.8 0 1 1-5-5.7v3.3a2.6 2.6 0 1 0 1.8 2.5V3h3.2Z"/></svg>;
+  return <svg className={s.platformLogo} viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.7a8 8 0 0 1-11.8 7l-4.2 1.1 1.1-4.1A8 8 0 1 1 20 11.7Z"/><path d="M9 8.5c.3 2.8 2 4.6 4.8 5.5.5.1 1.3-.8 1.5-1.2"/></svg>;
 }
+function Preview(){return <div className={s.preview} aria-label="معاينة صندوق محادثات AudienceW">
+  <header><div><i/><i/><i/></div><b>AudienceW Inbox</b><span>متصل</span></header>
+  <div className={s.previewBody}><aside><Image src={logo} alt="" width={34} height={34}/><b>⌁</b><b>◎</b><b>♢</b><b>⚙</b></aside>
+  <section className={s.conversations}><h3>المحادثات <small>12 جديدة</small></h3>{[["و","وليد السبيعي","هل المنتج متوفر اليوم؟","واتساب"],["ن","نورة أحمد","وصلتني رسالتكم من الإعلان","Instagram"],["س","شركة سمارت","طلب عرض سعر للفريق","البريد"],["م","محمد علي","أحتاج مساعدة في الطلب","Telegram"],["ر","ريم خالد","مهتمة بالربط بعد اعتماد تيك توك","TikTok"]].map((x,i)=><article className={i===0?s.selected:""} key={x[1]}><em>{x[0]}</em><div><b>{x[1]}</b><p>{x[2]}</p><small>{x[3]} · الآن</small></div></article>)}</section>
+  <section className={s.chat}><header><div><b>وليد السبيعي</b><small>محادثة مفتوحة</small></div><span>فريق المبيعات</span></header><div><p>السلام عليكم، هل المنتج متوفر اليوم؟</p><p>وعليكم السلام، نعم متوفر. أرسل لك رابط الطلب الآن.</p><small>عميل مهتم　 متابعة اليوم</small></div><footer>اكتب ردك هنا… <b>↑</b></footer></section></div>
+  </div>}
+
+export default function HomePage(){return <div className={s.page}>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd).replace(/</g,"\\u003c")}}/>
+  <LandingNav />
+  <main>
+    <section className={s.hero}><div><span className={s.eyebrow}><i/> منصة واحدة لكل فريقك</span><h1>كل محادثات عملائك <strong>في مكان واحد</strong></h1><p>واتساب، إنستقرام، البريد وتيليجرام — فريقك يرد ويوزّع ويتابع من صندوق وارد واحد، مع جاهزية تيك توك بعد اعتماد صلاحية المراسلة.</p><div className={s.actions}><Link className={s.primaryLarge} href="/signup">ابدأ تجربتك مجانًا</Link><a className={s.secondary} href="#product">شاهد كيف يعمل ←</a></div><small className={s.micro}><Check/> 14 يومًا مجانًا　•　<Check/> بدون بطاقة دفع　•　<Check/> نجهّز لك القنوات</small><div className={s.heroMetrics}><div><b>4+</b><span>قنوات جاهزة للفريق</span></div><div><b>1</b><span>Inbox لكل الفريق</span></div><div><b>∞</b><span>سياق واضح لكل محادثة</span></div></div></div><Preview/></section>
+    <section className={s.trust}><b>مصممة لفرق خدمة العملاء والمبيعات</b><span><Check/> رد أسرع</span><span><Check/> مسؤول واضح</span><span><Check/> متابعة لا تضيع</span><span><Check/> صلاحيات للفريق</span></section>
+    <section className={`${s.section} ${s.problem}`}><Intro kicker="المشكلة" title="قنوات متعددة. عشرات المحادثات. فريق واحد يحاول يلحق عليها." copy="التنقل بين التطبيقات والجوالات يبطئ الرد ويخفي المسؤول ويجعل متابعة العميل تعتمد على الذاكرة."/><div className={s.problemVisual}><div className={s.channelMarks}><i title="WhatsApp"><PlatformLogo platform="whatsapp"/></i><i title="Instagram"><PlatformLogo platform="instagram"/></i><i title="البريد الإلكتروني"><PlatformLogo platform="email"/></i><i title="Telegram"><PlatformLogo platform="telegram"/></i><i title="TikTok"><PlatformLogo platform="tiktok"/></i></div><span>←</span><article><Image src={logo} alt="" width={48} height={48}/><div><b>Inbox واحد</b><p>سياق كامل، توزيع واضح، ومتابعة من مكان واحد.</p></div></article></div></section>
+    <section className={`${s.section} ${s.product}`} id="product"><Intro kicker="المنتج" title="واجهة واحدة ترى فيها ما يحتاجه الفريق الآن" copy="من أول رسالة إلى الإغلاق، تبقى المحادثة والعميل والمسؤول والخطوة التالية في نفس السياق."/><div className={s.productGrid}><div className={s.numberList}>{[["01","المحادثة أمامك كاملة","الرسائل والقناة والوسوم والحالة دون تنقل."],["02","المسؤول معروف","اسند المحادثة لموظف أو فريق وتابع العمل."],["03","الخطوة التالية واضحة","حوّلها إلى متابعة مبيعات أو دعم أو تصعيد."]].map(x=><article key={x[0]}><span>{x[0]}</span><div><h3>{x[1]}</h3><p>{x[2]}</p></div></article>)}</div><Preview/></div></section>
+    <section className={`${s.section} ${s.channels}`}><Intro kicker="القنوات" title="كل قناة بطبيعتها. إدارة واحدة لفريقك." copy="فعّل القنوات التي يحتاجها نشاطك، واجعل الفريق يعمل من صندوق وارد واحد."/><div className={s.channelsGrid}>{[["whatsapp","WhatsApp","محادثات العملاء والقوالب والمرفقات عبر Cloud API."],["instagram","Instagram","استقبل الرسائل وتابع سياق العميل ورد من نفس المساحة."],["email","البريد الإلكتروني","اربط Gmail أو Outlook للإرسال والاستلام."],["telegram","Telegram","اربط البوت واستقبل الرسائل ووزّعها بأمان."],["tiktok","TikTok","جاهز للإعداد بعد حصول النشاط على اعتماد TikTok Business Messaging."]].map(x=><article key={x[1]}><i><PlatformLogo platform={x[0] as Platform}/></i><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div></section>
+    <section className={`${s.section} ${s.features}`} id="features"><Intro kicker="المميزات" title="كل ما يحتاجه فريقك لإدارة المحادثة بوضوح" copy="أدوات عملية مبنية حول سير العمل اليومي، لا قائمة طويلة من المزايا النظرية."/><div className={s.featureGrid}>{features.map(([t,c],i)=><article key={t}><span>0{i+1}</span><h3>{t}</h3><p>{c}</p></article>)}</div><div className={s.inlineCta}><p><b>جاهز تجمع محادثات فريقك؟</b><span>ابدأ بحساب مجاني ثم جهّز قنواتك خطوة بخطوة.</span></p><Link className={s.primary} href="/signup">ابدأ تجربتك مجانًا</Link></div></section>
+    <section className={`${s.section} ${s.how}`} id="how"><Intro kicker="طريقة العمل" title="ابدأ خلال أربع خطوات" copy="مسار واضح من إنشاء الحساب إلى أول محادثة يديرها فريقك."/><ol>{[["1","أنشئ حسابك","ابدأ التجربة وأكمل بيانات نشاطك."],["2","اربط قنواتك","جهّز القنوات المتاحة لنشاطك."],["3","أضف فريقك","حدد الموظفين والفرق والصلاحيات."],["4","ابدأ الرد","وزّع المحادثات وتابع الأداء."]].map(x=><li key={x[0]}><span>{x[0]}</span><div><h3>{x[1]}</h3><p>{x[2]}</p></div></li>)}</ol></section>
+    <section className={`${s.section} ${s.useCases}`}><Intro kicker="حالات الاستخدام" title="من أول استفسار إلى عميل تمت خدمته"/><div>{[["↗","المبيعات","عميل يأتي من واتساب أو إنستقرام، يُسند لموظف مبيعات وتُحفظ خطوته التالية.","Lead ← تعيين ← متابعة"],["◎","خدمة العملاء","استفسار أو شكوى تدخل للصندوق وتنتقل للفريق الصحيح مع كامل السياق.","رسالة ← فريق ← حل"],["⌁","التشغيل والمتابعة","القواعد والردود السريعة وساعات العمل تقلل التأخير وتحافظ على تجربة ثابتة.","قاعدة ← إجراء ← قياس"]].map(x=><article key={x[1]}><i>{x[0]}</i><h3>{x[1]}</h3><p>{x[2]}</p><small dir="rtl">{x[3]}</small></article>)}</div></section>
+    <section className={`${s.section} ${s.security}`}><Intro kicker="الأمان والثقة" title="بيانات عملائك تستحق حماية على مستوى أعمالك" copy="الحماية جزء من بنية المنتج: من الجلسة والصلاحية إلى أسرار التكاملات وقبول أحداث القنوات."/><div>{[["01","تشفير الأسرار","بيانات ربط القنوات الحساسة مشفرة وتظهر مقنّعة في الواجهة."],["02","صلاحيات وسجلات تشغيل","أدوار واضحة وتسجيل للأحداث التشغيلية المهمة."],["03","تحقق من Webhooks","تُرفض أحداث Meta وX إذا لم تحمل توقيع المزود الصحيح."],["04","جلسات وكلمات مرور آمنة","جلسات محددة المدة وكلمات مرور محفوظة بخوارزمية scrypt مع salt فريد."]].map(x=><article key={x[0]}><span>{x[0]}</span><div><h3>{x[1]}</h3><p>{x[2]}</p></div></article>)}</div></section>
+    <section className={`${s.section} ${s.pricing}`} id="pricing"><Intro kicker="الأسعار" title="باقة واضحة لكل مرحلة من نمو فريقك" copy="ابدأ بالتجربة أولًا، ثم اختر السعة والأدوات المناسبة لطريقة عملك."/><div className={s.planGrid}>{plans.map(p=>{const featured="featured" in p&&p.featured;return <article className={featured?s.featured:""} key={p.name}>{featured?<span className={s.popular}>الأكثر اختيارًا</span>:null}<h3>{p.name}</h3><div className={s.price}><b>{p.price}</b><span>ريال<br/>/ الشهر</span></div><ul>{p.items.map(i=><li key={i}><Check/>{i}</li>)}</ul><Link className={featured?s.primaryLarge:s.planButton} href="/signup">{p.cta}</Link></article>})}</div><aside className={s.notes}><p><b>رسوم WhatsApp:</b> رسوم الرسائل الرسمية من Meta، إن وجدت، منفصلة عن اشتراك AudienceW.</p><p><b>التجهيز الاختياري:</b> تجهيز حسابات Meta وربط WhatsApp Business مقابل 500 ريال مرة واحدة.</p></aside></section>
+    <section className={`${s.section} ${s.faq}`} id="faq"><Intro kicker="الأسئلة الشائعة" title="إجابات واضحة قبل أن تبدأ"/><div>{faqs.map(([q,a])=><details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
+    <section className={s.finalCta}><div><span>ابدأ اليوم</span><h2>خل فريقك يركز على العميل، مو على التنقل بين التطبيقات.</h2><p>ابدأ تجربة AudienceW مجانًا لمدة 14 يومًا.</p></div><div><Link href="/signup">ابدأ تجربتك مجانًا</Link><small>بدون بطاقة دفع</small></div></section>
+  </main>
+  <footer className={s.footer}><div><section><Link className={s.brand} href="/"><Image src={logo} alt="" width={38} height={38}/><span>AudienceW</span></Link><p>منصة لإدارة محادثات العملاء وتشغيل فرق الخدمة والمبيعات من مكان واحد.</p></section><nav><b>المنتج</b><a href="#features">المميزات</a><a href="#how">طريقة العمل</a><a href="#pricing">الأسعار</a></nav><nav><b>الشركة</b><Link href="/privacy">الخصوصية</Link><Link href="/terms">شروط الاستخدام</Link><Link href="/data-deletion">حذف البيانات</Link><Link href="/contact">تواصل معنا</Link></nav></div><small>جميع الحقوق محفوظة لشركة الجمهور المخصص للدعاية والإعلان.　 AudienceW © 2026</small></footer>
+  <Link className={s.mobileCta} href="/signup">ابدأ تجربتك مجانًا</Link>
+  </div>}
+
+function Intro({kicker,title,copy}:{kicker:string;title:string;copy?:string}){return <div className={s.intro}><span>{kicker}</span><h2>{title}</h2>{copy?<p>{copy}</p>:null}</div>}

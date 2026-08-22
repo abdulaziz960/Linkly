@@ -95,6 +95,10 @@ function isSupportedWhatsAppAudio(mimeType: string) {
   ].includes(baseMimeType);
 }
 
+function isConvertibleAudio(mimeType: string) {
+  return isSupportedWhatsAppAudio(mimeType) || ["audio/webm", "audio/wav", "audio/x-wav"].includes(getBaseMimeType(mimeType));
+}
+
 function getConvertedAudioName(fileName?: string) {
   return `${fileName?.replace(/\.[^.]+$/, "") || `voice-${Date.now()}`}.mp3`;
 }
@@ -113,7 +117,7 @@ async function normalizeAudioAttachment(attachment: AttachmentPayload) {
   if (!parsed) throw new Error("INVALID_ATTACHMENT");
 
   const mimeType = (attachment.mimeType || parsed.mimeType).replace(/\s+/g, "");
-  if (!isSupportedWhatsAppAudio(mimeType)) {
+  if (!isConvertibleAudio(mimeType)) {
     throw new Error("UNSUPPORTED_AUDIO_FORMAT");
   }
 
@@ -409,11 +413,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
     replyToCommentId?: string;
     replyToMessageId?: string;
   };
-  const attachment = body.attachment?.type && body.attachment.name && body.attachment.dataUrl ? body.attachment : undefined;
+  const attachment = body.attachment?.type && body.attachment.name && body.attachment.dataUrl
+    ? body.attachment as AttachmentPayload & Required<Pick<AttachmentPayload, "type" | "name" | "dataUrl">>
+    : undefined;
   const text = body.text?.trim() || (attachment?.type === "image" ? "صورة" : attachment?.type === "audio" ? "تسجيل صوتي" : attachment?.type === "document" ? "مستند" : "");
-  const direction = body.direction || "out";
+  const direction = body.direction === "note" ? "note" : "out";
 
   if (!text) return jsonError("نص الرسالة مطلوب");
+  if (text.length > 4_000) return jsonError("نص الرسالة يتجاوز الحد المسموح");
+  if (attachment) {
+    if (attachment.name.length > 180 || attachment.dataUrl.length > 12 * 1024 * 1024) return jsonError("المرفق أكبر من الحد المسموح");
+    const parsedAttachment = parseDataUrl(attachment.dataUrl);
+    if (!parsedAttachment || parsedAttachment.buffer.length > 8 * 1024 * 1024) return jsonError("المرفق غير صالح أو أكبر من 8 ميجابايت");
+    const mimeType = getBaseMimeType(attachment.mimeType || parsedAttachment.mimeType);
+    const allowedMimeTypes = attachment.type === "image"
+      ? ["image/jpeg", "image/png", "image/webp"]
+      : attachment.type === "audio"
+        ? ["audio/aac", "audio/mp4", "audio/mpeg", "audio/amr", "audio/ogg", "audio/webm", "audio/wav", "audio/x-wav"]
+        : ["application/pdf", "text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+    if (!allowedMimeTypes.includes(mimeType)) return jsonError("نوع المرفق غير مدعوم");
+  }
 
   const conversation = await findOrCreateConversation(id, user.tenantId, body.conversation);
 
@@ -424,8 +443,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const sentAt = now.toISOString();
     const messageTime = formatMessageTime(now);
     const replyToMessage = body.replyToMessageId
-      ? await prisma.message.findUnique({
-          where: { id: body.replyToMessageId }
+      ? await prisma.message.findFirst({
+          where: {
+            id: body.replyToMessageId,
+            conversation: { tenantId: user.tenantId }
+          }
         })
       : null;
     const replyToData = replyToMessage

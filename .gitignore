@@ -14,5 +14,6 @@ preview_pdf/
 *.php
 .vercel
 .env*
-.claude/
+!.env.example
 tsconfig.tsbuildinfo
+SAAS_AUDIT_REPORT.md

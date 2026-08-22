@@ -1,0 +1,2 @@
+import Link from "next/link"; import "../billing.css";
+export default function BillingSuccess(){return <main className="test-checkout"><section><b className="success-payment">✓</b><h1>تم تفعيل الاشتراك</h1><p>اكتملت رحلة الشراء بنجاح وأصبحت الباقة نشطة على حسابك.</p><div className="test-actions"><Link className="primary-link" href="/dashboard">العودة إلى لوحة العميل</Link><Link href="/billing">عرض تفاصيل الاشتراك</Link></div></section></main>}

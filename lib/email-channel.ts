@@ -1,12 +1,19 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { prisma } from "./prisma";
 import { storeIncomingEmail } from "./email-inbox";
+import { decryptSecret, encryptSecret } from "./secret-storage";
 import type { EmailIntegration } from "@prisma/client";
 
 type EmailProvider = "gmail" | "outlook";
 type OAuthOwner = { userId: string; tenantId: string };
 
-const oauthSecret = process.env.AUTH_SECRET || "audiencew-local-dev-secret";
+function oauthSigningSecret() {
+  const secret = process.env.AUTH_SECRET?.trim() || process.env.OAUTH_STATE_SECRET?.trim();
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SECRET or OAUTH_STATE_SECRET must be configured in production");
+  }
+  return secret || "audiencew-local-dev-secret";
+}
 
 function baseUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
@@ -18,7 +25,7 @@ function envValue(value?: string) {
 
 function createOAuthState(provider: EmailProvider, owner: OAuthOwner) {
   const payload = Buffer.from(JSON.stringify({ provider, ...owner, issuedAt: Date.now() })).toString("base64url");
-  const signature = createHmac("sha256", oauthSecret).update(payload).digest("base64url");
+  const signature = createHmac("sha256", oauthSigningSecret()).update(payload).digest("base64url");
   return `${payload}.${signature}`;
 }
 
@@ -26,7 +33,7 @@ export function verifyOAuthState(state: string | null): (OAuthOwner & { provider
   if (!state) return null;
   const [payload, signature] = state.split(".");
   if (!payload || !signature) return null;
-  const expected = createHmac("sha256", oauthSecret).update(payload).digest("base64url");
+  const expected = createHmac("sha256", oauthSigningSecret()).update(payload).digest("base64url");
   const actualBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
   if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) return null;
@@ -71,8 +78,8 @@ export async function saveOAuthConnection(provider: EmailProvider, code: string,
   const senderName = provider === "gmail" ? profile.name || "" : profile.displayName || "";
   await prisma.emailIntegration.upsert({
     where: { id: `email:${tenantId}` },
-    update: { provider, status: "connected", senderName, emailAddress, accessToken: tokens.access_token, ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}), tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updatedAt: new Date().toISOString() },
-    create: { id: `email:${tenantId}`, provider, status: "connected", senderName, emailAddress, webhookSecret: createHmac("sha256", oauthSecret).update(`email:${tenantId}`).digest("hex"), accessToken: tokens.access_token, refreshToken: tokens.refresh_token || "", tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updatedAt: new Date().toISOString() }
+    update: { provider, status: "connected", senderName, emailAddress, accessToken: encryptSecret(tokens.access_token), ...(tokens.refresh_token ? { refreshToken: encryptSecret(tokens.refresh_token) } : {}), tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updatedAt: new Date().toISOString() },
+    create: { id: `email:${tenantId}`, provider, status: "connected", senderName, emailAddress, webhookSecret: encryptSecret(randomUUID()), accessToken: encryptSecret(tokens.access_token), refreshToken: encryptSecret(tokens.refresh_token || ""), tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updatedAt: new Date().toISOString() }
   });
   return emailAddress as string;
 }
@@ -80,26 +87,28 @@ export async function saveOAuthConnection(provider: EmailProvider, code: string,
 async function refreshAccessToken(integration: EmailIntegration): Promise<string> {
   const clientId = envValue(integration.provider === "gmail" ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID);
   const clientSecret = envValue(integration.provider === "gmail" ? process.env.GOOGLE_CLIENT_SECRET : process.env.MICROSOFT_CLIENT_SECRET);
-  if (!clientId || !clientSecret || !integration.refreshToken) return integration.accessToken;
+  const accessToken = decryptSecret(integration.accessToken);
+  const refreshToken = decryptSecret(integration.refreshToken);
+  if (!clientId || !clientSecret || !refreshToken) return accessToken;
   const tokenUrl = integration.provider === "gmail" ? "https://oauth2.googleapis.com/token" : "https://login.microsoftonline.com/common/oauth2/v2.0/token";
   const response = await fetch(tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, refresh_token: integration.refreshToken, grant_type: "refresh_token" })
+    body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken, grant_type: "refresh_token" })
   });
   const tokens = await response.json();
-  if (!response.ok || !tokens.access_token) return integration.accessToken;
+  if (!response.ok || !tokens.access_token) return accessToken;
   const tokenExpiresAt = new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString();
   await prisma.emailIntegration.update({
     where: { id: integration.id },
-    data: { accessToken: tokens.access_token, tokenExpiresAt, ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}), updatedAt: new Date().toISOString() }
+    data: { accessToken: encryptSecret(tokens.access_token), tokenExpiresAt, ...(tokens.refresh_token ? { refreshToken: encryptSecret(tokens.refresh_token) } : {}), updatedAt: new Date().toISOString() }
   });
   return tokens.access_token as string;
 }
 
 async function getValidAccessToken(integration: EmailIntegration): Promise<string> {
   const expiresAt = integration.tokenExpiresAt ? new Date(integration.tokenExpiresAt).getTime() : 0;
-  if (expiresAt - Date.now() > 60_000) return integration.accessToken;
+  if (expiresAt - Date.now() > 60_000) return decryptSecret(integration.accessToken);
   return refreshAccessToken(integration);
 }
 

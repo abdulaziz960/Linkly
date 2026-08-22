@@ -1,8 +1,10 @@
-import { createHmac, timingSafeEqual } from "crypto";
+/* eslint-disable @typescript-eslint/no-explicit-any -- Provider webhook payloads are polymorphic and validated at each access boundary. */
+import { createHmac } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { storeXMessage } from "../../../../lib/x-inbox";
 import { runChannelBot } from "../../../../lib/bot-engine";
+import { verifyPrefixedHmac } from "../../../../lib/webhook-security";
 
 export const runtime = "nodejs";
 
@@ -32,13 +34,7 @@ function hmacSha256Base64(secret: string, value: string | Buffer) {
 }
 
 function verifySignature(rawBody: string, signature: string | null, secret: string) {
-  if (!secret) return true;
-  if (!signature) return false;
-  const expected = `sha256=${hmacSha256Base64(secret, rawBody)}`;
-  const expectedBuffer = Buffer.from(expected);
-  const signatureBuffer = Buffer.from(signature);
-
-  return expectedBuffer.length === signatureBuffer.length && timingSafeEqual(expectedBuffer, signatureBuffer);
+  return verifyPrefixedHmac(rawBody, signature, [secret], "base64");
 }
 
 function parseDate(value: unknown) {

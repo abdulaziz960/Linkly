@@ -1,9 +1,9 @@
 {
-  "version": 2,
-  "builds": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
     {
-      "src": "package.json",
-      "use": "@vercel/next"
+      "path": "/api/cron/campaigns",
+      "schedule": "* * * * *"
     }
   ]
 }

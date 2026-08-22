@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
+import { encryptSecret } from "../../../../lib/secret-storage";
 
 export const runtime = "nodejs";
 
@@ -89,9 +90,9 @@ export async function GET(request: NextRequest) {
       wabaName: meData.data.username || meData.data.name || "X",
       wabaId: meData.data.id,
       phoneNumber: meData.data.username ? `@${meData.data.username}` : meData.data.id,
-      accessToken: tokenData.access_token,
-      xAccessToken: tokenData.access_token,
-      xAccessTokenSecret: tokenData.refresh_token || settings.xAccessTokenSecret || "",
+      accessToken: encryptSecret(tokenData.access_token),
+      xAccessToken: encryptSecret(tokenData.access_token),
+      xAccessTokenSecret: encryptSecret(tokenData.refresh_token || settings.xAccessTokenSecret || ""),
       updatedAt: new Intl.DateTimeFormat("ar-SA", {
         dateStyle: "medium",
         timeStyle: "short",

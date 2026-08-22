@@ -35,14 +35,15 @@ export async function POST(request: Request) {
 
   const user = await prisma.userAccount.update({
     where: { email: invite.email },
-    data: { passwordHash: hashPassword(password) }
+    data: { passwordHash: hashPassword(password), sessionVersion: { increment: 1 } }
   });
 
   await prisma.employeeInvite.deleteMany({ where: { email: invite.email } });
 
   const { passwordHash: _passwordHash, ...safeUser } = user;
+  void _passwordHash;
   const response = NextResponse.json({ user: safeUser });
-  response.cookies.set(authCookieName, createSessionToken(user.id), {
+  response.cookies.set(authCookieName, createSessionToken(user.id, 60 * 60 * 24, user.sessionVersion), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
