@@ -876,7 +876,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <div className="meta-signup-card">
               <span className="provider-round-icon">@</span>
               <h3>ربط البريد الإلكتروني</h3>
-              <p>اربط أي مزود بريد عبر Webhook. أي رسالة تصل للرابط ستظهر كمحادثة بريد داخل المنصة، والرد يرسل عبر Resend.</p>
+              <p>اربط أي مزود بريد عبر Webhook. أي رسالة تصل للرابط ستظهر كمحادثة بريد داخل المنصة.</p>
               <div className="telegram-steps">
                 <div><span>1</span><b>احفظ بريد الإرسال</b><small>اكتب اسم المرسل والبريد الذي سيظهر للعميل.</small></div>
                 <div><span>2</span><b>انسخ Webhook</b><small>استخدم {publicAppUrl}/api/email/inbound في Zapier أو Make.</small></div>
@@ -1226,7 +1226,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </div>
               <ol>
                 <li>احفظ اسم المرسل وبريد الإرسال في الحقول أدناه.</li>
-                <li>أضف Resend API Key في Vercel باسم RESEND_API_KEY أو الصقه هنا للاختبار.</li>
                 <li>انسخ رابط Webhook وأرسله من مزود البريد عند وصول رسالة جديدة.</li>
                 <li>أضف Secret Token في Header باسم x-audiencew-email-secret.</li>
                 <li>أي رسالة تحتوي from و subject و text ستظهر في المحادثات كقناة بريد.</li>
@@ -1258,7 +1257,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <div className="settings-form-head">
             <div>
               <h2>{isWebsite ? "ودجت الموقع الإلكتروني" : isGoogleMaps ? "ربط Google Business" : isWhatsApp ? "ربط واتساب" : hideManualEmailSetup ? (isConnected ? "حساب البريد المرتبط" : "قناة Outlook") : "بيانات الربط والويبهوك"}</h2>
-              <p>{isWebsite ? "مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى." : hideManualEmailSetup ? (isConnected ? "الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب." : "اربط حساب Outlook من الأعلى لتفعيل القناة.") : isEmail ? "هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook وإرسال الردود عبر Resend." : isGoogleMaps ? "لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة." : isX ? "هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا." : isTikTok ? "احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging." : isSms ? "بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز." : isTelegram ? "هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة." : isFacebook ? "هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة." : isInstagram ? "هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة." : "اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط."}</p>
+              <p>{isWebsite ? "مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى." : hideManualEmailSetup ? (isConnected ? "الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب." : "اربط حساب Outlook من الأعلى لتفعيل القناة.") : isEmail ? "هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook." : isGoogleMaps ? "لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة." : isX ? "هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا." : isTikTok ? "احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging." : isSms ? "بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز." : isTelegram ? "هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة." : isFacebook ? "هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة." : isInstagram ? "هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة." : "اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط."}</p>
             </div>
             <span className={`connection-pill ${isEmail ? (isConnected ? "connected" : "pending") : settings.status}`}>
               {isEmail ? (isConnected ? statusLabel.connected : statusLabel.pending) : statusLabel[settings.status]}
@@ -1317,10 +1316,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 <label>
                   بريد الإرسال
                   <input dir="ltr" type="email" value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} placeholder="support@example.com" />
-                </label>
-                <label>
-                  Resend API Key اختياري
-                  <input dir="ltr" value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} placeholder="يمكن تركه فارغاً إذا أضفته في Vercel" />
                 </label>
                 <label>
                   Secret Token

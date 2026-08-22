@@ -10,17 +10,6 @@ type EmailDeliveryResult = {
   activationUrl?: string;
 };
 
-type SendEmailReplyInput = {
-  to: string;
-  text: string;
-  subject?: string;
-  from?: string;
-  apiKey?: string;
-};
-
-const resendApiKey = process.env.RESEND_API_KEY;
-const fromEmail = process.env.EMAIL_FROM || "AudienceW <onboarding@resend.dev>";
-
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character] || character);
 }
@@ -33,103 +22,40 @@ function activationEmailContent(name: string, activationUrl: string) {
   return { text, html };
 }
 
-export async function sendEmailReply({ to, text, subject, from, apiKey }: SendEmailReplyInput) {
-  const key = apiKey?.trim() || resendApiKey;
-  if (!key) {
-    throw new Error("EMAIL_PROVIDER_NOT_CONFIGURED");
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      from: from?.trim() || fromEmail,
-      to,
-      subject: subject?.trim() || "رد من AudienceW",
-      text
-    })
-  });
-
-  const payload = await response.json().catch(() => null) as { id?: string; message?: string; error?: string } | null;
-
-  if (!response.ok) {
-    console.error("Resend email send failed", { status: response.status, payload });
-    throw new Error(payload?.message || payload?.error || `EMAIL_SEND_FAILED (${response.status})`);
-  }
-
-  return payload;
-}
-
 export async function sendActivationEmail({ to, name, activationUrl }: SendActivationEmailInput): Promise<EmailDeliveryResult> {
   const content = activationEmailContent(name, activationUrl);
-  if (!resendApiKey) {
-    const googleScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL?.trim();
-    const googleScriptSecret = process.env.GOOGLE_APPS_SCRIPT_SECRET?.trim();
+  const googleScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL?.trim();
+  const googleScriptSecret = process.env.GOOGLE_APPS_SCRIPT_SECRET?.trim();
 
-    if (googleScriptUrl && googleScriptSecret) {
-      try {
-        const response = await fetch(googleScriptUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            secret: googleScriptSecret,
-            to,
-            subject: "تفعيل حسابك في AudienceW",
-            text: content.text,
-            html: content.html,
-            htmlBody: content.html
-          })
-        });
-        const payload = await response.json().catch(() => null) as { ok?: boolean; error?: string } | null;
-        if (response.ok && payload?.ok) {
-          return { sent: true, message: "تم إنشاء الحساب وإرسال رابط التفعيل إلى بريدك الإلكتروني." };
-        }
-        console.error("Google Script activation email failed", { status: response.status, payload });
-      } catch (error) {
-        console.error("Google Script activation email request failed", error);
+  if (googleScriptUrl && googleScriptSecret) {
+    try {
+      const response = await fetch(googleScriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          secret: googleScriptSecret,
+          to,
+          subject: "تفعيل حسابك في AudienceW",
+          text: content.text,
+          html: content.html,
+          htmlBody: content.html
+        })
+      });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (response.ok && payload?.ok) {
+        return { sent: true, message: "تم إنشاء الحساب وإرسال رابط التفعيل إلى بريدك الإلكتروني." };
       }
+      console.error("Google Script activation email failed", { status: response.status, payload });
+    } catch (error) {
+      console.error("Google Script activation email request failed", error);
     }
-
-    console.warn("Activation email was not sent because no working email provider is configured", { to, activationUrl });
-
-    return {
-      sent: false,
-      message: "تم إنشاء الحساب، لكن تعذر إرسال البريد. استخدم رابط التفعيل المباشر.",
-      activationUrl
-    };
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      from: fromEmail,
-      to,
-      subject: "تفعيل حسابك في AudienceW",
-      text: content.text,
-      html: content.html
-    })
-  });
-
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null);
-    console.error("Activation email failed", payload);
-
-    return {
-      sent: false,
-      message: "تم إنشاء الموظف، لكن تعذر إرسال رابط التفعيل عبر البريد. استخدم رابط التفعيل أدناه للتجربة.",
-      activationUrl
-    };
-  }
+  console.warn("Activation email was not sent because no working email provider is configured", { to, activationUrl });
 
   return {
-    sent: true,
-    message: "تم إنشاء الموظف وإرسال رابط التفعيل إلى بريده الإلكتروني."
+    sent: false,
+    message: "تم إنشاء الحساب، لكن تعذر إرسال البريد. استخدم رابط التفعيل المباشر.",
+    activationUrl
   };
 }
