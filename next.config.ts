@@ -22,18 +22,30 @@ const nextConfig: NextConfig = {
   agentRules: false,
   poweredByHeader: false,
   async headers() {
-    return [{
-      source: "/:path*",
-      headers: [
-        { key: "Content-Security-Policy", value: contentSecurityPolicy },
-        { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
-        { key: "X-Frame-Options", value: "DENY" },
-        { key: "X-Content-Type-Options", value: "nosniff" },
-        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-        { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(), browsing-topics=()" },
-        { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" }
-      ]
-    }];
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: contentSecurityPolicy },
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(), browsing-topics=()" },
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" }
+        ]
+      },
+      {
+        // These popups navigate through a third-party origin (TikTok/Meta)
+        // and back, which severs window.opener under same-origin-allow-popups
+        // once the browser treats the popup as cross-origin-isolated from its
+        // opener - the popup then can't postMessage/close itself and falls
+        // back to a full-page redirect instead. unsafe-none keeps the opener
+        // link intact for exactly these two routes.
+        source: "/api/:provider(meta|tiktok)/callback",
+        headers: [{ key: "Cross-Origin-Opener-Policy", value: "unsafe-none" }]
+      }
+    ];
   },
   outputFileTracingIncludes: {
     "/*": ["./node_modules/ffmpeg-static/ffmpeg", "./node_modules/ffmpeg-static/package.json"],
