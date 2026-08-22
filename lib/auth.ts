@@ -64,7 +64,8 @@ export async function getSubscriptionAccess(tenantId: string) {
   });
   if (!subscription) return { expired: false };
   const expiry = subscription.renewalAt ? new Date(subscription.renewalAt).getTime() : Number.NaN;
-  const expired = subscription.status === "تجربة" && Number.isFinite(expiry) && expiry <= Date.now();
+  const trialExpired = subscription.status === "تجربة" && Number.isFinite(expiry) && expiry <= Date.now();
+  const expired = trialExpired || subscription.status === "متوقف";
   return { expired, status: subscription.status, renewalAt: subscription.renewalAt };
 }
 
