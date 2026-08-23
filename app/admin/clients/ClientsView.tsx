@@ -350,17 +350,19 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                   <button type="button" onClick={() => openLimitEditor(client)}>
                     تعديل حد المستخدمين
                   </button>
-                  <button
-                    type="button"
-                    disabled={togglingLeadsId === client.tenantId}
-                    onClick={() => toggleLeadsAccess(client)}
-                  >
-                    {togglingLeadsId === client.tenantId
-                      ? "جاري الحفظ..."
-                      : client.leadsEnabled
-                        ? "إخفاء العملاء المحتملين (CRM)"
-                        : "إظهار العملاء المحتملين (CRM)"}
-                  </button>
+                  <div className="admin-leads-toggle" aria-disabled={togglingLeadsId === client.tenantId}>
+                    <span>العملاء المحتملون (CRM)</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={Boolean(client.leadsEnabled)}
+                      className={`admin-switch${client.leadsEnabled ? " is-on" : ""}`}
+                      disabled={togglingLeadsId === client.tenantId}
+                      onClick={() => toggleLeadsAccess(client)}
+                    >
+                      <span className="admin-switch-thumb" />
+                    </button>
+                  </div>
                   <button
                     type="button"
                     className="admin-danger-action"
