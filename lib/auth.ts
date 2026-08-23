@@ -83,9 +83,11 @@ export async function getCurrentUser(options: { allowExpired?: boolean } = {}) {
   }
   if (user.sessionVersion !== session.sessionVersion) return null;
 
-  const subscriptionAccess = user.isPlatformAdmin === 1
-    ? { expired: false, leadsEnabled: true }
-    : await getSubscriptionAccess(user.tenantId);
+  const subscriptionAccess = await getSubscriptionAccess(user.tenantId);
+  // Platform admins never get locked out of their own dashboard by an unpaid
+  // subscription, but feature toggles like leadsEnabled still apply so their
+  // own tenant reflects what a real client with that setting would see.
+  if (user.isPlatformAdmin === 1) subscriptionAccess.expired = false;
   if (subscriptionAccess.expired && !options.allowExpired) return null;
 
   const { passwordHash: _passwordHash, ...safeUser } = user;
