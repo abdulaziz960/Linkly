@@ -126,6 +126,7 @@ export default function CampaignsView({
   const [balance, setBalance] = useState(0);
   const [balanceTransactions, setBalanceTransactions] = useState<BalanceTransaction[]>([]);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceLoadError, setBalanceLoadError] = useState("");
   const [campaignSearch, setCampaignSearch] = useState("");
   const [campaignPageSize, setCampaignPageSize] = useState("10");
   const [campaignPage, setCampaignPage] = useState(1);
@@ -142,11 +143,18 @@ export default function CampaignsView({
 
   async function loadBalance() {
     setBalanceLoading(true);
-    const response = await fetch("/api/campaigns/balance");
-    if (response.ok) {
-      const data = await response.json();
-      setBalance(data.balance ?? 0);
-      setBalanceTransactions(data.transactions ?? []);
+    setBalanceLoadError("");
+    try {
+      const response = await fetch("/api/campaigns/balance");
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setBalanceLoadError(data?.error || `تعذر تحميل الرصيد (${response.status})`);
+      } else {
+        setBalance(data.balance ?? 0);
+        setBalanceTransactions(data.transactions ?? []);
+      }
+    } catch {
+      setBalanceLoadError("تعذر الاتصال بالسيرفر لتحميل الرصيد");
     }
     setBalanceLoading(false);
   }
@@ -366,6 +374,7 @@ export default function CampaignsView({
         </div>
       ) : (
         <div className="balance-page">
+          {balanceLoadError ? <p className="form-error">{balanceLoadError}</p> : null}
           <div className="balance-metrics">
             <div className="balance-metric action">
               <button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>{t("شحن رصيد", "Top up balance")}</button>
