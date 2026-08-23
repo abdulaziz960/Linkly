@@ -39,10 +39,12 @@ function templateStatusLabel(status: string, t: (ar: string, en: string) => stri
 
 export default function TemplatesView({
   onRefreshData,
-  templates
+  templates,
+  whatsappConnected
 }: {
   onRefreshData: () => Promise<void>;
   templates: MessageTemplate[];
+  whatsappConnected: boolean;
 }) {
   const { t, language } = useLanguage();
   const emptyForm = useMemo<TemplateFormState>(
@@ -72,10 +74,11 @@ export default function TemplatesView({
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
 
-  const approvedCount = templates.filter((template) => template.status === "معتمد").length;
-  const pendingCount = templates.filter((template) => template.status === "قيد المراجعة").length;
-  const rejectedCount = templates.filter((template) => template.status === "مرفوض").length;
-  const lastSync = templates.find((template) => template.syncedAt && template.syncedAt !== "-")?.syncedAt || "-";
+  const visibleTemplates = whatsappConnected ? templates : [];
+  const approvedCount = visibleTemplates.filter((template) => template.status === "معتمد").length;
+  const pendingCount = visibleTemplates.filter((template) => template.status === "قيد المراجعة").length;
+  const rejectedCount = visibleTemplates.filter((template) => template.status === "مرفوض").length;
+  const lastSync = visibleTemplates.find((template) => template.syncedAt && template.syncedAt !== "-")?.syncedAt || "-";
 
   function openCreateForm() {
     setError("");
@@ -157,33 +160,37 @@ export default function TemplatesView({
         <div className="panel-head">
           <h2>{t("قوالب واتساب", "WhatsApp Templates")}</h2>
           <span />
-          <button className="btn soft" type="button" onClick={syncTemplatesFromMeta} disabled={syncing}>{syncing ? t("جاري التحديث", "Syncing") : t("تحديث الحالة من Meta", "Sync status from Meta")}</button>
-          <button className="btn primary" type="button" onClick={openCreateForm}>{t("إنشاء قالب", "Create template")}</button>
+          <button className="btn soft" type="button" onClick={syncTemplatesFromMeta} disabled={syncing || !whatsappConnected}>{syncing ? t("جاري التحديث", "Syncing") : t("تحديث الحالة من Meta", "Sync status from Meta")}</button>
+          <button className="btn primary" type="button" onClick={openCreateForm} disabled={!whatsappConnected}>{t("إنشاء قالب", "Create template")}</button>
         </div>
         {error ? <p className="form-error">{error}</p> : null}
-        <div className="panel-body table-wrap">
-          <table>
-            <thead><tr><th>{t("القالب", "Template")}</th><th>{t("الفئة", "Category")}</th><th>{t("اللغة", "Language")}</th><th>{t("الحالة من Meta", "Meta status")}</th><th>{t("آخر مزامنة", "Last sync")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
-            <tbody>
-              {templates.map((template) => (
-                <tr key={template.name}>
-                  <td>
-                    <b>{template.name}</b>
-                    <span className="table-subtitle">{template.message}</span>
-                  </td>
-                  <td>{template.category || (template.type === "تسويق" ? "MARKETING" : "UTILITY")}</td>
-                  <td>{template.language}</td>
-                  <td><span className={template.status === "معتمد" ? "state ok" : template.status === "مرفوض" ? "state off" : "state warn"}>{templateStatusLabel(template.status || "", t)}</span></td>
-                  <td>{template.syncedAt || "-"}</td>
-                  <td className="row-actions">
-                    <button className="btn soft" type="button" onClick={() => openEditForm(template)}>{t("عرض", "View")}</button>
-                    <button className="btn danger" type="button" onClick={() => deleteTemplate(template)}>{t("حذف", "Delete")}</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {!whatsappConnected ? (
+          <p className="form-error">{t("اربط قناة واتساب من الإعدادات أولاً حتى تظهر القوالب.", "Connect a WhatsApp channel from Settings first for templates to show up.")}</p>
+        ) : (
+          <div className="panel-body table-wrap">
+            <table>
+              <thead><tr><th>{t("القالب", "Template")}</th><th>{t("الفئة", "Category")}</th><th>{t("اللغة", "Language")}</th><th>{t("الحالة من Meta", "Meta status")}</th><th>{t("آخر مزامنة", "Last sync")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
+              <tbody>
+                {templates.map((template) => (
+                  <tr key={template.name}>
+                    <td>
+                      <b>{template.name}</b>
+                      <span className="table-subtitle">{template.message}</span>
+                    </td>
+                    <td>{template.category || (template.type === "تسويق" ? "MARKETING" : "UTILITY")}</td>
+                    <td>{template.language}</td>
+                    <td><span className={template.status === "معتمد" ? "state ok" : template.status === "مرفوض" ? "state off" : "state warn"}>{templateStatusLabel(template.status || "", t)}</span></td>
+                    <td>{template.syncedAt || "-"}</td>
+                    <td className="row-actions">
+                      <button className="btn soft" type="button" onClick={() => openEditForm(template)}>{t("عرض", "View")}</button>
+                      <button className="btn danger" type="button" onClick={() => deleteTemplate(template)}>{t("حذف", "Delete")}</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {formOpen ? (

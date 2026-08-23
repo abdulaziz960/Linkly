@@ -80,7 +80,7 @@ export default function DashboardViewRouter({
     );
   }
   if (view === "campaigns") return <CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
-  if (view === "templates") return <TemplatesView templates={templates} onRefreshData={onRefreshData} />;
+  if (view === "templates") return <TemplatesView templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "workHours") return <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} />;
   if (view === "reports") return <ReportsView conversations={conversations} employees={employees} teams={teams} />;
