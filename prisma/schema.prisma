@@ -386,6 +386,7 @@ model Subscription {
   plan          String @default("باقة النمو")
   status        String @default("تجربة")
   employeeLimit Int    @default(3) @map("employee_limit")
+  leadsEnabled  Int    @default(1) @map("leads_enabled")
   amount        Int    @default(0)
   billingCycle  String @default("شهري") @map("billing_cycle")
   renewalAt     String @default("") @map("renewal_at")

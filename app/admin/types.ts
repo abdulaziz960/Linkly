@@ -7,6 +7,7 @@ export type SubscriptionRow = {
   plan: string;
   status: string;
   employeeLimit: number;
+  leadsEnabled: number;
   amount: number;
   billingCycle: string;
   renewalAt: string;

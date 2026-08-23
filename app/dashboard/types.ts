@@ -197,6 +197,7 @@ export type DashboardUser = {
   email: string;
   role: string;
   tenantId: string;
+  leadsEnabled?: boolean;
 };
 
 export type IntegrationSettings = {

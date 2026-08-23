@@ -52,7 +52,11 @@ async function readApiError(response: Response, language: "ar" | "en" = "ar") {
 }
 
 function getAllowedViews(user: DashboardUser, employee?: Employee): ViewKey[] {
-  return computeAllowedViews(user.role, employee?.permissions ?? "");
+  const views = computeAllowedViews(user.role, employee?.permissions ?? "");
+  // The platform admin can hide the CRM/leads feature per client - this
+  // overrides any role or employee permission, owner included.
+  if (user.leadsEnabled === false) return views.filter((view) => view !== "leads");
+  return views;
 }
 
 function canSeeAllConversations(user: DashboardUser, employee?: Employee) {

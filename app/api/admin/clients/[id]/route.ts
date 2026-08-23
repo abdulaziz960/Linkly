@@ -12,6 +12,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { id: tenantId } = await params;
   const body = (await request.json()) as {
     employeeLimit?: number;
+    leadsEnabled?: boolean;
     plan?: string;
     status?: string;
     amount?: number;

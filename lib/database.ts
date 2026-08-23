@@ -348,6 +348,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'باقة النمو'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'تجربة'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS employee_limit INTEGER NOT NULL DEFAULT 3`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS leads_enabled INTEGER NOT NULL DEFAULT 1`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS amount INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS billing_cycle TEXT NOT NULL DEFAULT 'شهري'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS renewal_at TEXT NOT NULL DEFAULT ''`);
@@ -880,6 +881,10 @@ async function runSchemaMigrations() {
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
+  const subscriptionColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(subscriptions)`);
+  if (!subscriptionColumns.some((column) => column.name === "leads_enabled")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN leads_enabled INTEGER NOT NULL DEFAULT 1`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscription_payments (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,

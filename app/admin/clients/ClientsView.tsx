@@ -43,6 +43,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
   const [chargeError, setChargeError] = useState("");
   const [chargeUrl, setChargeUrl] = useState("");
   const [deletingId, setDeletingId] = useState("");
+  const [togglingLeadsId, setTogglingLeadsId] = useState("");
 
   function openLimitEditor(client: SubscriptionRow) {
     setLimitClient(client);
@@ -98,6 +99,24 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
 
     if (!response.ok || !result.ok) {
       window.alert(result.error || "تعذر حذف العميل");
+      return;
+    }
+
+    router.refresh();
+  }
+
+  async function toggleLeadsAccess(client: SubscriptionRow) {
+    setTogglingLeadsId(client.tenantId);
+    const response = await fetch(`/api/admin/clients/${client.tenantId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leadsEnabled: !client.leadsEnabled })
+    });
+    const result = (await response.json()) as { ok: boolean; error?: string };
+    setTogglingLeadsId("");
+
+    if (!response.ok || !result.ok) {
+      window.alert(result.error || "تعذر تحديث صلاحية العملاء المحتملين");
       return;
     }
 
@@ -330,6 +349,17 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                   <Link href={`/admin/logs?client=${client.tenantId}`}>سجل الحركة</Link>
                   <button type="button" onClick={() => openLimitEditor(client)}>
                     تعديل حد المستخدمين
+                  </button>
+                  <button
+                    type="button"
+                    disabled={togglingLeadsId === client.tenantId}
+                    onClick={() => toggleLeadsAccess(client)}
+                  >
+                    {togglingLeadsId === client.tenantId
+                      ? "جاري الحفظ..."
+                      : client.leadsEnabled
+                        ? "إخفاء العملاء المحتملين (CRM)"
+                        : "إظهار العملاء المحتملين (CRM)"}
                   </button>
                   <button
                     type="button"

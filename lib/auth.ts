@@ -60,13 +60,13 @@ export function verifySessionToken(token?: string) {
 export async function getSubscriptionAccess(tenantId: string) {
   const subscription = await prisma.subscription.findUnique({
     where: { tenantId },
-    select: { status: true, renewalAt: true }
+    select: { status: true, renewalAt: true, leadsEnabled: true }
   });
-  if (!subscription) return { expired: false };
+  if (!subscription) return { expired: false, leadsEnabled: true };
   const expiry = subscription.renewalAt ? new Date(subscription.renewalAt).getTime() : Number.NaN;
   const trialExpired = subscription.status === "تجربة" && Number.isFinite(expiry) && expiry <= Date.now();
   const expired = trialExpired || subscription.status === "متوقف";
-  return { expired, status: subscription.status, renewalAt: subscription.renewalAt };
+  return { expired, status: subscription.status, renewalAt: subscription.renewalAt, leadsEnabled: subscription.leadsEnabled !== 0 };
 }
 
 export async function getCurrentUser(options: { allowExpired?: boolean } = {}) {
@@ -84,11 +84,11 @@ export async function getCurrentUser(options: { allowExpired?: boolean } = {}) {
   if (user.sessionVersion !== session.sessionVersion) return null;
 
   const subscriptionAccess = user.isPlatformAdmin === 1
-    ? { expired: false }
+    ? { expired: false, leadsEnabled: true }
     : await getSubscriptionAccess(user.tenantId);
   if (subscriptionAccess.expired && !options.allowExpired) return null;
 
   const { passwordHash: _passwordHash, ...safeUser } = user;
   void _passwordHash;
-  return { ...safeUser, subscriptionExpired: subscriptionAccess.expired };
+  return { ...safeUser, subscriptionExpired: subscriptionAccess.expired, leadsEnabled: subscriptionAccess.leadsEnabled };
 }
