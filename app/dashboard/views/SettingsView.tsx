@@ -1008,7 +1008,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       return (
         <div className="meta-wizard-panel">
           <div className="meta-signup-card">
-            <span className="provider-round-icon">{isInstagram ? "◎" : isFacebook ? "f" : "☏"}</span>
+            <span className={`provider-round-icon${!isInstagram && !isFacebook ? " channel-icon-whatsapp" : ""}`}>
+              {isInstagram ? "◎" : isFacebook ? "f" : <ChannelIcon id="whatsapp" />}
+            </span>
             <h3>{isInstagram ? t("ربط Instagram عبر Meta", "Connect Instagram with Meta") : isFacebook ? t("ربط صفحة Facebook", "Connect Facebook Page") : t("إعداد سريع عبر Meta", "Quick setup with Meta")}</h3>
             <p>
               {isInstagram
