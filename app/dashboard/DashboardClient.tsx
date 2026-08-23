@@ -128,11 +128,8 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [themePreference, setThemePreference] = useState<"light" | "dark" | "system">("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [language, setLanguage] = useState<"ar" | "en">("ar");
   const [draftStatus, setDraftStatus] = useState<Employee["status"]>("متصل");
-  const [draftTheme, setDraftTheme] = useState<"light" | "dark" | "system">("system");
   const [draftLanguage, setDraftLanguage] = useState<"ar" | "en">("ar");
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -218,9 +215,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, [scopedConversations, selectedChannel]);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem("audiencew-theme");
-    if (stored === "light" || stored === "dark" || stored === "system") setThemePreference(stored);
-
     const storedLanguage = window.localStorage.getItem("audiencew-language");
     if (storedLanguage === "ar" || storedLanguage === "en") setLanguage(storedLanguage);
 
@@ -235,22 +229,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     if (!preferencesLoaded) return;
     window.localStorage.setItem("audiencew-language", language);
   }, [language, preferencesLoaded]);
-
-  useEffect(() => {
-    if (!preferencesLoaded) return;
-    window.localStorage.setItem("audiencew-theme", themePreference);
-
-    if (themePreference !== "system") {
-      setResolvedTheme(themePreference);
-      return;
-    }
-
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const applySystemTheme = () => setResolvedTheme(media.matches ? "dark" : "light");
-    applySystemTheme();
-    media.addEventListener("change", applySystemTheme);
-    return () => media.removeEventListener("change", applySystemTheme);
-  }, [preferencesLoaded, themePreference]);
 
   useEffect(() => {
     fetch("/api/settings/integration")
@@ -302,12 +280,11 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   useEffect(() => {
     if (!profileOpen) return;
     setDraftStatus(currentProfileStatus);
-    setDraftTheme(themePreference);
     setDraftLanguage(language);
     setProfileFeedback(null);
     // Sync drafts only at the moment the dialog opens - re-running this
-    // whenever currentProfileStatus/themePreference/language change would
-    // overwrite the user's in-progress picks with the still-unsaved values.
+    // whenever currentProfileStatus/language change would overwrite the
+    // user's in-progress picks with the still-unsaved values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileOpen]);
 
@@ -949,11 +926,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     setProfileFeedback(null);
     try {
       if (draftStatus !== currentProfileStatus) await handleProfileStatusChange(draftStatus);
-      setThemePreference(draftTheme);
       setLanguage(draftLanguage);
-      window.localStorage.setItem("audiencew-theme", draftTheme);
       window.localStorage.setItem("audiencew-language", draftLanguage);
-      setProfileFeedback({ type: "success", message: "تم حفظ الحالة والمظهر واللغة بنجاح." });
+      setProfileFeedback({ type: "success", message: "تم حفظ الحالة واللغة بنجاح." });
     } catch (error) {
       setProfileFeedback({ type: "error", message: error instanceof Error ? error.message : "تعذر حفظ إعدادات الملف الشخصي." });
     } finally {
@@ -962,7 +937,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }
 
   return (
-    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""}`} data-theme={resolvedTheme}>
+    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""}`}>
       <DashboardSidebar
         activeView={activeView}
         allowedViews={allowedViews}
@@ -1088,22 +1063,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                     ))}
                   </div>
                   <div className="theme-picker">
-                    <span>المظهر</span>
-                    <div className="theme-picker-options">
-                      {([["light", "فاتح"], ["dark", "داكن"], ["system", "النظام"]] as const).map(([value, label]) => (
-                        <button
-                          key={value}
-                          type="button"
-                          className={draftTheme === value ? "active" : ""}
-                          aria-pressed={draftTheme === value}
-                          onClick={() => setDraftTheme(value)}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="theme-picker">
                     <span>{draftLanguage === "en" ? "Language" : "اللغة"}</span>
                     <div className="theme-picker-options">
                       {([["ar", "العربية"], ["en", "English"]] as const).map(([value, label]) => (
@@ -1161,7 +1120,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                 type="button"
                 onClick={() => {
                   setDraftStatus(currentProfileStatus);
-                  setDraftTheme(themePreference);
                   setDraftLanguage(language);
                   setProfileOpen(false);
                   setProfilePanel("main");
