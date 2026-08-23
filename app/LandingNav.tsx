@@ -37,6 +37,7 @@ export default function LandingNav() {
           <a href="#how" onClick={close}>طريقة العمل</a>
           <a href="#pricing" onClick={close}>الأسعار</a>
           <a href="#faq" onClick={close}>الأسئلة الشائعة</a>
+          <Link href="/en" onClick={close}>English</Link>
           <Link className={s.mobileLogin} href="/login" onClick={close}>تسجيل الدخول</Link>
           <Link className={s.mobileNavCta} href="/signup" onClick={close}>ابدأ تجربتك مجانًا</Link>
         </nav>
