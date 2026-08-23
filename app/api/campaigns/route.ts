@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
         name,
         channel: "whatsapp",
         templateName,
+        language: template.language || "ar",
         scheduledAt: isScheduledFuture ? new Date(scheduledAt).toISOString() : "",
         sent: 0,
         total: recipients.length,

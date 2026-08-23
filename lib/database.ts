@@ -227,6 +227,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'whatsapp'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS template_name TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'ar'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS scheduled_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipients (
       id TEXT PRIMARY KEY,
@@ -659,6 +660,7 @@ async function runSchemaMigrations() {
     ["tenant_id", "tenant-demo"],
     ["channel", "whatsapp"],
     ["template_name", ""],
+    ["language", "ar"],
     ["scheduled_at", ""]
   ];
   for (const [columnName, defaultValue] of campaignTextColumns) {

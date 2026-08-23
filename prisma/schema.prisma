@@ -188,6 +188,7 @@ model Campaign {
   name         String
   channel      String @default("whatsapp")
   templateName String @default("") @map("template_name")
+  language     String @default("ar") @map("language")
   scheduledAt  String @default("") @map("scheduled_at")
   sent         Int    @default(0)
   total        Int    @default(0)

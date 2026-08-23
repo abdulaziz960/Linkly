@@ -200,7 +200,7 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
 
       let result: Awaited<ReturnType<typeof sendWhatsAppTemplate>>;
       try {
-        result = await sendWhatsAppTemplate(tenantId, recipient.phone, campaign.templateName, "ar");
+        result = await sendWhatsAppTemplate(tenantId, recipient.phone, campaign.templateName, campaign.language || "ar");
       } catch {
         await adjustCampaignBalance(tenantId, 1);
         await prisma.campaignRecipient.update({
