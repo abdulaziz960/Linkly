@@ -20,6 +20,7 @@ export async function GET() {
 
   return jsonOk({
     balance,
+    debugTenantId: user.tenantId,
     transactions: payments.map((payment) => ({
       id: payment.id,
       balance: payment.status === "مكتمل" ? payment.messages : 0,

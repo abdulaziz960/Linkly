@@ -127,6 +127,7 @@ export default function CampaignsView({
   const [balanceTransactions, setBalanceTransactions] = useState<BalanceTransaction[]>([]);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [balanceLoadError, setBalanceLoadError] = useState("");
+  const [debugTenantId, setDebugTenantId] = useState("");
   const [campaignSearch, setCampaignSearch] = useState("");
   const [campaignPageSize, setCampaignPageSize] = useState("10");
   const [campaignPage, setCampaignPage] = useState(1);
@@ -152,6 +153,7 @@ export default function CampaignsView({
       } else {
         setBalance(data.balance ?? 0);
         setBalanceTransactions(data.transactions ?? []);
+        setDebugTenantId(data.debugTenantId ?? "");
       }
     } catch {
       setBalanceLoadError("تعذر الاتصال بالسيرفر لتحميل الرصيد");
@@ -375,6 +377,7 @@ export default function CampaignsView({
       ) : (
         <div className="balance-page">
           {balanceLoadError ? <p className="form-error">{balanceLoadError}</p> : null}
+          {debugTenantId ? <p style={{ fontSize: 12, opacity: 0.6 }}>debug tenantId: {debugTenantId}</p> : null}
           <div className="balance-metrics">
             <div className="balance-metric action">
               <button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>{t("شحن رصيد", "Top up balance")}</button>
