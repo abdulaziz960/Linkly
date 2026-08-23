@@ -1029,6 +1029,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             tags={tags}
             teams={teams}
             templates={templates}
+            whatsappConnected={integrationStatus === "connected"}
             onIntegrationChange={handleIntegrationChange}
             onRefreshData={loadDashboardData}
             onOpenConversation={handleOpenConversation}

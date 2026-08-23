@@ -39,6 +39,7 @@ type DashboardViewRouterProps = {
   tags: Tag[];
   teams: Team[];
   templates: MessageTemplate[];
+  whatsappConnected: boolean;
   onIntegrationChange: (settings: IntegrationSettings) => void;
   onRefreshData: () => Promise<void>;
   onOpenConversation: (conversationId: string) => void;
@@ -60,6 +61,7 @@ export default function DashboardViewRouter({
   tags,
   teams,
   templates,
+  whatsappConnected,
   view
 }: DashboardViewRouterProps) {
   if (view === "contacts") return <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
@@ -77,7 +79,7 @@ export default function DashboardViewRouter({
       />
     );
   }
-  if (view === "campaigns") return <CampaignsView campaigns={campaigns} templates={templates} onRefreshData={onRefreshData} />;
+  if (view === "campaigns") return <CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
   if (view === "templates") return <TemplatesView templates={templates} onRefreshData={onRefreshData} />;
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "workHours") return <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} />;

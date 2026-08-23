@@ -80,20 +80,22 @@ function reportRowStatusLabel(status: string, t: (ar: string, en: string) => str
 export default function CampaignsView({
   campaigns,
   templates,
+  whatsappConnected,
   onRefreshData
 }: {
   campaigns: Campaign[];
   templates: MessageTemplate[];
+  whatsappConnected: boolean;
   onRefreshData: () => Promise<void>;
 }) {
   const { t, language } = useLanguage();
   const approvedTemplates = useMemo(
-    () => templates.filter((template) => (
+    () => !whatsappConnected ? [] : templates.filter((template) => (
       template.status === "معتمد" &&
       template.type !== "خدمة" &&
       (template.category === "MARKETING" || template.type === "تسويق")
     )),
-    [templates]
+    [templates, whatsappConnected]
   );
   const defaultTemplateName = approvedTemplates[0]?.name || "";
   const emptyForm = useMemo<CampaignForm>(
@@ -445,7 +447,11 @@ export default function CampaignsView({
                           <option key={template.name} value={template.name}>{template.name}</option>
                         ))
                       ) : (
-                        <option value="">{t("لا توجد قوالب معتمدة من Meta", "No templates approved by Meta")}</option>
+                        <option value="">
+                          {!whatsappConnected
+                            ? t("اربط قناة واتساب أولاً", "Connect a WhatsApp channel first")
+                            : t("لا توجد قوالب معتمدة من Meta", "No templates approved by Meta")}
+                        </option>
                       )}
                     </select>
                     <small className="field-hint">{t("تظهر هنا فقط قوالب Meta التسويقية المعتمدة والجاهزة للإرسال.", "Only Meta marketing templates that are approved and ready to send appear here.")}</small>
@@ -476,7 +482,13 @@ export default function CampaignsView({
                   {form.scheduled ? (
                     <label><span>{t("تاريخ ووقت الإرسال", "Send date and time")}</span><input type="datetime-local" value={form.scheduledAt} onChange={(event) => setForm((current) => ({ ...current, scheduledAt: event.target.value }))} /></label>
                   ) : null}
-                  {!approvedTemplates.length ? <p className="form-error">{t("لا يمكن إنشاء حملة حتى تتم مزامنة قالب تسويقي معتمد من Meta.", "You can't create a campaign until an approved Meta marketing template has been synced.")}</p> : null}
+                  {!approvedTemplates.length ? (
+                    <p className="form-error">
+                      {!whatsappConnected
+                        ? t("لا يمكن إنشاء حملة قبل ربط قناة واتساب من الإعدادات.", "You can't create a campaign before connecting a WhatsApp channel from Settings.")
+                        : t("لا يمكن إنشاء حملة حتى تتم مزامنة قالب تسويقي معتمد من Meta.", "You can't create a campaign until an approved Meta marketing template has been synced.")}
+                    </p>
+                  ) : null}
                 </>
               ) : null}
               {formError ? <p className="form-error">{formError}</p> : null}
