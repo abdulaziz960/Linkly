@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Campaign, MessageTemplate } from "../types";
+import { useLanguage } from "../i18n";
 
 type CampaignForm = {
   id?: string;
@@ -49,6 +50,33 @@ const marketingMessagePrices: PricingTier[] = [
   { range: "500k إلى 1m", min: 500001, max: 1000000, rate: 0.012 }
 ];
 
+function pricingRangeLabel(range: string, language: string) {
+  if (language !== "en") return range;
+  return range.replace("إلى", "to");
+}
+
+function campaignStatusLabel(status: string, t: (ar: string, en: string) => string) {
+  if (status === "الحملة أنجزت") return t("الحملة أنجزت", "Completed");
+  if (status === "قيد الإرسال") return t("قيد الإرسال", "Sending");
+  if (status === "مجدولة") return t("مجدولة", "Scheduled");
+  if (status === "ملغاة") return t("ملغاة", "Cancelled");
+  return status;
+}
+
+function transactionStatusLabel(status: string, t: (ar: string, en: string) => string) {
+  if (status === "مكتمل") return t("مكتمل", "Completed");
+  if (status === "قيد الانتظار") return t("قيد الانتظار", "Pending");
+  if (status === "فشل") return t("فشل", "Failed");
+  return status;
+}
+
+function reportRowStatusLabel(status: string, t: (ar: string, en: string) => string) {
+  if (status === "تم الإرسال") return t("تم الإرسال", "Sent");
+  if (status === "قيد الإرسال") return t("قيد الإرسال", "Sending");
+  if (status === "فشل") return t("فشل", "Failed");
+  return status;
+}
+
 export default function CampaignsView({
   campaigns,
   templates,
@@ -58,6 +86,7 @@ export default function CampaignsView({
   templates: MessageTemplate[];
   onRefreshData: () => Promise<void>;
 }) {
+  const { t, language } = useLanguage();
   const approvedTemplates = useMemo(
     () => templates.filter((template) => (
       template.status === "معتمد" &&
@@ -209,7 +238,7 @@ export default function CampaignsView({
     }
 
     if (!campaignFile) {
-      setFormError("ارفع ملف Excel أو CSV يحتوي على أرقام العملاء");
+      setFormError(t("ارفع ملف Excel أو CSV يحتوي على أرقام العملاء", "Upload an Excel or CSV file containing your customers' numbers"));
       setSaving(false);
       return;
     }
@@ -224,7 +253,7 @@ export default function CampaignsView({
     const response = await fetch("/api/campaigns", { method: "POST", body });
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
-      setFormError(payload?.error || "تعذر إنشاء الحملة");
+      setFormError(payload?.error || t("تعذر إنشاء الحملة", "Unable to create the campaign"));
       setSaving(false);
       return;
     }
@@ -236,13 +265,13 @@ export default function CampaignsView({
   }
 
   async function deleteCampaign(campaign: Campaign) {
-    if (!window.confirm(`حذف حملة ${campaign.name}؟`)) return;
+    if (!window.confirm(t(`حذف حملة ${campaign.name}؟`, `Delete the "${campaign.name}" campaign?`))) return;
     await fetch(`/api/campaigns/${campaign.id}`, { method: "DELETE" });
     await onRefreshData();
   }
 
   async function stopCampaign(campaign: Campaign) {
-    if (!window.confirm(`إيقاف حملة ${campaign.name}؟ الأرقام اللي ما وصلها الإرسال بعد بتبقى موقوفة.`)) return;
+    if (!window.confirm(t(`إيقاف حملة ${campaign.name}؟ الأرقام اللي ما وصلها الإرسال بعد بتبقى موقوفة.`, `Stop the "${campaign.name}" campaign? Numbers that haven't been messaged yet will remain unsent.`))) return;
     await fetch(`/api/campaigns/${campaign.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -264,7 +293,7 @@ export default function CampaignsView({
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setChargeError(payload?.error || "تعذر إنشاء طلب الشحن");
+      setChargeError(payload?.error || t("تعذر إنشاء طلب الشحن", "Unable to create the top-up request"));
       setChargeSubmitting(false);
       return;
     }
@@ -276,7 +305,7 @@ export default function CampaignsView({
   }
 
   function downloadCampaignReport(campaign: Campaign) {
-    const header = ["رقم الهاتف", "الحالة", "التاريخ"];
+    const header = [t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التاريخ", "Date")];
     const csv = [header, ...reportRows.map((row) => [row.phone, row.status, row.date])]
       .map((row) => row.map(escapeCsvCell).join(","))
       .join("\n");
@@ -292,41 +321,41 @@ export default function CampaignsView({
   return (
     <section className="page-stack">
       <div className="section-tabs campaign-tabs">
-        <button className={activeTab === "campaigns" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("campaigns")}>الحملات ✈</button>
-        <button className={activeTab === "balance" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("balance")}>الرصيد و الشحن ▣</button>
+        <button className={activeTab === "campaigns" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("campaigns")}>{t("الحملات", "Campaigns")} ✈</button>
+        <button className={activeTab === "balance" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("balance")}>{t("الرصيد و الشحن", "Balance & Top-up")} ▣</button>
       </div>
 
       {activeTab === "campaigns" ? (
         <div className="campaign-board">
           <div className="campaign-toolbar">
-            <input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); }} placeholder="بحث..." />
-            <button className="btn primary" type="button" onClick={() => openForm()}>＋ إنشاء حملة</button>
-            <button className="reload" type="button" onClick={onRefreshData}>↻ إعادة تحميل</button>
-            <label className="entries">عرض <select value={campaignPageSize} onChange={(event) => { setCampaignPageSize(event.target.value); setCampaignPage(1); }}><option>10</option><option>25</option><option>50</option></select> إدخالات</label>
+            <input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); }} placeholder={t("بحث...", "Search...")} />
+            <button className="btn primary" type="button" onClick={() => openForm()}>＋ {t("إنشاء حملة", "Create campaign")}</button>
+            <button className="reload" type="button" onClick={onRefreshData}>↻ {t("إعادة تحميل", "Reload")}</button>
+            <label className="entries">{t("عرض", "Show")} <select value={campaignPageSize} onChange={(event) => { setCampaignPageSize(event.target.value); setCampaignPage(1); }}><option>10</option><option>25</option><option>50</option></select> {t("إدخالات", "entries")}</label>
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>الحملة</th><th>الرسائل المرسلة</th><th>حالة تقدم الحملة</th><th>الحالة</th><th>آخر تحديث</th><th /></tr></thead>
+              <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("الرسائل المرسلة", "Messages sent")}</th><th>{t("حالة تقدم الحملة", "Progress")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th /></tr></thead>
               <tbody>
                 {campaignPagination.items.map((campaign) => (
                   <tr key={campaign.id}>
                     <td><div className="campaign-name"><span className="campaign-thumb">▧</span><span><b>{campaign.name}</b></span></div></td>
                     <td>{campaign.sent}/{campaign.total}</td>
                     <td><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
-                    <td><span className={campaign.status === "ملغاة" ? "state off" : "state ok"}>{campaign.status}</span></td>
+                    <td><span className={campaign.status === "ملغاة" ? "state off" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
                     <td><span className="campaign-date">◴ {campaign.updatedAt}</span></td>
                     <td className="row-actions">
-                      <button className="campaign-report" type="button" onClick={() => openReport(campaign)}>↗ تقرير الحملة</button>
+                      <button className="campaign-report" type="button" onClick={() => openReport(campaign)}>↗ {t("تقرير الحملة", "Campaign report")}</button>
                       {campaign.status === "قيد الإرسال" || campaign.status === "مجدولة" ? (
-                        <button className="btn soft" type="button" onClick={() => stopCampaign(campaign)}>إيقاف</button>
+                        <button className="btn soft" type="button" onClick={() => stopCampaign(campaign)}>{t("إيقاف", "Stop")}</button>
                       ) : null}
-                      <button className="btn soft" type="button" onClick={() => openForm(campaign)}>تعديل الاسم</button>
-                      <button className="btn danger" type="button" onClick={() => deleteCampaign(campaign)}>حذف</button>
+                      <button className="btn soft" type="button" onClick={() => openForm(campaign)}>{t("تعديل الاسم", "Edit name")}</button>
+                      <button className="btn danger" type="button" onClick={() => deleteCampaign(campaign)}>{t("حذف", "Delete")}</button>
                     </td>
                   </tr>
                 ))}
                 {!campaignPagination.items.length ? (
-                  <tr><td colSpan={6}>لا توجد حملات مطابقة للبحث.</td></tr>
+                  <tr><td colSpan={6}>{t("لا توجد حملات مطابقة للبحث.", "No campaigns match your search.")}</td></tr>
                 ) : null}
               </tbody>
             </table>
@@ -337,14 +366,14 @@ export default function CampaignsView({
         <div className="balance-page">
           <div className="balance-metrics">
             <div className="balance-metric action">
-              <button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>شحن رصيد</button>
+              <button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>{t("شحن رصيد", "Top up balance")}</button>
             </div>
             <div className="balance-metric used">
-              <span>تم الاستخدام (كل الحملات)</span>
+              <span>{t("تم الاستخدام (كل الحملات)", "Used (all campaigns)")}</span>
               <b>{usedCampaignMessages.toLocaleString("en-US")}</b>
             </div>
             <div className="balance-metric allowed">
-              <span>الرصيد المتاح</span>
+              <span>{t("الرصيد المتاح", "Available balance")}</span>
               <b>{balanceLoading ? "..." : balance.toLocaleString("en-US")}</b>
             </div>
           </div>
@@ -352,33 +381,33 @@ export default function CampaignsView({
           <div className="campaign-board balance-board transactions-board">
             <div className="transactions-head">
               <span className="transactions-pulse">⌁</span>
-              <h2>المعاملات</h2>
+              <h2>{t("المعاملات", "Transactions")}</h2>
             </div>
             <div className="campaign-toolbar transactions-toolbar">
-              <input value={balanceSearch} onChange={(event) => { setBalanceSearch(event.target.value); setBalancePage(1); }} placeholder="بحث..." />
-              <button className="btn primary" type="button" onClick={() => setPricingOpen(true)}>▭ أسعار الرسائل التسويقية</button>
+              <input value={balanceSearch} onChange={(event) => { setBalanceSearch(event.target.value); setBalancePage(1); }} placeholder={t("بحث...", "Search...")} />
+              <button className="btn primary" type="button" onClick={() => setPricingOpen(true)}>▭ {t("أسعار الرسائل التسويقية", "Marketing message pricing")}</button>
               <label className="entries">
-                عرض
+                {t("عرض", "Show")}
                 <select value={balancePageSize} onChange={(event) => { setBalancePageSize(event.target.value); setBalancePage(1); }}>
                   <option>10</option><option>25</option><option>50</option>
                 </select>
-                إدخالات
+                {t("إدخالات", "entries")}
               </label>
             </div>
             <div className="table-wrap">
               <table>
-                <thead><tr><th>رصيد</th><th>الاستخدام</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+                <thead><tr><th>{t("رصيد", "Balance")}</th><th>{t("الاستخدام", "Usage")}</th><th>{t("الحالة", "Status")}</th><th>{t("التاريخ", "Date")}</th></tr></thead>
                 <tbody>
                   {balancePagination.items.map((item) => (
                     <tr key={item.id}>
                       <td><span className={item.balance > 0 ? "balance-credit" : "balance-debit"}>{formatBalanceMovement(item.balance)}</span></td>
                       <td>{item.usage}</td>
-                      <td><span className={item.status === "مكتمل" ? "state ok" : item.status === "قيد الانتظار" ? "state warn" : "state off"}>{item.status}</span></td>
+                      <td><span className={item.status === "مكتمل" ? "state ok" : item.status === "قيد الانتظار" ? "state warn" : "state off"}>{transactionStatusLabel(item.status, t)}</span></td>
                       <td dir="ltr">{item.date}</td>
                     </tr>
                   ))}
                   {!balancePagination.items.length ? (
-                    <tr><td colSpan={4}>لا توجد معاملات مطابقة للبحث.</td></tr>
+                    <tr><td colSpan={4}>{t("لا توجد معاملات مطابقة للبحث.", "No transactions match your search.")}</td></tr>
                   ) : null}
                 </tbody>
               </table>
@@ -390,21 +419,21 @@ export default function CampaignsView({
 
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
-          <form className="account-modal form-modal campaign-create-modal" role="dialog" aria-modal="true" aria-label="حفظ حملة" onSubmit={submitCampaign} onClick={(event) => event.stopPropagation()}>
-            <header className="modal-head"><button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setFormOpen(false)}>×</button><h2>{form.id ? "تعديل اسم الحملة" : "إنشاء حملة"}</h2></header>
+          <form className="account-modal form-modal campaign-create-modal" role="dialog" aria-modal="true" aria-label={t("حفظ حملة", "Save campaign")} onSubmit={submitCampaign} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head"><button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button><h2>{form.id ? t("تعديل اسم الحملة", "Edit campaign name") : t("إنشاء حملة", "Create campaign")}</h2></header>
             <div className="account-modal-body form-grid">
-              {!form.id ? <div className="campaign-warning">الرجاء قبل إرسال أي حملة قم بإنشاء حملة تجريبية تحتوي على رقمك فقط، لتتأكد من الإرسال ووصول الرسالة دون أي مشكلة في الإرسال</div> : null}
-              <label><span>اسم الحملة</span><input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="اسم الحملة" required /></label>
+              {!form.id ? <div className="campaign-warning">{t("الرجاء قبل إرسال أي حملة قم بإنشاء حملة تجريبية تحتوي على رقمك فقط، لتتأكد من الإرسال ووصول الرسالة دون أي مشكلة في الإرسال", "Before sending any campaign, please create a test campaign with just your own number to confirm the message sends and arrives without issues.")}</div> : null}
+              <label><span>{t("اسم الحملة", "Campaign name")}</span><input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder={t("اسم الحملة", "Campaign name")} required /></label>
               {!form.id ? (
                 <>
                   <label>
-                    <span>قناة الواتس اب</span>
+                    <span>{t("قناة الواتس اب", "WhatsApp channel")}</span>
                     <select value={form.channel} onChange={(event) => setForm((current) => ({ ...current, channel: event.target.value }))}>
-                      <option value="واتساب">واتساب</option>
+                      <option value="واتساب">{t("واتساب", "WhatsApp")}</option>
                     </select>
                   </label>
                   <label>
-                    <span>النموذج</span>
+                    <span>{t("النموذج", "Template")}</span>
                     <select
                       value={form.templateName}
                       onChange={(event) => setForm((current) => ({ ...current, templateName: event.target.value }))}
@@ -416,16 +445,16 @@ export default function CampaignsView({
                           <option key={template.name} value={template.name}>{template.name}</option>
                         ))
                       ) : (
-                        <option value="">لا توجد قوالب معتمدة من Meta</option>
+                        <option value="">{t("لا توجد قوالب معتمدة من Meta", "No templates approved by Meta")}</option>
                       )}
                     </select>
-                    <small className="field-hint">تظهر هنا فقط قوالب Meta التسويقية المعتمدة والجاهزة للإرسال.</small>
+                    <small className="field-hint">{t("تظهر هنا فقط قوالب Meta التسويقية المعتمدة والجاهزة للإرسال.", "Only Meta marketing templates that are approved and ready to send appear here.")}</small>
                   </label>
                   <label>
-                    <span>ملف اكسل أو CSV</span>
+                    <span>{t("ملف اكسل أو CSV", "Excel or CSV file")}</span>
                     <div className="file-picker">
-                      <button type="button" onClick={() => document.getElementById("campaign-file-input")?.click()}>تصفح</button>
-                      <span>{campaignFile?.name || "اختر ملف اكسل أو CSV أو أسقطه هنا ..."}</span>
+                      <button type="button" onClick={() => document.getElementById("campaign-file-input")?.click()}>{t("تصفح", "Browse")}</button>
+                      <span>{campaignFile?.name || t("اختر ملف اكسل أو CSV أو أسقطه هنا ...", "Choose an Excel or CSV file, or drop it here...")}</span>
                       <input
                         id="campaign-file-input"
                         type="file"
@@ -433,10 +462,10 @@ export default function CampaignsView({
                         onChange={(event) => setCampaignFile(event.target.files?.[0] || null)}
                       />
                     </div>
-                    <small className="field-hint">يجب أن تكون أرقام العملاء في أول عمود بصيغة 966 أو +966.</small>
+                    <small className="field-hint">{t("يجب أن تكون أرقام العملاء في أول عمود بصيغة 966 أو +966.", "Customer numbers must be in the first column, formatted as 966 or +966.")}</small>
                   </label>
                   <label className="schedule-toggle">
-                    <span>جدولة الحملة؟</span>
+                    <span>{t("جدولة الحملة؟", "Schedule the campaign?")}</span>
                     <button
                       className={form.scheduled ? "toggle on" : "toggle"}
                       type="button"
@@ -445,97 +474,97 @@ export default function CampaignsView({
                     />
                   </label>
                   {form.scheduled ? (
-                    <label><span>تاريخ ووقت الإرسال</span><input type="datetime-local" value={form.scheduledAt} onChange={(event) => setForm((current) => ({ ...current, scheduledAt: event.target.value }))} /></label>
+                    <label><span>{t("تاريخ ووقت الإرسال", "Send date and time")}</span><input type="datetime-local" value={form.scheduledAt} onChange={(event) => setForm((current) => ({ ...current, scheduledAt: event.target.value }))} /></label>
                   ) : null}
-                  {!approvedTemplates.length ? <p className="form-error">لا يمكن إنشاء حملة حتى تتم مزامنة قالب تسويقي معتمد من Meta.</p> : null}
+                  {!approvedTemplates.length ? <p className="form-error">{t("لا يمكن إنشاء حملة حتى تتم مزامنة قالب تسويقي معتمد من Meta.", "You can't create a campaign until an approved Meta marketing template has been synced.")}</p> : null}
                 </>
               ) : null}
               {formError ? <p className="form-error">{formError}</p> : null}
             </div>
-            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>إلغاء</button><button className="btn primary" type="submit" disabled={saving || (!form.id && !approvedTemplates.length)}>{saving ? "جاري الحفظ" : form.id ? "حفظ" : "إرسال"}</button></footer>
+            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && !approvedTemplates.length)}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : t("إرسال", "Submit")}</button></footer>
           </form>
         </div>
       ) : null}
 
       {reportCampaign ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setReportCampaign(null)}>
-          <div className="account-modal campaign-report-modal" role="dialog" aria-modal="true" aria-label={`تقرير الحملة ${reportCampaign.name}`} onClick={(event) => event.stopPropagation()}>
+          <div className="account-modal campaign-report-modal" role="dialog" aria-modal="true" aria-label={t(`تقرير الحملة ${reportCampaign.name}`, `Campaign report for ${reportCampaign.name}`)} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setReportCampaign(null)}>×</button>
-              <h2>تقرير الحملة - {reportCampaign.name}</h2>
+              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setReportCampaign(null)}>×</button>
+              <h2>{t("تقرير الحملة", "Campaign report")} - {reportCampaign.name}</h2>
             </header>
             <div className="campaign-report-body">
               <div className="campaign-toolbar report-toolbar">
-                <input value={reportSearch} onChange={(event) => { setReportSearch(event.target.value); setReportPage(1); }} placeholder="بحث..." />
-                <button className="btn primary" type="button" onClick={() => downloadCampaignReport(reportCampaign)}>تنزيل</button>
-                <label className="entries">عرض <select value={reportPageSize} onChange={(event) => { setReportPageSize(event.target.value); setReportPage(1); }}><option>10</option><option>25</option><option>50</option></select> إدخالات</label>
+                <input value={reportSearch} onChange={(event) => { setReportSearch(event.target.value); setReportPage(1); }} placeholder={t("بحث...", "Search...")} />
+                <button className="btn primary" type="button" onClick={() => downloadCampaignReport(reportCampaign)}>{t("تنزيل", "Download")}</button>
+                <label className="entries">{t("عرض", "Show")} <select value={reportPageSize} onChange={(event) => { setReportPageSize(event.target.value); setReportPage(1); }}><option>10</option><option>25</option><option>50</option></select> {t("إدخالات", "entries")}</label>
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>رقم الهاتف</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+                  <thead><tr><th>{t("رقم الهاتف", "Phone number")}</th><th>{t("الحالة", "Status")}</th><th>{t("التاريخ", "Date")}</th></tr></thead>
                   <tbody>
-                    {reportLoading ? <tr><td colSpan={3}>جارٍ التحميل...</td></tr> : null}
+                    {reportLoading ? <tr><td colSpan={3}>{t("جارٍ التحميل...", "Loading...")}</td></tr> : null}
                     {!reportLoading ? reportPagination.items.map((row) => (
                       <tr key={row.phone}>
                         <td dir="ltr">{row.phone}</td>
-                        <td><span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{row.status}</span></td>
+                        <td><span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span></td>
                         <td><span className="campaign-date">◴ {row.date}</span></td>
                       </tr>
                     )) : null}
                     {!reportLoading && !reportPagination.items.length ? (
-                      <tr><td colSpan={3}>لا توجد أرقام مطابقة للبحث.</td></tr>
+                      <tr><td colSpan={3}>{t("لا توجد أرقام مطابقة للبحث.", "No numbers match your search.")}</td></tr>
                     ) : null}
                   </tbody>
                 </table>
               </div>
               <Pagination currentPage={reportPagination.page} totalPages={reportPagination.totalPages} onPageChange={setReportPage} />
             </div>
-            <footer className="modal-foot"><button className="btn primary" type="button" onClick={() => setReportCampaign(null)}>حسنًا</button></footer>
+            <footer className="modal-foot"><button className="btn primary" type="button" onClick={() => setReportCampaign(null)}>{t("حسنًا", "OK")}</button></footer>
           </div>
         </div>
       ) : null}
 
       {chargeOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setChargeOpen(false)}>
-          <div className="account-modal balance-modal" role="dialog" aria-modal="true" aria-label="شحن رصيد الحملات" onClick={(event) => event.stopPropagation()}>
+          <div className="account-modal balance-modal" role="dialog" aria-modal="true" aria-label={t("شحن رصيد الحملات", "Top up campaign balance")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setChargeOpen(false)}>×</button>
-              <h2>شحن رصيد الحملات</h2>
+              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setChargeOpen(false)}>×</button>
+              <h2>{t("شحن رصيد الحملات", "Top up campaign balance")}</h2>
             </header>
             <div className="account-modal-body balance-modal-body">
               <div className="balance-selected-package">
-                <span>الرصيد المطلوب</span>
-                <b>{parsedChargeMessages.toLocaleString("en-US")} رسالة</b>
-                <strong>{chargeTier ? `${formatCurrency(chargeTier.rate)} لكل رسالة` : "أدخل 1,000 رسالة أو أكثر"}</strong>
+                <span>{t("الرصيد المطلوب", "Requested balance")}</span>
+                <b>{parsedChargeMessages.toLocaleString("en-US")} {t("رسالة", "messages")}</b>
+                <strong>{chargeTier ? t(`${formatCurrency(chargeTier.rate, "ar")} لكل رسالة`, `${formatCurrency(chargeTier.rate, "en")} per message`) : t("أدخل 1,000 رسالة أو أكثر", "Enter 1,000 messages or more")}</strong>
               </div>
               <label>
-                <span>عدد رسائل الحملات</span>
+                <span>{t("عدد رسائل الحملات", "Number of campaign messages")}</span>
                 <input
                   inputMode="numeric"
                   min="1000"
                   value={chargeMessages}
                   onChange={(event) => setChargeMessages(event.target.value)}
-                  placeholder="مثال: 5000"
+                  placeholder={t("مثال: 5000", "Example: 5000")}
                 />
               </label>
-              <div className="charge-presets" aria-label="اختيارات سريعة للشحن">
+              <div className="charge-presets" aria-label={t("اختيارات سريعة للشحن", "Quick top-up options")}>
                 {[1000, 5000, 10000, 25000, 50000, 100000].map((value) => (
                   <button key={value} type="button" onClick={() => setChargeMessages(String(value))}>
-                    {value.toLocaleString("en-US")} رسالة
+                    {value.toLocaleString("en-US")} {t("رسالة", "messages")}
                   </button>
                 ))}
               </div>
               <div className="charge-calculator">
-                <div><span>الشريحة</span><b>{chargeTier?.range ?? "غير محددة"}</b></div>
-                <div><span>سعر الرسالة</span><b>{chargeTier ? formatCurrency(chargeTier.rate) : "-"}</b></div>
-                <div><span>إجمالي الشحن</span><b>{chargeTier ? formatCurrency(chargeTotal) : "-"}</b></div>
+                <div><span>{t("الشريحة", "Tier")}</span><b>{chargeTier ? pricingRangeLabel(chargeTier.range, language) : t("غير محددة", "Not set")}</b></div>
+                <div><span>{t("سعر الرسالة", "Price per message")}</span><b>{chargeTier ? formatCurrency(chargeTier.rate, language) : "-"}</b></div>
+                <div><span>{t("إجمالي الشحن", "Total top-up")}</span><b>{chargeTier ? formatCurrency(chargeTotal, language) : "-"}</b></div>
               </div>
-              <p className="field-hint">بالضغط على "إنشاء طلب الشحن" بتنفتح لك صفحة دفع آمنة من Moyasar لإتمام العملية ببطاقتك. الرصيد ينضاف تلقائيًا بعد نجاح الدفع.</p>
+              <p className="field-hint">{t('بالضغط على "إنشاء طلب الشحن" بتنفتح لك صفحة دفع آمنة من Moyasar لإتمام العملية ببطاقتك. الرصيد ينضاف تلقائيًا بعد نجاح الدفع.', 'Clicking "Create top-up request" opens a secure Moyasar payment page to complete the transaction with your card. The balance is added automatically once payment succeeds.')}</p>
               {chargeError ? <p className="form-error">{chargeError}</p> : null}
             </div>
             <footer className="modal-foot">
-              <button className="btn soft" type="button" onClick={() => setChargeOpen(false)}>إلغاء</button>
-              <button className="btn primary" type="button" disabled={!chargeTier || chargeSubmitting} onClick={createChargeRequest}>{chargeSubmitting ? "جارٍ التجهيز..." : "إنشاء طلب الشحن"}</button>
+              <button className="btn soft" type="button" onClick={() => setChargeOpen(false)}>{t("إلغاء", "Cancel")}</button>
+              <button className="btn primary" type="button" disabled={!chargeTier || chargeSubmitting} onClick={createChargeRequest}>{chargeSubmitting ? t("جارٍ التجهيز...", "Preparing...") : t("إنشاء طلب الشحن", "Create top-up request")}</button>
             </footer>
           </div>
         </div>
@@ -543,23 +572,23 @@ export default function CampaignsView({
 
       {pricingOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setPricingOpen(false)}>
-          <div className="account-modal pricing-modal" role="dialog" aria-modal="true" aria-label="أسعار رسائل التسويقية" onClick={(event) => event.stopPropagation()}>
+          <div className="account-modal pricing-modal" role="dialog" aria-modal="true" aria-label={t("أسعار رسائل التسويقية", "Marketing message pricing")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setPricingOpen(false)}>×</button>
-              <h2>أسعار الرسائل التسويقية</h2>
+              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setPricingOpen(false)}>×</button>
+              <h2>{t("أسعار الرسائل التسويقية", "Marketing message pricing")}</h2>
             </header>
             <div className="account-modal-body">
               <div className="pricing-card">
-                <p>أسعار رسائل الحملات التسويقية حسب عدد الرسائل تبدأ من 3 هللات وتصل إلى 1.2 هللة.</p>
+                <p>{t("أسعار رسائل الحملات التسويقية حسب عدد الرسائل تبدأ من 3 هللات وتصل إلى 1.2 هللة.", "Marketing campaign message pricing by volume starts at 3 halalas and goes down to 1.2 halalas.")}</p>
                 <ul>
                   {marketingMessagePrices.map((tier) => (
-                    <li key={tier.range}><span>{tier.range}</span><b>{formatCurrency(tier.rate)}</b></li>
+                    <li key={tier.range}><span>{pricingRangeLabel(tier.range, language)}</span><b>{formatCurrency(tier.rate, language)}</b></li>
                   ))}
                 </ul>
-                <strong>*ملاحظة: جميع الأسعار لا تشمل رسوم واتساب أو أي رسوم خارجية من Meta.</strong>
+                <strong>{t("*ملاحظة: جميع الأسعار لا تشمل رسوم واتساب أو أي رسوم خارجية من Meta.", "*Note: all prices exclude WhatsApp fees or any external fees charged by Meta.")}</strong>
               </div>
             </div>
-            <footer className="modal-foot"><button className="btn primary" type="button" onClick={() => setPricingOpen(false)}>حسنًا</button></footer>
+            <footer className="modal-foot"><button className="btn primary" type="button" onClick={() => setPricingOpen(false)}>{t("حسنًا", "OK")}</button></footer>
           </div>
         </div>
       ) : null}
@@ -602,8 +631,9 @@ function findMarketingMessageTier(messages: number) {
   return marketingMessagePrices.find((tier) => messages >= tier.min && messages <= tier.max) ?? null;
 }
 
-function formatCurrency(value: number) {
-  return `${value.toLocaleString("en-US", { maximumFractionDigits: 3 })} ريال`;
+function formatCurrency(value: number, language: string = "ar") {
+  const currencyLabel = language === "en" ? "SAR" : "ريال";
+  return `${value.toLocaleString("en-US", { maximumFractionDigits: 3 })} ${currencyLabel}`;
 }
 
 function formatBalanceMovement(value: number) {

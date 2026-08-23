@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import type { AutomationRule, Employee, MessageTemplate, Tag, Team } from "../types";
+import { useLanguage } from "../i18n";
 
 type AutomationForm = {
   id?: string;
@@ -34,6 +35,49 @@ const actionOptions = ["فتح المحادثة", "إضافة وسم", "إسنا
 const conversationStatusOptions = ["اختر حالة", "مفتوحة", "غير مسندة", "مسندة", "مغلقة"];
 const messageSourceOptions = ["اختر مصدر", "WhatsApp", "المنصة", "حملة", "رد آلي"];
 
+// Translates known enum-like Arabic values (triggers, condition fields/operators,
+// action types, sentinel placeholders) into the active display language without
+// touching the underlying stored/compared value. Values not present in the map
+// (tag/employee/team/template names, free text) are returned unchanged since
+// they are real data, not fixed UI labels.
+function staticLabel(value: string | undefined, t: (ar: string, en: string) => string) {
+  if (!value) return "";
+  const labels: Record<string, string> = {
+    "تم إنشاء رسالة": t("تم إنشاء رسالة", "Message received"),
+    "تم فتح محادثة": t("تم فتح محادثة", "Conversation opened"),
+    "رد العميل": t("رد العميل", "Customer replied"),
+    "تم إغلاق الرسالة": t("تم إغلاق الرسالة", "Message closed"),
+    "الرسالة تحتوي على": t("الرسالة تحتوي على", "Message contains"),
+    "العميل لديه وسم": t("العميل لديه وسم", "Customer has tag"),
+    "حالة المحادثة": t("حالة المحادثة", "Conversation status"),
+    "مصدر الرسالة": t("مصدر الرسالة", "Message source"),
+    "يساوي": t("يساوي", "Equals"),
+    "يحتوي": t("يحتوي", "Contains"),
+    "لا يساوي": t("لا يساوي", "Not equal to"),
+    "فتح المحادثة": t("فتح المحادثة", "Open conversation"),
+    "إضافة وسم": t("إضافة وسم", "Add tag"),
+    "إسناد إلى موظف": t("إسناد إلى موظف", "Assign to employee"),
+    "إسناد إلى فريق": t("إسناد إلى فريق", "Assign to team"),
+    "إرسال قالب": t("إرسال قالب", "Send template"),
+    "إغلاق المحادثة": t("إغلاق المحادثة", "Close conversation"),
+    "اختر حالة": t("اختر حالة", "Select status"),
+    "مفتوحة": t("مفتوحة", "Open"),
+    "غير مسندة": t("غير مسندة", "Unassigned"),
+    "مسندة": t("مسندة", "Assigned"),
+    "مغلقة": t("مغلقة", "Closed"),
+    "اختر مصدر": t("اختر مصدر", "Select source"),
+    "المنصة": t("المنصة", "Platform"),
+    "حملة": t("حملة", "Campaign"),
+    "رد آلي": t("رد آلي", "Auto-reply"),
+    "لا يحتاج اختيار": t("لا يحتاج اختيار", "No selection needed"),
+    "اختر وسم": t("اختر وسم", "Select tag"),
+    "اختر موظف": t("اختر موظف", "Select employee"),
+    "اختر فريق": t("اختر فريق", "Select team"),
+    "اختر قالب": t("اختر قالب", "Select template")
+  };
+  return labels[value] ?? value;
+}
+
 export default function AutomationsView({
   automationRules,
   employees,
@@ -49,6 +93,7 @@ export default function AutomationsView({
   teams: Team[];
   templates: MessageTemplate[];
 }) {
+  const { t, language } = useLanguage();
   const tagOptions = useMemo(() => ["اختر وسم", ...tags.map((tag) => tag.name)], [tags]);
   const employeeOptions = useMemo(() => ["اختر موظف", ...employees.map((employee) => employee.name)], [employees]);
   const teamOptions = useMemo(() => ["اختر فريق", ...teams.map((team) => team.name)], [teams]);
@@ -212,7 +257,7 @@ export default function AutomationsView({
   }
 
   async function deleteRule(rule: AutomationRule) {
-    if (!window.confirm(`حذف ${rule.name}؟`)) return;
+    if (!window.confirm(t(`حذف ${rule.name}؟`, `Delete ${rule.name}?`))) return;
     await fetch(`/api/automations/${rule.id}`, { method: "DELETE" });
     await onRefreshData();
   }
@@ -221,44 +266,54 @@ export default function AutomationsView({
     <section className="page-stack">
       <div className="page-hero">
         <div>
-          <h1>الأتمتة</h1>
-          <p>قواعد تشغيل تلقائية للمحادثات، الوسوم، التعيين، والتنبيهات.</p>
+          <h1>{t("الأتمتة", "Automation")}</h1>
+          <p>{t("قواعد تشغيل تلقائية للمحادثات، الوسوم، التعيين، والتنبيهات.", "Automatic rules for conversations, tags, assignment, and notifications.")}</p>
         </div>
-        <button className="btn primary" type="button" onClick={() => openForm()}>＋ إضافة قاعدة أتمتة</button>
+        <button className="btn primary" type="button" onClick={() => openForm()}>{t("＋ إضافة قاعدة أتمتة", "＋ Add Automation Rule")}</button>
       </div>
 
       <div className="panel">
         <div className="panel-head automation-toolbar">
-          <h2>قواعد الأتمتة</h2>
+          <h2>{t("قواعد الأتمتة", "Automation Rules")}</h2>
           <div className="automation-filters">
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="بحث في القواعد..." />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث في القواعد...", "Search rules...")} />
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
-              <option value="all">كل الحالات</option>
-              <option value="enabled">المفعلة</option>
-              <option value="disabled">المتوقفة</option>
+              <option value="all">{t("كل الحالات", "All statuses")}</option>
+              <option value="enabled">{t("المفعلة", "Enabled")}</option>
+              <option value="disabled">{t("المتوقفة", "Disabled")}</option>
             </select>
           </div>
         </div>
         <div className="panel-body table-wrap">
           <table>
-            <thead><tr><th>القاعدة</th><th>عند</th><th>نفذ</th><th>الهدف</th><th>التأخير</th><th>الحالة</th><th /></tr></thead>
+            <thead>
+              <tr>
+                <th>{t("القاعدة", "Rule")}</th>
+                <th>{t("عند", "When")}</th>
+                <th>{t("نفذ", "Do")}</th>
+                <th>{t("الهدف", "Target")}</th>
+                <th>{t("التأخير", "Delay")}</th>
+                <th>{t("الحالة", "Status")}</th>
+                <th />
+              </tr>
+            </thead>
             <tbody>
               {filteredRules.map((rule) => (
                 <tr key={rule.id}>
                   <td>
                     <b>{rule.name}</b>
-                    <small className="table-note">{rule.description || "بدون وصف"}</small>
+                    <small className="table-note">{rule.description || t("بدون وصف", "No description")}</small>
                   </td>
-                  <td><span className="automation-chip">{rule.trigger}</span></td>
-                  <td>{rule.action}</td>
-                  <td>{rule.target}</td>
-                  <td>{rule.delayMinutes ? `${rule.delayMinutes} د` : "فوري"}</td>
+                  <td><span className="automation-chip">{staticLabel(rule.trigger, t)}</span></td>
+                  <td>{staticLabel(rule.action, t)}</td>
+                  <td>{staticLabel(rule.target, t)}</td>
+                  <td>{rule.delayMinutes ? t(`${rule.delayMinutes} د`, `${rule.delayMinutes}m`) : t("فوري", "Instant")}</td>
                   <td><button className={`toggle ${rule.enabled ? "on" : ""}`} type="button" onClick={() => toggleRule(rule)} /></td>
                   <td className="icon-actions"><button type="button" onClick={() => openForm(rule)}>✎</button><button type="button" onClick={() => openForm(rule, true)}>⧉</button><button type="button" onClick={() => deleteRule(rule)}>⌫</button></td>
                 </tr>
               ))}
               {!filteredRules.length ? (
-                <tr><td colSpan={7}>لا توجد قواعد مطابقة.</td></tr>
+                <tr><td colSpan={7}>{t("لا توجد قواعد مطابقة.", "No matching rules.")}</td></tr>
               ) : null}
             </tbody>
           </table>
@@ -267,76 +322,76 @@ export default function AutomationsView({
 
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
-          <form className="account-modal form-modal automation-modal" role="dialog" aria-modal="true" aria-label="حفظ قاعدة أتمتة" onSubmit={submitRule} onClick={(event) => event.stopPropagation()}>
+          <form className="account-modal form-modal automation-modal" role="dialog" aria-modal="true" aria-label={t("حفظ قاعدة أتمتة", "Save automation rule")} onSubmit={submitRule} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setFormOpen(false)}>×</button>
-              <h2>{form.id ? "تعديل قاعدة أتمتة" : "إضافة قاعدة أتمتة"}</h2>
+              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
+              <h2>{form.id ? t("تعديل قاعدة أتمتة", "Edit Automation Rule") : t("إضافة قاعدة أتمتة", "Add Automation Rule")}</h2>
             </header>
             <div className="account-modal-body automation-builder">
               <label>
-                <span>اسم القاعدة</span>
+                <span>{t("اسم القاعدة", "Rule Name")}</span>
                 <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required />
               </label>
               <label>
-                <span>الوصف</span>
+                <span>{t("الوصف", "Description")}</span>
                 <input value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
               </label>
               <label>
-                <span>الحدث</span>
+                <span>{t("الحدث", "Trigger")}</span>
                 <select value={form.trigger} onChange={(event) => setForm((current) => ({ ...current, trigger: event.target.value }))}>
-                  {triggerOptions.map((option) => <option key={option}>{option}</option>)}
+                  {triggerOptions.map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
                 </select>
               </label>
 
               <div>
-                <h3 className="automation-section-title">الشروط</h3>
+                <h3 className="automation-section-title">{t("الشروط", "Conditions")}</h3>
                 <div className="automation-box">
                   {form.conditions.map((condition, index) => (
                     <div className="automation-row" key={`${condition.field}-${index}`}>
                       <select value={condition.field} onChange={(event) => updateCondition(index, "field", event.target.value)}>
-                        {conditionFieldOptions.map((option) => <option key={option}>{option}</option>)}
+                        {conditionFieldOptions.map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
                       </select>
                       <select value={condition.operator} onChange={(event) => updateCondition(index, "operator", event.target.value)}>
-                        {conditionOperatorOptions.map((option) => <option key={option}>{option}</option>)}
+                        {conditionOperatorOptions.map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
                       </select>
                       {conditionValueOptions(condition.field, condition.value) ? (
                         <select value={condition.value} onChange={(event) => updateCondition(index, "value", event.target.value)}>
-                          {conditionValueOptions(condition.field, condition.value)?.map((option) => <option key={option}>{option}</option>)}
+                          {conditionValueOptions(condition.field, condition.value)?.map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
                         </select>
                       ) : (
-                        <input value={condition.value} onChange={(event) => updateCondition(index, "value", event.target.value)} placeholder="اكتب قيمة الشرط" />
+                        <input value={condition.value} onChange={(event) => updateCondition(index, "value", event.target.value)} placeholder={t("اكتب قيمة الشرط", "Enter condition value")} />
                       )}
                       <button className="automation-remove" type="button" onClick={() => removeCondition(index)}>×</button>
                     </div>
                   ))}
-                  <button className="btn soft automation-add" type="button" onClick={addCondition}>+ إضافة شرط</button>
+                  <button className="btn soft automation-add" type="button" onClick={addCondition}>{t("+ إضافة شرط", "+ Add Condition")}</button>
                 </div>
               </div>
 
               <div>
-                <h3 className="automation-section-title">الإجراءات</h3>
+                <h3 className="automation-section-title">{t("الإجراءات", "Actions")}</h3>
                 <div className="automation-box">
                   {form.actions.map((action, index) => (
                     <div className="automation-row action" key={`${action.type}-${index}`}>
                       <select value={action.type} onChange={(event) => updateAction(index, "type", event.target.value)}>
-                        {actionOptions.map((option) => <option key={option}>{option}</option>)}
+                        {actionOptions.map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
                       </select>
                       <select value={action.target} onChange={(event) => updateAction(index, "target", event.target.value)}>
-                        {targetOptionsForAction(action.type, action.target).map((option) => <option key={option}>{option}</option>)}
+                        {targetOptionsForAction(action.type, action.target).map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
                       </select>
                       <button className="automation-remove" type="button" onClick={() => removeAction(index)}>×</button>
                     </div>
                   ))}
-                  <button className="btn soft automation-add" type="button" onClick={addAction}>+ إضافة إجراء</button>
+                  <button className="btn soft automation-add" type="button" onClick={addAction}>{t("+ إضافة إجراء", "+ Add Action")}</button>
                 </div>
               </div>
 
               <label className="check-row team-routing">
                 <input type="checkbox" checked={form.enabled} onChange={(event) => setForm((current) => ({ ...current, enabled: event.target.checked }))} />
-                <span>تفعيل القاعدة</span>
+                <span>{t("تفعيل القاعدة", "Enable rule")}</span>
               </label>
             </div>
-            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>إلغاء</button><button className="btn primary" type="submit" disabled={saving}>{saving ? "جاري الحفظ" : "حفظ"}</button></footer>
+            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving...") : t("حفظ", "Save")}</button></footer>
           </form>
         </div>
       ) : null}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import { viewTitles } from "./data/navigation";
+import { DELETED_MESSAGE_TEXT, LanguageProvider } from "./i18n";
 import type {
   AutomationRule,
   Campaign,
@@ -39,9 +40,15 @@ function getNameInitial(name: string) {
   return name.trim().charAt(0) || "ع";
 }
 
-async function readApiError(response: Response) {
+function statusLabel(status: string, t: (ar: string, en: string) => string) {
+  if (status === "متصل") return t("متصل", "Online");
+  if (status === "مشغول") return t("مشغول", "Busy");
+  return t("غير متصل", "Offline");
+}
+
+async function readApiError(response: Response, language: "ar" | "en" = "ar") {
   const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-  return payload?.error || "تعذر تنفيذ العملية";
+  return payload?.error || (language === "en" ? "Could not complete the operation" : "تعذر تنفيذ العملية");
 }
 
 function getAllowedViews(user: DashboardUser, employee?: Employee): ViewKey[] {
@@ -129,6 +136,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [language, setLanguage] = useState<"ar" | "en">("ar");
+  const t = (ar: string, en: string) => (language === "en" ? en : ar);
   const [draftStatus, setDraftStatus] = useState<Employee["status"]>("متصل");
   const [draftLanguage, setDraftLanguage] = useState<"ar" | "en">("ar");
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
@@ -600,13 +608,13 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       });
 
       if (!response.ok) {
-        window.alert(await readApiError(response));
+        window.alert(await readApiError(response, language));
         return;
       }
 
       const payload = (await response.json()) as { ok: boolean; data?: Conversation; error?: string };
       if (!payload.ok || !payload.data) {
-        window.alert(payload.error || "تعذر فتح محادثة العميل");
+        window.alert(payload.error || t("تعذر فتح محادثة العميل", "Could not open the customer conversation"));
         return;
       }
 
@@ -666,7 +674,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       body: JSON.stringify({ assignee, status })
     });
     if (!response.ok) {
-      window.alert(await readApiError(response));
+      window.alert(await readApiError(response, language));
     }
     await loadDashboardData();
   }
@@ -686,7 +694,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response));
+      window.alert(await readApiError(response, language));
     }
 
     await loadDashboardData();
@@ -714,7 +722,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     if (!conversationId || !canDeleteConversations) return;
     const conversation = conversations.find((item) => item.id === conversationId);
     if (!conversation) return;
-    if (!window.confirm(`حذف محادثة ${conversation.customer}؟ سيتم حذف الرسائل من صندوق المحادثات فقط.`)) return;
+    if (!window.confirm(t(`حذف محادثة ${conversation.customer}؟ سيتم حذف الرسائل من صندوق المحادثات فقط.`, `Delete the conversation with ${conversation.customer}? This only removes the messages from the inbox.`))) return;
 
     const deletedConversationId = conversation.id;
     const response = await fetch(`/api/conversations/${deletedConversationId}`, {
@@ -722,7 +730,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response));
+      window.alert(await readApiError(response, language));
       return;
     }
 
@@ -753,7 +761,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response));
+      window.alert(await readApiError(response, language));
     }
 
     await loadDashboardData();
@@ -779,7 +787,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response));
+      window.alert(await readApiError(response, language));
       return;
     }
 
@@ -794,7 +802,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     const template =
       approvedTemplates.find((item) => item.name === selectedTemplate) ?? approvedTemplates[0];
     if (!template) {
-      window.alert("لا توجد قوالب تسويقية معتمدة متاحة للإرسال.");
+      window.alert(t("لا توجد قوالب تسويقية معتمدة متاحة للإرسال.", "No approved marketing templates are available to send."));
       return;
     }
 
@@ -813,7 +821,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response));
+      window.alert(await readApiError(response, language));
       return;
     }
 
@@ -841,7 +849,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response));
+      window.alert(await readApiError(response, language));
       return;
     }
 
@@ -864,7 +872,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response));
+      window.alert(await readApiError(response, language));
       return;
     }
 
@@ -874,11 +882,14 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   async function handleDeleteMessage(messageId: string) {
     if (!activeConversation.id) return;
 
+    // Always store the Arabic sentinel regardless of UI language - it's an
+    // internal marker other views compare against, not a display string.
+    // Views translate it for display via isDeletedMessage()/DELETED_MESSAGE_TEXT.
     updateConversation({
       ...activeConversation,
-      lastMessage: "تم حذف هذه الرسالة",
+      lastMessage: DELETED_MESSAGE_TEXT,
       messages: activeConversation.messages.map((item) =>
-        item.id === messageId ? { ...item, text: "تم حذف هذه الرسالة" } : item
+        item.id === messageId ? { ...item, text: DELETED_MESSAGE_TEXT } : item
       )
     });
 
@@ -916,7 +927,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     });
     if (!response.ok) {
       await loadDashboardData();
-      throw new Error(await readApiError(response));
+      throw new Error(await readApiError(response, language));
     }
     await loadDashboardData();
   }
@@ -928,15 +939,18 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       if (draftStatus !== currentProfileStatus) await handleProfileStatusChange(draftStatus);
       setLanguage(draftLanguage);
       window.localStorage.setItem("audiencew-language", draftLanguage);
-      setProfileFeedback({ type: "success", message: "تم حفظ الحالة واللغة بنجاح." });
+      const savedMessage = draftLanguage === "en" ? "Status and language saved successfully." : "تم حفظ الحالة واللغة بنجاح.";
+      setProfileFeedback({ type: "success", message: savedMessage });
     } catch (error) {
-      setProfileFeedback({ type: "error", message: error instanceof Error ? error.message : "تعذر حفظ إعدادات الملف الشخصي." });
+      const failMessage = draftLanguage === "en" ? "Could not save profile settings." : "تعذر حفظ إعدادات الملف الشخصي.";
+      setProfileFeedback({ type: "error", message: error instanceof Error ? error.message : failMessage });
     } finally {
       setProfileSaving(false);
     }
   }
 
   return (
+    <LanguageProvider language={language}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""}`}>
       <DashboardSidebar
         activeView={activeView}
@@ -1025,12 +1039,12 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
       {profileOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setProfileOpen(false)}>
-          <section className="account-modal" role="dialog" aria-modal="true" aria-label="الملف الشخصي" onClick={(event) => event.stopPropagation()}>
+          <section className="account-modal" role="dialog" aria-modal="true" aria-label={t("الملف الشخصي", "Profile")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setProfileOpen(false)}>
+              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setProfileOpen(false)}>
                 ×
               </button>
-              <h2>{profilePanel === "billing" ? "الفواتير والاشتراك" : profilePanel === "security" ? "الأمان" : "الملف الشخصي"}</h2>
+              <h2>{profilePanel === "billing" ? t("الفواتير والاشتراك", "Billing & subscription") : profilePanel === "security" ? t("الأمان", "Security") : t("الملف الشخصي", "Profile")}</h2>
             </header>
             <div className="account-modal-body">
               {profilePanel === "main" ? (
@@ -1040,14 +1054,14 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                       <div>
                         <b>{initialUser.name}</b>
                       <span>{initialUser.role}</span>
-                      <em className={draftStatus === "متصل" ? "online" : draftStatus === "مشغول" ? "busy" : "offline"}>{draftStatus}</em>
+                      <em className={draftStatus === "متصل" ? "online" : draftStatus === "مشغول" ? "busy" : "offline"}>{statusLabel(draftStatus, t)}</em>
                     </div>
                   </div>
                   <div className="account-info-grid">
-                    <div><span>البريد الإلكتروني</span><b>{initialUser.email}</b></div>
-                    <div><span>الدور</span><b>{initialUser.role}</b></div>
-                    <div><span>الباقة</span><b>لم يتم تحديد الباقة</b></div>
-                    <div><span>حالة الربط</span><b>لم يتم الربط بعد</b></div>
+                    <div><span>{t("البريد الإلكتروني", "Email")}</span><b>{initialUser.email}</b></div>
+                    <div><span>{t("الدور", "Role")}</span><b>{initialUser.role}</b></div>
+                    <div><span>{t("الباقة", "Plan")}</span><b>{t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
+                    <div><span>{t("حالة الربط", "Connection status")}</span><b>{t("لم يتم الربط بعد", "Not connected yet")}</b></div>
                   </div>
                   <div className="status-picker">
                     {(["متصل", "مشغول", "غير متصل"] as const).map((status) => (
@@ -1058,7 +1072,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                         aria-pressed={draftStatus === status}
                         onClick={() => setDraftStatus(status)}
                       >
-                        {status}
+                        {statusLabel(status, t)}
                       </button>
                     ))}
                   </div>
@@ -1077,44 +1091,41 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                         </button>
                       ))}
                     </div>
-                    {draftLanguage === "en" ? (
-                      <small className="theme-picker-note">English currently covers the sidebar navigation only — the rest of the dashboard stays in Arabic.</small>
-                    ) : null}
                   </div>
                   <div className="profile-actions">
-                    <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>الفواتير والاشتراك</button>
-                    <button className="btn soft" type="button" onClick={() => setProfilePanel("security")}>الأمان</button>
+                    <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>{t("الفواتير والاشتراك", "Billing & subscription")}</button>
+                    <button className="btn soft" type="button" onClick={() => setProfilePanel("security")}>{t("الأمان", "Security")}</button>
                     <button className="btn danger" type="button" onClick={() => {
-                      if (window.confirm("هل تريد تسجيل الخروج من لوحة AudienceW؟")) {
+                      if (window.confirm(t("هل تريد تسجيل الخروج من لوحة AudienceW؟", "Sign out of AudienceW?"))) {
                         setProfileOpen(false);
                         fetch("/api/auth/logout", { method: "POST" }).finally(() => {
                           router.replace("/login");
                         });
                       }
-                    }}>تسجيل الخروج</button>
+                    }}>{t("تسجيل الخروج", "Sign out")}</button>
                   </div>
                 </>
               ) : profilePanel === "billing" ? (
                 <div className="profile-detail-panel">
-                  <div><span>الباقة الحالية</span><b>باقة النمو</b></div>
-                  <div><span>حالة الاشتراك</span><b>نشط</b></div>
-                  <div><span>تجديد الاشتراك</span><b>شهري</b></div>
-                  <div><span>رصيد الحملات</span><b>336 رسالة متاحة</b></div>
-                  <p className="muted-copy">تظهر هنا بيانات الاشتراك والفواتير ورصيد الحملات المرتبط بالحساب.</p>
+                  <div><span>{t("الباقة الحالية", "Current plan")}</span><b>{t("باقة النمو", "Growth plan")}</b></div>
+                  <div><span>{t("حالة الاشتراك", "Subscription status")}</span><b>{t("نشط", "Active")}</b></div>
+                  <div><span>{t("تجديد الاشتراك", "Renewal")}</span><b>{t("شهري", "Monthly")}</b></div>
+                  <div><span>{t("رصيد الحملات", "Campaign balance")}</span><b>{t("336 رسالة متاحة", "336 messages available")}</b></div>
+                  <p className="muted-copy">{t("تظهر هنا بيانات الاشتراك والفواتير ورصيد الحملات المرتبط بالحساب.", "Subscription, billing, and campaign balance details for this account appear here.")}</p>
                 </div>
               ) : (
                 <div className="profile-detail-panel">
-                  <div><span>تسجيل الدخول</span><b>البريد الإلكتروني وكلمة المرور</b></div>
-                  <div><span>التحقق الثنائي</span><b>غير مفعل</b></div>
-                  <div><span>آخر دخول</span><b>اليوم · الرياض</b></div>
-                  <div><span>الصلاحيات</span><b>{initialUser.role}</b></div>
-                  <p className="muted-copy">تظهر هنا إعدادات الحماية، الجلسات، والتحقق الثنائي عند ربط نظام الدخول الحقيقي.</p>
+                  <div><span>{t("تسجيل الدخول", "Sign-in")}</span><b>{t("البريد الإلكتروني وكلمة المرور", "Email and password")}</b></div>
+                  <div><span>{t("التحقق الثنائي", "Two-factor authentication")}</span><b>{t("غير مفعل", "Not enabled")}</b></div>
+                  <div><span>{t("آخر دخول", "Last sign-in")}</span><b>{t("اليوم · الرياض", "Today · Riyadh")}</b></div>
+                  <div><span>{t("الصلاحيات", "Permissions")}</span><b>{initialUser.role}</b></div>
+                  <p className="muted-copy">{t("تظهر هنا إعدادات الحماية، الجلسات، والتحقق الثنائي عند ربط نظام الدخول الحقيقي.", "Security settings, sessions, and two-factor authentication will appear here once the real login system is connected.")}</p>
                 </div>
               )}
               {profileFeedback ? <p className={`profile-save-feedback ${profileFeedback.type}`} role="status">{profileFeedback.message}</p> : null}
             </div>
             <footer className="modal-foot">
-              {profilePanel === "main" ? null : <button className="btn soft" type="button" onClick={() => setProfilePanel("main")}>رجوع</button>}
+              {profilePanel === "main" ? null : <button className="btn soft" type="button" onClick={() => setProfilePanel("main")}>{t("رجوع", "Back")}</button>}
               <button
                 className="btn soft"
                 type="button"
@@ -1125,7 +1136,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                   setProfilePanel("main");
                 }}
               >
-                إلغاء
+                {t("إلغاء", "Cancel")}
               </button>
               <button
                 className="btn primary"
@@ -1133,12 +1144,13 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                 disabled={profileSaving}
                 onClick={() => void handleProfileSave()}
               >
-                {profileSaving ? "جاري الحفظ..." : "حفظ"}
+                {profileSaving ? t("جاري الحفظ...", "Saving...") : t("حفظ", "Save")}
               </button>
             </footer>
           </section>
         </div>
       ) : null}
     </div>
+    </LanguageProvider>
   );
 }

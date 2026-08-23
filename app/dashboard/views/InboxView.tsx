@@ -15,6 +15,7 @@ import type {
 } from "../types";
 import { statusLabel } from "../utils/conversation";
 import { ChannelIcon } from "./SettingsView";
+import { isDeletedMessageText, useLanguage } from "../i18n";
 
 type InboxViewProps = {
   activeConversation: Conversation;
@@ -86,7 +87,7 @@ const quickEmojis = [
   "📌", "📞", "💬", "🕐", "🚚", "💳", "🧾", "✨"
 ];
 
-const channelLabels: Record<ConversationChannel, string> = {
+const channelLabelsAr: Record<ConversationChannel, string> = {
   whatsapp: "واتساب",
   instagram: "Instagram",
   x: "X",
@@ -99,11 +100,25 @@ const channelLabels: Record<ConversationChannel, string> = {
   sms: "رسائل SMS"
 };
 
-function getChannelLabel(conversation: Conversation) {
-  return channelLabels[conversation.channel || "whatsapp"];
+const channelLabelsEn: Record<ConversationChannel, string> = {
+  whatsapp: "WhatsApp",
+  instagram: "Instagram",
+  x: "X",
+  facebook: "Facebook",
+  google_maps: "Google Maps",
+  website: "Website",
+  telegram: "Telegram",
+  email: "Email",
+  tiktok: "TikTok",
+  sms: "SMS"
+};
+
+function getChannelLabel(conversation: Conversation, language: "ar" | "en") {
+  const labels = language === "en" ? channelLabelsEn : channelLabelsAr;
+  return labels[conversation.channel || "whatsapp"];
 }
 
-function getWaitBadge(conversation: Conversation) {
+function getWaitBadge(conversation: Conversation, language: "ar" | "en") {
   if (conversation.status === "closed") return null;
 
   const lastMessage = conversation.messages.at(-1);
@@ -117,11 +132,9 @@ function getWaitBadge(conversation: Conversation) {
 
   const diffMinutes = Math.max(0, Math.floor((Date.now() - elapsedTime) / 60000));
   const tier = diffMinutes >= 120 ? "overdue" : diffMinutes >= 15 ? "warning" : "fresh";
-  const label = diffMinutes < 60
-    ? `${diffMinutes} د`
-    : diffMinutes < 1440
-      ? `${Math.floor(diffMinutes / 60)} س`
-      : `${Math.floor(diffMinutes / 1440)} يوم`;
+  const label = language === "en"
+    ? (diffMinutes < 60 ? `${diffMinutes}m` : diffMinutes < 1440 ? `${Math.floor(diffMinutes / 60)}h` : `${Math.floor(diffMinutes / 1440)}d`)
+    : (diffMinutes < 60 ? `${diffMinutes} د` : diffMinutes < 1440 ? `${Math.floor(diffMinutes / 60)} س` : `${Math.floor(diffMinutes / 1440)} يوم`);
 
   return { tier, label };
 }
@@ -134,7 +147,7 @@ function getConversationLastTime(conversation: Conversation) {
   return conversation.lastMessageTime || conversation.messages.at(-1)?.time || "";
 }
 
-function getRelativeConversationTime(isoDate?: string) {
+function getRelativeConversationTime(isoDate: string | undefined, language: "ar" | "en") {
   if (!isoDate) return "";
 
   const date = new Date(isoDate);
@@ -144,28 +157,36 @@ function getRelativeConversationTime(isoDate?: string) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   const diffDays = Math.round((today - targetDay) / 86400000);
+  const locale = language === "en" ? "en-US" : "ar-SA";
 
   if (diffDays === 0) {
-    return new Intl.DateTimeFormat("ar-SA", {
+    return new Intl.DateTimeFormat(locale, {
       hour: "2-digit",
       minute: "2-digit",
       timeZone: "Asia/Riyadh"
     }).format(date);
   }
-  if (diffDays === 1) return "قبل يوم";
-  if (diffDays < 7) return `قبل ${diffDays} أيام`;
-  if (diffDays < 30) return `قبل ${Math.floor(diffDays / 7)} أسبوع`;
-  if (diffDays < 365) return `قبل ${Math.floor(diffDays / 30)} شهر`;
+  if (language === "en") {
+    if (diffDays === 1) return "1 day ago";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} week ago`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} month ago`;
+  } else {
+    if (diffDays === 1) return "قبل يوم";
+    if (diffDays < 7) return `قبل ${diffDays} أيام`;
+    if (diffDays < 30) return `قبل ${Math.floor(diffDays / 7)} أسبوع`;
+    if (diffDays < 365) return `قبل ${Math.floor(diffDays / 30)} شهر`;
+  }
 
-  return new Intl.DateTimeFormat("ar-SA", {
+  return new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",
     timeZone: "Asia/Riyadh"
   }).format(date);
 }
 
-function getConversationTimeLabel(isoDate: string | undefined, fallbackTime: string) {
-  const time = isoDate ? getRelativeConversationTime(isoDate) : fallbackTime;
+function getConversationTimeLabel(isoDate: string | undefined, fallbackTime: string, language: "ar" | "en") {
+  const time = isoDate ? getRelativeConversationTime(isoDate, language) : fallbackTime;
 
   if (!time) return "";
   return time;
@@ -175,8 +196,8 @@ function isInstagramCommentMessage(channel: ConversationChannel, text: string, d
   return channel === "instagram" && direction === "in" && text.startsWith("تعليق:");
 }
 
-function getMessagePreview(text: string) {
-  const value = text.trim() || "رسالة";
+function getMessagePreview(text: string, t: (ar: string, en: string) => string) {
+  const value = text.trim() || t("رسالة", "message");
   return value.length > 90 ? `${value.slice(0, 90)}...` : value;
 }
 
@@ -240,6 +261,7 @@ export default function InboxView({
   onSendTemplate,
   onSetMobileChatOpen
 }: InboxViewProps) {
+  const { t, language } = useLanguage();
   const imageInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -325,7 +347,7 @@ export default function InboxView({
 
     const dataUrl = await readFileAsDataUrl(file).catch(() => "");
     if (!dataUrl) {
-      window.alert("تعذر قراءة الصورة.");
+      window.alert(t("تعذر قراءة الصورة.", "Could not read the image."));
       event.target.value = "";
       return;
     }
@@ -345,7 +367,7 @@ export default function InboxView({
 
     const dataUrl = await readFileAsDataUrl(file).catch(() => "");
     if (!dataUrl) {
-      window.alert("تعذر قراءة المستند.");
+      window.alert(t("تعذر قراءة المستند.", "Could not read the document."));
       event.target.value = "";
       return;
     }
@@ -366,7 +388,7 @@ export default function InboxView({
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      window.alert("تسجيل الصوت غير مدعوم في هذا المتصفح.");
+      window.alert(t("تسجيل الصوت غير مدعوم في هذا المتصفح.", "Audio recording is not supported in this browser."));
       return;
     }
 
@@ -375,7 +397,7 @@ export default function InboxView({
       const mimeType = getSupportedAudioMimeType();
       if (!mimeType) {
         stream.getTracks().forEach((track) => track.stop());
-        window.alert("المتصفح يسجل بصيغة غير مدعومة. جرّب تحديث المتصفح.");
+        window.alert(t("المتصفح يسجل بصيغة غير مدعومة. جرّب تحديث المتصفح.", "Your browser recorded an unsupported format. Try updating your browser."));
         return;
       }
 
@@ -395,7 +417,7 @@ export default function InboxView({
         if (!audioBlob.size) return;
         const dataUrl = await readFileAsDataUrl(audioBlob).catch(() => "");
         if (!dataUrl) {
-          window.alert("تعذر تجهيز التسجيل الصوتي.");
+          window.alert(t("تعذر تجهيز التسجيل الصوتي.", "Could not prepare the audio recording."));
           return;
         }
 
@@ -411,7 +433,7 @@ export default function InboxView({
       setIsRecording(true);
     } catch {
       setIsRecording(false);
-      window.alert("تعذر تشغيل الميكروفون. تأكد من السماح للمتصفح باستخدام الميكروفون.");
+      window.alert(t("تعذر تشغيل الميكروفون. تأكد من السماح للمتصفح باستخدام الميكروفون.", "Could not access the microphone. Make sure the browser has microphone permission."));
     }
   }
 
@@ -458,47 +480,47 @@ export default function InboxView({
     <section className={`inbox-grid ${mobileChatOpen ? "chat-open" : ""}`}>
       <aside className="conversation-column">
         <div className="column-head">
-          <h1>المحادثات</h1>
+          <h1>{t("المحادثات", "Conversations")}</h1>
         </div>
         <div className="conversation-tabs">
           {!assignedOnly ? (
-            <FilterButton active={filter === "all"} count={counts.all} label="الكل" onClick={() => onChangeFilter("all")} />
+            <FilterButton active={filter === "all"} count={counts.all} label={t("الكل", "All")} onClick={() => onChangeFilter("all")} />
           ) : null}
           <FilterButton
             active={filter === "mine"}
             count={counts.mine}
-            label="لي"
+            label={t("لي", "Mine")}
             onClick={() => onChangeFilter("mine")}
           />
           <FilterButton
             active={assignedOnly || filter === "assigned"}
             count={counts.assigned}
-            label="مسندة"
+            label={t("مسندة", "Assigned")}
             onClick={() => onChangeFilter("assigned")}
           />
           {!assignedOnly ? (
             <FilterButton
               active={filter === "unassigned"}
               count={counts.unassigned}
-              label="غير مسندة"
+              label={t("غير مسندة", "Unassigned")}
               onClick={() => onChangeFilter("unassigned")}
             />
           ) : null}
           <FilterButton
             active={filter === "unread"}
             count={counts.unread}
-            label="غير مقروء"
+            label={t("غير مقروء", "Unread")}
             onClick={() => onChangeFilter("unread")}
           />
           <FilterButton
             active={filter === "closed"}
             count={counts.closed}
-            label="مغلقة"
+            label={t("مغلقة", "Closed")}
             onClick={() => onChangeFilter("closed")}
           />
         </div>
         <div className="search-box">
-          <input value={search} onChange={(event) => onChangeSearch(event.target.value)} placeholder="بحث باسم العميل أو الرقم" />
+          <input value={search} onChange={(event) => onChangeSearch(event.target.value)} placeholder={t("بحث باسم العميل أو الرقم", "Search by customer name or number")} />
         </div>
         <div className="conversation-list">
           {visibleConversations.map((conversation) => (
@@ -524,15 +546,15 @@ export default function InboxView({
               <span className="conversation-copy">
                 <em className={`channel-badge ${conversation.channel || "whatsapp"}`}>
                   <ChannelIcon id={conversation.channel || "whatsapp"} />
-                  {getChannelLabel(conversation)}
+                  {getChannelLabel(conversation, language)}
                 </em>
                 <b>{conversation.customer}</b>
-                <small>{formatEmailContent(conversation.lastMessage)}</small>
+                <small>{isDeletedMessageText(conversation.lastMessage) ? t("تم حذف هذه الرسالة", "This message was deleted") : formatEmailContent(conversation.lastMessage)}</small>
               </span>
               <span className="conversation-meta">
                 {conversation.unread ? <strong>{conversation.unread}</strong> : null}
                 {(() => {
-                  const waitBadge = getWaitBadge(conversation);
+                  const waitBadge = getWaitBadge(conversation, language);
                   return waitBadge ? (
                     <span className={`wait-badge tier-${waitBadge.tier}`}>
                       <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 7v5l3 3M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
@@ -541,27 +563,27 @@ export default function InboxView({
                   ) : null;
                 })()}
                 <span className="conversation-times">
-                  {getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation)) ? (
-                    <small>{getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation))}</small>
+                  {getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation), language) ? (
+                    <small>{getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation), language)}</small>
                   ) : null}
-                  {getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation)) ? (
-                    <small>{getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation))}</small>
+                  {getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language) ? (
+                    <small>{getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language)}</small>
                   ) : null}
                 </span>
-                <em className={conversation.status}>{statusLabel(conversation.status)}</em>
+                <em className={conversation.status}>{statusLabel(conversation.status, language)}</em>
                 <small>{conversation.assignee}</small>
               </span>
             </button>
           ))}
           {!visibleConversations.length ? (
-            <p className="muted-copy">لا توجد محادثات مطابقة للبحث الحالي.</p>
+            <p className="muted-copy">{t("لا توجد محادثات مطابقة للبحث الحالي.", "No conversations match the current search.")}</p>
           ) : null}
           {contextConversation ? (
             <div
               className="conversation-context-menu"
               style={{ left: conversationMenu?.x, top: conversationMenu?.y }}
               role="menu"
-              aria-label="خيارات المحادثة"
+              aria-label={t("خيارات المحادثة", "Conversation options")}
               onClick={(event) => event.stopPropagation()}
             >
               <b>{contextConversation.customer}</b>
@@ -572,11 +594,11 @@ export default function InboxView({
                   void onMarkConversationUnread(contextConversation.id);
                 }}
               >
-                تعيين كغير مقروء
+                {t("تعيين كغير مقروء", "Mark as unread")}
               </button>
               {canChangeAssignee ? (
                 <div className="context-menu-section">
-                  <span>إسناد إلى</span>
+                  <span>{t("إسناد إلى", "Assign to")}</span>
                   {assigneeOptions.map((assignee) => (
                     <button
                       key={assignee}
@@ -600,7 +622,7 @@ export default function InboxView({
                     void onDeleteConversationById(contextConversation.id);
                   }}
                 >
-                  حذف المحادثة
+                  {t("حذف المحادثة", "Delete conversation")}
                 </button>
               ) : null}
             </div>
@@ -615,24 +637,24 @@ export default function InboxView({
               <span />
               <i />
             </div>
-            <p>لا يوجد محادثة حاليا، الرجاء اختيار محادثة من قائمة المحادثات</p>
+            <p>{t("لا يوجد محادثة حاليا، الرجاء اختيار محادثة من قائمة المحادثات", "No conversation selected — pick one from the list.")}</p>
           </div>
         ) : (
           <>
         <div className="chat-head">
           <button className="mobile-back" type="button" onClick={() => onSetMobileChatOpen(false)}>
-            رجوع
+            {t("رجوع", "Back")}
           </button>
           <span className="avatar">{activeConversation.initial}</span>
           <button className="chat-customer" type="button" onClick={() => onChangeChatPanel("profile")}>
             <small className={`channel-badge ${activeConversation.channel || "whatsapp"}`}>
               <ChannelIcon id={activeConversation.channel || "whatsapp"} />
-              {getChannelLabel(activeConversation)}
+              {getChannelLabel(activeConversation, language)}
             </small>
             <b>{activeConversation.customer}</b>
           </button>
           <label>
-            مسند إلى
+            {t("مسند إلى", "Assigned to")}
             {canChangeAssignee ? (
               <select value={activeConversation.assignee} onChange={(event) => onChangeAssignee(event.target.value)}>
                 {assigneeOptions.map((member) => (
@@ -646,20 +668,20 @@ export default function InboxView({
           <button
             className={isClosed ? "btn soft" : "btn danger"}
             disabled={!canToggleConversation}
-            title={!canToggleConversation ? "فتح المحادثة متاح للمالك أو المشرف فقط" : undefined}
+            title={!canToggleConversation ? t("فتح المحادثة متاح للمالك أو المشرف فقط", "Only the owner or a supervisor can reopen a conversation") : undefined}
             type="button"
             onClick={onCloseConversation}
           >
-            {isClosed ? (canReopenConversation ? "فتح المحادثة" : "مغلقة") : "إغلاق"}
+            {isClosed ? (canReopenConversation ? t("فتح المحادثة", "Reopen conversation") : t("مغلقة", "Closed")) : t("إغلاق", "Close")}
           </button>
         </div>
 
         <div className="chat-tabs">
           <button className={chatPanel === "chat" ? "active" : ""} type="button" onClick={() => onChangeChatPanel("chat")}>
-            المحادثة
+            {t("المحادثة", "Conversation")}
           </button>
           <button className={chatPanel === "profile" ? "active" : ""} type="button" onClick={() => onChangeChatPanel("profile")}>
-            ملف العميل
+            {t("ملف العميل", "Customer profile")}
           </button>
         </div>
 
@@ -682,36 +704,36 @@ export default function InboxView({
                   {item.direction !== "note" ? (
                     <span
                       className={`message-channel-mark ${activeConversation.channel || "whatsapp"}`}
-                      aria-label={`${getChannelLabel(activeConversation)} — ${item.direction === "in" ? activeConversation.customer : item.author || currentUserName}`}
+                      aria-label={`${getChannelLabel(activeConversation, language)} — ${item.direction === "in" ? activeConversation.customer : item.author || currentUserName}`}
                     >
                       <ChannelIcon id={activeConversation.channel || "whatsapp"} />
                       <span>{item.direction === "in" ? activeConversation.customer : item.author || currentUserName}</span>
                     </span>
                   ) : null}
-                  {item.text !== "تم حذف هذه الرسالة" ? (
+                  {!isDeletedMessageText(item.text) ? (
                     <button
                       className="message-reply-action"
                       type="button"
-                      aria-label="رد على الرسالة"
-                      title="رد على الرسالة"
+                      aria-label={t("رد على الرسالة", "Reply to message")}
+                      title={t("رد على الرسالة", "Reply to message")}
                       onClick={() => startMessageReply(item.id)}
                     >
                       ↩
                     </button>
                   ) : null}
                   {item.direction === "out" &&
-                  item.text !== "تم حذف هذه الرسالة" &&
+                  !isDeletedMessageText(item.text) &&
                   (canDeleteAnyMessage || item.author === currentUserName) ? (
-                    <button className="message-delete" type="button" aria-label="حذف الرسالة" title="حذف الرسالة" onClick={() => onDeleteMessage(item.id)} />
+                    <button className="message-delete" type="button" aria-label={t("حذف الرسالة", "Delete message")} title={t("حذف الرسالة", "Delete message")} onClick={() => onDeleteMessage(item.id)} />
                   ) : null}
-                  {item.direction === "note" ? <b>ملاحظة خاصة، {item.author || currentUserName}</b> : null}
+                  {item.direction === "note" ? <b>{t("ملاحظة خاصة، ", "Private note, ")}{item.author || currentUserName}</b> : null}
                   {item.replyTo ? (
                     <span className="message-reply-preview">
-                      <b>رد على {item.replyTo.author || "رسالة مرتبطة"}</b>
-                      <span>{getMessagePreview(item.replyTo.text || "رسالة")}</span>
+                      <b>{t("رد على ", "Reply to ")}{item.replyTo.author || t("رسالة مرتبطة", "linked message")}</b>
+                      <span>{getMessagePreview(item.replyTo.text || "", t)}</span>
                     </span>
                   ) : null}
-                  {item.attachment && item.text !== "تم حذف هذه الرسالة" ? (
+                  {item.attachment && !isDeletedMessageText(item.text) ? (
                     item.attachment.type === "image" || item.attachment.type === "sticker" ? (
                       <>
                         {/* Provider and user attachments can be data/blob URLs, which next/image does not support. */}
@@ -726,7 +748,7 @@ export default function InboxView({
                       <a className="message-attachment-document" href={item.attachment.url} download={item.attachment.name}>
                         <span aria-hidden="true">📄</span>
                         <b>{item.attachment.name}</b>
-                        <small>فتح المستند</small>
+                        <small>{t("فتح المستند", "Open document")}</small>
                       </a>
                     ) : (
                       <>
@@ -735,25 +757,25 @@ export default function InboxView({
                           <track kind="captions" />
                         </audio>
                         <a className="message-attachment-link" href={item.attachment.url} download={item.attachment.name}>
-                          فتح الصوت
+                          {t("فتح الصوت", "Open audio")}
                         </a>
                       </>
                     )
                   ) : null}
-                  {item.attachment?.type === "audio" && item.text !== "تم حذف هذه الرسالة" ? (
+                  {item.attachment?.type === "audio" && !isDeletedMessageText(item.text) ? (
                     <span>{`${item.text}: ${item.attachment.name}`}</span>
                   ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد" || item.text === "مستند" || item.text === item.attachment.name) ? null : (
-                    <span>{formatEmailContent(item.text)}</span>
+                    <span>{isDeletedMessageText(item.text) ? t("تم حذف هذه الرسالة", "This message was deleted") : formatEmailContent(item.text)}</span>
                   )}
                   {item.source && activeConversation.channel !== "email" ? (
                     item.source.url ? (
                       <a className="message-source-card" href={item.source.url} target="_blank" rel="noreferrer">
-                        <b>{item.source.label || "البوست المرتبط بالتعليق"}</b>
-                        <small>فتح البوست</small>
+                        <b>{item.source.label || t("البوست المرتبط بالتعليق", "Post linked to the comment")}</b>
+                        <small>{t("فتح البوست", "Open post")}</small>
                       </a>
                     ) : (
                       <span className="message-source-card">
-                        <b>{item.source.label || "البوست المرتبط بالتعليق"}</b>
+                        <b>{item.source.label || t("البوست المرتبط بالتعليق", "Post linked to the comment")}</b>
                         {item.source.id ? <small>{item.source.id}</small> : null}
                       </span>
                     )
@@ -763,7 +785,7 @@ export default function InboxView({
                       <div className="comment-reply-box">
                         <textarea
                           autoFocus
-                          placeholder="اكتب ردك على التعليق"
+                          placeholder={t("اكتب ردك على التعليق", "Write your reply to the comment")}
                           value={commentReplyText}
                           onChange={(event) => setCommentReplyText(event.target.value)}
                           onKeyDown={(event) => {
@@ -774,7 +796,7 @@ export default function InboxView({
                         />
                         <div>
                           <button type="button" onClick={() => void handleCommentReplySubmit(item.id)}>
-                            إرسال الرد
+                            {t("إرسال الرد", "Send reply")}
                           </button>
                           <button
                             type="button"
@@ -783,7 +805,7 @@ export default function InboxView({
                               setCommentReplyText("");
                             }}
                           >
-                            إلغاء
+                            {t("إلغاء", "Cancel")}
                           </button>
                         </div>
                       </div>
@@ -796,7 +818,7 @@ export default function InboxView({
                           setCommentReplyText("");
                         }}
                       >
-                        رد على التعليق
+                        {t("رد على التعليق", "Reply to comment")}
                       </button>
                     )
                   ) : null}
@@ -809,19 +831,22 @@ export default function InboxView({
                 className="message-context-menu"
                 style={{ left: messageMenu?.x, top: messageMenu?.y }}
                 role="menu"
-                aria-label="خيارات الرسالة"
+                aria-label={t("خيارات الرسالة", "Message options")}
                 onClick={(event) => event.stopPropagation()}
               >
                 <button type="button" onClick={() => startMessageReply(contextMessage.id)}>
-                  رد على الرسالة
+                  {t("رد على الرسالة", "Reply to message")}
                 </button>
               </div>
             ) : null}
             {activeConversation.windowExpired ? (
               <div className="window-notice">
-                <b>انتهت نافذة الرد خلال 24 ساعة</b>
+                <b>{t("انتهت نافذة الرد خلال 24 ساعة", "The 24-hour reply window has expired")}</b>
                 <span>
-                  مر أكثر من 24 ساعة على آخر رسالة من العميل. لا يمكن إرسال رد عادي الآن، اختر قالب WhatsApp معتمد لإعادة فتح المحادثة.
+                  {t(
+                    "مر أكثر من 24 ساعة على آخر رسالة من العميل. لا يمكن إرسال رد عادي الآن، اختر قالب WhatsApp معتمد لإعادة فتح المحادثة.",
+                    "More than 24 hours have passed since the customer's last message. You can't send a regular reply now — choose an approved WhatsApp template to reopen the conversation."
+                  )}
                 </span>
                 <div>
                   <select
@@ -833,10 +858,10 @@ export default function InboxView({
                       <option key={template.name} value={template.name}>
                         {template.name}
                       </option>
-                    )) : <option value="">لا توجد قوالب تسويقية معتمدة</option>}
+                    )) : <option value="">{t("لا توجد قوالب تسويقية معتمدة", "No approved marketing templates")}</option>}
                   </select>
                   <button className="btn primary" type="button" disabled={!reopenTemplates.length} onClick={onSendTemplate}>
-                    إرسال قالب
+                    {t("إرسال قالب", "Send template")}
                   </button>
                 </div>
               </div>
@@ -844,23 +869,23 @@ export default function InboxView({
               <>
                 <div className="composer-modes">
                   <button className={composerMode === "reply" ? "active" : ""} type="button" onClick={() => onChangeComposerMode("reply")}>
-                    إضافة رد
+                    {t("إضافة رد", "Add reply")}
                   </button>
                   <button
                     className={composerMode === "note" ? "active note" : "note"}
                     type="button"
                     onClick={() => onChangeComposerMode("note")}
                   >
-                    كتابة ملاحظة خاصة
+                    {t("كتابة ملاحظة خاصة", "Write a private note")}
                   </button>
                 </div>
                 {replyTarget ? (
                   <div className="composer-reply-preview">
                     <div>
-                      <b>رد على {replyTarget.direction === "out" ? replyTarget.author || "أنت" : activeConversation.customer}</b>
-                      <span>{getMessagePreview(replyTarget.text)}</span>
+                      <b>{t("رد على ", "Reply to ")}{replyTarget.direction === "out" ? replyTarget.author || t("أنت", "You") : activeConversation.customer}</b>
+                      <span>{getMessagePreview(replyTarget.text, t)}</span>
                     </div>
-                    <button type="button" aria-label="إلغاء الرد" title="إلغاء الرد" onClick={() => setReplyTargetId("")}>
+                    <button type="button" aria-label={t("إلغاء الرد", "Cancel reply")} title={t("إلغاء الرد", "Cancel reply")} onClick={() => setReplyTargetId("")}>
                       ×
                     </button>
                   </div>
@@ -884,15 +909,15 @@ export default function InboxView({
                     <button
                       className="attachment-button"
                       disabled={isComposerDisabled}
-                      aria-label="إضافة إيموجي"
-                      title="إضافة إيموجي"
+                      aria-label={t("إضافة إيموجي", "Add emoji")}
+                      title={t("إضافة إيموجي", "Add emoji")}
                       type="button"
                       onClick={() => setIsEmojiPickerOpen((isOpen) => !isOpen)}
                     >
                       <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8.5 10h.01M15.5 10h.01M8.5 14c1 1.4 2.2 2 3.5 2s2.5-.6 3.5-2" /></svg>
                     </button>
                     {isEmojiPickerOpen && !isComposerDisabled ? (
-                      <div className="emoji-picker" role="menu" aria-label="الإيموجيز">
+                      <div className="emoji-picker" role="menu" aria-label={t("الإيموجيز", "Emojis")}>
                         {quickEmojis.map((emoji) => (
                           <button key={emoji} type="button" onClick={() => handleEmojiSelect(emoji)}>
                             {emoji}
@@ -904,8 +929,8 @@ export default function InboxView({
                   <button
                     className="attachment-button"
                     disabled={isComposerDisabled}
-                    aria-label="إرفاق صورة"
-                    title="إرفاق صورة"
+                    aria-label={t("إرفاق صورة", "Attach image")}
+                    title={t("إرفاق صورة", "Attach image")}
                     type="button"
                     onClick={() => imageInputRef.current?.click()}
                   >
@@ -914,8 +939,8 @@ export default function InboxView({
                   <button
                     className="attachment-button"
                     disabled={isComposerDisabled}
-                    aria-label="إرفاق مستند"
-                    title="إرفاق مستند"
+                    aria-label={t("إرفاق مستند", "Attach document")}
+                    title={t("إرفاق مستند", "Attach document")}
                     type="button"
                     onClick={() => documentInputRef.current?.click()}
                   >
@@ -924,8 +949,8 @@ export default function InboxView({
                   <button
                     className={`attachment-button ${isRecording ? "recording" : ""}`}
                     disabled={isComposerDisabled}
-                    aria-label={isRecording ? "إيقاف التسجيل" : "تسجيل صوت"}
-                    title={isRecording ? "إيقاف التسجيل" : "تسجيل صوت"}
+                    aria-label={isRecording ? t("إيقاف التسجيل", "Stop recording") : t("تسجيل صوت", "Record audio")}
+                    title={isRecording ? t("إيقاف التسجيل", "Stop recording") : t("تسجيل صوت", "Record audio")}
                     type="button"
                     onClick={handleAudioToggle}
                   >
@@ -942,7 +967,7 @@ export default function InboxView({
                   </button>
                   <div className="quick-reply-picker-wrap composer-message-wrap">
                     {shouldShowQuickReplySuggestions ? (
-                      <div className="quick-reply-picker" role="menu" aria-label="الردود السريعة">
+                      <div className="quick-reply-picker" role="menu" aria-label={t("الردود السريعة", "Quick replies")}>
                         {quickReplySuggestions.map((reply) => (
                           <button key={reply.id} type="button" onClick={() => handleQuickReplySelect(reply)}>
                             <b>{reply.shortcut}</b>
@@ -968,12 +993,12 @@ export default function InboxView({
                         event.currentTarget.form?.requestSubmit();
                       }}
                       onChange={(event) => onChangeMessage(event.target.value)}
-                      placeholder={isClosed ? "المحادثة مغلقة" : "اكتب رسالتك هنا"}
+                      placeholder={isClosed ? t("المحادثة مغلقة", "This conversation is closed") : t("اكتب رسالتك هنا", "Type your message here")}
                       value={message}
                     />
                   </div>
                   <button className="btn primary" disabled={isComposerDisabled} type="submit">
-                    إرسال
+                    {t("إرسال", "Send")}
                   </button>
                 </form>
               </>
@@ -982,32 +1007,32 @@ export default function InboxView({
         ) : (
           <div className="profile-panel">
             <div className="profile-card">
-              <h2>بيانات العميل</h2>
+              <h2>{t("بيانات العميل", "Customer details")}</h2>
               <dl>
                 <div>
-                  <dt>الاسم</dt>
+                  <dt>{t("الاسم", "Name")}</dt>
                   <dd>{activeConversation.customer}</dd>
                 </div>
                 <div>
-                  <dt>القناة</dt>
-                  <dd>{getChannelLabel(activeConversation)}</dd>
+                  <dt>{t("القناة", "Channel")}</dt>
+                  <dd>{getChannelLabel(activeConversation, language)}</dd>
                 </div>
                 <div>
-                  <dt>رقم الجوال</dt>
+                  <dt>{t("رقم الجوال", "Phone number")}</dt>
                   <dd>{activeConversation.phone}</dd>
                 </div>
                 <div>
-                  <dt>الوسوم</dt>
+                  <dt>{t("الوسوم", "Tags")}</dt>
                   <dd className="profile-tags-field">
                     <select
-                      aria-label="اختيار وسم"
+                      aria-label={t("اختيار وسم", "Select a tag")}
                       disabled={!hasActiveConversation || !availableTags.length}
                       value=""
                       onChange={(event) => {
                         void handleAddTag(event.target.value);
                       }}
                     >
-                      <option value="">{availableTags.length ? "اختر وسم" : "لا توجد وسوم متاحة"}</option>
+                      <option value="">{availableTags.length ? t("اختر وسم", "Choose a tag") : t("لا توجد وسوم متاحة", "No tags available")}</option>
                       {availableTags.map((tag) => (
                         <option key={tag.id} value={tag.name}>
                           {tag.name}
@@ -1023,7 +1048,7 @@ export default function InboxView({
                           </button>
                         ))
                       ) : (
-                        <span>لا توجد وسوم</span>
+                        <span>{t("لا توجد وسوم", "No tags")}</span>
                       )}
                     </div>
                   </dd>
@@ -1031,9 +1056,9 @@ export default function InboxView({
               </dl>
             </div>
             <div className="profile-card">
-              <h2>سجل العميل</h2>
-              <p>آخر محادثة: {activeConversation.lastMessage}</p>
-              <p>الموظف المسؤول: {activeConversation.assignee}</p>
+              <h2>{t("سجل العميل", "Customer history")}</h2>
+              <p>{t("آخر محادثة: ", "Last conversation: ")}{isDeletedMessageText(activeConversation.lastMessage) ? t("تم حذف هذه الرسالة", "This message was deleted") : activeConversation.lastMessage}</p>
+              <p>{t("الموظف المسؤول: ", "Assigned employee: ")}{activeConversation.assignee}</p>
             </div>
           </div>
         )}

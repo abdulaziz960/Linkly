@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import type { Employee } from "../types";
+import { useLanguage } from "../i18n";
 
 type EmployeeFormState = {
   id?: string;
@@ -25,6 +26,34 @@ const permissionOptions = [
   "الإعدادات والربط"
 ];
 
+function permissionLabel(permission: string, t: (ar: string, en: string) => string) {
+  const labels: Record<string, string> = {
+    "المحادثات": t("المحادثات", "Conversations"),
+    "العملاء": t("العملاء", "Customers"),
+    "قنوات التواصل": t("قنوات التواصل", "Channels"),
+    "الوسوم": t("الوسوم", "Tags"),
+    "الرد الآلي": t("الرد الآلي", "Auto-Reply"),
+    "الحملات": t("الحملات", "Campaigns"),
+    "التقارير": t("التقارير", "Reports"),
+    "الفرق": t("الفرق", "Teams"),
+    "الموظفين": t("الموظفين", "Employees"),
+    "الإعدادات والربط": t("الإعدادات والربط", "Settings & Integrations")
+  };
+  return labels[permission] ?? permission;
+}
+
+function employeeStatusLabel(status: string, t: (ar: string, en: string) => string) {
+  if (status === "متصل") return t("متصل", "Online");
+  if (status === "مشغول") return t("مشغول", "Busy");
+  return t("غير متصل", "Offline");
+}
+
+function employeeRoleLabel(role: string, t: (ar: string, en: string) => string) {
+  if (role === "مالك الحساب") return t("مالك الحساب", "Account Owner");
+  if (role === "مشرف") return t("مشرف", "Supervisor");
+  return t("موظف دعم", "Support Agent");
+}
+
 function parsePermissions(permissions: string) {
   if (permissions === "الكل") return permissionOptions;
   if (permissions.includes("+")) return permissions.split("+").map((permission) => permission.trim()).filter(Boolean);
@@ -45,6 +74,7 @@ export default function EmployeesView({
   employees: Employee[];
   onRefreshData: () => Promise<void>;
 }) {
+  const { t, language } = useLanguage();
   const emptyForm = useMemo<EmployeeFormState>(
     () => ({
       name: "",
@@ -129,7 +159,7 @@ export default function EmployeesView({
     };
 
     if (!payload.ok) {
-      setError(payload.error || "تعذر حفظ الموظف");
+      setError(payload.error || t("تعذر حفظ الموظف", "Could not save the employee"));
       setSaving(false);
       return;
     }
@@ -141,18 +171,24 @@ export default function EmployeesView({
       return;
     }
 
-    setNotice(payload.data?.inviteDelivery?.message || "تم حفظ الموظف.");
+    setNotice(payload.data?.inviteDelivery?.message || t("تم حفظ الموظف.", "Employee saved."));
     setActivationUrl(payload.data?.inviteDelivery?.activationUrl || "");
   }
 
   async function deleteEmployee(employee: Employee) {
-    if (!window.confirm(`حذف الموظف ${employee.name}؟`)) return;
+    if (!window.confirm(t(`حذف الموظف ${employee.name}؟`, `Delete employee ${employee.name}?`))) return;
     await fetch(`/api/employees/${employee.id}`, { method: "DELETE" });
     await onRefreshData();
   }
 
   function exportEmployees() {
-    const header = ["الموظف", "البريد الإلكتروني", "الدور", "الحالة", "الصلاحيات"];
+    const header = [
+      t("الموظف", "Employee"),
+      t("البريد الإلكتروني", "Email"),
+      t("الدور", "Role"),
+      t("الحالة", "Status"),
+      t("الصلاحيات", "Permissions")
+    ];
     const rows = employees.map((employee) => [
       employee.name,
       employee.email,
@@ -167,14 +203,22 @@ export default function EmployeesView({
     <section className="page-stack">
       <div className="panel">
         <div className="panel-head">
-          <h2>الموظفين</h2>
+          <h2>{t("الموظفين", "Employees")}</h2>
           <span />
-          <button className="btn soft" type="button" onClick={exportEmployees}>تصدير</button>
-          <button className="btn primary" type="button" onClick={openCreateForm}>إضافة موظف</button>
+          <button className="btn soft" type="button" onClick={exportEmployees}>{t("تصدير", "Export")}</button>
+          <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة موظف", "Add Employee")}</button>
         </div>
         <div className="panel-body table-wrap">
           <table>
-            <thead><tr><th>الموظف</th><th>الدور</th><th>الحالة</th><th>الصلاحيات</th><th>إجراء</th></tr></thead>
+            <thead>
+              <tr>
+                <th>{t("الموظف", "Employee")}</th>
+                <th>{t("الدور", "Role")}</th>
+                <th>{t("الحالة", "Status")}</th>
+                <th>{t("الصلاحيات", "Permissions")}</th>
+                <th>{t("إجراء", "Action")}</th>
+              </tr>
+            </thead>
             <tbody>
               {employees.map((employee) => (
                 <tr key={employee.id}>
@@ -182,12 +226,12 @@ export default function EmployeesView({
                     <b>{employee.name}</b>
                     <span className="table-subtitle">{employee.email}</span>
                   </td>
-                  <td>{employee.role}</td>
-                  <td><span className={employee.status === "متصل" ? "state ok" : employee.status === "مشغول" ? "state warn" : "state muted"}>{employee.status}</span></td>
+                  <td>{employeeRoleLabel(employee.role, t)}</td>
+                  <td><span className={employee.status === "متصل" ? "state ok" : employee.status === "مشغول" ? "state warn" : "state muted"}>{employeeStatusLabel(employee.status, t)}</span></td>
                   <td>{employee.permissions}</td>
                   <td className="row-actions">
-                    <button className="btn soft" type="button" onClick={() => openEditForm(employee)}>تعديل</button>
-                    <button className="btn danger" type="button" onClick={() => deleteEmployee(employee)}>حذف</button>
+                    <button className="btn soft" type="button" onClick={() => openEditForm(employee)}>{t("تعديل", "Edit")}</button>
+                    <button className="btn danger" type="button" onClick={() => deleteEmployee(employee)}>{t("حذف", "Delete")}</button>
                   </td>
                 </tr>
               ))}
@@ -198,43 +242,43 @@ export default function EmployeesView({
 
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
-          <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label="حفظ موظف" onSubmit={submitEmployee} onClick={(event) => event.stopPropagation()}>
+          <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ موظف", "Save employee")} onSubmit={submitEmployee} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setFormOpen(false)}>×</button>
-              <h2>{form.id ? "تعديل موظف" : "إضافة موظف"}</h2>
+              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
+              <h2>{form.id ? t("تعديل موظف", "Edit Employee") : t("إضافة موظف", "Add Employee")}</h2>
             </header>
             <div className="account-modal-body form-grid">
               <label>
-                <span>اسم الموظف</span>
+                <span>{t("اسم الموظف", "Employee Name")}</span>
                 <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required />
               </label>
               <label>
-                <span>البريد الإلكتروني</span>
+                <span>{t("البريد الإلكتروني", "Email")}</span>
                 <input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} required />
               </label>
               <div className="split-fields">
                 <label>
-                  <span>الدور</span>
+                  <span>{t("الدور", "Role")}</span>
                   <select value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as Employee["role"] }))}>
-                    <option>مالك الحساب</option>
-                    <option>مشرف</option>
-                    <option>موظف دعم</option>
+                    <option value="مالك الحساب">{t("مالك الحساب", "Account Owner")}</option>
+                    <option value="مشرف">{t("مشرف", "Supervisor")}</option>
+                    <option value="موظف دعم">{t("موظف دعم", "Support Agent")}</option>
                   </select>
                 </label>
                 <label>
-                  <span>الحالة</span>
+                  <span>{t("الحالة", "Status")}</span>
                   <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as Employee["status"] }))}>
-                    <option>متصل</option>
-                    <option>مشغول</option>
-                    <option>غير متصل</option>
+                    <option value="متصل">{t("متصل", "Online")}</option>
+                    <option value="مشغول">{t("مشغول", "Busy")}</option>
+                    <option value="غير متصل">{t("غير متصل", "Offline")}</option>
                   </select>
                 </label>
               </div>
               <div className="permissions-box">
                 <div className="permissions-head">
-                  <b>الصلاحيات الإضافية</b>
+                  <b>{t("الصلاحيات الإضافية", "Additional Permissions")}</b>
                   <button className="btn soft" type="button" onClick={toggleAllPermissions}>
-                    {form.permissions.length === permissionOptions.length ? "إلغاء تحديد الكل" : "تحديد الكل"}
+                    {form.permissions.length === permissionOptions.length ? t("إلغاء تحديد الكل", "Deselect All") : t("تحديد الكل", "Select All")}
                   </button>
                 </div>
                 <div className="checkbox-grid">
@@ -245,7 +289,7 @@ export default function EmployeesView({
                         checked={form.permissions.includes(permission)}
                         onChange={() => togglePermission(permission)}
                       />
-                      <span>{permission}</span>
+                      <span>{permissionLabel(permission, t)}</span>
                     </label>
                   ))}
                 </div>
@@ -254,13 +298,13 @@ export default function EmployeesView({
               {notice ? <p className="form-success">{notice}</p> : null}
               {activationUrl ? (
                 <a className="activation-link" href={activationUrl} target="_blank" rel="noreferrer">
-                  فتح رابط التفعيل
+                  {t("فتح رابط التفعيل", "Open Activation Link")}
                 </a>
               ) : null}
             </div>
             <footer className="modal-foot">
-              <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>إلغاء</button>
-              <button className="btn primary" type="submit" disabled={saving}>{saving ? "جاري الحفظ" : "حفظ"}</button>
+              <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
+              <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving...") : t("حفظ", "Save")}</button>
             </footer>
           </form>
         </div>
@@ -273,7 +317,7 @@ function downloadCsv(fileName: string, header: Array<string | number>, rows: Arr
   const csv = [header, ...rows]
     .map((row) => row.map(escapeCsvCell).join(","))
     .join("\n");
-  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
