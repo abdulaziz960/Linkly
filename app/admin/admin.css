@@ -1112,7 +1112,7 @@
   opacity: 0.6;
 }
 
-.admin-switch {
+.admin-leads-switch {
   position: relative;
   width: 44px;
   height: 26px;
@@ -1125,26 +1125,26 @@
   flex-shrink: 0;
 }
 
-.admin-switch:hover:not(:disabled) {
+.admin-leads-switch:hover:not(:disabled) {
   filter: brightness(0.95);
 }
 
-.admin-switch:focus-visible {
+.admin-leads-switch:focus-visible {
   outline: 2px solid var(--admin-accent, #b45309);
   outline-offset: 2px;
 }
 
-.admin-switch.is-on {
+.admin-leads-switch.is-on {
   background: #16a34a;
   border-color: #15803d;
 }
 
-.admin-switch:disabled {
+.admin-leads-switch:disabled {
   cursor: not-allowed;
   opacity: 0.7;
 }
 
-.admin-switch-thumb {
+.admin-leads-switch-thumb {
   position: absolute;
   top: 2px;
   inset-inline-start: 2px;
@@ -1156,7 +1156,7 @@
   transition: inset-inline-start 0.18s ease;
 }
 
-.admin-switch.is-on .admin-switch-thumb {
+.admin-leads-switch.is-on .admin-leads-switch-thumb {
   inset-inline-start: 20px;
 }
 

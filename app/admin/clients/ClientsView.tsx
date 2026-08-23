@@ -356,11 +356,11 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                       type="button"
                       role="switch"
                       aria-checked={Boolean(client.leadsEnabled)}
-                      className={`admin-switch${client.leadsEnabled ? " is-on" : ""}`}
+                      className={`admin-leads-switch${client.leadsEnabled ? " is-on" : ""}`}
                       disabled={togglingLeadsId === client.tenantId}
                       onClick={() => toggleLeadsAccess(client)}
                     >
-                      <span className="admin-switch-thumb" />
+                      <span className="admin-leads-switch-thumb" />
                     </button>
                   </div>
                   <button
