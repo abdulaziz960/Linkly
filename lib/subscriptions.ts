@@ -20,17 +20,20 @@ function nowTimestamp() {
 
 export async function getSubscriptions() {
   await ensureSchema();
-  const [subscriptions, employeeCounts, conversationCounts] = await Promise.all([
+  const [subscriptions, employeeCounts, conversationCounts, campaignBalances] = await Promise.all([
     prisma.subscription.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.employee.groupBy({ by: ["tenantId"], _count: { _all: true } }),
-    prisma.conversation.groupBy({ by: ["tenantId"], _count: { _all: true } })
+    prisma.conversation.groupBy({ by: ["tenantId"], _count: { _all: true } }),
+    prisma.campaignBalance.findMany({ select: { tenantId: true, balance: true } })
   ]);
   const employeesByTenant = new Map(employeeCounts.map((row) => [row.tenantId, row._count._all]));
   const conversationsByTenant = new Map(conversationCounts.map((row) => [row.tenantId, row._count._all]));
+  const campaignBalanceByTenant = new Map(campaignBalances.map((row) => [row.tenantId, row.balance]));
   return subscriptions.map((subscription) => ({
     ...subscription,
     employeeCount: employeesByTenant.get(subscription.tenantId) ?? 0,
-    conversationCount: conversationsByTenant.get(subscription.tenantId) ?? 0
+    conversationCount: conversationsByTenant.get(subscription.tenantId) ?? 0,
+    campaignBalance: campaignBalanceByTenant.get(subscription.tenantId) ?? 0
   }));
 }
 

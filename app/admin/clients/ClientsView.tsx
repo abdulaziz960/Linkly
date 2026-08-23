@@ -44,6 +44,11 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
   const [chargeUrl, setChargeUrl] = useState("");
   const [deletingId, setDeletingId] = useState("");
   const [togglingLeadsId, setTogglingLeadsId] = useState("");
+  const [balanceClient, setBalanceClient] = useState<SubscriptionRow | null>(null);
+  const [balanceMessages, setBalanceMessages] = useState("");
+  const [balanceAmount, setBalanceAmount] = useState("");
+  const [isBalanceSaving, setIsBalanceSaving] = useState(false);
+  const [balanceError, setBalanceError] = useState("");
 
   function openLimitEditor(client: SubscriptionRow) {
     setLimitClient(client);
@@ -102,6 +107,49 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
       return;
     }
 
+    router.refresh();
+  }
+
+  function openBalanceEditor(client: SubscriptionRow) {
+    setBalanceClient(client);
+    setBalanceMessages("");
+    setBalanceAmount("");
+    setBalanceError("");
+  }
+
+  async function handleAddBalance(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!balanceClient) return;
+
+    const messages = Number(balanceMessages);
+    if (!Number.isFinite(messages) || messages < 1 || !Number.isInteger(messages)) {
+      setBalanceError("اكتب عدد رسائل صحيح");
+      return;
+    }
+    const amount = balanceAmount.trim() ? Number(balanceAmount) : 0;
+    if (!Number.isFinite(amount) || amount < 0) {
+      setBalanceError("اكتب مبلغ صحيح");
+      return;
+    }
+
+    setIsBalanceSaving(true);
+    setBalanceError("");
+
+    const response = await fetch(`/api/admin/clients/${balanceClient.tenantId}/campaign-balance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages, amount })
+    });
+    const result = (await response.json()) as { ok: boolean; error?: string };
+
+    setIsBalanceSaving(false);
+
+    if (!response.ok || !result.ok) {
+      setBalanceError(result.error || "تعذر إضافة الرصيد");
+      return;
+    }
+
+    setBalanceClient(null);
     router.refresh();
   }
 
@@ -340,6 +388,11 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                     <strong>{formatNumber(client.conversationCount)}</strong>
                     <small>التجديد: {client.renewalAt || "غير محدد"}</small>
                   </div>
+                  <div>
+                    <span>رصيد رسائل الحملات</span>
+                    <strong>{formatNumber(client.campaignBalance)}</strong>
+                    <small>رسالة متاحة</small>
+                  </div>
                 </div>
 
                 <div className="admin-client-actions">
@@ -349,6 +402,9 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                   <Link href={`/admin/logs?client=${client.tenantId}`}>سجل الحركة</Link>
                   <button type="button" onClick={() => openLimitEditor(client)}>
                     تعديل حد المستخدمين
+                  </button>
+                  <button type="button" onClick={() => openBalanceEditor(client)}>
+                    إضافة رصيد رسائل حملات
                   </button>
                   <div className="admin-leads-toggle" aria-disabled={togglingLeadsId === client.tenantId}>
                     <span>العملاء المحتملون (CRM)</span>
@@ -529,6 +585,64 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                 </button>
                 <button type="submit" disabled={isLimitSaving}>
                   {isLimitSaving ? "جاري الحفظ..." : "حفظ الحد"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {balanceClient ? (
+        <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="campaign-balance-title">
+          <div className="admin-modal-card admin-user-limit-modal">
+            <div className="admin-modal-head">
+              <div>
+                <h2 id="campaign-balance-title">إضافة رصيد رسائل حملات</h2>
+                <p>يضاف الرصيد فورًا لحساب العميل ويظهر في صفحة الحملات لديه ضمن سجل الرصيد والشحن.</p>
+              </div>
+              <button type="button" onClick={() => setBalanceClient(null)} aria-label="إغلاق">
+                ×
+              </button>
+            </div>
+
+            <form className="admin-client-form" onSubmit={handleAddBalance}>
+              <label>
+                العميل
+                <input value={balanceClient.companyName} readOnly />
+              </label>
+              <label>
+                الرصيد الحالي
+                <input value={`${formatNumber(balanceClient.campaignBalance)} رسالة`} readOnly />
+              </label>
+              <label>
+                عدد الرسائل المضافة
+                <input
+                  type="number"
+                  min="1"
+                  value={balanceMessages}
+                  onChange={(event) => setBalanceMessages(event.target.value)}
+                  placeholder="مثال: 1000"
+                />
+              </label>
+              <label>
+                المبلغ المقابل (اختياري، ر.س)
+                <input
+                  type="number"
+                  min="0"
+                  value={balanceAmount}
+                  onChange={(event) => setBalanceAmount(event.target.value)}
+                  placeholder="0"
+                />
+              </label>
+
+              {balanceError ? <p className="admin-form-error">{balanceError}</p> : null}
+
+              <div className="admin-form-actions">
+                <button type="button" onClick={() => setBalanceClient(null)}>
+                  إلغاء
+                </button>
+                <button type="submit" disabled={isBalanceSaving}>
+                  {isBalanceSaving ? "جاري الإضافة..." : "إضافة الرصيد"}
                 </button>
               </div>
             </form>

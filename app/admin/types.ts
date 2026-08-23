@@ -15,6 +15,7 @@ export type SubscriptionRow = {
   updatedAt: string;
   employeeCount: number;
   conversationCount: number;
+  campaignBalance: number;
 };
 
 export type PaymentRow = {

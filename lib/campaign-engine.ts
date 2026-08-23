@@ -111,6 +111,27 @@ export async function creditCampaignBalance(tenantId: string, messages: number) 
   await adjustCampaignBalance(tenantId, messages);
 }
 
+/** Manual balance top-up from the admin panel - recorded as a completed payment so it shows in the client's own transaction history. */
+export async function addManualCampaignBalance(tenantId: string, messages: number, amount: number) {
+  await ensureSchema();
+  const now = new Date().toISOString();
+  const payment = await prisma.campaignPayment.create({
+    data: {
+      id: `pay-manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      tenantId,
+      messages,
+      amount,
+      status: "مكتمل",
+      moyasarId: "",
+      paymentUrl: "",
+      createdAt: now,
+      completedAt: now
+    }
+  });
+  await adjustCampaignBalance(tenantId, messages);
+  return payment;
+}
+
 async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string) {
   const settings = await getIntegrationSettings("whatsapp", tenantId);
   const phoneNumberId = settings.phoneNumberId?.trim();
