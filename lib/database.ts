@@ -923,7 +923,6 @@ async function runSchemaMigrations() {
  * serverless instance the same way seedDatabase() already is below.
  */
 export async function ensureSchema() {
-  if (process.env.NODE_ENV === "production") return;
   schemaPromise ??= runSchemaMigrations().catch((error) => {
     schemaPromise = null;
     throw error;
@@ -1733,7 +1732,6 @@ async function seedDatabase() {
 }
 
 async function ensureSeeded() {
-  if (process.env.NODE_ENV === "production") return;
   // If seeding fails, seedPromise must not stay set to the rejected promise -
   // `??=` only re-runs seedDatabase() when seedPromise is null/undefined, so a
   // single transient failure (e.g. a cold-start DB timeout) would otherwise
