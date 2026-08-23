@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import type { ConversationChannel, Customer } from "../types";
 import { ChannelIcon } from "./SettingsView";
+import { useLanguage } from "../i18n";
 
 type CustomerFormState = {
   id?: string;
@@ -12,17 +13,17 @@ type CustomerFormState = {
 
 type CustomerChannelTab = Extract<ConversationChannel, "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "sms" | "tiktok">;
 
-const customerTabs: { key: CustomerChannelTab; label: string }[] = [
-  { key: "whatsapp", label: "واتساب" },
-  { key: "instagram", label: "إنستغرام" },
-  { key: "facebook", label: "فيسبوك" },
-  { key: "telegram", label: "تيليجرام" },
-  { key: "x", label: "X" },
-  { key: "google_maps", label: "خرائط Google" },
-  { key: "email", label: "البريد الإلكتروني" },
-  { key: "website", label: "الموقع" },
-  { key: "sms", label: "SMS" },
-  { key: "tiktok", label: "TikTok" }
+const customerTabs: { key: CustomerChannelTab; label: [string, string] }[] = [
+  { key: "whatsapp", label: ["واتساب", "WhatsApp"] },
+  { key: "instagram", label: ["إنستغرام", "Instagram"] },
+  { key: "facebook", label: ["فيسبوك", "Facebook"] },
+  { key: "telegram", label: ["تيليجرام", "Telegram"] },
+  { key: "x", label: ["X", "X"] },
+  { key: "google_maps", label: ["خرائط Google", "Google Maps"] },
+  { key: "email", label: ["البريد الإلكتروني", "Email"] },
+  { key: "website", label: ["الموقع", "Website"] },
+  { key: "sms", label: ["SMS", "SMS"] },
+  { key: "tiktok", label: ["TikTok", "TikTok"] }
 ];
 
 function getCustomerChannels(customer: Customer): ConversationChannel[] {
@@ -47,6 +48,7 @@ export default function ContactsView({
   onOpenConversation: (conversationId: string) => void;
   onRefreshData: () => Promise<void>;
 }) {
+  const { t } = useLanguage();
   const emptyForm = useMemo<CustomerFormState>(() => ({ name: "", phone: "" }), []);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<CustomerFormState>(emptyForm);
@@ -55,24 +57,24 @@ export default function ContactsView({
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<CustomerChannelTab>("whatsapp");
   const contactIdLabel = activeTab === "whatsapp"
-    ? "رقم الجوال"
+    ? t("رقم الجوال", "Phone Number")
     : activeTab === "instagram"
-      ? "معرف الانستقرام"
+      ? t("معرف الانستقرام", "Instagram ID")
       : activeTab === "facebook"
-        ? "معرف فيسبوك"
+        ? t("معرف فيسبوك", "Facebook ID")
       : activeTab === "telegram"
-        ? "معرف تيليجرام"
+        ? t("معرف تيليجرام", "Telegram ID")
       : activeTab === "google_maps"
-        ? "معرف تقييم Google"
+        ? t("معرف تقييم Google", "Google Review ID")
       : activeTab === "email"
-        ? "البريد الإلكتروني"
+        ? t("البريد الإلكتروني", "Email")
       : activeTab === "website"
-        ? "معرّف الزائر"
+        ? t("معرّف الزائر", "Visitor ID")
       : activeTab === "sms"
-        ? "رقم الجوال"
+        ? t("رقم الجوال", "Phone Number")
       : activeTab === "tiktok"
-        ? "معرف TikTok"
-        : "معرف X";
+        ? t("معرف TikTok", "TikTok ID")
+        : t("معرف X", "X ID");
 
   const tabCounts = useMemo(() => ({
     whatsapp: customers.filter((customer) => getCustomerChannels(customer).includes("whatsapp")).length,
@@ -128,7 +130,7 @@ export default function ContactsView({
     const payload = (await response.json()) as { ok: boolean; data?: Customer; error?: string };
 
     if (!payload.ok) {
-      setError(payload.error || "تعذر حفظ العميل");
+      setError(payload.error || t("تعذر حفظ العميل", "Could not save the customer"));
       setSaving(false);
       return;
     }
@@ -139,7 +141,7 @@ export default function ContactsView({
   }
 
   async function deleteCustomer(customer: Customer) {
-    if (!window.confirm(`حذف العميل ${customer.name}؟ سيتم حذف المحادثة المرتبطة به أيضًا.`)) return;
+    if (!window.confirm(t(`حذف العميل ${customer.name}؟ سيتم حذف المحادثة المرتبطة به أيضًا.`, `Delete customer ${customer.name}? Their linked conversation will also be deleted.`))) return;
     await fetch(`/api/customers/${customer.id}`, { method: "DELETE" });
     await onRefreshData();
   }
@@ -148,19 +150,19 @@ export default function ContactsView({
     <section className="page-stack">
       <div className="panel">
         <div className="panel-head">
-          <h2>العملاء</h2>
+          <h2>{t("العملاء", "Customers")}</h2>
           <span />
-          <button className="btn primary" type="button" onClick={openCreateForm}>إضافة عميل</button>
+          <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة عميل", "Add Customer")}</button>
         </div>
         <div className="panel-body table-wrap">
           <div className="contacts-summary">
             <div>
-              <span>إجمالي العملاء</span>
+              <span>{t("إجمالي العملاء", "Total Customers")}</span>
               <strong>{customers.length}</strong>
             </div>
-            <p>اختر المنصة لعرض العملاء القادمين منها وإدارة بياناتهم ومحادثاتهم.</p>
+            <p>{t("اختر المنصة لعرض العملاء القادمين منها وإدارة بياناتهم ومحادثاتهم.", "Choose a platform to view customers coming from it and manage their data and conversations.")}</p>
           </div>
-          <div className="section-tabs contacts-tabs" role="tablist" aria-label="تصنيف العملاء حسب القناة">
+          <div className="section-tabs contacts-tabs" role="tablist" aria-label={t("تصنيف العملاء حسب القناة", "Filter customers by channel")}>
             {customerTabs.map((tab) => (
               <button
                 key={tab.key}
@@ -171,32 +173,32 @@ export default function ContactsView({
                 onClick={() => setActiveTab(tab.key)}
               >
                 <span className={`contact-channel-logo ${tab.key}`} aria-hidden="true"><ChannelIcon id={tab.key} /></span>
-                <span className="contact-channel-copy"><b>{tab.label}</b><small>عميل</small></span>
+                <span className="contact-channel-copy"><b>{t(tab.label[0], tab.label[1])}</b><small>{t("عميل", "customer")}</small></span>
                 <strong>{tabCounts[tab.key]}</strong>
               </button>
             ))}
           </div>
           <div className="inline-filter">
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="بحث باسم العميل، الرقم، أو الوسم..." />
-            <button className="btn soft" type="button" onClick={() => setSearch("")}>مسح</button>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث باسم العميل، الرقم، أو الوسم...", "Search by customer name, number, or tag...")} />
+            <button className="btn soft" type="button" onClick={() => setSearch("")}>{t("مسح", "Clear")}</button>
           </div>
           <table>
-            <thead><tr><th>الاسم</th><th>{contactIdLabel}</th><th>الوسوم</th><th>إجراء</th></tr></thead>
+            <thead><tr><th>{t("الاسم", "Name")}</th><th>{contactIdLabel}</th><th>{t("الوسوم", "Tags")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
             <tbody>
               {filteredCustomers.map((customer) => (
                 <tr key={customer.id}>
                   <td><b>{customer.name}</b></td>
                   <td dir="ltr">{customer.phone}</td>
-                  <td>{customer.tags.length ? customer.tags.join("، ") : "-"}</td>
+                  <td>{customer.tags.length ? customer.tags.join(t("، ", ", ")) : "-"}</td>
                   <td className="row-actions">
-                    <button className="btn soft" type="button" onClick={() => onOpenConversation(customer.id)}>إرسال رسالة</button>
-                    <button className="btn soft" type="button" onClick={() => openEditForm(customer)}>تعديل</button>
-                    <button className="btn danger" type="button" onClick={() => deleteCustomer(customer)}>حذف</button>
+                    <button className="btn soft" type="button" onClick={() => onOpenConversation(customer.id)}>{t("إرسال رسالة", "Send Message")}</button>
+                    <button className="btn soft" type="button" onClick={() => openEditForm(customer)}>{t("تعديل", "Edit")}</button>
+                    <button className="btn danger" type="button" onClick={() => deleteCustomer(customer)}>{t("حذف", "Delete")}</button>
                   </td>
                 </tr>
               ))}
               {!filteredCustomers.length ? (
-                <tr><td colSpan={4}>لا يوجد عملاء مطابقون للبحث الحالي.</td></tr>
+                <tr><td colSpan={4}>{t("لا يوجد عملاء مطابقون للبحث الحالي.", "No customers match the current search.")}</td></tr>
               ) : null}
             </tbody>
           </table>
@@ -205,25 +207,25 @@ export default function ContactsView({
 
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
-          <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label="حفظ عميل" onSubmit={submitCustomer} onClick={(event) => event.stopPropagation()}>
+          <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ عميل", "Save Customer")} onSubmit={submitCustomer} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setFormOpen(false)}>×</button>
-              <h2>{form.id ? "تعديل عميل" : "إضافة عميل"}</h2>
+              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
+              <h2>{form.id ? t("تعديل عميل", "Edit Customer") : t("إضافة عميل", "Add Customer")}</h2>
             </header>
             <div className="account-modal-body form-grid">
               <label>
-                <span>اسم العميل</span>
+                <span>{t("اسم العميل", "Customer Name")}</span>
                 <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required />
               </label>
               <label>
-                <span>رقم الجوال</span>
+                <span>{t("رقم الجوال", "Phone Number")}</span>
                 <input dir="ltr" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} required placeholder="+9665XXXXXXXX" />
               </label>
               {error ? <p className="form-error">{error}</p> : null}
             </div>
             <footer className="modal-foot">
-              <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>إلغاء</button>
-              <button className="btn primary" type="submit" disabled={saving}>{saving ? "جاري الحفظ" : "حفظ"}</button>
+              <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
+              <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving") : t("حفظ", "Save")}</button>
             </footer>
           </form>
         </div>

@@ -77,13 +77,13 @@ export default function DashboardSidebar({
   const visibleNavItems = navItems.filter((item) => allowedViews.includes(item.key));
   const connected = integrationStatus === "connected";
   const linkedChannels: Array<{ key: ConversationChannel; label: string; connected: boolean }> = [
-    { key: "whatsapp", label: "واتساب", connected },
+    { key: "whatsapp", label: isEnglish ? "WhatsApp" : "واتساب", connected },
     { key: "instagram", label: "Instagram", connected: instagramStatus === "connected" },
-    { key: "facebook", label: "فيسبوك", connected: facebookStatus === "connected" },
-    { key: "telegram", label: "تيليجرام", connected: telegramStatus === "connected" },
+    { key: "facebook", label: isEnglish ? "Facebook" : "فيسبوك", connected: facebookStatus === "connected" },
+    { key: "telegram", label: isEnglish ? "Telegram" : "تيليجرام", connected: telegramStatus === "connected" },
     { key: "x", label: "X", connected: xStatus === "connected" },
-    { key: "google_maps", label: "خرائط Google", connected: googleMapsStatus === "connected" },
-    { key: "email", label: "البريد الإلكتروني", connected: emailStatus === "connected" }
+    { key: "google_maps", label: isEnglish ? "Google Maps" : "خرائط Google", connected: googleMapsStatus === "connected" },
+    { key: "email", label: isEnglish ? "Email" : "البريد الإلكتروني", connected: emailStatus === "connected" }
   ];
   const visibleLinkedChannels = linkedChannels.filter((channel) => channel.connected);
 
@@ -155,7 +155,15 @@ export default function DashboardSidebar({
         <span>
           <b>{user.name}</b>
           <small>{user.role}</small>
-          <em className={profileStatus === "متصل" ? "online" : profileStatus === "مشغول" ? "busy" : "offline"}>{profileStatus}</em>
+          <em className={profileStatus === "متصل" ? "online" : profileStatus === "مشغول" ? "busy" : "offline"}>
+            {isEnglish
+              ? profileStatus === "متصل"
+                ? "Online"
+                : profileStatus === "مشغول"
+                  ? "Busy"
+                  : "Offline"
+              : profileStatus}
+          </em>
         </span>
       </button>
     </aside>

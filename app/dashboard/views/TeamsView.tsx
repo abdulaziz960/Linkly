@@ -2,6 +2,12 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import type { Employee, Team } from "../types";
+import { useLanguage } from "../i18n";
+
+function routingLabel(routing: string, t: (ar: string, en: string) => string) {
+  if (routing === "تلقائي بالتساوي") return t("تلقائي بالتساوي", "Automatic (even split)");
+  return t("يدوي", "Manual");
+}
 
 type TeamFormState = {
   id?: string;
@@ -20,6 +26,7 @@ export default function TeamsView({
   onRefreshData: () => Promise<void>;
   teams: Team[];
 }) {
+  const { t } = useLanguage();
   const emptyForm = useMemo<TeamFormState>(
     () => ({
       name: "",
@@ -83,7 +90,7 @@ export default function TeamsView({
     const payload = (await response.json()) as { ok: boolean; error?: string };
 
     if (!payload.ok) {
-      setError(payload.error || "تعذر حفظ الفريق");
+      setError(payload.error || t("تعذر حفظ الفريق", "Could not save the team"));
       setSaving(false);
       return;
     }
@@ -94,7 +101,7 @@ export default function TeamsView({
   }
 
   async function deleteTeam(team: Team) {
-    if (!window.confirm(`حذف فريق ${team.name}؟`)) return;
+    if (!window.confirm(t(`حذف فريق ${team.name}؟`, `Delete team ${team.name}?`))) return;
     await fetch(`/api/teams/${team.id}`, { method: "DELETE" });
     await onRefreshData();
   }
@@ -109,25 +116,25 @@ export default function TeamsView({
     <section className="page-stack">
       <div className="panel">
         <div className="panel-head">
-          <h2>الفرق</h2>
+          <h2>{t("الفرق", "Teams")}</h2>
           <span />
-          <button className="btn primary" type="button" onClick={openCreateForm}>إضافة فريق</button>
+          <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة فريق", "Add Team")}</button>
         </div>
         <div className="panel-body table-wrap">
-          <p className="muted-copy">استخدم الفرق لتنظيم الموظفين حسب مهامهم مثل الدعم، المبيعات، الشحن، والفواتير، وتحديد آلية توزيع المحادثات لكل فريق.</p>
+          <p className="muted-copy">{t("استخدم الفرق لتنظيم الموظفين حسب مهامهم مثل الدعم، المبيعات، الشحن، والفواتير، وتحديد آلية توزيع المحادثات لكل فريق.", "Use teams to organize employees by function, such as support, sales, shipping, and billing, and to set the conversation routing method for each team.")}</p>
           <table>
-            <thead><tr><th>الفريق</th><th>المشرف</th><th>الأعضاء</th><th>التوزيع</th><th>إجراء</th></tr></thead>
+            <thead><tr><th>{t("الفريق", "Team")}</th><th>{t("المشرف", "Lead")}</th><th>{t("الأعضاء", "Members")}</th><th>{t("التوزيع", "Routing")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
             <tbody>
               {teams.map((team) => (
                 <tr key={team.id}>
                   <td><b>{team.name}</b></td>
                   <td>{team.lead || "-"}</td>
                   <td>{team.memberIds.length}</td>
-                  <td>{team.routing}</td>
+                  <td>{routingLabel(team.routing, t)}</td>
                   <td className="row-actions">
-                    <button className="btn soft" type="button" onClick={() => setMembersOpen(team)}>عرض</button>
-                    <button className="btn soft" type="button" onClick={() => openEditForm(team)}>تعديل</button>
-                    <button className="btn danger" type="button" onClick={() => deleteTeam(team)}>حذف</button>
+                    <button className="btn soft" type="button" onClick={() => setMembersOpen(team)}>{t("عرض", "View")}</button>
+                    <button className="btn soft" type="button" onClick={() => openEditForm(team)}>{t("تعديل", "Edit")}</button>
+                    <button className="btn danger" type="button" onClick={() => deleteTeam(team)}>{t("حذف", "Delete")}</button>
                   </td>
                 </tr>
               ))}
@@ -138,24 +145,24 @@ export default function TeamsView({
 
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
-          <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label="حفظ فريق" onSubmit={submitTeam} onClick={(event) => event.stopPropagation()}>
+          <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ فريق", "Save Team")} onSubmit={submitTeam} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setFormOpen(false)}>×</button>
-              <h2>{form.id ? "تعديل فريق" : "إضافة فريق"}</h2>
+              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
+              <h2>{form.id ? t("تعديل فريق", "Edit Team") : t("إضافة فريق", "Add Team")}</h2>
             </header>
             <div className="account-modal-body form-grid">
               <div className="form-intro">
-                <h3>{form.id ? "تحديث بيانات الفريق" : "إنشاء فريق جديد"}</h3>
-                <p>أضف اسم الفريق والمشرف، ثم اختر الأعضاء وطريقة توزيع المحادثات.</p>
+                <h3>{form.id ? t("تحديث بيانات الفريق", "Update Team Details") : t("إنشاء فريق جديد", "Create a New Team")}</h3>
+                <p>{t("أضف اسم الفريق والمشرف، ثم اختر الأعضاء وطريقة توزيع المحادثات.", "Add the team name and lead, then choose the members and the conversation routing method.")}</p>
               </div>
               <label>
-                <span>اسم الفريق</span>
-                <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required placeholder="مثال: الدعم، الشحن، الفواتير" />
+                <span>{t("اسم الفريق", "Team Name")}</span>
+                <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required placeholder={t("مثال: الدعم، الشحن، الفواتير", "e.g. Support, Shipping, Billing")} />
               </label>
               <label>
-                <span>المشرف</span>
+                <span>{t("المشرف", "Lead")}</span>
                 <select value={form.lead} onChange={(event) => setForm((current) => ({ ...current, lead: event.target.value }))}>
-                  <option value="">بدون مشرف</option>
+                  <option value="">{t("بدون مشرف", "No lead")}</option>
                   {employees.map((employee) => <option key={employee.id}>{employee.name}</option>)}
                 </select>
               </label>
@@ -165,12 +172,12 @@ export default function TeamsView({
                   checked={form.autoRouting}
                   onChange={(event) => setForm((current) => ({ ...current, autoRouting: event.target.checked }))}
                 />
-                <span>السماح بالتوزيع التلقائي لهذا الفريق.</span>
+                <span>{t("السماح بالتوزيع التلقائي لهذا الفريق.", "Allow automatic routing for this team.")}</span>
               </label>
               <div className="permissions-box">
                 <div className="permissions-head">
-                  <b>أعضاء الفريق</b>
-                  <span className="muted-inline">تم تحديد {form.memberIds.length} من أصل {employees.length} موظف</span>
+                  <b>{t("أعضاء الفريق", "Team Members")}</b>
+                  <span className="muted-inline">{t(`تم تحديد ${form.memberIds.length} من أصل ${employees.length} موظف`, `${form.memberIds.length} of ${employees.length} employees selected`)}</span>
                 </div>
                 <div className="member-picker">
                   {employees.map((employee) => (
@@ -186,8 +193,8 @@ export default function TeamsView({
               {error ? <p className="form-error">{error}</p> : null}
             </div>
             <footer className="modal-foot">
-              <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>إلغاء</button>
-              <button className="btn primary" type="submit" disabled={saving}>{saving ? "جاري الحفظ" : "حفظ"}</button>
+              <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
+              <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving") : t("حفظ", "Save")}</button>
             </footer>
           </form>
         </div>
@@ -195,10 +202,10 @@ export default function TeamsView({
 
       {membersOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setMembersOpen(null)}>
-          <section className="account-modal form-modal" role="dialog" aria-modal="true" aria-label="أعضاء الفريق" onClick={(event) => event.stopPropagation()}>
+          <section className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("أعضاء الفريق", "Team Members")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setMembersOpen(null)}>×</button>
-              <h2>أعضاء فريق {membersOpen.name}</h2>
+              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setMembersOpen(null)}>×</button>
+              <h2>{t(`أعضاء فريق ${membersOpen.name}`, `Members of ${membersOpen.name}`)}</h2>
             </header>
             <div className="account-modal-body">
               <div className="member-list">
@@ -212,12 +219,12 @@ export default function TeamsView({
                     <em>{employee.role}</em>
                   </div>
                 ))}
-                {!membersOpen.memberIds.length ? <p className="muted-copy">لا يوجد أعضاء مضافين لهذا الفريق.</p> : null}
+                {!membersOpen.memberIds.length ? <p className="muted-copy">{t("لا يوجد أعضاء مضافين لهذا الفريق.", "No members have been added to this team.")}</p> : null}
               </div>
             </div>
             <footer className="modal-foot">
-              <button className="btn soft" type="button" onClick={() => setMembersOpen(null)}>إغلاق</button>
-              <button className="btn primary" type="button" onClick={() => { setMembersOpen(null); openEditForm(membersOpen); }}>تعديل الأعضاء</button>
+              <button className="btn soft" type="button" onClick={() => setMembersOpen(null)}>{t("إغلاق", "Close")}</button>
+              <button className="btn primary" type="button" onClick={() => { setMembersOpen(null); openEditForm(membersOpen); }}>{t("تعديل الأعضاء", "Edit Members")}</button>
             </footer>
           </section>
         </div>

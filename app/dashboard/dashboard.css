@@ -30,28 +30,6 @@
    plus every shared primitive (panels, buttons, inputs, modals) they're
    built from. Other pages still render with these tokens, so they get
    partial dark coverage for free, but haven't been individually audited. */
-.dashboard-shell[data-theme="dark"] {
-  --bg: #0a0a0a;
-  --surface: #171717;
-  --surface-soft: #262626;
-  --ink: #f5f5f5;
-  --muted: #a3a3a3;
-  --text-secondary: #d4d4d4;
-  --line: #333333;
-  --brand: #525252;
-  --status-ok-bg: #132119;
-  --status-ok-bg-soft: #0f1a14;
-  --status-warn-bg: #241c0c;
-  --status-warn-bg-soft: #1f180a;
-  --status-danger-bg: #241211;
-  --status-danger-bg-soft: #1f0f0e;
-  --status-info-bg: #10202e;
-  --status-ok-text: #7fd9a0;
-  --status-warn-text: #f0b27a;
-  --status-danger-text: #f3a9a9;
-  --status-info-text: #7ec8f0;
-  --shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
-}
 
 .dashboard-shell {
   min-height: 100vh;
@@ -120,9 +98,6 @@
   object-fit: contain;
 }
 
-.dashboard-shell[data-theme="dark"] .brand-mark img {
-  filter: invert(1);
-}
 
 .tenant-card,
 .sidebar-footer {
@@ -942,11 +917,6 @@
   color: var(--danger);
 }
 
-.dashboard-shell[data-theme="dark"] .btn.danger {
-  border-color: #6b2530;
-  background: #3a1a1f;
-  color: #f3a9b4;
-}
 
 .modal-backdrop {
   position: fixed;
@@ -6028,118 +5998,22 @@
 
 /* Keep the warm AudienceW identity while making the profile theme control
    produce a clearly different, readable workspace. */
-.dashboard-shell[data-theme="dark"] {
-  --bg: #15100d;
-  --surface: #211915;
-  --surface-soft: #2c211b;
-  --ink: #fff5ec;
-  --muted: #c7b2a3;
-  --text-secondary: #ead8ca;
-  --line: #4b392f;
-  --brand: #b85431;
-  background: #15100d;
-}
 
-.dashboard-shell[data-theme="dark"] .dashboard-main,
-.dashboard-shell[data-theme="dark"] .conversation-column {
-  border-color: #4b392f;
-  background: #211915;
-}
 
-.dashboard-shell[data-theme="dark"] .chat-column,
-.dashboard-shell[data-theme="dark"] .messages,
-.dashboard-shell[data-theme="dark"] .composer-modes,
-.dashboard-shell[data-theme="dark"] .conversation-empty-state {
-  background: #18120f;
-}
 
-.dashboard-shell[data-theme="dark"] .column-head,
-.dashboard-shell[data-theme="dark"] .chat-head,
-.dashboard-shell[data-theme="dark"] .conversation-tabs,
-.dashboard-shell[data-theme="dark"] .chat-tabs,
-.dashboard-shell[data-theme="dark"] .mobile-topbar {
-  border-color: #4b392f;
-  background: #251c17;
-}
 
-.dashboard-shell[data-theme="dark"] .conversation-tabs button,
-.dashboard-shell[data-theme="dark"] .chat-tabs button,
-.dashboard-shell[data-theme="dark"] .composer-modes button {
-  border-color: #4b392f;
-  background: #3a2b23;
-  color: #ead8ca;
-}
 
-.dashboard-shell[data-theme="dark"] .conversation-tabs button.active,
-.dashboard-shell[data-theme="dark"] .chat-tabs button.active,
-.dashboard-shell[data-theme="dark"] .composer-modes button.active {
-  border-color: #b85431;
-  background: #b85431;
-  color: #fff;
-}
 
-.dashboard-shell[data-theme="dark"] .search-box input,
-.dashboard-shell[data-theme="dark"] .chat-head select,
-.dashboard-shell[data-theme="dark"] .readonly-assignee,
-.dashboard-shell[data-theme="dark"] .composer {
-  border-color: #5a4337;
-  background: #2a201a;
-  color: #fff5ec;
-}
 
-.dashboard-shell[data-theme="dark"] .conversation-card {
-  border-color: #3f3028;
-  background: #211915;
-}
 
-.dashboard-shell[data-theme="dark"] .conversation-card:hover {
-  background: #2c211b;
-}
 
-.dashboard-shell[data-theme="dark"] .conversation-card.active {
-  border-color: #b85431;
-  background: #3c291f;
-}
 
-.dashboard-shell[data-theme="dark"] .conversation-copy b,
-.dashboard-shell[data-theme="dark"] .chat-customer b {
-  color: #fff3e8;
-}
 
-.dashboard-shell[data-theme="dark"] .conversation-copy small,
-.dashboard-shell[data-theme="dark"] .chat-head label,
-.dashboard-shell[data-theme="dark"] .conversation-empty-state p,
-.dashboard-shell[data-theme="dark"] .composer textarea::placeholder {
-  color: #c7b2a3;
-}
 
-.dashboard-shell[data-theme="dark"] .avatar,
-.dashboard-shell[data-theme="dark"] .attachment-button {
-  background: #4b3024;
-  color: #ffd9c5;
-}
 
-.dashboard-shell[data-theme="dark"] .composer-reply-preview {
-  border-color: #5a4337;
-  border-right-color: #b85431;
-  background: #30231d;
-}
 
-.dashboard-shell[data-theme="dark"] .profile-save-feedback.success {
-  border-color: #347a50;
-  background: #173222;
-  color: #a7efbf;
-}
 
-.dashboard-shell[data-theme="dark"] .profile-save-feedback.error {
-  border-color: #8f403b;
-  background: #3a1a18;
-  color: #ffc0ba;
-}
 
-.dashboard-shell[data-theme="dark"] .message-bubble.out {
-  color: #fff5ec;
-}
 
 /* Responsive inbox ergonomics */
 @media (min-width: 1440px) {
@@ -6226,8 +6100,7 @@
 }
 
 @media (max-width: 1180px) {
-  .dashboard-shell,
-  .dashboard-shell[data-theme="dark"] {
+.dashboard-shell {
     grid-template-columns: 1fr;
     padding: 0;
   }

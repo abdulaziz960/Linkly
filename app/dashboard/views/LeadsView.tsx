@@ -2,10 +2,12 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Employee, Lead } from "../types";
+import { useLanguage } from "../i18n";
 
 type LeadForm = Omit<Lead, "id"> & { id?: string };
 
 function LeadsImportCard() {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [secret, setSecret] = useState("");
@@ -33,20 +35,20 @@ function LeadsImportCard() {
   return (
     <div className="panel">
       <div className="panel-head">
-        <h2>استيراد تلقائي من Zapier / إعلانات Meta وGoogle</h2>
+        <h2>{t("استيراد تلقائي من Zapier / إعلانات Meta وGoogle", "Automatic import from Zapier / Meta and Google Ads")}</h2>
         <span />
         <button className="btn soft" type="button" onClick={() => setOpen((current) => !current)}>
-          {open ? "إخفاء" : "عرض رابط الاستيراد"}
+          {open ? t("إخفاء", "Hide") : t("عرض رابط الاستيراد", "Show import link")}
         </button>
       </div>
       {open ? (
         <div className="panel-body">
-          <p className="muted-copy">وصّل أي مصدر ليدات (Zapier، Make، نموذج إعلانات Meta أو Google) بهذا الرابط ليضاف كل ليد جديد هنا تلقائيًا، مع فتح محادثة واتساب معه فورًا.</p>
+          <p className="muted-copy">{t("وصّل أي مصدر ليدات (Zapier، Make، نموذج إعلانات Meta أو Google) بهذا الرابط ليضاف كل ليد جديد هنا تلقائيًا، مع فتح محادثة واتساب معه فورًا.", "Connect any lead source (Zapier, Make, a Meta or Google Ads form) to this link so every new lead is added here automatically, with a WhatsApp conversation opened with them right away.")}</p>
           <div className="telegram-steps">
-            <div><span>1</span><b>رابط الويبهوك</b><small className="copy-row"><span dir="ltr">{webhookUrl || "..."}</span><button className="btn soft" type="button" onClick={() => copy(webhookUrl, "url")}>{copied === "url" ? "تم النسخ" : "نسخ"}</button></small></div>
-            <div><span>2</span><b>Secret Token</b><small className="copy-row"><span dir="ltr">{secret || "..."}</span><button className="btn soft" type="button" onClick={() => copy(secret, "secret")}>{copied === "secret" ? "تم النسخ" : "نسخ"}</button></small></div>
-            <div><span>3</span><b>أرسله بهيدر</b><small dir="ltr">Authorization: Bearer {"{secret}"}</small></div>
-            <div><span>4</span><b>الحقول المتوقعة</b><small>name, phone, interest, budget, source, notes (JSON)</small></div>
+            <div><span>1</span><b>{t("رابط الويبهوك", "Webhook URL")}</b><small className="copy-row"><span dir="ltr">{webhookUrl || "..."}</span><button className="btn soft" type="button" onClick={() => copy(webhookUrl, "url")}>{copied === "url" ? t("تم النسخ", "Copied") : t("نسخ", "Copy")}</button></small></div>
+            <div><span>2</span><b>{t("Secret Token", "Secret Token")}</b><small className="copy-row"><span dir="ltr">{secret || "..."}</span><button className="btn soft" type="button" onClick={() => copy(secret, "secret")}>{copied === "secret" ? t("تم النسخ", "Copied") : t("نسخ", "Copy")}</button></small></div>
+            <div><span>3</span><b>{t("أرسله بهيدر", "Send it as a header")}</b><small dir="ltr">Authorization: Bearer {"{secret}"}</small></div>
+            <div><span>4</span><b>{t("الحقول المتوقعة", "Expected fields")}</b><small>name, phone, interest, budget, source, notes (JSON)</small></div>
           </div>
         </div>
       ) : null}
@@ -63,6 +65,7 @@ export default function LeadsView({
   leads: Lead[];
   onRefreshData: () => Promise<void>;
 }) {
+  const { t } = useLanguage();
   const emptyForm = useMemo<LeadForm>(
     () => ({
       customer: "",
@@ -123,7 +126,7 @@ export default function LeadsView({
   }
 
   async function deleteLead(lead: Lead) {
-    if (!window.confirm(`حذف ${lead.customer}؟`)) return;
+    if (!window.confirm(t(`حذف ${lead.customer}؟`, `Delete ${lead.customer}?`))) return;
     await fetch(`/api/leads/${lead.id}`, { method: "DELETE" });
     await onRefreshData();
   }
@@ -132,35 +135,35 @@ export default function LeadsView({
     <section className="page-stack">
       <LeadsImportCard />
       <div className="panel">
-        <div className="panel-head"><h2>العملاء المحتملون للعقار</h2><span /><button className="btn soft" type="button" onClick={() => setFilterOpen((current) => !current)}>تصفية</button><button className="btn primary" type="button" onClick={() => openForm()}>إضافة عميل محتمل</button></div>
+        <div className="panel-head"><h2>{t("العملاء المحتملون للعقار", "Real Estate Leads")}</h2><span /><button className="btn soft" type="button" onClick={() => setFilterOpen((current) => !current)}>{t("تصفية", "Filter")}</button><button className="btn primary" type="button" onClick={() => openForm()}>{t("إضافة عميل محتمل", "Add lead")}</button></div>
         {filterOpen ? (
           <div className="inline-filter leads-filter">
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="بحث باسم العميل، الرقم، المصدر، الاهتمام..." />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("بحث باسم العميل، الرقم، المصدر، الاهتمام...", "Search by customer name, number, source, interest...")} />
             <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
-              <option>الكل</option>
-              {stages.map((stage) => <option key={stage}>{stage}</option>)}
+              <option value="الكل">{t("الكل", "All")}</option>
+              {stages.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
             </select>
             <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)}>
-              <option>الكل</option>
-              {employees.map((employee) => <option key={employee.id}>{employee.name}</option>)}
-              <option>بدون موظف</option>
+              <option value="الكل">{t("الكل", "All")}</option>
+              {employees.map((employee) => <option key={employee.id} value={employee.name}>{employee.name}</option>)}
+              <option value="بدون موظف">{t("بدون موظف", "No employee")}</option>
             </select>
-            <button className="btn soft" type="button" onClick={() => { setQuery(""); setStageFilter("الكل"); setEmployeeFilter("الكل"); }}>مسح</button>
+            <button className="btn soft" type="button" onClick={() => { setQuery(""); setStageFilter("الكل"); setEmployeeFilter("الكل"); }}>{t("مسح", "Clear")}</button>
           </div>
         ) : null}
         <div className="panel-body table-wrap">
           <table>
-            <thead><tr><th>العميل</th><th>الجوال</th><th>المصدر</th><th>الاهتمام</th><th>الميزانية</th><th>المرحلة</th><th>الموظف</th><th>آخر تواصل</th><th>إجراء</th></tr></thead>
+            <thead><tr><th>{t("العميل", "Customer")}</th><th>{t("الجوال", "Phone")}</th><th>{t("المصدر", "Source")}</th><th>{t("الاهتمام", "Interest")}</th><th>{t("الميزانية", "Budget")}</th><th>{t("المرحلة", "Stage")}</th><th>{t("الموظف", "Employee")}</th><th>{t("آخر تواصل", "Last contact")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
             <tbody>
               {filteredLeads.map((lead) => (
                 <tr key={lead.id}>
                   <td>{lead.customer}</td><td dir="ltr">{lead.phone || "-"}</td><td>{lead.source || "-"}</td><td>{lead.interest}</td><td>{lead.budget}</td><td><span className="state warn">{lead.stage}</span></td><td>{lead.employee}</td><td>{lead.lastContact}</td>
-                  <td className="row-actions"><button className="btn soft" type="button" onClick={() => openForm(lead)}>تعديل</button><button className="btn danger" type="button" onClick={() => deleteLead(lead)}>حذف</button></td>
+                  <td className="row-actions"><button className="btn soft" type="button" onClick={() => openForm(lead)}>{t("تعديل", "Edit")}</button><button className="btn danger" type="button" onClick={() => deleteLead(lead)}>{t("حذف", "Delete")}</button></td>
                 </tr>
               ))}
               {!filteredLeads.length ? (
                 <tr>
-                  <td colSpan={9}>لا توجد نتائج مطابقة للفلترة الحالية.</td>
+                  <td colSpan={9}>{t("لا توجد نتائج مطابقة للفلترة الحالية.", "No results match the current filters.")}</td>
                 </tr>
               ) : null}
             </tbody>
@@ -170,24 +173,24 @@ export default function LeadsView({
 
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
-          <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label="حفظ عميل محتمل" onSubmit={submitLead} onClick={(event) => event.stopPropagation()}>
-            <header className="modal-head"><button className="icon-btn" type="button" aria-label="إغلاق" onClick={() => setFormOpen(false)}>×</button><h2>{form.id ? "تعديل عميل محتمل" : "إضافة عميل محتمل"}</h2></header>
+          <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ عميل محتمل", "Save lead")} onSubmit={submitLead} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head"><button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button><h2>{form.id ? t("تعديل عميل محتمل", "Edit lead") : t("إضافة عميل محتمل", "Add lead")}</h2></header>
             <div className="account-modal-body form-grid">
-              <label><span>اسم العميل</span><input value={form.customer} onChange={(event) => setForm((current) => ({ ...current, customer: event.target.value }))} required /></label>
-              <label><span>رقم الجوال</span><input dir="ltr" value={form.phone || ""} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
-              <label><span>الاهتمام</span><input value={form.interest} onChange={(event) => setForm((current) => ({ ...current, interest: event.target.value }))} /></label>
-              <label><span>المصدر</span><input value={form.source || ""} onChange={(event) => setForm((current) => ({ ...current, source: event.target.value }))} placeholder="Zapier / Meta Ads / Google Ads" /></label>
+              <label><span>{t("اسم العميل", "Customer name")}</span><input value={form.customer} onChange={(event) => setForm((current) => ({ ...current, customer: event.target.value }))} required /></label>
+              <label><span>{t("رقم الجوال", "Phone number")}</span><input dir="ltr" value={form.phone || ""} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+              <label><span>{t("الاهتمام", "Interest")}</span><input value={form.interest} onChange={(event) => setForm((current) => ({ ...current, interest: event.target.value }))} /></label>
+              <label><span>{t("المصدر", "Source")}</span><input value={form.source || ""} onChange={(event) => setForm((current) => ({ ...current, source: event.target.value }))} placeholder="Zapier / Meta Ads / Google Ads" /></label>
               <div className="split-fields">
-                <label><span>الميزانية</span><input value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))} /></label>
-                <label><span>المرحلة</span><input value={form.stage} onChange={(event) => setForm((current) => ({ ...current, stage: event.target.value }))} /></label>
+                <label><span>{t("الميزانية", "Budget")}</span><input value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))} /></label>
+                <label><span>{t("المرحلة", "Stage")}</span><input value={form.stage} onChange={(event) => setForm((current) => ({ ...current, stage: event.target.value }))} /></label>
               </div>
-              <label className="full"><span>ملاحظات الليد</span><textarea rows={3} value={form.notes || ""} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /></label>
+              <label className="full"><span>{t("ملاحظات الليد", "Lead notes")}</span><textarea rows={3} value={form.notes || ""} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /></label>
               <div className="split-fields">
-                <label><span>الموظف</span><select value={form.employee} onChange={(event) => setForm((current) => ({ ...current, employee: event.target.value }))}>{employees.map((employee) => <option key={employee.id}>{employee.name}</option>)}<option>بدون موظف</option></select></label>
-                <label><span>آخر تواصل</span><input value={form.lastContact} onChange={(event) => setForm((current) => ({ ...current, lastContact: event.target.value }))} /></label>
+                <label><span>{t("الموظف", "Employee")}</span><select value={form.employee} onChange={(event) => setForm((current) => ({ ...current, employee: event.target.value }))}>{employees.map((employee) => <option key={employee.id}>{employee.name}</option>)}<option>بدون موظف</option></select></label>
+                <label><span>{t("آخر تواصل", "Last contact")}</span><input value={form.lastContact} onChange={(event) => setForm((current) => ({ ...current, lastContact: event.target.value }))} /></label>
               </div>
             </div>
-            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>إلغاء</button><button className="btn primary" type="submit" disabled={saving}>{saving ? "جاري الحفظ" : "حفظ"}</button></footer>
+            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving") : t("حفظ", "Save")}</button></footer>
           </form>
         </div>
       ) : null}

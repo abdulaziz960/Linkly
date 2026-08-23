@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import type { MessageTemplate } from "../types";
+import { useLanguage } from "../i18n";
 
 type TemplateFormState = {
   name: string;
@@ -29,6 +30,13 @@ const languages = [
 
 const templateNamePattern = "^[a-z0-9_]+$";
 
+function templateStatusLabel(status: string, t: (ar: string, en: string) => string) {
+  if (status === "معتمد") return t("معتمد", "Approved");
+  if (status === "مرفوض") return t("مرفوض", "Rejected");
+  if (status === "قيد المراجعة") return t("قيد المراجعة", "Pending review");
+  return status;
+}
+
 export default function TemplatesView({
   onRefreshData,
   templates
@@ -36,6 +44,7 @@ export default function TemplatesView({
   onRefreshData: () => Promise<void>;
   templates: MessageTemplate[];
 }) {
+  const { t, language } = useLanguage();
   const emptyForm = useMemo<TemplateFormState>(
     () => ({
       name: "",
@@ -110,7 +119,7 @@ export default function TemplatesView({
     const payload = (await response.json()) as { ok: boolean; error?: string };
 
     if (!payload.ok) {
-      setError(payload.error || "تعذر حفظ القالب");
+      setError(payload.error || t("تعذر حفظ القالب", "Unable to save the template"));
       setSaving(false);
       return;
     }
@@ -125,13 +134,13 @@ export default function TemplatesView({
     setError("");
     const response = await fetch("/api/templates/sync-meta", { method: "POST" });
     const payload = (await response.json()) as { ok: boolean; error?: string };
-    if (!payload.ok) setError(payload.error || "تعذر التحديث من Meta");
+    if (!payload.ok) setError(payload.error || t("تعذر التحديث من Meta", "Unable to sync from Meta"));
     await onRefreshData();
     setSyncing(false);
   }
 
   async function deleteTemplate(template: MessageTemplate) {
-    if (!window.confirm(`حذف قالب ${template.name}؟`)) return;
+    if (!window.confirm(t(`حذف قالب ${template.name}؟`, `Delete the "${template.name}" template?`))) return;
     await fetch(`/api/templates/${encodeURIComponent(template.name)}`, { method: "DELETE" });
     await onRefreshData();
   }
@@ -139,22 +148,22 @@ export default function TemplatesView({
   return (
     <section className="page-stack">
       <div className="stats-grid">
-        <div className="stat"><span>القوالب المعتمدة</span><b>{approvedCount}</b><small>جاهزة للإرسال</small></div>
-        <div className="stat"><span>بانتظار المراجعة</span><b>{pendingCount}</b><small>لدى Meta</small></div>
-        <div className="stat"><span>آخر مزامنة</span><b>{lastSync}</b><small>من قوالب Meta</small></div>
-        <div className="stat"><span>مرفوضة</span><b>{rejectedCount}</b><small>تحتاج تعديل</small></div>
+        <div className="stat"><span>{t("القوالب المعتمدة", "Approved templates")}</span><b>{approvedCount}</b><small>{t("جاهزة للإرسال", "Ready to send")}</small></div>
+        <div className="stat"><span>{t("بانتظار المراجعة", "Awaiting review")}</span><b>{pendingCount}</b><small>{t("لدى Meta", "With Meta")}</small></div>
+        <div className="stat"><span>{t("آخر مزامنة", "Last sync")}</span><b>{lastSync}</b><small>{t("من قوالب Meta", "From Meta templates")}</small></div>
+        <div className="stat"><span>{t("مرفوضة", "Rejected")}</span><b>{rejectedCount}</b><small>{t("تحتاج تعديل", "Needs changes")}</small></div>
       </div>
       <div className="panel">
         <div className="panel-head">
-          <h2>قوالب واتساب</h2>
+          <h2>{t("قوالب واتساب", "WhatsApp Templates")}</h2>
           <span />
-          <button className="btn soft" type="button" onClick={syncTemplatesFromMeta} disabled={syncing}>{syncing ? "جاري التحديث" : "تحديث الحالة من Meta"}</button>
-          <button className="btn primary" type="button" onClick={openCreateForm}>إنشاء قالب</button>
+          <button className="btn soft" type="button" onClick={syncTemplatesFromMeta} disabled={syncing}>{syncing ? t("جاري التحديث", "Syncing") : t("تحديث الحالة من Meta", "Sync status from Meta")}</button>
+          <button className="btn primary" type="button" onClick={openCreateForm}>{t("إنشاء قالب", "Create template")}</button>
         </div>
         {error ? <p className="form-error">{error}</p> : null}
         <div className="panel-body table-wrap">
           <table>
-            <thead><tr><th>القالب</th><th>الفئة</th><th>اللغة</th><th>الحالة من Meta</th><th>آخر مزامنة</th><th>إجراء</th></tr></thead>
+            <thead><tr><th>{t("القالب", "Template")}</th><th>{t("الفئة", "Category")}</th><th>{t("اللغة", "Language")}</th><th>{t("الحالة من Meta", "Meta status")}</th><th>{t("آخر مزامنة", "Last sync")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
             <tbody>
               {templates.map((template) => (
                 <tr key={template.name}>
@@ -164,11 +173,11 @@ export default function TemplatesView({
                   </td>
                   <td>{template.category || (template.type === "تسويق" ? "MARKETING" : "UTILITY")}</td>
                   <td>{template.language}</td>
-                  <td><span className={template.status === "معتمد" ? "state ok" : template.status === "مرفوض" ? "state off" : "state warn"}>{template.status}</span></td>
+                  <td><span className={template.status === "معتمد" ? "state ok" : template.status === "مرفوض" ? "state off" : "state warn"}>{templateStatusLabel(template.status || "", t)}</span></td>
                   <td>{template.syncedAt || "-"}</td>
                   <td className="row-actions">
-                    <button className="btn soft" type="button" onClick={() => openEditForm(template)}>عرض</button>
-                    <button className="btn danger" type="button" onClick={() => deleteTemplate(template)}>حذف</button>
+                    <button className="btn soft" type="button" onClick={() => openEditForm(template)}>{t("عرض", "View")}</button>
+                    <button className="btn danger" type="button" onClick={() => deleteTemplate(template)}>{t("حذف", "Delete")}</button>
                   </td>
                 </tr>
               ))}
@@ -179,14 +188,14 @@ export default function TemplatesView({
 
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
-          <form className="account-modal template-modal" role="dialog" aria-modal="true" aria-label="حفظ قالب واتساب" onSubmit={submitTemplate} onClick={(event) => event.stopPropagation()}>
-            <button className="template-close" type="button" aria-label="إغلاق" onClick={() => setFormOpen(false)}>×</button>
+          <form className="account-modal template-modal" role="dialog" aria-modal="true" aria-label={t("حفظ قالب واتساب", "Save WhatsApp template")} onSubmit={submitTemplate} onClick={(event) => event.stopPropagation()}>
+            <button className="template-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
             <div className="template-modal-body">
               <div className="template-editor">
-                <h2>قوالب الواتساب</h2>
+                <h2>{t("قوالب الواتساب", "WhatsApp Templates")}</h2>
                 <p>Edit your Template</p>
                 <label>
-                  <span>الاسم</span>
+                  <span>{t("الاسم", "Name")}</span>
                   <input
                     dir="ltr"
                     value={form.name}
@@ -196,10 +205,10 @@ export default function TemplatesView({
                     pattern={templateNamePattern}
                     placeholder="welcome_message"
                   />
-                  <small className="field-hint">حسب سياسة Meta: حروف إنجليزية صغيرة، أرقام، وشرطة سفلية فقط. مثال: welcome_message</small>
+                  <small className="field-hint">{t("حسب سياسة Meta: حروف إنجليزية صغيرة، أرقام، وشرطة سفلية فقط. مثال: welcome_message", "Per Meta's policy: lowercase letters, numbers, and underscores only. Example: welcome_message")}</small>
                 </label>
                 <label>
-                  <span>الفئة</span>
+                  <span>{t("الفئة", "Category")}</span>
                   <select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as TemplateFormState["category"], type: event.target.value === "MARKETING" ? "تسويق" : "خدمة" }))}>
                     <option value="UTILITY">UTILITY</option>
                     <option value="MARKETING">MARKETING</option>
@@ -207,35 +216,35 @@ export default function TemplatesView({
                   </select>
                 </label>
                 <label>
-                  <span>اللغة</span>
+                  <span>{t("اللغة", "Language")}</span>
                   <select value={form.language} onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}>
-                    {languages.map((language) => <option key={language.value} value={language.value}>{language.label}</option>)}
+                    {languages.map((lang) => <option key={lang.value} value={lang.value}>{lang.label}</option>)}
                   </select>
                 </label>
                 <label>
-                  <span>نوع العنوان</span>
+                  <span>{t("نوع العنوان", "Header type")}</span>
                   <select value={form.headerType} onChange={(event) => setForm((current) => ({ ...current, headerType: event.target.value as TemplateFormState["headerType"] }))}>
-                    <option value="NONE">لا شيء</option>
-                    <option value="TEXT">نص</option>
+                    <option value="NONE">{t("لا شيء", "None")}</option>
+                    <option value="TEXT">{t("نص", "Text")}</option>
                   </select>
-                  <small className="field-hint">عناوين الصور والفيديو غير مدعومة حاليًا في الإرسال إلى Meta.</small>
+                  <small className="field-hint">{t("عناوين الصور والفيديو غير مدعومة حاليًا في الإرسال إلى Meta.", "Image and video headers aren't currently supported when submitting to Meta.")}</small>
                 </label>
                 {form.headerType === "TEXT" ? (
                   <label>
-                    <span>نص العنوان</span>
+                    <span>{t("نص العنوان", "Header text")}</span>
                     <input value={form.headerText} onChange={(event) => setForm((current) => ({ ...current, headerText: event.target.value }))} />
                   </label>
                 ) : null}
                 <label>
-                  <span>المحتوى</span>
+                  <span>{t("المحتوى", "Content")}</span>
                   <textarea value={form.message} onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))} rows={5} required />
                 </label>
                 <label>
-                  <span>تذييل الصفحة (اختياري)</span>
+                  <span>{t("تذييل الصفحة (اختياري)", "Footer (optional)")}</span>
                   <input value={form.footer} onChange={(event) => setForm((current) => ({ ...current, footer: event.target.value }))} />
                 </label>
                 <label>
-                  <span>زر (اختياري)</span>
+                  <span>{t("زر (اختياري)", "Button (optional)")}</span>
                   <select
                     value={form.buttonType}
                     onChange={(event) => {
@@ -243,38 +252,38 @@ export default function TemplatesView({
                       setForm((current) => ({
                         ...current,
                         buttonType,
-                        buttonText: buttonType === "NONE" ? "" : current.buttonText || defaultButtonText(buttonType),
+                        buttonText: buttonType === "NONE" ? "" : current.buttonText || defaultButtonText(buttonType, t),
                         buttonPhone: buttonType === "PHONE" ? current.buttonPhone : "",
                         buttonUrl: buttonType === "URL" ? current.buttonUrl : ""
                       }));
                     }}
                   >
-                    <option value="NONE">لا شيء</option>
-                    <option value="QUICK_REPLY">رد سريع</option>
-                    <option value="URL">رابط</option>
-                    <option value="PHONE">اتصال</option>
+                    <option value="NONE">{t("لا شيء", "None")}</option>
+                    <option value="QUICK_REPLY">{t("رد سريع", "Quick reply")}</option>
+                    <option value="URL">{t("رابط", "URL")}</option>
+                    <option value="PHONE">{t("اتصال", "Call")}</option>
                   </select>
                 </label>
                 {form.buttonType === "QUICK_REPLY" ? (
                   <label>
-                    <span>نص الزر</span>
-                    <input value={form.buttonText} onChange={(event) => setForm((current) => ({ ...current, buttonText: event.target.value }))} placeholder="مثال: اطلب الان" />
+                    <span>{t("نص الزر", "Button text")}</span>
+                    <input value={form.buttonText} onChange={(event) => setForm((current) => ({ ...current, buttonText: event.target.value }))} placeholder={t("مثال: اطلب الان", "Example: Order now")} />
                   </label>
                 ) : null}
                 {form.buttonType === "PHONE" ? (
                   <div className="template-action-grid">
                     <label>
-                      <span>نوع الإجراء</span>
+                      <span>{t("نوع الإجراء", "Action type")}</span>
                       <select value="PHONE" disabled>
-                        <option value="PHONE">اتصال برقم الهاتف</option>
+                        <option value="PHONE">{t("اتصال برقم الهاتف", "Call phone number")}</option>
                       </select>
                     </label>
                     <label>
-                      <span>نص الزر</span>
-                      <input value={form.buttonText} onChange={(event) => setForm((current) => ({ ...current, buttonText: event.target.value }))} placeholder="اتصل" />
+                      <span>{t("نص الزر", "Button text")}</span>
+                      <input value={form.buttonText} onChange={(event) => setForm((current) => ({ ...current, buttonText: event.target.value }))} placeholder={t("اتصل", "Call")} />
                     </label>
                     <label>
-                      <span>رقم الهاتف</span>
+                      <span>{t("رقم الهاتف", "Phone number")}</span>
                       <input dir="ltr" value={form.buttonPhone} onChange={(event) => setForm((current) => ({ ...current, buttonPhone: event.target.value }))} placeholder="966500000000" />
                     </label>
                   </div>
@@ -282,17 +291,17 @@ export default function TemplatesView({
                 {form.buttonType === "URL" ? (
                   <div className="template-action-grid">
                     <label>
-                      <span>نوع الإجراء</span>
+                      <span>{t("نوع الإجراء", "Action type")}</span>
                       <select value="URL" disabled>
-                        <option value="URL">فتح رابط</option>
+                        <option value="URL">{t("فتح رابط", "Open URL")}</option>
                       </select>
                     </label>
                     <label>
-                      <span>نص الزر</span>
-                      <input value={form.buttonText} onChange={(event) => setForm((current) => ({ ...current, buttonText: event.target.value }))} placeholder="افتح الرابط" />
+                      <span>{t("نص الزر", "Button text")}</span>
+                      <input value={form.buttonText} onChange={(event) => setForm((current) => ({ ...current, buttonText: event.target.value }))} placeholder={t("افتح الرابط", "Open the link")} />
                     </label>
                     <label>
-                      <span>الرابط</span>
+                      <span>{t("الرابط", "URL")}</span>
                       <input dir="ltr" value={form.buttonUrl} onChange={(event) => setForm((current) => ({ ...current, buttonUrl: event.target.value }))} placeholder="https://example.com" />
                     </label>
                   </div>
@@ -305,25 +314,25 @@ export default function TemplatesView({
                       setForm((current) => ({
                         ...current,
                         buttonType: "QUICK_REPLY",
-                        buttonText: current.buttonText || defaultButtonText("QUICK_REPLY")
+                        buttonText: current.buttonText || defaultButtonText("QUICK_REPLY", t)
                       }));
                     }
                   }}
                 >
-                  إضافة زر جديد
+                  {t("إضافة زر جديد", "Add new button")}
                 </button>
                 <div className="template-meta-status">
-                  <span>حالة Meta</span>
-                  <b className={form.status === "معتمد" ? "state ok" : form.status === "مرفوض" ? "state off" : "state warn"}>{form.status}</b>
-                  <small>تتحدث تلقائيًا من Meta عند الضغط على تحديث الحالة.</small>
+                  <span>{t("حالة Meta", "Meta status")}</span>
+                  <b className={form.status === "معتمد" ? "state ok" : form.status === "مرفوض" ? "state off" : "state warn"}>{templateStatusLabel(form.status, t)}</b>
+                  <small>{t("تتحدث تلقائيًا من Meta عند الضغط على تحديث الحالة.", "Updates automatically from Meta when you click sync status.")}</small>
                 </div>
                 {error ? <p className="form-error">{error}</p> : null}
               </div>
-              <TemplatePreview form={form} />
+              <TemplatePreview form={form} language={language} t={t} />
             </div>
             <footer className="template-modal-foot">
-              {form.editing ? <button className="btn danger" type="button" onClick={() => deleteTemplate(form)}>حذف القالب</button> : null}
-              <button className="btn primary" type="submit" disabled={saving}>{saving ? "جاري الحفظ" : form.editing ? "حفظ" : "إرسال إلى Meta"}</button>
+              {form.editing ? <button className="btn danger" type="button" onClick={() => deleteTemplate(form)}>{t("حذف القالب", "Delete template")}</button> : null}
+              <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving") : form.editing ? t("حفظ", "Save") : t("إرسال إلى Meta", "Submit to Meta")}</button>
             </footer>
           </form>
         </div>
@@ -332,15 +341,15 @@ export default function TemplatesView({
   );
 }
 
-function TemplatePreview({ form }: { form: TemplateFormState }) {
+function TemplatePreview({ form, t }: { form: TemplateFormState; language: string; t: (ar: string, en: string) => string }) {
   return (
     <div className="template-preview">
       <div className="template-phone">
         <div className="template-bubble">
-          {form.headerType === "IMAGE" ? <div className="template-media">{form.headerMedia || "صورة القالب"}</div> : null}
+          {form.headerType === "IMAGE" ? <div className="template-media">{form.headerMedia || t("صورة القالب", "Template image")}</div> : null}
           {form.headerType === "VIDEO" ? <div className="template-media">VIDEO</div> : null}
           {form.headerType === "TEXT" && form.headerText ? <b>{form.headerText}</b> : null}
-          <p>{form.message || "اكتب محتوى القالب هنا"}</p>
+          <p>{form.message || t("اكتب محتوى القالب هنا", "Write the template content here")}</p>
           {form.footer ? <small>{form.footer}</small> : null}
           {form.buttonType !== "NONE" && form.buttonText ? <button type="button">{buttonIcon(form.buttonType)} {form.buttonText}</button> : null}
           <time>07:26</time>
@@ -350,10 +359,10 @@ function TemplatePreview({ form }: { form: TemplateFormState }) {
   );
 }
 
-function defaultButtonText(buttonType: TemplateFormState["buttonType"]) {
-  if (buttonType === "PHONE") return "اتصل";
-  if (buttonType === "URL") return "افتح الرابط";
-  if (buttonType === "QUICK_REPLY") return "اطلب الان";
+function defaultButtonText(buttonType: TemplateFormState["buttonType"], t: (ar: string, en: string) => string) {
+  if (buttonType === "PHONE") return t("اتصل", "Call");
+  if (buttonType === "URL") return t("افتح الرابط", "Open the link");
+  if (buttonType === "QUICK_REPLY") return t("اطلب الان", "Order now");
   return "";
 }
 

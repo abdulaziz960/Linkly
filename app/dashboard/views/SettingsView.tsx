@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { IntegrationSettings } from "../types";
+import { useLanguage } from "../i18n";
 
 type MetaSignupData = {
   business_id?: string;
@@ -46,46 +47,55 @@ const emptySettings: IntegrationSettings = {
   updatedAt: "-"
 };
 
-const statusLabel: Record<IntegrationSettings["status"], string> = {
-  connected: "متصل",
-  pending: "غير مكتمل",
-  not_connected: "غير متصل"
-};
+type TFn = (ar: string, en: string) => string;
 
-const wizardSteps = [
-  {
-    title: "اختر قناة",
-    description: "اختر الخدمة التي تود ربطها مع حسابك في AudienceW."
-  },
-  {
-    title: "إنشاء قناة تواصل",
-    description: "قم بالمصادقة على حسابك وإنشاء قناة التواصل."
-  },
-  {
-    title: "ربط Meta",
-    description: "افتح نافذة Meta واختر حافظة الأعمال وحساب واتساب والرقم."
-  },
-  {
-    title: "اكتمل الربط",
-    description: "أصبح كل شيء جاهزًا الآن."
-  }
-];
+function statusLabel(status: IntegrationSettings["status"], t: TFn) {
+  const labels: Record<IntegrationSettings["status"], string> = {
+    connected: t("متصل", "Connected"),
+    pending: t("غير مكتمل", "Incomplete"),
+    not_connected: t("غير متصل", "Not connected")
+  };
+  return labels[status];
+}
+
+function getWizardSteps(t: TFn) {
+  return [
+    {
+      title: t("اختر قناة", "Choose a channel"),
+      description: t("اختر الخدمة التي تود ربطها مع حسابك في AudienceW.", "Choose the service you want to connect to your AudienceW account.")
+    },
+    {
+      title: t("إنشاء قناة تواصل", "Create a communication channel"),
+      description: t("قم بالمصادقة على حسابك وإنشاء قناة التواصل.", "Authenticate your account and create the communication channel.")
+    },
+    {
+      title: t("ربط Meta", "Connect Meta"),
+      description: t("افتح نافذة Meta واختر حافظة الأعمال وحساب واتساب والرقم.", "Open the Meta window and choose your business portfolio, WhatsApp account, and number.")
+    },
+    {
+      title: t("اكتمل الربط", "Connection complete"),
+      description: t("أصبح كل شيء جاهزًا الآن.", "Everything is ready now.")
+    }
+  ];
+}
 
 export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "x" | "email" | "gmail" | "outlook" | "google_maps" | "tiktok" | "sms";
 
-const channels: Array<{ id: ChannelId; title: string; description: string; active: boolean }> = [
-  { id: "whatsapp", title: "واتساب", description: "Support your customers on WhatsApp", active: true },
-  { id: "facebook", title: "فيسبوك", description: "Connect your Facebook page", active: true },
-  { id: "website", title: "الموقع الإلكتروني", description: "Create a live-chat widget", active: true },
-  { id: "instagram", title: "Instagram", description: "Connect your instagram account", active: true },
-  { id: "telegram", title: "تيليجرام", description: "Configure Telegram channel using Bot token", active: true },
-  { id: "x", title: "X", description: "ربط حساب X عبر OAuth", active: true },
-  { id: "gmail", title: "Gmail", description: "ربط Gmail مباشرة عبر OAuth", active: true },
-  { id: "outlook", title: "Outlook", description: "ربط Outlook / Microsoft 365 عبر OAuth", active: true },
-  { id: "google_maps", title: "خرائط Google", description: "Connect your Google Business Profile", active: true },
-  { id: "tiktok", title: "TikTok", description: "بانتظار موافقة TikTok على Business Messaging", active: true },
-  { id: "sms", title: "SMS", description: "إرسال واستقبال رسائل SMS عبر Unifonic", active: true }
-];
+function getChannels(t: TFn): Array<{ id: ChannelId; title: string; description: string; active: boolean }> {
+  return [
+    { id: "whatsapp", title: t("واتساب", "WhatsApp"), description: t("ادعم عملاءك عبر واتساب", "Support your customers on WhatsApp"), active: true },
+    { id: "facebook", title: t("فيسبوك", "Facebook"), description: t("اربط صفحتك على فيسبوك", "Connect your Facebook page"), active: true },
+    { id: "website", title: t("الموقع الإلكتروني", "Website"), description: t("أنشئ ودجت دردشة مباشرة", "Create a live-chat widget"), active: true },
+    { id: "instagram", title: "Instagram", description: t("اربط حساب Instagram الخاص بك", "Connect your Instagram account"), active: true },
+    { id: "telegram", title: t("تيليجرام", "Telegram"), description: t("اضبط قناة Telegram باستخدام Bot Token", "Configure Telegram channel using Bot token"), active: true },
+    { id: "x", title: "X", description: t("ربط حساب X عبر OAuth", "Connect your X account via OAuth"), active: true },
+    { id: "gmail", title: "Gmail", description: t("ربط Gmail مباشرة عبر OAuth", "Connect Gmail directly via OAuth"), active: true },
+    { id: "outlook", title: "Outlook", description: t("ربط Outlook / Microsoft 365 عبر OAuth", "Connect Outlook / Microsoft 365 via OAuth"), active: true },
+    { id: "google_maps", title: t("خرائط Google", "Google Maps"), description: t("اربط ملف نشاطك التجاري على Google", "Connect your Google Business Profile"), active: true },
+    { id: "tiktok", title: "TikTok", description: t("بانتظار موافقة TikTok على Business Messaging", "Waiting for TikTok's Business Messaging approval"), active: true },
+    { id: "sms", title: "SMS", description: t("إرسال واستقبال رسائل SMS عبر Unifonic", "Send and receive SMS messages via Unifonic"), active: true }
+  ];
+}
 
 // Gmail and Outlook are shown as separate channel cards, but both still
 // read/write the single shared "email" integration record on the backend -
@@ -227,6 +237,9 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
 }
 
 export default function SettingsView({ onIntegrationChange }: SettingsViewProps) {
+  const { t } = useLanguage();
+  const channels = useMemo(() => getChannels(t), [t]);
+  const wizardSteps = useMemo(() => getWizardSteps(t), [t]);
   const [settings, setSettings] = useState<IntegrationSettings>(emptySettings);
   const [selectedChannel, setSelectedChannel] = useState<"whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "gmail" | "outlook" | "website" | "tiktok" | "sms">(() => {
     // Popups fall back to a full-page redirect (e.g. "?meta=tiktok-callback")
@@ -308,56 +321,56 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     return `https://t.me/${username}`;
   }, [isTelegram, settings.status, settings.wabaName]);
   const currentWizardSteps = useMemo(() => {
-    const channelName = isWebsite ? "الموقع الإلكتروني" : isTikTok ? "TikTok" : isSms ? "SMS" : isGmail ? "Gmail" : isOutlook ? "Outlook" : isGoogleMaps ? "خرائط Google" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب";
+    const channelName = isWebsite ? t("الموقع الإلكتروني", "Website") : isTikTok ? "TikTok" : isSms ? "SMS" : isGmail ? "Gmail" : isOutlook ? "Outlook" : isGoogleMaps ? t("خرائط Google", "Google Maps") : isX ? "X" : isTelegram ? t("تيليجرام", "Telegram") : isFacebook ? t("فيسبوك", "Facebook") : isInstagram ? "Instagram" : t("واتساب", "WhatsApp");
 
     return wizardSteps.map((step, index) => {
       if (index === 0) {
         return {
           ...step,
-          description: `اختر قناة ${channelName} أو أي قناة تريد ربطها مع حسابك.`
+          description: t(`اختر قناة ${channelName} أو أي قناة تريد ربطها مع حسابك.`, `Choose ${channelName} or any other channel you want to connect to your account.`)
         };
       }
 
       if (index === 1) {
         return isEmail
           ? {
-              title: "تجهيز البريد",
-              description: "احفظ بريد الإرسال ورابط استقبال الرسائل."
+              title: t("تجهيز البريد", "Set up email"),
+              description: t("احفظ بريد الإرسال ورابط استقبال الرسائل.", "Save the sender email and the inbound message link.")
             }
           : isGoogleMaps
           ? {
-              title: "تجهيز Google",
-              description: "الربط يتم مباشرة من حساب Google الخاص بالنشاط."
+              title: t("تجهيز Google", "Set up Google"),
+              description: t("الربط يتم مباشرة من حساب Google الخاص بالنشاط.", "The connection is made directly from the business's Google account.")
             }
           : isX
           ? {
-              title: "إنشاء تطبيق X",
-              description: "جهز تطبيق X Developer بصلاحيات الرسائل والردود."
+              title: t("إنشاء تطبيق X", "Create an X app"),
+              description: t("جهز تطبيق X Developer بصلاحيات الرسائل والردود.", "Set up an X Developer app with messaging and reply permissions.")
             }
           : isFacebook
           ? {
-              title: "ربط صفحة فيسبوك",
-              description: "سجل الدخول عبر Meta واختر صفحة Facebook."
+              title: t("ربط صفحة فيسبوك", "Connect a Facebook page"),
+              description: t("سجل الدخول عبر Meta واختر صفحة Facebook.", "Log in via Meta and choose your Facebook page.")
             }
           : isTelegram
           ? {
-              title: "إنشاء بوت تيليجرام",
-              description: "أنشئ بوت من BotFather ثم انسخ Bot Token."
+              title: t("إنشاء بوت تيليجرام", "Create a Telegram bot"),
+              description: t("أنشئ بوت من BotFather ثم انسخ Bot Token.", "Create a bot via BotFather, then copy the Bot Token.")
             }
           : isInstagram
             ? {
-                title: "إنشاء قناة Instagram",
-                description: "قم بالمصادقة على حساب Instagram المرتبط بصفحة Facebook."
+                title: t("إنشاء قناة Instagram", "Create an Instagram channel"),
+                description: t("قم بالمصادقة على حساب Instagram المرتبط بصفحة Facebook.", "Authenticate the Instagram account linked to your Facebook page.")
               }
             : isTikTok
               ? {
-                  title: "تقديم على TikTok API",
-                  description: "أنشئ حساب TikTok Business واطلب صلاحية Business Messaging."
+                  title: t("تقديم على TikTok API", "Apply to the TikTok API"),
+                  description: t("أنشئ حساب TikTok Business واطلب صلاحية Business Messaging.", "Create a TikTok Business account and request Business Messaging access.")
                 }
             : isSms
               ? {
-                  title: "إنشاء حساب Unifonic",
-                  description: "سجّل حساب Unifonic وسجّل نشاطك التجاري."
+                  title: t("إنشاء حساب Unifonic", "Create a Unifonic account"),
+                  description: t("سجّل حساب Unifonic وسجّل نشاطك التجاري.", "Sign up for Unifonic and register your business.")
                 }
             : step;
       }
@@ -365,53 +378,53 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       if (index === 2) {
         return isEmail
           ? {
-              title: "ربط Webhook",
-              description: "اربط مزود البريد أو Zapier برابط الاستقبال."
+              title: t("ربط Webhook", "Connect a webhook"),
+              description: t("اربط مزود البريد أو Zapier برابط الاستقبال.", "Connect your email provider or Zapier to the inbound link.")
             }
           : isGoogleMaps
           ? {
-              title: "ربط Google",
-              description: "اضغط ربط Google واختر النشاط التجاري."
+              title: t("ربط Google", "Connect Google"),
+              description: t("اضغط ربط Google واختر النشاط التجاري.", "Click Connect Google and choose the business.")
             }
           : isX
           ? {
-              title: "ربط X",
-              description: "أدخل مفاتيح X وسيتم تجهيز روابط Callback و Webhook."
+              title: t("ربط X", "Connect X"),
+              description: t("أدخل مفاتيح X وسيتم تجهيز روابط Callback و Webhook.", "Enter your X keys and the Callback and Webhook URLs will be prepared.")
             }
           : isFacebook
           ? {
-              title: "فتح نافذة Meta",
-              description: "اختر صفحة Facebook ووافق على صلاحيات Messenger."
+              title: t("فتح نافذة Meta", "Open the Meta window"),
+              description: t("اختر صفحة Facebook ووافق على صلاحيات Messenger.", "Choose your Facebook page and approve Messenger permissions.")
             }
           : isTelegram
           ? {
-              title: "ربط Telegram",
-              description: "أدخل Bot Token وسيتم تفعيل Webhook تلقائياً."
+              title: t("ربط Telegram", "Connect Telegram"),
+              description: t("أدخل Bot Token وسيتم تفعيل Webhook تلقائياً.", "Enter the Bot Token and the webhook will be activated automatically.")
             }
           : isInstagram
             ? {
-                title: "ربط Instagram",
-                description: "افتح نافذة Meta واختر حساب Instagram والصلاحيات."
+                title: t("ربط Instagram", "Connect Instagram"),
+                description: t("افتح نافذة Meta واختر حساب Instagram والصلاحيات.", "Open the Meta window and choose the Instagram account and permissions.")
               }
             : isTikTok
               ? {
-                  title: "بيانات TikTok",
-                  description: "احفظ App Key وApp Secret وAccess Token بعد الموافقة."
+                  title: t("بيانات TikTok", "TikTok credentials"),
+                  description: t("احفظ App Key وApp Secret وAccess Token بعد الموافقة.", "Save the App Key, App Secret, and Access Token after approval.")
                 }
             : isSms
               ? {
-                  title: "بيانات Unifonic",
-                  description: "أدخل AppSid واسم المرسل (Sender ID)."
+                  title: t("بيانات Unifonic", "Unifonic credentials"),
+                  description: t("أدخل AppSid واسم المرسل (Sender ID).", "Enter the AppSid and the Sender ID.")
                 }
             : step;
       }
 
       return {
-        title: isConnected ? step.title : "بانتظار اكتمال الربط",
-        description: isConnected ? `أصبحت قناة ${channelName} جاهزة الآن.` : `لم تكتمل قناة ${channelName} بعد.`
+        title: isConnected ? step.title : t("بانتظار اكتمال الربط", "Waiting for the connection to complete"),
+        description: isConnected ? t(`أصبحت قناة ${channelName} جاهزة الآن.`, `The ${channelName} channel is now ready.`) : t(`لم تكتمل قناة ${channelName} بعد.`, `The ${channelName} channel isn't set up yet.`)
       };
     });
-  }, [isConnected, isEmail, isFacebook, isGmail, isGoogleMaps, isInstagram, isOutlook, isTelegram, isX, isTikTok, isSms, isWebsite]);
+  }, [isConnected, isEmail, isFacebook, isGmail, isGoogleMaps, isInstagram, isOutlook, isTelegram, isX, isTikTok, isSms, isWebsite, wizardSteps, t]);
 
   useEffect(() => {
     const isFirstLoad = !hasSelectedChannelRef.current;
@@ -487,7 +500,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         onIntegrationChange?.(data);
         setSaveFeedback({
           type: data.status === "connected" ? "success" : "error",
-          text: data.connectionMessage || (data.status === "connected" ? "تم الاتصال بنجاح" : "الربط غير مكتمل")
+          text: data.connectionMessage || (data.status === "connected" ? t("تم الاتصال بنجاح", "Connected successfully") : t("الربط غير مكتمل", "The connection isn't complete"))
         });
         setWizardStep(4);
         setLoading(false);
@@ -526,7 +539,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       const updatedSettings = await response.json() as IntegrationResponse;
       setSettings(updatedSettings);
       onIntegrationChange?.(updatedSettings);
-      setSaveFeedback({ type: "success", text: "تم استلام بيانات الرقم من Meta، جاري إكمال الربط." });
+      setSaveFeedback({ type: "success", text: t("تم استلام بيانات الرقم من Meta، جاري إكمال الربط.", "Received the number data from Meta — finishing the connection.") });
       setWizardStep(4);
     }
 
@@ -555,7 +568,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     onIntegrationChange?.(data);
     setSaveFeedback({
       type: data.status === "connected" ? "success" : "error",
-      text: data.connectionMessage || (data.status === "connected" ? "تم الاتصال بنجاح" : "الربط غير مكتمل")
+      text: data.connectionMessage || (data.status === "connected" ? t("تم الاتصال بنجاح", "Connected successfully") : t("الربط غير مكتمل", "The connection isn't complete"))
     });
     return data;
   }
@@ -572,7 +585,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     setSettings(data);
     onIntegrationChange?.(data);
     setShowWebhookToken(true);
-    setSaveFeedback({ type: "success", text: "تم إنشاء توكن جديد والتوكن القديم لم يعد يعمل — حدّثه في إعدادات الويبهوك الخارجية قبل ما ينقطع الاستقبال." });
+    setSaveFeedback({ type: "success", text: t("تم إنشاء توكن جديد والتوكن القديم لم يعد يعمل — حدّثه في إعدادات الويبهوك الخارجية قبل ما ينقطع الاستقبال.", "A new token was generated and the old one no longer works — update it in your external webhook settings before receiving stops.") });
     setSaving(false);
   }
 
@@ -615,7 +628,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     setSettings(data);
     onIntegrationChange?.(data);
     setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "gmail" || selectedChannel === "outlook" || selectedChannel === "website" ? 4 : 2);
-    setSaveFeedback({ type: "error", text: data.connectionMessage || "تم مسح بيانات الربط" });
+    setSaveFeedback({ type: "error", text: data.connectionMessage || t("تم مسح بيانات الربط", "The connection data was cleared") });
     setSaving(false);
   }
 
@@ -629,13 +642,13 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         : !settings.accessToken.trim()
           ? "Access Token"
           : !testRecipient.trim()
-            ? "رقم المستلم"
+            ? t("رقم المستلم", "Recipient number")
             : !testMessage.trim()
-              ? "نص الرسالة"
+              ? t("نص الرسالة", "Message text")
               : "";
 
     if (missingField) {
-      setTestFeedback({ type: "error", text: `${missingField} مطلوب قبل إرسال رسالة اختبار` });
+      setTestFeedback({ type: "error", text: t(`${missingField} مطلوب قبل إرسال رسالة اختبار`, `${missingField} is required before sending a test message`) });
       setTestSending(false);
       return;
     }
@@ -655,9 +668,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     const result = await response.json();
 
     if (response.ok && result.ok) {
-      setTestFeedback({ type: "success", text: "تم إرسال رسالة الاختبار. إذا رد العميل ستظهر محادثته داخل صندوق الوارد." });
+      setTestFeedback({ type: "success", text: t("تم إرسال رسالة الاختبار. إذا رد العميل ستظهر محادثته داخل صندوق الوارد.", "The test message was sent. If the customer replies, their conversation will appear in the inbox.") });
     } else {
-      setTestFeedback({ type: "error", text: result.error || "تعذر إرسال رسالة الاختبار" });
+      setTestFeedback({ type: "error", text: result.error || t("تعذر إرسال رسالة الاختبار", "Couldn't send the test message") });
     }
 
     setTestSending(false);
@@ -671,19 +684,19 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       const configId = techProviderMetaConfigId;
 
       if (!appId) {
-        window.alert("تحتاج App ID من تطبيق Meta لتشغيل الربط المباشر. احفظه في إعدادات Vercel ثم حاول من جديد.");
+        window.alert(t("تحتاج App ID من تطبيق Meta لتشغيل الربط المباشر. احفظه في إعدادات Vercel ثم حاول من جديد.", "You need an App ID from your Meta app to run the direct connection. Save it in Vercel's settings, then try again."));
         return false;
       }
 
       if (!configId) {
-        window.alert("تحتاج Configuration ID من Meta لتشغيل Embedded Signup وإنشاء/ربط حافظة الأعمال والرقم تلقائياً.");
+        window.alert(t("تحتاج Configuration ID من Meta لتشغيل Embedded Signup وإنشاء/ربط حافظة الأعمال والرقم تلقائياً.", "You need a Configuration ID from Meta to run Embedded Signup and automatically create/link the business portfolio and number."));
         return false;
       }
 
       await loadFacebookSdk(appId);
       const w = window as FacebookWindow;
       if (!w.FB) {
-        window.alert("تعذر تحميل نافذة Meta. تأكد من اتصالك بالإنترنت وحاول من جديد.");
+        window.alert(t("تعذر تحميل نافذة Meta. تأكد من اتصالك بالإنترنت وحاول من جديد.", "Couldn't load the Meta window. Check your internet connection and try again."));
         return false;
       }
 
@@ -727,7 +740,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   async function connectXAccount() {
     if (!settings.appId.trim() || !settings.configId.trim()) {
-      window.alert("احفظ OAuth 2.0 Client ID و Client Secret لتطبيق AudienceW أولًا، وبعدها اضغط ربط X.");
+      window.alert(t("احفظ OAuth 2.0 Client ID و Client Secret لتطبيق AudienceW أولًا، وبعدها اضغط ربط X.", "Save the OAuth 2.0 Client ID and Client Secret for the AudienceW app first, then click Connect X."));
       setWizardStep(4);
       return;
     }
@@ -752,9 +765,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     const response = await fetch("/api/google/reviews/sync", { method: "POST" });
     const result = await response.json().catch(() => null) as { ok?: boolean; synced?: number; error?: string } | null;
     if (response.ok && result?.ok) {
-      setSaveFeedback({ type: "success", text: `تمت مزامنة ${result.synced ?? 0} تقييم من Google` });
+      setSaveFeedback({ type: "success", text: t(`تمت مزامنة ${result.synced ?? 0} تقييم من Google`, `Synced ${result.synced ?? 0} reviews from Google`) });
     } else {
-      setSaveFeedback({ type: "error", text: result?.error || "تعذر مزامنة تقييمات Google" });
+      setSaveFeedback({ type: "error", text: result?.error || t("تعذر مزامنة تقييمات Google", "Couldn't sync Google reviews") });
     }
   }
 
@@ -763,8 +776,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       return (
         <div className="meta-wizard-panel">
           <div className="meta-wizard-title">
-            <h3>اختر قناة</h3>
-            <p>القنوات المتصلة تعرض بيانات الربط مباشرة بدون خطوات ربط جديدة.</p>
+            <h3>{t("اختر قناة", "Choose a channel")}</h3>
+            <p>{t("القنوات المتصلة تعرض بيانات الربط مباشرة بدون خطوات ربط جديدة.", "Connected channels show their connection data directly, without new setup steps.")}</p>
           </div>
           <div className="channel-grid">
             {channels.map((channel) => {
@@ -787,35 +800,35 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                     <ChannelIcon id={channel.id} />
                   </span>
                   <b>{channel.title}</b>
-                  <small>{selected ? "القناة متصلة، بياناتها ظاهرة بالأسفل" : channel.description}</small>
+                  <small>{selected ? t("القناة متصلة، بياناتها ظاهرة بالأسفل", "This channel is connected — its data is shown below") : channel.description}</small>
                 </button>
               );
             })}
           </div>
           <div className="connected-channel-note">
-            <b>{isWebsite ? "ودجت الموقع جاهز" : isSms ? "SMS متصل" : isTikTok ? "TikTok متصل" : isGmail ? "Gmail متصل" : isOutlook ? "Outlook متصل" : isGoogleMaps ? "خرائط Google متصلة" : isX ? "X جاهز للربط" : isTelegram ? "تيليجرام متصل" : isFacebook ? "فيسبوك متصل" : isInstagram ? "Instagram متصل" : "واتساب متصل"}</b>
+            <b>{isWebsite ? t("ودجت الموقع جاهز", "Website widget ready") : isSms ? t("SMS متصل", "SMS connected") : isTikTok ? t("TikTok متصل", "TikTok connected") : isGmail ? t("Gmail متصل", "Gmail connected") : isOutlook ? t("Outlook متصل", "Outlook connected") : isGoogleMaps ? t("خرائط Google متصلة", "Google Maps connected") : isX ? t("X جاهز للربط", "X ready to connect") : isTelegram ? t("تيليجرام متصل", "Telegram connected") : isFacebook ? t("فيسبوك متصل", "Facebook connected") : isInstagram ? t("Instagram متصل", "Instagram connected") : t("واتساب متصل", "WhatsApp connected")}</b>
             <span>
               {(isGmail || isOutlook) && oauthEmailStatus?.emailAddress
-                ? `الحساب المتصل: ${oauthEmailStatus.emailAddress}`
-                : "يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل."}
+                ? t(`الحساب المتصل: ${oauthEmailStatus.emailAddress}`, `Connected account: ${oauthEmailStatus.emailAddress}`)
+                : t("يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل.", "You can edit the data or clear the connection from the connection and webhook section below.")}
             </span>
             {!isEmail && !isGoogleMaps && !isX && !isTelegram && !isWebsite && !isSms ? (
               <button type="button" onClick={isTikTok ? connectTikTokAccount : openMetaWindow}>
-                {isTikTok ? "ربط حساب TikTok آخر" : isFacebook ? "ربط صفحة Facebook" : isInstagram ? "ربط Instagram" : "ربط واتساب جديد"}
+                {isTikTok ? t("ربط حساب TikTok آخر", "Connect another TikTok account") : isFacebook ? t("ربط صفحة Facebook", "Connect a Facebook page") : isInstagram ? t("ربط Instagram", "Connect Instagram") : t("ربط واتساب جديد", "Connect a new WhatsApp number")}
               </button>
             ) : null}
           </div>
           {botSupportedChannels.includes(selectedChannel) ? (
             <div className="channel-bot-picker">
-              <span>وكيل الرد التلقائي لهذه القناة</span>
-              <div className="channel-bot-toggle" role="group" aria-label="وكيل الرد التلقائي لهذه القناة">
+              <span>{t("وكيل الرد التلقائي لهذه القناة", "Auto-reply agent for this channel")}</span>
+              <div className="channel-bot-toggle" role="group" aria-label={t("وكيل الرد التلقائي لهذه القناة", "Auto-reply agent for this channel")}>
                 <button
                   type="button"
                   className={!channelBotEnabled ? "active" : ""}
                   disabled={channelBotLoading}
                   onClick={() => toggleChannelBot(false)}
                 >
-                  بدون (رد يدوي فقط)
+                  {t("بدون (رد يدوي فقط)", "Off (manual replies only)")}
                 </button>
                 <button
                   type="button"
@@ -823,10 +836,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   disabled={channelBotLoading}
                   onClick={() => toggleChannelBot(true)}
                 >
-                  الرد الآلي مفعّل
+                  {t("الرد الآلي مفعّل", "Auto-reply enabled")}
                 </button>
               </div>
-              <small>عدّل خطوات الرد من صفحة "الرد الآلي" في القائمة الجانبية.</small>
+              <small>{t('عدّل خطوات الرد من صفحة "الرد الآلي" في القائمة الجانبية.', 'Edit the reply flow from the "Auto-Reply" page in the sidebar.')}</small>
             </div>
           ) : null}
         </div>
@@ -837,8 +850,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       return (
         <div className="meta-wizard-panel">
           <div className="meta-wizard-title">
-            <h3>اختر قناة</h3>
-            <p>اختر الخدمة التي تريد ربطها مع المنصة.</p>
+            <h3>{t("اختر قناة", "Choose a channel")}</h3>
+            <p>{t("اختر الخدمة التي تريد ربطها مع المنصة.", "Choose the service you want to connect to the platform.")}</p>
           </div>
           <div className="channel-grid">
             {channels.map((channel) => (
@@ -875,16 +888,16 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <div className="meta-wizard-panel">
             <div className="meta-signup-card">
               <span className="provider-round-icon">@</span>
-              <h3>ربط البريد الإلكتروني</h3>
-              <p>اربط أي مزود بريد عبر Webhook. أي رسالة تصل للرابط ستظهر كمحادثة بريد داخل المنصة.</p>
+              <h3>{t("ربط البريد الإلكتروني", "Connect email")}</h3>
+              <p>{t("اربط أي مزود بريد عبر Webhook. أي رسالة تصل للرابط ستظهر كمحادثة بريد داخل المنصة.", "Connect any email provider via webhook. Any message that reaches the link will appear as an email conversation in the platform.")}</p>
               <div className="telegram-steps">
-                <div><span>1</span><b>احفظ بريد الإرسال</b><small>اكتب اسم المرسل والبريد الذي سيظهر للعميل.</small></div>
-                <div><span>2</span><b>انسخ Webhook</b><small>استخدم {publicAppUrl}/api/email/inbound في Zapier أو Make.</small></div>
-                <div><span>3</span><b>أضف Secret Token</b><small>أرسله في Header باسم x-audiencew-email-secret.</small></div>
-                <div><span>4</span><b>جرّب رسالة</b><small>أرسل بيانات from و subject و text وستظهر في المحادثات.</small></div>
+                <div><span>1</span><b>{t("احفظ بريد الإرسال", "Save the sending address")}</b><small>{t("اكتب اسم المرسل والبريد الذي سيظهر للعميل.", "Enter the sender name and the email address customers will see.")}</small></div>
+                <div><span>2</span><b>{t("انسخ Webhook", "Copy the webhook")}</b><small>{t(`استخدم ${publicAppUrl}/api/email/inbound في Zapier أو Make.`, `Use ${publicAppUrl}/api/email/inbound in Zapier or Make.`)}</small></div>
+                <div><span>3</span><b>{t("أضف Secret Token", "Add a Secret Token")}</b><small>{t("أرسله في Header باسم x-audiencew-email-secret.", "Send it in a header named x-audiencew-email-secret.")}</small></div>
+                <div><span>4</span><b>{t("جرّب رسالة", "Try a message")}</b><small>{t("أرسل بيانات from و subject و text وستظهر في المحادثات.", "Send the from, subject, and text fields, and it will appear in the conversations.")}</small></div>
               </div>
               <button type="button" onClick={() => setWizardStep(4)}>
-                إدخال بيانات البريد
+                {t("إدخال بيانات البريد", "Enter email details")}
               </button>
             </div>
           </div>
@@ -896,21 +909,21 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <div className="meta-wizard-panel">
             <div className="meta-signup-card">
               <span className="provider-round-icon">G</span>
-              <h3>ربط خرائط Google</h3>
-              <p>اربط Google Business Profile حتى تظهر تقييمات الموقع داخل صندوق المحادثات وتقدر ترد عليها من المنصة.</p>
+              <h3>{t("ربط خرائط Google", "Connect Google Maps")}</h3>
+              <p>{t("اربط Google Business Profile حتى تظهر تقييمات الموقع داخل صندوق المحادثات وتقدر ترد عليها من المنصة.", "Connect your Google Business Profile so location reviews appear in the inbox and you can reply to them from the platform.")}</p>
               <div className="google-business-summary">
                 <div>
-                  <span>حالة الربط</span>
-                  <b>{statusLabel[settings.status]}</b>
+                  <span>{t("حالة الربط", "Connection status")}</span>
+                  <b>{statusLabel(settings.status, t)}</b>
                 </div>
                 <div>
-                  <span>النشاط التجاري</span>
-                  <b>{settings.wabaName || settings.businessName || "لم يتم تحديد النشاط بعد"}</b>
+                  <span>{t("النشاط التجاري", "Business")}</span>
+                  <b>{settings.wabaName || settings.businessName || t("لم يتم تحديد النشاط بعد", "No business selected yet")}</b>
                 </div>
-                <p>{settings.phoneNumber || "اضغط ربط Google واختر الحساب الذي يدير النشاط التجاري."}</p>
+                <p>{settings.phoneNumber || t("اضغط ربط Google واختر الحساب الذي يدير النشاط التجاري.", "Click Connect Google and choose the account that manages the business.")}</p>
               </div>
               <button type="button" onClick={connectGoogleMaps}>
-                ربط Google
+                {t("ربط Google", "Connect Google")}
               </button>
             </div>
           </div>
@@ -922,16 +935,16 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <div className="meta-wizard-panel">
             <div className="meta-signup-card">
               <span className="provider-round-icon">✈</span>
-              <h3>ربط تيليجرام عبر Bot Token</h3>
-              <p>تيليجرام يربط عبر بوت رسمي. خذ Bot Token من BotFather مرة واحدة، والمنصة تتولى تفعيل الاستقبال تلقائياً.</p>
+              <h3>{t("ربط تيليجرام عبر Bot Token", "Connect Telegram via Bot Token")}</h3>
+              <p>{t("تيليجرام يربط عبر بوت رسمي. خذ Bot Token من BotFather مرة واحدة، والمنصة تتولى تفعيل الاستقبال تلقائياً.", "Telegram connects through an official bot. Get the Bot Token from BotFather once, and the platform handles activating receiving automatically.")}</p>
               <div className="telegram-steps">
-                <div><span>1</span><b>افتح BotFather</b><small>من تطبيق تيليجرام ابحث عن BotFather الرسمي.</small></div>
-                <div><span>2</span><b>أنشئ بوت جديد</b><small>ارسل /newbot، ثم اختر اسم و username ينتهي بـ bot.</small></div>
-                <div><span>3</span><b>انسخ Bot Token</b><small>الصق التوكن هنا واضغط حفظ الإعدادات.</small></div>
-                <div><span>4</span><b>جرّب الرسائل</b><small>أرسل /start للبوت وستظهر المحادثة داخل المنصة.</small></div>
+                <div><span>1</span><b>{t("افتح BotFather", "Open BotFather")}</b><small>{t("من تطبيق تيليجرام ابحث عن BotFather الرسمي.", "From the Telegram app, search for the official BotFather.")}</small></div>
+                <div><span>2</span><b>{t("أنشئ بوت جديد", "Create a new bot")}</b><small>{t("ارسل /newbot، ثم اختر اسم و username ينتهي بـ bot.", "Send /newbot, then choose a name and a username ending in bot.")}</small></div>
+                <div><span>3</span><b>{t("انسخ Bot Token", "Copy the Bot Token")}</b><small>{t("الصق التوكن هنا واضغط حفظ الإعدادات.", "Paste the token here and click Save Settings.")}</small></div>
+                <div><span>4</span><b>{t("جرّب الرسائل", "Try messaging")}</b><small>{t("أرسل /start للبوت وستظهر المحادثة داخل المنصة.", "Send /start to the bot and the conversation will appear in the platform.")}</small></div>
               </div>
               <button type="button" onClick={() => setWizardStep(4)}>
-                إدخال بيانات تيليجرام
+                {t("إدخال بيانات تيليجرام", "Enter Telegram details")}
               </button>
             </div>
           </div>
@@ -943,19 +956,19 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <div className="meta-wizard-panel">
             <div className="meta-signup-card">
               <span className="provider-round-icon">X</span>
-              <h3>ربط X مباشرة</h3>
-              <p>تطبيق AudienceW يستخدم OAuth. العميل يضغط ربط X، يسجل الدخول، يوافق على الصلاحيات، ثم يرجع للمنصة بدون إدخال مفاتيح.</p>
+              <h3>{t("ربط X مباشرة", "Connect X directly")}</h3>
+              <p>{t("تطبيق AudienceW يستخدم OAuth. العميل يضغط ربط X، يسجل الدخول، يوافق على الصلاحيات، ثم يرجع للمنصة بدون إدخال مفاتيح.", "The AudienceW app uses OAuth. The customer clicks Connect X, logs in, approves the permissions, then returns to the platform without entering any keys.")}</p>
               <div className="telegram-steps">
-                <div><span>1</span><b>تطبيق AudienceW</b><small>يتم ضبط مفاتيح التطبيق مرة واحدة من طرف المنصة.</small></div>
-                <div><span>2</span><b>ربط العميل</b><small>العميل يضغط زر الربط ويسجل دخوله في X.</small></div>
-                <div><span>3</span><b>حفظ تلقائي</b><small>نحفظ التوكن واسم الحساب بعد الرجوع من X.</small></div>
-                <div><span>4</span><b>المحادثات</b><small>بعد تفعيل Webhook تظهر رسائل X داخل صندوق المحادثات.</small></div>
+                <div><span>1</span><b>{t("تطبيق AudienceW", "AudienceW app")}</b><small>{t("يتم ضبط مفاتيح التطبيق مرة واحدة من طرف المنصة.", "The app keys are configured once by the platform.")}</small></div>
+                <div><span>2</span><b>{t("ربط العميل", "Customer connects")}</b><small>{t("العميل يضغط زر الربط ويسجل دخوله في X.", "The customer clicks the connect button and logs into X.")}</small></div>
+                <div><span>3</span><b>{t("حفظ تلقائي", "Automatic save")}</b><small>{t("نحفظ التوكن واسم الحساب بعد الرجوع من X.", "We save the token and account name after returning from X.")}</small></div>
+                <div><span>4</span><b>{t("المحادثات", "Conversations")}</b><small>{t("بعد تفعيل Webhook تظهر رسائل X داخل صندوق المحادثات.", "Once the webhook is activated, X messages appear in the inbox.")}</small></div>
               </div>
               <button type="button" onClick={connectXAccount}>
-                ربط X
+                {t("ربط X", "Connect X")}
               </button>
               <button className="secondary-action" type="button" onClick={() => setWizardStep(4)}>
-                إعداد تطبيق AudienceW
+                {t("إعداد تطبيق AudienceW", "Configure the AudienceW app")}
               </button>
             </div>
           </div>
@@ -967,10 +980,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <div className="meta-wizard-panel">
             <div className="meta-signup-card">
               <span className="provider-round-icon">T</span>
-              <h3>ربط حساب TikTok</h3>
-              <p>سجّل الدخول بحساب TikTok الخاص بنشاطك التجاري وسيتم حفظ بيانات الحساب تلقائياً. إرسال واستقبال الرسائل والتعليقات الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging لحسابنا.</p>
+              <h3>{t("ربط حساب TikTok", "Connect a TikTok account")}</h3>
+              <p>{t("سجّل الدخول بحساب TikTok الخاص بنشاطك التجاري وسيتم حفظ بيانات الحساب تلقائياً. إرسال واستقبال الرسائل والتعليقات الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging لحسابنا.", "Log in with your business's TikTok account and the account details will be saved automatically. Actual message and comment sending/receiving starts once TikTok approves Business Messaging access for our account.")}</p>
               <button type="button" onClick={connectTikTokAccount}>
-                تسجيل الدخول عبر TikTok
+                {t("تسجيل الدخول عبر TikTok", "Log in with TikTok")}
               </button>
             </div>
           </div>
@@ -982,10 +995,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <div className="meta-wizard-panel">
             <div className="meta-signup-card">
               <span className="provider-round-icon">#</span>
-              <h3>ربط SMS عبر Unifonic</h3>
-              <p>اربط حساب Unifonic لإرسال رسائل SMS لعملائك. استقبال الردود قيد التجهيز، لكن الإرسال يشتغل مباشرة بعد حفظ AppSid واسم المرسل.</p>
+              <h3>{t("ربط SMS عبر Unifonic", "Connect SMS via Unifonic")}</h3>
+              <p>{t("اربط حساب Unifonic لإرسال رسائل SMS لعملائك. استقبال الردود قيد التجهيز، لكن الإرسال يشتغل مباشرة بعد حفظ AppSid واسم المرسل.", "Connect a Unifonic account to send SMS messages to your customers. Receiving replies is still in development, but sending works right away once you save the AppSid and Sender ID.")}</p>
               <button type="button" onClick={() => setWizardStep(4)}>
-                إدخال بيانات Unifonic
+                {t("إدخال بيانات Unifonic", "Enter Unifonic details")}
               </button>
             </div>
           </div>
@@ -996,53 +1009,53 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         <div className="meta-wizard-panel">
           <div className="meta-signup-card">
             <span className="provider-round-icon">{isInstagram ? "◎" : isFacebook ? "f" : "☏"}</span>
-            <h3>{isInstagram ? "Connect Instagram with Meta" : isFacebook ? "Connect Facebook Page" : "Quick setup with Meta"}</h3>
+            <h3>{isInstagram ? t("ربط Instagram عبر Meta", "Connect Instagram with Meta") : isFacebook ? t("ربط صفحة Facebook", "Connect Facebook Page") : t("إعداد سريع عبر Meta", "Quick setup with Meta")}</h3>
             <p>
               {isInstagram
-                ? "اربط حساب Instagram Business أو Creator المرتبط بصفحة Facebook حتى تظهر الرسائل والتعليقات داخل صندوق المحادثات."
+                ? t("اربط حساب Instagram Business أو Creator المرتبط بصفحة Facebook حتى تظهر الرسائل والتعليقات داخل صندوق المحادثات.", "Connect the Instagram Business or Creator account linked to your Facebook page so messages and comments appear in the inbox.")
                 : isFacebook
-                  ? "اربط صفحة Facebook حتى تظهر رسائل Messenger داخل صندوق المحادثات وتقدر ترد عليها من المنصة."
-                : "Use the WhatsApp Embedded Signup flow to quickly connect new numbers. You will be redirected to Meta to log into your WhatsApp Business account. Having admin access will help make the setup smooth and easy."}
+                  ? t("اربط صفحة Facebook حتى تظهر رسائل Messenger داخل صندوق المحادثات وتقدر ترد عليها من المنصة.", "Connect your Facebook page so Messenger messages appear in the inbox and you can reply to them from the platform.")
+                : t("استخدم رحلة WhatsApp Embedded Signup لربط أرقام جديدة بسرعة. سيتم تحويلك إلى Meta لتسجيل الدخول إلى حساب WhatsApp Business الخاص بك. توفر صلاحية المسؤول (Admin) يجعل الإعداد أسهل وأسرع.", "Use the WhatsApp Embedded Signup flow to quickly connect new numbers. You will be redirected to Meta to log into your WhatsApp Business account. Having admin access will help make the setup smooth and easy.")}
             </p>
             <ul>
-              <li>{isInstagram ? "Instagram professional account required" : isFacebook ? "Facebook Page admin access required" : "No manual configuration required"}</li>
-              <li>Secure OAuth based authentication</li>
-              <li>{isInstagram ? "Messages and comments will use the Meta webhook" : isFacebook ? "Messenger messages will use the Meta webhook" : "Automatic webhook and phone number configuration"}</li>
+              <li>{isInstagram ? t("يتطلب حساب Instagram احترافي (Professional)", "Instagram professional account required") : isFacebook ? t("يتطلب صلاحية مسؤول على صفحة Facebook", "Facebook Page admin access required") : t("لا حاجة لأي إعداد يدوي", "No manual configuration required")}</li>
+              <li>{t("مصادقة آمنة عبر OAuth", "Secure OAuth based authentication")}</li>
+              <li>{isInstagram ? t("الرسائل والتعليقات ستستخدم ويبهوك Meta", "Messages and comments will use the Meta webhook") : isFacebook ? t("رسائل Messenger ستستخدم ويبهوك Meta", "Messenger messages will use the Meta webhook") : t("إعداد تلقائي للويبهوك ورقم الهاتف", "Automatic webhook and phone number configuration")}</li>
             </ul>
             <button className={!isInstagram && !isFacebook ? "facebook-login-button" : undefined} type="button" onClick={openMetaWindow}>
-              {isInstagram ? "Connect Instagram" : isFacebook ? "Connect Facebook" : "Login with Facebook"}
+              {isInstagram ? t("ربط Instagram", "Connect Instagram") : isFacebook ? t("ربط Facebook", "Connect Facebook") : t("تسجيل الدخول عبر Facebook", "Login with Facebook")}
             </button>
           </div>
         </div>
       );
     }
 
-    const summaryTitle = isConnected ? "أصبح كل شيء جاهزًا" : isGoogleMaps ? "بانتظار تفعيل الوصول" : "لم يكتمل الربط بعد";
+    const summaryTitle = isConnected ? t("أصبح كل شيء جاهزًا", "Everything is ready") : isGoogleMaps ? t("بانتظار تفعيل الوصول", "Waiting for access to be activated") : t("لم يكتمل الربط بعد", "The connection isn't complete yet");
     const summaryText = isConnected
       ? isEmail
-        ? "بعد حفظ بيانات البريد، استخدم رابط الويبهوك لاستقبال الرسائل داخل صندوق المحادثات والرد عليها من المنصة."
+        ? t("بعد حفظ بيانات البريد، استخدم رابط الويبهوك لاستقبال الرسائل داخل صندوق المحادثات والرد عليها من المنصة.", "After saving your email details, use the webhook link to receive messages in the inbox and reply to them from the platform.")
         : isGoogleMaps
-          ? "تم حفظ حساب النشاط التجاري والموقع، وستظهر تقييمات خرائط Google داخل صندوق المحادثات."
+          ? t("تم حفظ حساب النشاط التجاري والموقع، وستظهر تقييمات خرائط Google داخل صندوق المحادثات.", "The business account and location have been saved, and Google Maps reviews will appear in the inbox.")
         : isX
-          ? "بعد حفظ مفاتيح X ستكون القناة جاهزة للمرحلة التالية: تفعيل استقبال الرسائل الخاصة والردود على التغريدات."
+          ? t("بعد حفظ مفاتيح X ستكون القناة جاهزة للمرحلة التالية: تفعيل استقبال الرسائل الخاصة والردود على التغريدات.", "After saving your X keys, the channel will be ready for the next stage: enabling DM receiving and replies to tweets.")
         : isTelegram
-          ? "بعد حفظ Bot Token سيتم التحقق من البوت وتفعيل Webhook تلقائياً، وستظهر المحادثة عند وصول أول رسالة من تيليجرام."
+          ? t("بعد حفظ Bot Token سيتم التحقق من البوت وتفعيل Webhook تلقائياً، وستظهر المحادثة عند وصول أول رسالة من تيليجرام.", "After saving the Bot Token, the bot will be verified and the webhook activated automatically, and the conversation will appear once the first Telegram message arrives.")
         : isFacebook
-          ? "بعد إكمال ربط Facebook سيتم حفظ الصفحة والصلاحيات، وستظهر القناة في صندوق المحادثات عند استقبال أول رسالة."
+          ? t("بعد إكمال ربط Facebook سيتم حفظ الصفحة والصلاحيات، وستظهر القناة في صندوق المحادثات عند استقبال أول رسالة.", "After completing the Facebook connection, the page and permissions will be saved, and the channel will appear in the inbox once the first message arrives.")
         : isInstagram
-          ? "بعد إكمال ربط Instagram سيتم حفظ الحساب والصلاحيات، وستظهر القناة في صندوق المحادثات عند استقبال أول حدث."
+          ? t("بعد إكمال ربط Instagram سيتم حفظ الحساب والصلاحيات، وستظهر القناة في صندوق المحادثات عند استقبال أول حدث.", "After completing the Instagram connection, the account and permissions will be saved, and the channel will appear in the inbox once the first event arrives.")
         : isTikTok
-          ? "تم حفظ بيانات TikTok. الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging."
+          ? t("تم حفظ بيانات TikTok. الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging.", "The TikTok details have been saved. Actual sending and receiving starts once TikTok approves Business Messaging access.")
         : isSms
-          ? "تم حفظ بيانات Unifonic. الرد على أي محادثة SMS من المنصة يرسل رسالة فعلية الآن."
-        : "بعد إكمال نافذة Meta سيتم حفظ حافظة الأعمال، حساب واتساب، رقم الهاتف، والصلاحيات في بيانات الربط."
+          ? t("تم حفظ بيانات Unifonic. الرد على أي محادثة SMS من المنصة يرسل رسالة فعلية الآن.", "The Unifonic details have been saved. Replying to any SMS conversation from the platform now sends an actual message.")
+        : t("بعد إكمال نافذة Meta سيتم حفظ حافظة الأعمال، حساب واتساب، رقم الهاتف، والصلاحيات في بيانات الربط.", "After completing the Meta window, the business portfolio, WhatsApp account, phone number, and permissions will be saved to the connection data.")
       : isGoogleMaps
-        ? settings.phoneNumber || "تمت مصادقة Google، لكن لم يكتمل تفعيل قراءة بيانات النشاط التجاري بعد. بعد موافقة Google Business Profile API اضغط ربط Google مرة أخرى لاختيار الحساب والموقع."
+        ? settings.phoneNumber || t("تمت مصادقة Google، لكن لم يكتمل تفعيل قراءة بيانات النشاط التجاري بعد. بعد موافقة Google Business Profile API اضغط ربط Google مرة أخرى لاختيار الحساب والموقع.", "Google authentication succeeded, but reading the business data hasn't been activated yet. Once Google Business Profile API access is approved, click Connect Google again to choose the account and location.")
       : isTikTok
-        ? "احفظ App Key وApp Secret وAccess Token بعد ما توافق عليك TikTok."
+        ? t("احفظ App Key وApp Secret وAccess Token بعد ما توافق عليك TikTok.", "Save the App Key, App Secret, and Access Token once TikTok approves you.")
       : isSms
-        ? "أدخل AppSid واسم المرسل (Sender ID) من حساب Unifonic."
-      : "أكمل الربط أولاً حتى تصبح القناة جاهزة داخل المنصة.";
+        ? t("أدخل AppSid واسم المرسل (Sender ID) من حساب Unifonic.", "Enter the AppSid and Sender ID from your Unifonic account.")
+      : t("أكمل الربط أولاً حتى تصبح القناة جاهزة داخل المنصة.", "Finish the connection first to make the channel ready in the platform.");
 
     return (
       <div className="meta-wizard-panel">
@@ -1053,14 +1066,14 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               {isEmail ? (
                 isConnected ? (
                   <div className="summary-list">
-                    <b>{oauthEmailStatus?.emailAddress || "قناة البريد"}</b>
+                    <b>{oauthEmailStatus?.emailAddress || t("قناة البريد", "Email channel")}</b>
                   </div>
                 ) : null
               ) : (
                 <div className="summary-list">
-                  <b>{settings.businessName || "حافظة الأعمال"}</b>
-                  <b>{settings.wabaName || (isGoogleMaps ? "موقع Google" : isX ? "حساب X" : isTikTok ? "حساب TikTok" : isSms ? "قناة SMS" : isTelegram ? "بوت Telegram" : isFacebook ? "صفحة Facebook" : isInstagram ? "حساب Instagram" : "حساب واتساب للأعمال")}</b>
-                  <b>{isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTikTok ? settings.appId || "TikTok App Key" : isSms ? settings.phoneNumber || "Sender ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || "رقم واتساب"}</b>
+                  <b>{settings.businessName || t("حافظة الأعمال", "Business portfolio")}</b>
+                  <b>{settings.wabaName || (isGoogleMaps ? t("موقع Google", "Google location") : isX ? t("حساب X", "X account") : isTikTok ? t("حساب TikTok", "TikTok account") : isSms ? t("قناة SMS", "SMS channel") : isTelegram ? t("بوت Telegram", "Telegram bot") : isFacebook ? t("صفحة Facebook", "Facebook page") : isInstagram ? t("حساب Instagram", "Instagram account") : t("حساب واتساب للأعمال", "WhatsApp Business account"))}</b>
+                  <b>{isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTikTok ? settings.appId || "TikTok App Key" : isSms ? settings.phoneNumber || "Sender ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || t("رقم واتساب", "WhatsApp number")}</b>
                 </div>
               )}
         </div>
@@ -1107,7 +1120,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 const prev = Math.max(1, step - 1);
                 return prev === 2 ? 1 : prev;
               })}>
-                عودة
+                {t("عودة", "Back")}
               </button>
               {!((isGoogleMaps || isWhatsApp || isInstagram || isFacebook) && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
                 if (wizardStep === 3 && isGoogleMaps) {
@@ -1116,7 +1129,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 }
                 setWizardStep((step) => Math.min(4, step + 1));
               }}>
-                {wizardStep === 3 ? (isGoogleMaps ? "ربط Google" : "إدخال البيانات") : wizardStep === 4 ? "إنهاء" : "التالي"}
+                {wizardStep === 3 ? (isGoogleMaps ? t("ربط Google", "Connect Google") : t("إدخال البيانات", "Enter details")) : wizardStep === 4 ? t("إنهاء", "Finish") : t("التالي", "Next")}
               </button> : null}
             </div>
           ) : null}
@@ -1128,58 +1141,58 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {isTelegram ? (
             <div className="telegram-help-card">
               <div>
-                <h3>طريقة ربط تيليجرام</h3>
-                <p>الربط يتم عن طريق بوت تيليجرام. لا تحتاج تسجيل دخول، فقط انسخ Bot Token من BotFather واحفظه هنا.</p>
+                <h3>{t("طريقة ربط تيليجرام", "How to connect Telegram")}</h3>
+                <p>{t("الربط يتم عن طريق بوت تيليجرام. لا تحتاج تسجيل دخول، فقط انسخ Bot Token من BotFather واحفظه هنا.", "The connection is made through a Telegram bot. No login is needed — just copy the Bot Token from BotFather and save it here.")}</p>
               </div>
               <ol>
-                <li>افتح تيليجرام وابحث عن BotFather الرسمي.</li>
-                <li>اكتب /newbot واختر اسم البوت واسم المستخدم.</li>
-                <li>انسخ Bot Token الذي يعطيك إياه BotFather.</li>
-                <li>الصق التوكن في خانة Bot Token واضغط حفظ الإعدادات.</li>
-                <li>أرسل /start للبوت من تيليجرام حتى تظهر المحادثة في المنصة.</li>
+                <li>{t("افتح تيليجرام وابحث عن BotFather الرسمي.", "Open Telegram and search for the official BotFather.")}</li>
+                <li>{t("اكتب /newbot واختر اسم البوت واسم المستخدم.", "Type /newbot and choose the bot's name and username.")}</li>
+                <li>{t("انسخ Bot Token الذي يعطيك إياه BotFather.", "Copy the Bot Token that BotFather gives you.")}</li>
+                <li>{t("الصق التوكن في خانة Bot Token واضغط حفظ الإعدادات.", "Paste the token into the Bot Token field and click Save Settings.")}</li>
+                <li>{t("أرسل /start للبوت من تيليجرام حتى تظهر المحادثة في المنصة.", "Send /start to the bot from Telegram so the conversation appears in the platform.")}</li>
               </ol>
             </div>
           ) : null}
           {isX ? (
             <div className="telegram-help-card">
               <div>
-                <h3>إعداد تطبيق AudienceW على X</h3>
-                <p>هذه البيانات تضبط تطبيق المنصة مرة واحدة. بعد ذلك كل عميل يربط X بزر مباشر بدون إدخال مفاتيح.</p>
+                <h3>{t("إعداد تطبيق AudienceW على X", "Set up the AudienceW app on X")}</h3>
+                <p>{t("هذه البيانات تضبط تطبيق المنصة مرة واحدة. بعد ذلك كل عميل يربط X بزر مباشر بدون إدخال مفاتيح.", "This data configures the platform's app once. After that, every customer connects X with a single button, without entering any keys.")}</p>
               </div>
               <ol>
-                <li>أنشئ App واحد باسم AudienceW داخل X Developer Portal.</li>
-                <li>فعّل OAuth 2.0 وصلاحيات Read / Write / Direct Messages حسب المتاح.</li>
-                <li>انسخ OAuth 1.0 Secret Key واحفظه في خانة Consumer Secret، فهو المطلوب لاختبار CRC.</li>
-                <li>أضف Callback URL: {publicAppUrl}/api/x/callback</li>
-                <li>أضف Webhook URL إذا كان متاحًا: {publicAppUrl}/api/x/webhook</li>
-                <li>احفظ بيانات التطبيق هنا، ثم استخدم زر ربط X للمصادقة بحساب العميل.</li>
+                <li>{t("أنشئ App واحد باسم AudienceW داخل X Developer Portal.", "Create a single app named AudienceW in the X Developer Portal.")}</li>
+                <li>{t("فعّل OAuth 2.0 وصلاحيات Read / Write / Direct Messages حسب المتاح.", "Enable OAuth 2.0 and Read / Write / Direct Messages permissions as available.")}</li>
+                <li>{t("انسخ OAuth 1.0 Secret Key واحفظه في خانة Consumer Secret، فهو المطلوب لاختبار CRC.", "Copy the OAuth 1.0 Secret Key and save it in the Consumer Secret field — it's required for the CRC check.")}</li>
+                <li>{t(`أضف Callback URL: ${publicAppUrl}/api/x/callback`, `Add Callback URL: ${publicAppUrl}/api/x/callback`)}</li>
+                <li>{t(`أضف Webhook URL إذا كان متاحًا: ${publicAppUrl}/api/x/webhook`, `Add Webhook URL if available: ${publicAppUrl}/api/x/webhook`)}</li>
+                <li>{t("احفظ بيانات التطبيق هنا، ثم استخدم زر ربط X للمصادقة بحساب العميل.", "Save the app details here, then use the Connect X button to authenticate the customer's account.")}</li>
               </ol>
             </div>
           ) : null}
           {isTikTok ? (
             <div className="telegram-help-card">
               <div>
-                <h3>ربط TikTok Business Messaging</h3>
-                <p>هذه القناة قيد التجهيز - إرسال واستقبال الرسائل الفعلي بينتظر موافقة TikTok على صلاحية Business Messaging Partner لحسابك. تقدر تحفظ بيانات التطبيق الآن وتكمل التفعيل بعد ما توافق عليك TikTok.</p>
+                <h3>{t("ربط TikTok Business Messaging", "Connect TikTok Business Messaging")}</h3>
+                <p>{t("هذه القناة قيد التجهيز - إرسال واستقبال الرسائل الفعلي بينتظر موافقة TikTok على صلاحية Business Messaging Partner لحسابك. تقدر تحفظ بيانات التطبيق الآن وتكمل التفعيل بعد ما توافق عليك TikTok.", "This channel is still being set up — actual message sending and receiving is waiting for TikTok to approve Business Messaging Partner access for our account. You can save the app details now and finish activation once TikTok approves you.")}</p>
               </div>
               <ol>
-                <li>سجّل حساب TikTok Business وقدّم على TikTok API for Business.</li>
-                <li>اطلب صلاحية "Business Messaging" كـ Messaging Partner من TikTok.</li>
-                <li>بعد الموافقة، انسخ App Key وApp Secret وAccess Token واحفظهم هنا.</li>
+                <li>{t("سجّل حساب TikTok Business وقدّم على TikTok API for Business.", "Register a TikTok Business account and apply to the TikTok API for Business.")}</li>
+                <li>{t('اطلب صلاحية "Business Messaging" كـ Messaging Partner من TikTok.', 'Request "Business Messaging" access as a Messaging Partner from TikTok.')}</li>
+                <li>{t("بعد الموافقة، انسخ App Key وApp Secret وAccess Token واحفظهم هنا.", "After approval, copy the App Key, App Secret, and Access Token and save them here.")}</li>
               </ol>
             </div>
           ) : null}
           {isSms ? (
             <div className="telegram-help-card">
               <div>
-                <h3>ربط SMS عبر Unifonic</h3>
-                <p>الإرسال الصادر جاهز ويشتغل مباشرة بمجرد حفظ البيانات. استقبال ردود العملاء (SMS ثنائي الاتجاه) لسه قيد التجهيز.</p>
+                <h3>{t("ربط SMS عبر Unifonic", "Connect SMS via Unifonic")}</h3>
+                <p>{t("الإرسال الصادر جاهز ويشتغل مباشرة بمجرد حفظ البيانات. استقبال ردود العملاء (SMS ثنائي الاتجاه) لسه قيد التجهيز.", "Outbound sending is ready and works as soon as you save the details. Receiving customer replies (two-way SMS) is still being built.")}</p>
               </div>
               <ol>
-                <li>أنشئ حساب على <a href="https://www.unifonic.com" target="_blank" rel="noreferrer">Unifonic</a> وسجّل نشاطك التجاري.</li>
-                <li>من لوحة Unifonic، انسخ AppSid الخاص بتطبيقك.</li>
-                <li>سجّل اسم مرسل (Sender ID) معتمد، وانسخه بالأسفل.</li>
-                <li>احفظ الإعدادات - الرد على أي محادثة SMS من هنا بيرسل فعلياً عبر Unifonic.</li>
+                <li>{t("أنشئ حساب على", "Create an account on")} <a href="https://www.unifonic.com" target="_blank" rel="noreferrer">Unifonic</a> {t("وسجّل نشاطك التجاري.", "and register your business.")}</li>
+                <li>{t("من لوحة Unifonic، انسخ AppSid الخاص بتطبيقك.", "From the Unifonic dashboard, copy your app's AppSid.")}</li>
+                <li>{t("سجّل اسم مرسل (Sender ID) معتمد، وانسخه بالأسفل.", "Register an approved Sender ID and copy it below.")}</li>
+                <li>{t("احفظ الإعدادات - الرد على أي محادثة SMS من هنا بيرسل فعلياً عبر Unifonic.", "Save the settings — replying to any SMS conversation from here actually sends via Unifonic.")}</li>
               </ol>
             </div>
           ) : null}
@@ -1192,11 +1205,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 </svg>
               </span>
               <div className="provider-connect-copy">
-                <h3>ربط Gmail مباشرة</h3>
-                <p>اربط حساب Gmail عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي. ملاحظة: Gmail وOutlook يشتركان بنفس خانة الربط - ربط أحدهما يفصل الآخر تلقائياً.</p>
+                <h3>{t("ربط Gmail مباشرة", "Connect Gmail directly")}</h3>
+                <p>{t("اربط حساب Gmail عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي. ملاحظة: Gmail وOutlook يشتركان بنفس خانة الربط - ربط أحدهما يفصل الآخر تلقائياً.", "Connect a Gmail account via OAuth to send and receive messages automatically, without any manual webhook setup. Note: Gmail and Outlook share the same connection slot — connecting one disconnects the other automatically.")}</p>
               </div>
               <a className="btn primary" href="/api/email/oauth/gmail">
-                ربط Gmail
+                {t("ربط Gmail", "Connect Gmail")}
               </a>
             </div>
           ) : null}
@@ -1210,33 +1223,33 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 </svg>
               </span>
               <div className="provider-connect-copy">
-                <h3>ربط Outlook مباشرة</h3>
-                <p>اربط حساب Outlook / Microsoft 365 عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي. ملاحظة: Gmail وOutlook يشتركان بنفس خانة الربط - ربط أحدهما يفصل الآخر تلقائياً.</p>
+                <h3>{t("ربط Outlook مباشرة", "Connect Outlook directly")}</h3>
+                <p>{t("اربط حساب Outlook / Microsoft 365 عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي. ملاحظة: Gmail وOutlook يشتركان بنفس خانة الربط - ربط أحدهما يفصل الآخر تلقائياً.", "Connect an Outlook / Microsoft 365 account via OAuth to send and receive messages automatically, without any manual webhook setup. Note: Gmail and Outlook share the same connection slot — connecting one disconnects the other automatically.")}</p>
               </div>
               <a className="btn primary" href="/api/email/oauth/outlook">
-                ربط Outlook
+                {t("ربط Outlook", "Connect Outlook")}
               </a>
             </div>
           ) : null}
           {isEmail && !hideManualEmailSetup ? (
             <div className="telegram-help-card">
               <div>
-                <h3>طريقة ربط البريد الإلكتروني عبر Webhook (بديل)</h3>
-                <p>استخدم Webhook البريد مع Zapier أو Make أو أي مزود يدعم إرسال Webhook عند وصول بريد جديد.</p>
+                <h3>{t("طريقة ربط البريد الإلكتروني عبر Webhook (بديل)", "How to connect email via webhook (alternative)")}</h3>
+                <p>{t("استخدم Webhook البريد مع Zapier أو Make أو أي مزود يدعم إرسال Webhook عند وصول بريد جديد.", "Use the email webhook with Zapier, Make, or any provider that supports sending a webhook when a new email arrives.")}</p>
               </div>
               <ol>
-                <li>احفظ اسم المرسل وبريد الإرسال في الحقول أدناه.</li>
-                <li>انسخ رابط Webhook وأرسله من مزود البريد عند وصول رسالة جديدة.</li>
-                <li>أضف Secret Token في Header باسم x-audiencew-email-secret.</li>
-                <li>أي رسالة تحتوي from و subject و text ستظهر في المحادثات كقناة بريد.</li>
+                <li>{t("احفظ اسم المرسل وبريد الإرسال في الحقول أدناه.", "Save the sender name and email address in the fields below.")}</li>
+                <li>{t("انسخ رابط Webhook وأرسله من مزود البريد عند وصول رسالة جديدة.", "Copy the webhook link and send it from your email provider when a new message arrives.")}</li>
+                <li>{t("أضف Secret Token في Header باسم x-audiencew-email-secret.", "Add the Secret Token in a header named x-audiencew-email-secret.")}</li>
+                <li>{t("أي رسالة تحتوي from و subject و text ستظهر في المحادثات كقناة بريد.", "Any message containing from, subject, and text will appear in the conversations as an email channel.")}</li>
               </ol>
             </div>
           ) : null}
           {isWebsite ? (
             <div className="telegram-help-card">
               <div>
-                <h3>ودجت الدردشة الحية لموقعك</h3>
-                <p>انسخ الكود التالي والصقه قبل إغلاق وسم &lt;/body&gt; في أي صفحة بموقعك. راح تظهر فقاعة دردشة لكل زوار الموقع، ورسائلهم بتظهر مباشرة هنا كمحادثات قناة "الموقع الإلكتروني".</p>
+                <h3>{t("ودجت الدردشة الحية لموقعك", "Your website's live-chat widget")}</h3>
+                <p>{t('انسخ الكود التالي والصقه قبل إغلاق وسم </body> في أي صفحة بموقعك. راح تظهر فقاعة دردشة لكل زوار الموقع، ورسائلهم بتظهر مباشرة هنا كمحادثات قناة "الموقع الإلكتروني".', 'Copy the code below and paste it right before the closing </body> tag on any page of your site. A chat bubble will appear for every visitor, and their messages will appear here directly as conversations on the "Website" channel.')}</p>
               </div>
               <div className="copy-row">
                 <span>{`<script src="${publicAppUrl}/widget.js" data-site-key="${settings.verifyToken}" async></script>`}</span>
@@ -1244,77 +1257,77 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   type="button"
                   onClick={() => copyValue("website-embed", `<script src="${publicAppUrl}/widget.js" data-site-key="${settings.verifyToken}" async></script>`)}
                 >
-                  {copied === "website-embed" ? "تم النسخ" : "نسخ الكود"}
+                  {copied === "website-embed" ? t("تم النسخ", "Copied") : t("نسخ الكود", "Copy code")}
                 </button>
               </div>
               <ol>
-                <li>افتح محرر موقعك (أو نظام إدارة المحتوى) وأضف الكود بالأعلى في كل الصفحات.</li>
-                <li>الزائر يكتب اسمه وبريده أول مرة، بعدها تظهر له نافذة الدردشة مباشرة.</li>
-                <li>ردودك من هذه اللوحة تصل للزائر خلال ثوانٍ داخل نفس النافذة.</li>
+                <li>{t("افتح محرر موقعك (أو نظام إدارة المحتوى) وأضف الكود بالأعلى في كل الصفحات.", "Open your site editor (or CMS) and add the code above to every page.")}</li>
+                <li>{t("الزائر يكتب اسمه وبريده أول مرة، بعدها تظهر له نافذة الدردشة مباشرة.", "The visitor enters their name and email the first time, then the chat window appears directly.")}</li>
+                <li>{t("ردودك من هذه اللوحة تصل للزائر خلال ثوانٍ داخل نفس النافذة.", "Your replies from this dashboard reach the visitor within seconds, inside the same window.")}</li>
               </ol>
             </div>
           ) : null}
           <div className="settings-form-head">
             <div>
-              <h2>{isWebsite ? "ودجت الموقع الإلكتروني" : isGoogleMaps ? "ربط Google Business" : isWhatsApp ? "ربط واتساب" : hideManualEmailSetup ? (isConnected ? "حساب البريد المرتبط" : "قناة Outlook") : "بيانات الربط والويبهوك"}</h2>
-              <p>{isWebsite ? "مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى." : hideManualEmailSetup ? (isConnected ? "الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب." : "اربط حساب Outlook من الأعلى لتفعيل القناة.") : isEmail ? "هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook." : isGoogleMaps ? "لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة." : isX ? "هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا." : isTikTok ? "احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging." : isSms ? "بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز." : isTelegram ? "هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة." : isFacebook ? "هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة." : isInstagram ? "هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة." : "اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط."}</p>
+              <h2>{isWebsite ? t("ودجت الموقع الإلكتروني", "Website widget") : isGoogleMaps ? t("ربط Google Business", "Connect Google Business") : isWhatsApp ? t("ربط واتساب", "Connect WhatsApp") : hideManualEmailSetup ? (isConnected ? t("حساب البريد المرتبط", "Connected email account") : t("قناة Outlook", "Outlook channel")) : t("بيانات الربط والويبهوك", "Connection and webhook details")}</h2>
+              <p>{isWebsite ? t("مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى.", "The site key below is unique to your account and is already embedded in the code above.") : hideManualEmailSetup ? (isConnected ? t("الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب.", "The account is connected via OAuth and works automatically without extra settings. Click Clear Connection Data to disconnect it.") : t("اربط حساب Outlook من الأعلى لتفعيل القناة.", "Connect an Outlook account above to activate the channel.")) : isEmail ? t("هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook.", "This data saves the email channel and is used to receive messages via webhook.") : isGoogleMaps ? t("لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة.", "You don't need to fill in any fields here. Click Connect Google and choose the business account, and the connection data will be saved automatically after approval.") : isX ? t("هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا.", "This is the AudienceW app's data on X. The customer won't enter these keys; they'll just click Connect X and their account will be saved automatically.") : isTikTok ? t("احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging.", "Save the TikTok app details now; actual sending and receiving starts once TikTok approves Business Messaging access.") : isSms ? t("بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز.", "Unifonic details for sending SMS messages to customers. Receiving replies is still being built.") : isTelegram ? t("هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة.", "This data saves the Telegram connection and activates the webhook automatically to receive messages in the platform.") : isFacebook ? t("هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة.", "This data saves the Facebook page and is used to send and receive Messenger messages in the platform.") : isInstagram ? t("هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة.", "This data saves the Instagram connection and is used to receive messages and comments in the platform.") : t("اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط.", "Connect a WhatsApp account from the Meta window. The account and number details will be saved automatically once the connection is complete.")}</p>
             </div>
             <span className={`connection-pill ${isEmail ? (isConnected ? "connected" : "pending") : settings.status}`}>
-              {isEmail ? (isConnected ? statusLabel.connected : statusLabel.pending) : statusLabel[settings.status]}
+              {isEmail ? (isConnected ? statusLabel("connected", t) : statusLabel("pending", t)) : statusLabel(settings.status, t)}
             </span>
             {!isWebsite ? <button className="soft-action" disabled={saving || loading} type="button" onClick={resetIntegrationData}>
-              مسح بيانات الربط
+              {t("مسح بيانات الربط", "Clear connection data")}
             </button> : null}
             {!isGoogleMaps && !isWhatsApp && !isWebsite && !(hideManualEmailSetup) ? <button className="primary-action" disabled={saving || loading} type="submit">
-              {saving ? "جاري الحفظ..." : "حفظ الإعدادات"}
+              {saving ? t("جاري الحفظ...", "Saving...") : t("حفظ الإعدادات", "Save settings")}
             </button> : null}
             {isWhatsApp ? <button className="primary-action" disabled={saving || loading} type="button" onClick={async () => { setSaving(true); await persistSettings(); setSaving(false); }}>
-              {saving ? "جاري التحقق..." : "تحقق من الحالة"}
+              {saving ? t("جاري التحقق...", "Checking...") : t("تحقق من الحالة", "Check status")}
             </button> : null}
           </div>
 
           {!isGoogleMaps && !isWebsite && !(hideManualEmailSetup) ? <div className="settings-fields">
             {!isWhatsApp ? <label>
-              اسم النشاط التجاري
+              {t("اسم النشاط التجاري", "Business name")}
               <input value={settings.businessName} onChange={(event) => updateField("businessName", event.target.value)} />
             </label> : null}
             <label>
-              {isEmail ? "اسم قناة البريد" : isX ? "اسم حساب X" : isTikTok ? "اسم حساب TikTok" : isSms ? "اسم قناة SMS" : isTelegram ? "اسم بوت Telegram" : isFacebook ? "اسم صفحة Facebook" : isInstagram ? "اسم حساب Instagram" : "حساب واتساب للأعمال"}
-              <input value={settings.wabaName} onChange={(event) => updateField("wabaName", event.target.value)} readOnly={isWhatsApp} placeholder={isWhatsApp ? "يظهر بعد اكتمال الربط من Meta" : undefined} />
+              {isEmail ? t("اسم قناة البريد", "Email channel name") : isX ? t("اسم حساب X", "X account name") : isTikTok ? t("اسم حساب TikTok", "TikTok account name") : isSms ? t("اسم قناة SMS", "SMS channel name") : isTelegram ? t("اسم بوت Telegram", "Telegram bot name") : isFacebook ? t("اسم صفحة Facebook", "Facebook page name") : isInstagram ? t("اسم حساب Instagram", "Instagram account name") : t("حساب واتساب للأعمال", "WhatsApp Business account")}
+              <input value={settings.wabaName} onChange={(event) => updateField("wabaName", event.target.value)} readOnly={isWhatsApp} placeholder={isWhatsApp ? t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete") : undefined} />
             </label>
             {!isInstagram && !isFacebook && !isTelegram && !isX && !isEmail && !isTikTok && !isSms ? <label>
-              رقم واتساب
-              <input value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} readOnly={isWhatsApp} placeholder="يظهر بعد اكتمال الربط من Meta" />
+              {t("رقم واتساب", "WhatsApp number")}
+              <input value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} readOnly={isWhatsApp} placeholder={t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete")} />
             </label> : null}
             <label>
-              حالة الربط
+              {t("حالة الربط", "Connection status")}
               <div className={`connection-status-box ${settings.status}`}>
-                <b>{statusLabel[settings.status]}</b>
+                <b>{statusLabel(settings.status, t)}</b>
                 <span>
                   {settings.status === "connected"
                     ? isEmail
-                      ? "تم حفظ البريد ورابط الويبهوك."
+                      ? t("تم حفظ البريد ورابط الويبهوك.", "The email and webhook link have been saved.")
                     : isX
-                      ? "تم حفظ مفاتيح X. التفعيل الكامل يعتمد على صلاحيات API."
+                      ? t("تم حفظ مفاتيح X. التفعيل الكامل يعتمد على صلاحيات API.", "The X keys have been saved. Full activation depends on API permissions.")
                       : isTikTok
-                      ? "تم حفظ بيانات TikTok."
+                      ? t("تم حفظ بيانات TikTok.", "The TikTok details have been saved.")
                       : isSms
-                      ? "تم حفظ بيانات Unifonic. الرد على أي محادثة SMS يرسل رسالة فعلية."
+                      ? t("تم حفظ بيانات Unifonic. الرد على أي محادثة SMS يرسل رسالة فعلية.", "The Unifonic details have been saved. Replying to any SMS conversation sends an actual message.")
                       : isGoogleMaps
-                        ? "تم حفظ حساب خرائط Google والموقع."
+                        ? t("تم حفظ حساب خرائط Google والموقع.", "The Google Maps account and location have been saved.")
                       : isFacebook
-                      ? "تم التحقق من صفحة Facebook والربط جاهز."
+                      ? t("تم التحقق من صفحة Facebook والربط جاهز.", "The Facebook page has been verified and the connection is ready.")
                       : isTelegram
-                      ? "تم التحقق من Bot Token وتفعيل Webhook."
-                      : "تم التحقق من بيانات Meta والربط جاهز."
-                    : "احفظ الإعدادات بعد تعبئة البيانات وسيتم التحقق تلقائيًا."}
+                      ? t("تم التحقق من Bot Token وتفعيل Webhook.", "The Bot Token has been verified and the webhook activated.")
+                      : t("تم التحقق من بيانات Meta والربط جاهز.", "The Meta details have been verified and the connection is ready.")
+                    : t("احفظ الإعدادات بعد تعبئة البيانات وسيتم التحقق تلقائيًا.", "Save the settings after filling in the data, and it will be verified automatically.")}
                 </span>
               </div>
             </label>
             {isEmail ? (
               <>
                 <label>
-                  بريد الإرسال
+                  {t("بريد الإرسال", "Sending email address")}
                   <input dir="ltr" type="email" value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} placeholder="support@example.com" />
                 </label>
                 <label>
@@ -1329,7 +1342,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   <input dir="ltr" value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} placeholder="123456:ABC..." />
                 </label>
                 <label>
-                  Secret Token اختياري
+                  {t("Secret Token اختياري", "Secret Token (optional)")}
                   <input dir="ltr" value={settings.verifyToken} onChange={(event) => updateField("verifyToken", event.target.value)} placeholder="audiencew_telegram_secret" />
                 </label>
               </>
@@ -1353,7 +1366,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 </label>
                 <label>
                   Refresh Token
-                  <input dir="ltr" value={settings.googleRefreshToken} onChange={(event) => updateField("googleRefreshToken", event.target.value)} placeholder="يتم حفظه تلقائياً بعد الربط" />
+                  <input dir="ltr" value={settings.googleRefreshToken} onChange={(event) => updateField("googleRefreshToken", event.target.value)} placeholder={t("يتم حفظه تلقائياً بعد الربط", "Saved automatically after connecting")} />
                 </label>
               </>
             ) : isX ? (
@@ -1387,8 +1400,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   <input dir="ltr" value={settings.xAccessTokenSecret} onChange={(event) => updateField("xAccessTokenSecret", event.target.value)} />
                 </label>
                 <label>
-                  Account / User ID اختياري
-                  <input dir="ltr" value={settings.wabaId} onChange={(event) => updateField("wabaId", event.target.value)} placeholder="@username أو User ID" />
+                  {t("Account / User ID اختياري", "Account / User ID (optional)")}
+                  <input dir="ltr" value={settings.wabaId} onChange={(event) => updateField("wabaId", event.target.value)} placeholder={t("@username أو User ID", "@username or User ID")} />
                 </label>
                 <label>
                   Webhook Secret
@@ -1403,7 +1416,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 </label>
                 <label>
                   Sender ID
-                  <input dir="ltr" value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} placeholder="اسم أو رقم المرسل المعتمد" />
+                  <input dir="ltr" value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} placeholder={t("اسم أو رقم المرسل المعتمد", "Approved sender name or number")} />
                 </label>
               </>
             ) : null}
@@ -1412,11 +1425,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {isGoogleMaps ? (
             <div className="x-connect-card">
               <div>
-                <h3>بيانات النشاط التجاري</h3>
-                <p>{settings.phoneNumber || "بعد إكمال الربط ستظهر هنا بيانات النشاط التجاري والموقع المرتبط."}</p>
+                <h3>{t("بيانات النشاط التجاري", "Business details")}</h3>
+                <p>{settings.phoneNumber || t("بعد إكمال الربط ستظهر هنا بيانات النشاط التجاري والموقع المرتبط.", "Once the connection is complete, the business and location details will appear here.")}</p>
               </div>
               <button className="soft-action" disabled={saving || loading || settings.status !== "connected"} type="button" onClick={syncGoogleReviews}>
-                مزامنة التقييمات
+                {t("مزامنة التقييمات", "Sync reviews")}
               </button>
             </div>
           ) : null}
@@ -1424,11 +1437,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {isX ? (
             <div className="x-connect-card">
               <div>
-                <h3>ربط حساب X للعميل</h3>
-                <p>بعد حفظ Client ID و Client Secret لتطبيق AudienceW، اضغط ربط X. العميل سيسجل الدخول ويوافق على الصلاحيات، ثم يرجع للمنصة تلقائيًا.</p>
+                <h3>{t("ربط حساب X للعميل", "Connect the customer's X account")}</h3>
+                <p>{t("بعد حفظ Client ID و Client Secret لتطبيق AudienceW، اضغط ربط X. العميل سيسجل الدخول ويوافق على الصلاحيات، ثم يرجع للمنصة تلقائيًا.", "After saving the Client ID and Client Secret for the AudienceW app, click Connect X. The customer will log in, approve the permissions, then return to the platform automatically.")}</p>
               </div>
               <button className="primary-action" disabled={saving || loading} type="button" onClick={connectXAccount}>
-                ربط X مباشرة
+                {t("ربط X مباشرة", "Connect X directly")}
               </button>
             </div>
           ) : null}
@@ -1438,27 +1451,27 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {telegramBotLink ? (
             <div className="telegram-link-card">
               <div>
-                <h3>رابط تيليجرام للعملاء</h3>
-                <p>هذا هو الرابط الذي ترسله للعملاء. أي عميل يفتحه ويرسل للبوت ستظهر محادثته داخل المنصة.</p>
+                <h3>{t("رابط تيليجرام للعملاء", "Telegram link for customers")}</h3>
+                <p>{t("هذا هو الرابط الذي ترسله للعملاء. أي عميل يفتحه ويرسل للبوت ستظهر محادثته داخل المنصة.", "This is the link you send to customers. Any customer who opens it and messages the bot will have their conversation appear in the platform.")}</p>
               </div>
               <div className="copy-row">
                 <span>{telegramBotLink}</span>
                 <button type="button" onClick={() => copyValue("telegram-link", telegramBotLink)}>
-                  {copied === "telegram-link" ? "تم النسخ" : "نسخ الرابط"}
+                  {copied === "telegram-link" ? t("تم النسخ", "Copied") : t("نسخ الرابط", "Copy link")}
                 </button>
               </div>
-              <small>للتجربة: افتح الرابط، اضغط Start أو أرسل /start، ثم ارجع لصفحة المحادثات.</small>
+              <small>{t("للتجربة: افتح الرابط، اضغط Start أو أرسل /start، ثم ارجع لصفحة المحادثات.", "To test: open the link, press Start or send /start, then go back to the conversations page.")}</small>
             </div>
           ) : null}
 
           {!isInstagram && !isFacebook && !isTelegram && !isX && !isGoogleMaps && !isEmail && !isWebsite && !isTikTok && !isSms && settings.status === "connected" ? <div className="meta-test-card">
             <div>
-              <h3>تجربة رقم التست</h3>
-              <p>أضف رقمك في قائمة أرقام الاختبار داخل Meta، ثم أرسل رسالة للتأكد من الإرسال والاستقبال.</p>
+              <h3>{t("تجربة رقم التست", "Test number trial")}</h3>
+              <p>{t("أضف رقمك في قائمة أرقام الاختبار داخل Meta، ثم أرسل رسالة للتأكد من الإرسال والاستقبال.", "Add your number to the test number list in Meta, then send a message to confirm sending and receiving work.")}</p>
             </div>
             <div className="meta-test-grid">
               <label>
-                رقم المستلم
+                {t("رقم المستلم", "Recipient number")}
                 <input
                   dir="ltr"
                   inputMode="tel"
@@ -1468,48 +1481,48 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 />
               </label>
               <label>
-                نص الرسالة
+                {t("نص الرسالة", "Message text")}
                 <textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} />
               </label>
             </div>
             <div className="meta-test-actions">
               <button className="primary-action" disabled={testSending || !testRecipient.trim()} type="button" onClick={sendTestMessage}>
-                {testSending ? "جاري الإرسال..." : "إرسال رسالة اختبار"}
+                {testSending ? t("جاري الإرسال...", "Sending...") : t("إرسال رسالة اختبار", "Send test message")}
               </button>
-              <small>الاستقبال يحتاج أن يكون الويبهوك مفعّلًا على رابط الاستضافة.</small>
+              <small>{t("الاستقبال يحتاج أن يكون الويبهوك مفعّلًا على رابط الاستضافة.", "Receiving requires the webhook to be active on your hosting URL.")}</small>
             </div>
             {testFeedback && <p className={`meta-test-feedback ${testFeedback.type}`}>{testFeedback.text}</p>}
           </div> : null}
 
           {!isGoogleMaps && !isWhatsApp && !isWebsite && !isInstagram && !isFacebook && !(hideManualEmailSetup) ? <div className="webhook-card">
             <div>
-              <h3>إعدادات الويبهوك — {isEmail ? (isGmail ? "Gmail" : isOutlook ? "Outlook" : "البريد الإلكتروني") : isTikTok ? "TikTok" : isSms ? "SMS" : isX ? "X" : isTelegram ? "تيليجرام" : isFacebook ? "فيسبوك" : isInstagram ? "Instagram" : "واتساب"}</h3>
-              <p>{isEmail ? "انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة." : isGoogleMaps ? "هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة." : isX ? "استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات." : isTelegram ? "سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة." : isFacebook ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger." : isInstagram ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram." : isTikTok ? "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق TikTok لاستقبال رسائل وتعليقات TikTok بعد موافقة Business Messaging." : "انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp."}</p>
+              <h3>{t("إعدادات الويبهوك", "Webhook settings")} — {isEmail ? (isGmail ? "Gmail" : isOutlook ? "Outlook" : t("البريد الإلكتروني", "Email")) : isTikTok ? "TikTok" : isSms ? "SMS" : isX ? "X" : isTelegram ? t("تيليجرام", "Telegram") : isFacebook ? t("فيسبوك", "Facebook") : isInstagram ? "Instagram" : t("واتساب", "WhatsApp")}</h3>
+              <p>{isEmail ? t("انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة.", "Copy this link along with the Secret Token and add it to Zapier, Make, or your email provider to send inbound messages to the platform.") : isGoogleMaps ? t("هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة.", "The system uses this link to sync Google reviews on demand or periodically within the platform.") : isX ? t("استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات.", "Use this link as the Webhook URL in X when the Account Activity API is available. The Webhook Secret protects the requests.") : isTelegram ? t("سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة.", "This link will be activated automatically in Telegram once you save the Bot Token. The Secret Token protects the webhook from unknown requests.") : isFacebook ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Facebook Messenger messages.") : isInstagram ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Instagram messages and comments.") : isTikTok ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق TikTok لاستقبال رسائل وتعليقات TikTok بعد موافقة Business Messaging.", "Copy the webhook link and Verify Token and add them to your TikTok app settings to receive TikTok messages and comments once Business Messaging is approved.") : t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive WhatsApp messages.")}</p>
             </div>
             <div className="webhook-field">
-              <span className="webhook-field-label">رابط الويبهوك</span>
+              <span className="webhook-field-label">{t("رابط الويبهوك", "Webhook link")}</span>
               <div className="copy-row">
                 <span>{webhookUrl}</span>
                 <button type="button" onClick={() => copyValue("webhook", webhookUrl)}>
-                  {copied === "webhook" ? "تم النسخ" : "نسخ الرابط"}
+                  {copied === "webhook" ? t("تم النسخ", "Copied") : t("نسخ الرابط", "Copy link")}
                 </button>
               </div>
             </div>
             <div className="webhook-field">
               <span className="webhook-field-label">{isTelegram || isX || isEmail ? "Secret Token" : "Verify Token"}</span>
               <div className="copy-row">
-                <button type="button" className="webhook-token-value" onClick={() => setShowWebhookToken((current) => !current)} title={showWebhookToken ? "اضغط للإخفاء" : "اضغط للإظهار"}>
+                <button type="button" className="webhook-token-value" onClick={() => setShowWebhookToken((current) => !current)} title={showWebhookToken ? t("اضغط للإخفاء", "Click to hide") : t("اضغط للإظهار", "Click to show")}>
                   {showWebhookToken ? settings.verifyToken : "•".repeat(Math.min(settings.verifyToken.length || 24, 32))}
                 </button>
                 <button type="button" onClick={() => copyValue("token", settings.verifyToken)}>
-                  {copied === "token" ? "تم النسخ" : isTelegram || isX || isEmail ? "نسخ Secret Token" : "نسخ التوكن"}
+                  {copied === "token" ? t("تم النسخ", "Copied") : isTelegram || isX || isEmail ? t("نسخ Secret Token", "Copy Secret Token") : t("نسخ التوكن", "Copy token")}
                 </button>
               </div>
               <button type="button" className="webhook-token-regenerate" disabled={saving} onClick={regenerateWebhookToken}>
                 <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 12a9 9 0 0 1 15.4-6.36L21 8M3 12a9 9 0 0 0 15.4 6.36L21 16M21 8V3M21 8h-5M21 16v5M21 16h-5" />
                 </svg>
-                استبدال التوكن
+                {t("استبدال التوكن", "Regenerate token")}
               </button>
             </div>
           </div> : null}
