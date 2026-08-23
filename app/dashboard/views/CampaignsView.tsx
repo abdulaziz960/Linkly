@@ -323,8 +323,8 @@ export default function CampaignsView({
   return (
     <section className="page-stack">
       <div className="section-tabs campaign-tabs">
-        <button className={activeTab === "campaigns" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("campaigns")}>{t("الحملات", "Campaigns")} ✈</button>
-        <button className={activeTab === "balance" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("balance")}>{t("الرصيد و الشحن", "Balance & Top-up")} ▣</button>
+        <button className={activeTab === "campaigns" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("campaigns")}>{t("الحملات", "Campaigns")}</button>
+        <button className={activeTab === "balance" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("balance")}>{t("الرصيد و الشحن", "Balance & Top-up")}</button>
       </div>
 
       {activeTab === "campaigns" ? (
