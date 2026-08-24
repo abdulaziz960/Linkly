@@ -11,6 +11,7 @@ type PaymentsViewProps = {
 };
 
 const STATUS_FILTERS = ["الكل", "مكتمل", "قيد الانتظار"];
+const SOURCE_FILTERS = ["الكل", "اشتراك", "شحن رسائل حملات"];
 type SortKey = "recent" | "oldest" | "amount_desc" | "amount_asc";
 const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
   { value: "recent", label: "الأحدث" },
@@ -23,6 +24,7 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
   const [selectedPaymentClient, setSelectedPaymentClient] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("الكل");
+  const [sourceFilter, setSourceFilter] = useState("الكل");
   const [sortBy, setSortBy] = useState<SortKey>("recent");
 
   const completedPayments = payments.filter((p) => p.status === "مكتمل");
@@ -35,6 +37,7 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
     const filtered = payments.filter((payment) => {
       if (selectedPaymentClient !== "all" && payment.tenantId !== selectedPaymentClient) return false;
       if (statusFilter !== "الكل" && payment.status !== statusFilter) return false;
+      if (sourceFilter !== "الكل" && payment.source !== sourceFilter) return false;
       if (!query) return true;
       return payment.companyName.toLowerCase().includes(query) || payment.moyasarId.toLowerCase().includes(query);
     });
@@ -50,7 +53,7 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
       sorted.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     }
     return sorted;
-  }, [payments, selectedPaymentClient, statusFilter, searchQuery, sortBy]);
+  }, [payments, selectedPaymentClient, statusFilter, sourceFilter, searchQuery, sortBy]);
 
   return (
     <>
@@ -83,7 +86,7 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
         <div className="admin-card-head">
           <div>
             <h2>المدفوعات ({formatNumber(visiblePayments.length)} من {formatNumber(payments.length)})</h2>
-            <p>سجل كل طلبات الدفع عبر Moyasar لكل عميل، بحالتها الفعلية.</p>
+            <p>سجل كل طلبات الدفع عبر Moyasar لكل عميل - اشتراكات وشحن رصيد رسائل الحملات معًا - بحالتها الفعلية.</p>
           </div>
         </div>
 
@@ -107,6 +110,18 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
               </button>
             ))}
           </div>
+          <div className="admin-filter-chips">
+            {SOURCE_FILTERS.map((source) => (
+              <button
+                key={source}
+                type="button"
+                className={`admin-filter-chip ${sourceFilter === source ? "active" : ""}`}
+                onClick={() => setSourceFilter(source)}
+              >
+                {source}
+              </button>
+            ))}
+          </div>
           <CustomSelect
             value={selectedPaymentClient}
             onChange={setSelectedPaymentClient}
@@ -125,6 +140,8 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
               <tr>
                 <th>التاريخ</th>
                 <th>العميل</th>
+                <th>النوع</th>
+                <th>الرسائل</th>
                 <th>المبلغ</th>
                 <th>الحالة</th>
                 <th>معرّف Moyasar</th>
@@ -136,6 +153,8 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
                 <tr key={payment.id}>
                   <td>{payment.completedAt || payment.createdAt}</td>
                   <td>{payment.companyName}</td>
+                  <td>{payment.source}</td>
+                  <td>{payment.messages ? formatNumber(payment.messages) : "—"}</td>
                   <td>{formatNumber(payment.amount)} ر.س</td>
                   <td>
                     <span className={`admin-pill ${statusClass(payment.status)}`}>{payment.status}</span>

@@ -28,6 +28,8 @@ export type PaymentRow = {
   paymentUrl: string;
   createdAt: string;
   completedAt: string;
+  source: string;
+  messages: number;
 };
 
 export type PlanRow = {
