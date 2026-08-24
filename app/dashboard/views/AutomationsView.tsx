@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import type { AutomationRule, Employee, MessageTemplate, Tag, Team } from "../types";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../components/CustomSelect";
 
 type AutomationForm = {
   id?: string;
@@ -338,9 +339,11 @@ export default function AutomationsView({
               </label>
               <label>
                 <span>{t("الحدث", "Trigger")}</span>
-                <select value={form.trigger} onChange={(event) => setForm((current) => ({ ...current, trigger: event.target.value }))}>
-                  {triggerOptions.map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
-                </select>
+                <CustomSelect
+                  value={form.trigger}
+                  onChange={(value) => setForm((current) => ({ ...current, trigger: value }))}
+                  options={triggerOptions.map((option) => ({ value: option, label: staticLabel(option, t) }))}
+                />
               </label>
 
               <div>
