@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import type { Team, WorkSchedule } from "../types";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type ScheduleForm = Omit<WorkSchedule, "id"> & { id?: string };
 
@@ -170,10 +171,15 @@ export default function WorkHoursView({
             <div className="account-modal-body form-grid">
               <label>
                 <span>{t("الفريق", "Team")}</span>
-                <select value={form.team} onChange={(event) => setForm((current) => ({ ...current, team: event.target.value }))}>
-                  {!teams.length ? <option value="">{t("لا توجد فرق بعد", "No teams yet")}</option> : null}
-                  {teams.map((team) => <option key={team.id}>{team.name}</option>)}
-                </select>
+                <CustomSelect
+                  value={form.team}
+                  onChange={(value) => setForm((current) => ({ ...current, team: value }))}
+                  options={
+                    teams.length
+                      ? teams.map((team) => ({ value: team.name, label: team.name }))
+                      : [{ value: "", label: t("لا توجد فرق بعد", "No teams yet") }]
+                  }
+                />
               </label>
               <label>
                 <span>{t("أيام العمل", "Working days")}</span>
@@ -218,8 +224,8 @@ export default function WorkHoursView({
                 ))}
               </div>
               <div className="split-fields">
-                <label><span>{t("الحالة", "Status")}</span><select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as WorkSchedule["status"] }))}><option value="نشط">{t("نشط", "Active")}</option><option value="متوقف">{t("متوقف", "Stopped")}</option></select></label>
-                <label><span>{t("العطل الرسمية", "Public holidays")}</span><select value={form.holidays} onChange={(event) => setForm((current) => ({ ...current, holidays: event.target.value as WorkSchedule["holidays"] }))}><option value="مفعلة">{t("مفعلة", "Enabled")}</option><option value="غير مفعلة">{t("غير مفعلة", "Disabled")}</option></select></label>
+                <label><span>{t("الحالة", "Status")}</span><CustomSelect value={form.status} onChange={(value) => setForm((current) => ({ ...current, status: value as WorkSchedule["status"] }))} options={[{ value: "نشط", label: t("نشط", "Active") }, { value: "متوقف", label: t("متوقف", "Stopped") }]} /></label>
+                <label><span>{t("العطل الرسمية", "Public holidays")}</span><CustomSelect value={form.holidays} onChange={(value) => setForm((current) => ({ ...current, holidays: value as WorkSchedule["holidays"] }))} options={[{ value: "مفعلة", label: t("مفعلة", "Enabled") }, { value: "غير مفعلة", label: t("غير مفعلة", "Disabled") }]} /></label>
               </div>
               <div className="work-hours-summary">
                 <span>{t("الملخص", "Summary")}</span>

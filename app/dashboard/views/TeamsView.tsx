@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import type { Employee, Team } from "../types";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 function routingLabel(routing: string, t: (ar: string, en: string) => string) {
   if (routing === "تلقائي بالتساوي") return t("تلقائي بالتساوي", "Automatic (even split)");
@@ -161,10 +162,11 @@ export default function TeamsView({
               </label>
               <label>
                 <span>{t("المشرف", "Lead")}</span>
-                <select value={form.lead} onChange={(event) => setForm((current) => ({ ...current, lead: event.target.value }))}>
-                  <option value="">{t("بدون مشرف", "No lead")}</option>
-                  {employees.map((employee) => <option key={employee.id}>{employee.name}</option>)}
-                </select>
+                <CustomSelect
+                  value={form.lead}
+                  onChange={(value) => setForm((current) => ({ ...current, lead: value }))}
+                  options={[{ value: "", label: t("بدون مشرف", "No lead") }, ...employees.map((employee) => ({ value: employee.name, label: employee.name }))]}
+                />
               </label>
               <label className="check-row team-routing">
                 <input

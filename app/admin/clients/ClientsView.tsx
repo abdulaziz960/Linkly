@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import type { PlanRow, SubscriptionRow } from "../types";
 import { EXTRA_USER_PRICE, formatNumber, getRenewalAlert, statusClass } from "../utils";
+import CustomSelect from "../../components/CustomSelect";
 
 type ClientsViewProps = {
   subscriptions: SubscriptionRow[];
@@ -332,13 +333,11 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
               </button>
             ))}
           </div>
-          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortKey)}>
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                ترتيب: {option.label}
-              </option>
-            ))}
-          </select>
+          <CustomSelect
+            value={sortBy}
+            onChange={(value) => setSortBy(value as SortKey)}
+            options={SORT_OPTIONS.map((option) => ({ value: option.value, label: `ترتيب: ${option.label}` }))}
+          />
         </div>
 
         <div className="admin-client-cards">
@@ -482,31 +481,27 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                 </label>
                 <label>
                   الباقة
-                  <select name="plan" defaultValue={plans.find((p) => p.active === 1)?.name || "باقة النمو"}>
-                    {plans.length
-                      ? plans
-                          .filter((p) => p.active === 1)
-                          .map((p) => (
-                            <option key={p.id} value={p.name}>
-                              {p.name} ({formatNumber(p.monthlyPrice)} ر.س)
-                            </option>
-                          ))
-                      : (
-                        <>
-                          <option>باقة البداية</option>
-                          <option>باقة النمو</option>
-                          <option>باقة الأعمال</option>
-                        </>
-                      )}
-                  </select>
+                  <CustomSelect
+                    name="plan"
+                    defaultValue={plans.find((p) => p.active === 1)?.name || "باقة النمو"}
+                    options={
+                      plans.length
+                        ? plans.filter((p) => p.active === 1).map((p) => ({ value: p.name, label: `${p.name} (${formatNumber(p.monthlyPrice)} ر.س)` }))
+                        : [{ value: "باقة البداية", label: "باقة البداية" }, { value: "باقة النمو", label: "باقة النمو" }, { value: "باقة الأعمال", label: "باقة الأعمال" }]
+                    }
+                  />
                 </label>
                 <label>
                   حالة الاشتراك
-                  <select name="status" defaultValue="تجربة">
-                    <option>تجربة</option>
-                    <option>نشط</option>
-                    <option>متوقف</option>
-                  </select>
+                  <CustomSelect
+                    name="status"
+                    defaultValue="تجربة"
+                    options={[
+                      { value: "تجربة", label: "تجربة" },
+                      { value: "نشط", label: "نشط" },
+                      { value: "متوقف", label: "متوقف" }
+                    ]}
+                  />
                 </label>
                 <label>
                   تاريخ التجديد
@@ -518,11 +513,15 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                 </label>
                 <label>
                   دورة الفوترة
-                  <select name="billingCycle" defaultValue="تجربة 14 يوم">
-                    <option>تجربة 14 يوم</option>
-                    <option>شهري</option>
-                    <option>سنوي</option>
-                  </select>
+                  <CustomSelect
+                    name="billingCycle"
+                    defaultValue="تجربة 14 يوم"
+                    options={[
+                      { value: "تجربة 14 يوم", label: "تجربة 14 يوم" },
+                      { value: "شهري", label: "شهري" },
+                      { value: "سنوي", label: "سنوي" }
+                    ]}
+                  />
                 </label>
 
                 {formError ? <p className="admin-form-error">{formError}</p> : null}
@@ -683,10 +682,14 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                 </label>
                 <label>
                   بوابة الدفع
-                  <select value={chargeGateway} onChange={(event) => setChargeGateway(event.target.value as "moyasar" | "stripe")}>
-                    <option value="moyasar">Moyasar</option>
-                    <option value="stripe">Stripe (وضع اختبار)</option>
-                  </select>
+                  <CustomSelect
+                    value={chargeGateway}
+                    onChange={(value) => setChargeGateway(value as "moyasar" | "stripe")}
+                    options={[
+                      { value: "moyasar", label: "Moyasar" },
+                      { value: "stripe", label: "Stripe (وضع اختبار)" }
+                    ]}
+                  />
                 </label>
                 <label>
                   قيمة الفاتورة (ر.س)

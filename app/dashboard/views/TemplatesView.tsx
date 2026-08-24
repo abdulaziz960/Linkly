@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import type { MessageTemplate } from "../types";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type TemplateFormState = {
   name: string;
@@ -216,24 +217,34 @@ export default function TemplatesView({
                 </label>
                 <label>
                   <span>{t("الفئة", "Category")}</span>
-                  <select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as TemplateFormState["category"], type: event.target.value === "MARKETING" ? "تسويق" : "خدمة" }))}>
-                    <option value="UTILITY">UTILITY</option>
-                    <option value="MARKETING">MARKETING</option>
-                    <option value="AUTHENTICATION">AUTHENTICATION</option>
-                  </select>
+                  <CustomSelect
+                    value={form.category}
+                    onChange={(value) => setForm((current) => ({ ...current, category: value as TemplateFormState["category"], type: value === "MARKETING" ? "تسويق" : "خدمة" }))}
+                    options={[
+                      { value: "UTILITY", label: "UTILITY" },
+                      { value: "MARKETING", label: "MARKETING" },
+                      { value: "AUTHENTICATION", label: "AUTHENTICATION" }
+                    ]}
+                  />
                 </label>
                 <label>
                   <span>{t("اللغة", "Language")}</span>
-                  <select value={form.language} onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}>
-                    {languages.map((lang) => <option key={lang.value} value={lang.value}>{lang.label}</option>)}
-                  </select>
+                  <CustomSelect
+                    value={form.language}
+                    onChange={(value) => setForm((current) => ({ ...current, language: value }))}
+                    options={languages.map((lang) => ({ value: lang.value, label: lang.label }))}
+                  />
                 </label>
                 <label>
                   <span>{t("نوع العنوان", "Header type")}</span>
-                  <select value={form.headerType} onChange={(event) => setForm((current) => ({ ...current, headerType: event.target.value as TemplateFormState["headerType"] }))}>
-                    <option value="NONE">{t("لا شيء", "None")}</option>
-                    <option value="TEXT">{t("نص", "Text")}</option>
-                  </select>
+                  <CustomSelect
+                    value={form.headerType}
+                    onChange={(value) => setForm((current) => ({ ...current, headerType: value as TemplateFormState["headerType"] }))}
+                    options={[
+                      { value: "NONE", label: t("لا شيء", "None") },
+                      { value: "TEXT", label: t("نص", "Text") }
+                    ]}
+                  />
                   <small className="field-hint">{t("عناوين الصور والفيديو غير مدعومة حاليًا في الإرسال إلى Meta.", "Image and video headers aren't currently supported when submitting to Meta.")}</small>
                 </label>
                 {form.headerType === "TEXT" ? (
@@ -252,10 +263,10 @@ export default function TemplatesView({
                 </label>
                 <label>
                   <span>{t("زر (اختياري)", "Button (optional)")}</span>
-                  <select
+                  <CustomSelect
                     value={form.buttonType}
-                    onChange={(event) => {
-                      const buttonType = event.target.value as TemplateFormState["buttonType"];
+                    onChange={(value) => {
+                      const buttonType = value as TemplateFormState["buttonType"];
                       setForm((current) => ({
                         ...current,
                         buttonType,
@@ -264,12 +275,13 @@ export default function TemplatesView({
                         buttonUrl: buttonType === "URL" ? current.buttonUrl : ""
                       }));
                     }}
-                  >
-                    <option value="NONE">{t("لا شيء", "None")}</option>
-                    <option value="QUICK_REPLY">{t("رد سريع", "Quick reply")}</option>
-                    <option value="URL">{t("رابط", "URL")}</option>
-                    <option value="PHONE">{t("اتصال", "Call")}</option>
-                  </select>
+                    options={[
+                      { value: "NONE", label: t("لا شيء", "None") },
+                      { value: "QUICK_REPLY", label: t("رد سريع", "Quick reply") },
+                      { value: "URL", label: t("رابط", "URL") },
+                      { value: "PHONE", label: t("اتصال", "Call") }
+                    ]}
+                  />
                 </label>
                 {form.buttonType === "QUICK_REPLY" ? (
                   <label>
@@ -281,9 +293,7 @@ export default function TemplatesView({
                   <div className="template-action-grid">
                     <label>
                       <span>{t("نوع الإجراء", "Action type")}</span>
-                      <select value="PHONE" disabled>
-                        <option value="PHONE">{t("اتصال برقم الهاتف", "Call phone number")}</option>
-                      </select>
+                      <CustomSelect value="PHONE" disabled options={[{ value: "PHONE", label: t("اتصال برقم الهاتف", "Call phone number") }]} />
                     </label>
                     <label>
                       <span>{t("نص الزر", "Button text")}</span>
@@ -299,9 +309,7 @@ export default function TemplatesView({
                   <div className="template-action-grid">
                     <label>
                       <span>{t("نوع الإجراء", "Action type")}</span>
-                      <select value="URL" disabled>
-                        <option value="URL">{t("فتح رابط", "Open URL")}</option>
-                      </select>
+                      <CustomSelect value="URL" disabled options={[{ value: "URL", label: t("فتح رابط", "Open URL") }]} />
                     </label>
                     <label>
                       <span>{t("نص الزر", "Button text")}</span>

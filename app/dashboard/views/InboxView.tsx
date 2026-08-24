@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import FilterButton from "../components/FilterButton";
+import CustomSelect from "../../components/CustomSelect";
 import type {
   ChatPanel,
   ComposerMode,
@@ -656,11 +657,11 @@ export default function InboxView({
           <label>
             {t("مسند إلى", "Assigned to")}
             {canChangeAssignee ? (
-              <select value={activeConversation.assignee} onChange={(event) => onChangeAssignee(event.target.value)}>
-                {assigneeOptions.map((member) => (
-                  <option key={member}>{member}</option>
-                ))}
-              </select>
+              <CustomSelect
+                value={activeConversation.assignee}
+                onChange={onChangeAssignee}
+                options={assigneeOptions.map((member) => ({ value: member, label: member }))}
+              />
             ) : (
               <span className="readonly-assignee">{activeConversation.assignee}</span>
             )}
@@ -849,17 +850,16 @@ export default function InboxView({
                   )}
                 </span>
                 <div>
-                  <select
+                  <CustomSelect
                     value={reopenTemplates.some((template) => template.name === selectedTemplate) ? selectedTemplate : reopenTemplates[0]?.name || ""}
                     disabled={!reopenTemplates.length}
-                    onChange={(event) => onChangeSelectedTemplate(event.target.value)}
-                  >
-                    {reopenTemplates.length ? reopenTemplates.map((template) => (
-                      <option key={template.name} value={template.name}>
-                        {template.name}
-                      </option>
-                    )) : <option value="">{t("لا توجد قوالب تسويقية معتمدة", "No approved marketing templates")}</option>}
-                  </select>
+                    onChange={onChangeSelectedTemplate}
+                    options={
+                      reopenTemplates.length
+                        ? reopenTemplates.map((template) => ({ value: template.name, label: template.name }))
+                        : [{ value: "", label: t("لا توجد قوالب تسويقية معتمدة", "No approved marketing templates") }]
+                    }
+                  />
                   <button className="btn primary" type="button" disabled={!reopenTemplates.length} onClick={onSendTemplate}>
                     {t("إرسال قالب", "Send template")}
                   </button>
@@ -1024,21 +1024,15 @@ export default function InboxView({
                 <div>
                   <dt>{t("الوسوم", "Tags")}</dt>
                   <dd className="profile-tags-field">
-                    <select
-                      aria-label={t("اختيار وسم", "Select a tag")}
+                    <CustomSelect
+                      placeholder={availableTags.length ? t("اختر وسم", "Choose a tag") : t("لا توجد وسوم متاحة", "No tags available")}
                       disabled={!hasActiveConversation || !availableTags.length}
                       value=""
-                      onChange={(event) => {
-                        void handleAddTag(event.target.value);
+                      onChange={(value) => {
+                        void handleAddTag(value);
                       }}
-                    >
-                      <option value="">{availableTags.length ? t("اختر وسم", "Choose a tag") : t("لا توجد وسوم متاحة", "No tags available")}</option>
-                      {availableTags.map((tag) => (
-                        <option key={tag.id} value={tag.name}>
-                          {tag.name}
-                        </option>
-                      ))}
-                    </select>
+                      options={availableTags.map((tag) => ({ value: tag.name, label: tag.name }))}
+                    />
                     <div className="profile-tag-list">
                       {activeConversation.tags.length ? (
                         activeConversation.tags.map((tagName) => (

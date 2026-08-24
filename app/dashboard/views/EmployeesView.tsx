@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import type { Employee } from "../types";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type EmployeeFormState = {
   id?: string;
@@ -259,19 +260,27 @@ export default function EmployeesView({
               <div className="split-fields">
                 <label>
                   <span>{t("الدور", "Role")}</span>
-                  <select value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as Employee["role"] }))}>
-                    <option value="مالك الحساب">{t("مالك الحساب", "Account Owner")}</option>
-                    <option value="مشرف">{t("مشرف", "Supervisor")}</option>
-                    <option value="موظف دعم">{t("موظف دعم", "Support Agent")}</option>
-                  </select>
+                  <CustomSelect
+                    value={form.role}
+                    onChange={(value) => setForm((current) => ({ ...current, role: value as Employee["role"] }))}
+                    options={[
+                      { value: "مالك الحساب", label: t("مالك الحساب", "Account Owner") },
+                      { value: "مشرف", label: t("مشرف", "Supervisor") },
+                      { value: "موظف دعم", label: t("موظف دعم", "Support Agent") }
+                    ]}
+                  />
                 </label>
                 <label>
                   <span>{t("الحالة", "Status")}</span>
-                  <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as Employee["status"] }))}>
-                    <option value="متصل">{t("متصل", "Online")}</option>
-                    <option value="مشغول">{t("مشغول", "Busy")}</option>
-                    <option value="غير متصل">{t("غير متصل", "Offline")}</option>
-                  </select>
+                  <CustomSelect
+                    value={form.status}
+                    onChange={(value) => setForm((current) => ({ ...current, status: value as Employee["status"] }))}
+                    options={[
+                      { value: "متصل", label: t("متصل", "Online") },
+                      { value: "مشغول", label: t("مشغول", "Busy") },
+                      { value: "غير متصل", label: t("غير متصل", "Offline") }
+                    ]}
+                  />
                 </label>
               </div>
               <div className="permissions-box">

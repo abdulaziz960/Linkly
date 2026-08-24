@@ -2,6 +2,14 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import CustomSelect from "../components/CustomSelect";
+
+const teamSizeOptions = [
+  { value: "1", label: "1" },
+  { value: "2-5", label: "2-5" },
+  { value: "6-15", label: "6-15" },
+  { value: "16+", label: "16+" }
+];
 
 const channels = [
   { value: "whatsapp", label: "واتساب" },
@@ -44,7 +52,7 @@ export default function SignupForm() {
     <details className="signup-options">
       <summary>تخصيص التجربة <span>اختياري</span></summary>
       <div className="signup-options-body">
-        <div className="form-pair"><label>رقم الجوال<input name="phone" inputMode="tel" maxLength={30} autoComplete="tel" placeholder="05xxxxxxxx" /></label><label>حجم الفريق<select name="teamSize" defaultValue="2-5"><option>1</option><option>2-5</option><option>6-15</option><option>16+</option></select></label></div>
+        <div className="form-pair"><label>رقم الجوال<input name="phone" inputMode="tel" maxLength={30} autoComplete="tel" placeholder="05xxxxxxxx" /></label><label>حجم الفريق<CustomSelect name="teamSize" defaultValue="2-5" options={teamSizeOptions} /></label></div>
         <fieldset><legend>القنوات التي تريد تجربتها</legend><div className="channel-choices">{channels.map(channel => <button className={selected.includes(channel.value) ? "selected" : ""} type="button" key={channel.value} aria-pressed={selected.includes(channel.value)} onClick={() => setSelected(current => current.includes(channel.value) ? current.filter(item => item !== channel.value) : [...current, channel.value])}>{channel.label}</button>)}</div></fieldset>
       </div>
     </details>

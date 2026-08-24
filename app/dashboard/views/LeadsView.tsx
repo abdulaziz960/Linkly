@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Employee, Lead } from "../types";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type LeadForm = Omit<Lead, "id"> & { id?: string };
 
@@ -139,15 +140,20 @@ export default function LeadsView({
         {filterOpen ? (
           <div className="inline-filter leads-filter">
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("بحث باسم العميل، الرقم، المصدر، الاهتمام...", "Search by customer name, number, source, interest...")} />
-            <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
-              <option value="الكل">{t("الكل", "All")}</option>
-              {stages.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
-            </select>
-            <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)}>
-              <option value="الكل">{t("الكل", "All")}</option>
-              {employees.map((employee) => <option key={employee.id} value={employee.name}>{employee.name}</option>)}
-              <option value="بدون موظف">{t("بدون موظف", "No employee")}</option>
-            </select>
+            <CustomSelect
+              value={stageFilter}
+              onChange={setStageFilter}
+              options={[{ value: "الكل", label: t("الكل", "All") }, ...stages.map((stage) => ({ value: stage, label: stage }))]}
+            />
+            <CustomSelect
+              value={employeeFilter}
+              onChange={setEmployeeFilter}
+              options={[
+                { value: "الكل", label: t("الكل", "All") },
+                ...employees.map((employee) => ({ value: employee.name, label: employee.name })),
+                { value: "بدون موظف", label: t("بدون موظف", "No employee") }
+              ]}
+            />
             <button className="btn soft" type="button" onClick={() => { setQuery(""); setStageFilter("الكل"); setEmployeeFilter("الكل"); }}>{t("مسح", "Clear")}</button>
           </div>
         ) : null}
@@ -186,7 +192,7 @@ export default function LeadsView({
               </div>
               <label className="full"><span>{t("ملاحظات الليد", "Lead notes")}</span><textarea rows={3} value={form.notes || ""} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /></label>
               <div className="split-fields">
-                <label><span>{t("الموظف", "Employee")}</span><select value={form.employee} onChange={(event) => setForm((current) => ({ ...current, employee: event.target.value }))}>{employees.map((employee) => <option key={employee.id}>{employee.name}</option>)}<option>بدون موظف</option></select></label>
+                <label><span>{t("الموظف", "Employee")}</span><CustomSelect value={form.employee} onChange={(value) => setForm((current) => ({ ...current, employee: value }))} options={[...employees.map((employee) => ({ value: employee.name, label: employee.name })), { value: "بدون موظف", label: "بدون موظف" }]} /></label>
                 <label><span>{t("آخر تواصل", "Last contact")}</span><input value={form.lastContact} onChange={(event) => setForm((current) => ({ ...current, lastContact: event.target.value }))} /></label>
               </div>
             </div>

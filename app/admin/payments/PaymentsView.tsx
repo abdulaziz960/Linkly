@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { PaymentRow, SubscriptionRow } from "../types";
 import { formatNumber, statusClass } from "../utils";
+import CustomSelect from "../../components/CustomSelect";
 
 type PaymentsViewProps = {
   subscriptions: SubscriptionRow[];
@@ -106,21 +107,16 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
               </button>
             ))}
           </div>
-          <select value={selectedPaymentClient} onChange={(event) => setSelectedPaymentClient(event.target.value)}>
-            <option value="all">كل العملاء</option>
-            {subscriptions.map((client) => (
-              <option key={client.tenantId} value={client.tenantId}>
-                {client.companyName}
-              </option>
-            ))}
-          </select>
-          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortKey)}>
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                ترتيب: {option.label}
-              </option>
-            ))}
-          </select>
+          <CustomSelect
+            value={selectedPaymentClient}
+            onChange={setSelectedPaymentClient}
+            options={[{ value: "all", label: "كل العملاء" }, ...subscriptions.map((client) => ({ value: client.tenantId, label: client.companyName }))]}
+          />
+          <CustomSelect
+            value={sortBy}
+            onChange={(value) => setSortBy(value as SortKey)}
+            options={SORT_OPTIONS.map((option) => ({ value: option.value, label: `ترتيب: ${option.label}` }))}
+          />
         </div>
 
         <div className="admin-table-wrap">

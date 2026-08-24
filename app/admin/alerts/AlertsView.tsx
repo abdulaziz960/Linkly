@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import type { RenewalAlert } from "../utils";
 import type { SubscriptionRow } from "../types";
 import { formatNumber, getRenewalAlert, RENEWAL_SOON_DAYS } from "../utils";
+import CustomSelect from "../../components/CustomSelect";
 
 export default function AlertsView({ subscriptions }: { subscriptions: SubscriptionRow[] }) {
   const [chargeClient, setChargeClient] = useState<SubscriptionRow | null>(null);
@@ -116,10 +117,14 @@ export default function AlertsView({ subscriptions }: { subscriptions: Subscript
                 </label>
                 <label>
                   بوابة الدفع
-                  <select value={chargeGateway} onChange={(event) => setChargeGateway(event.target.value as "moyasar" | "stripe")}>
-                    <option value="moyasar">Moyasar</option>
-                    <option value="stripe">Stripe (وضع اختبار)</option>
-                  </select>
+                  <CustomSelect
+                    value={chargeGateway}
+                    onChange={(value) => setChargeGateway(value as "moyasar" | "stripe")}
+                    options={[
+                      { value: "moyasar", label: "Moyasar" },
+                      { value: "stripe", label: "Stripe (وضع اختبار)" }
+                    ]}
+                  />
                 </label>
                 <label>
                   قيمة الفاتورة (ر.س)

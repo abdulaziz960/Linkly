@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { AdminLog } from "../../../lib/database";
 import type { SubscriptionRow } from "../types";
 import { formatNumber, statusClass } from "../utils";
+import CustomSelect from "../../components/CustomSelect";
 
 type LogsViewProps = {
   subscriptions: SubscriptionRow[];
@@ -94,14 +95,11 @@ export default function LogsView({ subscriptions, logs, initialClient }: LogsVie
               </button>
             ))}
           </div>
-          <select value={selectedLogClient} onChange={(event) => setSelectedLogClient(event.target.value)}>
-            <option value="all">كل العملاء</option>
-            {subscriptions.map((client) => (
-              <option key={client.tenantId} value={client.tenantId}>
-                {client.companyName}
-              </option>
-            ))}
-          </select>
+          <CustomSelect
+            value={selectedLogClient}
+            onChange={setSelectedLogClient}
+            options={[{ value: "all", label: "كل العملاء" }, ...subscriptions.map((client) => ({ value: client.tenantId, label: client.companyName }))]}
+          />
         </div>
 
         <div className="admin-table-wrap">

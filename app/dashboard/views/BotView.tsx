@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type BotNode = {
   id: string;
@@ -181,9 +182,11 @@ export default function BotView() {
                 <div className="split-fields">
                   <label>
                     <span>{t("نوع الخطوة", "Step type")}</span>
-                    <select value={nodeType} onChange={(event) => setNodeType(event.target.value)}>
-                      {nodeTypes.map((type) => <option key={type} value={type}>{nodeTypeLabel(type, t)}</option>)}
-                    </select>
+                    <CustomSelect
+                      value={nodeType}
+                      onChange={setNodeType}
+                      options={nodeTypes.map((type) => ({ value: type, label: nodeTypeLabel(type, t) }))}
+                    />
                   </label>
                   <label>
                     <span>{t("اسم الخطوة", "Step name")}</span>

@@ -5,20 +5,33 @@ import { useEffect, useRef, useState } from "react";
 type Option = { value: string; label: string };
 
 type CustomSelectProps = {
-  value: string;
-  onChange: (value: string) => void;
+  value?: string;
+  onChange?: (value: string) => void;
+  defaultValue?: string;
+  name?: string;
   options: Option[];
   disabled?: boolean;
   placeholder?: string;
+  className?: string;
 };
 
-export default function CustomSelect({ value, onChange, options, disabled, placeholder }: CustomSelectProps) {
+/**
+ * Native <select> popups can't be restyled cross-browser (Safari/Firefox
+ * lock that panel to OS chrome). This is a themed drop-in replacement.
+ * Pass value+onChange for controlled use, or defaultValue+name to behave
+ * like a native field inside a form submitted via FormData.
+ */
+export default function CustomSelect({ value, onChange, defaultValue, name, options, disabled, placeholder, className }: CustomSelectProps) {
+  const isControlled = value !== undefined;
+  const [internalValue, setInternalValue] = useState(defaultValue ?? options[0]?.value ?? "");
+  const currentValue = isControlled ? value : internalValue;
+
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const selected = options.find((option) => option.value === value);
+  const selected = options.find((option) => option.value === currentValue);
 
   useEffect(() => {
     if (!open) return;
@@ -58,8 +71,15 @@ export default function CustomSelect({ value, onChange, options, disabled, place
     setOpen((current) => !current);
   }
 
+  function selectOption(next: string) {
+    if (!isControlled) setInternalValue(next);
+    onChange?.(next);
+    setOpen(false);
+  }
+
   return (
-    <div className="custom-select">
+    <div className={`custom-select${className ? ` ${className}` : ""}`}>
+      {name ? <input type="hidden" name={name} value={currentValue} /> : null}
       <button
         type="button"
         ref={buttonRef}
@@ -76,14 +96,11 @@ export default function CustomSelect({ value, onChange, options, disabled, place
               type="button"
               key={option.value}
               role="option"
-              aria-selected={option.value === value}
-              className={`custom-select-option${option.value === value ? " selected" : ""}`}
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-              }}
+              aria-selected={option.value === currentValue}
+              className={`custom-select-option${option.value === currentValue ? " selected" : ""}`}
+              onClick={() => selectOption(option.value)}
             >
-              {option.value === value ? <span className="custom-select-check">✓</span> : null}
+              {option.value === currentValue ? <span className="custom-select-check">✓</span> : null}
               {option.label}
             </button>
           ))}

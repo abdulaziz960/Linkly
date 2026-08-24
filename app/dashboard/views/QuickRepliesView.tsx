@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import type { QuickReply, Team } from "../types";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type ReplyForm = {
   id?: string;
@@ -102,10 +103,15 @@ export default function QuickRepliesView({
                 <label><span>{t("الاختصار", "Shortcut")}</span><input value={form.shortcut} onChange={(event) => setForm((current) => ({ ...current, shortcut: event.target.value }))} required /></label>
                 <label>
                   <span>{t("الفريق", "Team")}</span>
-                  <select value={form.team} onChange={(event) => setForm((current) => ({ ...current, team: event.target.value }))}>
-                    {!teams.length ? <option value="">{t("لا توجد فرق بعد", "No teams yet")}</option> : null}
-                    {teams.map((team) => <option key={team.id}>{team.name}</option>)}
-                  </select>
+                  <CustomSelect
+                    value={form.team}
+                    onChange={(value) => setForm((current) => ({ ...current, team: value }))}
+                    options={
+                      teams.length
+                        ? teams.map((team) => ({ value: team.name, label: team.name }))
+                        : [{ value: "", label: t("لا توجد فرق بعد", "No teams yet") }]
+                    }
+                  />
                 </label>
               </div>
               <label><span>{t("نص الرد", "Reply text")}</span><textarea rows={5} value={form.text} onChange={(event) => setForm((current) => ({ ...current, text: event.target.value }))} required /></label>

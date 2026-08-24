@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import type { AutomationRule, Employee, MessageTemplate, Tag, Team } from "../types";
 import { useLanguage } from "../i18n";
-import CustomSelect from "../components/CustomSelect";
+import CustomSelect from "../../components/CustomSelect";
 
 type AutomationForm = {
   id?: string;
@@ -278,11 +278,15 @@ export default function AutomationsView({
           <h2>{t("قواعد الأتمتة", "Automation Rules")}</h2>
           <div className="automation-filters">
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث في القواعد...", "Search rules...")} />
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
-              <option value="all">{t("كل الحالات", "All statuses")}</option>
-              <option value="enabled">{t("المفعلة", "Enabled")}</option>
-              <option value="disabled">{t("المتوقفة", "Disabled")}</option>
-            </select>
+            <CustomSelect
+              value={statusFilter}
+              onChange={(value) => setStatusFilter(value as typeof statusFilter)}
+              options={[
+                { value: "all", label: t("كل الحالات", "All statuses") },
+                { value: "enabled", label: t("المفعلة", "Enabled") },
+                { value: "disabled", label: t("المتوقفة", "Disabled") }
+              ]}
+            />
           </div>
         </div>
         <div className="panel-body table-wrap">
@@ -351,16 +355,22 @@ export default function AutomationsView({
                 <div className="automation-box">
                   {form.conditions.map((condition, index) => (
                     <div className="automation-row" key={`${condition.field}-${index}`}>
-                      <select value={condition.field} onChange={(event) => updateCondition(index, "field", event.target.value)}>
-                        {conditionFieldOptions.map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
-                      </select>
-                      <select value={condition.operator} onChange={(event) => updateCondition(index, "operator", event.target.value)}>
-                        {conditionOperatorOptions.map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
-                      </select>
+                      <CustomSelect
+                        value={condition.field}
+                        onChange={(value) => updateCondition(index, "field", value)}
+                        options={conditionFieldOptions.map((option) => ({ value: option, label: staticLabel(option, t) }))}
+                      />
+                      <CustomSelect
+                        value={condition.operator}
+                        onChange={(value) => updateCondition(index, "operator", value)}
+                        options={conditionOperatorOptions.map((option) => ({ value: option, label: staticLabel(option, t) }))}
+                      />
                       {conditionValueOptions(condition.field, condition.value) ? (
-                        <select value={condition.value} onChange={(event) => updateCondition(index, "value", event.target.value)}>
-                          {conditionValueOptions(condition.field, condition.value)?.map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
-                        </select>
+                        <CustomSelect
+                          value={condition.value}
+                          onChange={(value) => updateCondition(index, "value", value)}
+                          options={(conditionValueOptions(condition.field, condition.value) ?? []).map((option) => ({ value: option, label: staticLabel(option, t) }))}
+                        />
                       ) : (
                         <input value={condition.value} onChange={(event) => updateCondition(index, "value", event.target.value)} placeholder={t("اكتب قيمة الشرط", "Enter condition value")} />
                       )}
@@ -376,12 +386,16 @@ export default function AutomationsView({
                 <div className="automation-box">
                   {form.actions.map((action, index) => (
                     <div className="automation-row action" key={`${action.type}-${index}`}>
-                      <select value={action.type} onChange={(event) => updateAction(index, "type", event.target.value)}>
-                        {actionOptions.map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
-                      </select>
-                      <select value={action.target} onChange={(event) => updateAction(index, "target", event.target.value)}>
-                        {targetOptionsForAction(action.type, action.target).map((option) => <option key={option} value={option}>{staticLabel(option, t)}</option>)}
-                      </select>
+                      <CustomSelect
+                        value={action.type}
+                        onChange={(value) => updateAction(index, "type", value)}
+                        options={actionOptions.map((option) => ({ value: option, label: staticLabel(option, t) }))}
+                      />
+                      <CustomSelect
+                        value={action.target}
+                        onChange={(value) => updateAction(index, "target", value)}
+                        options={targetOptionsForAction(action.type, action.target).map((option) => ({ value: option, label: staticLabel(option, t) }))}
+                      />
                       <button className="automation-remove" type="button" onClick={() => removeAction(index)}>×</button>
                     </div>
                   ))}

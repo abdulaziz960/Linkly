@@ -3,6 +3,13 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Campaign, MessageTemplate } from "../types";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
+
+const pageSizeOptions = [
+  { value: "10", label: "10" },
+  { value: "25", label: "25" },
+  { value: "50", label: "50" }
+];
 
 type CampaignForm = {
   id?: string;
@@ -367,7 +374,7 @@ export default function CampaignsView({
             <input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); }} placeholder={t("بحث...", "Search...")} />
             <button className="btn primary" type="button" onClick={() => openForm()}>＋ {t("إنشاء حملة", "Create campaign")}</button>
             <button className="reload" type="button" onClick={onRefreshData}>↻ {t("إعادة تحميل", "Reload")}</button>
-            <label className="entries">{t("عرض", "Show")} <select value={campaignPageSize} onChange={(event) => { setCampaignPageSize(event.target.value); setCampaignPage(1); }}><option>10</option><option>25</option><option>50</option></select> {t("إدخالات", "entries")}</label>
+            <label className="entries">{t("عرض", "Show")} <CustomSelect className="page-size" value={campaignPageSize} onChange={(value) => { setCampaignPageSize(value); setCampaignPage(1); }} options={pageSizeOptions} /> {t("إدخالات", "entries")}</label>
           </div>
           <div className="table-wrap">
             <table>
@@ -424,9 +431,7 @@ export default function CampaignsView({
               <button className="btn primary" type="button" onClick={() => setPricingOpen(true)}>▭ {t("أسعار الرسائل التسويقية", "Marketing message pricing")}</button>
               <label className="entries">
                 {t("عرض", "Show")}
-                <select value={balancePageSize} onChange={(event) => { setBalancePageSize(event.target.value); setBalancePage(1); }}>
-                  <option>10</option><option>25</option><option>50</option>
-                </select>
+                <CustomSelect className="page-size" value={balancePageSize} onChange={(value) => { setBalancePageSize(value); setBalancePage(1); }} options={pageSizeOptions} />
                 {t("إدخالات", "entries")}
               </label>
             </div>
@@ -468,24 +473,21 @@ export default function CampaignsView({
                   </label>
                   <label>
                     <span>{t("النموذج", "Template")}</span>
-                    <select
+                    <CustomSelect
                       value={form.templateName}
-                      onChange={(event) => setForm((current) => ({ ...current, templateName: event.target.value }))}
-                      required
+                      onChange={(value) => setForm((current) => ({ ...current, templateName: value }))}
                       disabled={!approvedTemplates.length}
-                    >
-                      {approvedTemplates.length ? (
-                        approvedTemplates.map((template) => (
-                          <option key={template.name} value={template.name}>{template.name}</option>
-                        ))
-                      ) : (
-                        <option value="">
-                          {!whatsappConnected
-                            ? t("اربط قناة واتساب أولاً", "Connect a WhatsApp channel first")
-                            : t("لا توجد قوالب معتمدة من Meta", "No templates approved by Meta")}
-                        </option>
-                      )}
-                    </select>
+                      options={
+                        approvedTemplates.length
+                          ? approvedTemplates.map((template) => ({ value: template.name, label: template.name }))
+                          : [{
+                              value: "",
+                              label: !whatsappConnected
+                                ? t("اربط قناة واتساب أولاً", "Connect a WhatsApp channel first")
+                                : t("لا توجد قوالب معتمدة من Meta", "No templates approved by Meta")
+                            }]
+                      }
+                    />
                     <small className="field-hint">{t("تظهر هنا فقط قوالب Meta التسويقية المعتمدة والجاهزة للإرسال.", "Only Meta marketing templates that are approved and ready to send appear here.")}</small>
                   </label>
                   <label>
@@ -552,7 +554,7 @@ export default function CampaignsView({
               <div className="campaign-toolbar report-toolbar">
                 <input value={reportSearch} onChange={(event) => { setReportSearch(event.target.value); setReportPage(1); }} placeholder={t("بحث...", "Search...")} />
                 <button className="btn primary" type="button" onClick={() => downloadCampaignReport(reportCampaign)}>{t("تنزيل", "Download")}</button>
-                <label className="entries">{t("عرض", "Show")} <select value={reportPageSize} onChange={(event) => { setReportPageSize(event.target.value); setReportPage(1); }}><option>10</option><option>25</option><option>50</option></select> {t("إدخالات", "entries")}</label>
+                <label className="entries">{t("عرض", "Show")} <CustomSelect className="page-size" value={reportPageSize} onChange={(value) => { setReportPageSize(value); setReportPage(1); }} options={pageSizeOptions} /> {t("إدخالات", "entries")}</label>
               </div>
               <div className="table-wrap">
                 <table>

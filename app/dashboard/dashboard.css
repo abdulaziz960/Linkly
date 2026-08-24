@@ -66,6 +66,15 @@
   width: 100%;
 }
 
+.custom-select.page-size {
+  width: 76px;
+  flex-shrink: 0;
+}
+
+.custom-select.page-size .custom-select-trigger {
+  padding: 6px 10px;
+}
+
 .custom-select-trigger {
   width: 100%;
   display: flex;
