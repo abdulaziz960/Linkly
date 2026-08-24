@@ -4,13 +4,12 @@
 .custom-select-trigger{width:100%;min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #ded0c4;border-radius:14px;background:#fff;padding:0 14px;font:inherit;cursor:pointer;text-align:start}
 .custom-select-trigger:disabled{opacity:.6;cursor:not-allowed}
 .custom-select-trigger:focus{border-color:#b55332;box-shadow:0 0 0 4px rgba(181,83,50,.1)}
-.custom-select-trigger::after{content:"";width:7px;height:7px;border-inline-end:2px solid #806f63;border-block-end:2px solid #806f63;transform:rotate(45deg);flex-shrink:0;transition:transform .15s ease}
+.custom-select-trigger::after{content:"";width:7px;height:7px;border-right:2px solid #806f63;border-bottom:2px solid #806f63;transform:rotate(45deg);flex-shrink:0;transition:transform .15s ease}
 .custom-select-trigger.open::after{transform:rotate(-135deg)}
 .custom-select-list{position:fixed;z-index:130;max-height:260px;overflow-y:auto;background:#fff;border:1px solid #ded0c4;border-radius:14px;box-shadow:0 18px 48px rgba(56,36,24,.14);padding:6px;display:grid;gap:2px}
 .custom-select-option{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:#241a14;font:inherit;text-align:start;padding:9px 10px;border-radius:10px;cursor:pointer}
 .custom-select-option:hover{background:#efe2d6}
-.custom-select-option.selected{font-weight:800}
-.custom-select-check{color:#b55332;font-weight:900}
+.custom-select-option.selected{background:#efe2d6;font-weight:800}
 
 .signup-honeypot {
   position: absolute !important;

@@ -100,7 +100,6 @@ export default function CustomSelect({ value, onChange, defaultValue, name, opti
               className={`custom-select-option${option.value === currentValue ? " selected" : ""}`}
               onClick={() => selectOption(option.value)}
             >
-              {option.value === currentValue ? <span className="custom-select-check">✓</span> : null}
               {option.label}
             </button>
           ))}
