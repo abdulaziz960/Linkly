@@ -464,9 +464,7 @@ export default function CampaignsView({
                 <>
                   <label>
                     <span>{t("قناة الواتس اب", "WhatsApp channel")}</span>
-                    <select value={form.channel} onChange={(event) => setForm((current) => ({ ...current, channel: event.target.value }))}>
-                      <option value="واتساب">{t("واتساب", "WhatsApp")}</option>
-                    </select>
+                    <input value={t("واتساب", "WhatsApp")} readOnly />
                   </label>
                   <label>
                     <span>{t("النموذج", "Template")}</span>
