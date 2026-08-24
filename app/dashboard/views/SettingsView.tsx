@@ -1117,6 +1117,15 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {renderWizardContent()}
           {!isConnected ? (
             <div className="settings-onboarding-actions">
+              {wizardStep !== 4 && !((isGoogleMaps || isWhatsApp || isInstagram || isFacebook) && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
+                if (wizardStep === 3 && isGoogleMaps) {
+                  connectGoogleMaps();
+                  return;
+                }
+                setWizardStep((step) => Math.min(4, step + 1));
+              }}>
+                {wizardStep === 3 ? (isGoogleMaps ? t("ربط Google", "Connect Google") : t("إدخال البيانات", "Enter details")) : t("التالي", "Next")}
+              </button> : null}
               <button className="btn soft" type="button" disabled={wizardStep === 1} onClick={() => setWizardStep((step) => {
                 if (isWebsite || isEmail) return 1;
                 const prev = Math.max(1, step - 1);
@@ -1124,15 +1133,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               })}>
                 {t("عودة", "Back")}
               </button>
-              {!((isGoogleMaps || isWhatsApp || isInstagram || isFacebook) && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
-                if (wizardStep === 3 && isGoogleMaps) {
-                  connectGoogleMaps();
-                  return;
-                }
-                setWizardStep((step) => Math.min(4, step + 1));
-              }}>
-                {wizardStep === 3 ? (isGoogleMaps ? t("ربط Google", "Connect Google") : t("إدخال البيانات", "Enter details")) : wizardStep === 4 ? t("إنهاء", "Finish") : t("التالي", "Next")}
-              </button> : null}
             </div>
           ) : null}
         </div>
