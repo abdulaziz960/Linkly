@@ -955,7 +955,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
   return (
     <LanguageProvider language={language}>
-    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""}`}>
+    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       <DashboardSidebar
         activeView={activeView}
         allowedViews={allowedViews}

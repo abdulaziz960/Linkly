@@ -41,6 +41,22 @@
   font-family: var(--font-app), system-ui, sans-serif;
 }
 
+/* English mode mirrors the whole shell: sidebar moves to the left column,
+   and every RTL-forced content area below (main, sidebar) switches to LTR. */
+.dashboard-shell.lang-en {
+  grid-template-columns: var(--dashboard-sidebar-width, 300px) minmax(0, 1fr);
+}
+
+.dashboard-shell.lang-en .dashboard-sidebar {
+  grid-column: 1;
+  direction: ltr;
+}
+
+.dashboard-shell.lang-en .dashboard-main {
+  grid-column: 2;
+  direction: ltr;
+}
+
 .dashboard-shell button,
 .dashboard-shell input,
 .dashboard-shell textarea,
@@ -5348,6 +5364,15 @@
     grid-column: 1;
   }
 
+  .dashboard-shell.lang-en .dashboard-sidebar {
+    inset: 0 auto 0 0;
+    transform: translateX(-105%);
+  }
+
+  .dashboard-shell.lang-en.menu-open .dashboard-sidebar {
+    transform: translateX(0);
+  }
+
   .mobile-topbar {
     height: 58px;
     border-bottom: 1px solid var(--line);
@@ -5634,6 +5659,10 @@
   color: #fffaf3;
 }
 
+.dashboard-shell.lang-en .dashboard-sidebar {
+  border-radius: 22px 0 0 22px;
+}
+
 .dashboard-sidebar .brand {
   justify-content: center;
   height: 44px;
@@ -5731,6 +5760,22 @@
   font-size: 12px;
   white-space: nowrap;
   transition: 0.15s ease;
+}
+
+.dashboard-shell.lang-en .sidebar-tooltip {
+  right: auto;
+  left: calc(var(--dashboard-sidebar-width) + 14px);
+  direction: ltr;
+  transform: translate(-6px, -50%);
+}
+
+.dashboard-shell.lang-en .dashboard-nav button:hover .sidebar-tooltip,
+.dashboard-shell.lang-en .dashboard-nav button:focus-visible .sidebar-tooltip,
+.dashboard-shell.lang-en .sidebar-billing-link:hover .sidebar-tooltip,
+.dashboard-shell.lang-en .sidebar-billing-link:focus-visible .sidebar-tooltip,
+.dashboard-shell.lang-en .account-btn:hover .sidebar-tooltip,
+.dashboard-shell.lang-en .account-btn:focus-visible .sidebar-tooltip {
+  transform: translate(0, -50%);
 }
 
 .dashboard-nav button:hover .sidebar-tooltip,
@@ -6198,6 +6243,14 @@
 
   .dashboard-shell.menu-open .dashboard-sidebar {
     box-shadow: -16px 0 40px rgba(32, 21, 15, 0.22);
+  }
+
+  .dashboard-shell.lang-en .dashboard-sidebar {
+    border-radius: 0 18px 18px 0;
+  }
+
+  .dashboard-shell.lang-en.menu-open .dashboard-sidebar {
+    box-shadow: 16px 0 40px rgba(32, 21, 15, 0.22);
   }
 
   .mobile-topbar {
