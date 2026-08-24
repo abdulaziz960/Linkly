@@ -127,7 +127,6 @@ export default function CampaignsView({
   const [balanceTransactions, setBalanceTransactions] = useState<BalanceTransaction[]>([]);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [balanceLoadError, setBalanceLoadError] = useState("");
-  const [debugTenantId, setDebugTenantId] = useState("");
   const [campaignSearch, setCampaignSearch] = useState("");
   const [campaignPageSize, setCampaignPageSize] = useState("10");
   const [campaignPage, setCampaignPage] = useState(1);
@@ -147,13 +146,12 @@ export default function CampaignsView({
     setBalanceLoadError("");
     try {
       const response = await fetch("/api/campaigns/balance");
-      const data = await response.json().catch(() => null);
-      if (!response.ok) {
-        setBalanceLoadError(data?.error || `تعذر تحميل الرصيد (${response.status})`);
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.ok) {
+        setBalanceLoadError(body?.error || `تعذر تحميل الرصيد (${response.status})`);
       } else {
-        setBalance(data.balance ?? 0);
-        setBalanceTransactions(data.transactions ?? []);
-        setDebugTenantId(data.debugTenantId ?? "");
+        setBalance(body.data?.balance ?? 0);
+        setBalanceTransactions(body.data?.transactions ?? []);
       }
     } catch {
       setBalanceLoadError("تعذر الاتصال بالسيرفر لتحميل الرصيد");
@@ -228,7 +226,8 @@ export default function CampaignsView({
     setReportCampaign(campaign);
     setReportLoading(true);
     const response = await fetch(`/api/campaigns/${campaign.id}/report`);
-    setReportRows(response.ok ? await response.json() : []);
+    const body = await response.json().catch(() => null);
+    setReportRows(response.ok && body?.ok ? body.data ?? [] : []);
     setReportLoading(false);
   }
 
@@ -310,7 +309,7 @@ export default function CampaignsView({
       return;
     }
 
-    window.open(payload.paymentUrl, "_blank", "noopener");
+    window.open(payload?.data?.paymentUrl, "_blank", "noopener");
     setChargeSubmitting(false);
     setChargeOpen(false);
     loadBalance();
@@ -377,7 +376,6 @@ export default function CampaignsView({
       ) : (
         <div className="balance-page">
           {balanceLoadError ? <p className="form-error">{balanceLoadError}</p> : null}
-          {debugTenantId ? <p style={{ fontSize: 12, opacity: 0.6 }}>debug tenantId: {debugTenantId}</p> : null}
           <div className="balance-metrics">
             <div className="balance-metric action">
               <button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>{t("شحن رصيد", "Top up balance")}</button>
