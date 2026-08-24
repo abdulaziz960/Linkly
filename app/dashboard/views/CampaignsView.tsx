@@ -417,7 +417,6 @@ export default function CampaignsView({
 
           <div className="campaign-board balance-board transactions-board">
             <div className="transactions-head">
-              <span className="transactions-pulse">⌁</span>
               <h2>{t("المعاملات", "Transactions")}</h2>
             </div>
             <div className="campaign-toolbar transactions-toolbar">

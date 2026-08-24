@@ -3064,24 +3064,16 @@
 }
 
 .transactions-head {
-  min-height: 112px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 28px 34px;
+  padding: 18px 24px;
 }
 
 .transactions-head h2 {
   margin: 0;
   color: #4b4663;
-  font-size: 22px;
-  font-weight: 900;
-}
-
-.transactions-pulse {
-  color: #b7bac9;
-  font-size: 36px;
-  line-height: 1;
+  font-size: 16px;
+  font-weight: 800;
 }
 
 .transactions-toolbar {
