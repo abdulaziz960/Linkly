@@ -653,27 +653,31 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       return;
     }
 
-    await persistSettings();
+    try {
+      await persistSettings();
 
-    const response = await fetch("/api/meta/test-message", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        phoneNumberId: settings.phoneNumberId,
-        accessToken: settings.accessToken,
-        to: testRecipient,
-        message: testMessage
-      })
-    });
-    const result = await response.json();
+      const response = await fetch("/api/meta/test-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumberId: settings.phoneNumberId,
+          accessToken: settings.accessToken,
+          to: testRecipient,
+          message: testMessage
+        })
+      });
+      const result = await response.json().catch(() => null);
 
-    if (response.ok && result.ok) {
-      setTestFeedback({ type: "success", text: t("تم إرسال رسالة الاختبار. إذا رد العميل ستظهر محادثته داخل صندوق الوارد.", "The test message was sent. If the customer replies, their conversation will appear in the inbox.") });
-    } else {
-      setTestFeedback({ type: "error", text: result.error || t("تعذر إرسال رسالة الاختبار", "Couldn't send the test message") });
+      if (response.ok && result?.ok) {
+        setTestFeedback({ type: "success", text: t("تم إرسال رسالة الاختبار. إذا رد العميل ستظهر محادثته داخل صندوق الوارد.", "The test message was sent. If the customer replies, their conversation will appear in the inbox.") });
+      } else {
+        setTestFeedback({ type: "error", text: result?.error || t("تعذر إرسال رسالة الاختبار", "Couldn't send the test message") });
+      }
+    } catch {
+      setTestFeedback({ type: "error", text: t("تعذر الاتصال بالسيرفر، تأكد من اتصالك بالإنترنت وحاول من جديد", "Couldn't reach the server, check your internet connection and try again") });
+    } finally {
+      setTestSending(false);
     }
-
-    setTestSending(false);
   }
 
   async function openMetaWindow() {
