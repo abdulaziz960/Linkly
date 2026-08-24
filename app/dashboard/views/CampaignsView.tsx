@@ -112,6 +112,9 @@ export default function CampaignsView({
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<CampaignForm>(emptyForm);
   const [campaignFile, setCampaignFile] = useState<File | null>(null);
+  const [recipientPreview, setRecipientPreview] = useState<number | null>(null);
+  const [recipientPreviewLoading, setRecipientPreviewLoading] = useState(false);
+  const [recipientPreviewError, setRecipientPreviewError] = useState("");
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"campaigns" | "balance">("campaigns");
@@ -200,9 +203,31 @@ export default function CampaignsView({
   const balancePagination = paginate(filteredBalanceTransactions, balancePage, Number(balancePageSize));
   const usedCampaignMessages = useMemo(() => campaigns.reduce((total, campaign) => total + campaign.sent, 0), [campaigns]);
 
+  async function handleCampaignFileChange(file: File | null) {
+    setCampaignFile(file);
+    setRecipientPreview(null);
+    setRecipientPreviewError("");
+    if (!file) return;
+
+    setRecipientPreviewLoading(true);
+    const body = new FormData();
+    body.set("file", file);
+    const response = await fetch("/api/campaigns/preview-recipients", { method: "POST", body });
+    const payload = await response.json().catch(() => null);
+    setRecipientPreviewLoading(false);
+
+    if (!response.ok || !payload?.ok) {
+      setRecipientPreviewError(payload?.error || t("تعذر قراءة الملف", "Unable to read the file"));
+      return;
+    }
+    setRecipientPreview(payload.data?.count ?? 0);
+  }
+
   function openForm(campaign?: Campaign) {
     setFormError("");
     setCampaignFile(null);
+    setRecipientPreview(null);
+    setRecipientPreviewError("");
     setForm(
       campaign
         ? {
@@ -475,10 +500,21 @@ export default function CampaignsView({
                         id="campaign-file-input"
                         type="file"
                         accept=".xlsx,.xls,.csv"
-                        onChange={(event) => setCampaignFile(event.target.files?.[0] || null)}
+                        onChange={(event) => handleCampaignFileChange(event.target.files?.[0] || null)}
                       />
                     </div>
                     <small className="field-hint">{t("يجب أن تكون أرقام العملاء في أول عمود بصيغة 966 أو +966.", "Customer numbers must be in the first column, formatted as 966 or +966.")}</small>
+                    {recipientPreviewLoading ? (
+                      <small className="field-hint">{t("جاري فحص الملف...", "Checking the file...")}</small>
+                    ) : recipientPreviewError ? (
+                      <p className="form-error">{recipientPreviewError}</p>
+                    ) : recipientPreview !== null ? (
+                      <small className="field-hint">
+                        {recipientPreview > 0
+                          ? t(`تم العثور على ${recipientPreview.toLocaleString("en-US")} رقم صحيح في الملف.`, `Found ${recipientPreview.toLocaleString("en-US")} valid numbers in the file.`)
+                          : t("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.", "No valid numbers found in the file. Make sure numbers are in the first column.")}
+                      </small>
+                    ) : null}
                   </label>
                   <label className="schedule-toggle">
                     <span>{t("جدولة الحملة؟", "Schedule the campaign?")}</span>
