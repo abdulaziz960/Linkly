@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
+import { SECRET_MASK } from "../../../../lib/secret-storage";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -19,7 +20,8 @@ export async function POST(request: NextRequest) {
       message?: string;
     };
     const phoneNumberId = body.phoneNumberId?.trim() || settings.phoneNumberId;
-    const accessToken = body.accessToken?.trim() || settings.accessToken;
+    const bodyAccessToken = body.accessToken?.trim();
+    const accessToken = (bodyAccessToken && bodyAccessToken !== SECRET_MASK ? bodyAccessToken : "") || settings.accessToken;
     const to = normalizeWhatsAppPhone(body.to || "");
     const message = body.message?.trim() || "";
 
