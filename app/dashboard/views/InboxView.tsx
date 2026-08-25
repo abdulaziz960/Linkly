@@ -266,6 +266,7 @@ export default function InboxView({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -303,6 +304,19 @@ export default function InboxView({
   const replyTarget = replyTargetId
     ? activeConversation.messages.find((item) => item.id === replyTargetId)
     : null;
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const scrollToBottom = () => {
+      container.scrollTop = container.scrollHeight;
+    };
+    scrollToBottom();
+    // Attachments (images, etc.) load asynchronously and grow the container
+    // after the initial scroll, so scroll again once they're likely in.
+    const timeout = window.setTimeout(scrollToBottom, 300);
+    return () => window.clearTimeout(timeout);
+  }, [activeConversation.id, activeConversation.messages.length]);
 
   useEffect(() => {
     if (!conversationMenu) return;
@@ -690,7 +704,7 @@ export default function InboxView({
 
         {chatPanel === "chat" ? (
           <div className="chat-panel">
-            <div className="messages">
+            <div className="messages" ref={messagesContainerRef}>
               {activeConversation.messages.map((item) => (
                 <div
                   className={`message-bubble ${item.direction} channel-${activeConversation.channel || "whatsapp"}`}
