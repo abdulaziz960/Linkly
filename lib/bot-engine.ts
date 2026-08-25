@@ -131,6 +131,22 @@ export async function getBotNodes(tenantId = "tenant-demo", channel: BotChannel 
   }));
 }
 
+function remapNodeLinks(content: BotNodeContent, idMap: Map<string, string>): BotNodeContent {
+  if (content.kind === "message") {
+    return { ...content, next: content.next ? idMap.get(content.next) || content.next : null };
+  }
+  if (content.kind === "list") {
+    return {
+      ...content,
+      options: content.options.map((option) => ({
+        ...option,
+        next: option.next ? idMap.get(option.next) || option.next : null
+      }))
+    };
+  }
+  return content;
+}
+
 // Upserts by id so a step's id survives every save (dragging it, editing a
 // sibling, adding a new step) - the canvas's connector lines reference these
 // ids directly, so an id that changed on every save would silently break
@@ -139,12 +155,19 @@ export async function saveBotNodes(tenantId: string, channel: BotChannel, nodes:
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
     const existingIds = new Set((await tx.botNode.findMany({ where: { tenantId, channel }, select: { id: true } })).map((row) => row.id));
+    const idMap = new Map<string, string>();
+    for (const node of nodes) {
+      const requestedId = node.id || `local-${randomUUID()}`;
+      idMap.set(requestedId, existingIds.has(requestedId) ? requestedId : `bot-node-${tenantId}-${channel}-${randomUUID()}`);
+    }
     const keepIds: string[] = [];
     let position = 0;
 
     for (const node of nodes) {
       const title = node.title.trim() || node.type;
-      const id = node.id && existingIds.has(node.id) ? node.id : `bot-node-${tenantId}-${channel}-${randomUUID()}`;
+      const requestedId = node.id || "";
+      const id = idMap.get(requestedId) || `bot-node-${tenantId}-${channel}-${randomUUID()}`;
+      const content = remapNodeLinks(node.content, idMap);
       keepIds.push(id);
 
       await tx.botNode.upsert({
@@ -153,7 +176,7 @@ export async function saveBotNodes(tenantId: string, channel: BotChannel, nodes:
           position,
           type: node.type,
           title,
-          content: JSON.stringify(node.content),
+          content: JSON.stringify(content),
           canvasX: node.x ?? 0,
           canvasY: node.y ?? 0
         },
@@ -164,7 +187,7 @@ export async function saveBotNodes(tenantId: string, channel: BotChannel, nodes:
           position,
           type: node.type,
           title,
-          content: JSON.stringify(node.content),
+          content: JSON.stringify(content),
           canvasX: node.x ?? 0,
           canvasY: node.y ?? 0,
           createdAt: new Date().toISOString()

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { DragEvent, FormEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import type { Team } from "../types";
@@ -24,6 +24,26 @@ type BotNode = {
 
 type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x" | "website";
 
+type ReadyNodeTemplate = {
+  key: string;
+  type: string;
+  title: string;
+  content:
+    | { kind: "message"; text: string; nextKey?: string }
+    | { kind: "list"; text: string; options: Array<{ label: string; nextKey?: string }> }
+    | { kind: "team"; teamName: string }
+    | { kind: "close"; text: string };
+};
+
+type ReadyStep = {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+  nodes: ReadyNodeTemplate[];
+  kind?: "flow" | "step";
+};
+
 const nodeTypes = ["إرسال رسالة", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "تحويل لفريق", "إغلاق المحادثة"];
 const LIST_NODE_TYPES = new Set(["إرسال قائمة قصيرة", "إرسال قائمة طويلة"]);
 const TERMINAL_NODE_TYPES = new Set(["تحويل لفريق", "إغلاق المحادثة"]);
@@ -35,6 +55,87 @@ const nodeTypeLabelsEn: Record<string, string> = {
   "تحويل لفريق": "Transfer to a team",
   "إغلاق المحادثة": "Close the conversation"
 };
+
+const readySteps: ReadyStep[] = [
+  {
+    id: "welcome",
+    icon: "👋",
+    title: "رسالة ترحيب",
+    description: "ترحيب مختصر يوضح للعميل أن الرد فوري.",
+    nodes: [{ key: "welcome", type: "إرسال رسالة", title: "الترحيب", content: { kind: "message", text: "أهلًا وسهلًا بك 👋\nيسعدنا خدمتك، اختر من القائمة التالية ما يناسبك." } }]
+  },
+  {
+    id: "main-menu",
+    icon: "☷",
+    title: "قائمة الخدمات",
+    description: "ثلاثة خيارات جاهزة توجّه العميل للمسار الصحيح.",
+    nodes: [{ key: "menu",
+      type: "إرسال قائمة قصيرة",
+      title: "القائمة الرئيسية",
+      content: { kind: "list", text: "كيف نقدر نساعدك؟", options: [{ label: "الخدمات والأسعار" }, { label: "متابعة طلب" }, { label: "التحدث مع موظف" }] }
+    }]
+  },
+  {
+    id: "pricing",
+    icon: "◈",
+    title: "الخدمات والأسعار",
+    description: "رد جاهز لعرض الخدمات ثم دعوة العميل للتواصل.",
+    nodes: [{ key: "pricing", type: "إرسال رسالة", title: "الخدمات والأسعار", content: { kind: "message", text: "يسعدنا توضيح الخدمات والأسعار المناسبة لك. اكتب الخدمة المطلوبة وسيتواصل معك الفريق بالتفاصيل." } }]
+  },
+  {
+    id: "order-status",
+    icon: "⌕",
+    title: "متابعة طلب",
+    description: "يطلب رقم الطلب من العميل بطريقة واضحة.",
+    nodes: [{ key: "order", type: "إرسال رسالة", title: "متابعة طلب", content: { kind: "message", text: "أرسل رقم الطلب أو رقم الجوال المسجل، وسيقوم الفريق بمتابعته معك." } }]
+  },
+  {
+    id: "transfer",
+    icon: "↗",
+    title: "تحويل لموظف",
+    description: "يحوّل المحادثة مباشرة إلى فريق خدمة العملاء.",
+    nodes: [{ key: "transfer", type: "تحويل لفريق", title: "تحويل للدعم", content: { kind: "team", teamName: "__DEFAULT_TEAM__" } }]
+  },
+  {
+    id: "working-hours",
+    icon: "◷",
+    title: "خارج أوقات العمل",
+    description: "يطمئن العميل أن الفريق سيرد في أقرب وقت.",
+    nodes: [{ key: "hours", type: "إرسال رسالة", title: "خارج أوقات العمل", content: { kind: "message", text: "شكرًا لتواصلك. نحن الآن خارج أوقات العمل، وتم استلام رسالتك وسنرد عليك في أقرب وقت." } }]
+  },
+  {
+    id: "close",
+    icon: "✓",
+    title: "إنهاء المحادثة",
+    description: "رسالة ختامية ثم إغلاق المحادثة.",
+    nodes: [{ key: "close", type: "إغلاق المحادثة", title: "إنهاء المحادثة", content: { kind: "close", text: "شكرًا لتواصلك معنا، سعدنا بخدمتك 🌟" } }]
+  },
+  {
+    id: "customer-service-flow",
+    icon: "⚡",
+    title: "مسار خدمة عملاء كامل",
+    description: "ترحيب + قائمة خدمات + متابعة طلب + تحويل للدعم.",
+    kind: "flow",
+    nodes: [
+      { key: "welcome", type: "إرسال رسالة", title: "الترحيب", content: { kind: "message", text: "أهلًا وسهلًا بك 👋\nيسعدنا خدمتك، اختر من القائمة التالية ما يناسبك.", nextKey: "menu" } },
+      { key: "menu", type: "إرسال قائمة قصيرة", title: "القائمة الرئيسية", content: { kind: "list", text: "كيف نقدر نساعدك؟", options: [{ label: "الخدمات والأسعار", nextKey: "pricing" }, { label: "متابعة طلب", nextKey: "order" }, { label: "التحدث مع موظف", nextKey: "transfer" }] } },
+      { key: "pricing", type: "إرسال رسالة", title: "الخدمات والأسعار", content: { kind: "message", text: "يسعدنا توضيح الخدمات والأسعار المناسبة لك. اكتب الخدمة المطلوبة وسيتواصل معك الفريق بالتفاصيل." } },
+      { key: "order", type: "إرسال رسالة", title: "متابعة طلب", content: { kind: "message", text: "أرسل رقم الطلب أو رقم الجوال المسجل، وسيقوم الفريق بمتابعته معك." } },
+      { key: "transfer", type: "تحويل لفريق", title: "تحويل للدعم", content: { kind: "team", teamName: "__DEFAULT_TEAM__" } }
+    ]
+  },
+  {
+    id: "after-hours-flow",
+    icon: "☾",
+    title: "مسار خارج الدوام",
+    description: "إشعار بالاستلام ثم تحويل الطلب للفريق للمتابعة.",
+    kind: "flow",
+    nodes: [
+      { key: "hours", type: "إرسال رسالة", title: "خارج أوقات العمل", content: { kind: "message", text: "شكرًا لتواصلك. نحن الآن خارج أوقات العمل، وتم استلام رسالتك وسنرد عليك في أقرب وقت.", nextKey: "transfer" } },
+      { key: "transfer", type: "تحويل لفريق", title: "متابعة الفريق", content: { kind: "team", teamName: "__DEFAULT_TEAM__" } }
+    ]
+  }
+];
 
 function nodeTypeLabel(type: string, t: (ar: string, en: string) => string) {
   return t(type, nodeTypeLabelsEn[type] || type);
@@ -113,8 +214,15 @@ export default function BotView({ teams }: { teams: Team[] }) {
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [connectingFrom, setConnectingFrom] = useState<{ nodeId: string; optionId: string | null; x: number; y: number } | null>(null);
   const [dragPoint, setDragPoint] = useState<{ x: number; y: number } | null>(null);
+  const [draggedLibraryId, setDraggedLibraryId] = useState<string | null>(null);
+  const [libraryFilter, setLibraryFilter] = useState<"all" | "step" | "flow">("all");
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; pointerId: number; startClientX: number; startClientY: number; origX: number; origY: number; moved: boolean } | null>(null);
+  const visibleReadySteps = useMemo(
+    () => readySteps.filter((item) => libraryFilter === "all" || (item.kind || "step") === libraryFilter),
+    [libraryFilter]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -129,6 +237,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
       const loadedNodes: BotNode[] = nodesRes?.ok ? nodesRes.data || [] : [];
       const needsLayout = loadedNodes.length > 0 && loadedNodes.every((node) => !node.x && !node.y);
       setNodes(needsLayout ? loadedNodes.map((node, index) => ({ ...node, x: START_POSITION.x + 320 + index * 320, y: START_POSITION.y })) : loadedNodes);
+      setFeedback(null);
       setLoading(false);
     })();
     return () => {
@@ -150,24 +259,117 @@ export default function BotView({ teams }: { teams: Team[] }) {
     return () => window.removeEventListener("pointerup", clear);
   }, [connectingFrom]);
 
-  async function persistNodes(nextNodes: BotNode[]) {
+  async function persistNodes(nextNodes: BotNode[], previousNodes = nodes) {
     setSaving(true);
-    const response = await fetch(`/api/bot/nodes?channel=${channel}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nodes: nextNodes.map(({ id, type, title, content, x, y }) => ({ id, type, title, content, x, y })) })
-    }).then((res) => res.json()).catch(() => null);
-    if (response?.ok) setNodes(response.data || nextNodes);
-    setSaving(false);
+    setFeedback(null);
+    try {
+      const response = await fetch(`/api/bot/nodes?channel=${channel}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nodes: nextNodes.map(({ id, type, title, content, x, y }) => ({ id, type, title, content, x, y })) })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || "تعذر حفظ الخطوات");
+      setNodes(payload.data || nextNodes);
+      setFeedback({ type: "success", message: "تم حفظ مسار الرد الآلي تلقائيًا." });
+      return true;
+    } catch (error) {
+      setNodes(previousNodes);
+      setFeedback({ type: "error", message: error instanceof Error ? error.message : "تعذر حفظ الخطوات." });
+      return false;
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function toggleEnabled() {
     const next = !enabled;
     setEnabled(next);
-    await fetch(`/api/bot/settings?channel=${channel}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: next })
+    setFeedback(null);
+    try {
+      const response = await fetch(`/api/bot/settings?channel=${channel}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: next })
+      });
+      if (!response.ok) throw new Error("تعذر تغيير حالة الرد الآلي");
+      setFeedback({ type: "success", message: next ? "تم تشغيل الرد الآلي لهذه القناة." : "تم إيقاف الرد الآلي لهذه القناة." });
+    } catch (error) {
+      setEnabled(!next);
+      setFeedback({ type: "error", message: error instanceof Error ? error.message : "تعذر تغيير حالة الرد الآلي." });
+    }
+  }
+
+  function uniqueTitle(title: string, reserved: Set<string>) {
+    if (!reserved.has(title)) {
+      reserved.add(title);
+      return title;
+    }
+    let counter = 2;
+    while (reserved.has(`${title} ${counter}`)) counter += 1;
+    const unique = `${title} ${counter}`;
+    reserved.add(unique);
+    return unique;
+  }
+
+  function instantiateReadyStep(item: ReadyStep, origin?: { x: number; y: number }): BotNode[] {
+    const reserved = new Set(nodes.map((node) => node.title));
+    const idByKey = new Map(item.nodes.map((node) => [node.key, `local-${crypto.randomUUID()}`]));
+    const baseX = origin?.x ?? (nodes.length ? Math.max(...nodes.map((node) => node.x)) + 320 : START_POSITION.x + 320);
+    const baseY = origin?.y ?? START_POSITION.y;
+
+    return item.nodes.map((node, index) => {
+      let content: BotNodeContent;
+      if (node.content.kind === "message") {
+        content = { kind: "message", text: node.content.text, next: node.content.nextKey ? idByKey.get(node.content.nextKey) || null : null };
+      } else if (node.content.kind === "list") {
+        content = {
+          kind: "list",
+          text: node.content.text,
+          options: node.content.options.map((option) => ({ id: crypto.randomUUID(), label: option.label, next: option.nextKey ? idByKey.get(option.nextKey) || null : null }))
+        };
+      } else if (node.content.kind === "team") {
+        content = { kind: "team", teamName: node.content.teamName === "__DEFAULT_TEAM__" ? teams[0]?.name || "" : node.content.teamName };
+      } else {
+        content = { kind: "close", text: node.content.text };
+      }
+
+      return {
+        id: idByKey.get(node.key) as string,
+        type: node.type,
+        title: uniqueTitle(node.title, reserved),
+        content,
+        x: Math.max(START_POSITION.x + 300, baseX + (index % 3) * 320),
+        y: Math.max(24, baseY + Math.floor(index / 3) * 210)
+      };
+    });
+  }
+
+  async function insertReadyStep(item: ReadyStep, origin?: { x: number; y: number }) {
+    if (saving) return;
+    const additions = instantiateReadyStep(item, origin);
+    const nextNodes = [...nodes, ...additions];
+    setNodes(nextNodes);
+    await persistNodes(nextNodes, nodes);
+  }
+
+  function startLibraryDrag(event: DragEvent<HTMLElement>, item: ReadyStep) {
+    setDraggedLibraryId(item.id);
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData("application/x-audiencew-bot", item.id);
+  }
+
+  async function handleLibraryDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (saving) return;
+    const id = event.dataTransfer.getData("application/x-audiencew-bot") || draggedLibraryId;
+    setDraggedLibraryId(null);
+    const item = readySteps.find((step) => step.id === id);
+    if (!item) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    await insertReadyStep(item, {
+      x: event.clientX - rect.left + event.currentTarget.scrollLeft,
+      y: event.clientY - rect.top + event.currentTarget.scrollTop - 58
     });
   }
 
@@ -327,7 +529,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
       return node;
     });
     setNodes(nextNodes);
-    await persistNodes(nextNodes);
+    await persistNodes(nextNodes, nodes);
   }
 
   function nodeBoxHeight(node: BotNode) {
@@ -374,7 +576,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
             <input type="checkbox" checked={enabled} onChange={toggleEnabled} disabled={loading} />
             <span>{enabled ? t(`الرد الآلي مفعّل (${channelLabel})`, `Auto reply enabled (${channelLabel})`) : t(`الرد الآلي متوقف (${channelLabel})`, `Auto reply disabled (${channelLabel})`)}</span>
           </label>
-          <button className="btn primary" type="button" onClick={openAddModal}>＋ {t("إضافة خطوة", "Add step")}</button>
+          <button className="btn soft" type="button" onClick={openAddModal}>＋ {t("خطوة مخصصة", "Custom step")}</button>
         </div>
       </div>
 
@@ -391,7 +593,56 @@ export default function BotView({ teams }: { teams: Team[] }) {
         ))}
       </div>
 
-      <div className="bot-canvas" ref={canvasRef} dir="ltr" onPointerMove={handleCanvasPointerMove} onPointerUp={handleCanvasPointerUp}>
+      {feedback ? <p className={`bot-feedback ${feedback.type}`} role="status">{feedback.message}</p> : null}
+
+      <div className="bot-workspace">
+        <aside className="bot-step-library">
+          <div className="bot-library-head">
+            <div>
+              <span>{t("مكتبة جاهزة", "Ready library")}</span>
+              <h2>{t("اسحب الخطوة وأفلتها", "Drag and drop a step")}</h2>
+            </div>
+            <small>{t("أفلتها في أي مكان داخل المخطط، أو اضغط (+) لإضافتها مباشرة.", "Drop it anywhere on the canvas, or click (+) to add it directly.")}</small>
+          </div>
+          <div className="bot-library-filters" role="group" aria-label={t("تصفية الخطوات", "Filter steps")}>
+            {([
+              ["all", t("الكل", "All")],
+              ["step", t("خطوات", "Steps")],
+              ["flow", t("مسارات كاملة", "Full flows")]
+            ] as const).map(([value, label]) => (
+              <button key={value} type="button" className={libraryFilter === value ? "active" : ""} onClick={() => setLibraryFilter(value)}>{label}</button>
+            ))}
+          </div>
+          <div className="bot-library-list">
+            {visibleReadySteps.map((item) => (
+              <article
+                className={`bot-library-card ${item.kind === "flow" ? "flow" : ""}`}
+                draggable={!saving}
+                key={item.id}
+                onDragStart={(event) => startLibraryDrag(event, item)}
+                onDragEnd={() => setDraggedLibraryId(null)}
+              >
+                <span className="bot-library-icon" aria-hidden="true">{item.icon}</span>
+                <div>
+                  <b>{item.title}</b>
+                  <small>{item.description}</small>
+                  {item.kind === "flow" ? <em>{t(`${item.nodes.length} خطوات مترابطة`, `${item.nodes.length} linked steps`)}</em> : <em>{nodeTypeLabel(item.nodes[0].type, t)}</em>}
+                </div>
+                <button type="button" disabled={saving} onClick={() => void insertReadyStep(item)} aria-label={t(`إضافة ${item.title}`, `Add ${item.title}`)}>＋</button>
+              </article>
+            ))}
+          </div>
+        </aside>
+
+      <div
+        className={`bot-canvas ${draggedLibraryId ? "library-dragging" : ""}`}
+        ref={canvasRef}
+        dir="ltr"
+        onPointerMove={handleCanvasPointerMove}
+        onPointerUp={handleCanvasPointerUp}
+        onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
+        onDrop={(event) => void handleLibraryDrop(event)}
+      >
         <div className="bot-toolbar" dir="auto"><b>{t(`مخطط الرد الآلي (${channelLabel})`, `Auto reply flow (${channelLabel})`)}</b><span>{t('اسحب من النقطة يمين أي خطوة لخطوة ثانية عشان تربطهم', 'Drag from the dot on the right of a step to another step to link them')}</span></div>
         <div className="bot-flow-surface" style={{ width: canvasSize.width, height: canvasSize.height }}>
           <svg className="bot-flow-edges" width={canvasSize.width} height={canvasSize.height}>
@@ -467,6 +718,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
             </div>
           ) : null}
         </div>
+      </div>
       </div>
 
       {builderOpen ? (
