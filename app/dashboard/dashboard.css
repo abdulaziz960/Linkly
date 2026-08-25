@@ -6759,8 +6759,8 @@
 .conversation-card {
   grid-template-columns: 42px minmax(0, 1fr) 54px;
   gap: 10px;
-  min-height: 112px;
-  padding: 15px 12px;
+  min-height: 92px;
+  padding: 11px 12px;
   border-color: #c5ded9;
   background: #f6fbfa;
 }
@@ -7483,10 +7483,10 @@
 
 .conversation-card {
   grid-template-columns: 42px minmax(0, 1fr) 58px;
-  min-height: 126px;
+  min-height: 92px;
   border-inline-start: 4px solid transparent;
   content-visibility: auto;
-  contain-intrinsic-size: 126px;
+  contain-intrinsic-size: 92px;
 }
 
 .conversation-card.unread {
@@ -7628,7 +7628,7 @@
   .inbox-saved-view-actions { grid-column: auto; grid-template-columns: 1fr; }
   .inbox-count-note { display: none; }
   .inbox-shortcuts { display: none; }
-  .conversation-card { min-height: 122px; }
+  .conversation-card { min-height: 92px; }
   .conversation-empty-actions { flex-direction: column; width: min(100%, 260px); }
   .conversation-empty-actions button { width: 100%; }
 }
