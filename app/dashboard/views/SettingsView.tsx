@@ -1414,6 +1414,19 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               {t("رقم واتساب", "WhatsApp number")}
               <input dir="ltr" value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} readOnly={isWhatsApp} placeholder={t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete")} />
             </label> : null}
+            {isWhatsApp ? (
+              <>
+                <label>
+                  Phone Number ID
+                  <input dir="ltr" value={settings.phoneNumberId} onChange={(event) => updateField("phoneNumberId", event.target.value)} placeholder={t("يُملأ تلقائيًا عند الربط، ويمكن تعديله يدويًا", "Filled in automatically when connecting, can also be edited manually")} />
+                </label>
+                <label>
+                  Access Token
+                  <input dir="ltr" value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} placeholder={t("يُملأ تلقائيًا عند الربط، أو الصق توكن System User دائم من Meta", "Filled in automatically when connecting, or paste a permanent System User token from Meta")} />
+                  <small className="field-hint">{t("للتوليد اليدوي: Meta Business Suite ← إعدادات الأعمال ← System Users ← ولّد توكن بصلاحيتي whatsapp_business_management وwhatsapp_business_messaging.", "To generate manually: Meta Business Suite → Business Settings → System Users → generate a token with the whatsapp_business_management and whatsapp_business_messaging permissions.")}</small>
+                </label>
+              </>
+            ) : null}
             <label>
               {t("حالة الربط", "Connection status")}
               <div className={`connection-status-box ${settings.status}`}>
