@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { getCurrentUser } from "../../lib/auth";
-import AdminSidebar from "./AdminSidebar";
+import AdminShell from "./AdminShell";
 import "./admin.css";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -21,8 +21,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <main className="admin-shell" dir="rtl">
-      <AdminSidebar user={user} />
-      <section className="admin-main">{children}</section>
+      <AdminShell user={user}>{children}</AdminShell>
     </main>
   );
 }

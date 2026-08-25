@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import type { PlanRow } from "../types";
 import { formatNumber } from "../utils";
+import { useLanguage } from "../i18n";
 
 type PlansViewProps = {
   plans: PlanRow[];
@@ -13,6 +14,7 @@ type PlansViewProps = {
 
 export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
   const [isPlanSaving, setIsPlanSaving] = useState(false);
   const [planFormError, setPlanFormError] = useState("");
@@ -50,7 +52,7 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
     setIsPlanSaving(false);
 
     if (!response.ok || !result.ok) {
-      setPlanFormError(result.error || "تعذر إنشاء الباقة");
+      setPlanFormError(result.error || t("تعذر إنشاء الباقة", "Failed to create plan"));
       return;
     }
 
@@ -73,7 +75,7 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
     const monthlyPrice = Number(editPlanPrice);
     const employeeLimit = Number(editPlanLimit);
     if (!Number.isFinite(monthlyPrice) || monthlyPrice < 0 || !Number.isFinite(employeeLimit) || employeeLimit < 1) {
-      setEditPlanError("تحقق من السعر وحد المستخدمين");
+      setEditPlanError(t("تحقق من السعر وحد المستخدمين", "Check the price and user limit"));
       return;
     }
 
@@ -90,7 +92,7 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
     setIsEditPlanSaving(false);
 
     if (!response.ok || !result.ok) {
-      setEditPlanError(result.error || "تعذر تحديث الباقة");
+      setEditPlanError(result.error || t("تعذر تحديث الباقة", "Failed to update plan"));
       return;
     }
 
@@ -114,24 +116,24 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
       <section className="admin-section">
         <div className="admin-metrics">
           <article>
-            <span>إجمالي الباقات</span>
+            <span>{t("إجمالي الباقات", "Total plans")}</span>
             <strong>{formatNumber(plans.length)}</strong>
-            <small>{formatNumber(activeCount)} مفعّلة</small>
+            <small>{t(`${formatNumber(activeCount)} مفعّلة`, `${formatNumber(activeCount)} active`)}</small>
           </article>
           <article>
-            <span>مشتركون</span>
+            <span>{t("مشتركون", "Subscribers")}</span>
             <strong>{formatNumber(totalSubscribers)}</strong>
-            <small>عميل موزّع على كل الباقات</small>
+            <small>{t("عميل موزّع على كل الباقات", "Clients spread across all plans")}</small>
           </article>
           <article>
-            <span>متوسط السعر الشهري</span>
+            <span>{t("متوسط السعر الشهري", "Average monthly price")}</span>
             <strong>{formatNumber(averagePrice)}</strong>
-            <small>ريال عبر كل الباقات</small>
+            <small>{t("ريال عبر كل الباقات", "SAR across all plans")}</small>
           </article>
           <article>
-            <span>باقات معطّلة</span>
+            <span>{t("باقات معطّلة", "Disabled plans")}</span>
             <strong>{formatNumber(plans.length - activeCount)}</strong>
-            <small>لا تظهر عند إضافة عميل جديد</small>
+            <small>{t("لا تظهر عند إضافة عميل جديد", "Not shown when adding a new client")}</small>
           </article>
         </div>
       </section>
@@ -139,12 +141,12 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
       <section className="admin-card">
         <div className="admin-card-head">
           <div>
-            <h2>الباقات</h2>
-            <p>الباقات المعروضة عند إضافة عميل جديد وسعرها الشهري وحد المستخدمين.</p>
+            <h2>{t("الباقات", "Plans")}</h2>
+            <p>{t("الباقات المعروضة عند إضافة عميل جديد وسعرها الشهري وحد المستخدمين.", "The plans shown when adding a new client, their monthly price, and user limit.")}</p>
           </div>
           <div className="admin-card-actions">
             <button type="button" onClick={() => { setIsAddPlanOpen(true); setPlanFormError(""); }}>
-              إضافة باقة
+              {t("إضافة باقة", "Add Plan")}
             </button>
           </div>
         </div>
@@ -168,28 +170,28 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
                 </div>
                 <div className="admin-plan-price">
                   <strong>{formatNumber(plan.monthlyPrice)}</strong>
-                  <span>ر.س / شهريًا</span>
+                  <span>{t("ر.س / شهريًا", "SAR / month")}</span>
                 </div>
                 <ul className="admin-plan-facts">
                   <li>
-                    <span>حد المستخدمين</span>
+                    <span>{t("حد المستخدمين", "User limit")}</span>
                     <strong>{formatNumber(plan.employeeLimit)}</strong>
                   </li>
                   <li>
-                    <span>المشتركون</span>
+                    <span>{t("المشتركون", "Subscribers")}</span>
                     <strong>{formatNumber(subscribers)}</strong>
                   </li>
                 </ul>
                 <div className="admin-plan-card-actions">
                   <button type="button" onClick={() => openEditPlan(plan)}>
-                    تعديل الباقة
+                    {t("تعديل الباقة", "Edit Plan")}
                   </button>
                 </div>
               </article>
             );
           })}
         </div>
-        {plans.length === 0 ? <p className="admin-empty-state">لا توجد باقات بعد.</p> : null}
+        {plans.length === 0 ? <p className="admin-empty-state">{t("لا توجد باقات بعد.", "No plans yet.")}</p> : null}
       </section>
 
       {isAddPlanOpen ? (
@@ -197,24 +199,24 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
           <div className="admin-modal-card admin-user-limit-modal">
             <div className="admin-modal-head">
               <div>
-                <h2 id="add-plan-title">إضافة باقة جديدة</h2>
+                <h2 id="add-plan-title">{t("إضافة باقة جديدة", "Add a New Plan")}</h2>
               </div>
-              <button type="button" onClick={() => setIsAddPlanOpen(false)} aria-label="إغلاق">
+              <button type="button" onClick={() => setIsAddPlanOpen(false)} aria-label={t("إغلاق", "Close")}>
                 ×
               </button>
             </div>
 
             <form className="admin-client-form" onSubmit={handleCreatePlan}>
               <label>
-                اسم الباقة
-                <input name="name" placeholder="مثال: باقة الأعمال" required />
+                {t("اسم الباقة", "Plan name")}
+                <input name="name" placeholder={t("مثال: باقة الأعمال", "Example: Business Plan")} required />
               </label>
               <label>
-                السعر الشهري (ر.س)
+                {t("السعر الشهري (ر.س)", "Monthly price (SAR)")}
                 <input name="monthlyPrice" type="number" min="0" defaultValue="0" required />
               </label>
               <label>
-                حد المستخدمين
+                {t("حد المستخدمين", "User limit")}
                 <input name="employeeLimit" type="number" min="1" defaultValue="1" required />
               </label>
 
@@ -222,10 +224,10 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
 
               <div className="admin-form-actions">
                 <button type="button" onClick={() => setIsAddPlanOpen(false)}>
-                  إلغاء
+                  {t("إلغاء", "Cancel")}
                 </button>
                 <button type="submit" disabled={isPlanSaving}>
-                  {isPlanSaving ? "جاري الحفظ..." : "إنشاء الباقة"}
+                  {isPlanSaving ? t("جاري الحفظ...", "Saving...") : t("إنشاء الباقة", "Create Plan")}
                 </button>
               </div>
             </form>
@@ -238,20 +240,20 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
           <div className="admin-modal-card admin-user-limit-modal">
             <div className="admin-modal-head">
               <div>
-                <h2 id="edit-plan-title">تعديل الباقة</h2>
+                <h2 id="edit-plan-title">{t("تعديل الباقة", "Edit Plan")}</h2>
               </div>
-              <button type="button" onClick={() => setEditPlan(null)} aria-label="إغلاق">
+              <button type="button" onClick={() => setEditPlan(null)} aria-label={t("إغلاق", "Close")}>
                 ×
               </button>
             </div>
 
             <form className="admin-client-form" onSubmit={handleUpdatePlan}>
               <label>
-                الباقة
+                {t("الباقة", "Plan")}
                 <input value={editPlan.name} readOnly />
               </label>
               <label>
-                السعر الشهري (ر.س)
+                {t("السعر الشهري (ر.س)", "Monthly price (SAR)")}
                 <input
                   type="number"
                   min="0"
@@ -260,7 +262,7 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
                 />
               </label>
               <label>
-                حد المستخدمين
+                {t("حد المستخدمين", "User limit")}
                 <input
                   type="number"
                   min="1"
@@ -274,17 +276,17 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
                   checked={editPlanActive}
                   onChange={(event) => setEditPlanActive(event.target.checked)}
                 />
-                مفعّلة (تظهر عند إضافة عميل جديد)
+                {t("مفعّلة (تظهر عند إضافة عميل جديد)", "Active (shown when adding a new client)")}
               </label>
 
               {editPlanError ? <p className="admin-form-error">{editPlanError}</p> : null}
 
               <div className="admin-form-actions">
                 <button type="button" onClick={() => setEditPlan(null)}>
-                  إلغاء
+                  {t("إلغاء", "Cancel")}
                 </button>
                 <button type="submit" disabled={isEditPlanSaving}>
-                  {isEditPlanSaving ? "جاري الحفظ..." : "حفظ"}
+                  {isEditPlanSaving ? t("جاري الحفظ...", "Saving...") : t("حفظ", "Save")}
                 </button>
               </div>
             </form>

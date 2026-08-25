@@ -1,4 +1,5 @@
 import { getSubscriptions, getSubscriptionPayments } from "../../../lib/subscriptions";
+import AdminPageHeader from "../AdminPageHeader";
 import PaymentsView from "./PaymentsView";
 
 export default async function AdminPaymentsPage() {
@@ -6,13 +7,11 @@ export default async function AdminPaymentsPage() {
 
   return (
     <>
-      <header className="admin-header">
-        <div className="admin-header-copy">
-          <p>المدفوعات</p>
-          <h1>سجل مدفوعات العملاء</h1>
-          <span>سجل كل طلبات الدفع عبر Moyasar لكل عميل - اشتراكات وشحن رصيد رسائل الحملات معًا - بحالتها الفعلية.</span>
-        </div>
-      </header>
+      <AdminPageHeader
+        eyebrow={["المدفوعات", "Payments"]}
+        title={["سجل مدفوعات العملاء", "Client payment history"]}
+        description={["سجل كل طلبات الدفع عبر Moyasar لكل عميل - اشتراكات وشحن رصيد رسائل الحملات معًا - بحالتها الفعلية.", "A record of every payment request via Moyasar for each client — subscriptions and campaign message balance top-ups together — with its actual status."]}
+      />
       <PaymentsView subscriptions={subscriptions} payments={payments} />
     </>
   );

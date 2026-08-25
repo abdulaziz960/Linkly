@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { PaymentRow, SubscriptionRow } from "../types";
 import { formatNumber, statusClass } from "../utils";
 import CustomSelect from "../../components/CustomSelect";
+import { useLanguage } from "../i18n";
 
 type PaymentsViewProps = {
   subscriptions: SubscriptionRow[];
@@ -20,7 +21,49 @@ const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
   { value: "amount_asc", label: "أقل مبلغ" }
 ];
 
+function statusLabel(status: string, t: (ar: string, en: string) => string) {
+  switch (status) {
+    case "الكل":
+      return t("الكل", "All");
+    case "مكتمل":
+      return t("مكتمل", "Completed");
+    case "قيد الانتظار":
+      return t("قيد الانتظار", "Pending");
+    default:
+      return status;
+  }
+}
+
+function sourceLabel(source: string, t: (ar: string, en: string) => string) {
+  switch (source) {
+    case "الكل":
+      return t("الكل", "All");
+    case "اشتراك":
+      return t("اشتراك", "Subscription");
+    case "شحن رسائل حملات":
+      return t("شحن رسائل حملات", "Campaign Message Top-up");
+    default:
+      return source;
+  }
+}
+
+function sortLabel(option: SortKey, t: (ar: string, en: string) => string) {
+  switch (option) {
+    case "recent":
+      return t("الأحدث", "Most Recent");
+    case "oldest":
+      return t("الأقدم", "Oldest");
+    case "amount_desc":
+      return t("أعلى مبلغ", "Highest Amount");
+    case "amount_asc":
+      return t("أقل مبلغ", "Lowest Amount");
+    default:
+      return option;
+  }
+}
+
 export default function PaymentsView({ subscriptions, payments }: PaymentsViewProps) {
+  const { t } = useLanguage();
   const [selectedPaymentClient, setSelectedPaymentClient] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("الكل");
@@ -60,24 +103,24 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
       <section className="admin-section">
         <div className="admin-metrics">
           <article>
-            <span>إجمالي المدفوعات</span>
+            <span>{t("إجمالي المدفوعات", "Total Payments")}</span>
             <strong>{formatNumber(payments.length)}</strong>
-            <small>كل طلبات الدفع المسجّلة</small>
+            <small>{t("كل طلبات الدفع المسجّلة", "All recorded payment requests")}</small>
           </article>
           <article>
-            <span>مكتملة</span>
+            <span>{t("مكتملة", "Completed")}</span>
             <strong>{formatNumber(completedPayments.length)}</strong>
-            <small>دُفعت وتأكدت عبر Moyasar</small>
+            <small>{t("دُفعت وتأكدت عبر Moyasar", "Paid and confirmed via Moyasar")}</small>
           </article>
           <article>
-            <span>قيد الانتظار</span>
+            <span>{t("قيد الانتظار", "Pending")}</span>
             <strong>{formatNumber(pendingPayments.length)}</strong>
-            <small>بانتظار إتمام العميل للدفع</small>
+            <small>{t("بانتظار إتمام العميل للدفع", "Awaiting the client to complete payment")}</small>
           </article>
           <article>
-            <span>إجمالي المحصّل</span>
+            <span>{t("إجمالي المحصّل", "Total Collected")}</span>
             <strong>{formatNumber(completedTotal)}</strong>
-            <small>ريال من المدفوعات المكتملة</small>
+            <small>{t("ريال من المدفوعات المكتملة", "SAR from completed payments")}</small>
           </article>
         </div>
       </section>
@@ -85,8 +128,8 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
       <section className="admin-card">
         <div className="admin-card-head">
           <div>
-            <h2>المدفوعات ({formatNumber(visiblePayments.length)} من {formatNumber(payments.length)})</h2>
-            <p>سجل كل طلبات الدفع عبر Moyasar لكل عميل - اشتراكات وشحن رصيد رسائل الحملات معًا - بحالتها الفعلية.</p>
+            <h2>{t("المدفوعات", "Payments")} ({formatNumber(visiblePayments.length)} {t("من", "of")} {formatNumber(payments.length)})</h2>
+            <p>{t("سجل كل طلبات الدفع عبر Moyasar لكل عميل - اشتراكات وشحن رصيد رسائل الحملات معًا - بحالتها الفعلية.", "A log of every payment request via Moyasar for each client - subscriptions and campaign message top-ups together - with their actual status.")}</p>
           </div>
         </div>
 
@@ -94,7 +137,7 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
           <input
             type="search"
             className="admin-search-input"
-            placeholder="ابحث بالعميل أو معرّف Moyasar..."
+            placeholder={t("ابحث بالعميل أو معرّف Moyasar...", "Search by client or Moyasar ID...")}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
@@ -106,7 +149,7 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
                 className={`admin-filter-chip ${statusFilter === status ? "active" : ""}`}
                 onClick={() => setStatusFilter(status)}
               >
-                {status}
+                {statusLabel(status, t)}
               </button>
             ))}
           </div>
@@ -118,19 +161,19 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
                 className={`admin-filter-chip ${sourceFilter === source ? "active" : ""}`}
                 onClick={() => setSourceFilter(source)}
               >
-                {source}
+                {sourceLabel(source, t)}
               </button>
             ))}
           </div>
           <CustomSelect
             value={selectedPaymentClient}
             onChange={setSelectedPaymentClient}
-            options={[{ value: "all", label: "كل العملاء" }, ...subscriptions.map((client) => ({ value: client.tenantId, label: client.companyName }))]}
+            options={[{ value: "all", label: t("كل العملاء", "All Clients") }, ...subscriptions.map((client) => ({ value: client.tenantId, label: client.companyName }))]}
           />
           <CustomSelect
             value={sortBy}
             onChange={(value) => setSortBy(value as SortKey)}
-            options={SORT_OPTIONS.map((option) => ({ value: option.value, label: `ترتيب: ${option.label}` }))}
+            options={SORT_OPTIONS.map((option) => ({ value: option.value, label: `${t("ترتيب", "Sort")}: ${sortLabel(option.value, t)}` }))}
           />
         </div>
 
@@ -138,13 +181,13 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
           <table>
             <thead>
               <tr>
-                <th>التاريخ</th>
-                <th>العميل</th>
-                <th>النوع</th>
-                <th>الرسائل</th>
-                <th>المبلغ</th>
-                <th>الحالة</th>
-                <th>معرّف Moyasar</th>
+                <th>{t("التاريخ", "Date")}</th>
+                <th>{t("العميل", "Client")}</th>
+                <th>{t("النوع", "Type")}</th>
+                <th>{t("الرسائل", "Messages")}</th>
+                <th>{t("المبلغ", "Amount")}</th>
+                <th>{t("الحالة", "Status")}</th>
+                <th>{t("معرّف Moyasar", "Moyasar ID")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -153,17 +196,17 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
                 <tr key={payment.id}>
                   <td>{payment.completedAt || payment.createdAt}</td>
                   <td>{payment.companyName}</td>
-                  <td>{payment.source}</td>
+                  <td>{sourceLabel(payment.source, t)}</td>
                   <td>{payment.messages ? formatNumber(payment.messages) : "—"}</td>
-                  <td>{formatNumber(payment.amount)} ر.س</td>
+                  <td>{formatNumber(payment.amount)} {t("ر.س", "SAR")}</td>
                   <td>
-                    <span className={`admin-pill ${statusClass(payment.status)}`}>{payment.status}</span>
+                    <span className={`admin-pill ${statusClass(payment.status)}`}>{statusLabel(payment.status, t)}</span>
                   </td>
                   <td dir="ltr">{payment.moyasarId || "—"}</td>
                   <td>
                     {payment.status === "قيد الانتظار" && payment.paymentUrl ? (
                       <a className="admin-table-link" href={payment.paymentUrl} target="_blank" rel="noreferrer">
-                        فتح رابط الدفع
+                        {t("فتح رابط الدفع", "Open Payment Link")}
                       </a>
                     ) : null}
                   </td>
@@ -173,9 +216,9 @@ export default function PaymentsView({ subscriptions, payments }: PaymentsViewPr
           </table>
         </div>
         {payments.length === 0 ? (
-          <p className="admin-empty-state">لا توجد مدفوعات مسجّلة حتى الآن.</p>
+          <p className="admin-empty-state">{t("لا توجد مدفوعات مسجّلة حتى الآن.", "No payments recorded yet.")}</p>
         ) : visiblePayments.length === 0 ? (
-          <p className="admin-empty-state">لا توجد نتائج مطابقة للبحث أو الفلتر الحالي.</p>
+          <p className="admin-empty-state">{t("لا توجد نتائج مطابقة للبحث أو الفلتر الحالي.", "No results match the current search or filter.")}</p>
         ) : null}
       </section>
     </>

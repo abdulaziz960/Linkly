@@ -2,6 +2,7 @@ import { getAdminLogs } from "../../lib/database";
 import { getSubscriptions, getSubscriptionPayments } from "../../lib/subscriptions";
 import { getPlans } from "../../lib/plans";
 import { getPlatformTeam } from "../../lib/platform-team";
+import AdminPageHeader from "./AdminPageHeader";
 import OverviewView from "./OverviewView";
 
 export default async function AdminOverviewPage() {
@@ -15,13 +16,11 @@ export default async function AdminOverviewPage() {
 
   return (
     <>
-      <header className="admin-header">
-        <div className="admin-header-copy">
-          <p>لوحة التحكم الأساسية</p>
-          <h1>إدارة عملاء AudienceW من مكان واحد</h1>
-          <span>نظرة عامة سريعة على كل الأرقام المهمة، وتفاصيل كل قسم في صفحته الخاصة من القائمة الجانبية.</span>
-        </div>
-      </header>
+      <AdminPageHeader
+        eyebrow={["لوحة التحكم الأساسية", "Core dashboard"]}
+        title={["إدارة عملاء AudienceW من مكان واحد", "Manage AudienceW clients from one place"]}
+        description={["نظرة عامة سريعة على كل الأرقام المهمة، وتفاصيل كل قسم في صفحته الخاصة من القائمة الجانبية.", "A quick overview of every key number, with details for each section on its own sidebar page."]}
+      />
 
       <OverviewView
         subscriptions={subscriptions}
