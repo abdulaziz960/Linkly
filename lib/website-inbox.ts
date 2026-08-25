@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
-import { reopenConversationIfClosed } from "./conversation-lifecycle";
+import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 
 function stableId(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex").slice(0, 24);
@@ -62,7 +62,7 @@ export async function storeWebsiteMessage(input: IncomingWebsiteMessage) {
       }
     });
 
-    await reopenConversationIfClosed(tx, id);
+    await restartBotFlowIfClosed(tx, id);
 
     const message = await tx.message.create({
       data: {

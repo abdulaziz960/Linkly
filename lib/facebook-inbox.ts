@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
-import { reopenConversationIfClosed } from "./conversation-lifecycle";
+import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 
 type StoreFacebookMessageInput = {
   facebookUserId: string;
@@ -73,7 +73,7 @@ export async function storeFacebookMessage(input: StoreFacebookMessageInput) {
     });
 
     if (input.direction === "in") {
-      await reopenConversationIfClosed(tx, conversationId);
+      await restartBotFlowIfClosed(tx, conversationId);
     }
 
     const replyToMessage = input.replyToMessageId

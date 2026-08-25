@@ -3,7 +3,7 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
-import { reopenConversationIfClosed } from "./conversation-lifecycle";
+import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 
 /**
  * TikTok's Business Messaging API requires approved Messaging Partner
@@ -86,7 +86,7 @@ export async function storeTikTokMessage(input: StoreTikTokMessageInput) {
     });
 
     if (input.direction === "in") {
-      await reopenConversationIfClosed(tx, conversationId);
+      await restartBotFlowIfClosed(tx, conversationId);
     }
 
     const message = await tx.message.upsert({

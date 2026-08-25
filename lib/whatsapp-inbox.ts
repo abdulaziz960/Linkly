@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
-import { reopenConversationIfClosed } from "./conversation-lifecycle";
+import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 
 type StoreWhatsAppMessageInput = {
   phone: string;
@@ -84,7 +84,7 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
     });
 
     if (input.direction === "in") {
-      await reopenConversationIfClosed(tx, conversationId);
+      await restartBotFlowIfClosed(tx, conversationId);
     }
 
     const replyToMessage = input.replyToMessageId
