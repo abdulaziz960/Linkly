@@ -1821,10 +1821,10 @@ export async function getCustomers(tenantId = "tenant-demo"): Promise<Customer[]
   });
 }
 
-export async function getConversations(tenantId = "tenant-demo"): Promise<Conversation[]> {
+export async function getConversations(tenantId = "tenant-demo", assigneeName?: string): Promise<Conversation[]> {
   await ensureSeeded();
   const conversations = await prisma.conversation.findMany({
-    where: { tenantId },
+    where: assigneeName ? { tenantId, assignee: assigneeName } : { tenantId },
     orderBy: {
       lastActivityAt: "desc"
     },

@@ -1,11 +1,19 @@
 import { NextRequest } from "next/server";
 import { getConversations } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
+import { getEmployeeForUser } from "../../../lib/permissions-server";
 import { prisma } from "../../../lib/prisma";
 import { processDueAutomations } from "../../../lib/automation-engine";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
+
+/** Non-owner employees only ever see conversations assigned to them. */
+async function assigneeScopeFor(user: { role: string; email: string; tenantId: string }) {
+  if (user.role === "مالك الحساب") return undefined;
+  const employee = await getEmployeeForUser(user);
+  return employee?.name;
+}
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -13,7 +21,8 @@ export async function GET() {
   processDueAutomations(user.tenantId).catch((error) => {
     console.error("Automation queue processing failed", error);
   });
-  return jsonOk(await getConversations(user.tenantId));
+  const assigneeName = await assigneeScopeFor(user);
+  return jsonOk(await getConversations(user.tenantId, assigneeName));
 }
 
 export async function POST(request: NextRequest) {
