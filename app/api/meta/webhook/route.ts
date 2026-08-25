@@ -418,19 +418,21 @@ export async function POST(request: NextRequest) {
           replyToMessageId: message.context?.id
         });
 
-        await runWhatsAppBot({
-          tenantId: whatsappAccount.tenantId,
-          conversationId: stored.conversationId,
-          phone: message.from,
-          incomingText: text
-        });
+        if (stored.isNew) {
+          await runWhatsAppBot({
+            tenantId: whatsappAccount.tenantId,
+            conversationId: stored.conversationId,
+            phone: message.from,
+            incomingText: text
+          });
 
-        await maybeSendLeadAiReply({
-          conversationId: stored.conversationId,
-          customerName: contact?.profile?.name || `عميل ${String(message.from).slice(-4)}`,
-          customerPhone: message.from,
-          incomingText: text
-        });
+          await maybeSendLeadAiReply({
+            conversationId: stored.conversationId,
+            customerName: contact?.profile?.name || `عميل ${String(message.from).slice(-4)}`,
+            customerPhone: message.from,
+            incomingText: text
+          });
+        }
 
         savedMessages.push(message.id || message.from);
       }

@@ -357,8 +357,15 @@ export default function BotView({ teams }: { teams: Team[] }) {
                     />
                   </label>
                   <label>
-                    <span>{t("اسم الخطوة", "Step name")}</span>
-                    <input value={nodeTitle} onChange={(event) => setNodeTitle(event.target.value)} placeholder={t("مثال: ترحيب أولي", "Example: initial welcome")} />
+                    <span>{isListType ? t("السؤال أو الرسالة (تظهر للعميل)", "Question or message (shown to the customer)") : t("اسم الخطوة", "Step name")}</span>
+                    <input
+                      value={nodeTitle}
+                      onChange={(event) => setNodeTitle(event.target.value)}
+                      placeholder={isListType ? t("مثال: كيف نقدر نساعدك؟", "Example: How can we help you?") : t("مثال: ترحيب أولي", "Example: initial welcome")}
+                    />
+                    {isListType ? (
+                      <small className="field-hint">{t("هذا النص يُرسل للعميل قبل الأزرار/القائمة مباشرة، ويُستخدم أيضًا كاسم للخطوة عند الربط من خطوات ثانية.", "This text is sent to the customer right before the buttons/list, and also doubles as the step's name when linking from other steps.")}</small>
+                    ) : null}
                   </label>
                 </div>
                 <label>
