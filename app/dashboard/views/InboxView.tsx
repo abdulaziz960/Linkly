@@ -794,9 +794,13 @@ export default function InboxView({
             >
               <span className="avatar">{conversation.initial}</span>
               <span className="conversation-copy">
-                <span className="conversation-card-title"><b>{conversation.customer}</b><em className={`channel-badge ${conversation.channel || "whatsapp"}`} title={getChannelLabel(conversation, language)}><ChannelIcon id={conversation.channel || "whatsapp"} /><span>{getChannelLabel(conversation, language)}</span></em></span>
+                <em className={`channel-badge ${conversation.channel || "whatsapp"}`} title={getChannelLabel(conversation, language)}>
+                  <ChannelIcon id={conversation.channel || "whatsapp"} />
+                  <span>{getChannelLabel(conversation, language)}</span>
+                </em>
+                <span className="conversation-card-title"><b>{conversation.customer}</b></span>
                 <small title={safePreview}>{safePreview}</small>
-                <span className="conversation-card-foot"><em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : priority === "high" ? t("مرتفعة", "High") : t("عادية", "Normal")}</em><span>{conversation.assignee || t("غير مسندة", "Unassigned")}</span><em className={`status-pill ${conversation.status}`}>{statusLabel(conversation.status, language)}</em></span>
+                <span className="conversation-card-foot"><em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : priority === "high" ? t("مرتفعة", "High") : t("عادية", "Normal")}</em></span>
               </span>
               <span className="conversation-meta">
                 {conversation.unread ? <strong>{conversation.unread}</strong> : null}
@@ -816,7 +820,9 @@ export default function InboxView({
                   {getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language) ? (
                     <small>{getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language)}</small>
                   ) : null}
+                  {!assignedOnly ? <small className="conversation-assignee">{conversation.assignee || t("غير مسندة", "Unassigned")}</small> : null}
                 </span>
+                <em className={`status-pill ${conversation.status}`}>{statusLabel(conversation.status, language)}</em>
               </span>
             </button>
             );
