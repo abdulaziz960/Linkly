@@ -83,6 +83,16 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
       }
     });
 
+    // Meta retries webhook delivery whenever our response is slow (e.g. a
+    // cold serverless start), so the same inbound message can arrive more
+    // than once. The message id is stable across retries, so treat an
+    // already-stored message as a duplicate delivery and skip re-running
+    // side effects (bot flow, automations, unread count) a second time.
+    const existingMessage = await tx.message.findUnique({ where: { id: messageId } });
+    if (existingMessage) {
+      return { conversationId, message: existingMessage, isNew: false };
+    }
+
     if (input.direction === "in") {
       await restartBotFlowIfClosed(tx, conversationId);
     }
@@ -137,10 +147,11 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
 
     return {
       conversationId,
-      message
+      message,
+      isNew: true
     };
   }).then(async (result) => {
-    if (input.direction === "in") {
+    if (input.direction === "in" && result.isNew) {
       await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
     }
     return result;
