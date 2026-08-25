@@ -16,18 +16,23 @@
 @media(max-width:360px){.problemVisual{max-width:100%;min-width:0;display:grid;grid-template-columns:1fr auto;overflow:hidden}.problemVisual>article{grid-column:1/-1;min-width:0}.problemVisual>article img{flex:none}.channelMarks{grid-template-columns:repeat(3,38px)}}
 .preview small,.conversations small,.chat footer{color:#64748b}.security article>span{color:#f0b79f}.footer>small{color:#665d54}
 
-.metaSetup{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin-top:24px}
+.metaSetup{position:relative;overflow:hidden;display:flex;align-items:center;gap:32px;background:linear-gradient(135deg,#123330,#0d2624 55%,var(--brand));color:#fff;border-radius:var(--r);padding:38px 42px;margin-top:32px}
+.metaSetupGlow{position:absolute;inset:-45% -8% auto auto;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,#ffffff26,transparent 70%);pointer-events:none}
 .whatsappNote{text-align:center;margin:24px auto 0;color:var(--muted);font-size:14px;max-width:600px}
-.metaSetupBody{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.metaSetupBadge{flex:none;font-size:13px;font-weight:800;color:var(--dark);background:#fff;border:1px solid var(--line);padding:5px 12px;border-radius:999px;white-space:nowrap}
-.metaSetupBody p{margin:0;font-size:14px;line-height:1.7;color:var(--ink)}
-.metaSetupBody p b{font-weight:800}
-.metaSetupLink{display:inline-flex;align-items:center;gap:5px;color:var(--brand);font-weight:800;font-size:14px;white-space:nowrap;transition:gap .18s ease}
-.metaSetupLink:hover{gap:9px}
+.metaSetupBadge{position:relative;z-index:1;flex:none;width:108px;height:108px;display:grid;place-items:center;gap:2px;border-radius:28px;background:#fff;color:var(--ink);text-align:center;box-shadow:0 16px 34px #00000040;transition:transform .3s cubic-bezier(.22,.61,.36,1)}
+.metaSetup:hover .metaSetupBadge{transform:scale(1.06) rotate(-4deg)}
+.metaSetupBadge b{font-size:27px;line-height:1}
+.metaSetupBadge span{font-size:11px;font-weight:700;line-height:1.35;color:var(--muted);padding:0 4px}
+.metaSetupBody{position:relative;z-index:1}
+.metaSetupBody h2{font-size:23px;margin:0 0 9px}
+.metaSetupBody p{color:#d7f0ec;line-height:1.85;margin:0;font-size:15px}
+.metaSetupLink{display:inline-flex;align-items:center;gap:6px;color:#fff;font-weight:800;border-bottom:1px solid #ffffff66;transition:gap .18s ease,border-color .18s ease}
+.metaSetupLink:hover{gap:11px;border-color:#fff}
 .metaSetupLink span{display:inline-block;transition:transform .18s ease}
 .metaSetupLink:hover span{transform:translateX(-3px)}
-.metaSetupNote{margin:10px 0 0;color:var(--muted);font-size:12px}
-@media(max-width:640px){.metaSetup{flex-direction:column;align-items:flex-start}}
+.metaSetupNote{margin:20px 0 0;color:#94a3b8;font-size:13px}
+@media(max-width:820px){.metaSetup{flex-direction:column;text-align:center;padding:28px;gap:18px}.metaSetupGlow{inset:-30% 30% auto auto}.metaSetupBadge{width:88px;height:88px;border-radius:22px}.metaSetupBadge b{font-size:22px}}
+@media(max-width:520px){.metaSetup{padding:22px;gap:14px}.metaSetupBadge{width:80px;height:80px;border-radius:20px}.metaSetupBadge b{font-size:20px}.metaSetupBadge span{font-size:10px}}
 
 /* Scroll-reveal + hover micro-interactions */
 .reveal,.revealFade{transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1)}
