@@ -1,7 +1,9 @@
 "use client";
 
-import { Fragment, type FocusEvent, type MouseEvent, type ReactNode } from "react";
+import { useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
+import Image from "next/image";
 import type { ConversationChannel, ConversationChannelFilter, DashboardUser, ViewKey } from "../types";
 import { navItems, navItemLabelsEn } from "../data/navigation";
 import { ChannelIcon } from "../views/SettingsView";
@@ -29,10 +31,12 @@ function getInitial(name: string) {
   return name.trim().charAt(0) || "ع";
 }
 
-function positionSidebarTooltip(event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) {
-  const bounds = event.currentTarget.getBoundingClientRect();
-  event.currentTarget.style.setProperty("--sidebar-tooltip-top", `${bounds.top + bounds.height / 2}px`);
-}
+type SidebarTooltipState = {
+  label: string;
+  top: number;
+  left?: number;
+  right?: number;
+};
 
 function DashboardNavIcon({ view }: { view: ViewKey }) {
   const paths: Partial<Record<ViewKey, ReactNode>> = {
@@ -73,8 +77,30 @@ export default function DashboardSidebar({
   onChangeChannel,
   onOpenProfile
 }: DashboardSidebarProps) {
+  const [navigationSearchOpen, setNavigationSearchOpen] = useState(false);
+  const [navigationSearch, setNavigationSearch] = useState("");
+  const [sidebarTooltip, setSidebarTooltip] = useState<SidebarTooltipState | null>(null);
   const isEnglish = language === "en";
+  const showSidebarTooltip = (
+    event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>,
+    label: string
+  ) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const top = Math.min(window.innerHeight - 24, Math.max(24, bounds.top + bounds.height / 2));
+
+    setSidebarTooltip(isEnglish
+      ? { label, top, left: bounds.right + 12 }
+      : { label, top, right: window.innerWidth - bounds.left + 12 });
+  };
+  const hideSidebarTooltip = () => setSidebarTooltip(null);
   const visibleNavItems = navItems.filter((item) => allowedViews.includes(item.key));
+  const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
+    { label: "التواصل", labelEn: "Communication", keys: ["inbox", "quickReplies", "workHours", "bot", "automations"] },
+    { label: "التسويق", labelEn: "Marketing", keys: ["campaigns", "templates"] },
+    { label: "إدارة العملاء", labelEn: "Customers", keys: ["contacts", "tags", "leads"] },
+    { label: "الفريق", labelEn: "Team", keys: ["teams", "employees"] },
+    { label: "التحليلات والإعدادات", labelEn: "Insights & settings", keys: ["reports", "settings"] }
+  ];
   const connected = integrationStatus === "connected";
   const linkedChannels: Array<{ key: ConversationChannel; label: string; connected: boolean }> = [
     { key: "whatsapp", label: isEnglish ? "WhatsApp" : "واتساب", connected },
@@ -89,74 +115,92 @@ export default function DashboardSidebar({
 
   return (
     <aside className="dashboard-sidebar">
+      <div className="sidebar-brand" aria-label="Linkly">
+        <Image src="/assets/linkly-logo.svg" alt="Linkly" width={40} height={40} priority />
+      </div>
       <div className="tenant-card">
         <b>{isEnglish ? "Account" : "حساب العميل"}</b>
         <span>{isEnglish ? "No plan selected" : "لم يتم تحديد الباقة"}</span>
       </div>
       <nav className="dashboard-nav">
-        {visibleNavItems.map((item) => (
-          <Fragment key={item.key}>
+        <button
+          className="sidebar-search-trigger"
+          type="button"
+          aria-label={isEnglish ? "Search navigation" : "البحث في القائمة"}
+          aria-expanded={navigationSearchOpen}
+          onClick={() => { hideSidebarTooltip(); setNavigationSearchOpen((current) => !current); }}
+          onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Search navigation" : "البحث في القائمة")}
+          onMouseLeave={hideSidebarTooltip}
+          onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Search navigation" : "البحث في القائمة")}
+          onBlur={hideSidebarTooltip}
+        >
+          <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m16.5 16.5 4 4" /></svg>
+        </button>
+        {navigationSearchOpen ? (
+          <div className="sidebar-search-popover">
+            <label><span>{isEnglish ? "Go to" : "انتقل إلى"}</span><input autoFocus value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} placeholder={isEnglish ? "Search sections..." : "ابحث عن قسم..."} /></label>
+            <div>
+              {visibleNavItems.filter((item) => `${item.label} ${navItemLabelsEn[item.key]}`.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((item) => (
+                <button key={item.key} type="button" onClick={() => { onChangeView(item.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{isEnglish ? navItemLabelsEn[item.key] : item.label}</span></button>
+              ))}
+              {visibleLinkedChannels.filter((channel) => channel.label.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((channel) => (
+                <button key={channel.key} type="button" onClick={() => { onChangeChannel(channel.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><span className={`nav-channel-dot ${channel.key}`} aria-hidden="true"><ChannelIcon id={channel.key} /></span><span>{channel.label}</span></button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {navigationGroups.map((group) => {
+          const groupItems = visibleNavItems.filter((item) => group.keys.includes(item.key));
+          if (!groupItems.length) return null;
+          return (
+          <div className="dashboard-nav-cluster" key={group.label} aria-label={isEnglish ? group.labelEn : group.label}>
+            <span className="dashboard-nav-group-label">{isEnglish ? group.labelEn : group.label}</span>
+            {groupItems.map((item) => (
             <button
+              key={item.key}
               className={activeView === item.key && (item.key !== "inbox" || selectedChannel === "all") ? "active" : ""}
               type="button"
-              onClick={() => onChangeView(item.key)}
-              onMouseEnter={positionSidebarTooltip}
-              onFocus={positionSidebarTooltip}
+              onClick={() => { hideSidebarTooltip(); onChangeView(item.key); }}
+              onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? navItemLabelsEn[item.key] : item.label)}
+              onMouseLeave={hideSidebarTooltip}
+              onFocus={(event) => showSidebarTooltip(event, isEnglish ? navItemLabelsEn[item.key] : item.label)}
+              onBlur={hideSidebarTooltip}
               aria-label={isEnglish ? navItemLabelsEn[item.key] : item.label}
             >
               <DashboardNavIcon view={item.key} />
-              <span className="dashboard-nav-label sidebar-tooltip">{isEnglish ? navItemLabelsEn[item.key] : item.label}</span>
             </button>
-            {item.key === "inbox" ? (
-              <div className="nav-channel-group">
-                <span>{isEnglish ? "Channels" : "قنوات التواصل"}</span>
-                {visibleLinkedChannels.length ? (
-                  visibleLinkedChannels.map((channel) => (
-                    <button
-                      className={activeView === "inbox" && selectedChannel === channel.key ? "active channel-active" : ""}
-                      key={channel.key}
-                      type="button"
-                      onClick={() => onChangeChannel(channel.key)}
-                    >
-                      <span className={`nav-channel-dot ${channel.key}`} aria-hidden="true">
-                        <ChannelIcon id={channel.key} />
-                      </span>
-                      {channel.label}
-                    </button>
-                  ))
-                ) : (
-                  <small>{isEnglish ? "No channels connected" : "لا توجد قنوات مربوطة"}</small>
-                )}
-              </div>
-            ) : null}
-          </Fragment>
-        ))}
+            ))}
+          </div>
+          );
+        })}
       </nav>
       {user.role === "مالك الحساب" ? (
         <Link
           className="sidebar-billing-link"
           href="/billing"
-          onMouseEnter={positionSidebarTooltip}
-          onFocus={positionSidebarTooltip}
+          onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Plans and billing" : "الباقات والاشتراك")}
+          onMouseLeave={hideSidebarTooltip}
+          onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Plans and billing" : "الباقات والاشتراك")}
+          onBlur={hideSidebarTooltip}
           aria-label={isEnglish ? "Plans and billing" : "الباقات والاشتراك"}
         >
           <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="5" width="18" height="14" rx="2.5" />
             <path d="M3 10h18M7 15h4" />
           </svg>
-          <span className="sidebar-tooltip">{isEnglish ? "Plans & billing" : "الباقات والاشتراك"}</span>
         </Link>
       ) : null}
       <button
         className="account-btn"
         type="button"
-        onClick={onOpenProfile}
-        onMouseEnter={positionSidebarTooltip}
-        onFocus={positionSidebarTooltip}
+        onClick={() => { hideSidebarTooltip(); onOpenProfile(); }}
+        onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Profile" : "الملف الشخصي")}
+        onMouseLeave={hideSidebarTooltip}
+        onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Profile" : "الملف الشخصي")}
+        onBlur={hideSidebarTooltip}
         aria-label={isEnglish ? "Profile" : "الملف الشخصي"}
       >
         <span className="account-avatar">{getInitial(user.name)}</span>
-        <span className="sidebar-tooltip">{isEnglish ? "Profile" : "الملف الشخصي"}</span>
         <span>
           <b>{user.name}</b>
           <small>{user.role}</small>
@@ -171,6 +215,18 @@ export default function DashboardSidebar({
           </em>
         </span>
       </button>
+      {sidebarTooltip && typeof document !== "undefined"
+        ? createPortal(
+          <span
+            className="sidebar-tooltip-portal"
+            role="tooltip"
+            style={{ top: sidebarTooltip.top, left: sidebarTooltip.left, right: sidebarTooltip.right }}
+          >
+            {sidebarTooltip.label}
+          </span>,
+          document.body
+        )
+        : null}
     </aside>
   );
 }

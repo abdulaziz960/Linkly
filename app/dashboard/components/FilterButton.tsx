@@ -7,7 +7,7 @@ type FilterButtonProps = {
 
 export default function FilterButton({ active, count, label, onClick }: FilterButtonProps) {
   return (
-    <button className={active ? "active" : ""} type="button" onClick={onClick}>
+    <button className={active ? "active" : ""} type="button" role="tab" aria-selected={active} onClick={onClick}>
       {label} <span>{count}</span>
     </button>
   );
