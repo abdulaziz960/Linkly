@@ -1244,7 +1244,7 @@
 }
 
 .admin-leads-switch:focus-visible {
-  outline: 2px solid var(--admin-accent, #f0502e);
+  outline: 2px solid var(--admin-accent, #b45309);
   outline-offset: 2px;
 }
 
@@ -1840,34 +1840,34 @@
   }
 }
 
-/* AudienceW navy/white/orange-red brand theme — shared with the public landing page and the client dashboard. */
+/* AudienceW warm brand theme — shared with the public landing page. */
 :root {
-  --admin-ink: #12172b;
-  --admin-muted: #6b7280;
-  --admin-muted-soft: #9ca3af;
-  --admin-bg: #f4f5f9;
-  --admin-surface: #ffffff;
-  --admin-surface-soft: #f2f4f8;
-  --admin-line: rgba(15, 27, 61, 0.12);
-  --admin-brand: #f0502e;
-  --admin-brand-dark: #c73f22;
+  --admin-ink: #241a14;
+  --admin-muted: #7f6d61;
+  --admin-muted-soft: #aa9587;
+  --admin-bg: #f7f1e8;
+  --admin-surface: #fffdf9;
+  --admin-surface-soft: #f4e9e0;
+  --admin-line: rgba(165, 82, 51, 0.16);
+  --admin-brand: #a55233;
+  --admin-brand-dark: #7d3b26;
   --admin-shadow-border: 0 0 0 1px var(--admin-line);
-  --admin-shadow-ambient: 0 8px 24px rgba(15, 27, 61, 0.06);
-  --admin-shadow-card: 0 0 0 1px var(--admin-line), 0 8px 28px rgba(15, 27, 61, 0.05);
-  --admin-shadow-modal: 0 0 0 1px var(--admin-line), 0 28px 70px rgba(15, 27, 61, 0.22);
+  --admin-shadow-ambient: 0 8px 24px rgba(80, 48, 31, 0.06);
+  --admin-shadow-card: 0 0 0 1px var(--admin-line), 0 8px 28px rgba(80, 48, 31, 0.055);
+  --admin-shadow-modal: 0 0 0 1px var(--admin-line), 0 28px 70px rgba(60, 38, 25, 0.22);
   --admin-radius: 16px;
-  --admin-focus-ring: 0 0 0 3px rgba(240, 80, 46, 0.22);
+  --admin-focus-ring: 0 0 0 3px rgba(165, 82, 51, 0.2);
 }
 
 .admin-shell {
   background:
-    radial-gradient(circle at 82% 5%, rgba(240, 80, 46, 0.06), transparent 28%),
+    radial-gradient(circle at 82% 5%, rgba(165, 82, 51, 0.08), transparent 28%),
     var(--admin-bg);
 }
 
 .admin-sidebar {
-  background: #0f1b3d;
-  color: #eef1fb;
+  background: #241a14;
+  color: #fffaf4;
   box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
 }
 
@@ -1879,7 +1879,7 @@
 
 .admin-brand-mark,
 .admin-profile > span {
-  background: #f0502e;
+  background: #a55233;
   color: #fff;
 }
 
@@ -1889,16 +1889,16 @@
 
 .admin-brand strong,
 .admin-profile strong {
-  color: #eef1fb;
+  color: #fffaf4;
 }
 
 .admin-brand span,
 .admin-profile small {
-  color: #9fabc9;
+  color: #cdbcae;
 }
 
 .admin-notif-bell {
-  color: #eef1fb;
+  color: #fffaf4;
 }
 
 .admin-notif-bell:hover {
@@ -1906,23 +1906,23 @@
 }
 
 .admin-nav a {
-  color: #9fabc9;
+  color: #cdbcae;
   border-radius: 11px;
 }
 
 .admin-nav a:hover {
   background: rgba(255, 255, 255, 0.07);
-  color: #eef1fb;
+  color: #fffaf4;
 }
 
 .admin-nav a.active {
-  background: #f0502e;
+  background: #a55233;
   color: #fff;
-  box-shadow: 0 10px 24px rgba(240, 80, 46, 0.28);
+  box-shadow: 0 10px 24px rgba(165, 82, 51, 0.28);
 }
 
 .admin-nav a.active .admin-nav-badge {
-  color: #7a1f0f;
+  color: #7d3b26;
 }
 
 .admin-main {
@@ -1930,13 +1930,13 @@
 }
 
 .admin-header h1 {
-  color: #12172b;
+  color: #241a14;
 }
 
 .admin-header-copy p,
 .admin-command-copy span,
 .admin-ops-card span {
-  color: #f0502e;
+  color: #a55233;
 }
 
 .admin-section,
@@ -1944,12 +1944,12 @@
 .admin-command-center,
 .admin-notif-dropdown,
 .admin-modal {
-  background: rgba(255, 255, 255, 0.98);
+  background: rgba(255, 253, 249, 0.98);
 }
 
 .admin-command-center::before {
   width: 4px;
-  background: #f0502e;
+  background: #a55233;
 }
 
 .admin-header-actions button,
@@ -1957,7 +1957,7 @@
 .admin-command-actions button,
 .admin-invite-result .activation-link,
 .admin-form-actions button[type="submit"] {
-  background: #f0502e;
+  background: #a55233;
   color: #fff;
 }
 
@@ -1966,7 +1966,7 @@
 .admin-command-actions button:hover,
 .admin-invite-result .activation-link:hover,
 .admin-form-actions button[type="submit"]:hover {
-  background: #c73f22;
+  background: #7d3b26;
 }
 
 .admin-header-actions a,
@@ -1989,7 +1989,7 @@
 
 @media (max-width: 1180px) {
   .admin-sidebar {
-    background: #0f1b3d;
+    background: #241a14;
   }
 
   .admin-nav a {
