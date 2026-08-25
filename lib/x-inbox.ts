@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
+import { reopenConversationIfClosed } from "./conversation-lifecycle";
 
 type StoreXMessageInput = {
   tenantId?: string;
@@ -83,6 +84,10 @@ export async function storeXMessage(input: StoreXMessageInput) {
         lastActivityAt: activityAt
       }
     });
+
+    if (input.direction === "in") {
+      await reopenConversationIfClosed(tx, conversationId);
+    }
 
     const message = await tx.message.upsert({
       where: { id: messageId },

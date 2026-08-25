@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
+import { reopenConversationIfClosed } from "./conversation-lifecycle";
 
 /**
  * Storage helper for inbound SMS, ready to be called once the Unifonic
@@ -67,6 +68,10 @@ export async function storeSmsMessage(input: StoreSmsMessageInput) {
         lastActivityAt: activityAt
       }
     });
+
+    if (input.direction === "in") {
+      await reopenConversationIfClosed(tx, conversationId);
+    }
 
     const message = await tx.message.upsert({
       where: { id: messageId },

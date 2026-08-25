@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
+import { reopenConversationIfClosed } from "./conversation-lifecycle";
 
 export type IncomingEmail = {
   tenantId: string;
@@ -69,6 +70,8 @@ export async function storeEmailMessage(input: IncomingEmail) {
     },
   });
 
+  await reopenConversationIfClosed(prisma, conversation.id);
+
   const message = await prisma.message.upsert({
     where: { id: messageId },
     create: {
@@ -132,6 +135,8 @@ export async function storeIncomingEmail(input: LegacyIncomingEmail) {
       update: { channel: "email" },
       create: { id: conversationId, tenantId, customerId, channel: "email", lastMessage: text, status: "unassigned", assignee: "بدون موظف", unread: 0, windowExpired: 0, lastActivityAt: activityAt }
     });
+    await reopenConversationIfClosed(tx, conversationId);
+
     await tx.message.upsert({
       where: { id: messageId },
       update: {},
