@@ -505,7 +505,7 @@ export default function InboxView({
             <FilterButton
               active={filter === "mine"}
               count={counts.mine}
-              label={t("لي", "Mine")}
+              label={t("محادثاتي", "Mine")}
               onClick={() => onChangeFilter("mine")}
             />
           ) : null}

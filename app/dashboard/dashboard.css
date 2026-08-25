@@ -6330,12 +6330,30 @@
 .conversation-tabs {
   flex-wrap: wrap;
   align-content: center;
+  gap: 8px;
+  padding: 12px;
 }
 
 .conversation-tabs button {
-  min-height: 38px;
-  padding-inline: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 12.5px;
   white-space: nowrap;
+}
+
+.conversation-tabs span {
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  font-size: 11px;
+}
+
+.conversation-tabs button.active span {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
 }
 
 .conversation-copy {
