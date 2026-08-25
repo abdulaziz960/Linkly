@@ -933,6 +933,18 @@
   white-space: nowrap;
 }
 
+.conversation-meta .conversation-assignee {
+  flex-basis: 100%;
+  color: var(--brand);
+  font-weight: 700;
+  max-width: 172px;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
 .conversation-meta .conversation-age {
   color: var(--muted);
   font-size: 11px;
