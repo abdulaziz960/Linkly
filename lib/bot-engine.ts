@@ -219,17 +219,20 @@ function formatListMessage(node: BotNode): string {
   return numbered ? `${node.content.text}\n${numbered}` : node.content.text;
 }
 
-// WhatsApp gets real tappable reply buttons (short lists, up to 3 options) or
-// a native list picker (long lists, up to 10 options) instead of a plain-text
-// "1. option" message. Other channels, and WhatsApp lists that exceed those
-// limits, fall back to the plain-text rendering.
+// WhatsApp gets real tappable reply buttons (up to 3 options) or a native
+// list picker (up to 10 options) instead of a plain-text "1. option"
+// message. A "قائمة قصيرة" step still renders as buttons at 3 options or
+// fewer, but upgrades to the list picker instead of silently degrading to
+// plain text the moment it grows past 3 - only WhatsApp lists past 10
+// options, and other channels, fall back to the plain-text rendering.
 async function sendBotList(channel: BotChannel, node: BotNode, args: { tenantId: string; conversationId: string; recipientId: string }) {
   if (node.content.kind !== "list") return { ok: false };
   const displayText = formatListMessage(node);
 
   if (channel === "whatsapp" && node.content.options.length >= 1) {
-    const isShortList = node.type === "إرسال قائمة قصيرة";
-    const fitsNative = isShortList ? node.content.options.length <= 3 : node.content.options.length <= 10;
+    const isExplicitLongList = node.type === "إرسال قائمة طويلة";
+    const useButtons = !isExplicitLongList && node.content.options.length <= 3;
+    const fitsNative = node.content.options.length <= 10;
     if (fitsNative) {
       const result = await sendWhatsAppInteractiveMessage({
         tenantId: args.tenantId,
@@ -237,7 +240,7 @@ async function sendBotList(channel: BotChannel, node: BotNode, args: { tenantId:
         to: args.recipientId,
         bodyText: node.content.text,
         options: node.content.options.map((option) => option.label),
-        kind: isShortList ? "button" : "list",
+        kind: useButtons ? "button" : "list",
         listButtonLabel: "اختر",
         displayText,
         author: BOT_AUTHOR
