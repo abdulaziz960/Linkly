@@ -487,12 +487,14 @@ export default function InboxView({
           {!assignedOnly ? (
             <FilterButton active={filter === "all"} count={counts.all} label={t("الكل", "All")} onClick={() => onChangeFilter("all")} />
           ) : null}
-          <FilterButton
-            active={filter === "mine"}
-            count={counts.mine}
-            label={t("لي", "Mine")}
-            onClick={() => onChangeFilter("mine")}
-          />
+          {!assignedOnly ? (
+            <FilterButton
+              active={filter === "mine"}
+              count={counts.mine}
+              label={t("لي", "Mine")}
+              onClick={() => onChangeFilter("mine")}
+            />
+          ) : null}
           <FilterButton
             active={assignedOnly || filter === "assigned"}
             count={counts.assigned}
