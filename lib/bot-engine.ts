@@ -303,18 +303,25 @@ export async function runChannelBot(
   const ctx = { tenantId, conversationId: input.conversationId, recipientId: input.recipientId };
 
   if (!conversation.botRanAt) {
-    await prisma.conversation.update({
-      where: { id: input.conversationId },
+    // Claim the "start the flow" step atomically: only the invocation whose
+    // UPDATE actually flips botRanAt from empty gets to run executeFrom.
+    // Two webhook deliveries landing close enough together that both read
+    // botRanAt as empty before either write commits would otherwise both
+    // send the welcome step.
+    const claimed = await prisma.conversation.updateMany({
+      where: { id: input.conversationId, botRanAt: "" },
       data: { botRanAt: new Date().toISOString() }
     });
+    if (claimed.count === 0) return;
     await executeFrom(channel, nodes, 0, ctx);
     return;
   }
 
   if (conversation.botWaitingNodeTitle) {
-    const waitingNode = nodes.find((node) => node.title === conversation.botWaitingNodeTitle);
+    const waitingTitle = conversation.botWaitingNodeTitle;
+    const waitingNode = nodes.find((node) => node.title === waitingTitle);
     if (!waitingNode) {
-      await prisma.conversation.update({ where: { id: input.conversationId }, data: { botWaitingNodeTitle: "" } });
+      await prisma.conversation.updateMany({ where: { id: input.conversationId, botWaitingNodeTitle: waitingTitle }, data: { botWaitingNodeTitle: "" } });
       return;
     }
 
@@ -324,6 +331,13 @@ export async function runChannelBot(
     const targetIndex = nodes.findIndex((node) => node.title === targetTitle);
     if (targetIndex === -1) return;
 
+    // Same atomicity concern as above: only advance past this waiting step
+    // once, even if the customer's reply is delivered to the webhook twice.
+    const claimed = await prisma.conversation.updateMany({
+      where: { id: input.conversationId, botWaitingNodeTitle: waitingTitle },
+      data: { botWaitingNodeTitle: "" }
+    });
+    if (claimed.count === 0) return;
     await executeFrom(channel, nodes, targetIndex, ctx);
   }
 }
