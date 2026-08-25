@@ -48,6 +48,13 @@ export function computeAllowedViews(role: string, permissions: string): ViewKey[
   return views.size ? Array.from(views) : ["inbox"];
 }
 
-export function canSeeAllConversations(role: string, employee?: Pick<Employee, "permissions">) {
-  return role === "مالك الحساب" || employee?.permissions === "الكل";
+/**
+ * Conversation visibility is strictly role-based: only the account owner
+ * sees every conversation. The "الكل" employee permission grants access to
+ * every app section/menu - it's a feature-access flag, not a data-scope
+ * grant, so it must not also unlock other employees' conversations.
+ */
+export function canSeeAllConversations(role: string, _employee?: Pick<Employee, "permissions">) {
+  void _employee;
+  return role === "مالك الحساب";
 }
