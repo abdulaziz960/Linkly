@@ -9,11 +9,17 @@ import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
 
-/** Anyone without full conversation visibility only ever sees conversations assigned to them - mirrors lib/permissions.ts canSeeAllConversations, used client-side for the same scoping. */
+/**
+ * Anyone without full conversation visibility only ever sees conversations
+ * assigned to them - mirrors lib/permissions.ts canSeeAllConversations,
+ * used client-side for the same scoping. If we can't resolve their
+ * employee record, fail closed (an unmatched sentinel) rather than
+ * accidentally returning everyone's conversations.
+ */
 async function assigneeScopeFor(user: { role: string; email: string; tenantId: string }) {
   const employee = await getEmployeeForUser(user);
   if (canSeeAllConversations(user.role, employee ?? undefined)) return undefined;
-  return employee?.name;
+  return employee?.name || "__no_matching_employee__";
 }
 
 export async function GET() {

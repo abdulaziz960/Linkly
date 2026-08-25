@@ -570,7 +570,6 @@ export default function InboxView({
                   {getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language) ? (
                     <small>{getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language)}</small>
                   ) : null}
-                  {!assignedOnly ? <small className="conversation-assignee">{conversation.assignee}</small> : null}
                 </span>
                 <em className={conversation.status}>{statusLabel(conversation.status, language)}</em>
               </span>
