@@ -8,7 +8,7 @@ import s from "../page.module.css";
 export const metadata: Metadata = {
   title: "Linkly | Every customer conversation, one inbox",
   description: "A Saudi platform that brings WhatsApp, Instagram, email, Telegram and TikTok conversations together, helping support and sales teams route and follow up from one place.",
-  alternates: { canonical: "/en", languages: { "ar-SA": "/", en: "/en" } },
+  alternates: { canonical: "/en", languages: { "ar-SA": "/", en: "/en", "x-default": "/" } },
   openGraph: { title: "Linkly | Every customer conversation in one place", description: "A shared inbox, conversation routing, automation and reports for your team.", locale: "en_US", alternateLocale: "ar_SA", url: "/en", type: "website" }
 };
 
