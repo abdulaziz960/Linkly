@@ -16,16 +16,45 @@
 @media(max-width:360px){.problemVisual{max-width:100%;min-width:0;display:grid;grid-template-columns:1fr auto;overflow:hidden}.problemVisual>article{grid-column:1/-1;min-width:0}.problemVisual>article img{flex:none}.channelMarks{grid-template-columns:repeat(3,38px)}}
 .preview small,.conversations small,.chat footer{color:#64748b}.security article>span{color:#f0b79f}.footer>small{color:#665d54}
 
-.metaSetup{background:#111827;color:#fff;border-radius:var(--r);padding:44px;margin-top:32px}
+.metaSetup{position:relative;overflow:hidden;display:flex;align-items:center;gap:32px;background:linear-gradient(135deg,#123330,#0d2624 55%,var(--brand));color:#fff;border-radius:var(--r);padding:38px 42px;margin-top:32px}
+.metaSetupGlow{position:absolute;inset:-45% -8% auto auto;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,#ffffff26,transparent 70%);pointer-events:none}
 .whatsappNote{text-align:center;margin:24px auto 0;color:var(--muted);font-size:14px;max-width:600px}
-.metaSetupHead{display:flex;align-items:center;gap:32px}
-.metaSetupBadge{flex:none;width:150px;height:120px;display:grid;place-items:center;gap:4px;border-radius:16px;background:#fff;color:var(--ink);text-align:center}
-.metaSetupBadge b{font-size:34px;line-height:1}
-.metaSetupBadge span{font-size:13px;font-weight:700;color:var(--muted);padding:0 6px}
-.metaSetupHead h2{font-size:26px;margin:0 0 10px}
-.metaSetupHead p{color:#cbd5e1;line-height:1.9;margin:0;font-size:15px}
-.metaSetupSteps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:28px}
-.metaSetupSteps span{display:flex;align-items:center;justify-content:center;text-align:center;min-height:64px;padding:14px;border-radius:12px;background:#1f2937;font-weight:700;font-size:14px;line-height:1.5}
+.metaSetupBadge{position:relative;z-index:1;flex:none;width:108px;height:108px;display:grid;place-items:center;gap:2px;border-radius:50%;background:#fff;color:var(--ink);text-align:center;box-shadow:0 16px 34px #00000040;transition:transform .3s cubic-bezier(.22,.61,.36,1)}
+.metaSetup:hover .metaSetupBadge{transform:scale(1.06) rotate(-4deg)}
+.metaSetupBadge b{font-size:27px;line-height:1}
+.metaSetupBadge span{font-size:11px;font-weight:700;line-height:1.35;color:var(--muted);padding:0 4px}
+.metaSetupBody{position:relative;z-index:1}
+.metaSetupBody h2{font-size:23px;margin:0 0 9px}
+.metaSetupBody p{color:#d7f0ec;line-height:1.85;margin:0;font-size:15px}
+.metaSetupLink{display:inline-flex;align-items:center;gap:6px;color:#fff;font-weight:800;border-bottom:1px solid #ffffff66;transition:gap .18s ease,border-color .18s ease}
+.metaSetupLink:hover{gap:11px;border-color:#fff}
+.metaSetupLink span{display:inline-block;transition:transform .18s ease}
+.metaSetupLink:hover span{transform:translateX(-3px)}
 .metaSetupNote{margin:20px 0 0;color:#94a3b8;font-size:13px}
-@media(max-width:820px){.metaSetupHead{flex-direction:column;align-items:flex-start}.metaSetupSteps{grid-template-columns:1fr 1fr}}
-@media(max-width:520px){.metaSetup{padding:26px}.metaSetupSteps{grid-template-columns:1fr}}
+@media(max-width:820px){.metaSetup{flex-direction:column;text-align:center;padding:32px}.metaSetupGlow{inset:-30% 30% auto auto}}
+@media(max-width:520px){.metaSetup{padding:26px}}
+
+/* Scroll-reveal + hover micro-interactions */
+.reveal,.revealFade{transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1)}
+.reveal{opacity:0;transform:translateY(26px)}
+.revealFade{opacity:0}
+.reveal.visible{opacity:1;transform:none}
+.revealFade.visible{opacity:1}
+@media(prefers-reduced-motion:reduce){.reveal,.revealFade{opacity:1!important;transform:none!important;transition:none!important}}
+.eyebrow i{animation:linklyPulse 2.2s ease-out infinite}
+.preview>header>span{position:relative}
+.preview>header>span:before{content:"";display:inline-block;width:6px;height:6px;margin-inline-end:5px;border-radius:50%;background:#15803d;animation:linklyPulse 2.2s ease-out infinite}
+@keyframes linklyPulse{0%{box-shadow:0 0 0 0 #16a34a4d}70%{box-shadow:0 0 0 8px #16a34a00}100%{box-shadow:0 0 0 0 #16a34a00}}
+.numberList article,.channelsGrid article,.featureGrid article,.useCases article,.security article{transition:transform .3s cubic-bezier(.22,.61,.36,1),background-color .3s ease}
+.channelsGrid article:hover,.useCases article:hover{transform:translateY(-6px)}
+.useCases article{transition:transform .3s cubic-bezier(.22,.61,.36,1),box-shadow .3s ease}
+.useCases article:hover{box-shadow:0 20px 40px #0d2a2714}
+.featureGrid article:hover{background:var(--soft)}
+.channelsGrid i,.channelMarks i{transition:transform .3s cubic-bezier(.22,.61,.36,1)}
+.channelsGrid article:hover i{transform:scale(1.1) rotate(-4deg)}
+.planGrid>article{transition:transform .3s cubic-bezier(.22,.61,.36,1),box-shadow .3s ease}
+.planGrid>article:not(.featured):hover{transform:translateY(-6px);box-shadow:0 20px 40px #0d2a2714}
+.featured{transition:transform .3s cubic-bezier(.22,.61,.36,1),box-shadow .3s ease}
+.how li>span{transition:transform .3s cubic-bezier(.22,.61,.36,1),background-color .3s ease}
+.how li:hover>span{transform:scale(1.08);background:var(--brand);color:#fff}
+@media(prefers-reduced-motion:reduce){.eyebrow i,.preview>header>span:before{animation:none}}
