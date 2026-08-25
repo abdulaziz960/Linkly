@@ -6,6 +6,13 @@ import { jsonError, jsonOk } from "../../_utils/json";
 export const runtime = "nodejs";
 
 const GRAPH_VERSION = "v22.0";
+// The WhatsApp OAuth flow (app/api/meta/connect|callback/route.ts) always
+// issues access tokens scoped to Linkly's own tech-provider Meta app, never
+// a per-tenant settings.appId (that field belongs to the Instagram/Facebook
+// connect flow) - the resumable upload session must be created against that
+// same app or Meta rejects the follow-up upload with "Unsupported post
+// request... does not exist" since the token isn't valid for a foreign app.
+const techProviderMetaAppId = "1296230909161568";
 
 type MetaError = { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string };
 
@@ -69,11 +76,9 @@ export async function POST(request: NextRequest) {
 
       const mimeType = match[1];
       const buffer = Buffer.from(match[2], "base64");
-      const appId = settings.appId || process.env.META_APP_ID || process.env.NEXT_PUBLIC_META_APP_ID || "";
-      if (!appId) return jsonError("Meta App ID غير مهيأ، تعذر رفع الصورة");
 
       const sessionResponse = await fetch(
-        `https://graph.facebook.com/${GRAPH_VERSION}/${appId}/uploads?file_length=${buffer.length}&file_type=${encodeURIComponent(mimeType)}&access_token=${encodeURIComponent(settings.accessToken)}`,
+        `https://graph.facebook.com/${GRAPH_VERSION}/${techProviderMetaAppId}/uploads?file_length=${buffer.length}&file_type=${encodeURIComponent(mimeType)}&access_token=${encodeURIComponent(settings.accessToken)}`,
         { method: "POST" }
       );
       const sessionPayload = await sessionResponse.json().catch(() => null);
