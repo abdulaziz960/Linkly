@@ -6816,6 +6816,20 @@
   font-weight: 900;
 }
 
+.conversation-assignee-inline {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 6px 4px;
+  color: #178a82;
+  font-size: 11px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 110px;
+  vertical-align: middle;
+}
+
 .conversation-meta {
   gap: 8px;
 }
