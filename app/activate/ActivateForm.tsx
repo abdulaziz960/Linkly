@@ -3,7 +3,27 @@
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function ActivateForm() {
+const copy = {
+  ar: {
+    newPassword: "كلمة السر الجديدة",
+    confirmPassword: "تأكيد كلمة السر",
+    mismatch: "كلمتا السر غير متطابقتين",
+    genericError: "تعذر تفعيل الحساب",
+    submitting: "جاري التفعيل...",
+    submit: "تفعيل الحساب"
+  },
+  en: {
+    newPassword: "New password",
+    confirmPassword: "Confirm password",
+    mismatch: "Passwords don't match",
+    genericError: "Couldn't activate the account",
+    submitting: "Activating...",
+    submit: "Activate account"
+  }
+} as const;
+
+export default function ActivateForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
+  const text = copy[lang];
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
@@ -17,7 +37,7 @@ export default function ActivateForm() {
     setError("");
 
     if (password !== confirmPassword) {
-      setError("كلمتا السر غير متطابقتين");
+      setError(text.mismatch);
       return;
     }
 
@@ -31,7 +51,9 @@ export default function ActivateForm() {
     setLoading(false);
 
     if (!response.ok) {
-      setError(payload.message || "تعذر تفعيل الحساب");
+      // The backend only returns Arabic error messages today, so an
+      // English-language activation still shows an Arabic error string here.
+      setError(payload.message || text.genericError);
       return;
     }
 
@@ -42,7 +64,7 @@ export default function ActivateForm() {
   return (
     <form className="login-form" onSubmit={handleSubmit}>
       <label>
-        كلمة السر الجديدة
+        {text.newPassword}
         <input
           type="password"
           autoComplete="new-password"
@@ -53,7 +75,7 @@ export default function ActivateForm() {
         />
       </label>
       <label>
-        تأكيد كلمة السر
+        {text.confirmPassword}
         <input
           type="password"
           autoComplete="new-password"
@@ -67,7 +89,7 @@ export default function ActivateForm() {
       {error ? <p className="login-error">{error}</p> : null}
 
       <button className="login-submit" type="submit" disabled={loading || !token}>
-        {loading ? "جاري التفعيل..." : "تفعيل الحساب"}
+        {loading ? text.submitting : text.submit}
       </button>
     </form>
   );
