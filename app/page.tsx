@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import logo from "../public/assets/linkly-logo.svg";
+import logo from "../public/assets/linkly-logo.png";
 import LandingNav from "./LandingNav";
 import s from "./page.module.css";
 
@@ -37,7 +37,7 @@ const plans = [
   { name:"الأعمال", price:"999", cta:"جرّب باقة الأعمال", items:["حتى 10 مستخدمين","فرق متعددة","Webhooks وAPI","دعم أولوية"] }
 ] as const;
 const jsonLd = { "@context":"https://schema.org", "@graph":[
-  { "@type":"Organization", name:"Linkly", url:"https://audiencew.audience.sa", logo:"https://audiencew.audience.sa/assets/linkly-logo.svg" },
+  { "@type":"Organization", name:"Linkly", url:"https://audiencew.audience.sa", logo:"https://audiencew.audience.sa/assets/linkly-logo.png" },
   { "@type":"SoftwareApplication", name:"Linkly", applicationCategory:"BusinessApplication", operatingSystem:"Web", offers:{"@type":"AggregateOffer",lowPrice:"249",highPrice:"999",priceCurrency:"SAR"} },
   { "@type":"FAQPage", mainEntity:faqs.map(([q,a])=>({"@type":"Question",name:q,acceptedAnswer:{"@type":"Answer",text:a}})) }
 ]};

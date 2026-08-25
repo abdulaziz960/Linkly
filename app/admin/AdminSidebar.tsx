@@ -34,7 +34,7 @@ export default function AdminSidebar({
     <aside className="admin-sidebar">
       <div className="admin-brand">
         <span className="admin-brand-mark">
-          <Image src="/assets/linkly-logo.svg" alt="" width={44} height={44} />
+          <Image src="/assets/linkly-logo.png" alt="" width={44} height={44} />
         </span>
         <div>
           <strong>Linkly</strong>

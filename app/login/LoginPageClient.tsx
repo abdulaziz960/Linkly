@@ -28,7 +28,7 @@ export default function LoginPageClient() {
         </div>
 
         <div className="login-brand">
-          <Image src="/assets/linkly-logo.svg" alt="" width={54} height={54} />
+          <Image src="/assets/linkly-logo.png" alt="" width={54} height={54} />
           <div>
             <span>Linkly</span>
             <b>{text.tagline}</b>
