@@ -132,16 +132,21 @@ export default function DashboardSidebar({
           </Fragment>
         ))}
       </nav>
-      <Link
-        className="sidebar-billing-link"
-        href="/billing"
-        onMouseEnter={positionSidebarTooltip}
-        onFocus={positionSidebarTooltip}
-        aria-label={isEnglish ? "Plans and billing" : "الباقات والاشتراك"}
-      >
-        <span aria-hidden="true">◈</span>
-        <span className="sidebar-tooltip">{isEnglish ? "Plans & billing" : "الباقات والاشتراك"}</span>
-      </Link>
+      {user.role === "مالك الحساب" ? (
+        <Link
+          className="sidebar-billing-link"
+          href="/billing"
+          onMouseEnter={positionSidebarTooltip}
+          onFocus={positionSidebarTooltip}
+          aria-label={isEnglish ? "Plans and billing" : "الباقات والاشتراك"}
+        >
+          <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2.5" />
+            <path d="M3 10h18M7 15h4" />
+          </svg>
+          <span className="sidebar-tooltip">{isEnglish ? "Plans & billing" : "الباقات والاشتراك"}</span>
+        </Link>
+      ) : null}
       <button
         className="account-btn"
         type="button"

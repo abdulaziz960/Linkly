@@ -12,6 +12,7 @@ export const metadata = { title: "الباقات والاشتراك | AudienceW"
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ expired?: string }> }) {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) redirect("/login?next=/billing");
+  if (user.role !== "مالك الحساب") redirect("/dashboard");
   const [plans, subscription, { expired }] = await Promise.all([getActivePlans(), getSubscriptionForTenant(user.tenantId), searchParams]);
   return <BillingPageClient plans={plans} subscription={subscription} expired={expired === "1"} />;
 }

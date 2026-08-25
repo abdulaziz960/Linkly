@@ -5750,7 +5750,10 @@
   text-decoration: none;
   font-size: 13px;
 }
-.sidebar-billing-link > span:first-child { color: #e7a98f; font-size: 20px; }
+.sidebar-billing-link .dashboard-nav-icon {
+  color: #e7a98f;
+  flex-shrink: 0;
+}
 @media (max-width: 1180px) { .sidebar-billing-link b { display: none; } .sidebar-billing-link { justify-content: center; padding: 9px; } }
 
 /* AudienceW workspace — navy/white visual system. */
