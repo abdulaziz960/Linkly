@@ -97,7 +97,7 @@ function evaluateCondition(
  * pick whichever member currently has the fewest open conversations rather
  * than always handing everything to the team lead.
  */
-async function pickTeamAssignee(
+export async function pickTeamAssignee(
   team: { lead: string; routing: string; members: Array<{ employee: { name: string } }> } | null,
   tenantId: string
 ): Promise<string> {

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
+import type { Team } from "../types";
 
 type BotNode = {
   id: string;
@@ -45,7 +46,7 @@ const channelLabelsEn: Record<BotChannel, string> = {
   website: "Website"
 };
 
-export default function BotView() {
+export default function BotView({ teams }: { teams: Team[] }) {
   const { t } = useLanguage();
   const [channel, setChannel] = useState<BotChannel>("whatsapp");
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -196,18 +197,31 @@ export default function BotView() {
                 <label>
                   <span>
                     {nodeType === "تحويل لفريق"
-                      ? t("اسم الفريق أو الموظف", "Team or employee name")
+                      ? t("الفريق", "Team")
                       : isListType
                         ? t("الخيارات (كل خيار بسطر مستقل، وأضف => اسم الخطوة الهدف للتفرّع)", "Options (each option on its own line, add => target step name to branch)")
                         : t("المحتوى", "Content")}
                   </span>
-                  <textarea
-                    value={nodeContent}
-                    onChange={(event) => setNodeContent(event.target.value)}
-                    placeholder={isListType ? t("مثال:\nتتبع الطلب => تتبع الطلب\nالتحدث لموظف => تحويل للدعم", "Example:\nTrack order => Track order\nTalk to an agent => Transfer to support") : t("اكتب الرسالة التي ستُرسل للعميل", "Write the message that will be sent to the customer")}
-                    rows={4}
-                    required
-                  />
+                  {nodeType === "تحويل لفريق" ? (
+                    teams.length ? (
+                      <CustomSelect
+                        value={nodeContent}
+                        onChange={setNodeContent}
+                        options={teams.map((team) => ({ value: team.name, label: team.name }))}
+                        placeholder={t("اختر فريق", "Choose a team")}
+                      />
+                    ) : (
+                      <p className="muted-copy">{t("ما فيه فرق منشأة بعد. أنشئ فريق أولاً من صفحة الفرق.", "No teams created yet. Create a team first from the Teams page.")}</p>
+                    )
+                  ) : (
+                    <textarea
+                      value={nodeContent}
+                      onChange={(event) => setNodeContent(event.target.value)}
+                      placeholder={isListType ? t("مثال:\nتتبع الطلب => تتبع الطلب\nالتحدث لموظف => تحويل للدعم", "Example:\nTrack order => Track order\nTalk to an agent => Transfer to support") : t("اكتب الرسالة التي ستُرسل للعميل", "Write the message that will be sent to the customer")}
+                      rows={4}
+                      required
+                    />
+                  )}
                 </label>
                 <button className="btn primary" type="submit" disabled={saving}>＋ {t("إضافة خطوة", "Add step")}</button>
               </form>

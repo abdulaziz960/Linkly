@@ -6,6 +6,7 @@ import { sendInstagramTextMessage } from "./instagram-send";
 import { sendFacebookTextMessage } from "./facebook-send";
 import { sendXTextMessage } from "./x-send";
 import { sendWebsiteTextMessage } from "./website-send";
+import { pickTeamAssignee } from "./automation-engine";
 
 export type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x" | "website";
 
@@ -216,9 +217,17 @@ async function executeFrom(
     }
 
     if (node.type === "تحويل لفريق") {
+      const teamName = node.content.trim();
+      const team = teamName
+        ? await prisma.team.findFirst({
+            where: { name: teamName, tenantId: ctx.tenantId },
+            include: { members: { include: { employee: true } } }
+          })
+        : null;
+      const assignee = await pickTeamAssignee(team, ctx.tenantId);
       await prisma.conversation.update({
         where: { id: ctx.conversationId },
-        data: { status: "unassigned", assignee: node.content.trim() || "بدون موظف", botWaitingNodeTitle: "" }
+        data: { status: assignee ? "assigned" : "unassigned", assignee: assignee || teamName || "بدون موظف", botWaitingNodeTitle: "" }
       });
       return;
     }
