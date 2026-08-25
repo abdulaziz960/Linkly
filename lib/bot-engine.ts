@@ -6,6 +6,7 @@ import { sendInstagramTextMessage } from "./instagram-send";
 import { sendFacebookTextMessage } from "./facebook-send";
 import { sendXTextMessage } from "./x-send";
 import { sendWebsiteTextMessage } from "./website-send";
+import { pickTeamAssignee } from "./automation-engine";
 
 export type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x" | "website";
 
@@ -15,10 +16,14 @@ export type BotNodeInput = {
   type: string;
   title: string;
   content: string;
+  x?: number;
+  y?: number;
 };
 
 export type BotNode = BotNodeInput & {
   id: string;
+  x: number;
+  y: number;
 };
 
 const BOT_AUTHOR = "الرد الآلي";
@@ -53,7 +58,7 @@ export async function setBotEnabled(tenantId: string, channel: BotChannel, enabl
 export async function getBotNodes(tenantId = "tenant-demo", channel: BotChannel = "whatsapp"): Promise<BotNode[]> {
   await ensureSchema();
   const rows = await prisma.botNode.findMany({ where: { tenantId, channel }, orderBy: { position: "asc" } });
-  return rows.map((row) => ({ id: row.id, type: row.type, title: row.title, content: row.content }));
+  return rows.map((row) => ({ id: row.id, type: row.type, title: row.title, content: row.content, x: row.canvasX, y: row.canvasY }));
 }
 
 export async function saveBotNodes(tenantId: string, channel: BotChannel, nodes: BotNodeInput[]) {
@@ -74,6 +79,8 @@ export async function saveBotNodes(tenantId: string, channel: BotChannel, nodes:
           type: node.type,
           title,
           content,
+          canvasX: node.x ?? 0,
+          canvasY: node.y ?? 0,
           createdAt: new Date().toISOString()
         }
       });
@@ -216,9 +223,17 @@ async function executeFrom(
     }
 
     if (node.type === "تحويل لفريق") {
+      const teamName = node.content.trim();
+      const team = teamName
+        ? await prisma.team.findFirst({
+            where: { name: teamName, tenantId: ctx.tenantId },
+            include: { members: { include: { employee: true } } }
+          })
+        : null;
+      const assignee = await pickTeamAssignee(team, ctx.tenantId);
       await prisma.conversation.update({
         where: { id: ctx.conversationId },
-        data: { status: "unassigned", assignee: node.content.trim() || "بدون موظف", botWaitingNodeTitle: "" }
+        data: { status: assignee ? "assigned" : "unassigned", assignee: assignee || teamName || "بدون موظف", botWaitingNodeTitle: "" }
       });
       return;
     }

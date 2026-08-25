@@ -429,6 +429,8 @@ model BotNode {
   type      String
   title     String
   content   String
+  canvasX   Float  @default(0) @map("canvas_x")
+  canvasY   Float  @default(0) @map("canvas_y")
   createdAt String @map("created_at")
 
   @@map("bot_nodes")

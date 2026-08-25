@@ -208,6 +208,8 @@ async function runSchemaMigrations() {
       content TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE bot_nodes ADD COLUMN IF NOT EXISTS canvas_x DOUBLE PRECISION NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE bot_nodes ADD COLUMN IF NOT EXISTS canvas_y DOUBLE PRECISION NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS automation_queue (
       id TEXT PRIMARY KEY,
@@ -914,6 +916,8 @@ async function runSchemaMigrations() {
     type TEXT NOT NULL,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
+    canvas_x REAL NOT NULL DEFAULT 0,
+    canvas_y REAL NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
   )`);
 }
