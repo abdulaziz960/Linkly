@@ -199,6 +199,7 @@ export type DashboardUser = {
   email: string;
   role: string;
   tenantId: string;
+  profileLogo?: string;
   leadsEnabled?: boolean;
 };
 

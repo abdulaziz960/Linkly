@@ -77,6 +77,7 @@ export type UserAccount = {
   passwordHash: string;
   role: string;
   tenantId: string;
+  profileLogo: string;
   isPlatformAdmin: number;
   sessionVersion: number;
   createdAt: string;
@@ -279,6 +280,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS is_platform_admin INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS profile_logo TEXT NOT NULL DEFAULT ''`);
     for (const email of platformAdminEmails) {
       await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = $1`, email);
     }
@@ -806,6 +808,7 @@ async function runSchemaMigrations() {
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL,
     tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
+    profile_logo TEXT NOT NULL DEFAULT '',
     is_platform_admin INTEGER NOT NULL DEFAULT 0,
     session_version INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
@@ -816,6 +819,9 @@ async function runSchemaMigrations() {
   }
   if (!userAccountColumns.some((column) => column.name === "session_version")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!userAccountColumns.some((column) => column.name === "profile_logo")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN profile_logo TEXT NOT NULL DEFAULT ''`);
   }
   for (const email of platformAdminEmails) {
     await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = ?`, email);
