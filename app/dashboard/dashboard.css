@@ -4405,6 +4405,17 @@
   resize: vertical;
 }
 
+.meta-test-warning {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--status-warn-bg-soft);
+  color: var(--status-warn-text);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 .meta-test-actions {
   display: flex;
   align-items: center;

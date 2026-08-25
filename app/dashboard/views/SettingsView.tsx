@@ -1474,6 +1474,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <div>
               <h3>{t("تجربة رقم التست", "Test number trial")}</h3>
               <p>{t("أضف رقمك في قائمة أرقام الاختبار داخل Meta، ثم أرسل رسالة للتأكد من الإرسال والاستقبال.", "Add your number to the test number list in Meta, then send a message to confirm sending and receiving work.")}</p>
+              <p className="meta-test-warning">{t("⚠️ واتساب لا يسلّم رسائل نصية حرة إلا لأرقام راسلت رقم الأعمال أولاً خلال آخر 24 ساعة. إذا الرقم المستلم ما راسلك قبل، خلّه يرسل لك أي رسالة أولاً ثم جرّب مرة ثانية — وإلا الإرسال يظهر ناجحًا هنا لكن الرسالة ما توصله فعليًا.", "⚠️ WhatsApp only delivers free-form text messages to numbers that messaged your business number first within the last 24 hours. If the recipient hasn't messaged you before, have them send you any message first, then try again — otherwise this will show as sent here but the message won't actually reach them.")}</p>
             </div>
             <div className="meta-test-grid">
               <label>
