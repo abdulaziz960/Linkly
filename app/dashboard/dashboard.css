@@ -2912,14 +2912,14 @@
   gap: 14px;
   padding: 16px;
   border: 1px solid var(--line);
-  border-inline-start: 4px solid #9b8778;
+  border-inline-start: 4px solid #7fa39c;
   border-radius: 16px;
   background: var(--surface);
   transition: border-color .18s ease, box-shadow .18s ease;
 }
 
 .automation-rule-card.enabled { border-inline-start-color: #249154; }
-.automation-rule-card:hover { border-color: color-mix(in srgb, var(--brand) 34%, var(--line)); box-shadow: 0 9px 22px rgba(65, 39, 24, .06); }
+.automation-rule-card:hover { border-color: color-mix(in srgb, var(--brand) 34%, var(--line)); box-shadow: 0 9px 22px rgba(15, 50, 46, .06); }
 
 .automation-rule-top {
   display: grid;
