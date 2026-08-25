@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { sendWhatsAppTextMessage, sendWhatsAppInteractiveMessage } from "./whatsapp-send";
@@ -12,22 +13,41 @@ export type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x
 
 export const botChannels: BotChannel[] = ["whatsapp", "telegram", "instagram", "facebook", "x", "website"];
 
+export type BotListOption = { id: string; label: string; next: string | null };
+
+// Every step type has its own content shape, stored as JSON in the DB. Steps
+// link to each other by id (set by dragging a connector on the canvas), not
+// by typing another step's name - that removes an entire class of typo bugs
+// where a branch silently went nowhere because the target name didn't match.
+export type BotNodeContent =
+  | { kind: "message"; text: string; next: string | null }
+  | { kind: "list"; text: string; options: BotListOption[] }
+  | { kind: "team"; teamName: string }
+  | { kind: "close"; text: string };
+
 export type BotNodeInput = {
+  id?: string;
   type: string;
   title: string;
-  content: string;
+  content: BotNodeContent;
   x?: number;
   y?: number;
 };
 
-export type BotNode = BotNodeInput & {
+export type BotNode = {
   id: string;
+  type: string;
+  title: string;
+  content: BotNodeContent;
   x: number;
   y: number;
 };
 
 const BOT_AUTHOR = "الرد الآلي";
 const LIST_NODE_TYPES = new Set(["إرسال قائمة قصيرة", "إرسال قائمة طويلة"]);
+const MESSAGE_NODE_TYPE = "إرسال رسالة";
+const TEAM_NODE_TYPE = "تحويل لفريق";
+const CLOSE_NODE_TYPE = "إغلاق المحادثة";
 
 function settingsId(tenantId: string, channel: BotChannel) {
   return `bot-settings-${tenantId}-${channel}`;
@@ -55,30 +75,96 @@ export async function setBotEnabled(tenantId: string, channel: BotChannel, enabl
   });
 }
 
+// Reads content saved before the id-based redesign, where a list's options
+// carried a target *title* ("label => step name") and message/close nodes
+// were just the raw text. Old data degrades gracefully: unresolved targets
+// just come back as next: null (the step stops there) instead of crashing.
+function parseLegacyContent(type: string, raw: string, allNodes: Array<{ id: string; title: string }>): BotNodeContent {
+  const findIdByTitle = (title: string) => allNodes.find((node) => node.title === title)?.id || null;
+
+  if (LIST_NODE_TYPES.has(type)) {
+    const options = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [label, targetTitle] = line.split("=>").map((part) => part.trim());
+        return { id: randomUUID(), label: label || line, next: targetTitle ? findIdByTitle(targetTitle) : null };
+      });
+    return { kind: "list", text: "", options };
+  }
+
+  if (type === TEAM_NODE_TYPE) {
+    return { kind: "team", teamName: raw.trim() };
+  }
+
+  if (type === CLOSE_NODE_TYPE) {
+    return { kind: "close", text: raw };
+  }
+
+  return { kind: "message", text: raw, next: null };
+}
+
+function parseNodeContent(type: string, raw: string, allNodes: Array<{ id: string; title: string }>): BotNodeContent {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && typeof parsed.kind === "string") {
+      return parsed as BotNodeContent;
+    }
+  } catch {
+    // Not JSON - this is pre-redesign data, fall through to the legacy parser.
+  }
+  return parseLegacyContent(type, raw, allNodes);
+}
+
 export async function getBotNodes(tenantId = "tenant-demo", channel: BotChannel = "whatsapp"): Promise<BotNode[]> {
   await ensureSchema();
   const rows = await prisma.botNode.findMany({ where: { tenantId, channel }, orderBy: { position: "asc" } });
-  return rows.map((row) => ({ id: row.id, type: row.type, title: row.title, content: row.content, x: row.canvasX, y: row.canvasY }));
+  const titleLookup = rows.map((row) => ({ id: row.id, title: row.title }));
+  return rows.map((row) => ({
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    content: parseNodeContent(row.type, row.content, titleLookup),
+    x: row.canvasX,
+    y: row.canvasY
+  }));
 }
 
+// Upserts by id so a step's id survives every save (dragging it, editing a
+// sibling, adding a new step) - the canvas's connector lines reference these
+// ids directly, so an id that changed on every save would silently break
+// every connection pointing at that step.
 export async function saveBotNodes(tenantId: string, channel: BotChannel, nodes: BotNodeInput[]) {
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
-    await tx.botNode.deleteMany({ where: { tenantId, channel } });
+    const existingIds = new Set((await tx.botNode.findMany({ where: { tenantId, channel }, select: { id: true } })).map((row) => row.id));
+    const keepIds: string[] = [];
     let position = 0;
+
     for (const node of nodes) {
       const title = node.title.trim() || node.type;
-      const content = node.content.trim();
-      if (!content) continue;
-      await tx.botNode.create({
-        data: {
-          id: `bot-node-${tenantId}-${channel}-${Date.now()}-${position}`,
+      const id = node.id && existingIds.has(node.id) ? node.id : `bot-node-${tenantId}-${channel}-${randomUUID()}`;
+      keepIds.push(id);
+
+      await tx.botNode.upsert({
+        where: { id },
+        update: {
+          position,
+          type: node.type,
+          title,
+          content: JSON.stringify(node.content),
+          canvasX: node.x ?? 0,
+          canvasY: node.y ?? 0
+        },
+        create: {
+          id,
           tenantId,
           channel,
           position,
           type: node.type,
           title,
-          content,
+          content: JSON.stringify(node.content),
           canvasX: node.x ?? 0,
           canvasY: node.y ?? 0,
           createdAt: new Date().toISOString()
@@ -86,40 +172,28 @@ export async function saveBotNodes(tenantId: string, channel: BotChannel, nodes:
       });
       position += 1;
     }
+
+    await tx.botNode.deleteMany({ where: { tenantId, channel, id: { notIn: keepIds.length ? keepIds : ["__none__"] } } });
   });
 }
 
-// List-node option lines look like "نص الخيار" or "نص الخيار => اسم الخطوة الهدف".
-// The arrow part is optional - options without one are just displayed text with
-// no branch (the flow does nothing further until an agent steps in).
-function parseListOptions(content: string) {
-  return content
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [label, target] = line.split("=>").map((part) => part.trim());
-      return { label: label || line, target: target || "" };
-    });
-}
-
-function formatListMessage(title: string, content: string) {
-  const options = parseListOptions(content);
-  const numbered = options.map((option, index) => `${index + 1}. ${option.label}`).join("\n");
-  return numbered ? `${title}\n${numbered}` : title;
-}
-
 function matchListReply(node: BotNode, incomingText: string): string | null {
-  const options = parseListOptions(node.content);
+  if (node.content.kind !== "list") return null;
   const trimmed = incomingText.trim();
 
   const numeric = /^\d+$/.test(trimmed) ? Number(trimmed) : null;
-  if (numeric && options[numeric - 1]?.target) return options[numeric - 1].target;
+  if (numeric && node.content.options[numeric - 1]?.next) return node.content.options[numeric - 1].next;
 
-  const byLabel = options.find((option) =>
-    option.target && (trimmed.includes(option.label) || option.label.includes(trimmed))
+  const byLabel = node.content.options.find((option) =>
+    option.next && (trimmed.includes(option.label) || option.label.includes(trimmed))
   );
-  return byLabel?.target || null;
+  return byLabel?.next || null;
+}
+
+function formatListMessage(node: BotNode): string {
+  if (node.content.kind !== "list") return "";
+  const numbered = node.content.options.map((option, index) => `${index + 1}. ${option.label}`).join("\n");
+  return numbered ? `${node.content.text}\n${numbered}` : node.content.text;
 }
 
 // WhatsApp gets real tappable reply buttons (short lists, up to 3 options) or
@@ -127,19 +201,19 @@ function matchListReply(node: BotNode, incomingText: string): string | null {
 // "1. option" message. Other channels, and WhatsApp lists that exceed those
 // limits, fall back to the plain-text rendering.
 async function sendBotList(channel: BotChannel, node: BotNode, args: { tenantId: string; conversationId: string; recipientId: string }) {
-  const options = parseListOptions(node.content);
-  const displayText = formatListMessage(node.title, node.content);
+  if (node.content.kind !== "list") return { ok: false };
+  const displayText = formatListMessage(node);
 
-  if (channel === "whatsapp" && options.length >= 1) {
+  if (channel === "whatsapp" && node.content.options.length >= 1) {
     const isShortList = node.type === "إرسال قائمة قصيرة";
-    const fitsNative = isShortList ? options.length <= 3 : options.length <= 10;
+    const fitsNative = isShortList ? node.content.options.length <= 3 : node.content.options.length <= 10;
     if (fitsNative) {
       const result = await sendWhatsAppInteractiveMessage({
         tenantId: args.tenantId,
         conversationId: args.conversationId,
         to: args.recipientId,
-        bodyText: node.title,
-        options: options.map((option) => option.label),
+        bodyText: node.content.text,
+        options: node.content.options.map((option) => option.label),
         kind: isShortList ? "button" : "list",
         listButtonLabel: "اختر",
         displayText,
@@ -210,50 +284,41 @@ async function sendBotText(channel: BotChannel, args: { tenantId: string; conver
   });
 }
 
-// Runs nodes in order starting at startIndex. Stops (and saves a "waiting"
-// cursor) when it hits a list node, since that needs a customer reply before
-// the flow can continue. Team-transfer/close nodes end the flow entirely.
+// Runs a single step, then follows its explicit "next" connection (drawn on
+// the canvas) rather than falling through array order - a step with no
+// outgoing connection simply stops there instead of guessing.
 async function executeFrom(
   channel: BotChannel,
   nodes: BotNode[],
-  startIndex: number,
+  startId: string,
   ctx: { tenantId: string; conversationId: string; recipientId: string }
 ) {
-  // Titles that some list node points to via "=>" are branch entry points,
-  // not natural continuations of whatever happens to sit above them in the
-  // list. Without this, jumping into one sibling branch and falling through
-  // positionally would also run the next sibling branch right after it.
-  const branchTargetTitles = new Set(
-    nodes
-      .filter((node) => LIST_NODE_TYPES.has(node.type))
-      .flatMap((node) => parseListOptions(node.content).map((option) => option.target))
-      .filter(Boolean)
-  );
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  let currentId: string | null = startId;
+  let guard = 0;
 
-  for (let i = startIndex; i < nodes.length; i++) {
-    const node = nodes[i];
+  while (currentId && guard < nodes.length + 1) {
+    guard += 1;
+    const node: BotNode | undefined = byId.get(currentId);
+    if (!node) break;
 
-    if (node.type === "إرسال رسالة") {
-      await sendBotText(channel, { ...ctx, text: node.content });
-      const nextNode = nodes[i + 1];
-      if (nextNode && branchTargetTitles.has(nextNode.title)) {
-        await prisma.conversation.update({ where: { id: ctx.conversationId }, data: { botWaitingNodeTitle: "" } });
-        return;
-      }
+    if (node.type === MESSAGE_NODE_TYPE && node.content.kind === "message") {
+      await sendBotText(channel, { ...ctx, text: node.content.text });
+      currentId = node.content.next;
       continue;
     }
 
-    if (LIST_NODE_TYPES.has(node.type)) {
+    if (LIST_NODE_TYPES.has(node.type) && node.content.kind === "list") {
       await sendBotList(channel, node, ctx);
       await prisma.conversation.update({
         where: { id: ctx.conversationId },
-        data: { botWaitingNodeTitle: node.title }
+        data: { botWaitingNodeId: node.id }
       });
       return;
     }
 
-    if (node.type === "تحويل لفريق") {
-      const teamName = node.content.trim();
+    if (node.type === TEAM_NODE_TYPE && node.content.kind === "team") {
+      const teamName = node.content.teamName.trim();
       const team = teamName
         ? await prisma.team.findFirst({
             where: { name: teamName, tenantId: ctx.tenantId },
@@ -263,26 +328,29 @@ async function executeFrom(
       const assignee = await pickTeamAssignee(team, ctx.tenantId);
       await prisma.conversation.update({
         where: { id: ctx.conversationId },
-        data: { status: assignee ? "assigned" : "unassigned", assignee: assignee || teamName || "بدون موظف", botWaitingNodeTitle: "" }
+        data: { status: assignee ? "assigned" : "unassigned", assignee: assignee || teamName || "بدون موظف", botWaitingNodeId: "" }
       });
       return;
     }
 
-    if (node.type === "إغلاق المحادثة") {
-      if (node.content.trim()) {
-        await sendBotText(channel, { ...ctx, text: node.content });
+    if (node.type === CLOSE_NODE_TYPE && node.content.kind === "close") {
+      if (node.content.text.trim()) {
+        await sendBotText(channel, { ...ctx, text: node.content.text });
       }
       await prisma.conversation.update({
         where: { id: ctx.conversationId },
-        data: { status: "closed", botWaitingNodeTitle: "" }
+        data: { status: "closed", botWaitingNodeId: "" }
       });
       return;
     }
+
+    // Unrecognized/mismatched content shape - stop rather than loop forever.
+    break;
   }
 
   await prisma.conversation.update({
     where: { id: ctx.conversationId },
-    data: { botWaitingNodeTitle: "" }
+    data: { botWaitingNodeId: "" }
   });
 }
 
@@ -313,32 +381,29 @@ export async function runChannelBot(
       data: { botRanAt: new Date().toISOString() }
     });
     if (claimed.count === 0) return;
-    await executeFrom(channel, nodes, 0, ctx);
+    await executeFrom(channel, nodes, nodes[0].id, ctx);
     return;
   }
 
-  if (conversation.botWaitingNodeTitle) {
-    const waitingTitle = conversation.botWaitingNodeTitle;
-    const waitingNode = nodes.find((node) => node.title === waitingTitle);
+  if (conversation.botWaitingNodeId) {
+    const waitingId = conversation.botWaitingNodeId;
+    const waitingNode = nodes.find((node) => node.id === waitingId);
     if (!waitingNode) {
-      await prisma.conversation.updateMany({ where: { id: input.conversationId, botWaitingNodeTitle: waitingTitle }, data: { botWaitingNodeTitle: "" } });
+      await prisma.conversation.updateMany({ where: { id: input.conversationId, botWaitingNodeId: waitingId }, data: { botWaitingNodeId: "" } });
       return;
     }
 
-    const targetTitle = matchListReply(waitingNode, input.incomingText || "");
-    if (!targetTitle) return;
-
-    const targetIndex = nodes.findIndex((node) => node.title === targetTitle);
-    if (targetIndex === -1) return;
+    const targetId = matchListReply(waitingNode, input.incomingText || "");
+    if (!targetId) return;
 
     // Same atomicity concern as above: only advance past this waiting step
     // once, even if the customer's reply is delivered to the webhook twice.
     const claimed = await prisma.conversation.updateMany({
-      where: { id: input.conversationId, botWaitingNodeTitle: waitingTitle },
-      data: { botWaitingNodeTitle: "" }
+      where: { id: input.conversationId, botWaitingNodeId: waitingId },
+      data: { botWaitingNodeId: "" }
     });
     if (claimed.count === 0) return;
-    await executeFrom(channel, nodes, targetIndex, ctx);
+    await executeFrom(channel, nodes, targetId, ctx);
   }
 }
 

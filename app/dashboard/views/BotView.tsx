@@ -5,11 +5,19 @@ import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import type { Team } from "../types";
 
+type BotListOption = { id: string; label: string; next: string | null };
+
+type BotNodeContent =
+  | { kind: "message"; text: string; next: string | null }
+  | { kind: "list"; text: string; options: BotListOption[] }
+  | { kind: "team"; teamName: string }
+  | { kind: "close"; text: string };
+
 type BotNode = {
   id: string;
   type: string;
   title: string;
-  content: string;
+  content: BotNodeContent;
   x: number;
   y: number;
 };
@@ -50,61 +58,45 @@ const channelLabelsEn: Record<BotChannel, string> = {
   website: "Website"
 };
 
-// Node cards aren't a fixed height (content wraps), so connector anchors
-// use an approximate vertical center rather than measuring the real DOM box.
-const NODE_WIDTH = 240;
-const NODE_ANCHOR_Y = 44;
+function emptyContentFor(type: string): BotNodeContent {
+  if (LIST_NODE_TYPES.has(type)) return { kind: "list", text: "", options: [{ id: crypto.randomUUID(), label: "", next: null }] };
+  if (type === "تحويل لفريق") return { kind: "team", teamName: "" };
+  if (type === "إغلاق المحادثة") return { kind: "close", text: "" };
+  return { kind: "message", text: "", next: null };
+}
+
+// Node cards aren't a fixed height (content wraps), so connector anchors use
+// an approximate box rather than measuring the real DOM element.
+const NODE_WIDTH = 260;
+const NODE_HEIGHT = 90;
+const OPTION_ROW_HEIGHT = 34;
 const START_POSITION = { x: 24, y: 160 };
 const DRAG_CLICK_THRESHOLD = 5;
 
-// Option lines look like "نص الخيار" or "نص الخيار => اسم الخطوة الهدف".
-function parseListOptions(content: string) {
-  return content
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [label, target] = line.split("=>").map((part) => part.trim());
-      return { label: label || line, target: target || "" };
-    });
+function outgoingLinks(node: BotNode): Array<{ from: string; to: string }> {
+  if (node.content.kind === "message" && node.content.next) return [{ from: node.id, to: node.content.next }];
+  if (node.content.kind === "list") {
+    return node.content.options.filter((option) => option.next).map((option) => ({ from: `${node.id}:${option.id}`, to: option.next as string }));
+  }
+  return [];
 }
 
-// Mirrors the server-side execution order in lib/bot-engine.ts: list nodes
-// only advance via their parsed option targets, terminal nodes advance
-// nowhere, and a plain node's implicit "next" link is suppressed when the
-// following node is actually a branch entry point for some list node (so a
-// sibling branch doesn't visually appear to chain off the previous one).
-function computeEdges(nodes: BotNode[]) {
-  const branchTargets = new Set<string>();
-  const branchEdges: Array<{ from: string; to: string }> = [];
-
-  for (const node of nodes) {
-    if (!LIST_NODE_TYPES.has(node.type)) continue;
-    for (const option of parseListOptions(node.content)) {
-      if (!option.target) continue;
-      branchTargets.add(option.target);
-      const target = nodes.find((candidate) => candidate.title === option.target);
-      if (target) branchEdges.push({ from: node.id, to: target.id });
-    }
+// Where a connector dot sits for a given row, in canvas coordinates, and
+// which node/option it belongs to - shared by both the dot rendering and the
+// hit-testing that resolves a drag-to-connect drop.
+function connectorAnchors(node: BotNode): Array<{ key: string; optionId: string | null; x: number; y: number }> {
+  if (node.content.kind === "message") {
+    return [{ key: node.id, optionId: null, x: node.x + NODE_WIDTH, y: node.y + 28 }];
   }
-
-  const edges: Array<{ from: string; to: string }> = [];
-  if (nodes[0]) edges.push({ from: "start", to: nodes[0].id });
-
-  for (let i = 0; i < nodes.length; i++) {
-    const node = nodes[i];
-    if (LIST_NODE_TYPES.has(node.type) || TERMINAL_NODE_TYPES.has(node.type)) continue;
-    const next = nodes[i + 1];
-    if (next && !branchTargets.has(next.title)) edges.push({ from: node.id, to: next.id });
+  if (node.content.kind === "list") {
+    return node.content.options.map((option, index) => ({
+      key: `${node.id}:${option.id}`,
+      optionId: option.id,
+      x: node.x + NODE_WIDTH,
+      y: node.y + 56 + index * OPTION_ROW_HEIGHT + OPTION_ROW_HEIGHT / 2
+    }));
   }
-
-  return [...edges, ...branchEdges];
-}
-
-function layoutLegacyNodes(nodes: BotNode[]): BotNode[] {
-  const needsLayout = nodes.every((node) => !node.x && !node.y);
-  if (!needsLayout || !nodes.length) return nodes;
-  return nodes.map((node, index) => ({ ...node, x: START_POSITION.x + 280 + index * 280, y: START_POSITION.y }));
+  return [];
 }
 
 export default function BotView({ teams }: { teams: Team[] }) {
@@ -117,8 +109,10 @@ export default function BotView({ teams }: { teams: Team[] }) {
   const [saving, setSaving] = useState(false);
   const [nodeType, setNodeType] = useState(nodeTypes[0]);
   const [nodeTitle, setNodeTitle] = useState("");
-  const [nodeContent, setNodeContent] = useState("");
+  const [draftContent, setDraftContent] = useState<BotNodeContent>(emptyContentFor(nodeTypes[0]));
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [connectingFrom, setConnectingFrom] = useState<{ nodeId: string; optionId: string | null; x: number; y: number } | null>(null);
+  const [dragPoint, setDragPoint] = useState<{ x: number; y: number } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; pointerId: number; startClientX: number; startClientY: number; origX: number; origY: number; moved: boolean } | null>(null);
 
@@ -132,7 +126,9 @@ export default function BotView({ teams }: { teams: Team[] }) {
       ]);
       if (cancelled) return;
       setEnabled(settingsRes?.ok ? Boolean(settingsRes.data?.enabled) : false);
-      setNodes(layoutLegacyNodes(nodesRes?.ok ? nodesRes.data || [] : []));
+      const loadedNodes: BotNode[] = nodesRes?.ok ? nodesRes.data || [] : [];
+      const needsLayout = loadedNodes.length > 0 && loadedNodes.every((node) => !node.x && !node.y);
+      setNodes(needsLayout ? loadedNodes.map((node, index) => ({ ...node, x: START_POSITION.x + 320 + index * 320, y: START_POSITION.y })) : loadedNodes);
       setLoading(false);
     })();
     return () => {
@@ -140,12 +136,26 @@ export default function BotView({ teams }: { teams: Team[] }) {
     };
   }, [channel]);
 
+  // Safety net: if the connection drag ends outside the canvas (no capture
+  // is held on the dot, so a release there never reaches the canvas's own
+  // pointerup handler), still clear the draft line instead of leaving it
+  // stuck on screen.
+  useEffect(() => {
+    if (!connectingFrom) return;
+    const clear = () => {
+      setConnectingFrom(null);
+      setDragPoint(null);
+    };
+    window.addEventListener("pointerup", clear);
+    return () => window.removeEventListener("pointerup", clear);
+  }, [connectingFrom]);
+
   async function persistNodes(nextNodes: BotNode[]) {
     setSaving(true);
     const response = await fetch(`/api/bot/nodes?channel=${channel}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nodes: nextNodes.map(({ type, title, content, x, y }) => ({ type, title, content, x, y })) })
+      body: JSON.stringify({ nodes: nextNodes.map(({ id, type, title, content, x, y }) => ({ id, type, title, content, x, y })) })
     }).then((res) => res.json()).catch(() => null);
     if (response?.ok) setNodes(response.data || nextNodes);
     setSaving(false);
@@ -165,7 +175,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
     setEditingNodeId(null);
     setNodeType(nodeTypes[0]);
     setNodeTitle("");
-    setNodeContent("");
+    setDraftContent(emptyContentFor(nodeTypes[0]));
     setBuilderOpen(true);
   }
 
@@ -173,24 +183,48 @@ export default function BotView({ teams }: { teams: Team[] }) {
     setEditingNodeId(node.id);
     setNodeType(node.type);
     setNodeTitle(node.title);
-    setNodeContent(node.content);
+    setDraftContent(node.content);
     setBuilderOpen(true);
+  }
+
+  function changeNodeType(nextType: string) {
+    setNodeType(nextType);
+    // Only reset the draft when switching to a genuinely different shape -
+    // flipping between the two list types should keep the options typed so far.
+    const sameShape = LIST_NODE_TYPES.has(nextType) && draftContent.kind === "list";
+    setDraftContent(sameShape ? draftContent : emptyContentFor(nextType));
+  }
+
+  // Clears any connection pointing at a step that no longer exists, so
+  // deleting a step can never leave a dangling reference behind.
+  function pruneLinksTo(list: BotNode[], removedId: string): BotNode[] {
+    return list.map((node) => {
+      if (node.content.kind === "message" && node.content.next === removedId) {
+        return { ...node, content: { ...node.content, next: null } };
+      }
+      if (node.content.kind === "list") {
+        return { ...node, content: { ...node.content, options: node.content.options.map((option) => (option.next === removedId ? { ...option, next: null } : option)) } };
+      }
+      return node;
+    });
   }
 
   async function submitNode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const content = nodeContent.trim();
-    if (!content) return;
     const title = nodeTitle.trim() || nodeType;
+    const content = draftContent.kind === "list" ? { ...draftContent, options: draftContent.options.filter((option) => option.label.trim()) } : draftContent;
+    if (content.kind === "message" && !content.text.trim()) return;
+    if (content.kind === "list" && !content.text.trim()) return;
+    if (content.kind === "team" && !content.teamName.trim() && teams.length) return;
 
     let nextNodes: BotNode[];
     if (editingNodeId) {
       nextNodes = nodes.map((node) => (node.id === editingNodeId ? { ...node, type: nodeType, title, content } : node));
     } else {
-      const maxX = nodes.length ? Math.max(...nodes.map((node) => node.x)) : START_POSITION.x + 280 - 280;
+      const maxX = nodes.length ? Math.max(...nodes.map((node) => node.x)) : START_POSITION.x + 320 - 320;
       nextNodes = [
         ...nodes,
-        { id: `local-${Date.now()}`, type: nodeType, title, content, x: maxX + 280, y: START_POSITION.y }
+        { id: `local-${Date.now()}`, type: nodeType, title, content, x: maxX + 320, y: START_POSITION.y }
       ];
     }
     setNodes(nextNodes);
@@ -199,7 +233,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
   }
 
   async function removeNode(id: string) {
-    const nextNodes = nodes.filter((node) => node.id !== id);
+    const nextNodes = pruneLinksTo(nodes.filter((node) => node.id !== id), id);
     setNodes(nextNodes);
     setBuilderOpen(false);
     await persistNodes(nextNodes);
@@ -243,19 +277,86 @@ export default function BotView({ teams }: { teams: Team[] }) {
     }
   }
 
+  function canvasPoint(clientX: number, clientY: number) {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || !canvasRef.current) return { x: 0, y: 0 };
+    return {
+      x: clientX - rect.left + canvasRef.current.scrollLeft,
+      y: clientY - rect.top + canvasRef.current.scrollTop
+    };
+  }
+
+  function handleConnectorPointerDown(event: ReactPointerEvent<HTMLButtonElement>, nodeId: string, optionId: string | null) {
+    event.stopPropagation();
+    event.preventDefault();
+    // Deliberately no setPointerCapture here: capturing on the dot would
+    // route every subsequent move/up event to the dot itself instead of
+    // letting them bubble to the canvas's handlers, which is what actually
+    // tracks the draft line and resolves the drop target.
+    const point = canvasPoint(event.clientX, event.clientY);
+    setConnectingFrom({ nodeId, optionId, x: point.x, y: point.y });
+    setDragPoint(point);
+  }
+
+  function handleCanvasPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!connectingFrom) return;
+    setDragPoint(canvasPoint(event.clientX, event.clientY));
+  }
+
+  async function handleCanvasPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!connectingFrom) return;
+    const drop = canvasPoint(event.clientX, event.clientY);
+    const source = connectingFrom;
+    setConnectingFrom(null);
+    setDragPoint(null);
+
+    const targetNode = nodes.find((node) => {
+      if (node.id === source.nodeId) return false;
+      return drop.x >= node.x && drop.x <= node.x + NODE_WIDTH && drop.y >= node.y && drop.y <= node.y + nodeBoxHeight(node);
+    });
+    if (!targetNode) return;
+
+    const nextNodes = nodes.map((node) => {
+      if (node.id !== source.nodeId) return node;
+      if (source.optionId && node.content.kind === "list") {
+        return { ...node, content: { ...node.content, options: node.content.options.map((option) => (option.id === source.optionId ? { ...option, next: targetNode.id } : option)) } };
+      }
+      if (!source.optionId && node.content.kind === "message") {
+        return { ...node, content: { ...node.content, next: targetNode.id } };
+      }
+      return node;
+    });
+    setNodes(nextNodes);
+    await persistNodes(nextNodes);
+  }
+
+  function nodeBoxHeight(node: BotNode) {
+    if (node.content.kind === "list") return 56 + node.content.options.length * OPTION_ROW_HEIGHT + 10;
+    return NODE_HEIGHT;
+  }
+
   const channelLabel = t(channels.find((item) => item.id === channel)?.label || "", channelLabelsEn[channel] || "");
-  const isListType = nodeType === "إرسال قائمة قصيرة" || nodeType === "إرسال قائمة طويلة";
-  const edges = useMemo(() => computeEdges(nodes), [nodes]);
+  const edges = useMemo(() => {
+    const list: Array<{ from: string; to: string; fromY: number; fromX: number }> = [];
+    if (nodes[0]) list.push({ from: "start", to: nodes[0].id, fromX: START_POSITION.x + NODE_WIDTH, fromY: START_POSITION.y + 28 });
+    for (const node of nodes) {
+      for (const link of outgoingLinks(node)) {
+        const anchor = connectorAnchors(node).find((item) => item.key === link.from);
+        list.push({ from: link.from, to: link.to, fromX: anchor?.x ?? node.x + NODE_WIDTH, fromY: anchor?.y ?? node.y + 28 });
+      }
+    }
+    return list;
+  }, [nodes]);
   const canvasSize = useMemo(() => {
-    const maxX = nodes.reduce((max, node) => Math.max(max, node.x + NODE_WIDTH + 60), START_POSITION.x + 400);
-    const maxY = nodes.reduce((max, node) => Math.max(max, node.y + 160), START_POSITION.y + 260);
+    const maxX = nodes.reduce((max, node) => Math.max(max, node.x + NODE_WIDTH + 60), START_POSITION.x + 420);
+    const maxY = nodes.reduce((max, node) => Math.max(max, node.y + nodeBoxHeight(node) + 60), START_POSITION.y + 260);
     return { width: maxX, height: maxY };
   }, [nodes]);
 
-  function nodePoint(id: string): { x: number; y: number } {
-    if (id === "start") return { x: START_POSITION.x, y: START_POSITION.y + NODE_ANCHOR_Y };
+  function nodeTargetPoint(id: string) {
+    if (id === "start") return { x: START_POSITION.x, y: START_POSITION.y + 28 };
     const node = nodes.find((item) => item.id === id);
-    return node ? { x: node.x, y: node.y + NODE_ANCHOR_Y } : { x: 0, y: 0 };
+    return node ? { x: node.x, y: node.y + Math.min(28, nodeBoxHeight(node) / 2) } : { x: 0, y: 0 };
   }
 
   return (
@@ -264,8 +365,8 @@ export default function BotView({ teams }: { teams: Team[] }) {
         <div>
           <h1>{t("الرد الآلي", "Auto Reply")}</h1>
           <p>{t(
-            'أنشئ روبوت محادثة يرحب بالعميل من أول رسالة، يعرض له الخيارات المناسبة، يرسل ردوداً جاهزة، ويحوّل المحادثة للفريق الصحيح عند الحاجة. لكل قناة إعداد وخطوات مستقلة. اسحب أي خطوة لإعادة ترتيبها على المخطط، أو اضغط عليها لتعديلها مباشرة. عند خطوة "قائمة" يتوقف الرد الآلي وينتظر رد العميل، ثم يتفرّع لخطوة مختلفة حسب اختياره — استخدم رمز {"=>"} بعد كل خيار لتحديد اسم الخطوة التي ينتقل لها.',
-            'Create a chatbot that welcomes the customer from the first message, shows them the right options, sends ready-made replies, and transfers the conversation to the right team when needed. Each channel has its own independent setup and steps. Drag any step to reposition it on the diagram, or click it to edit it directly. At a "list" step, the auto reply pauses and waits for the customer\'s reply, then branches to a different step based on their choice — use the {"=>"} symbol after each option to set the name of the step it moves to.'
+            'أنشئ روبوت محادثة يرحب بالعميل من أول رسالة، يعرض له الخيارات المناسبة، يرسل ردوداً جاهزة، ويحوّل المحادثة للفريق الصحيح عند الحاجة. اسحب أي خطوة لتحريكها، أو اضغط عليها لتعديلها. لربط خطوة بخطوة ثانية، اسحب من النقطة الصغيرة يمين الخطوة (أو يمين كل خيار بقائمة) لأي خطوة ثانية تبي تنتقل لها — بدون كتابة أي أسماء.',
+            'Create a chatbot that welcomes the customer from the first message, shows them the right options, sends ready-made replies, and transfers the conversation to the right team when needed. Drag any step to move it, or click it to edit it. To link one step to another, drag from the small dot on the right of the step (or on the right of each list option) to any other step - no typing names.'
           )}</p>
         </div>
         <div className="bot-hero-actions">
@@ -290,23 +391,28 @@ export default function BotView({ teams }: { teams: Team[] }) {
         ))}
       </div>
 
-      <div className="bot-canvas" ref={canvasRef} dir="ltr">
-        <div className="bot-toolbar" dir="auto"><b>{t(`مخطط الرد الآلي (${channelLabel})`, `Auto reply flow (${channelLabel})`)}</b><span>{t('اسحب أي خطوة لتحريكها، أو اضغط عليها لفتحها للتعديل', 'Drag any step to move it, or click it to open it for editing')}</span></div>
+      <div className="bot-canvas" ref={canvasRef} dir="ltr" onPointerMove={handleCanvasPointerMove} onPointerUp={handleCanvasPointerUp}>
+        <div className="bot-toolbar" dir="auto"><b>{t(`مخطط الرد الآلي (${channelLabel})`, `Auto reply flow (${channelLabel})`)}</b><span>{t('اسحب من النقطة يمين أي خطوة لخطوة ثانية عشان تربطهم', 'Drag from the dot on the right of a step to another step to link them')}</span></div>
         <div className="bot-flow-surface" style={{ width: canvasSize.width, height: canvasSize.height }}>
           <svg className="bot-flow-edges" width={canvasSize.width} height={canvasSize.height}>
             {edges.map((edge) => {
-              const from = nodePoint(edge.from);
-              const to = nodePoint(edge.to);
-              const fromX = from.x + NODE_WIDTH;
-              const midX = (fromX + to.x) / 2;
+              const to = nodeTargetPoint(edge.to);
+              const midX = (edge.fromX + to.x) / 2;
               return (
                 <path
                   key={`${edge.from}-${edge.to}`}
-                  d={`M ${fromX} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x} ${to.y}`}
+                  d={`M ${edge.fromX} ${edge.fromY} C ${midX} ${edge.fromY}, ${midX} ${to.y}, ${to.x} ${to.y}`}
                   fill="none"
                 />
               );
             })}
+            {connectingFrom && dragPoint ? (
+              <path
+                className="bot-flow-edge-draft"
+                d={`M ${connectingFrom.x} ${connectingFrom.y} L ${dragPoint.x} ${dragPoint.y}`}
+                fill="none"
+              />
+            ) : null}
           </svg>
 
           <div className="bot-node start bot-flow-node" style={{ left: START_POSITION.x, top: START_POSITION.y, width: NODE_WIDTH }} dir="auto">
@@ -325,12 +431,37 @@ export default function BotView({ teams }: { teams: Team[] }) {
               onPointerUp={(event) => handleNodePointerUp(event, node)}
             >
               <b>{node.title}</b>
-              <small>{node.content}</small>
+              {node.content.kind === "message" ? <small>{node.content.text}</small> : null}
+              {node.content.kind === "close" ? <small>{node.content.text || t("(بدون رسالة إغلاق)", "(no closing message)")}</small> : null}
+              {node.content.kind === "team" ? <small>{node.content.teamName || t("لم يُحدد فريق", "No team chosen")}</small> : null}
+              {node.content.kind === "message" ? (
+                <button
+                  className={`bot-connector ${node.content.next ? "linked" : ""}`}
+                  type="button"
+                  aria-label={t("اسحب للربط بخطوة ثانية", "Drag to link to another step")}
+                  onPointerDown={(event) => handleConnectorPointerDown(event, node.id, null)}
+                />
+              ) : null}
+              {node.content.kind === "list" ? (
+                <ul className="bot-node-options">
+                  {node.content.options.map((option) => (
+                    <li key={option.id}>
+                      <span>{option.label || t("(بدون نص)", "(no text)")}</span>
+                      <button
+                        className={`bot-connector ${option.next ? "linked" : ""}`}
+                        type="button"
+                        aria-label={t("اسحب للربط بخطوة ثانية", "Drag to link to another step")}
+                        onPointerDown={(event) => handleConnectorPointerDown(event, node.id, option.id)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
           ))}
 
           {!loading && !nodes.length ? (
-            <div className="bot-node reply bot-flow-node" style={{ left: START_POSITION.x + 280, top: START_POSITION.y, width: NODE_WIDTH }} dir="auto">
+            <div className="bot-node reply bot-flow-node" style={{ left: START_POSITION.x + 320, top: START_POSITION.y, width: NODE_WIDTH }} dir="auto">
               <b>{t("لا توجد خطوات بعد", "No steps yet")}</b>
               <small>{t('اضغط "إضافة خطوة" لإنشاء أول خطوة في الرد الآلي.', 'Click "Add step" to create the first step in the auto reply.')}</small>
             </div>
@@ -352,51 +483,105 @@ export default function BotView({ teams }: { teams: Team[] }) {
                     <span>{t("نوع الخطوة", "Step type")}</span>
                     <CustomSelect
                       value={nodeType}
-                      onChange={setNodeType}
+                      onChange={changeNodeType}
                       options={nodeTypes.map((type) => ({ value: type, label: nodeTypeLabel(type, t) }))}
                     />
                   </label>
                   <label>
-                    <span>{isListType ? t("السؤال أو الرسالة (تظهر للعميل)", "Question or message (shown to the customer)") : t("اسم الخطوة", "Step name")}</span>
-                    <input
-                      value={nodeTitle}
-                      onChange={(event) => setNodeTitle(event.target.value)}
-                      placeholder={isListType ? t("مثال: كيف نقدر نساعدك؟", "Example: How can we help you?") : t("مثال: ترحيب أولي", "Example: initial welcome")}
-                    />
-                    {isListType ? (
-                      <small className="field-hint">{t("هذا النص يُرسل للعميل قبل الأزرار/القائمة مباشرة، ويُستخدم أيضًا كاسم للخطوة عند الربط من خطوات ثانية.", "This text is sent to the customer right before the buttons/list, and also doubles as the step's name when linking from other steps.")}</small>
-                    ) : null}
+                    <span>{t("اسم الخطوة (يظهر على المخطط فقط)", "Step name (shown on the diagram only)")}</span>
+                    <input value={nodeTitle} onChange={(event) => setNodeTitle(event.target.value)} placeholder={t("مثال: ترحيب أولي", "Example: initial welcome")} />
                   </label>
                 </div>
-                <label>
-                  <span>
-                    {nodeType === "تحويل لفريق"
-                      ? t("الفريق", "Team")
-                      : isListType
-                        ? t("الخيارات (كل خيار بسطر مستقل، وأضف => اسم الخطوة الهدف للتفرّع)", "Options (each option on its own line, add => target step name to branch)")
-                        : t("المحتوى", "Content")}
-                  </span>
-                  {nodeType === "تحويل لفريق" ? (
-                    teams.length ? (
+
+                {draftContent.kind === "message" ? (
+                  <label>
+                    <span>{t("نص الرسالة (يظهر للعميل)", "Message text (shown to the customer)")}</span>
+                    <textarea
+                      value={draftContent.text}
+                      onChange={(event) => setDraftContent({ kind: "message", next: draftContent.next, text: event.target.value })}
+                      placeholder={t("اكتب الرسالة التي ستُرسل للعميل", "Write the message that will be sent to the customer")}
+                      rows={4}
+                      required
+                    />
+                  </label>
+                ) : null}
+
+                {draftContent.kind === "close" ? (
+                  <label>
+                    <span>{t("رسالة الإغلاق (اختياري)", "Closing message (optional)")}</span>
+                    <textarea
+                      value={draftContent.text}
+                      onChange={(event) => setDraftContent({ kind: "close", text: event.target.value })}
+                      placeholder={t("مثال: شكرًا لتواصلك معنا", "Example: Thanks for reaching out")}
+                      rows={3}
+                    />
+                  </label>
+                ) : null}
+
+                {draftContent.kind === "team" ? (
+                  <label>
+                    <span>{t("الفريق", "Team")}</span>
+                    {teams.length ? (
                       <CustomSelect
-                        value={nodeContent}
-                        onChange={setNodeContent}
+                        value={draftContent.teamName}
+                        onChange={(value) => setDraftContent({ kind: "team", teamName: value })}
                         options={teams.map((team) => ({ value: team.name, label: team.name }))}
                         placeholder={t("اختر فريق", "Choose a team")}
                       />
                     ) : (
                       <p className="muted-copy">{t("ما فيه فرق منشأة بعد. أنشئ فريق أولاً من صفحة الفرق.", "No teams created yet. Create a team first from the Teams page.")}</p>
-                    )
-                  ) : (
-                    <textarea
-                      value={nodeContent}
-                      onChange={(event) => setNodeContent(event.target.value)}
-                      placeholder={isListType ? t("مثال:\nتتبع الطلب => تتبع الطلب\nالتحدث لموظف => تحويل للدعم", "Example:\nTrack order => Track order\nTalk to an agent => Transfer to support") : t("اكتب الرسالة التي ستُرسل للعميل", "Write the message that will be sent to the customer")}
-                      rows={4}
-                      required
-                    />
-                  )}
-                </label>
+                    )}
+                  </label>
+                ) : null}
+
+                {draftContent.kind === "list" ? (
+                  <>
+                    <label>
+                      <span>{t("السؤال أو الرسالة (يظهر للعميل)", "Question or message (shown to the customer)")}</span>
+                      <textarea
+                        value={draftContent.text}
+                        onChange={(event) => setDraftContent({ ...draftContent, text: event.target.value })}
+                        placeholder={t("مثال: كيف نقدر نساعدك؟", "Example: How can we help you?")}
+                        rows={2}
+                        required
+                      />
+                    </label>
+                    <label>
+                      <span>{t("الخيارات", "Options")}</span>
+                      <div className="bot-option-editor">
+                        {draftContent.options.map((option, index) => (
+                          <div className="bot-option-editor-row" key={option.id}>
+                            <input
+                              value={option.label}
+                              onChange={(event) => {
+                                const options = draftContent.options.map((item) => (item.id === option.id ? { ...item, label: event.target.value } : item));
+                                setDraftContent({ ...draftContent, options });
+                              }}
+                              placeholder={t(`الخيار ${index + 1}`, `Option ${index + 1}`)}
+                            />
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              aria-label={t("حذف الخيار", "Remove option")}
+                              onClick={() => setDraftContent({ ...draftContent, options: draftContent.options.filter((item) => item.id !== option.id) })}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          className="btn soft"
+                          onClick={() => setDraftContent({ ...draftContent, options: [...draftContent.options, { id: crypto.randomUUID(), label: "", next: null }] })}
+                        >
+                          ＋ {t("إضافة خيار", "Add option")}
+                        </button>
+                      </div>
+                      <small className="field-hint">{t("بعد الحفظ، اسحب من النقطة يمين كل خيار بالمخطط للخطوة اللي يتفرّع لها.", "After saving, drag from the dot next to each option on the diagram to the step it should branch to.")}</small>
+                    </label>
+                  </>
+                ) : null}
+
                 <div className="split-fields">
                   <button className="btn primary" type="submit" disabled={saving}>
                     {editingNodeId ? t("حفظ التعديل", "Save changes") : `＋ ${t("إضافة خطوة", "Add step")}`}

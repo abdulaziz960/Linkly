@@ -3980,6 +3980,75 @@
 .bot-node.menu-node { border-color: rgba(217,119,6,.35); }
 .bot-node.terminal-node { border-color: rgba(220,38,38,.4); }
 
+.bot-flow-edges path.bot-flow-edge-draft {
+  stroke: #f59e0b;
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+  pointer-events: none;
+}
+
+.bot-node-options {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.bot-node-options li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 26px;
+  padding: 2px 22px 2px 8px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.06);
+  font-size: 12px;
+  font-weight: 800;
+  color: #e5e7eb;
+}
+
+.bot-node-options li .bot-connector {
+  inset-inline-end: -6px;
+}
+
+.bot-connector {
+  position: absolute;
+  inset-inline-end: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #94a3b8;
+  background: #111827;
+  cursor: crosshair;
+  padding: 0;
+  touch-action: none;
+}
+
+.bot-connector.linked {
+  border-color: #22c55e;
+  background: #22c55e;
+}
+
+.bot-option-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.bot-option-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bot-option-editor-row input {
+  flex: 1;
+}
+
 .bot-builder-modal {
   width: min(980px, 100%);
 }
