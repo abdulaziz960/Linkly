@@ -798,6 +798,9 @@ export default function InboxView({
                   <ChannelIcon id={conversation.channel || "whatsapp"} />
                   <span>{getChannelLabel(conversation, language)}</span>
                 </em>
+                {!assignedOnly && conversation.assignee && conversation.assignee !== "بدون موظف" ? (
+                  <span className="conversation-assignee-inline">{conversation.assignee}</span>
+                ) : null}
                 <span className="conversation-card-title"><b>{conversation.customer}</b></span>
                 <small title={safePreview}>{safePreview}</small>
                 <span className="conversation-card-foot"><em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : priority === "high" ? t("مرتفعة", "High") : t("عادية", "Normal")}</em></span>
@@ -820,7 +823,6 @@ export default function InboxView({
                   {getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language) ? (
                     <small>{getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language)}</small>
                   ) : null}
-                  {!assignedOnly ? <small className="conversation-assignee">{conversation.assignee || t("غير مسندة", "Unassigned")}</small> : null}
                 </span>
                 <em className={`status-pill ${conversation.status}`}>{statusLabel(conversation.status, language)}</em>
               </span>
