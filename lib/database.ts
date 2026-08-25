@@ -920,6 +920,12 @@ async function runSchemaMigrations() {
     canvas_y REAL NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
   )`);
+  const botNodeColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(bot_nodes)`);
+  for (const columnName of ["canvas_x", "canvas_y"]) {
+    if (!botNodeColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE bot_nodes ADD COLUMN ${columnName} REAL NOT NULL DEFAULT 0`);
+    }
+  }
 }
 
 /**

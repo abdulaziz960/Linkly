@@ -218,6 +218,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
   const [libraryFilter, setLibraryFilter] = useState<"all" | "step" | "flow">("all");
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; pointerId: number; startClientX: number; startClientY: number; origX: number; origY: number; moved: boolean } | null>(null);
   const visibleReadySteps = useMemo(
     () => readySteps.filter((item) => libraryFilter === "all" || (item.kind || "step") === libraryFilter),
@@ -366,11 +367,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
     setDraggedLibraryId(null);
     const item = readySteps.find((step) => step.id === id);
     if (!item) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    await insertReadyStep(item, {
-      x: event.clientX - rect.left + event.currentTarget.scrollLeft,
-      y: event.clientY - rect.top + event.currentTarget.scrollTop - 58
-    });
+    await insertReadyStep(item, canvasPoint(event.clientX, event.clientY));
   }
 
   function openAddModal() {
@@ -480,11 +477,18 @@ export default function BotView({ teams }: { teams: Team[] }) {
   }
 
   function canvasPoint(clientX: number, clientY: number) {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect || !canvasRef.current) return { x: 0, y: 0 };
+    // Node x/y (and every drop-target hit test) are relative to
+    // .bot-flow-surface's own origin, not .bot-canvas's - the canvas also
+    // contains the toolbar hint text above the surface, so anchoring on the
+    // canvas's rect silently added that toolbar's height as a vertical
+    // offset to every connector drag, making drops land below wherever the
+    // cursor actually was. The surface's rect already reflects the current
+    // scroll position, so no separate scrollLeft/scrollTop math is needed.
+    const rect = surfaceRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
     return {
-      x: clientX - rect.left + canvasRef.current.scrollLeft,
-      y: clientY - rect.top + canvasRef.current.scrollTop
+      x: clientX - rect.left,
+      y: clientY - rect.top
     };
   }
 
@@ -644,7 +648,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
         onDrop={(event) => void handleLibraryDrop(event)}
       >
         <div className="bot-toolbar" dir="auto"><b>{t(`مخطط الرد الآلي (${channelLabel})`, `Auto reply flow (${channelLabel})`)}</b><span>{t('اسحب من النقطة يمين أي خطوة لخطوة ثانية عشان تربطهم', 'Drag from the dot on the right of a step to another step to link them')}</span></div>
-        <div className="bot-flow-surface" style={{ width: canvasSize.width, height: canvasSize.height }}>
+        <div className="bot-flow-surface" ref={surfaceRef} style={{ width: canvasSize.width, height: canvasSize.height }}>
           <svg className="bot-flow-edges" width={canvasSize.width} height={canvasSize.height}>
             <defs>
               <marker id="botArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
