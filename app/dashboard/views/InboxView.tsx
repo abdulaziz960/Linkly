@@ -496,7 +496,7 @@ export default function InboxView({
             />
           ) : null}
           <FilterButton
-            active={assignedOnly || filter === "assigned"}
+            active={filter === "assigned"}
             count={counts.assigned}
             label={t("مسندة", "Assigned")}
             onClick={() => onChangeFilter("assigned")}
