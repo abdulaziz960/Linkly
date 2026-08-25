@@ -4,7 +4,7 @@ const isProduction = process.env.NODE_ENV === "production";
 
 if (!process.env.DATABASE_URL) {
   if (isProduction) {
-    throw new Error("DATABASE_URL is required in production. Configure a persistent database for AudienceW before deploying.");
+    throw new Error("DATABASE_URL is required in production. Configure a persistent database for Linkly before deploying.");
   }
 
   process.env.DATABASE_URL = "file:./dev.db";

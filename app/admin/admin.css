@@ -1,6 +1,6 @@
 /*
   Admin dashboard visual language, redesigned per the shared Vercel-style
-  design brief: near-monochrome (black/white, matching the AudienceW mark),
+  design brief: near-monochrome (black/white, matching the Linkly mark),
   shadows standing in for borders, and status color reserved strictly for
   functional meaning (pills, dots) rather than decoration.
 */
@@ -1244,7 +1244,7 @@
 }
 
 .admin-leads-switch:focus-visible {
-  outline: 2px solid var(--admin-accent, #b45309);
+  outline: 2px solid var(--admin-accent, #178a82);
   outline-offset: 2px;
 }
 
@@ -1840,34 +1840,34 @@
   }
 }
 
-/* AudienceW warm brand theme — shared with the public landing page. */
+/* Linkly calm teal brand theme — shared with the public landing page. */
 :root {
-  --admin-ink: #241a14;
-  --admin-muted: #7f6d61;
-  --admin-muted-soft: #aa9587;
-  --admin-bg: #f7f1e8;
-  --admin-surface: #fffdf9;
-  --admin-surface-soft: #f4e9e0;
-  --admin-line: rgba(165, 82, 51, 0.16);
-  --admin-brand: #a55233;
-  --admin-brand-dark: #7d3b26;
+  --admin-ink: #123330;
+  --admin-muted: #5b7570;
+  --admin-muted-soft: #8fb3ac;
+  --admin-bg: #eaf3f1;
+  --admin-surface: #f6fbfa;
+  --admin-surface-soft: #e1efed;
+  --admin-line: rgba(23, 138, 130, 0.16);
+  --admin-brand: #178a82;
+  --admin-brand-dark: #106b65;
   --admin-shadow-border: 0 0 0 1px var(--admin-line);
-  --admin-shadow-ambient: 0 8px 24px rgba(80, 48, 31, 0.06);
-  --admin-shadow-card: 0 0 0 1px var(--admin-line), 0 8px 28px rgba(80, 48, 31, 0.055);
-  --admin-shadow-modal: 0 0 0 1px var(--admin-line), 0 28px 70px rgba(60, 38, 25, 0.22);
+  --admin-shadow-ambient: 0 8px 24px rgba(15, 50, 46, 0.06);
+  --admin-shadow-card: 0 0 0 1px var(--admin-line), 0 8px 28px rgba(15, 50, 46, 0.055);
+  --admin-shadow-modal: 0 0 0 1px var(--admin-line), 0 28px 70px rgba(11, 40, 37, 0.22);
   --admin-radius: 16px;
-  --admin-focus-ring: 0 0 0 3px rgba(165, 82, 51, 0.2);
+  --admin-focus-ring: 0 0 0 3px rgba(23, 138, 130, 0.2);
 }
 
 .admin-shell {
   background:
-    radial-gradient(circle at 82% 5%, rgba(165, 82, 51, 0.08), transparent 28%),
+    radial-gradient(circle at 82% 5%, rgba(23, 138, 130, 0.08), transparent 28%),
     var(--admin-bg);
 }
 
 .admin-sidebar {
-  background: #241a14;
-  color: #fffaf4;
+  background: #123330;
+  color: #f3faf9;
   box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
 }
 
@@ -1879,7 +1879,7 @@
 
 .admin-brand-mark,
 .admin-profile > span {
-  background: #a55233;
+  background: #178a82;
   color: #fff;
 }
 
@@ -1889,16 +1889,16 @@
 
 .admin-brand strong,
 .admin-profile strong {
-  color: #fffaf4;
+  color: #f3faf9;
 }
 
 .admin-brand span,
 .admin-profile small {
-  color: #cdbcae;
+  color: #b3d2cc;
 }
 
 .admin-notif-bell {
-  color: #fffaf4;
+  color: #f3faf9;
 }
 
 .admin-notif-bell:hover {
@@ -1906,23 +1906,23 @@
 }
 
 .admin-nav a {
-  color: #cdbcae;
+  color: #b3d2cc;
   border-radius: 11px;
 }
 
 .admin-nav a:hover {
   background: rgba(255, 255, 255, 0.07);
-  color: #fffaf4;
+  color: #f3faf9;
 }
 
 .admin-nav a.active {
-  background: #a55233;
+  background: #178a82;
   color: #fff;
-  box-shadow: 0 10px 24px rgba(165, 82, 51, 0.28);
+  box-shadow: 0 10px 24px rgba(23, 138, 130, 0.28);
 }
 
 .admin-nav a.active .admin-nav-badge {
-  color: #7d3b26;
+  color: #106b65;
 }
 
 .admin-main {
@@ -1930,13 +1930,13 @@
 }
 
 .admin-header h1 {
-  color: #241a14;
+  color: #123330;
 }
 
 .admin-header-copy p,
 .admin-command-copy span,
 .admin-ops-card span {
-  color: #a55233;
+  color: #178a82;
 }
 
 .admin-section,
@@ -1944,12 +1944,12 @@
 .admin-command-center,
 .admin-notif-dropdown,
 .admin-modal {
-  background: rgba(255, 253, 249, 0.98);
+  background: rgba(244, 250, 249, 0.98);
 }
 
 .admin-command-center::before {
   width: 4px;
-  background: #a55233;
+  background: #178a82;
 }
 
 .admin-header-actions button,
@@ -1957,7 +1957,7 @@
 .admin-command-actions button,
 .admin-invite-result .activation-link,
 .admin-form-actions button[type="submit"] {
-  background: #a55233;
+  background: #178a82;
   color: #fff;
 }
 
@@ -1966,7 +1966,7 @@
 .admin-command-actions button:hover,
 .admin-invite-result .activation-link:hover,
 .admin-form-actions button[type="submit"]:hover {
-  background: #7d3b26;
+  background: #106b65;
 }
 
 .admin-header-actions a,
@@ -1989,7 +1989,7 @@
 
 @media (max-width: 1180px) {
   .admin-sidebar {
-    background: #241a14;
+    background: #123330;
   }
 
   .admin-nav a {

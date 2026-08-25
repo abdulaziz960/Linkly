@@ -83,7 +83,7 @@ function getWizardSteps(t: TFn) {
   return [
     {
       title: t("اختر قناة", "Choose a channel"),
-      description: t("اختر الخدمة التي تود ربطها مع حسابك في AudienceW.", "Choose the service you want to connect to your AudienceW account.")
+      description: t("اختر الخدمة التي تود ربطها مع حسابك في Linkly.", "Choose the service you want to connect to your Linkly account.")
     },
     {
       title: t("إنشاء قناة تواصل", "Create a communication channel"),
@@ -129,7 +129,7 @@ function apiChannel(channel: ChannelId) {
 const botSupportedChannels: ChannelId[] = ["whatsapp", "telegram", "instagram", "facebook", "x", "website"];
 
 const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://audiencew.audience.sa";
-// WhatsApp Embedded Signup always uses AudienceW's own tech-provider Meta app,
+// WhatsApp Embedded Signup always uses Linkly's own tech-provider Meta app,
 // never the per-tenant Instagram/Facebook app id from NEXT_PUBLIC_META_APP_ID.
 const techProviderMetaAppId = "1296230909161568";
 const techProviderMetaConfigId = "1428169365888624";
@@ -524,7 +524,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     }
 
     async function handleMetaMessage(event: MessageEvent) {
-      console.log("[AudienceW debug] window message event", { origin: event.origin, data: event.data });
+      console.log("[Linkly debug] window message event", { origin: event.origin, data: event.data });
 
       if (event.origin === window.location.origin && (event.data as { type?: string } | null)?.type === "audiencew:meta-connected") {
         setLoading(true);
@@ -542,7 +542,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       }
 
       if (!["https://www.facebook.com", "https://web.facebook.com", "https://business.facebook.com"].includes(event.origin)) {
-        console.log("[AudienceW debug] ignored postMessage from unexpected origin", event.origin, event.data);
+        console.log("[Linkly debug] ignored postMessage from unexpected origin", event.origin, event.data);
         return;
       }
 
@@ -552,7 +552,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         data?: MetaSignupData;
       } | null;
 
-      console.log("[AudienceW debug] meta postMessage received", { origin: event.origin, raw: event.data, parsed: payload, selectedChannel });
+      console.log("[Linkly debug] meta postMessage received", { origin: event.origin, raw: event.data, parsed: payload, selectedChannel });
 
       if (selectedChannel !== "whatsapp" || payload?.type !== "WA_EMBEDDED_SIGNUP" || payload.event !== "FINISH") return;
 
@@ -853,7 +853,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   async function connectXAccount() {
     if (!settings.appId.trim() || !settings.configId.trim()) {
-      window.alert(t("احفظ OAuth 2.0 Client ID و Client Secret لتطبيق AudienceW أولًا، وبعدها اضغط ربط X.", "Save the OAuth 2.0 Client ID and Client Secret for the AudienceW app first, then click Connect X."));
+      window.alert(t("احفظ OAuth 2.0 Client ID و Client Secret لتطبيق Linkly أولًا، وبعدها اضغط ربط X.", "Save the OAuth 2.0 Client ID and Client Secret for the Linkly app first, then click Connect X."));
       setWizardStep(4);
       return;
     }
@@ -1070,9 +1070,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <div className="meta-signup-card">
               <span className="provider-round-icon">X</span>
               <h3>{t("ربط X مباشرة", "Connect X directly")}</h3>
-              <p>{t("تطبيق AudienceW يستخدم OAuth. العميل يضغط ربط X، يسجل الدخول، يوافق على الصلاحيات، ثم يرجع للمنصة بدون إدخال مفاتيح.", "The AudienceW app uses OAuth. The customer clicks Connect X, logs in, approves the permissions, then returns to the platform without entering any keys.")}</p>
+              <p>{t("تطبيق Linkly يستخدم OAuth. العميل يضغط ربط X، يسجل الدخول، يوافق على الصلاحيات، ثم يرجع للمنصة بدون إدخال مفاتيح.", "The Linkly app uses OAuth. The customer clicks Connect X, logs in, approves the permissions, then returns to the platform without entering any keys.")}</p>
               <div className="telegram-steps">
-                <div><span>1</span><b>{t("تطبيق AudienceW", "AudienceW app")}</b><small>{t("يتم ضبط مفاتيح التطبيق مرة واحدة من طرف المنصة.", "The app keys are configured once by the platform.")}</small></div>
+                <div><span>1</span><b>{t("تطبيق Linkly", "Linkly app")}</b><small>{t("يتم ضبط مفاتيح التطبيق مرة واحدة من طرف المنصة.", "The app keys are configured once by the platform.")}</small></div>
                 <div><span>2</span><b>{t("ربط العميل", "Customer connects")}</b><small>{t("العميل يضغط زر الربط ويسجل دخوله في X.", "The customer clicks the connect button and logs into X.")}</small></div>
                 <div><span>3</span><b>{t("حفظ تلقائي", "Automatic save")}</b><small>{t("نحفظ التوكن واسم الحساب بعد الرجوع من X.", "We save the token and account name after returning from X.")}</small></div>
                 <div><span>4</span><b>{t("المحادثات", "Conversations")}</b><small>{t("بعد تفعيل Webhook تظهر رسائل X داخل صندوق المحادثات.", "Once the webhook is activated, X messages appear in the inbox.")}</small></div>
@@ -1081,7 +1081,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 {t("ربط X", "Connect X")}
               </button>
               <button className="secondary-action" type="button" onClick={() => setWizardStep(4)}>
-                {t("إعداد تطبيق AudienceW", "Configure the AudienceW app")}
+                {t("إعداد تطبيق Linkly", "Configure the Linkly app")}
               </button>
             </div>
           </div>
@@ -1271,11 +1271,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {isX ? (
             <div className="telegram-help-card">
               <div>
-                <h3>{t("إعداد تطبيق AudienceW على X", "Set up the AudienceW app on X")}</h3>
+                <h3>{t("إعداد تطبيق Linkly على X", "Set up the Linkly app on X")}</h3>
                 <p>{t("هذه البيانات تضبط تطبيق المنصة مرة واحدة. بعد ذلك كل عميل يربط X بزر مباشر بدون إدخال مفاتيح.", "This data configures the platform's app once. After that, every customer connects X with a single button, without entering any keys.")}</p>
               </div>
               <ol>
-                <li>{t("أنشئ App واحد باسم AudienceW داخل X Developer Portal.", "Create a single app named AudienceW in the X Developer Portal.")}</li>
+                <li>{t("أنشئ App واحد باسم Linkly داخل X Developer Portal.", "Create a single app named Linkly in the X Developer Portal.")}</li>
                 <li>{t("فعّل OAuth 2.0 وصلاحيات Read / Write / Direct Messages حسب المتاح.", "Enable OAuth 2.0 and Read / Write / Direct Messages permissions as available.")}</li>
                 <li>{t("انسخ OAuth 1.0 Secret Key واحفظه في خانة Consumer Secret، فهو المطلوب لاختبار CRC.", "Copy the OAuth 1.0 Secret Key and save it in the Consumer Secret field — it's required for the CRC check.")}</li>
                 <li>{t(`أضف Callback URL: ${publicAppUrl}/api/x/callback`, `Add Callback URL: ${publicAppUrl}/api/x/callback`)}</li>
@@ -1385,7 +1385,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <div className="settings-form-head">
             <div>
               <h2>{isWebsite ? t("ودجت الموقع الإلكتروني", "Website widget") : isGoogleMaps ? t("ربط Google Business", "Connect Google Business") : isWhatsApp ? t("ربط واتساب", "Connect WhatsApp") : hideManualEmailSetup ? (isConnected ? t("حساب البريد المرتبط", "Connected email account") : t("قناة Outlook", "Outlook channel")) : t("بيانات الربط والويبهوك", "Connection and webhook details")}</h2>
-              <p>{isWebsite ? t("مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى.", "The site key below is unique to your account and is already embedded in the code above.") : hideManualEmailSetup ? (isConnected ? t("الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب.", "The account is connected via OAuth and works automatically without extra settings. Click Clear Connection Data to disconnect it.") : t("اربط حساب Outlook من الأعلى لتفعيل القناة.", "Connect an Outlook account above to activate the channel.")) : isEmail ? t("هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook.", "This data saves the email channel and is used to receive messages via webhook.") : isGoogleMaps ? t("لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة.", "You don't need to fill in any fields here. Click Connect Google and choose the business account, and the connection data will be saved automatically after approval.") : isX ? t("هذه بيانات تطبيق AudienceW على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا.", "This is the AudienceW app's data on X. The customer won't enter these keys; they'll just click Connect X and their account will be saved automatically.") : isTikTok ? t("احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging.", "Save the TikTok app details now; actual sending and receiving starts once TikTok approves Business Messaging access.") : isSms ? t("بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز.", "Unifonic details for sending SMS messages to customers. Receiving replies is still being built.") : isTelegram ? t("هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة.", "This data saves the Telegram connection and activates the webhook automatically to receive messages in the platform.") : isFacebook ? t("هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة.", "This data saves the Facebook page and is used to send and receive Messenger messages in the platform.") : isInstagram ? t("هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة.", "This data saves the Instagram connection and is used to receive messages and comments in the platform.") : t("اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط.", "Connect a WhatsApp account from the Meta window. The account and number details will be saved automatically once the connection is complete.")}</p>
+              <p>{isWebsite ? t("مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى.", "The site key below is unique to your account and is already embedded in the code above.") : hideManualEmailSetup ? (isConnected ? t("الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب.", "The account is connected via OAuth and works automatically without extra settings. Click Clear Connection Data to disconnect it.") : t("اربط حساب Outlook من الأعلى لتفعيل القناة.", "Connect an Outlook account above to activate the channel.")) : isEmail ? t("هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook.", "This data saves the email channel and is used to receive messages via webhook.") : isGoogleMaps ? t("لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة.", "You don't need to fill in any fields here. Click Connect Google and choose the business account, and the connection data will be saved automatically after approval.") : isX ? t("هذه بيانات تطبيق Linkly على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا.", "This is the Linkly app's data on X. The customer won't enter these keys; they'll just click Connect X and their account will be saved automatically.") : isTikTok ? t("احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging.", "Save the TikTok app details now; actual sending and receiving starts once TikTok approves Business Messaging access.") : isSms ? t("بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز.", "Unifonic details for sending SMS messages to customers. Receiving replies is still being built.") : isTelegram ? t("هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة.", "This data saves the Telegram connection and activates the webhook automatically to receive messages in the platform.") : isFacebook ? t("هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة.", "This data saves the Facebook page and is used to send and receive Messenger messages in the platform.") : isInstagram ? t("هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة.", "This data saves the Instagram connection and is used to receive messages and comments in the platform.") : t("اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط.", "Connect a WhatsApp account from the Meta window. The account and number details will be saved automatically once the connection is complete.")}</p>
             </div>
             <span className={`connection-pill ${isEmail ? (isConnected ? "connected" : "pending") : settings.status}`}>
               {isEmail ? (isConnected ? statusLabel("connected", t) : statusLabel("pending", t)) : statusLabel(settings.status, t)}
@@ -1566,7 +1566,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <div className="x-connect-card">
               <div>
                 <h3>{t("ربط حساب X للعميل", "Connect the customer's X account")}</h3>
-                <p>{t("بعد حفظ Client ID و Client Secret لتطبيق AudienceW، اضغط ربط X. العميل سيسجل الدخول ويوافق على الصلاحيات، ثم يرجع للمنصة تلقائيًا.", "After saving the Client ID and Client Secret for the AudienceW app, click Connect X. The customer will log in, approve the permissions, then return to the platform automatically.")}</p>
+                <p>{t("بعد حفظ Client ID و Client Secret لتطبيق Linkly، اضغط ربط X. العميل سيسجل الدخول ويوافق على الصلاحيات، ثم يرجع للمنصة تلقائيًا.", "After saving the Client ID and Client Secret for the Linkly app, click Connect X. The customer will log in, approve the permissions, then return to the platform automatically.")}</p>
               </div>
               <button className="primary-action" disabled={saving || loading} type="button" onClick={connectXAccount}>
                 {t("ربط X مباشرة", "Connect X directly")}

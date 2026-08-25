@@ -3,8 +3,8 @@ import Link from "next/link";
 import "../../legal.css";
 
 export const metadata: Metadata = {
-  title: "Contact us | AudienceW",
-  description: "Contact the AudienceW team for sales, support, and help setting up your customer service channels.",
+  title: "Contact us | Linkly",
+  description: "Contact the Linkly team for sales, support, and help setting up your customer service channels.",
   alternates: { canonical: "/en/contact", languages: { "ar-SA": "/contact", en: "/en/contact" } }
 };
 
@@ -14,10 +14,10 @@ export default function ContactPageEn() {
       <section className="legal-shell">
         <Link className="legal-brand" href="/en">
           <span className="legal-logo">A</span>
-          AudienceW
+          Linkly
         </Link>
         <h1>We'll help you set up your workspace and channels</h1>
-        <p>For sales or technical support, reach out to the AudienceW team — we'll reply during business hours.</p>
+        <p>For sales or technical support, reach out to the Linkly team — we'll reply during business hours.</p>
 
         <h2>Email</h2>
         <p><a href="mailto:hello@audience.sa">hello@audience.sa</a></p>

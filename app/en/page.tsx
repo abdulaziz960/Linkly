@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import logo from "../../public/assets/audiencew-logo.png";
+import logo from "../../public/assets/linkly-logo.svg";
 import LandingNav from "../LandingNav";
 import s from "../page.module.css";
 
 export const metadata: Metadata = {
-  title: "AudienceW | Every customer conversation, one inbox",
+  title: "Linkly | Every customer conversation, one inbox",
   description: "A Saudi platform that brings WhatsApp, Instagram, email, Telegram and TikTok conversations together, helping support and sales teams route and follow up from one place.",
   alternates: { canonical: "/en", languages: { "ar-SA": "/", en: "/en" } },
-  openGraph: { title: "AudienceW | Every customer conversation in one place", description: "A shared inbox, conversation routing, automation and reports for your team.", locale: "en_US", alternateLocale: "ar_SA", url: "/en", type: "website" }
+  openGraph: { title: "Linkly | Every customer conversation in one place", description: "A shared inbox, conversation routing, automation and reports for your team.", locale: "en_US", alternateLocale: "ar_SA", url: "/en", type: "website" }
 };
 
 const features = [
@@ -28,7 +28,7 @@ const faqs = [
   ["Is there an API?", "Webhooks and integration interfaces are available on the Growth plan, depending on the integration scope needed."],
   ["Can I cancel my subscription?", "Cancellation can be scheduled for the end of the current period from the billing screen."],
   ["Is there a setup fee?", "Setting up Meta accounts and the full connection is optional and costs SAR 500 one time."],
-  ["How are WhatsApp fees calculated?", "Official WhatsApp message fees from Meta, if any, are separate from the AudienceW subscription."],
+  ["How are WhatsApp fees calculated?", "Official WhatsApp message fees from Meta, if any, are separate from the Linkly subscription."],
   ["Is customer data safe?", "The platform uses user permissions, encryption for integration secrets, time-limited sessions, and activity logs to help track activity."]
 ] as const;
 const plans = [
@@ -37,8 +37,8 @@ const plans = [
   { name: "Business", price: "999", cta: "Try the Business plan", items: ["Up to 10 users", "Multiple teams", "Webhooks and API", "Priority support"] }
 ] as const;
 const jsonLd = { "@context": "https://schema.org", "@graph": [
-  { "@type": "Organization", name: "AudienceW", url: "https://audiencew.audience.sa", logo: "https://audiencew.audience.sa/icon.png" },
-  { "@type": "SoftwareApplication", name: "AudienceW", applicationCategory: "BusinessApplication", operatingSystem: "Web", offers: { "@type": "AggregateOffer", lowPrice: "249", highPrice: "999", priceCurrency: "SAR" } },
+  { "@type": "Organization", name: "Linkly", url: "https://audiencew.audience.sa", logo: "https://audiencew.audience.sa/assets/linkly-logo.svg" },
+  { "@type": "SoftwareApplication", name: "Linkly", applicationCategory: "BusinessApplication", operatingSystem: "Web", offers: { "@type": "AggregateOffer", lowPrice: "249", highPrice: "999", priceCurrency: "SAR" } },
   { "@type": "FAQPage", mainEntity: faqs.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }
 ] };
 
@@ -52,8 +52,8 @@ function PlatformLogo({ platform }: { platform: Platform }) {
   return <svg className={s.platformLogo} viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.7a8 8 0 0 1-11.8 7l-4.2 1.1 1.1-4.1A8 8 0 1 1 20 11.7Z" /><path d="M9 8.5c.3 2.8 2 4.6 4.8 5.5.5.1 1.3-.8 1.5-1.2" /></svg>;
 }
 function Preview() {
-  return <div className={s.preview} aria-label="Preview of the AudienceW conversation inbox">
-    <header><div><i /><i /><i /></div><b>AudienceW Inbox</b><span>Online</span></header>
+  return <div className={s.preview} aria-label="Preview of the Linkly conversation inbox">
+    <header><div><i /><i /><i /></div><b>Linkly Inbox</b><span>Online</span></header>
     <div className={s.previewBody}><aside><Image src={logo} alt="" width={34} height={34} /><b>⌁</b><b>◎</b><b>♢</b><b>⚙</b></aside>
       <section className={s.conversations}><h3>Conversations <small>12 new</small></h3>{[["W", "Waleed Alsubaie", "Is the product available today?", "WhatsApp"], ["N", "Noura Ahmed", "I got your message from the ad", "Instagram"], ["S", "Smart Co.", "Requesting a quote for the team", "Email"], ["M", "Mohammed Ali", "I need help with my order", "Telegram"], ["R", "Reem Khaled", "Interested in connecting after TikTok approval", "TikTok"]].map((x, i) => <article className={i === 0 ? s.selected : ""} key={x[1]}><em>{x[0]}</em><div><b>{x[1]}</b><p>{x[2]}</p><small>{x[3]} · now</small></div></article>)}</section>
       <section className={s.chat}><header><div><b>Waleed Alsubaie</b><small>Open conversation</small></div><span>Sales team</span></header><div><p>Hello, is the product available today?</p><p>Hello, yes it's available. Sending you the order link now.</p><small>Interested customer　 follow up today</small></div><footer>Type your reply here… <b>↑</b></footer></section></div>
@@ -74,13 +74,13 @@ export default function EnglishHomePage() { return <div className={s.page} dir="
     <section className={`${s.section} ${s.useCases}`}><Intro kicker="USE CASES" title="From the first inquiry to a served customer" /><div>{[["↗", "Sales", "A customer comes in from WhatsApp or Instagram, gets assigned to a sales rep, and their next step is saved.", "Lead ← Assign ← Follow up"], ["◎", "Customer service", "An inquiry or complaint lands in the inbox and moves to the right team with full context.", "Message ← Team ← Resolve"], ["⌁", "Operations & follow-up", "Rules, quick replies and business hours cut delays and keep the experience consistent.", "Rule ← Action ← Measure"]].map(x => <article key={x[1]}><i>{x[0]}</i><h3>{x[1]}</h3><p>{x[2]}</p><small dir="ltr">{x[3]}</small></article>)}</div></section>
     <section className={`${s.section} ${s.security}`}><Intro kicker="SECURITY & TRUST" title="Your customers' data deserves business-grade protection" copy="Protection is part of the product architecture: from sessions and permissions to integration secrets and channel event verification."/><div>{[["01", "Encrypted secrets", "Sensitive channel connection data is encrypted and shown masked in the interface."], ["02", "Permissions and activity logs", "Clear roles and logging for important operational events."], ["03", "Webhook verification", "Meta and X events are rejected if they don't carry the provider's correct signature."], ["04", "Secure sessions and passwords", "Time-limited sessions and passwords stored with the scrypt algorithm and a unique salt."]].map(x => <article key={x[0]}><span>{x[0]}</span><div><h3>{x[1]}</h3><p>{x[2]}</p></div></article>)}</div></section>
     <section className={`${s.section} ${s.pricing}`} id="pricing"><Intro kicker="PRICING" title="A clear plan for every stage of your team's growth" copy="Start with the free trial first, then choose the capacity and tools that fit how you work."/><div className={s.planGrid}>{plans.map(p => { const featured = "featured" in p && p.featured; return <article className={featured ? s.featured : ""} key={p.name}>{featured ? <span className={s.popular}>Most popular</span> : null}<h3>{p.name}</h3><div className={s.price}><b>{p.price}</b><span>SAR<br />/ month</span></div><ul>{p.items.map(i => <li key={i}><Check />{i}</li>)}</ul><Link className={featured ? s.primaryLarge : s.planButton} href="/signup">{p.cta}</Link></article>; })}</div>
-      <div className={s.metaSetup}><div className={s.metaSetupHead}><div className={s.metaSetupBadge}><b>500</b><span>SAR one time</span></div><div><h2>Don't have a Facebook account or Business Manager?</h2><p>We set up everything you need from the start: creating the required accounts, preparing Meta Business, connecting WhatsApp Business, and helping you until the number is ready to use inside AudienceW.</p></div></div><div className={s.metaSetupSteps}>{["Creating and setting up the required Facebook account", "Setting up Meta Business Manager", "Preparing WhatsApp Business and connecting the number", "Reviewing the basic setup and going live"].map(step => <span key={step}>{step}</span>)}</div><p className={s.metaSetupNote}>The service fee is paid once and doesn't include Meta fees or any government or third-party provider fees, if any.</p></div>
-      <p className={s.whatsappNote}><b>WhatsApp fees:</b> Official message fees from Meta, if any, are separate from the AudienceW subscription.</p>
+      <div className={s.metaSetup}><div className={s.metaSetupHead}><div className={s.metaSetupBadge}><b>500</b><span>SAR one time</span></div><div><h2>Don't have a Facebook account or Business Manager?</h2><p>We set up everything you need from the start: creating the required accounts, preparing Meta Business, connecting WhatsApp Business, and helping you until the number is ready to use inside Linkly.</p></div></div><div className={s.metaSetupSteps}>{["Creating and setting up the required Facebook account", "Setting up Meta Business Manager", "Preparing WhatsApp Business and connecting the number", "Reviewing the basic setup and going live"].map(step => <span key={step}>{step}</span>)}</div><p className={s.metaSetupNote}>The service fee is paid once and doesn't include Meta fees or any government or third-party provider fees, if any.</p></div>
+      <p className={s.whatsappNote}><b>WhatsApp fees:</b> Official message fees from Meta, if any, are separate from the Linkly subscription.</p>
     </section>
     <section className={`${s.section} ${s.faq}`} id="faq"><Intro kicker="FAQ" title="Clear answers before you start" /><div>{faqs.map(([q, a]) => <details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
-    <section className={s.finalCta}><div><span>START TODAY</span><h2>Let your team focus on the customer, not on switching between apps.</h2><p>Try AudienceW free for 14 days.</p></div><div><Link href="/signup">Start your free trial</Link><small>No card required</small></div></section>
+    <section className={s.finalCta}><div><span>START TODAY</span><h2>Let your team focus on the customer, not on switching between apps.</h2><p>Try Linkly free for 14 days.</p></div><div><Link href="/signup">Start your free trial</Link><small>No card required</small></div></section>
   </main>
-  <footer className={s.footer}><div><section><Link className={s.brand} href="/en"><Image src={logo} alt="" width={38} height={38} /><span>AudienceW</span></Link><p>A platform for managing customer conversations and running support and sales teams from one place.</p></section><nav><b>Product</b><a href="#features">Features</a><a href="#how">How it works</a><a href="#pricing">Pricing</a></nav><nav><b>Company</b><Link href="/en/privacy">Privacy</Link><Link href="/en/terms">Terms of use</Link><Link href="/en/data-deletion">Data deletion</Link><Link href="/en/contact">Contact us</Link></nav></div><small>All rights reserved to Al-Jumhoor Custom Advertising Company.　 AudienceW © 2026</small></footer>
+  <footer className={s.footer}><div><section><Link className={s.brand} href="/en"><Image src={logo} alt="" width={38} height={38} /><span>Linkly</span></Link><p>A platform for managing customer conversations and running support and sales teams from one place.</p></section><nav><b>Product</b><a href="#features">Features</a><a href="#how">How it works</a><a href="#pricing">Pricing</a></nav><nav><b>Company</b><Link href="/en/privacy">Privacy</Link><Link href="/en/terms">Terms of use</Link><Link href="/en/data-deletion">Data deletion</Link><Link href="/en/contact">Contact us</Link></nav></div><small>All rights reserved to Al-Jumhoor Custom Advertising Company.　 Linkly © 2026</small></footer>
   <Link className={s.mobileCta} href="/signup">Start your free trial</Link>
 </div>; }
 

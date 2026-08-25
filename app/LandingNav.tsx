@@ -3,12 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import logo from "../public/assets/audiencew-logo.png";
+import logo from "../public/assets/linkly-logo.svg";
 import s from "./page.module.css";
 
 const copy = {
   ar: {
-    brandAria: "AudienceW - الرئيسية",
+    brandAria: "Linkly - الرئيسية",
     features: "المميزات",
     how: "طريقة العمل",
     pricing: "الأسعار",
@@ -22,7 +22,7 @@ const copy = {
     navAria: "التنقل الرئيسي"
   },
   en: {
-    brandAria: "AudienceW - Home",
+    brandAria: "Linkly - Home",
     features: "Features",
     how: "How it works",
     pricing: "Pricing",
@@ -60,7 +60,7 @@ export default function LandingNav({ lang = "ar" }: { lang?: "ar" | "en" }) {
       <div className={s.navInner}>
         <Link className={s.brand} href={homeHref} onClick={close} aria-label={text.brandAria}>
           <Image src={logo} alt="" width={38} height={38} priority />
-          <span>AudienceW</span>
+          <span>Linkly</span>
         </Link>
         <button className={s.menu} type="button" aria-label={open ? text.menuClose : text.menuOpen} aria-expanded={open} aria-controls="landing-navigation" onClick={() => setOpen(value => !value)}>
           <i /><i /><i />

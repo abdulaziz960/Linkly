@@ -231,7 +231,7 @@ export async function GET(request: NextRequest) {
 
   if (channel === "facebook" && code) {
     // Must match the client_id actually sent to facebook.com/dialog/oauth in
-    // /api/meta/connect (AudienceW's WhatsApp tech-provider app, not the
+    // /api/meta/connect (Linkly's WhatsApp tech-provider app, not the
     // Instagram-only app_id that used to live in settings.appId).
     const appId = techProviderMetaAppId;
     const appSecret = process.env.WHATSAPP_META_APP_SECRET || "";
@@ -295,7 +295,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (channel === "whatsapp" && (wabaId || phoneNumberId || businessId || code)) {
-    // WhatsApp always uses AudienceW's own tech-provider Meta app (see
+    // WhatsApp always uses Linkly's own tech-provider Meta app (see
     // techProviderMetaAppId above), which is a different Meta app from the
     // per-tenant Instagram/Facebook app — so it needs its own app secret,
     // never META_APP_SECRET/FACEBOOK_APP_SECRET (those belong to the

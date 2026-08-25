@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     try {
       const session = await createStripeCheckoutSession({
         amount,
-        description: `اشتراك AudienceW - ${subscription.companyName} (${subscription.plan}) [تجريبي]`,
+        description: `اشتراك Linkly - ${subscription.companyName} (${subscription.plan}) [تجريبي]`,
         successUrl: `${baseUrl()}/api/admin/subscriptions/stripe-return?session_id={CHECKOUT_SESSION_ID}&paymentId=${paymentId}`,
         cancelUrl: `${baseUrl()}/admin/payments`,
         metadata: { tenantId, paymentId }
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
   try {
     const invoice = await createMoyasarInvoice({
       amount,
-      description: `اشتراك AudienceW - ${subscription.companyName} (${subscription.plan})`,
+      description: `اشتراك Linkly - ${subscription.companyName} (${subscription.plan})`,
       callbackUrl: `${baseUrl()}/api/admin/subscriptions/payment-webhook`,
       metadata: { tenantId, paymentId }
     });

@@ -62,7 +62,7 @@ function openAuthModal(intent = 'trial', plan = 'Growth') {
   if (planChoice) planChoice.checked = true;
 
   const isLogin = intent === 'login';
-  $('#authTitle').textContent = isLogin ? 'ادخل إلى حسابك في AudienceW' : 'ابدأ تجربة AudienceW';
+  $('#authTitle').textContent = isLogin ? 'ادخل إلى حسابك في Linkly' : 'ابدأ تجربة Linkly';
   $('#authModeTitle').textContent = isLogin ? 'دخول أو طلب وصول' : 'بيانات التواصل';
   $('#trial')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   setTimeout(() => form.elements.company_name?.focus(), 450);
@@ -85,7 +85,7 @@ function switchView(view) {
     automation: 'الرد الآلي',
     settings: 'الإعدادات والصلاحيات',
   };
-  $('#viewTitle').textContent = labels[view] || 'AudienceW';
+  $('#viewTitle').textContent = labels[view] || 'Linkly';
   if (view === 'inbox') {
     loadConversations();
   }

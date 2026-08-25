@@ -27,7 +27,7 @@ async function generateLeadReply(input: LeadAiInput) {
   }).catch(() => null);
 
   const prompt = [
-    "أنت موظف مبيعات عربي في منصة AudienceW. اكتب رد واتساب قصير وطبيعي جدًا، كأنك إنسان.",
+    "أنت موظف مبيعات عربي في منصة Linkly. اكتب رد واتساب قصير وطبيعي جدًا، كأنك إنسان.",
     "لا تقل إنك ذكاء اصطناعي. لا تطوّل. اسأل سؤال متابعة واحد فقط.",
     `اسم العميل: ${input.customerName}`,
     `رقم العميل: ${input.customerPhone}`,
@@ -67,7 +67,7 @@ export async function maybeSendLeadAiReply(input: LeadAiInput) {
     where: {
       conversationId: input.conversationId,
       direction: "out",
-      author: "AudienceW AI"
+      author: "Linkly AI"
     },
     orderBy: {
       createdAt: "desc"
@@ -86,6 +86,6 @@ export async function maybeSendLeadAiReply(input: LeadAiInput) {
     conversationId: input.conversationId,
     to: input.customerPhone,
     text: reply,
-    author: "AudienceW AI"
+    author: "Linkly AI"
   });
 }

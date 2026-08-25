@@ -3,8 +3,8 @@ import Link from "next/link";
 import "../../legal.css";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | AudienceW",
-  description: "AudienceW privacy policy"
+  title: "Privacy Policy | Linkly",
+  description: "Linkly privacy policy"
 };
 
 export default function PrivacyPageEn() {
@@ -13,13 +13,13 @@ export default function PrivacyPageEn() {
       <section className="legal-shell">
         <Link className="legal-brand" href="/en">
           <span className="legal-logo">A</span>
-          AudienceW
+          Linkly
         </Link>
         <h1>Privacy Policy</h1>
         <p className="legal-updated">Last updated: July 27, 2026</p>
 
         <p>
-          AudienceW is a platform for managing customer conversations across multiple channels such as WhatsApp,
+          Linkly is a platform for managing customer conversations across multiple channels such as WhatsApp,
           Instagram, Facebook Messenger, Telegram, and Google Maps reviews. This policy explains how we collect,
           use, and protect data when you use the platform.
         </p>

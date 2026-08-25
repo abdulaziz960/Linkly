@@ -13,7 +13,7 @@
 
   var siteKey = currentScript.getAttribute("data-site-key");
   if (!siteKey) {
-    console.error("AudienceW widget: data-site-key is missing on the widget script tag.");
+    console.error("Linkly widget: data-site-key is missing on the widget script tag.");
     return;
   }
 

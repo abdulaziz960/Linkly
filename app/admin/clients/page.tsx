@@ -10,7 +10,7 @@ export default async function AdminClientsPage() {
     <>
       <AdminPageHeader
         eyebrow={["العملاء", "Clients"]}
-        title={["إدارة عملاء AudienceW", "Manage AudienceW clients"]}
+        title={["إدارة عملاء Linkly", "Manage Linkly clients"]}
         description={["كل عميل هنا حساب دخول حقيقي فعلي — إنشاء عميل جديد ينشئ حساب دخول حقيقي له فورًا.", "Every client here is a real, live login account — creating a new client creates their real login account immediately."]}
       />
       <ClientsView subscriptions={subscriptions} plans={plans} />

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 import BillingPageClient from "./BillingPageClient";
 import "./billing.css";
 
-export const metadata = { title: "الباقات والاشتراك | AudienceW" };
+export const metadata = { title: "الباقات والاشتراك | Linkly" };
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ expired?: string }> }) {
   const user = await getCurrentUser({ allowExpired: true });

@@ -82,7 +82,7 @@ export type UserAccount = {
   createdAt: string;
 };
 
-// Real AudienceW staff allowed into /admin. isPlatformAdmin defaults to 0 for
+// Real Linkly staff allowed into /admin. isPlatformAdmin defaults to 0 for
 // every account (including every tenant's own "مالك الحساب"), so without this
 // backfill nobody - not even platform staff - can reach the provider dashboard.
 // If any of these emails already has (or later gets) a real login account,
@@ -1132,7 +1132,7 @@ async function seedDatabase() {
       });
     }
 
-    // Real AudienceW staff (platformAdminEmails) need an actual login account
+    // Real Linkly staff (platformAdminEmails) need an actual login account
     // to ever reach /admin - unlike tenant owners, nothing else in the app
     // creates one for them. Flags isPlatformAdmin on any existing account for
     // the full list; only auto-creates a brand-new account for the narrower

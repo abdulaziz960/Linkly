@@ -3,8 +3,8 @@ import Link from "next/link";
 import "../../legal.css";
 
 export const metadata: Metadata = {
-  title: "Data Deletion | AudienceW",
-  description: "AudienceW data deletion instructions"
+  title: "Data Deletion | Linkly",
+  description: "Linkly data deletion instructions"
 };
 
 export default function DataDeletionPageEn() {
@@ -13,20 +13,20 @@ export default function DataDeletionPageEn() {
       <section className="legal-shell">
         <Link className="legal-brand" href="/en">
           <span className="legal-logo">A</span>
-          AudienceW
+          Linkly
         </Link>
         <h1>Data Deletion Instructions</h1>
         <p className="legal-updated">Last updated: July 27, 2026</p>
 
         <p>
-          AudienceW users and account owners can request deletion of their data or disconnect linked channels at
+          Linkly users and account owners can request deletion of their data or disconnect linked channels at
           any time. Deletable data includes account data, conversations, customers, employees, tags, connection
           settings, and stored tokens.
         </p>
 
         <h2>How to request data deletion</h2>
         <ol>
-          <li>Log in to your AudienceW account.</li>
+          <li>Log in to your Linkly account.</li>
           <li>Go to Settings &amp; Connections and disconnect any channels you no longer want to keep.</li>
           <li>To delete your full account data, send a deletion request to: marketing@audience.sa.</li>
           <li>Use the subject line: Data Deletion Request.</li>

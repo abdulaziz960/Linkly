@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   // Instagram uses its own standalone "Instagram API with Instagram Login" app
   // (instagram.com/oauth/authorize), whose App ID is NOT a valid classic
   // Facebook Platform app ID. Facebook Pages need a real classic app for
-  // facebook.com/dialog/oauth, so it reuses AudienceW's WhatsApp tech-provider
+  // facebook.com/dialog/oauth, so it reuses Linkly's WhatsApp tech-provider
   // app (already a verified, working classic Meta app) instead of falling
   // back to the Instagram-only app ID, which produced "Invalid App ID".
   const appId = channel === "whatsapp" || channel === "facebook"

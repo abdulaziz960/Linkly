@@ -3,8 +3,8 @@ import Link from "next/link";
 import "../legal.css";
 
 export const metadata: Metadata = {
-  title: "Data Deletion | AudienceW",
-  description: "AudienceW data deletion instructions"
+  title: "Data Deletion | Linkly",
+  description: "Linkly data deletion instructions"
 };
 
 export default function DataDeletionPage() {
@@ -13,19 +13,19 @@ export default function DataDeletionPage() {
       <section className="legal-shell">
         <Link className="legal-brand" href="/">
           <span className="legal-logo">A</span>
-          AudienceW
+          Linkly
         </Link>
         <h1>تعليمات حذف البيانات</h1>
         <p className="legal-updated">آخر تحديث: 27 يوليو 2026</p>
 
         <p>
-          يمكن لمستخدمي AudienceW ومالكي الحسابات طلب حذف بياناتهم أو فصل القنوات المرتبطة في أي وقت. تشمل البيانات
+          يمكن لمستخدمي Linkly ومالكي الحسابات طلب حذف بياناتهم أو فصل القنوات المرتبطة في أي وقت. تشمل البيانات
           القابلة للحذف بيانات الحساب، المحادثات، العملاء، الموظفين، الوسوم، إعدادات الربط، والتوكنات المحفوظة.
         </p>
 
         <h2>طريقة طلب حذف البيانات</h2>
         <ol>
-          <li>سجل الدخول إلى حسابك في AudienceW.</li>
+          <li>سجل الدخول إلى حسابك في Linkly.</li>
           <li>اذهب إلى الإعدادات والربط وافصل القنوات التي لا ترغب بالاحتفاظ بها.</li>
           <li>لحذف كامل بيانات الحساب، أرسل طلب حذف إلى البريد: marketing@audience.sa.</li>
           <li>اكتب في عنوان الرسالة: Data Deletion Request.</li>

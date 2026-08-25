@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
         text: message,
         direction: "out",
         messageId: metaResponse?.messages?.[0]?.id,
-        author: "AudienceW"
+        author: "Linkly"
       });
     } catch (error) {
       console.error("storeWhatsAppMessage failed after a successful Meta send", error);

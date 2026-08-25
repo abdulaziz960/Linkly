@@ -141,7 +141,7 @@ async function sendChannelText(channel: string, args: { tenantId: string; conver
 
   if (channel === "email") {
     try {
-      await sendEmailMessage(args.recipientId, args.text, "رسالة أتمتة من AudienceW", args.tenantId);
+      await sendEmailMessage(args.recipientId, args.text, "رسالة أتمتة من Linkly", args.tenantId);
     } catch (error) {
       console.error("Automation email send failed", error);
       return { ok: false, error: error instanceof Error ? error.message : "EMAIL_SEND_FAILED" };

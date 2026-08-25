@@ -117,7 +117,7 @@ function encodeHeaderWord(value: string) {
   return `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
 }
 
-export async function sendEmailMessage(to: string, text: string, subject = "رسالة من AudienceW", tenantId = "tenant-demo") {
+export async function sendEmailMessage(to: string, text: string, subject = "رسالة من Linkly", tenantId = "tenant-demo") {
   const integration = await prisma.emailIntegration.findUnique({ where: { id: `email:${tenantId}` } })
     ?? await prisma.emailIntegration.findUnique({ where: { id: "primary-email" } });
   if (integration?.provider === "gmail" && integration.accessToken) {

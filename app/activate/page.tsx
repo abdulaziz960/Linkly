@@ -2,7 +2,7 @@ import ActivatePageClient from "./ActivatePageClient";
 import "../login/login.css";
 
 export const metadata = {
-  title: "تفعيل الحساب | AudienceW"
+  title: "تفعيل الحساب | Linkly"
 };
 
 export default function ActivatePage() {

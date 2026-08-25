@@ -49,7 +49,7 @@ export default function SignupPageClient() {
           <button type="button" aria-pressed={lang === "ar"} className={lang === "ar" ? "active" : ""} onClick={() => setLang("ar")}>العربية</button>
           <button type="button" aria-pressed={lang === "en"} className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>English</button>
         </div>
-        <Link className="journey-brand" href="/"><Image src="/assets/audiencew-logo.png" alt="" width={44} height={44} />AudienceW</Link>
+        <Link className="journey-brand" href="/"><Image src="/assets/linkly-logo.svg" alt="" width={44} height={44} />Linkly</Link>
         <span className="journey-kicker">{text.kicker}</span>
         <h1>{text.heroTitle}</h1>
         <p>{text.heroCopy}</p>

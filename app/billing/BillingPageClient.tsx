@@ -15,7 +15,7 @@ const copy = {
     heading: "اختر الباقة المناسبة لفريقك",
     subheading: "اشتراك شهري مرن، ويمكنك تغيير الباقة لاحقًا.",
     currentPlan: "اشتراكك الحالي:",
-    blockedSuspended: "تم إيقاف حسابك من فريق AudienceW. اختر باقة وأكمل الدفع لإعادة تفعيله، أو تواصل معنا إذا كان هذا خطأ.",
+    blockedSuspended: "تم إيقاف حسابك من فريق Linkly. اختر باقة وأكمل الدفع لإعادة تفعيله، أو تواصل معنا إذا كان هذا خطأ.",
     blockedTrialEnded: "انتهت فترتك التجريبية. اختر باقة وأكمل الدفع لمتابعة استخدام حسابك."
   },
   en: {
@@ -24,7 +24,7 @@ const copy = {
     heading: "Choose the right plan for your team",
     subheading: "A flexible monthly subscription — you can change your plan later.",
     currentPlan: "Your current subscription:",
-    blockedSuspended: "Your account has been suspended by the AudienceW team. Choose a plan and complete payment to reactivate it, or contact us if this is a mistake.",
+    blockedSuspended: "Your account has been suspended by the Linkly team. Choose a plan and complete payment to reactivate it, or contact us if this is a mistake.",
     blockedTrialEnded: "Your trial period has ended. Choose a plan and complete payment to keep using your account."
   }
 } as const;
@@ -62,7 +62,7 @@ export default function BillingPageClient({
           <button type="button" aria-pressed={lang === "ar"} className={lang === "ar" ? "active" : ""} onClick={() => setLang("ar")}>العربية</button>
           <button type="button" aria-pressed={lang === "en"} className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>English</button>
         </div>
-        <div><Image src="/assets/audiencew-logo.png" alt="" width={44} height={44} /><b>AudienceW</b></div>
+        <div><Image src="/assets/linkly-logo.svg" alt="" width={44} height={44} /><b>Linkly</b></div>
       </header>
       <section className="billing-hero">
         <span>{text.stepLabel}</span>

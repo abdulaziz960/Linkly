@@ -21,16 +21,16 @@ export default function LoginPageClient() {
 
   return (
     <main className="login-page" dir={lang === "ar" ? "rtl" : "ltr"}>
-      <section className="login-panel" aria-label={lang === "ar" ? "تسجيل الدخول إلى AudienceW" : "Sign in to AudienceW"}>
+      <section className="login-panel" aria-label={lang === "ar" ? "تسجيل الدخول إلى Linkly" : "Sign in to Linkly"}>
         <div className="login-lang-toggle">
           <button type="button" aria-pressed={lang === "ar"} className={lang === "ar" ? "active" : ""} onClick={() => setLang("ar")}>العربية</button>
           <button type="button" aria-pressed={lang === "en"} className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>English</button>
         </div>
 
         <div className="login-brand">
-          <Image src="/assets/audiencew-logo.png" alt="" width={54} height={54} />
+          <Image src="/assets/linkly-logo.svg" alt="" width={54} height={54} />
           <div>
-            <span>AudienceW</span>
+            <span>Linkly</span>
             <b>{text.tagline}</b>
           </div>
         </div>

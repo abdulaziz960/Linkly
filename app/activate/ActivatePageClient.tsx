@@ -6,12 +6,12 @@ import ActivateForm from "./ActivateForm";
 
 const copy = {
   ar: {
-    ariaLabel: "تفعيل حساب AudienceW",
+    ariaLabel: "تفعيل حساب Linkly",
     tagline: "إنشاء كلمة سر لحساب الموظف",
     heading: "تفعيل الحساب"
   },
   en: {
-    ariaLabel: "Activate your AudienceW account",
+    ariaLabel: "Activate your Linkly account",
     tagline: "Create a password for your employee account",
     heading: "Activate account"
   }
@@ -30,9 +30,9 @@ export default function ActivatePageClient() {
         </div>
 
         <div className="login-brand">
-          <Image src="/assets/audiencew-logo.png" alt="" width={44} height={44} />
+          <Image src="/assets/linkly-logo.svg" alt="" width={44} height={44} />
           <div>
-            <span>AudienceW</span>
+            <span>Linkly</span>
             <b>{text.tagline}</b>
           </div>
         </div>

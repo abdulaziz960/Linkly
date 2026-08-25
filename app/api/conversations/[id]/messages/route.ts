@@ -729,7 +729,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       const subject = latestEmailMessage?.sourceLabel
         ? `Re: ${latestEmailMessage.sourceLabel}`
-        : "رد من AudienceW";
+        : "رد من Linkly";
       await sendEmailMessage(recipientEmail, text, subject, user?.tenantId);
 
       const message = await prisma.$transaction(async (tx) => {

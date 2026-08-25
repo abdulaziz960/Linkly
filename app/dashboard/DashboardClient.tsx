@@ -1101,7 +1101,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>{t("الفواتير والاشتراك", "Billing & subscription")}</button>
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("security")}>{t("الأمان", "Security")}</button>
                     <button className="btn danger" type="button" onClick={() => {
-                      if (window.confirm(t("هل تريد تسجيل الخروج من لوحة AudienceW؟", "Sign out of AudienceW?"))) {
+                      if (window.confirm(t("هل تريد تسجيل الخروج من لوحة Linkly؟", "Sign out of Linkly?"))) {
                         setProfileOpen(false);
                         fetch("/api/auth/logout", { method: "POST" }).finally(() => {
                           router.replace("/login");

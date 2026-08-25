@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   try {
     const invoice = await createMoyasarInvoice({
       amount,
-      description: `شحن ${messages.toLocaleString("en-US")} رسالة حملات - AudienceW`,
+      description: `شحن ${messages.toLocaleString("en-US")} رسالة حملات - Linkly`,
       callbackUrl: `${baseUrl()}/api/campaigns/payment-webhook`,
       metadata: { tenantId: user.tenantId, messages: String(messages), paymentId }
     });

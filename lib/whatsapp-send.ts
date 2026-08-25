@@ -56,7 +56,7 @@ export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
         text,
         time: formatMessageTime(now),
         createdAt: now.toISOString(),
-        author: input.author || "AudienceW AI"
+        author: input.author || "Linkly AI"
       }
     });
 
@@ -155,7 +155,7 @@ export async function sendWhatsAppInteractiveMessage(input: SendWhatsAppInteract
         text,
         time: formatMessageTime(now),
         createdAt: now.toISOString(),
-        author: input.author || "AudienceW AI"
+        author: input.author || "Linkly AI"
       }
     });
 

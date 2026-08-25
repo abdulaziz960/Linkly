@@ -30,9 +30,9 @@ export default function ForgotPasswordPageClient() {
         </div>
 
         <div className="login-brand">
-          <Image src="/assets/audiencew-logo.png" alt="" width={44} height={44} />
+          <Image src="/assets/linkly-logo.svg" alt="" width={44} height={44} />
           <div>
-            <span>AudienceW</span>
+            <span>Linkly</span>
             <b>{text.tagline}</b>
           </div>
         </div>

@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import logo from "../public/assets/audiencew-logo.png";
+import logo from "../public/assets/linkly-logo.svg";
 import LandingNav from "./LandingNav";
 import s from "./page.module.css";
 
 export const metadata: Metadata = {
-  title: "AudienceW | محادثات عملائك وفريقك في مكان واحد",
+  title: "Linkly | محادثات عملائك وفريقك في مكان واحد",
   description: "منصة سعودية تجمع محادثات واتساب وإنستقرام والبريد وتيليجرام وتيك توك وتساعد فرق الخدمة والمبيعات على التوزيع والمتابعة من مكان واحد.",
   alternates: { canonical: "/" },
-  openGraph: { title: "AudienceW | كل محادثات عملائك في مكان واحد", description: "صندوق وارد موحد، توزيع للمحادثات، أتمتة وتقارير لفريقك.", locale: "ar_SA", type: "website" }
+  openGraph: { title: "Linkly | كل محادثات عملائك في مكان واحد", description: "صندوق وارد موحد، توزيع للمحادثات، أتمتة وتقارير لفريقك.", locale: "ar_SA", type: "website" }
 };
 
 const features = [
@@ -28,7 +28,7 @@ const faqs = [
   ["هل يوجد API؟", "تتوفر Webhooks وواجهات تكامل ضمن باقة التوسع وفق نطاق التكامل المطلوب."],
   ["هل أقدر ألغي الاشتراك؟", "يمكن جدولة الإلغاء لنهاية الفترة الحالية من شاشة الفوترة."],
   ["هل يوجد رسم تجهيز؟", "خدمة تجهيز حسابات Meta والربط الكامل اختيارية وتكلف 500 ريال مرة واحدة."],
-  ["كيف تُحتسب رسوم واتساب؟", "رسوم رسائل WhatsApp الرسمية من Meta، إن وجدت، منفصلة عن اشتراك AudienceW."],
+  ["كيف تُحتسب رسوم واتساب؟", "رسوم رسائل WhatsApp الرسمية من Meta، إن وجدت، منفصلة عن اشتراك Linkly."],
   ["هل بيانات العملاء آمنة؟", "تستخدم المنصة صلاحيات مستخدمين، وتشفيرًا لأسرار التكاملات، وجلسات محددة المدة، وسجلات تشغيل للمساعدة في تتبع النشاط."]
 ] as const;
 const plans = [
@@ -37,8 +37,8 @@ const plans = [
   { name:"الأعمال", price:"999", cta:"جرّب باقة الأعمال", items:["حتى 10 مستخدمين","فرق متعددة","Webhooks وAPI","دعم أولوية"] }
 ] as const;
 const jsonLd = { "@context":"https://schema.org", "@graph":[
-  { "@type":"Organization", name:"AudienceW", url:"https://audiencew.audience.sa", logo:"https://audiencew.audience.sa/icon.png" },
-  { "@type":"SoftwareApplication", name:"AudienceW", applicationCategory:"BusinessApplication", operatingSystem:"Web", offers:{"@type":"AggregateOffer",lowPrice:"249",highPrice:"999",priceCurrency:"SAR"} },
+  { "@type":"Organization", name:"Linkly", url:"https://audiencew.audience.sa", logo:"https://audiencew.audience.sa/assets/linkly-logo.svg" },
+  { "@type":"SoftwareApplication", name:"Linkly", applicationCategory:"BusinessApplication", operatingSystem:"Web", offers:{"@type":"AggregateOffer",lowPrice:"249",highPrice:"999",priceCurrency:"SAR"} },
   { "@type":"FAQPage", mainEntity:faqs.map(([q,a])=>({"@type":"Question",name:q,acceptedAnswer:{"@type":"Answer",text:a}})) }
 ]};
 
@@ -51,8 +51,8 @@ function PlatformLogo({platform}:{platform:Platform}){
   if(platform==="tiktok") return <svg className={s.platformLogo} viewBox="0 0 24 24" aria-hidden="true"><path className={s.logoFill} d="M15.2 3c.4 2.3 1.7 3.7 3.8 4.1v3.2a9 9 0 0 1-3.8-1.2v6.1a5.8 5.8 0 1 1-5-5.7v3.3a2.6 2.6 0 1 0 1.8 2.5V3h3.2Z"/></svg>;
   return <svg className={s.platformLogo} viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.7a8 8 0 0 1-11.8 7l-4.2 1.1 1.1-4.1A8 8 0 1 1 20 11.7Z"/><path d="M9 8.5c.3 2.8 2 4.6 4.8 5.5.5.1 1.3-.8 1.5-1.2"/></svg>;
 }
-function Preview(){return <div className={s.preview} aria-label="معاينة صندوق محادثات AudienceW">
-  <header><div><i/><i/><i/></div><b>AudienceW Inbox</b><span>متصل</span></header>
+function Preview(){return <div className={s.preview} aria-label="معاينة صندوق محادثات Linkly">
+  <header><div><i/><i/><i/></div><b>Linkly Inbox</b><span>متصل</span></header>
   <div className={s.previewBody}><aside><Image src={logo} alt="" width={34} height={34}/><b>⌁</b><b>◎</b><b>♢</b><b>⚙</b></aside>
   <section className={s.conversations}><h3>المحادثات <small>12 جديدة</small></h3>{[["و","وليد السبيعي","هل المنتج متوفر اليوم؟","واتساب"],["ن","نورة أحمد","وصلتني رسالتكم من الإعلان","Instagram"],["س","شركة سمارت","طلب عرض سعر للفريق","البريد"],["م","محمد علي","أحتاج مساعدة في الطلب","Telegram"],["ر","ريم خالد","مهتمة بالربط بعد اعتماد تيك توك","TikTok"]].map((x,i)=><article className={i===0?s.selected:""} key={x[1]}><em>{x[0]}</em><div><b>{x[1]}</b><p>{x[2]}</p><small>{x[3]} · الآن</small></div></article>)}</section>
   <section className={s.chat}><header><div><b>وليد السبيعي</b><small>محادثة مفتوحة</small></div><span>فريق المبيعات</span></header><div><p>السلام عليكم، هل المنتج متوفر اليوم؟</p><p>وعليكم السلام، نعم متوفر. أرسل لك رابط الطلب الآن.</p><small>عميل مهتم　 متابعة اليوم</small></div><footer>اكتب ردك هنا… <b>↑</b></footer></section></div>
@@ -72,13 +72,13 @@ export default function HomePage(){return <div className={s.page}>
     <section className={`${s.section} ${s.useCases}`}><Intro kicker="حالات الاستخدام" title="من أول استفسار إلى عميل تمت خدمته"/><div>{[["↗","المبيعات","عميل يأتي من واتساب أو إنستقرام، يُسند لموظف مبيعات وتُحفظ خطوته التالية.","Lead ← تعيين ← متابعة"],["◎","خدمة العملاء","استفسار أو شكوى تدخل للصندوق وتنتقل للفريق الصحيح مع كامل السياق.","رسالة ← فريق ← حل"],["⌁","التشغيل والمتابعة","القواعد والردود السريعة وساعات العمل تقلل التأخير وتحافظ على تجربة ثابتة.","قاعدة ← إجراء ← قياس"]].map(x=><article key={x[1]}><i>{x[0]}</i><h3>{x[1]}</h3><p>{x[2]}</p><small dir="rtl">{x[3]}</small></article>)}</div></section>
     <section className={`${s.section} ${s.security}`}><Intro kicker="الأمان والثقة" title="بيانات عملائك تستحق حماية على مستوى أعمالك" copy="الحماية جزء من بنية المنتج: من الجلسة والصلاحية إلى أسرار التكاملات وقبول أحداث القنوات."/><div>{[["01","تشفير الأسرار","بيانات ربط القنوات الحساسة مشفرة وتظهر مقنّعة في الواجهة."],["02","صلاحيات وسجلات تشغيل","أدوار واضحة وتسجيل للأحداث التشغيلية المهمة."],["03","تحقق من Webhooks","تُرفض أحداث Meta وX إذا لم تحمل توقيع المزود الصحيح."],["04","جلسات وكلمات مرور آمنة","جلسات محددة المدة وكلمات مرور محفوظة بخوارزمية scrypt مع salt فريد."]].map(x=><article key={x[0]}><span>{x[0]}</span><div><h3>{x[1]}</h3><p>{x[2]}</p></div></article>)}</div></section>
     <section className={`${s.section} ${s.pricing}`} id="pricing"><Intro kicker="الأسعار" title="باقة واضحة لكل مرحلة من نمو فريقك" copy="ابدأ بالتجربة أولًا، ثم اختر السعة والأدوات المناسبة لطريقة عملك."/><div className={s.planGrid}>{plans.map(p=>{const featured="featured" in p&&p.featured;return <article className={featured?s.featured:""} key={p.name}>{featured?<span className={s.popular}>الأكثر اختيارًا</span>:null}<h3>{p.name}</h3><div className={s.price}><b>{p.price}</b><span>ريال<br/>/ الشهر</span></div><ul>{p.items.map(i=><li key={i}><Check/>{i}</li>)}</ul><Link className={featured?s.primaryLarge:s.planButton} href="/signup">{p.cta}</Link></article>})}</div>
-      <div className={s.metaSetup}><div className={s.metaSetupHead}><div className={s.metaSetupBadge}><b>500</b><span>ريال مرة واحدة</span></div><div><h2>ما عندك حساب Facebook أو مدير أعمال؟</h2><p>نجهز لك الإعدادات المطلوبة من البداية: إنشاء الحسابات المطلوبة، تجهيز Meta Business، ربط WhatsApp Business، ومساعدتك حتى يصبح الرقم جاهزًا للاستخدام داخل AudienceW.</p></div></div><div className={s.metaSetupSteps}>{["إنشاء وتجهيز حساب Facebook المطلوب","إعداد Meta Business Manager","تجهيز WhatsApp Business وربط الرقم","مراجعة الإعدادات الأساسية والتشغيل"].map(step=><span key={step}>{step}</span>)}</div><p className={s.metaSetupNote}>رسوم الخدمة تدفع مرة واحدة ولا تشمل رسوم Meta أو أي رسوم حكومية أو رسوم مزود خارجي إن وجدت.</p></div>
-      <p className={s.whatsappNote}><b>رسوم WhatsApp:</b> رسوم الرسائل الرسمية من Meta، إن وجدت، منفصلة عن اشتراك AudienceW.</p>
+      <div className={s.metaSetup}><div className={s.metaSetupHead}><div className={s.metaSetupBadge}><b>500</b><span>ريال مرة واحدة</span></div><div><h2>ما عندك حساب Facebook أو مدير أعمال؟</h2><p>نجهز لك الإعدادات المطلوبة من البداية: إنشاء الحسابات المطلوبة، تجهيز Meta Business، ربط WhatsApp Business، ومساعدتك حتى يصبح الرقم جاهزًا للاستخدام داخل Linkly.</p></div></div><div className={s.metaSetupSteps}>{["إنشاء وتجهيز حساب Facebook المطلوب","إعداد Meta Business Manager","تجهيز WhatsApp Business وربط الرقم","مراجعة الإعدادات الأساسية والتشغيل"].map(step=><span key={step}>{step}</span>)}</div><p className={s.metaSetupNote}>رسوم الخدمة تدفع مرة واحدة ولا تشمل رسوم Meta أو أي رسوم حكومية أو رسوم مزود خارجي إن وجدت.</p></div>
+      <p className={s.whatsappNote}><b>رسوم WhatsApp:</b> رسوم الرسائل الرسمية من Meta، إن وجدت، منفصلة عن اشتراك Linkly.</p>
     </section>
     <section className={`${s.section} ${s.faq}`} id="faq"><Intro kicker="الأسئلة الشائعة" title="إجابات واضحة قبل أن تبدأ"/><div>{faqs.map(([q,a])=><details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
-    <section className={s.finalCta}><div><span>ابدأ اليوم</span><h2>خل فريقك يركز على العميل، مو على التنقل بين التطبيقات.</h2><p>ابدأ تجربة AudienceW مجانًا لمدة 14 يومًا.</p></div><div><Link href="/signup">ابدأ تجربتك مجانًا</Link><small>بدون بطاقة دفع</small></div></section>
+    <section className={s.finalCta}><div><span>ابدأ اليوم</span><h2>خل فريقك يركز على العميل، مو على التنقل بين التطبيقات.</h2><p>ابدأ تجربة Linkly مجانًا لمدة 14 يومًا.</p></div><div><Link href="/signup">ابدأ تجربتك مجانًا</Link><small>بدون بطاقة دفع</small></div></section>
   </main>
-  <footer className={s.footer}><div><section><Link className={s.brand} href="/"><Image src={logo} alt="" width={38} height={38}/><span>AudienceW</span></Link><p>منصة لإدارة محادثات العملاء وتشغيل فرق الخدمة والمبيعات من مكان واحد.</p></section><nav><b>المنتج</b><a href="#features">المميزات</a><a href="#how">طريقة العمل</a><a href="#pricing">الأسعار</a></nav><nav><b>الشركة</b><Link href="/privacy">الخصوصية</Link><Link href="/terms">شروط الاستخدام</Link><Link href="/data-deletion">حذف البيانات</Link><Link href="/contact">تواصل معنا</Link></nav></div><small>جميع الحقوق محفوظة لشركة الجمهور المخصص للدعاية والإعلان.　 AudienceW © 2026</small></footer>
+  <footer className={s.footer}><div><section><Link className={s.brand} href="/"><Image src={logo} alt="" width={38} height={38}/><span>Linkly</span></Link><p>منصة لإدارة محادثات العملاء وتشغيل فرق الخدمة والمبيعات من مكان واحد.</p></section><nav><b>المنتج</b><a href="#features">المميزات</a><a href="#how">طريقة العمل</a><a href="#pricing">الأسعار</a></nav><nav><b>الشركة</b><Link href="/privacy">الخصوصية</Link><Link href="/terms">شروط الاستخدام</Link><Link href="/data-deletion">حذف البيانات</Link><Link href="/contact">تواصل معنا</Link></nav></div><small>جميع الحقوق محفوظة لشركة الجمهور المخصص للدعاية والإعلان.　 Linkly © 2026</small></footer>
   <Link className={s.mobileCta} href="/signup">ابدأ تجربتك مجانًا</Link>
   </div>}
 

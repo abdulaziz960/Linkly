@@ -3,8 +3,8 @@ import Link from "next/link";
 import "../../legal.css";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | AudienceW",
-  description: "AudienceW terms of service"
+  title: "Terms of Service | Linkly",
+  description: "Linkly terms of service"
 };
 
 export default function TermsPageEn() {
@@ -13,13 +13,13 @@ export default function TermsPageEn() {
       <section className="legal-shell">
         <Link className="legal-brand" href="/en">
           <span className="legal-logo">A</span>
-          AudienceW
+          Linkly
         </Link>
         <h1>Terms of Use</h1>
         <p className="legal-updated">Last updated: July 27, 2026</p>
 
         <p>
-          By using the AudienceW platform, you agree to these terms. The platform is designed to manage customer
+          By using the Linkly platform, you agree to these terms. The platform is designed to manage customer
           communication across the digital channels connected to your account, based on the permissions you or
           your company grant.
         </p>
@@ -46,7 +46,7 @@ export default function TermsPageEn() {
 
         <h2>Data and content</h2>
         <p>
-          The customer retains ownership of their data and conversation content. AudienceW uses this data only to
+          The customer retains ownership of their data and conversation content. Linkly uses this data only to
           provide the service and operate the features requested within the platform.
         </p>
 
