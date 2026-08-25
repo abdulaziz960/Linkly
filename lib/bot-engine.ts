@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
-import { sendWhatsAppTextMessage } from "./whatsapp-send";
+import { sendWhatsAppTextMessage, sendWhatsAppInteractiveMessage } from "./whatsapp-send";
 import { sendTelegramTextMessage } from "./telegram-send";
 import { sendInstagramTextMessage } from "./instagram-send";
 import { sendFacebookTextMessage } from "./facebook-send";
@@ -122,6 +122,36 @@ function matchListReply(node: BotNode, incomingText: string): string | null {
   return byLabel?.target || null;
 }
 
+// WhatsApp gets real tappable reply buttons (short lists, up to 3 options) or
+// a native list picker (long lists, up to 10 options) instead of a plain-text
+// "1. option" message. Other channels, and WhatsApp lists that exceed those
+// limits, fall back to the plain-text rendering.
+async function sendBotList(channel: BotChannel, node: BotNode, args: { tenantId: string; conversationId: string; recipientId: string }) {
+  const options = parseListOptions(node.content);
+  const displayText = formatListMessage(node.title, node.content);
+
+  if (channel === "whatsapp" && options.length >= 1) {
+    const isShortList = node.type === "إرسال قائمة قصيرة";
+    const fitsNative = isShortList ? options.length <= 3 : options.length <= 10;
+    if (fitsNative) {
+      const result = await sendWhatsAppInteractiveMessage({
+        tenantId: args.tenantId,
+        conversationId: args.conversationId,
+        to: args.recipientId,
+        bodyText: node.title,
+        options: options.map((option) => option.label),
+        kind: isShortList ? "button" : "list",
+        listButtonLabel: "اختر",
+        displayText,
+        author: BOT_AUTHOR
+      });
+      if (result.ok) return result;
+    }
+  }
+
+  return sendBotText(channel, { ...args, text: displayText });
+}
+
 async function sendBotText(channel: BotChannel, args: { tenantId: string; conversationId: string; recipientId: string; text: string }) {
   if (channel === "whatsapp") {
     return sendWhatsAppTextMessage({
@@ -214,7 +244,7 @@ async function executeFrom(
     }
 
     if (LIST_NODE_TYPES.has(node.type)) {
-      await sendBotText(channel, { ...ctx, text: formatListMessage(node.title, node.content) });
+      await sendBotList(channel, node, ctx);
       await prisma.conversation.update({
         where: { id: ctx.conversationId },
         data: { botWaitingNodeTitle: node.title }
