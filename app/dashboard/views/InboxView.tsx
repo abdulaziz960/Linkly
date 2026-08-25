@@ -330,6 +330,7 @@ export default function InboxView({
   const [commentReplyTarget, setCommentReplyTarget] = useState<string>("");
   const [commentReplyText, setCommentReplyText] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [moreTabsOpen, setMoreTabsOpen] = useState(false);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | InboxPriority>("all");
@@ -676,12 +677,6 @@ export default function InboxView({
               onClick={() => onChangeFilter("mine")}
             />
           ) : null}
-          <FilterButton
-            active={filter === "assigned"}
-            count={counts.assigned}
-            label={t("مسندة", "Assigned")}
-            onClick={() => onChangeFilter("assigned")}
-          />
           {!assignedOnly ? (
             <FilterButton
               active={filter === "unassigned"}
@@ -690,18 +685,41 @@ export default function InboxView({
               onClick={() => onChangeFilter("unassigned")}
             />
           ) : null}
-          <FilterButton
-            active={filter === "unread"}
-            count={counts.unread}
-            label={t("غير مقروء", "Unread")}
-            onClick={() => onChangeFilter("unread")}
-          />
-          <FilterButton
-            active={filter === "closed"}
-            count={counts.closed}
-            label={t("مغلقة", "Closed")}
-            onClick={() => onChangeFilter("closed")}
-          />
+          {!assignedOnly ? (
+            <button
+              type="button"
+              className={`conversation-tabs-toggle ${moreTabsOpen ? "open" : ""}`}
+              aria-expanded={moreTabsOpen}
+              aria-label={t("عرض بقية الحالات", "Show more states")}
+              onClick={() => setMoreTabsOpen((current) => !current)}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+            </button>
+          ) : null}
+          {assignedOnly || moreTabsOpen || filter === "assigned" ? (
+            <FilterButton
+              active={filter === "assigned"}
+              count={counts.assigned}
+              label={t("مسندة", "Assigned")}
+              onClick={() => onChangeFilter("assigned")}
+            />
+          ) : null}
+          {assignedOnly || moreTabsOpen || filter === "unread" ? (
+            <FilterButton
+              active={filter === "unread"}
+              count={counts.unread}
+              label={t("غير مقروء", "Unread")}
+              onClick={() => onChangeFilter("unread")}
+            />
+          ) : null}
+          {assignedOnly || moreTabsOpen || filter === "closed" ? (
+            <FilterButton
+              active={filter === "closed"}
+              count={counts.closed}
+              label={t("مغلقة", "Closed")}
+              onClick={() => onChangeFilter("closed")}
+            />
+          ) : null}
         </div>
         <div className="inbox-search-tools">
           <label className="search-box">
