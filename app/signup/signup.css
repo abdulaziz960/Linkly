@@ -11,6 +11,8 @@
 .custom-select-option:hover{background:#efe2d6}
 .custom-select-option.selected{background:#efe2d6;font-weight:800}
 
+.journey-lang-toggle{display:flex;justify-content:flex-end;gap:6px;margin-bottom:18px}.journey-lang-toggle button{border:1px solid #ded0c4;border-radius:999px;background:#fff;color:#806f63;padding:6px 14px;font-size:13px;font-weight:800;cursor:pointer}.journey-lang-toggle button.active{border-color:#b55332;background:#b55332;color:#fff}
+
 .signup-honeypot {
   position: absolute !important;
   width: 1px !important;
