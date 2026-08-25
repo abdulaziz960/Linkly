@@ -7,6 +7,14 @@ export const runtime = "nodejs";
 
 const GRAPH_VERSION = "v22.0";
 
+type MetaError = { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string };
+
+function formatMetaError(error: MetaError | undefined, fallback: string) {
+  if (!error?.message) return fallback;
+  const codePart = error.code !== undefined ? ` (code ${error.code}${error.error_subcode ? `/${error.error_subcode}` : ""})` : "";
+  return `${error.message}${codePart}`;
+}
+
 export async function GET() {
   try {
     const user = await getCurrentUser();
@@ -24,7 +32,7 @@ export async function GET() {
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      return jsonError(payload?.error?.message || "تعذر جلب الملف التجاري من Meta", response.status);
+      return jsonError(formatMetaError(payload?.error, "تعذر جلب الملف التجاري من Meta"), response.status);
     }
 
     return jsonOk(payload?.data?.[0] || {});
@@ -70,7 +78,7 @@ export async function POST(request: NextRequest) {
       );
       const sessionPayload = await sessionResponse.json().catch(() => null);
       if (!sessionResponse.ok || !sessionPayload?.id) {
-        return jsonError(sessionPayload?.error?.message || "تعذر بدء رفع الصورة", sessionResponse.status);
+        return jsonError(formatMetaError(sessionPayload?.error, "تعذر بدء رفع الصورة"), sessionResponse.status);
       }
 
       const uploadResponse = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${sessionPayload.id}`, {
@@ -83,7 +91,7 @@ export async function POST(request: NextRequest) {
       });
       const uploadPayload = await uploadResponse.json().catch(() => null);
       if (!uploadResponse.ok || !uploadPayload?.h) {
-        return jsonError(uploadPayload?.error?.message || "تعذر رفع الصورة إلى Meta", uploadResponse.status);
+        return jsonError(formatMetaError(uploadPayload?.error, "تعذر رفع الصورة إلى Meta"), uploadResponse.status);
       }
       profilePictureHandle = uploadPayload.h;
     }
@@ -108,7 +116,7 @@ export async function POST(request: NextRequest) {
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      return jsonError(payload?.error?.message || "تعذر حفظ الملف التجاري في Meta", response.status);
+      return jsonError(formatMetaError(payload?.error, "تعذر حفظ الملف التجاري في Meta"), response.status);
     }
 
     return jsonOk({ message: "تم حفظ الملف التجاري بنجاح" });

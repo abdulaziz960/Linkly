@@ -716,6 +716,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   async function loadBusinessProfile() {
     setBusinessProfileLoading(true);
+    setBusinessProfileFeedback(null);
     try {
       const response = await fetch("/api/meta/business-profile");
       const result = await response.json().catch(() => null);
@@ -732,9 +733,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           website2: websites[1] || ""
         });
         setBusinessProfilePictureUrl(profile.profile_picture_url || "");
+      } else {
+        setBusinessProfileFeedback({ type: "error", text: result?.error || t("تعذر جلب الملف التجاري من Meta", "Couldn't load the business profile from Meta") });
       }
     } catch {
-      // Silent: the card just stays empty and the user can fill it in manually.
+      setBusinessProfileFeedback({ type: "error", text: t("تعذر الاتصال بالسيرفر، تأكد من اتصالك بالإنترنت وحاول من جديد", "Couldn't reach the server, check your internet connection and try again") });
     } finally {
       setBusinessProfileLoading(false);
     }
