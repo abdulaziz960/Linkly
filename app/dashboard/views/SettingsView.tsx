@@ -1188,7 +1188,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 <div className="summary-list">
                   <b>{settings.businessName || t("حافظة الأعمال", "Business portfolio")}</b>
                   <b>{settings.wabaName || (isGoogleMaps ? t("موقع Google", "Google location") : isX ? t("حساب X", "X account") : isTikTok ? t("حساب TikTok", "TikTok account") : isSms ? t("قناة SMS", "SMS channel") : isTelegram ? t("بوت Telegram", "Telegram bot") : isFacebook ? t("صفحة Facebook", "Facebook page") : isInstagram ? t("حساب Instagram", "Instagram account") : t("حساب واتساب للأعمال", "WhatsApp Business account"))}</b>
-                  <b>{isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTikTok ? settings.appId || "TikTok App Key" : isSms ? settings.phoneNumber || "Sender ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || t("رقم واتساب", "WhatsApp number")}</b>
+                  <b dir="ltr">{isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTikTok ? settings.appId || "TikTok App Key" : isSms ? settings.phoneNumber || "Sender ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || t("رقم واتساب", "WhatsApp number")}</b>
                 </div>
               )}
         </div>
@@ -1412,7 +1412,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             </label>
             {!isInstagram && !isFacebook && !isTelegram && !isX && !isEmail && !isTikTok && !isSms ? <label>
               {t("رقم واتساب", "WhatsApp number")}
-              <input value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} readOnly={isWhatsApp} placeholder={t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete")} />
+              <input dir="ltr" value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} readOnly={isWhatsApp} placeholder={t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete")} />
             </label> : null}
             <label>
               {t("حالة الربط", "Connection status")}

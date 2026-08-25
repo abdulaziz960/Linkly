@@ -1019,7 +1019,7 @@ export default function InboxView({
                 </div>
                 <div>
                   <dt>{t("رقم الجوال", "Phone number")}</dt>
-                  <dd>{activeConversation.phone}</dd>
+                  <dd dir="ltr">{activeConversation.phone}</dd>
                 </div>
                 <div>
                   <dt>{t("الوسوم", "Tags")}</dt>
