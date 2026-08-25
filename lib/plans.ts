@@ -6,7 +6,8 @@ function nowTimestamp() {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "Asia/Riyadh",
-    numberingSystem: "latn"
+    numberingSystem: "latn",
+    calendar: "gregory"
   }).format(new Date());
 }
 

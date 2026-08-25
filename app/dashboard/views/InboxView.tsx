@@ -164,7 +164,9 @@ function getRelativeConversationTime(isoDate: string | undefined, language: "ar"
     return new Intl.DateTimeFormat(locale, {
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: "Asia/Riyadh"
+      timeZone: "Asia/Riyadh",
+      numberingSystem: "latn",
+      calendar: "gregory"
     }).format(date);
   }
   if (language === "en") {
@@ -182,7 +184,9 @@ function getRelativeConversationTime(isoDate: string | undefined, language: "ar"
   return new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",
-    timeZone: "Asia/Riyadh"
+    timeZone: "Asia/Riyadh",
+    numberingSystem: "latn",
+    calendar: "gregory"
   }).format(date);
 }
 

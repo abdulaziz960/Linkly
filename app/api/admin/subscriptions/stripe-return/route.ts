@@ -51,7 +51,8 @@ export async function GET(request: NextRequest) {
                 dateStyle: "medium",
                 timeStyle: "short",
                 timeZone: "Asia/Riyadh",
-                numberingSystem: "latn"
+                numberingSystem: "latn",
+                calendar: "gregory"
               }).format(new Date())
             }
           });

@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         data: {
           status: "نشط",
           renewalAt: renewalAt.toISOString().slice(0, 10),
-          updatedAt: new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", numberingSystem: "latn" }).format(new Date())
+          updatedAt: new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", numberingSystem: "latn", calendar: "gregory" }).format(new Date())
         }
       });
       return true;

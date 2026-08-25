@@ -47,6 +47,8 @@ export async function refreshGoogleAccessToken(settings: IntegrationSettings) {
       updatedAt: new Intl.DateTimeFormat("ar-SA", {
         dateStyle: "medium",
         timeStyle: "short",
+        numberingSystem: "latn",
+        calendar: "gregory",
         timeZone: "Asia/Riyadh"
       }).format(new Date())
     }

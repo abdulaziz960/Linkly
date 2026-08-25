@@ -96,7 +96,9 @@ export async function GET(request: NextRequest) {
       updatedAt: new Intl.DateTimeFormat("ar-SA", {
         dateStyle: "medium",
         timeStyle: "short",
-        timeZone: "Asia/Riyadh"
+        timeZone: "Asia/Riyadh",
+        numberingSystem: "latn",
+        calendar: "gregory"
       }).format(new Date())
     }
   });
