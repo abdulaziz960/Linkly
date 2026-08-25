@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import FilterButton from "../components/FilterButton";
 import CustomSelect from "../../components/CustomSelect";
 import type {
@@ -8,6 +8,7 @@ import type {
   ComposerMode,
   Conversation,
   ConversationChannel,
+  ConversationChannelFilter,
   ConversationFilter,
   MessageAttachment,
   MessageTemplate,
@@ -37,6 +38,7 @@ type InboxViewProps = {
   templates: MessageTemplate[];
   quickReplies: QuickReply[];
   currentUserName: string;
+  selectedChannel: ConversationChannelFilter;
   tags: Tag[];
   visibleConversations: Conversation[];
   onChangeAssignee: (assignee: string) => void;
@@ -45,6 +47,7 @@ type InboxViewProps = {
   onChangeFilter: (filter: ConversationFilter) => void;
   onChangeMessage: (message: string) => void;
   onChangeSearch: (search: string) => void;
+  onChangeChannel: (channel: ConversationChannelFilter) => void;
   onChangeSelectedConversation: (conversationId: string) => void;
   onChangeSelectedTemplate: (templateName: string) => void;
   onChangeTags: (tags: string[]) => void | Promise<void>;
@@ -53,6 +56,7 @@ type InboxViewProps = {
   onDeleteConversationById: (conversationId: string) => void | Promise<void>;
   onDeleteMessage: (messageId: string) => void;
   onMarkConversationUnread: (conversationId: string) => void | Promise<void>;
+  onToggleConversationStatus: (conversationId: string) => void | Promise<void>;
   onSend: (event: FormEvent<HTMLFormElement>, replyToMessageId?: string) => void | Promise<void>;
   onSendAttachment: (attachment: MessageAttachment) => void | Promise<void>;
   onSendCommentReply: (messageId: string, text: string) => void | Promise<void>;
@@ -206,6 +210,47 @@ function getMessagePreview(text: string, t: (ar: string, en: string) => string) 
   return value.length > 90 ? `${value.slice(0, 90)}...` : value;
 }
 
+function getSafeConversationPreview(text: string, t: (ar: string, en: string) => string) {
+  const cleaned = formatEmailContent(text)
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/https?:\/\/\S+/gi, t("[رابط]", "[link]"))
+    .replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, (email) => {
+      const domain = email.split("@")[1] || "";
+      return domain ? `•••@${domain}` : "•••";
+    })
+    .replace(/(?:\+?\d[\d\s()-]{7,}\d)/g, (phone) => `${phone.slice(0, 2)}••••${phone.slice(-2)}`)
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const value = cleaned || t("رسالة بدون معاينة", "Message preview unavailable");
+  return value.length > 150 ? `${value.slice(0, 150).trim()}…` : value;
+}
+
+type InboxPriority = "urgent" | "high" | "normal";
+type SavedInboxView = {
+  channel: ConversationChannelFilter;
+  assignee: string;
+  tag: string;
+  priority: "all" | InboxPriority;
+  date: "all" | "today" | "week" | "month";
+  sort: "newest" | "oldest" | "waiting" | "priority";
+};
+
+function getConversationPriority(conversation: Conversation): InboxPriority {
+  const wait = getWaitBadge(conversation, "en");
+  if (wait?.tier === "overdue") return "urgent";
+  if (wait?.tier === "warning" || (conversation.unread || 0) >= 3) return "high";
+  return "normal";
+}
+
+function getActivityTimestamp(conversation: Conversation) {
+  const value = conversation.lastMessageAt || conversation.lastActivityAt || conversation.firstMessageAt;
+  const timestamp = value ? new Date(value).getTime() : 0;
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
 // Email providers occasionally include transport metadata in the plain-text body.
 // Keep the inbox focused on the actual message, including for records received
 // before the email integration formatting was corrected.
@@ -244,6 +289,7 @@ export default function InboxView({
   templates,
   quickReplies,
   currentUserName,
+  selectedChannel,
   tags,
   visibleConversations,
   onChangeAssignee,
@@ -252,6 +298,7 @@ export default function InboxView({
   onChangeFilter,
   onChangeMessage,
   onChangeSearch,
+  onChangeChannel,
   onChangeSelectedConversation,
   onChangeSelectedTemplate,
   onChangeTags,
@@ -260,6 +307,7 @@ export default function InboxView({
   onDeleteConversationById,
   onDeleteMessage,
   onMarkConversationUnread,
+  onToggleConversationStatus,
   onSend,
   onSendAttachment,
   onSendCommentReply,
@@ -271,6 +319,7 @@ export default function InboxView({
   const documentInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -280,6 +329,15 @@ export default function InboxView({
   const [replyTargetId, setReplyTargetId] = useState("");
   const [commentReplyTarget, setCommentReplyTarget] = useState<string>("");
   const [commentReplyText, setCommentReplyText] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
+  const [tagFilter, setTagFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState<"all" | InboxPriority>("all");
+  const [dateFilter, setDateFilter] = useState<"all" | "today" | "week" | "month">("all");
+  const [sortMode, setSortMode] = useState<"newest" | "oldest" | "waiting" | "priority">("newest");
+  const [listLimit, setListLimit] = useState(60);
+  const [savedView, setSavedView] = useState<SavedInboxView | null>(null);
+  const [filterReferenceTime] = useState(() => Date.now());
   const reopenTemplates = templates.filter(
     (template) => template.status === "معتمد"
   );
@@ -308,6 +366,108 @@ export default function InboxView({
   const replyTarget = replyTargetId
     ? activeConversation.messages.find((item) => item.id === replyTargetId)
     : null;
+  const activeAdvancedFilterCount = [selectedChannel !== "all", assigneeFilter !== "all", tagFilter !== "all", priorityFilter !== "all", dateFilter !== "all"].filter(Boolean).length;
+  const displayedConversations = useMemo(() => {
+    const priorityRank: Record<InboxPriority, number> = { urgent: 3, high: 2, normal: 1 };
+    const filtered = visibleConversations.filter((conversation) => {
+      if (assigneeFilter !== "all" && conversation.assignee !== assigneeFilter) return false;
+      if (tagFilter !== "all" && !conversation.tags.includes(tagFilter)) return false;
+      if (priorityFilter !== "all" && getConversationPriority(conversation) !== priorityFilter) return false;
+      if (dateFilter !== "all") {
+        const timestamp = getActivityTimestamp(conversation);
+        const maxAge = dateFilter === "today" ? 86400000 : dateFilter === "week" ? 7 * 86400000 : 30 * 86400000;
+        if (!timestamp || filterReferenceTime - timestamp > maxAge) return false;
+      }
+      return true;
+    });
+
+    return filtered.sort((first, second) => {
+      if (sortMode === "oldest") return getActivityTimestamp(first) - getActivityTimestamp(second);
+      if (sortMode === "priority") return priorityRank[getConversationPriority(second)] - priorityRank[getConversationPriority(first)] || getActivityTimestamp(second) - getActivityTimestamp(first);
+      if (sortMode === "waiting") {
+        const firstIncoming = first.messages.at(-1)?.direction === "in" ? getActivityTimestamp(first) : Number.MAX_SAFE_INTEGER;
+        const secondIncoming = second.messages.at(-1)?.direction === "in" ? getActivityTimestamp(second) : Number.MAX_SAFE_INTEGER;
+        return firstIncoming - secondIncoming;
+      }
+      return getActivityTimestamp(second) - getActivityTimestamp(first);
+    });
+  }, [assigneeFilter, dateFilter, filterReferenceTime, priorityFilter, sortMode, tagFilter, visibleConversations]);
+  const pagedConversations = displayedConversations.slice(0, listLimit);
+
+  useEffect(() => {
+    setListLimit(60);
+  }, [assigneeFilter, dateFilter, filter, priorityFilter, search, selectedChannel, sortMode, tagFilter]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("linkly:inbox-saved-view");
+      if (stored) setSavedView(JSON.parse(stored) as SavedInboxView);
+    } catch {
+      // A blocked or malformed local preference should never block the inbox.
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleInboxShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.matches("input, textarea, select, [contenteditable='true']")) return;
+
+      if (event.key === "/") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      const currentIndex = pagedConversations.findIndex((conversation) => conversation.id === activeConversation.id);
+      if ((event.key.toLowerCase() === "j" || event.key === "ArrowDown") && pagedConversations.length) {
+        event.preventDefault();
+        const next = pagedConversations[Math.min(pagedConversations.length - 1, Math.max(0, currentIndex + 1))];
+        if (next) onChangeSelectedConversation(next.id);
+      } else if ((event.key.toLowerCase() === "k" || event.key === "ArrowUp") && pagedConversations.length) {
+        event.preventDefault();
+        const previous = pagedConversations[Math.max(0, currentIndex <= 0 ? 0 : currentIndex - 1)];
+        if (previous) onChangeSelectedConversation(previous.id);
+      } else if (event.key.toLowerCase() === "u" && activeConversation.id) {
+        event.preventDefault();
+        void onMarkConversationUnread(activeConversation.id);
+      } else if (event.key.toLowerCase() === "e" && activeConversation.id) {
+        event.preventDefault();
+        void onToggleConversationStatus(activeConversation.id);
+      }
+    };
+
+    window.addEventListener("keydown", handleInboxShortcut);
+    return () => window.removeEventListener("keydown", handleInboxShortcut);
+  }, [activeConversation.id, onChangeSelectedConversation, onMarkConversationUnread, onToggleConversationStatus, pagedConversations]);
+
+  function resetAdvancedFilters() {
+    setAssigneeFilter("all");
+    setTagFilter("all");
+    setPriorityFilter("all");
+    setDateFilter("all");
+    setSortMode("newest");
+    onChangeChannel("all");
+  }
+
+  function saveCurrentView() {
+    const nextView: SavedInboxView = { channel: selectedChannel, assignee: assigneeFilter, tag: tagFilter, priority: priorityFilter, date: dateFilter, sort: sortMode };
+    setSavedView(nextView);
+    try {
+      window.localStorage.setItem("linkly:inbox-saved-view", JSON.stringify(nextView));
+    } catch {
+      // Keep the current session useful even if browser storage is unavailable.
+    }
+  }
+
+  function applySavedView() {
+    if (!savedView) return;
+    onChangeChannel(savedView.channel);
+    setAssigneeFilter(savedView.assignee);
+    setTagFilter(savedView.tag);
+    setPriorityFilter(savedView.priority);
+    setDateFilter(savedView.date);
+    setSortMode(savedView.sort);
+  }
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -499,9 +659,12 @@ export default function InboxView({
     <section className={`inbox-grid ${mobileChatOpen ? "chat-open" : ""}`}>
       <aside className="conversation-column">
         <div className="column-head">
-          <h1>{t("المحادثات", "Conversations")}</h1>
+          <div className="inbox-title">
+            <span>{t("صندوق الوارد", "Inbox")}</span>
+            <small>{t(`${displayedConversations.length} محادثة ضمن العرض الحالي`, `${displayedConversations.length} conversations in this view`)}</small>
+          </div>
         </div>
-        <div className="conversation-tabs">
+        <div className="conversation-tabs" role="tablist" aria-label={t("حالات المحادثات", "Conversation states")}>
           {!assignedOnly ? (
             <FilterButton active={filter === "all"} count={counts.all} label={t("الكل", "All")} onClick={() => onChangeFilter("all")} />
           ) : null}
@@ -540,15 +703,63 @@ export default function InboxView({
             onClick={() => onChangeFilter("closed")}
           />
         </div>
-        <div className="search-box">
-          <input value={search} onChange={(event) => onChangeSearch(event.target.value)} placeholder={t("بحث باسم العميل أو الرقم", "Search by customer name or number")} />
+        <div className="inbox-search-tools">
+          <label className="search-box">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m16.5 16.5 4 4" /></svg>
+            <input
+              ref={searchInputRef}
+              value={search}
+              onChange={(event) => onChangeSearch(event.target.value)}
+              placeholder={t("ابحث بالاسم، الجوال، البريد أو نص الرسالة", "Search name, phone, email, or message")}
+              aria-label={t("البحث في المحادثات", "Search conversations")}
+            />
+            {search ? <button type="button" aria-label={t("مسح البحث", "Clear search")} onClick={() => onChangeSearch("")}>×</button> : null}
+          </label>
+          <div className="inbox-tool-row">
+            <button className={`inbox-filter-toggle ${filtersOpen ? "active" : ""}`} type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((current) => !current)}>
+              <span aria-hidden="true">☷</span>{t("الفلاتر", "Filters")}{activeAdvancedFilterCount ? <b>{activeAdvancedFilterCount}</b> : null}
+            </button>
+            <label className="inbox-sort">
+              <span className="sr-only">{t("ترتيب المحادثات", "Sort conversations")}</span>
+              <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)}>
+                <option value="newest">{t("الأحدث أولًا", "Newest first")}</option>
+                <option value="oldest">{t("الأقدم أولًا", "Oldest first")}</option>
+                <option value="waiting">{t("الأطول انتظارًا", "Longest waiting")}</option>
+                <option value="priority">{t("حسب الأولوية", "By priority")}</option>
+              </select>
+            </label>
+            {(activeAdvancedFilterCount || sortMode !== "newest") ? <button className="inbox-reset" type="button" onClick={resetAdvancedFilters}>{t("إعادة تعيين", "Reset")}</button> : null}
+          </div>
+          {filtersOpen ? (
+            <div className="inbox-advanced-filters">
+              <label><span>{t("القناة", "Channel")}</span><select value={selectedChannel} onChange={(event) => onChangeChannel(event.target.value as ConversationChannelFilter)}><option value="all">{t("كل القنوات", "All channels")}</option>{Object.keys(channelLabelsAr).map((channel) => <option key={channel} value={channel}>{language === "en" ? channelLabelsEn[channel as ConversationChannel] : channelLabelsAr[channel as ConversationChannel]}</option>)}</select></label>
+              <label><span>{t("الموظف", "Assignee")}</span><select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)}><option value="all">{t("كل الموظفين", "All assignees")}</option>{assigneeOptions.map((assignee) => <option key={assignee} value={assignee}>{assignee}</option>)}</select></label>
+              <label><span>{t("الوسم", "Tag")}</span><select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}><option value="all">{t("كل الوسوم", "All tags")}</option>{tags.map((tag) => <option key={tag.id} value={tag.name}>{tag.name}</option>)}</select></label>
+              <label><span>{t("الأولوية", "Priority")}</span><select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value as typeof priorityFilter)}><option value="all">{t("كل الأولويات", "All priorities")}</option><option value="urgent">{t("عاجلة", "Urgent")}</option><option value="high">{t("مرتفعة", "High")}</option><option value="normal">{t("عادية", "Normal")}</option></select></label>
+              <label><span>{t("آخر نشاط", "Last activity")}</span><select value={dateFilter} onChange={(event) => setDateFilter(event.target.value as typeof dateFilter)}><option value="all">{t("كل التواريخ", "Any time")}</option><option value="today">{t("آخر 24 ساعة", "Last 24 hours")}</option><option value="week">{t("آخر 7 أيام", "Last 7 days")}</option><option value="month">{t("آخر 30 يومًا", "Last 30 days")}</option></select></label>
+              <div className="inbox-saved-view-actions">
+                <button type="button" onClick={saveCurrentView}>{t("☆ حفظ الفلاتر كعرض", "☆ Save filters as view")}</button>
+                {savedView ? <button className="saved" type="button" onClick={applySavedView}>{t("تطبيق العرض المحفوظ", "Apply saved view")}</button> : null}
+              </div>
+            </div>
+          ) : null}
+          <small className="inbox-count-note">{t("العدادات لحظية وتتأثر بالقناة المختارة، بينما القائمة تتأثر بجميع الفلاتر.", "Counts are live and channel-aware; the list reflects all filters.")}</small>
+          <small className="inbox-shortcuts" aria-label={t("اختصارات لوحة المفاتيح", "Keyboard shortcuts")}>{t("/ بحث · J/K تنقّل · U غير مقروء · E إغلاق أو فتح", "/ search · J/K navigate · U unread · E close or reopen")}</small>
         </div>
-        <div className="conversation-list">
-          {visibleConversations.map((conversation) => (
+        <div className="conversation-list" aria-live="polite">
+          {pagedConversations.map((conversation) => {
+            const priority = getConversationPriority(conversation);
+            const safePreview = isDeletedMessageText(conversation.lastMessage) ? t("تم حذف هذه الرسالة", "This message was deleted") : getSafeConversationPreview(conversation.lastMessage, t);
+            const timeSource = conversation.lastMessageAt || conversation.lastActivityAt;
+            const exactDate = timeSource ? new Date(timeSource) : null;
+            const exactTime = exactDate && !Number.isNaN(exactDate.getTime()) ? new Intl.DateTimeFormat(language === "en" ? "en-US" : "ar-SA", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh" }).format(exactDate) : "";
+            return (
             <button
-              className={`conversation-card channel-${conversation.channel || "whatsapp"} ${activeConversation.id === conversation.id ? "active" : ""}`}
+              className={`conversation-card channel-${conversation.channel || "whatsapp"} priority-${priority} ${conversation.unread ? "unread" : "read"} ${activeConversation.id === conversation.id ? "active" : ""}`}
               key={conversation.id}
               type="button"
+              aria-current={activeConversation.id === conversation.id ? "true" : undefined}
+              aria-label={`${conversation.customer}، ${getChannelLabel(conversation, language)}، ${statusLabel(conversation.status, language)}${conversation.unread ? `، ${conversation.unread} ${t("غير مقروء", "unread")}` : ""}`}
               onContextMenu={(event) => {
                 event.preventDefault();
                 setConversationMenu({
@@ -565,12 +776,9 @@ export default function InboxView({
             >
               <span className="avatar">{conversation.initial}</span>
               <span className="conversation-copy">
-                <em className={`channel-badge ${conversation.channel || "whatsapp"}`}>
-                  <ChannelIcon id={conversation.channel || "whatsapp"} />
-                  {getChannelLabel(conversation, language)}
-                </em>
-                <b>{conversation.customer}</b>
-                <small>{isDeletedMessageText(conversation.lastMessage) ? t("تم حذف هذه الرسالة", "This message was deleted") : formatEmailContent(conversation.lastMessage)}</small>
+                <span className="conversation-card-title"><b>{conversation.customer}</b><em className={`channel-badge ${conversation.channel || "whatsapp"}`} title={getChannelLabel(conversation, language)}><ChannelIcon id={conversation.channel || "whatsapp"} /><span>{getChannelLabel(conversation, language)}</span></em></span>
+                <small title={safePreview}>{safePreview}</small>
+                <span className="conversation-card-foot"><em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : priority === "high" ? t("مرتفعة", "High") : t("عادية", "Normal")}</em><span>{conversation.assignee || t("غير مسندة", "Unassigned")}</span><em className={`status-pill ${conversation.status}`}>{statusLabel(conversation.status, language)}</em></span>
               </span>
               <span className="conversation-meta">
                 {conversation.unread ? <strong>{conversation.unread}</strong> : null}
@@ -585,20 +793,20 @@ export default function InboxView({
                 })()}
                 <span className="conversation-times">
                   {getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation), language) ? (
-                    <small>{getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation), language)}</small>
+                    <small title={exactTime}>{getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation), language)}</small>
                   ) : null}
                   {getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language) ? (
                     <small>{getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language)}</small>
                   ) : null}
-                  {!assignedOnly ? <small className="conversation-assignee">{conversation.assignee}</small> : null}
                 </span>
-                <em className={conversation.status}>{statusLabel(conversation.status, language)}</em>
               </span>
             </button>
-          ))}
-          {!visibleConversations.length ? (
-            <p className="muted-copy">{t("لا توجد محادثات مطابقة للبحث الحالي.", "No conversations match the current search.")}</p>
+            );
+          })}
+          {!displayedConversations.length ? (
+            <div className="conversation-list-empty"><span aria-hidden="true">⌕</span><b>{t("لا توجد نتائج مطابقة", "No matching conversations")}</b><small>{t("غيّر كلمات البحث أو أعد تعيين الفلاتر.", "Change the search or reset filters.")}</small><button type="button" onClick={resetAdvancedFilters}>{t("إعادة تعيين الفلاتر", "Reset filters")}</button></div>
           ) : null}
+          {displayedConversations.length > listLimit ? <button className="conversation-load-more" type="button" onClick={() => setListLimit((current) => current + 60)}>{t(`عرض 60 محادثة إضافية (${displayedConversations.length - listLimit} متبقية)`, `Load 60 more (${displayedConversations.length - listLimit} remaining)`)}</button> : null}
           {contextConversation ? (
             <div
               className="conversation-context-menu"
@@ -616,6 +824,15 @@ export default function InboxView({
                 }}
               >
                 {t("تعيين كغير مقروء", "Mark as unread")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConversationMenu(null);
+                  void onToggleConversationStatus(contextConversation.id);
+                }}
+              >
+                {contextConversation.status === "closed" ? t("إعادة فتح المحادثة", "Reopen conversation") : t("إغلاق المحادثة", "Close conversation")}
               </button>
               {canChangeAssignee ? (
                 <div className="context-menu-section">
@@ -658,7 +875,13 @@ export default function InboxView({
               <span />
               <i />
             </div>
-            <p>{t("لا يوجد محادثة حاليا، الرجاء اختيار محادثة من قائمة المحادثات", "No conversation selected — pick one from the list.")}</p>
+            <h2>{t("اختر محادثة للبدء", "Choose a conversation")}</h2>
+            <p>{t("اختر محادثة من القائمة لعرض الرسائل وبيانات العميل وإجراءات الإسناد.", "Select a conversation to view messages, customer details, and assignment actions.")}</p>
+            <div className="conversation-empty-actions">
+              <button type="button" onClick={() => searchInputRef.current?.focus()}>{t("البحث عن عميل", "Find a customer")}</button>
+              {!assignedOnly ? <button type="button" onClick={() => onChangeFilter("unassigned")}>{t("عرض غير المسندة", "View unassigned")}</button> : null}
+              <button type="button" onClick={() => onChangeFilter("unread")}>{t("عرض غير المقروءة", "View unread")}</button>
+            </div>
           </div>
         ) : (
           <>
@@ -667,13 +890,14 @@ export default function InboxView({
             {t("رجوع", "Back")}
           </button>
           <span className="avatar">{activeConversation.initial}</span>
-          <button className="chat-customer" type="button" onClick={() => onChangeChatPanel("profile")}>
+           <button className="chat-customer" type="button" onClick={() => onChangeChatPanel("profile")}>
             <small className={`channel-badge ${activeConversation.channel || "whatsapp"}`}>
               <ChannelIcon id={activeConversation.channel || "whatsapp"} />
               {getChannelLabel(activeConversation, language)}
             </small>
-            <b>{activeConversation.customer}</b>
-          </button>
+             <b>{activeConversation.customer}</b>
+             <span className={`chat-status-label ${activeConversation.status}`}>{statusLabel(activeConversation.status, language)}</span>
+           </button>
           <label>
             {t("مسند إلى", "Assigned to")}
             {canChangeAssignee ? (

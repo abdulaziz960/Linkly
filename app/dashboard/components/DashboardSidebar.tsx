@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type FocusEvent, type MouseEvent, type ReactNode } from "react";
+import { useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
 import Link from "next/link";
 import type { ConversationChannel, ConversationChannelFilter, DashboardUser, ViewKey } from "../types";
 import { navItems, navItemLabelsEn } from "../data/navigation";
@@ -73,8 +73,17 @@ export default function DashboardSidebar({
   onChangeChannel,
   onOpenProfile
 }: DashboardSidebarProps) {
+  const [navigationSearchOpen, setNavigationSearchOpen] = useState(false);
+  const [navigationSearch, setNavigationSearch] = useState("");
   const isEnglish = language === "en";
   const visibleNavItems = navItems.filter((item) => allowedViews.includes(item.key));
+  const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
+    { label: "التواصل", labelEn: "Communication", keys: ["inbox", "quickReplies", "workHours", "bot", "automations"] },
+    { label: "التسويق", labelEn: "Marketing", keys: ["campaigns", "templates"] },
+    { label: "إدارة العملاء", labelEn: "Customers", keys: ["contacts", "tags", "leads"] },
+    { label: "الفريق", labelEn: "Team", keys: ["teams", "employees"] },
+    { label: "التحليلات والإعدادات", labelEn: "Insights & settings", keys: ["reports", "settings"] }
+  ];
   const connected = integrationStatus === "connected";
   const linkedChannels: Array<{ key: ConversationChannel; label: string; connected: boolean }> = [
     { key: "whatsapp", label: isEnglish ? "WhatsApp" : "واتساب", connected },
@@ -94,9 +103,40 @@ export default function DashboardSidebar({
         <span>{isEnglish ? "No plan selected" : "لم يتم تحديد الباقة"}</span>
       </div>
       <nav className="dashboard-nav">
-        {visibleNavItems.map((item) => (
-          <Fragment key={item.key}>
+        <button
+          className="sidebar-search-trigger"
+          type="button"
+          aria-label={isEnglish ? "Search navigation" : "البحث في القائمة"}
+          aria-expanded={navigationSearchOpen}
+          onClick={() => setNavigationSearchOpen((current) => !current)}
+          onMouseEnter={positionSidebarTooltip}
+          onFocus={positionSidebarTooltip}
+        >
+          <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m16.5 16.5 4 4" /></svg>
+          <span className="sidebar-tooltip">{isEnglish ? "Search navigation" : "البحث في القائمة"}</span>
+        </button>
+        {navigationSearchOpen ? (
+          <div className="sidebar-search-popover">
+            <label><span>{isEnglish ? "Go to" : "انتقل إلى"}</span><input autoFocus value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} placeholder={isEnglish ? "Search sections..." : "ابحث عن قسم..."} /></label>
+            <div>
+              {visibleNavItems.filter((item) => `${item.label} ${navItemLabelsEn[item.key]}`.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((item) => (
+                <button key={item.key} type="button" onClick={() => { onChangeView(item.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{isEnglish ? navItemLabelsEn[item.key] : item.label}</span></button>
+              ))}
+              {visibleLinkedChannels.filter((channel) => channel.label.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((channel) => (
+                <button key={channel.key} type="button" onClick={() => { onChangeChannel(channel.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><span className={`nav-channel-dot ${channel.key}`} aria-hidden="true"><ChannelIcon id={channel.key} /></span><span>{channel.label}</span></button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {navigationGroups.map((group) => {
+          const groupItems = visibleNavItems.filter((item) => group.keys.includes(item.key));
+          if (!groupItems.length) return null;
+          return (
+          <div className="dashboard-nav-cluster" key={group.label} aria-label={isEnglish ? group.labelEn : group.label}>
+            <span className="dashboard-nav-group-label">{isEnglish ? group.labelEn : group.label}</span>
+            {groupItems.map((item) => (
             <button
+              key={item.key}
               className={activeView === item.key && (item.key !== "inbox" || selectedChannel === "all") ? "active" : ""}
               type="button"
               onClick={() => onChangeView(item.key)}
@@ -107,30 +147,10 @@ export default function DashboardSidebar({
               <DashboardNavIcon view={item.key} />
               <span className="dashboard-nav-label sidebar-tooltip">{isEnglish ? navItemLabelsEn[item.key] : item.label}</span>
             </button>
-            {item.key === "inbox" ? (
-              <div className="nav-channel-group">
-                <span>{isEnglish ? "Channels" : "قنوات التواصل"}</span>
-                {visibleLinkedChannels.length ? (
-                  visibleLinkedChannels.map((channel) => (
-                    <button
-                      className={activeView === "inbox" && selectedChannel === channel.key ? "active channel-active" : ""}
-                      key={channel.key}
-                      type="button"
-                      onClick={() => onChangeChannel(channel.key)}
-                    >
-                      <span className={`nav-channel-dot ${channel.key}`} aria-hidden="true">
-                        <ChannelIcon id={channel.key} />
-                      </span>
-                      {channel.label}
-                    </button>
-                  ))
-                ) : (
-                  <small>{isEnglish ? "No channels connected" : "لا توجد قنوات مربوطة"}</small>
-                )}
-              </div>
-            ) : null}
-          </Fragment>
-        ))}
+            ))}
+          </div>
+          );
+        })}
       </nav>
       {user.role === "مالك الحساب" ? (
         <Link

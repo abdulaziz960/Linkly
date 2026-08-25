@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
@@ -132,6 +132,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [selectedChannel, setSelectedChannel] = useState<ConversationChannelFilter>("all");
   const [conversationSearch, setConversationSearch] = useState("");
+  const deferredConversationSearch = useDeferredValue(conversationSearch);
   const [chatPanel, setChatPanel] = useState<ChatPanel>("chat");
   const [composerMode, setComposerMode] = useState<ComposerMode>("reply");
   const [message, setMessage] = useState("");
@@ -553,7 +554,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, [channelFilteredConversations, initialUser.name]);
 
   const visibleConversations = useMemo(() => {
-    const query = conversationSearch.trim().toLowerCase();
+    const query = deferredConversationSearch.trim().toLowerCase();
 
     return channelFilteredConversations.filter((conversation) => {
       const matchesFilter = filter === "all"
@@ -569,7 +570,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
       return matchesFilter && matchesSearch;
     });
-  }, [channelFilteredConversations, conversationSearch, filter, initialUser.name]);
+  }, [channelFilteredConversations, deferredConversationSearch, filter, initialUser.name]);
 
   function updateConversation(nextConversation: Conversation) {
     setConversations((current) => {
@@ -706,15 +707,21 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
   async function handleConversationStatusToggle() {
     if (!activeConversation.id) return;
-    if (activeConversation.status === "closed" && !canReopenConversations) return;
+    await handleConversationStatusToggleById(activeConversation.id);
+  }
 
-    const status = activeConversation.status === "closed" ? "assigned" : "closed";
+  async function handleConversationStatusToggleById(conversationId: string) {
+    const conversation = conversations.find((item) => item.id === conversationId);
+    if (!conversation) return;
+    if (conversation.status === "closed" && !canReopenConversations) return;
+
+    const status = conversation.status === "closed" ? "assigned" : "closed";
     updateConversation({
-      ...activeConversation,
+      ...conversation,
       status
     });
 
-    await fetch(`/api/conversations/${activeConversation.id}`, {
+    await fetch(`/api/conversations/${conversation.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status })
@@ -998,6 +1005,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             selectedTemplate={selectedTemplate}
             templates={templates}
             currentUserName={initialUser.name}
+            selectedChannel={selectedChannel}
             tags={tags}
             visibleConversations={visibleConversations}
             onChangeAssignee={handleAssigneeChange}
@@ -1006,6 +1014,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             onChangeFilter={setFilter}
             onChangeMessage={setMessage}
             onChangeSearch={setConversationSearch}
+            onChangeChannel={(channel) => channel === "all" ? handleViewChange("inbox") : handleChannelChange(channel)}
             onChangeSelectedConversation={handleOpenConversation}
             onChangeSelectedTemplate={setSelectedTemplate}
             onChangeTags={handleConversationTagsChange}
@@ -1014,6 +1023,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             onDeleteConversationById={handleDeleteConversationById}
             onDeleteMessage={handleDeleteMessage}
             onMarkConversationUnread={handleMarkConversationUnread}
+            onToggleConversationStatus={handleConversationStatusToggleById}
             onSend={handleSend}
             onSendAttachment={handleSendAttachment}
             onSendCommentReply={handleSendCommentReply}
