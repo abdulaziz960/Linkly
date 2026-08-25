@@ -507,7 +507,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   }, [activeView, allowedViews]);
 
   useEffect(() => {
-    if (!canViewAllConversations && filter !== "assigned" && filter !== "closed") {
+    if (!canViewAllConversations && filter !== "assigned" && filter !== "closed" && filter !== "unread") {
       setFilter("assigned");
     }
   }, [canViewAllConversations, filter]);
