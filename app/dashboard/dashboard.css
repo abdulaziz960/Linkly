@@ -6816,12 +6816,6 @@
   font-weight: 900;
 }
 
-.conversation-meta > em,
-.conversation-meta > small,
-.conversation-times small:nth-child(2) {
-  display: none;
-}
-
 .conversation-meta {
   gap: 8px;
 }
