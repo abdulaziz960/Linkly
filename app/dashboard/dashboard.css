@@ -6561,17 +6561,13 @@
   stroke-linejoin: round;
 }
 
-.sidebar-tooltip {
+.sidebar-tooltip-portal {
   position: fixed;
-  z-index: 400;
-  top: var(--sidebar-tooltip-top, 50%);
-  right: calc(var(--dashboard-sidebar-width) + 14px);
-  left: auto;
+  z-index: 2000;
   width: max-content;
   max-width: 220px;
   pointer-events: none;
-  opacity: 0;
-  transform: translate(6px, -50%);
+  transform: translateY(-50%);
   padding: 8px 11px;
   border: 1px solid #2c433f;
   border-radius: 9px;
@@ -6580,34 +6576,22 @@
   direction: rtl;
   box-shadow: 0 8px 24px rgba(10, 30, 28, 0.2);
   font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
   white-space: nowrap;
-  transition: 0.15s ease;
+  animation: sidebar-tooltip-in 120ms ease-out both;
 }
 
-.dashboard-shell.lang-en .sidebar-tooltip {
-  right: auto;
-  left: calc(var(--dashboard-sidebar-width) + 14px);
-  direction: ltr;
-  transform: translate(-6px, -50%);
-}
+@keyframes sidebar-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.96);
+  }
 
-.dashboard-shell.lang-en .dashboard-nav button:hover .sidebar-tooltip,
-.dashboard-shell.lang-en .dashboard-nav button:focus-visible .sidebar-tooltip,
-.dashboard-shell.lang-en .sidebar-billing-link:hover .sidebar-tooltip,
-.dashboard-shell.lang-en .sidebar-billing-link:focus-visible .sidebar-tooltip,
-.dashboard-shell.lang-en .account-btn:hover .sidebar-tooltip,
-.dashboard-shell.lang-en .account-btn:focus-visible .sidebar-tooltip {
-  transform: translate(0, -50%);
-}
-
-.dashboard-nav button:hover .sidebar-tooltip,
-.dashboard-nav button:focus-visible .sidebar-tooltip,
-.sidebar-billing-link:hover .sidebar-tooltip,
-.sidebar-billing-link:focus-visible .sidebar-tooltip,
-.account-btn:hover .sidebar-tooltip,
-.account-btn:focus-visible .sidebar-tooltip {
-  opacity: 1;
-  transform: translate(0, -50%);
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
 }
 
 .dashboard-sidebar .account-btn {

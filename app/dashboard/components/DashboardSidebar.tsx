@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import type { ConversationChannel, ConversationChannelFilter, DashboardUser, ViewKey } from "../types";
@@ -30,10 +31,12 @@ function getInitial(name: string) {
   return name.trim().charAt(0) || "ع";
 }
 
-function positionSidebarTooltip(event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) {
-  const bounds = event.currentTarget.getBoundingClientRect();
-  event.currentTarget.style.setProperty("--sidebar-tooltip-top", `${bounds.top + bounds.height / 2}px`);
-}
+type SidebarTooltipState = {
+  label: string;
+  top: number;
+  left?: number;
+  right?: number;
+};
 
 function DashboardNavIcon({ view }: { view: ViewKey }) {
   const paths: Partial<Record<ViewKey, ReactNode>> = {
@@ -76,7 +79,20 @@ export default function DashboardSidebar({
 }: DashboardSidebarProps) {
   const [navigationSearchOpen, setNavigationSearchOpen] = useState(false);
   const [navigationSearch, setNavigationSearch] = useState("");
+  const [sidebarTooltip, setSidebarTooltip] = useState<SidebarTooltipState | null>(null);
   const isEnglish = language === "en";
+  const showSidebarTooltip = (
+    event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>,
+    label: string
+  ) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const top = Math.min(window.innerHeight - 24, Math.max(24, bounds.top + bounds.height / 2));
+
+    setSidebarTooltip(isEnglish
+      ? { label, top, left: bounds.right + 12 }
+      : { label, top, right: window.innerWidth - bounds.left + 12 });
+  };
+  const hideSidebarTooltip = () => setSidebarTooltip(null);
   const visibleNavItems = navItems.filter((item) => allowedViews.includes(item.key));
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "التواصل", labelEn: "Communication", keys: ["inbox", "quickReplies", "workHours", "bot", "automations"] },
@@ -101,7 +117,6 @@ export default function DashboardSidebar({
     <aside className="dashboard-sidebar">
       <div className="sidebar-brand" aria-label="Linkly">
         <Image src="/assets/linkly-logo.svg" alt="Linkly" width={40} height={40} priority />
-        <span className="sidebar-tooltip">Linkly</span>
       </div>
       <div className="tenant-card">
         <b>{isEnglish ? "Account" : "حساب العميل"}</b>
@@ -113,12 +128,13 @@ export default function DashboardSidebar({
           type="button"
           aria-label={isEnglish ? "Search navigation" : "البحث في القائمة"}
           aria-expanded={navigationSearchOpen}
-          onClick={() => setNavigationSearchOpen((current) => !current)}
-          onMouseEnter={positionSidebarTooltip}
-          onFocus={positionSidebarTooltip}
+          onClick={() => { hideSidebarTooltip(); setNavigationSearchOpen((current) => !current); }}
+          onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Search navigation" : "البحث في القائمة")}
+          onMouseLeave={hideSidebarTooltip}
+          onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Search navigation" : "البحث في القائمة")}
+          onBlur={hideSidebarTooltip}
         >
           <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m16.5 16.5 4 4" /></svg>
-          <span className="sidebar-tooltip">{isEnglish ? "Search navigation" : "البحث في القائمة"}</span>
         </button>
         {navigationSearchOpen ? (
           <div className="sidebar-search-popover">
@@ -144,13 +160,14 @@ export default function DashboardSidebar({
               key={item.key}
               className={activeView === item.key && (item.key !== "inbox" || selectedChannel === "all") ? "active" : ""}
               type="button"
-              onClick={() => onChangeView(item.key)}
-              onMouseEnter={positionSidebarTooltip}
-              onFocus={positionSidebarTooltip}
+              onClick={() => { hideSidebarTooltip(); onChangeView(item.key); }}
+              onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? navItemLabelsEn[item.key] : item.label)}
+              onMouseLeave={hideSidebarTooltip}
+              onFocus={(event) => showSidebarTooltip(event, isEnglish ? navItemLabelsEn[item.key] : item.label)}
+              onBlur={hideSidebarTooltip}
               aria-label={isEnglish ? navItemLabelsEn[item.key] : item.label}
             >
               <DashboardNavIcon view={item.key} />
-              <span className="dashboard-nav-label sidebar-tooltip">{isEnglish ? navItemLabelsEn[item.key] : item.label}</span>
             </button>
             ))}
           </div>
@@ -161,27 +178,29 @@ export default function DashboardSidebar({
         <Link
           className="sidebar-billing-link"
           href="/billing"
-          onMouseEnter={positionSidebarTooltip}
-          onFocus={positionSidebarTooltip}
+          onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Plans and billing" : "الباقات والاشتراك")}
+          onMouseLeave={hideSidebarTooltip}
+          onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Plans and billing" : "الباقات والاشتراك")}
+          onBlur={hideSidebarTooltip}
           aria-label={isEnglish ? "Plans and billing" : "الباقات والاشتراك"}
         >
           <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="5" width="18" height="14" rx="2.5" />
             <path d="M3 10h18M7 15h4" />
           </svg>
-          <span className="sidebar-tooltip">{isEnglish ? "Plans & billing" : "الباقات والاشتراك"}</span>
         </Link>
       ) : null}
       <button
         className="account-btn"
         type="button"
-        onClick={onOpenProfile}
-        onMouseEnter={positionSidebarTooltip}
-        onFocus={positionSidebarTooltip}
+        onClick={() => { hideSidebarTooltip(); onOpenProfile(); }}
+        onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Profile" : "الملف الشخصي")}
+        onMouseLeave={hideSidebarTooltip}
+        onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Profile" : "الملف الشخصي")}
+        onBlur={hideSidebarTooltip}
         aria-label={isEnglish ? "Profile" : "الملف الشخصي"}
       >
         <span className="account-avatar">{getInitial(user.name)}</span>
-        <span className="sidebar-tooltip">{isEnglish ? "Profile" : "الملف الشخصي"}</span>
         <span>
           <b>{user.name}</b>
           <small>{user.role}</small>
@@ -196,6 +215,18 @@ export default function DashboardSidebar({
           </em>
         </span>
       </button>
+      {sidebarTooltip && typeof document !== "undefined"
+        ? createPortal(
+          <span
+            className="sidebar-tooltip-portal"
+            role="tooltip"
+            style={{ top: sidebarTooltip.top, left: sidebarTooltip.left, right: sidebarTooltip.right }}
+          >
+            {sidebarTooltip.label}
+          </span>,
+          document.body
+        )
+        : null}
     </aside>
   );
 }
