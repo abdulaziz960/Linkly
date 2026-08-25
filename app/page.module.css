@@ -88,3 +88,30 @@
 @keyframes linklyTypingShow{0%{opacity:0}15%{opacity:1}75%{opacity:1}100%{opacity:0}}
 @media(prefers-reduced-motion:reduce){.bubble{opacity:1;transform:none;animation:none}.typingRow{display:none}}
 @media(prefers-reduced-motion:reduce){.eyebrow i,.preview>header>span:before{animation:none}}
+
+/* Channels bento grid */
+.channelsGrid{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(150px,auto);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.channelsGrid article{background:#fff;border:0;padding:26px;display:flex;flex-direction:column;justify-content:center}
+.channelsGrid article:first-child{grid-column:span 2;grid-row:span 2;justify-content:flex-end;background:var(--soft)}
+.channelsGrid article:first-child i{width:68px;height:68px;margin-bottom:20px}
+.channelsGrid article:first-child .platformLogo{width:34px;height:34px}
+.channelsGrid article:first-child h3{font-size:24px}
+.channelsGrid article:first-child p{font-size:15px}
+.channelsGrid article:last-child{position:relative}
+.channelsGridBadge{position:absolute;top:16px;left:16px;font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--soft);color:var(--brand);border:1px dashed var(--brand)}
+@media(max-width:980px){
+  .channelsGrid{grid-template-columns:1fr 1fr}
+  .channelsGrid article:first-child{grid-column:span 2;grid-row:span 1;justify-content:center}
+  .channelsGrid article:last-child{grid-column:auto}
+}
+@media(max-width:700px){
+  .channelsGrid{grid-template-columns:1fr;background:transparent;border:0;border-radius:0;gap:0}
+  .channelsGrid article{display:grid;grid-template-columns:52px 1fr;column-gap:13px;padding:23px 3px;border-bottom:1px solid var(--line);background:transparent}
+  .channelsGrid article:last-child{border-bottom:0}
+  .channelsGrid article:first-child{grid-column:auto;grid-row:auto;justify-content:normal;background:transparent;padding:23px 3px}
+  .channelsGrid i{grid-row:1/3;margin:0}
+  .channelsGrid article:first-child i{width:52px;height:52px;margin-bottom:0}
+  .channelsGrid article:first-child .platformLogo{width:26px;height:26px}
+  .channelsGrid article:first-child h3{font-size:16px}
+  .channelsGridBadge{top:2px;left:2px}
+}
