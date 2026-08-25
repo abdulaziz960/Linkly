@@ -7,7 +7,7 @@ import ScrollReveal from "./ScrollReveal";
 import s from "./page.module.css";
 
 export const metadata: Metadata = {
-  title: "Linkly | صندوق موحّد لواتساب وإنستقرام والقنوات — منصة سعودية لخدمة العملاء",
+  title: { absolute: "Linkly | صندوق موحّد لواتساب وإنستقرام والقنوات — منصة سعودية لخدمة العملاء" },
   description: "منصة سعودية تجمع محادثات واتساب وإنستقرام والبريد وتيليجرام وتيك توك وتساعد فرق الخدمة والمبيعات على التوزيع والمتابعة من مكان واحد.",
   alternates: { canonical: "/", languages: { "ar-SA": "/", en: "/en", "x-default": "/" } },
   openGraph: { title: "Linkly | كل محادثات عملائك في مكان واحد", description: "صندوق وارد موحد، توزيع للمحادثات، أتمتة وتقارير لفريقك.", locale: "ar_SA", alternateLocale: "en_US", url: "/", type: "website" }
