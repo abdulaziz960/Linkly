@@ -37,9 +37,9 @@ export async function POST(request: NextRequest) {
 
   const plan = body.plan || "باقة النمو";
   const status = body.status || "تجربة";
-  const renewalAt = body.renewal || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const renewalAt = body.renewal || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const amount = Number(body.amount ?? (status === "تجربة" ? 0 : 499));
-  const billingCycle = body.billingCycle || (status === "تجربة" ? "تجربة 14 يوم" : "شهري");
+  const billingCycle = body.billingCycle || (status === "تجربة" ? "تجربة 3 أيام" : "شهري");
 
   try {
     const { subscription, inviteDelivery } = await createTenantWithSubscription({

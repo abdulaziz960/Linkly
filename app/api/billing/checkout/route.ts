@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   const subscription = await prisma.subscription.upsert({
     where: { tenantId: user.tenantId },
     update: {},
-    create: { id: `sub-${user.tenantId}`, tenantId: user.tenantId, companyName: user.name, ownerName: user.name, ownerEmail: user.email, plan: plan.name, status: "تجربة", employeeLimit: plan.employeeLimit, amount: 0, billingCycle: "تجربة 14 يوم", renewalAt: "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+    create: { id: `sub-${user.tenantId}`, tenantId: user.tenantId, companyName: user.name, ownerName: user.name, ownerEmail: user.email, plan: plan.name, status: "تجربة", employeeLimit: plan.employeeLimit, amount: 0, billingCycle: "تجربة 3 أيام", renewalAt: "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
   });
   if (plan.monthlyPrice < 1) return NextResponse.json({ error: "سعر الباقة غير صالح" }, { status: 400 });
   const paymentId = `sub-pay-${randomUUID()}`;

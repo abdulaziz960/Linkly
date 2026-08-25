@@ -7,7 +7,7 @@ import SignupForm from "./SignupForm";
 
 const copy = {
   ar: {
-    kicker: "تجربة مجانية لمدة 14 يومًا",
+    kicker: "تجربة مجانية لمدة 3 أيام",
     heroTitle: "ابدأ من أول محادثة، وشاهد فريقك يعمل من مكان واحد.",
     heroCopy: "أنشئ مساحة عملك، اربط قنواتك، وجرّب الصندوق الموحد قبل اختيار الباقة المناسبة.",
     steps: [
@@ -22,7 +22,7 @@ const copy = {
     login: "تسجيل الدخول"
   },
   en: {
-    kicker: "14-day free trial",
+    kicker: "3-day free trial",
     heroTitle: "Start from the first conversation, and watch your team work from one place.",
     heroCopy: "Create your workspace, connect your channels, and try the unified inbox before choosing the right plan.",
     steps: [

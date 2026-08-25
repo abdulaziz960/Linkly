@@ -36,6 +36,7 @@ function subscriptionStatusLabel(status: string, t: TFunc) {
 }
 
 function billingCycleLabel(cycle: string, t: TFunc) {
+  if (cycle === "تجربة 3 أيام") return t("تجربة 3 أيام", "3-Day Trial");
   if (cycle === "تجربة 14 يوم") return t("تجربة 14 يوم", "14-Day Trial");
   if (cycle === "شهري") return t("شهري", "Monthly");
   if (cycle === "سنوي") return t("سنوي", "Annual");
@@ -566,9 +567,9 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                   {t("دورة الفوترة", "Billing Cycle")}
                   <CustomSelect
                     name="billingCycle"
-                    defaultValue="تجربة 14 يوم"
+                    defaultValue="تجربة 3 أيام"
                     options={[
-                      { value: "تجربة 14 يوم", label: t("تجربة 14 يوم", "14-Day Trial") },
+                      { value: "تجربة 3 أيام", label: t("تجربة 3 أيام", "3-Day Trial") },
                       { value: "شهري", label: t("شهري", "Monthly") },
                       { value: "سنوي", label: t("سنوي", "Annual") }
                     ]}

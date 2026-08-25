@@ -62,8 +62,8 @@ export async function POST(request: NextRequest) {
       plan: starterPlan?.name || "باقة البداية",
       status: "تجربة",
       amount: 0,
-      billingCycle: "تجربة 14 يوم",
-      renewalAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      billingCycle: "تجربة 3 أيام",
+      renewalAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
       adminName: `تسجيل ذاتي من صفحة الهبوط${signupDetails.length ? ` (${signupDetails.join(" · ")})` : ""}`
     });
 
