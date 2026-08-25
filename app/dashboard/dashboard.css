@@ -2038,10 +2038,6 @@
   font-weight: 800;
 }
 
-.message-delivery-status.read {
-  color: #0f5fc4;
-}
-
 .message-delivery-status.failed {
   color: var(--status-danger-text);
   cursor: help;
@@ -2070,53 +2066,6 @@
   color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.6;
-}
-
-.message-list {
-  display: grid !important;
-  gap: 8px;
-}
-
-.message-list > span {
-  font-weight: 800;
-}
-
-.message-list-options {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 6px;
-  list-style: none;
-  border: 1px solid rgba(0,0,0,.1);
-  border-radius: 10px;
-  background: rgba(255,255,255,.5);
-}
-
-.message-list-options li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  background: rgba(255,255,255,.6);
-}
-
-.message-list-options em {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--brand);
-  color: #fff;
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.message-list-options span {
-  font-weight: 700;
 }
 
 .message-context-menu {
