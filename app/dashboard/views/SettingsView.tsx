@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { IntegrationSettings } from "../types";
 import { useLanguage } from "../i18n";
 
@@ -21,6 +21,27 @@ type FacebookSdk = {
 };
 
 type FacebookWindow = typeof window & { FB?: FacebookSdk; fbAsyncInit?: () => void };
+
+const businessVerticalOptions: Array<{ value: string; ar: string; en: string }> = [
+  { value: "OTHER", ar: "أخرى", en: "Other" },
+  { value: "AUTO", ar: "سيارات", en: "Automotive" },
+  { value: "BEAUTY", ar: "تجميل وعناية", en: "Beauty, Spa and Salon" },
+  { value: "APPAREL", ar: "ملابس وأزياء", en: "Clothing and Apparel" },
+  { value: "EDU", ar: "تعليم", en: "Education" },
+  { value: "ENTERTAIN", ar: "ترفيه", en: "Entertainment" },
+  { value: "EVENT_PLAN", ar: "تنظيم فعاليات", en: "Event Planning" },
+  { value: "FINANCE", ar: "مالية ومصرفية", en: "Finance and Banking" },
+  { value: "GROCERY", ar: "بقالة وأغذية", en: "Food and Grocery" },
+  { value: "GOVT", ar: "قطاع حكومي", en: "Public Service" },
+  { value: "HOTEL", ar: "فنادق وضيافة", en: "Hotel and Lodging" },
+  { value: "HEALTH", ar: "صحة وطب", en: "Medical and Health" },
+  { value: "NONPROFIT", ar: "غير ربحي", en: "Non-profit" },
+  { value: "PROF_SERVICES", ar: "خدمات مهنية", en: "Professional Services" },
+  { value: "RETAIL", ar: "تجزئة وتسوق", en: "Shopping and Retail" },
+  { value: "TRAVEL", ar: "سفر ونقل", en: "Travel and Transportation" },
+  { value: "RESTAURANT", ar: "مطاعم", en: "Restaurant" },
+  { value: "NOT_A_BIZ", ar: "ليس نشاطًا تجاريًا", en: "Not A Business" }
+];
 
 const emptySettings: IntegrationSettings = {
   id: "meta-whatsapp",
@@ -263,6 +284,12 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [testMessage, setTestMessage] = useState("");
   const [testSending, setTestSending] = useState(false);
   const [testFeedback, setTestFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [businessProfile, setBusinessProfile] = useState({ about: "", address: "", description: "", email: "", vertical: "", website1: "", website2: "" });
+  const [businessProfilePictureUrl, setBusinessProfilePictureUrl] = useState("");
+  const [businessProfilePictureDataUrl, setBusinessProfilePictureDataUrl] = useState("");
+  const [businessProfileLoading, setBusinessProfileLoading] = useState(false);
+  const [businessProfileSaving, setBusinessProfileSaving] = useState(false);
+  const [businessProfileFeedback, setBusinessProfileFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [oauthEmailStatus, setOauthEmailStatus] = useState<{ provider: "webhook" | "gmail" | "outlook"; status: "connected" | "not_connected" | "pending"; emailAddress: string } | null>(null);
   const [channelBotEnabled, setChannelBotEnabled] = useState(false);
   const [channelBotLoading, setChannelBotLoading] = useState(false);
@@ -300,6 +327,13 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       void loadFacebookSdk(techProviderMetaAppId);
     }
   }, [isWhatsApp, settings.appId]);
+
+  useEffect(() => {
+    if (isWhatsApp && settings.status === "connected") {
+      void loadBusinessProfile();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWhatsApp, settings.status]);
 
   useEffect(() => {
     if (!isGmail && !isOutlook) return;
@@ -677,6 +711,78 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       setTestFeedback({ type: "error", text: t("تعذر الاتصال بالسيرفر، تأكد من اتصالك بالإنترنت وحاول من جديد", "Couldn't reach the server, check your internet connection and try again") });
     } finally {
       setTestSending(false);
+    }
+  }
+
+  async function loadBusinessProfile() {
+    setBusinessProfileLoading(true);
+    try {
+      const response = await fetch("/api/meta/business-profile");
+      const result = await response.json().catch(() => null);
+      if (response.ok && result?.ok) {
+        const profile = result.data || {};
+        const websites: string[] = Array.isArray(profile.websites) ? profile.websites : [];
+        setBusinessProfile({
+          about: profile.about || "",
+          address: profile.address || "",
+          description: profile.description || "",
+          email: profile.email || "",
+          vertical: profile.vertical || "",
+          website1: websites[0] || "",
+          website2: websites[1] || ""
+        });
+        setBusinessProfilePictureUrl(profile.profile_picture_url || "");
+      }
+    } catch {
+      // Silent: the card just stays empty and the user can fill it in manually.
+    } finally {
+      setBusinessProfileLoading(false);
+    }
+  }
+
+  async function handleBusinessProfilePictureChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      setBusinessProfilePictureDataUrl(dataUrl);
+      setBusinessProfilePictureUrl(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function saveBusinessProfile() {
+    setBusinessProfileSaving(true);
+    setBusinessProfileFeedback(null);
+
+    try {
+      const response = await fetch("/api/meta/business-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          about: businessProfile.about,
+          address: businessProfile.address,
+          description: businessProfile.description,
+          email: businessProfile.email,
+          vertical: businessProfile.vertical,
+          websites: [businessProfile.website1, businessProfile.website2],
+          profilePictureDataUrl: businessProfilePictureDataUrl || undefined
+        })
+      });
+      const result = await response.json().catch(() => null);
+
+      if (response.ok && result?.ok) {
+        setBusinessProfileFeedback({ type: "success", text: t("تم حفظ الملف التجاري بنجاح.", "The business profile was saved successfully.") });
+        setBusinessProfilePictureDataUrl("");
+        void loadBusinessProfile();
+      } else {
+        setBusinessProfileFeedback({ type: "error", text: result?.error || t("تعذر حفظ الملف التجاري", "Couldn't save the business profile") });
+      }
+    } catch {
+      setBusinessProfileFeedback({ type: "error", text: t("تعذر الاتصال بالسيرفر، تأكد من اتصالك بالإنترنت وحاول من جديد", "Couldn't reach the server, check your internet connection and try again") });
+    } finally {
+      setBusinessProfileSaving(false);
     }
   }
 
@@ -1499,6 +1605,79 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <small>{t("الاستقبال يحتاج أن يكون الويبهوك مفعّلًا على رابط الاستضافة.", "Receiving requires the webhook to be active on your hosting URL.")}</small>
             </div>
             {testFeedback && <p className={`meta-test-feedback ${testFeedback.type}`}>{testFeedback.text}</p>}
+          </div> : null}
+
+          {isWhatsApp && settings.status === "connected" ? <div className="business-profile-card">
+            <div>
+              <h3>{t("الملف التجاري لواتساب", "WhatsApp business profile")}</h3>
+              <p>{t("هذه البيانات تظهر لعملائك داخل واتساب عند فتح محادثة معك: الصورة، النبذة، العنوان، والتواصل.", "This is what your customers see inside WhatsApp when they open a conversation with you: photo, about, address, and contact details.")}</p>
+            </div>
+
+            <div className="business-profile-picture-row">
+              <label>{t("الصورة الشخصية", "Profile picture")}</label>
+              <div className="business-profile-picture-field">
+                {businessProfilePictureUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={businessProfilePictureUrl} alt="" className="business-profile-picture-preview" />
+                ) : (
+                  <span className="business-profile-picture-placeholder" aria-hidden="true">AW</span>
+                )}
+                <label className="soft-action business-profile-picture-upload">
+                  {t("تغيير الصورة", "Change profile picture")}
+                  <input type="file" accept="image/*" onChange={handleBusinessProfilePictureChange} hidden />
+                </label>
+              </div>
+            </div>
+
+            <div className="business-profile-grid">
+              <label>
+                {t("رقم الهاتف", "Phone number")}
+                <input dir="ltr" value={settings.phoneNumber} readOnly placeholder={t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete")} />
+              </label>
+              <label>
+                {t("نبذة", "About")}
+                <input value={businessProfile.about} maxLength={139} onChange={(event) => setBusinessProfile((current) => ({ ...current, about: event.target.value }))} />
+              </label>
+              <label>
+                {t("عنوان النشاط", "Business address")}
+                <input value={businessProfile.address} onChange={(event) => setBusinessProfile((current) => ({ ...current, address: event.target.value }))} />
+              </label>
+              <label>
+                {t("وصف النشاط", "Business description")}
+                <input value={businessProfile.description} onChange={(event) => setBusinessProfile((current) => ({ ...current, description: event.target.value }))} />
+              </label>
+              <label>
+                {t("بريد التواصل التجاري", "Email for business contact")}
+                <input dir="ltr" type="email" value={businessProfile.email} onChange={(event) => setBusinessProfile((current) => ({ ...current, email: event.target.value }))} />
+              </label>
+              <label>
+                {t("مجال النشاط", "Business industry")}
+                <select value={businessProfile.vertical} onChange={(event) => setBusinessProfile((current) => ({ ...current, vertical: event.target.value }))}>
+                  <option value="">{t("اختر المجال", "Choose an industry")}</option>
+                  {businessVerticalOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{t(option.ar, option.en)}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t("موقع النشاط 1", "Business website 1")}
+                <input dir="ltr" value={businessProfile.website1} onChange={(event) => setBusinessProfile((current) => ({ ...current, website1: event.target.value }))} placeholder="https://example.com" />
+              </label>
+              <label>
+                {t("موقع النشاط 2", "Business website 2")}
+                <input dir="ltr" value={businessProfile.website2} onChange={(event) => setBusinessProfile((current) => ({ ...current, website2: event.target.value }))} placeholder="https://example.com" />
+              </label>
+            </div>
+
+            <div className="business-profile-actions">
+              <button className="primary-action" disabled={businessProfileSaving || businessProfileLoading} type="button" onClick={saveBusinessProfile}>
+                {businessProfileSaving ? t("جاري الحفظ...", "Saving...") : t("حفظ الملف التجاري", "Save business profile")}
+              </button>
+              <button className="soft-action" disabled={businessProfileLoading || businessProfileSaving} type="button" onClick={loadBusinessProfile}>
+                {businessProfileLoading ? t("جاري التحديث...", "Refreshing...") : t("تحديث من Meta", "Refresh from Meta")}
+              </button>
+            </div>
+            {businessProfileFeedback && <p className={`meta-test-feedback ${businessProfileFeedback.type}`}>{businessProfileFeedback.text}</p>}
           </div> : null}
 
           {!isGoogleMaps && !isWhatsApp && !isWebsite && !isInstagram && !isFacebook && !(hideManualEmailSetup) ? <div className="webhook-card">

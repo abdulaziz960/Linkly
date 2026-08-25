@@ -4444,6 +4444,91 @@
   color: var(--status-danger-text);
 }
 
+.business-profile-card {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.business-profile-picture-row {
+  display: grid;
+  gap: 10px;
+}
+
+.business-profile-picture-row > label {
+  color: var(--text-secondary);
+  font-weight: 900;
+}
+
+.business-profile-picture-field {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.business-profile-picture-preview,
+.business-profile-picture-placeholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.business-profile-picture-placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.business-profile-picture-upload {
+  display: inline-flex;
+  align-items: center;
+}
+
+.business-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.business-profile-grid label {
+  display: grid;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-weight: 900;
+}
+
+.business-profile-grid input,
+.business-profile-grid select {
+  min-height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 800;
+}
+
+.business-profile-grid input[readonly] {
+  color: var(--muted);
+  background: var(--surface-soft);
+}
+
+.business-profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .primary-action,
 .copy-row button {
   min-height: 48px;
@@ -5488,6 +5573,7 @@
   .meta-steps,
   .settings-fields,
   .meta-test-grid,
+  .business-profile-grid,
   .stats-grid,
   .stats-grid.reports,
   .cards-grid,
