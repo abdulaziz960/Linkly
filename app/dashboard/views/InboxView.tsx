@@ -221,6 +221,20 @@ function formatEmailContent(text: string) {
     .trim();
 }
 
+// The auto-reply bot sends list steps as plain text ("العنوان\n1. خيار\n2.
+// خيار") since that's what the channel APIs accept. Detect that shape here
+// so the inbox can render it as a real options list instead of raw text.
+function parseListMessage(text: string): { title: string; options: string[] } | null {
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  if (lines.length < 3) return null;
+
+  const [title, ...rest] = lines;
+  const options = rest.filter((line) => /^\d+\.\s+/.test(line));
+  if (options.length < 2 || options.length !== rest.length) return null;
+
+  return { title, options: options.map((line) => line.replace(/^\d+\.\s+/, "")) };
+}
+
 export default function InboxView({
   activeConversation,
   assignedOnly,
@@ -767,7 +781,24 @@ export default function InboxView({
                   ) : null}
                   {item.attachment?.type === "audio" && !isDeletedMessageText(item.text) ? (
                     <span>{`${item.text}: ${item.attachment.name}`}</span>
-                  ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد" || item.text === "مستند" || item.text === item.attachment.name) ? null : (
+                  ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد" || item.text === "مستند" || item.text === item.attachment.name) ? null : !item.attachment && item.direction === "out" && !isDeletedMessageText(item.text) && parseListMessage(item.text) ? (
+                    (() => {
+                      const list = parseListMessage(item.text)!;
+                      return (
+                        <div className="message-list">
+                          <span>{list.title}</span>
+                          <ol className="message-list-options">
+                            {list.options.map((option, index) => (
+                              <li key={index}>
+                                <em>{index + 1}</em>
+                                <span>{option}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      );
+                    })()
+                  ) : (
                     <span>{isDeletedMessageText(item.text) ? t("تم حذف هذه الرسالة", "This message was deleted") : formatEmailContent(item.text)}</span>
                   )}
                   {item.source && activeConversation.channel !== "email" ? (
