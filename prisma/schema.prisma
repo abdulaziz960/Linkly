@@ -301,6 +301,7 @@ model UserAccount {
   passwordHash    String @map("password_hash")
   role            String
   tenantId        String @default("tenant-demo") @map("tenant_id")
+  profileLogo     String @default("") @map("profile_logo")
   isPlatformAdmin Int    @default(0) @map("is_platform_admin")
   sessionVersion  Int    @default(0) @map("session_version")
   createdAt       String @map("created_at")

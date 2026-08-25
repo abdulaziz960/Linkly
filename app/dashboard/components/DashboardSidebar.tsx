@@ -19,6 +19,7 @@ type DashboardSidebarProps = {
   googleMapsStatus: "connected" | "not_connected" | "pending";
   emailStatus: "connected" | "not_connected" | "pending";
   user: DashboardUser;
+  profileLogo?: string;
   profileStatus: "متصل" | "مشغول" | "غير متصل";
   selectedChannel: ConversationChannelFilter;
   language?: "ar" | "en";
@@ -70,6 +71,7 @@ export default function DashboardSidebar({
   googleMapsStatus,
   emailStatus,
   user,
+  profileLogo,
   profileStatus,
   selectedChannel,
   language = "ar",
@@ -200,7 +202,9 @@ export default function DashboardSidebar({
         onBlur={hideSidebarTooltip}
         aria-label={isEnglish ? "Profile" : "الملف الشخصي"}
       >
-        <span className="account-avatar">{getInitial(user.name)}</span>
+        <span className={`account-avatar ${profileLogo ? "has-logo" : ""}`}>
+          {profileLogo ? <Image src={profileLogo} alt="" width={38} height={38} unoptimized /> : getInitial(user.name)}
+        </span>
         <span>
           <b>{user.name}</b>
           <small>{user.role}</small>

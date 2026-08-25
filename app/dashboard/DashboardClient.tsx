@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import { viewTitles } from "./data/navigation";
@@ -87,6 +88,32 @@ const DASHBOARD_CHANNEL_KEY = "audiencew:dashboard-active-channel";
 const conversationChannels: ConversationChannel[] = ["whatsapp", "instagram", "x", "facebook", "google_maps", "website", "telegram", "email", "tiktok", "sms"];
 type ThemePreference = "light" | "dark" | "system";
 
+const MAX_PROFILE_LOGO_SOURCE_BYTES = 5 * 1024 * 1024;
+
+async function prepareProfileLogo(file: File) {
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+    throw new Error("يرجى اختيار صورة PNG أو JPG أو WebP.");
+  }
+  if (file.size > MAX_PROFILE_LOGO_SOURCE_BYTES) throw new Error("حجم الصورة يجب ألا يتجاوز 5 ميجابايت.");
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    if (bitmap.width > 8000 || bitmap.height > 8000) throw new Error("أبعاد الصورة كبيرة جدًا.");
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 256;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("تعذر تجهيز الصورة.");
+    const scale = Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    context.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+    return canvas.toDataURL("image/webp", 0.88);
+  } finally {
+    bitmap.close();
+  }
+}
+
 function isViewKey(value: string | null): value is ViewKey {
   return !!value && allViewKeys.includes(value as ViewKey);
 }
@@ -150,6 +177,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+  const profileLogoInputRef = useRef<HTMLInputElement>(null);
+  const [profileLogo, setProfileLogo] = useState(initialUser.profileLogo ?? "");
+  const [draftProfileLogo, setDraftProfileLogo] = useState(initialUser.profileLogo ?? "");
   const [profileFeedback, setProfileFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -308,12 +338,25 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     if (!profileOpen) return;
     setDraftStatus(currentProfileStatus);
     setDraftLanguage(language);
+    setDraftProfileLogo(profileLogo);
     setProfileFeedback(null);
     // Sync drafts only at the moment the dialog opens - re-running this
     // whenever currentProfileStatus/language change would overwrite the
     // user's in-progress picks with the still-unsaved values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileOpen]);
+
+  async function handleProfileLogoChange(file?: File) {
+    if (!file) return;
+    setProfileFeedback(null);
+    try {
+      setDraftProfileLogo(await prepareProfileLogo(file));
+    } catch (error) {
+      setProfileFeedback({ type: "error", message: error instanceof Error ? error.message : "تعذر تجهيز الشعار." });
+    } finally {
+      if (profileLogoInputRef.current) profileLogoInputRef.current.value = "";
+    }
+  }
 
   const loadDashboardData = useCallback(async () => {
     const requestId = ++loadDashboardDataSeqRef.current;
@@ -962,11 +1005,21 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     setProfileFeedback(null);
     try {
       if (draftStatus !== currentProfileStatus) await handleProfileStatusChange(draftStatus);
+      if (draftProfileLogo !== profileLogo) {
+        const response = await fetch("/api/auth/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ profileLogo: draftProfileLogo })
+        });
+        if (!response.ok) throw new Error(await readApiError(response, draftLanguage));
+        const result = (await response.json()) as { profileLogo: string };
+        setProfileLogo(result.profileLogo);
+      }
       setLanguage(draftLanguage);
       window.localStorage.setItem("audiencew-language", draftLanguage);
       setThemePreference(draftThemePreference);
       window.localStorage.setItem("linkly-dashboard-theme", draftThemePreference);
-      const savedMessage = draftLanguage === "en" ? "Status, language, and appearance saved successfully." : "تم حفظ الحالة واللغة والمظهر بنجاح.";
+      const savedMessage = draftLanguage === "en" ? "Profile settings saved successfully." : "تم حفظ إعدادات الملف الشخصي بنجاح.";
       setProfileFeedback({ type: "success", message: savedMessage });
     } catch (error) {
       const failMessage = draftLanguage === "en" ? "Could not save profile settings." : "تعذر حفظ إعدادات الملف الشخصي.";
@@ -990,6 +1043,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         googleMapsStatus={googleMapsStatus}
         emailStatus={emailStatus}
         user={initialUser}
+        profileLogo={profileLogo}
         profileStatus={currentProfileStatus}
         language={language}
         selectedChannel={selectedChannel}
@@ -999,6 +1053,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
           setDraftStatus(currentProfileStatus);
           setDraftLanguage(language);
           setDraftThemePreference(themePreference);
+          setDraftProfileLogo(profileLogo);
           setProfileFeedback(null);
           setProfileOpen(true);
         }}
@@ -1087,11 +1142,30 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
               {profilePanel === "main" ? (
                 <>
                   <div className="account-summary">
-                      <span className="account-avatar large">{accountInitial}</span>
+                      <span className={`account-avatar large ${draftProfileLogo ? "has-logo" : ""}`}>
+                        {draftProfileLogo ? <Image src={draftProfileLogo} alt={t("معاينة شعار الحساب", "Account logo preview")} width={58} height={58} unoptimized /> : accountInitial}
+                      </span>
                       <div>
                         <b>{initialUser.name}</b>
                       <span>{initialUser.role}</span>
                       <em className={draftStatus === "متصل" ? "online" : draftStatus === "مشغول" ? "busy" : "offline"}>{statusLabel(draftStatus, t)}</em>
+                    </div>
+                  </div>
+                  <div className="profile-logo-editor">
+                    <div>
+                      <b>{t("شعار الحساب", "Account logo")}</b>
+                      <span>{t("ارفع شعارًا بصيغة PNG أو JPG أو WebP. سيتم تحسينه تلقائيًا.", "Upload a PNG, JPG, or WebP logo. It will be optimized automatically.")}</span>
+                    </div>
+                    <div className="profile-logo-actions">
+                      <input
+                        ref={profileLogoInputRef}
+                        className="visually-hidden"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={(event) => void handleProfileLogoChange(event.target.files?.[0])}
+                      />
+                      <button className="btn soft" type="button" onClick={() => profileLogoInputRef.current?.click()}>{t("رفع الشعار", "Upload logo")}</button>
+                      {draftProfileLogo ? <button className="btn soft" type="button" onClick={() => setDraftProfileLogo("")}>{t("حذف الشعار", "Remove logo")}</button> : null}
                     </div>
                   </div>
                   <div className="account-info-grid">
@@ -1187,6 +1261,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                 onClick={() => {
                   setDraftStatus(currentProfileStatus);
                   setDraftLanguage(language);
+                  setDraftProfileLogo(profileLogo);
                   setProfileOpen(false);
                   setProfilePanel("main");
                 }}
