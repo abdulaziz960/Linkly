@@ -1,28 +1,84 @@
 :root {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-soft: #fafafa;
-  --ink: #171717;
-  --muted: #6b7280;
-  --text-secondary: #404040;
-  --line: #e5e5e5;
-  --brand: #171717;
-  --ok: #16a34a;
-  --warn: #d97706;
-  --danger: #dc2626;
+  /* Linkly brand scale */
+  --brand-50: #eefbf9;
+  --brand-100: #d6f5f1;
+  --brand-200: #afeae4;
+  --brand-300: #78d8cf;
+  --brand-400: #3abdb3;
+  --brand-500: #178a82;
+  --brand-600: #11766f;
+  --brand-700: #0f5f5a;
+  --brand-800: #104c49;
+  --brand-900: #0f403d;
+  --brand-950: #062725;
+
+  /* Calm neutral scale */
+  --neutral-0: #ffffff;
+  --neutral-50: #f8faf9;
+  --neutral-100: #f0f4f3;
+  --neutral-200: #dde5e3;
+  --neutral-300: #c4d0cd;
+  --neutral-400: #91a29e;
+  --neutral-500: #667873;
+  --neutral-600: #4a5c57;
+  --neutral-700: #34443f;
+  --neutral-800: #202d29;
+  --neutral-900: #121d1a;
+  --neutral-950: #09110f;
+
+  /* Semantic design tokens */
+  --bg: var(--neutral-100);
+  --surface: var(--neutral-0);
+  --surface-soft: var(--neutral-50);
+  --surface-raised: var(--neutral-0);
+  --surface-selected: var(--brand-50);
+  --surface-hover: #e8f2f0;
+  --ink: var(--neutral-900);
+  --text-secondary: var(--neutral-700);
+  --muted: var(--neutral-600);
+  --text-disabled: var(--neutral-500);
+  --line: var(--neutral-300);
+  --line-strong: var(--neutral-400);
+  --control-border: #748681;
+  --brand: var(--brand-500);
+  --brand-hover: var(--brand-600);
+  --brand-active: var(--brand-700);
+  --focus-ring: rgba(23, 138, 130, .35);
+
+  --ok: #15803d;
+  --warn: #b45309;
+  --danger: #b91c1c;
+  --info: #1d4ed8;
   --status-ok-bg: #dcfce7;
   --status-ok-bg-soft: #f0fdf4;
-  --status-warn-bg: #fef3c7;
+  --status-warn-bg: #ffedd5;
   --status-warn-bg-soft: #fff7ed;
   --status-danger-bg: #fee2e2;
   --status-danger-bg-soft: #fff1f2;
-  --status-info-bg: #f0f9ff;
+  --status-info-bg: #dbeafe;
+  --status-neutral-bg: var(--neutral-200);
   --status-ok-text: #166534;
   --status-warn-text: #9a3412;
   --status-danger-text: #991b1b;
-  --status-info-text: #0369a1;
-  --radius: 14px;
-  --shadow: 0 18px 48px rgba(0, 0, 0, 0.08);
+  --status-info-text: #1e40af;
+  --status-neutral-text: var(--neutral-700);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius: var(--radius-lg);
+  --shadow-sm: 0 2px 8px rgba(9, 35, 32, .07);
+  --shadow-md: 0 10px 28px rgba(9, 35, 32, .1);
+  --shadow-lg: 0 22px 56px rgba(9, 35, 32, .14);
+  --shadow: var(--shadow-lg);
+
+  --type-display: 700 28px/1.35 var(--font-app), system-ui, sans-serif;
+  --type-title: 700 20px/1.45 var(--font-app), system-ui, sans-serif;
+  --type-heading: 700 16px/1.5 var(--font-app), system-ui, sans-serif;
+  --type-body: 400 14px/1.7 var(--font-app), system-ui, sans-serif;
+  --type-label: 600 12px/1.5 var(--font-app), system-ui, sans-serif;
+  --type-meta: 500 11px/1.45 var(--font-app), system-ui, sans-serif;
 }
 
 /* Dark mode is currently scoped to the areas rolled out so far: the
@@ -6293,7 +6349,7 @@
   font-size: 13px;
 }
 .sidebar-billing-link .dashboard-nav-icon {
-  color: #e7a98f;
+  color: var(--brand-200);
   flex-shrink: 0;
 }
 @media (max-width: 1180px) { .sidebar-billing-link b { display: none; } .sidebar-billing-link { justify-content: center; padding: 9px; } }
@@ -6301,20 +6357,11 @@
 /* Linkly calm teal workspace — visual system for the customer dashboard. */
 .dashboard-shell {
   --dashboard-sidebar-width: 88px;
-  --bg: #dae8e5;
-  --surface: #f6fbfa;
-  --surface-soft: #e1efed;
-  --ink: #101b18;
-  --muted: #4c635f;
-  --text-secondary: #35504b;
-  --line: #bcd8d3;
-  --brand: #178a82;
-  --radius: 16px;
   grid-template-columns: minmax(0, 1fr) var(--dashboard-sidebar-width);
   gap: 0;
   min-height: 100dvh;
   padding: 4px;
-  background: #dbe9e6;
+  background: var(--bg);
 }
 
 .dashboard-sidebar {
@@ -6323,8 +6370,8 @@
   padding: 16px 10px;
   border: 0;
   border-radius: 0 22px 22px 0;
-  background: #123330;
-  color: #f3faf9;
+  background: var(--brand-950);
+  color: var(--brand-50);
 }
 
 .dashboard-shell.lang-en .dashboard-sidebar {
@@ -7590,4 +7637,352 @@
 
   .bot-channel-tab { flex: 0 0 auto; padding-inline: 14px; }
   .bot-library-card { flex-basis: 245px; }
+}
+
+/* --------------------------------------------------------------------------
+   Dashboard design system — semantic light/dark themes
+   -------------------------------------------------------------------------- */
+.dashboard-shell.theme-light {
+  color-scheme: light;
+}
+
+.dashboard-shell.theme-dark {
+  color-scheme: dark;
+  --bg: #081310;
+  --surface: #101c19;
+  --surface-soft: #15231f;
+  --surface-raised: #192925;
+  --surface-selected: #12332f;
+  --surface-hover: #1b312c;
+  --ink: #f2f7f5;
+  --text-secondary: #cfdbd7;
+  --muted: #acbdb8;
+  --text-disabled: #7f938e;
+  --line: #344943;
+  --line-strong: #50665f;
+  --control-border: #617771;
+  --brand: var(--brand-300);
+  --brand-hover: var(--brand-200);
+  --brand-active: var(--brand-100);
+  --focus-ring: rgba(120, 216, 207, .45);
+  --status-ok-bg: #143b25;
+  --status-ok-bg-soft: #102d1d;
+  --status-warn-bg: #482b11;
+  --status-warn-bg-soft: #35220f;
+  --status-danger-bg: #481d1d;
+  --status-danger-bg-soft: #351717;
+  --status-info-bg: #172d55;
+  --status-neutral-bg: #293934;
+  --status-ok-text: #86efac;
+  --status-warn-text: #fdba74;
+  --status-danger-text: #fca5a5;
+  --status-info-text: #93c5fd;
+  --status-neutral-text: #c3d0cc;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .28);
+  --shadow-md: 0 12px 30px rgba(0, 0, 0, .34);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, .42);
+  --shadow: var(--shadow-lg);
+}
+
+.dashboard-shell {
+  font: var(--type-body);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.dashboard-shell h1 { font: var(--type-display); }
+.dashboard-shell h2 { font: var(--type-title); }
+.dashboard-shell h3 { font: var(--type-heading); }
+.dashboard-shell small { line-height: 1.55; }
+
+.dashboard-shell :is(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.dashboard-main,
+.panel,
+.account-modal,
+.profile-card,
+.automation-rule-card,
+.automation-recipe-card,
+.automation-overview article {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.dashboard-main {
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.sidebar-brand {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  min-height: 52px;
+  margin: 0 auto;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  padding-bottom: 10px;
+}
+
+.sidebar-brand img {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .22);
+}
+
+.sidebar-brand:hover .sidebar-tooltip,
+.sidebar-brand:focus-within .sidebar-tooltip {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+.dashboard-nav button,
+.sidebar-billing-link,
+.dashboard-sidebar .account-btn {
+  color: var(--brand-200);
+}
+
+.dashboard-nav button:hover,
+.sidebar-billing-link:hover,
+.dashboard-sidebar .account-btn:hover {
+  background: rgba(255, 255, 255, .1);
+  color: #fff;
+}
+
+.dashboard-nav button.active {
+  background: var(--brand-600);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(23, 138, 130, .3);
+}
+
+.column-head,
+.chat-head,
+.chat-tabs,
+.conversation-tabs,
+.inbox-search-tools,
+.conversation-column {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+.chat-column,
+.messages,
+.composer-modes,
+.conversation-empty-state {
+  background: var(--surface-soft);
+}
+
+.conversation-tabs button,
+.chat-tabs button,
+.composer-modes button,
+.attachment-button {
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+}
+
+.conversation-tabs button:hover,
+.chat-tabs button:hover,
+.composer-modes button:hover,
+.attachment-button:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.conversation-tabs button.active,
+.chat-tabs button.active,
+.composer-modes button.active,
+.btn.primary,
+.composer .btn.primary {
+  border-color: var(--brand-700);
+  background: var(--brand-600);
+  color: #fff;
+}
+
+.btn.primary:hover,
+.composer .btn.primary:hover {
+  background: var(--brand-600);
+}
+
+.conversation-tabs span {
+  background: var(--surface-raised);
+  color: inherit;
+}
+
+.inbox-search-tools .search-box,
+.inbox-search-tools .search-box input,
+.inbox-advanced-filters select,
+.inbox-sort select,
+.composer,
+.composer textarea,
+.custom-select-trigger,
+.custom-select-list,
+.dashboard-shell input,
+.dashboard-shell textarea,
+.dashboard-shell select {
+  border-color: var(--control-border);
+  background-color: var(--surface-raised);
+  color: var(--ink);
+}
+
+.inbox-search-tools .search-box:focus-within {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.inbox-filter-toggle,
+.inbox-reset,
+.inbox-advanced-filters,
+.inbox-search-tools .search-box button {
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+}
+
+.inbox-filter-toggle.active {
+  border-color: var(--brand);
+  background: var(--surface-selected);
+  color: var(--brand-hover);
+}
+
+.conversation-card {
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.conversation-card:hover {
+  background: var(--surface-hover);
+}
+
+.conversation-card.active {
+  border-color: var(--brand-400);
+  background: var(--surface-selected);
+  box-shadow: inset 0 0 0 1px var(--brand-200);
+}
+
+.conversation-card.unread {
+  background: color-mix(in srgb, var(--brand-50) 72%, var(--surface));
+}
+
+.theme-dark .conversation-card.unread {
+  background: #142723;
+}
+
+.conversation-card.active::after,
+.conversation-card.unread {
+  border-inline-start-color: var(--brand-500);
+}
+
+.conversation-card.priority-urgent { border-inline-start-color: var(--danger); }
+.conversation-card.priority-high:not(.unread) { border-inline-start-color: var(--warn); }
+
+.conversation-copy b,
+.inbox-title > span,
+.conversation-empty-state h2,
+.conversation-list-empty b,
+.chat-customer b {
+  color: var(--ink);
+}
+
+.conversation-copy small,
+.conversation-card-foot,
+.conversation-times,
+.inbox-title > small,
+.inbox-count-note,
+.inbox-shortcuts,
+.conversation-empty-state p {
+  color: var(--muted);
+}
+
+.priority-pill.urgent { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.priority-pill.high { background: var(--status-warn-bg); color: var(--status-warn-text); }
+.priority-pill.normal { background: var(--status-neutral-bg); color: var(--status-neutral-text); }
+.status-pill.assigned,
+.chat-status-label.assigned { background: var(--status-ok-bg); color: var(--status-ok-text); }
+.status-pill.unassigned,
+.chat-status-label.unassigned { background: var(--status-warn-bg); color: var(--status-warn-text); }
+.status-pill.closed,
+.chat-status-label.closed { background: var(--status-neutral-bg); color: var(--status-neutral-text); }
+
+.conversation-meta strong {
+  background: var(--brand-600);
+  color: #fff;
+}
+
+.wait-badge.tier-overdue { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.wait-badge.tier-warning { background: var(--status-warn-bg); color: var(--status-warn-text); }
+.wait-badge.tier-fresh { background: var(--status-info-bg); color: var(--status-info-text); }
+
+.message-bubble {
+  border-color: var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-dark .message-bubble.in {
+  border-color: color-mix(in srgb, var(--channel-border) 55%, var(--line));
+  background: color-mix(in srgb, var(--channel-incoming) 13%, var(--surface-raised));
+  color: var(--ink);
+}
+
+.theme-dark .message-bubble.out {
+  border-color: color-mix(in srgb, var(--channel-border) 42%, var(--line));
+  background: color-mix(in srgb, var(--channel-outgoing) 12%, var(--surface-soft));
+  color: var(--ink);
+}
+
+.theme-dark .message-bubble.note {
+  border-color: var(--status-warn-text);
+  background: var(--status-warn-bg-soft);
+  color: var(--ink);
+}
+
+.theme-picker,
+.status-picker,
+.account-info-grid > div {
+  border-color: var(--line);
+  background: var(--surface-soft);
+}
+
+.theme-picker-options button {
+  border-color: var(--line);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+}
+
+.theme-picker-options button.active {
+  border-color: var(--brand-700);
+  background: var(--brand-600);
+  color: #fff;
+}
+
+.appearance-picker .theme-picker-options button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.theme-picker-note { color: var(--muted); }
+
+.automation-feedback.success,
+.save-feedback.success { border-color: var(--ok); background: var(--status-ok-bg); color: var(--status-ok-text); }
+.automation-feedback.error,
+.save-feedback.error { border-color: var(--danger); background: var(--status-danger-bg); color: var(--status-danger-text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-shell *,
+  .dashboard-shell *::before,
+  .dashboard-shell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

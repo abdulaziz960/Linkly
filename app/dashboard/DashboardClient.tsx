@@ -85,6 +85,7 @@ const CUSTOMERS_CACHE_KEY = "audiencew:dashboard-customers";
 const DASHBOARD_VIEW_KEY = "audiencew:dashboard-active-view";
 const DASHBOARD_CHANNEL_KEY = "audiencew:dashboard-active-channel";
 const conversationChannels: ConversationChannel[] = ["whatsapp", "instagram", "x", "facebook", "google_maps", "website", "telegram", "email", "tiktok", "sms"];
+type ThemePreference = "light" | "dark" | "system";
 
 function isViewKey(value: string | null): value is ViewKey {
   return !!value && allViewKeys.includes(value as ViewKey);
@@ -144,6 +145,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const t = (ar: string, en: string) => (language === "en" ? en : ar);
   const [draftStatus, setDraftStatus] = useState<Employee["status"]>("متصل");
   const [draftLanguage, setDraftLanguage] = useState<"ar" | "en">("ar");
+  const [themePreference, setThemePreference] = useState<ThemePreference>("system");
+  const [draftThemePreference, setDraftThemePreference] = useState<ThemePreference>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileFeedback, setProfileFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -235,8 +239,18 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     if (storedOwnerStatus === "متصل" || storedOwnerStatus === "مشغول" || storedOwnerStatus === "غير متصل") {
       setOwnerStatus(storedOwnerStatus);
     }
+    const storedTheme = window.localStorage.getItem("linkly-dashboard-theme");
+    if (storedTheme === "light" || storedTheme === "dark" || storedTheme === "system") setThemePreference(storedTheme);
     setPreferencesLoaded(true);
   }, [initialUser.id]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateResolvedTheme = () => setResolvedTheme(themePreference === "system" ? (media.matches ? "dark" : "light") : themePreference);
+    updateResolvedTheme();
+    media.addEventListener("change", updateResolvedTheme);
+    return () => media.removeEventListener("change", updateResolvedTheme);
+  }, [themePreference]);
 
   useEffect(() => {
     if (!preferencesLoaded) return;
@@ -950,7 +964,9 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       if (draftStatus !== currentProfileStatus) await handleProfileStatusChange(draftStatus);
       setLanguage(draftLanguage);
       window.localStorage.setItem("audiencew-language", draftLanguage);
-      const savedMessage = draftLanguage === "en" ? "Status and language saved successfully." : "تم حفظ الحالة واللغة بنجاح.";
+      setThemePreference(draftThemePreference);
+      window.localStorage.setItem("linkly-dashboard-theme", draftThemePreference);
+      const savedMessage = draftLanguage === "en" ? "Status, language, and appearance saved successfully." : "تم حفظ الحالة واللغة والمظهر بنجاح.";
       setProfileFeedback({ type: "success", message: savedMessage });
     } catch (error) {
       const failMessage = draftLanguage === "en" ? "Could not save profile settings." : "تعذر حفظ إعدادات الملف الشخصي.";
@@ -962,7 +978,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
 
   return (
     <LanguageProvider language={language}>
-    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
+    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language} theme-${resolvedTheme}`} data-theme={resolvedTheme} dir={language === "en" ? "ltr" : "rtl"}>
       <DashboardSidebar
         activeView={activeView}
         allowedViews={allowedViews}
@@ -979,7 +995,13 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         selectedChannel={selectedChannel}
         onChangeView={handleViewChange}
         onChangeChannel={handleChannelChange}
-        onOpenProfile={() => setProfileOpen(true)}
+        onOpenProfile={() => {
+          setDraftStatus(currentProfileStatus);
+          setDraftLanguage(language);
+          setDraftThemePreference(themePreference);
+          setProfileFeedback(null);
+          setProfileOpen(true);
+        }}
       />
 
       <main className="dashboard-main">
@@ -1106,6 +1128,24 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                         </button>
                       ))}
                     </div>
+                  </div>
+                  <div className="theme-picker appearance-picker">
+                    <span>{draftLanguage === "en" ? "Appearance" : "المظهر"}</span>
+                    <div className="theme-picker-options">
+                      {([ ["light", t("فاتح", "Light")], ["dark", t("داكن", "Dark")], ["system", t("النظام", "System")] ] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={draftThemePreference === value ? "active" : ""}
+                          aria-pressed={draftThemePreference === value}
+                          onClick={() => setDraftThemePreference(value)}
+                        >
+                          <span aria-hidden="true">{value === "light" ? "☀" : value === "dark" ? "☾" : "◐"}</span>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <small className="theme-picker-note">{t("الوضع الداكن يستخدم ألوانًا مخصصة تحافظ على التباين والحالات.", "Dark mode uses dedicated colors that preserve contrast and status meaning.")}</small>
                   </div>
                   <div className="profile-actions">
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>{t("الفواتير والاشتراك", "Billing & subscription")}</button>
