@@ -116,7 +116,7 @@ export default function DashboardSidebar({
   return (
     <aside className="dashboard-sidebar">
       <div className="sidebar-brand" aria-label="Linkly">
-        <Image src="/assets/linkly-logo.svg" alt="Linkly" width={40} height={40} priority />
+        <Image src="/assets/linkly-logo.png" alt="Linkly" width={40} height={40} priority />
       </div>
       <div className="tenant-card">
         <b>{isEnglish ? "Account" : "حساب العميل"}</b>
