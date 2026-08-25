@@ -646,6 +646,11 @@ export default function BotView({ teams }: { teams: Team[] }) {
         <div className="bot-toolbar" dir="auto"><b>{t(`مخطط الرد الآلي (${channelLabel})`, `Auto reply flow (${channelLabel})`)}</b><span>{t('اسحب من النقطة يمين أي خطوة لخطوة ثانية عشان تربطهم', 'Drag from the dot on the right of a step to another step to link them')}</span></div>
         <div className="bot-flow-surface" style={{ width: canvasSize.width, height: canvasSize.height }}>
           <svg className="bot-flow-edges" width={canvasSize.width} height={canvasSize.height}>
+            <defs>
+              <marker id="botArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" className="bot-flow-arrowhead" />
+              </marker>
+            </defs>
             {edges.map((edge) => {
               const to = nodeTargetPoint(edge.to);
               const midX = (edge.fromX + to.x) / 2;
@@ -654,6 +659,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
                   key={`${edge.from}-${edge.to}`}
                   d={`M ${edge.fromX} ${edge.fromY} C ${midX} ${edge.fromY}, ${midX} ${to.y}, ${to.x} ${to.y}`}
                   fill="none"
+                  markerEnd="url(#botArrow)"
                 />
               );
             })}

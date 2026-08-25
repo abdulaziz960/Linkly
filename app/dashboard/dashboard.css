@@ -4045,6 +4045,10 @@
   stroke-width: 2;
 }
 
+.bot-flow-arrowhead {
+  fill: rgba(148, 163, 184, .85);
+}
+
 .bot-flow-node {
   position: absolute;
   cursor: grab;
