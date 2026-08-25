@@ -2,16 +2,17 @@ import { NextRequest } from "next/server";
 import { getConversations } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { getEmployeeForUser } from "../../../lib/permissions-server";
+import { canSeeAllConversations } from "../../../lib/permissions";
 import { prisma } from "../../../lib/prisma";
 import { processDueAutomations } from "../../../lib/automation-engine";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
 
-/** Non-owner employees only ever see conversations assigned to them. */
+/** Anyone without full conversation visibility only ever sees conversations assigned to them - mirrors lib/permissions.ts canSeeAllConversations, used client-side for the same scoping. */
 async function assigneeScopeFor(user: { role: string; email: string; tenantId: string }) {
-  if (user.role === "مالك الحساب") return undefined;
   const employee = await getEmployeeForUser(user);
+  if (canSeeAllConversations(user.role, employee ?? undefined)) return undefined;
   return employee?.name;
 }
 

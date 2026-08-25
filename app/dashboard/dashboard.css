@@ -933,6 +933,15 @@
   white-space: nowrap;
 }
 
+.conversation-assignee {
+  flex-basis: 100%;
+  color: var(--brand);
+  font-weight: 700;
+  max-width: 172px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .conversation-meta .conversation-age {
   color: var(--muted);
   font-size: 11px;

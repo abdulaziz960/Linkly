@@ -483,7 +483,9 @@ async function runSchemaMigrations() {
     source_label TEXT NOT NULL DEFAULT '',
     reply_to_message_id TEXT NOT NULL DEFAULT '',
     reply_to_text TEXT NOT NULL DEFAULT '',
-    reply_to_author TEXT NOT NULL DEFAULT ''
+    reply_to_author TEXT NOT NULL DEFAULT '',
+    delivery_status TEXT NOT NULL DEFAULT '',
+    delivery_error TEXT NOT NULL DEFAULT ''
   )`);
   const messageColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(messages)`);
   if (!messageColumns.some((column) => column.name === "created_at")) {
@@ -492,7 +494,7 @@ async function runSchemaMigrations() {
   if (!messageColumns.some((column) => column.name === "author")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN author TEXT NOT NULL DEFAULT ''`);
   }
-  for (const columnName of ["attachment_type", "attachment_url", "attachment_name", "attachment_mime", "meta_media_id", "source_type", "source_id", "source_url", "source_label", "reply_to_message_id", "reply_to_text", "reply_to_author"]) {
+  for (const columnName of ["attachment_type", "attachment_url", "attachment_name", "attachment_mime", "meta_media_id", "source_type", "source_id", "source_url", "source_label", "reply_to_message_id", "reply_to_text", "reply_to_author", "delivery_status", "delivery_error"]) {
     if (!messageColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
