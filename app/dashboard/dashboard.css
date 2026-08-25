@@ -2021,6 +2021,20 @@
   font-size: 11px;
 }
 
+.message-delivery-status {
+  margin-top: 2px !important;
+  font-weight: 800;
+}
+
+.message-delivery-status.read {
+  color: #0f5fc4;
+}
+
+.message-delivery-status.failed {
+  color: var(--status-danger-text);
+  cursor: help;
+}
+
 .message-reply-preview {
   display: grid !important;
   gap: 2px;

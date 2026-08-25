@@ -158,6 +158,8 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_message_id TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_text TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_author TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivery_status TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivery_error TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_consumer_key TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_consumer_secret TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_bearer_token TEXT NOT NULL DEFAULT ''`);
@@ -1862,7 +1864,9 @@ export async function getConversations(tenantId = "tenant-demo"): Promise<Conver
         messageId: message.replyToMessageId || undefined,
         text: message.replyToText || undefined,
         author: message.replyToAuthor || undefined
-      } : undefined
+      } : undefined,
+      deliveryStatus: (message.deliveryStatus || undefined) as Message["deliveryStatus"],
+      deliveryError: message.deliveryError || undefined
     }));
     const lastCustomerMessage = conversation.messages
       .filter((message) => message.direction === "in" && message.createdAt)

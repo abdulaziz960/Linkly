@@ -824,6 +824,20 @@ export default function InboxView({
                     )
                   ) : null}
                   <small>{item.time}</small>
+                  {item.direction === "out" && activeConversation.channel === "whatsapp" && item.deliveryStatus ? (
+                    <small
+                      className={`message-delivery-status ${item.deliveryStatus}`}
+                      title={item.deliveryStatus === "failed" && item.deliveryError ? item.deliveryError : undefined}
+                    >
+                      {item.deliveryStatus === "failed"
+                        ? t(`✗ فشل التسليم${item.deliveryError ? `: ${item.deliveryError}` : ""}`, `✗ Delivery failed${item.deliveryError ? `: ${item.deliveryError}` : ""}`)
+                        : item.deliveryStatus === "read"
+                          ? t("✓✓ قُرئت", "✓✓ Read")
+                          : item.deliveryStatus === "delivered"
+                            ? t("✓✓ وصلت", "✓✓ Delivered")
+                            : t("✓ أُرسلت", "✓ Sent")}
+                    </small>
+                  ) : null}
                 </div>
               ))}
             </div>
