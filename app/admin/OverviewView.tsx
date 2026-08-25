@@ -5,6 +5,14 @@ import Link from "next/link";
 import type { SubscriptionRow } from "./types";
 import { EXTRA_USER_PRICE, formatNumber, getRenewalAlert } from "./utils";
 import AnimatedNumber from "./AnimatedNumber";
+import { useLanguage } from "./i18n";
+
+function statusLabel(status: string, t: (ar: string, en: string) => string) {
+  if (status === "نشط") return t("نشط", "Active");
+  if (status === "تجربة") return t("تجربة", "Trial");
+  if (status === "متوقف") return t("متوقف", "Stopped");
+  return status;
+}
 
 type OverviewViewProps = {
   subscriptions: SubscriptionRow[];
@@ -17,6 +25,7 @@ type OverviewViewProps = {
 const DONUT_COLORS = ["#171717", "#6b7280", "#a3a3a3", "#d4d4d4", "#e5e5e5"];
 
 export default function OverviewView({ subscriptions, paymentsCount, plansCount, teamCount, logsCount }: OverviewViewProps) {
+  const { t } = useLanguage();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -56,12 +65,12 @@ export default function OverviewView({ subscriptions, paymentsCount, plansCount,
   const maxPlanCount = Math.max(1, ...planEntries.map(([, count]) => count));
 
   const quickLinks = [
-    { href: "/admin/clients", label: "العملاء", count: subscriptions.length, hint: "إدارة كل حسابات العملاء" },
-    { href: "/admin/alerts", label: "تنبيهات التجديد", count: renewalAlertsCount, hint: "اشتراكات تحتاج متابعة" },
-    { href: "/admin/payments", label: "المدفوعات", count: paymentsCount, hint: "سجل مدفوعات Moyasar" },
-    { href: "/admin/plans", label: "الباقات", count: plansCount, hint: "أسعار الباقات وحدودها" },
-    { href: "/admin/team", label: "الفريق", count: teamCount, hint: "أعضاء فريق المنصة" },
-    { href: "/admin/logs", label: "السجلات", count: logsCount, hint: "سجل حركة كل الحسابات" }
+    { href: "/admin/clients", label: t("العملاء", "Clients"), count: subscriptions.length, hint: t("إدارة كل حسابات العملاء", "Manage all client accounts") },
+    { href: "/admin/alerts", label: t("تنبيهات التجديد", "Renewal alerts"), count: renewalAlertsCount, hint: t("اشتراكات تحتاج متابعة", "Subscriptions needing follow-up") },
+    { href: "/admin/payments", label: t("المدفوعات", "Payments"), count: paymentsCount, hint: t("سجل مدفوعات Moyasar", "Moyasar payment log") },
+    { href: "/admin/plans", label: t("الباقات", "Plans"), count: plansCount, hint: t("أسعار الباقات وحدودها", "Plan pricing and limits") },
+    { href: "/admin/team", label: t("الفريق", "Team"), count: teamCount, hint: t("أعضاء فريق المنصة", "Platform team members") },
+    { href: "/admin/logs", label: t("السجلات", "Logs"), count: logsCount, hint: t("سجل حركة كل الحسابات", "Activity log for all accounts") }
   ];
 
   return (
@@ -69,24 +78,24 @@ export default function OverviewView({ subscriptions, paymentsCount, plansCount,
       <section className="admin-section">
         <div className="admin-metrics">
           <article>
-            <span>إجمالي العملاء</span>
+            <span>{t("إجمالي العملاء", "Total clients")}</span>
             <strong><AnimatedNumber value={subscriptions.length} /></strong>
-            <small>{formatNumber(activeClients)} نشط · {formatNumber(trialClients)} تجربة</small>
+            <small>{formatNumber(activeClients)} {t("نشط", "active")} · {formatNumber(trialClients)} {t("تجربة", "trial")}</small>
           </article>
           <article>
-            <span>اشتراكات نشطة</span>
+            <span>{t("اشتراكات نشطة", "Active subscriptions")}</span>
             <strong><AnimatedNumber value={activeClients} /></strong>
-            <small>{formatNumber(subscriptions.length - activeClients)} غير نشطة</small>
+            <small>{formatNumber(subscriptions.length - activeClients)} {t("غير نشطة", "inactive")}</small>
           </article>
           <article>
-            <span>إيراد شهري متوقع</span>
+            <span>{t("إيراد شهري متوقع", "Projected monthly revenue")}</span>
             <strong><AnimatedNumber value={monthlyRevenue} /></strong>
-            <small>ريال من الاشتراكات النشطة</small>
+            <small>{t("ريال من الاشتراكات النشطة", "SAR from active subscriptions")}</small>
           </article>
           <article>
-            <span>محادثات تحت الإدارة</span>
+            <span>{t("محادثات تحت الإدارة", "Conversations under management")}</span>
             <strong><AnimatedNumber value={totalConversations} /></strong>
-            <small>مجمعة من كل حسابات العملاء</small>
+            <small>{t("مجمعة من كل حسابات العملاء", "Aggregated across all client accounts")}</small>
           </article>
         </div>
       </section>
@@ -96,25 +105,25 @@ export default function OverviewView({ subscriptions, paymentsCount, plansCount,
           <div className="admin-donut" style={{ background: donutBackground }}>
             <div className="admin-donut-hole">
               <strong><AnimatedNumber value={subscriptions.length} /></strong>
-              <span>إجمالي</span>
+              <span>{t("إجمالي", "Total")}</span>
             </div>
           </div>
           <div className="admin-donut-legend">
             {donutStops.map((stop) => (
               <div className="admin-donut-legend-row" key={stop.status}>
                 <span className="admin-donut-dot" style={{ background: stop.color }} />
-                <span>{stop.status}</span>
+                <span>{statusLabel(stop.status, t)}</span>
                 <strong>{formatNumber(stop.count)}</strong>
               </div>
             ))}
-            {!donutStops.length ? <p className="admin-empty-state">لا يوجد عملاء بعد لعرض توزيع الحالات.</p> : null}
+            {!donutStops.length ? <p className="admin-empty-state">{t("لا يوجد عملاء بعد لعرض توزيع الحالات.", "No clients yet to show a status breakdown.")}</p> : null}
           </div>
         </article>
 
         <article className="admin-card">
           <div className="admin-plan-card-head">
-            <h2>توزيع الباقات</h2>
-            <p>عدد العملاء على كل باقة.</p>
+            <h2>{t("توزيع الباقات", "Plan distribution")}</h2>
+            <p>{t("عدد العملاء على كل باقة.", "Number of clients on each plan.")}</p>
           </div>
           <div className="admin-bars">
             {planEntries.map(([plan, count]) => (
@@ -131,7 +140,7 @@ export default function OverviewView({ subscriptions, paymentsCount, plansCount,
                 </div>
               </div>
             ))}
-            {!planEntries.length ? <p className="admin-empty-state">لا يوجد عملاء بعد لعرض توزيع الباقات.</p> : null}
+            {!planEntries.length ? <p className="admin-empty-state">{t("لا يوجد عملاء بعد لعرض توزيع الباقات.", "No clients yet to show a plan breakdown.")}</p> : null}
           </div>
         </article>
       </section>

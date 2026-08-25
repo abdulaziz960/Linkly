@@ -5,6 +5,7 @@ import type { AdminLog } from "../../../lib/database";
 import type { SubscriptionRow } from "../types";
 import { formatNumber, statusClass } from "../utils";
 import CustomSelect from "../../components/CustomSelect";
+import { useLanguage } from "../i18n";
 
 type LogsViewProps = {
   subscriptions: SubscriptionRow[];
@@ -14,7 +15,23 @@ type LogsViewProps = {
 
 const LEVEL_FILTERS: Array<AdminLog["level"] | "الكل"> = ["الكل", "معلومة", "تنبيه", "خطأ"];
 
+function levelLabel(level: AdminLog["level"] | "الكل", t: (ar: string, en: string) => string) {
+  switch (level) {
+    case "الكل":
+      return t("الكل", "All");
+    case "معلومة":
+      return t("معلومة", "Info");
+    case "تنبيه":
+      return t("تنبيه", "Warning");
+    case "خطأ":
+      return t("خطأ", "Error");
+    default:
+      return level;
+  }
+}
+
 export default function LogsView({ subscriptions, logs, initialClient }: LogsViewProps) {
+  const { t } = useLanguage();
   const [selectedLogClient, setSelectedLogClient] = useState(initialClient);
   const [searchQuery, setSearchQuery] = useState("");
   const [levelFilter, setLevelFilter] = useState<AdminLog["level"] | "الكل">("الكل");
@@ -45,24 +62,24 @@ export default function LogsView({ subscriptions, logs, initialClient }: LogsVie
       <section className="admin-section">
         <div className="admin-metrics">
           <article>
-            <span>إجمالي السجلات</span>
+            <span>{t("إجمالي السجلات", "Total Logs")}</span>
             <strong>{formatNumber(logs.length)}</strong>
-            <small>كل الأحداث المسجّلة</small>
+            <small>{t("كل الأحداث المسجّلة", "All recorded events")}</small>
           </article>
           <article>
-            <span>معلومة</span>
+            <span>{t("معلومة", "Info")}</span>
             <strong>{formatNumber(infoCount)}</strong>
-            <small>أحداث عادية</small>
+            <small>{t("أحداث عادية", "Routine events")}</small>
           </article>
           <article>
-            <span>تنبيه</span>
+            <span>{t("تنبيه", "Warning")}</span>
             <strong>{formatNumber(warnCount)}</strong>
-            <small>يحتاج انتباه</small>
+            <small>{t("يحتاج انتباه", "Needs attention")}</small>
           </article>
           <article>
-            <span>خطأ</span>
+            <span>{t("خطأ", "Error")}</span>
             <strong>{formatNumber(errorCount)}</strong>
-            <small>يحتاج متابعة عاجلة</small>
+            <small>{t("يحتاج متابعة عاجلة", "Needs urgent follow-up")}</small>
           </article>
         </div>
       </section>
@@ -70,8 +87,8 @@ export default function LogsView({ subscriptions, logs, initialClient }: LogsVie
       <section className="admin-card">
         <div className="admin-card-head">
           <div>
-            <h2>السجلات ({formatNumber(visibleLogs.length)} من {formatNumber(logs.length)})</h2>
-            <p>فلتر السجلات حسب العميل واعرض سجل الحركة كامل لكل حساب.</p>
+            <h2>{t("السجلات", "Logs")} ({formatNumber(visibleLogs.length)} {t("من", "of")} {formatNumber(logs.length)})</h2>
+            <p>{t("فلتر السجلات حسب العميل واعرض سجل الحركة كامل لكل حساب.", "Filter logs by client and view the full activity history for each account.")}</p>
           </div>
         </div>
 
@@ -79,7 +96,7 @@ export default function LogsView({ subscriptions, logs, initialClient }: LogsVie
           <input
             type="search"
             className="admin-search-input"
-            placeholder="ابحث بالتفاصيل أو العميل أو المصدر..."
+            placeholder={t("ابحث بالتفاصيل أو العميل أو المصدر...", "Search by details, client, or source...")}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
@@ -91,14 +108,14 @@ export default function LogsView({ subscriptions, logs, initialClient }: LogsVie
                 className={`admin-filter-chip ${levelFilter === level ? "active" : ""}`}
                 onClick={() => setLevelFilter(level)}
               >
-                {level}
+                {levelLabel(level, t)}
               </button>
             ))}
           </div>
           <CustomSelect
             value={selectedLogClient}
             onChange={setSelectedLogClient}
-            options={[{ value: "all", label: "كل العملاء" }, ...subscriptions.map((client) => ({ value: client.tenantId, label: client.companyName }))]}
+            options={[{ value: "all", label: t("كل العملاء", "All Clients") }, ...subscriptions.map((client) => ({ value: client.tenantId, label: client.companyName }))]}
           />
         </div>
 
@@ -106,11 +123,11 @@ export default function LogsView({ subscriptions, logs, initialClient }: LogsVie
           <table>
             <thead>
               <tr>
-                <th>الوقت</th>
-                <th>العميل</th>
-                <th>المصدر</th>
-                <th>المستوى</th>
-                <th>التفاصيل</th>
+                <th>{t("الوقت", "Time")}</th>
+                <th>{t("العميل", "Client")}</th>
+                <th>{t("المصدر", "Source")}</th>
+                <th>{t("المستوى", "Level")}</th>
+                <th>{t("التفاصيل", "Details")}</th>
               </tr>
             </thead>
             <tbody>
@@ -120,7 +137,7 @@ export default function LogsView({ subscriptions, logs, initialClient }: LogsVie
                   <td>{log.clientName}</td>
                   <td>{log.source}</td>
                   <td>
-                    <span className={`admin-pill ${statusClass(log.level)}`}>{log.level}</span>
+                    <span className={`admin-pill ${statusClass(log.level)}`}>{levelLabel(log.level, t)}</span>
                   </td>
                   <td>{log.message}</td>
                 </tr>
@@ -129,9 +146,9 @@ export default function LogsView({ subscriptions, logs, initialClient }: LogsVie
           </table>
         </div>
         {logs.length === 0 ? (
-          <p className="admin-empty-state">لا توجد سجلات مسجّلة حتى الآن.</p>
+          <p className="admin-empty-state">{t("لا توجد سجلات مسجّلة حتى الآن.", "No logs recorded yet.")}</p>
         ) : visibleLogs.length === 0 ? (
-          <p className="admin-empty-state">لا توجد نتائج مطابقة للبحث أو الفلتر الحالي.</p>
+          <p className="admin-empty-state">{t("لا توجد نتائج مطابقة للبحث أو الفلتر الحالي.", "No results match the current search or filter.")}</p>
         ) : null}
       </section>
     </>

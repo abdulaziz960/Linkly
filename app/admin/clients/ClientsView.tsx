@@ -7,24 +7,44 @@ import type { FormEvent } from "react";
 import type { PlanRow, SubscriptionRow } from "../types";
 import { EXTRA_USER_PRICE, formatNumber, getRenewalAlert, statusClass } from "../utils";
 import CustomSelect from "../../components/CustomSelect";
+import { useLanguage } from "../i18n";
 
 type ClientsViewProps = {
   subscriptions: SubscriptionRow[];
   plans: PlanRow[];
 };
 
+type TFunc = (ar: string, en: string) => string;
+
 const STATUS_FILTERS = ["الكل", "نشط", "تجربة", "متوقف"];
-const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
-  { value: "recent", label: "الأحدث" },
-  { value: "name", label: "اسم العميل" },
-  { value: "renewal", label: "أقرب تجديد" },
-  { value: "revenue", label: "أعلى إيراد" }
-];
 
 type SortKey = "recent" | "name" | "renewal" | "revenue";
 
+const SORT_OPTIONS: Array<{ value: SortKey; ar: string; en: string }> = [
+  { value: "recent", ar: "الأحدث", en: "Most Recent" },
+  { value: "name", ar: "اسم العميل", en: "Client Name" },
+  { value: "renewal", ar: "أقرب تجديد", en: "Nearest Renewal" },
+  { value: "revenue", ar: "أعلى إيراد", en: "Highest Revenue" }
+];
+
+function subscriptionStatusLabel(status: string, t: TFunc) {
+  if (status === "نشط") return t("نشط", "Active");
+  if (status === "تجربة") return t("تجربة", "Trial");
+  if (status === "متوقف") return t("متوقف", "Paused");
+  if (status === "الكل") return t("الكل", "All");
+  return status;
+}
+
+function billingCycleLabel(cycle: string, t: TFunc) {
+  if (cycle === "تجربة 14 يوم") return t("تجربة 14 يوم", "14-Day Trial");
+  if (cycle === "شهري") return t("شهري", "Monthly");
+  if (cycle === "سنوي") return t("سنوي", "Annual");
+  return cycle;
+}
+
 export default function ClientsView({ subscriptions, plans }: ClientsViewProps) {
   const router = useRouter();
+  const { t, language } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("الكل");
   const [sortBy, setSortBy] = useState<SortKey>("recent");
@@ -63,7 +83,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
 
     const employeeLimit = Number(limitValue);
     if (!Number.isFinite(employeeLimit) || employeeLimit < 1) {
-      setLimitError("اكتب حد مستخدمين صحيح");
+      setLimitError(t("اكتب حد مستخدمين صحيح", "Enter a valid user limit"));
       return;
     }
 
@@ -80,7 +100,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     setIsLimitSaving(false);
 
     if (!response.ok || !result.ok) {
-      setLimitError(result.error || "تعذر تحديث حد المستخدمين");
+      setLimitError(result.error || t("تعذر تحديث حد المستخدمين", "Could not update the user limit"));
       return;
     }
 
@@ -96,7 +116,11 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
   }
 
   async function handleDeleteClient(client: SubscriptionRow) {
-    if (!window.confirm(`حذف "${client.companyName}" نهائيًا؟ هذا يحذف حساب الدخول وسجل المدفوعات والحركة، ولا يمكن التراجع.`)) return;
+    const confirmMessage =
+      language === "en"
+        ? `Permanently delete "${client.companyName}"? This deletes the login account, payment history, and activity log. This cannot be undone.`
+        : `حذف "${client.companyName}" نهائيًا؟ هذا يحذف حساب الدخول وسجل المدفوعات والحركة، ولا يمكن التراجع.`;
+    if (!window.confirm(confirmMessage)) return;
 
     setDeletingId(client.tenantId);
     const response = await fetch(`/api/admin/clients/${client.tenantId}`, { method: "DELETE" });
@@ -104,7 +128,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     setDeletingId("");
 
     if (!response.ok || !result.ok) {
-      window.alert(result.error || "تعذر حذف العميل");
+      window.alert(result.error || t("تعذر حذف العميل", "Could not delete the client"));
       return;
     }
 
@@ -124,12 +148,12 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
 
     const messages = Number(balanceMessages);
     if (!Number.isFinite(messages) || messages < 1 || !Number.isInteger(messages)) {
-      setBalanceError("اكتب عدد رسائل صحيح");
+      setBalanceError(t("اكتب عدد رسائل صحيح", "Enter a valid number of messages"));
       return;
     }
     const amount = balanceAmount.trim() ? Number(balanceAmount) : 0;
     if (!Number.isFinite(amount) || amount < 0) {
-      setBalanceError("اكتب مبلغ صحيح");
+      setBalanceError(t("اكتب مبلغ صحيح", "Enter a valid amount"));
       return;
     }
 
@@ -146,7 +170,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     setIsBalanceSaving(false);
 
     if (!response.ok || !result.ok) {
-      setBalanceError(result.error || "تعذر إضافة الرصيد");
+      setBalanceError(result.error || t("تعذر إضافة الرصيد", "Could not add the balance"));
       return;
     }
 
@@ -165,7 +189,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     setTogglingLeadsId("");
 
     if (!response.ok || !result.ok) {
-      window.alert(result.error || "تعذر تحديث صلاحية العملاء المحتملين");
+      window.alert(result.error || t("تعذر تحديث صلاحية العملاء المحتملين", "Could not update leads access"));
       return;
     }
 
@@ -178,7 +202,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
 
     const amount = Number(chargeAmount);
     if (!Number.isFinite(amount) || amount < 1) {
-      setChargeError("اكتب قيمة فاتورة صحيحة");
+      setChargeError(t("اكتب قيمة فاتورة صحيحة", "Enter a valid invoice amount"));
       return;
     }
 
@@ -196,7 +220,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     setIsCharging(false);
 
     if (!response.ok || !result.ok || !result.paymentUrl) {
-      setChargeError(result.error || "تعذر إنشاء طلب الدفع");
+      setChargeError(result.error || t("تعذر إنشاء طلب الدفع", "Could not create the payment request"));
       return;
     }
 
@@ -236,11 +260,11 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     setIsSaving(false);
 
     if (!response.ok || !result.ok) {
-      setFormError(result.error || "تعذر حفظ العميل");
+      setFormError(result.error || t("تعذر حفظ العميل", "Could not save the client"));
       return;
     }
 
-    setInviteNotice(result.data?.inviteDelivery?.message || "تم إنشاء الحساب.");
+    setInviteNotice(result.data?.inviteDelivery?.message || t("تم إنشاء الحساب.", "Account created."));
     setActivationUrl(result.data?.inviteDelivery?.activationUrl || "");
     router.refresh();
   }
@@ -278,24 +302,24 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
       <section className="admin-section">
         <div className="admin-metrics">
           <article>
-            <span>إجمالي العملاء</span>
+            <span>{t("إجمالي العملاء", "Total Clients")}</span>
             <strong>{formatNumber(subscriptions.length)}</strong>
-            <small>عدد الحسابات الحقيقية على المنصة</small>
+            <small>{t("عدد الحسابات الحقيقية على المنصة", "Real accounts on the platform")}</small>
           </article>
           <article>
-            <span>نشط</span>
+            <span>{t("نشط", "Active")}</span>
             <strong>{formatNumber(activeCount)}</strong>
-            <small>اشتراكات فعّالة حاليًا</small>
+            <small>{t("اشتراكات فعّالة حاليًا", "Currently active subscriptions")}</small>
           </article>
           <article>
-            <span>تجربة</span>
+            <span>{t("تجربة", "Trial")}</span>
             <strong>{formatNumber(trialCount)}</strong>
-            <small>لم تتحول لاشتراك مدفوع بعد</small>
+            <small>{t("لم تتحول لاشتراك مدفوع بعد", "Not yet converted to a paid subscription")}</small>
           </article>
           <article>
-            <span>يحتاج متابعة</span>
+            <span>{t("يحتاج متابعة", "Needs Follow-up")}</span>
             <strong>{formatNumber(atRiskCount)}</strong>
-            <small>تجديد قريب أو متأخر</small>
+            <small>{t("تجديد قريب أو متأخر", "Renewal due soon or overdue")}</small>
           </article>
         </div>
       </section>
@@ -303,12 +327,22 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
       <section className="admin-card">
         <div className="admin-card-head">
           <div>
-            <h2>العملاء ({formatNumber(visibleClients.length)} من {formatNumber(subscriptions.length)})</h2>
-            <p>كل عميل وتحته حالة اشتراكه الحقيقية، عدد الموظفين الفعلي، والمحادثات المستخدمة.</p>
+            <h2>
+              {t(
+                `العملاء (${formatNumber(visibleClients.length)} من ${formatNumber(subscriptions.length)})`,
+                `Clients (${formatNumber(visibleClients.length)} of ${formatNumber(subscriptions.length)})`
+              )}
+            </h2>
+            <p>
+              {t(
+                "كل عميل وتحته حالة اشتراكه الحقيقية، عدد الموظفين الفعلي، والمحادثات المستخدمة.",
+                "Each client shows their real subscription status, actual employee count, and conversations used."
+              )}
+            </p>
           </div>
           <div className="admin-card-actions">
             <button type="button" onClick={() => setIsAddOpen(true)}>
-              إضافة عميل
+              {t("إضافة عميل", "Add Client")}
             </button>
           </div>
         </div>
@@ -317,7 +351,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
           <input
             type="search"
             className="admin-search-input"
-            placeholder="ابحث بالاسم أو البريد الإلكتروني..."
+            placeholder={t("ابحث بالاسم أو البريد الإلكتروني...", "Search by name or email...")}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
@@ -329,14 +363,17 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                 className={`admin-filter-chip ${statusFilter === status ? "active" : ""}`}
                 onClick={() => setStatusFilter(status)}
               >
-                {status}
+                {subscriptionStatusLabel(status, t)}
               </button>
             ))}
           </div>
           <CustomSelect
             value={sortBy}
             onChange={(value) => setSortBy(value as SortKey)}
-            options={SORT_OPTIONS.map((option) => ({ value: option.value, label: `ترتيب: ${option.label}` }))}
+            options={SORT_OPTIONS.map((option) => ({
+              value: option.value,
+              label: t(`ترتيب: ${option.ar}`, `Sort: ${option.en}`)
+            }))}
           />
         </div>
 
@@ -350,63 +387,70 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
               <article className="admin-client-card" key={client.tenantId}>
                 <div className="admin-client-summary">
                   <div className="admin-client-summary-main">
-                    <span className="admin-client-avatar">{client.companyName.slice(0, 1) || "ع"}</span>
+                    <span className="admin-client-avatar">{client.companyName.slice(0, 1) || t("ع", "C")}</span>
                     <div>
                       <strong>{client.companyName}</strong>
                       <span>{client.ownerName} · {client.ownerEmail}</span>
                     </div>
                   </div>
-                  <span className={`admin-pill ${statusClass(client.status)}`}>{client.status}</span>
+                  <span className={`admin-pill ${statusClass(client.status)}`}>
+                    {subscriptionStatusLabel(client.status, t)}
+                  </span>
                 </div>
 
                 <div className="admin-client-status-grid">
                   <div>
-                    <span>الباقة</span>
+                    <span>{t("الباقة", "Plan")}</span>
                     <strong>{client.plan}</strong>
-                    <small>{client.billingCycle}</small>
+                    <small>{billingCycleLabel(client.billingCycle, t)}</small>
                   </div>
                   <div>
-                    <span>حد المستخدمين</span>
+                    <span>{t("حد المستخدمين", "User Limit")}</span>
                     <strong>{formatNumber(client.employeeCount)} / {formatNumber(client.employeeLimit)}</strong>
                     <small>
                       {extraUserCount > 0
-                        ? `${formatNumber(extraUserCount)} إضافي × ${formatNumber(EXTRA_USER_PRICE)} ر.س`
-                        : "ضمن حد الباقة"}
+                        ? t(
+                            `${formatNumber(extraUserCount)} إضافي × ${formatNumber(EXTRA_USER_PRICE)} ر.س`,
+                            `${formatNumber(extraUserCount)} extra × ${formatNumber(EXTRA_USER_PRICE)} SAR`
+                          )
+                        : t("ضمن حد الباقة", "Within plan limit")}
                     </small>
                   </div>
                   <div>
-                    <span>الفاتورة الشهرية</span>
-                    <strong>{formatNumber(invoiceTotal)} ر.س</strong>
+                    <span>{t("الفاتورة الشهرية", "Monthly Invoice")}</span>
+                    <strong>{t(`${formatNumber(invoiceTotal)} ر.س`, `${formatNumber(invoiceTotal)} SAR`)}</strong>
                     <small>
-                      {formatNumber(client.amount)} ر.س اشتراك
-                      {extraUserAmount > 0 ? ` + ${formatNumber(extraUserAmount)} ر.س مستخدمين` : ""}
+                      {t(
+                        `${formatNumber(client.amount)} ر.س اشتراك${extraUserAmount > 0 ? ` + ${formatNumber(extraUserAmount)} ر.س مستخدمين` : ""}`,
+                        `${formatNumber(client.amount)} SAR subscription${extraUserAmount > 0 ? ` + ${formatNumber(extraUserAmount)} SAR users` : ""}`
+                      )}
                     </small>
                   </div>
                   <div>
-                    <span>المحادثات</span>
+                    <span>{t("المحادثات", "Conversations")}</span>
                     <strong>{formatNumber(client.conversationCount)}</strong>
-                    <small>التجديد: {client.renewalAt || "غير محدد"}</small>
+                    <small>{t(`التجديد: ${client.renewalAt || "غير محدد"}`, `Renewal: ${client.renewalAt || "Not set"}`)}</small>
                   </div>
                   <div>
-                    <span>رصيد رسائل الحملات</span>
+                    <span>{t("رصيد رسائل الحملات", "Campaign Message Balance")}</span>
                     <strong>{formatNumber(client.campaignBalance)}</strong>
-                    <small>رسالة متاحة</small>
+                    <small>{t("رسالة متاحة", "messages available")}</small>
                   </div>
                 </div>
 
                 <div className="admin-client-actions">
                   <button type="button" onClick={() => openChargeModal(client)}>
-                    شحن / تجديد الاشتراك
+                    {t("شحن / تجديد الاشتراك", "Charge / Renew Subscription")}
                   </button>
-                  <Link href={`/admin/logs?client=${client.tenantId}`}>سجل الحركة</Link>
+                  <Link href={`/admin/logs?client=${client.tenantId}`}>{t("سجل الحركة", "Activity Log")}</Link>
                   <button type="button" onClick={() => openLimitEditor(client)}>
-                    تعديل حد المستخدمين
+                    {t("تعديل حد المستخدمين", "Edit User Limit")}
                   </button>
                   <button type="button" onClick={() => openBalanceEditor(client)}>
-                    إضافة رصيد رسائل حملات
+                    {t("إضافة رصيد رسائل حملات", "Add Campaign Message Balance")}
                   </button>
                   <div className="admin-leads-toggle" aria-disabled={togglingLeadsId === client.tenantId}>
-                    <span>العملاء المحتملون (CRM)</span>
+                    <span>{t("العملاء المحتملون (CRM)", "Leads (CRM)")}</span>
                     <button
                       type="button"
                       role="switch"
@@ -424,16 +468,18 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                     disabled={deletingId === client.tenantId}
                     onClick={() => handleDeleteClient(client)}
                   >
-                    {deletingId === client.tenantId ? "جاري الحذف..." : "حذف العميل"}
+                    {deletingId === client.tenantId ? t("جاري الحذف...", "Deleting...") : t("حذف العميل", "Delete Client")}
                   </button>
                 </div>
               </article>
             );
           })}
           {!subscriptions.length ? (
-            <p className="admin-empty-state">لا يوجد عملاء بعد. اضغط "إضافة عميل" لإنشاء أول حساب.</p>
+            <p className="admin-empty-state">
+              {t('لا يوجد عملاء بعد. اضغط "إضافة عميل" لإنشاء أول حساب.', 'No clients yet. Click "Add Client" to create the first account.')}
+            </p>
           ) : !visibleClients.length ? (
-            <p className="admin-empty-state">لا توجد نتائج مطابقة للبحث أو الفلتر الحالي.</p>
+            <p className="admin-empty-state">{t("لا توجد نتائج مطابقة للبحث أو الفلتر الحالي.", "No results match the current search or filter.")}</p>
           ) : null}
         </div>
       </section>
@@ -443,10 +489,15 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
           <div className="admin-modal-card">
             <div className="admin-modal-head">
               <div>
-                <h2 id="add-client-title">إضافة عميل جديد</h2>
-                <p>ينشئ هذا حساب دخول حقيقي فورًا ويرسل رابط تفعيل لصاحب الحساب على بريده.</p>
+                <h2 id="add-client-title">{t("إضافة عميل جديد", "Add New Client")}</h2>
+                <p>
+                  {t(
+                    "ينشئ هذا حساب دخول حقيقي فورًا ويرسل رابط تفعيل لصاحب الحساب على بريده.",
+                    "This creates a real login account immediately and sends an activation link to the owner's email."
+                  )}
+                </p>
               </div>
-              <button type="button" onClick={() => { setIsAddOpen(false); setInviteNotice(""); setActivationUrl(""); }} aria-label="إغلاق">
+              <button type="button" onClick={() => { setIsAddOpen(false); setInviteNotice(""); setActivationUrl(""); }} aria-label={t("إغلاق", "Close")}>
                 ×
               </button>
             </div>
@@ -456,70 +507,70 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                 <p>{inviteNotice}</p>
                 {activationUrl ? (
                   <a className="activation-link" href={activationUrl} target="_blank" rel="noreferrer">
-                    فتح رابط التفعيل
+                    {t("فتح رابط التفعيل", "Open Activation Link")}
                   </a>
                 ) : null}
                 <div className="admin-form-actions">
                   <button type="button" onClick={() => { setIsAddOpen(false); setInviteNotice(""); setActivationUrl(""); }}>
-                    تم
+                    {t("تم", "Done")}
                   </button>
                 </div>
               </div>
             ) : (
               <form className="admin-client-form" onSubmit={handleCreateClient}>
                 <label>
-                  اسم الشركة/العميل
-                  <input name="company" placeholder="مثال: متجر الرياض" required />
+                  {t("اسم الشركة/العميل", "Company / Client Name")}
+                  <input name="company" placeholder={t("مثال: متجر الرياض", "e.g. Riyadh Store")} required />
                 </label>
                 <label>
-                  اسم صاحب الحساب
-                  <input name="owner" placeholder="اسم صاحب الحساب" required />
+                  {t("اسم صاحب الحساب", "Account Owner Name")}
+                  <input name="owner" placeholder={t("اسم صاحب الحساب", "Account owner name")} required />
                 </label>
                 <label>
-                  البريد الإلكتروني لصاحب الحساب
+                  {t("البريد الإلكتروني لصاحب الحساب", "Account Owner Email")}
                   <input name="ownerEmail" type="email" dir="ltr" placeholder="owner@example.com" required />
                 </label>
                 <label>
-                  الباقة
+                  {t("الباقة", "Plan")}
                   <CustomSelect
                     name="plan"
                     defaultValue={plans.find((p) => p.active === 1)?.name || "باقة النمو"}
                     options={
                       plans.length
-                        ? plans.filter((p) => p.active === 1).map((p) => ({ value: p.name, label: `${p.name} (${formatNumber(p.monthlyPrice)} ر.س)` }))
+                        ? plans.filter((p) => p.active === 1).map((p) => ({ value: p.name, label: `${p.name} (${formatNumber(p.monthlyPrice)} ${t("ر.س", "SAR")})` }))
                         : [{ value: "باقة البداية", label: "باقة البداية" }, { value: "باقة النمو", label: "باقة النمو" }, { value: "باقة الأعمال", label: "باقة الأعمال" }]
                     }
                   />
                 </label>
                 <label>
-                  حالة الاشتراك
+                  {t("حالة الاشتراك", "Subscription Status")}
                   <CustomSelect
                     name="status"
                     defaultValue="تجربة"
                     options={[
-                      { value: "تجربة", label: "تجربة" },
-                      { value: "نشط", label: "نشط" },
-                      { value: "متوقف", label: "متوقف" }
+                      { value: "تجربة", label: t("تجربة", "Trial") },
+                      { value: "نشط", label: t("نشط", "Active") },
+                      { value: "متوقف", label: t("متوقف", "Paused") }
                     ]}
                   />
                 </label>
                 <label>
-                  تاريخ التجديد
+                  {t("تاريخ التجديد", "Renewal Date")}
                   <input name="renewal" type="date" />
                 </label>
                 <label>
-                  قيمة الباقة الشهرية
+                  {t("قيمة الباقة الشهرية", "Monthly Plan Amount")}
                   <input name="amount" type="number" min="0" defaultValue="0" />
                 </label>
                 <label>
-                  دورة الفوترة
+                  {t("دورة الفوترة", "Billing Cycle")}
                   <CustomSelect
                     name="billingCycle"
                     defaultValue="تجربة 14 يوم"
                     options={[
-                      { value: "تجربة 14 يوم", label: "تجربة 14 يوم" },
-                      { value: "شهري", label: "شهري" },
-                      { value: "سنوي", label: "سنوي" }
+                      { value: "تجربة 14 يوم", label: t("تجربة 14 يوم", "14-Day Trial") },
+                      { value: "شهري", label: t("شهري", "Monthly") },
+                      { value: "سنوي", label: t("سنوي", "Annual") }
                     ]}
                   />
                 </label>
@@ -528,10 +579,10 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
 
                 <div className="admin-form-actions">
                   <button type="button" onClick={() => setIsAddOpen(false)}>
-                    إلغاء
+                    {t("إلغاء", "Cancel")}
                   </button>
                   <button type="submit" disabled={isSaving}>
-                    {isSaving ? "جاري الحفظ..." : "إنشاء الحساب"}
+                    {isSaving ? t("جاري الحفظ...", "Saving...") : t("إنشاء الحساب", "Create Account")}
                   </button>
                 </div>
               </form>
@@ -545,29 +596,34 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
           <div className="admin-modal-card admin-user-limit-modal">
             <div className="admin-modal-head">
               <div>
-                <h2 id="user-limit-title">تعديل حد المستخدمين</h2>
-                <p>أي مستخدم فوق حد الباقة يضاف تلقائيًا للفاتورة الشهرية بقيمة 65 ريال للمستخدم.</p>
+                <h2 id="user-limit-title">{t("تعديل حد المستخدمين", "Edit User Limit")}</h2>
+                <p>
+                  {t(
+                    "أي مستخدم فوق حد الباقة يضاف تلقائيًا للفاتورة الشهرية بقيمة 65 ريال للمستخدم.",
+                    "Any user beyond the plan limit is automatically added to the monthly invoice at 65 SAR per user."
+                  )}
+                </p>
               </div>
-              <button type="button" onClick={() => setLimitClient(null)} aria-label="إغلاق">
+              <button type="button" onClick={() => setLimitClient(null)} aria-label={t("إغلاق", "Close")}>
                 ×
               </button>
             </div>
 
             <form className="admin-client-form" onSubmit={handleUpdateLimit}>
               <label>
-                العميل
+                {t("العميل", "Client")}
                 <input value={limitClient.companyName} readOnly />
               </label>
               <label>
-                الباقة
+                {t("الباقة", "Plan")}
                 <input value={limitClient.plan} readOnly />
               </label>
               <label>
-                عدد الموظفين الحالي فعليًا
-                <input value={`${formatNumber(limitClient.employeeCount)} موظف`} readOnly />
+                {t("عدد الموظفين الحالي فعليًا", "Current Actual Employee Count")}
+                <input value={t(`${formatNumber(limitClient.employeeCount)} موظف`, `${formatNumber(limitClient.employeeCount)} employees`)} readOnly />
               </label>
               <label>
-                الحد المطلوب
+                {t("الحد المطلوب", "Required Limit")}
                 <input
                   type="number"
                   min="1"
@@ -580,10 +636,10 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
 
               <div className="admin-form-actions">
                 <button type="button" onClick={() => setLimitClient(null)}>
-                  إلغاء
+                  {t("إلغاء", "Cancel")}
                 </button>
                 <button type="submit" disabled={isLimitSaving}>
-                  {isLimitSaving ? "جاري الحفظ..." : "حفظ الحد"}
+                  {isLimitSaving ? t("جاري الحفظ...", "Saving...") : t("حفظ الحد", "Save Limit")}
                 </button>
               </div>
             </form>
@@ -596,35 +652,40 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
           <div className="admin-modal-card admin-user-limit-modal">
             <div className="admin-modal-head">
               <div>
-                <h2 id="campaign-balance-title">إضافة رصيد رسائل حملات</h2>
-                <p>يضاف الرصيد فورًا لحساب العميل ويظهر في صفحة الحملات لديه ضمن سجل الرصيد والشحن.</p>
+                <h2 id="campaign-balance-title">{t("إضافة رصيد رسائل حملات", "Add Campaign Message Balance")}</h2>
+                <p>
+                  {t(
+                    "يضاف الرصيد فورًا لحساب العميل ويظهر في صفحة الحملات لديه ضمن سجل الرصيد والشحن.",
+                    "The balance is added immediately to the client's account and appears on their Campaigns page in the balance and top-up history."
+                  )}
+                </p>
               </div>
-              <button type="button" onClick={() => setBalanceClient(null)} aria-label="إغلاق">
+              <button type="button" onClick={() => setBalanceClient(null)} aria-label={t("إغلاق", "Close")}>
                 ×
               </button>
             </div>
 
             <form className="admin-client-form" onSubmit={handleAddBalance}>
               <label>
-                العميل
+                {t("العميل", "Client")}
                 <input value={balanceClient.companyName} readOnly />
               </label>
               <label>
-                الرصيد الحالي
-                <input value={`${formatNumber(balanceClient.campaignBalance)} رسالة`} readOnly />
+                {t("الرصيد الحالي", "Current Balance")}
+                <input value={t(`${formatNumber(balanceClient.campaignBalance)} رسالة`, `${formatNumber(balanceClient.campaignBalance)} messages`)} readOnly />
               </label>
               <label>
-                عدد الرسائل المضافة
+                {t("عدد الرسائل المضافة", "Number of Messages to Add")}
                 <input
                   type="number"
                   min="1"
                   value={balanceMessages}
                   onChange={(event) => setBalanceMessages(event.target.value)}
-                  placeholder="مثال: 1000"
+                  placeholder={t("مثال: 1000", "e.g. 1000")}
                 />
               </label>
               <label>
-                المبلغ المقابل (اختياري، ر.س)
+                {t("المبلغ المقابل (اختياري، ر.س)", "Corresponding Amount (optional, SAR)")}
                 <input
                   type="number"
                   min="0"
@@ -638,10 +699,10 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
 
               <div className="admin-form-actions">
                 <button type="button" onClick={() => setBalanceClient(null)}>
-                  إلغاء
+                  {t("إلغاء", "Cancel")}
                 </button>
                 <button type="submit" disabled={isBalanceSaving}>
-                  {isBalanceSaving ? "جاري الإضافة..." : "إضافة الرصيد"}
+                  {isBalanceSaving ? t("جاري الإضافة...", "Adding...") : t("إضافة الرصيد", "Add Balance")}
                 </button>
               </div>
             </form>
@@ -654,45 +715,50 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
           <div className="admin-modal-card admin-user-limit-modal">
             <div className="admin-modal-head">
               <div>
-                <h2 id="charge-title">شحن / تجديد الاشتراك</h2>
-                <p>ينشئ رابط دفع حقيقي لإرساله للعميل. عند الدفع يتفعّل الاشتراك تلقائيًا.</p>
+                <h2 id="charge-title">{t("شحن / تجديد الاشتراك", "Charge / Renew Subscription")}</h2>
+                <p>
+                  {t(
+                    "ينشئ رابط دفع حقيقي لإرساله للعميل. عند الدفع يتفعّل الاشتراك تلقائيًا.",
+                    "Creates a real payment link to send to the client. The subscription activates automatically once paid."
+                  )}
+                </p>
               </div>
-              <button type="button" onClick={() => setChargeClient(null)} aria-label="إغلاق">
+              <button type="button" onClick={() => setChargeClient(null)} aria-label={t("إغلاق", "Close")}>
                 ×
               </button>
             </div>
 
             {chargeUrl ? (
               <div className="admin-invite-result">
-                <p>تم إنشاء رابط الدفع. أرسله للعميل ليكمل الدفع:</p>
+                <p>{t("تم إنشاء رابط الدفع. أرسله للعميل ليكمل الدفع:", "Payment link created. Send it to the client to complete payment:")}</p>
                 <a className="activation-link" href={chargeUrl} target="_blank" rel="noreferrer">
-                  فتح رابط الدفع
+                  {t("فتح رابط الدفع", "Open Payment Link")}
                 </a>
                 <div className="admin-form-actions">
                   <button type="button" onClick={() => setChargeClient(null)}>
-                    تم
+                    {t("تم", "Done")}
                   </button>
                 </div>
               </div>
             ) : (
               <form className="admin-client-form" onSubmit={handleCharge}>
                 <label>
-                  العميل
+                  {t("العميل", "Client")}
                   <input value={chargeClient.companyName} readOnly />
                 </label>
                 <label>
-                  بوابة الدفع
+                  {t("بوابة الدفع", "Payment Gateway")}
                   <CustomSelect
                     value={chargeGateway}
                     onChange={(value) => setChargeGateway(value as "moyasar" | "stripe")}
                     options={[
                       { value: "moyasar", label: "Moyasar" },
-                      { value: "stripe", label: "Stripe (وضع اختبار)" }
+                      { value: "stripe", label: t("Stripe (وضع اختبار)", "Stripe (test mode)") }
                     ]}
                   />
                 </label>
                 <label>
-                  قيمة الفاتورة (ر.س)
+                  {t("قيمة الفاتورة (ر.س)", "Invoice Amount (SAR)")}
                   <input
                     type="number"
                     min="1"
@@ -705,10 +771,10 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
 
                 <div className="admin-form-actions">
                   <button type="button" onClick={() => setChargeClient(null)}>
-                    إلغاء
+                    {t("إلغاء", "Cancel")}
                   </button>
                   <button type="submit" disabled={isCharging}>
-                    {isCharging ? "جاري الإنشاء..." : "إنشاء رابط الدفع"}
+                    {isCharging ? t("جاري الإنشاء...", "Creating...") : t("إنشاء رابط الدفع", "Create Payment Link")}
                   </button>
                 </div>
               </form>

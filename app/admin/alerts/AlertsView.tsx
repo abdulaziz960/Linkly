@@ -6,8 +6,10 @@ import type { RenewalAlert } from "../utils";
 import type { SubscriptionRow } from "../types";
 import { formatNumber, getRenewalAlert, RENEWAL_SOON_DAYS } from "../utils";
 import CustomSelect from "../../components/CustomSelect";
+import { useLanguage } from "../i18n";
 
 export default function AlertsView({ subscriptions }: { subscriptions: SubscriptionRow[] }) {
+  const { t } = useLanguage();
   const [chargeClient, setChargeClient] = useState<SubscriptionRow | null>(null);
   const [chargeAmount, setChargeAmount] = useState("");
   const [chargeGateway, setChargeGateway] = useState<"moyasar" | "stripe">("moyasar");
@@ -33,7 +35,7 @@ export default function AlertsView({ subscriptions }: { subscriptions: Subscript
 
     const amount = Number(chargeAmount);
     if (!Number.isFinite(amount) || amount < 1) {
-      setChargeError("اكتب قيمة فاتورة صحيحة");
+      setChargeError(t("اكتب قيمة فاتورة صحيحة", "Enter a valid invoice amount"));
       return;
     }
 
@@ -51,7 +53,7 @@ export default function AlertsView({ subscriptions }: { subscriptions: Subscript
     setIsCharging(false);
 
     if (!response.ok || !result.ok || !result.paymentUrl) {
-      setChargeError(result.error || "تعذر إنشاء طلب الدفع");
+      setChargeError(result.error || t("تعذر إنشاء طلب الدفع", "Could not create the payment request"));
       return;
     }
 
@@ -63,8 +65,13 @@ export default function AlertsView({ subscriptions }: { subscriptions: Subscript
       <section className="admin-card">
         <div className="admin-card-head">
           <div>
-            <h2>تنبيهات التجديد</h2>
-            <p>اشتراكات نشطة تحتاج متابعة: تجديد قريب خلال {formatNumber(RENEWAL_SOON_DAYS)} أيام أو متأخرة عن موعدها.</p>
+            <h2>{t("تنبيهات التجديد", "Renewal Alerts")}</h2>
+            <p>
+              {t(
+                `اشتراكات نشطة تحتاج متابعة: تجديد قريب خلال ${formatNumber(RENEWAL_SOON_DAYS)} أيام أو متأخرة عن موعدها.`,
+                `Active subscriptions that need follow-up: renewal due within ${formatNumber(RENEWAL_SOON_DAYS)} days or already overdue.`
+              )}
+            </p>
           </div>
         </div>
         <div className="admin-list">
@@ -72,15 +79,15 @@ export default function AlertsView({ subscriptions }: { subscriptions: Subscript
             <div className="admin-list-row" key={subscription.tenantId}>
               <div>
                 <strong>{subscription.companyName}</strong>
-                <span>{subscription.plan} · التجديد: {subscription.renewalAt || "غير محدد"}</span>
+                <span>{subscription.plan} · {t("التجديد", "Renewal")}: {subscription.renewalAt || t("غير محدد", "Not set")}</span>
               </div>
               <span className={`admin-pill ${alert.tier === "overdue" ? "is-danger" : "is-warn"}`}>{alert.label}</span>
               <button type="button" onClick={() => openChargeModal(subscription)}>
-                شحن الاشتراك
+                {t("شحن الاشتراك", "Charge Subscription")}
               </button>
             </div>
           ))}
-          {!renewalAlerts.length ? <p className="admin-empty-state">لا توجد اشتراكات تحتاج متابعة حاليًا.</p> : null}
+          {!renewalAlerts.length ? <p className="admin-empty-state">{t("لا توجد اشتراكات تحتاج متابعة حاليًا.", "No subscriptions need follow-up right now.")}</p> : null}
         </div>
       </section>
 
@@ -89,45 +96,45 @@ export default function AlertsView({ subscriptions }: { subscriptions: Subscript
           <div className="admin-modal-card admin-user-limit-modal">
             <div className="admin-modal-head">
               <div>
-                <h2 id="charge-title">شحن / تجديد الاشتراك</h2>
-                <p>ينشئ رابط دفع حقيقي لإرساله للعميل. عند الدفع يتفعّل الاشتراك تلقائيًا.</p>
+                <h2 id="charge-title">{t("شحن / تجديد الاشتراك", "Charge / Renew Subscription")}</h2>
+                <p>{t("ينشئ رابط دفع حقيقي لإرساله للعميل. عند الدفع يتفعّل الاشتراك تلقائيًا.", "Creates a real payment link to send to the client. Once paid, the subscription activates automatically.")}</p>
               </div>
-              <button type="button" onClick={() => setChargeClient(null)} aria-label="إغلاق">
+              <button type="button" onClick={() => setChargeClient(null)} aria-label={t("إغلاق", "Close")}>
                 ×
               </button>
             </div>
 
             {chargeUrl ? (
               <div className="admin-invite-result">
-                <p>تم إنشاء رابط الدفع. أرسله للعميل ليكمل الدفع:</p>
+                <p>{t("تم إنشاء رابط الدفع. أرسله للعميل ليكمل الدفع:", "The payment link has been created. Send it to the client to complete the payment:")}</p>
                 <a className="activation-link" href={chargeUrl} target="_blank" rel="noreferrer">
-                  فتح رابط الدفع
+                  {t("فتح رابط الدفع", "Open Payment Link")}
                 </a>
                 <div className="admin-form-actions">
                   <button type="button" onClick={() => setChargeClient(null)}>
-                    تم
+                    {t("تم", "Done")}
                   </button>
                 </div>
               </div>
             ) : (
               <form className="admin-client-form" onSubmit={handleCharge}>
                 <label>
-                  العميل
+                  {t("العميل", "Client")}
                   <input value={chargeClient.companyName} readOnly />
                 </label>
                 <label>
-                  بوابة الدفع
+                  {t("بوابة الدفع", "Payment Gateway")}
                   <CustomSelect
                     value={chargeGateway}
                     onChange={(value) => setChargeGateway(value as "moyasar" | "stripe")}
                     options={[
                       { value: "moyasar", label: "Moyasar" },
-                      { value: "stripe", label: "Stripe (وضع اختبار)" }
+                      { value: "stripe", label: t("Stripe (وضع اختبار)", "Stripe (test mode)") }
                     ]}
                   />
                 </label>
                 <label>
-                  قيمة الفاتورة (ر.س)
+                  {t("قيمة الفاتورة (ر.س)", "Invoice Amount (SAR)")}
                   <input
                     type="number"
                     min="1"
@@ -140,10 +147,10 @@ export default function AlertsView({ subscriptions }: { subscriptions: Subscript
 
                 <div className="admin-form-actions">
                   <button type="button" onClick={() => setChargeClient(null)}>
-                    إلغاء
+                    {t("إلغاء", "Cancel")}
                   </button>
                   <button type="submit" disabled={isCharging}>
-                    {isCharging ? "جاري الإنشاء..." : "إنشاء رابط الدفع"}
+                    {isCharging ? t("جاري الإنشاء...", "Creating...") : t("إنشاء رابط الدفع", "Create Payment Link")}
                   </button>
                 </div>
               </form>

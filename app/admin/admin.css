@@ -149,6 +149,34 @@
   min-width: 0;
 }
 
+.admin-lang-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface-soft);
+  box-shadow: var(--admin-shadow-border);
+}
+
+.admin-lang-toggle button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: calc(var(--admin-radius) - 4px);
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--admin-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-lang-toggle button.active {
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  box-shadow: var(--admin-shadow-border);
+}
+
 .admin-notif-bell-wrap {
   flex: 0 0 auto;
 }

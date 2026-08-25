@@ -2021,6 +2021,20 @@
   font-size: 11px;
 }
 
+.message-delivery-status {
+  margin-top: 2px !important;
+  font-weight: 800;
+}
+
+.message-delivery-status.read {
+  color: #0f5fc4;
+}
+
+.message-delivery-status.failed {
+  color: var(--status-danger-text);
+  cursor: help;
+}
+
 .message-reply-preview {
   display: grid !important;
   gap: 2px;
@@ -4405,6 +4419,17 @@
   resize: vertical;
 }
 
+.meta-test-warning {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--status-warn-bg-soft);
+  color: var(--status-warn-text);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 .meta-test-actions {
   display: flex;
   align-items: center;
@@ -4431,6 +4456,91 @@
 .meta-test-feedback.error {
   background: var(--status-danger-bg);
   color: var(--status-danger-text);
+}
+
+.business-profile-card {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.business-profile-picture-row {
+  display: grid;
+  gap: 10px;
+}
+
+.business-profile-picture-row > label {
+  color: var(--text-secondary);
+  font-weight: 900;
+}
+
+.business-profile-picture-field {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.business-profile-picture-preview,
+.business-profile-picture-placeholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.business-profile-picture-placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.business-profile-picture-upload {
+  display: inline-flex;
+  align-items: center;
+}
+
+.business-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.business-profile-grid label {
+  display: grid;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-weight: 900;
+}
+
+.business-profile-grid input,
+.business-profile-grid select {
+  min-height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 800;
+}
+
+.business-profile-grid input[readonly] {
+  color: var(--muted);
+  background: var(--surface-soft);
+}
+
+.business-profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .primary-action,
@@ -5477,6 +5587,7 @@
   .meta-steps,
   .settings-fields,
   .meta-test-grid,
+  .business-profile-grid,
   .stats-grid,
   .stats-grid.reports,
   .cards-grid,

@@ -1,5 +1,6 @@
 import { getSubscriptions } from "../../../lib/subscriptions";
 import { getPlans } from "../../../lib/plans";
+import AdminPageHeader from "../AdminPageHeader";
 import ClientsView from "./ClientsView";
 
 export default async function AdminClientsPage() {
@@ -7,13 +8,11 @@ export default async function AdminClientsPage() {
 
   return (
     <>
-      <header className="admin-header">
-        <div className="admin-header-copy">
-          <p>العملاء</p>
-          <h1>إدارة عملاء AudienceW</h1>
-          <span>كل عميل هنا حساب دخول حقيقي فعلي — إنشاء عميل جديد ينشئ حساب دخول حقيقي له فورًا.</span>
-        </div>
-      </header>
+      <AdminPageHeader
+        eyebrow={["العملاء", "Clients"]}
+        title={["إدارة عملاء AudienceW", "Manage AudienceW clients"]}
+        description={["كل عميل هنا حساب دخول حقيقي فعلي — إنشاء عميل جديد ينشئ حساب دخول حقيقي له فورًا.", "Every client here is a real, live login account — creating a new client creates their real login account immediately."]}
+      />
       <ClientsView subscriptions={subscriptions} plans={plans} />
     </>
   );

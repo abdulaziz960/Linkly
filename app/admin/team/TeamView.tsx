@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import type { TeamRow } from "../types";
 import { formatNumber } from "../utils";
+import { useLanguage } from "../i18n";
 
 type TeamViewProps = {
   team: TeamRow[];
@@ -13,6 +14,7 @@ type TeamViewProps = {
 
 export default function TeamView({ team, currentUserId }: TeamViewProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [isTeamInviteOpen, setIsTeamInviteOpen] = useState(false);
   const [isTeamSaving, setIsTeamSaving] = useState(false);
@@ -57,17 +59,17 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
     setIsTeamSaving(false);
 
     if (!response.ok || !result.ok) {
-      setTeamFormError(result.error || "تعذر إضافة العضو");
+      setTeamFormError(result.error || t("تعذر إضافة العضو", "Failed to add member"));
       return;
     }
 
-    setTeamInviteNotice(result.data?.delivery?.message || "تم إنشاء الحساب.");
+    setTeamInviteNotice(result.data?.delivery?.message || t("تم إنشاء الحساب.", "Account created."));
     setTeamActivationUrl(result.data?.delivery?.activationUrl || "");
     router.refresh();
   }
 
   async function handleRevokeTeamMember(memberId: string) {
-    if (!window.confirm("هل تريد إزالة صلاحية الأدمن عن هذا العضو؟")) return;
+    if (!window.confirm(t("هل تريد إزالة صلاحية الأدمن عن هذا العضو؟", "Remove admin access from this member?"))) return;
 
     setRevokingId(memberId);
     const response = await fetch(`/api/admin/team/${memberId}`, { method: "DELETE" });
@@ -75,7 +77,7 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
     setRevokingId("");
 
     if (!response.ok || !result.ok) {
-      window.alert(result.error || "تعذر إزالة الصلاحية");
+      window.alert(result.error || t("تعذر إزالة الصلاحية", "Failed to remove access"));
       return;
     }
 
@@ -87,24 +89,24 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
       <section className="admin-section">
         <div className="admin-metrics">
           <article>
-            <span>إجمالي الأعضاء</span>
+            <span>{t("إجمالي الأعضاء", "Total members")}</span>
             <strong>{formatNumber(team.length)}</strong>
-            <small>يملكون صلاحية الوصول للوحة</small>
+            <small>{t("يملكون صلاحية الوصول للوحة", "Have access to the dashboard")}</small>
           </article>
           <article>
-            <span>أقدم عضو</span>
+            <span>{t("أقدم عضو", "Oldest member")}</span>
             <strong>{oldestMember ? oldestMember.name : "—"}</strong>
-            <small>{oldestMember ? oldestMember.createdAt : "لا يوجد بعد"}</small>
+            <small>{oldestMember ? oldestMember.createdAt : t("لا يوجد بعد", "None yet")}</small>
           </article>
           <article>
-            <span>أحدث عضو</span>
+            <span>{t("أحدث عضو", "Newest member")}</span>
             <strong>{newestMember ? newestMember.name : "—"}</strong>
-            <small>{newestMember ? newestMember.createdAt : "لا يوجد بعد"}</small>
+            <small>{newestMember ? newestMember.createdAt : t("لا يوجد بعد", "None yet")}</small>
           </article>
           <article>
-            <span>حسابك</span>
+            <span>{t("حسابك", "Your account")}</span>
             <strong>{team.find((m) => m.id === currentUserId)?.name || "—"}</strong>
-            <small>أنت مسجّل دخول بهذا الحساب</small>
+            <small>{t("أنت مسجّل دخول بهذا الحساب", "You are signed in with this account")}</small>
           </article>
         </div>
       </section>
@@ -112,12 +114,12 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
       <section className="admin-card">
         <div className="admin-card-head">
           <div>
-            <h2>فريق المنصة ({formatNumber(visibleTeam.length)} من {formatNumber(team.length)})</h2>
-            <p>الأعضاء الذين يملكون صلاحية الوصول لهذه اللوحة.</p>
+            <h2>{t(`فريق المنصة (${formatNumber(visibleTeam.length)} من ${formatNumber(team.length)})`, `Platform Team (${formatNumber(visibleTeam.length)} of ${formatNumber(team.length)})`)}</h2>
+            <p>{t("الأعضاء الذين يملكون صلاحية الوصول لهذه اللوحة.", "Members who have access to this dashboard.")}</p>
           </div>
           <div className="admin-card-actions">
             <button type="button" onClick={() => { setIsTeamInviteOpen(true); setTeamFormError(""); setTeamInviteNotice(""); setTeamActivationUrl(""); }}>
-              إضافة عضو
+              {t("إضافة عضو", "Add Member")}
             </button>
           </div>
         </div>
@@ -126,7 +128,7 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
           <input
             type="search"
             className="admin-search-input"
-            placeholder="ابحث بالاسم أو البريد الإلكتروني..."
+            placeholder={t("ابحث بالاسم أو البريد الإلكتروني...", "Search by name or email...")}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
@@ -137,17 +139,17 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
             const isSelf = member.id === currentUserId;
             return (
               <article className="admin-team-card" key={member.id}>
-                <div className="admin-team-avatar">{member.name.slice(0, 1) || "ع"}</div>
+                <div className="admin-team-avatar">{member.name.slice(0, 1) || t("ع", "M")}</div>
                 <div className="admin-team-info">
                   <strong>{member.name}</strong>
                   <span dir="ltr">{member.email}</span>
-                  <small>عضو منذ {member.createdAt}</small>
+                  <small>{t(`عضو منذ ${member.createdAt}`, `Member since ${member.createdAt}`)}</small>
                 </div>
                 {isSelf ? (
-                  <span className="admin-pill is-warn">أنت</span>
+                  <span className="admin-pill is-warn">{t("أنت", "You")}</span>
                 ) : (
                   <button type="button" disabled={revokingId === member.id} onClick={() => handleRevokeTeamMember(member.id)}>
-                    {revokingId === member.id ? "جاري الإزالة..." : "إزالة الصلاحية"}
+                    {revokingId === member.id ? t("جاري الإزالة...", "Removing...") : t("إزالة الصلاحية", "Revoke access")}
                   </button>
                 )}
               </article>
@@ -155,9 +157,9 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
           })}
         </div>
         {team.length === 0 ? (
-          <p className="admin-empty-state">لا يوجد أعضاء بعد.</p>
+          <p className="admin-empty-state">{t("لا يوجد أعضاء بعد.", "No members yet.")}</p>
         ) : visibleTeam.length === 0 ? (
-          <p className="admin-empty-state">لا توجد نتائج مطابقة للبحث.</p>
+          <p className="admin-empty-state">{t("لا توجد نتائج مطابقة للبحث.", "No results match your search.")}</p>
         ) : null}
       </section>
 
@@ -166,10 +168,10 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
           <div className="admin-modal-card">
             <div className="admin-modal-head">
               <div>
-                <h2 id="team-invite-title">إضافة عضو لفريق المنصة</h2>
-                <p>ينشئ هذا حساب دخول حقيقي بصلاحية أدمن ويرسل رابط تفعيل على بريده.</p>
+                <h2 id="team-invite-title">{t("إضافة عضو لفريق المنصة", "Add a Platform Team Member")}</h2>
+                <p>{t("ينشئ هذا حساب دخول حقيقي بصلاحية أدمن ويرسل رابط تفعيل على بريده.", "This creates a real admin login account and sends an activation link to their email.")}</p>
               </div>
-              <button type="button" onClick={() => { setIsTeamInviteOpen(false); setTeamInviteNotice(""); setTeamActivationUrl(""); }} aria-label="إغلاق">
+              <button type="button" onClick={() => { setIsTeamInviteOpen(false); setTeamInviteNotice(""); setTeamActivationUrl(""); }} aria-label={t("إغلاق", "Close")}>
                 ×
               </button>
             </div>
@@ -179,23 +181,23 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
                 <p>{teamInviteNotice}</p>
                 {teamActivationUrl ? (
                   <a className="activation-link" href={teamActivationUrl} target="_blank" rel="noreferrer">
-                    فتح رابط التفعيل
+                    {t("فتح رابط التفعيل", "Open activation link")}
                   </a>
                 ) : null}
                 <div className="admin-form-actions">
                   <button type="button" onClick={() => { setIsTeamInviteOpen(false); setTeamInviteNotice(""); setTeamActivationUrl(""); }}>
-                    تم
+                    {t("تم", "Done")}
                   </button>
                 </div>
               </div>
             ) : (
               <form className="admin-client-form" onSubmit={handleInviteTeamMember}>
                 <label>
-                  الاسم
-                  <input name="name" placeholder="اسم العضو" required />
+                  {t("الاسم", "Name")}
+                  <input name="name" placeholder={t("اسم العضو", "Member name")} required />
                 </label>
                 <label>
-                  البريد الإلكتروني
+                  {t("البريد الإلكتروني", "Email")}
                   <input name="email" type="email" dir="ltr" placeholder="admin@example.com" required />
                 </label>
 
@@ -203,10 +205,10 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
 
                 <div className="admin-form-actions">
                   <button type="button" onClick={() => setIsTeamInviteOpen(false)}>
-                    إلغاء
+                    {t("إلغاء", "Cancel")}
                   </button>
                   <button type="submit" disabled={isTeamSaving}>
-                    {isTeamSaving ? "جاري الحفظ..." : "إضافة"}
+                    {isTeamSaving ? t("جاري الحفظ...", "Saving...") : t("إضافة", "Add")}
                   </button>
                 </div>
               </form>

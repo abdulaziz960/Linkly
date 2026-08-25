@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { IntegrationSettings } from "../types";
 import { useLanguage } from "../i18n";
 
@@ -21,6 +21,27 @@ type FacebookSdk = {
 };
 
 type FacebookWindow = typeof window & { FB?: FacebookSdk; fbAsyncInit?: () => void };
+
+const businessVerticalOptions: Array<{ value: string; ar: string; en: string }> = [
+  { value: "OTHER", ar: "أخرى", en: "Other" },
+  { value: "AUTO", ar: "سيارات", en: "Automotive" },
+  { value: "BEAUTY", ar: "تجميل وعناية", en: "Beauty, Spa and Salon" },
+  { value: "APPAREL", ar: "ملابس وأزياء", en: "Clothing and Apparel" },
+  { value: "EDU", ar: "تعليم", en: "Education" },
+  { value: "ENTERTAIN", ar: "ترفيه", en: "Entertainment" },
+  { value: "EVENT_PLAN", ar: "تنظيم فعاليات", en: "Event Planning" },
+  { value: "FINANCE", ar: "مالية ومصرفية", en: "Finance and Banking" },
+  { value: "GROCERY", ar: "بقالة وأغذية", en: "Food and Grocery" },
+  { value: "GOVT", ar: "قطاع حكومي", en: "Public Service" },
+  { value: "HOTEL", ar: "فنادق وضيافة", en: "Hotel and Lodging" },
+  { value: "HEALTH", ar: "صحة وطب", en: "Medical and Health" },
+  { value: "NONPROFIT", ar: "غير ربحي", en: "Non-profit" },
+  { value: "PROF_SERVICES", ar: "خدمات مهنية", en: "Professional Services" },
+  { value: "RETAIL", ar: "تجزئة وتسوق", en: "Shopping and Retail" },
+  { value: "TRAVEL", ar: "سفر ونقل", en: "Travel and Transportation" },
+  { value: "RESTAURANT", ar: "مطاعم", en: "Restaurant" },
+  { value: "NOT_A_BIZ", ar: "ليس نشاطًا تجاريًا", en: "Not A Business" }
+];
 
 const emptySettings: IntegrationSettings = {
   id: "meta-whatsapp",
@@ -263,6 +284,12 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [testMessage, setTestMessage] = useState("");
   const [testSending, setTestSending] = useState(false);
   const [testFeedback, setTestFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [businessProfile, setBusinessProfile] = useState({ about: "", address: "", description: "", email: "", vertical: "", website1: "", website2: "" });
+  const [businessProfilePictureUrl, setBusinessProfilePictureUrl] = useState("");
+  const [businessProfilePictureDataUrl, setBusinessProfilePictureDataUrl] = useState("");
+  const [businessProfileLoading, setBusinessProfileLoading] = useState(false);
+  const [businessProfileSaving, setBusinessProfileSaving] = useState(false);
+  const [businessProfileFeedback, setBusinessProfileFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [oauthEmailStatus, setOauthEmailStatus] = useState<{ provider: "webhook" | "gmail" | "outlook"; status: "connected" | "not_connected" | "pending"; emailAddress: string } | null>(null);
   const [channelBotEnabled, setChannelBotEnabled] = useState(false);
   const [channelBotLoading, setChannelBotLoading] = useState(false);
@@ -300,6 +327,13 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       void loadFacebookSdk(techProviderMetaAppId);
     }
   }, [isWhatsApp, settings.appId]);
+
+  useEffect(() => {
+    if (isWhatsApp && settings.status === "connected") {
+      void loadBusinessProfile();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWhatsApp, settings.status]);
 
   useEffect(() => {
     if (!isGmail && !isOutlook) return;
@@ -653,27 +687,106 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       return;
     }
 
-    await persistSettings();
+    try {
+      await persistSettings();
 
-    const response = await fetch("/api/meta/test-message", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        phoneNumberId: settings.phoneNumberId,
-        accessToken: settings.accessToken,
-        to: testRecipient,
-        message: testMessage
-      })
-    });
-    const result = await response.json();
+      const response = await fetch("/api/meta/test-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumberId: settings.phoneNumberId,
+          accessToken: settings.accessToken,
+          to: testRecipient,
+          message: testMessage
+        })
+      });
+      const result = await response.json().catch(() => null);
 
-    if (response.ok && result.ok) {
-      setTestFeedback({ type: "success", text: t("تم إرسال رسالة الاختبار. إذا رد العميل ستظهر محادثته داخل صندوق الوارد.", "The test message was sent. If the customer replies, their conversation will appear in the inbox.") });
-    } else {
-      setTestFeedback({ type: "error", text: result.error || t("تعذر إرسال رسالة الاختبار", "Couldn't send the test message") });
+      if (response.ok && result?.ok) {
+        setTestFeedback({ type: "success", text: t("تم إرسال رسالة الاختبار. إذا رد العميل ستظهر محادثته داخل صندوق الوارد.", "The test message was sent. If the customer replies, their conversation will appear in the inbox.") });
+      } else {
+        setTestFeedback({ type: "error", text: result?.error || t("تعذر إرسال رسالة الاختبار", "Couldn't send the test message") });
+      }
+    } catch {
+      setTestFeedback({ type: "error", text: t("تعذر الاتصال بالسيرفر، تأكد من اتصالك بالإنترنت وحاول من جديد", "Couldn't reach the server, check your internet connection and try again") });
+    } finally {
+      setTestSending(false);
     }
+  }
 
-    setTestSending(false);
+  async function loadBusinessProfile() {
+    setBusinessProfileLoading(true);
+    setBusinessProfileFeedback(null);
+    try {
+      const response = await fetch("/api/meta/business-profile");
+      const result = await response.json().catch(() => null);
+      if (response.ok && result?.ok) {
+        const profile = result.data || {};
+        const websites: string[] = Array.isArray(profile.websites) ? profile.websites : [];
+        setBusinessProfile({
+          about: profile.about || "",
+          address: profile.address || "",
+          description: profile.description || "",
+          email: profile.email || "",
+          vertical: profile.vertical || "",
+          website1: websites[0] || "",
+          website2: websites[1] || ""
+        });
+        setBusinessProfilePictureUrl(profile.profile_picture_url || "");
+      } else {
+        setBusinessProfileFeedback({ type: "error", text: result?.error || t("تعذر جلب الملف التجاري من Meta", "Couldn't load the business profile from Meta") });
+      }
+    } catch {
+      setBusinessProfileFeedback({ type: "error", text: t("تعذر الاتصال بالسيرفر، تأكد من اتصالك بالإنترنت وحاول من جديد", "Couldn't reach the server, check your internet connection and try again") });
+    } finally {
+      setBusinessProfileLoading(false);
+    }
+  }
+
+  async function handleBusinessProfilePictureChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      setBusinessProfilePictureDataUrl(dataUrl);
+      setBusinessProfilePictureUrl(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function saveBusinessProfile() {
+    setBusinessProfileSaving(true);
+    setBusinessProfileFeedback(null);
+
+    try {
+      const response = await fetch("/api/meta/business-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          about: businessProfile.about,
+          address: businessProfile.address,
+          description: businessProfile.description,
+          email: businessProfile.email,
+          vertical: businessProfile.vertical,
+          websites: [businessProfile.website1, businessProfile.website2],
+          profilePictureDataUrl: businessProfilePictureDataUrl || undefined
+        })
+      });
+      const result = await response.json().catch(() => null);
+
+      if (response.ok && result?.ok) {
+        setBusinessProfileFeedback({ type: "success", text: t("تم حفظ الملف التجاري بنجاح.", "The business profile was saved successfully.") });
+        setBusinessProfilePictureDataUrl("");
+        void loadBusinessProfile();
+      } else {
+        setBusinessProfileFeedback({ type: "error", text: result?.error || t("تعذر حفظ الملف التجاري", "Couldn't save the business profile") });
+      }
+    } catch {
+      setBusinessProfileFeedback({ type: "error", text: t("تعذر الاتصال بالسيرفر، تأكد من اتصالك بالإنترنت وحاول من جديد", "Couldn't reach the server, check your internet connection and try again") });
+    } finally {
+      setBusinessProfileSaving(false);
+    }
   }
 
   async function openMetaWindow() {
@@ -1075,7 +1188,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 <div className="summary-list">
                   <b>{settings.businessName || t("حافظة الأعمال", "Business portfolio")}</b>
                   <b>{settings.wabaName || (isGoogleMaps ? t("موقع Google", "Google location") : isX ? t("حساب X", "X account") : isTikTok ? t("حساب TikTok", "TikTok account") : isSms ? t("قناة SMS", "SMS channel") : isTelegram ? t("بوت Telegram", "Telegram bot") : isFacebook ? t("صفحة Facebook", "Facebook page") : isInstagram ? t("حساب Instagram", "Instagram account") : t("حساب واتساب للأعمال", "WhatsApp Business account"))}</b>
-                  <b>{isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTikTok ? settings.appId || "TikTok App Key" : isSms ? settings.phoneNumber || "Sender ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || t("رقم واتساب", "WhatsApp number")}</b>
+                  <b dir="ltr">{isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTikTok ? settings.appId || "TikTok App Key" : isSms ? settings.phoneNumber || "Sender ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || t("رقم واتساب", "WhatsApp number")}</b>
                 </div>
               )}
         </div>
@@ -1299,8 +1412,21 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             </label>
             {!isInstagram && !isFacebook && !isTelegram && !isX && !isEmail && !isTikTok && !isSms ? <label>
               {t("رقم واتساب", "WhatsApp number")}
-              <input value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} readOnly={isWhatsApp} placeholder={t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete")} />
+              <input dir="ltr" value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} readOnly={isWhatsApp} placeholder={t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete")} />
             </label> : null}
+            {isWhatsApp ? (
+              <>
+                <label>
+                  Phone Number ID
+                  <input dir="ltr" value={settings.phoneNumberId} onChange={(event) => updateField("phoneNumberId", event.target.value)} placeholder={t("يُملأ تلقائيًا عند الربط، ويمكن تعديله يدويًا", "Filled in automatically when connecting, can also be edited manually")} />
+                </label>
+                <label>
+                  Access Token
+                  <input dir="ltr" value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} placeholder={t("يُملأ تلقائيًا عند الربط، أو الصق توكن System User دائم من Meta", "Filled in automatically when connecting, or paste a permanent System User token from Meta")} />
+                  <small className="field-hint">{t("للتوليد اليدوي: Meta Business Suite ← إعدادات الأعمال ← System Users ← ولّد توكن بصلاحيتي whatsapp_business_management وwhatsapp_business_messaging.", "To generate manually: Meta Business Suite → Business Settings → System Users → generate a token with the whatsapp_business_management and whatsapp_business_messaging permissions.")}</small>
+                </label>
+              </>
+            ) : null}
             <label>
               {t("حالة الربط", "Connection status")}
               <div className={`connection-status-box ${settings.status}`}>
@@ -1470,6 +1596,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <div>
               <h3>{t("تجربة رقم التست", "Test number trial")}</h3>
               <p>{t("أضف رقمك في قائمة أرقام الاختبار داخل Meta، ثم أرسل رسالة للتأكد من الإرسال والاستقبال.", "Add your number to the test number list in Meta, then send a message to confirm sending and receiving work.")}</p>
+              <p className="meta-test-warning">{t("⚠️ واتساب لا يسلّم رسائل نصية حرة إلا لأرقام راسلت رقم الأعمال أولاً خلال آخر 24 ساعة. إذا الرقم المستلم ما راسلك قبل، خلّه يرسل لك أي رسالة أولاً ثم جرّب مرة ثانية — وإلا الإرسال يظهر ناجحًا هنا لكن الرسالة ما توصله فعليًا.", "⚠️ WhatsApp only delivers free-form text messages to numbers that messaged your business number first within the last 24 hours. If the recipient hasn't messaged you before, have them send you any message first, then try again — otherwise this will show as sent here but the message won't actually reach them.")}</p>
             </div>
             <div className="meta-test-grid">
               <label>
@@ -1496,10 +1623,83 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             {testFeedback && <p className={`meta-test-feedback ${testFeedback.type}`}>{testFeedback.text}</p>}
           </div> : null}
 
-          {!isGoogleMaps && !isWhatsApp && !isWebsite && !isInstagram && !isFacebook && !(hideManualEmailSetup) ? <div className="webhook-card">
+          {isWhatsApp && settings.status === "connected" ? <div className="business-profile-card">
+            <div>
+              <h3>{t("الملف التجاري لواتساب", "WhatsApp business profile")}</h3>
+              <p>{t("هذه البيانات تظهر لعملائك داخل واتساب عند فتح محادثة معك: الصورة، النبذة، العنوان، والتواصل.", "This is what your customers see inside WhatsApp when they open a conversation with you: photo, about, address, and contact details.")}</p>
+            </div>
+
+            <div className="business-profile-picture-row">
+              <label>{t("الصورة الشخصية", "Profile picture")}</label>
+              <div className="business-profile-picture-field">
+                {businessProfilePictureUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={businessProfilePictureUrl} alt="" className="business-profile-picture-preview" />
+                ) : (
+                  <span className="business-profile-picture-placeholder" aria-hidden="true">AW</span>
+                )}
+                <label className="soft-action business-profile-picture-upload">
+                  {t("تغيير الصورة", "Change profile picture")}
+                  <input type="file" accept="image/*" onChange={handleBusinessProfilePictureChange} hidden />
+                </label>
+              </div>
+            </div>
+
+            <div className="business-profile-grid">
+              <label>
+                {t("رقم الهاتف", "Phone number")}
+                <input dir="ltr" value={settings.phoneNumber} readOnly placeholder={t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete")} />
+              </label>
+              <label>
+                {t("نبذة", "About")}
+                <input value={businessProfile.about} maxLength={139} onChange={(event) => setBusinessProfile((current) => ({ ...current, about: event.target.value }))} />
+              </label>
+              <label>
+                {t("عنوان النشاط", "Business address")}
+                <input value={businessProfile.address} onChange={(event) => setBusinessProfile((current) => ({ ...current, address: event.target.value }))} />
+              </label>
+              <label>
+                {t("وصف النشاط", "Business description")}
+                <input value={businessProfile.description} onChange={(event) => setBusinessProfile((current) => ({ ...current, description: event.target.value }))} />
+              </label>
+              <label>
+                {t("بريد التواصل التجاري", "Email for business contact")}
+                <input dir="ltr" type="email" value={businessProfile.email} onChange={(event) => setBusinessProfile((current) => ({ ...current, email: event.target.value }))} />
+              </label>
+              <label>
+                {t("مجال النشاط", "Business industry")}
+                <select value={businessProfile.vertical} onChange={(event) => setBusinessProfile((current) => ({ ...current, vertical: event.target.value }))}>
+                  <option value="">{t("اختر المجال", "Choose an industry")}</option>
+                  {businessVerticalOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{t(option.ar, option.en)}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t("موقع النشاط 1", "Business website 1")}
+                <input dir="ltr" value={businessProfile.website1} onChange={(event) => setBusinessProfile((current) => ({ ...current, website1: event.target.value }))} placeholder="https://example.com" />
+              </label>
+              <label>
+                {t("موقع النشاط 2", "Business website 2")}
+                <input dir="ltr" value={businessProfile.website2} onChange={(event) => setBusinessProfile((current) => ({ ...current, website2: event.target.value }))} placeholder="https://example.com" />
+              </label>
+            </div>
+
+            <div className="business-profile-actions">
+              <button className="primary-action" disabled={businessProfileSaving || businessProfileLoading} type="button" onClick={saveBusinessProfile}>
+                {businessProfileSaving ? t("جاري الحفظ...", "Saving...") : t("حفظ الملف التجاري", "Save business profile")}
+              </button>
+              <button className="soft-action" disabled={businessProfileLoading || businessProfileSaving} type="button" onClick={loadBusinessProfile}>
+                {businessProfileLoading ? t("جاري التحديث...", "Refreshing...") : t("تحديث من Meta", "Refresh from Meta")}
+              </button>
+            </div>
+            {businessProfileFeedback && <p className={`meta-test-feedback ${businessProfileFeedback.type}`}>{businessProfileFeedback.text}</p>}
+          </div> : null}
+
+          {!isGoogleMaps && !isWebsite && !isInstagram && !isFacebook && !(hideManualEmailSetup) ? <div className="webhook-card">
             <div>
               <h3>{t("إعدادات الويبهوك", "Webhook settings")} — {isEmail ? (isGmail ? "Gmail" : isOutlook ? "Outlook" : t("البريد الإلكتروني", "Email")) : isTikTok ? "TikTok" : isSms ? "SMS" : isX ? "X" : isTelegram ? t("تيليجرام", "Telegram") : isFacebook ? t("فيسبوك", "Facebook") : isInstagram ? "Instagram" : t("واتساب", "WhatsApp")}</h3>
-              <p>{isEmail ? t("انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة.", "Copy this link along with the Secret Token and add it to Zapier, Make, or your email provider to send inbound messages to the platform.") : isGoogleMaps ? t("هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة.", "The system uses this link to sync Google reviews on demand or periodically within the platform.") : isX ? t("استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات.", "Use this link as the Webhook URL in X when the Account Activity API is available. The Webhook Secret protects the requests.") : isTelegram ? t("سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة.", "This link will be activated automatically in Telegram once you save the Bot Token. The Secret Token protects the webhook from unknown requests.") : isFacebook ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Facebook Messenger messages.") : isInstagram ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Instagram messages and comments.") : isTikTok ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق TikTok لاستقبال رسائل وتعليقات TikTok بعد موافقة Business Messaging.", "Copy the webhook link and Verify Token and add them to your TikTok app settings to receive TikTok messages and comments once Business Messaging is approved.") : t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive WhatsApp messages.")}</p>
+              <p>{isEmail ? t("انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة.", "Copy this link along with the Secret Token and add it to Zapier, Make, or your email provider to send inbound messages to the platform.") : isGoogleMaps ? t("هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة.", "The system uses this link to sync Google reviews on demand or periodically within the platform.") : isX ? t("استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات.", "Use this link as the Webhook URL in X when the Account Activity API is available. The Webhook Secret protects the requests.") : isTelegram ? t("سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة.", "This link will be activated automatically in Telegram once you save the Bot Token. The Secret Token protects the webhook from unknown requests.") : isFacebook ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Facebook Messenger messages.") : isInstagram ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Instagram messages and comments.") : isTikTok ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق TikTok لاستقبال رسائل وتعليقات TikTok بعد موافقة Business Messaging.", "Copy the webhook link and Verify Token and add them to your TikTok app settings to receive TikTok messages and comments once Business Messaging is approved.") : isSms ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات Unifonic لاستقبال ردود العملاء عبر SMS.", "Copy the webhook link and Verify Token and add them to your Unifonic settings to receive customer replies via SMS.") : t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive WhatsApp messages.")}</p>
             </div>
             <div className="webhook-field">
               <span className="webhook-field-label">{t("رابط الويبهوك", "Webhook link")}</span>

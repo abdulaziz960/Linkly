@@ -382,6 +382,19 @@ export async function POST(request: NextRequest) {
             errors: status.errors
           });
         }
+
+        if (!status.id || !status.status) continue;
+        try {
+          await prisma.message.updateMany({
+            where: { id: { in: [`wa-${status.id}`, `wa-out-${status.id}`] } },
+            data: {
+              deliveryStatus: status.status,
+              deliveryError: status.status === "failed" ? (status.errors?.[0]?.title || status.errors?.[0]?.message || "") : ""
+            }
+          });
+        } catch (error) {
+          console.error("Failed to persist WhatsApp delivery status", error);
+        }
       }
 
       if (!whatsappAccount) continue;

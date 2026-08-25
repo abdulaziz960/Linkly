@@ -47,6 +47,8 @@ export type Message = {
     text?: string;
     author?: string;
   };
+  deliveryStatus?: "sent" | "delivered" | "read" | "failed";
+  deliveryError?: string;
 };
 
 export type Conversation = {

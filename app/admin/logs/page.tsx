@@ -1,5 +1,6 @@
 import { getAdminLogs } from "../../../lib/database";
 import { getSubscriptions } from "../../../lib/subscriptions";
+import AdminPageHeader from "../AdminPageHeader";
 import LogsView from "./LogsView";
 
 export default async function AdminLogsPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
@@ -7,13 +8,11 @@ export default async function AdminLogsPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <header className="admin-header">
-        <div className="admin-header-copy">
-          <p>السجلات</p>
-          <h1>سجل الحركة</h1>
-          <span>فلتر السجلات حسب العميل واعرض سجل الحركة كامل لكل حساب.</span>
-        </div>
-      </header>
+      <AdminPageHeader
+        eyebrow={["السجلات", "Logs"]}
+        title={["سجل الحركة", "Activity log"]}
+        description={["فلتر السجلات حسب العميل واعرض سجل الحركة كامل لكل حساب.", "Filter logs by client and view the full activity log for each account."]}
+      />
       <LogsView subscriptions={subscriptions} logs={logs} initialClient={client || "all"} />
     </>
   );
