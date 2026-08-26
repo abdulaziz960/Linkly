@@ -1588,12 +1588,27 @@
 }
 
 .template-phone {
+  position: relative;
   width: min(100%, 300px);
   border: 8px solid #0f1115;
-  border-radius: 34px;
+  border-radius: 38px;
   background: #0f1115;
-  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.22), 0 0 0 2px #2a2d33;
   overflow: hidden;
+  direction: ltr;
+}
+
+.template-phone::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  width: 90px;
+  height: 20px;
+  border-radius: 0 0 14px 14px;
+  background: #0f1115;
+  z-index: 5;
 }
 
 .template-phone-status {
@@ -1748,6 +1763,12 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
+}
+
+.template-bubble button svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .template-phone-composer {
