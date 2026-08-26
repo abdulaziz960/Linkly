@@ -1590,38 +1590,46 @@
 .template-phone-frame {
   position: relative;
   width: min(100%, 300px);
-  padding: 11px;
-  border-radius: 46px;
+  padding: 12px;
+  border-radius: 44px;
   background: linear-gradient(155deg, #3a3d44, #0c0d10 55%, #232529);
   box-shadow: 0 24px 50px rgba(15, 23, 42, 0.24), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  direction: ltr;
 }
 
-.template-phone-frame::before,
-.template-phone-frame::after {
-  content: "";
+.template-phone-btn {
   position: absolute;
-  inset-inline-start: -2px;
+  inset-inline-start: 0;
   width: 3px;
-  border-radius: 2px 0 0 2px;
+  border-radius: 0 2px 2px 0;
   background: #1c1d21;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06);
 }
 
-.template-phone-frame::before {
-  top: 108px;
-  height: 46px;
+.template-phone-btn.volume-up {
+  top: 96px;
+  height: 32px;
 }
 
-.template-phone-frame::after {
-  top: 164px;
-  height: 76px;
+.template-phone-btn.volume-down {
+  top: 138px;
+  height: 32px;
+}
+
+.template-phone-btn.power {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  border-radius: 2px 0 0 2px;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.06);
+  top: 116px;
+  height: 56px;
 }
 
 .template-phone {
   position: relative;
-  border-radius: 36px;
+  border-radius: 34px;
   background: #0f1115;
   overflow: hidden;
-  direction: ltr;
 }
 
 .template-phone-island {
