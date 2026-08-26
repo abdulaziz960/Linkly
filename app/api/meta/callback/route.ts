@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
             wabaName: accountsPayload?.username || accountsPayload?.name || settings.wabaName,
             wabaId: instagramId || settings.wabaId,
             accessToken: encryptSecret(longLivedAccessToken),
-            updatedAt: new Intl.DateTimeFormat("ar-SA", {
+            updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
               dateStyle: "medium",
               timeStyle: "short",
               timeZone: "Asia/Riyadh",
@@ -219,7 +219,7 @@ export async function GET(request: NextRequest) {
         where: { id: settings.id },
         data: {
           status: "pending",
-          updatedAt: new Intl.DateTimeFormat("ar-SA", {
+          updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
             dateStyle: "medium",
             timeStyle: "short",
             timeZone: "Asia/Riyadh",
@@ -284,7 +284,7 @@ export async function GET(request: NextRequest) {
               phoneNumber: page.name || settings.phoneNumber,
               wabaId: page.id,
               accessToken: encryptSecret(page.access_token),
-              updatedAt: new Intl.DateTimeFormat("ar-SA", {
+              updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
                 dateStyle: "medium",
                 timeStyle: "short",
                 timeZone: "Asia/Riyadh",
@@ -333,7 +333,7 @@ export async function GET(request: NextRequest) {
         phoneNumberId: effectivePhoneNumberId,
         phoneNumber: phoneDetails?.display_phone_number || phoneNumber || settings.phoneNumber,
         accessToken: encryptSecret(accessToken || settings.accessToken),
-        updatedAt: new Intl.DateTimeFormat("ar-SA", {
+        updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
           dateStyle: "medium",
           timeStyle: "short",
           timeZone: "Asia/Riyadh",

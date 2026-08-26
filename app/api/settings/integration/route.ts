@@ -518,7 +518,7 @@ export async function PATCH(request: NextRequest) {
       ...data,
       provider: channel === "instagram" ? "instagram" : channel === "facebook" ? "facebook" : channel === "telegram" ? "telegram" : channel === "x" ? "x" : channel === "google_maps" ? "google_maps" : channel === "email" ? "email" : channel === "tiktok" ? "tiktok" : channel === "sms" ? "unifonic" : data.provider,
       status: connectionCheck.status,
-      updatedAt: new Intl.DateTimeFormat("ar-SA", {
+      updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
         dateStyle: "medium",
         timeStyle: "short",
         timeZone: "Asia/Riyadh",

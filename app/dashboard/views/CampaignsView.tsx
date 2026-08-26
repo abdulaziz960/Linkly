@@ -138,6 +138,8 @@ export default function CampaignsView({
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [balanceLoadError, setBalanceLoadError] = useState("");
   const [campaignSearch, setCampaignSearch] = useState("");
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState("all");
+  const [campaignSort, setCampaignSort] = useState("latest");
   const [campaignPageSize, setCampaignPageSize] = useState("10");
   const [campaignPage, setCampaignPage] = useState(1);
   const [reportSearch, setReportSearch] = useState("");
@@ -175,15 +177,15 @@ export default function CampaignsView({
 
   const filteredCampaigns = useMemo(() => {
     const query = campaignSearch.trim().toLowerCase();
-    if (!query) return campaigns;
-
-    return campaigns.filter((campaign) => (
-      campaign.name.toLowerCase().includes(query) ||
-      campaign.status.toLowerCase().includes(query) ||
-      campaign.updatedAt.toLowerCase().includes(query) ||
-      `${campaign.sent}/${campaign.total}`.includes(query)
+    const rows = campaigns.filter((campaign) => (
+      (campaignStatusFilter === "all" || campaign.status === campaignStatusFilter) &&
+      (!query || campaign.name.toLowerCase().includes(query) || campaign.status.toLowerCase().includes(query) || campaign.updatedAt.toLowerCase().includes(query) || `${campaign.sent}/${campaign.total}`.includes(query))
     ));
-  }, [campaignSearch, campaigns]);
+    if (campaignSort === "name") return [...rows].sort((a, b) => a.name.localeCompare(b.name));
+    if (campaignSort === "sent") return [...rows].sort((a, b) => b.sent - a.sent);
+    if (campaignSort === "progress") return [...rows].sort((a, b) => Number.parseFloat(b.progress) - Number.parseFloat(a.progress));
+    return rows;
+  }, [campaignSearch, campaignSort, campaignStatusFilter, campaigns]);
   const campaignPagination = paginate(filteredCampaigns, campaignPage, Number(campaignPageSize));
   const filteredReportRows = useMemo(() => {
     const query = reportSearch.trim().toLowerCase();
@@ -209,6 +211,18 @@ export default function CampaignsView({
   }, [balanceSearch, balanceTransactions]);
   const balancePagination = paginate(filteredBalanceTransactions, balancePage, Number(balancePageSize));
   const usedCampaignMessages = useMemo(() => campaigns.reduce((total, campaign) => total + campaign.sent, 0), [campaigns]);
+  const campaignOverview = useMemo(() => {
+    const recipients = campaigns.reduce((total, campaign) => total + campaign.total, 0);
+    const sent = campaigns.reduce((total, campaign) => total + campaign.sent, 0);
+    return {
+      recipients,
+      sent,
+      remaining: Math.max(0, recipients - sent),
+      sendRate: recipients ? Math.round((sent / recipients) * 100) : 0,
+      completed: campaigns.filter((campaign) => campaign.status === "الحملة أنجزت").length,
+      active: campaigns.filter((campaign) => campaign.status === "قيد الإرسال" || campaign.status === "مجدولة").length
+    };
+  }, [campaigns]);
 
   async function handleCampaignFileChange(file: File | null) {
     setCampaignFile(file);
@@ -362,77 +376,86 @@ export default function CampaignsView({
   }
 
   return (
-    <section className="page-stack">
+    <section className="page-stack campaigns-page">
+      <header className="campaigns-hero">
+        <div><span>{t("مركز الحملات", "CAMPAIGN CENTER")}</span><h1>{t("حملات أوضح، من التجهيز حتى الإرسال", "Clear campaigns from setup to delivery")}</h1><p>{t("أنشئ جمهورك، اختر القالب، راجع التفاصيل ثم تابع التنفيذ من مكان واحد.", "Build your audience, choose a template, review details, and track execution in one place.")}</p></div>
+        <button className="btn primary campaign-create-cta" type="button" onClick={() => openForm()}>＋ {t("حملة جديدة", "New campaign")}</button>
+      </header>
       <div className="section-tabs campaign-tabs">
-        <button className={activeTab === "campaigns" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("campaigns")}>{t("الحملات", "Campaigns")}</button>
+        <button className={activeTab === "campaigns" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("campaigns")}>{t("نظرة الحملات", "Campaign overview")}</button>
         <button className={activeTab === "balance" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("balance")}>{t("الرصيد و الشحن", "Balance & Top-up")}</button>
       </div>
 
       {activeTab === "campaigns" ? (
-        <div className="campaign-board">
-          <div className="campaign-toolbar">
-            <input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); }} placeholder={t("بحث...", "Search...")} />
-            <button className="btn primary" type="button" onClick={() => openForm()}>＋ {t("إنشاء حملة", "Create campaign")}</button>
-            <button className="reload" type="button" onClick={onRefreshData}>↻ {t("إعادة تحميل", "Reload")}</button>
-            <label className="entries">{t("عرض", "Show")} <CustomSelect className="page-size" value={campaignPageSize} onChange={(value) => { setCampaignPageSize(value); setCampaignPage(1); }} options={pageSizeOptions} /> {t("إدخالات", "entries")}</label>
+        <>
+          <section className="campaign-health-grid" aria-label={t("جاهزية الحملات", "Campaign readiness")}>
+            <article className={whatsappConnected ? "is-ready" : "is-blocked"}><span>◉</span><div><b>{t("قناة الإرسال", "Sending channel")}</b><strong>{whatsappConnected ? t("واتساب متصل", "WhatsApp connected") : t("تحتاج ربط", "Connection required")}</strong></div></article>
+            <article className={approvedTemplates.length ? "is-ready" : "is-blocked"}><span>◇</span><div><b>{t("القوالب الجاهزة", "Ready templates")}</b><strong>{approvedTemplates.length} {t("قالب معتمد", "approved templates")}</strong></div></article>
+            <article><span>↗</span><div><b>{t("نسبة الإرسال", "Send rate")}</b><strong>{campaignOverview.sendRate}%</strong><small>{campaignOverview.sent.toLocaleString("en-US")} / {campaignOverview.recipients.toLocaleString("en-US")}</small></div></article>
+          </section>
+          <section className="campaign-kpis" aria-label={t("ملخص الحملات", "Campaign summary")}>
+            <article><span>{t("تم إرسالها", "Sent")}</span><strong>{campaignOverview.sent.toLocaleString("en-US")}</strong><small>{t("رسالة عبر جميع الحملات", "messages across campaigns")}</small></article>
+            <article><span>{t("بانتظار الإرسال", "Pending")}</span><strong>{campaignOverview.remaining.toLocaleString("en-US")}</strong><small>{t("من الجمهور المستهدف", "of the target audience")}</small></article>
+            <article><span>{t("حملات مكتملة", "Completed")}</span><strong>{campaignOverview.completed}</strong><small>{t("أنهت عملية الإرسال", "finished sending")}</small></article>
+            <article><span>{t("نشطة أو مجدولة", "Active or scheduled")}</span><strong>{campaignOverview.active}</strong><small>{t("تحتاج متابعة تشغيلية", "need operational follow-up")}</small></article>
+          </section>
+          <div className="campaign-board campaign-list-board">
+            <div className="campaign-list-head"><div><h2>{t("كل الحملات", "All campaigns")}</h2><p>{t("تابع التنفيذ وافتح التقرير أو أوقف الحملة من نفس الصف.", "Track execution, open reports, or stop a campaign from the same row.")}</p></div><button className="reload" type="button" onClick={onRefreshData}>↻ {t("تحديث البيانات", "Refresh data")}</button></div>
+            <div className="campaign-toolbar campaign-filterbar">
+              <input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); }} placeholder={t("ابحث باسم الحملة أو الحالة…", "Search name or status…")} />
+              <CustomSelect value={campaignStatusFilter} onChange={(value) => { setCampaignStatusFilter(value); setCampaignPage(1); }} options={[{value:"all",label:t("كل الحالات","All statuses")},{value:"قيد الإرسال",label:t("قيد الإرسال","Sending")},{value:"مجدولة",label:t("مجدولة","Scheduled")},{value:"الحملة أنجزت",label:t("مكتملة","Completed")},{value:"ملغاة",label:t("ملغاة","Cancelled")}]} />
+              <CustomSelect value={campaignSort} onChange={setCampaignSort} options={[{value:"latest",label:t("الأحدث أولاً","Latest first")},{value:"sent",label:t("الأكثر إرسالاً","Most sent")},{value:"progress",label:t("الأعلى تقدماً","Highest progress")},{value:"name",label:t("حسب الاسم","By name")}]} />
+              <label className="entries">{t("عرض", "Show")} <CustomSelect className="page-size" value={campaignPageSize} onChange={(value) => { setCampaignPageSize(value); setCampaignPage(1); }} options={pageSizeOptions} /></label>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("الإرسال", "Sending")}</th><th>{t("التقدم", "Progress")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th></tr></thead>
+                <tbody>
+                  {campaignPagination.items.map((campaign) => (
+                    <tr key={campaign.id}>
+                      <td><div className="campaign-name"><span className="campaign-thumb">A</span><span><b>{campaign.name}</b><small>{campaign.id}</small></span></div></td>
+                      <td><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small></td>
+                      <td><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
+                      <td><span className={campaign.status === "ملغاة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
+                      <td><span className="campaign-date">◴ {campaign.updatedAt}</span></td>
+                      <td className="row-actions campaign-row-actions">
+                        <button className="campaign-report" type="button" onClick={() => openReport(campaign)}>{t("التقرير", "Report")}</button>
+                        {campaign.status === "قيد الإرسال" || campaign.status === "مجدولة" ? <button className="btn soft" type="button" onClick={() => stopCampaign(campaign)}>{t("إيقاف", "Stop")}</button> : null}
+                        <button className="btn soft" type="button" onClick={() => openForm(campaign)}>{t("تعديل", "Edit")}</button>
+                        <button className="btn danger" type="button" onClick={() => deleteCampaign(campaign)}>{t("حذف", "Delete")}</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!campaignPagination.items.length ? <tr><td colSpan={6}><div className="campaign-empty"><strong>{t("لا توجد حملات مطابقة", "No matching campaigns")}</strong><span>{t("غيّر البحث أو الحالة، أو أنشئ حملة جديدة.", "Adjust the filters or create a new campaign.")}</span></div></td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+            <Pagination currentPage={campaignPagination.page} totalPages={campaignPagination.totalPages} onPageChange={setCampaignPage} />
           </div>
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("الرسائل المرسلة", "Messages sent")}</th><th>{t("حالة تقدم الحملة", "Progress")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th /></tr></thead>
-              <tbody>
-                {campaignPagination.items.map((campaign) => (
-                  <tr key={campaign.id}>
-                    <td><div className="campaign-name"><span className="campaign-thumb">▧</span><span><b>{campaign.name}</b></span></div></td>
-                    <td>{campaign.sent}/{campaign.total}</td>
-                    <td><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
-                    <td><span className={campaign.status === "ملغاة" ? "state off" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
-                    <td><span className="campaign-date">◴ {campaign.updatedAt}</span></td>
-                    <td className="row-actions">
-                      <button className="campaign-report" type="button" onClick={() => openReport(campaign)}>↗ {t("تقرير الحملة", "Campaign report")}</button>
-                      {campaign.status === "قيد الإرسال" || campaign.status === "مجدولة" ? (
-                        <button className="btn soft" type="button" onClick={() => stopCampaign(campaign)}>{t("إيقاف", "Stop")}</button>
-                      ) : null}
-                      <button className="btn soft" type="button" onClick={() => openForm(campaign)}>{t("تعديل الاسم", "Edit name")}</button>
-                      <button className="btn danger" type="button" onClick={() => deleteCampaign(campaign)}>{t("حذف", "Delete")}</button>
-                    </td>
-                  </tr>
-                ))}
-                {!campaignPagination.items.length ? (
-                  <tr><td colSpan={6}>{t("لا توجد حملات مطابقة للبحث.", "No campaigns match your search.")}</td></tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-          <Pagination currentPage={campaignPagination.page} totalPages={campaignPagination.totalPages} onPageChange={setCampaignPage} />
-        </div>
+        </>
       ) : (
         <div className="balance-page">
           {balanceLoadError ? <p className="form-error">{balanceLoadError}</p> : null}
-          <div className="balance-metrics">
-            <div className="balance-metric action">
-              <button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>{t("شحن رصيد", "Top up balance")}</button>
-            </div>
-            <div className="balance-metric used">
-              <span>{t("تم الاستخدام (كل الحملات)", "Used (all campaigns)")}</span>
-              <b>{usedCampaignMessages.toLocaleString("en-US")}</b>
-            </div>
-            <div className="balance-metric allowed">
-              <span>{t("الرصيد المتاح", "Available balance")}</span>
-              <b>{balanceLoading ? "..." : balance.toLocaleString("en-US")}</b>
-            </div>
-          </div>
+          <section className="campaign-balance-hero">
+            <div><span>{t("رصيد الحملات", "CAMPAIGN BALANCE")}</span><h2>{t("تحكّم في رصيد الإرسال من مكان واحد", "Manage your sending balance in one place")}</h2><p>{t("اشحن الرصيد حسب احتياجك، ثم راقب كل عملية إضافة أو استخدام في السجل المالي أدناه.", "Top up as needed, then review every credit and usage entry in the ledger below.")}</p></div>
+            <div className="campaign-balance-total"><small>{t("الرصيد المتاح", "Available balance")}</small><strong>{balanceLoading ? "..." : balance.toLocaleString("en-US")}</strong><span>{t("رسالة", "messages")}</span><button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>＋ {t("شحن الرصيد", "Top up balance")}</button></div>
+          </section>
+          <section className="balance-kpi-grid">
+            <article><span>{t("الاستخدام الكلي", "Total usage")}</span><strong>{usedCampaignMessages.toLocaleString("en-US")}</strong><small>{t("رسالة مستخدمة في الحملات", "messages used in campaigns")}</small></article>
+            <article><span>{t("المعاملات المسجلة", "Recorded transactions")}</span><strong>{balanceTransactions.length}</strong><small>{t("عمليات شحن واستخدام", "top-up and usage entries")}</small></article>
+            <article className="balance-pricing-card"><span>{t("التسعير حسب الحجم", "Volume pricing")}</span><strong>{t("ابتداءً من 0.012 ريال", "From SAR 0.012")}</strong><button type="button" onClick={() => setPricingOpen(true)}>{t("عرض جدول الأسعار", "View pricing table")} ←</button></article>
+          </section>
 
           <div className="campaign-board balance-board transactions-board">
             <div className="transactions-head">
-              <h2>{t("المعاملات", "Transactions")}</h2>
+              <div><h2>{t("سجل المعاملات", "Transaction ledger")}</h2><p>{t("جميع حركات الرصيد مرتبة داخل جدول واحد.", "All balance movements in one table.")}</p></div>
             </div>
             <div className="campaign-toolbar transactions-toolbar">
-              <input value={balanceSearch} onChange={(event) => { setBalanceSearch(event.target.value); setBalancePage(1); }} placeholder={t("بحث...", "Search...")} />
-              <button className="btn primary" type="button" onClick={() => setPricingOpen(true)}>▭ {t("أسعار الرسائل التسويقية", "Marketing message pricing")}</button>
+              <input value={balanceSearch} onChange={(event) => { setBalanceSearch(event.target.value); setBalancePage(1); }} placeholder={t("ابحث في الاستخدام أو الحالة أو التاريخ…", "Search usage, status, or date…")} />
               <label className="entries">
                 {t("عرض", "Show")}
                 <CustomSelect className="page-size" value={balancePageSize} onChange={(value) => { setBalancePageSize(value); setBalancePage(1); }} options={pageSizeOptions} />
-                {t("إدخالات", "entries")}
+                {t("صفوف", "rows")}
               </label>
             </div>
             <div className="table-wrap">
@@ -460,9 +483,9 @@ export default function CampaignsView({
 
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
-          <form className="account-modal form-modal campaign-create-modal" role="dialog" aria-modal="true" aria-label={t("حفظ حملة", "Save campaign")} onSubmit={submitCampaign} onClick={(event) => event.stopPropagation()}>
-            <header className="modal-head"><button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button><h2>{form.id ? t("تعديل اسم الحملة", "Edit campaign name") : t("إنشاء حملة", "Create campaign")}</h2></header>
-            <div className="account-modal-body form-grid">
+          <form className="account-modal form-modal campaign-create-modal campaign-builder-modal" role="dialog" aria-modal="true" aria-label={t("حفظ حملة", "Save campaign")} onSubmit={submitCampaign} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head campaign-builder-head"><button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button><div><span>{t("منشئ الحملات", "CAMPAIGN BUILDER")}</span><h2>{form.id ? t("تعديل اسم الحملة", "Edit campaign name") : t("إنشاء حملة جديدة", "Create a new campaign")}</h2></div></header>
+            <div className="account-modal-body form-grid campaign-builder-fields">
               {!form.id ? <div className="campaign-warning">{t("الرجاء قبل إرسال أي حملة قم بإنشاء حملة تجريبية تحتوي على رقمك فقط، لتتأكد من الإرسال ووصول الرسالة دون أي مشكلة في الإرسال", "Before sending any campaign, please create a test campaign with just your own number to confirm the message sends and arrives without issues.")}</div> : null}
               <label><span>{t("اسم الحملة", "Campaign name")}</span><input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder={t("اسم الحملة", "Campaign name")} required /></label>
               {!form.id ? (
@@ -538,6 +561,11 @@ export default function CampaignsView({
               ) : null}
               {formError ? <p className="form-error">{formError}</p> : null}
             </div>
+            <aside className="campaign-live-preview" aria-label={t("معاينة الحملة", "Campaign preview")}>
+              <div className="campaign-preview-title"><span>{t("معاينة مباشرة", "Live preview")}</span><small>{t("شكل تقريبي للرسالة", "Approximate message appearance")}</small></div>
+              <div className="campaign-phone"><div className="campaign-phone-bar"><span>AudienceW</span><i>•••</i></div><div className="campaign-phone-notice">{t("محادثة أعمال موثقة وآمنة", "Verified and secure business chat")}</div><div className="campaign-message-preview"><b>{form.name || t("اسم الحملة", "Campaign name")}</b><p>{approvedTemplates.find((template) => template.name === form.templateName)?.message || t("اختر قالباً معتمداً لتظهر معاينة نص الرسالة هنا.", "Choose an approved template to preview its message here.")}</p><time>3:34 PM</time></div></div>
+              <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{recipientPreview === null ? "—" : recipientPreview.toLocaleString("en-US")}</dd></div><div><dt>{t("طريقة الإرسال", "Delivery")}</dt><dd>{form.scheduled ? t("مجدولة", "Scheduled") : t("فوري", "Immediate")}</dd></div></dl>
+            </aside>
             <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && !approvedTemplates.length)}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : t("إرسال", "Submit")}</button></footer>
           </form>
         </div>
@@ -629,20 +657,21 @@ export default function CampaignsView({
 
       {pricingOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setPricingOpen(false)}>
-          <div className="account-modal pricing-modal" role="dialog" aria-modal="true" aria-label={t("أسعار رسائل التسويقية", "Marketing message pricing")} onClick={(event) => event.stopPropagation()}>
+          <div className="account-modal pricing-modal" role="dialog" aria-modal="true" aria-label={t("أسعار الرسائل التسويقية", "Marketing message pricing")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
               <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setPricingOpen(false)}>×</button>
               <h2>{t("أسعار الرسائل التسويقية", "Marketing message pricing")}</h2>
             </header>
             <div className="account-modal-body">
-              <div className="pricing-card">
-                <p>{t("أسعار رسائل الحملات التسويقية حسب عدد الرسائل تبدأ من 3 هللات وتصل إلى 1.2 هللة.", "Marketing campaign message pricing by volume starts at 3 halalas and goes down to 1.2 halalas.")}</p>
-                <ul>
+              <div className="pricing-card pricing-table-card">
+                <div className="pricing-intro"><span>{t("تسعير مرن", "FLEXIBLE PRICING")}</span><h3>{t("كلما زاد حجم الإرسال، انخفض سعر الرسالة", "The larger the volume, the lower the message price")}</h3><p>{t("اختر الشريحة المناسبة لحجم حملتك، ويُحسب الإجمالي تلقائياً عند شحن الرصيد.", "Choose the tier matching your campaign volume; the total is calculated automatically during top-up.")}</p></div>
+                <div className="pricing-table" role="table" aria-label={t("شرائح أسعار الرسائل", "Message pricing tiers")}>
+                  <div className="pricing-table-head" role="row"><span>{t("حجم الرسائل", "Message volume")}</span><span>{t("سعر الرسالة", "Price per message")}</span><span>{t("التوفير", "Saving")}</span></div>
                   {marketingMessagePrices.map((tier) => (
-                    <li key={tier.range}><span>{pricingRangeLabel(tier.range, language)}</span><b>{formatCurrency(tier.rate, language)}</b></li>
+                    <div className="pricing-tier-row" role="row" key={tier.range}><span>{pricingRangeLabel(tier.range, language)}</span><b>{formatCurrency(tier.rate, language)}</b><em>{Math.round((1 - tier.rate / marketingMessagePrices[0].rate) * 100)}%</em></div>
                   ))}
-                </ul>
-                <strong>{t("*ملاحظة: جميع الأسعار لا تشمل رسوم واتساب أو أي رسوم خارجية من Meta.", "*Note: all prices exclude WhatsApp fees or any external fees charged by Meta.")}</strong>
+                </div>
+                <div className="pricing-note"><span>i</span><p>{t("الأسعار المعروضة خاصة برصيد AudienceW ولا تشمل رسوم واتساب أو أي رسوم خارجية تفرضها Meta.", "Displayed prices cover AudienceW balance only and exclude WhatsApp or other external Meta fees.")}</p></div>
               </div>
             </div>
             <footer className="modal-foot"><button className="btn primary" type="button" onClick={() => setPricingOpen(false)}>{t("حسنًا", "OK")}</button></footer>

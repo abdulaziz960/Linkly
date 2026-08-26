@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createHash, randomBytes } from "crypto";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
+import { isOwnerEquivalentGrant } from "../../../lib/permissions";
 import { getEmployees } from "../../../lib/database";
 import { sendActivationEmail } from "../../../lib/email";
 import { employeeLimitReachedMessage, getEmployeeLimitForTenant } from "../../../lib/employee-limits";
@@ -36,6 +37,9 @@ export async function POST(request: NextRequest) {
 
   if (!name) return jsonError("اسم الموظف مطلوب");
   if (!email) return jsonError("البريد الإلكتروني مطلوب");
+  if (isOwnerEquivalentGrant(body.role || "", body.permissions || "") && user.role !== "مالك الحساب") {
+    return jsonError("فقط مالك الحساب يقدر يمنح صلاحية بمستوى المالك", 403);
+  }
 
   const [employeeCount, employeeLimit] = await Promise.all([
     prisma.employee.count({ where: { tenantId: user.tenantId } }),

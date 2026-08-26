@@ -47,6 +47,10 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   if (!existing) return jsonError("تعذر حذف الرد", 404);
 
   try {
+    if (existing.id.startsWith("qr-auto-")) {
+      await prisma.quickReply.update({ where: { id }, data: { usage: -1 } });
+      return jsonOk({ id, dismissed: true });
+    }
     await prisma.quickReply.delete({ where: { id } });
     return jsonOk({ id });
   } catch {

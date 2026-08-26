@@ -3,7 +3,7 @@ import Link from "next/link";
 import "../../legal.css";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Linkly",
+  title: { absolute: "Privacy Policy | Linkly" },
   description: "Linkly privacy policy"
 };
 

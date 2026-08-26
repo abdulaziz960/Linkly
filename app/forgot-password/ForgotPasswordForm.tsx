@@ -2,6 +2,10 @@
 
 import { FormEvent, useState } from "react";
 
+const MailIcon = (
+  <svg className="login-field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 6-10 7L2 6" /></svg>
+);
+
 const copy = {
   ar: {
     email: "البريد الإلكتروني",
@@ -68,15 +72,18 @@ export default function ForgotPasswordForm({ lang = "ar" }: { lang?: "ar" | "en"
     <form className="login-form" onSubmit={handleSubmit}>
       <label>
         {text.email}
-        <input
-          type="email"
-          name="email"
-          placeholder="name@company.com"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-        />
+        <div className="login-field">
+          {MailIcon}
+          <input
+            type="email"
+            name="email"
+            placeholder="name@company.com"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+        </div>
       </label>
 
       <button className="login-submit" type="submit" disabled={loading}>

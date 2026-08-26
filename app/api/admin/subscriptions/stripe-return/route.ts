@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
             data: {
               status: "نشط",
               renewalAt: renewalAt.toISOString().slice(0, 10),
-              updatedAt: new Intl.DateTimeFormat("ar-SA", {
+              updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
                 dateStyle: "medium",
                 timeStyle: "short",
                 timeZone: "Asia/Riyadh",

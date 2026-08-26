@@ -19,10 +19,10 @@ const dayLabelsEn: Record<string, string> = {
   "السبت": "Saturday"
 };
 const timePresets = [
-  { label: "٩ ص - ٥ م", labelEn: "9 AM - 5 PM", start: "09:00", end: "17:00" },
-  { label: "٩ ص - ٦ م", labelEn: "9 AM - 6 PM", start: "09:00", end: "18:00" },
-  { label: "١٠ ص - ٦ م", labelEn: "10 AM - 6 PM", start: "10:00", end: "18:00" },
-  { label: "٢٤ ساعة", labelEn: "24 hours", start: "00:00", end: "23:59" }
+  { label: "9 ص - 5 م", labelEn: "9 AM - 5 PM", start: "09:00", end: "17:00" },
+  { label: "9 ص - 6 م", labelEn: "9 AM - 6 PM", start: "09:00", end: "18:00" },
+  { label: "10 ص - 6 م", labelEn: "10 AM - 6 PM", start: "10:00", end: "18:00" },
+  { label: "24 ساعة", labelEn: "24 hours", start: "00:00", end: "23:59" }
 ];
 
 function dayLabel(day: string, t: (ar: string, en: string) => string) {

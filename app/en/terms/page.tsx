@@ -3,7 +3,7 @@ import Link from "next/link";
 import "../../legal.css";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Linkly",
+  title: { absolute: "Terms of Service | Linkly" },
   description: "Linkly terms of service"
 };
 

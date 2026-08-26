@@ -139,6 +139,11 @@ async function fetchData<T>(path: string) {
   return payload.ok && payload.data !== undefined ? payload.data : null;
 }
 
+async function fetchQuickRepliesWithSuggestions() {
+  await fetch("/api/quick-replies/sync", { method: "POST" }).catch(() => null);
+  return fetchData<QuickReply[]>("/api/quick-replies");
+}
+
 export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const router = useRouter();
   const restoredNavigationRef = useRef(false);
@@ -380,7 +385,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         fetchData<Team[]>("/api/teams"),
         fetchData<Tag[]>("/api/tags"),
         fetchData<MessageTemplate[]>("/api/templates"),
-        fetchData<QuickReply[]>("/api/quick-replies"),
+        fetchQuickRepliesWithSuggestions(),
         fetchData<AutomationRule[]>("/api/automations"),
         fetchData<Campaign[]>("/api/campaigns"),
         fetchData<WorkSchedule[]>("/api/work-hours"),

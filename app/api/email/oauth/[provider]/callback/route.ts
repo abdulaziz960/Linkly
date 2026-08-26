@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const code = request.nextUrl.searchParams.get("code");
   const state = verifyOAuthState(request.nextUrl.searchParams.get("state"));
   const origin = request.nextUrl.origin;
-  if (provider !== "gmail" && provider !== "outlook") return popupResult(origin, "error", "", "مزود غير معروف");
+  if (provider !== "gmail") return popupResult(origin, "error", "", "مزود غير معروف");
   if (!code) return popupResult(origin, "error", "", "لم يصل رمز التفويض (code) من Google");
   if (!state || state.provider !== provider) return popupResult(origin, "error", "", "فشل التحقق من حالة الطلب (state) - جرّب من جديد");
   try {

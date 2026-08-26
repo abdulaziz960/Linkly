@@ -24,10 +24,10 @@ export default async function AdminOverviewPage() {
 
       <OverviewView
         subscriptions={subscriptions}
-        paymentsCount={payments.length}
+        payments={payments}
         plansCount={plans.length}
         teamCount={team.length}
-        logsCount={logs.length}
+        logs={logs}
       />
     </>
   );

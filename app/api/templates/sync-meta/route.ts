@@ -75,7 +75,7 @@ export async function POST() {
       components?: Array<{ type?: string; text?: string; format?: string; buttons?: Array<{ text?: string; type?: string; phone_number?: string; url?: string }> }>;
     }>;
   };
-  const syncedAt = new Intl.DateTimeFormat("ar-SA", {
+  const syncedAt = new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
     dateStyle: "medium",
     timeStyle: "short",
     numberingSystem: "latn",

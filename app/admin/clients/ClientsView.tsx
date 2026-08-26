@@ -440,6 +440,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                 </div>
 
                 <div className="admin-client-actions">
+                  <Link className="admin-client-primary-link" href={`/admin/clients/${encodeURIComponent(client.tenantId)}`}>{t("فتح ملف العميل", "Open client profile")}</Link>
                   <button type="button" onClick={() => openChargeModal(client)}>
                     {t("شحن / تجديد الاشتراك", "Charge / Renew Subscription")}
                   </button>

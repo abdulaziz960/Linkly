@@ -3,7 +3,7 @@ import Link from "next/link";
 import "../../legal.css";
 
 export const metadata: Metadata = {
-  title: "Contact us | Linkly",
+  title: { absolute: "Contact us | Linkly" },
   description: "Contact the Linkly team for sales, support, and help setting up your customer service channels.",
   alternates: { canonical: "/en/contact", languages: { "ar-SA": "/contact", en: "/en/contact" } }
 };
