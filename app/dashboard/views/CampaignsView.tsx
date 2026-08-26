@@ -563,7 +563,7 @@ export default function CampaignsView({
             </div>
             <aside className="campaign-live-preview" aria-label={t("معاينة الحملة", "Campaign preview")}>
               <div className="campaign-preview-title"><span>{t("معاينة مباشرة", "Live preview")}</span><small>{t("شكل تقريبي للرسالة", "Approximate message appearance")}</small></div>
-              <div className="campaign-phone"><div className="campaign-phone-bar"><span>AudienceW</span><i>•••</i></div><div className="campaign-phone-notice">{t("محادثة أعمال موثقة وآمنة", "Verified and secure business chat")}</div><div className="campaign-message-preview"><b>{form.name || t("اسم الحملة", "Campaign name")}</b><p>{approvedTemplates.find((template) => template.name === form.templateName)?.message || t("اختر قالباً معتمداً لتظهر معاينة نص الرسالة هنا.", "Choose an approved template to preview its message here.")}</p><time>3:34 PM</time></div></div>
+              <div className="campaign-phone"><div className="campaign-phone-bar"><span>Linkly</span><i>•••</i></div><div className="campaign-phone-notice">{t("محادثة أعمال موثقة وآمنة", "Verified and secure business chat")}</div><div className="campaign-message-preview"><b>{form.name || t("اسم الحملة", "Campaign name")}</b><p>{approvedTemplates.find((template) => template.name === form.templateName)?.message || t("اختر قالباً معتمداً لتظهر معاينة نص الرسالة هنا.", "Choose an approved template to preview its message here.")}</p><time>3:34 PM</time></div></div>
               <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{recipientPreview === null ? "—" : recipientPreview.toLocaleString("en-US")}</dd></div><div><dt>{t("طريقة الإرسال", "Delivery")}</dt><dd>{form.scheduled ? t("مجدولة", "Scheduled") : t("فوري", "Immediate")}</dd></div></dl>
             </aside>
             <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && !approvedTemplates.length)}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : t("إرسال", "Submit")}</button></footer>
@@ -671,7 +671,7 @@ export default function CampaignsView({
                     <div className="pricing-tier-row" role="row" key={tier.range}><span>{pricingRangeLabel(tier.range, language)}</span><b>{formatCurrency(tier.rate, language)}</b><em>{Math.round((1 - tier.rate / marketingMessagePrices[0].rate) * 100)}%</em></div>
                   ))}
                 </div>
-                <div className="pricing-note"><span>i</span><p>{t("الأسعار المعروضة خاصة برصيد AudienceW ولا تشمل رسوم واتساب أو أي رسوم خارجية تفرضها Meta.", "Displayed prices cover AudienceW balance only and exclude WhatsApp or other external Meta fees.")}</p></div>
+                <div className="pricing-note"><span>i</span><p>{t("الأسعار المعروضة خاصة برصيد Linkly ولا تشمل رسوم واتساب أو أي رسوم خارجية تفرضها Meta.", "Displayed prices cover Linkly balance only and exclude WhatsApp or other external Meta fees.")}</p></div>
               </div>
             </div>
             <footer className="modal-foot"><button className="btn primary" type="button" onClick={() => setPricingOpen(false)}>{t("حسنًا", "OK")}</button></footer>
