@@ -35,16 +35,6 @@ export const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "ربط", views: ["settings"] }
 ];
 
-/**
- * Whether a given role/permissions combination grants Owner-equivalent
- * access (full conversation visibility via role, or every dashboard view
- * via the "الكل" permissions flag). Only an existing Owner may grant this
- * to a new or existing employee - see app/api/employees/route.ts.
- */
-export function isOwnerEquivalentGrant(role: string, permissions: string): boolean {
-  return role === "مالك الحساب" || permissions === "الكل";
-}
-
 export function computeAllowedViews(role: string, permissions: string): ViewKey[] {
   if (role === "مالك الحساب" || permissions === "الكل") return allViewKeys;
 
@@ -56,6 +46,21 @@ export function computeAllowedViews(role: string, permissions: string): ViewKey[
   });
 
   return views.size ? Array.from(views) : ["inbox"];
+}
+
+/**
+ * Whether a given role/permissions combination grants Owner-equivalent
+ * access (full conversation visibility via role, or every dashboard view).
+ * Delegates to computeAllowedViews rather than checking permissions==="الكل"
+ * directly, since a permissions string that happens to contain every
+ * individual keyword also resolves to every view without ever equaling
+ * the literal "الكل" flag - that bypass must be caught here too. Only an
+ * existing Owner may grant this to a new or existing employee - see
+ * app/api/employees/route.ts.
+ */
+export function isOwnerEquivalentGrant(role: string, permissions: string): boolean {
+  if (role === "مالك الحساب") return true;
+  return computeAllowedViews(role, permissions).length === allViewKeys.length;
 }
 
 /**

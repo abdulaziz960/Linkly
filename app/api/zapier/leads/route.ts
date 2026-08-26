@@ -1,8 +1,16 @@
 import { NextRequest } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { ensureSchema, getIntegrationSettings, getTenantIntegrationId } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { jsonError, jsonOk } from "../../_utils/json";
+
+function secretsMatch(received: string, expected: string) {
+  if (!received || !expected) return false;
+  const receivedBuffer = Buffer.from(received);
+  const expectedBuffer = Buffer.from(expected);
+  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual(receivedBuffer, expectedBuffer);
+}
 
 export const runtime = "nodejs";
 
@@ -37,10 +45,10 @@ async function resolveTenantId(request: NextRequest, body: ZapierLeadPayload) {
 async function requireZapierSecret(request: NextRequest, tenantId: string) {
   const token = getZapierToken(request);
   const envSecret = process.env.ZAPIER_LEADS_SECRET || "";
-  if (envSecret && token === envSecret) return true;
+  if (envSecret && secretsMatch(token, envSecret)) return true;
 
   const integration = await getIntegrationSettings("leads", tenantId);
-  return Boolean(integration.verifyToken) && token === integration.verifyToken;
+  return Boolean(integration.verifyToken) && secretsMatch(token, integration.verifyToken);
 }
 
 function pickName(body: ZapierLeadPayload) {
