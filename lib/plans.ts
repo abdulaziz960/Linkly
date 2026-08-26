@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 
 function nowTimestamp() {
-  return new Intl.DateTimeFormat("ar-SA", {
+  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "Asia/Riyadh",

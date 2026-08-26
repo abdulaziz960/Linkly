@@ -44,7 +44,7 @@ export async function refreshGoogleAccessToken(settings: IntegrationSettings) {
     where: { id: settings.id },
     data: {
       accessToken: encryptSecret(payload.access_token),
-      updatedAt: new Intl.DateTimeFormat("ar-SA", {
+      updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
         dateStyle: "medium",
         timeStyle: "short",
         numberingSystem: "latn",

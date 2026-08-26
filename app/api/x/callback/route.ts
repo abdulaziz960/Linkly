@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       accessToken: encryptSecret(tokenData.access_token),
       xAccessToken: encryptSecret(tokenData.access_token),
       xAccessTokenSecret: encryptSecret(tokenData.refresh_token || settings.xAccessTokenSecret || ""),
-      updatedAt: new Intl.DateTimeFormat("ar-SA", {
+      updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
         dateStyle: "medium",
         timeStyle: "short",
         timeZone: "Asia/Riyadh",

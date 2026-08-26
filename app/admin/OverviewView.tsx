@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { SubscriptionRow } from "./types";
+import type { PaymentRow, SubscriptionRow } from "./types";
+import type { AdminLog } from "../../lib/database";
 import { EXTRA_USER_PRICE, formatNumber, getRenewalAlert } from "./utils";
 import AnimatedNumber from "./AnimatedNumber";
 import { useLanguage } from "./i18n";
@@ -16,17 +17,18 @@ function statusLabel(status: string, t: (ar: string, en: string) => string) {
 
 type OverviewViewProps = {
   subscriptions: SubscriptionRow[];
-  paymentsCount: number;
+  payments: PaymentRow[];
   plansCount: number;
   teamCount: number;
-  logsCount: number;
+  logs: AdminLog[];
 };
 
 const DONUT_COLORS = ["#171717", "#6b7280", "#a3a3a3", "#d4d4d4", "#e5e5e5"];
 
-export default function OverviewView({ subscriptions, paymentsCount, plansCount, teamCount, logsCount }: OverviewViewProps) {
+export default function OverviewView({ subscriptions, payments, plansCount, teamCount, logs }: OverviewViewProps) {
   const { t } = useLanguage();
   const [mounted, setMounted] = useState(false);
+  const [period, setPeriod] = useState("month");
   useEffect(() => setMounted(true), []);
 
   const activeClients = subscriptions.filter((s) => s.status === "نشط").length;
@@ -38,6 +40,14 @@ export default function OverviewView({ subscriptions, paymentsCount, plansCount,
   }, 0);
   const totalConversations = subscriptions.reduce((sum, s) => sum + s.conversationCount, 0);
   const renewalAlertsCount = subscriptions.filter((s) => getRenewalAlert(s) !== null).length;
+  const overdueRenewals = subscriptions.filter((s) => getRenewalAlert(s)?.tier === "overdue").length;
+  const pendingPayments = payments.filter((payment) => payment.status === "قيد الانتظار");
+  const collectedRevenue = payments.filter((payment) => payment.status === "مكتمل").reduce((sum, payment) => sum + payment.amount, 0);
+  const outstandingRevenue = pendingPayments.reduce((sum, payment) => sum + payment.amount, 0);
+  const annualRecurringRevenue = monthlyRevenue * 12;
+  const averageConversations = subscriptions.length ? Math.round(totalConversations / subscriptions.length) : 0;
+  const inactiveUsage = subscriptions.filter((subscription) => subscription.conversationCount === 0).length;
+  const technicalErrors = logs.filter((log) => log.level === "خطأ").length;
 
   const statusCounts = new Map<string, number>();
   for (const s of subscriptions) {
@@ -67,37 +77,59 @@ export default function OverviewView({ subscriptions, paymentsCount, plansCount,
   const quickLinks = [
     { href: "/admin/clients", label: t("العملاء", "Clients"), count: subscriptions.length, hint: t("إدارة كل حسابات العملاء", "Manage all client accounts") },
     { href: "/admin/alerts", label: t("تنبيهات التجديد", "Renewal alerts"), count: renewalAlertsCount, hint: t("اشتراكات تحتاج متابعة", "Subscriptions needing follow-up") },
-    { href: "/admin/payments", label: t("المدفوعات", "Payments"), count: paymentsCount, hint: t("سجل مدفوعات Moyasar", "Moyasar payment log") },
+    { href: "/admin/payments", label: t("المدفوعات", "Payments"), count: payments.length, hint: t("سجل مدفوعات Moyasar", "Moyasar payment log") },
     { href: "/admin/plans", label: t("الباقات", "Plans"), count: plansCount, hint: t("أسعار الباقات وحدودها", "Plan pricing and limits") },
     { href: "/admin/team", label: t("الفريق", "Team"), count: teamCount, hint: t("أعضاء فريق المنصة", "Platform team members") },
-    { href: "/admin/logs", label: t("السجلات", "Logs"), count: logsCount, hint: t("سجل حركة كل الحسابات", "Activity log for all accounts") }
+    { href: "/admin/logs", label: t("السجلات", "Logs"), count: logs.length, hint: t("سجل حركة كل الحسابات", "Activity log for all accounts") }
   ];
 
   return (
     <>
+      <section className="admin-dashboard-period" aria-label={t("النطاق الزمني للوحة", "Dashboard date range")}>
+        <div><strong>{t("نطاق العرض", "View range")}</strong><small>{t("طبّق نطاقاً موحداً على مؤشرات المتابعة", "Use one range across monitoring indicators")}</small></div>
+        <div>{[["today", t("اليوم", "Today")], ["7d", t("آخر 7 أيام", "Last 7 days")], ["month", t("هذا الشهر", "This month")], ["custom", t("نطاق مخصص", "Custom range")]].map(([value, label]) => <button key={value} type="button" className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{label}</button>)}</div>
+      </section>
+
+      <section className="admin-action-center">
+        <div className="admin-action-title"><div><span>{t("الأولوية الآن", "Priority now")}</span><h2>{t("يتطلب إجراء الآن", "Needs action now")}</h2></div><strong>{formatNumber(overdueRenewals + pendingPayments.length + technicalErrors)}</strong></div>
+        <div className="admin-action-grid">
+          <Link href="/admin/alerts?status=overdue" className="admin-action-item is-danger"><span>!</span><div><strong>{formatNumber(overdueRenewals)} {t("تجديدات متأخرة", "overdue renewals")}</strong><small>{t("تحتاج تواصلاً أو تعليقاً مدروساً", "Need outreach or considered suspension")}</small></div><b>←</b></Link>
+          <Link href="/admin/payments?status=pending" className="admin-action-item is-warn"><span>◷</span><div><strong>{formatNumber(pendingPayments.length)} {t("دفعات بانتظار الإكمال", "pending payments")}</strong><small>{formatNumber(outstandingRevenue)} {t("ر.س مستحقة", "SAR outstanding")}</small></div><b>←</b></Link>
+          <Link href="/admin/logs?level=خطأ" className="admin-action-item is-danger"><span>×</span><div><strong>{formatNumber(technicalErrors)} {t("أخطاء تقنية", "technical errors")}</strong><small>{t("راجع سجل الأخطاء حسب الأحدث", "Review errors newest first")}</small></div><b>←</b></Link>
+          <Link href="/admin/clients?usage=inactive" className="admin-action-item"><span>○</span><div><strong>{formatNumber(inactiveUsage)} {t("عملاء دون استخدام", "clients without usage")}</strong><small>{t("لم تسجل لهم محادثات", "No conversations recorded")}</small></div><b>←</b></Link>
+        </div>
+      </section>
+
       <section className="admin-section">
         <div className="admin-metrics">
-          <article>
+          <Link href="/admin/clients" className="admin-metric-link">
             <span>{t("إجمالي العملاء", "Total clients")}</span>
             <strong><AnimatedNumber value={subscriptions.length} /></strong>
-            <small>{formatNumber(activeClients)} {t("نشط", "active")} · {formatNumber(trialClients)} {t("تجربة", "trial")}</small>
-          </article>
-          <article>
+            <small>{formatNumber(activeClients)} {t("نشط", "active")} · {formatNumber(trialClients)} {t("تجربة", "trial")} <em>{t("عرض التفاصيل ←", "View details →")}</em></small>
+          </Link>
+          <Link href="/admin/clients?status=نشط" className="admin-metric-link">
             <span>{t("اشتراكات نشطة", "Active subscriptions")}</span>
             <strong><AnimatedNumber value={activeClients} /></strong>
-            <small>{formatNumber(subscriptions.length - activeClients)} {t("غير نشطة", "inactive")}</small>
-          </article>
-          <article>
-            <span>{t("إيراد شهري متوقع", "Projected monthly revenue")}</span>
+            <small>{formatNumber(subscriptions.length - activeClients)} {t("غير نشطة — حالة مختلفة عن انتظار الدفع", "inactive — separate from pending payments")}</small>
+          </Link>
+          <Link href="/admin/payments?status=completed" className="admin-metric-link">
+            <span>{t("MRR المتوقع", "Projected MRR")}</span>
             <strong><AnimatedNumber value={monthlyRevenue} /></strong>
-            <small>{t("ريال من الاشتراكات النشطة", "SAR from active subscriptions")}</small>
-          </article>
-          <article>
+            <small>{t("ر.س شهرياً", "SAR monthly")} · ARR {formatNumber(annualRecurringRevenue)}</small>
+          </Link>
+          <Link href="/admin/clients?sort=usage" className="admin-metric-link">
             <span>{t("محادثات تحت الإدارة", "Conversations under management")}</span>
             <strong><AnimatedNumber value={totalConversations} /></strong>
-            <small>{t("مجمعة من كل حسابات العملاء", "Aggregated across all client accounts")}</small>
-          </article>
+            <small>{t("متوسط", "Average")} {formatNumber(averageConversations)} {t("لكل عميل", "per client")}</small>
+          </Link>
         </div>
+      </section>
+
+      <section className="admin-revenue-strip">
+        <div><span>{t("المحصل", "Collected")}</span><strong>{formatNumber(collectedRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
+        <div><span>{t("المستحق", "Outstanding")}</span><strong>{formatNumber(outstandingRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
+        <div><span>MRR</span><strong>{formatNumber(monthlyRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
+        <div><span>ARR</span><strong>{formatNumber(annualRecurringRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
       </section>
 
       <section className="admin-overview-grid">

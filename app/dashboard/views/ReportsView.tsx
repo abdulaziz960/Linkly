@@ -1,389 +1,84 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { Conversation, Employee, Team } from "../types";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import type { Conversation, ConversationChannel, Employee, Team, WorkSchedule } from "../types";
+import CustomSelect from "../../components/CustomSelect";
 import { statusLabel } from "../utils/conversation";
 import { useLanguage } from "../i18n";
 
-// Average reply gap: for every inbound message followed by an outbound
-// reply, the time between them in minutes. Conversations with no
-// completed in->out pair (still waiting, or agent-only notes) don't
-// contribute a data point.
-function collectReplyGapsMinutes(conversations: Conversation[]): number[] {
-  const gaps: number[] = [];
+type Period = "today" | "yesterday" | "7d" | "30d" | "month" | "lastMonth" | "custom";
+type Granularity = "daily" | "weekly" | "monthly";
+type MetricTone = "good" | "warn" | "danger" | "neutral";
+type Filters = { period: Period; from: string; to: string; channel: string; team: string; employee: string; status: string; tag: string; hours: string; customerType: string };
+type ReportsProps = { conversations: Conversation[]; employees: Employee[]; teams: Team[]; workSchedules: WorkSchedule[]; onOpenConversation: (id: string) => void };
 
-  for (const conversation of conversations) {
-    let lastInboundAt: number | null = null;
-    for (const item of conversation.messages) {
-      if (!item.createdAt) continue;
-      const time = new Date(item.createdAt).getTime();
-      if (Number.isNaN(time)) continue;
+const SLA_MINUTES = 15;
+const ACTIVE_WAIT_MAX_DAYS = 30;
+const CHANNEL_LABELS: Record<ConversationChannel, [string, string]> = { whatsapp: ["واتساب", "WhatsApp"], instagram: ["إنستقرام", "Instagram"], x: ["إكس", "X"], facebook: ["فيسبوك", "Facebook"], google_maps: ["خرائط Google", "Google Maps"], website: ["الموقع", "Website"], telegram: ["تيليجرام", "Telegram"], email: ["البريد", "Email"], tiktok: ["تيك توك", "TikTok"], sms: ["رسائل SMS", "SMS"] };
 
-      if (item.direction === "in") {
-        lastInboundAt = time;
-      } else if (item.direction === "out" && lastInboundAt !== null) {
-        gaps.push(Math.max(0, (time - lastInboundAt) / 60000));
-        lastInboundAt = null;
-      }
-    }
-  }
-
-  return gaps;
+function Icon({ name }: { name: "refresh" | "export" | "info" | "alert" | "trend" | "empty" | "search" }) {
+  const paths = { refresh: <><path d="M20 7v5h-5"/><path d="M19 12a7 7 0 1 1-2-5"/></>, export: <><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M5 20h14"/></>, info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></>, alert: <><path d="M12 3 2.8 19h18.4L12 3Z"/><path d="M12 9v4M12 16h.01"/></>, trend: <path d="m4 16 5-5 4 4 7-8"/>, empty: <><path d="M4 5h16v14H4z"/><path d="m4 9 8 5 8-5"/></>, search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></> };
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
 
-function formatMinutes(minutes: number, t: (ar: string, en: string) => string) {
-  if (minutes < 1) return t("أقل من دقيقة", "Less than a minute");
-  const total = Math.round(minutes);
-  if (total < 60) return t(`${total} د`, `${total}m`);
-  const hours = Math.floor(total / 60);
-  const rest = total % 60;
-  return rest ? t(`${hours} س ${rest} د`, `${hours}h ${rest}m`) : t(`${hours} س`, `${hours}h`);
+function localDate(date: Date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`; }
+function addDays(date: Date, days: number) { const next = new Date(date); next.setDate(next.getDate()+days); return next; }
+function rangeForPeriod(period: Period, customFrom: string, customTo: string, now: Date) {
+  const today = new Date(now); today.setHours(0,0,0,0);
+  if (period === "custom") return { from: customFrom, to: customTo };
+  if (period === "today") return { from: localDate(today), to: localDate(today) };
+  if (period === "yesterday") { const day = addDays(today,-1); return { from: localDate(day), to: localDate(day) }; }
+  if (period === "7d" || period === "30d") return { from: localDate(addDays(today, period === "7d" ? -6 : -29)), to: localDate(today) };
+  if (period === "lastMonth") { const first = new Date(today.getFullYear(),today.getMonth()-1,1); const last = new Date(today.getFullYear(),today.getMonth(),0); return { from: localDate(first), to: localDate(last) }; }
+  return { from: localDate(new Date(today.getFullYear(),today.getMonth(),1)), to: localDate(today) };
+}
+function messageTime(value?: string) { const time = value ? Date.parse(value) : NaN; return Number.isFinite(time) ? time : 0; }
+function restrictRange(conversations: Conversation[], from: string, to: string) { const start = Date.parse(`${from}T00:00:00`); const end = Date.parse(`${to}T23:59:59.999`); if (!Number.isFinite(start)||!Number.isFinite(end)) return []; return conversations.flatMap((conversation) => { const messages = conversation.messages.filter((message) => { const time = messageTime(message.createdAt); return time >= start && time <= end; }); return messages.length ? [{ ...conversation, messages }] : []; }); }
+function firstReplyMinutes(conversation: Conversation) { const inbound=conversation.messages.find((m)=>m.direction==="in"&&messageTime(m.createdAt)); if(!inbound)return null; const start=messageTime(inbound.createdAt); const reply=conversation.messages.find((m)=>m.direction==="out"&&messageTime(m.createdAt)>start); return reply?(messageTime(reply.createdAt)-start)/60000:null; }
+function resolutionMinutes(conversation: Conversation) { if(conversation.status!=="closed")return null; const times=conversation.messages.map((m)=>messageTime(m.createdAt)).filter(Boolean); return times.length>1?(Math.max(...times)-Math.min(...times))/60000:null; }
+function average(values:(number|null)[]) { const valid=values.filter((value):value is number=>value!==null&&Number.isFinite(value)); return valid.length?valid.reduce((sum,value)=>sum+value,0)/valid.length:null; }
+function formatDuration(value:number|null,t:(ar:string,en:string)=>string){ if(value===null)return t("غير متاح","N/A"); if(value<1)return t("أقل من دقيقة","< 1 min"); const mins=Math.round(value); if(mins<60)return t(`${mins} د`,`${mins}m`); const hours=Math.floor(mins/60),rest=mins%60; return t(`${hours} س${rest?` ${rest} د`:""}`,`${hours}h${rest?` ${rest}m`:""}`); }
+function percent(part:number,total:number){ return total?Math.round(part/total*100):null; }
+function matchesReportFilters(conversation:Conversation,filters:Filters,teamMembers:Map<string,Set<string|undefined>>){if(filters.channel!=="all"&&conversation.channel!==filters.channel)return false;if(filters.employee!=="all"&&conversation.assignee!==filters.employee)return false;if(filters.status!=="all"&&conversation.status!==filters.status)return false;if(filters.tag!=="all"&&!conversation.tags.includes(filters.tag))return false;if(filters.team!=="all"&&!teamMembers.get(filters.team)?.has(conversation.assignee))return false;if(filters.hours==="outside"&&!conversation.windowExpired)return false;if(filters.hours==="inside"&&conversation.windowExpired)return false;const inboundCount=conversation.messages.filter((message)=>message.direction==="in").length;if(filters.customerType==="new"&&inboundCount>1)return false;if(filters.customerType==="known"&&inboundCount<=1)return false;return true;}
+function downloadBlob(content:BlobPart,type:string,name:string){const url=URL.createObjectURL(new Blob([content],{type}));const anchor=document.createElement("a");anchor.href=url;anchor.download=name;anchor.click();URL.revokeObjectURL(url);}
+function downloadCsv(name:string,headers:string[],rows:Array<Array<string|number>>){const cell=(value:string|number)=>`"${String(value).replace(/"/g,'""')}"`;downloadBlob(`\uFEFF${[headers,...rows].map((row)=>row.map(cell).join(",")).join("\r\n")}`,"text/csv;charset=utf-8",name);}
+
+export default function ReportsView({ conversations, employees, teams, workSchedules, onOpenConversation }: ReportsProps) {
+  const { t, language } = useLanguage(); const [now,setNow]=useState(()=>new Date());
+  const initialRange=rangeForPeriod("7d","","",now); const [draft,setDraft]=useState<Filters>({period:"7d",...initialRange,channel:"all",team:"all",employee:"all",status:"all",tag:"all",hours:"all",customerType:"all"}); const [filters,setFilters]=useState(draft); const [filterError,setFilterError]=useState(""); const [exportOpen,setExportOpen]=useState(false); const [granularity,setGranularity]=useState<Granularity>("daily"); const [employeeSearch,setEmployeeSearch]=useState(""); const deferredEmployeeSearch=useDeferredValue(employeeSearch); const [sortKey,setSortKey]=useState("assigned"); const [selectedEmployee,setSelectedEmployee]=useState<Employee|null>(null); const [hiddenSeries,setHiddenSeries]=useState<Set<string>>(new Set());
+  useEffect(()=>{const params=new URLSearchParams(window.location.search);if(!params.has("report_period"))return;const restored:Filters={period:"7d",...rangeForPeriod("7d","","",new Date()),channel:"all",team:"all",employee:"all",status:"all",tag:"all",hours:"all",customerType:"all"};(Object.keys(restored) as Array<keyof Filters>).forEach((key)=>{const value=params.get(`report_${key}`);if(value)restored[key]=value as never;});if(restored.from&&restored.to&&Date.parse(restored.from)<=Date.parse(restored.to)){setDraft(restored);setFilters(restored);}},[]); // Restore shareable report state after hydration.
+  const tags=useMemo(()=>Array.from(new Set(conversations.flatMap((c)=>c.tags))).sort(),[conversations]);
+  const teamMembers=useMemo(()=>new Map(teams.map((team)=>[team.id,new Set(team.memberIds.map((id)=>employees.find((e)=>e.id===id)?.name).filter(Boolean))])),[teams,employees]);
+  const filtered=useMemo(()=>restrictRange(conversations,filters.from,filters.to).filter((conversation)=>matchesReportFilters(conversation,filters,teamMembers)),[conversations,filters,teamMembers]);
+  const periodStart=Date.parse(`${filters.from}T00:00:00`),periodEnd=Date.parse(`${filters.to}T23:59:59.999`),duration=Math.max(86400000,periodEnd-periodStart+1); const previous=useMemo(()=>restrictRange(conversations,localDate(new Date(periodStart-duration)),localDate(new Date(periodStart-1))).filter((conversation)=>matchesReportFilters(conversation,filters,teamMembers)),[conversations,periodStart,duration,filters,teamMembers]);
+  const stats=useMemo(()=>{const total=filtered.length,incoming=filtered.filter((c)=>c.messages.some((m)=>m.direction==="in")).length,open=filtered.filter((c)=>c.status!=="closed").length,closed=filtered.filter((c)=>c.status==="closed").length,unassigned=filtered.filter((c)=>c.status==="unassigned"||c.assignee==="بدون موظف").length,firstReplies=filtered.map(firstReplyMinutes),resolved=filtered.map(resolutionMinutes),slaEligible=firstReplies.filter((v):v is number=>v!==null),slaMet=slaEligible.filter((v)=>v<=SLA_MINUTES).length,slaBreached=slaEligible.filter((v)=>v>SLA_MINUTES).length,outside=filtered.filter((c)=>c.windowExpired).length; const activeWaits=filtered.flatMap((c)=>{if(c.status==="closed")return[];const last=c.messages.at(-1);if(!last||last.direction!=="in")return[];const at=messageTime(last.createdAt);const mins=(now.getTime()-at)/60000;if(!at||mins<0||mins>ACTIVE_WAIT_MAX_DAYS*1440)return[];return[{conversation:c,minutes:mins}];}).sort((a,b)=>b.minutes-a.minutes); const prevTotal=previous.length; return {total,incoming,open,closed,unassigned,firstReply:average(firstReplies),resolution:average(resolved),slaMet,slaBreached,slaRate:percent(slaMet,slaEligible.length),outside,unattended:filtered.filter((c)=>c.assignee==="بدون موظف").length,longest:activeWaits[0]||null,stale:filtered.filter((c)=>c.status!=="closed"&&now.getTime()-messageTime(c.lastActivityAt||c.lastMessageAt)>ACTIVE_WAIT_MAX_DAYS*86400000).length,prevTotal,csat:null as number|null};},[filtered,previous,now]);
+  const metrics=[{id:"total",label:t("إجمالي المحادثات","Total conversations"),value:String(stats.total),note:t("كل المحادثات ذات النشاط ضمن الفترة","All conversations active in the period"),current:stats.total,previous:stats.prevTotal,tone:"neutral" as MetricTone},{id:"incoming",label:t("المحادثات الواردة","Incoming conversations"),value:String(stats.incoming),note:t("تحتوي رسالة واردة واحدة على الأقل","Contain at least one inbound message"),current:stats.incoming,previous:previous.filter((c)=>c.messages.some((m)=>m.direction==="in")).length,tone:"neutral" as MetricTone},{id:"open",label:t("المفتوحة","Open"),value:String(stats.open),note:t("حالتها الحالية ليست مغلقة","Current status is not closed"),current:stats.open,previous:previous.filter((c)=>c.status!=="closed").length,tone:stats.open?"warn":"good" as MetricTone},{id:"closed",label:t("المغلقة","Closed"),value:String(stats.closed),note:t("حالتها الحالية مغلقة","Current status is closed"),current:stats.closed,previous:previous.filter((c)=>c.status==="closed").length,tone:"good" as MetricTone},{id:"unassigned",label:t("غير المسندة","Unassigned"),value:String(stats.unassigned),note:t("بلا موظف مسؤول وتحتاج توزيعاً","No owner and need assignment"),current:stats.unassigned,previous:previous.filter((c)=>c.status==="unassigned").length,tone:stats.unassigned?"danger":"good" as MetricTone},{id:"sla",label:t("تجاوزت SLA","SLA breached"),value:String(stats.slaBreached),note:t(`أول رد بعد أكثر من ${SLA_MINUTES} دقيقة`,`First reply exceeded ${SLA_MINUTES} minutes`),current:stats.slaBreached,previous:0,tone:stats.slaBreached?"danger":"good" as MetricTone},{id:"reply",label:t("متوسط أول رد","Avg. first reply"),value:formatDuration(stats.firstReply,t),note:t("من أول رسالة واردة إلى أول رد موظف","First inbound message to first agent reply"),current:stats.firstReply||0,previous:average(previous.map(firstReplyMinutes))||0,tone:"neutral" as MetricTone},{id:"resolution",label:t("متوسط الحل","Avg. resolution"),value:formatDuration(stats.resolution,t),note:t("تقريبي: من أول إلى آخر رسالة للمغلقة","Approximate: first to last message for closed chats"),current:stats.resolution||0,previous:average(previous.map(resolutionMinutes))||0,tone:"neutral" as MetricTone},{id:"wait",label:t("أطول انتظار حالي","Longest current wait"),value:stats.longest?formatDuration(stats.longest.minutes,t):t("لا يوجد","None"),note:t(`يستبعد المغلقة والمتروكة أقدم من ${ACTIVE_WAIT_MAX_DAYS} يوماً`,`Excludes closed and stale chats older than ${ACTIVE_WAIT_MAX_DAYS} days`),current:stats.longest?.minutes||0,previous:0,tone:stats.longest&&stats.longest.minutes>SLA_MINUTES?"danger":"good" as MetricTone},{id:"slaRate",label:t("الرد ضمن SLA","Reply within SLA"),value:stats.slaRate===null?t("غير متاح","N/A"):`${stats.slaRate}%`,note:t("من المحادثات التي تملك أول رد قابل للحساب","Of conversations with a measurable first reply"),current:stats.slaRate||0,previous:0,tone:stats.slaRate!==null&&stats.slaRate>=80?"good":"warn" as MetricTone},{id:"outside",label:t("خارج أوقات الدوام","Outside business hours"),value:String(stats.outside),note:t("حسب علامة نافذة الرد الحالية","Based on the current reply-window flag"),current:stats.outside,previous:0,tone:"warn" as MetricTone},{id:"unattended",label:t("دون موظف حاضر","Without attending agent"),value:String(stats.unattended),note:t("مسندة إلى «بدون موظف» ولا تدخل أداء الأفراد","Assigned to no agent; excluded from individual performance"),current:stats.unattended,previous:0,tone:stats.unattended?"danger":"good" as MetricTone},{id:"csat",label:t("رضا العملاء CSAT","Customer satisfaction CSAT"),value:t("غير متاح","N/A"),note:t("لم يتم تفعيل جمع تقييمات العملاء بعد","Customer rating collection is not enabled"),current:0,previous:0,tone:"neutral" as MetricTone}];
+  const employeeRows=useMemo(()=>employees.map((employee)=>{const assigned=filtered.filter((c)=>c.assignee===employee.name),replies=assigned.filter((c)=>c.messages.some((m)=>m.direction==="out")),closed=assigned.filter((c)=>c.status==="closed"),unanswered=assigned.filter((c)=>c.messages.at(-1)?.direction==="in"),first=assigned.map(firstReplyMinutes),slaEligible=first.filter((v):v is number=>v!==null),sla=percent(slaEligible.filter((v)=>v<=SLA_MINUTES).length,slaEligible.length);return{employee,assigned:assigned.length,replied:replies.length,closed:closed.length,unanswered:unanswered.length,first:average(first),resolution:average(assigned.map(resolutionMinutes)),sla,active:assigned.filter((c)=>c.status!=="closed").length,csat:null as number|null,score:Math.round(((percent(replies.length,assigned.length)||0)+(percent(closed.length,assigned.length)||0)+(sla||0))/3)};}),[employees,filtered]);
+  const shownEmployees=employeeRows.filter((row)=>row.employee.name.toLowerCase().includes(deferredEmployeeSearch.toLowerCase())).sort((a,b)=>(b[sortKey as keyof typeof b] as number||0)-(a[sortKey as keyof typeof a] as number||0));
+  const teamRows=teams.map((team)=>{const names=teamMembers.get(team.id)||new Set<string>(),items=filtered.filter((c)=>names.has(c.assignee)),first=items.map(firstReplyMinutes),valid=first.filter((v):v is number=>v!==null);return{team,total:items.length,first:average(first),resolution:average(items.map(resolutionMinutes)),sla:percent(valid.filter((v)=>v<=SLA_MINUTES).length,valid.length),closed:items.filter((c)=>c.status==="closed").length,backlog:items.filter((c)=>c.status!=="closed").length,csat:null as number|null};});
+  const channels=Array.from(new Set(conversations.map((c)=>c.channel))); const channelData=channels.map((channel)=>({channel,count:filtered.filter((c)=>c.channel===channel).length})); const maxChannel=Math.max(1,...channelData.map((d)=>d.count));
+  const movement=useMemo(()=>{const buckets=new Map<string,{label:string;incoming:number;open:number;closed:number}>(),locale=language==="ar"?"ar-SA-u-nu-latn":"en-US",monthFormatter=new Intl.DateTimeFormat(locale,{month:"short"}),dayFormatter=new Intl.DateTimeFormat(locale,{day:"numeric",month:"short"});filtered.forEach((conversation)=>{const time=Math.min(...conversation.messages.map((message)=>messageTime(message.createdAt)).filter(Boolean));if(!Number.isFinite(time))return;const date=new Date(time);if(granularity==="weekly")date.setDate(date.getDate()-date.getDay());if(granularity!=="daily")date.setHours(0,0,0,0);if(granularity==="monthly")date.setDate(1);const key=granularity==="monthly"?`${date.getFullYear()}-${date.getMonth()}`:localDate(date);const label=granularity==="monthly"?monthFormatter.format(date):dayFormatter.format(date);const bucket=buckets.get(key)??{label,incoming:0,open:0,closed:0};if(conversation.messages.some((message)=>message.direction==="in"))bucket.incoming++;if(conversation.status==="closed")bucket.closed++;else bucket.open++;buckets.set(key,bucket);});return Array.from(buckets.entries()).sort(([a],[b])=>a.localeCompare(b)).map(([,bucket])=>bucket);},[filtered,granularity,language]);
+  const movementMax=Math.max(1,...movement.flatMap((bucket)=>[bucket.incoming,bucket.open,bucket.closed]));
+  const alerts=[stats.unassigned?{tone:"danger",title:t("محادثات غير مسندة","Unassigned conversations"),detail:t(`${stats.unassigned} محادثة تحتاج توزيعاً`,`${stats.unassigned} conversations need assignment`),action:"unassigned"}:null,stats.slaBreached?{tone:"danger",title:t("تجاوز اتفاقية SLA","SLA breach"),detail:t(`${stats.slaBreached} محادثة تأخر أول رد عليها`,`${stats.slaBreached} conversations had a late first reply`),action:"sla"}:null,stats.longest&&stats.longest.minutes>SLA_MINUTES?{tone:"warn",title:t("انتظار حالي طويل","Long current wait"),detail:`${stats.longest.conversation.customer} · ${formatDuration(stats.longest.minutes,t)}`,action:stats.longest.conversation.id}:null,stats.stale?{tone:"neutral",title:t("محادثات متروكة قديمة","Stale conversations"),detail:t(`${stats.stale} محادثة مفتوحة دون نشاط منذ أكثر من ${ACTIVE_WAIT_MAX_DAYS} يوماً`,`${stats.stale} open chats inactive over ${ACTIVE_WAIT_MAX_DAYS} days`),action:"stale"}:null].filter(Boolean) as Array<{tone:string;title:string;detail:string;action:string}>;
+  function applyFilters(){if(!draft.from||!draft.to||Date.parse(draft.from)>Date.parse(draft.to)){setFilterError(t("تحقق من النطاق الزمني: تاريخ البداية يجب أن يسبق النهاية.","Check the date range: start must be before end."));return;}setFilterError("");setFilters(draft);const params=new URLSearchParams(window.location.search);Object.entries(draft).forEach(([key,value])=>params.set(`report_${key}`,value));window.history.replaceState(null,"",`${window.location.pathname}?${params}`);}
+  function selectPeriod(period:Period){const range=rangeForPeriod(period,draft.from,draft.to,now);setDraft((current)=>({...current,period,...range}));}
+  function clearFilters(){const range=rangeForPeriod("7d","","",now);const clean:Filters={period:"7d",...range,channel:"all",team:"all",employee:"all",status:"all",tag:"all",hours:"all",customerType:"all"};setDraft(clean);setFilters(clean);setFilterError("");const params=new URLSearchParams(window.location.search);Array.from(params.keys()).filter((key)=>key.startsWith("report_")).forEach((key)=>params.delete(key));window.history.replaceState(null,"",`${window.location.pathname}${params.size?`?${params}`:""}`);}
+  function openMetric(id:string){if(id==="wait"&&stats.longest)return onOpenConversation(stats.longest.conversation.id);const status=id==="unassigned"?"unassigned":id==="open"?"assigned":id==="closed"?"closed":undefined;if(status){window.history.replaceState(null,"",`?view=inbox&status=${status}`);window.location.reload();}}
+  function exportCsv(){downloadCsv("audiencew-report.csv",[t("المؤشر","Metric"),t("القيمة","Value")],metrics.map((m)=>[m.label,m.value]));setExportOpen(false);}
+  async function exportExcel(){const ExcelJS=await import("exceljs");const book=new ExcelJS.Workbook(),sheet=book.addWorksheet(t("التقارير","Reports"),{views:[{rightToLeft:language==="ar"}]});sheet.columns=[{header:t("المؤشر","Metric"),key:"metric",width:32},{header:t("القيمة","Value"),key:"value",width:20},{header:t("التعريف","Definition"),key:"note",width:60}];metrics.forEach((m)=>sheet.addRow({metric:m.label,value:m.value,note:m.note}));sheet.getRow(1).font={bold:true};const buffer=await book.xlsx.writeBuffer();downloadBlob(buffer,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","audiencew-report.xlsx");setExportOpen(false);}
+
+  return <section className="page-stack reports-page">
+    <header className="reports-hero"><div><span>{t("مركز الأداء التشغيلي","OPERATIONS INTELLIGENCE")}</span><h1>{t("التقارير والتحليلات","Reports & analytics")}</h1><p>{t("كل المؤشرات مرتبطة بالفترة والفلاتر المحددة وتوجّهك إلى ما يحتاج إجراءً.","Every metric reflects the selected period and filters, guiding you to action.")}</p><small>{t("آخر تحديث:","Last updated:")} {new Intl.DateTimeFormat(language==="ar"?"ar-SA-u-nu-latn":"en-US",{dateStyle:"medium",timeStyle:"short"}).format(now)} · {t("المنطقة الزمنية: الرياض (UTC+3)","Timezone: Riyadh (UTC+3)")}</small></div><div className="reports-hero-actions"><button className="btn soft" type="button" onClick={()=>setNow(new Date())}><Icon name="refresh"/>{t("تحديث البيانات","Refresh")}</button><div className="reports-export"><button className="btn primary" type="button" onClick={()=>setExportOpen((v)=>!v)} aria-expanded={exportOpen}><Icon name="export"/>{t("تصدير التقرير","Export report")}</button>{exportOpen&&<div><button type="button" onClick={exportCsv}>CSV</button><button type="button" onClick={exportExcel}>Excel (.xlsx)</button><button type="button" onClick={()=>{window.print();setExportOpen(false);}}>PDF</button></div>}</div></div></header>
+    <div className="panel reports-filters"><div className="report-periods">{(["today","yesterday","7d","30d","month","lastMonth","custom"] as Period[]).map((period)=><button type="button" key={period} className={draft.period===period?"active":""} onClick={()=>selectPeriod(period)}>{period==="today"?t("اليوم","Today"):period==="yesterday"?t("أمس","Yesterday"):period==="7d"?t("آخر 7 أيام","Last 7 days"):period==="30d"?t("آخر 30 يوماً","Last 30 days"):period==="month"?t("هذا الشهر","This month"):period==="lastMonth"?t("الشهر الماضي","Last month"):t("نطاق مخصص","Custom")}</button>)}</div>{draft.period==="custom"&&<div className="report-custom-range"><label>{t("من","From")}<input type="date" value={draft.from} onChange={(e)=>setDraft({...draft,from:e.target.value})}/></label><label>{t("إلى","To")}<input type="date" value={draft.to} onChange={(e)=>setDraft({...draft,to:e.target.value})}/></label></div>}<div className="report-filter-grid"><label>{t("القناة","Channel")}<CustomSelect value={draft.channel} onChange={(channel)=>setDraft({...draft,channel})} options={[{value:"all",label:t("كل القنوات","All channels")},...channels.map((channel)=>({value:channel,label:t(...CHANNEL_LABELS[channel])}))]}/></label><label>{t("الفريق","Team")}<CustomSelect value={draft.team} onChange={(team)=>setDraft({...draft,team})} options={[{value:"all",label:t("كل الفرق","All teams")},...teams.map((team)=>({value:team.id,label:team.name}))]}/></label><label>{t("الموظف","Employee")}<CustomSelect value={draft.employee} onChange={(employee)=>setDraft({...draft,employee})} options={[{value:"all",label:t("كل الموظفين","All employees")},...employees.map((employee)=>({value:employee.name,label:employee.name}))]}/></label><label>{t("الحالة","Status")}<CustomSelect value={draft.status} onChange={(status)=>setDraft({...draft,status})} options={[{value:"all",label:t("كل الحالات","All statuses")},{value:"assigned",label:t("مسندة","Assigned")},{value:"unassigned",label:t("غير مسندة","Unassigned")},{value:"closed",label:t("مغلقة","Closed")} ]}/></label><label>{t("الوسم","Tag")}<CustomSelect value={draft.tag} onChange={(tag)=>setDraft({...draft,tag})} options={[{value:"all",label:t("كل الوسوم","All tags")},...tags.map((tag)=>({value:tag,label:tag}))]}/></label><label>{t("ساعات الدوام","Business hours")}<CustomSelect value={draft.hours} onChange={(hours)=>setDraft({...draft,hours})} options={[{value:"all",label:t("الكل","All")},{value:"inside",label:t("داخل الدوام","Within hours")},{value:"outside",label:t("خارج الدوام","Outside hours")} ]}/></label><label>{t("نوع العميل","Customer type")}<CustomSelect value={draft.customerType} onChange={(customerType)=>setDraft({...draft,customerType})} options={[{value:"all",label:t("كل العملاء","All customers")},{value:"known",label:t("معروف","Known")},{value:"new",label:t("جديد","New")} ]}/></label></div><p className="report-filter-note">{t(`يوجد ${workSchedules.length} جدول دوام مهيأ. تصنيف داخل/خارج الدوام يعتمد حالياً على علامة نافذة الرد المسجلة لكل محادثة.`,`There are ${workSchedules.length} configured schedules. Business-hours filtering currently uses each conversation's recorded reply-window flag.`)}</p>{filterError&&<p className="report-filter-error">{filterError}</p>}<div className="report-filter-actions"><span>{filters.from} ← {filters.to} · {filtered.length} {t("محادثة","conversations")}</span><button className="btn soft" type="button" onClick={clearFilters}>{t("مسح الكل","Clear all")}</button><button className="btn primary" type="button" onClick={applyFilters}>{t("تطبيق الفلاتر","Apply filters")}</button></div></div>
+    {alerts.length>0&&<section className="reports-attention"><div className="reports-section-title"><div><span><Icon name="alert"/></span><div><h2>{t("يحتاج انتباهك","Needs your attention")}</h2><p>{t("حالات مرتبة حسب الأولوية مع إجراء مباشر.","Priority-ranked cases with a direct action.")}</p></div></div></div><div className="reports-alert-grid">{alerts.map((alert)=><button type="button" key={alert.title} className={`report-alert ${alert.tone}`} onClick={()=>alert.action.includes("-")?onOpenConversation(alert.action):openMetric(alert.action)}><span>!</span><div><strong>{alert.title}</strong><small>{alert.detail}</small></div><b>{t("عرض","View")} ←</b></button>)}</div></section>}
+    <section><div className="reports-section-title"><div><span><Icon name="trend"/></span><div><h2>{t("الملخص التنفيذي","Executive summary")}</h2><p>{t("الصفر يعني عدم وجود حالات، و«غير متاح» يعني أن البيانات لا تكفي للحساب.","Zero means no cases; N/A means there is insufficient data.")}</p></div></div></div><div className="report-metrics">{metrics.map((metric)=>{const change=metric.current-metric.previous,rate=metric.previous?Math.round(change/metric.previous*100):null;return <button type="button" key={metric.id} className={`report-metric ${metric.tone}`} onClick={()=>openMetric(metric.id)} title={metric.note}><span>{metric.label}<i><Icon name="info"/></i></span><strong>{metric.value}</strong><small className={change>0?"up":change<0?"down":"flat"}>{rate===null?t("لا مقارنة كافية","No comparable baseline"):`${change>0?"↑":change<0?"↓":"→"} ${Math.abs(rate)}% (${change>0?"+":""}${change})`}</small><em>{metric.note}</em></button>;})}</div></section>
+    <section className="reports-charts"><article className="panel report-chart-main"><div className="panel-head"><div><h2>{t("حركة المحادثات","Conversation movement")}</h2><p>{t("الواردة والمفتوحة والمغلقة خلال الفترة. حالة الفتح والإغلاق هي الحالة الحالية.","Incoming, open, and closed during the period. Open/closed reflects current status.")}</p></div><div className="report-chart-controls">{(["daily","weekly","monthly"] as Granularity[]).map((item)=><button type="button" key={item} className={granularity===item?"active":""} onClick={()=>setGranularity(item)}>{item==="daily"?t("يومي","Daily"):item==="weekly"?t("أسبوعي","Weekly"):t("شهري","Monthly")}</button>)}</div></div>{movement.length?<div className="report-series"><div className="report-series-bars">{movement.map((bucket,index)=><div key={`${bucket.label}-${index}`} title={`${bucket.label}: ${bucket.incoming} / ${bucket.open} / ${bucket.closed}`}><span className={hiddenSeries.has("incoming")?"series-hidden":""} style={{height:`${Math.max(bucket.incoming?6:0,bucket.incoming/movementMax*100)}%`}}/><i className={hiddenSeries.has("open")?"series-hidden":""} style={{height:`${Math.max(bucket.open?6:0,bucket.open/movementMax*100)}%`}}/><b className={hiddenSeries.has("closed")?"series-hidden":""} style={{height:`${Math.max(bucket.closed?6:0,bucket.closed/movementMax*100)}%`}}/><small>{bucket.label}</small></div>)}</div><div className="report-legend">{[["incoming",t("واردة","Incoming")],["open",t("مفتوحة","Open")],["closed",t("مغلقة","Closed")]].map(([id,label])=><button key={id} type="button" className={hiddenSeries.has(id)?"hidden":""} aria-pressed={!hiddenSeries.has(id)} onClick={()=>setHiddenSeries((current)=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next;})}>{label}</button>)}</div></div>:<ReportEmpty t={t} onClear={clearFilters}/>}</article><article className="panel"><div className="panel-head"><div><h2>{t("التوزيع حسب القناة","Channel distribution")}</h2><p>{t("حصة كل قناة من المحادثات.","Conversation share by channel.")}</p></div></div>{filtered.length?<div className="channel-bars">{channelData.map((item)=><div key={item.channel}><span>{t(...CHANNEL_LABELS[item.channel])}</span><div><i style={{width:`${item.count/maxChannel*100}%`}}/></div><b>{item.count}</b></div>)}</div>:<ReportEmpty t={t} onClear={clearFilters}/>}</article></section>
+    <section className="panel"><div className="panel-head"><div><h2>{t("أوقات الذروة","Peak activity")}</h2><p>{t("توزيع الرسائل حسب اليوم والساعة بتوقيت الرياض.","Message distribution by day and hour in Riyadh time.")}</p></div></div><Heatmap conversations={filtered} t={t}/></section>
+    <section className="panel"><div className="panel-head"><div><h2>{t("أداء الموظفين","Employee performance")}</h2><p>{t("لا تُنسب الحالات غير المسندة إلى أي موظف.","Unassigned cases are not attributed to any employee.")}</p></div><label className="report-employee-search"><Icon name="search"/><input value={employeeSearch} onChange={(e)=>setEmployeeSearch(e.target.value)} placeholder={t("ابحث باسم الموظف…","Search employee…")}/></label></div><div className="panel-body table-wrap"><table className="report-table"><thead><tr>{[["employee",t("الموظف","Employee")],["assigned",t("مسندة","Assigned")],["replied",t("تم الرد","Replied")],["closed",t("مغلقة","Closed")],["unanswered",t("دون رد","Unanswered")],["first",t("أول رد","First reply")],["resolution",t("وقت الحل","Resolution")],["sla","SLA"],["active",t("نشطة","Active")],["csat","CSAT"],["score",t("الأداء","Performance")]].map(([key,label])=><th key={key}><button type="button" onClick={()=>setSortKey(key)}>{label}{sortKey===key?" ↓":""}</button></th>)}<th>{t("إجراء","Action")}</th></tr></thead><tbody>{shownEmployees.map((row)=><tr key={row.employee.id}><td><span className="report-avatar">{row.employee.initial}</span>{row.employee.name}</td><td>{row.assigned}</td><td>{row.replied}</td><td>{row.closed}</td><td>{row.unanswered}</td><td>{formatDuration(row.first,t)}</td><td>{formatDuration(row.resolution,t)}</td><td>{row.sla===null?t("غير متاح","N/A"):`${row.sla}%`}</td><td>{row.active}</td><td>{t("غير متاح","N/A")}</td><td><span className={`performance-score ${row.score>=80?"good":row.score>=50?"warn":"danger"}`}>{row.score}</span></td><td><button className="btn soft" type="button" onClick={()=>setSelectedEmployee(row.employee)}>{t("التفاصيل","Details")}</button></td></tr>)}</tbody></table>{!shownEmployees.length&&<ReportEmpty t={t} onClear={()=>setEmployeeSearch("")}/>}</div></section>
+    <section className="panel"><div className="panel-head"><div><h2>{t("أداء الفرق","Team performance")}</h2><p>{t("مقارنة قابلة للتفسير بين فرق الخدمة.","An explainable comparison across service teams.")}</p></div><button className="btn soft" type="button" onClick={()=>downloadCsv("team-performance.csv",[t("الفريق","Team"),t("المحادثات","Conversations"),"SLA",t("التراكم","Backlog")],teamRows.map((row)=>[row.team.name,row.total,row.sla??t("غير متاح","N/A"),row.backlog]))}>{t("تصدير CSV","Export CSV")}</button></div><div className="panel-body table-wrap"><table className="report-table"><thead><tr><th>{t("الفريق","Team")}</th><th>{t("المحادثات","Conversations")}</th><th>{t("أول رد","First reply")}</th><th>{t("وقت الحل","Resolution")}</th><th>SLA</th><th>{t("نسبة الإغلاق","Closure rate")}</th><th>{t("التراكم","Backlog")}</th><th>CSAT</th><th>{t("التقييم","Assessment")}</th></tr></thead><tbody>{teamRows.map((row)=><tr key={row.team.id}><td><strong>{row.team.name}</strong></td><td>{row.total}</td><td>{formatDuration(row.first,t)}</td><td>{formatDuration(row.resolution,t)}</td><td>{row.sla===null?t("غير متاح","N/A"):`${row.sla}%`}</td><td>{percent(row.closed,row.total)===null?t("غير متاح","N/A"):`${percent(row.closed,row.total)}%`}</td><td>{row.backlog}</td><td>{t("غير متاح","N/A")}</td><td><span className={`performance-score ${row.sla!==null&&row.sla>=80?"good":row.total?"warn":"neutral"}`}>{row.total?(row.sla!==null&&row.sla>=80?t("مستقر","Stable"):t("يحتاج متابعة","Needs review")):t("لا بيانات","No data")}</span></td></tr>)}</tbody></table>{!teamRows.length&&<ReportEmpty t={t} onClear={clearFilters}/>}</div></section>
+    {selectedEmployee&&<div className="modal-backdrop" role="presentation" onClick={()=>setSelectedEmployee(null)}><section className="account-modal report-drawer" role="dialog" aria-modal="true" aria-label={t("تفاصيل أداء الموظف","Employee performance details")} onClick={(event)=>event.stopPropagation()}><header className="modal-head"><button className="icon-btn" type="button" aria-label={t("إغلاق","Close")} onClick={()=>setSelectedEmployee(null)}>×</button><h2>{selectedEmployee.name}</h2></header><div className="account-modal-body"><div className="member-list">{conversations.filter((c)=>c.assignee===selectedEmployee.name).map((conversation)=><button type="button" className="member-card" key={conversation.id} onClick={()=>onOpenConversation(conversation.id)}><span className="avatar">{conversation.initial}</span><div><b>{conversation.customer}</b><span>{conversation.lastMessage}</span></div><em>{statusLabel(conversation.status,language)}</em></button>)}</div></div></section></div>}
+  </section>;
 }
 
-function averageReplyLabel(conversations: Conversation[], t: (ar: string, en: string) => string) {
-  const gaps = collectReplyGapsMinutes(conversations);
-  if (!gaps.length) return "-";
-  return formatMinutes(gaps.reduce((sum, value) => sum + value, 0) / gaps.length, t);
-}
-
-function longestOpenWaitLabel(conversations: Conversation[], t: (ar: string, en: string) => string) {
-  const now = Date.now();
-  let longest = 0;
-
-  for (const conversation of conversations) {
-    if (conversation.status === "closed") continue;
-    const lastMessage = conversation.messages.at(-1);
-    if (!lastMessage || lastMessage.direction !== "in" || !lastMessage.createdAt) continue;
-    const time = new Date(lastMessage.createdAt).getTime();
-    if (Number.isNaN(time)) continue;
-    longest = Math.max(longest, (now - time) / 60000);
-  }
-
-  return longest ? formatMinutes(longest, t) : "-";
-}
-
-const heatmapDayLabels = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-const heatmapBlockHours = [0, 3, 6, 9, 12, 15, 18, 21];
-
-function heatmapDayDisplayLabel(dayLabel: string, t: (ar: string, en: string) => string) {
-  const labels: Record<string, string> = {
-    "الأحد": t("الأحد", "Sun"),
-    "الإثنين": t("الإثنين", "Mon"),
-    "الثلاثاء": t("الثلاثاء", "Tue"),
-    "الأربعاء": t("الأربعاء", "Wed"),
-    "الخميس": t("الخميس", "Thu"),
-    "الجمعة": t("الجمعة", "Fri"),
-    "السبت": t("السبت", "Sat")
-  };
-  return labels[dayLabel] ?? dayLabel;
-}
-
-function buildActivityHeatmap(conversations: Conversation[]) {
-  const grid = heatmapDayLabels.map(() => heatmapBlockHours.map(() => 0));
-
-  for (const conversation of conversations) {
-    for (const item of conversation.messages) {
-      if (!item.createdAt) continue;
-      const time = new Date(item.createdAt).getTime();
-      if (Number.isNaN(time)) continue;
-
-      const date = new Date(time);
-      const dayIndex = date.getDay();
-      const blockIndex = Math.floor(date.getHours() / 3);
-      grid[dayIndex][blockIndex] += 1;
-    }
-  }
-
-  const max = Math.max(1, ...grid.flat());
-  return { grid, max };
-}
-
-function toLocalDateInputValue(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function todayDateInputValue() {
-  return toLocalDateInputValue(new Date());
-}
-
-function daysAgoDateInputValue(days: number) {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return toLocalDateInputValue(date);
-}
-
-/**
- * Restricts each conversation's messages to the given date range and drops
- * conversations with no activity in that range, so every stat below reflects
- * the selected period instead of all-time data. Status/assignee fields are
- * the conversation's current values (this app doesn't keep a history log),
- * which is the best approximation available for a past period.
- */
-function restrictConversationsToRange(conversations: Conversation[], from: string, to: string): Conversation[] {
-  const fromTime = new Date(`${from}T00:00:00`).getTime();
-  const toTime = new Date(`${to}T23:59:59.999`).getTime();
-  if (Number.isNaN(fromTime) || Number.isNaN(toTime)) return conversations;
-
-  const restricted: Conversation[] = [];
-  for (const conversation of conversations) {
-    const messages = conversation.messages.filter((item) => {
-      if (!item.createdAt) return false;
-      const time = new Date(item.createdAt).getTime();
-      return !Number.isNaN(time) && time >= fromTime && time <= toTime;
-    });
-    if (messages.length) restricted.push({ ...conversation, messages });
-  }
-
-  return restricted;
-}
-
-export default function ReportsView({
-  conversations,
-  employees,
-  teams
-}: {
-  conversations: Conversation[];
-  employees: Employee[];
-  teams: Team[];
-}) {
-  const { t, language } = useLanguage();
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [dateFrom, setDateFrom] = useState(() => daysAgoDateInputValue(6));
-  const [dateTo, setDateTo] = useState(() => todayDateInputValue());
-  const [appliedFrom, setAppliedFrom] = useState(() => daysAgoDateInputValue(6));
-  const [appliedTo, setAppliedTo] = useState(() => todayDateInputValue());
-  const [appliedPeriod, setAppliedPeriod] = useState(() => t("آخر 7 أيام", "Last 7 days"));
-
-  const rangeConversations = useMemo(
-    () => restrictConversationsToRange(conversations, appliedFrom, appliedTo),
-    [conversations, appliedFrom, appliedTo]
-  );
-
-  const reportStats = useMemo(() => {
-    const total = rangeConversations.length;
-    const open = rangeConversations.filter((conversation) => conversation.status !== "closed").length;
-    const closed = rangeConversations.filter((conversation) => conversation.status === "closed").length;
-    const unassigned = rangeConversations.filter((conversation) => conversation.status === "unassigned").length;
-    const windowExpired = rangeConversations.filter((conversation) => conversation.windowExpired).length;
-    const withoutAttendance = rangeConversations.filter((conversation) => conversation.assignee === "بدون موظف").length;
-
-    return [
-      [t("إجمالي المحادثات", "Total Conversations"), String(total), t("خلال الفترة المحددة", "During the selected period")],
-      [t("المحادثات المفتوحة", "Open Conversations"), String(open), total ? t(`${Math.round((open / total) * 100)}% من الإجمالي`, `${Math.round((open / total) * 100)}% of total`) : t("لا توجد بيانات", "No data")],
-      [t("المحادثات المغلقة", "Closed Conversations"), String(closed), t("تم إنهاؤها بنجاح", "Successfully resolved")],
-      [t("غير مسندة", "Unassigned"), String(unassigned), t("تحتاج توزيع", "Needs assignment")],
-      [t("متوسط وقت الرد", "Average Reply Time"), averageReplyLabel(rangeConversations, t), t("محسوب من الرسائل الفعلية", "Calculated from actual messages")],
-      [t("أطول انتظار حالي", "Longest Current Wait"), longestOpenWaitLabel(conversations, t), t("لمحادثة لم يُرد عليها بعد", "For a conversation not yet replied to")],
-      [t("خارج أوقات الدوام", "Outside Business Hours"), String(windowExpired), t("انتهت نافذة الرد أو تحتاج قالب", "Reply window expired or needs a template")],
-      [t("بدون حضور", "Unattended"), String(withoutAttendance), t("لا يوجد موظف مسند", "No employee assigned")]
-    ];
-  }, [rangeConversations, conversations, t]);
-
-  const activityHeatmap = useMemo(() => buildActivityHeatmap(rangeConversations), [rangeConversations]);
-
-  const employeeRows = useMemo(() => {
-    return employees.map((employee) => {
-      const assigned = rangeConversations.filter((conversation) => conversation.assignee === employee.name);
-      const closed = assigned.filter((conversation) => conversation.status === "closed");
-      const notAnswered = assigned.filter((conversation) => conversation.unread);
-
-      return {
-        employee,
-        assigned: assigned.length,
-        closed: closed.length,
-        notAnswered: notAnswered.length,
-        avgReply: averageReplyLabel(assigned, t)
-      };
-    });
-  }, [rangeConversations, employees, t]);
-
-  const teamRows = useMemo(() => {
-    return teams.map((team) => {
-      const memberNames = team.memberIds
-        .map((memberId) => employees.find((employee) => employee.id === memberId)?.name)
-        .filter(Boolean) as string[];
-      const teamConversations = rangeConversations.filter((conversation) => memberNames.includes(conversation.assignee));
-      const closed = teamConversations.filter((conversation) => conversation.status === "closed").length;
-      const offHours = teamConversations.filter((conversation) => conversation.windowExpired).length;
-      const withoutAttendance = teamConversations.filter((conversation) => conversation.assignee === "بدون موظف").length;
-
-      return [team.name, String(teamConversations.length), averageReplyLabel(teamConversations, t), String(closed), String(offHours), String(withoutAttendance)];
-    });
-  }, [rangeConversations, employees, teams, t]);
-
-  const selectedEmployeeConversations = selectedEmployee
-    ? conversations.filter((conversation) => conversation.assignee === selectedEmployee.name)
-    : [];
-
-  function applyFilter() {
-    setAppliedFrom(dateFrom);
-    setAppliedTo(dateTo);
-    setAppliedPeriod(dateFrom === dateTo ? dateFrom : `${dateFrom} ${t("إلى", "to")} ${dateTo}`);
-  }
-
-  function applyLastSevenDays() {
-    const from = daysAgoDateInputValue(6);
-    const to = todayDateInputValue();
-    setDateFrom(from);
-    setDateTo(to);
-    setAppliedFrom(from);
-    setAppliedTo(to);
-    setAppliedPeriod(t("آخر 7 أيام", "Last 7 days"));
-  }
-
-  function exportEmployeesReport() {
-    downloadCsv(
-      "employee-performance.csv",
-      [t("الموظف", "Employee"), t("محادثات مسندة له", "Assigned Conversations"), t("محادثات أغلقها", "Closed by them"), t("لم يرد عليها", "Not Answered"), t("متوسط الرد", "Average Reply")],
-      employeeRows.map((row) => [row.employee.name, row.assigned, row.closed, row.notAnswered, row.avgReply])
-    );
-  }
-
-  function exportTeamsReport() {
-    downloadCsv(
-      "team-performance.csv",
-      [t("الفريق", "Team"), t("المحادثات", "Conversations"), t("متوسط الرد", "Average Reply"), t("مغلقة", "Closed"), t("رسائل خارج الدوام", "Messages Outside Hours"), t("بدون حضور", "Unattended")],
-      teamRows
-    );
-  }
-
-  return (
-    <section className="page-stack">
-      <div className="panel">
-        <div className="panel-body report-filter">
-          <label>{t("من تاريخ", "From date")}<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label>
-          <label>{t("إلى تاريخ", "To date")}<input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label>
-          <button className="btn primary" type="button" onClick={applyFilter}>{t("تطبيق الفلترة", "Apply Filter")}</button>
-          <button className="btn soft" type="button" onClick={applyLastSevenDays}>{t("آخر 7 أيام", "Last 7 days")}</button>
-          <span>{t("المؤشرات المعروضة حاليًا حسب بيانات المنصة الحالية", "Metrics shown are based on the platform's current data")} · {appliedPeriod}</span>
-        </div>
-      </div>
-      <div className="stats-grid reports">
-        {reportStats.map(([label, value, note]) => (
-          <div className="stat" key={label}><span>{label}</span><b>{value}</b><small>{note}</small></div>
-        ))}
-      </div>
-      <div className="panel">
-        <div className="panel-head"><h2>{t("حركة المحادثات", "Conversation Activity")} ({appliedPeriod})</h2></div>
-        <div className="panel-body">
-          <div className="activity-heatmap">
-            <div className="activity-heatmap-hours">
-              <span />
-              {heatmapBlockHours.map((hour) => <span key={hour}>{hour}</span>)}
-            </div>
-            {heatmapDayLabels.map((dayLabel, dayIndex) => (
-              <div className="activity-heatmap-row" key={dayLabel}>
-                <span className="activity-heatmap-day">{heatmapDayDisplayLabel(dayLabel, t)}</span>
-                {activityHeatmap.grid[dayIndex].map((count, blockIndex) => (
-                  <span
-                    key={blockIndex}
-                    className="activity-heatmap-cell"
-                    style={{ opacity: count ? 0.18 + 0.82 * (count / activityHeatmap.max) : 0.06 }}
-                    title={t(`${count} رسالة`, `${count} messages`)}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="panel">
-        <div className="panel-head"><h2>{t("أداء الموظفين", "Employee Performance")}</h2><span /><button className="btn soft" type="button" onClick={exportEmployeesReport}>{t("تصدير", "Export")}</button></div>
-        <div className="panel-body table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>{t("الموظف", "Employee")}</th>
-                <th>{t("محادثات مسندة له", "Assigned Conversations")}</th>
-                <th>{t("محادثات أغلقها", "Closed by them")}</th>
-                <th>{t("لم يرد عليها", "Not Answered")}</th>
-                <th>{t("متوسط الرد", "Average Reply")}</th>
-                <th>{t("إجراء", "Action")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {employeeRows.map((row) => (
-                <tr key={row.employee.id}>
-                  <td>{row.employee.name}</td>
-                  <td>{row.assigned}</td>
-                  <td>{row.closed}</td>
-                  <td>{row.notAnswered}</td>
-                  <td>{row.avgReply}</td>
-                  <td><button className="btn soft" type="button" onClick={() => setSelectedEmployee(row.employee)}>{t("عرض", "View")}</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div className="panel">
-        <div className="panel-head"><h2>{t("أداء الفرق", "Team Performance")}</h2><span /><button className="btn soft" type="button" onClick={exportTeamsReport}>{t("تصدير تقرير", "Export Report")}</button></div>
-        <div className="panel-body table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>{t("الفريق", "Team")}</th>
-                <th>{t("المحادثات", "Conversations")}</th>
-                <th>{t("متوسط الرد", "Average Reply")}</th>
-                <th>{t("مغلقة", "Closed")}</th>
-                <th>{t("رسائل خارج الدوام", "Messages Outside Hours")}</th>
-                <th>{t("بدون حضور", "Unattended")}</th>
-              </tr>
-            </thead>
-            <tbody>{teamRows.map((row) => <tr key={row[0]}>{row.map((cell, index) => <td key={`${row[0]}-${index}`}>{cell}</td>)}</tr>)}</tbody>
-          </table>
-        </div>
-      </div>
-
-      {selectedEmployee ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setSelectedEmployee(null)}>
-          <section className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("محادثات الموظف", "Employee's Conversations")} onClick={(event) => event.stopPropagation()}>
-            <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setSelectedEmployee(null)}>×</button>
-              <h2>{t("محادثات", "Conversations")} {selectedEmployee.name}</h2>
-            </header>
-            <div className="account-modal-body">
-              <div className="member-list">
-                {selectedEmployeeConversations.map((conversation) => (
-                  <div className="member-card" key={conversation.id}>
-                    <span className="avatar">{conversation.initial}</span>
-                    <div>
-                      <b>{conversation.customer}</b>
-                      <span>{conversation.lastMessage}</span>
-                    </div>
-                    <em>{statusLabel(conversation.status, language)}</em>
-                  </div>
-                ))}
-                {!selectedEmployeeConversations.length ? <p className="muted-copy">{t("لا توجد محادثات مسندة لهذا الموظف.", "No conversations assigned to this employee.")}</p> : null}
-              </div>
-            </div>
-            <footer className="modal-foot">
-              <button className="btn soft" type="button" onClick={() => setSelectedEmployee(null)}>{t("إغلاق", "Close")}</button>
-            </footer>
-          </section>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function downloadCsv(fileName: string, header: Array<string | number>, rows: Array<Array<string | number>>) {
-  const csv = [header, ...rows]
-    .map((row) => row.map(escapeCsvCell).join(","))
-    .join("\n");
-  const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-function escapeCsvCell(value: string | number) {
-  const text = String(value).replaceAll('"', '""');
-  return `"${text}"`;
-}
+function ReportEmpty({t,onClear}:{t:(ar:string,en:string)=>string;onClear:()=>void}){return <div className="report-empty"><span><Icon name="empty"/></span><h3>{t("لا توجد محادثات ضمن الفلاتر المختارة","No conversations match the selected filters")}</h3><p>{t("غيّر الفترة أو الفلاتر ثم حاول مرة أخرى.","Change the date range or filters and try again.")}</p><button className="btn soft" type="button" onClick={onClear}>{t("مسح الفلاتر","Clear filters")}</button></div>;}
+function Heatmap({conversations,t}:{conversations:Conversation[];t:(ar:string,en:string)=>string}){const days=[t("الأحد","Sun"),t("الإثنين","Mon"),t("الثلاثاء","Tue"),t("الأربعاء","Wed"),t("الخميس","Thu"),t("الجمعة","Fri"),t("السبت","Sat")],hours=[0,3,6,9,12,15,18,21],grid=Array.from({length:7},()=>Array(8).fill(0));conversations.forEach((conversation)=>conversation.messages.forEach((message)=>{const time=messageTime(message.createdAt);if(time){const date=new Date(time);grid[date.getDay()][Math.floor(date.getHours()/3)]++;}}));const max=Math.max(1,...grid.flat());return <div className="activity-heatmap report-heatmap"><div className="activity-heatmap-hours"><span/>{hours.map((hour)=><span key={hour}>{hour}:00</span>)}</div>{days.map((day,index)=><div className="activity-heatmap-row" key={day}><span className="activity-heatmap-day">{day}</span>{grid[index].map((count,block)=><span key={block} className="activity-heatmap-cell" style={{opacity:count?.2+.8*(count/max):.06}} title={`${day} ${hours[block]}:00 — ${count} ${t("رسالة","messages")}`}/>)}</div>)}</div>;}

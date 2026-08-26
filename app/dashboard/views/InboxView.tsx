@@ -162,7 +162,7 @@ function getRelativeConversationTime(isoDate: string | undefined, language: "ar"
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   const diffDays = Math.round((today - targetDay) / 86400000);
-  const locale = language === "en" ? "en-US" : "ar-SA";
+  const locale = language === "en" ? "en-US" : "ar-SA-u-nu-latn";
 
   if (diffDays === 0) {
     return new Intl.DateTimeFormat(locale, {

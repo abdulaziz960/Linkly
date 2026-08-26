@@ -2,7 +2,7 @@ import type { SubscriptionRow } from "./types";
 import type { Language } from "./i18n";
 
 export const EXTRA_USER_PRICE = 65;
-export const RENEWAL_SOON_DAYS = 7;
+export const RENEWAL_SOON_DAYS = 30;
 
 const numberFormatter = new Intl.NumberFormat("ar-SA", { numberingSystem: "latn" });
 
@@ -22,7 +22,7 @@ function parseRenewalDate(renewalAt: string) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export type RenewalAlert = { label: string; tier: "overdue" | "soon" };
+export type RenewalAlert = { label: string; tier: "overdue" | "soon"; daysRemaining: number };
 
 export function getRenewalAlert(subscription: SubscriptionRow, language: Language = "ar"): RenewalAlert | null {
   if (subscription.status !== "نشط") return null;
@@ -37,13 +37,13 @@ export function getRenewalAlert(subscription: SubscriptionRow, language: Languag
 
   if (diffDays < 0) {
     const days = formatNumber(Math.abs(diffDays));
-    return { label: isEn ? `Overdue ${days} day(s)` : `متأخر ${days} يوم`, tier: "overdue" };
+    return { label: isEn ? `Overdue ${days} day(s)` : `متأخر ${days} يوم`, tier: "overdue", daysRemaining: diffDays };
   }
   if (diffDays <= RENEWAL_SOON_DAYS) {
     const label = diffDays === 0
       ? (isEn ? "Renews today" : "يتجدد اليوم")
       : (isEn ? `Renews in ${formatNumber(diffDays)} day(s)` : `يتجدد خلال ${formatNumber(diffDays)} يوم`);
-    return { label, tier: "soon" };
+    return { label, tier: "soon", daysRemaining: diffDays };
   }
   return null;
 }

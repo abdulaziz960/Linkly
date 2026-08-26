@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
       wabaId: account?.open_id || openId || settings.wabaId,
       wabaName: account?.display_name || account?.username || settings.wabaName,
       accessToken: encryptSecret(accessToken),
-      updatedAt: new Intl.DateTimeFormat("ar-SA", {
+      updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
         dateStyle: "medium",
         timeStyle: "short",
         timeZone: "Asia/Riyadh",

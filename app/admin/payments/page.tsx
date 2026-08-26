@@ -2,8 +2,8 @@ import { getSubscriptions, getSubscriptionPayments } from "../../../lib/subscrip
 import AdminPageHeader from "../AdminPageHeader";
 import PaymentsView from "./PaymentsView";
 
-export default async function AdminPaymentsPage() {
-  const [subscriptions, payments] = await Promise.all([getSubscriptions(), getSubscriptionPayments()]);
+export default async function AdminPaymentsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const [filters, subscriptions, payments] = await Promise.all([searchParams, getSubscriptions(), getSubscriptionPayments()]);
 
   return (
     <>
@@ -12,7 +12,7 @@ export default async function AdminPaymentsPage() {
         title={["سجل مدفوعات العملاء", "Client payment history"]}
         description={["سجل كل طلبات الدفع عبر Moyasar لكل عميل - اشتراكات وشحن رصيد رسائل الحملات معًا - بحالتها الفعلية.", "A record of every payment request via Moyasar for each client — subscriptions and campaign message balance top-ups together — with its actual status."]}
       />
-      <PaymentsView subscriptions={subscriptions} payments={payments} />
+      <PaymentsView subscriptions={subscriptions} payments={payments} initialStatus={filters.status || "الكل"} />
     </>
   );
 }

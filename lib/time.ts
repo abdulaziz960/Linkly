@@ -1,5 +1,5 @@
 export function formatMessageTime(date = new Date()) {
-  return new Intl.DateTimeFormat("ar-SA", {
+  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "Asia/Riyadh",
