@@ -35,6 +35,16 @@ export const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "ربط", views: ["settings"] }
 ];
 
+/**
+ * Whether a given role/permissions combination grants Owner-equivalent
+ * access (full conversation visibility via role, or every dashboard view
+ * via the "الكل" permissions flag). Only an existing Owner may grant this
+ * to a new or existing employee - see app/api/employees/route.ts.
+ */
+export function isOwnerEquivalentGrant(role: string, permissions: string): boolean {
+  return role === "مالك الحساب" || permissions === "الكل";
+}
+
 export function computeAllowedViews(role: string, permissions: string): ViewKey[] {
   if (role === "مالك الحساب" || permissions === "الكل") return allViewKeys;
 

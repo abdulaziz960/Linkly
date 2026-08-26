@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
+import { isOwnerEquivalentGrant } from "../../../../lib/permissions";
 import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -30,6 +31,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   if (!name) return jsonError("اسم الموظف مطلوب");
   if (!email) return jsonError("البريد الإلكتروني مطلوب");
+  if (isOwnerEquivalentGrant(body.role || "", body.permissions || "") && user.role !== "مالك الحساب") {
+    return jsonError("فقط مالك الحساب يقدر يمنح صلاحية بمستوى المالك", 403);
+  }
 
   try {
     const existingEmployee = await prisma.employee.findUnique({ where: { id } });

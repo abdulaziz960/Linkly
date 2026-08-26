@@ -822,8 +822,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const metaResponse = await sendInstagramCommentReply(replyToCommentId, instagramAccessToken, text);
 
         const message = await prisma.$transaction(async (tx) => {
-          const sourceMessage = await tx.message.findUnique({
-            where: { id: replyToCommentId }
+          const sourceMessage = await tx.message.findFirst({
+            where: { id: replyToCommentId, conversation: { tenantId: user.tenantId } }
           });
           const created = await tx.message.create({
             data: {
