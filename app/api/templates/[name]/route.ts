@@ -4,6 +4,7 @@ import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { deleteMetaTemplate, editMetaTemplate, isMetaWhatsAppConfigured } from "../../../../lib/meta-templates";
+import { uploadMetaMedia } from "../../../../lib/meta-media-upload";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = {
@@ -29,7 +30,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     language?: string;
     headerType?: string;
     headerText?: string;
-    headerMedia?: string;
+    headerMediaDataUrl?: string;
     footer?: string;
     buttonType?: string;
     buttonText?: string;
@@ -56,6 +57,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   let status = existing.status;
   let metaId = existing.metaId;
+  let headerMediaHandle = "";
 
   if (existing.metaId) {
     const integration = await getIntegrationSettings("whatsapp", user.tenantId);
@@ -63,11 +65,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return jsonError("أدخل WABA ID و Access Token في بيانات الربط قبل تعديل قوالب واتساب.");
     }
 
+    if (headerType === "IMAGE" && body.headerMediaDataUrl) {
+      const uploadResult = await uploadMetaMedia(integration.accessToken, body.headerMediaDataUrl);
+      if (!uploadResult.ok) return jsonError(uploadResult.error);
+      headerMediaHandle = uploadResult.handle;
+    } else if (headerType === "IMAGE") {
+      headerMediaHandle = existing.headerMedia || "";
+    }
+
     const metaResult = await editMetaTemplate(integration, existing.metaId, {
       category,
       language: existing.language,
       headerType,
       headerText,
+      headerMediaHandle,
       message,
       footer,
       buttonType,
@@ -93,7 +104,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         metaId,
         headerType,
         headerText,
-        headerMedia: body.headerMedia || "",
+        headerMedia: headerMediaHandle,
         footer,
         buttonType,
         buttonText,

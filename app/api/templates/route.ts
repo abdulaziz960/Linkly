@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { prisma } from "../../../lib/prisma";
 import { createMetaTemplate, isMetaWhatsAppConfigured } from "../../../lib/meta-templates";
+import { uploadMetaMedia } from "../../../lib/meta-media-upload";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     language?: string;
     headerType?: string;
     headerText?: string;
-    headerMedia?: string;
+    headerMediaDataUrl?: string;
     footer?: string;
     buttonType?: string;
     buttonText?: string;
@@ -58,12 +59,20 @@ export async function POST(request: NextRequest) {
   const buttonPhone = body.buttonPhone || "";
   const buttonUrl = body.buttonUrl || "";
 
+  let headerMediaHandle = "";
+  if (headerType === "IMAGE" && body.headerMediaDataUrl) {
+    const uploadResult = await uploadMetaMedia(integration.accessToken, body.headerMediaDataUrl);
+    if (!uploadResult.ok) return jsonError(uploadResult.error);
+    headerMediaHandle = uploadResult.handle;
+  }
+
   const metaResult = await createMetaTemplate(integration, {
     name,
     category,
     language,
     headerType,
     headerText,
+    headerMediaHandle,
     message,
     footer,
     buttonType,
@@ -87,7 +96,7 @@ export async function POST(request: NextRequest) {
         status: metaResult.status,
         headerType,
         headerText,
-        headerMedia: body.headerMedia || "",
+        headerMedia: headerMediaHandle,
         footer,
         buttonType,
         buttonText,

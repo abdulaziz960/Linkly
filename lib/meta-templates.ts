@@ -5,6 +5,7 @@ type TemplateComponentData = {
   language: string;
   headerType: string;
   headerText: string;
+  headerMediaHandle: string;
   message: string;
   footer: string;
   buttonType: string;
@@ -34,6 +35,10 @@ export function buildTemplateComponents(data: TemplateComponentData) {
 
   if (data.headerType === "TEXT" && data.headerText.trim()) {
     components.push({ type: "HEADER", format: "TEXT", text: data.headerText.trim() });
+  }
+
+  if (data.headerType === "IMAGE" && data.headerMediaHandle.trim()) {
+    components.push({ type: "HEADER", format: "IMAGE", example: { header_handle: [data.headerMediaHandle.trim()] } });
   }
 
   components.push({ type: "BODY", text: data.message.trim() });
@@ -67,8 +72,11 @@ export async function createMetaTemplate(
   integration: IntegrationSettings,
   input: { name: string } & TemplateComponentData
 ): Promise<MetaTemplateResult> {
-  if (input.headerType === "IMAGE" || input.headerType === "VIDEO") {
-    return { ok: false, error: "رفع عنوان صورة أو فيديو للقالب غير مدعوم حاليًا. اختر عنوان نصي أو بدون عنوان." };
+  if (input.headerType === "VIDEO" || input.headerType === "DOCUMENT") {
+    return { ok: false, error: "رفع عنوان فيديو أو مستند للقالب غير مدعوم حاليًا. اختر عنوان نصي أو صورة أو بدون عنوان." };
+  }
+  if (input.headerType === "IMAGE" && !input.headerMediaHandle.trim()) {
+    return { ok: false, error: "ارفع صورة العنوان أولًا." };
   }
 
   const response = await fetch(`https://graph.facebook.com/v22.0/${integration.wabaId}/message_templates`, {
@@ -103,8 +111,11 @@ export async function editMetaTemplate(
   metaId: string,
   input: TemplateComponentData
 ): Promise<MetaTemplateResult> {
-  if (input.headerType === "IMAGE" || input.headerType === "VIDEO") {
-    return { ok: false, error: "رفع عنوان صورة أو فيديو للقالب غير مدعوم حاليًا. اختر عنوان نصي أو بدون عنوان." };
+  if (input.headerType === "VIDEO" || input.headerType === "DOCUMENT") {
+    return { ok: false, error: "رفع عنوان فيديو أو مستند للقالب غير مدعوم حاليًا. اختر عنوان نصي أو صورة أو بدون عنوان." };
+  }
+  if (input.headerType === "IMAGE" && !input.headerMediaHandle.trim()) {
+    return { ok: false, error: "ارفع صورة العنوان أولًا." };
   }
 
   const response = await fetch(`https://graph.facebook.com/v22.0/${metaId}`, {

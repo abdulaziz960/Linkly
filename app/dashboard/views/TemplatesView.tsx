@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
 import type { MessageTemplate } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
@@ -15,6 +15,7 @@ type TemplateFormState = {
   headerType: NonNullable<MessageTemplate["headerType"]>;
   headerText: string;
   headerMedia: string;
+  headerMediaDataUrl: string;
   footer: string;
   buttonType: NonNullable<MessageTemplate["buttonType"]>;
   buttonText: string;
@@ -59,6 +60,7 @@ export default function TemplatesView({
       headerType: "NONE",
       headerText: "",
       headerMedia: "",
+      headerMediaDataUrl: "",
       footer: "",
       buttonType: "NONE",
       buttonText: "",
@@ -75,6 +77,17 @@ export default function TemplatesView({
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
+
+  function handleHeaderImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      setForm((current) => ({ ...current, headerMedia: dataUrl, headerMediaDataUrl: dataUrl }));
+    };
+    reader.readAsDataURL(file);
+  }
 
   const visibleTemplates = whatsappConnected ? templates : [];
   const approvedCount = visibleTemplates.filter((template) => template.status === "معتمد").length;
@@ -99,6 +112,7 @@ export default function TemplatesView({
       headerType: template.headerType || "NONE",
       headerText: template.headerText || "",
       headerMedia: template.headerMedia || "",
+      headerMediaDataUrl: "",
       footer: template.footer || "",
       buttonType: template.buttonType || "NONE",
       buttonText: template.buttonText || "",
@@ -287,8 +301,8 @@ export default function TemplatesView({
                       <input type="radio" name="headerType" checked={form.headerType === "TEXT"} onChange={() => setForm((current) => ({ ...current, headerType: "TEXT" }))} />
                       {t("نص", "Text")}
                     </label>
-                    <label className="template-radio disabled" title={t("قريبًا", "Coming soon")}>
-                      <input type="radio" name="headerType" disabled />
+                    <label className="template-radio">
+                      <input type="radio" name="headerType" checked={form.headerType === "IMAGE"} onChange={() => setForm((current) => ({ ...current, headerType: "IMAGE" }))} />
                       {t("صورة", "Image")}
                     </label>
                     <label className="template-radio disabled" title={t("قريبًا", "Coming soon")}>
@@ -302,6 +316,16 @@ export default function TemplatesView({
                   </div>
                   {form.headerType === "TEXT" ? (
                     <input value={form.headerText} onChange={(event) => setForm((current) => ({ ...current, headerText: event.target.value }))} placeholder={t("مثال: عرض اليوم فقط!", "Example: Today only!")} />
+                  ) : null}
+                  {form.headerType === "IMAGE" ? (
+                    <div className="template-header-image">
+                      <label className="template-upload-btn">
+                        {t("اختر صورة", "Choose image")}
+                        <input type="file" accept="image/*" onChange={handleHeaderImageChange} hidden />
+                      </label>
+                      {form.headerMedia.startsWith("data:") ? <img src={form.headerMedia} alt="" className="template-header-image-preview" /> : null}
+                      {!form.headerMedia ? <small className="field-hint">{t("الصورة مطلوبة كمثال يُرسل لمراجعة Meta", "An image is required as an example for Meta's review")}</small> : null}
+                    </div>
                   ) : null}
                 </div>
 
@@ -560,7 +584,13 @@ function TemplatePreview({ form, t }: { form: TemplateFormState; language: strin
           {t("هذا النشاط يستخدم خدمة آمنة من Meta لإدارة هذه المحادثة. اضغط لمعرفة المزيد", "This business uses a secure service from Meta to manage this chat. Tap to learn more")}
         </p>
         <div className="template-bubble">
-          {form.headerType === "IMAGE" ? <div className="template-media">{form.headerMedia || t("صورة القالب", "Template image")}</div> : null}
+          {form.headerType === "IMAGE" ? (
+            form.headerMedia.startsWith("data:") ? (
+              <img src={form.headerMedia} alt="" className="template-media-image" />
+            ) : (
+              <div className="template-media">{t("صورة القالب", "Template image")}</div>
+            )
+          ) : null}
           {form.headerType === "VIDEO" ? <div className="template-media">VIDEO</div> : null}
           {form.headerType === "TEXT" && form.headerText ? <b>{form.headerText}</b> : null}
           <p>{form.message || t("اكتب محتوى القالب هنا", "Write the template content here")}</p>
