@@ -4,7 +4,7 @@ import { storeIncomingEmail } from "./email-inbox";
 import { decryptSecret, encryptSecret } from "./secret-storage";
 import type { EmailIntegration } from "@prisma/client";
 
-type EmailProvider = "gmail" | "outlook";
+type EmailProvider = "gmail";
 type OAuthOwner = { userId: string; tenantId: string };
 
 function oauthSigningSecret() {
@@ -39,7 +39,7 @@ export function verifyOAuthState(state: string | null): (OAuthOwner & { provider
   if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) return null;
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    if (!parsed.userId || !parsed.tenantId || !["gmail", "outlook"].includes(parsed.provider) || Date.now() - parsed.issuedAt > 10 * 60 * 1000) return null;
+    if (!parsed.userId || !parsed.tenantId || parsed.provider !== "gmail" || Date.now() - parsed.issuedAt > 10 * 60 * 1000) return null;
     return parsed;
   } catch {
     return null;
@@ -47,35 +47,28 @@ export function verifyOAuthState(state: string | null): (OAuthOwner & { provider
 }
 
 export function getOAuthUrl(provider: EmailProvider, owner: OAuthOwner) {
-  const clientId = envValue(provider === "gmail" ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID);
+  const clientId = envValue(process.env.GOOGLE_CLIENT_ID);
   if (!clientId) return null;
   const redirectUri = `${baseUrl()}/api/email/oauth/${provider}/callback`;
   const state = createOAuthState(provider, owner);
-  if (provider === "gmail") {
-    const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-    url.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: "code", access_type: "offline", prompt: "select_account consent", include_granted_scopes: "true", scope: "openid email profile https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly", state }).toString();
-    return url.toString();
-  }
-  const url = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
-  url.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: "code", response_mode: "query", scope: "offline_access User.Read Mail.Read Mail.Send", state }).toString();
+  const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  url.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: "code", access_type: "offline", prompt: "select_account consent", include_granted_scopes: "true", scope: "openid email profile https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly", state }).toString();
   return url.toString();
 }
 
 export async function saveOAuthConnection(provider: EmailProvider, code: string, tenantId: string) {
-  const clientId = envValue(provider === "gmail" ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID);
-  const clientSecret = envValue(provider === "gmail" ? process.env.GOOGLE_CLIENT_SECRET : process.env.MICROSOFT_CLIENT_SECRET);
+  const clientId = envValue(process.env.GOOGLE_CLIENT_ID);
+  const clientSecret = envValue(process.env.GOOGLE_CLIENT_SECRET);
   if (!clientId || !clientSecret) throw new Error("OAuth credentials are not configured");
   const redirectUri = `${baseUrl()}/api/email/oauth/${provider}/callback`;
-  const tokenUrl = provider === "gmail" ? "https://oauth2.googleapis.com/token" : "https://login.microsoftonline.com/common/oauth2/v2.0/token";
-  const tokenResponse = await fetch(tokenUrl, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri, grant_type: "authorization_code" }) });
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri, grant_type: "authorization_code" }) });
   const tokens = await tokenResponse.json();
   if (!tokenResponse.ok || !tokens.access_token) throw new Error(tokens.error_description || "Token exchange failed");
-  const profileUrl = provider === "gmail" ? "https://www.googleapis.com/oauth2/v2/userinfo" : "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName,displayName";
-  const profileResponse = await fetch(profileUrl, { headers: { Authorization: `Bearer ${tokens.access_token}` } });
+  const profileResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", { headers: { Authorization: `Bearer ${tokens.access_token}` } });
   const profile = await profileResponse.json();
-  const emailAddress = provider === "gmail" ? profile.email : profile.mail || profile.userPrincipalName;
+  const emailAddress = profile.email;
   if (!emailAddress) throw new Error("Could not identify the email account");
-  const senderName = provider === "gmail" ? profile.name || "" : profile.displayName || "";
+  const senderName = profile.name || "";
   await prisma.emailIntegration.upsert({
     where: { id: `email:${tenantId}` },
     update: { provider, status: "connected", senderName, emailAddress, accessToken: encryptSecret(tokens.access_token), ...(tokens.refresh_token ? { refreshToken: encryptSecret(tokens.refresh_token) } : {}), tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updatedAt: new Date().toISOString() },
@@ -85,13 +78,12 @@ export async function saveOAuthConnection(provider: EmailProvider, code: string,
 }
 
 async function refreshAccessToken(integration: EmailIntegration): Promise<string> {
-  const clientId = envValue(integration.provider === "gmail" ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID);
-  const clientSecret = envValue(integration.provider === "gmail" ? process.env.GOOGLE_CLIENT_SECRET : process.env.MICROSOFT_CLIENT_SECRET);
+  const clientId = envValue(process.env.GOOGLE_CLIENT_ID);
+  const clientSecret = envValue(process.env.GOOGLE_CLIENT_SECRET);
   const accessToken = decryptSecret(integration.accessToken);
   const refreshToken = decryptSecret(integration.refreshToken);
   if (!clientId || !clientSecret || !refreshToken) return accessToken;
-  const tokenUrl = integration.provider === "gmail" ? "https://oauth2.googleapis.com/token" : "https://login.microsoftonline.com/common/oauth2/v2.0/token";
-  const response = await fetch(tokenUrl, {
+  const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken, grant_type: "refresh_token" })
@@ -128,12 +120,6 @@ export async function sendEmailMessage(to: string, text: string, subject = "رس
     if (response.ok) return;
     throw new Error("تعذر الإرسال عبر Gmail. أعد ربط الحساب إذا انتهت صلاحية التفويض.");
   }
-  if (integration?.provider === "outlook" && integration.accessToken) {
-    const accessToken = await getValidAccessToken(integration);
-    const response = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { subject, body: { contentType: "Text", content: text }, toRecipients: [{ emailAddress: { address: to } }] }, saveToSentItems: true }) });
-    if (response.ok) return;
-    throw new Error("تعذر الإرسال عبر Outlook. أعد ربط الحساب إذا انتهت صلاحية التفويض.");
-  }
   const googleScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
   const googleScriptSecret = process.env.GOOGLE_APPS_SCRIPT_SECRET;
   if (googleScriptUrl && googleScriptSecret) {
@@ -142,7 +128,7 @@ export async function sendEmailMessage(to: string, text: string, subject = "رس
     if (response.ok && payload?.ok) return;
     throw new Error("تعذر الإرسال عبر Google Script. تحقق من نشر السكربت وصلاحيات Gmail.");
   }
-  throw new Error("اربط Gmail أو Outlook لتفعيل إرسال البريد.");
+  throw new Error("اربط Gmail لتفعيل إرسال البريد.");
 }
 
 type GmailMessagePart = {

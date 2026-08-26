@@ -2185,7 +2185,7 @@ export async function resolveWebsiteTenantId(siteKey: string): Promise<string | 
 
 export type EmailIntegrationSettings = {
   id: string;
-  provider: "webhook" | "gmail" | "outlook";
+  provider: "webhook" | "gmail";
   status: "connected" | "not_connected" | "pending";
   emailAddress: string;
   senderName: string;

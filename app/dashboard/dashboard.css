@@ -4813,10 +4813,6 @@
   background: linear-gradient(135deg, #ea4335, #c5221f);
 }
 
-.provider-connect-icon.outlook {
-  background: linear-gradient(135deg, #0072c6, #0a5ca8);
-}
-
 .provider-connect-copy {
   flex: 1 1 220px;
   min-width: 0;
@@ -5568,15 +5564,6 @@
 
 .channel-icon-email svg,
 .channel-icon-gmail svg {
-  stroke: currentColor;
-}
-
-.channel-icon-outlook {
-  background: #eaf4fd !important;
-  color: #0072c6 !important;
-}
-
-.channel-icon-outlook svg {
   stroke: currentColor;
 }
 
