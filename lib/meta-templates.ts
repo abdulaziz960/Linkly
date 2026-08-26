@@ -41,6 +41,10 @@ export function buildTemplateComponents(data: TemplateComponentData) {
     components.push({ type: "HEADER", format: "IMAGE", example: { header_handle: [data.headerMediaHandle.trim()] } });
   }
 
+  if (data.headerType === "VIDEO" && data.headerMediaHandle.trim()) {
+    components.push({ type: "HEADER", format: "VIDEO", example: { header_handle: [data.headerMediaHandle.trim()] } });
+  }
+
   components.push({ type: "BODY", text: data.message.trim() });
 
   if (data.footer.trim()) {
@@ -72,11 +76,14 @@ export async function createMetaTemplate(
   integration: IntegrationSettings,
   input: { name: string } & TemplateComponentData
 ): Promise<MetaTemplateResult> {
-  if (input.headerType === "VIDEO" || input.headerType === "DOCUMENT") {
-    return { ok: false, error: "رفع عنوان فيديو أو مستند للقالب غير مدعوم حاليًا. اختر عنوان نصي أو صورة أو بدون عنوان." };
+  if (input.headerType === "DOCUMENT") {
+    return { ok: false, error: "رفع عنوان مستند للقالب غير مدعوم حاليًا. اختر عنوان نصي أو صورة أو فيديو أو بدون عنوان." };
   }
   if (input.headerType === "IMAGE" && !input.headerMediaHandle.trim()) {
     return { ok: false, error: "ارفع صورة العنوان أولًا." };
+  }
+  if (input.headerType === "VIDEO" && !input.headerMediaHandle.trim()) {
+    return { ok: false, error: "ارفع فيديو العنوان أولًا." };
   }
 
   const response = await fetch(`https://graph.facebook.com/v22.0/${integration.wabaId}/message_templates`, {
@@ -111,11 +118,14 @@ export async function editMetaTemplate(
   metaId: string,
   input: TemplateComponentData
 ): Promise<MetaTemplateResult> {
-  if (input.headerType === "VIDEO" || input.headerType === "DOCUMENT") {
-    return { ok: false, error: "رفع عنوان فيديو أو مستند للقالب غير مدعوم حاليًا. اختر عنوان نصي أو صورة أو بدون عنوان." };
+  if (input.headerType === "DOCUMENT") {
+    return { ok: false, error: "رفع عنوان مستند للقالب غير مدعوم حاليًا. اختر عنوان نصي أو صورة أو فيديو أو بدون عنوان." };
   }
   if (input.headerType === "IMAGE" && !input.headerMediaHandle.trim()) {
     return { ok: false, error: "ارفع صورة العنوان أولًا." };
+  }
+  if (input.headerType === "VIDEO" && !input.headerMediaHandle.trim()) {
+    return { ok: false, error: "ارفع فيديو العنوان أولًا." };
   }
 
   const response = await fetch(`https://graph.facebook.com/v22.0/${metaId}`, {

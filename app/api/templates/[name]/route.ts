@@ -65,11 +65,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return jsonError("أدخل WABA ID و Access Token في بيانات الربط قبل تعديل قوالب واتساب.");
     }
 
-    if (headerType === "IMAGE" && body.headerMediaDataUrl) {
+    if ((headerType === "IMAGE" || headerType === "VIDEO") && body.headerMediaDataUrl) {
       const uploadResult = await uploadMetaMedia(integration.accessToken, body.headerMediaDataUrl);
       if (!uploadResult.ok) return jsonError(uploadResult.error);
       headerMediaHandle = uploadResult.handle;
-    } else if (headerType === "IMAGE") {
+    } else if (headerType === "IMAGE" || headerType === "VIDEO") {
       headerMediaHandle = existing.headerMedia || "";
     }
 

@@ -89,6 +89,10 @@ export default function TemplatesView({
     reader.readAsDataURL(file);
   }
 
+  function handleRemoveHeaderMedia() {
+    setForm((current) => ({ ...current, headerMedia: "", headerMediaDataUrl: "" }));
+  }
+
   const visibleTemplates = whatsappConnected ? templates : [];
   const approvedCount = visibleTemplates.filter((template) => template.status === "معتمد").length;
   const pendingCount = visibleTemplates.filter((template) => template.status === "قيد المراجعة").length;
@@ -305,8 +309,8 @@ export default function TemplatesView({
                       <input type="radio" name="headerType" checked={form.headerType === "IMAGE"} onChange={() => setForm((current) => ({ ...current, headerType: "IMAGE" }))} />
                       {t("صورة", "Image")}
                     </label>
-                    <label className="template-radio disabled" title={t("قريبًا", "Coming soon")}>
-                      <input type="radio" name="headerType" disabled />
+                    <label className="template-radio">
+                      <input type="radio" name="headerType" checked={form.headerType === "VIDEO"} onChange={() => setForm((current) => ({ ...current, headerType: "VIDEO" }))} />
                       {t("فيديو", "Video")}
                     </label>
                     <label className="template-radio disabled" title={t("قريبًا", "Coming soon")}>
@@ -317,14 +321,28 @@ export default function TemplatesView({
                   {form.headerType === "TEXT" ? (
                     <input value={form.headerText} onChange={(event) => setForm((current) => ({ ...current, headerText: event.target.value }))} placeholder={t("مثال: عرض اليوم فقط!", "Example: Today only!")} />
                   ) : null}
-                  {form.headerType === "IMAGE" ? (
+                  {form.headerType === "IMAGE" || form.headerType === "VIDEO" ? (
                     <div className="template-header-image">
                       <label className="template-upload-btn">
-                        {t("اختر صورة", "Choose image")}
-                        <input type="file" accept="image/*" onChange={handleHeaderImageChange} hidden />
+                        {form.headerType === "IMAGE" ? t("اختر صورة", "Choose image") : t("اختر فيديو", "Choose video")}
+                        <input type="file" accept={form.headerType === "IMAGE" ? "image/*" : "video/*"} onChange={handleHeaderImageChange} hidden />
                       </label>
-                      {form.headerMedia.startsWith("data:") ? <img src={form.headerMedia} alt="" className="template-header-image-preview" /> : null}
-                      {!form.headerMedia ? <small className="field-hint">{t("الصورة مطلوبة كمثال يُرسل لمراجعة Meta", "An image is required as an example for Meta's review")}</small> : null}
+                      {form.headerMedia.startsWith("data:") ? (
+                        <div className="template-header-media-preview-wrap">
+                          {form.headerType === "IMAGE" ? (
+                            <img src={form.headerMedia} alt="" className="template-header-image-preview" />
+                          ) : (
+                            <video src={form.headerMedia} className="template-header-image-preview" controls />
+                          )}
+                          <button type="button" className="template-media-remove" onClick={handleRemoveHeaderMedia} aria-label={t("إزالة الملف", "Remove file")}>×</button>
+                        </div>
+                      ) : (
+                        <small className="field-hint">
+                          {form.headerType === "IMAGE"
+                            ? t("الصورة مطلوبة كمثال يُرسل لمراجعة Meta", "An image is required as an example for Meta's review")
+                            : t("الفيديو مطلوب كمثال يُرسل لمراجعة Meta", "A video is required as an example for Meta's review")}
+                        </small>
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -596,7 +614,13 @@ function TemplatePreview({ form, t }: { form: TemplateFormState; language: strin
               <div className="template-media">{t("صورة القالب", "Template image")}</div>
             )
           ) : null}
-          {form.headerType === "VIDEO" ? <div className="template-media">VIDEO</div> : null}
+          {form.headerType === "VIDEO" ? (
+            form.headerMedia.startsWith("data:") ? (
+              <video src={form.headerMedia} className="template-media-image" muted />
+            ) : (
+              <div className="template-media">{t("فيديو القالب", "Template video")}</div>
+            )
+          ) : null}
           {form.headerType === "TEXT" && form.headerText ? <b>{form.headerText}</b> : null}
           <p>{form.message || t("اكتب محتوى القالب هنا", "Write the template content here")}</p>
           {form.footer ? <small>{form.footer}</small> : null}
