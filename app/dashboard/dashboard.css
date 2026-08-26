@@ -6759,8 +6759,8 @@
 .conversation-card {
   grid-template-columns: 42px minmax(0, 1fr) 54px;
   gap: 10px;
-  min-height: 92px;
-  padding: 11px 12px;
+  min-height: 80px;
+  padding: 8px 10px;
   border-color: #c5ded9;
   background: #f6fbfa;
 }
@@ -6810,7 +6810,7 @@
 }
 
 .conversation-copy .channel-badge {
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   padding: 2px 7px;
   font-size: 11px;
   font-weight: 900;
@@ -7224,8 +7224,8 @@
   .chat-head > .btn { min-width: auto; padding-inline: 10px; font-size: 12px; }
 
   .conversation-card {
-    grid-template-columns: 42px minmax(0, 1fr) 52px;
-    min-height: 100px;
+    grid-template-columns: 42px minmax(0, 1fr) 92px;
+    min-height: 80px;
   }
 
   .message-bubble {
@@ -7273,7 +7273,7 @@
   .composer-message-wrap { order: -1; flex-basis: calc(100% - 70px); }
   .composer .btn.primary { order: -1; min-width: 62px; }
   .attachment-button { flex: 1 1 42px; }
-  .conversation-card { min-height: 92px; padding-block: 11px; }
+  .conversation-card { min-height: 80px; padding-block: 8px; }
 }
 
 /* Inbox information architecture and high-volume queue controls */
@@ -7482,7 +7482,7 @@
 }
 
 .conversation-card {
-  grid-template-columns: 42px minmax(0, 1fr) 58px;
+  grid-template-columns: 42px minmax(0, 1fr) 92px;
   min-height: 92px;
   border-inline-start: 4px solid transparent;
   content-visibility: auto;
@@ -7525,7 +7525,7 @@
 .conversation-card-title .channel-badge > span { display: none; }
 
 .conversation-copy > small {
-  min-height: 38px;
+  min-height: 18px;
   unicode-bidi: plaintext;
 }
 
@@ -7534,7 +7534,7 @@
   align-items: center;
   gap: 5px;
   min-width: 0;
-  margin-top: 3px;
+  margin-top: 1px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 800;
@@ -7628,7 +7628,7 @@
   .inbox-saved-view-actions { grid-column: auto; grid-template-columns: 1fr; }
   .inbox-count-note { display: none; }
   .inbox-shortcuts { display: none; }
-  .conversation-card { min-height: 92px; }
+  .conversation-card { min-height: 80px; }
   .conversation-empty-actions { flex-direction: column; width: min(100%, 260px); }
   .conversation-empty-actions button { width: 100%; }
 }

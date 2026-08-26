@@ -79,7 +79,6 @@ export default function TemplatesView({
   const approvedCount = visibleTemplates.filter((template) => template.status === "معتمد").length;
   const pendingCount = visibleTemplates.filter((template) => template.status === "قيد المراجعة").length;
   const rejectedCount = visibleTemplates.filter((template) => template.status === "مرفوض").length;
-  const lastSync = visibleTemplates.find((template) => template.syncedAt && template.syncedAt !== "-")?.syncedAt || "-";
 
   function openCreateForm() {
     setError("");
@@ -154,7 +153,6 @@ export default function TemplatesView({
       <div className="stats-grid">
         <div className="stat"><span>{t("القوالب المعتمدة", "Approved templates")}</span><b>{approvedCount}</b><small>{t("جاهزة للإرسال", "Ready to send")}</small></div>
         <div className="stat"><span>{t("بانتظار المراجعة", "Awaiting review")}</span><b>{pendingCount}</b><small>{t("لدى Meta", "With Meta")}</small></div>
-        <div className="stat"><span>{t("آخر مزامنة", "Last sync")}</span><b>{lastSync}</b><small>{t("من قوالب Meta", "From Meta templates")}</small></div>
         <div className="stat"><span>{t("مرفوضة", "Rejected")}</span><b>{rejectedCount}</b><small>{t("تحتاج تعديل", "Needs changes")}</small></div>
       </div>
       <div className="panel">
