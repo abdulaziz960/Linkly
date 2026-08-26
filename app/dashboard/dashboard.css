@@ -5761,10 +5761,11 @@
   background: var(--surface-soft);
   padding: 0 14px;
   direction: ltr;
-  overflow: auto;
+  overflow: hidden;
   color: var(--text-secondary);
   font-weight: 800;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .copy-row button {
