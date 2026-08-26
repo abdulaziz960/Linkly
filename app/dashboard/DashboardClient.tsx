@@ -32,6 +32,7 @@ import type {
 import DashboardViewRouter from "./views/DashboardViewRouter";
 import InboxView from "./views/InboxView";
 import { allViewKeys, computeAllowedViews, canSeeAllConversations as sharedCanSeeAllConversations } from "../../lib/permissions";
+import { playNewMessageChime } from "./notification-sound";
 
 type DashboardClientProps = {
   initialUser: DashboardUser;
@@ -148,6 +149,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const router = useRouter();
   const restoredNavigationRef = useRef(false);
   const loadDashboardDataSeqRef = useRef(0);
+  const seenInboundMessageIdsRef = useRef<Set<string> | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -395,6 +397,25 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       if (requestId !== loadDashboardDataSeqRef.current) return;
 
       if (nextConversations) {
+        const inboundIds = new Set<string>();
+        for (const conversation of nextConversations) {
+          for (const message of conversation.messages) {
+            if (message.direction === "in") inboundIds.add(message.id);
+          }
+        }
+        const previouslySeen = seenInboundMessageIdsRef.current;
+        if (previouslySeen) {
+          let hasNewInboundMessage = false;
+          for (const id of inboundIds) {
+            if (!previouslySeen.has(id)) {
+              hasNewInboundMessage = true;
+              break;
+            }
+          }
+          if (hasNewInboundMessage) playNewMessageChime();
+        }
+        seenInboundMessageIdsRef.current = inboundIds;
+
         writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
         setConversations(nextConversations);
         setActiveConversationId((currentId) =>

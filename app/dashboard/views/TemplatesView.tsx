@@ -564,7 +564,12 @@ const ReplyArrowIcon = (
 function TemplatePreview({ form, t }: { form: TemplateFormState; language: string; t: (ar: string, en: string) => string }) {
   const now = new Intl.DateTimeFormat("ar-SA", { hour: "2-digit", minute: "2-digit", numberingSystem: "latn" }).format(new Date());
   return (
+    <div className="template-phone-frame">
+    <span className="template-phone-btn volume-up" />
+    <span className="template-phone-btn volume-down" />
+    <span className="template-phone-btn power" />
     <div className="template-phone">
+      <span className="template-phone-island" />
       <div className="template-phone-status">
         <span>{now}</span>
         <span className="template-phone-status-icons">{SignalIcon}{WifiIcon}{BatteryIcon}</span>
@@ -605,6 +610,7 @@ function TemplatePreview({ form, t }: { form: TemplateFormState; language: strin
         {CameraIcon}
         {MicIcon}
       </div>
+    </div>
     </div>
   );
 }
