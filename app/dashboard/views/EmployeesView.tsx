@@ -14,7 +14,7 @@ type EmployeeFormState = {
   permissions: string[];
 };
 
-const permissionOptions = [
+export const permissionOptions = [
   "المحادثات",
   "العملاء",
   "قنوات التواصل",
@@ -27,7 +27,7 @@ const permissionOptions = [
   "الإعدادات والربط"
 ];
 
-function permissionLabel(permission: string, t: (ar: string, en: string) => string) {
+export function permissionLabel(permission: string, t: (ar: string, en: string) => string) {
   const labels: Record<string, string> = {
     "المحادثات": t("المحادثات", "Conversations"),
     "العملاء": t("العملاء", "Customers"),
@@ -43,26 +43,26 @@ function permissionLabel(permission: string, t: (ar: string, en: string) => stri
   return labels[permission] ?? permission;
 }
 
-function employeeStatusLabel(status: string, t: (ar: string, en: string) => string) {
+export function employeeStatusLabel(status: string, t: (ar: string, en: string) => string) {
   if (status === "متصل") return t("متصل", "Online");
   if (status === "مشغول") return t("مشغول", "Busy");
   return t("غير متصل", "Offline");
 }
 
-function employeeRoleLabel(role: string, t: (ar: string, en: string) => string) {
+export function employeeRoleLabel(role: string, t: (ar: string, en: string) => string) {
   if (role === "مالك الحساب") return t("مالك الحساب", "Account Owner");
   if (role === "مشرف") return t("مشرف", "Supervisor");
   return t("موظف دعم", "Support Agent");
 }
 
-function parsePermissions(permissions: string) {
+export function parsePermissions(permissions: string) {
   if (permissions === "الكل") return permissionOptions;
   if (permissions.includes("+")) return permissions.split("+").map((permission) => permission.trim()).filter(Boolean);
   if (permissions.endsWith(" فقط")) return [permissions.replace(" فقط", "")];
   return permissions ? [permissions] : [];
 }
 
-function formatPermissions(permissions: string[]) {
+export function formatPermissions(permissions: string[]) {
   if (permissions.length === permissionOptions.length) return "الكل";
   if (permissions.length === 1) return `${permissions[0]} فقط`;
   return permissions.join(" + ");

@@ -86,11 +86,17 @@ function getAudioFileName(mimeType: string) {
   return `voice-${Date.now()}`;
 }
 
-const quickEmojis = [
-  "😀", "😄", "😂", "😊", "😍", "🥰", "👍", "👏",
-  "🙏", "👌", "💪", "❤️", "🔥", "🎉", "✅", "⭐",
-  "📌", "📞", "💬", "🕐", "🚚", "💳", "🧾", "✨"
-];
+const emojiCategories = [
+  { id: "recent", icon: "◷", ar: "المستخدمة مؤخرًا", en: "Recently used", keywords: ["أخير", "متكرر", "recent", "frequent"], emojis: ["👍", "😀", "😂", "❤️", "🙏", "🎉", "😊", "🔥", "👏", "✨", "✅", "😍"] },
+  { id: "smileys", icon: "☺", ar: "الوجوه والأشخاص", en: "Smileys & people", keywords: ["وجه", "ابتسامة", "ضحك", "حب", "قلب", "حزين", "غاضب", "يد", "شخص", "smile", "laugh", "love", "heart", "sad", "angry", "hand", "people"], emojis: ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😍", "🥰", "😘", "😋", "😎", "🤩", "🥳", "😢", "😭", "😤", "😡", "🤔", "🙄", "😴", "🤗", "🤭", "🤫", "🤝", "👍", "👎", "👏", "🙌", "🙏", "💪", "👌"] },
+  { id: "animals", icon: "🐶", ar: "الحيوانات والطبيعة", en: "Animals & nature", keywords: ["حيوان", "طبيعة", "ورد", "شمس", "نبات", "animal", "nature", "flower", "sun", "plant"], emojis: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🦋", "🌸", "🌹", "🌿", "🌴", "🌞"] },
+  { id: "food", icon: "🍔", ar: "الطعام والشراب", en: "Food & drink", keywords: ["طعام", "أكل", "شراب", "قهوة", "فاكهة", "هدية", "food", "drink", "coffee", "fruit", "gift"], emojis: ["🍏", "🍎", "🍋", "🍉", "🍇", "🍓", "🥭", "🍔", "🍟", "🍕", "🌭", "🍗", "🍣", "🍩", "🍪", "🎂", "🍫", "☕", "🧃", "🥤", "🍽️", "🥄", "🥳", "🎁"] },
+  { id: "travel", icon: "🚗", ar: "السفر والأماكن", en: "Travel & places", keywords: ["سفر", "سيارة", "طائرة", "مكان", "منزل", "موقع", "وقت", "travel", "car", "plane", "place", "home", "location", "time"], emojis: ["🚗", "🚕", "🚌", "🚚", "🚑", "✈️", "🚀", "🚢", "🏠", "🏢", "🏨", "🏖️", "🏝️", "🗺️", "⏰", "📍", "🧭", "🌍"] },
+  { id: "objects", icon: "💡", ar: "الأدوات والأشياء", en: "Objects", keywords: ["أداة", "جوال", "كمبيوتر", "هاتف", "بريد", "فاتورة", "مال", "فكرة", "نجمة", "object", "phone", "computer", "email", "invoice", "money", "idea", "star"], emojis: ["📱", "💻", "⌚", "📞", "💬", "📧", "📌", "📎", "📁", "📝", "📊", "📈", "💳", "🧾", "💰", "💡", "🔑", "🔔", "🎯", "✅", "⭐", "❤️", "🔥", "✨"] },
+  { id: "symbols", icon: "⚑", ar: "الرموز", en: "Symbols", keywords: ["رمز", "صح", "خطأ", "تحذير", "سؤال", "لون", "أعلى", "أسفل", "قفل", "symbol", "check", "error", "warning", "question", "color", "up", "down", "lock"], emojis: ["✅", "❌", "⚠️", "❗", "❓", "💯", "🔴", "🟠", "🟢", "🔵", "⬆️", "⬇️", "↗️", "✔️", "➕", "➖", "🔒", "♻️"] }
+] as const;
+
+const RECENT_EMOJIS_STORAGE_KEY = "linkly:recent-emojis";
 
 const channelLabelsAr: Record<ConversationChannel, string> = {
   whatsapp: "واتساب",
@@ -137,15 +143,28 @@ function getWaitBadge(conversation: Conversation, language: "ar" | "en") {
 
   const diffMinutes = Math.max(0, Math.floor((Date.now() - elapsedTime) / 60000));
   const tier = diffMinutes >= 120 ? "overdue" : diffMinutes >= 15 ? "warning" : "fresh";
-  const label = language === "en"
-    ? (diffMinutes < 60 ? `${diffMinutes}m` : diffMinutes < 1440 ? `${Math.floor(diffMinutes / 60)}h` : `${Math.floor(diffMinutes / 1440)}d`)
-    : (diffMinutes < 60 ? `${diffMinutes} د` : diffMinutes < 1440 ? `${Math.floor(diffMinutes / 60)} س` : `${Math.floor(diffMinutes / 1440)} يوم`);
+  const compactDuration = (() => {
+    if (language === "en") {
+      if (diffMinutes < 60) return `${diffMinutes}m`;
+      if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h`;
+      return `${Math.floor(diffMinutes / 1440)}d`;
+    }
 
-  return { tier, label };
-}
+    if (diffMinutes < 60) return `${diffMinutes} د`;
+    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} س`;
 
-function getConversationStartTime(conversation: Conversation) {
-  return conversation.firstMessageTime || conversation.messages[0]?.time || "";
+    const days = Math.floor(diffMinutes / 1440);
+    if (days === 1) return "يوم";
+    if (days === 2) return "يومان";
+    if (days <= 10) return `${days} أيام`;
+    return `${days} يومًا`;
+  })();
+
+  return {
+    tier,
+    label: compactDuration,
+    ariaLabel: language === "en" ? `Waiting for a reply for ${compactDuration}` : `بانتظار الرد منذ ${compactDuration}`
+  };
 }
 
 function getConversationLastTime(conversation: Conversation) {
@@ -173,16 +192,11 @@ function getRelativeConversationTime(isoDate: string | undefined, language: "ar"
       calendar: "gregory"
     }).format(date);
   }
-  if (language === "en") {
-    if (diffDays === 1) return "1 day ago";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} week ago`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)} month ago`;
-  } else {
-    if (diffDays === 1) return "قبل يوم";
-    if (diffDays < 7) return `قبل ${diffDays} أيام`;
-    if (diffDays < 30) return `قبل ${Math.floor(diffDays / 7)} أسبوع`;
-    if (diffDays < 365) return `قبل ${Math.floor(diffDays / 30)} شهر`;
+  if (diffDays > 0 && diffDays < 365) {
+    const relativeFormatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style: "long" });
+    if (diffDays < 7) return relativeFormatter.format(-diffDays, "day");
+    if (diffDays < 30) return relativeFormatter.format(-Math.floor(diffDays / 7), "week");
+    return relativeFormatter.format(-Math.floor(diffDays / 30), "month");
   }
 
   return new Intl.DateTimeFormat(locale, {
@@ -318,12 +332,17 @@ export default function InboxView({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const emojiSearchInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [emojiCategoryId, setEmojiCategoryId] = useState("recent");
+  const [emojiSearch, setEmojiSearch] = useState("");
+  const [recentEmojis, setRecentEmojis] = useState<string[]>([...emojiCategories[0].emojis]);
   const [conversationMenu, setConversationMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
   const [messageMenu, setMessageMenu] = useState<{ messageId: string; x: number; y: number } | null>(null);
   const [replyTargetId, setReplyTargetId] = useState("");
@@ -338,7 +357,7 @@ export default function InboxView({
   const [sortMode, setSortMode] = useState<"newest" | "oldest" | "waiting" | "priority">("newest");
   const [listLimit, setListLimit] = useState(60);
   const [savedView, setSavedView] = useState<SavedInboxView | null>(null);
-  const [filterReferenceTime] = useState(() => Date.now());
+  const [filterReferenceTime, setFilterReferenceTime] = useState(() => Date.now());
   const reopenTemplates = templates.filter(
     (template) => template.status === "معتمد"
   );
@@ -356,6 +375,22 @@ export default function InboxView({
         .slice(0, 6)
     : [];
   const shouldShowQuickReplySuggestions = !isComposerDisabled && Boolean(quickReplyQuery) && quickReplySuggestions.length > 0;
+  const activeEmojiCategory = emojiCategories.find((category) => category.id === emojiCategoryId) || emojiCategories[0];
+  const emojiSearchQuery = emojiSearch.trim().toLocaleLowerCase(language === "ar" ? "ar" : "en");
+  const visibleEmojis = useMemo(() => {
+    if (!emojiSearchQuery) return emojiCategoryId === "recent" ? recentEmojis : [...activeEmojiCategory.emojis];
+
+    const matchingCategories = emojiCategories.filter((category) =>
+      category.ar.toLocaleLowerCase("ar").includes(emojiSearchQuery) ||
+      category.en.toLocaleLowerCase("en").includes(emojiSearchQuery) ||
+      category.keywords.some((keyword) => keyword.toLocaleLowerCase().includes(emojiSearchQuery)) ||
+      category.emojis.some((emoji) => emoji.includes(emojiSearchQuery))
+    );
+
+    return matchingCategories
+      .flatMap((category) => category.id === "recent" ? recentEmojis : [...category.emojis])
+      .filter((emoji, index, list) => list.indexOf(emoji) === index);
+  }, [activeEmojiCategory.emojis, emojiCategoryId, emojiSearchQuery, recentEmojis]);
   const canToggleConversation = hasActiveConversation && (!isClosed || canReopenConversation);
   const availableTags = tags.filter((tag) => !activeConversation.tags.includes(tag.name));
   const contextConversation = conversationMenu
@@ -396,6 +431,11 @@ export default function InboxView({
   const pagedConversations = displayedConversations.slice(0, listLimit);
 
   useEffect(() => {
+    const timer = window.setInterval(() => setFilterReferenceTime(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     setListLimit(60);
   }, [assigneeFilter, dateFilter, filter, priorityFilter, search, selectedChannel, sortMode, tagFilter]);
 
@@ -407,6 +447,45 @@ export default function InboxView({
       // A blocked or malformed local preference should never block the inbox.
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(RECENT_EMOJIS_STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        const valid = parsed.filter((emoji): emoji is string => typeof emoji === "string" && emoji.length > 0).slice(0, 24);
+        if (valid.length) setRecentEmojis(valid);
+      }
+    } catch {
+      // Emoji selection remains available when browser storage is blocked.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isEmojiPickerOpen) return;
+
+    const closeOnOutsidePress = (event: PointerEvent) => {
+      if (!emojiPickerRef.current?.contains(event.target as Node)) setIsEmojiPickerOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsEmojiPickerOpen(false);
+        messageInputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener("pointerdown", closeOnOutsidePress);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("pointerdown", closeOnOutsidePress);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isEmojiPickerOpen]);
+
+  useEffect(() => {
+    setIsEmojiPickerOpen(false);
+  }, [activeConversation.id, isComposerDisabled]);
 
   useEffect(() => {
     const handleInboxShortcut = (event: KeyboardEvent) => {
@@ -618,8 +697,26 @@ export default function InboxView({
   }
 
   function handleEmojiSelect(emoji: string) {
-    onChangeMessage(`${message}${emoji}`);
-    setIsEmojiPickerOpen(false);
+    const input = messageInputRef.current;
+    const start = input?.selectionStart ?? message.length;
+    const end = input?.selectionEnd ?? message.length;
+    const nextMessage = `${message.slice(0, start)}${emoji}${message.slice(end)}`;
+
+    onChangeMessage(nextMessage);
+    setRecentEmojis((current) => {
+      const next = [emoji, ...current.filter((item) => item !== emoji)].slice(0, 24);
+      try {
+        window.localStorage.setItem(RECENT_EMOJIS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Keep the current session useful even if browser storage is unavailable.
+      }
+      return next;
+    });
+    window.requestAnimationFrame(() => {
+      input?.focus();
+      const cursor = start + emoji.length;
+      input?.setSelectionRange(cursor, cursor);
+    });
   }
 
   function handleQuickReplySelect(reply: QuickReply) {
@@ -770,7 +867,9 @@ export default function InboxView({
             const safePreview = isDeletedMessageText(conversation.lastMessage) ? t("تم حذف هذه الرسالة", "This message was deleted") : getSafeConversationPreview(conversation.lastMessage, t);
             const timeSource = conversation.lastMessageAt || conversation.lastActivityAt;
             const exactDate = timeSource ? new Date(timeSource) : null;
-            const exactTime = exactDate && !Number.isNaN(exactDate.getTime()) ? new Intl.DateTimeFormat(language === "en" ? "en-US" : "ar-SA", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh" }).format(exactDate) : "";
+            const exactTime = exactDate && !Number.isNaN(exactDate.getTime()) ? new Intl.DateTimeFormat(language === "en" ? "en-US" : "ar-SA-u-nu-latn", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", numberingSystem: "latn", calendar: "gregory" }).format(exactDate) : "";
+            const lastTimeLabel = getConversationTimeLabel(timeSource, getConversationLastTime(conversation), language);
+            const waitBadge = getWaitBadge(conversation, language);
             return (
             <button
               className={`conversation-card channel-${conversation.channel || "whatsapp"} priority-${priority} ${conversation.unread ? "unread" : "read"} ${activeConversation.id === conversation.id ? "active" : ""}`}
@@ -807,23 +906,17 @@ export default function InboxView({
               </span>
               <span className="conversation-meta">
                 {conversation.unread ? <strong>{conversation.unread}</strong> : null}
-                {(() => {
-                  const waitBadge = getWaitBadge(conversation, language);
-                  return waitBadge ? (
-                    <span className={`wait-badge tier-${waitBadge.tier}`}>
-                      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 7v5l3 3M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                      {waitBadge.label}
-                    </span>
-                  ) : null;
-                })()}
-                <span className="conversation-times">
-                  {getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation), language) ? (
-                    <small title={exactTime}>{getConversationTimeLabel(conversation.lastMessageAt || conversation.lastActivityAt, getConversationLastTime(conversation), language)}</small>
-                  ) : null}
-                  {getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language) ? (
-                    <small>{getConversationTimeLabel(conversation.firstMessageAt, getConversationStartTime(conversation), language)}</small>
-                  ) : null}
-                </span>
+                {waitBadge ? (
+                  <span className={`wait-badge tier-${waitBadge.tier}`} title={waitBadge.ariaLabel} aria-label={waitBadge.ariaLabel}>
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 7v5l3 3M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                    {waitBadge.label}
+                  </span>
+                ) : null}
+                {lastTimeLabel ? (
+                  <time className="conversation-last-time" dateTime={exactTime ? exactDate?.toISOString() : undefined} title={exactTime ? `${t("آخر رسالة", "Last message")}: ${exactTime}` : t("وقت آخر رسالة", "Last message time")}>
+                    {lastTimeLabel}
+                  </time>
+                ) : null}
                 <em className={`status-pill ${conversation.status}`}>{statusLabel(conversation.status, language)}</em>
               </span>
             </button>
@@ -1180,24 +1273,60 @@ export default function InboxView({
                     hidden
                     onChange={handleDocumentChange}
                   />
-                  <div className="emoji-picker-wrap">
+                  <div className="emoji-picker-wrap" ref={emojiPickerRef}>
                     <button
                       className="attachment-button"
                       disabled={isComposerDisabled}
                       aria-label={t("إضافة إيموجي", "Add emoji")}
                       title={t("إضافة إيموجي", "Add emoji")}
+                      aria-expanded={isEmojiPickerOpen}
+                      aria-controls="conversation-emoji-picker"
                       type="button"
-                      onClick={() => setIsEmojiPickerOpen((isOpen) => !isOpen)}
+                      onClick={() => {
+                        const shouldOpen = !isEmojiPickerOpen;
+                        setIsEmojiPickerOpen(shouldOpen);
+                        setEmojiSearch("");
+                        if (shouldOpen) window.setTimeout(() => emojiSearchInputRef.current?.focus(), 0);
+                      }}
                     >
-                      <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8.5 10h.01M15.5 10h.01M8.5 14c1 1.4 2.2 2 3.5 2s2.5-.6 3.5-2" /></svg>
+                      <span className="emoji-trigger" aria-hidden="true">😊</span>
                     </button>
                     {isEmojiPickerOpen && !isComposerDisabled ? (
-                      <div className="emoji-picker" role="menu" aria-label={t("الإيموجيز", "Emojis")}>
-                        {quickEmojis.map((emoji) => (
-                          <button key={emoji} type="button" onClick={() => handleEmojiSelect(emoji)}>
-                            {emoji}
-                          </button>
-                        ))}
+                      <div id="conversation-emoji-picker" className="emoji-picker" role="dialog" aria-label={t("اختيار إيموجي", "Choose an emoji")}>
+                        <div className="emoji-category-tabs" role="tablist" aria-label={t("فئات الإيموجي", "Emoji categories")}>
+                          {emojiCategories.map((category) => (
+                            <button
+                              key={category.id}
+                              type="button"
+                              className={emojiCategoryId === category.id && !emojiSearch ? "active" : ""}
+                              role="tab"
+                              aria-selected={emojiCategoryId === category.id && !emojiSearch}
+                              aria-label={t(category.ar, category.en)}
+                              title={t(category.ar, category.en)}
+                              onClick={() => { setEmojiCategoryId(category.id); setEmojiSearch(""); }}
+                            >
+                              {category.icon}
+                            </button>
+                          ))}
+                        </div>
+                        <label className="emoji-search">
+                          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.5" /><path d="m16 16 4 4" /></svg>
+                          <input
+                            ref={emojiSearchInputRef}
+                            value={emojiSearch}
+                            onChange={(event) => setEmojiSearch(event.target.value)}
+                            placeholder={t("بحث عن إيموجي", "Search emojis")}
+                            aria-label={t("بحث عن إيموجي", "Search emojis")}
+                          />
+                        </label>
+                        <p className="emoji-picker-title">{emojiSearch.trim() ? t("نتائج البحث", "Search results") : t(activeEmojiCategory.ar, activeEmojiCategory.en)}</p>
+                        <div className="emoji-grid" role="menu">
+                          {visibleEmojis.length ? visibleEmojis.map((emoji, index) => (
+                            <button key={`${emoji}-${index}`} type="button" role="menuitem" onClick={() => handleEmojiSelect(emoji)}>
+                              {emoji}
+                            </button>
+                          )) : <p className="emoji-empty">{t("لا توجد نتائج مطابقة", "No matching emojis")}</p>}
+                        </div>
                       </div>
                     ) : null}
                   </div>

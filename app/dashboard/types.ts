@@ -9,7 +9,6 @@ export type ViewKey =
   | "quickReplies"
   | "workHours"
   | "reports"
-  | "leads"
   | "teams"
   | "employees"
   | "settings";
@@ -113,6 +112,9 @@ export type Employee = {
   permissions: string;
   email: string;
   initial: string;
+  hasAccount?: boolean;
+  lastLoginAt?: string;
+  lastLoginIp?: string;
 };
 
 export type Team = {
@@ -170,20 +172,6 @@ export type Campaign = {
   updatedAt: string;
 };
 
-export type Lead = {
-  id: string;
-  customer: string;
-  phone?: string;
-  interest: string;
-  budget: string;
-  source?: string;
-  notes?: string;
-  stage: string;
-  employee: string;
-  lastContact: string;
-  tenantId?: string;
-};
-
 export type WorkSchedule = {
   id: string;
   team: string;
@@ -201,12 +189,11 @@ export type DashboardUser = {
   role: string;
   tenantId: string;
   profileLogo?: string;
-  leadsEnabled?: boolean;
 };
 
 export type IntegrationSettings = {
   id: string;
-  provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "unifonic" | "gmail" | "external" | "leads";
+  provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "unifonic" | "gmail" | "external";
   status: "connected" | "not_connected" | "pending";
   businessName: string;
   wabaName: string;

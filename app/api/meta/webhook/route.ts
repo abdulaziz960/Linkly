@@ -4,7 +4,6 @@ import { convertAudioToMp3 } from "../../../../lib/audio-conversion";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
-import { maybeSendLeadAiReply } from "../../../../lib/lead-ai";
 import { runWhatsAppBot, runChannelBot } from "../../../../lib/bot-engine";
 import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { prisma } from "../../../../lib/prisma";
@@ -423,13 +422,6 @@ export async function POST(request: NextRequest) {
             tenantId: whatsappAccount.tenantId,
             conversationId: stored.conversationId,
             phone: message.from,
-            incomingText: text
-          });
-
-          await maybeSendLeadAiReply({
-            conversationId: stored.conversationId,
-            customerName: contact?.profile?.name || `عميل ${String(message.from).slice(-4)}`,
-            customerPhone: message.from,
             incomingText: text
           });
         }

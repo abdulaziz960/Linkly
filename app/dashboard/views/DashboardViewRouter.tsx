@@ -5,7 +5,6 @@ import type {
   Customer,
   Employee,
   IntegrationSettings,
-  Lead,
   MessageTemplate,
   QuickReply,
   Tag,
@@ -18,7 +17,6 @@ import BotView from "./BotView";
 import CampaignsView from "./CampaignsView";
 import ContactsView from "./ContactsView";
 import EmployeesView from "./EmployeesView";
-import LeadsView from "./LeadsView";
 import QuickRepliesView from "./QuickRepliesView";
 import ReportsView from "./ReportsView";
 import SettingsView from "./SettingsView";
@@ -35,7 +33,6 @@ type DashboardViewRouterProps = {
   automationRules: AutomationRule[];
   campaigns: Campaign[];
   workSchedules: WorkSchedule[];
-  leads: Lead[];
   tags: Tag[];
   teams: Team[];
   templates: MessageTemplate[];
@@ -54,7 +51,6 @@ export default function DashboardViewRouter({
   automationRules,
   campaigns,
   workSchedules,
-  leads,
   onOpenConversation,
   onIntegrationChange,
   onRefreshData,
@@ -84,7 +80,6 @@ export default function DashboardViewRouter({
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "workHours") return <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} />;
   if (view === "reports") return <ReportsView conversations={conversations} employees={employees} teams={teams} workSchedules={workSchedules} onOpenConversation={onOpenConversation} />;
-  if (view === "leads") return <LeadsView employees={employees} leads={leads} onRefreshData={onRefreshData} />;
   if (view === "teams") return <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "employees") return <EmployeesView employees={employees} onRefreshData={onRefreshData} />;
   if (view === "settings") return <SettingsView onIntegrationChange={onIntegrationChange} />;

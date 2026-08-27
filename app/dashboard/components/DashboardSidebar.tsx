@@ -51,7 +51,6 @@ function DashboardNavIcon({ view }: { view: ViewKey }) {
     quickReplies: <><path d="M5 5h14v11H9l-4 3V5Z" /><path d="m13 8-3 4h3l-2 3" /></>,
     workHours: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
     reports: <><path d="M5 20V9M12 20V4M19 20v-7" /></>,
-    leads: <><circle cx="9" cy="8" r="3" /><path d="M3 19c.5-4 2.5-6 6-6" /><path d="M16 11v6M13 14h6" /></>,
     teams: <><circle cx="8" cy="9" r="3" /><circle cx="17" cy="10" r="2.5" /><path d="M2.5 19c.5-4 2.5-6 5.5-6s5 2 5.5 6M14 14c3 0 5 1.5 5.5 4.5" /></>,
     employees: <><rect x="4" y="5" width="16" height="14" rx="3" /><circle cx="9" cy="11" r="2" /><path d="M6.5 16c.5-2 1.3-3 2.5-3s2 1 2.5 3M14 10h3M14 14h3" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L14.5 3h-5l-.4 3.1a8 8 0 0 0-1.7 1L5 6.1 3 9.5 5.1 11a7 7 0 0 0 0 2L3 14.5 5 18l2.4-1.1a8 8 0 0 0 1.7 1l.4 3.1h5l.4-3.1a8 8 0 0 0 1.7-1L19 18l2-3.5-2.1-1.5c.1-.3.1-.7.1-1Z" /></>
@@ -99,7 +98,7 @@ export default function DashboardSidebar({
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "التواصل", labelEn: "Communication", keys: ["inbox", "quickReplies", "workHours", "bot", "automations"] },
     { label: "التسويق", labelEn: "Marketing", keys: ["campaigns", "templates"] },
-    { label: "إدارة العملاء", labelEn: "Customers", keys: ["contacts", "tags", "leads"] },
+    { label: "إدارة العملاء", labelEn: "Customers", keys: ["contacts", "tags"] },
     { label: "الفريق", labelEn: "Team", keys: ["teams", "employees"] },
     { label: "التحليلات والإعدادات", labelEn: "Insights & settings", keys: ["reports", "settings"] }
   ];

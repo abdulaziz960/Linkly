@@ -200,7 +200,6 @@ type UpdateSubscriptionInput = {
   plan?: string;
   status?: string;
   employeeLimit?: number;
-  leadsEnabled?: boolean;
   amount?: number;
   billingCycle?: string;
   renewalAt?: string;
@@ -217,7 +216,6 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
       plan: input.plan ?? existing.plan,
       status: input.status ?? existing.status,
       employeeLimit: input.employeeLimit ?? existing.employeeLimit,
-      leadsEnabled: input.leadsEnabled === undefined ? existing.leadsEnabled : (input.leadsEnabled ? 1 : 0),
       amount: input.amount ?? existing.amount,
       billingCycle: input.billingCycle ?? existing.billingCycle,
       renewalAt: input.renewalAt ?? existing.renewalAt,
@@ -235,10 +233,6 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
   if (input.plan !== undefined && input.plan !== existing.plan) {
     changes.push(`الباقة من ${existing.plan} إلى ${input.plan}`);
   }
-  if (input.leadsEnabled !== undefined && (input.leadsEnabled ? 1 : 0) !== existing.leadsEnabled) {
-    changes.push(input.leadsEnabled ? "تفعيل العملاء المحتملين (CRM)" : "إخفاء العملاء المحتملين (CRM)");
-  }
-
   await logAdminAction(
     tenantId,
     existing.companyName,

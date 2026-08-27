@@ -20,10 +20,13 @@ async function ensureRateLimitTable() {
   await tablePromise;
 }
 
-export function requestIdentifier(request: Request, secondary = "") {
+export function getClientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const ip = forwarded || request.headers.get("x-real-ip")?.trim() || "unknown";
-  return `${ip}:${secondary.trim().toLowerCase()}`;
+  return forwarded || request.headers.get("x-real-ip")?.trim() || "unknown";
+}
+
+export function requestIdentifier(request: Request, secondary = "") {
+  return `${getClientIp(request)}:${secondary.trim().toLowerCase()}`;
 }
 
 export async function consumeRateLimit(namespace: string, identifier: string, limit: number, windowMs: number) {

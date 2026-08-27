@@ -60,13 +60,13 @@ export function verifySessionToken(token?: string) {
 export async function getSubscriptionAccess(tenantId: string) {
   const subscription = await prisma.subscription.findUnique({
     where: { tenantId },
-    select: { status: true, renewalAt: true, leadsEnabled: true }
+    select: { status: true, renewalAt: true }
   });
-  if (!subscription) return { expired: false, leadsEnabled: true };
+  if (!subscription) return { expired: false };
   const expiry = subscription.renewalAt ? new Date(subscription.renewalAt).getTime() : Number.NaN;
   const trialExpired = subscription.status === "تجربة" && Number.isFinite(expiry) && expiry <= Date.now();
   const expired = trialExpired || subscription.status === "متوقف";
-  return { expired, status: subscription.status, renewalAt: subscription.renewalAt, leadsEnabled: subscription.leadsEnabled !== 0 };
+  return { expired, status: subscription.status, renewalAt: subscription.renewalAt };
 }
 
 export async function getCurrentUser(options: { allowExpired?: boolean } = {}) {
@@ -84,13 +84,11 @@ export async function getCurrentUser(options: { allowExpired?: boolean } = {}) {
   if (user.sessionVersion !== session.sessionVersion) return null;
 
   const subscriptionAccess = await getSubscriptionAccess(user.tenantId);
-  // Platform admins never get locked out of their own dashboard by an unpaid
-  // subscription, but feature toggles like leadsEnabled still apply so their
-  // own tenant reflects what a real client with that setting would see.
+  // Platform admins never get locked out of their own dashboard by an unpaid subscription.
   if (user.isPlatformAdmin === 1) subscriptionAccess.expired = false;
   if (subscriptionAccess.expired && !options.allowExpired) return null;
 
   const { passwordHash: _passwordHash, ...safeUser } = user;
   void _passwordHash;
-  return { ...safeUser, subscriptionExpired: subscriptionAccess.expired, leadsEnabled: subscriptionAccess.leadsEnabled };
+  return { ...safeUser, subscriptionExpired: subscriptionAccess.expired };
 }

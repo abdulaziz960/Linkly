@@ -251,22 +251,6 @@ model WorkSchedule {
   @@map("work_schedules")
 }
 
-model Lead {
-  id          String @id
-  customer    String
-  phone       String @default("")
-  interest    String
-  budget      String
-  source      String @default("")
-  notes       String @default("")
-  stage       String
-  employee    String
-  lastContact String @map("last_contact")
-  tenantId    String @default("tenant-demo") @map("tenant_id")
-
-  @@map("leads")
-}
-
 model IntegrationSetting {
   id            String @id
   provider      String
@@ -304,6 +288,8 @@ model UserAccount {
   profileLogo     String @default("") @map("profile_logo")
   isPlatformAdmin Int    @default(0) @map("is_platform_admin")
   sessionVersion  Int    @default(0) @map("session_version")
+  lastLoginAt     String @default("") @map("last_login_at")
+  lastLoginIp     String @default("") @map("last_login_ip")
   createdAt       String @map("created_at")
 
   @@map("user_accounts")
@@ -389,7 +375,6 @@ model Subscription {
   plan          String @default("باقة النمو")
   status        String @default("تجربة")
   employeeLimit Int    @default(3) @map("employee_limit")
-  leadsEnabled  Int    @default(1) @map("leads_enabled")
   amount        Int    @default(0)
   billingCycle  String @default("شهري") @map("billing_cycle")
   renewalAt     String @default("") @map("renewal_at")

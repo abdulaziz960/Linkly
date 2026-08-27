@@ -101,8 +101,12 @@ function getWizardSteps(t: TFn) {
 }
 
 export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "x" | "email" | "gmail" | "google_maps" | "tiktok" | "sms";
+// The channel picker/wizard never selects the raw "email" record directly —
+// Gmail is the only UI-facing channel for it (see apiChannel()) — so the
+// selectable subset excludes it.
+type SelectableChannelId = Exclude<ChannelId, "email">;
 
-function getChannels(t: TFn): Array<{ id: ChannelId; title: string; description: string; active: boolean }> {
+function getChannels(t: TFn): Array<{ id: SelectableChannelId; title: string; description: string; active: boolean }> {
   return [
     { id: "whatsapp", title: t("واتساب", "WhatsApp"), description: t("ادعم عملاءك عبر واتساب", "Support your customers on WhatsApp"), active: true },
     { id: "facebook", title: t("فيسبوك", "Facebook"), description: t("اربط صفحتك على فيسبوك", "Connect your Facebook page"), active: true },
@@ -260,7 +264,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const channels = useMemo(() => getChannels(t), [t]);
   const wizardSteps = useMemo(() => getWizardSteps(t), [t]);
   const [settings, setSettings] = useState<IntegrationSettings>(emptySettings);
-  const [selectedChannel, setSelectedChannel] = useState<"whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "gmail" | "website" | "tiktok" | "sms">(() => {
+  const [selectedChannel, setSelectedChannel] = useState<SelectableChannelId>(() => {
     // Popups fall back to a full-page redirect (e.g. "?meta=tiktok-callback")
     // when window.opener isn't available instead of just closing themselves,
     // so land on the channel that was actually just connected instead of
@@ -293,6 +297,15 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [channelBotEnabled, setChannelBotEnabled] = useState(false);
   const [channelBotLoading, setChannelBotLoading] = useState(false);
   const [showWebhookToken, setShowWebhookToken] = useState(false);
+  const [overviewStatuses, setOverviewStatuses] = useState<Partial<Record<ChannelId, IntegrationSettings>>>({});
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [wizardModalOpen, setWizardModalOpen] = useState(() => {
+    // Popups fall back to a full-page redirect when window.opener isn't
+    // available, so land straight on the connected-channel modal instead of
+    // silently dropping the result behind the closed overview.
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).has("meta");
+  });
   const metaSignupDataRef = useRef<MetaSignupData>({});
   const hasSelectedChannelRef = useRef(false);
   const isInstagram = selectedChannel === "instagram";
@@ -309,7 +322,17 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const isConnected = isGmail
     ? oauthEmailStatus?.status === "connected" && oauthEmailStatus.provider === selectedChannel
     : settings.status === "connected";
-  const showIntegrationData = (isTelegram || isGoogleMaps || isEmail || isWebsite ? wizardStep >= 4 : wizardStep >= 3) || isConnected;
+  // WhatsApp/Instagram/Facebook are pure OAuth - there's nothing to enter
+  // manually before connecting, so the data/webhook section only appears
+  // once the OAuth round trip actually finishes (isConnected). Clicking
+  // Connect should go straight to the Meta window, not to a form.
+  const showIntegrationData = (
+    isTelegram || isGoogleMaps || isEmail || isWebsite
+      ? wizardStep >= 4
+      : isFacebook || isInstagram || isWhatsApp
+        ? false
+        : wizardStep >= 3
+  ) || isConnected;
   // Gmail hides the manual Webhook setup UI once OAuth is actually connected.
   const hideManualEmailSetup = isGmail && isConnected;
 
@@ -348,12 +371,83 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }, [isWhatsApp, settings.status]);
 
   useEffect(() => {
-    if (!isGmail) return;
+    // Fetch once on mount (not gated on isGmail) so the overview list shows
+    // Gmail's real OAuth status right away instead of only after the user
+    // has clicked into the Gmail card at least once this session.
     fetch("/api/email/integration")
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => setOauthEmailStatus(data))
       .catch(() => {});
-  }, [isGmail]);
+  }, []);
+
+  // Overview list at the top of the page ("القنوات المربوطة") needs the
+  // connection status of every channel at once, not just the one currently
+  // selected in the wizard below — fetch them all in parallel on mount.
+  useEffect(() => {
+    let cancelled = false;
+    setOverviewLoading(true);
+    Promise.all(
+      channels.map((channel) =>
+        fetch(`/api/settings/integration?channel=${apiChannel(channel.id)}`)
+          .then((response) => (response.ok ? response.json() : null))
+          .then((data: IntegrationSettings | null) => [channel.id, data] as const)
+          .catch(() => [channel.id, null] as const)
+      )
+    ).then((entries) => {
+      if (cancelled) return;
+      const map: Partial<Record<ChannelId, IntegrationSettings>> = {};
+      entries.forEach(([id, data]) => {
+        if (data) map[id] = data;
+      });
+      setOverviewStatuses(map);
+      setOverviewLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep the overview row for the channel currently open in the wizard in
+  // sync the moment it connects/disconnects, without waiting on a refetch.
+  useEffect(() => {
+    setOverviewStatuses((current) => ({ ...current, [selectedChannel]: settings }));
+  }, [selectedChannel, settings]);
+
+  const overviewGmailAddress = oauthEmailStatus?.emailAddress;
+  const isChannelConnected = (channel: ChannelId) => {
+    if (channel === "gmail") {
+      return oauthEmailStatus?.status === "connected";
+    }
+    return overviewStatuses[channel]?.status === "connected";
+  };
+  const connectedOverviewChannels = channels.filter((channel) => isChannelConnected(channel.id));
+  const comingSoonChannels: Array<{ id: string; title: string }> = [
+    { id: "linkedin", title: t("لينكد إن", "LinkedIn") },
+    { id: "youtube", title: t("يوتيوب", "YouTube") }
+  ];
+
+  function goToChannelSetup(channelId: SelectableChannelId) {
+    setSelectedChannel(channelId);
+    setWizardStep(
+      channelId === "instagram" || channelId === "facebook" || channelId === "telegram" || channelId === "x" || channelId === "tiktok" || channelId === "sms" || channelId === "whatsapp" || channelId === "google_maps"
+        ? 3
+        : 4
+    );
+    setWizardModalOpen(true);
+  }
+
+  // Facebook/Instagram have nothing to configure and only one way to
+  // connect, so clicking Connect should jump straight into the Meta OAuth
+  // window instead of opening a popup that just contains another button.
+  function connectChannel(channelId: SelectableChannelId) {
+    if (channelId === "facebook" || channelId === "instagram") {
+      setSelectedChannel(channelId);
+      void openMetaWindow(channelId);
+      return;
+    }
+    goToChannelSetup(channelId);
+  }
 
   const webhookUrl = useMemo(() => {
     if (typeof window === "undefined") return settings.webhookUrl;
@@ -801,10 +895,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     }
   }
 
-  async function openMetaWindow() {
+  async function openMetaWindow(channelOverride?: SelectableChannelId) {
     if (typeof window === "undefined") return false;
+    const channel = channelOverride ?? selectedChannel;
 
-    if (selectedChannel === "whatsapp") {
+    if (channel === "whatsapp") {
       const appId = techProviderMetaAppId;
       const configId = techProviderMetaConfigId;
 
@@ -855,7 +950,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       return true;
     }
 
-    const metaUrl = `/api/meta/connect?channel=${selectedChannel}`;
+    const metaUrl = `/api/meta/connect?channel=${channel}`;
     const metaWindow = window.open(metaUrl, "audiencew-meta-connect", "width=960,height=780");
     if (!metaWindow) {
       window.location.assign(new URL(metaUrl, window.location.origin).toString());
@@ -900,36 +995,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     if (isConnected) {
       return (
         <div className="meta-wizard-panel">
-          <div className="meta-wizard-title">
-            <h3>{t("اختر قناة", "Choose a channel")}</h3>
-            <p>{t("القنوات المتصلة تعرض بيانات الربط مباشرة بدون خطوات ربط جديدة.", "Connected channels show their connection data directly, without new setup steps.")}</p>
-          </div>
-          <div className="channel-grid">
-            {channels.map((channel) => {
-              const selected = channel.id === selectedChannel;
-
-              return (
-                <button
-                  className={`channel-card ${selected ? "selected" : ""} ${channel.active ? "" : "disabled"}`}
-                  key={channel.id}
-                  type="button"
-                  disabled={!channel.active}
-                  onClick={() => {
-                    if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "gmail" || channel.id === "website" || channel.id === "tiktok" || channel.id === "sms") {
-                      setSelectedChannel(channel.id);
-                      setWizardStep(4);
-                    }
-                  }}
-                >
-                  <span className={`channel-icon channel-icon-${channel.id}`}>
-                    <ChannelIcon id={channel.id} />
-                  </span>
-                  <b>{channel.title}</b>
-                  <small>{selected ? t("القناة متصلة، بياناتها ظاهرة بالأسفل", "This channel is connected — its data is shown below") : channel.description}</small>
-                </button>
-              );
-            })}
-          </div>
           <div className="connected-channel-note">
             <b>{isWebsite ? t("ودجت الموقع جاهز", "Website widget ready") : isSms ? t("SMS متصل", "SMS connected") : isTikTok ? t("TikTok متصل", "TikTok connected") : isGmail ? t("Gmail متصل", "Gmail connected") : isGoogleMaps ? t("خرائط Google متصلة", "Google Maps connected") : isX ? t("X جاهز للربط", "X ready to connect") : isTelegram ? t("تيليجرام متصل", "Telegram connected") : isFacebook ? t("فيسبوك متصل", "Facebook connected") : isInstagram ? t("Instagram متصل", "Instagram connected") : t("واتساب متصل", "WhatsApp connected")}</b>
             <span>
@@ -938,7 +1003,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 : t("يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل.", "You can edit the data or clear the connection from the connection and webhook section below.")}
             </span>
             {!isEmail && !isGoogleMaps && !isX && !isTelegram && !isWebsite && !isSms ? (
-              <button type="button" onClick={isTikTok ? connectTikTokAccount : openMetaWindow}>
+              <button type="button" onClick={() => isTikTok ? connectTikTokAccount() : openMetaWindow()}>
                 {isTikTok ? t("ربط حساب TikTok آخر", "Connect another TikTok account") : isFacebook ? t("ربط صفحة Facebook", "Connect a Facebook page") : isInstagram ? t("ربط Instagram", "Connect Instagram") : t("ربط واتساب جديد", "Connect a new WhatsApp number")}
               </button>
             ) : null}
@@ -1058,20 +1123,24 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       if (isTelegram) {
         return (
           <div className="meta-wizard-panel">
-            <div className="meta-signup-card">
+            <form className="channel-quick-form" onSubmit={saveSettings}>
               <span className="provider-round-icon">✈</span>
-              <h3>{t("ربط تيليجرام عبر Bot Token", "Connect Telegram via Bot Token")}</h3>
-              <p>{t("تيليجرام يربط عبر بوت رسمي. خذ Bot Token من BotFather مرة واحدة، والمنصة تتولى تفعيل الاستقبال تلقائياً.", "Telegram connects through an official bot. Get the Bot Token from BotFather once, and the platform handles activating receiving automatically.")}</p>
-              <div className="telegram-steps">
-                <div><span>1</span><b>{t("افتح BotFather", "Open BotFather")}</b><small>{t("من تطبيق تيليجرام ابحث عن BotFather الرسمي.", "From the Telegram app, search for the official BotFather.")}</small></div>
-                <div><span>2</span><b>{t("أنشئ بوت جديد", "Create a new bot")}</b><small>{t("ارسل /newbot، ثم اختر اسم و username ينتهي بـ bot.", "Send /newbot, then choose a name and a username ending in bot.")}</small></div>
-                <div><span>3</span><b>{t("انسخ Bot Token", "Copy the Bot Token")}</b><small>{t("الصق التوكن هنا واضغط حفظ الإعدادات.", "Paste the token here and click Save Settings.")}</small></div>
-                <div><span>4</span><b>{t("جرّب الرسائل", "Try messaging")}</b><small>{t("أرسل /start للبوت وستظهر المحادثة داخل المنصة.", "Send /start to the bot and the conversation will appear in the platform.")}</small></div>
+              <h3>{t("ربط تيليجرام", "Connect Telegram")}</h3>
+              <p>{t("أنشئ بوتًا عبر BotFather@ (الأمر newbot/) وانسخ التوكن. معرّف الدردشة: username@ للقناة، أو رقم الدردشة لرسائل العملاء.", "Create a bot via @BotFather (the /newbot command) and copy the token. Chat handle: @username for a channel, or the chat ID for customer messages.")}</p>
+              <label>
+                {t("توكن البوت", "Bot Token")}
+                <input dir="ltr" value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} placeholder="123456789:AA..." required />
+              </label>
+              <label>
+                {t("معرّف الدردشة / القناة", "Channel handle / chat ID")}
+                <input dir="ltr" value={settings.wabaName} onChange={(event) => updateField("wabaName", event.target.value)} placeholder="@mychannel" required />
+              </label>
+              {saveFeedback ? <p className={saveFeedback.type === "success" ? "form-success" : "form-error"}>{saveFeedback.text}</p> : null}
+              <div className="channel-quick-form-actions">
+                <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الربط...", "Connecting...") : t("ربط", "Connect")}</button>
+                <button className="btn soft" type="button" onClick={() => setWizardModalOpen(false)}>{t("إلغاء", "Cancel")}</button>
               </div>
-              <button type="button" onClick={() => setWizardStep(4)}>
-                {t("إدخال بيانات تيليجرام", "Enter Telegram details")}
-              </button>
-            </div>
+            </form>
           </div>
         );
       }
@@ -1149,7 +1218,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <li>{t("مصادقة آمنة عبر OAuth", "Secure OAuth based authentication")}</li>
               <li>{isInstagram ? t("الرسائل والتعليقات ستستخدم ويبهوك Meta", "Messages and comments will use the Meta webhook") : isFacebook ? t("رسائل Messenger ستستخدم ويبهوك Meta", "Messenger messages will use the Meta webhook") : t("إعداد تلقائي للويبهوك ورقم الهاتف", "Automatic webhook and phone number configuration")}</li>
             </ul>
-            <button className={!isInstagram && !isFacebook ? "facebook-login-button" : undefined} type="button" onClick={openMetaWindow}>
+            <button className={!isInstagram && !isFacebook ? "facebook-login-button" : undefined} type="button" onClick={() => openMetaWindow()}>
               {isInstagram ? t("ربط Instagram", "Connect Instagram") : isFacebook ? t("ربط Facebook", "Connect Facebook") : t("تسجيل الدخول عبر Facebook", "Login with Facebook")}
             </button>
           </div>
@@ -1210,7 +1279,94 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   return (
     <section className="page-stack settings-page">
-      <div className={`settings-onboarding ${isConnected ? "connected" : ""}`}>
+      <div className="channels-overview">
+        <div className="channels-overview-head">
+          <div>
+            <h2>{t("القنوات", "Channels")}</h2>
+            <p>{t("اربط حساباتك على وسائل التواصل لينشر الذكاء الصناعي بدلاً عنك", "Connect your social accounts so the AI agent can respond on your behalf")}</p>
+          </div>
+          <button type="button" className="btn primary channels-overview-add" onClick={() => goToChannelSetup(selectedChannel)}>
+            <span aria-hidden="true">+</span>
+            {t("اربط قناة جديدة", "Connect a new channel")}
+          </button>
+        </div>
+
+        <div className="channels-overview-list">
+          <div className="channels-overview-list-title">
+            {t("القنوات المربوطة", "Connected channels")}
+            <span>{connectedOverviewChannels.length}</span>
+          </div>
+
+          {overviewLoading ? (
+            <p className="channels-overview-empty">{t("جاري تحميل القنوات...", "Loading channels...")}</p>
+          ) : connectedOverviewChannels.length === 0 ? (
+            <p className="channels-overview-empty">{t("لا توجد قنوات مربوطة بعد — اختر قناة من الأسفل لربطها.", "No channels connected yet — pick one below to connect it.")}</p>
+          ) : (
+            connectedOverviewChannels.map((channel) => {
+              const data = overviewStatuses[channel.id];
+              const handle =
+                channel.id === "gmail"
+                  ? overviewGmailAddress
+                  : data?.phoneNumber || data?.wabaName || data?.businessName;
+              const lastSync = data?.updatedAt && data.updatedAt !== "-" ? data.updatedAt : t("—", "—");
+
+              return (
+                <div className="channel-row" key={channel.id}>
+                  <span className={`channel-icon channel-icon-${channel.id}`}>
+                    <ChannelIcon id={channel.id} />
+                  </span>
+                  <div className="channel-row-info">
+                    <b>{channel.title}</b>
+                    {handle ? <span dir="ltr">{handle}</span> : null}
+                  </div>
+                  <span className="channel-row-status connected">{t("متصل", "Connected")}</span>
+                  <span className="channel-row-sync">{t("آخر مزامنة", "Last sync")}: {lastSync}</span>
+                  <button type="button" className="channel-row-settings" onClick={() => goToChannelSetup(channel.id)}>
+                    <span aria-hidden="true">⚙️</span>
+                    {t("إعدادات القناة", "Channel settings")}
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="channels-overview-grid">
+          <div className="channels-overview-list-title">{t("ربط قناة جديدة", "Connect a new channel")}</div>
+          <div className="channel-connect-grid">
+            {channels.map((channel) => {
+              const connected = isChannelConnected(channel.id);
+              return (
+                <div className="channel-connect-card" key={channel.id}>
+                  <span className={`channel-icon channel-icon-${channel.id}`}>
+                    <ChannelIcon id={channel.id} />
+                  </span>
+                  <b>{channel.title}</b>
+                  <small>{channel.description}</small>
+                  <button type="button" className={connected ? "connected" : ""} onClick={() => connected ? goToChannelSetup(channel.id) : connectChannel(channel.id)}>
+                    {connected ? t("متصل — إدارة", "Connected — manage") : t("ربط", "Connect")}
+                  </button>
+                </div>
+              );
+            })}
+
+            {comingSoonChannels.map((channel) => (
+              <div className="channel-connect-card locked" key={channel.id}>
+                <span className="channel-icon channel-icon-locked" aria-hidden="true">🔒</span>
+                <b>{channel.title}</b>
+                <small>{t("قريباً", "Coming soon")}</small>
+                <button type="button" disabled>{t("قريباً", "Coming soon")}</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {wizardModalOpen ? (
+      <div className="modal-backdrop" role="presentation" onClick={() => setWizardModalOpen(false)}>
+      <div className="account-modal channel-setup-modal" role="dialog" aria-modal="true" aria-label={t("إعداد القناة", "Channel setup")} onClick={(event) => event.stopPropagation()}>
+      <button className="icon-btn channel-setup-modal-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setWizardModalOpen(false)}>×</button>
+      <div id="channel-wizard-anchor" className={`settings-onboarding ${isConnected ? "connected" : ""}`}>
         {!isConnected ? (
           <aside className="meta-wizard-rail settings-rail">
             {(isWebsite || isEmail
@@ -1240,7 +1396,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
         <div className="settings-onboarding-main">
           {renderWizardContent()}
-          {!isConnected ? (
+          {!isConnected && !isTelegram ? (
             <div className="settings-onboarding-actions">
               {wizardStep !== 4 && !((isGoogleMaps || isWhatsApp || isInstagram || isFacebook) && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
                 if (wizardStep === 3 && isGoogleMaps) {
@@ -1265,64 +1421,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
       {showIntegrationData && (
         <form className="settings-form" onSubmit={saveSettings}>
-          {isTelegram ? (
-            <div className="telegram-help-card">
-              <div>
-                <h3>{t("طريقة ربط تيليجرام", "How to connect Telegram")}</h3>
-                <p>{t("الربط يتم عن طريق بوت تيليجرام. لا تحتاج تسجيل دخول، فقط انسخ Bot Token من BotFather واحفظه هنا.", "The connection is made through a Telegram bot. No login is needed — just copy the Bot Token from BotFather and save it here.")}</p>
-              </div>
-              <ol>
-                <li>{t("افتح تيليجرام وابحث عن BotFather الرسمي.", "Open Telegram and search for the official BotFather.")}</li>
-                <li>{t("اكتب /newbot واختر اسم البوت واسم المستخدم.", "Type /newbot and choose the bot's name and username.")}</li>
-                <li>{t("انسخ Bot Token الذي يعطيك إياه BotFather.", "Copy the Bot Token that BotFather gives you.")}</li>
-                <li>{t("الصق التوكن في خانة Bot Token واضغط حفظ الإعدادات.", "Paste the token into the Bot Token field and click Save Settings.")}</li>
-                <li>{t("أرسل /start للبوت من تيليجرام حتى تظهر المحادثة في المنصة.", "Send /start to the bot from Telegram so the conversation appears in the platform.")}</li>
-              </ol>
-            </div>
-          ) : null}
-          {isX ? (
-            <div className="telegram-help-card">
-              <div>
-                <h3>{t("إعداد تطبيق Linkly على X", "Set up the Linkly app on X")}</h3>
-                <p>{t("هذه البيانات تضبط تطبيق المنصة مرة واحدة. بعد ذلك كل عميل يربط X بزر مباشر بدون إدخال مفاتيح.", "This data configures the platform's app once. After that, every customer connects X with a single button, without entering any keys.")}</p>
-              </div>
-              <ol>
-                <li>{t("أنشئ App واحد باسم Linkly داخل X Developer Portal.", "Create a single app named Linkly in the X Developer Portal.")}</li>
-                <li>{t("فعّل OAuth 2.0 وصلاحيات Read / Write / Direct Messages حسب المتاح.", "Enable OAuth 2.0 and Read / Write / Direct Messages permissions as available.")}</li>
-                <li>{t("انسخ OAuth 1.0 Secret Key واحفظه في خانة Consumer Secret، فهو المطلوب لاختبار CRC.", "Copy the OAuth 1.0 Secret Key and save it in the Consumer Secret field — it's required for the CRC check.")}</li>
-                <li>{t(`أضف Callback URL: ${publicAppUrl}/api/x/callback`, `Add Callback URL: ${publicAppUrl}/api/x/callback`)}</li>
-                <li>{t(`أضف Webhook URL إذا كان متاحًا: ${publicAppUrl}/api/x/webhook`, `Add Webhook URL if available: ${publicAppUrl}/api/x/webhook`)}</li>
-                <li>{t("احفظ بيانات التطبيق هنا، ثم استخدم زر ربط X للمصادقة بحساب العميل.", "Save the app details here, then use the Connect X button to authenticate the customer's account.")}</li>
-              </ol>
-            </div>
-          ) : null}
-          {isTikTok ? (
-            <div className="telegram-help-card">
-              <div>
-                <h3>{t("ربط TikTok Business Messaging", "Connect TikTok Business Messaging")}</h3>
-                <p>{t("هذه القناة قيد التجهيز - إرسال واستقبال الرسائل الفعلي بينتظر موافقة TikTok على صلاحية Business Messaging Partner لحسابك. تقدر تحفظ بيانات التطبيق الآن وتكمل التفعيل بعد ما توافق عليك TikTok.", "This channel is still being set up — actual message sending and receiving is waiting for TikTok to approve Business Messaging Partner access for our account. You can save the app details now and finish activation once TikTok approves you.")}</p>
-              </div>
-              <ol>
-                <li>{t("سجّل حساب TikTok Business وقدّم على TikTok API for Business.", "Register a TikTok Business account and apply to the TikTok API for Business.")}</li>
-                <li>{t('اطلب صلاحية "Business Messaging" كـ Messaging Partner من TikTok.', 'Request "Business Messaging" access as a Messaging Partner from TikTok.')}</li>
-                <li>{t("بعد الموافقة، انسخ App Key وApp Secret وAccess Token واحفظهم هنا.", "After approval, copy the App Key, App Secret, and Access Token and save them here.")}</li>
-              </ol>
-            </div>
-          ) : null}
-          {isSms ? (
-            <div className="telegram-help-card">
-              <div>
-                <h3>{t("ربط SMS عبر Unifonic", "Connect SMS via Unifonic")}</h3>
-                <p>{t("الإرسال الصادر جاهز ويشتغل مباشرة بمجرد حفظ البيانات. استقبال ردود العملاء (SMS ثنائي الاتجاه) لسه قيد التجهيز.", "Outbound sending is ready and works as soon as you save the details. Receiving customer replies (two-way SMS) is still being built.")}</p>
-              </div>
-              <ol>
-                <li>{t("أنشئ حساب على", "Create an account on")} <a href="https://www.unifonic.com" target="_blank" rel="noreferrer">Unifonic</a> {t("وسجّل نشاطك التجاري.", "and register your business.")}</li>
-                <li>{t("من لوحة Unifonic، انسخ AppSid الخاص بتطبيقك.", "From the Unifonic dashboard, copy your app's AppSid.")}</li>
-                <li>{t("سجّل اسم مرسل (Sender ID) معتمد، وانسخه بالأسفل.", "Register an approved Sender ID and copy it below.")}</li>
-                <li>{t("احفظ الإعدادات - الرد على أي محادثة SMS من هنا بيرسل فعلياً عبر Unifonic.", "Save the settings — replying to any SMS conversation from here actually sends via Unifonic.")}</li>
-              </ol>
-            </div>
-          ) : null}
           {isGmail ? (
             <div className="provider-connect-card">
               <span className="provider-connect-icon gmail" aria-hidden="true">
@@ -1340,25 +1438,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </a>
             </div>
           ) : null}
-          {isEmail && !hideManualEmailSetup ? (
-            <div className="telegram-help-card">
-              <div>
-                <h3>{t("طريقة ربط البريد الإلكتروني عبر Webhook (بديل)", "How to connect email via webhook (alternative)")}</h3>
-                <p>{t("استخدم Webhook البريد مع Zapier أو Make أو أي مزود يدعم إرسال Webhook عند وصول بريد جديد.", "Use the email webhook with Zapier, Make, or any provider that supports sending a webhook when a new email arrives.")}</p>
-              </div>
-              <ol>
-                <li>{t("احفظ اسم المرسل وبريد الإرسال في الحقول أدناه.", "Save the sender name and email address in the fields below.")}</li>
-                <li>{t("انسخ رابط Webhook وأرسله من مزود البريد عند وصول رسالة جديدة.", "Copy the webhook link and send it from your email provider when a new message arrives.")}</li>
-                <li>{t("أضف Secret Token في Header باسم x-audiencew-email-secret.", "Add the Secret Token in a header named x-audiencew-email-secret.")}</li>
-                <li>{t("أي رسالة تحتوي from و subject و text ستظهر في المحادثات كقناة بريد.", "Any message containing from, subject, and text will appear in the conversations as an email channel.")}</li>
-              </ol>
-            </div>
-          ) : null}
           {isWebsite ? (
             <div className="telegram-help-card">
               <div>
-                <h3>{t("ودجت الدردشة الحية لموقعك", "Your website's live-chat widget")}</h3>
-                <p>{t('انسخ الكود التالي والصقه قبل إغلاق وسم </body> في أي صفحة بموقعك. راح تظهر فقاعة دردشة لكل زوار الموقع، ورسائلهم بتظهر مباشرة هنا كمحادثات قناة "الموقع الإلكتروني".', 'Copy the code below and paste it right before the closing </body> tag on any page of your site. A chat bubble will appear for every visitor, and their messages will appear here directly as conversations on the "Website" channel.')}</p>
+                <h3>{t("كود تضمين ودجت الدردشة", "Chat widget embed code")}</h3>
+                <p>{t("الصق الكود قبل إغلاق وسم </body> في موقعك.", "Paste this code right before the closing </body> tag on your site.")}</p>
               </div>
               <div className="copy-row">
                 <span>{`<script src="${publicAppUrl}/widget.js" data-site-key="${settings.verifyToken}" async></script>`}</span>
@@ -1369,11 +1453,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   {copied === "website-embed" ? t("تم النسخ", "Copied") : t("نسخ الكود", "Copy code")}
                 </button>
               </div>
-              <ol>
-                <li>{t("افتح محرر موقعك (أو نظام إدارة المحتوى) وأضف الكود بالأعلى في كل الصفحات.", "Open your site editor (or CMS) and add the code above to every page.")}</li>
-                <li>{t("الزائر يكتب اسمه وبريده أول مرة، بعدها تظهر له نافذة الدردشة مباشرة.", "The visitor enters their name and email the first time, then the chat window appears directly.")}</li>
-                <li>{t("ردودك من هذه اللوحة تصل للزائر خلال ثوانٍ داخل نفس النافذة.", "Your replies from this dashboard reach the visitor within seconds, inside the same window.")}</li>
-              </ol>
             </div>
           ) : null}
           <div className="settings-form-head">
@@ -1719,6 +1798,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           </div> : null}
         </form>
       )}
+      </div>
+      </div>
+      ) : null}
     </section>
   );
 }
