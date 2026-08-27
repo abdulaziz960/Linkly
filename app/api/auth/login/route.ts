@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authCookieName, createSessionToken, getSubscriptionAccess } from "../../../../lib/auth";
-import { verifyUserCredentials } from "../../../../lib/database";
-import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
+import { recordUserLogin, verifyUserCredentials } from "../../../../lib/database";
+import { consumeRateLimit, getClientIp, requestIdentifier } from "../../../../lib/rate-limit";
 import { prisma } from "../../../../lib/prisma";
 
 export async function POST(request: NextRequest) {
@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ message: "بيانات الدخول غير صحيحة" }, { status: 401 });
   }
+  await recordUserLogin(user.id, getClientIp(request));
 
   const subscriptionAccess = user.isPlatformAdmin === 1 ? { expired: false } : await getSubscriptionAccess(user.tenantId);
   const shouldOnboard = !subscriptionAccess.expired && user.isPlatformAdmin !== 1 && user.role === "مالك الحساب";

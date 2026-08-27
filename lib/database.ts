@@ -78,6 +78,8 @@ export type UserAccount = {
   profileLogo: string;
   isPlatformAdmin: number;
   sessionVersion: number;
+  lastLoginAt: string;
+  lastLoginIp: string;
   createdAt: string;
 };
 
@@ -275,6 +277,8 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS is_platform_admin INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS profile_logo TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS last_login_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS last_login_ip TEXT NOT NULL DEFAULT ''`);
     for (const email of platformAdminEmails) {
       await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = $1`, email);
     }
@@ -782,6 +786,8 @@ async function runSchemaMigrations() {
     profile_logo TEXT NOT NULL DEFAULT '',
     is_platform_admin INTEGER NOT NULL DEFAULT 0,
     session_version INTEGER NOT NULL DEFAULT 0,
+    last_login_at TEXT NOT NULL DEFAULT '',
+    last_login_ip TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
   )`);
   const userAccountColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(user_accounts)`);
@@ -793,6 +799,12 @@ async function runSchemaMigrations() {
   }
   if (!userAccountColumns.some((column) => column.name === "profile_logo")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN profile_logo TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!userAccountColumns.some((column) => column.name === "last_login_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN last_login_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!userAccountColumns.some((column) => column.name === "last_login_ip")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN last_login_ip TEXT NOT NULL DEFAULT ''`);
   }
   for (const email of platformAdminEmails) {
     await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = ?`, email);
@@ -1865,17 +1877,30 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
 
 export async function getEmployees(tenantId = "tenant-demo"): Promise<Employee[]> {
   await ensureSeeded();
-  const rows = await prisma.employee.findMany({ where: { tenantId } });
+  const [rows, accounts] = await Promise.all([
+    prisma.employee.findMany({ where: { tenantId } }),
+    prisma.userAccount.findMany({
+      where: { tenantId },
+      select: { email: true, lastLoginAt: true, lastLoginIp: true }
+    })
+  ]);
+  const accountsByEmail = new Map(accounts.map((account) => [account.email.toLowerCase(), account]));
 
-  return rows.map((employee) => ({
-    id: employee.id,
-    name: employee.name,
-    role: employee.role as Employee["role"],
-    status: employee.status as Employee["status"],
-    permissions: employee.permissions,
-    email: employee.email,
-    initial: employee.initial
-  }));
+  return rows.map((employee) => {
+    const account = accountsByEmail.get(employee.email.toLowerCase());
+    return {
+      id: employee.id,
+      name: employee.name,
+      role: employee.role as Employee["role"],
+      status: employee.status as Employee["status"],
+      permissions: employee.permissions,
+      email: employee.email,
+      initial: employee.initial,
+      hasAccount: Boolean(account),
+      lastLoginAt: account?.lastLoginAt || "",
+      lastLoginIp: account?.lastLoginIp || ""
+    };
+  });
 }
 
 export async function getTeams(tenantId = "tenant-demo"): Promise<Team[]> {
@@ -2353,4 +2378,13 @@ export async function verifyUserCredentials(email: string, password: string): Pr
   const { passwordHash: _passwordHash, ...safeUser } = user;
   void _passwordHash;
   return safeUser;
+}
+
+export async function recordUserLogin(userId: string, ip: string) {
+  await prisma.userAccount.update({
+    where: { id: userId },
+    data: { lastLoginAt: new Date().toISOString(), lastLoginIp: ip }
+  }).catch(() => {
+    // Login already succeeded; losing this bookkeeping write shouldn't block sign-in.
+  });
 }

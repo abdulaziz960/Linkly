@@ -112,6 +112,9 @@ export type Employee = {
   permissions: string;
   email: string;
   initial: string;
+  hasAccount?: boolean;
+  lastLoginAt?: string;
+  lastLoginIp?: string;
 };
 
 export type Team = {

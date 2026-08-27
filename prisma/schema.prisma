@@ -288,6 +288,8 @@ model UserAccount {
   profileLogo     String @default("") @map("profile_logo")
   isPlatformAdmin Int    @default(0) @map("is_platform_admin")
   sessionVersion  Int    @default(0) @map("session_version")
+  lastLoginAt     String @default("") @map("last_login_at")
+  lastLoginIp     String @default("") @map("last_login_ip")
   createdAt       String @map("created_at")
 
   @@map("user_accounts")
