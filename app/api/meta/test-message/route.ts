@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getIntegrationSettings } from "../../../../lib/database";
+import { getIntegrationSettings, getTemplates } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { SECRET_MASK } from "../../../../lib/secret-storage";
@@ -17,18 +17,22 @@ export async function POST(request: NextRequest) {
       phoneNumberId?: string;
       accessToken?: string;
       to?: string;
-      message?: string;
+      templateName?: string;
     };
     const phoneNumberId = body.phoneNumberId?.trim() || settings.phoneNumberId;
     const bodyAccessToken = body.accessToken?.trim();
     const accessToken = (bodyAccessToken && bodyAccessToken !== SECRET_MASK ? bodyAccessToken : "") || settings.accessToken;
     const to = normalizeWhatsAppPhone(body.to || "");
-    const message = body.message?.trim() || "";
+    const templateName = body.templateName?.trim() || "";
 
     if (!phoneNumberId) return jsonError("Phone Number ID مطلوب قبل إرسال رسالة اختبار");
     if (!accessToken) return jsonError("Access Token مطلوب قبل إرسال رسالة اختبار");
     if (!to) return jsonError("رقم المستلم مطلوب");
-    if (!message) return jsonError("نص رسالة الاختبار مطلوب");
+    if (!templateName) return jsonError("اختر قالبًا معتمدًا للإرسال");
+
+    const templates = await getTemplates(user.tenantId);
+    const template = templates.find((item) => item.name === templateName && item.status === "معتمد");
+    if (!template) return jsonError("القالب المختار غير معتمد أو غير موجود");
 
     const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST",
@@ -39,10 +43,10 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         messaging_product: "whatsapp",
         to,
-        type: "text",
-        text: {
-          preview_url: false,
-          body: message
+        type: "template",
+        template: {
+          name: template.name,
+          language: { code: template.language || "ar" }
         }
       })
     });
@@ -58,7 +62,7 @@ export async function POST(request: NextRequest) {
         tenantId: user.tenantId,
         phone: to,
         name: `رقم اختبار ${to.slice(-4)}`,
-        text: message,
+        text: template.message || `[قالب] ${template.name}`,
         direction: "out",
         messageId: metaResponse?.messages?.[0]?.id,
         author: "Linkly"

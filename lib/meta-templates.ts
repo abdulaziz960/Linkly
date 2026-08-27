@@ -1,4 +1,5 @@
 import type { IntegrationSettings } from "../app/dashboard/types";
+import { prisma } from "./prisma";
 
 type TemplateComponentData = {
   category: string;
@@ -170,4 +171,118 @@ export async function deleteMetaTemplate(integration: IntegrationSettings, name:
   }
 
   return { ok: true };
+}
+
+const templateStatusMap: Record<string, string> = {
+  APPROVED: "معتمد",
+  PENDING: "قيد المراجعة",
+  REJECTED: "مرفوض",
+  PAUSED: "مرفوض",
+  DISABLED: "مرفوض"
+};
+
+function mapTemplateCategory(category: string) {
+  return category === "UTILITY" ? "خدمة" : "تسويق";
+}
+
+function templateComponentText(components: Array<{ type?: string; text?: string }> | undefined, type: string) {
+  return components?.find((component) => component.type === type)?.text || "";
+}
+
+function mapTemplateButtonType(type?: string) {
+  if (type === "PHONE_NUMBER") return "PHONE";
+  if (type === "URL") return "URL";
+  if (type === "QUICK_REPLY") return "QUICK_REPLY";
+  return "NONE";
+}
+
+// Pulls every template already approved on the WABA (including Meta's
+// built-in "hello_world" sample, which every WhatsApp Business Account has
+// pre-approved by default) into the local Template table, so a freshly
+// connected account has at least one usable template immediately instead of
+// waiting on a manual sync or a new template's review.
+export async function syncMetaTemplates(tenantId: string, wabaId: string, accessToken: string): Promise<{ ok: boolean; synced: number; error?: string }> {
+  if (!wabaId || !accessToken) return { ok: false, synced: 0, error: "بيانات ربط واتساب غير مكتملة" };
+
+  const url = new URL(`https://graph.facebook.com/v22.0/${wabaId}/message_templates`);
+  url.searchParams.set("fields", "id,name,status,category,language,components");
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+
+  if (!response.ok) {
+    return { ok: false, synced: 0, error: "تعذر جلب القوالب من Meta." };
+  }
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    data?: Array<{
+      id?: string;
+      name: string;
+      status?: string;
+      category?: string;
+      language?: string;
+      components?: Array<{ type?: string; text?: string; format?: string; buttons?: Array<{ text?: string; type?: string; phone_number?: string; url?: string }> }>;
+    }>;
+  };
+  const syncedAt = new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    numberingSystem: "latn",
+    calendar: "gregory",
+    timeZone: "Asia/Riyadh"
+  }).format(new Date());
+
+  for (const template of payload.data || []) {
+    const body = templateComponentText(template.components, "BODY") || "تمت المزامنة من Meta";
+    const footer = templateComponentText(template.components, "FOOTER");
+    const header = template.components?.find((component) => component.type === "HEADER");
+    const buttons = template.components?.find((component) => component.type === "BUTTONS")?.buttons || [];
+    const firstButton = buttons[0];
+    const category = template.category || "MARKETING";
+    const buttonType = mapTemplateButtonType(firstButton?.type);
+
+    await prisma.template.upsert({
+      where: { name_tenantId: { name: template.name, tenantId } },
+      update: {
+        message: body,
+        type: mapTemplateCategory(category),
+        category,
+        language: template.language || "ar",
+        status: templateStatusMap[template.status || "PENDING"] || "قيد المراجعة",
+        headerType: header?.format || "NONE",
+        headerText: header?.text || "",
+        footer,
+        buttonType,
+        buttonText: firstButton?.text || "",
+        buttonPhone: firstButton?.phone_number || "",
+        buttonUrl: firstButton?.url || "",
+        metaId: template.id || "",
+        syncedAt
+      },
+      create: {
+        id: `tmpl-${tenantId}-${template.name}`,
+        tenantId,
+        name: template.name,
+        message: body,
+        type: mapTemplateCategory(category),
+        category,
+        language: template.language || "ar",
+        status: templateStatusMap[template.status || "PENDING"] || "قيد المراجعة",
+        headerType: header?.format || "NONE",
+        headerText: header?.text || "",
+        headerMedia: "",
+        footer,
+        buttonType,
+        buttonText: firstButton?.text || "",
+        buttonPhone: firstButton?.phone_number || "",
+        buttonUrl: firstButton?.url || "",
+        metaId: template.id || "",
+        syncedAt,
+        lastUsed: "-"
+      }
+    });
+  }
+
+  return { ok: true, synced: payload.data?.length || 0 };
 }

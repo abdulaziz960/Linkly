@@ -3,6 +3,7 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
+import { syncMetaTemplates } from "../../../../lib/meta-templates";
 
 const techProviderMetaAppId = "1296230909161568";
 
@@ -342,6 +343,13 @@ export async function GET(request: NextRequest) {
         }).format(new Date())
       }
     });
+
+    if (accessToken && effectiveWabaId) {
+      // Pulls in any templates already approved on the WABA (including
+      // Meta's built-in "hello_world" sample every account gets by default)
+      // so a freshly connected tenant has a usable template immediately.
+      await syncMetaTemplates(user.tenantId, effectiveWabaId, accessToken).catch(() => null);
+    }
 
     if (wantsJson) {
       return NextResponse.json({

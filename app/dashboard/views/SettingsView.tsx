@@ -279,7 +279,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [copied, setCopied] = useState("");
   const [wizardStep, setWizardStep] = useState(1);
   const [testRecipient, setTestRecipient] = useState("");
-  const [testMessage, setTestMessage] = useState("");
+  const [testTemplateName, setTestTemplateName] = useState("");
+  const [testTemplates, setTestTemplates] = useState<Array<{ name: string; message: string }>>([]);
   const [testSending, setTestSending] = useState(false);
   const [testFeedback, setTestFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [businessProfile, setBusinessProfile] = useState({ about: "", address: "", description: "", email: "", vertical: "", website1: "", website2: "" });
@@ -327,6 +328,23 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       void loadBusinessProfile();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWhatsApp, settings.status]);
+
+  useEffect(() => {
+    if (!isWhatsApp || settings.status !== "connected") return;
+    let cancelled = false;
+    fetch("/api/templates")
+      .then((response) => response.json())
+      .then((result: { ok: boolean; data?: Array<{ name: string; message: string; status?: string }> }) => {
+        if (cancelled || !result?.ok) return;
+        const approved = (result.data || []).filter((template) => template.status === "معتمد");
+        setTestTemplates(approved.map((template) => ({ name: template.name, message: template.message })));
+        setTestTemplateName((current) => current || approved[0]?.name || "");
+      })
+      .catch(() => null);
+    return () => {
+      cancelled = true;
+    };
   }, [isWhatsApp, settings.status]);
 
   useEffect(() => {
@@ -671,8 +689,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           ? "Access Token"
           : !testRecipient.trim()
             ? t("رقم المستلم", "Recipient number")
-            : !testMessage.trim()
-              ? t("نص الرسالة", "Message text")
+            : !testTemplateName.trim()
+              ? t("القالب", "Template")
               : "";
 
     if (missingField) {
@@ -691,7 +709,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           phoneNumberId: settings.phoneNumberId,
           accessToken: settings.accessToken,
           to: testRecipient,
-          message: testMessage
+          templateName: testTemplateName
         })
       });
       const result = await response.json().catch(() => null);
@@ -1559,7 +1577,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <div>
               <h3>{t("تجربة رقم التست", "Test number trial")}</h3>
               <p>{t("أضف رقمك في قائمة أرقام الاختبار داخل Meta، ثم أرسل رسالة للتأكد من الإرسال والاستقبال.", "Add your number to the test number list in Meta, then send a message to confirm sending and receiving work.")}</p>
-              <p className="meta-test-warning">{t("⚠️ واتساب لا يسلّم رسائل نصية حرة إلا لأرقام راسلت رقم الأعمال أولاً خلال آخر 24 ساعة. إذا الرقم المستلم ما راسلك قبل، خلّه يرسل لك أي رسالة أولاً ثم جرّب مرة ثانية — وإلا الإرسال يظهر ناجحًا هنا لكن الرسالة ما توصله فعليًا.", "⚠️ WhatsApp only delivers free-form text messages to numbers that messaged your business number first within the last 24 hours. If the recipient hasn't messaged you before, have them send you any message first, then try again — otherwise this will show as sent here but the message won't actually reach them.")}</p>
+              <p className="meta-test-warning">{t("ℹ️ الإرسال هنا يستخدم قالبًا معتمدًا، فيقدر يبدأ محادثة حتى لو الرقم المستلم ما راسلك قبل (بخلاف الرسائل النصية الحرة اللي تحتاج تواصل سابق خلال 24 ساعة).", "ℹ️ Sending here uses an approved template, so it can start a conversation even if the recipient hasn't messaged you before (unlike free-form text, which needs prior contact within 24 hours).")}</p>
             </div>
             <div className="meta-test-grid">
               <label>
@@ -1573,12 +1591,20 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 />
               </label>
               <label>
-                {t("نص الرسالة", "Message text")}
-                <textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} />
+                {t("القالب", "Template")}
+                {testTemplates.length ? (
+                  <select value={testTemplateName} onChange={(event) => setTestTemplateName(event.target.value)}>
+                    {testTemplates.map((template) => (
+                      <option key={template.name} value={template.name}>{template.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <small className="field-hint">{t("ما فيه قوالب معتمدة بعد — زامن القوالب من صفحة القوالب.", "No approved templates yet — sync templates from the Templates page.")}</small>
+                )}
               </label>
             </div>
             <div className="meta-test-actions">
-              <button className="primary-action" disabled={testSending || !testRecipient.trim()} type="button" onClick={sendTestMessage}>
+              <button className="primary-action" disabled={testSending || !testRecipient.trim() || !testTemplateName.trim()} type="button" onClick={sendTestMessage}>
                 {testSending ? t("جاري الإرسال...", "Sending...") : t("إرسال رسالة اختبار", "Send test message")}
               </button>
               <small>{t("الاستقبال يحتاج أن يكون الويبهوك مفعّلًا على رابط الاستضافة.", "Receiving requires the webhook to be active on your hosting URL.")}</small>
