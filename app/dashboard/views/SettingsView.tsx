@@ -321,7 +321,17 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const isConnected = isGmail
     ? oauthEmailStatus?.status === "connected" && oauthEmailStatus.provider === selectedChannel
     : settings.status === "connected";
-  const showIntegrationData = (isTelegram || isGoogleMaps || isEmail || isWebsite ? wizardStep >= 4 : wizardStep >= 3) || isConnected;
+  // WhatsApp/Instagram/Facebook are pure OAuth - there's nothing to enter
+  // manually before connecting, so the data/webhook section only appears
+  // once the OAuth round trip actually finishes (isConnected). Clicking
+  // Connect should go straight to the Meta window, not to a form.
+  const showIntegrationData = (
+    isTelegram || isGoogleMaps || isEmail || isWebsite
+      ? wizardStep >= 4
+      : isFacebook || isInstagram || isWhatsApp
+        ? false
+        : wizardStep >= 3
+  ) || isConnected;
   // Gmail hides the manual Webhook setup UI once OAuth is actually connected.
   const hideManualEmailSetup = isGmail && isConnected;
 
