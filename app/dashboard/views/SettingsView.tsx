@@ -101,8 +101,12 @@ function getWizardSteps(t: TFn) {
 }
 
 export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "x" | "email" | "gmail" | "google_maps" | "tiktok" | "sms";
+// The channel picker/wizard never selects the raw "email" record directly —
+// Gmail is the only UI-facing channel for it (see apiChannel()) — so the
+// selectable subset excludes it.
+type SelectableChannelId = Exclude<ChannelId, "email">;
 
-function getChannels(t: TFn): Array<{ id: ChannelId; title: string; description: string; active: boolean }> {
+function getChannels(t: TFn): Array<{ id: SelectableChannelId; title: string; description: string; active: boolean }> {
   return [
     { id: "whatsapp", title: t("واتساب", "WhatsApp"), description: t("ادعم عملاءك عبر واتساب", "Support your customers on WhatsApp"), active: true },
     { id: "facebook", title: t("فيسبوك", "Facebook"), description: t("اربط صفحتك على فيسبوك", "Connect your Facebook page"), active: true },
@@ -260,7 +264,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const channels = useMemo(() => getChannels(t), [t]);
   const wizardSteps = useMemo(() => getWizardSteps(t), [t]);
   const [settings, setSettings] = useState<IntegrationSettings>(emptySettings);
-  const [selectedChannel, setSelectedChannel] = useState<"whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "gmail" | "website" | "tiktok" | "sms">(() => {
+  const [selectedChannel, setSelectedChannel] = useState<SelectableChannelId>(() => {
     // Popups fall back to a full-page redirect (e.g. "?meta=tiktok-callback")
     // when window.opener isn't available instead of just closing themselves,
     // so land on the channel that was actually just connected instead of
@@ -292,6 +296,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [channelBotEnabled, setChannelBotEnabled] = useState(false);
   const [channelBotLoading, setChannelBotLoading] = useState(false);
   const [showWebhookToken, setShowWebhookToken] = useState(false);
+  const [overviewStatuses, setOverviewStatuses] = useState<Partial<Record<ChannelId, IntegrationSettings>>>({});
+  const [overviewLoading, setOverviewLoading] = useState(true);
   const metaSignupDataRef = useRef<MetaSignupData>({});
   const hasSelectedChannelRef = useRef(false);
   const isInstagram = selectedChannel === "instagram";
@@ -336,6 +342,67 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       .then((data) => setOauthEmailStatus(data))
       .catch(() => {});
   }, [isGmail]);
+
+  // Overview list at the top of the page ("القنوات المربوطة") needs the
+  // connection status of every channel at once, not just the one currently
+  // selected in the wizard below — fetch them all in parallel on mount.
+  useEffect(() => {
+    let cancelled = false;
+    setOverviewLoading(true);
+    Promise.all(
+      channels.map((channel) =>
+        fetch(`/api/settings/integration?channel=${apiChannel(channel.id)}`)
+          .then((response) => (response.ok ? response.json() : null))
+          .then((data: IntegrationSettings | null) => [channel.id, data] as const)
+          .catch(() => [channel.id, null] as const)
+      )
+    ).then((entries) => {
+      if (cancelled) return;
+      const map: Partial<Record<ChannelId, IntegrationSettings>> = {};
+      entries.forEach(([id, data]) => {
+        if (data) map[id] = data;
+      });
+      setOverviewStatuses(map);
+      setOverviewLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep the overview row for the channel currently open in the wizard in
+  // sync the moment it connects/disconnects, without waiting on a refetch.
+  useEffect(() => {
+    setOverviewStatuses((current) => ({ ...current, [selectedChannel]: settings }));
+  }, [selectedChannel, settings]);
+
+  const overviewGmailAddress = isGmail ? oauthEmailStatus?.emailAddress : undefined;
+  const isChannelConnected = (channel: ChannelId) => {
+    if (channel === "gmail") {
+      return channel === selectedChannel ? isConnected : overviewStatuses.gmail?.status === "connected";
+    }
+    return overviewStatuses[channel]?.status === "connected";
+  };
+  const connectedOverviewChannels = channels.filter((channel) => isChannelConnected(channel.id));
+  const comingSoonChannels: Array<{ id: string; title: string }> = [
+    { id: "linkedin", title: t("لينكد إن", "LinkedIn") },
+    { id: "youtube", title: t("يوتيوب", "YouTube") }
+  ];
+
+  function goToChannelSetup(channelId: SelectableChannelId) {
+    setSelectedChannel(channelId);
+    setWizardStep(
+      channelId === "instagram" || channelId === "facebook" || channelId === "telegram" || channelId === "x" || channelId === "tiktok" || channelId === "sms" || channelId === "whatsapp" || channelId === "google_maps"
+        ? 3
+        : 4
+    );
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        document.getElementById("channel-wizard-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }
 
   const webhookUrl = useMemo(() => {
     if (typeof window === "undefined") return settings.webhookUrl;
@@ -1192,7 +1259,90 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   return (
     <section className="page-stack settings-page">
-      <div className={`settings-onboarding ${isConnected ? "connected" : ""}`}>
+      <div className="channels-overview">
+        <div className="channels-overview-head">
+          <div>
+            <h2>{t("القنوات", "Channels")}</h2>
+            <p>{t("اربط حساباتك على وسائل التواصل لينشر الذكاء الصناعي بدلاً عنك", "Connect your social accounts so the AI agent can respond on your behalf")}</p>
+          </div>
+          <button type="button" className="btn primary channels-overview-add" onClick={() => goToChannelSetup(selectedChannel)}>
+            <span aria-hidden="true">+</span>
+            {t("اربط قناة جديدة", "Connect a new channel")}
+          </button>
+        </div>
+
+        <div className="channels-overview-list">
+          <div className="channels-overview-list-title">
+            {t("القنوات المربوطة", "Connected channels")}
+            <span>{connectedOverviewChannels.length}</span>
+          </div>
+
+          {overviewLoading ? (
+            <p className="channels-overview-empty">{t("جاري تحميل القنوات...", "Loading channels...")}</p>
+          ) : connectedOverviewChannels.length === 0 ? (
+            <p className="channels-overview-empty">{t("لا توجد قنوات مربوطة بعد — اختر قناة من الأسفل لربطها.", "No channels connected yet — pick one below to connect it.")}</p>
+          ) : (
+            connectedOverviewChannels.map((channel) => {
+              const data = overviewStatuses[channel.id];
+              const handle =
+                channel.id === "gmail"
+                  ? overviewGmailAddress
+                  : data?.phoneNumber || data?.wabaName || data?.businessName;
+              const lastSync = data?.updatedAt && data.updatedAt !== "-" ? data.updatedAt : t("—", "—");
+
+              return (
+                <div className="channel-row" key={channel.id}>
+                  <span className={`channel-icon channel-icon-${channel.id}`}>
+                    <ChannelIcon id={channel.id} />
+                  </span>
+                  <div className="channel-row-info">
+                    <b>{channel.title}</b>
+                    {handle ? <span dir="ltr">{handle}</span> : null}
+                  </div>
+                  <span className="channel-row-status connected">{t("متصل", "Connected")}</span>
+                  <span className="channel-row-sync">{t("آخر مزامنة", "Last sync")}: {lastSync}</span>
+                  <button type="button" className="channel-row-settings" onClick={() => goToChannelSetup(channel.id)}>
+                    <span aria-hidden="true">⚙️</span>
+                    {t("إعدادات القناة", "Channel settings")}
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="channels-overview-grid">
+          <div className="channels-overview-list-title">{t("ربط قناة جديدة", "Connect a new channel")}</div>
+          <div className="channel-connect-grid">
+            {channels.map((channel) => {
+              const connected = isChannelConnected(channel.id);
+              return (
+                <div className="channel-connect-card" key={channel.id}>
+                  <span className={`channel-icon channel-icon-${channel.id}`}>
+                    <ChannelIcon id={channel.id} />
+                  </span>
+                  <b>{channel.title}</b>
+                  <small>{channel.description}</small>
+                  <button type="button" className={connected ? "connected" : ""} onClick={() => goToChannelSetup(channel.id)}>
+                    {connected ? t("متصل — إدارة", "Connected — manage") : t("ربط", "Connect")}
+                  </button>
+                </div>
+              );
+            })}
+
+            {comingSoonChannels.map((channel) => (
+              <div className="channel-connect-card locked" key={channel.id}>
+                <span className="channel-icon channel-icon-locked" aria-hidden="true">🔒</span>
+                <b>{channel.title}</b>
+                <small>{t("قريباً", "Coming soon")}</small>
+                <button type="button" disabled>{t("قريباً", "Coming soon")}</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div id="channel-wizard-anchor" className={`settings-onboarding ${isConnected ? "connected" : ""}`}>
         {!isConnected ? (
           <aside className="meta-wizard-rail settings-rail">
             {(isWebsite || isEmail
