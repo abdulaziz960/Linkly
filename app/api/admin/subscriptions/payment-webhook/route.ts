@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ensureSchema } from "../../../../../lib/database";
 import { prisma } from "../../../../../lib/prisma";
 import { verifyMoyasarWebhookSecret } from "../../../../../lib/moyasar";
-import { logAdminAction } from "../../../../../lib/subscriptions";
+import { applyConfirmedSubscriptionPayment, logAdminAction } from "../../../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -35,26 +35,7 @@ export async function POST(request: NextRequest) {
 
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: payment.tenantId } });
   if (subscription) {
-    const renewalAt = new Date();
-    renewalAt.setMonth(renewalAt.getMonth() + 1);
-
-    const activated = await prisma.$transaction(async (tx) => {
-      const claimed = await tx.subscriptionPayment.updateMany({
-        where: { id: payment.id, status: { not: "مكتمل" } },
-        data: { status: "مكتمل", completedAt: new Date().toISOString() }
-      });
-      if (claimed.count !== 1) return false;
-      await tx.subscription.update({
-        where: { tenantId: payment.tenantId },
-        data: {
-          status: "نشط",
-          renewalAt: renewalAt.toISOString().slice(0, 10),
-          updatedAt: new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", numberingSystem: "latn", calendar: "gregory" }).format(new Date())
-        }
-      });
-      return true;
-    });
-
+    const { activated } = await applyConfirmedSubscriptionPayment(payment.id);
     if (!activated) return NextResponse.json({ ok: true, alreadyProcessed: true });
 
     await logAdminAction(payment.tenantId, subscription.companyName, `تم استلام دفعة اشتراك بقيمة ${payment.amount} ر.س عبر Moyasar، وتم تجديد الاشتراك.`);

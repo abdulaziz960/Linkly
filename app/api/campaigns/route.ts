@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
 import { getCampaigns } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
   if (!recipients.length) return jsonError("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.");
 
   const isScheduledFuture = scheduled && scheduledAt && new Date(scheduledAt).getTime() > Date.now();
-  const campaignId = `camp-${Date.now()}`;
+  const campaignId = `camp-${randomUUID()}`;
 
   await prisma.$transaction(async (tx) => {
     await tx.campaign.create({

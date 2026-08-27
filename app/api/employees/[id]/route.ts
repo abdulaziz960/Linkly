@@ -27,7 +27,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     permissions?: string;
   };
   const name = body.name?.trim();
-  const email = body.email?.trim();
+  const email = body.email?.trim().toLowerCase();
+  const role = body.role || "موظف دعم";
 
   if (!name) return jsonError("اسم الموظف مطلوب");
   if (!email) return jsonError("البريد الإلكتروني مطلوب");
@@ -40,17 +41,47 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (!existingEmployee || existingEmployee.tenantId !== user.tenantId) {
       return jsonError("تعذر تحديث الموظف", 404);
     }
+    // Only the account owner may modify the owner's own record - otherwise
+    // any employee with employees-management access could demote or
+    // reassign the owner.
+    if (existingEmployee.role === "مالك الحساب" && user.role !== "مالك الحساب") {
+      return jsonError("لا يمكن تعديل حساب مالك الحساب", 403);
+    }
 
-    const employee = await prisma.employee.update({
-      where: { id },
-      data: {
-        name,
-        email,
-        role: body.role || "موظف دعم",
-        status: body.status || "متصل",
-        permissions: body.permissions || "محادثات فقط",
-        initial: name.slice(0, 1)
+    if (email !== existingEmployee.email) {
+      const emailTakenByEmployee = await prisma.employee.findFirst({
+        where: { email, tenantId: user.tenantId, NOT: { id } }
+      });
+      if (emailTakenByEmployee) return jsonError("يوجد موظف آخر مسجل بهذا البريد الإلكتروني", 409);
+
+      const emailTakenByAccount = await prisma.userAccount.findUnique({ where: { email } });
+      if (emailTakenByAccount && emailTakenByAccount.tenantId !== user.tenantId) {
+        return jsonError("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة", 409);
       }
+    }
+
+    const employee = await prisma.$transaction(async (tx) => {
+      const updated = await tx.employee.update({
+        where: { id },
+        data: {
+          name,
+          email,
+          role,
+          status: body.status || "متصل",
+          permissions: body.permissions || "محادثات فقط",
+          initial: name.slice(0, 1)
+        }
+      });
+
+      // Keep the linked login account (matched by the employee's previous
+      // email) in sync so role/name/email changes actually take effect on
+      // the next session refresh instead of silently drifting apart.
+      await tx.userAccount.updateMany({
+        where: { email: existingEmployee.email, tenantId: user.tenantId },
+        data: { name, email, role }
+      });
+
+      return updated;
     });
 
     return jsonOk(employee);
@@ -69,11 +100,20 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
     const employee = await prisma.employee.findUnique({ where: { id } });
     if (!employee || employee.tenantId !== user.tenantId) return jsonError("تعذر حذف الموظف", 404);
+    // Only the account owner may delete the owner's own record - otherwise
+    // any employee with employees-management access could remove the owner
+    // (and, via the linked-account cleanup below, their login) outright.
+    if (employee.role === "مالك الحساب" && user.role !== "مالك الحساب") {
+      return jsonError("لا يمكن حذف حساب مالك الحساب", 403);
+    }
 
     await prisma.$transaction([
       prisma.teamMember.deleteMany({ where: { employeeId: id } }),
       prisma.employeeInvite.deleteMany({ where: { email: employee.email } }),
-      prisma.userAccount.deleteMany({ where: { email: employee.email } }),
+      // Scoped by tenantId too, not just email: email is globally unique on
+      // UserAccount today, but this keeps the delete tenant-safe even if
+      // that ever changes or a stale/duplicate row exists.
+      prisma.userAccount.deleteMany({ where: { email: employee.email, tenantId: user.tenantId } }),
       prisma.employee.delete({ where: { id } })
     ]);
 

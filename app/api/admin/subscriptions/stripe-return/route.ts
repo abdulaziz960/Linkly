@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ensureSchema } from "../../../../../lib/database";
 import { prisma } from "../../../../../lib/prisma";
 import { retrieveStripeCheckoutSession } from "../../../../../lib/stripe";
-import { logAdminAction } from "../../../../../lib/subscriptions";
+import { applyConfirmedSubscriptionPayment, logAdminAction } from "../../../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -32,31 +32,10 @@ export async function GET(request: NextRequest) {
     try {
       const session = await retrieveStripeCheckoutSession(sessionId);
       if (session.paymentStatus === "paid") {
-        await prisma.subscriptionPayment.update({
-          where: { id: paymentId },
-          data: { status: "مكتمل", completedAt: new Date().toISOString() }
-        });
-
         const subscription = await prisma.subscription.findUnique({ where: { tenantId: payment.tenantId } });
-        if (subscription) {
-          const renewalAt = new Date();
-          renewalAt.setMonth(renewalAt.getMonth() + 1);
+        const { activated } = await applyConfirmedSubscriptionPayment(payment.id);
 
-          await prisma.subscription.update({
-            where: { tenantId: payment.tenantId },
-            data: {
-              status: "نشط",
-              renewalAt: renewalAt.toISOString().slice(0, 10),
-              updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
-                dateStyle: "medium",
-                timeStyle: "short",
-                timeZone: "Asia/Riyadh",
-                numberingSystem: "latn",
-                calendar: "gregory"
-              }).format(new Date())
-            }
-          });
-
+        if (activated && subscription) {
           await logAdminAction(
             payment.tenantId,
             subscription.companyName,

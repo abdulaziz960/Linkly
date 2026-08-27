@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { prisma } from "../../../../../lib/prisma";
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     return jsonError("بوابة الدفع غير مفعّلة بعد. أضف MOYASAR_SECRET_KEY في متغيرات البيئة لتفعيل الشحن الفعلي.", 503);
   }
 
-  const paymentId = `pay-${Date.now()}`;
+  const paymentId = `pay-${randomUUID()}`;
 
   try {
     const invoice = await createMoyasarInvoice({

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
 import { getWorkSchedules } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
   if (!body.team?.trim()) return jsonError("الفريق مطلوب");
   const schedule = await prisma.workSchedule.create({
     data: {
-      id: `wh-${Date.now()}`,
+      id: `wh-${randomUUID()}`,
       tenantId: user.tenantId,
       team: body.team.trim(),
       days: body.days?.trim() || "الأحد - الخميس",

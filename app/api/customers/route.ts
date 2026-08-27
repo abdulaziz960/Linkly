@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
 import { getCustomers } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
   if (!name) return jsonError("اسم العميل مطلوب");
   if (!phone) return jsonError("رقم الجوال مطلوب");
 
-  const id = `c-${Date.now()}`;
+  const id = `c-${randomUUID()}`;
   const customer = await prisma.$transaction(async (tx) => {
     const created = await tx.customer.create({
       data: {

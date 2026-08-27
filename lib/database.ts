@@ -279,6 +279,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS profile_logo TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS last_login_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS last_login_ip TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'employee_activation'`);
     for (const email of platformAdminEmails) {
       await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = $1`, email);
     }
@@ -421,6 +422,11 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS payment_url TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS created_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS completed_at TEXT NOT NULL DEFAULT ''`);
+    // The plan a checkout is upgrading to is staged here rather than
+    // written straight to subscriptions.plan/employee_limit, so a tenant
+    // only gets the new plan's benefits once payment actually confirms.
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_name TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_employee_limit INTEGER NOT NULL DEFAULT 0`);
     return;
   }
 
@@ -814,8 +820,13 @@ async function runSchemaMigrations() {
     email TEXT NOT NULL,
     token_hash TEXT NOT NULL UNIQUE,
     expires_at TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    purpose TEXT NOT NULL DEFAULT 'employee_activation'
   )`);
+  const employeeInviteColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(employee_invites)`);
+  if (!employeeInviteColumns.some((column) => column.name === "purpose")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN purpose TEXT NOT NULL DEFAULT 'employee_activation'`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS provider_clients (
     id TEXT PRIMARY KEY,
     company TEXT NOT NULL,
@@ -884,8 +895,17 @@ async function runSchemaMigrations() {
     moyasar_id TEXT NOT NULL DEFAULT '',
     payment_url TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
-    completed_at TEXT NOT NULL DEFAULT ''
+    completed_at TEXT NOT NULL DEFAULT '',
+    plan_name TEXT NOT NULL DEFAULT '',
+    plan_employee_limit INTEGER NOT NULL DEFAULT 0
   )`);
+  const subscriptionPaymentColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(subscription_payments)`);
+  if (!subscriptionPaymentColumns.some((column) => column.name === "plan_name")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN plan_name TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!subscriptionPaymentColumns.some((column) => column.name === "plan_employee_limit")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN plan_employee_limit INTEGER NOT NULL DEFAULT 0`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS bot_settings (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL UNIQUE,

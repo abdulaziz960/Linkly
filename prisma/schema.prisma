@@ -301,6 +301,12 @@ model EmployeeInvite {
   tokenHash String @unique @map("token_hash")
   expiresAt String @map("expires_at")
   createdAt String @map("created_at")
+  // "employee_activation" (also used for tenant-owner onboarding and
+  // platform-admin invites - all three set a first password on a brand-new
+  // account) or "password_reset" (sets a new password on an existing,
+  // already-activated account). /api/auth/activate enforces that a token
+  // can only be consumed for the account state its purpose implies.
+  purpose   String @default("employee_activation")
 
   @@map("employee_invites")
 }
@@ -385,14 +391,18 @@ model Subscription {
 }
 
 model SubscriptionPayment {
-  id          String @id
-  tenantId    String @map("tenant_id")
-  amount      Float
-  status      String @default("قيد الانتظار")
-  moyasarId   String @default("") @map("moyasar_id")
-  paymentUrl  String @default("") @map("payment_url")
-  createdAt   String @map("created_at")
-  completedAt String @default("") @map("completed_at")
+  id                String @id
+  tenantId          String @map("tenant_id")
+  amount            Float
+  status            String @default("قيد الانتظار")
+  moyasarId         String @default("") @map("moyasar_id")
+  paymentUrl        String @default("") @map("payment_url")
+  createdAt         String @map("created_at")
+  completedAt       String @default("") @map("completed_at")
+  // Target plan staged at checkout; applied to Subscription only once this
+  // payment is confirmed paid, so benefits never precede payment.
+  planName          String @default("") @map("plan_name")
+  planEmployeeLimit Int    @default(0) @map("plan_employee_limit")
 
   @@map("subscription_payments")
 }

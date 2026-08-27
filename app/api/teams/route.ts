@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
 import { getTeams } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   const team = await prisma.team.create({
     data: {
-      id: `team-${Date.now()}`,
+      id: `team-${randomUUID()}`,
       tenantId: user.tenantId,
       name,
       lead: body.lead?.trim() || "",

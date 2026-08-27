@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 
@@ -42,7 +43,7 @@ export async function createPlan(input: CreatePlanInput) {
 
   return prisma.plan.create({
     data: {
-      id: `plan-${Date.now()}`,
+      id: `plan-${randomUUID()}`,
       name,
       monthlyPrice: Math.round(input.monthlyPrice),
       employeeLimit: Math.round(input.employeeLimit),

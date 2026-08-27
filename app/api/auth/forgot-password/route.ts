@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { prisma } from "../../../../lib/prisma";
 import { sendActivationEmail } from "../../../../lib/email";
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
@@ -38,11 +38,12 @@ export async function POST(request: NextRequest) {
     prisma.employeeInvite.deleteMany({ where: { email } }),
     prisma.employeeInvite.create({
       data: {
-        id: `reset-${Date.now()}`,
+        id: `reset-${randomUUID()}`,
         email,
         tokenHash,
         expiresAt,
-        createdAt: now.toISOString()
+        createdAt: now.toISOString(),
+        purpose: "password_reset"
       }
     })
   ]);

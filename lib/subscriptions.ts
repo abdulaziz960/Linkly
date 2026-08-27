@@ -69,10 +69,51 @@ export async function getSubscriptionPayments() {
   return [...subscriptionRows, ...campaignRows].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 }
 
+/**
+ * Marks a subscription payment as completed and applies its staged plan to
+ * the tenant's live subscription - the ONLY place upgraded benefits
+ * (plan name, employee limit) get written. Called from both the real
+ * Moyasar webhook and the dev-only test-mode confirm route so they can't
+ * drift apart. Idempotent: a second call for an already-completed payment
+ * is a no-op (returns activated: false) via a compare-and-swap update, so
+ * a redelivered webhook or a double confirm click can't double-renew.
+ */
+export async function applyConfirmedSubscriptionPayment(paymentId: string): Promise<{ activated: boolean }> {
+  const payment = await prisma.subscriptionPayment.findUnique({ where: { id: paymentId } });
+  if (!payment) return { activated: false };
+
+  const renewalAt = new Date();
+  renewalAt.setMonth(renewalAt.getMonth() + 1);
+
+  const activated = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.subscriptionPayment.updateMany({
+      where: { id: payment.id, status: { not: "مكتمل" } },
+      data: { status: "مكتمل", completedAt: new Date().toISOString() }
+    });
+    if (claimed.count !== 1) return false;
+
+    await tx.subscription.update({
+      where: { tenantId: payment.tenantId },
+      data: {
+        status: "نشط",
+        renewalAt: renewalAt.toISOString().slice(0, 10),
+        updatedAt: nowTimestamp(),
+        // Only overwrite plan/employeeLimit if this payment actually staged
+        // an upgrade (planName non-empty) - a plain renewal payment leaves
+        // the current plan as-is.
+        ...(payment.planName ? { plan: payment.planName, employeeLimit: payment.planEmployeeLimit } : {})
+      }
+    });
+    return true;
+  });
+
+  return { activated };
+}
+
 export async function logAdminAction(tenantId: string, clientName: string, message: string, level: "معلومة" | "تنبيه" | "خطأ" = "معلومة") {
   await prisma.adminLog.create({
     data: {
-      id: `log-${Date.now()}-${randomUUID().slice(0, 6)}`,
+      id: `log-${randomUUID()}`,
       at: nowTimestamp(),
       clientId: tenantId,
       clientName,
@@ -110,7 +151,7 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
   if (existingAccount) throw new Error("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة");
 
   const tenantId = `tenant-${randomUUID()}`;
-  const employeeId = `emp-${Date.now()}`;
+  const employeeId = `emp-${randomUUID()}`;
   const userId = `user-${employeeId}`;
   const planRow = await prisma.plan.findUnique({ where: { name: input.plan } });
   const employeeLimit = planRow?.employeeLimit ?? planEmployeeLimits[input.plan] ?? planEmployeeLimits["باقة النمو"];
@@ -147,10 +188,11 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
 
     await tx.employeeInvite.create({
       data: {
-        id: `invite-${Date.now()}`,
+        id: `invite-${randomUUID()}`,
         email,
         tokenHash,
         expiresAt,
+        purpose: "employee_activation",
         createdAt: new Date().toISOString()
       }
     });
@@ -175,7 +217,7 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
 
     await tx.adminLog.create({
       data: {
-        id: `log-${Date.now()}`,
+        id: `log-${randomUUID()}`,
         at: now,
         clientId: tenantId,
         clientName: input.companyName,
@@ -243,19 +285,54 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
 }
 
 /**
- * Permanently deletes a client: their subscription, login account, employee
- * record, pending invites, payment history, and activity log. Used for
- * removing test/mistaken accounts - there is no undo.
+ * Permanently deletes every piece of data belonging to a tenant: their
+ * subscription, login accounts, employees, teams, conversations/messages,
+ * customers, campaigns, templates, quick replies, automations, bot config,
+ * connected-channel settings, work schedules, tags, pending invites,
+ * payment history, and activity log. Used for removing test/mistaken
+ * accounts - there is no undo.
  */
 export async function deleteTenant(tenantId: string) {
   await ensureSchema();
   const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
   if (!subscription) throw new Error("الاشتراك غير موجود");
 
+  const employees = await prisma.employee.findMany({ where: { tenantId }, select: { email: true } });
+  const employeeEmails = Array.from(new Set([subscription.ownerEmail, ...employees.map((employee) => employee.email)]));
+  const integrationIdPrefix = `${tenantId}:`;
+
   await prisma.$transaction([
+    // Conversations/customers - children before parents.
+    prisma.message.deleteMany({ where: { conversation: { tenantId } } }),
+    prisma.conversationTag.deleteMany({ where: { conversation: { tenantId } } }),
+    prisma.conversation.deleteMany({ where: { tenantId } }),
+    prisma.customer.deleteMany({ where: { tenantId } }),
+    // Campaigns.
+    prisma.campaignRecipient.deleteMany({ where: { tenantId } }),
+    prisma.campaignPayment.deleteMany({ where: { tenantId } }),
+    prisma.campaignBalance.deleteMany({ where: { tenantId } }),
+    prisma.campaign.deleteMany({ where: { tenantId } }),
+    // Tags, templates, quick replies.
+    prisma.tag.deleteMany({ where: { tenantId } }),
+    prisma.template.deleteMany({ where: { tenantId } }),
+    prisma.quickReply.deleteMany({ where: { tenantId } }),
+    // Automations and bot config.
+    prisma.automationQueueItem.deleteMany({ where: { tenantId } }),
+    prisma.automationRule.deleteMany({ where: { tenantId } }),
+    prisma.botNode.deleteMany({ where: { tenantId } }),
+    prisma.botSettings.deleteMany({ where: { tenantId } }),
+    // Work hours and connected-channel settings (no tenantId column - these
+    // use "<tenantId>:<provider>" composite ids, see getTenantIntegrationId).
+    prisma.workSchedule.deleteMany({ where: { tenantId } }),
+    prisma.integrationSetting.deleteMany({ where: { id: { startsWith: integrationIdPrefix } } }),
+    prisma.emailIntegration.deleteMany({ where: { id: { startsWith: integrationIdPrefix } } }),
+    // Teams - members before the team/employee rows they reference.
+    prisma.teamMember.deleteMany({ where: { team: { tenantId } } }),
+    prisma.team.deleteMany({ where: { tenantId } }),
+    // People and billing history last.
     prisma.subscriptionPayment.deleteMany({ where: { tenantId } }),
     prisma.adminLog.deleteMany({ where: { clientId: tenantId } }),
-    prisma.employeeInvite.deleteMany({ where: { email: subscription.ownerEmail } }),
+    prisma.employeeInvite.deleteMany({ where: { email: { in: employeeEmails } } }),
     prisma.employee.deleteMany({ where: { tenantId } }),
     prisma.userAccount.deleteMany({ where: { tenantId } }),
     prisma.subscription.delete({ where: { tenantId } })

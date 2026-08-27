@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { isOwnerEquivalentGrant } from "../../../lib/permissions";
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 3).toISOString();
   const role = body.role || "موظف دعم";
-  const employeeId = `emp-${Date.now()}`;
+  const employeeId = `emp-${randomUUID()}`;
 
   const employee = await prisma.$transaction(async (tx) => {
     const createdEmployee = await tx.employee.create({
@@ -100,11 +100,12 @@ export async function POST(request: NextRequest) {
     await tx.employeeInvite.deleteMany({ where: { email } });
     await tx.employeeInvite.create({
       data: {
-        id: `invite-${Date.now()}`,
+        id: `invite-${randomUUID()}`,
         email,
         tokenHash,
         expiresAt,
-        createdAt: now.toISOString()
+        createdAt: now.toISOString(),
+        purpose: "employee_activation"
       }
     });
 

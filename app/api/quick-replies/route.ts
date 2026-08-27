@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
 import { getQuickReplies } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   const reply = await prisma.quickReply.create({
     data: {
-      id: `qr-${Date.now()}`,
+      id: `qr-${randomUUID()}`,
       tenantId: user.tenantId,
       shortcut: body.shortcut.trim(),
       text: body.text.trim(),

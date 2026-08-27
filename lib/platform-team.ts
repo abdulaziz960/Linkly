@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { sendActivationEmail } from "./email";
@@ -61,7 +61,7 @@ export async function invitePlatformAdmin(input: { name: string; email: string }
     }),
     prisma.employeeInvite.deleteMany({ where: { email } }),
     prisma.employeeInvite.create({
-      data: { id: `invite-${Date.now()}`, email, tokenHash, expiresAt, createdAt: now.toISOString() }
+      data: { id: `invite-${randomUUID()}`, email, tokenHash, expiresAt, createdAt: now.toISOString(), purpose: "employee_activation" }
     })
   ]);
 

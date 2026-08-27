@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
 import { ensureSchema } from "../../../../../lib/database";
 import { prisma } from "../../../../../lib/prisma";
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
   const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
   if (!subscription) return NextResponse.json({ ok: false, error: "الاشتراك غير موجود" }, { status: 404 });
 
-  const paymentId = `sub-pay-${Date.now()}`;
+  const paymentId = `sub-pay-${randomUUID()}`;
 
   if (gateway === "stripe") {
     if (!isStripeConfigured()) {

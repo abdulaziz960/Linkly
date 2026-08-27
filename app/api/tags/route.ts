@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
 import { prisma } from "../../../lib/prisma";
 import { getTags } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
   try {
     const tag = await prisma.tag.create({
       data: {
-        id: `tag-${Date.now()}`,
+        id: `tag-${randomUUID()}`,
         tenantId: user.tenantId,
         name,
         color: body.color || "#111827",
