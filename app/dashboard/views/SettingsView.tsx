@@ -1374,64 +1374,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
       {showIntegrationData && (
         <form className="settings-form" onSubmit={saveSettings}>
-          {isTelegram ? (
-            <div className="telegram-help-card">
-              <div>
-                <h3>{t("طريقة ربط تيليجرام", "How to connect Telegram")}</h3>
-                <p>{t("الربط يتم عن طريق بوت تيليجرام. لا تحتاج تسجيل دخول، فقط انسخ Bot Token من BotFather واحفظه هنا.", "The connection is made through a Telegram bot. No login is needed — just copy the Bot Token from BotFather and save it here.")}</p>
-              </div>
-              <ol>
-                <li>{t("افتح تيليجرام وابحث عن BotFather الرسمي.", "Open Telegram and search for the official BotFather.")}</li>
-                <li>{t("اكتب /newbot واختر اسم البوت واسم المستخدم.", "Type /newbot and choose the bot's name and username.")}</li>
-                <li>{t("انسخ Bot Token الذي يعطيك إياه BotFather.", "Copy the Bot Token that BotFather gives you.")}</li>
-                <li>{t("الصق التوكن في خانة Bot Token واضغط حفظ الإعدادات.", "Paste the token into the Bot Token field and click Save Settings.")}</li>
-                <li>{t("أرسل /start للبوت من تيليجرام حتى تظهر المحادثة في المنصة.", "Send /start to the bot from Telegram so the conversation appears in the platform.")}</li>
-              </ol>
-            </div>
-          ) : null}
-          {isX ? (
-            <div className="telegram-help-card">
-              <div>
-                <h3>{t("إعداد تطبيق Linkly على X", "Set up the Linkly app on X")}</h3>
-                <p>{t("هذه البيانات تضبط تطبيق المنصة مرة واحدة. بعد ذلك كل عميل يربط X بزر مباشر بدون إدخال مفاتيح.", "This data configures the platform's app once. After that, every customer connects X with a single button, without entering any keys.")}</p>
-              </div>
-              <ol>
-                <li>{t("أنشئ App واحد باسم Linkly داخل X Developer Portal.", "Create a single app named Linkly in the X Developer Portal.")}</li>
-                <li>{t("فعّل OAuth 2.0 وصلاحيات Read / Write / Direct Messages حسب المتاح.", "Enable OAuth 2.0 and Read / Write / Direct Messages permissions as available.")}</li>
-                <li>{t("انسخ OAuth 1.0 Secret Key واحفظه في خانة Consumer Secret، فهو المطلوب لاختبار CRC.", "Copy the OAuth 1.0 Secret Key and save it in the Consumer Secret field — it's required for the CRC check.")}</li>
-                <li>{t(`أضف Callback URL: ${publicAppUrl}/api/x/callback`, `Add Callback URL: ${publicAppUrl}/api/x/callback`)}</li>
-                <li>{t(`أضف Webhook URL إذا كان متاحًا: ${publicAppUrl}/api/x/webhook`, `Add Webhook URL if available: ${publicAppUrl}/api/x/webhook`)}</li>
-                <li>{t("احفظ بيانات التطبيق هنا، ثم استخدم زر ربط X للمصادقة بحساب العميل.", "Save the app details here, then use the Connect X button to authenticate the customer's account.")}</li>
-              </ol>
-            </div>
-          ) : null}
-          {isTikTok ? (
-            <div className="telegram-help-card">
-              <div>
-                <h3>{t("ربط TikTok Business Messaging", "Connect TikTok Business Messaging")}</h3>
-                <p>{t("هذه القناة قيد التجهيز - إرسال واستقبال الرسائل الفعلي بينتظر موافقة TikTok على صلاحية Business Messaging Partner لحسابك. تقدر تحفظ بيانات التطبيق الآن وتكمل التفعيل بعد ما توافق عليك TikTok.", "This channel is still being set up — actual message sending and receiving is waiting for TikTok to approve Business Messaging Partner access for our account. You can save the app details now and finish activation once TikTok approves you.")}</p>
-              </div>
-              <ol>
-                <li>{t("سجّل حساب TikTok Business وقدّم على TikTok API for Business.", "Register a TikTok Business account and apply to the TikTok API for Business.")}</li>
-                <li>{t('اطلب صلاحية "Business Messaging" كـ Messaging Partner من TikTok.', 'Request "Business Messaging" access as a Messaging Partner from TikTok.')}</li>
-                <li>{t("بعد الموافقة، انسخ App Key وApp Secret وAccess Token واحفظهم هنا.", "After approval, copy the App Key, App Secret, and Access Token and save them here.")}</li>
-              </ol>
-            </div>
-          ) : null}
-          {isSms ? (
-            <div className="telegram-help-card">
-              <div>
-                <h3>{t("ربط SMS عبر Unifonic", "Connect SMS via Unifonic")}</h3>
-                <p>{t("الإرسال الصادر جاهز ويشتغل مباشرة بمجرد حفظ البيانات. استقبال ردود العملاء (SMS ثنائي الاتجاه) لسه قيد التجهيز.", "Outbound sending is ready and works as soon as you save the details. Receiving customer replies (two-way SMS) is still being built.")}</p>
-              </div>
-              <ol>
-                <li>{t("أنشئ حساب على", "Create an account on")} <a href="https://www.unifonic.com" target="_blank" rel="noreferrer">Unifonic</a> {t("وسجّل نشاطك التجاري.", "and register your business.")}</li>
-                <li>{t("من لوحة Unifonic، انسخ AppSid الخاص بتطبيقك.", "From the Unifonic dashboard, copy your app's AppSid.")}</li>
-                <li>{t("سجّل اسم مرسل (Sender ID) معتمد، وانسخه بالأسفل.", "Register an approved Sender ID and copy it below.")}</li>
-                <li>{t("احفظ الإعدادات - الرد على أي محادثة SMS من هنا بيرسل فعلياً عبر Unifonic.", "Save the settings — replying to any SMS conversation from here actually sends via Unifonic.")}</li>
-              </ol>
-            </div>
-          ) : null}
           {isGmail ? (
             <div className="provider-connect-card">
               <span className="provider-connect-icon gmail" aria-hidden="true">
@@ -1449,25 +1391,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </a>
             </div>
           ) : null}
-          {isEmail && !hideManualEmailSetup ? (
-            <div className="telegram-help-card">
-              <div>
-                <h3>{t("طريقة ربط البريد الإلكتروني عبر Webhook (بديل)", "How to connect email via webhook (alternative)")}</h3>
-                <p>{t("استخدم Webhook البريد مع Zapier أو Make أو أي مزود يدعم إرسال Webhook عند وصول بريد جديد.", "Use the email webhook with Zapier, Make, or any provider that supports sending a webhook when a new email arrives.")}</p>
-              </div>
-              <ol>
-                <li>{t("احفظ اسم المرسل وبريد الإرسال في الحقول أدناه.", "Save the sender name and email address in the fields below.")}</li>
-                <li>{t("انسخ رابط Webhook وأرسله من مزود البريد عند وصول رسالة جديدة.", "Copy the webhook link and send it from your email provider when a new message arrives.")}</li>
-                <li>{t("أضف Secret Token في Header باسم x-audiencew-email-secret.", "Add the Secret Token in a header named x-audiencew-email-secret.")}</li>
-                <li>{t("أي رسالة تحتوي from و subject و text ستظهر في المحادثات كقناة بريد.", "Any message containing from, subject, and text will appear in the conversations as an email channel.")}</li>
-              </ol>
-            </div>
-          ) : null}
           {isWebsite ? (
             <div className="telegram-help-card">
               <div>
-                <h3>{t("ودجت الدردشة الحية لموقعك", "Your website's live-chat widget")}</h3>
-                <p>{t('انسخ الكود التالي والصقه قبل إغلاق وسم </body> في أي صفحة بموقعك. راح تظهر فقاعة دردشة لكل زوار الموقع، ورسائلهم بتظهر مباشرة هنا كمحادثات قناة "الموقع الإلكتروني".', 'Copy the code below and paste it right before the closing </body> tag on any page of your site. A chat bubble will appear for every visitor, and their messages will appear here directly as conversations on the "Website" channel.')}</p>
+                <h3>{t("كود تضمين ودجت الدردشة", "Chat widget embed code")}</h3>
+                <p>{t("الصق الكود قبل إغلاق وسم </body> في موقعك.", "Paste this code right before the closing </body> tag on your site.")}</p>
               </div>
               <div className="copy-row">
                 <span>{`<script src="${publicAppUrl}/widget.js" data-site-key="${settings.verifyToken}" async></script>`}</span>
@@ -1478,11 +1406,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   {copied === "website-embed" ? t("تم النسخ", "Copied") : t("نسخ الكود", "Copy code")}
                 </button>
               </div>
-              <ol>
-                <li>{t("افتح محرر موقعك (أو نظام إدارة المحتوى) وأضف الكود بالأعلى في كل الصفحات.", "Open your site editor (or CMS) and add the code above to every page.")}</li>
-                <li>{t("الزائر يكتب اسمه وبريده أول مرة، بعدها تظهر له نافذة الدردشة مباشرة.", "The visitor enters their name and email the first time, then the chat window appears directly.")}</li>
-                <li>{t("ردودك من هذه اللوحة تصل للزائر خلال ثوانٍ داخل نفس النافذة.", "Your replies from this dashboard reach the visitor within seconds, inside the same window.")}</li>
-              </ol>
             </div>
           ) : null}
           <div className="settings-form-head">
