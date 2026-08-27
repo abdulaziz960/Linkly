@@ -952,36 +952,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     if (isConnected) {
       return (
         <div className="meta-wizard-panel">
-          <div className="meta-wizard-title">
-            <h3>{t("اختر قناة", "Choose a channel")}</h3>
-            <p>{t("القنوات المتصلة تعرض بيانات الربط مباشرة بدون خطوات ربط جديدة.", "Connected channels show their connection data directly, without new setup steps.")}</p>
-          </div>
-          <div className="channel-grid">
-            {channels.map((channel) => {
-              const selected = channel.id === selectedChannel;
-
-              return (
-                <button
-                  className={`channel-card ${selected ? "selected" : ""} ${channel.active ? "" : "disabled"}`}
-                  key={channel.id}
-                  type="button"
-                  disabled={!channel.active}
-                  onClick={() => {
-                    if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "gmail" || channel.id === "website" || channel.id === "tiktok" || channel.id === "sms") {
-                      setSelectedChannel(channel.id);
-                      setWizardStep(4);
-                    }
-                  }}
-                >
-                  <span className={`channel-icon channel-icon-${channel.id}`}>
-                    <ChannelIcon id={channel.id} />
-                  </span>
-                  <b>{channel.title}</b>
-                  <small>{selected ? t("القناة متصلة، بياناتها ظاهرة بالأسفل", "This channel is connected — its data is shown below") : channel.description}</small>
-                </button>
-              );
-            })}
-          </div>
           <div className="connected-channel-note">
             <b>{isWebsite ? t("ودجت الموقع جاهز", "Website widget ready") : isSms ? t("SMS متصل", "SMS connected") : isTikTok ? t("TikTok متصل", "TikTok connected") : isGmail ? t("Gmail متصل", "Gmail connected") : isGoogleMaps ? t("خرائط Google متصلة", "Google Maps connected") : isX ? t("X جاهز للربط", "X ready to connect") : isTelegram ? t("تيليجرام متصل", "Telegram connected") : isFacebook ? t("فيسبوك متصل", "Facebook connected") : isInstagram ? t("Instagram متصل", "Instagram connected") : t("واتساب متصل", "WhatsApp connected")}</b>
             <span>
