@@ -353,12 +353,14 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }, [isWhatsApp, settings.status]);
 
   useEffect(() => {
-    if (!isGmail) return;
+    // Fetch once on mount (not gated on isGmail) so the overview list shows
+    // Gmail's real OAuth status right away instead of only after the user
+    // has clicked into the Gmail card at least once this session.
     fetch("/api/email/integration")
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => setOauthEmailStatus(data))
       .catch(() => {});
-  }, [isGmail]);
+  }, []);
 
   // Overview list at the top of the page ("القنوات المربوطة") needs the
   // connection status of every channel at once, not just the one currently
@@ -394,10 +396,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     setOverviewStatuses((current) => ({ ...current, [selectedChannel]: settings }));
   }, [selectedChannel, settings]);
 
-  const overviewGmailAddress = isGmail ? oauthEmailStatus?.emailAddress : undefined;
+  const overviewGmailAddress = oauthEmailStatus?.emailAddress;
   const isChannelConnected = (channel: ChannelId) => {
     if (channel === "gmail") {
-      return channel === selectedChannel ? isConnected : overviewStatuses.gmail?.status === "connected";
+      return oauthEmailStatus?.status === "connected";
     }
     return overviewStatuses[channel]?.status === "connected";
   };
@@ -1376,7 +1378,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
         <div className="settings-onboarding-main">
           {renderWizardContent()}
-          {!isConnected ? (
+          {!isConnected && !isTelegram ? (
             <div className="settings-onboarding-actions">
               {wizardStep !== 4 && !((isGoogleMaps || isWhatsApp || isInstagram || isFacebook) && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
                 if (wizardStep === 3 && isGoogleMaps) {
