@@ -356,7 +356,14 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   useEffect(() => {
     if (!isWhatsApp || settings.status !== "connected") return;
     let cancelled = false;
-    fetch("/api/templates")
+    // Sync first so an account connected before this feature existed (or
+    // whose local Template rows are stale) still picks up whatever's
+    // already approved on the WABA - including Meta's built-in
+    // "hello_world" sample - without the user having to visit the
+    // Templates page and press sync manually.
+    fetch("/api/templates/sync-meta", { method: "POST" })
+      .catch(() => null)
+      .then(() => fetch("/api/templates"))
       .then((response) => response.json())
       .then((result: { ok: boolean; data?: Array<{ name: string; message: string; status?: string }> }) => {
         if (cancelled || !result?.ok) return;
