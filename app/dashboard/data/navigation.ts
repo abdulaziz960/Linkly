@@ -11,7 +11,6 @@ export const navItems: NavItem[] = [
   { key: "quickReplies", label: "الردود السريعة" },
   { key: "workHours", label: "ساعات العمل" },
   { key: "reports", label: "التقارير" },
-  { key: "leads", label: "العملاء المحتملون CRM" },
   { key: "teams", label: "الفرق" },
   { key: "employees", label: "الموظفين والصلاحيات" },
   { key: "settings", label: "الإعدادات والربط" }
@@ -30,7 +29,6 @@ export const navItemLabelsEn: Record<ViewKey, string> = {
   quickReplies: "Quick replies",
   workHours: "Work hours",
   reports: "Reports",
-  leads: "Leads (CRM)",
   teams: "Teams",
   employees: "Employees & permissions",
   settings: "Settings & channels"
@@ -47,7 +45,6 @@ export const viewTitles: Record<ViewKey, string> = {
   quickReplies: "الردود السريعة",
   workHours: "ساعات العمل",
   reports: "التقارير",
-  leads: "العملاء المحتملون CRM",
   teams: "الفرق",
   employees: "الموظفين والصلاحيات",
   settings: "الإعدادات والربط"

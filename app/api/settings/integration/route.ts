@@ -27,7 +27,7 @@ const allowedFields = [
   "webhookUrl"
 ] as const;
 
-type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms" | "leads";
+type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms";
 type IntegrationField = (typeof allowedFields)[number];
 type ConnectionCheck = {
   status: string;
@@ -109,7 +109,7 @@ const smsRequiredConnectionFields: Array<{ field: IntegrationField; label: strin
 
 function getIntegrationChannel(request: NextRequest): IntegrationChannel {
   const channel = request.nextUrl.searchParams.get("channel");
-  if (channel === "instagram" || channel === "facebook" || channel === "telegram" || channel === "x" || channel === "google_maps" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "leads") return channel;
+  if (channel === "instagram" || channel === "facebook" || channel === "telegram" || channel === "x" || channel === "google_maps" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms") return channel;
   return "whatsapp";
 }
 
@@ -448,7 +448,7 @@ export async function GET(request: NextRequest) {
   }
 
   const channel = getIntegrationChannel(request);
-  if (!(await userHasViewPermission(user, channel === "leads" ? "leads" : "settings"))) {
+  if (!(await userHasViewPermission(user, "settings"))) {
     return NextResponse.json({ message: "لا تملك صلاحية الوصول لهذه الميزة" }, { status: 403 });
   }
 
@@ -463,7 +463,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
   }
 
-  if (!(await userHasViewPermission(user, getIntegrationChannel(request) === "leads" ? "leads" : "settings"))) {
+  if (!(await userHasViewPermission(user, "settings"))) {
     return NextResponse.json({ message: "لا تملك صلاحية الوصول لهذه الميزة" }, { status: 403 });
   }
 

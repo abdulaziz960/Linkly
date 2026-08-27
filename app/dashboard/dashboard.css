@@ -2125,23 +2125,6 @@
   outline: none;
 }
 
-.leads-filter {
-  grid-template-columns: minmax(260px, 1fr) 180px 200px auto;
-  padding: 0 20px;
-}
-
-.leads-filter select {
-  min-height: 44px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 0 14px;
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-weight: 800;
-  outline: none;
-}
-
 .tag-conversation-card {
   width: 100%;
   color: inherit;

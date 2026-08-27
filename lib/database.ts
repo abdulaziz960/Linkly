@@ -6,7 +6,6 @@ import { initialConversations } from "../app/dashboard/data/conversations";
 import { automationRules } from "../app/dashboard/data/automations";
 import { campaigns } from "../app/dashboard/data/campaigns";
 import { employees } from "../app/dashboard/data/employees";
-import { leads } from "../app/dashboard/data/leads";
 import { quickReplies } from "../app/dashboard/data/quickReplies";
 import { tags } from "../app/dashboard/data/tags";
 import { teams } from "../app/dashboard/data/teams";
@@ -19,7 +18,6 @@ import type {
   Customer,
   Employee,
   IntegrationSettings,
-  Lead,
   Message,
   MessageTemplate,
   QuickReply,
@@ -169,10 +167,6 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS google_account_id TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS google_location_id TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS google_refresh_token TEXT NOT NULL DEFAULT ''`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT ''`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT ''`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS email_integrations (
       id TEXT PRIMARY KEY,
       provider TEXT NOT NULL,
@@ -354,7 +348,6 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'باقة النمو'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'تجربة'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS employee_limit INTEGER NOT NULL DEFAULT 3`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS leads_enabled INTEGER NOT NULL DEFAULT 1`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS amount INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS billing_cycle TEXT NOT NULL DEFAULT 'شهري'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS renewal_at TEXT NOT NULL DEFAULT ''`);
@@ -719,28 +712,6 @@ async function runSchemaMigrations() {
   if (!workScheduleColumns.some((column) => column.name === "tenant_id")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE work_schedules ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
   }
-  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS leads (
-    id TEXT PRIMARY KEY,
-    customer TEXT NOT NULL,
-    phone TEXT NOT NULL DEFAULT '',
-    interest TEXT NOT NULL,
-    budget TEXT NOT NULL,
-    source TEXT NOT NULL DEFAULT '',
-    notes TEXT NOT NULL DEFAULT '',
-    stage TEXT NOT NULL,
-    employee TEXT NOT NULL,
-    last_contact TEXT NOT NULL,
-    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'
-  )`);
-  const leadColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(leads)`);
-  for (const columnName of ["phone", "source", "notes"]) {
-    if (!leadColumns.some((column) => column.name === columnName)) {
-      await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
-    }
-  }
-  if (!leadColumns.some((column) => column.name === "tenant_id")) {
-    await prisma.$executeRawUnsafe(`ALTER TABLE leads ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
-  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS integration_settings (
     id TEXT PRIMARY KEY,
     provider TEXT NOT NULL,
@@ -893,10 +864,6 @@ async function runSchemaMigrations() {
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
-  const subscriptionColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(subscriptions)`);
-  if (!subscriptionColumns.some((column) => column.name === "leads_enabled")) {
-    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN leads_enabled INTEGER NOT NULL DEFAULT 1`);
-  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscription_payments (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,
@@ -1219,7 +1186,6 @@ async function seedDatabase() {
     await tx.automationRule.deleteMany({ where: { id: { in: ["auto-hiring", "auto-complaints"] } } });
     await tx.campaign.deleteMany({ where: { id: { in: ["camp-intro-1", "camp-intro-2"] } } });
     await tx.workSchedule.deleteMany({ where: { id: { in: ["wh-support", "wh-shipping", "wh-sales"] } } });
-    await tx.lead.deleteMany({ where: { id: { in: ["lead-sarah", "lead-noura", "lead-store"] } } });
     await tx.teamMember.deleteMany({ where: { teamId: { in: ["team-support", "team-shipping", "team-sales"] } } });
     await tx.team.deleteMany({ where: { id: { in: ["team-support", "team-shipping", "team-sales"] } } });
     await tx.employee.deleteMany({ where: { id: { in: ["emp-sarah", "emp-abdullah"] } } });
@@ -1256,7 +1222,6 @@ async function seedDatabase() {
       await tx.automationRule.deleteMany({});
       await tx.campaign.deleteMany({});
       await tx.workSchedule.deleteMany({});
-      await tx.lead.deleteMany({});
       await tx.teamMember.deleteMany({});
       await tx.team.deleteMany({});
       await tx.employee.deleteMany({ where: { id: { notIn: ["emp-owner", "emp-noura"] } } });
@@ -1482,26 +1447,6 @@ async function seedDatabase() {
         where: { id: schedule.id },
         update: {},
         create: schedule
-      });
-    }
-
-    for (const lead of leads) {
-      await tx.lead.upsert({
-        where: { id: lead.id },
-        update: {},
-        create: {
-          id: lead.id,
-          customer: lead.customer,
-          phone: lead.phone || "",
-          interest: lead.interest,
-          budget: lead.budget,
-          source: lead.source || "",
-          notes: lead.notes || "",
-          stage: lead.stage,
-          employee: lead.employee,
-          lastContact: lead.lastContact,
-          tenantId: lead.tenantId || "tenant-demo"
-        }
       });
     }
 
@@ -2099,12 +2044,7 @@ export async function getWorkSchedules(tenantId = "tenant-demo"): Promise<WorkSc
   }));
 }
 
-export async function getLeads(tenantId = "tenant-demo"): Promise<Lead[]> {
-  await ensureSeeded();
-  return prisma.lead.findMany({ where: { tenantId } });
-}
-
-export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms" | "leads";
+export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms";
 
 export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "instagram") return "meta-instagram";
@@ -2116,7 +2056,6 @@ export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "website") return "website-channel";
   if (channel === "tiktok") return "tiktok-channel";
   if (channel === "sms") return "sms-channel";
-  if (channel === "leads") return "leads-zapier";
   return "meta-whatsapp";
 }
 
@@ -2152,20 +2091,18 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
                 ? "tiktok"
               : channel === "sms"
                 ? "unifonic"
-              : channel === "leads"
-                ? "leads"
               : "whatsapp_cloud",
-      status: channel === "website" || channel === "leads" ? "connected" : "pending",
+      status: channel === "website" ? "connected" : "pending",
       businessName: "",
       wabaName: "",
       phoneNumber: "",
       phoneNumberId: "",
       wabaId: "",
-      appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "leads" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
+      appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
       configId: "",
       verifyToken: randomUUID(),
       accessToken: "",
-      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : channel === "tiktok" ? `/api/tiktok/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "sms" ? `/api/sms/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "leads" ? `/api/zapier/leads${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : "/api/meta/webhook",
+      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : channel === "tiktok" ? `/api/tiktok/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "sms" ? `/api/sms/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : "/api/meta/webhook",
       updatedAt: "اليوم"
     }
   });

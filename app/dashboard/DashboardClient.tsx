@@ -20,7 +20,6 @@ import type {
   DashboardUser,
   Employee,
   IntegrationSettings,
-  Lead,
   MessageAttachment,
   MessageTemplate,
   QuickReply,
@@ -54,11 +53,7 @@ async function readApiError(response: Response, language: "ar" | "en" = "ar") {
 }
 
 function getAllowedViews(user: DashboardUser, employee?: Employee): ViewKey[] {
-  const views = computeAllowedViews(user.role, employee?.permissions ?? "");
-  // The platform admin can hide the CRM/leads feature per client - this
-  // overrides any role or employee permission, owner included.
-  if (user.leadsEnabled === false) return views.filter((view) => view !== "leads");
-  return views;
+  return computeAllowedViews(user.role, employee?.permissions ?? "");
 }
 
 function canSeeAllConversations(user: DashboardUser, employee?: Employee) {
@@ -162,7 +157,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>([]);
-  const [leads, setLeads] = useState<Lead[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [selectedChannel, setSelectedChannel] = useState<ConversationChannelFilter>("all");
@@ -378,8 +372,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         nextQuickReplies,
         nextAutomationRules,
         nextCampaigns,
-        nextWorkSchedules,
-        nextLeads
+        nextWorkSchedules
       ] = await Promise.all([
         fetchData<Conversation[]>("/api/conversations"),
         fetchData<Customer[]>("/api/customers"),
@@ -390,8 +383,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         fetchQuickRepliesWithSuggestions(),
         fetchData<AutomationRule[]>("/api/automations"),
         fetchData<Campaign[]>("/api/campaigns"),
-        fetchData<WorkSchedule[]>("/api/work-hours"),
-        fetchData<Lead[]>("/api/leads")
+        fetchData<WorkSchedule[]>("/api/work-hours")
       ]);
 
       if (requestId !== loadDashboardDataSeqRef.current) return;
@@ -443,7 +435,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
       if (nextAutomationRules) setAutomationRules(nextAutomationRules);
       if (nextCampaigns) setCampaigns(nextCampaigns);
       if (nextWorkSchedules) setWorkSchedules(nextWorkSchedules);
-      if (nextLeads) setLeads(nextLeads);
     } catch {
       // Keep local fallback data visible if the API is temporarily unavailable.
     }
@@ -1142,7 +1133,6 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
             automationRules={automationRules}
             campaigns={campaigns}
             workSchedules={workSchedules}
-            leads={leads}
             tags={tags}
             teams={teams}
             templates={templates}

@@ -65,7 +65,6 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
   const [chargeError, setChargeError] = useState("");
   const [chargeUrl, setChargeUrl] = useState("");
   const [deletingId, setDeletingId] = useState("");
-  const [togglingLeadsId, setTogglingLeadsId] = useState("");
   const [balanceClient, setBalanceClient] = useState<SubscriptionRow | null>(null);
   const [balanceMessages, setBalanceMessages] = useState("");
   const [balanceAmount, setBalanceAmount] = useState("");
@@ -176,24 +175,6 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     }
 
     setBalanceClient(null);
-    router.refresh();
-  }
-
-  async function toggleLeadsAccess(client: SubscriptionRow) {
-    setTogglingLeadsId(client.tenantId);
-    const response = await fetch(`/api/admin/clients/${client.tenantId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ leadsEnabled: !client.leadsEnabled })
-    });
-    const result = (await response.json()) as { ok: boolean; error?: string };
-    setTogglingLeadsId("");
-
-    if (!response.ok || !result.ok) {
-      window.alert(result.error || t("تعذر تحديث صلاحية العملاء المحتملين", "Could not update leads access"));
-      return;
-    }
-
     router.refresh();
   }
 
@@ -451,19 +432,6 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                   <button type="button" onClick={() => openBalanceEditor(client)}>
                     {t("إضافة رصيد رسائل حملات", "Add Campaign Message Balance")}
                   </button>
-                  <div className="admin-leads-toggle" aria-disabled={togglingLeadsId === client.tenantId}>
-                    <span>{t("العملاء المحتملون (CRM)", "Leads (CRM)")}</span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={Boolean(client.leadsEnabled)}
-                      className={`admin-leads-switch${client.leadsEnabled ? " is-on" : ""}`}
-                      disabled={togglingLeadsId === client.tenantId}
-                      onClick={() => toggleLeadsAccess(client)}
-                    >
-                      <span className="admin-leads-switch-thumb" />
-                    </button>
-                  </div>
                   <button
                     type="button"
                     className="admin-danger-action"

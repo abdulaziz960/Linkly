@@ -11,7 +11,6 @@ export const allViewKeys: ViewKey[] = [
   "quickReplies",
   "workHours",
   "reports",
-  "leads",
   "teams",
   "employees",
   "settings"
@@ -28,7 +27,6 @@ export const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "حملات", views: ["campaigns"] },
   { keyword: "ساعات", views: ["workHours"] },
   { keyword: "تقارير", views: ["reports"] },
-  { keyword: "محتملون", views: ["leads"] },
   { keyword: "فرق", views: ["teams"] },
   { keyword: "موظفين", views: ["employees"] },
   { keyword: "صلاحيات", views: ["employees"] },
