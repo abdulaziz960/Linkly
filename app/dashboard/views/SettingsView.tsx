@@ -298,6 +298,13 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [showWebhookToken, setShowWebhookToken] = useState(false);
   const [overviewStatuses, setOverviewStatuses] = useState<Partial<Record<ChannelId, IntegrationSettings>>>({});
   const [overviewLoading, setOverviewLoading] = useState(true);
+  const [wizardModalOpen, setWizardModalOpen] = useState(() => {
+    // Popups fall back to a full-page redirect when window.opener isn't
+    // available, so land straight on the connected-channel modal instead of
+    // silently dropping the result behind the closed overview.
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).has("meta");
+  });
   const metaSignupDataRef = useRef<MetaSignupData>({});
   const hasSelectedChannelRef = useRef(false);
   const isInstagram = selectedChannel === "instagram";
@@ -397,11 +404,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         ? 3
         : 4
     );
-    if (typeof window !== "undefined") {
-      window.requestAnimationFrame(() => {
-        document.getElementById("channel-wizard-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }
+    setWizardModalOpen(true);
   }
 
   const webhookUrl = useMemo(() => {
@@ -1342,6 +1345,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         </div>
       </div>
 
+      {wizardModalOpen ? (
+      <div className="modal-backdrop" role="presentation" onClick={() => setWizardModalOpen(false)}>
+      <div className="account-modal channel-setup-modal" role="dialog" aria-modal="true" aria-label={t("إعداد القناة", "Channel setup")} onClick={(event) => event.stopPropagation()}>
+      <button className="icon-btn channel-setup-modal-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setWizardModalOpen(false)}>×</button>
       <div id="channel-wizard-anchor" className={`settings-onboarding ${isConnected ? "connected" : ""}`}>
         {!isConnected ? (
           <aside className="meta-wizard-rail settings-rail">
@@ -1843,6 +1850,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           </div> : null}
         </form>
       )}
+      </div>
+      </div>
+      ) : null}
     </section>
   );
 }
