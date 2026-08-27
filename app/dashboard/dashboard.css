@@ -5981,6 +5981,7 @@
 .settings-fields input,
 .settings-fields select,
 .meta-test-grid input,
+.meta-test-grid select,
 .meta-test-grid textarea {
   min-height: 52px;
   border: 1px solid var(--line);
