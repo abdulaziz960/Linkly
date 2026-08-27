@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import type { AdminUser } from "./types";
 import NotificationBell from "./NotificationBell";
 import { useLanguage } from "./i18n";
@@ -28,7 +29,29 @@ export default function AdminSidebar({
   onChangeLanguage: (language: Language) => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { t } = useLanguage();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    function onClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [profileOpen]);
+
+  function signOut() {
+    if (window.confirm(t("هل تريد تسجيل الخروج؟", "Sign out?"))) {
+      fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+        router.replace("/login");
+      });
+    }
+  }
 
   return (
     <aside className="admin-sidebar">
@@ -59,12 +82,30 @@ export default function AdminSidebar({
         ))}
       </nav>
 
-      <div className="admin-profile">
-        <span>{user.name.slice(0, 1)}</span>
-        <div>
-          <strong>{user.name}</strong>
-          <small>{t("مدير المنصة", "Platform admin")}</small>
-        </div>
+      <div className="admin-profile" ref={profileRef}>
+        <button
+          type="button"
+          className="admin-profile-trigger"
+          onClick={() => setProfileOpen((open) => !open)}
+          aria-expanded={profileOpen}
+        >
+          <span>{user.name.slice(0, 1)}</span>
+          <div>
+            <strong>{user.name}</strong>
+            <small>{t("مدير المنصة", "Platform admin")}</small>
+          </div>
+        </button>
+        {profileOpen ? (
+          <div className="admin-profile-popover">
+            <div className="admin-profile-popover-info">
+              <strong>{user.name}</strong>
+              <small>{user.email}</small>
+            </div>
+            <button type="button" className="admin-profile-popover-signout" onClick={signOut}>
+              {t("تسجيل الخروج", "Sign out")}
+            </button>
+          </div>
+        ) : null}
       </div>
     </aside>
   );
