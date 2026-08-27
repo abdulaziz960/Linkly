@@ -1659,49 +1659,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             </div>
           ) : null}
 
-          {!isInstagram && !isFacebook && !isTelegram && !isX && !isGoogleMaps && !isEmail && !isWebsite && !isTikTok && !isSms && settings.status === "connected" ? <div className="meta-test-card">
-            <div>
-              <h3>{t("تجربة رقم التست", "Test number trial")}</h3>
-              <p>{t("أضف رقمك في قائمة أرقام الاختبار داخل Meta، ثم أرسل رسالة للتأكد من الإرسال والاستقبال.", "Add your number to the test number list in Meta, then send a message to confirm sending and receiving work.")}</p>
-              <p className="meta-test-warning">
-                {testTemplates.length
-                  ? t("ℹ️ الإرسال هنا يستخدم قالبًا معتمدًا، فيقدر يبدأ محادثة حتى لو الرقم المستلم ما راسلك قبل (بخلاف الرسائل النصية الحرة اللي تحتاج تواصل سابق خلال 24 ساعة).", "ℹ️ Sending here uses an approved template, so it can start a conversation even if the recipient hasn't messaged you before (unlike free-form text, which needs prior contact within 24 hours).")
-                  : t("⚠️ ما فيه قوالب معتمدة على حسابك بعد، فالإرسال هنا نص حر — واتساب لا يسلّمه إلا لأرقام راسلت رقم الأعمال أولاً خلال آخر 24 ساعة. أنشئ قالبًا من صفحة القوالب وانتظر اعتماده لإرسال أوثق.", "⚠️ Your account has no approved templates yet, so this sends free-form text — WhatsApp only delivers it to numbers that messaged your business number first within the last 24 hours. Create a template on the Templates page and wait for approval for a more reliable send.")}
-              </p>
-            </div>
-            <div className="meta-test-grid">
-              <label>
-                {t("رقم المستلم", "Recipient number")}
-                <input
-                  dir="ltr"
-                  inputMode="tel"
-                  placeholder="9665xxxxxxxx"
-                  value={testRecipient}
-                  onChange={(event) => setTestRecipient(event.target.value)}
-                />
-              </label>
-              <label>
-                {testTemplates.length ? t("القالب", "Template") : t("نص الرسالة", "Message text")}
-                {testTemplates.length ? (
-                  <select value={testTemplateName} onChange={(event) => setTestTemplateName(event.target.value)}>
-                    {testTemplates.map((template) => (
-                      <option key={template.name} value={template.name}>{template.name}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} />
-                )}
-              </label>
-            </div>
-            <div className="meta-test-actions">
-              <button className="primary-action" disabled={testSending || !testRecipient.trim() || (testTemplates.length ? !testTemplateName.trim() : !testMessage.trim())} type="button" onClick={sendTestMessage}>
-                {testSending ? t("جاري الإرسال...", "Sending...") : t("إرسال رسالة اختبار", "Send test message")}
-              </button>
-              <small>{t("الاستقبال يحتاج أن يكون الويبهوك مفعّلًا على رابط الاستضافة.", "Receiving requires the webhook to be active on your hosting URL.")}</small>
-            </div>
-            {testFeedback && <p className={`meta-test-feedback ${testFeedback.type}`}>{testFeedback.text}</p>}
-          </div> : null}
-
           {isWhatsApp && settings.status === "connected" ? <div className="business-profile-card">
             <div>
               <h3>{t("الملف التجاري لواتساب", "WhatsApp business profile")}</h3>
@@ -1773,6 +1730,49 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </button>
             </div>
             {businessProfileFeedback && <p className={`meta-test-feedback ${businessProfileFeedback.type}`}>{businessProfileFeedback.text}</p>}
+          </div> : null}
+
+          {!isInstagram && !isFacebook && !isTelegram && !isX && !isGoogleMaps && !isEmail && !isWebsite && !isTikTok && !isSms && settings.status === "connected" ? <div className="meta-test-card">
+            <div>
+              <h3>{t("تجربة رقم التست", "Test number trial")}</h3>
+              <p>{t("أضف رقمك في قائمة أرقام الاختبار داخل Meta، ثم أرسل رسالة للتأكد من الإرسال والاستقبال.", "Add your number to the test number list in Meta, then send a message to confirm sending and receiving work.")}</p>
+              <p className="meta-test-warning">
+                {testTemplates.length
+                  ? t("ℹ️ الإرسال هنا يستخدم قالبًا معتمدًا، فيقدر يبدأ محادثة حتى لو الرقم المستلم ما راسلك قبل (بخلاف الرسائل النصية الحرة اللي تحتاج تواصل سابق خلال 24 ساعة).", "ℹ️ Sending here uses an approved template, so it can start a conversation even if the recipient hasn't messaged you before (unlike free-form text, which needs prior contact within 24 hours).")
+                  : t("⚠️ ما فيه قوالب معتمدة على حسابك بعد، فالإرسال هنا نص حر — واتساب لا يسلّمه إلا لأرقام راسلت رقم الأعمال أولاً خلال آخر 24 ساعة. أنشئ قالبًا من صفحة القوالب وانتظر اعتماده لإرسال أوثق.", "⚠️ Your account has no approved templates yet, so this sends free-form text — WhatsApp only delivers it to numbers that messaged your business number first within the last 24 hours. Create a template on the Templates page and wait for approval for a more reliable send.")}
+              </p>
+            </div>
+            <div className="meta-test-grid">
+              <label>
+                {t("رقم المستلم", "Recipient number")}
+                <input
+                  dir="ltr"
+                  inputMode="tel"
+                  placeholder="9665xxxxxxxx"
+                  value={testRecipient}
+                  onChange={(event) => setTestRecipient(event.target.value)}
+                />
+              </label>
+              <label>
+                {testTemplates.length ? t("القالب", "Template") : t("نص الرسالة", "Message text")}
+                {testTemplates.length ? (
+                  <select value={testTemplateName} onChange={(event) => setTestTemplateName(event.target.value)}>
+                    {testTemplates.map((template) => (
+                      <option key={template.name} value={template.name}>{template.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} />
+                )}
+              </label>
+            </div>
+            <div className="meta-test-actions">
+              <button className="primary-action" disabled={testSending || !testRecipient.trim() || (testTemplates.length ? !testTemplateName.trim() : !testMessage.trim())} type="button" onClick={sendTestMessage}>
+                {testSending ? t("جاري الإرسال...", "Sending...") : t("إرسال رسالة اختبار", "Send test message")}
+              </button>
+              <small>{t("الاستقبال يحتاج أن يكون الويبهوك مفعّلًا على رابط الاستضافة.", "Receiving requires the webhook to be active on your hosting URL.")}</small>
+            </div>
+            {testFeedback && <p className={`meta-test-feedback ${testFeedback.type}`}>{testFeedback.text}</p>}
           </div> : null}
 
           {!isGoogleMaps && !isWebsite && !isInstagram && !isFacebook && !isWhatsApp && !(hideManualEmailSetup) ? <div className="webhook-card">
