@@ -18,21 +18,30 @@ export async function POST(request: NextRequest) {
       accessToken?: string;
       to?: string;
       templateName?: string;
+      message?: string;
     };
     const phoneNumberId = body.phoneNumberId?.trim() || settings.phoneNumberId;
     const bodyAccessToken = body.accessToken?.trim();
     const accessToken = (bodyAccessToken && bodyAccessToken !== SECRET_MASK ? bodyAccessToken : "") || settings.accessToken;
     const to = normalizeWhatsAppPhone(body.to || "");
     const templateName = body.templateName?.trim() || "";
+    const freeTextMessage = body.message?.trim() || "";
 
     if (!phoneNumberId) return jsonError("Phone Number ID مطلوب قبل إرسال رسالة اختبار");
     if (!accessToken) return jsonError("Access Token مطلوب قبل إرسال رسالة اختبار");
     if (!to) return jsonError("رقم المستلم مطلوب");
-    if (!templateName) return jsonError("اختر قالبًا معتمدًا للإرسال");
+    if (!templateName && !freeTextMessage) return jsonError("اختر قالبًا أو اكتب نص رسالة للإرسال");
 
-    const templates = await getTemplates(user.tenantId);
-    const template = templates.find((item) => item.name === templateName && item.status === "معتمد");
-    if (!template) return jsonError("القالب المختار غير معتمد أو غير موجود");
+    // A tenant with no approved templates yet (brand-new WABA, none synced)
+    // falls back to a free-form text send - subject to WhatsApp's 24h
+    // customer-service window - since a template send isn't possible until
+    // one gets approved.
+    let template: { name: string; language?: string; message: string } | null = null;
+    if (templateName) {
+      const templates = await getTemplates(user.tenantId);
+      template = templates.find((item) => item.name === templateName && item.status === "معتمد") || null;
+      if (!template) return jsonError("القالب المختار غير معتمد أو غير موجود");
+    }
 
     const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST",
@@ -40,15 +49,24 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "template",
-        template: {
-          name: template.name,
-          language: { code: template.language || "ar" }
-        }
-      })
+      body: JSON.stringify(
+        template
+          ? {
+              messaging_product: "whatsapp",
+              to,
+              type: "template",
+              template: {
+                name: template.name,
+                language: { code: template.language || "ar" }
+              }
+            }
+          : {
+              messaging_product: "whatsapp",
+              to,
+              type: "text",
+              text: { preview_url: false, body: freeTextMessage }
+            }
+      )
     });
 
     const metaResponse = await response.json().catch(() => null);
@@ -62,7 +80,7 @@ export async function POST(request: NextRequest) {
         tenantId: user.tenantId,
         phone: to,
         name: `رقم اختبار ${to.slice(-4)}`,
-        text: template.message || `[قالب] ${template.name}`,
+        text: template ? (template.message || `[قالب] ${template.name}`) : freeTextMessage,
         direction: "out",
         messageId: metaResponse?.messages?.[0]?.id,
         author: "Linkly"
