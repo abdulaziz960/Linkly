@@ -1103,20 +1103,24 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       if (isTelegram) {
         return (
           <div className="meta-wizard-panel">
-            <div className="meta-signup-card">
+            <form className="channel-quick-form" onSubmit={saveSettings}>
               <span className="provider-round-icon">✈</span>
-              <h3>{t("ربط تيليجرام عبر Bot Token", "Connect Telegram via Bot Token")}</h3>
-              <p>{t("تيليجرام يربط عبر بوت رسمي. خذ Bot Token من BotFather مرة واحدة، والمنصة تتولى تفعيل الاستقبال تلقائياً.", "Telegram connects through an official bot. Get the Bot Token from BotFather once, and the platform handles activating receiving automatically.")}</p>
-              <div className="telegram-steps">
-                <div><span>1</span><b>{t("افتح BotFather", "Open BotFather")}</b><small>{t("من تطبيق تيليجرام ابحث عن BotFather الرسمي.", "From the Telegram app, search for the official BotFather.")}</small></div>
-                <div><span>2</span><b>{t("أنشئ بوت جديد", "Create a new bot")}</b><small>{t("ارسل /newbot، ثم اختر اسم و username ينتهي بـ bot.", "Send /newbot, then choose a name and a username ending in bot.")}</small></div>
-                <div><span>3</span><b>{t("انسخ Bot Token", "Copy the Bot Token")}</b><small>{t("الصق التوكن هنا واضغط حفظ الإعدادات.", "Paste the token here and click Save Settings.")}</small></div>
-                <div><span>4</span><b>{t("جرّب الرسائل", "Try messaging")}</b><small>{t("أرسل /start للبوت وستظهر المحادثة داخل المنصة.", "Send /start to the bot and the conversation will appear in the platform.")}</small></div>
+              <h3>{t("ربط تيليجرام", "Connect Telegram")}</h3>
+              <p>{t("أنشئ بوتًا عبر BotFather@ (الأمر newbot/) وانسخ التوكن. معرّف الدردشة: username@ للقناة، أو رقم الدردشة لرسائل العملاء.", "Create a bot via @BotFather (the /newbot command) and copy the token. Chat handle: @username for a channel, or the chat ID for customer messages.")}</p>
+              <label>
+                {t("توكن البوت", "Bot Token")}
+                <input dir="ltr" value={settings.accessToken} onChange={(event) => updateField("accessToken", event.target.value)} placeholder="123456789:AA..." required />
+              </label>
+              <label>
+                {t("معرّف الدردشة / القناة", "Channel handle / chat ID")}
+                <input dir="ltr" value={settings.wabaName} onChange={(event) => updateField("wabaName", event.target.value)} placeholder="@mychannel" required />
+              </label>
+              {saveFeedback ? <p className={saveFeedback.type === "success" ? "form-success" : "form-error"}>{saveFeedback.text}</p> : null}
+              <div className="channel-quick-form-actions">
+                <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الربط...", "Connecting...") : t("ربط", "Connect")}</button>
+                <button className="btn soft" type="button" onClick={() => setWizardModalOpen(false)}>{t("إلغاء", "Cancel")}</button>
               </div>
-              <button type="button" onClick={() => setWizardStep(4)}>
-                {t("إدخال بيانات تيليجرام", "Enter Telegram details")}
-              </button>
-            </div>
+            </form>
           </div>
         );
       }

@@ -6911,6 +6911,53 @@
   transform: translateY(1px);
 }
 
+.channel-quick-form {
+  width: 100%;
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  text-align: center;
+}
+
+.channel-quick-form label {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  text-align: start;
+  color: var(--text-secondary);
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.channel-quick-form input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 700;
+  outline: none;
+}
+
+.channel-quick-form input:focus {
+  border-color: var(--brand);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(23, 138, 130, 0.14);
+}
+
+.channel-quick-form-actions {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+}
+
+.channel-quick-form-actions .btn {
+  flex: 1;
+}
+
 .meta-summary-card > span {
   width: 68px;
   height: 68px;
