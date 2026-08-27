@@ -1315,7 +1315,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 channel.id === "gmail"
                   ? overviewGmailAddress
                   : data?.phoneNumber || data?.wabaName || data?.businessName;
-              const lastSync = data?.updatedAt && data.updatedAt !== "-" ? data.updatedAt : t("—", "—");
 
               return (
                 <div className="channel-row" key={channel.id}>
@@ -1327,7 +1326,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                     {handle ? <span dir="ltr">{handle}</span> : null}
                   </div>
                   <span className="channel-row-status connected">{t("متصل", "Connected")}</span>
-                  <span className="channel-row-sync">{t("آخر مزامنة", "Last sync")}: {lastSync}</span>
                   <button type="button" className="channel-row-settings" onClick={() => goToChannelSetup(channel.id)}>
                     <span aria-hidden="true">⚙️</span>
                     {t("إعدادات القناة", "Channel settings")}
