@@ -417,6 +417,18 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     setWizardModalOpen(true);
   }
 
+  // Facebook/Instagram have nothing to configure and only one way to
+  // connect, so clicking Connect should jump straight into the Meta OAuth
+  // window instead of opening a popup that just contains another button.
+  function connectChannel(channelId: SelectableChannelId) {
+    if (channelId === "facebook" || channelId === "instagram") {
+      setSelectedChannel(channelId);
+      void openMetaWindow(channelId);
+      return;
+    }
+    goToChannelSetup(channelId);
+  }
+
   const webhookUrl = useMemo(() => {
     if (typeof window === "undefined") return settings.webhookUrl;
     if (settings.webhookUrl.startsWith("http")) return settings.webhookUrl;
@@ -863,10 +875,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     }
   }
 
-  async function openMetaWindow() {
+  async function openMetaWindow(channelOverride?: SelectableChannelId) {
     if (typeof window === "undefined") return false;
+    const channel = channelOverride ?? selectedChannel;
 
-    if (selectedChannel === "whatsapp") {
+    if (channel === "whatsapp") {
       const appId = techProviderMetaAppId;
       const configId = techProviderMetaConfigId;
 
@@ -917,7 +930,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       return true;
     }
 
-    const metaUrl = `/api/meta/connect?channel=${selectedChannel}`;
+    const metaUrl = `/api/meta/connect?channel=${channel}`;
     const metaWindow = window.open(metaUrl, "audiencew-meta-connect", "width=960,height=780");
     if (!metaWindow) {
       window.location.assign(new URL(metaUrl, window.location.origin).toString());
@@ -970,7 +983,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 : t("يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل.", "You can edit the data or clear the connection from the connection and webhook section below.")}
             </span>
             {!isEmail && !isGoogleMaps && !isX && !isTelegram && !isWebsite && !isSms ? (
-              <button type="button" onClick={isTikTok ? connectTikTokAccount : openMetaWindow}>
+              <button type="button" onClick={() => isTikTok ? connectTikTokAccount() : openMetaWindow()}>
                 {isTikTok ? t("ربط حساب TikTok آخر", "Connect another TikTok account") : isFacebook ? t("ربط صفحة Facebook", "Connect a Facebook page") : isInstagram ? t("ربط Instagram", "Connect Instagram") : t("ربط واتساب جديد", "Connect a new WhatsApp number")}
               </button>
             ) : null}
@@ -1181,7 +1194,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <li>{t("مصادقة آمنة عبر OAuth", "Secure OAuth based authentication")}</li>
               <li>{isInstagram ? t("الرسائل والتعليقات ستستخدم ويبهوك Meta", "Messages and comments will use the Meta webhook") : isFacebook ? t("رسائل Messenger ستستخدم ويبهوك Meta", "Messenger messages will use the Meta webhook") : t("إعداد تلقائي للويبهوك ورقم الهاتف", "Automatic webhook and phone number configuration")}</li>
             </ul>
-            <button className={!isInstagram && !isFacebook ? "facebook-login-button" : undefined} type="button" onClick={openMetaWindow}>
+            <button className={!isInstagram && !isFacebook ? "facebook-login-button" : undefined} type="button" onClick={() => openMetaWindow()}>
               {isInstagram ? t("ربط Instagram", "Connect Instagram") : isFacebook ? t("ربط Facebook", "Connect Facebook") : t("تسجيل الدخول عبر Facebook", "Login with Facebook")}
             </button>
           </div>
@@ -1306,7 +1319,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   </span>
                   <b>{channel.title}</b>
                   <small>{channel.description}</small>
-                  <button type="button" className={connected ? "connected" : ""} onClick={() => goToChannelSetup(channel.id)}>
+                  <button type="button" className={connected ? "connected" : ""} onClick={() => connected ? goToChannelSetup(channel.id) : connectChannel(channel.id)}>
                     {connected ? t("متصل — إدارة", "Connected — manage") : t("ربط", "Connect")}
                   </button>
                 </div>
