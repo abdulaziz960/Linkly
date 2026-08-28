@@ -5,6 +5,7 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { storeXMessage } from "../../../../lib/x-inbox";
 import { runChannelBot } from "../../../../lib/bot-engine";
 import { verifyPrefixedHmac } from "../../../../lib/webhook-security";
+import { getXPlatformCredentials } from "../../../../lib/x-platform";
 
 export const runtime = "nodejs";
 
@@ -146,7 +147,7 @@ export async function GET(request: NextRequest) {
   const tenantId = request.nextUrl.searchParams.get("tenant")?.trim() || "tenant-demo";
   const settings = await getIntegrationSettings("x", tenantId);
   const crcToken = request.nextUrl.searchParams.get("crc_token");
-  const consumerSecret = settings.xConsumerSecret.trim();
+  const { consumerSecret } = getXPlatformCredentials(settings);
 
   if (!crcToken) {
     return NextResponse.json({
@@ -171,9 +172,9 @@ export async function POST(request: NextRequest) {
   const settings = await getIntegrationSettings("x", tenantId);
   const rawBody = await request.text();
   const signature = request.headers.get("x-twitter-webhooks-signature");
-  const consumerSecret = settings.xConsumerSecret.trim();
+  const { consumerSecret } = getXPlatformCredentials(settings);
 
-  if (!verifySignature(rawBody, signature, consumerSecret)) {
+  if (!consumerSecret || !verifySignature(rawBody, signature, consumerSecret)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
