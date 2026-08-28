@@ -141,3 +141,26 @@ export async function sendXDirectMessage(settings: IntegrationSettings, recipien
 
   return payload.data;
 }
+
+export async function sendXPostReply(settings: IntegrationSettings, postId: string, text: string) {
+  const cleanPostId = postId.trim();
+  if (!cleanPostId) throw new XApiError("معرّف منشور X غير موجود.", 400);
+
+  const response = await fetchXWithAutoRefresh(settings, "https://api.x.com/2/tweets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      reply: { in_reply_to_tweet_id: cleanPostId }
+    })
+  });
+  const payload = await response.json().catch(() => null) as (XApiErrorPayload & {
+    data?: { id?: string; text?: string };
+  }) | null;
+
+  if (!response.ok || !payload?.data?.id) {
+    throw new XApiError(getXApiErrorMessage(payload, "تعذر نشر الرد عبر X."), response.status || 502);
+  }
+
+  return payload.data;
+}
