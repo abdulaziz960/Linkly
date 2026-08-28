@@ -1193,6 +1193,28 @@ async function seedDatabase() {
       }
     }
 
+    const businessHoursRule = automationRules.find((rule) => rule.id === "auto-business-hours");
+    if (businessHoursRule) {
+      await tx.automationRule.upsert({
+        where: { id: businessHoursRule.id },
+        update: {},
+        create: {
+          id: businessHoursRule.id,
+          tenantId: "tenant-demo",
+          name: businessHoursRule.name,
+          description: businessHoursRule.description,
+          trigger: businessHoursRule.trigger,
+          action: businessHoursRule.action,
+          target: businessHoursRule.target,
+          delayMinutes: businessHoursRule.delayMinutes,
+          conditionsJson: JSON.stringify(businessHoursRule.conditions),
+          actionsJson: JSON.stringify(businessHoursRule.actions),
+          createdAt: businessHoursRule.createdAt,
+          enabled: 1
+        }
+      });
+    }
+
     return;
 
     await tx.conversationTag.deleteMany({ where: { conversationId: { in: ["c-1", "c-2", "c-3", "c-4"] } } });

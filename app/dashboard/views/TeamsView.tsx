@@ -116,7 +116,7 @@ export default function TeamsView({
   const allSelected = filteredEmployees.length > 0 && filteredEmployees.every((employee) => selectedIds.has(employee.id));
 
   function toggleSelectAll() {
-    setSelectedIds((current) => {
+    setSelectedIds(() => {
       if (allSelected) return new Set();
       return new Set(filteredEmployees.map((employee) => employee.id));
     });

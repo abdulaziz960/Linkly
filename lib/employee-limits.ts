@@ -13,5 +13,9 @@ export async function getEmployeeLimitForTenant(tenantId?: string) {
     ? await prisma.subscription.findUnique({ where: { tenantId } }).catch(() => null)
     : null;
 
-  return subscription?.employeeLimit ?? defaultEmployeeLimit;
+  const configuredLimit = subscription?.employeeLimit ?? defaultEmployeeLimit;
+  if (tenantId === "tenant-demo" && process.env.NODE_ENV !== "production") {
+    return Math.max(configuredLimit, defaultEmployeeLimit);
+  }
+  return configuredLimit;
 }

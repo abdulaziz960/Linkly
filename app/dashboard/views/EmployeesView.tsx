@@ -75,7 +75,7 @@ export default function EmployeesView({
   employees: Employee[];
   onRefreshData: () => Promise<void>;
 }) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const emptyForm = useMemo<EmployeeFormState>(
     () => ({
       name: "",

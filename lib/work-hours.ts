@@ -125,6 +125,12 @@ async function sendOffHoursText(channel: string, tenantId: string, conversationI
  */
 export async function checkOffHoursAutoReply(conversationId: string, tenantId: string) {
   try {
+    const configuredRule = await prisma.automationRule.findFirst({
+      where: { tenantId, id: "auto-business-hours" },
+      select: { enabled: true }
+    });
+    if (configuredRule?.enabled === 0) return;
+
     const hasActiveSchedule = await prisma.workSchedule.count({ where: { tenantId, status: "نشط" } });
     if (!hasActiveSchedule) return;
 

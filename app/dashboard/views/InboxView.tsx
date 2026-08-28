@@ -364,6 +364,15 @@ export default function InboxView({
   const isClosed = activeConversation.status === "closed";
   const hasActiveConversation = Boolean(activeConversation.id);
   const isComposerDisabled = !hasActiveConversation || activeConversation.windowExpired || isClosed;
+  const lastInboundAt = activeConversation.messages
+    .filter((item) => item.direction === "in" && item.createdAt)
+    .map((item) => new Date(item.createdAt as string).getTime())
+    .filter(Number.isFinite)
+    .sort((first, second) => second - first)[0];
+  const replyWindowAgeHours = lastInboundAt ? Math.max(24, Math.floor((filterReferenceTime - lastInboundAt) / 3_600_000)) : null;
+  const latestFailedMessage = [...activeConversation.messages]
+    .reverse()
+    .find((item) => item.direction === "out" && item.deliveryStatus === "failed");
   const quickReplyMatch = message.match(/(?:^|\s)(\/[^\s]*)$/);
   const quickReplyQuery = quickReplyMatch?.[1]?.toLowerCase() || "";
   const quickReplySuggestions = quickReplyQuery
@@ -1217,6 +1226,19 @@ export default function InboxView({
                     "More than 24 hours have passed since the customer's last message. You can't send a regular reply now — choose an approved WhatsApp template to reopen the conversation."
                   )}
                 </span>
+                <small>
+                  {replyWindowAgeHours === null
+                    ? t("وقت آخر رسالة واردة غير متاح.", "The last inbound message time is unavailable.")
+                    : t(`مر ${replyWindowAgeHours} ساعة على آخر رسالة من العميل.`, `${replyWindowAgeHours} hours have passed since the customer's last message.`)}
+                </small>
+                <p className="form-error" role="status">
+                  {t("الردود السريعة والرسائل العادية غير متاحة في هذه المحادثة. استخدم قالب WhatsApp معتمد فقط.", "Quick replies and regular messages are unavailable in this conversation. Use an approved WhatsApp template only.")}
+                </p>
+                {latestFailedMessage ? (
+                  <p className="form-error" role="alert">
+                    {t(`تعذر تسليم آخر قالب: ${latestFailedMessage.deliveryError || "رفضت القناة الرسالة"}. غيّر القالب أو راجع إعدادات القناة قبل المحاولة مرة أخرى.`, `The last template could not be delivered: ${latestFailedMessage.deliveryError || "the channel rejected the message"}. Choose another template or review the channel settings before trying again.`)}
+                  </p>
+                ) : null}
                 <div>
                   <CustomSelect
                     value={reopenTemplates.some((template) => template.name === selectedTemplate) ? selectedTemplate : reopenTemplates[0]?.name || ""}
@@ -1228,7 +1250,12 @@ export default function InboxView({
                         : [{ value: "", label: t("لا توجد قوالب تسويقية معتمدة", "No approved marketing templates") }]
                     }
                   />
-                  <button className="btn primary" type="button" disabled={!reopenTemplates.length} onClick={onSendTemplate}>
+                  <button
+                    className="btn primary"
+                    type="button"
+                    disabled={!reopenTemplates.length || Boolean(latestFailedMessage && reopenTemplates.find((template) => template.name === selectedTemplate)?.message === latestFailedMessage.text)}
+                    onClick={onSendTemplate}
+                  >
                     {t("إرسال قالب", "Send template")}
                   </button>
                 </div>

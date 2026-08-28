@@ -100,7 +100,7 @@ function getWizardSteps(t: TFn) {
   ];
 }
 
-export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "x" | "email" | "gmail" | "google_maps" | "tiktok" | "sms";
+export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "x" | "email" | "gmail" | "zapier" | "google_maps" | "tiktok" | "sms";
 // The channel picker/wizard never selects the raw "email" record directly —
 // Gmail is the only UI-facing channel for it (see apiChannel()) — so the
 // selectable subset excludes it.
@@ -115,6 +115,7 @@ function getChannels(t: TFn): Array<{ id: SelectableChannelId; title: string; de
     { id: "telegram", title: t("تيليجرام", "Telegram"), description: t("اضبط قناة Telegram باستخدام Bot Token", "Configure Telegram channel using Bot token"), active: true },
     { id: "x", title: "X", description: t("ربط حساب X عبر OAuth", "Connect your X account via OAuth"), active: true },
     { id: "gmail", title: "Gmail", description: t("ربط Gmail مباشرة عبر OAuth", "Connect Gmail directly via OAuth"), active: true },
+    { id: "zapier", title: "Zapier", description: t("استقبل العملاء المحتملين عبر Webhook", "Receive leads through a webhook"), active: true },
     { id: "google_maps", title: t("خرائط Google", "Google Maps"), description: t("اربط ملف نشاطك التجاري على Google", "Connect your Google Business Profile"), active: true },
     { id: "tiktok", title: "TikTok", description: t("بانتظار موافقة TikTok على Business Messaging", "Waiting for TikTok's Business Messaging approval"), active: true },
     { id: "sms", title: "SMS", description: t("إرسال واستقبال رسائل SMS عبر Unifonic", "Send and receive SMS messages via Unifonic"), active: true }
@@ -124,7 +125,7 @@ function getChannels(t: TFn): Array<{ id: SelectableChannelId; title: string; de
 // Gmail is shown as its own channel card, but still reads/writes the single
 // shared "email" integration record on the backend.
 function apiChannel(channel: ChannelId) {
-  return channel === "gmail" ? "email" : channel;
+  return channel === "gmail" || channel === "zapier" ? "email" : channel;
 }
 
 // Channels the auto-reply bot engine currently supports (lib/bot-engine.ts).
@@ -315,7 +316,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const isX = selectedChannel === "x";
   const isGoogleMaps = selectedChannel === "google_maps";
   const isGmail = selectedChannel === "gmail";
-  const isEmail = isGmail;
+  const isZapier = selectedChannel === "zapier";
+  const isEmail = isGmail || isZapier;
   const isWebsite = selectedChannel === "website";
   const isTikTok = selectedChannel === "tiktok";
   const isSms = selectedChannel === "sms";
@@ -469,7 +471,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     return `https://t.me/${username}`;
   }, [isTelegram, settings.status, settings.wabaName]);
   const currentWizardSteps = useMemo(() => {
-    const channelName = isWebsite ? t("الموقع الإلكتروني", "Website") : isTikTok ? "TikTok" : isSms ? "SMS" : isGmail ? "Gmail" : isGoogleMaps ? t("خرائط Google", "Google Maps") : isX ? "X" : isTelegram ? t("تيليجرام", "Telegram") : isFacebook ? t("فيسبوك", "Facebook") : isInstagram ? "Instagram" : t("واتساب", "WhatsApp");
+    const channelName = isWebsite ? t("الموقع الإلكتروني", "Website") : isTikTok ? "TikTok" : isSms ? "SMS" : isZapier ? "Zapier" : isGmail ? "Gmail" : isGoogleMaps ? t("خرائط Google", "Google Maps") : isX ? "X" : isTelegram ? t("تيليجرام", "Telegram") : isFacebook ? t("فيسبوك", "Facebook") : isInstagram ? "Instagram" : t("واتساب", "WhatsApp");
 
     return wizardSteps.map((step, index) => {
       if (index === 0) {
@@ -572,7 +574,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         description: isConnected ? t(`أصبحت قناة ${channelName} جاهزة الآن.`, `The ${channelName} channel is now ready.`) : t(`لم تكتمل قناة ${channelName} بعد.`, `The ${channelName} channel isn't set up yet.`)
       };
     });
-  }, [isConnected, isEmail, isFacebook, isGmail, isGoogleMaps, isInstagram, isTelegram, isX, isTikTok, isSms, isWebsite, wizardSteps, t]);
+  }, [isConnected, isEmail, isFacebook, isGmail, isGoogleMaps, isInstagram, isTelegram, isX, isTikTok, isSms, isWebsite, isZapier, wizardSteps, t]);
 
   useEffect(() => {
     const isFirstLoad = !hasSelectedChannelRef.current;
@@ -585,7 +587,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         if (data.status === "connected") {
           setWizardStep(4);
         } else if (!isFirstLoad) {
-          setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "gmail" || selectedChannel === "website" ? 4 : 2);
+          setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "gmail" || selectedChannel === "zapier" || selectedChannel === "website" ? 4 : 2);
         }
         onIntegrationChange?.(data);
       })
@@ -693,7 +695,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
     window.addEventListener("message", handleMetaMessage);
     return () => window.removeEventListener("message", handleMetaMessage);
-  }, [onIntegrationChange, selectedChannel, settings.phoneNumber, settings.phoneNumberId, settings.wabaId]);
+  }, [onIntegrationChange, selectedChannel, settings.phoneNumber, settings.phoneNumberId, settings.wabaId, t]);
 
   function updateField(field: keyof IntegrationSettings, value: string) {
     setSettings((current) => ({ ...current, [field]: value }));
@@ -775,7 +777,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     const data = await response.json() as IntegrationResponse;
     setSettings(data);
     onIntegrationChange?.(data);
-    setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "gmail" || selectedChannel === "website" ? 4 : 2);
+    setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "gmail" || selectedChannel === "zapier" || selectedChannel === "website" ? 4 : 2);
     setSaveFeedback({ type: "error", text: data.connectionMessage || t("تم مسح بيانات الربط", "The connection data was cleared") });
     setSaving(false);
   }
@@ -1462,7 +1464,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           ) : null}
           <div className="settings-form-head">
             <div>
-              <h2>{isWebsite ? t("ودجت الموقع الإلكتروني", "Website widget") : isGoogleMaps ? t("ربط Google Business", "Connect Google Business") : isWhatsApp ? t("ربط واتساب", "Connect WhatsApp") : hideManualEmailSetup ? t("حساب البريد المرتبط", "Connected email account") : t("بيانات الربط والويبهوك", "Connection and webhook details")}</h2>
+              <h2>{isWebsite ? t("ودجت الموقع الإلكتروني", "Website widget") : isGoogleMaps ? t("ربط Google Business", "Connect Google Business") : isWhatsApp ? t("ربط واتساب", "Connect WhatsApp") : isZapier ? t("ربط Zapier لاستقبال العملاء", "Connect Zapier lead intake") : hideManualEmailSetup ? t("حساب البريد المرتبط", "Connected email account") : t("بيانات الربط والويبهوك", "Connection and webhook details")}</h2>
               <p>{isWebsite ? t("مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى.", "The site key below is unique to your account and is already embedded in the code above.") : hideManualEmailSetup ? t("الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب.", "The account is connected via OAuth and works automatically without extra settings. Click Clear Connection Data to disconnect it.") : isEmail ? t("هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook.", "This data saves the email channel and is used to receive messages via webhook.") : isGoogleMaps ? t("لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة.", "You don't need to fill in any fields here. Click Connect Google and choose the business account, and the connection data will be saved automatically after approval.") : isX ? t("هذه بيانات تطبيق Linkly على X. العميل لن يدخل هذه المفاتيح؛ سيضغط ربط X فقط ويتم حفظ حسابه تلقائيًا.", "This is the Linkly app's data on X. The customer won't enter these keys; they'll just click Connect X and their account will be saved automatically.") : isTikTok ? t("احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging.", "Save the TikTok app details now; actual sending and receiving starts once TikTok approves Business Messaging access.") : isSms ? t("بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز.", "Unifonic details for sending SMS messages to customers. Receiving replies is still being built.") : isTelegram ? t("هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة.", "This data saves the Telegram connection and activates the webhook automatically to receive messages in the platform.") : isFacebook ? t("هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة.", "This data saves the Facebook page and is used to send and receive Messenger messages in the platform.") : isInstagram ? t("هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة.", "This data saves the Instagram connection and is used to receive messages and comments in the platform.") : t("اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط.", "Connect a WhatsApp account from the Meta window. The account and number details will be saved automatically once the connection is complete.")}</p>
             </div>
             <span className={`connection-pill ${isEmail ? (isConnected ? "connected" : "pending") : settings.status}`}>
@@ -1485,7 +1487,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <input value={settings.businessName} onChange={(event) => updateField("businessName", event.target.value)} />
             </label> : null}
             <label>
-              {isEmail ? t("اسم قناة البريد", "Email channel name") : isX ? t("اسم حساب X", "X account name") : isTikTok ? t("اسم حساب TikTok", "TikTok account name") : isSms ? t("اسم قناة SMS", "SMS channel name") : isTelegram ? t("اسم بوت Telegram", "Telegram bot name") : isFacebook ? t("اسم صفحة Facebook", "Facebook page name") : isInstagram ? t("اسم حساب Instagram", "Instagram account name") : t("حساب واتساب للأعمال", "WhatsApp Business account")}
+              {isZapier ? t("اسم تدفق العملاء", "Lead flow name") : isEmail ? t("اسم قناة البريد", "Email channel name") : isX ? t("اسم حساب X", "X account name") : isTikTok ? t("اسم حساب TikTok", "TikTok account name") : isSms ? t("اسم قناة SMS", "SMS channel name") : isTelegram ? t("اسم بوت Telegram", "Telegram bot name") : isFacebook ? t("اسم صفحة Facebook", "Facebook page name") : isInstagram ? t("اسم حساب Instagram", "Instagram account name") : t("حساب واتساب للأعمال", "WhatsApp Business account")}
               <input value={settings.wabaName} onChange={(event) => updateField("wabaName", event.target.value)} readOnly={isWhatsApp} placeholder={isWhatsApp ? t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete") : undefined} />
             </label>
             {!isInstagram && !isFacebook && !isTelegram && !isX && !isEmail && !isTikTok && !isSms ? <label>
@@ -1520,8 +1522,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             {isEmail ? (
               <>
                 <label>
-                  {t("بريد الإرسال", "Sending email address")}
-                  <input dir="ltr" type="email" value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} placeholder="support@example.com" />
+                  {isZapier ? t("معرّف مصدر افتراضي", "Default source identifier") : t("بريد الإرسال", "Sending email address")}
+                  <input dir="ltr" type={isZapier ? "text" : "email"} value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} placeholder={isZapier ? "zapier@lead.source" : "support@example.com"} />
                 </label>
                 <label>
                   Secret Token
@@ -1775,7 +1777,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
           {!isGoogleMaps && !isWebsite && !isInstagram && !isFacebook && !isWhatsApp && !(hideManualEmailSetup) ? <div className="webhook-card">
             <div>
-              <h3>{t("إعدادات الويبهوك", "Webhook settings")} — {isEmail ? (isGmail ? "Gmail" : t("البريد الإلكتروني", "Email")) : isTikTok ? "TikTok" : isSms ? "SMS" : isX ? "X" : isTelegram ? t("تيليجرام", "Telegram") : isFacebook ? t("فيسبوك", "Facebook") : isInstagram ? "Instagram" : t("واتساب", "WhatsApp")}</h3>
+              <h3>{t("إعدادات الويبهوك", "Webhook settings")} — {isZapier ? "Zapier" : isEmail ? (isGmail ? "Gmail" : t("البريد الإلكتروني", "Email")) : isTikTok ? "TikTok" : isSms ? "SMS" : isX ? "X" : isTelegram ? t("تيليجرام", "Telegram") : isFacebook ? t("فيسبوك", "Facebook") : isInstagram ? "Instagram" : t("واتساب", "WhatsApp")}</h3>
               <p>{isEmail ? t("انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة.", "Copy this link along with the Secret Token and add it to Zapier, Make, or your email provider to send inbound messages to the platform.") : isGoogleMaps ? t("هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة.", "The system uses this link to sync Google reviews on demand or periodically within the platform.") : isX ? t("استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات.", "Use this link as the Webhook URL in X when the Account Activity API is available. The Webhook Secret protects the requests.") : isTelegram ? t("سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة.", "This link will be activated automatically in Telegram once you save the Bot Token. The Secret Token protects the webhook from unknown requests.") : isFacebook ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Facebook Messenger messages.") : isInstagram ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Instagram messages and comments.") : isTikTok ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق TikTok لاستقبال رسائل وتعليقات TikTok بعد موافقة Business Messaging.", "Copy the webhook link and Verify Token and add them to your TikTok app settings to receive TikTok messages and comments once Business Messaging is approved.") : isSms ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات Unifonic لاستقبال ردود العملاء عبر SMS.", "Copy the webhook link and Verify Token and add them to your Unifonic settings to receive customer replies via SMS.") : t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive WhatsApp messages.")}</p>
             </div>
             <div className="webhook-field">

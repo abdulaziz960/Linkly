@@ -11,7 +11,8 @@ describe("session tokens", () => {
     const { createSessionToken, verifySessionToken } = await import("../lib/auth");
     const token = createSessionToken("user-123", 60);
     expect(verifySessionToken(token)).toEqual({ userId: "user-123", sessionVersion: 0 });
-    expect(verifySessionToken(`${token.slice(0, -1)}0`)).toBeNull();
+    const replacement = token.endsWith("0") ? "1" : "0";
+    expect(verifySessionToken(`${token.slice(0, -1)}${replacement}`)).toBeNull();
   });
 
   it("rejects an expired token", async () => {

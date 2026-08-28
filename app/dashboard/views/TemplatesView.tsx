@@ -330,6 +330,7 @@ export default function TemplatesView({
                       {form.headerMedia.startsWith("data:") ? (
                         <div className="template-header-media-preview-wrap">
                           {form.headerType === "IMAGE" ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={form.headerMedia} alt="" className="template-header-image-preview" />
                           ) : (
                             <video src={form.headerMedia} className="template-header-image-preview" controls />
@@ -609,6 +610,7 @@ function TemplatePreview({ form, t }: { form: TemplateFormState; language: strin
         <div className="template-bubble">
           {form.headerType === "IMAGE" ? (
             form.headerMedia.startsWith("data:") ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={form.headerMedia} alt="" className="template-media-image" />
             ) : (
               <div className="template-media">{t("صورة القالب", "Template image")}</div>

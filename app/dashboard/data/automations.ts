@@ -26,5 +26,18 @@ export const automationRules: AutomationRule[] = [
     actions: [{ type: "إشعار المشرف", target: "المشرف" }],
     createdAt: "أمس",
     enabled: true
+  },
+  {
+    id: "auto-business-hours",
+    name: "الرد خارج ساعات العمل",
+    description: "يرسل الرد التلقائي المعرّف في صفحة ساعات العمل عندما تصل رسالة خارج الدوام.",
+    trigger: "رد العميل",
+    action: "إرسال رد ساعات العمل",
+    target: "إعدادات ساعات العمل",
+    delayMinutes: 0,
+    conditions: [{ field: "وقت الرسالة", operator: "خارج", value: "ساعات العمل" }],
+    actions: [{ type: "إرسال رد ساعات العمل", target: "إعدادات ساعات العمل" }],
+    createdAt: "اليوم",
+    enabled: true
   }
 ];
