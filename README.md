@@ -1,92 +1,93 @@
 # Linkly
 
-Linkly is a multi-tenant SaaS platform for managing customer conversations, campaigns, automations, bot flows, employee permissions, subscriptions, billing, and channel integrations.
+**Every customer conversation in one place.**
 
-## Architecture
+Linkly is a multi-channel customer engagement platform for support and sales teams. It brings WhatsApp, Instagram, email, Telegram, and other customer touchpoints into one shared workspace so teams can reply faster, assign conversations, automate follow-ups, and keep the full customer context visible.
 
-- `app/` contains the Next.js App Router pages and API route handlers.
-- `app/api/` contains authenticated tenant APIs, platform-admin APIs, public webhooks, and public widget endpoints.
-- `lib/` contains authentication, authorization, Prisma access, integrations, billing, campaign processing, bot execution, and webhook utilities.
-- `prisma/` contains the Prisma schema and migrations. Prisma migrations are the production source of truth for database schema changes.
-- `tests/` contains Vitest coverage for security and business logic boundaries.
+## What Linkly offers
 
-## Tech Stack
+- **Shared inbox** — manage conversations and customer history from one place.
+- **Team collaboration** — assign conversations and control employee permissions.
+- **Campaigns** — create, send, and track multi-channel outreach.
+- **Automations** — route conversations and trigger actions using configurable rules.
+- **Bot flows** — build structured automated customer journeys.
+- **Reports** — monitor conversations, campaigns, and team activity.
+- **Channel integrations** — connect WhatsApp, Instagram, Facebook Messenger, Telegram, email, Google Maps reviews, and X. TikTok messaging support is prepared for businesses with the required approval.
+- **SaaS operations** — manage tenants, subscriptions, billing, and platform administration.
 
-- Next.js 16
-- React 19
-- TypeScript
-- Prisma
-- SQLite for local development
-- PostgreSQL-compatible deployment through `DATABASE_URL`
-- Vitest
-- ESLint
+## Tech stack
 
-## Local Development
+| Area | Technology |
+| --- | --- |
+| Application | Next.js 16, React 19, TypeScript |
+| Data | Prisma, SQLite for local development, `DATABASE_URL` for production |
+| Quality | Vitest, ESLint, TypeScript |
+
+## Quick start
+
+### 1. Install dependencies
 
 ```bash
 npm ci
+```
+
+### 2. Configure the environment
+
+Copy `.env.example` to `.env.local`:
+
+```bash
+cp .env.example .env.local
+```
+
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+For local development, Linkly falls back to `file:./dev.db` when `DATABASE_URL` is not set. Use unique, securely generated secrets in every deployed environment.
+
+### 3. Start the development server
+
+```bash
 npm run dev
 ```
 
-If `DATABASE_URL` is not set outside production, Linkly falls back to `file:./dev.db`.
+The development command generates the Prisma client before starting Next.js.
 
-## Environment Variables
+## Environment variables
 
-Copy `.env.example` to `.env.local` and fill only the values needed for your environment.
+Only configure the integrations you intend to use. Never commit real credentials.
 
-Required in production:
+| Category | Variables |
+| --- | --- |
+| Production runtime | `DATABASE_URL`, `AUTH_SECRET`, `INTEGRATION_ENCRYPTION_KEY`, `CRON_SECRET` |
+| Google OAuth | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| Meta and WhatsApp | `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN` |
+| X | `X_CLIENT_ID`, `X_CLIENT_SECRET` |
+| TikTok | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` |
+| Billing | `MOYASAR_SECRET_KEY`, `MOYASAR_WEBHOOK_SECRET`, `STRIPE_SECRET_KEY` |
+| Transactional email fallback | `GOOGLE_APPS_SCRIPT_URL`, `GOOGLE_APPS_SCRIPT_SECRET` |
 
-- `DATABASE_URL`
-- `AUTH_SECRET`
-- `INTEGRATION_ENCRYPTION_KEY`
-- `CRON_SECRET`
+See [`.env.example`](.env.example) for the complete list, aliases, and operational notes.
 
-Common integration variables:
+## Database
 
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `META_APP_ID`
-- `META_APP_SECRET`
-- `WHATSAPP_META_APP_SECRET`
-- `META_WEBHOOK_VERIFY_TOKEN`
-- `X_CLIENT_ID`
-- `TIKTOK_CLIENT_KEY`
-- `TIKTOK_CLIENT_SECRET`
-- `MOYASAR_SECRET_KEY`
-- `MOYASAR_WEBHOOK_SECRET`
-- `STRIPE_SECRET_KEY`
-- `GOOGLE_APPS_SCRIPT_URL`
-- `GOOGLE_APPS_SCRIPT_SECRET`
-
-Never commit real secrets.
-
-## Database Setup
-
-Generate the Prisma client:
+Generate the Prisma client manually when needed:
 
 ```bash
 node scripts/prisma-generate.mjs
 ```
 
-Apply migrations in production:
+Apply committed migrations in production:
 
 ```bash
 npm run db:migrate:deploy
 ```
 
-Runtime schema repair is disabled in production by default. Use `ENABLE_RUNTIME_SCHEMA_REPAIR=true` only during a controlled compatibility repair window.
+Prisma migrations are the production source of truth. Administrative recovery and bootstrap procedures should remain in private operational documentation.
 
-## Admin Bootstrap
-
-Create or reset a Platform Admin explicitly:
-
-```bash
-SUPER_ADMIN_EMAIL="admin@example.com" SUPER_ADMIN_PASSWORD="StrongPassword123" npm run admin:create
-```
-
-Do not reuse a tenant-owner email for Platform Admin access. Existing tenant accounts are not silently promoted to Platform Admin.
-
-## Running Checks
+## Quality checks
 
 ```bash
 npm run lint
@@ -97,30 +98,25 @@ npm run build
 
 Production builds require `DATABASE_URL` and `AUTH_SECRET`.
 
-## Webhooks
+## Architecture
 
-Configure provider webhooks with secrets whenever the provider supports them:
+```text
+app/          Next.js pages, API route handlers, webhooks, and widget endpoints
+lib/          Authentication, authorization, data access, integrations, and business logic
+prisma/       Prisma schema and production migrations
+public/       Public browser assets and the embeddable widget
+scripts/      Database and administrative scripts
+tests/        Security and business-boundary tests
+```
 
-- Meta/WhatsApp/Instagram/Facebook: signed `x-hub-signature-256`
-- Moyasar: `MOYASAR_WEBHOOK_SECRET`
-- Telegram: `x-telegram-bot-api-secret-token`
-- X: `x-twitter-webhooks-signature`
-- Email inbound: tenant webhook secret
+## Security
 
-Webhook handlers should be idempotent and must not log tokens, passwords, or provider secrets.
+Linkly isolates tenant data, enforces role-based access, encrypts integration credentials, and validates incoming provider requests. Never commit credentials, expose administrative procedures publicly, or log sensitive authentication data. Keep deployment-specific security controls and incident procedures in private operational documentation.
 
-## Multi-Tenant Security
+## Production checklist
 
-Every tenant-owned resource must be read or mutated through a `tenantId` boundary. API routes that accept IDs from params or request bodies should verify the resource belongs to the current user's tenant before returning or changing it.
-
-Platform Admin is a separate persisted permission (`isPlatformAdmin`) and must not be inferred from tenant ownership or email alone.
-
-## Deployment
-
-Before deploying:
-
-1. Configure production environment variables.
-2. Run Prisma migrations.
-3. Run lint, typecheck, tests, and build.
-4. Configure webhook URLs and secrets in provider dashboards.
-5. Create the initial Platform Admin through the bootstrap script.
+1. Configure the required production environment variables.
+2. Apply Prisma migrations.
+3. Run lint, type checking, tests, and the production build.
+4. Configure provider callbacks and credentials through their secure dashboards.
+5. Complete the private administrative bootstrap procedure.
