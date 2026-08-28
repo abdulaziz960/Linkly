@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { createHash, randomUUID } from "crypto";
 import { getPasswordValidationError, hashPassword, verifyPassword } from "./passwords";
-import { decryptSecret, encryptSecret, integrationSecretFields } from "./secret-storage";
+import { decryptSecret, encryptSecret, hasIntegrationEncryptionKey, integrationSecretFields } from "./secret-storage";
 import { automationRules } from "../app/dashboard/data/automations";
 import { templates } from "../app/dashboard/data/templates";
 import type {
@@ -137,6 +137,19 @@ export type AdminLog = {
 };
 
 export { hashPassword } from "./passwords";
+
+function shouldEncryptIntegrationSecrets() {
+  return process.env.NODE_ENV !== "production" || hasIntegrationEncryptionKey();
+}
+
+function maybeEncryptGeneratedSecret(value: string) {
+  return shouldEncryptIntegrationSecrets() ? encryptSecret(value) : value;
+}
+
+function readStoredSecret(value?: string | null) {
+  if (value?.startsWith("enc:v1:") && !hasIntegrationEncryptionKey()) return "";
+  return decryptSecret(value);
+}
 
 async function runRequiredProductionMigrations() {
   if (!isPostgresDatabase) return;
@@ -1050,7 +1063,7 @@ async function seedDatabase() {
         tenantId: "tenant-demo",
         provider: "webhook",
         status: "not_connected",
-        webhookSecret: encryptSecret(process.env.EMAIL_WEBHOOK_SECRET || randomUUID()),
+        webhookSecret: maybeEncryptGeneratedSecret(process.env.EMAIL_WEBHOOK_SECRET || randomUUID()),
         updatedAt: new Date().toISOString()
       }
     });
@@ -1841,7 +1854,7 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
   for (const field of integrationSecretFields) {
     if (field === "verifyToken" && settings.provider === "website") continue;
     const value = settings[field];
-    if (value && !value.startsWith("enc:v1:")) encryptedUpdates[field] = encryptSecret(value);
+    if (value && !value.startsWith("enc:v1:") && shouldEncryptIntegrationSecrets()) encryptedUpdates[field] = encryptSecret(value);
   }
   if (Object.keys(encryptedUpdates).length) {
     await prisma.integrationSetting.update({ where: { id: settings.id }, data: encryptedUpdates });
@@ -1859,12 +1872,12 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     : channel === "instagram" || channel === "facebook"
     ? settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || ""
     : settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || "";
-  const storedConfigId = decryptSecret(settings.configId);
+  const storedConfigId = readStoredSecret(settings.configId);
   const fallbackConfigId = channel === "google_maps"
     ? storedConfigId || defaultGoogleClientSecret
     : channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms"
       ? storedConfigId
-      : storedConfigId || defaultMetaConfigId || decryptSecret(whatsappSettings?.configId) || decryptSecret(providerMetaSettings?.configId) || "";
+      : storedConfigId || defaultMetaConfigId || readStoredSecret(whatsappSettings?.configId) || readStoredSecret(providerMetaSettings?.configId) || "";
 
   if (!settings.appId && fallbackAppId) {
     await prisma.integrationSetting.update({
@@ -1875,7 +1888,7 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
   if (!settings.configId && fallbackConfigId) {
     await prisma.integrationSetting.update({
       where: { id: settings.id },
-      data: { configId: encryptSecret(fallbackConfigId) }
+      data: { configId: maybeEncryptGeneratedSecret(fallbackConfigId) }
     });
   }
 
@@ -1891,16 +1904,16 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     wabaId: settings.wabaId,
     appId: fallbackAppId,
     configId: fallbackConfigId,
-    verifyToken: decryptSecret(settings.verifyToken),
-    accessToken: decryptSecret(settings.accessToken),
+    verifyToken: readStoredSecret(settings.verifyToken),
+    accessToken: readStoredSecret(settings.accessToken),
     xConsumerKey: settings.xConsumerKey,
-    xConsumerSecret: decryptSecret(settings.xConsumerSecret),
-    xBearerToken: decryptSecret(settings.xBearerToken),
-    xAccessToken: decryptSecret(settings.xAccessToken),
-    xAccessTokenSecret: decryptSecret(settings.xAccessTokenSecret),
+    xConsumerSecret: readStoredSecret(settings.xConsumerSecret),
+    xBearerToken: readStoredSecret(settings.xBearerToken),
+    xAccessToken: readStoredSecret(settings.xAccessToken),
+    xAccessTokenSecret: readStoredSecret(settings.xAccessTokenSecret),
     googleAccountId: settings.googleAccountId,
     googleLocationId: settings.googleLocationId,
-    googleRefreshToken: decryptSecret(settings.googleRefreshToken),
+    googleRefreshToken: readStoredSecret(settings.googleRefreshToken),
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };
@@ -1939,14 +1952,16 @@ export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Pro
         status: "not_connected",
         senderName: "",
         emailAddress: "",
-        webhookSecret: encryptSecret(randomUUID()),
+        webhookSecret: maybeEncryptGeneratedSecret(randomUUID()),
         updatedAt: new Date().toISOString()
       }
     }));
   const encryptedUpdates: { webhookSecret?: string; accessToken?: string; refreshToken?: string } = {};
-  if (settings.webhookSecret && !settings.webhookSecret.startsWith("enc:v1:")) encryptedUpdates.webhookSecret = encryptSecret(settings.webhookSecret);
-  if (settings.accessToken && !settings.accessToken.startsWith("enc:v1:")) encryptedUpdates.accessToken = encryptSecret(settings.accessToken);
-  if (settings.refreshToken && !settings.refreshToken.startsWith("enc:v1:")) encryptedUpdates.refreshToken = encryptSecret(settings.refreshToken);
+  if (shouldEncryptIntegrationSecrets()) {
+    if (settings.webhookSecret && !settings.webhookSecret.startsWith("enc:v1:")) encryptedUpdates.webhookSecret = encryptSecret(settings.webhookSecret);
+    if (settings.accessToken && !settings.accessToken.startsWith("enc:v1:")) encryptedUpdates.accessToken = encryptSecret(settings.accessToken);
+    if (settings.refreshToken && !settings.refreshToken.startsWith("enc:v1:")) encryptedUpdates.refreshToken = encryptSecret(settings.refreshToken);
+  }
   if (Object.keys(encryptedUpdates).length > 0) {
     await prisma.emailIntegration.update({ where: { id: settings.id }, data: encryptedUpdates });
   }
@@ -1956,7 +1971,7 @@ export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Pro
     status: settings.status as EmailIntegrationSettings["status"],
     senderName: settings.senderName,
     emailAddress: settings.emailAddress,
-    webhookSecret: decryptSecret(encryptedUpdates.webhookSecret || settings.webhookSecret),
+    webhookSecret: readStoredSecret(encryptedUpdates.webhookSecret || settings.webhookSecret),
     updatedAt: settings.updatedAt
   };
 }
