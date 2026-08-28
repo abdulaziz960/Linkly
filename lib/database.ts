@@ -1158,10 +1158,13 @@ async function seedDatabase() {
     for (const email of platformAdminEmails) {
       const existingAdminAccount = await tx.userAccount.findUnique({ where: { email } });
       if (existingAdminAccount) {
-        const bootstrapPasswordHash =
-          email === configuredSuperAdminEmail && !existingAdminAccount.passwordHash && configuredSuperAdminPassword
-            ? hashPassword(configuredSuperAdminPassword)
-            : undefined;
+        const shouldApplyBootstrapPassword =
+          email === configuredSuperAdminEmail &&
+          Boolean(configuredSuperAdminPassword) &&
+          !verifyPassword(configuredSuperAdminPassword, existingAdminAccount.passwordHash).valid;
+        const bootstrapPasswordHash = shouldApplyBootstrapPassword
+          ? hashPassword(configuredSuperAdminPassword)
+          : undefined;
         if (existingAdminAccount.isPlatformAdmin !== 1 || bootstrapPasswordHash) {
           await tx.userAccount.update({
             where: { email },
