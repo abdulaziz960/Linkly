@@ -421,11 +421,11 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                 </div>
 
                 <div className="admin-client-actions">
-                  <Link className="admin-client-primary-link" href={`/linkly-command-7f3a9/clients/${encodeURIComponent(client.tenantId)}`}>{t("فتح ملف العميل", "Open client profile")}</Link>
+                  <Link className="admin-client-primary-link" href={`/linkly-admin007/clients/${encodeURIComponent(client.tenantId)}`}>{t("فتح ملف العميل", "Open client profile")}</Link>
                   <button type="button" onClick={() => openChargeModal(client)}>
                     {t("شحن / تجديد الاشتراك", "Charge / Renew Subscription")}
                   </button>
-                  <Link href={`/linkly-command-7f3a9/logs?client=${client.tenantId}`}>{t("سجل الحركة", "Activity Log")}</Link>
+                  <Link href={`/linkly-admin007/logs?client=${client.tenantId}`}>{t("سجل الحركة", "Activity Log")}</Link>
                   <button type="button" onClick={() => openLimitEditor(client)}>
                     {t("تعديل حد المستخدمين", "Edit User Limit")}
                   </button>

@@ -75,12 +75,12 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
   const maxPlanCount = Math.max(1, ...planEntries.map(([, count]) => count));
 
   const quickLinks = [
-    { href: "/linkly-command-7f3a9/clients", label: t("العملاء", "Clients"), count: subscriptions.length, hint: t("إدارة كل حسابات العملاء", "Manage all client accounts") },
-    { href: "/linkly-command-7f3a9/alerts", label: t("تنبيهات التجديد", "Renewal alerts"), count: renewalAlertsCount, hint: t("اشتراكات تحتاج متابعة", "Subscriptions needing follow-up") },
-    { href: "/linkly-command-7f3a9/payments", label: t("المدفوعات", "Payments"), count: payments.length, hint: t("سجل مدفوعات Moyasar", "Moyasar payment log") },
-    { href: "/linkly-command-7f3a9/plans", label: t("الباقات", "Plans"), count: plansCount, hint: t("أسعار الباقات وحدودها", "Plan pricing and limits") },
-    { href: "/linkly-command-7f3a9/team", label: t("الفريق", "Team"), count: teamCount, hint: t("أعضاء فريق المنصة", "Platform team members") },
-    { href: "/linkly-command-7f3a9/logs", label: t("السجلات", "Logs"), count: logs.length, hint: t("سجل حركة كل الحسابات", "Activity log for all accounts") }
+    { href: "/linkly-admin007/clients", label: t("العملاء", "Clients"), count: subscriptions.length, hint: t("إدارة كل حسابات العملاء", "Manage all client accounts") },
+    { href: "/linkly-admin007/alerts", label: t("تنبيهات التجديد", "Renewal alerts"), count: renewalAlertsCount, hint: t("اشتراكات تحتاج متابعة", "Subscriptions needing follow-up") },
+    { href: "/linkly-admin007/payments", label: t("المدفوعات", "Payments"), count: payments.length, hint: t("سجل مدفوعات Moyasar", "Moyasar payment log") },
+    { href: "/linkly-admin007/plans", label: t("الباقات", "Plans"), count: plansCount, hint: t("أسعار الباقات وحدودها", "Plan pricing and limits") },
+    { href: "/linkly-admin007/team", label: t("الفريق", "Team"), count: teamCount, hint: t("أعضاء فريق المنصة", "Platform team members") },
+    { href: "/linkly-admin007/logs", label: t("السجلات", "Logs"), count: logs.length, hint: t("سجل حركة كل الحسابات", "Activity log for all accounts") }
   ];
 
   return (
@@ -93,31 +93,31 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
       <section className="admin-action-center">
         <div className="admin-action-title"><div><span>{t("الأولوية الآن", "Priority now")}</span><h2>{t("يتطلب إجراء الآن", "Needs action now")}</h2></div><strong>{formatNumber(overdueRenewals + pendingPayments.length + technicalErrors)}</strong></div>
         <div className="admin-action-grid">
-          <Link href="/linkly-command-7f3a9/alerts?status=overdue" className="admin-action-item is-danger"><span>!</span><div><strong>{formatNumber(overdueRenewals)} {t("تجديدات متأخرة", "overdue renewals")}</strong><small>{t("تحتاج تواصلاً أو تعليقاً مدروساً", "Need outreach or considered suspension")}</small></div><b>←</b></Link>
-          <Link href="/linkly-command-7f3a9/payments?status=pending" className="admin-action-item is-warn"><span>◷</span><div><strong>{formatNumber(pendingPayments.length)} {t("دفعات بانتظار الإكمال", "pending payments")}</strong><small>{formatNumber(outstandingRevenue)} {t("ر.س مستحقة", "SAR outstanding")}</small></div><b>←</b></Link>
-          <Link href="/linkly-command-7f3a9/logs?level=خطأ" className="admin-action-item is-danger"><span>×</span><div><strong>{formatNumber(technicalErrors)} {t("أخطاء تقنية", "technical errors")}</strong><small>{t("راجع سجل الأخطاء حسب الأحدث", "Review errors newest first")}</small></div><b>←</b></Link>
-          <Link href="/linkly-command-7f3a9/clients?usage=inactive" className="admin-action-item"><span>○</span><div><strong>{formatNumber(inactiveUsage)} {t("عملاء دون استخدام", "clients without usage")}</strong><small>{t("لم تسجل لهم محادثات", "No conversations recorded")}</small></div><b>←</b></Link>
+          <Link href="/linkly-admin007/alerts?status=overdue" className="admin-action-item is-danger"><span>!</span><div><strong>{formatNumber(overdueRenewals)} {t("تجديدات متأخرة", "overdue renewals")}</strong><small>{t("تحتاج تواصلاً أو تعليقاً مدروساً", "Need outreach or considered suspension")}</small></div><b>←</b></Link>
+          <Link href="/linkly-admin007/payments?status=pending" className="admin-action-item is-warn"><span>◷</span><div><strong>{formatNumber(pendingPayments.length)} {t("دفعات بانتظار الإكمال", "pending payments")}</strong><small>{formatNumber(outstandingRevenue)} {t("ر.س مستحقة", "SAR outstanding")}</small></div><b>←</b></Link>
+          <Link href="/linkly-admin007/logs?level=خطأ" className="admin-action-item is-danger"><span>×</span><div><strong>{formatNumber(technicalErrors)} {t("أخطاء تقنية", "technical errors")}</strong><small>{t("راجع سجل الأخطاء حسب الأحدث", "Review errors newest first")}</small></div><b>←</b></Link>
+          <Link href="/linkly-admin007/clients?usage=inactive" className="admin-action-item"><span>○</span><div><strong>{formatNumber(inactiveUsage)} {t("عملاء دون استخدام", "clients without usage")}</strong><small>{t("لم تسجل لهم محادثات", "No conversations recorded")}</small></div><b>←</b></Link>
         </div>
       </section>
 
       <section className="admin-section">
         <div className="admin-metrics">
-          <Link href="/linkly-command-7f3a9/clients" className="admin-metric-link">
+          <Link href="/linkly-admin007/clients" className="admin-metric-link">
             <span>{t("إجمالي العملاء", "Total clients")}</span>
             <strong><AnimatedNumber value={subscriptions.length} /></strong>
             <small>{formatNumber(activeClients)} {t("نشط", "active")} · {formatNumber(trialClients)} {t("تجربة", "trial")} <em>{t("عرض التفاصيل ←", "View details →")}</em></small>
           </Link>
-          <Link href="/linkly-command-7f3a9/clients?status=نشط" className="admin-metric-link">
+          <Link href="/linkly-admin007/clients?status=نشط" className="admin-metric-link">
             <span>{t("اشتراكات نشطة", "Active subscriptions")}</span>
             <strong><AnimatedNumber value={activeClients} /></strong>
             <small>{formatNumber(subscriptions.length - activeClients)} {t("غير نشطة — حالة مختلفة عن انتظار الدفع", "inactive — separate from pending payments")}</small>
           </Link>
-          <Link href="/linkly-command-7f3a9/payments?status=completed" className="admin-metric-link">
+          <Link href="/linkly-admin007/payments?status=completed" className="admin-metric-link">
             <span>{t("MRR المتوقع", "Projected MRR")}</span>
             <strong><AnimatedNumber value={monthlyRevenue} /></strong>
             <small>{t("ر.س شهرياً", "SAR monthly")} · ARR {formatNumber(annualRecurringRevenue)}</small>
           </Link>
-          <Link href="/linkly-command-7f3a9/clients?sort=usage" className="admin-metric-link">
+          <Link href="/linkly-admin007/clients?sort=usage" className="admin-metric-link">
             <span>{t("محادثات تحت الإدارة", "Conversations under management")}</span>
             <strong><AnimatedNumber value={totalConversations} /></strong>
             <small>{t("متوسط", "Average")} {formatNumber(averageConversations)} {t("لكل عميل", "per client")}</small>

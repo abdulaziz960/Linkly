@@ -50,11 +50,13 @@ export async function POST(request: NextRequest) {
   const response = NextResponse.json({
     user: { ...user, subscriptionExpired: subscriptionAccess.expired },
     onboardingRequired,
-    redirectTo: subscriptionAccess.expired
-      ? "/billing?expired=1"
-      : onboardingRequired
-        ? "/dashboard?view=settings&onboarding=1"
-        : "/dashboard?view=inbox"
+    redirectTo: user.isPlatformAdmin === 1
+      ? "/linkly-admin007"
+      : subscriptionAccess.expired
+        ? "/billing?expired=1"
+        : onboardingRequired
+          ? "/dashboard?view=settings&onboarding=1"
+          : "/dashboard?view=inbox"
   });
   response.cookies.set(authCookieName, createSessionToken(user.id, maxAge, user.sessionVersion), {
     httpOnly: true,
