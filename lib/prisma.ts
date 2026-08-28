@@ -1,9 +1,6 @@
 import { PrismaClient } from "@prisma/client";
-import { assertIntegrationEncryptionConfigured } from "./secret-storage";
 
 const isProduction = process.env.NODE_ENV === "production";
-
-assertIntegrationEncryptionConfigured();
 
 if (!process.env.DATABASE_URL) {
   if (isProduction) {
