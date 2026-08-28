@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "../../../../../lib/prisma";
-import { syncXMentionsForTenant } from "../../../../../lib/x-public-sync";
+import { prisma } from "../../../../lib/prisma";
+import { syncXMentionsForTenant } from "../../../../lib/x-public-sync";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
