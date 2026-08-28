@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { activateDueScheduledCampaigns, processCampaignBatch } from "../../../../lib/campaign-engine";
 import { prisma } from "../../../../lib/prisma";
 import { processDueAutomations } from "../../../../lib/automation-engine";
-import { getIntegrationSettings } from "../../../../lib/database";
+import { ensureSchema, getIntegrationSettings } from "../../../../lib/database";
 import { syncXTenant } from "../../../../lib/x-sync";
 
 export const runtime = "nodejs";
@@ -17,6 +17,8 @@ export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  await ensureSchema();
 
   const [campaignTenants, automationTenants, xTenants] = await Promise.all([
     prisma.campaign.findMany({

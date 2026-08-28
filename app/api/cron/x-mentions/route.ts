@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
+import { ensureSchema } from "../../../../lib/database";
 import { syncXMentionsForTenant } from "../../../../lib/x-public-sync";
 
 export const runtime = "nodejs";
@@ -20,6 +21,8 @@ export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+
+  await ensureSchema();
 
   const integrations = await prisma.integrationSetting.findMany({
     where: { provider: "x", status: "connected" },
