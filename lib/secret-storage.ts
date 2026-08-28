@@ -29,6 +29,10 @@ function requiresProductionIntegrationKey() {
     && !process.env.INTEGRATION_ENCRYPTION_KEY?.trim();
 }
 
+export function hasIntegrationEncryptionKey() {
+  return Boolean(process.env.INTEGRATION_ENCRYPTION_KEY?.trim() || process.env.ENCRYPTION_KEY?.trim());
+}
+
 export function assertIntegrationEncryptionConfigured() {
   if (requiresProductionIntegrationKey()) {
     throw new Error("INTEGRATION_ENCRYPTION_KEY is required in production for integration secret encryption");
