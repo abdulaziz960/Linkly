@@ -5449,6 +5449,15 @@
   background: linear-gradient(135deg, #ea4335, #c5221f);
 }
 
+.provider-connect-icon.x {
+  background: #000;
+}
+
+.provider-connect-icon.x svg {
+  fill: #fff;
+  stroke: none;
+}
+
 .provider-connect-copy {
   flex: 1 1 220px;
   min-width: 0;
