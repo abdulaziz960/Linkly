@@ -5313,6 +5313,11 @@
   font-size: 28px;
 }
 
+.provider-round-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
 .meta-setup {
   display: grid;
   gap: 20px;
