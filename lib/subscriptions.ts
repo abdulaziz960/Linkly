@@ -326,7 +326,6 @@ export async function deleteTenant(tenantId: string) {
 
   const employees = await prisma.employee.findMany({ where: { tenantId }, select: { email: true } });
   const employeeEmails = Array.from(new Set([subscription.ownerEmail, ...employees.map((employee) => employee.email)]));
-  const integrationIdPrefix = `${tenantId}:`;
 
   await prisma.$transaction([
     // Conversations/customers - children before parents.
@@ -348,11 +347,10 @@ export async function deleteTenant(tenantId: string) {
     prisma.automationRule.deleteMany({ where: { tenantId } }),
     prisma.botNode.deleteMany({ where: { tenantId } }),
     prisma.botSettings.deleteMany({ where: { tenantId } }),
-    // Work hours and connected-channel settings (no tenantId column - these
-    // use "<tenantId>:<provider>" composite ids, see getTenantIntegrationId).
+    // Work hours and connected-channel settings.
     prisma.workSchedule.deleteMany({ where: { tenantId } }),
-    prisma.integrationSetting.deleteMany({ where: { id: { startsWith: integrationIdPrefix } } }),
-    prisma.emailIntegration.deleteMany({ where: { id: { startsWith: integrationIdPrefix } } }),
+    prisma.integrationSetting.deleteMany({ where: { tenantId } }),
+    prisma.emailIntegration.deleteMany({ where: { tenantId } }),
     // Teams - members before the team/employee rows they reference.
     prisma.teamMember.deleteMany({ where: { team: { tenantId } } }),
     prisma.team.deleteMany({ where: { tenantId } }),

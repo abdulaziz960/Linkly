@@ -193,6 +193,7 @@ export type DashboardUser = {
 
 export type IntegrationSettings = {
   id: string;
+  tenantId: string;
   provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "unifonic" | "gmail" | "external";
   status: "connected" | "not_connected" | "pending";
   businessName: string;

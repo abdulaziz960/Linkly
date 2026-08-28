@@ -15,6 +15,11 @@ type XUser = {
   username?: string;
 };
 
+type XReferencedPost = {
+  type?: string;
+  id?: string;
+};
+
 type ParsedXEvent = {
   xUserId: string;
   name?: string;
@@ -68,6 +73,18 @@ function getName(userMap: Map<string, XUser>, userId: string) {
   return user?.username ? `@${user.username}` : user?.name;
 }
 
+function getPostUrl(username: string | undefined, postId: string) {
+  if (!postId) return undefined;
+  return username ? `https://x.com/${username}/status/${postId}` : `https://x.com/i/web/status/${postId}`;
+}
+
+function getReferencedPostId(post: Record<string, any>) {
+  const referenced = Array.isArray(post.referenced_tweets) ? post.referenced_tweets as XReferencedPost[] : [];
+  const repliedTo = referenced.find((item) => item?.type === "replied_to" && item.id);
+  const quoted = referenced.find((item) => item?.type === "quoted" && item.id);
+  return repliedTo?.id || quoted?.id || String(post.in_reply_to_status_id || post.in_reply_to_tweet_id || post.conversation_id || "");
+}
+
 function parseDmEvents(payload: Record<string, any>, ownUserId: string): ParsedXEvent[] {
   const userMap = buildUserMap(payload);
   const events = [
@@ -117,6 +134,7 @@ function parsePostEvents(payload: Record<string, any>, ownUserId: string): Parse
     if (!text) return [];
 
     const postId = String(post.id || "");
+    const relatedPostId = getReferencedPostId(post);
     const username = userMap.get(authorId)?.username;
 
     return [{
@@ -128,9 +146,9 @@ function parsePostEvents(payload: Record<string, any>, ownUserId: string): Parse
       receivedAt: parseDate(post.created_at || post.timestamp_ms),
       source: {
         type: "x_post",
-        id: postId || undefined,
-        url: username && postId ? `https://x.com/${username}/status/${postId}` : undefined,
-        label: "منشن أو رد على X"
+        id: relatedPostId || postId || undefined,
+        url: getPostUrl(username, relatedPostId || postId),
+        label: relatedPostId ? "البوست المرتبط بالتعليق" : "منشن أو رد على X"
       }
     }];
   });

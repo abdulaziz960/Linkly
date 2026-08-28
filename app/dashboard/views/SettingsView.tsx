@@ -45,6 +45,7 @@ const businessVerticalOptions: Array<{ value: string; ar: string; en: string }> 
 
 const emptySettings: IntegrationSettings = {
   id: "meta-whatsapp",
+  tenantId: "tenant-demo",
   provider: "whatsapp_cloud",
   status: "pending",
   businessName: "",

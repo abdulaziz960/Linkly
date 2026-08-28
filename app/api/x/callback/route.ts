@@ -86,8 +86,8 @@ export async function GET(request: NextRequest) {
   const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, "");
   const webhookUrl = `${baseUrl}/api/x/webhook`;
 
-  await prisma.integrationSetting.update({
-    where: { id: settings.id },
+  await prisma.integrationSetting.updateMany({
+    where: { id: settings.id, tenantId: user.tenantId },
     data: {
       provider: "x",
       status: "connected",

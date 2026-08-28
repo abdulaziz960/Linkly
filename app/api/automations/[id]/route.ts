@@ -51,8 +51,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const existing = await prisma.automationRule.findFirst({ where: { id, tenantId: user.tenantId } });
     if (!existing) return jsonError("تعذر تحديث الأتمتة", 404);
 
-    return jsonOk(await prisma.automationRule.update({
-      where: { id },
+    await prisma.automationRule.updateMany({
+      where: { id, tenantId: user.tenantId },
       data: {
         name: body.name?.trim(),
         description: body.description?.trim(),
@@ -64,7 +64,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         actionsJson: cleanActions(body.actions),
         enabled: typeof body.enabled === "boolean" ? (body.enabled ? 1 : 0) : undefined
       }
-    }));
+    });
+    return jsonOk(await prisma.automationRule.findFirst({ where: { id, tenantId: user.tenantId } }));
   } catch {
     return jsonError("تعذر تحديث الأتمتة", 404);
   }
@@ -80,7 +81,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const existing = await prisma.automationRule.findFirst({ where: { id, tenantId: user.tenantId } });
     if (!existing) return jsonError("تعذر حذف الأتمتة", 404);
 
-    await prisma.automationRule.delete({ where: { id } });
+    await prisma.automationRule.deleteMany({ where: { id, tenantId: user.tenantId } });
     return jsonOk({ id });
   } catch {
     return jsonError("تعذر حذف الأتمتة", 404);

@@ -28,8 +28,7 @@ async function resolveMetaAccount(provider: "instagram" | "facebook", accountId:
   const row = await prisma.integrationSetting.findFirst({ where: { provider, wabaId: accountId } });
   if (!row) return null;
 
-  const tenantId = row.id.includes(":") ? row.id.split(":")[0] : "tenant-demo";
-  return { tenantId, accessToken: decryptSecret(row.accessToken).trim(), wabaId: row.wabaId };
+  return { tenantId: row.tenantId, accessToken: decryptSecret(row.accessToken).trim(), wabaId: row.wabaId };
 }
 
 async function resolveWhatsAppAccount(phoneNumberId: string): Promise<MetaAccount | null> {
@@ -38,8 +37,7 @@ async function resolveWhatsAppAccount(phoneNumberId: string): Promise<MetaAccoun
   const row = await prisma.integrationSetting.findFirst({ where: { provider: "whatsapp_cloud", phoneNumberId } });
   if (!row) return null;
 
-  const tenantId = row.id.includes(":") ? row.id.split(":")[0] : "tenant-demo";
-  return { tenantId, accessToken: decryptSecret(row.accessToken).trim(), wabaId: row.wabaId };
+  return { tenantId: row.tenantId, accessToken: decryptSecret(row.accessToken).trim(), wabaId: row.wabaId };
 }
 
 export async function GET(request: NextRequest) {

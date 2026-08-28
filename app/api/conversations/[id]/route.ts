@@ -36,8 +36,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       if (!existing) throw new Error("not-found");
 
       if (body.tags) {
-        await tx.conversationTag.deleteMany({ where: { conversationId: id } });
+        await tx.conversationTag.deleteMany({ where: { conversationId: id, conversation: { tenantId: user.tenantId } } });
         for (const tagName of body.tags) {
+          const tenantTag = await tx.tag.findFirst({ where: { tenantId: user.tenantId, name: tagName }, select: { name: true } });
+          if (!tenantTag) continue;
           await tx.conversationTag.create({
             data: {
               conversationId: id,
@@ -47,8 +49,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         }
       }
 
-      return tx.conversation.update({
-        where: { id },
+      await tx.conversation.updateMany({
+        where: { id, tenantId: user.tenantId },
         data: {
           assignee: body.assignee,
           status: body.status,
@@ -56,6 +58,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           windowExpired: typeof body.windowExpired === "boolean" ? (body.windowExpired ? 1 : 0) : undefined
         }
       });
+      return tx.conversation.findFirstOrThrow({ where: { id, tenantId: user.tenantId } });
     });
 
     if (body.status === "closed") {
@@ -88,9 +91,9 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
       if (!existing) throw new Error("not-found");
 
-      await tx.conversationTag.deleteMany({ where: { conversationId: id } });
-      await tx.message.deleteMany({ where: { conversationId: id } });
-      await tx.conversation.delete({ where: { id } });
+      await tx.conversationTag.deleteMany({ where: { conversationId: id, conversation: { tenantId: user.tenantId } } });
+      await tx.message.deleteMany({ where: { conversationId: id, conversation: { tenantId: user.tenantId } } });
+      await tx.conversation.deleteMany({ where: { id, tenantId: user.tenantId } });
     });
 
     return jsonOk({ id });

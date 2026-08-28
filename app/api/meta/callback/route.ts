@@ -205,8 +205,8 @@ export async function GET(request: NextRequest) {
         } | null;
         const instagramId = String(accountsPayload?.user_id || tokenPayload?.user_id || "");
 
-        await prisma.integrationSetting.update({
-          where: { id: settings.id },
+        await prisma.integrationSetting.updateMany({
+          where: { id: settings.id, tenantId: user.tenantId },
           data: {
             status: instagramId ? "connected" : "pending",
             businessName: accountsPayload?.account_type || settings.businessName,
@@ -224,8 +224,8 @@ export async function GET(request: NextRequest) {
         });
       }
     } else {
-      await prisma.integrationSetting.update({
-        where: { id: settings.id },
+      await prisma.integrationSetting.updateMany({
+        where: { id: settings.id, tenantId: user.tenantId },
         data: {
           status: "pending",
           updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
@@ -286,8 +286,8 @@ export async function GET(request: NextRequest) {
             console.error("Facebook page webhook subscription failed", subscribedPayload);
           }
 
-          await prisma.integrationSetting.update({
-            where: { id: settings.id },
+          await prisma.integrationSetting.updateMany({
+            where: { id: settings.id, tenantId: user.tenantId },
             data: {
               status: "connected",
               businessName: "Facebook",
@@ -336,8 +336,8 @@ export async function GET(request: NextRequest) {
       await registerWhatsAppPhoneNumber(effectivePhoneNumberId, accessToken);
     }
 
-    await prisma.integrationSetting.update({
-      where: { id: settings.id },
+    await prisma.integrationSetting.updateMany({
+      where: { id: settings.id, tenantId: user.tenantId },
       data: {
         status: effectiveWabaId && effectivePhoneNumberId && accessToken ? "connected" : "pending",
         businessName: businessId || settings.businessName,
