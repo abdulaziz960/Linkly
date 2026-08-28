@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { tenantId?: string; amount?: number; gateway?: string } | null;
   const tenantId = body?.tenantId?.trim();
   const amount = Math.max(0, Math.round(Number(body?.amount) || 0));
+  const amountHalalas = amount * 100;
   const gateway = body?.gateway === "stripe" ? "stripe" : "moyasar";
 
   if (!tenantId) return NextResponse.json({ ok: false, error: "الحساب مطلوب" }, { status: 400 });
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
           id: paymentId,
           tenantId,
           amount,
+          amountHalalas,
           status: "قيد الانتظار",
           moyasarId: `stripe_test_${session.id}`,
           paymentUrl: session.url,
@@ -70,6 +72,7 @@ export async function POST(request: NextRequest) {
   try {
     const invoice = await createMoyasarInvoice({
       amount,
+      amountHalalas,
       description: `اشتراك Linkly - ${subscription.companyName} (${subscription.plan})`,
       callbackUrl: `${baseUrl()}/api/admin/subscriptions/payment-webhook`,
       metadata: { tenantId, paymentId }
@@ -80,6 +83,7 @@ export async function POST(request: NextRequest) {
         id: paymentId,
         tenantId,
         amount,
+        amountHalalas,
         status: "قيد الانتظار",
         moyasarId: invoice.id,
         paymentUrl: invoice.url,

@@ -372,6 +372,8 @@ export async function POST(request: NextRequest) {
       const phoneNumberId = String(value.metadata?.phone_number_id || "");
       const whatsappAccount = phoneNumberId ? await lookupWhatsAppAccount(phoneNumberId) : null;
 
+      if (!whatsappAccount) continue;
+
       for (const status of statuses) {
         if (status.status === "failed" || status.errors?.length) {
           console.error("WhatsApp delivery status failed", {
@@ -385,7 +387,10 @@ export async function POST(request: NextRequest) {
         if (!status.id || !status.status) continue;
         try {
           await prisma.message.updateMany({
-            where: { id: { in: [`wa-${status.id}`, `wa-out-${status.id}`] } },
+            where: {
+              id: { in: [`wa-${status.id}`, `wa-out-${status.id}`] },
+              conversation: { tenantId: whatsappAccount.tenantId }
+            },
             data: {
               deliveryStatus: status.status,
               deliveryError: status.status === "failed" ? (status.errors?.[0]?.title || status.errors?.[0]?.message || "") : ""
@@ -395,8 +400,6 @@ export async function POST(request: NextRequest) {
           console.error("Failed to persist WhatsApp delivery status", error);
         }
       }
-
-      if (!whatsappAccount) continue;
 
       for (const message of messages) {
         if (!message.from) continue;

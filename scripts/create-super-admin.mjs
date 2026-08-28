@@ -21,7 +21,10 @@ const salt = randomBytes(16).toString("hex");
 const passwordHash = `scrypt$${salt}$${scryptSync(password, salt, 64).toString("hex")}`;
 
 try {
-  const existing = await prisma.userAccount.findUnique({ where: { email }, select: { id: true } });
+  const existing = await prisma.userAccount.findUnique({ where: { email }, select: { id: true, isPlatformAdmin: true } });
+  if (existing && existing.isPlatformAdmin !== 1) {
+    throw new Error("Refusing to promote an existing tenant account to Platform Admin. Use a new admin email or invite it from the platform team after verification.");
+  }
   const user = existing
     ? await prisma.userAccount.update({
         where: { email },

@@ -21,6 +21,14 @@ async function ensureRateLimitTable() {
 }
 
 export function getClientIp(request: Request): string {
+  // In Vercel, proxy headers are platform-controlled before the request reaches
+  // the function. For other reverse proxies, opt in only after the proxy strips
+  // client-supplied forwarding headers and rewrites them itself.
+  const trustProxyHeaders = process.env.VERCEL === "1" || process.env.TRUST_PROXY_HEADERS === "true";
+  if (!trustProxyHeaders) return "unknown";
+
+  const vercelForwarded = request.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim();
+  if (vercelForwarded) return vercelForwarded;
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   return forwarded || request.headers.get("x-real-ip")?.trim() || "unknown";
 }

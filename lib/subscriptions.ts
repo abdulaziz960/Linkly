@@ -92,6 +92,7 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string): Prom
     });
     if (claimed.count !== 1) return false;
 
+    const amountSar = payment.amountHalalas > 0 ? Math.round(payment.amountHalalas / 100) : Math.round(payment.amount);
     const owner = await tx.userAccount.findFirst({
       where: { tenantId: payment.tenantId, role: "مالك الحساب" },
       orderBy: { createdAt: "asc" }
@@ -105,7 +106,7 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string): Prom
       where: { tenantId: payment.tenantId },
       update: {
         status: "نشط",
-        amount: Math.round(payment.amount),
+        amount: amountSar,
         billingCycle: "شهري",
         renewalAt: renewalAt.toISOString().slice(0, 10),
         updatedAt: nowTimestamp(),
@@ -123,7 +124,7 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string): Prom
         plan: payment.planName || "باقة البداية",
         status: "نشط",
         employeeLimit: payment.planName ? payment.planEmployeeLimit : 1,
-        amount: Math.round(payment.amount),
+        amount: amountSar,
         billingCycle: "شهري",
         renewalAt: renewalAt.toISOString().slice(0, 10),
         createdAt: now,

@@ -15,6 +15,8 @@ model Customer {
   tenantId      String         @default("tenant-demo") @map("tenant_id")
   conversations Conversation[]
 
+  @@index([tenantId])
+  @@index([tenantId, phone])
   @@map("customers")
 }
 
@@ -36,6 +38,10 @@ model Conversation {
   messages      Message[]
   tags          ConversationTag[]
 
+  @@index([tenantId, status])
+  @@index([tenantId, channel])
+  @@index([tenantId, lastActivityAt])
+  @@index([customerId])
   @@map("conversations")
 }
 
@@ -63,6 +69,8 @@ model Message {
   deliveryError    String     @default("") @map("delivery_error")
   conversation   Conversation @relation(fields: [conversationId], references: [id])
 
+  @@index([conversationId, createdAt])
+  @@index([sourceType, sourceId])
   @@map("messages")
 }
 
@@ -77,6 +85,8 @@ model Employee {
   tenantId    String       @default("tenant-demo") @map("tenant_id")
   teams       TeamMember[]
 
+  @@index([tenantId])
+  @@index([tenantId, email])
   @@map("employees")
 }
 
@@ -88,6 +98,7 @@ model Team {
   routing   String
   members   TeamMember[]
 
+  @@index([tenantId])
   @@map("teams")
 }
 
@@ -108,6 +119,7 @@ model Tag {
   description String
   tenantId    String @default("tenant-demo") @map("tenant_id")
 
+  @@index([tenantId])
   @@map("tags")
 }
 
@@ -170,6 +182,7 @@ model AutomationRule {
   createdAt   String @map("created_at")
   enabled     Int    @default(1)
 
+  @@index([tenantId, enabled])
   @@map("automation_rules")
 }
 
@@ -181,6 +194,9 @@ model AutomationQueueItem {
   runAt          String @map("run_at")
   createdAt      String @map("created_at")
 
+  @@index([tenantId, runAt])
+  @@index([ruleId])
+  @@index([conversationId])
   @@map("automation_queue")
 }
 
@@ -198,6 +214,8 @@ model Campaign {
   status       String
   updatedAt    String @map("updated_at")
 
+  @@index([tenantId, status])
+  @@index([tenantId, scheduledAt])
   @@map("campaigns")
 }
 
@@ -213,6 +231,8 @@ model CampaignRecipient {
   sentAt     String @default("") @map("sent_at")
   createdAt  String @map("created_at")
 
+  @@index([tenantId, status])
+  @@index([campaignId, status])
   @@map("campaign_recipients")
 }
 
@@ -229,12 +249,15 @@ model CampaignPayment {
   tenantId    String @map("tenant_id")
   messages    Int
   amount      Float
+  amountHalalas Int @default(0) @map("amount_halalas")
   status      String @default("قيد الانتظار")
   moyasarId   String @default("") @map("moyasar_id")
   paymentUrl  String @default("") @map("payment_url")
   createdAt   String @map("created_at")
   completedAt String @default("") @map("completed_at")
 
+  @@index([tenantId, status])
+  @@index([moyasarId])
   @@map("campaign_payments")
 }
 
@@ -275,6 +298,8 @@ model IntegrationSetting {
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 
+  @@index([provider, wabaId])
+  @@index([provider, phoneNumberId])
   @@map("integration_settings")
 }
 
@@ -292,6 +317,8 @@ model UserAccount {
   lastLoginIp     String @default("") @map("last_login_ip")
   createdAt       String @map("created_at")
 
+  @@index([tenantId])
+  @@index([isPlatformAdmin])
   @@map("user_accounts")
 }
 
@@ -399,11 +426,14 @@ model SubscriptionPayment {
   paymentUrl        String @default("") @map("payment_url")
   createdAt         String @map("created_at")
   completedAt       String @default("") @map("completed_at")
+  amountHalalas     Int    @default(0) @map("amount_halalas")
   // Target plan staged at checkout; applied to Subscription only once this
   // payment is confirmed paid, so benefits never precede payment.
   planName          String @default("") @map("plan_name")
   planEmployeeLimit Int    @default(0) @map("plan_employee_limit")
 
+  @@index([tenantId, status])
+  @@index([moyasarId])
   @@map("subscription_payments")
 }
 
@@ -422,6 +452,7 @@ model BotSettings {
   enabled   Int    @default(0)
   updatedAt String @map("updated_at")
 
+  @@index([tenantId, channel])
   @@map("bot_settings")
 }
 
@@ -437,6 +468,7 @@ model BotNode {
   canvasY   Float  @default(0) @map("canvas_y")
   createdAt String @map("created_at")
 
+  @@index([tenantId, channel])
   @@map("bot_nodes")
 }
 

@@ -69,27 +69,34 @@ export type UserAccount = {
   createdAt: string;
 };
 
-// Real Linkly staff allowed into /admin. isPlatformAdmin defaults to 0 for
-// every account (including every tenant's own "مالك الحساب"), so without this
-// backfill nobody - not even platform staff - can reach the provider dashboard.
-// If any of these emails already has (or later gets) a real login account,
-// it's flagged isPlatformAdmin=1 automatically.
-const configuredSuperAdminEmail = (process.env.SUPER_ADMIN_EMAIL || "abdulaziz@audience.sa").trim().toLowerCase();
+function parseEmailList(value?: string) {
+  return Array.from(new Set(
+    (value || "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter((email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  ));
+}
+
+// Platform-admin access is a persisted database permission. Environment values
+// are only a bootstrap/provisioning aid and must never silently upgrade an
+// arbitrary tenant account just because its email matches a string.
+const configuredSuperAdminEmail = (process.env.SUPER_ADMIN_EMAIL || "").trim().toLowerCase();
 const configuredSuperAdminName = (process.env.SUPER_ADMIN_NAME || "Abdulaziz").trim() || "Super Admin";
 const configuredSuperAdminPassword = process.env.SUPER_ADMIN_BOOTSTRAP_PASSWORD?.trim() || "";
+if (configuredSuperAdminPassword && !configuredSuperAdminEmail) {
+  throw new Error("SUPER_ADMIN_EMAIL is required when SUPER_ADMIN_BOOTSTRAP_PASSWORD is set");
+}
 const configuredSuperAdminPasswordError = configuredSuperAdminPassword
   ? getPasswordValidationError(configuredSuperAdminPassword)
   : null;
 if (configuredSuperAdminPasswordError) {
   throw new Error(`SUPER_ADMIN_BOOTSTRAP_PASSWORD is invalid: ${configuredSuperAdminPasswordError}`);
 }
-const platformAdminEmails = Array.from(new Set(["abdulaziz@audience.sa", "xcoode25@gmail.com", configuredSuperAdminEmail]));
-
-// Subset of platformAdminEmails allowed to have a brand-new login account
-// auto-created for them when one doesn't exist yet (see seedDatabase below).
-// Deliberately narrower than platformAdminEmails - an email only reaches this
-// list once its owner has actually confirmed they want an account created.
-const autoCreatePlatformAdminEmails = Array.from(new Set(["abdulaziz@audience.sa", configuredSuperAdminEmail]));
+const platformAdminEmails = Array.from(new Set([
+  ...parseEmailList(process.env.PLATFORM_ADMIN_EMAILS),
+  ...(configuredSuperAdminEmail ? [configuredSuperAdminEmail] : [])
+]));
 
 export type ProviderClient = {
   id: string;
@@ -132,6 +139,10 @@ export type AdminLog = {
 export { hashPassword } from "./passwords";
 
 async function runSchemaMigrations() {
+  if (process.env.NODE_ENV === "production" && process.env.ENABLE_RUNTIME_SCHEMA_REPAIR !== "true") {
+    return;
+  }
+
   if (isPostgresDatabase) {
     await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
@@ -252,12 +263,14 @@ async function runSchemaMigrations() {
       tenant_id TEXT NOT NULL,
       messages INTEGER NOT NULL,
       amount DOUBLE PRECISION NOT NULL,
+      amount_halalas INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'قيد الانتظار',
       moyasar_id TEXT NOT NULL DEFAULT '',
       payment_url TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
       completed_at TEXT NOT NULL DEFAULT ''
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaign_payments ADD COLUMN IF NOT EXISTS amount_halalas INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD COLUMN IF NOT EXISTS id TEXT`);
     await prisma.$executeRawUnsafe(`UPDATE templates SET id = 'tmpl-' || tenant_id || '-' || name WHERE id IS NULL`);
@@ -281,7 +294,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS last_login_ip TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'employee_activation'`);
     for (const email of platformAdminEmails) {
-      await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = $1`, email);
+      await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = $1 AND is_platform_admin = 1`, email);
     }
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS plans (
       id TEXT PRIMARY KEY,
@@ -409,6 +422,7 @@ async function runSchemaMigrations() {
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL,
       amount DOUBLE PRECISION NOT NULL,
+      amount_halalas INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'قيد الانتظار',
       moyasar_id TEXT NOT NULL DEFAULT '',
       payment_url TEXT NOT NULL DEFAULT '',
@@ -417,6 +431,7 @@ async function runSchemaMigrations() {
     )`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS amount DOUBLE PRECISION NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS amount_halalas INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'قيد الانتظار'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS moyasar_id TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS payment_url TEXT NOT NULL DEFAULT ''`);
@@ -707,12 +722,17 @@ async function runSchemaMigrations() {
     tenant_id TEXT NOT NULL,
     messages INTEGER NOT NULL,
     amount REAL NOT NULL,
+    amount_halalas INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'قيد الانتظار',
     moyasar_id TEXT NOT NULL DEFAULT '',
     payment_url TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     completed_at TEXT NOT NULL DEFAULT ''
   )`);
+  const campaignPaymentColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(campaign_payments)`);
+  if (!campaignPaymentColumns.some((column) => column.name === "amount_halalas")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaign_payments ADD COLUMN amount_halalas INTEGER NOT NULL DEFAULT 0`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS work_schedules (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
@@ -818,7 +838,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN last_login_ip TEXT NOT NULL DEFAULT ''`);
   }
   for (const email of platformAdminEmails) {
-    await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = ?`, email);
+    await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = ? AND is_platform_admin = 1`, email);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS employee_invites (
     id TEXT PRIMARY KEY,
@@ -896,6 +916,7 @@ async function runSchemaMigrations() {
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,
     amount REAL NOT NULL,
+    amount_halalas INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'قيد الانتظار',
     moyasar_id TEXT NOT NULL DEFAULT '',
     payment_url TEXT NOT NULL DEFAULT '',
@@ -905,6 +926,9 @@ async function runSchemaMigrations() {
     plan_employee_limit INTEGER NOT NULL DEFAULT 0
   )`);
   const subscriptionPaymentColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(subscription_payments)`);
+  if (!subscriptionPaymentColumns.some((column) => column.name === "amount_halalas")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN amount_halalas INTEGER NOT NULL DEFAULT 0`);
+  }
   if (!subscriptionPaymentColumns.some((column) => column.name === "plan_name")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN plan_name TEXT NOT NULL DEFAULT ''`);
   }
@@ -1148,16 +1172,17 @@ async function seedDatabase() {
       });
     }
 
-    // Real Linkly staff (platformAdminEmails) need an actual login account
-    // to ever reach /admin - unlike tenant owners, nothing else in the app
-    // creates one for them. Flags isPlatformAdmin on any existing account for
-    // the full list; only auto-creates a brand-new account for the narrower
-    // autoCreatePlatformAdminEmails list. Never touches passwordHash on an
-    // existing account (they set that themselves via /forgot-password ->
-    // /activate).
+    // Platform admins should be provisioned explicitly. This bootstrap keeps
+    // already-admin accounts usable and can create the configured first admin,
+    // but it deliberately refuses to promote an existing tenant account based
+    // on email alone.
     for (const email of platformAdminEmails) {
       const existingAdminAccount = await tx.userAccount.findUnique({ where: { email } });
       if (existingAdminAccount) {
+        if (existingAdminAccount.isPlatformAdmin !== 1) {
+          console.warn(`SUPER_ADMIN_EMAIL/PLATFORM_ADMIN_EMAILS matched an existing non-admin account; not promoting ${email}. Use scripts/create-super-admin.mjs or an admin invite.`);
+          continue;
+        }
         const shouldApplyBootstrapPassword =
           email === configuredSuperAdminEmail &&
           Boolean(configuredSuperAdminPassword) &&
@@ -1177,7 +1202,7 @@ async function seedDatabase() {
         continue;
       }
 
-      if (!autoCreatePlatformAdminEmails.includes(email)) continue;
+      if (email !== configuredSuperAdminEmail || !configuredSuperAdminPassword) continue;
 
       await tx.userAccount.create({
         data: {

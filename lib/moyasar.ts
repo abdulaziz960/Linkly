@@ -9,6 +9,7 @@ import { timingSafeEqual } from "crypto";
 
 type CreateInvoiceInput = {
   amount: number; // SAR
+  amountHalalas?: number;
   description: string;
   callbackUrl: string;
   metadata?: Record<string, string>;
@@ -39,7 +40,7 @@ export async function createMoyasarInvoice(input: CreateInvoiceInput): Promise<M
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      amount: Math.round(input.amount * 100), // Moyasar amounts are in halalas
+      amount: input.amountHalalas ?? Math.round(input.amount * 100), // Moyasar amounts are in halalas
       currency: "SAR",
       description: input.description,
       callback_url: input.callbackUrl,

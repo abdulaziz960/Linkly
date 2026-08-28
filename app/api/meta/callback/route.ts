@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { syncMetaTemplates } from "../../../../lib/meta-templates";
+import { verifyOAuthState } from "../../../../lib/oauth-state";
 
 const techProviderMetaAppId = "1296230909161568";
 
@@ -142,10 +143,17 @@ async function registerWhatsAppPhoneNumber(phoneNumberId: string, accessToken: s
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const requestedChannel = searchParams.get("state") || searchParams.get("channel") || "";
+  const stateValues = verifyOAuthState(searchParams.get("state"), "meta", request.cookies.get("audiencew_meta_state")?.value);
+  const requestedChannelParam = searchParams.get("channel") || "";
+  const requestedChannel = stateValues?.channel || requestedChannelParam || "";
   const channel = requestedChannel === "instagram" || requestedChannel === "facebook" ? requestedChannel : "whatsapp";
   const user = await getCurrentUser();
   const wantsJson = request.headers.get("accept")?.includes("application/json");
+
+  if (!stateValues && searchParams.has("code") && requestedChannelParam !== "whatsapp") {
+    if (wantsJson) return NextResponse.json({ ok: false, error: "تعذر التحقق من طلب الربط" }, { status: 400 });
+    return closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=invalid-state&view=settings");
+  }
 
   if (!user) {
     if (wantsJson) return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
@@ -231,7 +239,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=instagram-callback&view=settings");
+    const response = closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=instagram-callback&view=settings");
+    response.cookies.delete("audiencew_meta_state");
+    return response;
   }
 
   if (channel === "facebook" && code) {
@@ -298,7 +308,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=facebook-callback&view=settings");
+    const response = closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=facebook-callback&view=settings");
+    response.cookies.delete("audiencew_meta_state");
+    return response;
   }
 
   if (channel === "whatsapp" && (wabaId || phoneNumberId || businessId || code)) {
@@ -352,17 +364,23 @@ export async function GET(request: NextRequest) {
     }
 
     if (wantsJson) {
-      return NextResponse.json({
+      const response = NextResponse.json({
         ok: true,
         connected: Boolean(effectiveWabaId && effectivePhoneNumberId && accessToken),
         message: exchangeResult.error ? "تعذر إكمال تبادل رمز Meta" : undefined
       });
+      response.cookies.delete("audiencew_meta_state");
+      return response;
     }
   }
 
   if (wantsJson) {
-    return NextResponse.json({ ok: true });
+    const response = NextResponse.json({ ok: true });
+    response.cookies.delete("audiencew_meta_state");
+    return response;
   }
 
-  return closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=callback&view=settings");
+  const response = closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=callback&view=settings");
+  response.cookies.delete("audiencew_meta_state");
+  return response;
 }

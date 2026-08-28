@@ -9,22 +9,27 @@ export const MAX_CAMPAIGN_RECIPIENTS = 10_000;
 export const MAX_CAMPAIGN_FILE_BYTES = 5 * 1024 * 1024;
 
 const marketingMessagePrices = [
-  { min: 1000, max: 5000, rate: 0.03 },
-  { min: 5001, max: 10000, rate: 0.028 },
-  { min: 10001, max: 25000, rate: 0.026 },
-  { min: 25001, max: 50000, rate: 0.023 },
-  { min: 50001, max: 100000, rate: 0.02 },
-  { min: 100001, max: 150000, rate: 0.018 },
-  { min: 150001, max: 250000, rate: 0.016 },
-  { min: 250001, max: 500000, rate: 0.014 },
-  { min: 500001, max: 1000000, rate: 0.012 }
+  { min: 1000, max: 5000, halalasPerThousand: 3000 },
+  { min: 5001, max: 10000, halalasPerThousand: 2800 },
+  { min: 10001, max: 25000, halalasPerThousand: 2600 },
+  { min: 25001, max: 50000, halalasPerThousand: 2300 },
+  { min: 50001, max: 100000, halalasPerThousand: 2000 },
+  { min: 100001, max: 150000, halalasPerThousand: 1800 },
+  { min: 150001, max: 250000, halalasPerThousand: 1600 },
+  { min: 250001, max: 500000, halalasPerThousand: 1400 },
+  { min: 500001, max: 1000000, halalasPerThousand: 1200 }
 ];
 
 /** Source of truth for pricing - never trust a client-supplied amount. */
 export function calculateChargeAmount(messages: number): number | null {
+  const halalas = calculateChargeAmountHalalas(messages);
+  return halalas === null ? null : halalas / 100;
+}
+
+export function calculateChargeAmountHalalas(messages: number): number | null {
   const tier = marketingMessagePrices.find((t) => messages >= t.min && messages <= t.max);
   if (!tier) return null;
-  return Math.round(messages * tier.rate * 100) / 100;
+  return Math.round((messages * tier.halalasPerThousand) / 1000);
 }
 
 function looksLikePhone(value: string) {
@@ -121,6 +126,7 @@ export async function addManualCampaignBalance(tenantId: string, messages: numbe
       tenantId,
       messages,
       amount,
+      amountHalalas: Math.round(amount * 100),
       status: "مكتمل",
       moyasarId: "",
       paymentUrl: "",

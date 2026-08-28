@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { getIntegrationSettings, type IntegrationChannel } from "../../../../lib/database";
+import { createOAuthState } from "../../../../lib/oauth-state";
 
 const techProviderMetaAppId = "1296230909161568";
 const techProviderMetaConfigId = "1428169365888624";
@@ -38,7 +39,8 @@ export async function GET(request: NextRequest) {
   metaUrl.searchParams.set("client_id", appId);
   metaUrl.searchParams.set("redirect_uri", redirectUri);
   metaUrl.searchParams.set("response_type", "code");
-  metaUrl.searchParams.set("state", channel);
+  const oauthState = createOAuthState("meta", { channel });
+  metaUrl.searchParams.set("state", oauthState.state);
   metaUrl.searchParams.set(
     "scope",
     channel === "instagram"
@@ -74,5 +76,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.redirect(metaUrl);
+  const response = NextResponse.redirect(metaUrl);
+  response.cookies.set("audiencew_meta_state", oauthState.nonce, {
+    httpOnly: true,
+    maxAge: oauthState.maxAgeSeconds,
+    path: "/api/meta",
+    sameSite: "lax",
+    secure: request.nextUrl.protocol === "https:"
+  });
+  return response;
 }

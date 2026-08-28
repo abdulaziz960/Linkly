@@ -22,12 +22,13 @@ export async function POST(request: NextRequest) {
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
   const companyName = subscription?.companyName || user.name;
   const paymentId = `sub-pay-${randomUUID()}`;
+  const amountHalalas = plan.monthlyPrice * 100;
   // Checkout only stages a SubscriptionPayment. The live Subscription is
   // not created or modified until Moyasar confirms a paid invoice.
   if (isMoyasarConfigured()) {
     try {
-      const invoice = await createMoyasarInvoice({ amount: plan.monthlyPrice, description: `اشتراك Linkly - ${companyName} (${plan.name})`, callbackUrl: `${baseUrl()}/api/admin/subscriptions/payment-webhook`, metadata: { tenantId: user.tenantId, paymentId, planId: plan.id } });
-      await prisma.subscriptionPayment.create({ data: { id: paymentId, tenantId: user.tenantId, amount: plan.monthlyPrice, status: "قيد الانتظار", moyasarId: invoice.id, paymentUrl: invoice.url, createdAt: new Date().toISOString(), planName: plan.name, planEmployeeLimit: plan.employeeLimit } });
+      const invoice = await createMoyasarInvoice({ amount: plan.monthlyPrice, amountHalalas, description: `اشتراك Linkly - ${companyName} (${plan.name})`, callbackUrl: `${baseUrl()}/api/admin/subscriptions/payment-webhook`, metadata: { tenantId: user.tenantId, paymentId, planId: plan.id } });
+      await prisma.subscriptionPayment.create({ data: { id: paymentId, tenantId: user.tenantId, amount: plan.monthlyPrice, amountHalalas, status: "قيد الانتظار", moyasarId: invoice.id, paymentUrl: invoice.url, createdAt: new Date().toISOString(), planName: plan.name, planEmployeeLimit: plan.employeeLimit } });
       return NextResponse.json({ paymentUrl: invoice.url });
     } catch { return NextResponse.json({ error: "تعذر إنشاء فاتورة الدفع، حاول مرة أخرى" }, { status: 502 }); }
   }
@@ -35,6 +36,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "بوابة الدفع غير مهيأة حاليًا" }, { status: 503 });
   }
   const paymentUrl = `${baseUrl()}/checkout/test?paymentId=${encodeURIComponent(paymentId)}`;
-  await prisma.subscriptionPayment.create({ data: { id: paymentId, tenantId: user.tenantId, amount: plan.monthlyPrice, status: "قيد الانتظار", moyasarId: `test_${paymentId}`, paymentUrl, createdAt: new Date().toISOString(), planName: plan.name, planEmployeeLimit: plan.employeeLimit } });
+  await prisma.subscriptionPayment.create({ data: { id: paymentId, tenantId: user.tenantId, amount: plan.monthlyPrice, amountHalalas, status: "قيد الانتظار", moyasarId: `test_${paymentId}`, paymentUrl, createdAt: new Date().toISOString(), planName: plan.name, planEmployeeLimit: plan.employeeLimit } });
   return NextResponse.json({ paymentUrl });
 }

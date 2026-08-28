@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { prisma } from "../../../../../lib/prisma";
-import { calculateChargeAmount } from "../../../../../lib/campaign-engine";
+import { calculateChargeAmount, calculateChargeAmountHalalas } from "../../../../../lib/campaign-engine";
 import { createMoyasarInvoice, isMoyasarConfigured } from "../../../../../lib/moyasar";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
   if (messages < 1000) return jsonError("أقل كمية شحن هي 1,000 رسالة");
 
   const amount = calculateChargeAmount(messages);
+  const amountHalalas = calculateChargeAmountHalalas(messages);
   if (!amount) return jsonError("عدد الرسائل خارج نطاق الشرائح المتاحة (حتى 1,000,000 رسالة)");
 
   if (!isMoyasarConfigured()) {
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
   try {
     const invoice = await createMoyasarInvoice({
       amount,
+      amountHalalas: amountHalalas ?? undefined,
       description: `شحن ${messages.toLocaleString("en-US")} رسالة حملات - Linkly`,
       callbackUrl: `${baseUrl()}/api/campaigns/payment-webhook`,
       metadata: { tenantId: user.tenantId, messages: String(messages), paymentId }
@@ -45,6 +47,7 @@ export async function POST(request: NextRequest) {
         tenantId: user.tenantId,
         messages,
         amount,
+        amountHalalas: amountHalalas ?? 0,
         status: "قيد الانتظار",
         moyasarId: invoice.id,
         paymentUrl: invoice.url,

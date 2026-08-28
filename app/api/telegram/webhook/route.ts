@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { storeTelegramMessage } from "../../../../lib/telegram-inbox";
 import { runTelegramBot } from "../../../../lib/bot-engine";
@@ -57,16 +58,25 @@ function getTelegramText(message: NonNullable<TelegramUpdate["message"]>) {
   return "رسالة واردة من Telegram";
 }
 
+function validSecret(actual: string, expected: string) {
+  if (!actual || !expected) return false;
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
 export async function POST(request: NextRequest) {
   const tenantId = request.nextUrl.searchParams.get("tenant")?.trim() || "tenant-demo";
   const settings = await getIntegrationSettings("telegram", tenantId);
   const secret = settings.verifyToken?.trim();
 
+  if (!secret && process.env.NODE_ENV === "production") {
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
   if (secret) {
     const receivedSecret = request.headers.get("x-telegram-bot-api-secret-token") || "";
-    if (receivedSecret !== secret) {
-      return NextResponse.json({ ok: false }, { status: 401 });
-    }
+    if (!validSecret(receivedSecret, secret)) return NextResponse.json({ ok: false }, { status: 401 });
   }
 
   const update = (await request.json().catch(() => null)) as TelegramUpdate | null;
