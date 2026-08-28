@@ -2,6 +2,17 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 
 const KEY_LENGTH = 64;
 const SCRYPT_PREFIX = "scrypt";
+export const MIN_PASSWORD_LENGTH = 12;
+
+export function getPasswordValidationError(password: string) {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `كلمة السر يجب أن تكون ${MIN_PASSWORD_LENGTH} حرفاً على الأقل`;
+  }
+  if (!/\p{L}/u.test(password) || !/\d/u.test(password)) {
+    return "كلمة السر يجب أن تحتوي على حرف واحد ورقم واحد على الأقل";
+  }
+  return null;
+}
 
 function safeEqual(left: Buffer, right: Buffer) {
   return left.length === right.length && timingSafeEqual(left, right);

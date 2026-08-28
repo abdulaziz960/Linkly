@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "admin:create": "node scripts/create-super-admin.mjs",
     "postinstall": "node scripts/prisma-generate.mjs",
     "db:push": "node scripts/prisma-db-push.mjs",
     "db:migrate:deploy": "node scripts/prisma-migrate-deploy.mjs"

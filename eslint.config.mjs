@@ -15,5 +15,5 @@ export default defineConfig([
       "@next/next/no-html-link-for-pages": "off"
     }
   },
-  globalIgnores([".next/**", ".vercel/**", "out/**", "build/**", "prisma/.generated/**", "public/**", "app.js", "next-env.d.ts"])
+  globalIgnores([".next/**", ".vercel/**", "out/**", "build/**", "prisma/.generated/**", "public/**", "next-env.d.ts"])
 ]);

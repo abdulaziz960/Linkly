@@ -267,6 +267,57 @@ describe("deleteTenant isolation and completeness", () => {
 });
 
 describe("password-reset vs employee-activation token purpose", () => {
+  it("forgot-password issues an activation token for an account with no password", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const email = "unactivated-forgot@purpose-test.example";
+    await prisma.userAccount.create({
+      data: { id: "user-purpose-forgot-1", name: "New", email, passwordHash: "", role: "موظف دعم", tenantId: "tenant-test-purpose", createdAt: new Date().toISOString() }
+    });
+
+    const { POST } = await import("../app/api/auth/forgot-password/route");
+    const response = await POST(new Request("http://localhost/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    }) as never);
+
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { activationUrl?: string };
+    const invite = await prisma.employeeInvite.findFirst({ where: { email } });
+    expect(invite?.purpose).toBe("employee_activation");
+
+    const token = new URL(payload.activationUrl || "").searchParams.get("token");
+    expect(token).toBeTruthy();
+    const { POST: activate } = await import("../app/api/auth/activate/route");
+    const activationResponse = await activate(new Request("http://localhost/api/auth/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password: "FirstStrongPassword123" })
+    }));
+    expect(activationResponse.status).toBe(200);
+    expect((await prisma.userAccount.findUnique({ where: { email } }))?.passwordHash).not.toBe("");
+  });
+
+  it("forgot-password issues a reset token for an activated account", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { hashPassword } = await import("../lib/passwords");
+    const email = "activated-forgot@purpose-test.example";
+    await prisma.userAccount.create({
+      data: { id: "user-purpose-forgot-2", name: "Existing", email, passwordHash: hashPassword("OldPassword123"), role: "موظف دعم", tenantId: "tenant-test-purpose", createdAt: new Date().toISOString() }
+    });
+
+    const { POST } = await import("../app/api/auth/forgot-password/route");
+    const response = await POST(new Request("http://localhost/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    }) as never);
+
+    expect(response.status).toBe(200);
+    const invite = await prisma.employeeInvite.findFirst({ where: { email } });
+    expect(invite?.purpose).toBe("password_reset");
+  });
+
   it("rejects a password_reset token against an account that was never activated", async () => {
     const { prisma } = await import("../lib/prisma");
     const { ensureSchema } = await import("../lib/database");
@@ -365,5 +416,12 @@ describe("password-reset vs employee-activation token purpose", () => {
     expect(updated?.passwordHash).not.toBe("old-hash");
     // Resetting must invalidate any existing sessions.
     expect(updated?.sessionVersion).toBe(2);
+  });
+
+  it("enforces the shared strong-password policy", async () => {
+    const { getPasswordValidationError } = await import("../lib/passwords");
+    expect(getPasswordValidationError("short1")).toContain("12");
+    expect(getPasswordValidationError("letters-only-password")).toContain("ورقم");
+    expect(getPasswordValidationError("StrongPassword123")).toBeNull();
   });
 });

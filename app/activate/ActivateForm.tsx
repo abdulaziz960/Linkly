@@ -17,6 +17,7 @@ const copy = {
   ar: {
     newPassword: "كلمة السر الجديدة",
     confirmPassword: "تأكيد كلمة السر",
+    passwordHint: "12 حرفاً على الأقل، وتتضمن حرفاً ورقماً",
     mismatch: "كلمتا السر غير متطابقتين",
     genericError: "تعذر تفعيل الحساب",
     submitting: "جاري التفعيل...",
@@ -25,6 +26,7 @@ const copy = {
   en: {
     newPassword: "New password",
     confirmPassword: "Confirm password",
+    passwordHint: "At least 12 characters, including a letter and a number",
     mismatch: "Passwords don't match",
     genericError: "Couldn't activate the account",
     submitting: "Activating...",
@@ -84,7 +86,7 @@ export default function ActivateForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
-            minLength={8}
+            minLength={12}
           />
           <button
             type="button"
@@ -96,6 +98,7 @@ export default function ActivateForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
             {showPassword ? EyeOffIcon : EyeIcon}
           </button>
         </div>
+        <small>{text.passwordHint}</small>
       </label>
       <label>
         {text.confirmPassword}
@@ -107,7 +110,7 @@ export default function ActivateForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             required
-            minLength={8}
+            minLength={12}
           />
         </div>
       </label>

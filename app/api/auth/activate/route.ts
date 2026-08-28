@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { authCookieName, createSessionToken } from "../../../../lib/auth";
 import { hashPassword } from "../../../../lib/database";
+import { getPasswordValidationError } from "../../../../lib/passwords";
 import { prisma } from "../../../../lib/prisma";
 
 export const runtime = "nodejs";
@@ -21,9 +22,8 @@ export async function POST(request: Request) {
   if (!token) {
     return NextResponse.json({ message: "رابط التفعيل غير صالح" }, { status: 400 });
   }
-  if (password.length < 8) {
-    return NextResponse.json({ message: "كلمة السر يجب أن تكون 8 أحرف على الأقل" }, { status: 400 });
-  }
+  const passwordError = getPasswordValidationError(password);
+  if (passwordError) return NextResponse.json({ message: passwordError }, { status: 400 });
 
   const invite = await prisma.employeeInvite.findUnique({
     where: { tokenHash: hashToken(token) }

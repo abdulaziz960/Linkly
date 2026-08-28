@@ -1,7 +1,0 @@
-DirectoryIndex index.html index.php
-Options -Indexes
-
-<IfModule mod_rewrite.c>
-RewriteEngine On
-RewriteRule ^(src|data)/ - [F,L]
-</IfModule>

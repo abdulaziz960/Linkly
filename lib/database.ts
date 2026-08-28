@@ -1,16 +1,9 @@
 import { prisma } from "./prisma";
 import { createHash, randomUUID } from "crypto";
-import { hashPassword, verifyPassword } from "./passwords";
+import { getPasswordValidationError, hashPassword, verifyPassword } from "./passwords";
 import { decryptSecret, encryptSecret, integrationSecretFields } from "./secret-storage";
-import { initialConversations } from "../app/dashboard/data/conversations";
 import { automationRules } from "../app/dashboard/data/automations";
-import { campaigns } from "../app/dashboard/data/campaigns";
-import { employees } from "../app/dashboard/data/employees";
-import { quickReplies } from "../app/dashboard/data/quickReplies";
-import { tags } from "../app/dashboard/data/tags";
-import { teams } from "../app/dashboard/data/teams";
 import { templates } from "../app/dashboard/data/templates";
-import { workSchedules } from "../app/dashboard/data/workHours";
 import type {
   AutomationRule,
   Campaign,
@@ -39,13 +32,6 @@ const defaultGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
 const isPostgresDatabase =
   process.env.DATABASE_URL?.startsWith("postgres://") || process.env.DATABASE_URL?.startsWith("postgresql://");
 const defaultLoginEmail = "test@audiencew.sa";
-const legacyDemoPhoneNumbers = new Set(["+966 50 123 4567"]);
-const legacyDemoPhoneNumberIds = new Set(["328992863638694"]);
-const legacyDemoWabaIds = new Set(["369021316291991"]);
-
-function cleanIntegrationValue(value?: string | null) {
-  return value?.trim() ?? "";
-}
 const developmentDemoPassword = process.env.DEMO_LOGIN_PASSWORD?.trim() || "";
 const demoUserAccounts = developmentDemoPassword ? [
   {
@@ -88,13 +74,22 @@ export type UserAccount = {
 // backfill nobody - not even platform staff - can reach the provider dashboard.
 // If any of these emails already has (or later gets) a real login account,
 // it's flagged isPlatformAdmin=1 automatically.
-const platformAdminEmails = ["abdulaziz@audience.sa", "xcoode25@gmail.com"];
+const configuredSuperAdminEmail = (process.env.SUPER_ADMIN_EMAIL || "abdulaziz@audience.sa").trim().toLowerCase();
+const configuredSuperAdminName = (process.env.SUPER_ADMIN_NAME || "Abdulaziz").trim() || "Super Admin";
+const configuredSuperAdminPassword = process.env.SUPER_ADMIN_BOOTSTRAP_PASSWORD?.trim() || "";
+const configuredSuperAdminPasswordError = configuredSuperAdminPassword
+  ? getPasswordValidationError(configuredSuperAdminPassword)
+  : null;
+if (configuredSuperAdminPasswordError) {
+  throw new Error(`SUPER_ADMIN_BOOTSTRAP_PASSWORD is invalid: ${configuredSuperAdminPasswordError}`);
+}
+const platformAdminEmails = Array.from(new Set(["abdulaziz@audience.sa", "xcoode25@gmail.com", configuredSuperAdminEmail]));
 
 // Subset of platformAdminEmails allowed to have a brand-new login account
 // auto-created for them when one doesn't exist yet (see seedDatabase below).
 // Deliberately narrower than platformAdminEmails - an email only reaches this
 // list once its owner has actually confirmed they want an account created.
-const autoCreatePlatformAdminEmails = ["abdulaziz@audience.sa"];
+const autoCreatePlatformAdminEmails = Array.from(new Set(["abdulaziz@audience.sa", configuredSuperAdminEmail]));
 
 export type ProviderClient = {
   id: string;
@@ -1163,8 +1158,18 @@ async function seedDatabase() {
     for (const email of platformAdminEmails) {
       const existingAdminAccount = await tx.userAccount.findUnique({ where: { email } });
       if (existingAdminAccount) {
-        if (existingAdminAccount.isPlatformAdmin !== 1) {
-          await tx.userAccount.update({ where: { email }, data: { isPlatformAdmin: 1 } });
+        const bootstrapPasswordHash =
+          email === configuredSuperAdminEmail && !existingAdminAccount.passwordHash && configuredSuperAdminPassword
+            ? hashPassword(configuredSuperAdminPassword)
+            : undefined;
+        if (existingAdminAccount.isPlatformAdmin !== 1 || bootstrapPasswordHash) {
+          await tx.userAccount.update({
+            where: { email },
+            data: {
+              isPlatformAdmin: 1,
+              ...(bootstrapPasswordHash ? { passwordHash: bootstrapPasswordHash, sessionVersion: { increment: 1 } } : {})
+            }
+          });
         }
         continue;
       }
@@ -1174,9 +1179,11 @@ async function seedDatabase() {
       await tx.userAccount.create({
         data: {
           id: `user-platform-${createHash("sha256").update(email).digest("hex").slice(0, 10)}`,
-          name: email.split("@")[0],
+          name: email === configuredSuperAdminEmail ? configuredSuperAdminName : email.split("@")[0],
           email,
-          passwordHash: "",
+          passwordHash: email === configuredSuperAdminEmail && configuredSuperAdminPassword
+            ? hashPassword(configuredSuperAdminPassword)
+            : "",
           role: "مالك الحساب",
           tenantId: "tenant-demo",
           isPlatformAdmin: 1,
@@ -1302,538 +1309,6 @@ async function seedDatabase() {
       }
     });
 
-    return;
-
-    await tx.conversationTag.deleteMany({ where: { conversationId: { in: ["c-1", "c-2", "c-3", "c-4"] } } });
-    await tx.message.deleteMany({ where: { conversationId: { in: ["c-1", "c-2", "c-3", "c-4"] } } });
-    await tx.conversation.deleteMany({ where: { id: { in: ["c-1", "c-2", "c-3", "c-4"] } } });
-    await tx.customer.deleteMany({ where: { id: { in: ["c-1", "c-2", "c-3", "c-4"] } } });
-    await tx.tag.deleteMany({ where: { id: { in: ["tag-vip", "tag-shipping", "tag-payment", "tag-complaint", "tag-followup"] } } });
-    await tx.template.deleteMany({
-      where: {
-        name: {
-          in: [
-            "welcome",
-            "marketing_offer",
-            "order_confirmation",
-            "order_confirmation_v1",
-            "jaspers_market_image_cta_v1",
-            "jaspers_market_order_confirmation_v1"
-          ]
-        }
-      }
-    });
-    await tx.quickReply.deleteMany({ where: { id: { in: ["qr-address", "qr-hours", "qr-payment", "qr-return"] } } });
-    await tx.automationRule.deleteMany({ where: { id: { in: ["auto-hiring", "auto-complaints"] } } });
-    await tx.campaign.deleteMany({ where: { id: { in: ["camp-intro-1", "camp-intro-2"] } } });
-    await tx.workSchedule.deleteMany({ where: { id: { in: ["wh-support", "wh-shipping", "wh-sales"] } } });
-    await tx.teamMember.deleteMany({ where: { teamId: { in: ["team-support", "team-shipping", "team-sales"] } } });
-    await tx.team.deleteMany({ where: { id: { in: ["team-support", "team-shipping", "team-sales"] } } });
-    await tx.employee.deleteMany({ where: { id: { in: ["emp-sarah", "emp-abdullah"] } } });
-    await tx.$executeRawUnsafe(`DELETE FROM provider_clients WHERE id IN ('client-majidia', 'client-realty-demo', 'client-store-demo')`);
-    await tx.$executeRawUnsafe(`DELETE FROM provider_subscriptions WHERE id IN ('sub-majidia', 'sub-realty-demo', 'sub-store-demo')`);
-    await tx.$executeRawUnsafe(`DELETE FROM admin_logs WHERE id IN ('log-1', 'log-2', 'log-3', 'log-4')`);
-
-      const existingIntegration = await tx.integrationSetting.findUnique({ where: { id: "meta-whatsapp" } });
-      const integrationPhoneNumber = cleanIntegrationValue(existingIntegration?.phoneNumber);
-      const integrationPhoneNumberId = cleanIntegrationValue(existingIntegration?.phoneNumberId);
-      const integrationWabaId = cleanIntegrationValue(existingIntegration?.wabaId);
-      const integrationAccessToken = cleanIntegrationValue(existingIntegration?.accessToken);
-      const hasRealIntegrationData =
-        Boolean(integrationAccessToken) ||
-        Boolean(integrationPhoneNumber && !legacyDemoPhoneNumbers.has(integrationPhoneNumber)) ||
-        Boolean(integrationPhoneNumberId && !legacyDemoPhoneNumberIds.has(integrationPhoneNumberId)) ||
-        Boolean(integrationWabaId && !legacyDemoWabaIds.has(integrationWabaId));
-      const hasLegacyDemoData =
-        !hasRealIntegrationData &&
-        (existingIntegration?.businessName === "شركة الجمهور المخصص للدعاية والإعلان" ||
-          existingIntegration?.wabaName === "AudienceW WhatsApp Business Account" ||
-          legacyDemoPhoneNumbers.has(integrationPhoneNumber) ||
-          legacyDemoPhoneNumberIds.has(integrationPhoneNumberId) ||
-          legacyDemoWabaIds.has(integrationWabaId));
-
-    if (hasLegacyDemoData) {
-      await tx.conversationTag.deleteMany({});
-      await tx.message.deleteMany({});
-      await tx.conversation.deleteMany({});
-      await tx.customer.deleteMany({});
-      await tx.tag.deleteMany({});
-      await tx.template.deleteMany({});
-      await tx.quickReply.deleteMany({});
-      await tx.automationRule.deleteMany({});
-      await tx.campaign.deleteMany({});
-      await tx.workSchedule.deleteMany({});
-      await tx.teamMember.deleteMany({});
-      await tx.team.deleteMany({});
-      await tx.employee.deleteMany({ where: { id: { notIn: ["emp-owner", "emp-noura"] } } });
-      await tx.integrationSetting.update({
-        where: { id: "meta-whatsapp" },
-        data: {
-          status: "pending",
-          businessName: "",
-          wabaName: "",
-          phoneNumber: "",
-          phoneNumberId: "",
-          wabaId: "",
-          accessToken: "",
-          updatedAt: "اليوم"
-        }
-      });
-      await tx.$executeRawUnsafe(`DELETE FROM provider_clients`);
-      await tx.$executeRawUnsafe(`DELETE FROM provider_subscriptions`);
-      await tx.$executeRawUnsafe(`DELETE FROM admin_logs`);
-    }
-
-    for (const conversation of initialConversations) {
-      await tx.customer.upsert({
-        where: { id: conversation.id },
-        update: {},
-        create: {
-          id: conversation.id,
-          name: conversation.customer,
-          phone: conversation.phone,
-          initial: conversation.initial
-        }
-      });
-
-      await tx.conversation.upsert({
-        where: { id: conversation.id },
-        update: {},
-        create: {
-          id: conversation.id,
-          customerId: conversation.id,
-          channel: conversation.channel ?? "whatsapp",
-          lastMessage: conversation.lastMessage,
-          status: conversation.status,
-          assignee: conversation.assignee,
-          unread: conversation.unread ?? 0,
-          windowExpired: conversation.windowExpired ? 1 : 0,
-          lastActivityAt: conversation.lastActivityAt ?? ""
-        }
-      });
-
-      for (const message of conversation.messages) {
-        await tx.message.upsert({
-          where: { id: message.id },
-          update: {},
-          create: {
-            id: message.id,
-            conversationId: conversation.id,
-            direction: message.direction,
-            text: message.text,
-            time: message.time,
-            author: message.author ?? "",
-            attachmentType: message.attachment?.type ?? "",
-            attachmentUrl: message.attachment?.url ?? "",
-            attachmentName: message.attachment?.name ?? "",
-            attachmentMime: "",
-            metaMediaId: "",
-            sourceType: "",
-            sourceId: "",
-            sourceUrl: "",
-            sourceLabel: "",
-            replyToMessageId: "",
-            replyToText: "",
-            replyToAuthor: ""
-          }
-        });
-      }
-
-      for (const tag of conversation.tags) {
-        await tx.conversationTag.upsert({
-          where: {
-            conversationId_tagName: {
-              conversationId: conversation.id,
-              tagName: tag
-            }
-          },
-          update: {},
-          create: {
-            conversationId: conversation.id,
-            tagName: tag
-          }
-        });
-      }
-    }
-
-    for (const employee of employees) {
-      const employeeData = {
-        name: employee.name,
-        role: employee.role,
-        status: employee.status,
-        permissions: employee.permissions,
-        email: employee.email,
-        initial: employee.initial,
-        tenantId: employee.email === "noura@audiencew.sa" ? "tenant-noura" : "tenant-demo"
-      };
-
-      await tx.employee.upsert({
-        where: { id: employee.id },
-        update: employeeData,
-        create: {
-          id: employee.id,
-          ...employeeData
-        }
-      });
-    }
-
-    for (const team of teams) {
-      await tx.team.upsert({
-        where: { id: team.id },
-        update: {},
-        create: {
-          id: team.id,
-          name: team.name,
-          lead: team.lead,
-          routing: team.routing
-        }
-      });
-
-      for (const memberId of team.memberIds) {
-        await tx.teamMember.upsert({
-          where: {
-            teamId_employeeId: {
-              teamId: team.id,
-              employeeId: memberId
-            }
-          },
-          update: {},
-          create: {
-            teamId: team.id,
-            employeeId: memberId
-          }
-        });
-      }
-    }
-
-    for (const tag of tags) {
-      await tx.tag.upsert({
-        where: { id: tag.id },
-        update: {},
-        create: {
-          id: tag.id,
-          name: tag.name,
-          color: tag.color,
-          description: tag.description
-        }
-      });
-    }
-
-    for (const template of templates) {
-      await tx.template.upsert({
-        where: { name_tenantId: { name: template.name, tenantId: "tenant-demo" } },
-        update: {},
-        create: {
-          id: `tmpl-tenant-demo-${template.name}`,
-          tenantId: "tenant-demo",
-          name: template.name,
-          message: template.message,
-          type: template.type ?? "خدمة",
-          category: template.category ?? (template.type === "تسويق" ? "MARKETING" : "UTILITY"),
-          language: template.language ?? "ar",
-          status: template.status ?? "معتمد",
-          headerType: template.headerType ?? "NONE",
-          headerText: template.headerText ?? "",
-          headerMedia: template.headerMedia ?? "",
-          footer: template.footer ?? "",
-          buttonType: template.buttonType ?? "NONE",
-          buttonText: template.buttonText ?? "",
-          buttonPhone: template.buttonPhone ?? "",
-          buttonUrl: template.buttonUrl ?? "",
-          metaId: template.metaId ?? "",
-          syncedAt: template.syncedAt ?? "-",
-          lastUsed: template.lastUsed ?? "-"
-        }
-      });
-    }
-
-    for (const reply of quickReplies) {
-      await tx.quickReply.upsert({
-        where: { id: reply.id },
-        update: {},
-        create: reply
-      });
-    }
-
-    for (const rule of automationRules) {
-      await tx.automationRule.upsert({
-        where: { id: rule.id },
-        update: {},
-        create: {
-          id: rule.id,
-          name: rule.name,
-          description: rule.description,
-          trigger: rule.trigger,
-          action: rule.action,
-          target: rule.target,
-          delayMinutes: rule.delayMinutes,
-          conditionsJson: JSON.stringify(rule.conditions),
-          actionsJson: JSON.stringify(rule.actions),
-          createdAt: rule.createdAt,
-          enabled: rule.enabled ? 1 : 0
-        }
-      });
-    }
-
-    for (const campaign of campaigns) {
-      await tx.campaign.upsert({
-        where: { id: campaign.id },
-        update: {},
-        create: campaign
-      });
-    }
-
-    for (const schedule of workSchedules) {
-      await tx.workSchedule.upsert({
-        where: { id: schedule.id },
-        update: {},
-        create: schedule
-      });
-    }
-
-    await tx.integrationSetting.upsert({
-      where: { id: "meta-whatsapp" },
-      update: {},
-      create: {
-        id: "meta-whatsapp",
-        provider: "whatsapp_cloud",
-        status: "pending",
-        businessName: "",
-        wabaName: "",
-        phoneNumber: "",
-        phoneNumberId: "",
-        wabaId: "",
-        appId: defaultMetaAppId,
-        configId: "",
-        verifyToken: randomUUID(),
-        accessToken: "",
-        webhookUrl: "/api/meta/webhook",
-        updatedAt: "اليوم"
-      }
-    });
-    await tx.integrationSetting.upsert({
-      where: { id: "meta-instagram" },
-      update: {},
-      create: {
-        id: "meta-instagram",
-        provider: "instagram",
-        status: "pending",
-        businessName: "",
-        wabaName: "",
-        phoneNumber: "",
-        phoneNumberId: "",
-        wabaId: "",
-        appId: defaultMetaAppId,
-        configId: "",
-        verifyToken: randomUUID(),
-        accessToken: "",
-        webhookUrl: "/api/meta/webhook",
-        updatedAt: "اليوم"
-      }
-    });
-    await tx.integrationSetting.upsert({
-      where: { id: "meta-facebook" },
-      update: {},
-      create: {
-        id: "meta-facebook",
-        provider: "facebook",
-        status: "pending",
-        businessName: "",
-        wabaName: "",
-        phoneNumber: "",
-        phoneNumberId: "",
-        wabaId: "",
-        appId: defaultMetaAppId,
-        configId: "",
-        verifyToken: randomUUID(),
-        accessToken: "",
-        webhookUrl: "/api/meta/webhook",
-        updatedAt: "اليوم"
-      }
-    });
-    await tx.integrationSetting.upsert({
-      where: { id: "telegram-bot" },
-      update: {},
-      create: {
-        id: "telegram-bot",
-        provider: "telegram",
-        status: "pending",
-        businessName: "",
-        wabaName: "",
-        phoneNumber: "",
-        phoneNumberId: "",
-        wabaId: "",
-        appId: "",
-        configId: "",
-        verifyToken: randomUUID(),
-        accessToken: "",
-        webhookUrl: "/api/telegram/webhook",
-        updatedAt: "اليوم"
-      }
-    });
-    await tx.integrationSetting.upsert({
-      where: { id: "x-channel" },
-      update: {},
-      create: {
-        id: "x-channel",
-        provider: "x",
-        status: "pending",
-        businessName: "",
-        wabaName: "",
-        phoneNumber: "",
-        phoneNumberId: "",
-        wabaId: "",
-        appId: "",
-        configId: "",
-        verifyToken: randomUUID(),
-        accessToken: "",
-        webhookUrl: "/api/x/webhook",
-        updatedAt: "اليوم"
-      }
-    });
-    await tx.integrationSetting.upsert({
-      where: { id: "google-maps" },
-      update: {},
-      create: {
-        id: "google-maps",
-        provider: "google_maps",
-        status: "pending",
-        businessName: "",
-        wabaName: "",
-        phoneNumber: "",
-        phoneNumberId: "",
-        wabaId: "",
-        appId: defaultGoogleClientId,
-        configId: "",
-        verifyToken: randomUUID(),
-        accessToken: "",
-        webhookUrl: "/api/google/reviews/sync",
-        updatedAt: "اليوم"
-      }
-    });
-    await tx.integrationSetting.upsert({
-      where: { id: "email-channel" },
-      update: {},
-      create: {
-        id: "email-channel",
-        provider: "email",
-        status: "pending",
-        businessName: "",
-        wabaName: "",
-        phoneNumber: "",
-        phoneNumberId: "",
-        wabaId: "",
-        appId: "",
-        configId: "",
-        verifyToken: randomUUID(),
-        accessToken: "",
-        webhookUrl: "/api/email/inbound",
-        updatedAt: "اليوم"
-      }
-    });
-
-    for (const account of process.env.NODE_ENV === "production" ? [] : demoUserAccounts) {
-      await tx.userAccount.upsert({
-        where: { id: account.id },
-        update: { email: account.email, name: account.name, role: account.role, tenantId: account.tenantId },
-        create: {
-          id: account.id,
-          name: account.name,
-          email: account.email,
-          passwordHash: hashPassword(account.password),
-          role: account.role,
-          tenantId: account.tenantId,
-          createdAt: "اليوم"
-        }
-      });
-
-      await tx.employee.upsert({
-        where: { id: account.employeeId },
-        update: {
-          name: account.name,
-          email: account.email,
-          role: account.role,
-          status: "متصل",
-          permissions: "الكل",
-          initial: account.name.slice(0, 1),
-          tenantId: account.tenantId
-        },
-        create: {
-          id: account.employeeId,
-          name: account.name,
-          email: account.email,
-          role: account.role,
-          status: "متصل",
-          permissions: "الكل",
-          initial: account.name.slice(0, 1),
-          tenantId: account.tenantId
-        }
-      });
-    }
-
-    const providerClients: ProviderClient[] = [];
-
-    for (const client of providerClients) {
-      await tx.$executeRawUnsafe(
-        `INSERT INTO provider_clients (
-          id, company, owner, plan, status, subscription_status, renewal, phone, waba_id,
-          conversations, employees, last_activity, created_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO NOTHING`,
-        client.id,
-        client.company,
-        client.owner,
-        client.plan,
-        client.status,
-        client.subscriptionStatus,
-        client.renewal,
-        client.phone,
-        client.wabaId,
-        client.conversations,
-        client.employees,
-        client.lastActivity,
-        client.createdAt
-      );
-    }
-
-    const providerSubscriptions: ProviderSubscription[] = [];
-
-    for (const subscription of providerSubscriptions) {
-      await tx.$executeRawUnsafe(
-        `INSERT INTO provider_subscriptions (
-          id, client_id, client_name, plan, status, amount, renewal, billing_cycle, payment_method
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO NOTHING`,
-        subscription.id,
-        subscription.clientId,
-        subscription.clientName,
-        subscription.plan,
-        subscription.status,
-        subscription.amount,
-        subscription.renewal,
-        subscription.billingCycle,
-        subscription.paymentMethod
-      );
-    }
-
-    const adminLogs: AdminLog[] = [];
-
-    for (const log of adminLogs) {
-      await tx.$executeRawUnsafe(
-        `INSERT INTO admin_logs (id, at, client_id, client_name, source, level, message)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO NOTHING`,
-        log.id,
-        log.at,
-        log.clientId,
-        log.clientName,
-        log.source,
-        log.level,
-        log.message
-      );
-    }
   }, { timeout: 20000, maxWait: 10000 });
 }
 

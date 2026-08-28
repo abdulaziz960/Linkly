@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
   const resetToken = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(resetToken).digest("hex");
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + 1000 * 60 * 60).toISOString();
+  const accountAlreadyActivated = Boolean(user.passwordHash);
+  const purpose = accountAlreadyActivated ? "password_reset" : "employee_activation";
+  const lifetimeMs = accountAlreadyActivated ? 1000 * 60 * 60 : 1000 * 60 * 60 * 24 * 3;
+  const expiresAt = new Date(now.getTime() + lifetimeMs).toISOString();
 
   await prisma.$transaction([
     prisma.employeeInvite.deleteMany({ where: { email } }),
@@ -43,16 +46,19 @@ export async function POST(request: NextRequest) {
         tokenHash,
         expiresAt,
         createdAt: now.toISOString(),
-        purpose: "password_reset"
+        purpose
       }
     })
   ]);
 
-  const origin = process.env.NODE_ENV === "production"
-    ? "https://audiencew.audience.sa"
-    : (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || request.nextUrl.origin).replace(/\/$/, "");
+  const origin = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
   const activationUrl = `${origin}/activate?token=${resetToken}`;
-  const delivery = await sendActivationEmail({ to: email, name: user.name, activationUrl });
+  const delivery = await sendActivationEmail({
+    to: email,
+    name: user.name,
+    activationUrl,
+    purpose: accountAlreadyActivated ? "password_reset" : "activation"
+  });
 
   return NextResponse.json({
     ok: true,
