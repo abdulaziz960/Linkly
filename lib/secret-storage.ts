@@ -26,7 +26,8 @@ function requiresProductionIntegrationKey() {
   // metadata. The key is still mandatory when the deployed function starts.
   return process.env.NODE_ENV === "production"
     && process.env.NEXT_PHASE !== "phase-production-build"
-    && !process.env.INTEGRATION_ENCRYPTION_KEY?.trim();
+    && !process.env.INTEGRATION_ENCRYPTION_KEY?.trim()
+    && !process.env.ENCRYPTION_KEY?.trim();
 }
 
 export function hasIntegrationEncryptionKey() {
