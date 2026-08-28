@@ -15,8 +15,8 @@ function levelLabel(level: string, t: (ar: string, en: string) => string) {
 }
 
 function targetHref(item: AdminNotification) {
-  if (item.type === "renewal") return "/linkly-command-7f3a9/alerts";
-  return `/linkly-command-7f3a9/logs?client=${item.tenantId}`;
+  if (item.type === "renewal") return "/linkly-admin007/alerts";
+  return `/linkly-admin007/logs?client=${item.tenantId}`;
 }
 
 export default function NotificationBell() {

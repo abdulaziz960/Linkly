@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const paymentId = request.nextUrl.searchParams.get("paymentId");
 
   if (!sessionId || !paymentId) {
-    return NextResponse.redirect(`${baseUrl()}/admin/payments`);
+    return NextResponse.redirect(`${baseUrl()}/linkly-admin007/payments`);
   }
 
   await ensureSchema();
@@ -48,5 +48,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(`${baseUrl()}/admin/payments`);
+  return NextResponse.redirect(`${baseUrl()}/linkly-admin007/payments`);
 }

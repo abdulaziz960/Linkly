@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         amount,
         description: `اشتراك Linkly - ${subscription.companyName} (${subscription.plan}) [تجريبي]`,
         successUrl: `${baseUrl()}/api/admin/subscriptions/stripe-return?session_id={CHECKOUT_SESSION_ID}&paymentId=${paymentId}`,
-        cancelUrl: `${baseUrl()}/admin/payments`,
+        cancelUrl: `${baseUrl()}/linkly-admin007/payments`,
         metadata: { tenantId, paymentId }
       });
 

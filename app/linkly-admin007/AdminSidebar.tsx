@@ -10,13 +10,13 @@ import { useLanguage } from "./i18n";
 import type { Language } from "./i18n";
 
 const navItems = [
-  { href: "/linkly-command-7f3a9", labelAr: "نظرة عامة", labelEn: "Overview" },
-  { href: "/linkly-command-7f3a9/clients", labelAr: "العملاء", labelEn: "Clients" },
-  { href: "/linkly-command-7f3a9/alerts", labelAr: "تنبيهات التجديد", labelEn: "Renewal alerts" },
-  { href: "/linkly-command-7f3a9/payments", labelAr: "المدفوعات", labelEn: "Payments" },
-  { href: "/linkly-command-7f3a9/plans", labelAr: "الباقات", labelEn: "Plans" },
-  { href: "/linkly-command-7f3a9/team", labelAr: "الفريق", labelEn: "Team" },
-  { href: "/linkly-command-7f3a9/logs", labelAr: "السجلات", labelEn: "Logs" }
+  { href: "/linkly-admin007", labelAr: "نظرة عامة", labelEn: "Overview" },
+  { href: "/linkly-admin007/clients", labelAr: "العملاء", labelEn: "Clients" },
+  { href: "/linkly-admin007/alerts", labelAr: "تنبيهات التجديد", labelEn: "Renewal alerts" },
+  { href: "/linkly-admin007/payments", labelAr: "المدفوعات", labelEn: "Payments" },
+  { href: "/linkly-admin007/plans", labelAr: "الباقات", labelEn: "Plans" },
+  { href: "/linkly-admin007/team", labelAr: "الفريق", labelEn: "Team" },
+  { href: "/linkly-admin007/logs", labelAr: "السجلات", labelEn: "Logs" }
 ];
 
 export default function AdminSidebar({
