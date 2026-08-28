@@ -1,4 +1,5 @@
 import { createHmac } from "crypto";
+import { readFileSync } from "fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
@@ -101,5 +102,18 @@ describe("Meta webhook status isolation", () => {
 
     expect(verifyPrefixedHmac(payload, signature, ["meta-secret"], "hex")).toBe(true);
     expect(verifyPrefixedHmac(payload, signature, [""], "hex")).toBe(false);
+  });
+});
+
+describe("production schema compatibility", () => {
+  it("repairs required payment columns before the broad runtime-repair guard returns", () => {
+    const source = readFileSync(new URL("../lib/database.ts", import.meta.url), "utf8");
+    const requiredMigrationCall = source.indexOf("await runRequiredProductionMigrations()");
+    const productionGuard = source.indexOf('process.env.NODE_ENV === "production"');
+
+    expect(requiredMigrationCall).toBeGreaterThan(-1);
+    expect(productionGuard).toBeGreaterThan(requiredMigrationCall);
+    expect(source).toContain("subscription_payments ADD COLUMN IF NOT EXISTS amount_halalas");
+    expect(source).toContain("campaign_payments ADD COLUMN IF NOT EXISTS amount_halalas");
   });
 });

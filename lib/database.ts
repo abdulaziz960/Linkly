@@ -138,7 +138,31 @@ export type AdminLog = {
 
 export { hashPassword } from "./passwords";
 
+async function runRequiredProductionMigrations() {
+  if (!isPostgresDatabase) return;
+
+  // Prisma selects every model field, so deploying a newly generated client
+  // before these additive columns exist makes even read-only admin pages fail.
+  // Keep this small compatibility bridge active in production even when the
+  // broad legacy runtime schema repair is disabled. The statements are
+  // idempotent and can be removed once every environment runs migrate deploy.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaign_payments ADD COLUMN IF NOT EXISTS amount_halalas INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS amount_halalas INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `UPDATE campaign_payments SET amount_halalas = CAST(ROUND(amount * 100) AS INTEGER) WHERE amount_halalas = 0 AND amount IS NOT NULL`
+  );
+  await prisma.$executeRawUnsafe(
+    `UPDATE subscription_payments SET amount_halalas = CAST(ROUND(amount * 100) AS INTEGER) WHERE amount_halalas = 0 AND amount IS NOT NULL`
+  );
+}
+
 async function runSchemaMigrations() {
+  await runRequiredProductionMigrations();
+
   if (process.env.NODE_ENV === "production" && process.env.ENABLE_RUNTIME_SCHEMA_REPAIR !== "true") {
     return;
   }
