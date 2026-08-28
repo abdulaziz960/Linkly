@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { ensureSchema, getIntegrationSettings } from "./database";
 import { formatMessageTime } from "./time";
-import { sendWhatsAppTextMessage } from "./whatsapp-send";
+import { sendWhatsAppTemplateMessage, sendWhatsAppTextMessage } from "./whatsapp-send";
 import { sendTelegramTextMessage } from "./telegram-send";
 import { sendInstagramTextMessage } from "./instagram-send";
 import { sendFacebookTextMessage } from "./facebook-send";
@@ -239,13 +239,23 @@ async function executeAction(action: StoredAction, tenantId: string, conversatio
     const conversation = await loadConversationContext(conversationId);
     if (!conversation) return;
 
+    if (conversation.channel === "whatsapp") {
+      await sendWhatsAppTemplateMessage({
+        tenantId,
+        conversationId,
+        to: conversation.customer.phone,
+        templateName: template.name,
+        language: template.language,
+        templateText: template.message,
+        customerName: conversation.customer.name,
+        author: AUTOMATION_AUTHOR,
+        keepWindowExpired: Boolean(conversation.windowExpired)
+      });
+      return;
+    }
+
     const text = template.message.replace(/\{\{\s*name\s*\}\}/gi, conversation.customer.name);
-    await sendChannelText(conversation.channel, {
-      tenantId,
-      conversationId,
-      recipientId: conversation.customer.phone,
-      text
-    });
+    await sendChannelText(conversation.channel, { tenantId, conversationId, recipientId: conversation.customer.phone, text });
   }
 }
 

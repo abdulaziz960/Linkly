@@ -132,13 +132,25 @@ export async function addManualCampaignBalance(tenantId: string, messages: numbe
   return payment;
 }
 
-async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string) {
+async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "") {
   const settings = await getIntegrationSettings("whatsapp", tenantId);
   const phoneNumberId = settings.phoneNumberId?.trim();
   const accessToken = settings.accessToken?.trim();
   if (!phoneNumberId || !accessToken) return { ok: false as const, error: "واتساب غير مربوط لهذا الحساب" };
 
   const languageCode = language === "Arabic" || language === "العربية" || !language ? "ar" : language === "English" || language === "الإنجليزية" ? "en_US" : language;
+  const templateRecord = await prisma.template.findFirst({ where: { tenantId, name: templateName, status: "معتمد" } });
+  if (!templateRecord) return { ok: false as const, error: "قالب واتساب غير موجود أو غير معتمد" };
+  const indexes = [...templateRecord.message.matchAll(/\{\{\s*(\d+)\s*\}\}/g)]
+    .map((match) => Number(match[1]))
+    .filter(Number.isFinite);
+  const parameterCount = indexes.length ? Math.max(...indexes) : 0;
+  const components = parameterCount
+    ? [{
+        type: "body",
+        parameters: Array.from({ length: parameterCount }, () => ({ type: "text", text: recipientName.trim() || "عميلنا" }))
+      }]
+    : undefined;
 
   const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
     method: "POST",
@@ -148,7 +160,11 @@ async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: 
       recipient_type: "individual",
       to,
       type: "template",
-      template: { name: templateName, language: { code: languageCode } }
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+        ...(components ? { components } : {})
+      }
     })
   });
   const payload = await response.json().catch(() => null) as { messages?: Array<{ id?: string }>; error?: { message?: string } } | null;
@@ -221,7 +237,7 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
 
       let result: Awaited<ReturnType<typeof sendWhatsAppTemplate>>;
       try {
-        result = await sendWhatsAppTemplate(tenantId, recipient.phone, campaign.templateName, campaign.language || "ar");
+        result = await sendWhatsAppTemplate(tenantId, recipient.phone, campaign.templateName, campaign.language || "ar", recipient.name);
       } catch {
         await adjustCampaignBalance(tenantId, 1);
         await prisma.campaignRecipient.update({

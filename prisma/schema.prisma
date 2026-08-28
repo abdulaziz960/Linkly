@@ -407,6 +407,14 @@ model SubscriptionPayment {
   @@map("subscription_payments")
 }
 
+model TenantPreference {
+  tenantId             String @id @map("tenant_id")
+  leadsPipelineEnabled Int    @default(1) @map("leads_pipeline_enabled")
+  updatedAt            String @map("updated_at")
+
+  @@map("tenant_preferences")
+}
+
 model BotSettings {
   id        String @id
   tenantId  String @map("tenant_id")

@@ -11,6 +11,145 @@ type SendWhatsAppTextInput = {
   author?: string;
 };
 
+type SendWhatsAppTemplateInput = {
+  tenantId?: string;
+  conversationId: string;
+  to: string;
+  templateName: string;
+  language?: string;
+  templateText: string;
+  customerName?: string;
+  author?: string;
+  contextMessageId?: string;
+  keepWindowExpired?: boolean;
+};
+
+function normalizeTemplateLanguage(language?: string) {
+  const value = language?.trim();
+  if (!value || value === "Arabic" || value === "العربية") return "ar";
+  if (value === "English" || value === "الإنجليزية") return "en_US";
+  return value;
+}
+
+function templateParameterCount(templateText: string) {
+  const indexes = [...templateText.matchAll(/\{\{\s*(\d+)\s*\}\}/g)]
+    .map((match) => Number(match[1]))
+    .filter(Number.isFinite);
+  return indexes.length ? Math.max(...indexes) : 0;
+}
+
+function renderTemplateText(templateText: string, customerName: string) {
+  const fallback = customerName.trim() || "عميلنا";
+  return templateText
+    .replace(/\{\{\s*name\s*\}\}/gi, fallback)
+    .replace(/\{\{\s*\d+\s*\}\}/g, fallback);
+}
+
+async function persistWhatsAppTemplateResult(input: SendWhatsAppTemplateInput, result: {
+  messageId?: string;
+  deliveryStatus: "sent" | "failed";
+  deliveryError?: string;
+}) {
+  const now = new Date();
+  const renderedText = renderTemplateText(input.templateText, input.customerName || "");
+  const id = result.messageId
+    ? `wa-out-${result.messageId}`
+    : `wa-template-${result.deliveryStatus}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  return prisma.$transaction(async (tx) => {
+    const conversation = await tx.conversation.findUnique({ where: { id: input.conversationId } });
+    const message = await tx.message.create({
+      data: {
+        id,
+        conversationId: input.conversationId,
+        direction: "out",
+        text: renderedText,
+        time: formatMessageTime(now),
+        createdAt: now.toISOString(),
+        author: input.author || "Linkly AI",
+        deliveryStatus: result.deliveryStatus,
+        deliveryError: result.deliveryError || "",
+        sourceType: "whatsapp_template",
+        sourceLabel: input.templateName
+      }
+    });
+
+    await tx.conversation.update({
+      where: { id: input.conversationId },
+      data: {
+        lastMessage: renderedText,
+        lastActivityAt: now.toISOString(),
+        windowExpired: input.keepWindowExpired ? 1 : undefined,
+        status: result.deliveryStatus === "sent" && conversation?.status === "closed"
+          ? conversation.assignee && conversation.assignee !== "بدون موظف" ? "assigned" : "unassigned"
+          : undefined
+      }
+    });
+
+    return message;
+  });
+}
+
+/** Sends an approved WhatsApp template and records both provider acceptance and rejection. */
+export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInput) {
+  const settings = await getIntegrationSettings("whatsapp", input.tenantId);
+  const phoneNumberId = settings.phoneNumberId?.trim();
+  const accessToken = settings.accessToken?.trim();
+  const to = normalizeWhatsAppPhone(input.to);
+  const templateName = input.templateName.trim();
+  const templateText = input.templateText.trim();
+
+  if (!phoneNumberId || !accessToken || !to || !templateName || !templateText) {
+    return { ok: false as const, skipped: true, error: "WHATSAPP_TEMPLATE_CONFIGURATION_MISSING" };
+  }
+
+  const parameterCount = templateParameterCount(templateText);
+  const parameterText = input.customerName?.trim() || "عميلنا";
+  const components = parameterCount
+    ? [{
+        type: "body",
+        parameters: Array.from({ length: parameterCount }, () => ({ type: "text", text: parameterText }))
+      }]
+    : undefined;
+
+  const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "template",
+      ...(input.contextMessageId ? { context: { message_id: input.contextMessageId } } : {}),
+      template: {
+        name: templateName,
+        language: { code: normalizeTemplateLanguage(input.language) },
+        ...(components ? { components } : {})
+      }
+    })
+  });
+  const payload = await response.json().catch(() => null) as {
+    messages?: Array<{ id?: string }>;
+    error?: { message?: string; error_user_msg?: string };
+  } | null;
+
+  if (!response.ok || !payload?.messages?.[0]?.id) {
+    const error = payload?.error?.error_user_msg || payload?.error?.message || "تعذر إرسال قالب WhatsApp";
+    console.error("WhatsApp template send failed", { status: response.status, error, templateName });
+    await persistWhatsAppTemplateResult(input, { deliveryStatus: "failed", deliveryError: error });
+    return { ok: false as const, error, status: response.status || 502 };
+  }
+
+  const message = await persistWhatsAppTemplateResult(input, {
+    messageId: payload.messages[0].id,
+    deliveryStatus: "sent"
+  });
+  return { ok: true as const, messageId: payload.messages[0].id, message };
+}
+
 export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
   const settings = await getIntegrationSettings("whatsapp", input.tenantId);
   const phoneNumberId = settings.phoneNumberId?.trim();
@@ -42,8 +181,29 @@ export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
+    const error = payload?.error?.error_user_msg || payload?.error?.message || "WHATSAPP_SEND_FAILED";
     console.error("WhatsApp AI text send failed", payload?.error || payload);
-    return { ok: false, error: payload?.error?.message || "WHATSAPP_SEND_FAILED" };
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      await tx.message.create({
+        data: {
+          id: `wa-text-failed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          conversationId: input.conversationId,
+          direction: "out",
+          text,
+          time: formatMessageTime(now),
+          createdAt: now.toISOString(),
+          author: input.author || "Linkly AI",
+          deliveryStatus: "failed",
+          deliveryError: error
+        }
+      });
+      await tx.conversation.update({
+        where: { id: input.conversationId },
+        data: { lastMessage: text, lastActivityAt: now.toISOString() }
+      });
+    });
+    return { ok: false, error };
   }
 
   const now = new Date();
@@ -56,7 +216,8 @@ export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
         text,
         time: formatMessageTime(now),
         createdAt: now.toISOString(),
-        author: input.author || "Linkly AI"
+        author: input.author || "Linkly AI",
+        deliveryStatus: "sent"
       }
     });
 

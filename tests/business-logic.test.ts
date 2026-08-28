@@ -42,6 +42,55 @@ describe("employee privilege escalation prevention", () => {
 });
 
 describe("subscription payment gating (no benefits before payment)", () => {
+  it("creates no subscription until a staged payment is confirmed", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { ensureSchema } = await import("../lib/database");
+    const { applyConfirmedSubscriptionPayment } = await import("../lib/subscriptions");
+    await ensureSchema();
+
+    const tenantId = "tenant-test-billing-no-subscription";
+    const now = new Date().toISOString();
+    await prisma.userAccount.create({
+      data: {
+        id: `user-${tenantId}`,
+        name: "New Tenant Owner",
+        email: "new-owner@billing-test.example",
+        passwordHash: "x",
+        role: "مالك الحساب",
+        tenantId,
+        createdAt: now
+      }
+    });
+    await prisma.subscriptionPayment.create({
+      data: {
+        id: `pay-${tenantId}`,
+        tenantId,
+        amount: 499,
+        status: "قيد الانتظار",
+        moyasarId: "invoice_not_paid_yet",
+        paymentUrl: "https://example.test/pay",
+        createdAt: now,
+        planName: "باقة النمو",
+        planEmployeeLimit: 3
+      }
+    });
+
+    expect(await prisma.subscription.findUnique({ where: { tenantId } })).toBeNull();
+
+    const result = await applyConfirmedSubscriptionPayment(`pay-${tenantId}`);
+    expect(result.activated).toBe(true);
+    const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+    expect(subscription).toMatchObject({
+      companyName: "New Tenant Owner",
+      ownerEmail: "new-owner@billing-test.example",
+      plan: "باقة النمو",
+      employeeLimit: 3,
+      status: "نشط",
+      amount: 499,
+      billingCycle: "شهري"
+    });
+  });
+
   it("does not apply the staged plan until the payment is confirmed, then applies it exactly once", async () => {
     const { prisma } = await import("../lib/prisma");
     const { ensureSchema } = await import("../lib/database");
@@ -57,7 +106,7 @@ describe("subscription payment gating (no benefits before payment)", () => {
         ownerName: "Owner",
         ownerEmail: "owner@billing-test.example",
         plan: "باقة البداية",
-        status: "بانتظار الدفع",
+        status: "نشط",
         employeeLimit: 1,
         amount: 199,
         billingCycle: "شهري",
@@ -83,7 +132,7 @@ describe("subscription payment gating (no benefits before payment)", () => {
     const before = await prisma.subscription.findUnique({ where: { tenantId } });
     expect(before?.plan).toBe("باقة البداية");
     expect(before?.employeeLimit).toBe(1);
-    expect(before?.status).toBe("بانتظار الدفع");
+    expect(before?.status).toBe("نشط");
 
     const first = await applyConfirmedSubscriptionPayment(`pay-${tenantId}`);
     expect(first.activated).toBe(true);

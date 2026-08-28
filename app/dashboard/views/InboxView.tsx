@@ -60,7 +60,7 @@ type InboxViewProps = {
   onSend: (event: FormEvent<HTMLFormElement>, replyToMessageId?: string) => void | Promise<void>;
   onSendAttachment: (attachment: MessageAttachment) => void | Promise<void>;
   onSendCommentReply: (messageId: string, text: string) => void | Promise<void>;
-  onSendTemplate: () => void;
+  onSendTemplate: (templateName?: string) => void | Promise<void>;
   onSetMobileChatOpen: (isOpen: boolean) => void;
 };
 
@@ -361,6 +361,20 @@ export default function InboxView({
   const reopenTemplates = templates.filter(
     (template) => template.status === "معتمد"
   );
+  const normalizeReplyKey = (value: string) => value
+    .toLocaleLowerCase(language === "ar" ? "ar" : "en")
+    .replace(/^\//, "")
+    .replace(/[\s_-]+/g, "")
+    .replace(/[^\p{L}\p{N}]/gu, "");
+  const templateForQuickReply = (reply: QuickReply) => {
+    const shortcutKey = normalizeReplyKey(reply.shortcut);
+    const textKey = normalizeReplyKey(reply.text);
+    return reopenTemplates.find((template) => {
+      const nameKey = normalizeReplyKey(template.name);
+      const messageKey = normalizeReplyKey(template.message);
+      return nameKey === shortcutKey || messageKey === textKey;
+    }) ?? reopenTemplates.find((template) => template.name === selectedTemplate) ?? reopenTemplates[0];
+  };
   const isClosed = activeConversation.status === "closed";
   const hasActiveConversation = Boolean(activeConversation.id);
   const isComposerDisabled = !hasActiveConversation || activeConversation.windowExpired || isClosed;
@@ -1232,7 +1246,7 @@ export default function InboxView({
                     : t(`مر ${replyWindowAgeHours} ساعة على آخر رسالة من العميل.`, `${replyWindowAgeHours} hours have passed since the customer's last message.`)}
                 </small>
                 <p className="form-error" role="status">
-                  {t("الردود السريعة والرسائل العادية غير متاحة في هذه المحادثة. استخدم قالب WhatsApp معتمد فقط.", "Quick replies and regular messages are unavailable in this conversation. Use an approved WhatsApp template only.")}
+                  {t("الرسائل العادية غير متاحة. يمكنك إرسال رد سريع عبر قالب WhatsApp المعتمد المحدد أدناه.", "Regular messages are unavailable. You can send a quick reply through the approved WhatsApp template selected below.")}
                 </p>
                 {latestFailedMessage ? (
                   <p className="form-error" role="alert">
@@ -1253,12 +1267,34 @@ export default function InboxView({
                   <button
                     className="btn primary"
                     type="button"
-                    disabled={!reopenTemplates.length || Boolean(latestFailedMessage && reopenTemplates.find((template) => template.name === selectedTemplate)?.message === latestFailedMessage.text)}
-                    onClick={onSendTemplate}
+                    disabled={!reopenTemplates.length || Boolean(latestFailedMessage?.source?.type === "whatsapp_template" && latestFailedMessage.source.label === selectedTemplate)}
+                    onClick={() => void onSendTemplate()}
                   >
                     {t("إرسال قالب", "Send template")}
                   </button>
                 </div>
+                {quickReplies.length ? (
+                  <div className="expired-quick-replies" aria-label={t("ردود سريعة عبر القالب", "Quick replies via template")}>
+                    <small>{t("ردود الفريق السريعة (تُرسل كقالب معتمد)", "Team quick replies (sent as an approved template)")}</small>
+                    <div>
+                      {quickReplies.slice(0, 6).map((reply) => {
+                        const mappedTemplate = templateForQuickReply(reply);
+                        return (
+                          <button
+                            className="btn soft"
+                            type="button"
+                            key={reply.id}
+                            disabled={!mappedTemplate}
+                            title={mappedTemplate ? t(`سيُرسل قالب ${mappedTemplate.name}`, `Sends the ${mappedTemplate.name} template`) : t("لا يوجد قالب معتمد", "No approved template available")}
+                            onClick={() => mappedTemplate && onSendTemplate(mappedTemplate.name)}
+                          >
+                            {reply.shortcut}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <>

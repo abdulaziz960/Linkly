@@ -92,16 +92,42 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string): Prom
     });
     if (claimed.count !== 1) return false;
 
-    await tx.subscription.update({
+    const owner = await tx.userAccount.findFirst({
+      where: { tenantId: payment.tenantId, role: "مالك الحساب" },
+      orderBy: { createdAt: "asc" }
+    }) ?? await tx.userAccount.findFirst({
       where: { tenantId: payment.tenantId },
-      data: {
+      orderBy: { createdAt: "asc" }
+    });
+    const now = new Date().toISOString();
+
+    await tx.subscription.upsert({
+      where: { tenantId: payment.tenantId },
+      update: {
         status: "نشط",
+        amount: Math.round(payment.amount),
+        billingCycle: "شهري",
         renewalAt: renewalAt.toISOString().slice(0, 10),
         updatedAt: nowTimestamp(),
         // Only overwrite plan/employeeLimit if this payment actually staged
         // an upgrade (planName non-empty) - a plain renewal payment leaves
         // the current plan as-is.
         ...(payment.planName ? { plan: payment.planName, employeeLimit: payment.planEmployeeLimit } : {})
+      },
+      create: {
+        id: `sub-${payment.tenantId}`,
+        tenantId: payment.tenantId,
+        companyName: owner?.name || payment.tenantId,
+        ownerName: owner?.name || payment.tenantId,
+        ownerEmail: owner?.email || "",
+        plan: payment.planName || "باقة البداية",
+        status: "نشط",
+        employeeLimit: payment.planName ? payment.planEmployeeLimit : 1,
+        amount: Math.round(payment.amount),
+        billingCycle: "شهري",
+        renewalAt: renewalAt.toISOString().slice(0, 10),
+        createdAt: now,
+        updatedAt: nowTimestamp()
       }
     });
     return true;

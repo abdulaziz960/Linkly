@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   if (existingEmployee) return jsonError("يوجد موظف مسجل بهذا البريد الإلكتروني", 409);
 
   const existingAccount = await prisma.userAccount.findUnique({ where: { email } });
-  if (existingAccount && existingAccount.tenantId !== user.tenantId) {
+  if (existingAccount) {
     return jsonError("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة", 409);
   }
 
@@ -79,14 +79,8 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    await tx.userAccount.upsert({
-      where: { email },
-      update: {
-        name,
-        role,
-        tenantId: user.tenantId
-      },
-      create: {
+    await tx.userAccount.create({
+      data: {
         id: `user-${employeeId}`,
         name,
         email,

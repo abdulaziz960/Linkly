@@ -247,6 +247,11 @@ async function runSchemaMigrations() {
       balance INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS tenant_preferences (
+      tenant_id TEXT PRIMARY KEY,
+      leads_pipeline_enabled INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL
+    )`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL,
@@ -695,6 +700,11 @@ async function runSchemaMigrations() {
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balances (
     tenant_id TEXT PRIMARY KEY,
     balance INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS tenant_preferences (
+    tenant_id TEXT PRIMARY KEY,
+    leads_pipeline_enabled INTEGER NOT NULL DEFAULT 1,
     updated_at TEXT NOT NULL
   )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
@@ -1214,6 +1224,83 @@ async function seedDatabase() {
         }
       });
     }
+
+    const welcomeTemplate = templates.find((template) => template.name === "welcome");
+    if (welcomeTemplate) {
+      await tx.template.upsert({
+        where: { name_tenantId: { name: welcomeTemplate.name, tenantId: "tenant-demo" } },
+        update: {},
+        create: {
+          id: "tpl-welcome",
+          tenantId: "tenant-demo",
+          name: welcomeTemplate.name,
+          message: welcomeTemplate.message,
+          type: welcomeTemplate.type || "خدمة",
+          category: welcomeTemplate.category || "UTILITY",
+          language: welcomeTemplate.language || "ar",
+          status: welcomeTemplate.status || "معتمد",
+          lastUsed: welcomeTemplate.lastUsed || "-"
+        }
+      });
+    }
+
+    await tx.quickReply.upsert({
+      where: { id: "qr-audience-welcome" },
+      update: {},
+      create: {
+        id: "qr-audience-welcome",
+        tenantId: "tenant-demo",
+        shortcut: "/مرحبا-اودينس",
+        text: welcomeTemplate?.message || "مرحباً، سعداء بتواصلك معنا.",
+        team: "الكل",
+        usage: 0
+      }
+    });
+
+    await tx.tenantPreference.upsert({
+      where: { tenantId: "tenant-demo" },
+      update: {},
+      create: { tenantId: "tenant-demo", leadsPipelineEnabled: 1, updatedAt: new Date().toISOString() }
+    });
+
+    const readyCampaignExists = await tx.campaign.findUnique({ where: { id: "camp-e2e-ready" } });
+    await tx.campaignBalance.upsert({
+      where: { tenantId: "tenant-demo" },
+      update: readyCampaignExists ? {} : { balance: 10, updatedAt: new Date().toISOString() },
+      create: { tenantId: "tenant-demo", balance: 10, updatedAt: new Date().toISOString() }
+    });
+
+    await tx.campaign.upsert({
+      where: { id: "camp-e2e-ready" },
+      update: {},
+      create: {
+        id: "camp-e2e-ready",
+        tenantId: "tenant-demo",
+        name: "حملة واتساب جاهزة للإرسال",
+        channel: "whatsapp",
+        templateName: "welcome",
+        language: "ar",
+        scheduledAt: "2099-01-01T09:00:00.000Z",
+        sent: 0,
+        total: 1,
+        progress: "0%",
+        status: "مجدولة",
+        updatedAt: "اليوم"
+      }
+    });
+    await tx.campaignRecipient.upsert({
+      where: { id: "cr-camp-e2e-ready-demo" },
+      update: {},
+      create: {
+        id: "cr-camp-e2e-ready-demo",
+        campaignId: "camp-e2e-ready",
+        tenantId: "tenant-demo",
+        phone: "966500000001",
+        name: "عميل تجريبي",
+        status: "قيد الإرسال",
+        createdAt: new Date().toISOString()
+      }
+    });
 
     return;
 

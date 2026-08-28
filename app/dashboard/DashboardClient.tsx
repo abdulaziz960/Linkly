@@ -880,12 +880,13 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     await loadDashboardData();
   }
 
-  async function handleSendTemplate() {
+  async function handleSendTemplate(templateNameOverride?: string) {
     if (!activeConversation.id) return;
-    if (activeConversation.status === "closed") return;
 
     const template =
-      approvedTemplates.find((item) => item.name === selectedTemplate) ?? approvedTemplates[0];
+      approvedTemplates.find((item) => item.name === templateNameOverride) ??
+      approvedTemplates.find((item) => item.name === selectedTemplate) ??
+      approvedTemplates[0];
     if (!template) {
       window.alert(t("لا توجد قوالب تسويقية معتمدة متاحة للإرسال.", "No approved marketing templates are available to send."));
       return;
@@ -906,6 +907,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     });
 
     if (!response.ok) {
+      await loadDashboardData();
       window.alert(await readApiError(response, language));
       return;
     }

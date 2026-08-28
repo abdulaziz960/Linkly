@@ -18,21 +18,15 @@ export async function POST(request: NextRequest) {
   await ensureSchema();
   const plan = await prisma.plan.findFirst({ where: { id: planId, active: 1 } });
   if (!plan) return NextResponse.json({ error: "الباقة غير موجودة" }, { status: 404 });
-  const subscription = await prisma.subscription.upsert({
-    where: { tenantId: user.tenantId },
-    update: {},
-    create: { id: `sub-${user.tenantId}`, tenantId: user.tenantId, companyName: user.name, ownerName: user.name, ownerEmail: user.email, plan: plan.name, status: "تجربة", employeeLimit: plan.employeeLimit, amount: 0, billingCycle: "تجربة 3 أيام", renewalAt: "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-  });
   if (plan.monthlyPrice < 1) return NextResponse.json({ error: "سعر الباقة غير صالح" }, { status: 400 });
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
+  const companyName = subscription?.companyName || user.name;
   const paymentId = `sub-pay-${randomUUID()}`;
-  // Only reflect that a payment is pending here - plan/employeeLimit stay
-  // untouched until the webhook (or the test-mode confirm route) confirms
-  // the payment actually succeeded, so a tenant can't use the new plan's
-  // benefits (e.g. a higher employee limit) before paying for it.
-  await prisma.subscription.update({ where: { tenantId: user.tenantId }, data: { amount: plan.monthlyPrice, billingCycle: "شهري", status: "بانتظار الدفع" } });
+  // Checkout only stages a SubscriptionPayment. The live Subscription is
+  // not created or modified until Moyasar confirms a paid invoice.
   if (isMoyasarConfigured()) {
     try {
-      const invoice = await createMoyasarInvoice({ amount: plan.monthlyPrice, description: `اشتراك Linkly - ${subscription.companyName} (${plan.name})`, callbackUrl: `${baseUrl()}/api/admin/subscriptions/payment-webhook`, metadata: { tenantId: user.tenantId, paymentId, planId: plan.id } });
+      const invoice = await createMoyasarInvoice({ amount: plan.monthlyPrice, description: `اشتراك Linkly - ${companyName} (${plan.name})`, callbackUrl: `${baseUrl()}/api/admin/subscriptions/payment-webhook`, metadata: { tenantId: user.tenantId, paymentId, planId: plan.id } });
       await prisma.subscriptionPayment.create({ data: { id: paymentId, tenantId: user.tenantId, amount: plan.monthlyPrice, status: "قيد الانتظار", moyasarId: invoice.id, paymentUrl: invoice.url, createdAt: new Date().toISOString(), planName: plan.name, planEmployeeLimit: plan.employeeLimit } });
       return NextResponse.json({ paymentUrl: invoice.url });
     } catch { return NextResponse.json({ error: "تعذر إنشاء فاتورة الدفع، حاول مرة أخرى" }, { status: 502 }); }

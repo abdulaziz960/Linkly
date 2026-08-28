@@ -301,6 +301,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [showWebhookToken, setShowWebhookToken] = useState(false);
   const [overviewStatuses, setOverviewStatuses] = useState<Partial<Record<ChannelId, IntegrationSettings>>>({});
   const [overviewLoading, setOverviewLoading] = useState(true);
+  const [leadsPipelineEnabled, setLeadsPipelineEnabled] = useState(true);
+  const [leadsPipelineSaving, setLeadsPipelineSaving] = useState(false);
   const [wizardModalOpen, setWizardModalOpen] = useState(() => {
     // Popups fall back to a full-page redirect when window.opener isn't
     // available, so land straight on the connected-channel modal instead of
@@ -389,6 +391,28 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       .then((data) => setOauthEmailStatus(data))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetch("/api/settings/preferences")
+      .then((response) => response.ok ? response.json() : null)
+      .then((result) => {
+        if (result?.ok) setLeadsPipelineEnabled(result.data?.leadsPipelineEnabled !== false);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function toggleLeadsPipeline() {
+    const next = !leadsPipelineEnabled;
+    setLeadsPipelineEnabled(next);
+    setLeadsPipelineSaving(true);
+    const response = await fetch("/api/settings/preferences", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leadsPipelineEnabled: next })
+    }).catch(() => null);
+    if (!response?.ok) setLeadsPipelineEnabled(!next);
+    setLeadsPipelineSaving(false);
+  }
 
   // Overview list at the top of the page ("القنوات المربوطة") needs the
   // connection status of every channel at once, not just the one currently
@@ -1368,6 +1392,23 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           </div>
         </div>
       </div>
+
+      <section className="tenant-feature-settings" aria-labelledby="leads-pipeline-setting-title">
+        <div>
+          <span>{t("إعدادات مساحة العمل", "Workspace settings")}</span>
+          <h2 id="leads-pipeline-setting-title">{t("مسار العملاء المحتملين (CRM)", "Leads pipeline (CRM)")}</h2>
+          <p>{t("فعّل أو عطّل مسار العملاء الخفيف لكل أعضاء الحساب.", "Enable or disable the lightweight leads pipeline for everyone in this tenant.")}</p>
+        </div>
+        <button
+          className={leadsPipelineEnabled ? "toggle on" : "toggle"}
+          type="button"
+          role="switch"
+          aria-checked={leadsPipelineEnabled}
+          aria-label={t("تفعيل مسار العملاء", "Enable leads pipeline")}
+          disabled={leadsPipelineSaving}
+          onClick={toggleLeadsPipeline}
+        />
+      </section>
 
       {wizardModalOpen ? (
       <div className="modal-backdrop" role="presentation" onClick={() => setWizardModalOpen(false)}>

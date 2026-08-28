@@ -2856,6 +2856,7 @@
   padding: 16px;
   text-align: center;
 }
+.expired-quick-replies{display:grid;gap:8px;width:100%;margin-top:10px}.expired-quick-replies>small{color:var(--muted);font-weight:800}.expired-quick-replies>div{display:flex;flex-wrap:wrap;gap:7px}.expired-quick-replies .btn{min-height:34px;padding:6px 10px;font-size:12px}
 
 .window-notice b {
   font-size: 19px;
@@ -5510,6 +5511,7 @@
 .settings-page {
   gap: 22px;
 }
+.tenant-feature-settings{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:22px 24px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 8px 24px rgba(15,23,42,.04)}.tenant-feature-settings>div{display:grid;gap:5px}.tenant-feature-settings span{color:var(--primary);font-size:12px;font-weight:900}.tenant-feature-settings h2,.tenant-feature-settings p{margin:0}.tenant-feature-settings h2{font-size:18px}.tenant-feature-settings p{color:var(--muted);font-size:13px}.tenant-feature-settings .toggle{flex:0 0 auto}
 
 .channel-setup-modal {
   position: relative;

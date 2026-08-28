@@ -55,7 +55,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       if (emailTakenByEmployee) return jsonError("يوجد موظف آخر مسجل بهذا البريد الإلكتروني", 409);
 
       const emailTakenByAccount = await prisma.userAccount.findUnique({ where: { email } });
-      if (emailTakenByAccount && emailTakenByAccount.tenantId !== user.tenantId) {
+      if (emailTakenByAccount) {
         return jsonError("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة", 409);
       }
     }

@@ -8,6 +8,7 @@ import { sendUnifonicSms } from "../../../../../lib/sms-send";
 import { prisma } from "../../../../../lib/prisma";
 import { formatMessageTime } from "../../../../../lib/time";
 import { normalizeWhatsAppPhone } from "../../../../../lib/whatsapp-inbox";
+import { sendWhatsAppTemplateMessage } from "../../../../../lib/whatsapp-send";
 import { sendXDirectMessage, XApiError } from "../../../../../lib/x-api";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
@@ -44,13 +45,6 @@ class MetaSendError extends Error {
 }
 
 export const runtime = "nodejs";
-
-function normalizeTemplateLanguage(language?: string) {
-  const value = language?.trim();
-  if (!value || value === "Arabic" || value === "العربية") return "ar";
-  if (value === "English" || value === "الإنجليزية") return "en_US";
-  return value;
-}
 
 function normalizeConversationStatus(status?: string) {
   if (status === "assigned" || status === "closed" || status === "unassigned") return status;
@@ -912,6 +906,32 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return jsonError("اسم قالب WhatsApp مطلوب قبل الإرسال");
     }
 
+    const approvedTemplate = isTemplateMessage
+      ? await prisma.template.findFirst({
+          where: { tenantId: user.tenantId, name: templateName, status: "معتمد" }
+        })
+      : null;
+    if (isTemplateMessage && !approvedTemplate) {
+      return jsonError("القالب غير موجود أو غير معتمد من Meta", 400);
+    }
+
+    if (isTemplateMessage && approvedTemplate) {
+      const result = await sendWhatsAppTemplateMessage({
+        tenantId: user.tenantId,
+        conversationId: conversation.id,
+        to,
+        templateName: approvedTemplate.name,
+        language: body.templateLanguage || approvedTemplate.language,
+        templateText: approvedTemplate.message,
+        customerName: conversation.customer.name,
+        author: user.name,
+        contextMessageId: getWhatsAppContextMessageId(replyToMessage?.id),
+        keepWindowExpired: isReplyWindowExpired || Boolean(body.forceWindowExpired)
+      });
+      if (!result.ok) return jsonError(result.error, result.status || 502);
+      return jsonOk(result.message);
+    }
+
     let uploadedMedia: { id: string; mimeType: string } | null = null;
     const normalizedAttachment = attachment ? await normalizeAudioAttachment(attachment) : undefined;
     if (attachment) {
@@ -937,20 +957,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
             id: uploadedMedia.id,
             ...(attachment?.type === "document" ? { filename: normalizedAttachment?.name || attachment.name } : {}),
             ...((attachment?.type === "image" || attachment?.type === "document") && body.text?.trim() ? { caption: body.text.trim() } : {})
-          }
-        }
-      : isTemplateMessage
-      ? {
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to,
-          type: "template",
-          ...whatsappContext,
-          template: {
-            name: templateName,
-            language: {
-              code: normalizeTemplateLanguage(body.templateLanguage)
-            }
           }
         }
       : {

@@ -247,7 +247,7 @@ export default function CampaignsView({
   function openForm(campaign?: Campaign) {
     setFormError("");
     setCampaignFile(null);
-    setRecipientPreview(null);
+    setRecipientPreview(campaign?.total ?? null);
     setRecipientPreviewError("");
     setForm(
       campaign
@@ -337,6 +337,21 @@ export default function CampaignsView({
     await onRefreshData();
   }
 
+  async function sendCampaignNow(campaign: Campaign) {
+    if (!window.confirm(t(`إرسال حملة ${campaign.name} الآن إلى ${campaign.total.toLocaleString("en-US")} مستلم؟`, `Send the "${campaign.name}" campaign now to ${campaign.total.toLocaleString("en-US")} recipient(s)?`))) return;
+    const response = await fetch(`/api/campaigns/${campaign.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sendNow: true })
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      window.alert(payload?.error || t("تعذر بدء إرسال الحملة", "Unable to start the campaign"));
+      return;
+    }
+    await onRefreshData();
+  }
+
   async function createChargeRequest() {
     if (!chargeTier) return;
     setChargeError("");
@@ -420,6 +435,7 @@ export default function CampaignsView({
                       <td><span className="campaign-date">◴ {campaign.updatedAt}</span></td>
                       <td className="row-actions campaign-row-actions">
                         <button className="campaign-report" type="button" onClick={() => openReport(campaign)}>{t("التقرير", "Report")}</button>
+                        {campaign.status === "مجدولة" && campaign.total > 0 ? <button className="btn primary" type="button" onClick={() => sendCampaignNow(campaign)}>{t("إرسال الآن", "Send now")}</button> : null}
                         {campaign.status === "قيد الإرسال" || campaign.status === "مجدولة" ? <button className="btn soft" type="button" onClick={() => stopCampaign(campaign)}>{t("إيقاف", "Stop")}</button> : null}
                         <button className="btn soft" type="button" onClick={() => openForm(campaign)}>{t("تعديل", "Edit")}</button>
                         <button className="btn danger" type="button" onClick={() => deleteCampaign(campaign)}>{t("حذف", "Delete")}</button>
@@ -566,7 +582,7 @@ export default function CampaignsView({
               <div className="campaign-phone"><div className="campaign-phone-bar"><span>Linkly</span><i>•••</i></div><div className="campaign-phone-notice">{t("محادثة أعمال موثقة وآمنة", "Verified and secure business chat")}</div><div className="campaign-message-preview"><b>{form.name || t("اسم الحملة", "Campaign name")}</b><p>{approvedTemplates.find((template) => template.name === form.templateName)?.message || t("اختر قالباً معتمداً لتظهر معاينة نص الرسالة هنا.", "Choose an approved template to preview its message here.")}</p><time>3:34 PM</time></div></div>
               <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{recipientPreview === null ? "—" : recipientPreview.toLocaleString("en-US")}</dd></div><div><dt>{t("طريقة الإرسال", "Delivery")}</dt><dd>{form.scheduled ? t("مجدولة", "Scheduled") : t("فوري", "Immediate")}</dd></div></dl>
             </aside>
-            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && !approvedTemplates.length)}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : t("إرسال", "Submit")}</button></footer>
+            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && (!approvedTemplates.length || !campaignFile || !recipientPreview))}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : form.scheduled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الحملة", "Send campaign")}</button></footer>
           </form>
         </div>
       ) : null}
