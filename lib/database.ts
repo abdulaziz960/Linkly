@@ -1529,7 +1529,13 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
     },
     include: {
       customer: true,
-      messages: true,
+      // Without an explicit orderBy, Prisma doesn't guarantee chronological
+      // order - it tends to reflect insertion order instead. That's usually
+      // harmless for real-time webhook channels, but X mixes real-time
+      // webhook events with periodic mention/DM polling that can insert an
+      // older tweet after a newer message already exists, which surfaced as
+      // messages rendering out of time order in the thread.
+      messages: { orderBy: { createdAt: "asc" } },
       tags: true
     }
   });
