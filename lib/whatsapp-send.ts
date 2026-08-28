@@ -66,7 +66,7 @@ async function persistWhatsAppTemplateResult(input: SendWhatsAppTemplateInput, r
         text: renderedText,
         time: formatMessageTime(now),
         createdAt: now.toISOString(),
-        author: input.author || "Linkly AI",
+        author: input.author || "Linkly",
         deliveryStatus: result.deliveryStatus,
         deliveryError: result.deliveryError || "",
         sourceType: "whatsapp_template",
@@ -182,7 +182,7 @@ export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
 
   if (!response.ok) {
     const error = payload?.error?.error_user_msg || payload?.error?.message || "WHATSAPP_SEND_FAILED";
-    console.error("WhatsApp AI text send failed", payload?.error || payload);
+    console.error("WhatsApp text send failed", payload?.error || payload);
     const now = new Date();
     await prisma.$transaction(async (tx) => {
       await tx.message.create({
@@ -193,7 +193,7 @@ export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
           text,
           time: formatMessageTime(now),
           createdAt: now.toISOString(),
-          author: input.author || "Linkly AI",
+          author: input.author || "Linkly",
           deliveryStatus: "failed",
           deliveryError: error
         }
@@ -210,13 +210,13 @@ export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
   await prisma.$transaction(async (tx) => {
     await tx.message.create({
       data: {
-        id: payload?.messages?.[0]?.id ? `wa-out-${payload.messages[0].id}` : `ai-out-${Date.now()}`,
+        id: payload?.messages?.[0]?.id ? `wa-out-${payload.messages[0].id}` : `wa-out-local-${Date.now()}`,
         conversationId: input.conversationId,
         direction: "out",
         text,
         time: formatMessageTime(now),
         createdAt: now.toISOString(),
-        author: input.author || "Linkly AI",
+        author: input.author || "Linkly",
         deliveryStatus: "sent"
       }
     });
@@ -310,13 +310,13 @@ export async function sendWhatsAppInteractiveMessage(input: SendWhatsAppInteract
   await prisma.$transaction(async (tx) => {
     await tx.message.create({
       data: {
-        id: payload?.messages?.[0]?.id ? `wa-out-${payload.messages[0].id}` : `ai-out-${Date.now()}`,
+        id: payload?.messages?.[0]?.id ? `wa-out-${payload.messages[0].id}` : `wa-out-local-${Date.now()}`,
         conversationId: input.conversationId,
         direction: "out",
         text,
         time: formatMessageTime(now),
         createdAt: now.toISOString(),
-        author: input.author || "Linkly AI"
+        author: input.author || "Linkly"
       }
     });
 

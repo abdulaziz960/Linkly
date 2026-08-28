@@ -1316,7 +1316,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         <div className="channels-overview-head">
           <div>
             <h2>{t("القنوات", "Channels")}</h2>
-            <p>{t("اربط حساباتك على وسائل التواصل لينشر الذكاء الصناعي بدلاً عنك", "Connect your social accounts so the AI agent can respond on your behalf")}</p>
+            <p>{t("اربط حساباتك على وسائل التواصل لإدارة رسائل العملاء من مكان واحد", "Connect your social accounts to manage customer messages from one place")}</p>
           </div>
           <button type="button" className="btn primary channels-overview-add" onClick={() => goToChannelSetup(selectedChannel)}>
             <span aria-hidden="true">+</span>
