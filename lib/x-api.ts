@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { encryptSecret } from "./secret-storage";
+import { getXPlatformCredentials } from "./x-platform";
 import type { IntegrationSettings } from "../app/dashboard/types";
 
 type XApiErrorPayload = {
@@ -44,9 +45,10 @@ export function getXApiErrorMessage(payload: XApiErrorPayload | null, fallback: 
 }
 
 function getXOAuthCredentials(settings: IntegrationSettings) {
+  const { clientId, clientSecret } = getXPlatformCredentials(settings);
   return {
-    clientId: settings.appId.trim(),
-    clientSecret: settings.configId.trim(),
+    clientId,
+    clientSecret,
     refreshToken: settings.xAccessTokenSecret.trim()
   };
 }
