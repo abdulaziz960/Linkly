@@ -15,14 +15,22 @@ export const integrationSecretFields = [
 
 function encryptionKey() {
   const configured = process.env.INTEGRATION_ENCRYPTION_KEY?.trim() || process.env.ENCRYPTION_KEY?.trim();
-  if (process.env.NODE_ENV === "production" && !process.env.INTEGRATION_ENCRYPTION_KEY?.trim()) {
+  if (requiresProductionIntegrationKey()) {
     throw new Error("INTEGRATION_ENCRYPTION_KEY is required in production for integration secret encryption");
   }
   return createHash("sha256").update(configured || "audiencew-development-only-encryption-key").digest();
 }
 
+function requiresProductionIntegrationKey() {
+  // Next.js evaluates route modules during production builds to collect route
+  // metadata. The key is still mandatory when the deployed function starts.
+  return process.env.NODE_ENV === "production"
+    && process.env.NEXT_PHASE !== "phase-production-build"
+    && !process.env.INTEGRATION_ENCRYPTION_KEY?.trim();
+}
+
 export function assertIntegrationEncryptionConfigured() {
-  if (process.env.NODE_ENV === "production" && !process.env.INTEGRATION_ENCRYPTION_KEY?.trim()) {
+  if (requiresProductionIntegrationKey()) {
     throw new Error("INTEGRATION_ENCRYPTION_KEY is required in production for integration secret encryption");
   }
 }
