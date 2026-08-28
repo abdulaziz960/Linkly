@@ -153,6 +153,27 @@ async function runRequiredProductionMigrations() {
     `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS amount_halalas INTEGER NOT NULL DEFAULT 0`
   );
   await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`
+  );
+  await prisma.$executeRawUnsafe(
+    `UPDATE integration_settings SET tenant_id = split_part(id, ':', 1) WHERE position(':' in id) > 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE email_integrations ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`
+  );
+  await prisma.$executeRawUnsafe(
+    `UPDATE email_integrations SET tenant_id = substring(id from 7) WHERE id LIKE 'email:%' AND length(id) > 6`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS integration_settings_tenant_id_idx ON integration_settings(tenant_id)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS integration_settings_tenant_id_provider_idx ON integration_settings(tenant_id, provider)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS email_integrations_tenant_id_idx ON email_integrations(tenant_id)`
+  );
+  await prisma.$executeRawUnsafe(
     `UPDATE campaign_payments SET amount_halalas = CAST(ROUND(amount * 100) AS INTEGER) WHERE amount_halalas = 0 AND amount IS NOT NULL`
   );
   await prisma.$executeRawUnsafe(
