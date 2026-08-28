@@ -208,9 +208,9 @@
 .admin-notif-dropdown {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
-  width: 360px;
-  max-width: calc(100vw - 24px);
+  inset-inline: 0;
+  width: auto;
+  max-width: none;
   background: #f8fcfb;
   border: 1px solid #a8cbc5;
   border-radius: var(--admin-radius);
@@ -272,13 +272,19 @@
   color: #496b66;
   font-weight: 700;
   font-size: 12px;
+  line-height: 1.55;
+  display: -webkit-box;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .admin-notif-dropdown-list .admin-empty-state {
-  padding: 20px 16px;
+  margin: 0;
+  padding: 24px 16px;
+  color: #5b7570;
+  text-align: center;
+  line-height: 1.6;
 }
 
 .admin-brand-mark,
@@ -1826,6 +1832,13 @@
 
   .admin-profile {
     margin-top: 0;
+  }
+
+  .admin-notif-dropdown {
+    inset-inline-start: auto;
+    inset-inline-end: 0;
+    width: min(360px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
   }
 
   .admin-metrics,
