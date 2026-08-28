@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getXPlatformCredentials } from "../../../../lib/x-platform";
+import { ensureXRealtimeDelivery } from "../../../../lib/x-activity";
 
 export const runtime = "nodejs";
 
@@ -82,6 +83,9 @@ export async function GET(request: NextRequest) {
     return dashboardRedirect(request, "account-failed");
   }
 
+  const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, "");
+  const webhookUrl = `${baseUrl}/api/x/webhook`;
+
   await prisma.integrationSetting.update({
     where: { id: settings.id },
     data: {
@@ -93,6 +97,7 @@ export async function GET(request: NextRequest) {
       accessToken: encryptSecret(tokenData.access_token),
       xAccessToken: encryptSecret(tokenData.access_token),
       xAccessTokenSecret: encryptSecret(tokenData.refresh_token || settings.xAccessTokenSecret || ""),
+      webhookUrl,
       updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
         dateStyle: "medium",
         timeStyle: "short",
@@ -103,7 +108,19 @@ export async function GET(request: NextRequest) {
     }
   });
 
-  const response = dashboardRedirect(request, "connected");
+  let connectionStatus = "connected";
+  try {
+    await ensureXRealtimeDelivery({
+      userId: meData.data.id,
+      userAccessToken: tokenData.access_token,
+      webhookUrl
+    });
+  } catch (error) {
+    console.error("X realtime delivery setup failed", error);
+    connectionStatus = "connected-realtime-pending";
+  }
+
+  const response = dashboardRedirect(request, connectionStatus);
   response.cookies.set("audiencew_x_state", "", { maxAge: 0, path: "/" });
   response.cookies.set("audiencew_x_verifier", "", { maxAge: 0, path: "/" });
 
