@@ -335,7 +335,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const showIntegrationData = (
     isTelegram || isGoogleMaps || isEmail || isWebsite
       ? wizardStep >= 4
-      : isFacebook || isInstagram || isWhatsApp
+      : isFacebook || isInstagram || isWhatsApp || isX
         ? false
         : wizardStep >= 3
   ) || isConnected;
@@ -1187,20 +1187,17 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         return (
           <div className="meta-wizard-panel">
             <div className="meta-signup-card">
-              <span className="provider-round-icon">X</span>
-              <h3>{t("ربط X مباشرة", "Connect X directly")}</h3>
-              <p>{t("تطبيق Linkly يستخدم OAuth. العميل يضغط ربط X، يسجل الدخول، يوافق على الصلاحيات، ثم يرجع للمنصة بدون إدخال مفاتيح.", "The Linkly app uses OAuth. The customer clicks Connect X, logs in, approves the permissions, then returns to the platform without entering any keys.")}</p>
-              <div className="telegram-steps">
-                <div><span>1</span><b>{t("تطبيق Linkly", "Linkly app")}</b><small>{t("يتم ضبط مفاتيح التطبيق مرة واحدة من طرف المنصة.", "The app keys are configured once by the platform.")}</small></div>
-                <div><span>2</span><b>{t("ربط العميل", "Customer connects")}</b><small>{t("العميل يضغط زر الربط ويسجل دخوله في X.", "The customer clicks the connect button and logs into X.")}</small></div>
-                <div><span>3</span><b>{t("حفظ تلقائي", "Automatic save")}</b><small>{t("نحفظ التوكن واسم الحساب بعد الرجوع من X.", "We save the token and account name after returning from X.")}</small></div>
-                <div><span>4</span><b>{t("المحادثات", "Conversations")}</b><small>{t("بعد تفعيل Webhook تظهر رسائل X داخل صندوق المحادثات.", "Once the webhook is activated, X messages appear in the inbox.")}</small></div>
-              </div>
+              <span className="provider-round-icon channel-icon-x">
+                <ChannelIcon id="x" />
+              </span>
+              <h3>{t("ربط حساب X", "Connect X")}</h3>
+              <p>{t("اضغط ربط X، سجّل الدخول ووافق على الصلاحيات، ويرجعك الموقع تلقائيًا بعد الربط.", "Click Connect X, log in and approve the permissions, and you'll be brought back here automatically once connected.")}</p>
+              <ul>
+                <li>{t("لا حاجة لأي إعداد يدوي", "No manual configuration required")}</li>
+                <li>{t("مصادقة آمنة عبر OAuth", "Secure OAuth based authentication")}</li>
+              </ul>
               <button type="button" onClick={connectXAccount}>
                 {t("ربط X", "Connect X")}
-              </button>
-              <button className="secondary-action" type="button" onClick={() => setWizardStep(4)}>
-                {t("إعداد تطبيق Linkly", "Configure the Linkly app")}
               </button>
             </div>
           </div>
@@ -1498,20 +1495,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <a className="btn primary" href="/api/email/oauth/gmail">
                 {t("ربط Gmail", "Connect Gmail")}
               </a>
-            </div>
-          ) : null}
-          {isX ? (
-            <div className="provider-connect-card">
-              <span className="provider-connect-icon x" aria-hidden="true">
-                <ChannelIcon id="x" />
-              </span>
-              <div className="provider-connect-copy">
-                <h3>{t("ربط حساب X", "Connect X")}</h3>
-                <p>{t("اضغط ربط X، سجّل الدخول ووافق على الصلاحيات، ويرجعك الموقع تلقائيًا بعد الربط.", "Click Connect X, log in and approve the permissions, and you'll be brought back here automatically once connected.")}</p>
-              </div>
-              <button className="btn primary" disabled={saving || loading} type="button" onClick={connectXAccount}>
-                {t("ربط X", "Connect X")}
-              </button>
             </div>
           ) : null}
           {isWebsite ? (
