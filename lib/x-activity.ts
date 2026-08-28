@@ -179,5 +179,5 @@ export async function ensureXRealtimeDelivery(input: {
     userAccessToken: input.userAccessToken
   });
 
-  return { webhookUrl, webhookId, ...subscriptions };
+  return { webhookUrl, ...subscriptions };
 }
