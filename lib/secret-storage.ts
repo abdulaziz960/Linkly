@@ -14,14 +14,17 @@ export const integrationSecretFields = [
 ] as const;
 
 function encryptionKey() {
-  const configured = process.env.INTEGRATION_ENCRYPTION_KEY?.trim()
-    || process.env.ENCRYPTION_KEY?.trim()
-    || process.env.AUTH_SECRET?.trim()
-    || process.env.OAUTH_STATE_SECRET?.trim();
-  if (!configured && process.env.NODE_ENV === "production") {
-    throw new Error("An integration encryption key must be configured in production");
+  const configured = process.env.INTEGRATION_ENCRYPTION_KEY?.trim() || process.env.ENCRYPTION_KEY?.trim();
+  if (process.env.NODE_ENV === "production" && !process.env.INTEGRATION_ENCRYPTION_KEY?.trim()) {
+    throw new Error("INTEGRATION_ENCRYPTION_KEY is required in production for integration secret encryption");
   }
   return createHash("sha256").update(configured || "audiencew-development-only-encryption-key").digest();
+}
+
+export function assertIntegrationEncryptionConfigured() {
+  if (process.env.NODE_ENV === "production" && !process.env.INTEGRATION_ENCRYPTION_KEY?.trim()) {
+    throw new Error("INTEGRATION_ENCRYPTION_KEY is required in production for integration secret encryption");
+  }
 }
 
 export function encryptSecret(value: string) {

@@ -23,15 +23,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!existing) return jsonError("تعذر تحديث الرد", 404);
 
   try {
-    return jsonOk(await prisma.quickReply.update({
-      where: { id },
+    await prisma.quickReply.updateMany({
+      where: { id, tenantId: user.tenantId },
       data: {
         shortcut: body.shortcut.trim(),
         text: body.text.trim(),
         team: body.team?.trim() || "",
         usage: body.usage ?? existing.usage
       }
-    }));
+    });
+    return jsonOk(await prisma.quickReply.findFirst({ where: { id, tenantId: user.tenantId } }));
   } catch {
     return jsonError("تعذر تحديث الرد", 404);
   }
@@ -48,10 +49,10 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   try {
     if (existing.id.startsWith("qr-auto-")) {
-      await prisma.quickReply.update({ where: { id }, data: { usage: -1 } });
+      await prisma.quickReply.updateMany({ where: { id, tenantId: user.tenantId }, data: { usage: -1 } });
       return jsonOk({ id, dismissed: true });
     }
-    await prisma.quickReply.delete({ where: { id } });
+    await prisma.quickReply.deleteMany({ where: { id, tenantId: user.tenantId } });
     return jsonOk({ id });
   } catch {
     return jsonError("تعذر حذف الرد", 404);

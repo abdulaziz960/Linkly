@@ -31,8 +31,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
     const deletedText = "تم حذف هذه الرسالة";
     const updated = await prisma.$transaction(async (tx) => {
-      const result = await tx.message.update({
-        where: { id: messageId },
+      await tx.message.updateMany({
+        where: { id: messageId, conversationId: id, conversation: { tenantId: user.tenantId } },
         data: {
           text: deletedText
         }
@@ -45,7 +45,9 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
         }
       });
 
-      return result;
+      return tx.message.findFirstOrThrow({
+        where: { id: messageId, conversationId: id, conversation: { tenantId: user.tenantId } }
+      });
     });
 
     return jsonOk(updated);

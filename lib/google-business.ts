@@ -40,8 +40,8 @@ export async function refreshGoogleAccessToken(settings: IntegrationSettings) {
     throw new Error(payload?.error_description || payload?.error || "Unable to refresh Google token");
   }
 
-  await prisma.integrationSetting.update({
-    where: { id: settings.id },
+  await prisma.integrationSetting.updateMany({
+    where: { id: settings.id, tenantId: settings.tenantId },
     data: {
       accessToken: encryptSecret(payload.access_token),
       updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {

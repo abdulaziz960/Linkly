@@ -1154,7 +1154,7 @@ export default function InboxView({
                   ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد" || item.text === "مستند" || item.text === item.attachment.name) ? null : (
                     <span>{isDeletedMessageText(item.text) ? t("تم حذف هذه الرسالة", "This message was deleted") : formatEmailContent(item.text)}</span>
                   )}
-                  {item.source && activeConversation.channel !== "email" ? (
+                  {item.source && activeConversation.channel !== "email" && item.source.type !== "x_dm" ? (
                     item.source.url ? (
                       <a className="message-source-card" href={item.source.url} target="_blank" rel="noreferrer">
                         <b>{item.source.label || t("البوست المرتبط بالتعليق", "Post linked to the comment")}</b>

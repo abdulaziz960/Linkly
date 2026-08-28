@@ -33,18 +33,30 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     const team = await prisma.$transaction(async (tx) => {
-      await tx.teamMember.deleteMany({ where: { teamId: id } });
+      const requestedMemberIds = Array.isArray(body.memberIds) ? Array.from(new Set(body.memberIds)) : [];
+      const tenantEmployees = requestedMemberIds.length
+        ? await tx.employee.findMany({
+          where: { id: { in: requestedMemberIds }, tenantId: user.tenantId },
+          select: { id: true }
+        })
+        : [];
+      await tx.teamMember.deleteMany({ where: { teamId: id, team: { tenantId: user.tenantId } } });
 
-      return tx.team.update({
-        where: { id },
+      await tx.team.updateMany({
+        where: { id, tenantId: user.tenantId },
         data: {
           name,
           lead: body.lead?.trim() || "",
-          routing: body.routing || "يدوي",
-          members: {
-            create: (body.memberIds || []).map((employeeId) => ({ employeeId }))
-          }
-        },
+          routing: body.routing || "يدوي"
+        }
+      });
+      if (tenantEmployees.length) {
+        await tx.teamMember.createMany({
+          data: tenantEmployees.map((employee) => ({ teamId: id, employeeId: employee.id }))
+        });
+      }
+      return tx.team.findFirstOrThrow({
+        where: { id, tenantId: user.tenantId },
         include: { members: true }
       });
     });
@@ -66,8 +78,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   try {
     await prisma.$transaction([
-      prisma.teamMember.deleteMany({ where: { teamId: id } }),
-      prisma.team.delete({ where: { id } })
+      prisma.teamMember.deleteMany({ where: { teamId: id, team: { tenantId: user.tenantId } } }),
+      prisma.team.deleteMany({ where: { id, tenantId: user.tenantId } })
     ]);
 
     return jsonOk({ id });

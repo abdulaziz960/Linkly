@@ -78,8 +78,8 @@ export async function refreshXAccessToken(settings: IntegrationSettings) {
     throw new XApiError(payload?.error_description || payload?.error || "تعذر تحديث ربط X.", response.status || 401);
   }
 
-  await prisma.integrationSetting.update({
-    where: { id: settings.id },
+  await prisma.integrationSetting.updateMany({
+    where: { id: settings.id, tenantId: settings.tenantId },
     data: {
       accessToken: encryptSecret(payload.access_token),
       xAccessToken: encryptSecret(payload.access_token),

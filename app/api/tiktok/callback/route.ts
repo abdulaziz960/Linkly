@@ -72,8 +72,8 @@ export async function GET(request: NextRequest) {
 
   const settings = await getIntegrationSettings("tiktok", user.tenantId);
 
-  await prisma.integrationSetting.update({
-    where: { id: settings.id },
+  await prisma.integrationSetting.updateMany({
+    where: { id: settings.id, tenantId: user.tenantId },
     data: {
       status: "connected",
       wabaId: account?.open_id || openId || settings.wabaId,

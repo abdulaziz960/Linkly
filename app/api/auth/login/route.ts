@@ -31,13 +31,13 @@ export async function POST(request: NextRequest) {
       prisma.integrationSetting.findFirst({
         where: {
           status: "connected",
-          ...(user.tenantId === "tenant-demo" ? { id: { not: { startsWith: "tenant-" } } } : { id: { startsWith: `${user.tenantId}:` } })
+          tenantId: user.tenantId
         },
         select: { id: true }
       }),
       prisma.emailIntegration.findFirst({
         where: {
-          id: user.tenantId === "tenant-demo" ? "primary-email" : `email:${user.tenantId}`,
+          tenantId: user.tenantId,
           status: "connected"
         },
         select: { id: true }
