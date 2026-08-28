@@ -1210,8 +1210,15 @@ async function seedDatabase() {
       }
     }
 
-    const businessHoursRule = automationRules.find((rule) => rule.id === "auto-business-hours");
-    if (businessHoursRule) {
+    // Synthetic records used by the browser E2E suite must never be allowed
+    // to block production authentication. Some long-lived production
+    // databases still contain legacy workspace-scoped rows that can conflict
+    // with these fixtures. Keep them opt-in in production and enabled by
+    // default for local/test environments.
+    const shouldSeedE2EFixtures = process.env.NODE_ENV !== "production" || process.env.E2E_SEED_ENABLED === "1";
+    if (shouldSeedE2EFixtures) {
+      const businessHoursRule = automationRules.find((rule) => rule.id === "auto-business-hours");
+      if (businessHoursRule) {
       await tx.automationRule.upsert({
         where: { id: businessHoursRule.id },
         update: {},
@@ -1229,8 +1236,8 @@ async function seedDatabase() {
           createdAt: businessHoursRule.createdAt,
           enabled: 1
         }
-      });
-    }
+        });
+      }
 
     const welcomeTemplate = templates.find((template) => template.name === "welcome");
     if (welcomeTemplate) {
@@ -1295,7 +1302,7 @@ async function seedDatabase() {
         updatedAt: "اليوم"
       }
     });
-    await tx.campaignRecipient.upsert({
+      await tx.campaignRecipient.upsert({
       where: { id: "cr-camp-e2e-ready-demo" },
       update: {},
       create: {
@@ -1307,7 +1314,8 @@ async function seedDatabase() {
         status: "قيد الإرسال",
         createdAt: new Date().toISOString()
       }
-    });
+      });
+    }
 
   }, { timeout: 20000, maxWait: 10000 });
 }
