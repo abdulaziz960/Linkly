@@ -129,7 +129,15 @@ export async function ensureXActivitySubscriptions(input: {
   }
 
   const existing = listPayload?.data || [];
-  const requiredEvents = ["dm.received", "dm.sent"] as const;
+  // Keep polling only as a fallback. These subscriptions are the primary,
+  // low-latency delivery path for customer conversations in Linkly.
+  const requiredEvents = [
+    "dm.received",
+    "dm.sent",
+    "post.mention.create",
+    "post.reply.create",
+    "post.quote.create"
+  ] as const;
   const created: string[] = [];
 
   for (const eventType of requiredEvents) {
@@ -148,7 +156,7 @@ export async function ensureXActivitySubscriptions(input: {
         body: JSON.stringify({
           event_type: eventType,
           filter: { user_id: input.userId },
-          tag: `linkly-${eventType.replace(".", "-")}-${input.userId}`,
+          tag: `linkly-${eventType.replaceAll(".", "-")}-${input.userId}`,
           webhook_id: input.webhookId
         })
       },
