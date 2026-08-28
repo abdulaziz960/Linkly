@@ -672,22 +672,32 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // A conversation started from a public mention/comment must keep
       // replying publicly on that same post by default instead of silently
       // switching to a DM. Prefer an explicitly selected reply target (via
-      // the reply-to-message UI); otherwise follow whichever mode the
-      // conversation's most recent message is actually in - a customer who
-      // moved on to DMing after an old mention shouldn't get stuck
-      // replying publicly to a stale post.
+      // the reply-to-message UI); otherwise decide the mode from whichever
+      // type the conversation's most recent message is. Either way, the
+      // tweet actually replied to is always the customer's most recent
+      // public comment/mention - never our own previous public reply.
+      // Anchoring to "whatever we last sent" would make each new reply
+      // nest one level deeper on X (reply to our reply to our reply...),
+      // drifting away from the original post/comment on every message,
+      // which read as "the reply never arrived" since it was buried in an
+      // ever-deepening nested thread instead of sitting under the original
+      // comment.
       const isPostType = (sourceType: string) => sourceType === "x_post" || sourceType === "x_post_reply";
-      const latestMessage = replyToMessage
-        ? null
-        : await prisma.message.findFirst({
-            where: { conversationId: conversation.id },
+      let postSourceMessage: typeof replyToMessage = null;
+      if (replyToMessage) {
+        postSourceMessage = isPostType(replyToMessage.sourceType) ? replyToMessage : null;
+      } else {
+        const latestMessage = await prisma.message.findFirst({
+          where: { conversationId: conversation.id },
+          orderBy: { createdAt: "desc" }
+        });
+        if (latestMessage && isPostType(latestMessage.sourceType)) {
+          postSourceMessage = await prisma.message.findFirst({
+            where: { conversationId: conversation.id, direction: "in", sourceType: "x_post" },
             orderBy: { createdAt: "desc" }
           });
-      const postSourceMessage = replyToMessage && isPostType(replyToMessage.sourceType)
-        ? replyToMessage
-        : latestMessage && isPostType(latestMessage.sourceType)
-          ? latestMessage
-          : null;
+        }
+      }
 
       if (postSourceMessage?.sourceId) {
         try {

@@ -128,6 +128,31 @@ describe("X reply routing (public post vs DM)", () => {
     expect(stored?.sourceType).toBe("x_post_reply");
   });
 
+  it("keeps anchoring every follow-up reply to the customer's original comment, not to our own previous reply", async () => {
+    await seedConversation("conv-post-chain", [
+      { id: "msg-chain-1", direction: "in", text: "تعليق العميل الأصلي", createdAt: "2026-01-02T09:00:00.000Z", sourceType: "x_post", sourceId: "tweet-original" },
+      // A reply we already sent - this is now the conversation's most
+      // recent message, exactly like after the first "POST /messages"
+      // call above. Anchoring to this instead of the original comment is
+      // the bug: every following reply would nest one level deeper.
+      { id: "msg-chain-2", direction: "out", text: "ردنا الأول", createdAt: "2026-01-02T09:05:00.000Z", sourceType: "x_post_reply", sourceId: "tweet-our-first-reply" }
+    ]);
+
+    const { POST } = await import("../app/api/conversations/[id]/messages/route");
+    const response = await POST(
+      new NextRequest("http://localhost/api/conversations/conv-post-chain/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "ردنا الثاني" })
+      }),
+      { params: Promise.resolve({ id: "conv-post-chain" }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(sendXPostReply).toHaveBeenCalledWith(expect.anything(), "tweet-original", "ردنا الثاني");
+    expect(sendXDirectMessage).not.toHaveBeenCalled();
+  });
+
   it("sends a private DM when the conversation's latest message is a DM, even if an older mention exists", async () => {
     await seedConversation("conv-dm-after-post", [
       { id: "msg-mix-1", direction: "in", text: "منشن قديم", createdAt: "2026-01-02T09:00:00.000Z", sourceType: "x_post", sourceId: "tweet-old" },
