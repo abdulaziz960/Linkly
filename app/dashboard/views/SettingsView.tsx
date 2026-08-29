@@ -338,7 +338,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const isSms = selectedChannel === "sms";
   const isWhatsApp = selectedChannel === "whatsapp";
   const isConnected = isGmail
-    ? oauthEmailStatus?.status === "connected" && oauthEmailStatus.provider === selectedChannel
+    // Match the overview grid's isChannelConnected() check exactly (no
+    // provider comparison) - requiring provider === "gmail" here caused the
+    // wizard to show "not connected" for accounts that were genuinely
+    // connected and shown as such everywhere else on the page.
+    ? oauthEmailStatus?.status === "connected"
     : settings.status === "connected";
   // WhatsApp/Instagram/Facebook are pure OAuth - there's nothing to enter
   // manually before connecting, so the data/webhook section only appears
@@ -768,6 +772,23 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   async function resetIntegrationData() {
     setSaving(true);
+    if (isGmail) {
+      // Gmail's real connection lives in the separate email_integrations
+      // table (oauthEmailStatus), not the generic integration_settings row
+      // below - PATCHing only the generic row left the actual OAuth tokens
+      // in place, so the account looked disconnected here but kept working.
+      const response = await fetch("/api/email/integration", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "not_connected" })
+      });
+      const data = await response.json().catch(() => null);
+      if (data) setOauthEmailStatus(data);
+      setWizardStep(4);
+      setSaveFeedback({ type: "error", text: t("تم مسح بيانات الربط", "The connection data was cleared") });
+      setSaving(false);
+      return;
+    }
     // Meta channels (whatsapp/instagram/facebook) derive appId/configId from a
     // shared fallback chain (per-tenant value -> env var), and a stale saved
     // value here has repeatedly caused connect attempts to silently use the
@@ -797,7 +818,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     const data = await response.json() as IntegrationResponse;
     setSettings(data);
     onIntegrationChange?.(data);
-    setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "gmail" || selectedChannel === "zapier" || selectedChannel === "website" ? 4 : 2);
+    setWizardStep(selectedChannel === "instagram" || selectedChannel === "facebook" || selectedChannel === "telegram" || selectedChannel === "x" || selectedChannel === "tiktok" || selectedChannel === "sms" || selectedChannel === "whatsapp" ? 3 : selectedChannel === "google_maps" || selectedChannel === "zapier" || selectedChannel === "website" ? 4 : 2);
     setSaveFeedback({ type: "error", text: data.connectionMessage || t("تم مسح بيانات الربط", "The connection data was cleared") });
     setSaving(false);
   }
