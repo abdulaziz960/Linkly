@@ -33,14 +33,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (!existing) return jsonError("تعذر تحديث العميل", 404);
 
-    const customer = await prisma.customer.update({
-      where: { id },
+    await prisma.customer.updateMany({
+      where: { id, tenantId: user.tenantId },
       data: {
         name,
         phone,
         initial: name.slice(0, 1)
       }
     });
+    const customer = await prisma.customer.findFirst({ where: { id, tenantId: user.tenantId } });
 
     return jsonOk(customer);
   } catch {
@@ -76,7 +77,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
         await tx.conversation.deleteMany({ where: { id: { in: conversationIds } } });
       }
 
-      await tx.customer.delete({ where: { id } });
+      await tx.customer.deleteMany({ where: { id, tenantId: user.tenantId } });
     });
 
     return jsonOk({ id });

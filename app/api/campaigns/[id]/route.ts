@@ -38,8 +38,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       });
     }
 
-    const updated = await prisma.campaign.update({
-      where: { id },
+    await prisma.campaign.updateMany({
+      where: { id, tenantId: user.tenantId },
       data: {
         name: body.name?.trim(),
         status: body.sendNow ? "قيد الإرسال" : body.status,
@@ -47,6 +47,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         updatedAt: new Date().toLocaleString("en-US")
       }
     });
+    const updated = await prisma.campaign.findFirst({ where: { id, tenantId: user.tenantId } });
 
     if (body.sendNow) {
       processCampaignBatch(user.tenantId).catch((error) => console.error("Campaign send-now batch failed", error));
@@ -67,8 +68,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const existing = await prisma.campaign.findFirst({ where: { id, tenantId: user.tenantId } });
     if (!existing) return jsonError("تعذر حذف الحملة", 404);
 
-    await prisma.campaignRecipient.deleteMany({ where: { campaignId: id } });
-    await prisma.campaign.delete({ where: { id } });
+    await prisma.campaignRecipient.deleteMany({ where: { campaignId: id, tenantId: user.tenantId } });
+    await prisma.campaign.deleteMany({ where: { id, tenantId: user.tenantId } });
     return jsonOk({ id });
   } catch {
     return jsonError("تعذر حذف الحملة", 404);

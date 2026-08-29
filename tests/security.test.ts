@@ -1,8 +1,12 @@
 import { createHash, createHmac } from "crypto";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hashPassword, verifyPassword } from "../lib/passwords";
 import { decryptSecret, encryptSecret } from "../lib/secret-storage";
 import { verifyPrefixedHmac } from "../lib/webhook-security";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("password storage", () => {
   it("uses a unique salted scrypt hash and verifies the right password", () => {
@@ -33,7 +37,18 @@ describe("integration secret storage", () => {
 
   it("rejects tampered ciphertext", () => {
     const encrypted = encryptSecret("provider-secret-value");
-    expect(() => decryptSecret(`${encrypted.slice(0, -1)}A`)).toThrow();
+    const parts = encrypted.split(":");
+    parts[4] = `${parts[4].slice(0, -2)}AA`;
+    expect(() => decryptSecret(parts.join(":"))).toThrow();
+  });
+
+  it("requires a dedicated integration encryption key in production", async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("AUTH_SECRET", "auth-secret-is-not-accepted-for-integration-encryption");
+    const { assertIntegrationEncryptionConfigured } = await import("../lib/secret-storage");
+
+    expect(() => assertIntegrationEncryptionConfigured()).toThrow(/INTEGRATION_ENCRYPTION_KEY/);
   });
 });
 

@@ -118,8 +118,8 @@ export async function GET(request: NextRequest) {
       : message;
   }
 
-  await prisma.integrationSetting.update({
-    where: { id: settings.id },
+  await prisma.integrationSetting.updateMany({
+    where: { id: settings.id, tenantId: user.tenantId },
     data: {
       provider: "google_maps",
       status,

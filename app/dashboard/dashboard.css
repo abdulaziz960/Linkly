@@ -5313,6 +5313,11 @@
   font-size: 28px;
 }
 
+.provider-round-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
 .meta-setup {
   display: grid;
   gap: 20px;
@@ -5447,6 +5452,15 @@
 
 .provider-connect-icon.gmail {
   background: linear-gradient(135deg, #ea4335, #c5221f);
+}
+
+.provider-connect-icon.x {
+  background: #000;
+}
+
+.provider-connect-icon.x svg {
+  fill: #fff;
+  stroke: none;
 }
 
 .provider-connect-copy {

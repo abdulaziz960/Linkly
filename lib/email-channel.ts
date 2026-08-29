@@ -72,7 +72,7 @@ export async function saveOAuthConnection(provider: EmailProvider, code: string,
   await prisma.emailIntegration.upsert({
     where: { id: `email:${tenantId}` },
     update: { provider, status: "connected", senderName, emailAddress, accessToken: encryptSecret(tokens.access_token), ...(tokens.refresh_token ? { refreshToken: encryptSecret(tokens.refresh_token) } : {}), tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updatedAt: new Date().toISOString() },
-    create: { id: `email:${tenantId}`, provider, status: "connected", senderName, emailAddress, webhookSecret: encryptSecret(randomUUID()), accessToken: encryptSecret(tokens.access_token), refreshToken: encryptSecret(tokens.refresh_token || ""), tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updatedAt: new Date().toISOString() }
+    create: { id: `email:${tenantId}`, tenantId, provider, status: "connected", senderName, emailAddress, webhookSecret: encryptSecret(randomUUID()), accessToken: encryptSecret(tokens.access_token), refreshToken: encryptSecret(tokens.refresh_token || ""), tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updatedAt: new Date().toISOString() }
   });
   return emailAddress as string;
 }
@@ -110,8 +110,8 @@ function encodeHeaderWord(value: string) {
 }
 
 export async function sendEmailMessage(to: string, text: string, subject = "رسالة من Linkly", tenantId = "tenant-demo") {
-  const integration = await prisma.emailIntegration.findUnique({ where: { id: `email:${tenantId}` } })
-    ?? await prisma.emailIntegration.findUnique({ where: { id: "primary-email" } });
+  const integration = await prisma.emailIntegration.findFirst({ where: { tenantId } })
+    ?? await prisma.emailIntegration.findFirst({ where: { tenantId: "tenant-demo" } });
   if (integration?.provider === "gmail" && integration.accessToken) {
     const accessToken = await getValidAccessToken(integration);
     const fromHeader = integration.senderName ? `${encodeHeaderWord(integration.senderName)} <${integration.emailAddress}>` : integration.emailAddress;
@@ -194,7 +194,7 @@ function extractPlainText(payload?: GmailMessagePart): string {
  * (idempotent by Gmail message id, so calling this repeatedly is safe).
  */
 export async function syncGmailInbox(tenantId = "tenant-demo"): Promise<{ synced: number }> {
-  const integration = await prisma.emailIntegration.findUnique({ where: { id: `email:${tenantId}` } });
+  const integration = await prisma.emailIntegration.findFirst({ where: { tenantId } });
   if (!integration || integration.provider !== "gmail" || !integration.accessToken) return { synced: 0 };
 
   const accessToken = await getValidAccessToken(integration);

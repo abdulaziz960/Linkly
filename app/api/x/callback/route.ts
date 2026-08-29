@@ -3,6 +3,8 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
+import { getXPlatformCredentials } from "../../../../lib/x-platform";
+import { ensureXRealtimeDelivery } from "../../../../lib/x-activity";
 
 export const runtime = "nodejs";
 
@@ -43,8 +45,7 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.redirect(new URL("/login", request.url));
 
   const settings = await getIntegrationSettings("x", user.tenantId);
-  const clientId = settings.appId.trim();
-  const clientSecret = settings.configId.trim();
+  const { clientId, clientSecret } = getXPlatformCredentials(settings);
   const redirectUri = `${request.nextUrl.origin}/api/x/callback`;
 
   if (!clientId || !clientSecret) {
@@ -82,8 +83,11 @@ export async function GET(request: NextRequest) {
     return dashboardRedirect(request, "account-failed");
   }
 
-  await prisma.integrationSetting.update({
-    where: { id: settings.id },
+  const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, "");
+  const webhookUrl = `${baseUrl}/api/x/webhook`;
+
+  await prisma.integrationSetting.updateMany({
+    where: { id: settings.id, tenantId: user.tenantId },
     data: {
       provider: "x",
       status: "connected",
@@ -93,6 +97,7 @@ export async function GET(request: NextRequest) {
       accessToken: encryptSecret(tokenData.access_token),
       xAccessToken: encryptSecret(tokenData.access_token),
       xAccessTokenSecret: encryptSecret(tokenData.refresh_token || settings.xAccessTokenSecret || ""),
+      webhookUrl,
       updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
         dateStyle: "medium",
         timeStyle: "short",
@@ -103,7 +108,19 @@ export async function GET(request: NextRequest) {
     }
   });
 
-  const response = dashboardRedirect(request, "connected");
+  let connectionStatus = "connected";
+  try {
+    await ensureXRealtimeDelivery({
+      userId: meData.data.id,
+      userAccessToken: tokenData.access_token,
+      webhookUrl
+    });
+  } catch (error) {
+    console.error("X realtime delivery setup failed", error);
+    connectionStatus = "connected-realtime-pending";
+  }
+
+  const response = dashboardRedirect(request, connectionStatus);
   response.cookies.set("audiencew_x_state", "", { maxAge: 0, path: "/" });
   response.cookies.set("audiencew_x_verifier", "", { maxAge: 0, path: "/" });
 

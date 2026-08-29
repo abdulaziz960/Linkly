@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { activateDueScheduledCampaigns, processCampaignBatch } from "../../../../lib/campaign-engine";
 import { prisma } from "../../../../lib/prisma";
 import { processDueAutomations } from "../../../../lib/automation-engine";
+import { ensureSchema, getIntegrationSettings } from "../../../../lib/database";
+import { syncXTenant } from "../../../../lib/x-sync";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -16,7 +18,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [campaignTenants, automationTenants] = await Promise.all([
+  await ensureSchema();
+
+  const [campaignTenants, automationTenants, xTenants] = await Promise.all([
     prisma.campaign.findMany({
       distinct: ["tenantId"],
       where: { status: { in: ["مجدولة", "قيد الإرسال"] } },
@@ -30,10 +34,18 @@ export async function GET(request: NextRequest) {
       select: { tenantId: true },
       orderBy: { tenantId: "asc" },
       take: 50
+    }),
+    prisma.integrationSetting.findMany({
+      distinct: ["tenantId"],
+      where: { provider: "x", status: "connected" },
+      select: { tenantId: true },
+      orderBy: { tenantId: "asc" },
+      take: 50
     })
   ]);
 
   const tenantIds = [...new Set([...campaignTenants, ...automationTenants].map(({ tenantId }) => tenantId))];
+  const xTenantIds = xTenants.map(({ tenantId }) => tenantId);
 
   for (const tenantId of tenantIds) {
     await activateDueScheduledCampaigns(tenantId);
@@ -41,5 +53,13 @@ export async function GET(request: NextRequest) {
     await processDueAutomations(tenantId);
   }
 
-  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length });
+  const xResults = await Promise.allSettled(xTenantIds.map(async (tenantId) => {
+    const settings = await getIntegrationSettings("x", tenantId);
+    return syncXTenant(settings);
+  }));
+  const xSynced = xResults.reduce((total, result) => (
+    result.status === "fulfilled" && result.value.ok ? total + result.value.synced : total
+  ), 0);
+
+  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced });
 }

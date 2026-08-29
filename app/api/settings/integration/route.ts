@@ -512,8 +512,9 @@ export async function PATCH(request: NextRequest) {
       : channel === "sms"
           ? await verifySmsConnection({ ...existingSettings, ...verificationData })
       : await verifyMetaConnection({ ...existingSettings, ...verificationData }, channel);
-  const settings = await prisma.integrationSetting.update({
-    where: { id: getIntegrationId(channel, user.tenantId) },
+  const integrationId = getIntegrationId(channel, user.tenantId);
+  await prisma.integrationSetting.updateMany({
+    where: { id: integrationId, tenantId: user.tenantId },
     data: {
       ...data,
       provider: channel === "instagram" ? "instagram" : channel === "facebook" ? "facebook" : channel === "telegram" ? "telegram" : channel === "x" ? "x" : channel === "google_maps" ? "google_maps" : channel === "email" ? "email" : channel === "tiktok" ? "tiktok" : channel === "sms" ? "unifonic" : data.provider,
@@ -527,6 +528,8 @@ export async function PATCH(request: NextRequest) {
       }).format(new Date())
     }
   });
+  const settings = await prisma.integrationSetting.findFirst({ where: { id: integrationId, tenantId: user.tenantId } });
+  if (!settings) return NextResponse.json({ error: "تعذر تحديث إعدادات الربط" }, { status: 404 });
 
   if (
     !body.reset &&
@@ -535,14 +538,16 @@ export async function PATCH(request: NextRequest) {
       ((connectionCheck.verifiedName && connectionCheck.verifiedName !== settings.wabaName) ||
         (connectionCheck.displayPhoneNumber && connectionCheck.displayPhoneNumber !== settings.phoneNumber))))
   ) {
-    const refreshedSettings = await prisma.integrationSetting.update({
-      where: { id: getIntegrationId(channel, user.tenantId) },
+    await prisma.integrationSetting.updateMany({
+      where: { id: integrationId, tenantId: user.tenantId },
       data: {
         status: connectionCheck.status,
         wabaName: connectionCheck.verifiedName || settings.wabaName,
         phoneNumber: connectionCheck.displayPhoneNumber || settings.phoneNumber
       }
     });
+    const refreshedSettings = await prisma.integrationSetting.findFirst({ where: { id: integrationId, tenantId: user.tenantId } });
+    if (!refreshedSettings) return NextResponse.json({ error: "تعذر تحديث إعدادات الربط" }, { status: 404 });
 
     return NextResponse.json(serializeSettings({
       ...refreshedSettings,

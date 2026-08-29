@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { encryptSecret } from "./secret-storage";
+import { getXPlatformCredentials } from "./x-platform";
 import type { IntegrationSettings } from "../app/dashboard/types";
 
 type XApiErrorPayload = {
@@ -44,9 +45,10 @@ export function getXApiErrorMessage(payload: XApiErrorPayload | null, fallback: 
 }
 
 function getXOAuthCredentials(settings: IntegrationSettings) {
+  const { clientId, clientSecret } = getXPlatformCredentials(settings);
   return {
-    clientId: settings.appId.trim(),
-    clientSecret: settings.configId.trim(),
+    clientId,
+    clientSecret,
     refreshToken: settings.xAccessTokenSecret.trim()
   };
 }
@@ -76,8 +78,8 @@ export async function refreshXAccessToken(settings: IntegrationSettings) {
     throw new XApiError(payload?.error_description || payload?.error || "تعذر تحديث ربط X.", response.status || 401);
   }
 
-  await prisma.integrationSetting.update({
-    where: { id: settings.id },
+  await prisma.integrationSetting.updateMany({
+    where: { id: settings.id, tenantId: settings.tenantId },
     data: {
       accessToken: encryptSecret(payload.access_token),
       xAccessToken: encryptSecret(payload.access_token),
@@ -135,6 +137,29 @@ export async function sendXDirectMessage(settings: IntegrationSettings, recipien
 
   if (!response.ok || !payload?.data?.dm_event_id) {
     throw new XApiError(getXApiErrorMessage(payload, "تعذر إرسال الرسالة عبر X."), response.status || 502);
+  }
+
+  return payload.data;
+}
+
+export async function sendXPostReply(settings: IntegrationSettings, postId: string, text: string) {
+  const cleanPostId = postId.trim();
+  if (!cleanPostId) throw new XApiError("معرّف منشور X غير موجود.", 400);
+
+  const response = await fetchXWithAutoRefresh(settings, "https://api.x.com/2/tweets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      reply: { in_reply_to_tweet_id: cleanPostId }
+    })
+  });
+  const payload = await response.json().catch(() => null) as (XApiErrorPayload & {
+    data?: { id?: string; text?: string };
+  }) | null;
+
+  if (!response.ok || !payload?.data?.id) {
+    throw new XApiError(getXApiErrorMessage(payload, "تعذر نشر الرد عبر X."), response.status || 502);
   }
 
   return payload.data;
