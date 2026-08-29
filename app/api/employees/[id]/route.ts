@@ -37,8 +37,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   try {
-    const existingEmployee = await prisma.employee.findUnique({ where: { id } });
-    if (!existingEmployee || existingEmployee.tenantId !== user.tenantId) {
+    const existingEmployee = await prisma.employee.findFirst({ where: { id, tenantId: user.tenantId } });
+    if (!existingEmployee) {
       return jsonError("تعذر تحديث الموظف", 404);
     }
     // Only the account owner may modify the owner's own record - otherwise
@@ -61,8 +61,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const employee = await prisma.$transaction(async (tx) => {
-      const updated = await tx.employee.update({
-        where: { id },
+      await tx.employee.updateMany({
+        where: { id, tenantId: user.tenantId },
         data: {
           name,
           email,
@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         data: { name, email, role }
       });
 
-      return updated;
+      return tx.employee.findFirstOrThrow({ where: { id, tenantId: user.tenantId } });
     });
 
     return jsonOk(employee);
@@ -98,8 +98,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
 
   try {
-    const employee = await prisma.employee.findUnique({ where: { id } });
-    if (!employee || employee.tenantId !== user.tenantId) return jsonError("تعذر حذف الموظف", 404);
+    const employee = await prisma.employee.findFirst({ where: { id, tenantId: user.tenantId } });
+    if (!employee) return jsonError("تعذر حذف الموظف", 404);
     // Only the account owner may delete the owner's own record - otherwise
     // any employee with employees-management access could remove the owner
     // (and, via the linked-account cleanup below, their login) outright.
@@ -108,13 +108,13 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     }
 
     await prisma.$transaction([
-      prisma.teamMember.deleteMany({ where: { employeeId: id } }),
+      prisma.teamMember.deleteMany({ where: { employeeId: id, team: { tenantId: user.tenantId } } }),
       prisma.employeeInvite.deleteMany({ where: { email: employee.email } }),
       // Scoped by tenantId too, not just email: email is globally unique on
       // UserAccount today, but this keeps the delete tenant-safe even if
       // that ever changes or a stale/duplicate row exists.
       prisma.userAccount.deleteMany({ where: { email: employee.email, tenantId: user.tenantId } }),
-      prisma.employee.delete({ where: { id } })
+      prisma.employee.deleteMany({ where: { id, tenantId: user.tenantId } })
     ]);
 
     return jsonOk({ id });

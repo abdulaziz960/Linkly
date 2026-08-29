@@ -14,6 +14,8 @@ type StoreXMessageInput = {
   messageId?: string;
   author?: string;
   receivedAt?: Date;
+  conversationKey?: string;
+  recipientId?: string;
   source?: {
     type: string;
     id?: string;
@@ -26,9 +28,11 @@ function cleanXUserId(value: string) {
   return value.replace(/\s+/g, "").replace(/^@/, "");
 }
 
-function scopedId(tenantId: string, xUserId: string) {
-  if (tenantId === "tenant-demo") return `x-${xUserId}`;
-  return `x-${crypto.createHash("sha256").update(`${tenantId}:${xUserId}`).digest("hex").slice(0, 24)}`;
+function scopedId(tenantId: string, identity: string) {
+  if (tenantId === "tenant-demo") {
+    return `x-${crypto.createHash("sha256").update(identity).digest("hex").slice(0, 24)}`;
+  }
+  return `x-${crypto.createHash("sha256").update(`${tenantId}:${identity}`).digest("hex").slice(0, 24)}`;
 }
 
 function getCustomerName(xUserId: string, name?: string) {
@@ -46,31 +50,36 @@ export async function storeXMessage(input: StoreXMessageInput) {
   const tenantId = input.tenantId || "tenant-demo";
   const activityAt = (input.receivedAt ?? new Date()).toISOString();
   const xUserId = cleanXUserId(input.xUserId);
+  const identity = input.conversationKey?.trim() || xUserId;
+  const recipientId = input.recipientId?.trim() || xUserId;
   const name = getCustomerName(xUserId, input.name);
-  const customerId = scopedId(tenantId, xUserId);
-  const conversationId = scopedId(tenantId, xUserId);
-  const messageId = input.messageId ? `x-${input.messageId}` : `x-${input.direction}-${xUserId}-${Date.now()}`;
+  const customerId = scopedId(tenantId, identity);
+  const conversationId = scopedId(tenantId, identity);
+  const messageId = input.messageId ? `x-${input.messageId}` : `x-${input.direction}-${identity}-${Date.now()}`;
 
-  return prisma.$transaction(async (tx) => {
+  const existing = await prisma.message.findUnique({ where: { id: messageId } });
+  if (existing) return existing;
+
+  const result = await prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
       where: { id: customerId },
       update: {
         name,
-        phone: xUserId,
+        phone: recipientId,
         initial: getCustomerInitial(name, xUserId)
       },
       create: {
         id: customerId,
         tenantId,
         name,
-        phone: xUserId,
+        phone: recipientId,
         initial: getCustomerInitial(name, xUserId)
       }
     });
 
     await tx.conversation.upsert({
       where: { id: conversationId },
-      update: {},
+      update: { customerId },
       create: {
         id: conversationId,
         tenantId,
@@ -89,10 +98,8 @@ export async function storeXMessage(input: StoreXMessageInput) {
       await restartBotFlowIfClosed(tx, conversationId);
     }
 
-    const message = await tx.message.upsert({
-      where: { id: messageId },
-      update: {},
-      create: {
+    const message = await tx.message.create({
+      data: {
         id: messageId,
         conversationId,
         direction: input.direction,
@@ -120,10 +127,11 @@ export async function storeXMessage(input: StoreXMessageInput) {
     });
 
     return message;
-  }).then(async (result) => {
-    if (input.direction === "in") {
-      await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
-    }
-    return result;
   });
+
+  if (input.direction === "in") {
+    await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+  }
+
+  return result;
 }

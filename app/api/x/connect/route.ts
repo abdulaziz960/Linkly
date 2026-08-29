@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { getXPlatformCredentials } from "../../../../lib/x-platform";
 
 export const runtime = "nodejs";
 
@@ -14,10 +15,10 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.redirect(new URL("/login", request.url));
 
   const settings = await getIntegrationSettings("x", user.tenantId);
-  const clientId = settings.appId.trim();
+  const { clientId, clientSecret } = getXPlatformCredentials(settings);
   const redirectUri = `${request.nextUrl.origin}/api/x/callback`;
 
-  if (!clientId || !settings.configId.trim()) {
+  if (!clientId || !clientSecret) {
     return NextResponse.redirect(new URL("/dashboard?x=missing-app-keys", request.url));
   }
 

@@ -41,25 +41,31 @@ export async function consumeRateLimit(namespace: string, identifier: string, li
   await ensureRateLimitTable();
   const key = rateLimitKey(namespace, identifier);
   const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const resetAt = new Date(now + windowMs).toISOString();
 
   return prisma.$transaction(async (tx) => {
-    const current = await tx.rateLimit.findUnique({ where: { key } });
-    const currentReset = current ? new Date(current.resetAt).getTime() : 0;
-    if (!current || !Number.isFinite(currentReset) || currentReset <= now) {
-      const resetAt = new Date(now + windowMs).toISOString();
-      await tx.rateLimit.upsert({
-        where: { key },
-        update: { count: 1, resetAt },
-        create: { key, count: 1, resetAt }
-      });
-      return { allowed: true, remaining: Math.max(0, limit - 1), retryAfterSeconds: Math.ceil(windowMs / 1000) };
-    }
+    await tx.rateLimit.upsert({
+      where: { key },
+      update: {},
+      create: { key, count: 0, resetAt }
+    });
 
-    if (current.count >= limit) {
+    await tx.rateLimit.updateMany({
+      where: { key, resetAt: { lte: nowIso } },
+      data: { count: 0, resetAt }
+    });
+
+    const claimed = await tx.rateLimit.updateMany({
+      where: { key, resetAt: { gt: nowIso }, count: { lt: limit } },
+      data: { count: { increment: 1 } }
+    });
+    const current = await tx.rateLimit.findUnique({ where: { key } });
+    const currentReset = current ? new Date(current.resetAt).getTime() : now + windowMs;
+    if (claimed.count !== 1) {
       return { allowed: false, remaining: 0, retryAfterSeconds: Math.max(1, Math.ceil((currentReset - now) / 1000)) };
     }
 
-    await tx.rateLimit.update({ where: { key }, data: { count: { increment: 1 } } });
-    return { allowed: true, remaining: Math.max(0, limit - current.count - 1), retryAfterSeconds: Math.ceil((currentReset - now) / 1000) };
+    return { allowed: true, remaining: Math.max(0, limit - (current?.count || 0)), retryAfterSeconds: Math.ceil((currentReset - now) / 1000) };
   });
 }

@@ -12,7 +12,7 @@ model Customer {
   name          String
   phone         String
   initial       String
-  tenantId      String         @default("tenant-demo") @map("tenant_id")
+  tenantId      String         @map("tenant_id")
   conversations Conversation[]
 
   @@index([tenantId])
@@ -30,7 +30,7 @@ model Conversation {
   unread        Int               @default(0)
   windowExpired Int               @default(0) @map("window_expired")
   lastActivityAt String           @default("") @map("last_activity_at")
-  tenantId      String            @default("tenant-demo") @map("tenant_id")
+  tenantId      String            @map("tenant_id")
   botRanAt      String            @default("") @map("bot_ran_at")
   botWaitingNodeId String         @default("") @map("bot_waiting_node_title")
   offHoursNotifiedAt String       @default("") @map("off_hours_notified_at")
@@ -82,7 +82,7 @@ model Employee {
   permissions String
   email       String
   initial     String
-  tenantId    String       @default("tenant-demo") @map("tenant_id")
+  tenantId    String       @map("tenant_id")
   teams       TeamMember[]
 
   @@index([tenantId])
@@ -92,7 +92,7 @@ model Employee {
 
 model Team {
   id        String       @id
-  tenantId  String       @default("tenant-demo") @map("tenant_id")
+  tenantId  String       @map("tenant_id")
   name      String
   lead      String
   routing   String
@@ -117,7 +117,7 @@ model Tag {
   name        String
   color       String
   description String
-  tenantId    String @default("tenant-demo") @map("tenant_id")
+  tenantId    String @map("tenant_id")
 
   @@index([tenantId])
   @@map("tags")
@@ -134,7 +134,7 @@ model ConversationTag {
 
 model Template {
   id          String @id
-  tenantId    String @default("tenant-demo") @map("tenant_id")
+  tenantId    String @map("tenant_id")
   name        String
   message     String
   type        String
@@ -159,18 +159,19 @@ model Template {
 
 model QuickReply {
   id       String @id
-  tenantId String @default("tenant-demo") @map("tenant_id")
+  tenantId String @map("tenant_id")
   shortcut String
   text     String
   team     String
   usage    Int    @default(0)
 
+  @@index([tenantId])
   @@map("quick_replies")
 }
 
 model AutomationRule {
   id          String @id
-  tenantId    String @default("tenant-demo") @map("tenant_id")
+  tenantId    String @map("tenant_id")
   name        String
   description String
   trigger     String @default("رسالة واردة")
@@ -190,7 +191,7 @@ model AutomationQueueItem {
   id             String @id
   ruleId         String @map("rule_id")
   conversationId String @map("conversation_id")
-  tenantId       String @default("tenant-demo") @map("tenant_id")
+  tenantId       String @map("tenant_id")
   runAt          String @map("run_at")
   createdAt      String @map("created_at")
 
@@ -202,7 +203,7 @@ model AutomationQueueItem {
 
 model Campaign {
   id           String @id
-  tenantId     String @default("tenant-demo") @map("tenant_id")
+  tenantId     String @map("tenant_id")
   name         String
   channel      String @default("whatsapp")
   templateName String @default("") @map("template_name")
@@ -222,7 +223,7 @@ model Campaign {
 model CampaignRecipient {
   id         String @id
   campaignId String @map("campaign_id")
-  tenantId   String @default("tenant-demo") @map("tenant_id")
+  tenantId   String @map("tenant_id")
   phone      String
   name       String @default("")
   status     String @default("قيد الإرسال")
@@ -263,7 +264,7 @@ model CampaignPayment {
 
 model WorkSchedule {
   id       String @id
-  tenantId String @default("tenant-demo") @map("tenant_id")
+  tenantId String @map("tenant_id")
   team     String
   days     String
   start    String
@@ -271,11 +272,13 @@ model WorkSchedule {
   status   String
   holidays String
 
+  @@index([tenantId])
   @@map("work_schedules")
 }
 
 model IntegrationSetting {
   id            String @id
+  tenantId      String @map("tenant_id")
   provider      String
   status        String
   businessName  String @map("business_name")
@@ -298,6 +301,9 @@ model IntegrationSetting {
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 
+  @@unique([tenantId, provider])
+  @@index([tenantId])
+  @@index([tenantId, provider])
   @@index([provider, wabaId])
   @@index([provider, phoneNumberId])
   @@map("integration_settings")
@@ -309,7 +315,7 @@ model UserAccount {
   email           String @unique
   passwordHash    String @map("password_hash")
   role            String
-  tenantId        String @default("tenant-demo") @map("tenant_id")
+  tenantId        String @map("tenant_id")
   profileLogo     String @default("") @map("profile_logo")
   isPlatformAdmin Int    @default(0) @map("is_platform_admin")
   sessionVersion  Int    @default(0) @map("session_version")
@@ -340,6 +346,7 @@ model EmployeeInvite {
 
 model EmailIntegration {
   id            String @id
+  tenantId      String @unique @map("tenant_id")
   provider      String
   status        String
   senderName    String @default("") @map("sender_name")
@@ -351,6 +358,7 @@ model EmailIntegration {
   lastSyncedAt  String @default("") @map("last_synced_at")
   updatedAt     String @map("updated_at")
 
+  @@index([tenantId])
   @@map("email_integrations")
 }
 

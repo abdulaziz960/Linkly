@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { createHash, randomUUID } from "crypto";
 import { getPasswordValidationError, hashPassword, verifyPassword } from "./passwords";
-import { decryptSecret, encryptSecret, integrationSecretFields } from "./secret-storage";
+import { decryptSecret, encryptSecret, hasIntegrationEncryptionKey, integrationSecretFields } from "./secret-storage";
 import { automationRules } from "../app/dashboard/data/automations";
 import { templates } from "../app/dashboard/data/templates";
 import type {
@@ -138,6 +138,19 @@ export type AdminLog = {
 
 export { hashPassword } from "./passwords";
 
+function shouldEncryptIntegrationSecrets() {
+  return process.env.NODE_ENV !== "production" || hasIntegrationEncryptionKey();
+}
+
+function maybeEncryptGeneratedSecret(value: string) {
+  return shouldEncryptIntegrationSecrets() ? encryptSecret(value) : value;
+}
+
+function readStoredSecret(value?: string | null) {
+  if (value?.startsWith("enc:v1:") && !hasIntegrationEncryptionKey()) return "";
+  return decryptSecret(value);
+}
+
 async function runRequiredProductionMigrations() {
   if (!isPostgresDatabase) return;
 
@@ -151,6 +164,27 @@ async function runRequiredProductionMigrations() {
   );
   await prisma.$executeRawUnsafe(
     `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS amount_halalas INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`
+  );
+  await prisma.$executeRawUnsafe(
+    `UPDATE integration_settings SET tenant_id = split_part(id, ':', 1) WHERE position(':' in id) > 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE email_integrations ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`
+  );
+  await prisma.$executeRawUnsafe(
+    `UPDATE email_integrations SET tenant_id = substring(id from 7) WHERE id LIKE 'email:%' AND length(id) > 6`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS integration_settings_tenant_id_idx ON integration_settings(tenant_id)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS integration_settings_tenant_id_provider_idx ON integration_settings(tenant_id, provider)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS email_integrations_tenant_id_idx ON email_integrations(tenant_id)`
   );
   await prisma.$executeRawUnsafe(
     `UPDATE campaign_payments SET amount_halalas = CAST(ROUND(amount * 100) AS INTEGER) WHERE amount_halalas = 0 AND amount IS NOT NULL`
@@ -199,8 +233,11 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS google_account_id TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS google_location_id TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS google_refresh_token TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`UPDATE integration_settings SET tenant_id = split_part(id, ':', 1) WHERE position(':' in id) > 0`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS email_integrations (
       id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
       provider TEXT NOT NULL,
       status TEXT NOT NULL,
       sender_name TEXT NOT NULL DEFAULT '',
@@ -212,6 +249,8 @@ async function runSchemaMigrations() {
       last_synced_at TEXT NOT NULL DEFAULT '',
       updated_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`UPDATE email_integrations SET tenant_id = substring(id from 7) WHERE id LIKE 'email:%' AND length(id) > 6`);
     await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN IF NOT EXISTS last_synced_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS bot_ran_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS bot_waiting_node_title TEXT NOT NULL DEFAULT ''`);
@@ -773,6 +812,7 @@ async function runSchemaMigrations() {
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS integration_settings (
     id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
     provider TEXT NOT NULL,
     status TEXT NOT NULL,
     business_name TEXT NOT NULL,
@@ -795,6 +835,11 @@ async function runSchemaMigrations() {
     webhook_url TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
+  const integrationSettingColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(integration_settings)`);
+  if (!integrationSettingColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE integration_settings ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`UPDATE integration_settings SET tenant_id = substr(id, 1, instr(id, ':') - 1) WHERE instr(id, ':') > 0`);
+  }
   for (const statement of [
     `ALTER TABLE integration_settings ADD COLUMN x_consumer_key TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN x_consumer_secret TEXT NOT NULL DEFAULT ''`,
@@ -813,6 +858,7 @@ async function runSchemaMigrations() {
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS email_integrations (
     id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
     provider TEXT NOT NULL,
     status TEXT NOT NULL,
     sender_name TEXT NOT NULL DEFAULT '',
@@ -825,6 +871,10 @@ async function runSchemaMigrations() {
     updated_at TEXT NOT NULL
   )`);
   const emailIntegrationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(email_integrations)`);
+  if (!emailIntegrationColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+    await prisma.$executeRawUnsafe(`UPDATE email_integrations SET tenant_id = substr(id, 7) WHERE id LIKE 'email:%' AND length(id) > 6`);
+  }
   if (!emailIntegrationColumns.some((column) => column.name === "sender_name")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE email_integrations ADD COLUMN sender_name TEXT NOT NULL DEFAULT ''`);
   }
@@ -1010,9 +1060,10 @@ async function seedDatabase() {
       update: {},
       create: {
         id: "primary-email",
+        tenantId: "tenant-demo",
         provider: "webhook",
         status: "not_connected",
-        webhookSecret: encryptSecret(process.env.EMAIL_WEBHOOK_SECRET || randomUUID()),
+        webhookSecret: maybeEncryptGeneratedSecret(process.env.EMAIL_WEBHOOK_SECRET || randomUUID()),
         updatedAt: new Date().toISOString()
       }
     });
@@ -1021,6 +1072,7 @@ async function seedDatabase() {
       update: {},
       create: {
         id: "meta-whatsapp",
+        tenantId: "tenant-demo",
         provider: "whatsapp_cloud",
         status: "pending",
         businessName: "",
@@ -1041,6 +1093,7 @@ async function seedDatabase() {
       update: {},
       create: {
         id: "meta-instagram",
+        tenantId: "tenant-demo",
         provider: "instagram",
         status: "pending",
         businessName: "",
@@ -1061,6 +1114,7 @@ async function seedDatabase() {
       update: {},
       create: {
         id: "meta-facebook",
+        tenantId: "tenant-demo",
         provider: "facebook",
         status: "pending",
         businessName: "",
@@ -1081,6 +1135,7 @@ async function seedDatabase() {
       update: {},
       create: {
         id: "telegram-bot",
+        tenantId: "tenant-demo",
         provider: "telegram",
         status: "pending",
         businessName: "",
@@ -1101,6 +1156,7 @@ async function seedDatabase() {
       update: {},
       create: {
         id: "x-channel",
+        tenantId: "tenant-demo",
         provider: "x",
         status: "pending",
         businessName: "",
@@ -1121,6 +1177,7 @@ async function seedDatabase() {
       update: {},
       create: {
         id: "google-maps",
+        tenantId: "tenant-demo",
         provider: "google_maps",
         status: "pending",
         businessName: "",
@@ -1141,6 +1198,7 @@ async function seedDatabase() {
       update: {},
       create: {
         id: "email-channel",
+        tenantId: "tenant-demo",
         provider: "email",
         status: "pending",
         businessName: "",
@@ -1471,7 +1529,13 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
     },
     include: {
       customer: true,
-      messages: true,
+      // Without an explicit orderBy, Prisma doesn't guarantee chronological
+      // order - it tends to reflect insertion order instead. That's usually
+      // harmless for real-time webhook channels, but X mixes real-time
+      // webhook events with periodic mention/DM polling that can insert an
+      // older tweet after a newer message already exists, which surfaced as
+      // messages rendering out of time order in the thread.
+      messages: { orderBy: { createdAt: "asc" } },
       tags: true
     }
   });
@@ -1748,6 +1812,19 @@ export function getIntegrationBaseId(channel: IntegrationChannel) {
   return "meta-whatsapp";
 }
 
+function getIntegrationProvider(channel: IntegrationChannel) {
+  if (channel === "instagram") return "instagram";
+  if (channel === "facebook") return "facebook";
+  if (channel === "telegram") return "telegram";
+  if (channel === "x") return "x";
+  if (channel === "google_maps") return "google_maps";
+  if (channel === "email") return "email";
+  if (channel === "website") return "website";
+  if (channel === "tiktok") return "tiktok";
+  if (channel === "sms") return "unifonic";
+  return "whatsapp_cloud";
+}
+
 export function getTenantIntegrationId(channel: IntegrationChannel, tenantId = "tenant-demo") {
   const baseId = getIntegrationBaseId(channel);
   return !tenantId || tenantId === "tenant-demo" ? baseId : `${tenantId}:${baseId}`;
@@ -1756,31 +1833,15 @@ export function getTenantIntegrationId(channel: IntegrationChannel, tenantId = "
 export async function getIntegrationSettings(channel: IntegrationChannel = "whatsapp", tenantId = "tenant-demo"): Promise<IntegrationSettings> {
   await ensureSeeded();
   const id = getTenantIntegrationId(channel, tenantId);
-  const existingSettings = await prisma.integrationSetting.findUnique({
-    where: { id }
+  const provider = getIntegrationProvider(channel);
+  const existingSettings = await prisma.integrationSetting.findFirst({
+    where: { tenantId, provider }
   });
   const settings = existingSettings ?? await prisma.integrationSetting.create({
     data: {
       id,
-      provider: channel === "instagram"
-        ? "instagram"
-        : channel === "facebook"
-          ? "facebook"
-          : channel === "telegram"
-            ? "telegram"
-            : channel === "x"
-              ? "x"
-              : channel === "google_maps"
-                ? "google_maps"
-              : channel === "email"
-                ? "email"
-              : channel === "website"
-                ? "website"
-              : channel === "tiktok"
-                ? "tiktok"
-              : channel === "sms"
-                ? "unifonic"
-              : "whatsapp_cloud",
+      tenantId,
+      provider,
       status: channel === "website" ? "connected" : "pending",
       businessName: "",
       wabaName: "",
@@ -1799,16 +1860,16 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
   for (const field of integrationSecretFields) {
     if (field === "verifyToken" && settings.provider === "website") continue;
     const value = settings[field];
-    if (value && !value.startsWith("enc:v1:")) encryptedUpdates[field] = encryptSecret(value);
+    if (value && !value.startsWith("enc:v1:") && shouldEncryptIntegrationSecrets()) encryptedUpdates[field] = encryptSecret(value);
   }
   if (Object.keys(encryptedUpdates).length) {
     await prisma.integrationSetting.update({ where: { id: settings.id }, data: encryptedUpdates });
   }
   const whatsappSettings = channel === "instagram" || channel === "facebook"
-    ? await prisma.integrationSetting.findUnique({ where: { id: getTenantIntegrationId("whatsapp", tenantId) } })
+    ? await prisma.integrationSetting.findFirst({ where: { tenantId, provider: "whatsapp_cloud" } })
     : null;
   const providerMetaSettings = tenantId !== "tenant-demo" && channel !== "telegram" && channel !== "x" && channel !== "google_maps" && channel !== "email" && channel !== "website" && channel !== "tiktok" && channel !== "sms"
-    ? await prisma.integrationSetting.findUnique({ where: { id: "meta-whatsapp" } })
+    ? await prisma.integrationSetting.findFirst({ where: { tenantId: "tenant-demo", provider: "whatsapp_cloud" } })
     : null;
   const fallbackAppId = channel === "google_maps"
     ? settings.appId || defaultGoogleClientId
@@ -1817,12 +1878,12 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     : channel === "instagram" || channel === "facebook"
     ? settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || ""
     : settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || "";
-  const storedConfigId = decryptSecret(settings.configId);
+  const storedConfigId = readStoredSecret(settings.configId);
   const fallbackConfigId = channel === "google_maps"
     ? storedConfigId || defaultGoogleClientSecret
     : channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms"
       ? storedConfigId
-      : storedConfigId || defaultMetaConfigId || decryptSecret(whatsappSettings?.configId) || decryptSecret(providerMetaSettings?.configId) || "";
+      : storedConfigId || defaultMetaConfigId || readStoredSecret(whatsappSettings?.configId) || readStoredSecret(providerMetaSettings?.configId) || "";
 
   if (!settings.appId && fallbackAppId) {
     await prisma.integrationSetting.update({
@@ -1833,12 +1894,13 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
   if (!settings.configId && fallbackConfigId) {
     await prisma.integrationSetting.update({
       where: { id: settings.id },
-      data: { configId: encryptSecret(fallbackConfigId) }
+      data: { configId: maybeEncryptGeneratedSecret(fallbackConfigId) }
     });
   }
 
   return {
     id: settings.id,
+    tenantId: settings.tenantId,
     provider: settings.provider as IntegrationSettings["provider"],
     status: settings.status as IntegrationSettings["status"],
     businessName: settings.businessName,
@@ -1848,16 +1910,16 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     wabaId: settings.wabaId,
     appId: fallbackAppId,
     configId: fallbackConfigId,
-    verifyToken: decryptSecret(settings.verifyToken),
-    accessToken: decryptSecret(settings.accessToken),
+    verifyToken: readStoredSecret(settings.verifyToken),
+    accessToken: readStoredSecret(settings.accessToken),
     xConsumerKey: settings.xConsumerKey,
-    xConsumerSecret: decryptSecret(settings.xConsumerSecret),
-    xBearerToken: decryptSecret(settings.xBearerToken),
-    xAccessToken: decryptSecret(settings.xAccessToken),
-    xAccessTokenSecret: decryptSecret(settings.xAccessTokenSecret),
+    xConsumerSecret: readStoredSecret(settings.xConsumerSecret),
+    xBearerToken: readStoredSecret(settings.xBearerToken),
+    xAccessToken: readStoredSecret(settings.xAccessToken),
+    xAccessTokenSecret: readStoredSecret(settings.xAccessTokenSecret),
     googleAccountId: settings.googleAccountId,
     googleLocationId: settings.googleLocationId,
-    googleRefreshToken: decryptSecret(settings.googleRefreshToken),
+    googleRefreshToken: readStoredSecret(settings.googleRefreshToken),
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };
@@ -1866,11 +1928,11 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
 export async function resolveWebsiteTenantId(siteKey: string): Promise<string | null> {
   if (!siteKey) return null;
   const settings = await prisma.integrationSetting.findFirst({
-    where: { provider: "website", verifyToken: siteKey }
+    where: { provider: "website", verifyToken: siteKey },
+    select: { tenantId: true }
   });
   if (!settings) return null;
-  const baseId = getIntegrationBaseId("website");
-  return settings.id === baseId ? "tenant-demo" : settings.id.slice(0, settings.id.length - baseId.length - 1);
+  return settings.tenantId;
 }
 
 export type EmailIntegrationSettings = {
@@ -1885,24 +1947,27 @@ export type EmailIntegrationSettings = {
 
 export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Promise<EmailIntegrationSettings> {
   await ensureSeeded();
-  const tenantSettings = await prisma.emailIntegration.findUnique({ where: { id: `email:${tenantId}` } });
+  const tenantSettings = await prisma.emailIntegration.findFirst({ where: { tenantId } });
   const settings = tenantSettings ?? (tenantId === "tenant-demo"
-    ? await prisma.emailIntegration.findUniqueOrThrow({ where: { id: "primary-email" } })
+    ? await prisma.emailIntegration.findFirstOrThrow({ where: { tenantId } })
     : await prisma.emailIntegration.create({
       data: {
         id: `email:${tenantId}`,
+        tenantId,
         provider: "gmail",
         status: "not_connected",
         senderName: "",
         emailAddress: "",
-        webhookSecret: encryptSecret(randomUUID()),
+        webhookSecret: maybeEncryptGeneratedSecret(randomUUID()),
         updatedAt: new Date().toISOString()
       }
     }));
   const encryptedUpdates: { webhookSecret?: string; accessToken?: string; refreshToken?: string } = {};
-  if (settings.webhookSecret && !settings.webhookSecret.startsWith("enc:v1:")) encryptedUpdates.webhookSecret = encryptSecret(settings.webhookSecret);
-  if (settings.accessToken && !settings.accessToken.startsWith("enc:v1:")) encryptedUpdates.accessToken = encryptSecret(settings.accessToken);
-  if (settings.refreshToken && !settings.refreshToken.startsWith("enc:v1:")) encryptedUpdates.refreshToken = encryptSecret(settings.refreshToken);
+  if (shouldEncryptIntegrationSecrets()) {
+    if (settings.webhookSecret && !settings.webhookSecret.startsWith("enc:v1:")) encryptedUpdates.webhookSecret = encryptSecret(settings.webhookSecret);
+    if (settings.accessToken && !settings.accessToken.startsWith("enc:v1:")) encryptedUpdates.accessToken = encryptSecret(settings.accessToken);
+    if (settings.refreshToken && !settings.refreshToken.startsWith("enc:v1:")) encryptedUpdates.refreshToken = encryptSecret(settings.refreshToken);
+  }
   if (Object.keys(encryptedUpdates).length > 0) {
     await prisma.emailIntegration.update({ where: { id: settings.id }, data: encryptedUpdates });
   }
@@ -1912,7 +1977,7 @@ export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Pro
     status: settings.status as EmailIntegrationSettings["status"],
     senderName: settings.senderName,
     emailAddress: settings.emailAddress,
-    webhookSecret: decryptSecret(encryptedUpdates.webhookSecret || settings.webhookSecret),
+    webhookSecret: readStoredSecret(encryptedUpdates.webhookSecret || settings.webhookSecret),
     updatedAt: settings.updatedAt
   };
 }

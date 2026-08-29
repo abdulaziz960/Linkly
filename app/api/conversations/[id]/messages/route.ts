@@ -9,7 +9,7 @@ import { prisma } from "../../../../../lib/prisma";
 import { formatMessageTime } from "../../../../../lib/time";
 import { normalizeWhatsAppPhone } from "../../../../../lib/whatsapp-inbox";
 import { isWhatsAppReplyWindowExpired, sendWhatsAppTemplateMessage } from "../../../../../lib/whatsapp-send";
-import { sendXDirectMessage, XApiError } from "../../../../../lib/x-api";
+import { sendXDirectMessage, sendXPostReply, XApiError } from "../../../../../lib/x-api";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 type RouteContext = {
@@ -646,6 +646,75 @@ export async function POST(request: NextRequest, context: RouteContext) {
       if (attachment) return jsonError("إرسال المرفقات في X غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
 
       const xSettings = await getIntegrationSettings("x", user?.tenantId);
+
+      // A conversation started from a public mention/comment must keep
+      // replying publicly on that same post by default instead of silently
+      // switching to a DM. Prefer an explicitly selected reply target (via
+      // the reply-to-message UI); otherwise decide the mode from whichever
+      // type the conversation's most recent message is. Either way, the
+      // tweet actually replied to is always the customer's most recent
+      // public comment/mention - never our own previous public reply.
+      // Anchoring to "whatever we last sent" would make each new reply
+      // nest one level deeper on X (reply to our reply to our reply...),
+      // drifting away from the original post/comment on every message,
+      // which read as "the reply never arrived" since it was buried in an
+      // ever-deepening nested thread instead of sitting under the original
+      // comment.
+      const isPostType = (sourceType: string) => sourceType === "x_post" || sourceType === "x_post_reply";
+      let postSourceMessage: typeof replyToMessage = null;
+      if (replyToMessage) {
+        postSourceMessage = isPostType(replyToMessage.sourceType) ? replyToMessage : null;
+      } else {
+        const latestMessage = await prisma.message.findFirst({
+          where: { conversationId: conversation.id },
+          orderBy: { createdAt: "desc" }
+        });
+        if (latestMessage && isPostType(latestMessage.sourceType)) {
+          postSourceMessage = await prisma.message.findFirst({
+            where: { conversationId: conversation.id, direction: "in", sourceType: "x_post" },
+            orderBy: { createdAt: "desc" }
+          });
+        }
+      }
+
+      if (postSourceMessage?.sourceId) {
+        try {
+          const result = await sendXPostReply(xSettings, postSourceMessage.sourceId, text);
+          const message = await prisma.$transaction(async (tx) => {
+            const created = await tx.message.create({
+              data: {
+                id: `x-post-out-${result.id}`,
+                conversationId: conversation.id,
+                direction,
+                text,
+                time: messageTime,
+                createdAt: sentAt,
+                author: user?.name ?? "",
+                sourceType: "x_post_reply",
+                sourceId: result.id || "",
+                sourceUrl: result.id ? `https://x.com/i/web/status/${result.id}` : "",
+                sourceLabel: "رد عبر X",
+                replyToMessageId: postSourceMessage.id,
+                replyToText: (postSourceMessage.text || "منشور").slice(0, 220),
+                replyToAuthor: postSourceMessage.author || conversation.customer.name
+              }
+            });
+
+            await tx.conversation.update({
+              where: { id: conversation.id },
+              data: { lastMessage: text, lastActivityAt: sentAt }
+            });
+
+            return created;
+          });
+
+          return jsonOk(message);
+        } catch (error) {
+          if (error instanceof XApiError) return jsonError(error.message, error.status);
+          return jsonError(error instanceof Error ? error.message : "تعذر الرد عبر X", 500);
+        }
+      }
+
       const recipientId = conversation.customer.phone?.trim();
 
       if (!recipientId) return jsonError("معرّف عميل X غير موجود في ملف المحادثة");
