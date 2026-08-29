@@ -24,6 +24,36 @@ type SendWhatsAppTemplateInput = {
   keepWindowExpired?: boolean;
 };
 
+/**
+ * WhatsApp only allows free-form text within 24h of the customer's last
+ * inbound message; outside that window Meta rejects the send with error
+ * subcode 131047 ("Re-engagement message"). Callers that send free text
+ * automatically (bot flows, off-hours auto-replies) must check this first
+ * instead of attempting a guaranteed-to-fail send - unlike a manual reply,
+ * there's no user watching to notice and switch to a template.
+ */
+export async function isWhatsAppReplyWindowExpired(conversationId: string, fallbackExpired: boolean) {
+  const lastCustomerMessage = await prisma.message.findFirst({
+    where: {
+      conversationId,
+      direction: "in",
+      createdAt: {
+        not: ""
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+
+  if (!lastCustomerMessage?.createdAt) return fallbackExpired;
+
+  const lastCustomerMessageAt = new Date(lastCustomerMessage.createdAt).getTime();
+  if (Number.isNaN(lastCustomerMessageAt)) return fallbackExpired;
+
+  return Date.now() - lastCustomerMessageAt >= 24 * 60 * 60 * 1000;
+}
+
 function normalizeTemplateLanguage(language?: string) {
   const value = language?.trim();
   if (!value || value === "Arabic" || value === "العربية") return "ar";
@@ -112,25 +142,38 @@ export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInp
       }]
     : undefined;
 
-  const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "template",
-      ...(input.contextMessageId ? { context: { message_id: input.contextMessageId } } : {}),
-      template: {
-        name: templateName,
-        language: { code: normalizeTemplateLanguage(input.language) },
-        ...(components ? { components } : {})
-      }
-    })
-  });
+  let response: Response;
+  try {
+    response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "template",
+        ...(input.contextMessageId ? { context: { message_id: input.contextMessageId } } : {}),
+        template: {
+          name: templateName,
+          language: { code: normalizeTemplateLanguage(input.language) },
+          ...(components ? { components } : {})
+        }
+      })
+    });
+  } catch (error) {
+    // A network-level failure (DNS, connection reset, timeout) throws
+    // before there's any response to check - without this catch, the
+    // exception propagates all the way to the route's generic error
+    // handler and no message ever gets persisted, so the thread and
+    // inbox ordering never reflect that a send was attempted.
+    const message = error instanceof Error ? error.message : "تعذر الاتصال بواتساب";
+    console.error("WhatsApp template send network failure", { templateName, error });
+    await persistWhatsAppTemplateResult(input, { deliveryStatus: "failed", deliveryError: message });
+    return { ok: false as const, error: message, status: 502 };
+  }
   const payload = await response.json().catch(() => null) as {
     messages?: Array<{ id?: string }>;
     error?: { message?: string; error_user_msg?: string };
@@ -161,23 +204,52 @@ export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
     return { ok: false, skipped: true };
   }
 
-  const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "text",
-      text: {
-        preview_url: false,
-        body: text
-      }
-    })
-  });
+  let response: Response;
+  try {
+    response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "text",
+        text: {
+          preview_url: false,
+          body: text
+        }
+      })
+    });
+  } catch (error) {
+    // Same network-level-failure gap as sendWhatsAppTemplateMessage above -
+    // persist the attempt as failed instead of leaving no trace of it.
+    const message = error instanceof Error ? error.message : "WHATSAPP_NETWORK_FAILURE";
+    console.error("WhatsApp text send network failure", error);
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      await tx.message.create({
+        data: {
+          id: `wa-text-failed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          conversationId: input.conversationId,
+          direction: "out",
+          text,
+          time: formatMessageTime(now),
+          createdAt: now.toISOString(),
+          author: input.author || "Linkly",
+          deliveryStatus: "failed",
+          deliveryError: message
+        }
+      });
+      await tx.conversation.update({
+        where: { id: input.conversationId },
+        data: { lastMessage: text, lastActivityAt: now.toISOString() }
+      });
+    });
+    return { ok: false, error: message };
+  }
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {

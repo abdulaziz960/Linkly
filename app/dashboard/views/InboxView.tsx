@@ -366,6 +366,11 @@ export default function InboxView({
     .replace(/^\//, "")
     .replace(/[\s_-]+/g, "")
     .replace(/[^\p{L}\p{N}]/gu, "");
+  // Only maps a quick reply to a template that actually matches its
+  // shortcut/text - falling back to "whatever's selected" or "the first
+  // approved template" (as this used to) would silently send unrelated
+  // content to the customer with no warning that it differs from what
+  // the team member clicked.
   const templateForQuickReply = (reply: QuickReply) => {
     const shortcutKey = normalizeReplyKey(reply.shortcut);
     const textKey = normalizeReplyKey(reply.text);
@@ -373,11 +378,14 @@ export default function InboxView({
       const nameKey = normalizeReplyKey(template.name);
       const messageKey = normalizeReplyKey(template.message);
       return nameKey === shortcutKey || messageKey === textKey;
-    }) ?? reopenTemplates.find((template) => template.name === selectedTemplate) ?? reopenTemplates[0];
+    });
   };
   const isClosed = activeConversation.status === "closed";
   const hasActiveConversation = Boolean(activeConversation.id);
-  const isComposerDisabled = !hasActiveConversation || activeConversation.windowExpired || isClosed;
+  // A private note isn't sent to the customer, so it isn't subject to
+  // WhatsApp's 24h reply window the way a regular reply is - only gate the
+  // composer on the window when the team member is actually replying.
+  const isComposerDisabled = !hasActiveConversation || isClosed || (composerMode === "reply" && activeConversation.windowExpired);
   const lastInboundAt = activeConversation.messages
     .filter((item) => item.direction === "in" && item.createdAt)
     .map((item) => new Date(item.createdAt as string).getTime())
@@ -1231,7 +1239,7 @@ export default function InboxView({
                 </button>
               </div>
             ) : null}
-            {activeConversation.windowExpired ? (
+            {activeConversation.windowExpired && composerMode !== "note" ? (
               <div className="window-notice">
                 <b>{t("انتهت نافذة الرد خلال 24 ساعة", "The 24-hour reply window has expired")}</b>
                 <span>
@@ -1295,6 +1303,9 @@ export default function InboxView({
                     </div>
                   </div>
                 ) : null}
+                <button type="button" className="btn soft window-notice-note-switch" onClick={() => onChangeComposerMode("note")}>
+                  {t("كتابة ملاحظة خاصة بدلاً من ذلك", "Write a private note instead")}
+                </button>
               </div>
             ) : (
               <>
