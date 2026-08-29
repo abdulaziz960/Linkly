@@ -3,6 +3,7 @@ import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
+import { shouldStartConversationClosed } from "./bot-engine";
 
 type StoreFacebookMessageInput = {
   facebookUserId: string;
@@ -36,6 +37,7 @@ export async function storeFacebookMessage(input: StoreFacebookMessageInput) {
   const customerId = `${scopedPrefix}fb-${facebookUserId}`;
   const conversationId = `${scopedPrefix}fb-${facebookUserId}`;
   const messageId = input.messageId ? `fb-${input.messageId}` : `fb-${input.direction}-${facebookUserId}-${Date.now()}`;
+  const startClosed = await shouldStartConversationClosed(tenantId, "facebook");
 
   return prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
@@ -63,7 +65,7 @@ export async function storeFacebookMessage(input: StoreFacebookMessageInput) {
         customerId,
         channel: "facebook",
         lastMessage: input.text,
-        status: "unassigned",
+        status: startClosed ? "closed" : "unassigned",
         assignee: "بدون موظف",
         unread: 0,
         windowExpired: 0,

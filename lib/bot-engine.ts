@@ -59,6 +59,23 @@ export async function getBotSettings(tenantId = "tenant-demo", channel: BotChann
   return { enabled: row ? row.enabled === 1 : false };
 }
 
+export function isBotChannel(channel: string): channel is BotChannel {
+  return (botChannels as string[]).includes(channel);
+}
+
+// A brand-new conversation should start closed (handled by the bot, not
+// waiting on an agent) only when the channel actually has a bot enabled
+// with a real flow attached - otherwise it would open as "closed" with
+// nothing ever running to reopen it, hiding the conversation from every
+// agent for no reason.
+export async function shouldStartConversationClosed(tenantId: string, channel: string) {
+  if (!isBotChannel(channel)) return false;
+  const settings = await getBotSettings(tenantId, channel);
+  if (!settings.enabled) return false;
+  const nodes = await getBotNodes(tenantId, channel);
+  return nodes.length > 0;
+}
+
 export async function setBotEnabled(tenantId: string, channel: BotChannel, enabled: boolean) {
   await ensureSchema();
   const id = settingsId(tenantId, channel);

@@ -4,6 +4,7 @@ import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
+import { shouldStartConversationClosed } from "./bot-engine";
 
 type StoreXMessageInput = {
   tenantId?: string;
@@ -60,6 +61,8 @@ export async function storeXMessage(input: StoreXMessageInput) {
   const existing = await prisma.message.findUnique({ where: { id: messageId } });
   if (existing) return existing;
 
+  const startClosed = await shouldStartConversationClosed(tenantId, "x");
+
   const result = await prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
       where: { id: customerId },
@@ -86,7 +89,7 @@ export async function storeXMessage(input: StoreXMessageInput) {
         customerId,
         channel: "x",
         lastMessage: input.text,
-        status: "unassigned",
+        status: startClosed ? "closed" : "unassigned",
         assignee: "بدون موظف",
         unread: 0,
         windowExpired: 0,

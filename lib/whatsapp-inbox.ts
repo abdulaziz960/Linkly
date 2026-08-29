@@ -3,6 +3,7 @@ import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
+import { shouldStartConversationClosed } from "./bot-engine";
 
 type StoreWhatsAppMessageInput = {
   phone: string;
@@ -47,6 +48,7 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
   const customerId = `${scopedPrefix}wa-${phone}`;
   const conversationId = `${scopedPrefix}conv-${phone}`;
   const messageId = input.messageId ? `wa-${input.messageId}` : `wa-${input.direction}-${phone}-${Date.now()}`;
+  const startClosed = await shouldStartConversationClosed(tenantId, "whatsapp");
 
   return prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
@@ -74,7 +76,7 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
         customerId,
         channel: "whatsapp",
         lastMessage: input.text,
-        status: "unassigned",
+        status: startClosed ? "closed" : "unassigned",
         assignee: "بدون موظف",
         unread: 0,
         windowExpired: 0,

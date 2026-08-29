@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
+import { shouldStartConversationClosed } from "./bot-engine";
 
 function stableId(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex").slice(0, 24);
@@ -34,6 +35,7 @@ export async function storeWebsiteMessage(input: IncomingWebsiteMessage) {
   const contact = input.email?.trim() || visitorId;
   const createdAt = new Date().toISOString();
   const messageId = `web-in-${stableId(`${id}:${createdAt}:${text}:${Math.random()}`)}`;
+  const startClosed = await shouldStartConversationClosed(tenantId, "website");
 
   return prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
@@ -49,7 +51,7 @@ export async function storeWebsiteMessage(input: IncomingWebsiteMessage) {
         tenantId,
         customerId: id,
         channel: "website",
-        status: "unassigned",
+        status: startClosed ? "closed" : "unassigned",
         assignee: "",
         lastMessage: text,
         unread: 1,
