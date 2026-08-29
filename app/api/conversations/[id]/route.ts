@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { runAutomations } from "../../../../lib/automation-engine";
+import { requestRatingIfNeeded } from "../../../../lib/conversation-rating";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = {
@@ -64,6 +65,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (body.status === "closed") {
       await runAutomations("تم إغلاق الرسالة", { conversationId: id, tenantId: user.tenantId }).catch((error) => {
         console.error(`Automations failed for conversation ${id}`, error);
+      });
+      await requestRatingIfNeeded(id, user.tenantId).catch((error) => {
+        console.error(`Rating request failed for conversation ${id}`, error);
       });
     }
 

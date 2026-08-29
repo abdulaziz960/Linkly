@@ -5,6 +5,7 @@ import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
+import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
 
 type StoreXMessageInput = {
   tenantId?: string;
@@ -62,6 +63,7 @@ export async function storeXMessage(input: StoreXMessageInput) {
   if (existing) return existing;
 
   const startClosed = await shouldStartConversationClosed(tenantId, "x");
+  const ratingRecorded = input.direction === "in" ? await maybeRecordRatingReply(conversationId, input.text) : false;
 
   const result = await prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
@@ -97,7 +99,7 @@ export async function storeXMessage(input: StoreXMessageInput) {
       }
     });
 
-    if (input.direction === "in") {
+    if (input.direction === "in" && !ratingRecorded) {
       await restartBotFlowIfClosed(tx, conversationId);
     }
 
@@ -134,6 +136,9 @@ export async function storeXMessage(input: StoreXMessageInput) {
 
   if (input.direction === "in") {
     await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+  }
+  if (ratingRecorded) {
+    await sendRatingThanks(result.conversationId);
   }
 
   return result;

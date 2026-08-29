@@ -34,6 +34,10 @@ model Conversation {
   botRanAt      String            @default("") @map("bot_ran_at")
   botWaitingNodeId String         @default("") @map("bot_waiting_node_title")
   offHoursNotifiedAt String       @default("") @map("off_hours_notified_at")
+  rating            Int           @default(0)
+  ratingEmployee    String        @default("") @map("rating_employee")
+  ratingRequestedAt String        @default("") @map("rating_requested_at")
+  ratingAt          String        @default("") @map("rating_at")
   customer      Customer          @relation(fields: [customerId], references: [id])
   messages      Message[]
   tags          ConversationTag[]

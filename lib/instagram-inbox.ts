@@ -4,6 +4,7 @@ import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
+import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
 
 type StoreInstagramMessageInput = {
   instagramUserId: string;
@@ -48,6 +49,7 @@ export async function storeInstagramMessage(input: StoreInstagramMessageInput) {
   const conversationId = `${scopedPrefix}ig-${instagramUserId}`;
   const messageId = input.messageId ? `ig-${input.messageId}` : `ig-${input.direction}-${instagramUserId}-${Date.now()}`;
   const startClosed = await shouldStartConversationClosed(tenantId, "instagram");
+  const ratingRecorded = input.direction === "in" ? await maybeRecordRatingReply(conversationId, input.text) : false;
 
   return prisma.$transaction(async (tx) => {
     const existingCustomer = await tx.customer.findUnique({
@@ -90,7 +92,7 @@ export async function storeInstagramMessage(input: StoreInstagramMessageInput) {
       }
     });
 
-    if (input.direction === "in") {
+    if (input.direction === "in" && !ratingRecorded) {
       await restartBotFlowIfClosed(tx, conversationId);
     }
 
@@ -148,6 +150,9 @@ export async function storeInstagramMessage(input: StoreInstagramMessageInput) {
   }).then(async (result) => {
     if (input.direction === "in") {
       await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+    }
+    if (ratingRecorded) {
+      await sendRatingThanks(result.conversationId);
     }
     return result;
   });

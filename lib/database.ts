@@ -192,6 +192,18 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `UPDATE subscription_payments SET amount_halalas = CAST(ROUND(amount * 100) AS INTEGER) WHERE amount_halalas = 0 AND amount IS NOT NULL`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS rating INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS rating_employee TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS rating_requested_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS rating_at TEXT NOT NULL DEFAULT ''`
+  );
 }
 
 async function runSchemaMigrations() {
@@ -549,6 +561,18 @@ async function runSchemaMigrations() {
   }
   if (!conversationColumns.some((column) => column.name === "off_hours_notified_at")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN off_hours_notified_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "rating")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN rating INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!conversationColumns.some((column) => column.name === "rating_employee")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN rating_employee TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "rating_requested_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN rating_requested_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "rating_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN rating_at TEXT NOT NULL DEFAULT ''`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
@@ -1598,7 +1622,9 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       firstMessageAt: messages.find((message) => message.createdAt)?.createdAt,
       lastMessageAt: messages.findLast((message) => message.createdAt)?.createdAt || conversation.lastActivityAt || undefined,
       tags: conversation.tags.map((tag) => tag.tagName),
-      messages
+      messages,
+      rating: conversation.rating || undefined,
+      ratingEmployee: conversation.ratingEmployee || undefined
     };
   });
 }
