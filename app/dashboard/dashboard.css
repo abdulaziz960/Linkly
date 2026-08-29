@@ -3382,6 +3382,16 @@
   font-weight: 700;
 }
 
+.employee-rating {
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.employee-rating small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .table-note {
   display: block;
   max-width: 280px;

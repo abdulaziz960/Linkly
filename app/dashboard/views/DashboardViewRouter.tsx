@@ -81,7 +81,7 @@ export default function DashboardViewRouter({
   if (view === "workHours") return <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} />;
   if (view === "reports") return <ReportsView conversations={conversations} employees={employees} teams={teams} workSchedules={workSchedules} onOpenConversation={onOpenConversation} />;
   if (view === "teams") return <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} />;
-  if (view === "employees") return <EmployeesView employees={employees} onRefreshData={onRefreshData} />;
+  if (view === "employees") return <EmployeesView employees={employees} conversations={conversations} onRefreshData={onRefreshData} />;
   if (view === "settings") return <SettingsView onIntegrationChange={onIntegrationChange} />;
   return null;
 }
