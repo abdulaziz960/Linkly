@@ -311,6 +311,18 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     const params = new URLSearchParams(window.location.search);
     return params.has("meta") || params.has("gmail");
   });
+  useEffect(() => {
+    // Strip the one-time OAuth callback params (meta=..., channel=email,
+    // gmail=connected) once they've been read above - otherwise reloading
+    // or simply revisiting this URL keeps reopening the same modal forever.
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("meta") && !url.searchParams.has("gmail")) return;
+    url.searchParams.delete("meta");
+    url.searchParams.delete("gmail");
+    url.searchParams.delete("channel");
+    window.history.replaceState(null, "", url.toString());
+  }, []);
   const metaSignupDataRef = useRef<MetaSignupData>({});
   const hasSelectedChannelRef = useRef(false);
   const isInstagram = selectedChannel === "instagram";
