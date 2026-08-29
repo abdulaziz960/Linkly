@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 import { formatMessageTime } from "./time";
-import { sendWhatsAppTextMessage } from "./whatsapp-send";
+import { isWhatsAppReplyWindowExpired, sendWhatsAppTextMessage } from "./whatsapp-send";
 import { sendTelegramTextMessage } from "./telegram-send";
 import { sendInstagramTextMessage } from "./instagram-send";
 import { sendFacebookTextMessage } from "./facebook-send";
@@ -87,7 +87,13 @@ export async function isWithinWorkHours(tenantId: string): Promise<boolean> {
 async function sendOffHoursText(channel: string, tenantId: string, conversationId: string, recipientId: string, text: string) {
   const base = { tenantId, conversationId, text, author: OFF_HOURS_AUTHOR };
 
-  if (channel === "whatsapp") return sendWhatsAppTextMessage({ ...base, to: recipientId });
+  if (channel === "whatsapp") {
+    // Free text outside WhatsApp's 24h window is guaranteed to be rejected
+    // by Meta (error 131047) - this is an unattended auto-reply, so skip
+    // the doomed send instead of leaving a confusing "failed" message.
+    if (await isWhatsAppReplyWindowExpired(conversationId, false)) return { ok: false, skipped: true };
+    return sendWhatsAppTextMessage({ ...base, to: recipientId });
+  }
   if (channel === "telegram") return sendTelegramTextMessage({ ...base, chatId: recipientId });
   if (channel === "instagram") return sendInstagramTextMessage({ ...base, recipientId });
   if (channel === "facebook") return sendFacebookTextMessage({ ...base, recipientId });

@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
-import { sendWhatsAppTextMessage, sendWhatsAppInteractiveMessage } from "./whatsapp-send";
+import { isWhatsAppReplyWindowExpired, sendWhatsAppTextMessage, sendWhatsAppInteractiveMessage } from "./whatsapp-send";
 import { sendTelegramTextMessage } from "./telegram-send";
 import { sendInstagramTextMessage } from "./instagram-send";
 import { sendFacebookTextMessage } from "./facebook-send";
@@ -254,6 +254,14 @@ async function sendBotList(channel: BotChannel, node: BotNode, args: { tenantId:
 
 async function sendBotText(channel: BotChannel, args: { tenantId: string; conversationId: string; recipientId: string; text: string }) {
   if (channel === "whatsapp") {
+    // A free-text send outside WhatsApp's 24h customer-service window is
+    // guaranteed to be rejected by Meta (error 131047, "Re-engagement
+    // message") - unlike a manual reply, there's no user watching to notice
+    // and switch to a template, so skip the doomed call instead of leaving
+    // a confusing "failed" message in the thread.
+    if (await isWhatsAppReplyWindowExpired(args.conversationId, false)) {
+      return { ok: false as const, skipped: true, error: "WHATSAPP_WINDOW_EXPIRED" };
+    }
     return sendWhatsAppTextMessage({
       tenantId: args.tenantId,
       conversationId: args.conversationId,
