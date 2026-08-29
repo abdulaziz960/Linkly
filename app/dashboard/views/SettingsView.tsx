@@ -1452,7 +1452,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           </div>
 
           {!isGoogleMaps && !isWebsite && !(hideManualEmailSetup) ? <div className="settings-fields">
-            {!isWhatsApp && !isX ? <label>
+            {!isWhatsApp && !isX && !isTelegram && !isEmail ? <label>
               {t("اسم النشاط التجاري", "Business name")}
               <input value={settings.businessName} onChange={(event) => updateField("businessName", event.target.value)} />
             </label> : null}
