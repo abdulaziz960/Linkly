@@ -8,7 +8,7 @@ import { sendUnifonicSms } from "../../../../../lib/sms-send";
 import { prisma } from "../../../../../lib/prisma";
 import { formatMessageTime } from "../../../../../lib/time";
 import { normalizeWhatsAppPhone } from "../../../../../lib/whatsapp-inbox";
-import { sendWhatsAppTemplateMessage } from "../../../../../lib/whatsapp-send";
+import { isWhatsAppReplyWindowExpired, sendWhatsAppTemplateMessage } from "../../../../../lib/whatsapp-send";
 import { sendXDirectMessage, XApiError } from "../../../../../lib/x-api";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
@@ -310,28 +310,6 @@ async function sendTelegramTextMessage(botToken: string, chatId: string, text: s
   }
 
   return payload.result;
-}
-
-async function isWhatsAppReplyWindowExpired(conversationId: string, fallbackExpired: boolean) {
-  const lastCustomerMessage = await prisma.message.findFirst({
-    where: {
-      conversationId,
-      direction: "in",
-      createdAt: {
-        not: ""
-      }
-    },
-    orderBy: {
-      createdAt: "desc"
-    }
-  });
-
-  if (!lastCustomerMessage?.createdAt) return fallbackExpired;
-
-  const lastCustomerMessageAt = new Date(lastCustomerMessage.createdAt).getTime();
-  if (Number.isNaN(lastCustomerMessageAt)) return fallbackExpired;
-
-  return Date.now() - lastCustomerMessageAt >= 24 * 60 * 60 * 1000;
 }
 
 async function findOrCreateConversation(id: string, tenantId: string, snapshot?: ConversationSnapshot) {
