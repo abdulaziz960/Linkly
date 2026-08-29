@@ -5335,30 +5335,6 @@
   gap: 18px;
 }
 
-.connection-pill {
-  border-radius: 999px;
-  padding: 10px 16px;
-  background: var(--surface-soft);
-  color: var(--text-secondary);
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.connection-pill.connected {
-  background: var(--status-ok-bg);
-  color: var(--status-ok-text);
-}
-
-.connection-pill.pending {
-  background: var(--status-warn-bg-soft);
-  color: var(--status-warn-text);
-}
-
-.connection-pill.not_connected {
-  background: var(--status-danger-bg);
-  color: var(--status-danger-text);
-}
-
 .connection-status-box {
   display: grid;
   gap: 5px;
