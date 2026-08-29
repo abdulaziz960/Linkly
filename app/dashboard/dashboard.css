@@ -5609,139 +5609,9 @@
   line-height: 1;
 }
 
-.channels-overview-list,
 .channels-overview-grid {
   display: grid;
   gap: 14px;
-}
-
-.channels-overview-list-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 900;
-  font-size: 15px;
-  color: var(--ink);
-}
-
-.channels-overview-list-title span {
-  display: inline-grid;
-  place-items: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--brand) 14%, var(--surface));
-  color: var(--brand);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.channels-overview-empty {
-  margin: 0;
-  padding: 18px;
-  border: 1px dashed var(--line);
-  border-radius: 14px;
-  color: var(--muted);
-  font-weight: 800;
-  text-align: center;
-}
-
-.channel-row {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto auto auto;
-  align-items: center;
-  gap: 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px 16px;
-  background: var(--surface-soft);
-}
-
-.channel-row .channel-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-}
-
-.channel-row .channel-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-.channel-row-info {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.channel-row-info b {
-  font-size: 15px;
-}
-
-.channel-row-info span {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  /* The identifier's own dir="ltr" (for correctly-shaped phone numbers/
-     handles) otherwise pulls its text alignment to the left, splitting it
-     visually from the right-aligned channel name directly above it. */
-  text-align: right;
-}
-
-.channel-row-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.channel-row-status.connected {
-  background: var(--status-ok-bg);
-  color: var(--status-ok-text);
-}
-
-.channel-row-status.connected::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.channel-row-sync {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.channel-row-settings {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink);
-  font-weight: 900;
-  font-size: 13px;
-  padding: 8px 14px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.channel-row-settings:hover {
-  border-color: color-mix(in srgb, var(--brand) 46%, var(--line));
 }
 
 .channel-connect-grid {
@@ -5785,6 +5655,20 @@
   min-height: 34px;
 }
 
+.channel-connect-card .channel-connect-handle {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 34px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  /* dir="ltr" (for correctly-shaped phone numbers/handles) otherwise pulls
+     text alignment to the left, breaking out of this centered card. */
+  text-align: center;
+}
+
 .channel-connect-card button {
   width: 100%;
   border: 0;
@@ -5821,22 +5705,6 @@
   color: var(--muted);
   border: 1px solid var(--line);
   cursor: not-allowed;
-}
-
-@media (max-width: 860px) {
-  .channel-row {
-    grid-template-columns: 44px minmax(0, 1fr);
-    grid-template-areas:
-      "icon info"
-      "icon status"
-      "actions actions";
-  }
-
-  .channel-row-status,
-  .channel-row-sync,
-  .channel-row-settings {
-    justify-self: start;
-  }
 }
 
 .settings-onboarding {
