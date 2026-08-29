@@ -4,6 +4,7 @@ import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
+import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
 
 type StoreWhatsAppMessageInput = {
   phone: string;
@@ -49,6 +50,7 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
   const conversationId = `${scopedPrefix}conv-${phone}`;
   const messageId = input.messageId ? `wa-${input.messageId}` : `wa-${input.direction}-${phone}-${Date.now()}`;
   const startClosed = await shouldStartConversationClosed(tenantId, "whatsapp");
+  const ratingRecorded = input.direction === "in" ? await maybeRecordRatingReply(conversationId, input.text) : false;
 
   return prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
@@ -95,7 +97,7 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
       return { conversationId, message: existingMessage, isNew: false };
     }
 
-    if (input.direction === "in") {
+    if (input.direction === "in" && !ratingRecorded) {
       await restartBotFlowIfClosed(tx, conversationId);
     }
 
@@ -155,6 +157,9 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
   }).then(async (result) => {
     if (input.direction === "in" && result.isNew) {
       await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+    }
+    if (ratingRecorded) {
+      await sendRatingThanks(result.conversationId);
     }
     return result;
   });

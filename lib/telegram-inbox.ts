@@ -5,6 +5,7 @@ import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
+import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
 
 type StoreTelegramMessageInput = {
   tenantId?: string;
@@ -43,6 +44,7 @@ export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
   const conversationId = scopedId(tenantId, chatId);
   const messageId = input.messageId ? `tg-${input.messageId}` : `tg-${input.direction}-${chatId}-${Date.now()}`;
   const startClosed = await shouldStartConversationClosed(tenantId, "telegram");
+  const ratingRecorded = input.direction === "in" ? await maybeRecordRatingReply(conversationId, input.text) : false;
 
   return prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
@@ -78,7 +80,7 @@ export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
       }
     });
 
-    if (input.direction === "in") {
+    if (input.direction === "in" && !ratingRecorded) {
       await restartBotFlowIfClosed(tx, conversationId);
     }
 
@@ -128,6 +130,9 @@ export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
   }).then(async (result) => {
     if (input.direction === "in") {
       await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+    }
+    if (ratingRecorded) {
+      await sendRatingThanks(result.conversationId);
     }
     return result;
   });

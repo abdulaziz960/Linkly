@@ -4,6 +4,7 @@ import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
+import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
 
 type StoreFacebookMessageInput = {
   facebookUserId: string;
@@ -38,6 +39,7 @@ export async function storeFacebookMessage(input: StoreFacebookMessageInput) {
   const conversationId = `${scopedPrefix}fb-${facebookUserId}`;
   const messageId = input.messageId ? `fb-${input.messageId}` : `fb-${input.direction}-${facebookUserId}-${Date.now()}`;
   const startClosed = await shouldStartConversationClosed(tenantId, "facebook");
+  const ratingRecorded = input.direction === "in" ? await maybeRecordRatingReply(conversationId, input.text) : false;
 
   return prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
@@ -74,7 +76,7 @@ export async function storeFacebookMessage(input: StoreFacebookMessageInput) {
       }
     });
 
-    if (input.direction === "in") {
+    if (input.direction === "in" && !ratingRecorded) {
       await restartBotFlowIfClosed(tx, conversationId);
     }
 
@@ -128,6 +130,9 @@ export async function storeFacebookMessage(input: StoreFacebookMessageInput) {
   }).then(async (result) => {
     if (input.direction === "in") {
       await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+    }
+    if (ratingRecorded) {
+      await sendRatingThanks(result.conversationId);
     }
     return result;
   });

@@ -4,6 +4,7 @@ import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
+import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
 
 function stableId(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex").slice(0, 24);
@@ -36,6 +37,7 @@ export async function storeWebsiteMessage(input: IncomingWebsiteMessage) {
   const createdAt = new Date().toISOString();
   const messageId = `web-in-${stableId(`${id}:${createdAt}:${text}:${Math.random()}`)}`;
   const startClosed = await shouldStartConversationClosed(tenantId, "website");
+  const ratingRecorded = await maybeRecordRatingReply(id, text);
 
   return prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
@@ -64,7 +66,9 @@ export async function storeWebsiteMessage(input: IncomingWebsiteMessage) {
       }
     });
 
-    await restartBotFlowIfClosed(tx, id);
+    if (!ratingRecorded) {
+      await restartBotFlowIfClosed(tx, id);
+    }
 
     const message = await tx.message.create({
       data: {
@@ -81,6 +85,9 @@ export async function storeWebsiteMessage(input: IncomingWebsiteMessage) {
     return { conversationId: id, message };
   }).then(async (result) => {
     await runInboundMessageAutomations(result.conversationId, tenantId, text);
+    if (ratingRecorded) {
+      await sendRatingThanks(result.conversationId);
+    }
     return result;
   });
 }

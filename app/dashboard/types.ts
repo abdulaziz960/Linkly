@@ -68,6 +68,8 @@ export type Conversation = {
   lastMessageAt?: string;
   tags: string[];
   messages: Message[];
+  rating?: number;
+  ratingEmployee?: string;
 };
 
 export type Customer = {

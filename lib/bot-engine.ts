@@ -269,7 +269,8 @@ async function sendBotList(channel: BotChannel, node: BotNode, args: { tenantId:
   return sendBotText(channel, { ...args, text: displayText });
 }
 
-async function sendBotText(channel: BotChannel, args: { tenantId: string; conversationId: string; recipientId: string; text: string }) {
+export async function sendBotText(channel: BotChannel, args: { tenantId: string; conversationId: string; recipientId: string; text: string; author?: string }) {
+  const author = args.author ?? BOT_AUTHOR;
   if (channel === "whatsapp") {
     // A free-text send outside WhatsApp's 24h customer-service window is
     // guaranteed to be rejected by Meta (error 131047, "Re-engagement
@@ -284,7 +285,7 @@ async function sendBotText(channel: BotChannel, args: { tenantId: string; conver
       conversationId: args.conversationId,
       to: args.recipientId,
       text: args.text,
-      author: BOT_AUTHOR
+      author
     });
   }
 
@@ -294,7 +295,7 @@ async function sendBotText(channel: BotChannel, args: { tenantId: string; conver
       conversationId: args.conversationId,
       chatId: args.recipientId,
       text: args.text,
-      author: BOT_AUTHOR
+      author
     });
   }
 
@@ -304,7 +305,7 @@ async function sendBotText(channel: BotChannel, args: { tenantId: string; conver
       conversationId: args.conversationId,
       recipientId: args.recipientId,
       text: args.text,
-      author: BOT_AUTHOR
+      author
     });
   }
 
@@ -314,7 +315,7 @@ async function sendBotText(channel: BotChannel, args: { tenantId: string; conver
       conversationId: args.conversationId,
       recipientId: args.recipientId,
       text: args.text,
-      author: BOT_AUTHOR
+      author
     });
   }
 
@@ -324,14 +325,14 @@ async function sendBotText(channel: BotChannel, args: { tenantId: string; conver
       conversationId: args.conversationId,
       recipientId: args.recipientId,
       text: args.text,
-      author: BOT_AUTHOR
+      author
     });
   }
 
   return sendWebsiteTextMessage({
     conversationId: args.conversationId,
     text: args.text,
-    author: BOT_AUTHOR
+    author
   });
 }
 
