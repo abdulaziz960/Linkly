@@ -272,11 +272,13 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     // so land on the channel that was actually just connected instead of
     // always defaulting to WhatsApp.
     if (typeof window === "undefined") return "whatsapp";
-    const meta = new URLSearchParams(window.location.search).get("meta") || "";
+    const params = new URLSearchParams(window.location.search);
+    const meta = params.get("meta") || "";
     if (meta === "instagram-callback") return "instagram";
     if (meta === "facebook-callback") return "facebook";
     if (meta === "tiktok-callback") return "tiktok";
     if (meta === "callback") return "whatsapp";
+    if (params.has("gmail")) return "gmail";
     return "whatsapp";
   });
   const [loading, setLoading] = useState(true);
@@ -306,7 +308,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     // available, so land straight on the connected-channel modal instead of
     // silently dropping the result behind the closed overview.
     if (typeof window === "undefined") return false;
-    return new URLSearchParams(window.location.search).has("meta");
+    const params = new URLSearchParams(window.location.search);
+    return params.has("meta") || params.has("gmail");
   });
   const metaSignupDataRef = useRef<MetaSignupData>({});
   const hasSelectedChannelRef = useRef(false);
@@ -646,6 +649,19 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
     async function handleMetaMessage(event: MessageEvent) {
       console.log("[Linkly debug] window message event", { origin: event.origin, data: event.data });
+
+      if (event.origin === window.location.origin && (event.data as { type?: string } | null)?.type === "audiencew:email-oauth") {
+        const data = event.data as { status?: string; emailAddress?: string };
+        const response = await fetch("/api/email/integration");
+        const updated = response.ok ? await response.json() : null;
+        if (updated) setOauthEmailStatus(updated);
+        setSaveFeedback({
+          type: data.status === "connected" ? "success" : "error",
+          text: data.status === "connected" ? t("تم ربط Gmail بنجاح", "Gmail connected successfully") : t("تعذر ربط Gmail", "Couldn't connect Gmail")
+        });
+        setWizardStep(4);
+        return;
+      }
 
       if (event.origin === window.location.origin && (event.data as { type?: string } | null)?.type === "audiencew:meta-connected") {
         setLoading(true);
@@ -988,6 +1004,19 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     const tiktokWindow = window.open("/api/tiktok/connect", "audiencew-tiktok-connect", "width=520,height=760");
     if (!tiktokWindow) {
       window.location.assign(new URL("/api/tiktok/connect", window.location.origin).toString());
+    }
+  }
+
+  function connectGmail() {
+    if (typeof window === "undefined") return;
+    // Open as a real popup so the OAuth callback's window.opener.postMessage
+    // path fires and the connected status updates instantly - a plain link
+    // navigates the tab away and back, landing on unrecognized query params
+    // that leave the page defaulted to the WhatsApp channel with no
+    // indication anything was connected.
+    const gmailWindow = window.open("/api/email/oauth/gmail", "audiencew-gmail-connect", "width=520,height=700");
+    if (!gmailWindow) {
+      window.location.assign(new URL("/api/email/oauth/gmail", window.location.origin).toString());
     }
   }
 
@@ -1413,9 +1442,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 <h3>{t("ربط Gmail مباشرة", "Connect Gmail directly")}</h3>
                 <p>{t("اربط حساب Gmail عبر OAuth لإرسال واستقبال الرسائل تلقائياً بدون إعداد Webhook يدوي.", "Connect a Gmail account via OAuth to send and receive messages automatically, without any manual webhook setup.")}</p>
               </div>
-              <a className="btn primary" href="/api/email/oauth/gmail">
+              <button type="button" className="btn primary" onClick={connectGmail}>
                 {t("ربط Gmail", "Connect Gmail")}
-              </a>
+              </button>
             </div>
           ) : null}
           {isWebsite ? (
