@@ -650,19 +650,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     async function handleMetaMessage(event: MessageEvent) {
       console.log("[Linkly debug] window message event", { origin: event.origin, data: event.data });
 
-      if (event.origin === window.location.origin && (event.data as { type?: string } | null)?.type === "audiencew:email-oauth") {
-        const data = event.data as { status?: string; emailAddress?: string };
-        const response = await fetch("/api/email/integration");
-        const updated = response.ok ? await response.json() : null;
-        if (updated) setOauthEmailStatus(updated);
-        setSaveFeedback({
-          type: data.status === "connected" ? "success" : "error",
-          text: data.status === "connected" ? t("تم ربط Gmail بنجاح", "Gmail connected successfully") : t("تعذر ربط Gmail", "Couldn't connect Gmail")
-        });
-        setWizardStep(4);
-        return;
-      }
-
       if (event.origin === window.location.origin && (event.data as { type?: string } | null)?.type === "audiencew:meta-connected") {
         setLoading(true);
         const response = await fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`);
@@ -1008,16 +995,14 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }
 
   function connectGmail() {
-    if (typeof window === "undefined") return;
-    // Open as a real popup so the OAuth callback's window.opener.postMessage
-    // path fires and the connected status updates instantly - a plain link
-    // navigates the tab away and back, landing on unrecognized query params
-    // that leave the page defaulted to the WhatsApp channel with no
-    // indication anything was connected.
-    const gmailWindow = window.open("/api/email/oauth/gmail", "audiencew-gmail-connect", "width=520,height=700");
-    if (!gmailWindow) {
-      window.location.assign(new URL("/api/email/oauth/gmail", window.location.origin).toString());
-    }
+    // Google's OAuth pages send Cross-Origin-Opener-Policy headers that sever
+    // window.opener even for a real popup, so the callback's postMessage
+    // path can't be relied on - it ends up stuck open showing the full
+    // dashboard instead of closing. A plain full-page redirect avoids that
+    // orphaned window; the fallback query params it returns with
+    // (?channel=email&gmail=connected) are recognized on mount below to land
+    // straight back on Gmail's connected view.
+    window.location.assign(new URL("/api/email/oauth/gmail", window.location.origin).toString());
   }
 
   async function connectGoogleMaps() {
@@ -1480,6 +1465,22 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               {saving ? t("جاري التحقق...", "Checking...") : t("تحقق من الحالة", "Check status")}
             </button> : null}
           </div>
+          ) : null}
+
+          {hideManualEmailSetup ? (
+            <div className="settings-fields">
+              <label>
+                {t("حساب Gmail", "Gmail account")}
+                <input dir="ltr" value={oauthEmailStatus?.emailAddress || ""} readOnly />
+              </label>
+              <label>
+                {t("حالة الربط", "Connection status")}
+                <div className="connection-status-box connected">
+                  <b>{statusLabel("connected", t)}</b>
+                  <span>{t("تم ربط Gmail بنجاح، ويعمل الإرسال والاستقبال تلقائيًا.", "Gmail is connected, and sending/receiving works automatically.")}</span>
+                </div>
+              </label>
+            </div>
           ) : null}
 
           {!isGoogleMaps && !isWebsite && !isGmail ? <div className="settings-fields">
