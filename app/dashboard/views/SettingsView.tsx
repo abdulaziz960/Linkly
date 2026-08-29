@@ -301,7 +301,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [channelBotLoading, setChannelBotLoading] = useState(false);
   const [showWebhookToken, setShowWebhookToken] = useState(false);
   const [overviewStatuses, setOverviewStatuses] = useState<Partial<Record<ChannelId, IntegrationSettings>>>({});
-  const [overviewLoading, setOverviewLoading] = useState(true);
   const [wizardModalOpen, setWizardModalOpen] = useState(() => {
     // Popups fall back to a full-page redirect when window.opener isn't
     // available, so land straight on the connected-channel modal instead of
@@ -396,7 +395,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   // selected in the wizard below — fetch them all in parallel on mount.
   useEffect(() => {
     let cancelled = false;
-    setOverviewLoading(true);
     Promise.all(
       channels.map((channel) =>
         fetch(`/api/settings/integration?channel=${apiChannel(channel.id)}`)
@@ -411,7 +409,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         if (data) map[id] = data;
       });
       setOverviewStatuses(map);
-      setOverviewLoading(false);
     });
     return () => {
       cancelled = true;
@@ -432,7 +429,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     }
     return overviewStatuses[channel]?.status === "connected";
   };
-  const connectedOverviewChannels = channels.filter((channel) => isChannelConnected(channel.id));
+  const channelHandle = (channelId: ChannelId) => {
+    const data = overviewStatuses[channelId];
+    return channelId === "gmail" ? overviewGmailAddress : data?.phoneNumber || data?.wabaName || data?.businessName;
+  };
   const comingSoonChannels: Array<{ id: string; title: string }> = [
     { id: "linkedin", title: t("لينكد إن", "LinkedIn") },
     { id: "youtube", title: t("يوتيوب", "YouTube") }
@@ -1302,51 +1302,18 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           </button>
         </div>
 
-        <div className="channels-overview-list">
-          {overviewLoading ? (
-            <p className="channels-overview-empty">{t("جاري تحميل القنوات...", "Loading channels...")}</p>
-          ) : connectedOverviewChannels.length === 0 ? (
-            <p className="channels-overview-empty">{t("لا توجد قنوات مربوطة بعد — اختر قناة من الأسفل لربطها.", "No channels connected yet — pick one below to connect it.")}</p>
-          ) : (
-            connectedOverviewChannels.map((channel) => {
-              const data = overviewStatuses[channel.id];
-              const handle =
-                channel.id === "gmail"
-                  ? overviewGmailAddress
-                  : data?.phoneNumber || data?.wabaName || data?.businessName;
-
-              return (
-                <div className="channel-row" key={channel.id}>
-                  <span className={`channel-icon channel-icon-${channel.id}`}>
-                    <ChannelIcon id={channel.id} />
-                  </span>
-                  <div className="channel-row-info">
-                    <b>{channel.title}</b>
-                    {handle ? <span dir="ltr">{handle}</span> : null}
-                  </div>
-                  <span className="channel-row-status connected">{t("متصل", "Connected")}</span>
-                  <button type="button" className="channel-row-settings" onClick={() => goToChannelSetup(channel.id)}>
-                    <span aria-hidden="true">⚙️</span>
-                    {t("إعدادات القناة", "Channel settings")}
-                  </button>
-                </div>
-              );
-            })
-          )}
-        </div>
-
         <div className="channels-overview-grid">
-          <div className="channels-overview-list-title">{t("ربط قناة جديدة", "Connect a new channel")}</div>
           <div className="channel-connect-grid">
             {channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id)).map((channel) => {
               const connected = isChannelConnected(channel.id);
+              const handle = connected ? channelHandle(channel.id) : undefined;
               return (
                 <div className="channel-connect-card" key={channel.id}>
                   <span className={`channel-icon channel-icon-${channel.id}`}>
                     <ChannelIcon id={channel.id} />
                   </span>
                   <b>{channel.title}</b>
-                  <small>{channel.description}</small>
+                  {handle ? <span className="channel-connect-handle" dir="ltr">{handle}</span> : <small>{channel.description}</small>}
                   <button type="button" className={connected ? "connected" : ""} onClick={() => connected ? goToChannelSetup(channel.id) : connectChannel(channel.id)}>
                     {connected ? t("متصل — إدارة", "Connected — manage") : t("ربط", "Connect")}
                   </button>
