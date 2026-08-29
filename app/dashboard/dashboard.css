@@ -5688,6 +5688,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* The identifier's own dir="ltr" (for correctly-shaped phone numbers/
+     handles) otherwise pulls its text alignment to the left, splitting it
+     visually from the right-aligned channel name directly above it. */
+  text-align: right;
 }
 
 .channel-row-status {

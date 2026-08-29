@@ -1327,11 +1327,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         </div>
 
         <div className="channels-overview-list">
-          <div className="channels-overview-list-title">
-            {t("القنوات المربوطة", "Connected channels")}
-            <span>{connectedOverviewChannels.length}</span>
-          </div>
-
           {overviewLoading ? (
             <p className="channels-overview-empty">{t("جاري تحميل القنوات...", "Loading channels...")}</p>
           ) : connectedOverviewChannels.length === 0 ? (
