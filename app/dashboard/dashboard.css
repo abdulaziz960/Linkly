@@ -5529,6 +5529,13 @@
   box-shadow: none;
   min-height: 0;
   padding: 0;
+  /* The modal is a flex column that scrolls (overflow-y: auto) once its
+     content is taller than the viewport. Flex items shrink below their
+     content size by default, and since this content overflows visibly
+     rather than clipping, a shrunk section (e.g. the connected-channel
+     banner + auto-reply toggle) painted past its own box straight into
+     the next section instead of the modal simply scrolling further. */
+  flex-shrink: 0;
 }
 
 .channel-setup-modal .settings-onboarding {
