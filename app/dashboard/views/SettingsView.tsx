@@ -1010,7 +1010,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       return (
         <div className="meta-wizard-panel">
           <div className="connected-channel-note">
-            <b>{isWebsite ? t("ودجت الموقع جاهز", "Website widget ready") : isSms ? t("SMS متصل", "SMS connected") : isTikTok ? t("TikTok متصل", "TikTok connected") : isGmail ? t("Gmail متصل", "Gmail connected") : isGoogleMaps ? t("خرائط Google متصلة", "Google Maps connected") : isX ? t("X جاهز للربط", "X ready to connect") : isTelegram ? t("تيليجرام متصل", "Telegram connected") : isFacebook ? t("فيسبوك متصل", "Facebook connected") : isInstagram ? t("Instagram متصل", "Instagram connected") : t("واتساب متصل", "WhatsApp connected")}</b>
+            <b>{isWebsite ? t("ودجت الموقع جاهز", "Website widget ready") : isSms ? t("SMS متصل", "SMS connected") : isTikTok ? t("TikTok متصل", "TikTok connected") : isGmail ? t("Gmail متصل", "Gmail connected") : isZapier ? t("Zapier متصل", "Zapier connected") : isGoogleMaps ? t("خرائط Google متصلة", "Google Maps connected") : isX ? t("X متصل", "X connected") : isTelegram ? t("تيليجرام متصل", "Telegram connected") : isFacebook ? t("فيسبوك متصل", "Facebook connected") : isInstagram ? t("Instagram متصل", "Instagram connected") : t("واتساب متصل", "WhatsApp connected")}</b>
             <span>
               {isGmail && oauthEmailStatus?.emailAddress
                 ? t(`الحساب المتصل: ${oauthEmailStatus.emailAddress}`, `Connected account: ${oauthEmailStatus.emailAddress}`)
@@ -1401,7 +1401,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
       {showIntegrationData && (
         <form className="settings-form" onSubmit={saveSettings}>
-          {isGmail ? (
+          {isGmail && !isConnected ? (
             <div className="provider-connect-card">
               <span className="provider-connect-icon gmail" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
@@ -1435,6 +1435,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </div>
             </div>
           ) : null}
+          {!(isGmail && !isConnected) ? (
           <div className="settings-form-head">
             <div>
               <h2>{isWebsite ? t("ودجت الموقع الإلكتروني", "Website widget") : isGoogleMaps ? t("ربط Google Business", "Connect Google Business") : isWhatsApp ? t("ربط واتساب", "Connect WhatsApp") : isZapier ? t("ربط Zapier لاستقبال العملاء", "Connect Zapier lead intake") : hideManualEmailSetup ? t("حساب البريد المرتبط", "Connected email account") : isX ? t("بيانات الحساب", "Account details") : t("بيانات الربط والويبهوك", "Connection and webhook details")}</h2>
@@ -1450,8 +1451,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               {saving ? t("جاري التحقق...", "Checking...") : t("تحقق من الحالة", "Check status")}
             </button> : null}
           </div>
+          ) : null}
 
-          {!isGoogleMaps && !isWebsite && !(hideManualEmailSetup) ? <div className="settings-fields">
+          {!isGoogleMaps && !isWebsite && !isGmail ? <div className="settings-fields">
             {!isWhatsApp && !isX && !isTelegram && !isEmail ? <label>
               {t("اسم النشاط التجاري", "Business name")}
               <input value={settings.businessName} onChange={(event) => updateField("businessName", event.target.value)} />
@@ -1694,7 +1696,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             {testFeedback && <p className={`meta-test-feedback ${testFeedback.type}`}>{testFeedback.text}</p>}
           </div> : null}
 
-          {!isGoogleMaps && !isWebsite && !isInstagram && !isFacebook && !isWhatsApp && !isX && !(hideManualEmailSetup) ? <div className="webhook-card">
+          {!isGoogleMaps && !isWebsite && !isInstagram && !isFacebook && !isWhatsApp && !isX && !isGmail ? <div className="webhook-card">
             <div>
               <h3>{t("إعدادات الويبهوك", "Webhook settings")} — {isZapier ? "Zapier" : isEmail ? (isGmail ? "Gmail" : t("البريد الإلكتروني", "Email")) : isTikTok ? "TikTok" : isSms ? "SMS" : isX ? "X" : isTelegram ? t("تيليجرام", "Telegram") : isFacebook ? t("فيسبوك", "Facebook") : isInstagram ? "Instagram" : t("واتساب", "WhatsApp")}</h3>
               <p>{isEmail ? t("انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة.", "Copy this link along with the Secret Token and add it to Zapier, Make, or your email provider to send inbound messages to the platform.") : isGoogleMaps ? t("هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة.", "The system uses this link to sync Google reviews on demand or periodically within the platform.") : isX ? t("استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات.", "Use this link as the Webhook URL in X when the Account Activity API is available. The Webhook Secret protects the requests.") : isTelegram ? t("سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة.", "This link will be activated automatically in Telegram once you save the Bot Token. The Secret Token protects the webhook from unknown requests.") : isFacebook ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Facebook Messenger messages.") : isInstagram ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Instagram messages and comments.") : isTikTok ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق TikTok لاستقبال رسائل وتعليقات TikTok بعد موافقة Business Messaging.", "Copy the webhook link and Verify Token and add them to your TikTok app settings to receive TikTok messages and comments once Business Messaging is approved.") : isSms ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات Unifonic لاستقبال ردود العملاء عبر SMS.", "Copy the webhook link and Verify Token and add them to your Unifonic settings to receive customer replies via SMS.") : t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive WhatsApp messages.")}</p>
