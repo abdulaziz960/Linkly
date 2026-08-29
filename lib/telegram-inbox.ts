@@ -4,6 +4,7 @@ import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
+import { shouldStartConversationClosed } from "./bot-engine";
 
 type StoreTelegramMessageInput = {
   tenantId?: string;
@@ -41,6 +42,7 @@ export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
   const customerId = scopedId(tenantId, chatId);
   const conversationId = scopedId(tenantId, chatId);
   const messageId = input.messageId ? `tg-${input.messageId}` : `tg-${input.direction}-${chatId}-${Date.now()}`;
+  const startClosed = await shouldStartConversationClosed(tenantId, "telegram");
 
   return prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
@@ -68,7 +70,7 @@ export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
         customerId,
         channel: "telegram",
         lastMessage: input.text,
-        status: "unassigned",
+        status: startClosed ? "closed" : "unassigned",
         assignee: "بدون موظف",
         unread: 0,
         windowExpired: 0,

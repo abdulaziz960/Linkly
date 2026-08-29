@@ -3,6 +3,7 @@ import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
+import { shouldStartConversationClosed } from "./bot-engine";
 
 type StoreInstagramMessageInput = {
   instagramUserId: string;
@@ -46,6 +47,7 @@ export async function storeInstagramMessage(input: StoreInstagramMessageInput) {
   const customerId = `${scopedPrefix}ig-${instagramUserId}`;
   const conversationId = `${scopedPrefix}ig-${instagramUserId}`;
   const messageId = input.messageId ? `ig-${input.messageId}` : `ig-${input.direction}-${instagramUserId}-${Date.now()}`;
+  const startClosed = await shouldStartConversationClosed(tenantId, "instagram");
 
   return prisma.$transaction(async (tx) => {
     const existingCustomer = await tx.customer.findUnique({
@@ -79,7 +81,7 @@ export async function storeInstagramMessage(input: StoreInstagramMessageInput) {
         customerId,
         channel: "instagram",
         lastMessage: input.text,
-        status: "unassigned",
+        status: startClosed ? "closed" : "unassigned",
         assignee: "بدون موظف",
         unread: 0,
         windowExpired: 0,
