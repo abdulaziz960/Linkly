@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import type { Employee } from "../types";
+import type { Conversation, Employee } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 
@@ -68,11 +68,23 @@ export function formatPermissions(permissions: string[]) {
   return permissions.join(" + ");
 }
 
+// The all-time average, unlike Reports' employee table which is scoped to
+// whatever date range is selected there - an employee's profile here should
+// reflect their overall rating regardless of when it was earned.
+function employeeOverallRating(employee: Employee, conversations: Conversation[]) {
+  const rated = conversations.filter((conversation) => conversation.ratingEmployee === employee.name && conversation.rating);
+  if (!rated.length) return null;
+  const average = rated.reduce((sum, conversation) => sum + (conversation.rating || 0), 0) / rated.length;
+  return { average: Math.round(average * 10) / 10, count: rated.length };
+}
+
 export default function EmployeesView({
   employees,
+  conversations,
   onRefreshData
 }: {
   employees: Employee[];
+  conversations: Conversation[];
   onRefreshData: () => Promise<void>;
 }) {
   const { t } = useLanguage();
@@ -188,15 +200,20 @@ export default function EmployeesView({
       t("البريد الإلكتروني", "Email"),
       t("الدور", "Role"),
       t("الحالة", "Status"),
-      t("الصلاحيات", "Permissions")
+      t("الصلاحيات", "Permissions"),
+      t("التقييم", "Rating")
     ];
-    const rows = employees.map((employee) => [
-      employee.name,
-      employee.email,
-      employee.role,
-      employee.status,
-      employee.permissions
-    ]);
+    const rows = employees.map((employee) => {
+      const rating = employeeOverallRating(employee, conversations);
+      return [
+        employee.name,
+        employee.email,
+        employee.role,
+        employee.status,
+        employee.permissions,
+        rating ? `${rating.average} (${rating.count})` : t("غير متاح", "N/A")
+      ];
+    });
     downloadCsv("employees.csv", header, rows);
   }
 
@@ -217,11 +234,14 @@ export default function EmployeesView({
                 <th>{t("الدور", "Role")}</th>
                 <th>{t("الحالة", "Status")}</th>
                 <th>{t("الصلاحيات", "Permissions")}</th>
+                <th>{t("التقييم", "Rating")}</th>
                 <th>{t("إجراء", "Action")}</th>
               </tr>
             </thead>
             <tbody>
-              {employees.map((employee) => (
+              {employees.map((employee) => {
+                const rating = employeeOverallRating(employee, conversations);
+                return (
                 <tr key={employee.id}>
                   <td>
                     <b>{employee.name}</b>
@@ -230,12 +250,14 @@ export default function EmployeesView({
                   <td>{employeeRoleLabel(employee.role, t)}</td>
                   <td><span className={employee.status === "متصل" ? "state ok" : employee.status === "مشغول" ? "state warn" : "state muted"}>{employeeStatusLabel(employee.status, t)}</span></td>
                   <td>{employee.permissions}</td>
+                  <td>{rating ? <span className="employee-rating">⭐ {rating.average} <small>({rating.count})</small></span> : <span className="table-subtitle">{t("غير متاح", "N/A")}</span>}</td>
                   <td className="row-actions">
                     <button className="btn soft" type="button" onClick={() => openEditForm(employee)}>{t("تعديل", "Edit")}</button>
                     <button className="btn danger" type="button" onClick={() => deleteEmployee(employee)}>{t("حذف", "Delete")}</button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
