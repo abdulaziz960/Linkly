@@ -3,7 +3,7 @@
 import { DragEvent, FormEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
-import type { Team } from "../types";
+import type { Employee, Team } from "../types";
 
 type BotListOption = { id: string; label: string; next: string | null };
 
@@ -11,6 +11,7 @@ type BotNodeContent =
   | { kind: "message"; text: string; next: string | null }
   | { kind: "list"; text: string; options: BotListOption[] }
   | { kind: "team"; teamName: string }
+  | { kind: "employee"; employeeName: string }
   | { kind: "close"; text: string };
 
 type BotNode = {
@@ -44,15 +45,16 @@ type ReadyStep = {
   kind?: "flow" | "step";
 };
 
-const nodeTypes = ["إرسال رسالة", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "تحويل لفريق", "إغلاق المحادثة"];
+const nodeTypes = ["إرسال رسالة", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
 const LIST_NODE_TYPES = new Set(["إرسال قائمة قصيرة", "إرسال قائمة طويلة"]);
-const TERMINAL_NODE_TYPES = new Set(["تحويل لفريق", "إغلاق المحادثة"]);
+const TERMINAL_NODE_TYPES = new Set(["تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"]);
 
 const nodeTypeLabelsEn: Record<string, string> = {
   "إرسال رسالة": "Send a message",
   "إرسال قائمة قصيرة": "Send a short list",
   "إرسال قائمة طويلة": "Send a long list",
   "تحويل لفريق": "Transfer to a team",
+  "تحويل لموظف": "Transfer to an employee",
   "إغلاق المحادثة": "Close the conversation"
 };
 
@@ -162,6 +164,7 @@ const channelLabelsEn: Record<BotChannel, string> = {
 function emptyContentFor(type: string): BotNodeContent {
   if (LIST_NODE_TYPES.has(type)) return { kind: "list", text: "", options: [{ id: crypto.randomUUID(), label: "", next: null }] };
   if (type === "تحويل لفريق") return { kind: "team", teamName: "" };
+  if (type === "تحويل لموظف") return { kind: "employee", employeeName: "" };
   if (type === "إغلاق المحادثة") return { kind: "close", text: "" };
   return { kind: "message", text: "", next: null };
 }
@@ -200,7 +203,7 @@ function connectorAnchors(node: BotNode): Array<{ key: string; optionId: string 
   return [];
 }
 
-export default function BotView({ teams }: { teams: Team[] }) {
+export default function BotView({ teams, employees }: { teams: Team[]; employees: Employee[] }) {
   const { t } = useLanguage();
   const [channel, setChannel] = useState<BotChannel>("whatsapp");
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -415,6 +418,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
     if (content.kind === "message" && !content.text.trim()) return;
     if (content.kind === "list" && !content.text.trim()) return;
     if (content.kind === "team" && !content.teamName.trim() && teams.length) return;
+    if (content.kind === "employee" && !content.employeeName.trim() && employees.length) return;
 
     let nextNodes: BotNode[];
     if (editingNodeId) {
@@ -695,6 +699,7 @@ export default function BotView({ teams }: { teams: Team[] }) {
               {node.content.kind === "message" ? <small>{node.content.text}</small> : null}
               {node.content.kind === "close" ? <small>{node.content.text || t("(بدون رسالة إغلاق)", "(no closing message)")}</small> : null}
               {node.content.kind === "team" ? <small>{node.content.teamName || t("لم يُحدد فريق", "No team chosen")}</small> : null}
+              {node.content.kind === "employee" ? <small>{node.content.employeeName || t("لم يُحدد موظف", "No employee chosen")}</small> : null}
               {node.content.kind === "message" ? (
                 <button
                   className={`bot-connector ${node.content.next ? "linked" : ""}`}
@@ -792,6 +797,22 @@ export default function BotView({ teams }: { teams: Team[] }) {
                       />
                     ) : (
                       <p className="muted-copy">{t("ما فيه فرق منشأة بعد. أنشئ فريق أولاً من صفحة الفرق.", "No teams created yet. Create a team first from the Teams page.")}</p>
+                    )}
+                  </label>
+                ) : null}
+
+                {draftContent.kind === "employee" ? (
+                  <label>
+                    <span>{t("الموظف", "Employee")}</span>
+                    {employees.length ? (
+                      <CustomSelect
+                        value={draftContent.employeeName}
+                        onChange={(value) => setDraftContent({ kind: "employee", employeeName: value })}
+                        options={employees.map((employee) => ({ value: employee.name, label: employee.name }))}
+                        placeholder={t("اختر موظف", "Choose an employee")}
+                      />
+                    ) : (
+                      <p className="muted-copy">{t("ما فيه موظفين مضافين بعد. أضف موظف أولاً من صفحة الموظفين.", "No employees added yet. Add an employee first from the Employees page.")}</p>
                     )}
                   </label>
                 ) : null}
