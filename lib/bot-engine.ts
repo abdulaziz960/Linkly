@@ -23,6 +23,7 @@ export type BotNodeContent =
   | { kind: "message"; text: string; next: string | null }
   | { kind: "list"; text: string; options: BotListOption[] }
   | { kind: "team"; teamName: string }
+  | { kind: "employee"; employeeName: string }
   | { kind: "close"; text: string };
 
 export type BotNodeInput = {
@@ -47,6 +48,7 @@ const BOT_AUTHOR = "الرد الآلي";
 const LIST_NODE_TYPES = new Set(["إرسال قائمة قصيرة", "إرسال قائمة طويلة"]);
 const MESSAGE_NODE_TYPE = "إرسال رسالة";
 const TEAM_NODE_TYPE = "تحويل لفريق";
+const EMPLOYEE_NODE_TYPE = "تحويل لموظف";
 const CLOSE_NODE_TYPE = "إغلاق المحادثة";
 
 function settingsId(tenantId: string, channel: BotChannel) {
@@ -381,6 +383,18 @@ async function executeFrom(
       await prisma.conversation.update({
         where: { id: ctx.conversationId },
         data: { status: assignee ? "assigned" : "unassigned", assignee: assignee || teamName || "بدون موظف", botWaitingNodeId: "" }
+      });
+      return;
+    }
+
+    if (node.type === EMPLOYEE_NODE_TYPE && node.content.kind === "employee") {
+      const employeeName = node.content.employeeName.trim();
+      const employee = employeeName
+        ? await prisma.employee.findFirst({ where: { name: employeeName, tenantId: ctx.tenantId } })
+        : null;
+      await prisma.conversation.update({
+        where: { id: ctx.conversationId },
+        data: { status: employee ? "assigned" : "unassigned", assignee: employee?.name || "بدون موظف", botWaitingNodeId: "" }
       });
       return;
     }

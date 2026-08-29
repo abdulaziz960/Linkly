@@ -80,4 +80,57 @@ describe("new conversations and the auto-reply bot", () => {
     const afterTransfer = await prisma.conversation.findUnique({ where: { id: conversationId } });
     expect(afterTransfer?.status).not.toBe("closed");
   });
+
+  it("reopens and assigns the conversation when the bot transfers it to a named employee", async () => {
+    const { setBotEnabled, saveBotNodes, runWhatsAppBot } = await import("../lib/bot-engine");
+    const { storeWhatsAppMessage } = await import("../lib/whatsapp-inbox");
+    const { prisma } = await import("../lib/prisma");
+
+    await prisma.employee.create({
+      data: {
+        id: "employee-bot-transfer",
+        name: "خالد",
+        role: "موظف",
+        status: "نشط",
+        permissions: "",
+        email: "khaled@example.com",
+        initial: "خ",
+        tenantId: "tenant-bot-employee-transfer"
+      }
+    });
+
+    await setBotEnabled("tenant-bot-employee-transfer", "whatsapp", true);
+    await saveBotNodes("tenant-bot-employee-transfer", "whatsapp", [
+      { type: "تحويل لموظف", title: "تحويل", content: { kind: "employee", employeeName: "خالد" } }
+    ]);
+
+    const stored = await storeWhatsAppMessage({ tenantId: "tenant-bot-employee-transfer", phone: "966500000005", text: "أحتاج مساعدة", direction: "in" });
+    const conversationId = stored.conversationId;
+
+    await runWhatsAppBot({ tenantId: "tenant-bot-employee-transfer", conversationId, phone: "966500000005" });
+
+    const afterTransfer = await prisma.conversation.findUnique({ where: { id: conversationId } });
+    expect(afterTransfer?.status).toBe("assigned");
+    expect(afterTransfer?.assignee).toBe("خالد");
+  });
+
+  it("falls back to unassigned when the transfer targets an employee that doesn't exist", async () => {
+    const { setBotEnabled, saveBotNodes, runWhatsAppBot } = await import("../lib/bot-engine");
+    const { storeWhatsAppMessage } = await import("../lib/whatsapp-inbox");
+    const { prisma } = await import("../lib/prisma");
+
+    await setBotEnabled("tenant-bot-employee-missing", "whatsapp", true);
+    await saveBotNodes("tenant-bot-employee-missing", "whatsapp", [
+      { type: "تحويل لموظف", title: "تحويل", content: { kind: "employee", employeeName: "موظف غير موجود" } }
+    ]);
+
+    const stored = await storeWhatsAppMessage({ tenantId: "tenant-bot-employee-missing", phone: "966500000006", text: "أحتاج مساعدة", direction: "in" });
+    const conversationId = stored.conversationId;
+
+    await runWhatsAppBot({ tenantId: "tenant-bot-employee-missing", conversationId, phone: "966500000006" });
+
+    const afterTransfer = await prisma.conversation.findUnique({ where: { id: conversationId } });
+    expect(afterTransfer?.status).toBe("unassigned");
+    expect(afterTransfer?.assignee).toBe("بدون موظف");
+  });
 });

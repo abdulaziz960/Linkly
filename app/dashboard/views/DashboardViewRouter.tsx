@@ -62,7 +62,7 @@ export default function DashboardViewRouter({
 }: DashboardViewRouterProps) {
   if (view === "contacts") return <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "tags") return <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
-  if (view === "bot") return <BotView teams={teams} />;
+  if (view === "bot") return <BotView teams={teams} employees={employees} />;
   if (view === "automations") {
     return (
       <AutomationsView
