@@ -16,7 +16,6 @@ type StoreXMessageInput = {
   messageId?: string;
   author?: string;
   receivedAt?: Date;
-  conversationKey?: string;
   recipientId?: string;
   source?: {
     type: string;
@@ -52,7 +51,12 @@ export async function storeXMessage(input: StoreXMessageInput) {
   const tenantId = input.tenantId || "tenant-demo";
   const activityAt = (input.receivedAt ?? new Date()).toISOString();
   const xUserId = cleanXUserId(input.xUserId);
-  const identity = input.conversationKey?.trim() || xUserId;
+  // Match Instagram's threading model (lib/instagram-inbox.ts): the
+  // customer/conversation identity is always the person's platform user id
+  // alone, regardless of whether the message is a DM or a public post
+  // reply/mention - so a DM and a comment from the same X user land in one
+  // unified conversation instead of two separate ones.
+  const identity = xUserId;
   const recipientId = input.recipientId?.trim() || xUserId;
   const name = getCustomerName(xUserId, input.name);
   const customerId = scopedId(tenantId, identity);

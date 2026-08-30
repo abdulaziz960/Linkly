@@ -101,7 +101,7 @@ describe("X realtime webhook - public reply/comment events", () => {
     expect(response.status).toBe(401);
   });
 
-  it("uses the same conversation grouping key as the mentions poller for the same thread", async () => {
+  it("uses the same conversation as the mentions poller for the same customer", async () => {
     await seedXIntegration();
 
     const { raw, signature } = signedBody({
@@ -132,18 +132,16 @@ describe("X realtime webhook - public reply/comment events", () => {
     const { prisma } = await import("../lib/prisma");
     const webhookMessage = await prisma.message.findFirst({ where: { sourceId: "comment-456" } });
 
-    // The polling path (lib/x-public-sync.ts) computes conversation ids from
-    // conversationKey `public:${root}:${authorId}` where root is
-    // conversation_id/referenced-tweet id. Storing the exact same comment
-    // again through that path must land in the same conversation, not a
-    // second one, or the customer's thread splits in two depending on which
-    // path happened to deliver first.
+    // Conversation identity is always the customer's X user id alone
+    // (matching lib/instagram-inbox.ts's threading model), regardless of
+    // whether the message came in as a DM or a public comment - so a
+    // second event for the same customer_id must land in the same
+    // conversation, not a second one.
     const { storeXMessage } = await import("../lib/x-inbox");
     const polled = await storeXMessage({
       tenantId: TENANT_ID,
       xUserId: "customer-2",
       recipientId: "customer-2",
-      conversationKey: "public:our-post-888:customer-2",
       text: "تعليق ثاني من نفس العميل",
       direction: "in",
       messageId: "post-comment-456",
@@ -198,5 +196,32 @@ describe("X realtime webhook - direct message events", () => {
     const message = await prisma.message.findFirst({ where: { sourceType: "x_dm", text: "مرحبا، عندي استفسار" } });
     expect(message).toBeTruthy();
     expect(message?.direction).toBe("in");
+  });
+
+  it("puts a DM and a public comment from the same customer in one unified conversation", async () => {
+    await seedXIntegration();
+    const { storeXMessage } = await import("../lib/x-inbox");
+
+    const dm = await storeXMessage({
+      tenantId: TENANT_ID,
+      xUserId: "customer-4",
+      recipientId: "customer-4",
+      text: "استفسار عبر الخاص",
+      direction: "in",
+      messageId: "dm-event-4",
+      source: { type: "x_dm", id: "conv-4" }
+    });
+
+    const comment = await storeXMessage({
+      tenantId: TENANT_ID,
+      xUserId: "customer-4",
+      recipientId: "customer-4",
+      text: "تعليق على منشور",
+      direction: "in",
+      messageId: "post-comment-4",
+      source: { type: "x_post", id: "comment-4" }
+    });
+
+    expect(comment.conversationId).toBe(dm.conversationId);
   });
 });

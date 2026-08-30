@@ -44,12 +44,6 @@ function sourceLabel(post: XPost) {
   return "منشن على X";
 }
 
-function threadRoot(post: XPost) {
-  const repliedTo = post.referenced_tweets?.find((item) => item.type === "replied_to")?.id;
-  const quoted = post.referenced_tweets?.find((item) => item.type === "quoted")?.id;
-  return post.conversation_id || repliedTo || quoted || post.id || "unknown";
-}
-
 export async function syncXMentionsForTenant(tenantId: string) {
   const settings = await getIntegrationSettings("x", tenantId);
   const ownUserId = settings.wabaId.trim();
@@ -65,7 +59,7 @@ export async function syncXMentionsForTenant(tenantId: string) {
   // another 429 every single minute.
   const rateLimitRow = await prisma.integrationSetting.findUnique({
     where: { id: settings.id },
-    select: { xMentionsRateLimitedUntil: true }
+    select: { xMentionsRateLimitedUntil: true, xMentionsSyncedUntilId: true }
   });
   const rateLimitedUntil = Date.parse(rateLimitRow?.xMentionsRateLimitedUntil || "");
   if (Number.isFinite(rateLimitedUntil) && rateLimitedUntil > Date.now()) {
@@ -120,20 +114,48 @@ export async function syncXMentionsForTenant(tenantId: string) {
       .map((user) => [String(user.id), user])
   );
 
+  // Every poll re-fetches the same last-50 window, so without a watermark an
+  // already-stored mention that the user then deletes from the dashboard
+  // gets reprocessed by the next poll and the deleted conversation silently
+  // comes back. X's ids are snowflake integers - compare as BigInt, too
+  // large for a JS Number.
+  const syncedUntilId = rateLimitRow?.xMentionsSyncedUntilId || "";
+  const isNewerThanWatermark = (id: string) => {
+    if (!syncedUntilId) return true;
+    try {
+      return BigInt(id) > BigInt(syncedUntilId);
+    } catch {
+      return true;
+    }
+  };
+
   const posts = (payload.data || []).filter((post) => {
     if (!post.id || !post.author_id || !post.text?.trim()) return false;
-    return String(post.author_id) !== ownUserId;
+    if (String(post.author_id) === ownUserId) return false;
+    return isNewerThanWatermark(post.id);
   });
+
+  const newestId = (payload.data || [])
+    .map((post) => post.id)
+    .filter((id): id is string => Boolean(id))
+    .reduce((max, id) => {
+      try {
+        return !max || BigInt(id) > BigInt(max) ? id : max;
+      } catch {
+        return max;
+      }
+    }, syncedUntilId);
+  if (newestId && newestId !== syncedUntilId) {
+    await prisma.integrationSetting.update({ where: { id: settings.id }, data: { xMentionsSyncedUntilId: newestId } }).catch(() => {});
+  }
 
   let synced = 0;
   for (const post of posts) {
     const authorId = String(post.author_id);
-    const root = threadRoot(post);
     await storeXMessage({
       tenantId,
       xUserId: authorId,
       recipientId: authorId,
-      conversationKey: `public:${root}:${authorId}`,
       name: displayName(users.get(authorId)),
       text: post.text || "منشور وارد من X",
       direction: "in",

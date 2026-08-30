@@ -304,6 +304,8 @@ model IntegrationSetting {
   googleRefreshToken String @default("") @map("google_refresh_token")
   xMentionsRateLimitedUntil String @default("") @map("x_mentions_rate_limited_until")
   xDmRateLimitedUntil String @default("") @map("x_dm_rate_limited_until")
+  xDmSyncedUntilId String @default("") @map("x_dm_synced_until_id")
+  xMentionsSyncedUntilId String @default("") @map("x_mentions_synced_until_id")
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 
