@@ -175,23 +175,20 @@ export async function ensureXActivitySubscriptions(input: {
     // the post.* mention/reply/quote events need it, to say whose mentions
     // to watch.
     const isDmEvent = eventType.startsWith("dm.");
-    // dm.received/dm.sent are the inbound/outbound halves of the same DM
-    // stream - X's docs call filter.direction "the direction filter for
-    // directional events", and these are the textbook case of one, so an
-    // empty filter (which is what was sent in the previous two fix attempts)
-    // may be the actual reason X rejects the request with a generic 400.
-    const directionFilter = eventType === "dm.received"
-      ? "inbound"
-      : eventType === "dm.sent"
-        ? "outbound"
-        : undefined;
     const found = existing.find((item) =>
       item.event_type === eventType
       && item.webhook_id === input.webhookId
-      && (isDmEvent || item.filter?.user_id === input.userId)
+      && item.filter?.user_id === input.userId
     );
     if (found) continue;
 
+    // X's real (undocumented-in-practice) validation is "exactly one filter
+    // (userId or keyword) must be provided" for every event type, including
+    // dm.* - confirmed via the raw error body X returned when filter was
+    // left empty ("FilterInvalid: Exactly one filter (userId or keyword)
+    // must be provided"). The docs' phrasing ("for mute.*/block.* this must
+    // be the authenticated source user") only describes an extra constraint
+    // on those two types, not an exemption for everyone else.
     const response = await activityRequest(
       `${X_API}/activity/subscriptions`,
       {
@@ -199,9 +196,7 @@ export async function ensureXActivitySubscriptions(input: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           event_type: eventType,
-          filter: isDmEvent
-            ? (directionFilter ? { direction: directionFilter } : {})
-            : { user_id: input.userId },
+          filter: { user_id: input.userId },
           tag: `linkly-${eventType.replaceAll(".", "-")}-${input.userId}`,
           webhook_id: input.webhookId
         })
