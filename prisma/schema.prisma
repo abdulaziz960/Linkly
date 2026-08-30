@@ -303,6 +303,7 @@ model IntegrationSetting {
   googleLocationId String @default("") @map("google_location_id")
   googleRefreshToken String @default("") @map("google_refresh_token")
   xMentionsRateLimitedUntil String @default("") @map("x_mentions_rate_limited_until")
+  xDmRateLimitedUntil String @default("") @map("x_dm_rate_limited_until")
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 
