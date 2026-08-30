@@ -1,6 +1,7 @@
 import { getIntegrationSettings } from "./database";
 import { fetchXWithAutoRefresh, getXApiErrorMessage, XApiError } from "./x-api";
 import { storeXMessage } from "./x-inbox";
+import { prisma } from "./prisma";
 
 type XReferencedPost = {
   type?: "replied_to" | "quoted" | "retweeted" | string;
@@ -56,6 +57,21 @@ export async function syncXMentionsForTenant(tenantId: string) {
     return { ok: false, skipped: true, synced: 0 };
   }
 
+  // X's mentions endpoint has a tight per-window rate limit that a 1/minute
+  // cron across many tenants can blow through easily - a 429 used to look
+  // identical to "no new mentions" (silently swallowed), which read as
+  // messages just never arriving. Skip calling again until the window X
+  // told us about actually resets, instead of wasting (and re-triggering)
+  // another 429 every single minute.
+  const rateLimitRow = await prisma.integrationSetting.findUnique({
+    where: { id: settings.id },
+    select: { xMentionsRateLimitedUntil: true }
+  });
+  const rateLimitedUntil = Date.parse(rateLimitRow?.xMentionsRateLimitedUntil || "");
+  if (Number.isFinite(rateLimitedUntil) && rateLimitedUntil > Date.now()) {
+    return { ok: false, skipped: true, rateLimited: true, retryAt: rateLimitRow?.xMentionsRateLimitedUntil, synced: 0 };
+  }
+
   const url = new URL(`https://api.x.com/2/users/${encodeURIComponent(ownUserId)}/mentions`);
   url.searchParams.set("max_results", "50");
   url.searchParams.set("exclude", "retweets");
@@ -71,12 +87,28 @@ export async function syncXMentionsForTenant(tenantId: string) {
     throw new XApiError(error instanceof Error ? error.message : "تعذر مزامنة منشورات X", 502);
   }
 
+  if (response.status === 429) {
+    const resetHeader = response.headers.get("x-rate-limit-reset") || response.headers.get("x-app-limit-24hour-reset");
+    const resetAt = resetHeader && Number.isFinite(Number(resetHeader))
+      ? new Date(Number(resetHeader) * 1000).toISOString()
+      : new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    await prisma.integrationSetting.update({ where: { id: settings.id }, data: { xMentionsRateLimitedUntil: resetAt } }).catch(() => {});
+    throw new XApiError("تم تجاوز الحد المسموح لطلبات X - سيُعاد المحاولة تلقائياً بعد فترة قصيرة.", 429);
+  }
+
   const payload = await response.json().catch(() => null) as XMentionsResponse | null;
   if (!response.ok || !payload) {
     throw new XApiError(
       getXApiErrorMessage(payload, "تعذر مزامنة الردود والمنشنات من X"),
       response.status || 502
     );
+  }
+
+  // A successful call means we're not rate-limited (or the window rolled
+  // over) - clear any stale marker so the next cron tick doesn't skip for no
+  // reason.
+  if (rateLimitRow?.xMentionsRateLimitedUntil) {
+    await prisma.integrationSetting.update({ where: { id: settings.id }, data: { xMentionsRateLimitedUntil: "" } }).catch(() => {});
   }
 
   const users = new Map(
