@@ -10,6 +10,7 @@ import { formatMessageTime } from "../../../../../lib/time";
 import { normalizeWhatsAppPhone } from "../../../../../lib/whatsapp-inbox";
 import { isWhatsAppReplyWindowExpired, sendWhatsAppTemplateMessage } from "../../../../../lib/whatsapp-send";
 import { sendXDirectMessage, sendXPostReply, XApiError } from "../../../../../lib/x-api";
+import { resolveXPostReplyTarget } from "../../../../../lib/x-reply-target";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 type RouteContext = {
@@ -661,21 +662,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // ever-deepening nested thread instead of sitting under the original
       // comment.
       const isPostType = (sourceType: string) => sourceType === "x_post" || sourceType === "x_post_reply";
-      let postSourceMessage: typeof replyToMessage = null;
-      if (replyToMessage) {
-        postSourceMessage = isPostType(replyToMessage.sourceType) ? replyToMessage : null;
-      } else {
-        const latestMessage = await prisma.message.findFirst({
-          where: { conversationId: conversation.id },
-          orderBy: { createdAt: "desc" }
-        });
-        if (latestMessage && isPostType(latestMessage.sourceType)) {
-          postSourceMessage = await prisma.message.findFirst({
-            where: { conversationId: conversation.id, direction: "in", sourceType: "x_post" },
-            orderBy: { createdAt: "desc" }
-          });
-        }
-      }
+      const postSourceMessage = replyToMessage
+        ? (isPostType(replyToMessage.sourceType) ? replyToMessage : null)
+        : await resolveXPostReplyTarget(conversation.id);
 
       if (postSourceMessage?.sourceId) {
         try {

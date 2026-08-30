@@ -17,7 +17,8 @@ vi.mock("../lib/auth", () => ({
 
 let postReplyCounter = 0;
 const sendXPostReply = vi.fn(async () => ({ id: `reply-tweet-id-${++postReplyCounter}` }));
-const sendXDirectMessage = vi.fn(async () => ({ dm_event_id: "dm-1", dm_conversation_id: "dmconv-1" }));
+let dmCounter = 0;
+const sendXDirectMessage = vi.fn(async () => ({ dm_event_id: `dm-${++dmCounter}`, dm_conversation_id: "dmconv-1" }));
 
 vi.mock("../lib/x-api", async () => {
   const actual = await vi.importActual<typeof import("../lib/x-api")>("../lib/x-api");
@@ -193,5 +194,50 @@ describe("X reply routing (public post vs DM)", () => {
     expect(response.status).toBe(200);
     expect(sendXPostReply).toHaveBeenCalledWith(expect.anything(), "tweet-explicit", "رد عام محدد");
     expect(sendXDirectMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("Bot/automation X sends follow the same public-reply-vs-DM routing", () => {
+  it("replies publicly on the post when the conversation's latest message is a public mention", async () => {
+    await seedConversation("conv-bot-post-reply", [
+      { id: "msg-bot-post-1", direction: "in", text: "استفسار عام", createdAt: "2026-01-03T09:00:00.000Z", sourceType: "x_post", sourceId: "tweet-bot-target" }
+    ]);
+    const { prisma } = await import("../lib/prisma");
+    await prisma.integrationSetting.updateMany({ where: { tenantId: "tenant-x-test", provider: "x" }, data: { accessToken: "test-token" } });
+
+    const { sendXTextMessage } = await import("../lib/x-send");
+    const result = await sendXTextMessage({
+      tenantId: "tenant-x-test",
+      conversationId: "conv-bot-post-reply",
+      recipientId: "x_customer_1",
+      text: "ردنا الآلي"
+    });
+
+    expect(result.ok).toBe(true);
+    expect(sendXPostReply).toHaveBeenCalledWith(expect.anything(), "tweet-bot-target", "ردنا الآلي");
+    expect(sendXDirectMessage).not.toHaveBeenCalled();
+
+    const stored = await prisma.message.findFirst({ where: { conversationId: "conv-bot-post-reply", direction: "out" } });
+    expect(stored?.sourceType).toBe("x_post_reply");
+  });
+
+  it("sends a DM when the conversation's latest message is a DM", async () => {
+    await seedConversation("conv-bot-dm-reply", [
+      { id: "msg-bot-dm-1", direction: "in", text: "رسالة خاصة", createdAt: "2026-01-03T09:00:00.000Z", sourceType: "x_dm" }
+    ]);
+    const { prisma } = await import("../lib/prisma");
+    await prisma.integrationSetting.updateMany({ where: { tenantId: "tenant-x-test", provider: "x" }, data: { accessToken: "test-token" } });
+
+    const { sendXTextMessage } = await import("../lib/x-send");
+    const result = await sendXTextMessage({
+      tenantId: "tenant-x-test",
+      conversationId: "conv-bot-dm-reply",
+      recipientId: "x_customer_1",
+      text: "ردنا الآلي الخاص"
+    });
+
+    expect(result.ok).toBe(true);
+    expect(sendXDirectMessage).toHaveBeenCalledTimes(1);
+    expect(sendXPostReply).not.toHaveBeenCalled();
   });
 });
