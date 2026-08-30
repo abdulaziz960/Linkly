@@ -27,6 +27,8 @@ type ParsedXEvent = {
   direction: "in" | "out";
   messageId?: string;
   receivedAt?: Date;
+  conversationKey?: string;
+  recipientId?: string;
   source?: {
     type: string;
     id?: string;
@@ -83,6 +85,14 @@ function getReferencedPostId(post: Record<string, any>) {
   const repliedTo = referenced.find((item) => item?.type === "replied_to" && item.id);
   const quoted = referenced.find((item) => item?.type === "quoted" && item.id);
   return repliedTo?.id || quoted?.id || String(post.in_reply_to_status_id || post.in_reply_to_tweet_id || post.conversation_id || "");
+}
+
+// Same grouping key as lib/x-public-sync.ts's polling path - both must agree
+// on which conversation a given comment/reply belongs to, otherwise the
+// realtime webhook and the periodic mentions poll split the same customer's
+// public thread into two different conversations.
+function threadRoot(post: Record<string, any>, relatedPostId: string) {
+  return String(post.conversation_id || relatedPostId || post.id || "unknown");
 }
 
 function parseDmEvents(payload: Record<string, any>, ownUserId: string): ParsedXEvent[] {
@@ -142,13 +152,19 @@ function parsePostEvents(payload: Record<string, any>, ownUserId: string): Parse
       name: getName(userMap, authorId),
       text: `منشن/رد: ${text}`,
       direction: "in",
-      messageId: postId || `${authorId}-${Date.now()}`,
+      messageId: postId ? `post-${postId}` : `${authorId}-${Date.now()}`,
       receivedAt: parseDate(post.created_at || post.timestamp_ms),
+      conversationKey: `public:${threadRoot(post, relatedPostId)}:${authorId}`,
+      recipientId: authorId,
       source: {
+        // The reply target must always be the customer's own comment
+        // (postId), never the tweet it's replying to (relatedPostId) -
+        // replying to the parent instead of the actual comment sends the
+        // reply to the wrong place on X entirely.
         type: "x_post",
-        id: relatedPostId || postId || undefined,
-        url: getPostUrl(username, relatedPostId || postId),
-        label: relatedPostId ? "البوست المرتبط بالتعليق" : "منشن أو رد على X"
+        id: postId || undefined,
+        url: getPostUrl(username, postId),
+        label: relatedPostId ? "رد على منشور X" : "منشن على X"
       }
     }];
   });
