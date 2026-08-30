@@ -510,7 +510,14 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
     };
 
     void syncXMessages();
-    const intervalId = window.setInterval(syncXMessages, 30000);
+    // X's dm_events endpoint has a tight rate-limit window - this poll used
+    // to run every 30s on top of the /api/cron/campaigns cron already
+    // hitting the same endpoint every minute, and the combined volume was
+    // enough to trip a 429 that then blocks DM delivery entirely (both
+    // paths share the same backoff) for the rest of that rate-limit window.
+    // 90s keeps this feeling reasonably live while cutting request volume
+    // well below what was tripping the limit.
+    const intervalId = window.setInterval(syncXMessages, 90000);
 
     return () => window.clearInterval(intervalId);
   }, [loadDashboardData, xStatus]);
