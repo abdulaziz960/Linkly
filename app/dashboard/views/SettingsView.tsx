@@ -1423,7 +1423,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
         <div className="settings-onboarding-main">
           {renderWizardContent()}
-          {!isConnected && !isTelegram ? (
+          {!isConnected && !isTelegram && !isX ? (
             <div className="settings-onboarding-actions">
               {wizardStep !== 4 && !((isGoogleMaps || isWhatsApp || isInstagram || isFacebook) && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
                 if (wizardStep === 3 && isGoogleMaps) {
