@@ -204,6 +204,9 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS rating_at TEXT NOT NULL DEFAULT ''`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_mentions_rate_limited_until TEXT NOT NULL DEFAULT ''`
+  );
 }
 
 async function runSchemaMigrations() {
@@ -872,7 +875,8 @@ async function runSchemaMigrations() {
     `ALTER TABLE integration_settings ADD COLUMN x_access_token_secret TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN google_account_id TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN google_location_id TEXT NOT NULL DEFAULT ''`,
-    `ALTER TABLE integration_settings ADD COLUMN google_refresh_token TEXT NOT NULL DEFAULT ''`
+    `ALTER TABLE integration_settings ADD COLUMN google_refresh_token TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN x_mentions_rate_limited_until TEXT NOT NULL DEFAULT ''`
   ]) {
     try {
       await prisma.$executeRawUnsafe(statement);
