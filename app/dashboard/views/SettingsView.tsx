@@ -284,6 +284,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [checkingXRealtime, setCheckingXRealtime] = useState(false);
   const [copied, setCopied] = useState("");
   const [wizardStep, setWizardStep] = useState(1);
   const [testRecipient, setTestRecipient] = useState("");
@@ -1019,6 +1020,35 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     window.location.assign(new URL("/api/x/connect", window.location.origin).toString());
   }
 
+  // Re-runs the same webhook/subscription setup done right after connecting
+  // X - it's idempotent (checks what already exists before creating
+  // anything), so this doubles as a status check: an empty "created" list
+  // means realtime delivery is already active, while an error here is
+  // exactly why messages have been falling back to the slower periodic
+  // poll instead of arriving instantly.
+  async function checkXRealtimeStatus() {
+    setCheckingXRealtime(true);
+    try {
+      const response = await fetch("/api/x/realtime/setup", { method: "POST" });
+      const data = await response.json() as { ok: boolean; created?: string[]; error?: string };
+      if (data.ok) {
+        const createdCount = data.created?.length || 0;
+        setSaveFeedback({
+          type: "success",
+          text: createdCount
+            ? t(`تم تفعيل الاستقبال اللحظي (${createdCount} اشتراك جديد).`, `Realtime delivery activated (${createdCount} new subscription${createdCount === 1 ? "" : "s"}).`)
+            : t("الاستقبال اللحظي شغال بالفعل ✓", "Realtime delivery is already active ✓")
+        });
+      } else {
+        setSaveFeedback({ type: "error", text: data.error || t("تعذر تفعيل الاستقبال اللحظي", "Couldn't activate realtime delivery") });
+      }
+    } catch {
+      setSaveFeedback({ type: "error", text: t("تعذر الاتصال بالخادم", "Couldn't reach the server") });
+    } finally {
+      setCheckingXRealtime(false);
+    }
+  }
+
   function connectTikTokAccount() {
     if (typeof window === "undefined") return;
     const tiktokWindow = window.open("/api/tiktok/connect", "audiencew-tiktok-connect", "width=520,height=760");
@@ -1496,6 +1526,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             </button> : null}
             {isWhatsApp ? <button className="primary-action" disabled={saving || loading} type="button" onClick={async () => { setSaving(true); await persistSettings(); setSaving(false); }}>
               {saving ? t("جاري التحقق...", "Checking...") : t("تحقق من الحالة", "Check status")}
+            </button> : null}
+            {isX && isConnected ? <button className="primary-action" disabled={checkingXRealtime} type="button" onClick={checkXRealtimeStatus}>
+              {checkingXRealtime ? t("جاري التحقق...", "Checking...") : t("تحقق من الاستقبال اللحظي", "Check realtime delivery")}
             </button> : null}
           </div>
           ) : null}
