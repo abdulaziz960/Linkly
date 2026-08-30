@@ -70,7 +70,8 @@ export async function ensureXWebhook(webhookUrl: string) {
     throw new Error(`[webhooks:list] ${apiError(listPayload, "تعذر قراءة Webhooks من X")}`);
   }
 
-  const existing = (listPayload?.data || []).find((item) => item.url === webhookUrl && item.id);
+  const existingList = listPayload?.data || [];
+  const existing = existingList.find((item) => item.url === webhookUrl && item.id);
   if (existing?.id) {
     if (!existing.valid) {
       const validateResponse = await fetch(`${X_API}/webhooks/${existing.id}`, {
@@ -83,6 +84,18 @@ export async function ensureXWebhook(webhookUrl: string) {
       }
     }
     return existing.id;
+  }
+
+  // X caps how many webhooks a single App may register (confirmed live via
+  // a WebhookLimitExceeded error) - this platform only ever needs one, so a
+  // stale registration left over from a previous webhook URL (e.g. before
+  // the ?tenant= fix) must be removed first or creation below fails.
+  for (const stale of existingList) {
+    if (!stale.id) continue;
+    await fetch(`${X_API}/webhooks/${stale.id}`, {
+      method: "DELETE",
+      headers: authorization(bearerToken)
+    }).catch(() => {});
   }
 
   const createResponse = await fetch(`${X_API}/webhooks`, {
