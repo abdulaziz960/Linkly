@@ -141,10 +141,17 @@ export async function ensureXActivitySubscriptions(input: {
   const created: string[] = [];
 
   for (const eventType of requiredEvents) {
+    // dm.* events are already scoped to the authenticated user's own DMs by
+    // the OAuth token - X's docs describe filter.user_id as actor-scoping
+    // (explicitly for mute.*/block.*), and sending it for dm.received got
+    // rejected with a 400 ("One or more parameters ... was invalid"). Only
+    // the post.* mention/reply/quote events need it, to say whose mentions
+    // to watch.
+    const isDmEvent = eventType.startsWith("dm.");
     const found = existing.find((item) =>
       item.event_type === eventType
-      && item.filter?.user_id === input.userId
       && item.webhook_id === input.webhookId
+      && (isDmEvent || item.filter?.user_id === input.userId)
     );
     if (found) continue;
 
@@ -155,7 +162,7 @@ export async function ensureXActivitySubscriptions(input: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           event_type: eventType,
-          filter: { user_id: input.userId },
+          filter: isDmEvent ? {} : { user_id: input.userId },
           tag: `linkly-${eventType.replaceAll(".", "-")}-${input.userId}`,
           webhook_id: input.webhookId
         })
