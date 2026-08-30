@@ -25,7 +25,11 @@ export async function GET(request: NextRequest) {
   const state = base64Url(randomBytes(24));
   const verifier = base64Url(randomBytes(48));
   const challenge = base64Url(createHash("sha256").update(verifier).digest());
-  const authorizeUrl = new URL("https://twitter.com/i/oauth2/authorize");
+  // twitter.com redirects to x.com for this endpoint, and that extra hop is
+  // a known trigger for Cloudflare's bot-block page ("Sorry, you have been
+  // blocked") on some networks - authorizing directly against x.com avoids
+  // the redirect entirely.
+  const authorizeUrl = new URL("https://x.com/i/oauth2/authorize");
 
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("client_id", clientId);
