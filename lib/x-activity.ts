@@ -115,37 +115,23 @@ export async function ensureXWebhook(webhookUrl: string) {
   return created.id;
 }
 
-async function activityRequest(
-  input: string,
-  init: RequestInit,
-  appBearerToken: string,
-  userAccessToken?: string,
-  // dm.*/chat.* subscriptions require an OAuth2 user-context token holding
-  // the dm.read scope, per X's docs - an app-only Bearer token can't carry a
-  // per-user scope like that at all, so trying it first (and only falling
-  // back to the user token on 401/403) never actually reaches the token
-  // that could work, and X's 400 for the mismatch reads identically to a
-  // malformed-parameter error.
-  preferUserToken = false
-) {
-  const send = (token: string) => fetch(input, {
+// Every event type this app subscribes to is documented as either
+// explicitly "Private" or requiring the dm.read scope - both mean an
+// OAuth2 user-context token, which an app-only Bearer token structurally
+// cannot be. Falling back to the Bearer token on failure used to mask the
+// real error: it always fails too (with a *different*, less useful
+// message: "OAuth user access token is required for this event type"),
+// and since that second failure was the one surfaced, it looked like the
+// user token itself was never even being tried.
+function activityRequest(input: string, init: RequestInit, userAccessToken: string) {
+  return fetch(input, {
     ...init,
     headers: {
       ...(init.headers || {}),
-      ...authorization(token)
+      ...authorization(userAccessToken)
     },
     cache: "no-store"
   });
-
-  const [firstToken, secondToken] = preferUserToken && userAccessToken
-    ? [userAccessToken, appBearerToken]
-    : [appBearerToken, userAccessToken];
-
-  let response = await send(firstToken);
-  if ((response.status === 401 || response.status === 403 || response.status === 400) && secondToken && secondToken !== firstToken) {
-    response = await send(secondToken);
-  }
-  return response;
 }
 
 export async function ensureXActivitySubscriptions(input: {
@@ -153,15 +139,15 @@ export async function ensureXActivitySubscriptions(input: {
   webhookId: string;
   userAccessToken?: string;
 }) {
-  const { bearerToken } = getXPlatformCredentials();
-  if (!bearerToken) throw new Error("X_BEARER_TOKEN is not configured");
+  if (!input.userAccessToken) {
+    throw new Error("[subscriptions] يلزم رمز وصول المستخدم (OAuth) - أعد ربط حساب X");
+  }
+  const userAccessToken = input.userAccessToken;
 
   const listResponse = await activityRequest(
     `${X_API}/activity/subscriptions`,
     { method: "GET" },
-    bearerToken,
-    input.userAccessToken,
-    true
+    userAccessToken
   );
   const listPayload = await readJson<{ data?: XSubscription[] }>(listResponse);
   if (!listResponse.ok) {
@@ -181,13 +167,6 @@ export async function ensureXActivitySubscriptions(input: {
   const created: string[] = [];
 
   for (const eventType of requiredEvents) {
-    // dm.* events are already scoped to the authenticated user's own DMs by
-    // the OAuth token - X's docs describe filter.user_id as actor-scoping
-    // (explicitly for mute.*/block.*), and sending it for dm.received got
-    // rejected with a 400 ("One or more parameters ... was invalid"). Only
-    // the post.* mention/reply/quote events need it, to say whose mentions
-    // to watch.
-    const isDmEvent = eventType.startsWith("dm.");
     const found = existing.find((item) =>
       item.event_type === eventType
       && item.webhook_id === input.webhookId
@@ -214,9 +193,7 @@ export async function ensureXActivitySubscriptions(input: {
           webhook_id: input.webhookId
         })
       },
-      bearerToken,
-      input.userAccessToken,
-      isDmEvent
+      userAccessToken
     );
     const payload = await readJson<unknown>(response);
     if (!response.ok) {
