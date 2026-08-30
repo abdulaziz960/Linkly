@@ -45,17 +45,20 @@ describe("X realtime webhook - public reply/comment events", () => {
     await seedXIntegration();
 
     const { raw, signature } = signedBody({
-      data: [
-        {
+      data: {
+        event_type: "post.reply.create",
+        filter: { user_id: OWN_USER_ID },
+        tag: "replies",
+        payload: {
           id: "comment-123",
           text: "هذا تعليق العميل",
           author_id: "customer-1",
           created_at: "2026-01-05T10:00:00.000Z",
           conversation_id: "our-post-999",
           referenced_tweets: [{ type: "replied_to", id: "our-post-999" }]
-        }
-      ],
-      includes: { users: [{ id: "customer-1", username: "customer_handle" }] }
+        },
+        includes: { users: [{ id: "customer-1", username: "customer_handle" }] }
+      }
     });
 
     const { POST } = await import("../app/api/x/webhook/route");
@@ -80,7 +83,12 @@ describe("X realtime webhook - public reply/comment events", () => {
   it("rejects a webhook call with a bad signature", async () => {
     await seedXIntegration();
 
-    const body = JSON.stringify({ data: [{ id: "x", text: "y", author_id: "z" }] });
+    const body = JSON.stringify({
+      data: {
+        event_type: "post.reply.create",
+        payload: { id: "x", text: "y", author_id: "z" }
+      }
+    });
     const { POST } = await import("../app/api/x/webhook/route");
     const response = await POST(
       new NextRequest(`http://localhost/api/x/webhook?tenant=${TENANT_ID}`, {
@@ -97,8 +105,11 @@ describe("X realtime webhook - public reply/comment events", () => {
     await seedXIntegration();
 
     const { raw, signature } = signedBody({
-      data: [
-        {
+      data: {
+        event_type: "post.reply.create",
+        filter: { user_id: OWN_USER_ID },
+        tag: "replies",
+        payload: {
           id: "comment-456",
           text: "تعليق ثاني من نفس العميل",
           author_id: "customer-2",
@@ -106,7 +117,7 @@ describe("X realtime webhook - public reply/comment events", () => {
           conversation_id: "our-post-888",
           referenced_tweets: [{ type: "replied_to", id: "our-post-888" }]
         }
-      ]
+      }
     });
 
     const { POST } = await import("../app/api/x/webhook/route");
@@ -140,5 +151,52 @@ describe("X realtime webhook - public reply/comment events", () => {
     });
 
     expect(polled.conversationId).toBe(webhookMessage?.conversationId);
+  });
+});
+
+describe("X realtime webhook - direct message events", () => {
+  it("stores an inbound DM from the real dm.received envelope shape (payload.direct_message_events + payload.users map)", async () => {
+    await seedXIntegration();
+
+    const { raw, signature } = signedBody({
+      data: {
+        event_type: "dm.received",
+        filter: { user_id: OWN_USER_ID },
+        tag: "dm-inbound",
+        payload: {
+          direct_message_events: [
+            {
+              type: "message_create",
+              id: "dm-event-1",
+              created_timestamp: "1784928224372",
+              message_create: {
+                target: { recipient_id: OWN_USER_ID },
+                sender_id: "customer-3",
+                message_data: { text: "مرحبا، عندي استفسار" }
+              }
+            }
+          ],
+          users: {
+            "customer-3": { data: { id: "customer-3", username: "customer_three" } }
+          }
+        }
+      }
+    });
+
+    const { POST } = await import("../app/api/x/webhook/route");
+    const response = await POST(
+      new NextRequest(`http://localhost/api/x/webhook?tenant=${TENANT_ID}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-twitter-webhooks-signature": signature },
+        body: raw
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const { prisma } = await import("../lib/prisma");
+    const message = await prisma.message.findFirst({ where: { sourceType: "x_dm", text: "مرحبا، عندي استفسار" } });
+    expect(message).toBeTruthy();
+    expect(message?.direction).toBe("in");
   });
 });

@@ -84,7 +84,11 @@ export async function GET(request: NextRequest) {
   }
 
   const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, "");
-  const webhookUrl = `${baseUrl}/api/x/webhook`;
+  // The platform's X App (and its webhook) is shared across all tenants, so
+  // the callback URL must carry ?tenant= for the webhook route to know whose
+  // event this is - without it, every tenant's events fell back to the
+  // "tenant-demo" default and never reached the connecting tenant's inbox.
+  const webhookUrl = `${baseUrl}/api/x/webhook?tenant=${encodeURIComponent(user.tenantId)}`;
 
   await prisma.integrationSetting.updateMany({
     where: { id: settings.id, tenantId: user.tenantId },
