@@ -27,7 +27,6 @@ type ParsedXEvent = {
   direction: "in" | "out";
   messageId?: string;
   receivedAt?: Date;
-  conversationKey?: string;
   recipientId?: string;
   source?: {
     type: string;
@@ -90,14 +89,6 @@ function getReferencedPostId(post: Record<string, any>) {
   return repliedTo?.id || quoted?.id || String(post.in_reply_to_status_id || post.in_reply_to_tweet_id || post.conversation_id || "");
 }
 
-// Same grouping key as lib/x-public-sync.ts's polling path - both must agree
-// on which conversation a given comment/reply belongs to, otherwise the
-// realtime webhook and the periodic mentions poll split the same customer's
-// public thread into two different conversations.
-function threadRoot(post: Record<string, any>, relatedPostId: string) {
-  return String(post.conversation_id || relatedPostId || post.id || "unknown");
-}
-
 function parseDmEvents(body: Record<string, any>, ownUserId: string): ParsedXEvent[] {
   const userMap = buildUserMap({}, body.users);
   const events = [
@@ -155,7 +146,6 @@ function parsePostEvents(body: Record<string, any>, includes: Record<string, any
       direction: "in",
       messageId: postId ? `post-${postId}` : `${authorId}-${Date.now()}`,
       receivedAt: parseDate(post.created_at || post.timestamp_ms),
-      conversationKey: `public:${threadRoot(post, relatedPostId)}:${authorId}`,
       recipientId: authorId,
       source: {
         // The reply target must always be the customer's own comment

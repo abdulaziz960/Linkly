@@ -54,7 +54,7 @@ export async function syncXTenant(settings: IntegrationSettings) {
   // was being re-triggered constantly instead of ever clearing.
   const rateLimitRow = await prisma.integrationSetting.findUnique({
     where: { id: settings.id },
-    select: { xDmRateLimitedUntil: true }
+    select: { xDmRateLimitedUntil: true, xDmSyncedUntilId: true }
   });
   const rateLimitedUntil = Date.parse(rateLimitRow?.xDmRateLimitedUntil || "");
   if (Number.isFinite(rateLimitedUntil) && rateLimitedUntil > Date.now()) {
@@ -106,11 +106,43 @@ export async function syncXTenant(settings: IntegrationSettings) {
       .filter((user) => user.id)
       .map((user) => [String(user.id), user])
   );
+  // Every poll re-fetches the same last-50 window (the endpoint has no
+  // usable since_id-style cursor for this app tier), so without a watermark
+  // an event already stored - then intentionally deleted by the user in the
+  // dashboard - gets reprocessed by the very next poll and the deleted
+  // conversation silently comes back. X's ids are snowflake integers, safe
+  // to compare as BigInt but too large for a JS Number.
+  const syncedUntilId = rateLimitRow?.xDmSyncedUntilId || "";
+  const isNewerThanWatermark = (id: string) => {
+    if (!id) return false;
+    if (!syncedUntilId) return true;
+    try {
+      return BigInt(id) > BigInt(syncedUntilId);
+    } catch {
+      return true;
+    }
+  };
+
   const incomingEvents = (dmPayload.data || []).filter((event) => {
     if (event.event_type && event.event_type !== "MessageCreate") return false;
-    if (!event.text?.trim() || !event.sender_id) return false;
-    return String(event.sender_id) !== ownUserId;
+    if (!event.text?.trim() || !event.sender_id || !event.id) return false;
+    if (String(event.sender_id) === ownUserId) return false;
+    return isNewerThanWatermark(event.id);
   });
+
+  const newestId = (dmPayload.data || [])
+    .map((event) => event.id)
+    .filter((id): id is string => Boolean(id))
+    .reduce((max, id) => {
+      try {
+        return !max || BigInt(id) > BigInt(max) ? id : max;
+      } catch {
+        return max;
+      }
+    }, syncedUntilId);
+  if (newestId && newestId !== syncedUntilId) {
+    await prisma.integrationSetting.update({ where: { id: settings.id }, data: { xDmSyncedUntilId: newestId } }).catch(() => {});
+  }
 
   const storedDms = await Promise.all(incomingEvents.map((event) => storeXMessage({
     tenantId,
