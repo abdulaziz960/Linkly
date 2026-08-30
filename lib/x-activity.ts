@@ -52,7 +52,7 @@ export async function ensureXWebhook(webhookUrl: string) {
   });
   const listPayload = await readJson<{ data?: XWebhook[] }>(listResponse);
   if (!listResponse.ok) {
-    throw new Error(apiError(listPayload, "تعذر قراءة Webhooks من X"));
+    throw new Error(`[webhooks:list] ${apiError(listPayload, "تعذر قراءة Webhooks من X")}`);
   }
 
   const existing = (listPayload?.data || []).find((item) => item.url === webhookUrl && item.id);
@@ -64,7 +64,7 @@ export async function ensureXWebhook(webhookUrl: string) {
       });
       const validatePayload = await readJson<unknown>(validateResponse);
       if (!validateResponse.ok) {
-        throw new Error(apiError(validatePayload, "تعذر إعادة تفعيل Webhook في X"));
+        throw new Error(`[webhooks:validate] ${apiError(validatePayload, "تعذر إعادة تفعيل Webhook في X")}`);
       }
     }
     return existing.id;
@@ -81,7 +81,7 @@ export async function ensureXWebhook(webhookUrl: string) {
   const createPayload = await readJson<XWebhook & { data?: XWebhook }>(createResponse);
   const created = createPayload?.data || createPayload;
   if (!createResponse.ok || !created?.id) {
-    throw new Error(apiError(createPayload, "تعذر إنشاء Webhook في X"));
+    throw new Error(`[webhooks:create url=${webhookUrl}] ${apiError(createPayload, "تعذر إنشاء Webhook في X")}`);
   }
 
   return created.id;
@@ -125,7 +125,7 @@ export async function ensureXActivitySubscriptions(input: {
   );
   const listPayload = await readJson<{ data?: XSubscription[] }>(listResponse);
   if (!listResponse.ok) {
-    throw new Error(apiError(listPayload, "تعذر قراءة اشتراكات X Activity"));
+    throw new Error(`[subscriptions:list] ${apiError(listPayload, "تعذر قراءة اشتراكات X Activity")}`);
   }
 
   const existing = listPayload?.data || [];
@@ -165,7 +165,7 @@ export async function ensureXActivitySubscriptions(input: {
     );
     const payload = await readJson<unknown>(response);
     if (!response.ok) {
-      throw new Error(apiError(payload, `تعذر تفعيل ${eventType} في X Activity`));
+      throw new Error(`[subscriptions:create ${eventType}] ${apiError(payload, `تعذر تفعيل ${eventType} في X Activity`)}`);
     }
     created.push(eventType);
   }
