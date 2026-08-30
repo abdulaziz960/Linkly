@@ -56,15 +56,18 @@ function parseDate(value: unknown) {
   return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
-function buildUserMap(payload: Record<string, any>) {
-  const users = [
-    ...(Array.isArray(payload.includes?.users) ? payload.includes.users : []),
-    ...(Array.isArray(payload.users) ? payload.users : []),
-    ...(Array.isArray(payload.for_user_id) ? payload.for_user_id : [])
-  ] as XUser[];
+// The X Activity API (v2) envelope is
+// { data: { event_type, filter, tag, payload, includes } } - post events
+// carry includes.users as an array, but DM events carry their user map
+// inline in payload.users, keyed by id with a { data: {...} } wrapper.
+function buildUserMap(includes: Record<string, any>, dmUsers?: Record<string, any>) {
+  const fromIncludes = Array.isArray(includes?.users) ? includes.users as XUser[] : [];
+  const fromDm = dmUsers && typeof dmUsers === "object"
+    ? Object.values(dmUsers).map((entry: any) => entry?.data || entry) as XUser[]
+    : [];
 
   return new Map(
-    users
+    [...fromIncludes, ...fromDm]
       .filter((user) => user?.id)
       .map((user) => [String(user.id), user])
   );
@@ -95,11 +98,11 @@ function threadRoot(post: Record<string, any>, relatedPostId: string) {
   return String(post.conversation_id || relatedPostId || post.id || "unknown");
 }
 
-function parseDmEvents(payload: Record<string, any>, ownUserId: string): ParsedXEvent[] {
-  const userMap = buildUserMap(payload);
+function parseDmEvents(body: Record<string, any>, ownUserId: string): ParsedXEvent[] {
+  const userMap = buildUserMap({}, body.users);
   const events = [
-    ...(Array.isArray(payload.dm_events) ? payload.dm_events : []),
-    ...(Array.isArray(payload.direct_message_events) ? payload.direct_message_events : [])
+    ...(Array.isArray(body.dm_events) ? body.dm_events : []),
+    ...(Array.isArray(body.direct_message_events) ? body.direct_message_events : [])
   ];
 
   return events.flatMap((event: Record<string, any>) => {
@@ -128,13 +131,11 @@ function parseDmEvents(payload: Record<string, any>, ownUserId: string): ParsedX
   });
 }
 
-function parsePostEvents(payload: Record<string, any>, ownUserId: string): ParsedXEvent[] {
-  const userMap = buildUserMap(payload);
-  const posts = [
-    ...(Array.isArray(payload.tweet_create_events) ? payload.tweet_create_events : []),
-    ...(Array.isArray(payload.data) ? payload.data : payload.data?.id ? [payload.data] : []),
-    ...(Array.isArray(payload.posts) ? payload.posts : [])
-  ];
+function parsePostEvents(body: Record<string, any>, includes: Record<string, any>, ownUserId: string): ParsedXEvent[] {
+  const userMap = buildUserMap(includes);
+  // post.mention.create/post.reply.create/post.quote.create each deliver a
+  // single Post object as the payload - not an array.
+  const posts = body?.id ? [body] : [];
 
   return posts.flatMap((post: Record<string, any>) => {
     const authorId = String(post.author_id || post.user?.id || post.user_id || "");
@@ -170,11 +171,23 @@ function parsePostEvents(payload: Record<string, any>, ownUserId: string): Parse
   });
 }
 
-function parseXEvents(payload: Record<string, any>, ownUserId: string) {
-  return [
-    ...parseDmEvents(payload, ownUserId),
-    ...parsePostEvents(payload, ownUserId)
-  ];
+function parseXEvents(rawPayload: Record<string, any>, ownUserId: string): ParsedXEvent[] {
+  // v2 Activity Subscriptions deliver a single-event envelope:
+  // { data: { event_type, filter, tag, payload, includes } }. Some older
+  // integrations batch multiple envelopes under a top-level "events" array -
+  // support both so a future format change doesn't silently drop events.
+  const envelopes = Array.isArray(rawPayload.events) ? rawPayload.events : [rawPayload];
+
+  return envelopes.flatMap((envelope: Record<string, any>) => {
+    const data = envelope.data || envelope;
+    const eventType = String(data.event_type || "");
+    const body = data.payload || {};
+    const includes = data.includes || {};
+
+    if (eventType.startsWith("dm.")) return parseDmEvents(body, ownUserId);
+    if (eventType.startsWith("post.")) return parsePostEvents(body, includes, ownUserId);
+    return [];
+  });
 }
 
 export async function GET(request: NextRequest) {

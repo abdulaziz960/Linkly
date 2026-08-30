@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { getIntegrationSettings } from "../../../../../lib/database";
 import { ensureXRealtimeDelivery } from "../../../../../lib/x-activity";
+import { prisma } from "../../../../../lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -19,11 +20,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, "");
+    // Must match the callback route's webhookUrl exactly (including
+    // ?tenant=) - otherwise this creates a second, differently-scoped
+    // webhook instead of reusing/repairing the tenant's own one.
+    const webhookUrl = `${baseUrl}/api/x/webhook?tenant=${encodeURIComponent(user.tenantId)}`;
     const result = await ensureXRealtimeDelivery({
       userId,
       userAccessToken: accessToken,
-      webhookUrl: `${baseUrl}/api/x/webhook`
+      webhookUrl
     });
+    await prisma.integrationSetting.update({ where: { id: settings.id }, data: { webhookUrl } }).catch(() => {});
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     console.error("X realtime setup failed", error);
