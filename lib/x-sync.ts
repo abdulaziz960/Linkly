@@ -1,6 +1,7 @@
 import type { IntegrationSettings } from "../app/dashboard/types";
 import { fetchXWithAutoRefresh, getXApiErrorMessage, XApiError } from "./x-api";
 import { storeXMessage } from "./x-inbox";
+import { prisma } from "./prisma";
 
 type XDmEvent = {
   id?: string;
@@ -47,6 +48,19 @@ export async function syncXTenant(settings: IntegrationSettings) {
     return { ok: false, error: "X غير مربوط بالكامل", synced: 0, syncedDms: 0, status: 400 };
   }
 
+  // Same reasoning as lib/x-public-sync.ts's mentions backoff: DMs are
+  // polled every minute by the campaigns cron *and* every 30s per open
+  // dashboard tab (app/dashboard/DashboardClient.tsx), so a rate limit here
+  // was being re-triggered constantly instead of ever clearing.
+  const rateLimitRow = await prisma.integrationSetting.findUnique({
+    where: { id: settings.id },
+    select: { xDmRateLimitedUntil: true }
+  });
+  const rateLimitedUntil = Date.parse(rateLimitRow?.xDmRateLimitedUntil || "");
+  if (Number.isFinite(rateLimitedUntil) && rateLimitedUntil > Date.now()) {
+    return { ok: false, error: "تم تجاوز الحد المسموح لطلبات X مؤقتاً", synced: 0, syncedDms: 0, status: 429 };
+  }
+
   const dmUrl = new URL("https://api.x.com/2/dm_events");
   dmUrl.searchParams.set("max_results", "50");
   dmUrl.searchParams.set("dm_event.fields", "id,text,event_type,created_at,sender_id,dm_conversation_id,participant_ids");
@@ -63,6 +77,15 @@ export async function syncXTenant(settings: IntegrationSettings) {
     throw error;
   }
 
+  if (dmResponse.status === 429) {
+    const resetHeader = dmResponse.headers.get("x-rate-limit-reset") || dmResponse.headers.get("x-app-limit-24hour-reset");
+    const resetAt = resetHeader && Number.isFinite(Number(resetHeader))
+      ? new Date(Number(resetHeader) * 1000).toISOString()
+      : new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    await prisma.integrationSetting.update({ where: { id: settings.id }, data: { xDmRateLimitedUntil: resetAt } }).catch(() => {});
+    return { ok: false, error: "تم تجاوز الحد المسموح لطلبات X - سيُعاد المحاولة تلقائياً بعد فترة قصيرة.", synced: 0, syncedDms: 0, status: 429 };
+  }
+
   const dmPayload = await dmResponse.json().catch(() => null) as XDmEventsResponse | null;
   if (!dmResponse.ok || !dmPayload) {
     return {
@@ -72,6 +95,10 @@ export async function syncXTenant(settings: IntegrationSettings) {
       syncedDms: 0,
       status: dmResponse.status || 502
     };
+  }
+
+  if (rateLimitRow?.xDmRateLimitedUntil) {
+    await prisma.integrationSetting.update({ where: { id: settings.id }, data: { xDmRateLimitedUntil: "" } }).catch(() => {});
   }
 
   const users = new Map(
