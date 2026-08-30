@@ -30,9 +30,9 @@ function apiError(payload: unknown, fallback: string) {
     detail?: string;
     error?: string;
     error_description?: string;
-    errors?: Array<{ title?: string; detail?: string; message?: string }>;
+    errors?: Array<{ title?: string; detail?: string; message?: string; parameter?: string; value?: string }>;
   };
-  return value.detail
+  const message = value.detail
     || value.error_description
     || value.error
     || value.title
@@ -40,6 +40,15 @@ function apiError(payload: unknown, fallback: string) {
     || value.errors?.[0]?.message
     || value.errors?.[0]?.title
     || fallback;
+  // X's error objects can name exactly which field/value was rejected -
+  // when present, that's far more actionable than the generic title/detail
+  // text alone (e.g. "One or more parameters ... was invalid" everywhere).
+  const firstError = value.errors?.[0];
+  const detail = [
+    firstError?.parameter ? `parameter=${firstError.parameter}` : null,
+    firstError?.value !== undefined ? `value=${JSON.stringify(firstError.value)}` : null
+  ].filter(Boolean).join(" ");
+  return detail ? `${message} (${detail})` : message;
 }
 
 export async function ensureXWebhook(webhookUrl: string) {
@@ -91,7 +100,14 @@ async function activityRequest(
   input: string,
   init: RequestInit,
   appBearerToken: string,
-  userAccessToken?: string
+  userAccessToken?: string,
+  // dm.*/chat.* subscriptions require an OAuth2 user-context token holding
+  // the dm.read scope, per X's docs - an app-only Bearer token can't carry a
+  // per-user scope like that at all, so trying it first (and only falling
+  // back to the user token on 401/403) never actually reaches the token
+  // that could work, and X's 400 for the mismatch reads identically to a
+  // malformed-parameter error.
+  preferUserToken = false
 ) {
   const send = (token: string) => fetch(input, {
     ...init,
@@ -102,9 +118,13 @@ async function activityRequest(
     cache: "no-store"
   });
 
-  let response = await send(appBearerToken);
-  if ((response.status === 401 || response.status === 403) && userAccessToken) {
-    response = await send(userAccessToken);
+  const [firstToken, secondToken] = preferUserToken && userAccessToken
+    ? [userAccessToken, appBearerToken]
+    : [appBearerToken, userAccessToken];
+
+  let response = await send(firstToken);
+  if ((response.status === 401 || response.status === 403 || response.status === 400) && secondToken && secondToken !== firstToken) {
+    response = await send(secondToken);
   }
   return response;
 }
@@ -121,7 +141,8 @@ export async function ensureXActivitySubscriptions(input: {
     `${X_API}/activity/subscriptions`,
     { method: "GET" },
     bearerToken,
-    input.userAccessToken
+    input.userAccessToken,
+    true
   );
   const listPayload = await readJson<{ data?: XSubscription[] }>(listResponse);
   if (!listResponse.ok) {
@@ -168,11 +189,12 @@ export async function ensureXActivitySubscriptions(input: {
         })
       },
       bearerToken,
-      input.userAccessToken
+      input.userAccessToken,
+      isDmEvent
     );
     const payload = await readJson<unknown>(response);
     if (!response.ok) {
-      throw new Error(`[subscriptions:create ${eventType}] ${apiError(payload, `تعذر تفعيل ${eventType} في X Activity`)}`);
+      throw new Error(`[subscriptions:create ${eventType} webhook_id=${input.webhookId} status=${response.status}] ${apiError(payload, `تعذر تفعيل ${eventType} في X Activity`)}`);
     }
     created.push(eventType);
   }
