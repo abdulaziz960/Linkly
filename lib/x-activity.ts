@@ -48,7 +48,13 @@ function apiError(payload: unknown, fallback: string) {
     firstError?.parameter ? `parameter=${firstError.parameter}` : null,
     firstError?.value !== undefined ? `value=${JSON.stringify(firstError.value)}` : null
   ].filter(Boolean).join(" ");
-  return detail ? `${message} (${detail})` : message;
+  if (detail) return `${message} (${detail})`;
+  // Two prior fixes targeted at the documented errors[].parameter/value
+  // fields changed nothing, and this field never actually appeared in a
+  // real response - fall back to the raw body so the next report shows
+  // X's actual response shape instead of another guess.
+  const raw = JSON.stringify(payload);
+  return raw.length > 4 ? `${message} [raw=${raw.slice(0, 300)}]` : message;
 }
 
 export async function ensureXWebhook(webhookUrl: string) {
@@ -169,6 +175,16 @@ export async function ensureXActivitySubscriptions(input: {
     // the post.* mention/reply/quote events need it, to say whose mentions
     // to watch.
     const isDmEvent = eventType.startsWith("dm.");
+    // dm.received/dm.sent are the inbound/outbound halves of the same DM
+    // stream - X's docs call filter.direction "the direction filter for
+    // directional events", and these are the textbook case of one, so an
+    // empty filter (which is what was sent in the previous two fix attempts)
+    // may be the actual reason X rejects the request with a generic 400.
+    const directionFilter = eventType === "dm.received"
+      ? "inbound"
+      : eventType === "dm.sent"
+        ? "outbound"
+        : undefined;
     const found = existing.find((item) =>
       item.event_type === eventType
       && item.webhook_id === input.webhookId
@@ -183,7 +199,9 @@ export async function ensureXActivitySubscriptions(input: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           event_type: eventType,
-          filter: isDmEvent ? {} : { user_id: input.userId },
+          filter: isDmEvent
+            ? (directionFilter ? { direction: directionFilter } : {})
+            : { user_id: input.userId },
           tag: `linkly-${eventType.replaceAll(".", "-")}-${input.userId}`,
           webhook_id: input.webhookId
         })
