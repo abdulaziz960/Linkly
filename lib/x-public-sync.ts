@@ -74,7 +74,10 @@ export async function syncXMentionsForTenant(tenantId: string) {
 
   const url = new URL(`https://api.x.com/2/users/${encodeURIComponent(ownUserId)}/mentions`);
   url.searchParams.set("max_results", "50");
-  url.searchParams.set("exclude", "retweets");
+  // "exclude" is not a supported parameter on the mentions timeline (it's
+  // only documented for /2/users/:id/tweets and the reverse-chronological
+  // timeline) - sending it here made X reject the whole request with a 400,
+  // which is why mentions/comments never arrived at all.
   url.searchParams.set("tweet.fields", "id,text,author_id,created_at,conversation_id,referenced_tweets");
   url.searchParams.set("expansions", "author_id");
   url.searchParams.set("user.fields", "name,username");
