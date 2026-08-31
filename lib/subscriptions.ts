@@ -69,6 +69,19 @@ export async function getSubscriptionPayments() {
   return [...subscriptionRows, ...campaignRows].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 }
 
+export async function getInvoicesForTenant(tenantId: string) {
+  await ensureSchema();
+  const [payments, campaignPayments] = await Promise.all([
+    prisma.subscriptionPayment.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" } }),
+    prisma.campaignPayment.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" } })
+  ]);
+
+  const subscriptionRows = payments.map((payment) => ({ ...payment, source: "اشتراك" as const, messages: 0 }));
+  const campaignRows = campaignPayments.map((payment) => ({ ...payment, source: "شحن رسائل حملات" as const }));
+
+  return [...subscriptionRows, ...campaignRows].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+}
+
 /**
  * Marks a subscription payment as completed and applies its staged plan to
  * the tenant's live subscription - the ONLY place upgraded benefits

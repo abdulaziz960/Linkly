@@ -2405,6 +2405,55 @@
   margin: 0;
 }
 
+.invoice-list {
+  margin-top: 16px;
+}
+
+.invoice-list h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.invoice-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+
+.invoice-row div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.invoice-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.invoice-row-amount {
+  align-items: flex-end;
+  text-align: end;
+}
+
+.invoice-status {
+  font-weight: 900;
+}
+
+.invoice-status.paid {
+  color: #16a34a;
+}
+
+.invoice-status.pending {
+  color: #d97706;
+}
+
 .chat-panel {
   display: flex;
   flex-direction: column;
