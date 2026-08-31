@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   // not created or modified until Moyasar confirms a paid invoice.
   if (isMoyasarConfigured()) {
     try {
-      const invoice = await createMoyasarInvoice({ amount: plan.monthlyPrice, amountHalalas, description: `اشتراك Linkly - ${companyName} (${plan.name})`, callbackUrl: `${baseUrl()}/api/admin/subscriptions/payment-webhook`, metadata: { tenantId: user.tenantId, paymentId, planId: plan.id } });
+      const invoice = await createMoyasarInvoice({ amount: plan.monthlyPrice, amountHalalas, description: `اشتراك Linkly - ${companyName} (${plan.name})`, callbackUrl: `${baseUrl()}/api/admin/subscriptions/payment-webhook`, successUrl: `${baseUrl()}/billing/success`, metadata: { tenantId: user.tenantId, paymentId, planId: plan.id } });
       await prisma.subscriptionPayment.create({ data: { id: paymentId, tenantId: user.tenantId, amount: plan.monthlyPrice, amountHalalas, status: "قيد الانتظار", moyasarId: invoice.id, paymentUrl: invoice.url, createdAt: new Date().toISOString(), planName: plan.name, planEmployeeLimit: plan.employeeLimit } });
       return NextResponse.json({ paymentUrl: invoice.url });
     } catch { return NextResponse.json({ error: "تعذر إنشاء فاتورة الدفع، حاول مرة أخرى" }, { status: 502 }); }

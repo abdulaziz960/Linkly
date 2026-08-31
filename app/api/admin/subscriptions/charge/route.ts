@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
       amountHalalas,
       description: `اشتراك Linkly - ${subscription.companyName} (${subscription.plan})`,
       callbackUrl: `${baseUrl()}/api/admin/subscriptions/payment-webhook`,
+      successUrl: `${baseUrl()}/billing/success`,
       metadata: { tenantId, paymentId }
     });
 
