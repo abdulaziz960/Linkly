@@ -6500,6 +6500,16 @@
   stroke: none;
 }
 
+.channel-icon-telegram {
+  background: #e5f5fc !important;
+  color: #229ed9 !important;
+}
+
+.channel-icon-telegram svg {
+  fill: currentColor;
+  stroke: none;
+}
+
 .channel-icon-email,
 .channel-icon-gmail {
   background: #fff4f2 !important;
