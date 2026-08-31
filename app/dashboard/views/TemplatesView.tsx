@@ -214,7 +214,7 @@ export default function TemplatesView({
                   <tr key={template.name}>
                     <td>
                       <b>{template.name}</b>
-                      <span className="table-subtitle">{template.message}</span>
+                      <span className="table-subtitle" title={template.message}>{template.message}</span>
                     </td>
                     <td>{template.category || (template.type === "تسويق" ? "MARKETING" : "UTILITY")}</td>
                     <td>{template.language}</td>
