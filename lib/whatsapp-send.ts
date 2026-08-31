@@ -61,11 +61,19 @@ function normalizeTemplateLanguage(language?: string) {
   return value;
 }
 
-function templateParameterCount(templateText: string) {
-  const indexes = [...templateText.matchAll(/\{\{\s*(\d+)\s*\}\}/g)]
-    .map((match) => Number(match[1]))
-    .filter(Number.isFinite);
-  return indexes.length ? Math.max(...indexes) : 0;
+// WhatsApp templates use one of two variable formats, fixed at creation:
+// positional ({{1}}, {{2}}, ...) or named ({{customer_name}}, ...) - Meta
+// rejects a send whose parameters don't match the format the template was
+// actually created with (error #132012 "Parameter format does not match
+// format in the created template"). Detect the format from the template's
+// own placeholders instead of assuming positional.
+export function templateParameters(templateText: string, value: string) {
+  const placeholders = [...templateText.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)].map((match) => match[1]);
+  if (!placeholders.length) return undefined;
+  const isNamedFormat = placeholders.some((placeholder) => !/^\d+$/.test(placeholder));
+  return isNamedFormat
+    ? placeholders.map((name) => ({ type: "text", parameter_name: name, text: value }))
+    : Array.from({ length: Math.max(...placeholders.map(Number)) }, () => ({ type: "text", text: value }));
 }
 
 function renderTemplateText(templateText: string, customerName: string) {
@@ -133,14 +141,9 @@ export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInp
     return { ok: false as const, skipped: true, error: "WHATSAPP_TEMPLATE_CONFIGURATION_MISSING" };
   }
 
-  const parameterCount = templateParameterCount(templateText);
   const parameterText = input.customerName?.trim() || "عميلنا";
-  const components = parameterCount
-    ? [{
-        type: "body",
-        parameters: Array.from({ length: parameterCount }, () => ({ type: "text", text: parameterText }))
-      }]
-    : undefined;
+  const parameters = templateParameters(templateText, parameterText);
+  const components = parameters ? [{ type: "body", parameters }] : undefined;
 
   let response: Response;
   try {
