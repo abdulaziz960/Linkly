@@ -8,6 +8,22 @@ export type ParsedRecipient = { phone: string; name: string };
 export const MAX_CAMPAIGN_RECIPIENTS = 10_000;
 export const MAX_CAMPAIGN_FILE_BYTES = 5 * 1024 * 1024;
 
+/**
+ * The campaign scheduler UI sends a plain `datetime-local` value (e.g.
+ * "2026-09-01T10:00", no timezone) representing the wall-clock time the
+ * user picked in Riyadh. `new Date(value)` on a string with no timezone
+ * designator parses it in the *runtime's* local timezone - UTC on Vercel -
+ * silently shifting every schedule 3 hours later than intended. Saudi
+ * Arabia doesn't observe DST, so a fixed +03:00 offset is always correct.
+ */
+export function parseRiyadhDateTime(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withSeconds = /T\d{2}:\d{2}$/.test(trimmed) ? `${trimmed}:00` : trimmed;
+  const date = new Date(`${withSeconds}+03:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 const marketingMessagePrices = [
   { min: 1000, max: 5000, halalasPerThousand: 3000 },
   { min: 5001, max: 10000, halalasPerThousand: 2800 },
