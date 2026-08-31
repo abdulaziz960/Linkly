@@ -18,7 +18,16 @@ export async function POST(request: NextRequest) {
   } | null;
 
   if (!body || !verifyMoyasarWebhookSecret(body.secret_token)) {
-    console.error("[moyasar:subscriptions-webhook] rejected", JSON.stringify({ ...body, secret_token: body?.secret_token ? "[present]" : "[missing]" }));
+    // Two different notifications hit this same URL: the account-level
+    // "Payments Webhooks" (carries secret_token, data-wrapped - this is the
+    // one we actually trust and act on below) and the invoice's own
+    // callback_url, which delivers the raw invoice object with no
+    // secret_token field at all and can't be verified. The latter is
+    // expected and harmless - only log as an error when a secret_token was
+    // actually sent and didn't match, since that's the case worth noticing.
+    if (body?.secret_token) {
+      console.error("[moyasar:subscriptions-webhook] rejected - secret_token mismatch");
+    }
     return NextResponse.json({ error: "Unauthorized webhook" }, { status: 401 });
   }
 

@@ -17,7 +17,13 @@ export async function POST(request: NextRequest) {
   } | null;
 
   if (!body || !verifyMoyasarWebhookSecret(body.secret_token)) {
-    console.error("[moyasar:campaigns-webhook] rejected", JSON.stringify({ ...body, secret_token: body?.secret_token ? "[present]" : "[missing]" }));
+    // See app/api/admin/subscriptions/payment-webhook/route.ts - the
+    // invoice's own callback_url delivers no secret_token at all and is
+    // expected to be rejected; only a present-but-wrong secret is worth
+    // logging.
+    if (body?.secret_token) {
+      console.error("[moyasar:campaigns-webhook] rejected - secret_token mismatch");
+    }
     return NextResponse.json({ error: "Unauthorized webhook" }, { status: 401 });
   }
 
