@@ -1215,7 +1215,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         return (
           <div className="meta-wizard-panel">
             <form className="channel-quick-form" onSubmit={saveSettings}>
-              <span className="provider-round-icon">✈</span>
+              <span className="provider-round-icon channel-icon-telegram">
+                <ChannelIcon id="telegram" />
+              </span>
               <h3>{t("ربط تيليجرام", "Connect Telegram")}</h3>
               <p>{t("أنشئ بوتًا عبر BotFather@ (الأمر newbot/) وانسخ التوكن. معرّف الدردشة: username@ للقناة، أو رقم الدردشة لرسائل العملاء.", "Create a bot via @BotFather (the /newbot command) and copy the token. Chat handle: @username for a channel, or the chat ID for customer messages.")}</p>
               <label>
