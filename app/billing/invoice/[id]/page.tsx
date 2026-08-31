@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../../../lib/auth";
 import { getInvoiceForTenant } from "../../../../lib/subscriptions";
+import { formatDateTime } from "../../../../lib/time";
 import InvoicePrintButton from "./InvoicePrintButton";
 import "../invoice.css";
 
@@ -39,8 +40,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           <div><span>الجهة</span><b>{invoice.companyName}</b></div>
           <div><span>الوصف</span><b>{invoice.description}</b></div>
           <div><span>رقم الفاتورة</span><b>{invoice.moyasarId || invoice.id}</b></div>
-          <div><span>تاريخ الإنشاء</span><b>{invoice.createdAt}</b></div>
-          {invoice.completedAt ? <div><span>تاريخ الدفع</span><b>{invoice.completedAt}</b></div> : null}
+          <div><span>تاريخ الإنشاء</span><b>{formatDateTime(invoice.createdAt)}</b></div>
+          {invoice.completedAt ? <div><span>تاريخ الدفع</span><b>{formatDateTime(invoice.completedAt)}</b></div> : null}
           <div>
             <span>الحالة</span>
             <span className={`invoice-status-badge ${isPaid ? "paid" : "pending"}`}>{invoice.status}</span>
