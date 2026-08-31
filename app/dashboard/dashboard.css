@@ -3471,6 +3471,10 @@
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .employee-rating {
