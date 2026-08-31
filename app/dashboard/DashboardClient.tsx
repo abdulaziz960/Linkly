@@ -1320,6 +1320,14 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                           {t("مسح", "Clear")}
                         </button>
                       ) : null}
+                      <a
+                        className="btn soft"
+                        href={`/billing/invoices/print${invoiceFromDate || invoiceToDate ? `?${[invoiceFromDate ? `from=${invoiceFromDate}` : "", invoiceToDate ? `to=${invoiceToDate}` : ""].filter(Boolean).join("&")}` : ""}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {t("تنزيل كشف الفترة", "Download period statement")}
+                      </a>
                     </div>
                     {(invoiceFromDate || invoiceToDate) ? (
                       <p className="invoice-total-line">
