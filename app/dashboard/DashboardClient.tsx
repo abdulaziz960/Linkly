@@ -33,8 +33,28 @@ import InboxView from "./views/InboxView";
 import { allViewKeys, computeAllowedViews, canSeeAllConversations as sharedCanSeeAllConversations } from "../../lib/permissions";
 import { playNewMessageChime } from "./notification-sound";
 
+type DashboardSubscription = {
+  plan: string;
+  status: string;
+  billingCycle: string;
+  renewalAt: string;
+} | null;
+
+type DashboardInvoice = {
+  id: string;
+  amount: number;
+  status: string;
+  source: "اشتراك" | "شحن رسائل حملات";
+  moyasarId: string;
+  createdAt: string;
+  completedAt: string;
+};
+
 type DashboardClientProps = {
   initialUser: DashboardUser;
+  subscription: DashboardSubscription;
+  invoices: DashboardInvoice[];
+  campaignBalance: number;
 };
 
 function getNameInitial(name: string) {
@@ -140,7 +160,7 @@ async function fetchQuickRepliesWithSuggestions() {
   return fetchData<QuickReply[]>("/api/quick-replies");
 }
 
-export default function DashboardClient({ initialUser }: DashboardClientProps) {
+export default function DashboardClient({ initialUser, subscription, invoices, campaignBalance }: DashboardClientProps) {
   const router = useRouter();
   const restoredNavigationRef = useRef(false);
   const loadDashboardDataSeqRef = useRef(0);
@@ -1069,6 +1089,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
         googleMapsStatus={googleMapsStatus}
         emailStatus={emailStatus}
         user={initialUser}
+        planName={subscription?.plan || ""}
         profileLogo={profileLogo}
         profileStatus={currentProfileStatus}
         language={language}
@@ -1196,7 +1217,7 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                   <div className="account-info-grid">
                     <div><span>{t("البريد الإلكتروني", "Email")}</span><b>{initialUser.email}</b></div>
                     <div><span>{t("الدور", "Role")}</span><b>{initialUser.role}</b></div>
-                    <div><span>{t("الباقة", "Plan")}</span><b>{t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
+                    <div><span>{t("الباقة", "Plan")}</span><b>{subscription?.plan || t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
                     <div><span>{t("حالة الربط", "Connection status")}</span><b>{t("لم يتم الربط بعد", "Not connected yet")}</b></div>
                   </div>
                   <div className="status-picker">
@@ -1260,13 +1281,33 @@ export default function DashboardClient({ initialUser }: DashboardClientProps) {
                   </div>
                 </>
               ) : profilePanel === "billing" ? (
-                <div className="profile-detail-panel">
-                  <div><span>{t("الباقة الحالية", "Current plan")}</span><b>{t("باقة النمو", "Growth plan")}</b></div>
-                  <div><span>{t("حالة الاشتراك", "Subscription status")}</span><b>{t("نشط", "Active")}</b></div>
-                  <div><span>{t("تجديد الاشتراك", "Renewal")}</span><b>{t("شهري", "Monthly")}</b></div>
-                  <div><span>{t("رصيد الحملات", "Campaign balance")}</span><b>{t("336 رسالة متاحة", "336 messages available")}</b></div>
-                  <p className="muted-copy">{t("تظهر هنا بيانات الاشتراك والفواتير ورصيد الحملات المرتبط بالحساب.", "Subscription, billing, and campaign balance details for this account appear here.")}</p>
-                </div>
+                <>
+                  <div className="profile-detail-panel">
+                    <div><span>{t("الباقة الحالية", "Current plan")}</span><b>{subscription?.plan || t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
+                    <div><span>{t("حالة الاشتراك", "Subscription status")}</span><b>{subscription?.status || t("—", "—")}</b></div>
+                    <div><span>{t("تجديد الاشتراك", "Renewal")}</span><b>{subscription?.billingCycle || t("—", "—")}{subscription?.renewalAt ? ` · ${subscription.renewalAt}` : ""}</b></div>
+                    <div><span>{t("رصيد الحملات", "Campaign balance")}</span><b>{t(`${campaignBalance.toLocaleString("ar")} رسالة متاحة`, `${campaignBalance.toLocaleString("en-US")} messages available`)}</b></div>
+                  </div>
+                  <div className="invoice-list">
+                    <h3>{t("الفواتير", "Invoices")}</h3>
+                    {invoices.length === 0 ? (
+                      <p className="muted-copy">{t("لا توجد فواتير حتى الآن.", "No invoices yet.")}</p>
+                    ) : (
+                      invoices.map((invoice) => (
+                        <div className="invoice-row" key={invoice.id}>
+                          <div>
+                            <b>{invoice.source === "اشتراك" ? t("اشتراك", "Subscription") : t("شحن رسائل حملات", "Campaign top-up")}</b>
+                            <span>{invoice.createdAt}</span>
+                          </div>
+                          <div className="invoice-row-amount">
+                            <b>{t(`${invoice.amount.toLocaleString("ar")} ر.س`, `${invoice.amount.toLocaleString("en-US")} SAR`)}</b>
+                            <span className={`invoice-status ${invoice.status === "مكتمل" ? "paid" : "pending"}`}>{invoice.status}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
               ) : (
                 <div className="profile-detail-panel">
                   <div><span>{t("تسجيل الدخول", "Sign-in")}</span><b>{t("البريد الإلكتروني وكلمة المرور", "Email and password")}</b></div>

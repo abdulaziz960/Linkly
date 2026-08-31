@@ -19,6 +19,7 @@ type DashboardSidebarProps = {
   googleMapsStatus: "connected" | "not_connected" | "pending";
   emailStatus: "connected" | "not_connected" | "pending";
   user: DashboardUser;
+  planName: string;
   profileLogo?: string;
   profileStatus: "متصل" | "مشغول" | "غير متصل";
   selectedChannel: ConversationChannelFilter;
@@ -70,6 +71,7 @@ export default function DashboardSidebar({
   googleMapsStatus,
   emailStatus,
   user,
+  planName,
   profileLogo,
   profileStatus,
   selectedChannel,
@@ -121,7 +123,7 @@ export default function DashboardSidebar({
       </div>
       <div className="tenant-card">
         <b>{isEnglish ? "Account" : "حساب العميل"}</b>
-        <span>{isEnglish ? "No plan selected" : "لم يتم تحديد الباقة"}</span>
+        <span>{planName || (isEnglish ? "No plan selected" : "لم يتم تحديد الباقة")}</span>
       </div>
       <nav className="dashboard-nav">
         <button
