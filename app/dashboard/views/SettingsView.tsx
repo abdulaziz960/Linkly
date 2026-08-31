@@ -1464,13 +1464,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               }}>
                 {wizardStep === 3 ? (isGoogleMaps ? t("ربط Google", "Connect Google") : t("إدخال البيانات", "Enter details")) : t("التالي", "Next")}
               </button> : null}
-              <button className="btn soft" type="button" disabled={wizardStep === 1} onClick={() => setWizardStep((step) => {
-                if (isWebsite || isEmail) return 1;
-                const prev = Math.max(1, step - 1);
-                return prev === 2 ? 1 : prev;
-              })}>
-                {t("عودة", "Back")}
-              </button>
             </div>
           ) : null}
         </div>
