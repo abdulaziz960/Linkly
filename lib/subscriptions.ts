@@ -83,6 +83,41 @@ export async function getInvoicesForTenant(tenantId: string) {
 }
 
 /**
+ * Fetches one invoice for the printable receipt page - scoped to the
+ * requesting tenant so a customer can never load another tenant's invoice
+ * by guessing/incrementing an id.
+ */
+export async function getInvoiceForTenant(tenantId: string, invoiceId: string) {
+  await ensureSchema();
+  const [subscription, subscriptionPayment, campaignPayment] = await Promise.all([
+    prisma.subscription.findUnique({ where: { tenantId } }),
+    prisma.subscriptionPayment.findFirst({ where: { id: invoiceId, tenantId } }),
+    prisma.campaignPayment.findFirst({ where: { id: invoiceId, tenantId } })
+  ]);
+
+  if (subscriptionPayment) {
+    return {
+      ...subscriptionPayment,
+      source: "اشتراك" as const,
+      messages: 0,
+      description: `اشتراك Linkly${subscriptionPayment.planName ? ` - ${subscriptionPayment.planName}` : ""}`,
+      companyName: subscription?.companyName || tenantId
+    };
+  }
+  if (campaignPayment) {
+    return {
+      ...campaignPayment,
+      source: "شحن رسائل حملات" as const,
+      planName: "",
+      planEmployeeLimit: 0,
+      description: `شحن ${campaignPayment.messages.toLocaleString("en-US")} رسالة حملات`,
+      companyName: subscription?.companyName || tenantId
+    };
+  }
+  return null;
+}
+
+/**
  * Marks a subscription payment as completed and applies its staged plan to
  * the tenant's live subscription - the ONLY place upgraded benefits
  * (plan name, employee limit) get written. Called from both the real
