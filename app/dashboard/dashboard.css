@@ -4699,6 +4699,13 @@
   font-weight: 700;
 }
 
+.campaign-report-error {
+  display: block;
+  margin-top: 4px;
+  color: #b42318;
+  font-size: 11px;
+}
+
 .campaign-date {
   display: inline-flex;
   align-items: center;

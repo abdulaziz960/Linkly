@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Campaign, MessageTemplate } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
+import { formatDateTime } from "../../../lib/time";
 
 const pageSizeOptions = [
   { value: "10", label: "10" },
@@ -378,7 +379,7 @@ export default function CampaignsView({
 
   function downloadCampaignReport(campaign: Campaign) {
     const header = [t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التاريخ", "Date")];
-    const csv = [header, ...reportRows.map((row) => [row.phone, row.status, row.date])]
+    const csv = [header, ...reportRows.map((row) => [row.phone, row.status, formatDateTime(row.date)])]
       .map((row) => row.map(escapeCsvCell).join(","))
       .join("\n");
     const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
@@ -483,7 +484,7 @@ export default function CampaignsView({
                       <td><span className={item.balance > 0 ? "balance-credit" : "balance-debit"}>{formatBalanceMovement(item.balance)}</span></td>
                       <td>{item.usage}</td>
                       <td><span className={item.status === "مكتمل" ? "state ok" : item.status === "قيد الانتظار" ? "state warn" : "state off"}>{transactionStatusLabel(item.status, t)}</span></td>
-                      <td dir="ltr">{item.date}</td>
+                      <td dir="ltr">{formatDateTime(item.date)}</td>
                     </tr>
                   ))}
                   {!balancePagination.items.length ? (
@@ -608,8 +609,11 @@ export default function CampaignsView({
                     {!reportLoading ? reportPagination.items.map((row) => (
                       <tr key={row.phone}>
                         <td dir="ltr">{row.phone}</td>
-                        <td><span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span></td>
-                        <td><span className="campaign-date">◴ {row.date}</span></td>
+                        <td>
+                          <span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span>
+                          {row.error ? <small className="campaign-report-error">{row.error}</small> : null}
+                        </td>
+                        <td><span className="campaign-date">◴ {formatDateTime(row.date)}</span></td>
                       </tr>
                     )) : null}
                     {!reportLoading && !reportPagination.items.length ? (
