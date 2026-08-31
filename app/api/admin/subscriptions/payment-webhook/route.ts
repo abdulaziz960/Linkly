@@ -14,21 +14,21 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as {
     secret_token?: string;
-    data?: { id?: string; status?: string };
+    data?: { id?: string; invoice_id?: string; status?: string };
   } | null;
 
   if (!body || !verifyMoyasarWebhookSecret(body.secret_token)) {
-    // Temporary diagnostic: we've seen both a 401 and a 200 arrive for the
-    // same payment within milliseconds of each other, and the 200 one
-    // didn't apply the payment - logging the raw shape (minus the secret
-    // itself) settles whether this is a secret mismatch, a differently-named
-    // status field, or an id that doesn't match what we stored.
     console.error("[moyasar:subscriptions-webhook] rejected", JSON.stringify({ ...body, secret_token: body?.secret_token ? "[present]" : "[missing]" }));
     return NextResponse.json({ error: "Unauthorized webhook" }, { status: 401 });
   }
 
   await ensureSchema();
-  const invoiceId = body.data?.id;
+  // The account-level "Payments Webhooks" fire on Payment resources, not
+  // Invoice resources - data.id is the payment's own id, while data.invoice_id
+  // is the invoice id we actually stored as moyasarId. Matching on data.id
+  // alone meant every delivery landed on "no SubscriptionPayment found" even
+  // for a genuinely paid invoice.
+  const invoiceId = body.data?.invoice_id || body.data?.id;
   const status = body.data?.status;
   if (!invoiceId || status !== "paid") {
     console.error("[moyasar:subscriptions-webhook] skipped - not a paid invoice event", JSON.stringify(body));
