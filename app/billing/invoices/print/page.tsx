@@ -33,7 +33,13 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
   });
 
   const totalPaid = invoices.filter((invoice) => invoice.status === "مكتمل").reduce((sum, invoice) => sum + invoice.amount, 0);
-  const periodLabel = from || to ? `${from ? formatDateOnly(from) : "…"} - ${to ? formatDateOnly(to) : "…"}` : "كل الفترة";
+  // Reflect the actual coverage: an explicit from/to wins, otherwise fall
+  // back to the earliest/latest invoice actually included rather than a
+  // vague "all time" label.
+  const invoiceDates = invoices.map((invoice) => invoice.createdAt).sort();
+  const earliest = from || invoiceDates[0];
+  const latest = to || invoiceDates[invoiceDates.length - 1];
+  const periodLabel = earliest && latest ? `${formatDateOnly(earliest)} - ${formatDateOnly(latest)}` : formatDateOnly(new Date().toISOString());
 
   return (
     <main className="invoice-page">
@@ -43,7 +49,7 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
           <div className="invoice-head-meta">
             <div>
               <span>PERIOD <em>الفترة</em></span>
-              <b>{periodLabel}</b>
+              <b dir="ltr">{periodLabel}</b>
             </div>
             <div>
               <span>ISSUED <em>تاريخ الإصدار</em></span>
@@ -52,10 +58,6 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
           </div>
         </div>
 
-        <div className="invoice-section-title">
-          <span>ACCOUNT STATEMENT</span>
-          <span>كشف حساب</span>
-        </div>
         <h2 className="invoice-item-heading">
           <span>{subscription?.companyName || user.tenantId}</span>
           <span>{subscription?.companyName || user.tenantId}</span>

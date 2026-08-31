@@ -84,7 +84,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           {periodCovered ? (
             <div>
               <span>PERIOD COVERED <em>الفترة المغطاة</em></span>
-              <b>{periodCovered}</b>
+              <b dir="ltr">{periodCovered}</b>
             </div>
           ) : null}
           <div>
