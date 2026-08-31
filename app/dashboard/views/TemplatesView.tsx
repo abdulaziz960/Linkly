@@ -156,18 +156,29 @@ export default function TemplatesView({
     setSyncing(true);
     setError("");
     setSyncNotice("");
-    const response = await fetch("/api/templates/sync-meta", { method: "POST" });
-    const payload = (await response.json()) as { ok: boolean; synced?: number; error?: string };
-    if (!payload.ok) {
-      setError(payload.error || t("تعذر التحديث من Meta", "Unable to sync from Meta"));
-    } else if (!payload.synced) {
-      // A successful call with zero templates looks identical to doing
-      // nothing at all otherwise - Meta genuinely has no templates for this
-      // WABA, which is worth saying explicitly rather than staying silent.
-      setSyncNotice(t("لا توجد قوالب على حساب Meta لهذا الرقم.", "Meta has no templates for this WhatsApp number."));
+    // Without try/finally, a network error or a non-JSON response (e.g. a
+    // platform timeout page) throws before setSyncing(false) ever runs,
+    // leaving the button stuck on "جاري التحديث" forever with no way to
+    // retry short of reloading the page.
+    try {
+      const response = await fetch("/api/templates/sync-meta", { method: "POST" });
+      const payload = (await response.json().catch(() => null)) as { ok: boolean; synced?: number; error?: string } | null;
+      if (!payload) {
+        setError(t("انتهت مهلة الاتصال بـ Meta، حاول مرة أخرى.", "The request to Meta timed out - try again."));
+      } else if (!payload.ok) {
+        setError(payload.error || t("تعذر التحديث من Meta", "Unable to sync from Meta"));
+      } else if (!payload.synced) {
+        // A successful call with zero templates looks identical to doing
+        // nothing at all otherwise - Meta genuinely has no templates for
+        // this WABA, which is worth saying explicitly rather than silence.
+        setSyncNotice(t("لا توجد قوالب على حساب Meta لهذا الرقم.", "Meta has no templates for this WhatsApp number."));
+      }
+      await onRefreshData();
+    } catch {
+      setError(t("تعذر الاتصال بالخادم، حاول مرة أخرى.", "Couldn't reach the server - try again."));
+    } finally {
+      setSyncing(false);
     }
-    await onRefreshData();
-    setSyncing(false);
   }
 
   async function deleteTemplate(template: MessageTemplate) {
