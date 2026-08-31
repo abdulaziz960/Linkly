@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { getCampaigns } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
-import { parseRecipientFile, activateDueScheduledCampaigns, processCampaignBatch, getCampaignBalance, MAX_CAMPAIGN_FILE_BYTES } from "../../../lib/campaign-engine";
+import { parseRecipientFile, activateDueScheduledCampaigns, processCampaignBatch, getCampaignBalance, parseRiyadhDateTime, MAX_CAMPAIGN_FILE_BYTES } from "../../../lib/campaign-engine";
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { jsonError, jsonOk } from "../_utils/json";
 
@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
   const recipients = await parseRecipientFile(buffer, file.name).catch(() => []);
   if (!recipients.length) return jsonError("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.");
 
-  const isScheduledFuture = scheduled && scheduledAt && new Date(scheduledAt).getTime() > Date.now();
+  const scheduledDate = scheduled ? parseRiyadhDateTime(scheduledAt) : null;
+  const isScheduledFuture = Boolean(scheduledDate && scheduledDate.getTime() > Date.now());
   const campaignId = `camp-${randomUUID()}`;
 
   await prisma.$transaction(async (tx) => {
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
         channel: "whatsapp",
         templateName,
         language: template.language || "ar",
-        scheduledAt: isScheduledFuture ? new Date(scheduledAt).toISOString() : "",
+        scheduledAt: isScheduledFuture && scheduledDate ? scheduledDate.toISOString() : "",
         sent: 0,
         total: recipients.length,
         progress: "0%",
