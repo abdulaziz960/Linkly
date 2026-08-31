@@ -17,17 +17,20 @@ export async function POST(request: NextRequest) {
   } | null;
 
   if (!body || !verifyMoyasarWebhookSecret(body.secret_token)) {
+    console.error("[moyasar:campaigns-webhook] rejected", JSON.stringify({ ...body, secret_token: body?.secret_token ? "[present]" : "[missing]" }));
     return NextResponse.json({ error: "Unauthorized webhook" }, { status: 401 });
   }
 
   const invoiceId = body.data?.id;
   const status = body.data?.status;
   if (!invoiceId || status !== "paid") {
+    console.error("[moyasar:campaigns-webhook] skipped - not a paid invoice event", JSON.stringify(body));
     return NextResponse.json({ ok: true, skipped: true });
   }
 
   const payment = await prisma.campaignPayment.findFirst({ where: { moyasarId: invoiceId } });
   if (!payment) {
+    console.error(`[moyasar:campaigns-webhook] no CampaignPayment found for moyasarId=${invoiceId}`);
     return NextResponse.json({ ok: true, alreadyProcessed: true });
   }
 
