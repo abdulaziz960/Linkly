@@ -31,6 +31,7 @@ import type {
 import DashboardViewRouter from "./views/DashboardViewRouter";
 import InboxView from "./views/InboxView";
 import { allViewKeys, computeAllowedViews, canSeeAllConversations as sharedCanSeeAllConversations } from "../../lib/permissions";
+import { formatDateTime } from "../../lib/time";
 import { playNewMessageChime } from "./notification-sound";
 
 type DashboardSubscription = {
@@ -1333,7 +1334,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                         <div className="invoice-row" key={invoice.id}>
                           <div>
                             <b>{invoice.source === "اشتراك" ? t("اشتراك", "Subscription") : t("شحن رسائل حملات", "Campaign top-up")}</b>
-                            <span>{invoice.createdAt}</span>
+                            <span>{formatDateTime(invoice.createdAt)}</span>
                           </div>
                           <div className="invoice-row-amount">
                             <b>{t(`${invoice.amount.toLocaleString("ar")} ر.س`, `${invoice.amount.toLocaleString("en-US")} SAR`)}</b>
