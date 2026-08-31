@@ -203,6 +203,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [draftProfileLogo, setDraftProfileLogo] = useState(initialUser.profileLogo ?? "");
   const [profileFeedback, setProfileFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
+  const [invoiceFromDate, setInvoiceFromDate] = useState("");
+  const [invoiceToDate, setInvoiceToDate] = useState("");
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
   const [facebookStatus, setFacebookStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -261,6 +263,19 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const currentEmployee = matchedEmployee ?? fallbackEmployee;
   const canViewAllConversations = canSeeAllConversations(initialUser, currentEmployee);
   const approvedTemplates = useMemo(() => templates.filter(isApprovedTemplate), [templates]);
+  const filteredInvoices = useMemo(() => {
+    if (!invoiceFromDate && !invoiceToDate) return invoices;
+    return invoices.filter((invoice) => {
+      const invoiceDate = invoice.createdAt.slice(0, 10);
+      if (invoiceFromDate && invoiceDate < invoiceFromDate) return false;
+      if (invoiceToDate && invoiceDate > invoiceToDate) return false;
+      return true;
+    });
+  }, [invoices, invoiceFromDate, invoiceToDate]);
+  const filteredInvoicesTotal = useMemo(
+    () => filteredInvoices.filter((invoice) => invoice.status === "مكتمل").reduce((sum, invoice) => sum + invoice.amount, 0),
+    [filteredInvoices]
+  );
   const scopedConversations = useMemo(() => {
     if (canViewAllConversations) return conversations;
 
@@ -1290,10 +1305,31 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                   </div>
                   <div className="invoice-list">
                     <h3>{t("الفواتير", "Invoices")}</h3>
-                    {invoices.length === 0 ? (
-                      <p className="muted-copy">{t("لا توجد فواتير حتى الآن.", "No invoices yet.")}</p>
+                    <div className="invoice-filter">
+                      <label>
+                        {t("من", "From")}
+                        <input type="date" value={invoiceFromDate} onChange={(event) => setInvoiceFromDate(event.target.value)} />
+                      </label>
+                      <label>
+                        {t("إلى", "To")}
+                        <input type="date" value={invoiceToDate} onChange={(event) => setInvoiceToDate(event.target.value)} />
+                      </label>
+                      {invoiceFromDate || invoiceToDate ? (
+                        <button type="button" className="btn soft" onClick={() => { setInvoiceFromDate(""); setInvoiceToDate(""); }}>
+                          {t("مسح", "Clear")}
+                        </button>
+                      ) : null}
+                    </div>
+                    {(invoiceFromDate || invoiceToDate) ? (
+                      <p className="invoice-total-line">
+                        {t("إجمالي الفواتير المدفوعة خلال الفترة:", "Total paid invoices in this period:")}{" "}
+                        <b>{t(`${filteredInvoicesTotal.toLocaleString("ar")} ر.س`, `${filteredInvoicesTotal.toLocaleString("en-US")} SAR`)}</b>
+                      </p>
+                    ) : null}
+                    {filteredInvoices.length === 0 ? (
+                      <p className="muted-copy">{t("لا توجد فواتير في هذه الفترة.", "No invoices in this period.")}</p>
                     ) : (
-                      invoices.map((invoice) => (
+                      filteredInvoices.map((invoice) => (
                         <div className="invoice-row" key={invoice.id}>
                           <div>
                             <b>{invoice.source === "اشتراك" ? t("اشتراك", "Subscription") : t("شحن رسائل حملات", "Campaign top-up")}</b>
@@ -1303,6 +1339,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                             <b>{t(`${invoice.amount.toLocaleString("ar")} ر.س`, `${invoice.amount.toLocaleString("en-US")} SAR`)}</b>
                             <span className={`invoice-status ${invoice.status === "مكتمل" ? "paid" : "pending"}`}>{invoice.status}</span>
                           </div>
+                          <a className="invoice-print-link" href={`/billing/invoice/${invoice.id}`} target="_blank" rel="noopener noreferrer">
+                            {t("طباعة", "Print")}
+                          </a>
                         </div>
                       ))
                     )}
