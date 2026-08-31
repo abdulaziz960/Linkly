@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as {
     type?: string;
     secret_token?: string;
-    data?: { id?: string; status?: string; metadata?: Record<string, string> };
+    data?: { id?: string; invoice_id?: string; status?: string; metadata?: Record<string, string> };
   } | null;
 
   if (!body || !verifyMoyasarWebhookSecret(body.secret_token)) {
@@ -21,7 +21,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized webhook" }, { status: 401 });
   }
 
-  const invoiceId = body.data?.id;
+  // The account-level "Payments Webhooks" fire on Payment resources, not
+  // Invoice resources - data.id is the payment's own id, while data.invoice_id
+  // is the invoice id we actually stored as moyasarId.
+  const invoiceId = body.data?.invoice_id || body.data?.id;
   const status = body.data?.status;
   if (!invoiceId || status !== "paid") {
     console.error("[moyasar:campaigns-webhook] skipped - not a paid invoice event", JSON.stringify(body));
