@@ -308,5 +308,20 @@ export async function syncMetaTemplates(tenantId: string, wabaId: string, access
     });
   }
 
+  // A template deleted on Meta's side (WhatsApp Manager) never disappears
+  // from our own table otherwise - this only ever upserts, so a stale local
+  // row (still usable for campaigns against an approval that no longer
+  // exists) survives indefinitely. Only remove rows that came from a prior
+  // Meta sync (metaId set) - a locally-drafted template not yet submitted
+  // has no metaId and must never be swept up here.
+  const currentNames = payload.data.map((template) => template.name);
+  await prisma.template.deleteMany({
+    where: {
+      tenantId,
+      metaId: { not: "" },
+      ...(currentNames.length ? { name: { notIn: currentNames } } : {})
+    }
+  });
+
   return { ok: true, synced: payload.data?.length || 0 };
 }
