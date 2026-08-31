@@ -216,6 +216,18 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_mentions_synced_until_id TEXT NOT NULL DEFAULT ''`
   );
+  // Legacy column from before this table's tenant scoping was renamed
+  // workspace_id -> tenant_id (same class of leftover as the subscriptions
+  // table cleanup above). Nothing in the current schema reads or writes
+  // workspace_id, but its own unique index on (workspace_id, name) is still
+  // enforced - since every row shares the same (empty/default) value there,
+  // any template name that already exists for one tenant (e.g. Meta's
+  // default "hello_world") fails to save for every other tenant with a
+  // P2002 unique-constraint error. Dropping the column drops its dependent
+  // indexes with it.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE templates DROP COLUMN IF EXISTS workspace_id`
+  );
 }
 
 async function runSchemaMigrations() {
