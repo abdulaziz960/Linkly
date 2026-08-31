@@ -227,8 +227,13 @@ export async function syncMetaTemplates(tenantId: string, wabaId: string, access
 
   // Meta paginates message_templates - without following paging.next, only
   // the first ~25 (default limit) templates ever synced regardless of how
-  // many the account actually has.
-  while (nextUrl) {
+  // many the account actually has. Cap the number of pages followed so a
+  // malformed/looping paging.next can't hang this request indefinitely -
+  // that previously left the "syncing" button stuck forever on the client
+  // since the fetch there had no timeout of its own.
+  let pagesFetched = 0;
+  while (nextUrl && pagesFetched < 20) {
+    pagesFetched += 1;
     const response = await fetch(nextUrl, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
