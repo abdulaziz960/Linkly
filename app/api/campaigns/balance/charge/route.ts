@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       amountHalalas: amountHalalas ?? undefined,
       description: `شحن ${messages.toLocaleString("en-US")} رسالة حملات - Linkly`,
       callbackUrl: `${baseUrl()}/api/campaigns/payment-webhook`,
+      successUrl: `${baseUrl()}/dashboard?view=campaigns`,
       metadata: { tenantId: user.tenantId, messages: String(messages), paymentId }
     });
 

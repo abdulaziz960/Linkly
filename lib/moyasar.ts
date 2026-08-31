@@ -12,6 +12,7 @@ type CreateInvoiceInput = {
   amountHalalas?: number;
   description: string;
   callbackUrl: string;
+  successUrl?: string;
   metadata?: Record<string, string>;
 };
 
@@ -44,6 +45,7 @@ export async function createMoyasarInvoice(input: CreateInvoiceInput): Promise<M
       currency: "SAR",
       description: input.description,
       callback_url: input.callbackUrl,
+      success_url: input.successUrl,
       metadata: input.metadata || {}
     })
   });
