@@ -76,6 +76,7 @@ export default function TemplatesView({
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
+  const [syncNotice, setSyncNotice] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
 
   function handleHeaderImageChange(event: ChangeEvent<HTMLInputElement>) {
@@ -154,9 +155,17 @@ export default function TemplatesView({
   async function syncTemplatesFromMeta() {
     setSyncing(true);
     setError("");
+    setSyncNotice("");
     const response = await fetch("/api/templates/sync-meta", { method: "POST" });
-    const payload = (await response.json()) as { ok: boolean; error?: string };
-    if (!payload.ok) setError(payload.error || t("تعذر التحديث من Meta", "Unable to sync from Meta"));
+    const payload = (await response.json()) as { ok: boolean; synced?: number; error?: string };
+    if (!payload.ok) {
+      setError(payload.error || t("تعذر التحديث من Meta", "Unable to sync from Meta"));
+    } else if (!payload.synced) {
+      // A successful call with zero templates looks identical to doing
+      // nothing at all otherwise - Meta genuinely has no templates for this
+      // WABA, which is worth saying explicitly rather than staying silent.
+      setSyncNotice(t("لا توجد قوالب على حساب Meta لهذا الرقم.", "Meta has no templates for this WhatsApp number."));
+    }
     await onRefreshData();
     setSyncing(false);
   }
@@ -182,6 +191,7 @@ export default function TemplatesView({
           <button className="btn primary" type="button" onClick={openCreateForm} disabled={!whatsappConnected}>{t("إنشاء قالب", "Create template")}</button>
         </div>
         {error ? <p className="form-error">{error}</p> : null}
+        {syncNotice ? <p className="muted-copy">{syncNotice}</p> : null}
         {!whatsappConnected ? (
           <p className="form-error">{t("اربط قناة واتساب من الإعدادات أولاً حتى تظهر القوالب.", "Connect a WhatsApp channel from Settings first for templates to show up.")}</p>
         ) : (

@@ -204,18 +204,7 @@ function mapTemplateButtonType(type?: string) {
 export async function syncMetaTemplates(tenantId: string, wabaId: string, accessToken: string): Promise<{ ok: boolean; synced: number; error?: string }> {
   if (!wabaId || !accessToken) return { ok: false, synced: 0, error: "بيانات ربط واتساب غير مكتملة" };
 
-  const url = new URL(`https://graph.facebook.com/v22.0/${wabaId}/message_templates`);
-  url.searchParams.set("fields", "id,name,status,category,language,components");
-
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
-
-  if (!response.ok) {
-    return { ok: false, synced: 0, error: "تعذر جلب القوالب من Meta." };
-  }
-
-  const payload = (await response.json().catch(() => ({}))) as {
+  type MetaTemplatesPage = {
     data?: Array<{
       id?: string;
       name: string;
@@ -224,7 +213,37 @@ export async function syncMetaTemplates(tenantId: string, wabaId: string, access
       language?: string;
       components?: Array<{ type?: string; text?: string; format?: string; buttons?: Array<{ text?: string; type?: string; phone_number?: string; url?: string }> }>;
     }>;
+    paging?: { next?: string };
+    error?: { message?: string; code?: number; error_subcode?: number };
   };
+
+  const templates: NonNullable<MetaTemplatesPage["data"]> = [];
+  let nextUrl: string | undefined = (() => {
+    const initial = new URL(`https://graph.facebook.com/v22.0/${wabaId}/message_templates`);
+    initial.searchParams.set("fields", "id,name,status,category,language,components");
+    initial.searchParams.set("limit", "100");
+    return initial.toString();
+  })();
+
+  // Meta paginates message_templates - without following paging.next, only
+  // the first ~25 (default limit) templates ever synced regardless of how
+  // many the account actually has.
+  while (nextUrl) {
+    const response = await fetch(nextUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const pagePayload = (await response.json().catch(() => ({}))) as MetaTemplatesPage;
+
+    if (!response.ok) {
+      console.error("[meta-templates:sync]", tenantId, pagePayload.error);
+      return { ok: false, synced: 0, error: pagePayload.error?.message || "تعذر جلب القوالب من Meta." };
+    }
+
+    templates.push(...(pagePayload.data || []));
+    nextUrl = pagePayload.paging?.next;
+  }
+
+  const payload = { data: templates };
   const syncedAt = new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
     dateStyle: "medium",
     timeStyle: "short",
