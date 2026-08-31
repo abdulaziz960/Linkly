@@ -163,14 +163,26 @@ async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: 
   const languageCode = language === "Arabic" || language === "العربية" || !language ? "ar" : language === "English" || language === "الإنجليزية" ? "en_US" : language;
   const templateRecord = await prisma.template.findFirst({ where: { tenantId, name: templateName, status: "معتمد" } });
   if (!templateRecord) return { ok: false as const, error: "قالب واتساب غير موجود أو غير معتمد" };
-  const indexes = [...templateRecord.message.matchAll(/\{\{\s*(\d+)\s*\}\}/g)]
-    .map((match) => Number(match[1]))
-    .filter(Number.isFinite);
-  const parameterCount = indexes.length ? Math.max(...indexes) : 0;
-  const components = parameterCount
+
+  // WhatsApp templates use one of two variable formats, fixed at creation:
+  // positional ({{1}}, {{2}}, ...) or named ({{customer_name}}, ...) - Meta
+  // rejects a send whose parameters don't match the format the template was
+  // actually created with (error #132012 "Parameter format does not match
+  // format in the created template"). We only ever built positional
+  // parameters here, which broke for any template using named variables
+  // (the WhatsApp Manager UI has increasingly defaulted to named format).
+  // Detect the format from the placeholders in our own synced copy of the
+  // template text instead of assuming one or the other.
+  const placeholders = [...templateRecord.message.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)].map((match) => match[1]);
+  const value = recipientName.trim() || "عميلنا";
+  const isNamedFormat = placeholders.some((placeholder) => !/^\d+$/.test(placeholder));
+
+  const components = placeholders.length
     ? [{
         type: "body",
-        parameters: Array.from({ length: parameterCount }, () => ({ type: "text", text: recipientName.trim() || "عميلنا" }))
+        parameters: isNamedFormat
+          ? placeholders.map((name) => ({ type: "text", parameter_name: name, text: value }))
+          : Array.from({ length: Math.max(...placeholders.map(Number)) }, () => ({ type: "text", text: value }))
       }]
     : undefined;
 
