@@ -4666,9 +4666,25 @@
   gap: 14px;
 }
 
+.campaign-name > span {
+  display: block;
+  min-width: 0;
+  max-width: 220px;
+}
+
+.campaign-name b {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .campaign-name small {
   display: block;
   margin-top: 5px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: #a1a1aa;
   font-weight: 500;
 }
