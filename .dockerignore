@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.claude
+tests
+*.local
+.env
+.env.*
+!.env.example
+prisma/.generated
+npm-debug.log*
+*.md
