@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { authCookieName, createSessionToken } from "../../../../lib/auth";
 import { hashPassword } from "../../../../lib/database";
 import { getPasswordValidationError } from "../../../../lib/passwords";
+import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
 import { prisma } from "../../../../lib/prisma";
 
 export const runtime = "nodejs";
@@ -22,6 +23,19 @@ export async function POST(request: Request) {
   if (!token) {
     return NextResponse.json({ message: "رابط التفعيل غير صالح" }, { status: 400 });
   }
+
+  // Tokens are 256-bit random hex (brute force is infeasible), but this
+  // still guards against using the endpoint as a resource-exhaustion
+  // vector, matching the rate limiting already applied to login/forgot-
+  // password/trial-signup.
+  const rateLimit = await consumeRateLimit("activate", requestIdentifier(request, token), 10, 15 * 60 * 1000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { message: "محاولات كثيرة. حاول مرة أخرى بعد قليل" },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+    );
+  }
+
   const passwordError = getPasswordValidationError(password);
   if (passwordError) return NextResponse.json({ message: passwordError }, { status: 400 });
 
