@@ -39,7 +39,7 @@ const plans = [
   { name: "Business", price: "999", audience: "Best for multiple teams that need API integration and advanced reports.", cta: "Try the Business plan", items: ["Up to 10 users", "Multiple teams", "Webhooks and API", "Priority support"] }
 ] as const;
 const jsonLd = { "@context": "https://schema.org", "@graph": [
-  { "@type": "Organization", name: "Linkly", url: "https://audiencew.audience.sa", logo: "https://audiencew.audience.sa/assets/linkly-logo.png" },
+  { "@type": "Organization", name: "Linkly", url: "https://linklysa.io", logo: "https://linklysa.io/assets/linkly-logo.png" },
   { "@type": "SoftwareApplication", name: "Linkly", applicationCategory: "BusinessApplication", operatingSystem: "Web", offers: { "@type": "AggregateOffer", lowPrice: "249", highPrice: "999", priceCurrency: "SAR" } },
   { "@type": "FAQPage", mainEntity: faqs.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }
 ] };

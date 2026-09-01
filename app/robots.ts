@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: ["/", "/en", "/privacy", "/terms", "/contact"],
       disallow: ["/api/", "/admin/", "/dashboard/", "/activate", "/billing/", "/checkout/"]
     },
-    sitemap: "https://audiencew.audience.sa/sitemap.xml",
-    host: "https://audiencew.audience.sa"
+    sitemap: "https://linklysa.io/sitemap.xml",
+    host: "https://linklysa.io"
   };
 }

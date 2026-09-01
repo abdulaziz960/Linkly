@@ -132,7 +132,7 @@ function apiChannel(channel: ChannelId) {
 // Channels the auto-reply bot engine currently supports (lib/bot-engine.ts).
 const botSupportedChannels: ChannelId[] = ["whatsapp", "telegram", "instagram", "facebook", "x", "website"];
 
-const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://audiencew.audience.sa";
+const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://linklysa.io";
 // WhatsApp Embedded Signup always uses Linkly's own tech-provider Meta app,
 // never the per-tenant Instagram/Facebook app id from NEXT_PUBLIC_META_APP_ID.
 const techProviderMetaAppId = "1296230909161568";
