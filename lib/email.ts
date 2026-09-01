@@ -31,6 +31,28 @@ function activationEmailContent(name: string, activationUrl: string, purpose: "a
 
 export async function sendActivationEmail({ to, name, activationUrl, purpose = "activation" }: SendActivationEmailInput): Promise<EmailDeliveryResult> {
   const content = activationEmailContent(name, activationUrl, purpose);
+  const subject = purpose === "password_reset" ? "إعادة تعيين كلمة السر في Linkly" : "تفعيل حسابك في Linkly";
+
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
+  const resendFrom = process.env.RESEND_FROM_EMAIL?.trim() || "Linkly <noreply@linklysa.io>";
+
+  if (resendApiKey) {
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+        body: JSON.stringify({ from: resendFrom, to, subject, text: content.text, html: content.html })
+      });
+      const payload = await response.json().catch(() => null) as { id?: string; message?: string } | null;
+      if (response.ok && payload?.id) {
+        return { sent: true, message: "تم إنشاء الحساب وإرسال رابط التفعيل إلى بريدك الإلكتروني." };
+      }
+      console.error("Resend activation email failed", { status: response.status, payload });
+    } catch (error) {
+      console.error("Resend activation email request failed", error);
+    }
+  }
+
   const googleScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL?.trim();
   const googleScriptSecret = process.env.GOOGLE_APPS_SCRIPT_SECRET?.trim();
 
@@ -42,7 +64,7 @@ export async function sendActivationEmail({ to, name, activationUrl, purpose = "
         body: JSON.stringify({
           secret: googleScriptSecret,
           to,
-          subject: purpose === "password_reset" ? "إعادة تعيين كلمة السر في Linkly" : "تفعيل حسابك في Linkly",
+          subject,
           text: content.text,
           html: content.html,
           htmlBody: content.html
