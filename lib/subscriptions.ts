@@ -305,7 +305,7 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
   });
 
   const origin = process.env.NODE_ENV === "production"
-    ? "https://audiencew.audience.sa"
+    ? "https://linklysa.io"
     : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const activationUrl = `${origin.replace(/\/$/, "")}/activate?token=${activationToken}`;
   const inviteDelivery = await sendActivationEmail({ to: email, name: input.ownerName, activationUrl });

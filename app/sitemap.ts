@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const baseUrl = "https://audiencew.audience.sa";
+const baseUrl = "https://linklysa.io";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
