@@ -3,6 +3,7 @@ import { createTenantWithSubscription } from "../../../lib/subscriptions";
 import { getActivePlans } from "../../../lib/plans";
 import { jsonError, jsonOk } from "../_utils/json";
 import { consumeRateLimit, requestIdentifier } from "../../../lib/rate-limit";
+import { isValidEmail, isValidSaudiPhone } from "../../../lib/validation";
 
 export const runtime = "nodejs";
 
@@ -35,13 +36,14 @@ export async function POST(request: NextRequest) {
     return jsonError("تم تجاوز عدد المحاولات. حاول مرة أخرى لاحقاً", 429);
   }
 
-  if (!companyName || !ownerName || !ownerEmail) {
-    return jsonError("عبّي اسم النشاط والاسم والبريد الإلكتروني", 400);
+  if (!companyName || !ownerName || !ownerEmail || !phone) {
+    return jsonError("عبّي اسم النشاط والاسم والبريد الإلكتروني ورقم الجوال", 400);
   }
   if (companyName.length > 120 || ownerName.length > 100 || ownerEmail.length > 254 || phone.length > 30) {
     return jsonError("بعض البيانات المدخلة أطول من الحد المسموح", 400);
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) return jsonError("أدخل بريداً إلكترونياً صحيحاً", 400);
+  if (!isValidEmail(ownerEmail)) return jsonError("أدخل بريداً إلكترونياً صحيحاً", 400);
+  if (!isValidSaudiPhone(phone)) return jsonError("أدخل رقم جوال سعودي صحيح (مثال: 05XXXXXXXX)", 400);
   const allowedChannels = new Set(["whatsapp", "instagram", "telegram", "email", "tiktok"]);
   if (channels.some((channel) => !allowedChannels.has(channel))) return jsonError("إحدى القنوات المختارة غير صالحة", 400);
 

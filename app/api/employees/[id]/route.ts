@@ -4,6 +4,7 @@ import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { isOwnerEquivalentGrant } from "../../../../lib/permissions";
 import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
+import { isValidEmail } from "../../../../lib/validation";
 
 type RouteContext = {
   params: Promise<{
@@ -32,6 +33,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   if (!name) return jsonError("اسم الموظف مطلوب");
   if (!email) return jsonError("البريد الإلكتروني مطلوب");
+  if (!isValidEmail(email)) return jsonError("أدخل بريداً إلكترونياً صحيحاً");
   if (isOwnerEquivalentGrant(body.role || "", body.permissions || "") && user.role !== "مالك الحساب") {
     return jsonError("فقط مالك الحساب يقدر يمنح صلاحية بمستوى المالك", 403);
   }

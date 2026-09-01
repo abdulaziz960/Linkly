@@ -5,6 +5,7 @@ import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { prisma } from "../../../lib/prisma";
 import { jsonError, jsonOk } from "../_utils/json";
+import { isValidSaudiPhone } from "../../../lib/validation";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest) {
 
   if (!name) return jsonError("اسم العميل مطلوب");
   if (!phone) return jsonError("رقم الجوال مطلوب");
+  if (!isValidSaudiPhone(phone)) return jsonError("أدخل رقم جوال سعودي صحيح (مثال: 05XXXXXXXX)");
 
   const id = `c-${randomUUID()}`;
   const customer = await prisma.$transaction(async (tx) => {

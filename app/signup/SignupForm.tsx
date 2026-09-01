@@ -98,11 +98,12 @@ export default function SignupForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
     <label>{text.companyName}<input name="companyName" required maxLength={120} autoComplete="organization" placeholder={text.companyNamePlaceholder} /></label>
     <label>{text.ownerName}<input name="ownerName" required maxLength={100} autoComplete="name" placeholder={text.ownerNamePlaceholder} /></label>
     <label>{text.email}<input name="ownerEmail" type="email" required maxLength={254} autoComplete="email" placeholder="name@company.sa" /></label>
+    <label>{text.phone}<input name="phone" type="tel" required inputMode="tel" maxLength={30} autoComplete="tel" pattern="^(00966|\+966|966|0)?5\d{8}$" title={text.phonePlaceholder} placeholder={text.phonePlaceholder} /></label>
     <label className="signup-honeypot" aria-hidden="true">{text.website}<input name="website" tabIndex={-1} autoComplete="off" /></label>
     <details className="signup-options">
       <summary>{text.customizeSummary} <span>{text.optional}</span></summary>
       <div className="signup-options-body">
-        <div className="form-pair"><label>{text.phone}<input name="phone" inputMode="tel" maxLength={30} autoComplete="tel" placeholder={text.phonePlaceholder} /></label><label>{text.teamSize}<CustomSelect name="teamSize" defaultValue="2-5" options={teamSizeOptions} /></label></div>
+        <div className="form-pair"><label>{text.teamSize}<CustomSelect name="teamSize" defaultValue="2-5" options={teamSizeOptions} /></label></div>
         <fieldset><legend>{text.channelsLegend}</legend><div className="channel-choices">{channelOptions.map(channel => <button className={selected.includes(channel.value) ? "selected" : ""} type="button" key={channel.value} aria-pressed={selected.includes(channel.value)} onClick={() => setSelected(current => current.includes(channel.value) ? current.filter(item => item !== channel.value) : [...current, channel.value])}>{channel.label}</button>)}</div></fieldset>
       </div>
     </details>

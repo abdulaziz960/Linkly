@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { sendActivationEmail } from "./email";
+import { isValidEmail } from "./validation";
 
 export const planEmployeeLimits: Record<string, number> = {
   "باقة البداية": 1,
@@ -220,7 +221,7 @@ type CreateTenantInput = {
 export async function createTenantWithSubscription(input: CreateTenantInput) {
   await ensureSchema();
   const email = input.ownerEmail.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("صيغة البريد الإلكتروني غير صحيحة");
+  if (!isValidEmail(email)) throw new Error("صيغة البريد الإلكتروني غير صحيحة");
 
   const existingAccount = await prisma.userAccount.findUnique({ where: { email } });
   if (existingAccount) throw new Error("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة");
