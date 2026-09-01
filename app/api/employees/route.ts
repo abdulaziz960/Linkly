@@ -8,6 +8,7 @@ import { sendActivationEmail } from "../../../lib/email";
 import { employeeLimitReachedMessage, getEmployeeLimitForTenant } from "../../../lib/employee-limits";
 import { prisma } from "../../../lib/prisma";
 import { jsonError, jsonOk } from "../_utils/json";
+import { isValidEmail } from "../../../lib/validation";
 
 export const runtime = "nodejs";
 
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
 
   if (!name) return jsonError("اسم الموظف مطلوب");
   if (!email) return jsonError("البريد الإلكتروني مطلوب");
+  if (!isValidEmail(email)) return jsonError("أدخل بريداً إلكترونياً صحيحاً");
   if (isOwnerEquivalentGrant(body.role || "", body.permissions || "") && user.role !== "مالك الحساب") {
     return jsonError("فقط مالك الحساب يقدر يمنح صلاحية بمستوى المالك", 403);
   }

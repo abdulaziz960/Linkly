@@ -219,7 +219,7 @@ export default function ContactsView({
               </label>
               <label>
                 <span>{t("رقم الجوال", "Phone Number")}</span>
-                <input dir="ltr" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} required placeholder="+9665XXXXXXXX" />
+                <input dir="ltr" type="tel" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} required pattern="^(00966|\+966|966|0)?5\d{8}$" title={t("أدخل رقم جوال سعودي صحيح", "Enter a valid Saudi phone number")} placeholder="+9665XXXXXXXX" />
               </label>
               {error ? <p className="form-error">{error}</p> : null}
             </div>
