@@ -7,7 +7,7 @@ import { createMoyasarInvoice, isMoyasarConfigured } from "../../../../lib/moyas
 
 export const runtime = "nodejs";
 const baseUrl = () => (process.env.NODE_ENV === "production"
-  ? "https://audiencew.audience.sa"
+  ? "https://linklysa.io"
   : process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
 
 export async function POST(request: NextRequest) {

@@ -4,7 +4,7 @@ import { prisma } from "./prisma";
 import { encryptSecret } from "./secret-storage";
 
 export const googleBusinessScope = "https://www.googleapis.com/auth/business.manage";
-const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://audiencew.audience.sa";
+const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://linklysa.io";
 
 export function getGoogleRedirectUri(request: NextRequest) {
   const origin = request.nextUrl.hostname === "localhost" ? publicAppUrl : request.nextUrl.origin;
