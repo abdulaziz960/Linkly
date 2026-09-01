@@ -11,7 +11,7 @@ const appFont = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://audiencew.audience.sa"),
+  metadataBase: new URL("https://linklysa.io"),
   title: { default: "Linkly — صندوق واحد لمحادثات عملائك", template: "%s | Linkly" },
   description: "منصة سعودية تجمع محادثات واتساب وإنستغرام وتيليجرام والبريد وتيك توك في صندوق واحد لفريقك.",
   applicationName: "Linkly",
