@@ -4,7 +4,11 @@
 FROM node:22-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# --ignore-scripts: `npm ci` otherwise runs the postinstall hook
+# (scripts/prisma-generate.mjs), but only package.json/package-lock.json
+# exist in this stage yet - the actual generate runs explicitly in the
+# builder stage below, once the full source is present.
+RUN npm ci --ignore-scripts
 
 FROM node:22-slim AS builder
 WORKDIR /app
