@@ -18,6 +18,10 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // Produces a minimal self-contained .next/standalone/server.js + trimmed
+  // node_modules - the basis for the Cloud Run Docker image (Vercel's own
+  // build doesn't need this, but it's harmless there too).
+  output: "standalone",
   reactStrictMode: true,
   agentRules: false,
   poweredByHeader: false,
