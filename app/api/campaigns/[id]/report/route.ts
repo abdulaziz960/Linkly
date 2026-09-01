@@ -17,7 +17,7 @@ export async function GET(_request: Request, context: RouteContext) {
   if (!campaign) return jsonError("الحملة غير موجودة", 404);
 
   const recipients = await prisma.campaignRecipient.findMany({
-    where: { campaignId: id },
+    where: { campaignId: id, tenantId: user.tenantId },
     orderBy: { createdAt: "asc" },
     take: 5000
   });

@@ -20,8 +20,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!existing) return jsonError("تعذر تحديث جدول العمل", 404);
 
   try {
-    return jsonOk(await prisma.workSchedule.update({
-      where: { id },
+    // Re-scope the mutation itself to tenantId (not just the existence
+    // check above) so a future refactor that drops/reorders the check
+    // can't turn this into a cross-tenant write.
+    await prisma.workSchedule.updateMany({
+      where: { id, tenantId: user.tenantId },
       data: {
         team: body.team?.trim(),
         days: body.days?.trim() || undefined,
@@ -30,7 +33,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         status: body.status,
         holidays: body.holidays
       }
-    }));
+    });
+    return jsonOk(await prisma.workSchedule.findFirst({ where: { id, tenantId: user.tenantId } }));
   } catch {
     return jsonError("تعذر تحديث جدول العمل", 404);
   }
@@ -46,7 +50,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   if (!existing) return jsonError("تعذر حذف جدول العمل", 404);
 
   try {
-    await prisma.workSchedule.delete({ where: { id } });
+    await prisma.workSchedule.deleteMany({ where: { id, tenantId: user.tenantId } });
     return jsonOk({ id });
   } catch {
     return jsonError("تعذر حذف جدول العمل", 404);
