@@ -339,6 +339,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS template_name TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'ar'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS scheduled_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS header_media_data_url TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipients (
       id TEXT PRIMARY KEY,
       campaign_id TEXT NOT NULL,
@@ -810,7 +811,8 @@ async function runSchemaMigrations() {
     ["channel", "whatsapp"],
     ["template_name", ""],
     ["language", "ar"],
-    ["scheduled_at", ""]
+    ["scheduled_at", ""],
+    ["header_media_data_url", ""]
   ];
   for (const [columnName, defaultValue] of campaignTextColumns) {
     if (!campaignColumns.some((column) => column.name === columnName)) {
@@ -1733,6 +1735,10 @@ export async function getTemplates(tenantId?: string): Promise<MessageTemplate[]
     headerType: template.headerType as MessageTemplate["headerType"],
     headerText: template.headerText,
     headerMedia: template.headerMedia,
+    // Not the raw file (would bloat the templates list payload) - just
+    // whether a reusable copy is saved, so the campaign form knows whether
+    // an upload is required before this template can be used.
+    hasHeaderMediaSaved: Boolean(template.headerMediaDataUrl),
     footer: template.footer,
     buttonType: template.buttonType as MessageTemplate["buttonType"],
     buttonText: template.buttonText,

@@ -214,6 +214,7 @@ model Campaign {
   templateName String @default("") @map("template_name")
   language     String @default("ar") @map("language")
   scheduledAt  String @default("") @map("scheduled_at")
+  headerMediaDataUrl String @default("") @map("header_media_data_url")
   sent         Int    @default(0)
   total        Int    @default(0)
   progress     String

@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { getCampaigns } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
-import { parseRecipientFile, activateDueScheduledCampaigns, processCampaignBatch, getCampaignBalance, parseRiyadhDateTime, MAX_CAMPAIGN_FILE_BYTES } from "../../../lib/campaign-engine";
+import { parseRecipientFile, activateDueScheduledCampaigns, processCampaignBatch, getCampaignBalance, parseRiyadhDateTime, MAX_CAMPAIGN_FILE_BYTES, MAX_CAMPAIGN_MEDIA_BYTES } from "../../../lib/campaign-engine";
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { jsonError, jsonOk } from "../_utils/json";
 
@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
   const scheduled = formData.get("scheduled") === "true";
   const scheduledAt = String(formData.get("scheduledAt") || "").trim();
   const file = formData.get("file");
+  const headerMediaFile = formData.get("headerMedia");
 
   if (!name) return jsonError("اسم الحملة مطلوب");
   if (name.length > 120) return jsonError("اسم الحملة طويل جداً");
@@ -54,6 +55,29 @@ export async function POST(request: NextRequest) {
   if (!template) return jsonError("القالب المختار غير موجود");
   if (template.status !== "معتمد") return jsonError("لازم يكون القالب معتمد من Meta قبل استخدامه بحملة");
 
+  // A template's header *format* (image/video/document) is fixed at Meta
+  // approval time, but WhatsApp expects fresh media on every send - the
+  // campaign can supply its own, otherwise fall back to whatever was saved
+  // on the template. If neither exists, fail before spending any send
+  // budget instead of hitting Meta's opaque #132012 error per recipient.
+  const needsHeaderMedia = ["IMAGE", "VIDEO", "DOCUMENT"].includes(template.headerType);
+  let headerMediaDataUrl = "";
+  if (headerMediaFile instanceof File && headerMediaFile.size > 0) {
+    if (headerMediaFile.size > MAX_CAMPAIGN_MEDIA_BYTES) return jsonError("حجم صورة/فيديو الرأس يجب ألا يتجاوز 16 ميجابايت");
+    const allowedMediaMimeTypes = new Set([
+      "image/jpeg",
+      "image/png",
+      "video/mp4",
+      "video/3gpp",
+      "application/pdf"
+    ]);
+    if (!allowedMediaMimeTypes.has(headerMediaFile.type)) return jsonError("صيغة الملف غير مدعومة لرأس القالب");
+    const mediaBuffer = Buffer.from(await headerMediaFile.arrayBuffer());
+    headerMediaDataUrl = `data:${headerMediaFile.type};base64,${mediaBuffer.toString("base64")}`;
+  } else if (needsHeaderMedia && !template.headerMediaDataUrl) {
+    return jsonError("هذا القالب يحتاج صورة أو فيديو بالرأس - ارفعها مع الحملة أو من إعدادات القالب أولاً");
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
   const recipients = await parseRecipientFile(buffer, file.name).catch(() => []);
   if (!recipients.length) return jsonError("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.");
@@ -72,6 +96,7 @@ export async function POST(request: NextRequest) {
         templateName,
         language: template.language || "ar",
         scheduledAt: isScheduledFuture && scheduledDate ? scheduledDate.toISOString() : "",
+        headerMediaDataUrl,
         sent: 0,
         total: recipients.length,
         progress: "0%",
