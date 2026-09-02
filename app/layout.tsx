@@ -15,12 +15,13 @@ const appFont = localFont({
   display: "swap"
 });
 
+// Every heading that uses --font-display sets font-weight: 700 explicitly
+// (see .hero h1, .intro h2, .finalCta h2 in page.module.css) - the other
+// three weights were dead preloaded weight on every page load, competing
+// with the LCP text paint for bandwidth on throttled mobile connections.
 const displayFont = localFont({
   src: [
-    { path: "../public/fonts/thmanyah/serif-display/thmanyahserifdisplay-Regular.woff2", weight: "400", style: "normal" },
-    { path: "../public/fonts/thmanyah/serif-display/thmanyahserifdisplay-Medium.woff2", weight: "500", style: "normal" },
-    { path: "../public/fonts/thmanyah/serif-display/thmanyahserifdisplay-Bold.woff2", weight: "700", style: "normal" },
-    { path: "../public/fonts/thmanyah/serif-display/thmanyahserifdisplay-Black.woff2", weight: "900", style: "normal" }
+    { path: "../public/fonts/thmanyah/serif-display/thmanyahserifdisplay-Bold.woff2", weight: "700", style: "normal" }
   ],
   variable: "--font-display",
   display: "swap"
