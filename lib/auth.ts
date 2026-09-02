@@ -75,7 +75,10 @@ export async function getCurrentUser(options: { allowExpired?: boolean } = {}) {
   const session = verifySessionToken(rawCookie);
 
   if (!session) {
-    console.error("DIAG getCurrentUser: no session", { hasCookie: Boolean(rawCookie) });
+    console.error("DIAG getCurrentUser: no session", {
+      hasCookie: Boolean(rawCookie),
+      allCookieNames: cookieStore.getAll().map((c) => c.name)
+    });
     return null;
   }
 
