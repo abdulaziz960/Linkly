@@ -91,6 +91,7 @@ export type MessageTemplate = {
   headerType?: "NONE" | "TEXT" | "IMAGE" | "VIDEO";
   headerText?: string;
   headerMedia?: string;
+  hasHeaderMediaSaved?: boolean;
   footer?: string;
   buttonType?: "NONE" | "QUICK_REPLY" | "URL" | "PHONE";
   buttonText?: string;

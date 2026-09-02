@@ -7,6 +7,8 @@ export type ParsedRecipient = { phone: string; name: string };
 
 export const MAX_CAMPAIGN_RECIPIENTS = 10_000;
 export const MAX_CAMPAIGN_FILE_BYTES = 5 * 1024 * 1024;
+// WhatsApp's own template-media limits: 5MB for images, 16MB for video/documents.
+export const MAX_CAMPAIGN_MEDIA_BYTES = 16 * 1024 * 1024;
 
 /**
  * The campaign scheduler UI sends a plain `datetime-local` value (e.g.
@@ -154,7 +156,7 @@ export async function addManualCampaignBalance(tenantId: string, messages: numbe
   return payment;
 }
 
-async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "") {
+async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false) {
   const settings = await getIntegrationSettings("whatsapp", tenantId);
   const phoneNumberId = settings.phoneNumberId?.trim();
   const accessToken = settings.accessToken?.trim();
@@ -183,16 +185,20 @@ async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: 
   // on every send, not just at creation - omitting it is a second cause of
   // the same #132012 mismatch error, distinct from the body-format bug
   // above. Meta doesn't accept the one-time upload handle used to register
-  // the template here; it needs a plain URL it can re-fetch, so this reuses
-  // whatever image/video was saved when the template was created (see
-  // headerMediaDataUrl) via our own public media-serving endpoint.
-  if (["IMAGE", "VIDEO", "DOCUMENT"].includes(templateRecord.headerType) && templateRecord.headerMediaDataUrl) {
+  // the template here; it needs a plain URL it can re-fetch. WhatsApp's
+  // header *format* is fixed by the approved template, but the media itself
+  // is meant to vary per send - prefer whatever the campaign attached, and
+  // fall back to the template's own saved media otherwise.
+  const needsHeaderMedia = ["IMAGE", "VIDEO", "DOCUMENT"].includes(templateRecord.headerType);
+  if (needsHeaderMedia && (campaignHasHeaderMedia || templateRecord.headerMediaDataUrl)) {
     const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://linklysa.io").replace(/\/$/, "");
-    const mediaUrl = `${baseUrl}/api/whatsapp/template-media/${templateRecord.id}`;
+    const mediaUrl = campaignHasHeaderMedia
+      ? `${baseUrl}/api/whatsapp/campaign-media/${campaignId}`
+      : `${baseUrl}/api/whatsapp/template-media/${templateRecord.id}`;
     const mediaKey = templateRecord.headerType.toLowerCase();
     components.push({ type: "header", parameters: [{ type: mediaKey, [mediaKey]: { link: mediaUrl } }] });
-  } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(templateRecord.headerType)) {
-    return { ok: false as const, error: "هذا القالب يحتاج صورة/فيديو بالرأس - ارفعها من إعدادات القالب قبل الإرسال" };
+  } else if (needsHeaderMedia) {
+    return { ok: false as const, error: "هذا القالب يحتاج صورة/فيديو بالرأس - ارفعها مع الحملة أو من إعدادات القالب قبل الإرسال" };
   }
 
   const headerPlaceholders = templateRecord.headerType === "TEXT"
@@ -302,7 +308,15 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
 
       let result: Awaited<ReturnType<typeof sendWhatsAppTemplate>>;
       try {
-        result = await sendWhatsAppTemplate(tenantId, recipient.phone, campaign.templateName, campaign.language || "ar", recipient.name);
+        result = await sendWhatsAppTemplate(
+          tenantId,
+          recipient.phone,
+          campaign.templateName,
+          campaign.language || "ar",
+          recipient.name,
+          campaign.id,
+          Boolean(campaign.headerMediaDataUrl)
+        );
       } catch {
         await adjustCampaignBalance(tenantId, 1);
         await prisma.campaignRecipient.update({

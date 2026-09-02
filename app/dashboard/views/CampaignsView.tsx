@@ -106,6 +106,9 @@ export default function CampaignsView({
     [templates, whatsappConnected]
   );
   const defaultTemplateName = approvedTemplates[0]?.name || "";
+  const selectedTemplate = approvedTemplates.find((template) => template.name === form.templateName);
+  const needsHeaderMedia = Boolean(selectedTemplate && ["IMAGE", "VIDEO"].includes(selectedTemplate.headerType || "NONE"));
+  const templateHasSavedMedia = Boolean(selectedTemplate?.hasHeaderMediaSaved);
   const emptyForm = useMemo<CampaignForm>(
     () => ({
       name: "",
@@ -120,6 +123,7 @@ export default function CampaignsView({
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<CampaignForm>(emptyForm);
   const [campaignFile, setCampaignFile] = useState<File | null>(null);
+  const [headerMediaFile, setHeaderMediaFile] = useState<File | null>(null);
   const [recipientPreview, setRecipientPreview] = useState<number | null>(null);
   const [recipientPreviewLoading, setRecipientPreviewLoading] = useState(false);
   const [recipientPreviewError, setRecipientPreviewError] = useState("");
@@ -248,6 +252,7 @@ export default function CampaignsView({
   function openForm(campaign?: Campaign) {
     setFormError("");
     setCampaignFile(null);
+    setHeaderMediaFile(null);
     setRecipientPreview(campaign?.total ?? null);
     setRecipientPreviewError("");
     setForm(
@@ -301,12 +306,19 @@ export default function CampaignsView({
       return;
     }
 
+    if (needsHeaderMedia && !templateHasSavedMedia && !headerMediaFile) {
+      setFormError(t("هذا القالب يحتاج صورة أو فيديو بالرأس - ارفعها قبل إنشاء الحملة", "This template needs a header image or video - upload one before creating the campaign"));
+      setSaving(false);
+      return;
+    }
+
     const body = new FormData();
     body.set("name", form.name);
     body.set("templateName", form.templateName);
     body.set("scheduled", String(form.scheduled));
     body.set("scheduledAt", form.scheduledAt);
     body.set("file", campaignFile);
+    if (headerMediaFile) body.set("headerMedia", headerMediaFile);
 
     const response = await fetch("/api/campaigns", { method: "POST", body });
     const payload = await response.json().catch(() => null);
@@ -530,6 +542,27 @@ export default function CampaignsView({
                     />
                     <small className="field-hint">{t("تظهر هنا فقط قوالب Meta التسويقية المعتمدة والجاهزة للإرسال.", "Only Meta marketing templates that are approved and ready to send appear here.")}</small>
                   </label>
+                  {needsHeaderMedia ? (
+                    <label>
+                      <span>{t("صورة أو فيديو الرأس", "Header image or video")}</span>
+                      <div className="file-picker">
+                        <button type="button" onClick={() => document.getElementById("campaign-header-media-input")?.click()}>{t("تصفح", "Browse")}</button>
+                        <span>
+                          {headerMediaFile?.name
+                            || (templateHasSavedMedia
+                              ? t("سيتم استخدام صورة/فيديو القالب المحفوظة (اختياري: ارفع ملفاً لاستبدالها لهذه الحملة)", "The template's saved image/video will be used (optional: upload a file to override it for this campaign)")
+                              : t("اختر صورة أو فيديو لرأس القالب أو أسقطه هنا ...", "Choose an image or video for the template header, or drop it here..."))}
+                        </span>
+                        <input
+                          id="campaign-header-media-input"
+                          type="file"
+                          accept="image/jpeg,image/png,video/mp4,video/3gpp"
+                          onChange={(event) => setHeaderMediaFile(event.target.files?.[0] || null)}
+                        />
+                      </div>
+                      <small className="field-hint">{t("الحد الأقصى 16 ميجابايت. هذا القالب يحتاج صورة أو فيديو في الرأس.", "Max 16MB. This template requires a header image or video.")}</small>
+                    </label>
+                  ) : null}
                   <label>
                     <span>{t("ملف اكسل أو CSV", "Excel or CSV file")}</span>
                     <div className="file-picker">
@@ -583,7 +616,7 @@ export default function CampaignsView({
               <div className="campaign-phone"><div className="campaign-phone-bar"><span>Linkly</span><i>•••</i></div><div className="campaign-phone-notice">{t("محادثة أعمال موثقة وآمنة", "Verified and secure business chat")}</div><div className="campaign-message-preview"><b>{form.name || t("اسم الحملة", "Campaign name")}</b><p>{approvedTemplates.find((template) => template.name === form.templateName)?.message || t("اختر قالباً معتمداً لتظهر معاينة نص الرسالة هنا.", "Choose an approved template to preview its message here.")}</p><time>3:34 PM</time></div></div>
               <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{recipientPreview === null ? "—" : recipientPreview.toLocaleString("en-US")}</dd></div><div><dt>{t("طريقة الإرسال", "Delivery")}</dt><dd>{form.scheduled ? t("مجدولة", "Scheduled") : t("فوري", "Immediate")}</dd></div></dl>
             </aside>
-            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && (!approvedTemplates.length || !campaignFile || !recipientPreview))}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : form.scheduled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الحملة", "Send campaign")}</button></footer>
+            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && (!approvedTemplates.length || !campaignFile || !recipientPreview || (needsHeaderMedia && !templateHasSavedMedia && !headerMediaFile)))}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : form.scheduled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الحملة", "Send campaign")}</button></footer>
           </form>
         </div>
       ) : null}
