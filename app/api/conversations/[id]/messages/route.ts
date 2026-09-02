@@ -909,6 +909,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (isTemplateMessage && !approvedTemplate) {
       return jsonError("القالب غير موجود أو غير معتمد من Meta", 400);
     }
+    // An IMAGE/VIDEO/DOCUMENT header is a required component on every send
+    // of this template, and a reply here can only use whatever media the
+    // template itself has saved (unlike a campaign, there's no per-send
+    // upload) - sending without it reproduces Meta error #132012.
+    if (isTemplateMessage && approvedTemplate && ["IMAGE", "VIDEO", "DOCUMENT"].includes(approvedTemplate.headerType) && !approvedTemplate.headerMediaDataUrl) {
+      return jsonError("هذا القالب يحتاج صورة أو فيديو بالرأس - ارفعها من إعدادات القالب قبل الإرسال", 400);
+    }
 
     if (isTemplateMessage && approvedTemplate) {
       const result = await sendWhatsAppTemplateMessage({
@@ -921,7 +928,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
         customerName: conversation.customer.name,
         author: user.name,
         contextMessageId: getWhatsAppContextMessageId(replyToMessage?.id),
-        keepWindowExpired: isReplyWindowExpired || Boolean(body.forceWindowExpired)
+        keepWindowExpired: isReplyWindowExpired || Boolean(body.forceWindowExpired),
+        templateId: approvedTemplate.id,
+        headerType: approvedTemplate.headerType,
+        headerText: approvedTemplate.headerText,
+        headerMediaDataUrl: approvedTemplate.headerMediaDataUrl
       });
       if (!result.ok) return jsonError(result.error, result.status || 502);
       return jsonOk(result.message);

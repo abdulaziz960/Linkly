@@ -28,8 +28,10 @@ export async function POST(request: NextRequest) {
     memberIds?: string[];
   };
   const name = body.name?.trim();
+  const memberIds = (body.memberIds || []).filter((memberId) => memberId?.trim());
 
   if (!name) return jsonError("اسم الفريق مطلوب");
+  if (!memberIds.length) return jsonError("اختر عضوًا واحدًا على الأقل قبل إنشاء الفريق");
 
   const team = await prisma.team.create({
     data: {
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
       lead: body.lead?.trim() || "",
       routing: body.routing || "يدوي",
       members: {
-        create: (body.memberIds || []).map((employeeId) => ({ employeeId }))
+        create: memberIds.map((employeeId) => ({ employeeId }))
       }
     },
     include: { members: true }
