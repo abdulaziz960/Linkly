@@ -26,7 +26,27 @@ function Icon({ name }: { name: "search" | "info" | "warning" | "error" | "all" 
 
 function levelLabel(level: LevelFilter, t: (ar: string, en: string) => string) { return level === "الكل" ? t("الكل", "All") : level === "معلومة" ? t("معلومة", "Info") : level === "تنبيه" ? t("تنبيه", "Warning") : t("خطأ", "Error"); }
 function levelIcon(level: LevelFilter): "info" | "warning" | "error" | "all" { return level === "معلومة" ? "info" : level === "تنبيه" ? "warning" : level === "خطأ" ? "error" : "all"; }
-function parseTimestamp(value: string) { const direct = Date.parse(value); if (Number.isFinite(direct)) return direct; const parsed = Date.parse(value.replace(/[٠-٩]/g, (n) => String("٠١٢٣٤٥٦٧٨٩".indexOf(n))).replace("،", " ")); return Number.isFinite(parsed) ? parsed : 0; }
+function parseTimestamp(value: string) {
+  const direct = Date.parse(value);
+  if (Number.isFinite(direct)) return direct;
+  const normalized = value.replace(/[٠-٩]/g, (n) => String("٠١٢٣٤٥٦٧٨٩".indexOf(n))).replace("،", " ");
+  const parsed = Date.parse(normalized);
+  if (Number.isFinite(parsed)) return parsed;
+  // Some log entries are stored as a pre-formatted Arabic locale string
+  // (DD/MM/YYYY h:mm + ص/م for AM/PM), which Date.parse can never
+  // understand in any engine/locale - parse that exact shape by hand
+  // instead of falling back to "unknown time" for entries that do have a
+  // perfectly real, displayable date.
+  const arabicLocaleMatch = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*(ص|م)?$/);
+  if (arabicLocaleMatch) {
+    const [, day, month, year, hour12Raw, minute, meridiem] = arabicLocaleMatch;
+    let hour = Number(hour12Raw) % 12;
+    if (meridiem === "م") hour += 12;
+    const date = new Date(Number(year), Number(month) - 1, Number(day), hour, Number(minute));
+    if (Number.isFinite(date.getTime())) return date.getTime();
+  }
+  return 0;
+}
 function extract(patterns: RegExp[], text: string, fallback = "") { for (const pattern of patterns) { const match = text.match(pattern); if (match?.[1]) return match[1].trim(); } return fallback; }
 function enrich(log: AdminLog): EnrichedLog {
   const text = log.message || ""; const source = log.source || "النظام";

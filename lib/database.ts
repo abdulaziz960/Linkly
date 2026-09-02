@@ -1326,25 +1326,16 @@ async function seedDatabase() {
     for (const email of platformAdminEmails) {
       const existingAdminAccount = await tx.userAccount.findUnique({ where: { email } });
       if (existingAdminAccount) {
+        // Once the account exists and is already an admin, this bootstrap has
+        // nothing left to do. It used to force-reset the password back to
+        // SUPER_ADMIN_BOOTSTRAP_PASSWORD (and bump sessionVersion, killing
+        // every active session) whenever the admin's real password differed
+        // from that env var - which is to say, every time the admin did the
+        // normal, expected thing of changing their password. Since seeding
+        // re-runs on every cold-started instance, that silently reverted
+        // their password and logged them out on a random subsequent request.
         if (existingAdminAccount.isPlatformAdmin !== 1) {
           console.warn(`SUPER_ADMIN_EMAIL/PLATFORM_ADMIN_EMAILS matched an existing non-admin account; not promoting ${email}. Use scripts/create-super-admin.mjs or an admin invite.`);
-          continue;
-        }
-        const shouldApplyBootstrapPassword =
-          email === configuredSuperAdminEmail &&
-          Boolean(configuredSuperAdminPassword) &&
-          !verifyPassword(configuredSuperAdminPassword, existingAdminAccount.passwordHash).valid;
-        const bootstrapPasswordHash = shouldApplyBootstrapPassword
-          ? hashPassword(configuredSuperAdminPassword)
-          : undefined;
-        if (existingAdminAccount.isPlatformAdmin !== 1 || bootstrapPasswordHash) {
-          await tx.userAccount.update({
-            where: { email },
-            data: {
-              isPlatformAdmin: 1,
-              ...(bootstrapPasswordHash ? { passwordHash: bootstrapPasswordHash, sessionVersion: { increment: 1 } } : {})
-            }
-          });
         }
         continue;
       }
