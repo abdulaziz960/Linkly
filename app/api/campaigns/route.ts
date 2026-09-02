@@ -54,6 +54,14 @@ export async function POST(request: NextRequest) {
   if (!template) return jsonError("القالب المختار غير موجود");
   if (template.status !== "معتمد") return jsonError("لازم يكون القالب معتمد من Meta قبل استخدامه بحملة");
 
+  // The UI's own "connected" indicator is client-side cached state - a
+  // campaign must never actually start unless the channel is connected
+  // right now, verified against the same table that indicator reads from.
+  const whatsappIntegration = await prisma.integrationSetting.findFirst({ where: { tenantId: user.tenantId, provider: "whatsapp_cloud" } });
+  if (!whatsappIntegration || whatsappIntegration.status !== "connected") {
+    return jsonError("واتساب غير مربوط بحسابك حاليًا. اربط القناة من الإعدادات قبل إنشاء حملة", 409);
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
   const recipients = await parseRecipientFile(buffer, file.name).catch(() => []);
   if (!recipients.length) return jsonError("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.");

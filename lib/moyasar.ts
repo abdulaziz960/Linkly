@@ -30,6 +30,14 @@ export function isMoyasarConfigured() {
   return Boolean(moyasarSecretKey());
 }
 
+// Moyasar prefixes test-mode keys with "sk_test_" and live keys with
+// "sk_live_". Whether a checkout actually charges real money depends on
+// this, not just on whether a key is present - a test key is "configured"
+// but still simulates every payment against Moyasar's sandbox.
+export function isMoyasarLiveMode() {
+  return moyasarSecretKey().startsWith("sk_live_");
+}
+
 export async function createMoyasarInvoice(input: CreateInvoiceInput): Promise<MoyasarInvoice> {
   const secretKey = moyasarSecretKey();
   if (!secretKey) throw new Error("MOYASAR_NOT_CONFIGURED");
