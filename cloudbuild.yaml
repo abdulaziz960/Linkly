@@ -1,0 +1,26 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$SHORT_SHA"
+      - "."
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "push"
+      - "me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$SHORT_SHA"
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - "run"
+      - "deploy"
+      - "linkly"
+      - "--image=me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$SHORT_SHA"
+      - "--region=me-central2"
+      - "--quiet"
+
+images:
+  - "me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$SHORT_SHA"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
