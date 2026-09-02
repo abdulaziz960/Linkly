@@ -26,13 +26,10 @@
 }
 
 .legal-logo {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: #f1f5f9;
-  color: #0f172a;
+  display: block;
+  width: 64px;
+  height: 32px;
+  background: url("/assets/linkly-logo.png") center / contain no-repeat;
 }
 
 .legal-page h1 {

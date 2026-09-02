@@ -5,6 +5,7 @@ import type { Conversation, ConversationChannel, Employee, Team, WorkSchedule } 
 import CustomSelect from "../../components/CustomSelect";
 import { statusLabel } from "../utils/conversation";
 import { useLanguage } from "../i18n";
+import { channelNames } from "../../channel-names";
 
 type Period = "today" | "yesterday" | "7d" | "30d" | "month" | "lastMonth" | "custom";
 type Granularity = "daily" | "weekly" | "monthly";
@@ -14,7 +15,18 @@ type ReportsProps = { conversations: Conversation[]; employees: Employee[]; team
 
 const SLA_MINUTES = 15;
 const ACTIVE_WAIT_MAX_DAYS = 30;
-const CHANNEL_LABELS: Record<ConversationChannel, [string, string]> = { whatsapp: ["واتساب", "WhatsApp"], instagram: ["إنستقرام", "Instagram"], x: ["إكس", "X"], facebook: ["فيسبوك", "Facebook"], google_maps: ["خرائط Google", "Google Maps"], website: ["الموقع", "Website"], telegram: ["تيليجرام", "Telegram"], email: ["البريد", "Email"], tiktok: ["تيك توك", "TikTok"], sms: ["رسائل SMS", "SMS"] };
+const CHANNEL_LABELS: Record<ConversationChannel, [string, string]> = {
+  whatsapp: [channelNames.whatsapp.ar, channelNames.whatsapp.en],
+  instagram: [channelNames.instagram.ar, channelNames.instagram.en],
+  x: [channelNames.x.ar, channelNames.x.en],
+  facebook: [channelNames.facebook.ar, channelNames.facebook.en],
+  google_maps: [channelNames.google_maps.ar, channelNames.google_maps.en],
+  website: [channelNames.website.ar, channelNames.website.en],
+  telegram: [channelNames.telegram.ar, channelNames.telegram.en],
+  email: [channelNames.email.ar, channelNames.email.en],
+  tiktok: [channelNames.tiktok.ar, channelNames.tiktok.en],
+  sms: [channelNames.sms.ar, channelNames.sms.en]
+};
 
 function Icon({ name }: { name: "refresh" | "export" | "info" | "alert" | "trend" | "empty" | "search" }) {
   const paths = { refresh: <><path d="M20 7v5h-5"/><path d="M19 12a7 7 0 1 1-2-5"/></>, export: <><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M5 20h14"/></>, info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></>, alert: <><path d="M12 3 2.8 19h18.4L12 3Z"/><path d="M12 9v4M12 16h.01"/></>, trend: <path d="m4 16 5-5 4 4 7-8"/>, empty: <><path d="M4 5h16v14H4z"/><path d="m4 9 8 5 8-5"/></>, search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></> };

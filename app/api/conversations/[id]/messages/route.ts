@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { convertAudioToMp3 } from "../../../../../lib/audio-conversion";
+import { conversationMessageDelivery } from "../../../../../lib/conversation-message-delivery";
 import { getIntegrationSettings } from "../../../../../lib/database";
 import { sendEmailMessage } from "../../../../../lib/email-channel";
 import { replyToGoogleReview } from "../../../../../lib/google-business";
@@ -412,9 +413,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!conversation) return jsonError("المحادثة غير موجودة", 404);
 
   try {
-    const now = new Date();
-    const sentAt = now.toISOString();
-    const messageTime = formatMessageTime(now);
     const replyToMessage = body.replyToMessageId
       ? await prisma.message.findFirst({
           where: {
@@ -437,34 +435,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
           replyToAuthor: ""
         };
 
-    if (direction === "note") {
-      const message = await prisma.$transaction(async (tx) => {
-        const created = await tx.message.create({
-          data: {
-            id: `m-${Date.now()}`,
-            conversationId: conversation.id,
-            direction,
-            text,
-            time: messageTime,
-            createdAt: sentAt,
-            author: user?.name ?? "",
-            ...replyToData
-          }
-        });
+    if (direction === "note" || conversation.channel === "website") {
+      if (direction === "out" && attachment) {
+        return jsonError("إرسال المرفقات عبر ودجت الموقع غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
+      }
 
-        await tx.conversation.update({
-          where: { id: conversation.id },
-          data: {
-            lastMessage: text,
-            lastActivityAt: sentAt
-          }
-        });
-
-        return created;
+      const result = await conversationMessageDelivery.deliver({
+        conversationId: conversation.id,
+        channel: conversation.channel,
+        direction,
+        text,
+        author: user?.name ?? "",
+        ...replyToData
       });
 
-      return jsonOk(message);
+      return jsonOk(result.message);
     }
+
+    const now = new Date();
+    const sentAt = now.toISOString();
+    const messageTime = formatMessageTime(now);
 
     if (conversation.channel === "tiktok") {
       return jsonError("إرسال رسائل TikTok غير مفعل بعد - بانتظار موافقة TikTok على صلاحية Business Messaging لحسابك.", 400);
@@ -486,37 +476,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       } catch (error) {
         return jsonError(error instanceof Error ? error.message : "تعذر إرسال الرسالة عبر Unifonic", 502);
       }
-
-      const message = await prisma.$transaction(async (tx) => {
-        const created = await tx.message.create({
-          data: {
-            id: `m-${Date.now()}`,
-            conversationId: conversation.id,
-            direction,
-            text,
-            time: messageTime,
-            createdAt: sentAt,
-            author: user?.name ?? "",
-            ...replyToData
-          }
-        });
-
-        await tx.conversation.update({
-          where: { id: conversation.id },
-          data: {
-            lastMessage: text,
-            lastActivityAt: sentAt
-          }
-        });
-
-        return created;
-      });
-
-      return jsonOk(message);
-    }
-
-    if (conversation.channel === "website") {
-      if (attachment) return jsonError("إرسال المرفقات عبر ودجت الموقع غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
 
       const message = await prisma.$transaction(async (tx) => {
         const created = await tx.message.create({

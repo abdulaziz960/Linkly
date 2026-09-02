@@ -13,7 +13,7 @@ export default function ContactPage() {
     <main className="legal-page" dir="rtl">
       <section className="legal-shell">
         <Link className="legal-brand" href="/">
-          <span className="legal-logo">A</span>
+          <span className="legal-logo" aria-hidden="true" />
           Linkly
         </Link>
         <h1>نساعدك في تجهيز مساحة عملك وقنواتك</h1>

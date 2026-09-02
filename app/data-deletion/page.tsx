@@ -12,7 +12,7 @@ export default function DataDeletionPage() {
     <main className="legal-page">
       <section className="legal-shell">
         <Link className="legal-brand" href="/">
-          <span className="legal-logo">A</span>
+          <span className="legal-logo" aria-hidden="true" />
           Linkly
         </Link>
         <h1>تعليمات حذف البيانات</h1>

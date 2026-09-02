@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const clientKey = process.env.TIKTOK_CLIENT_KEY || "";
 
   if (!clientKey) {
-    return NextResponse.json({ error: "TIKTOK_CLIENT_KEY غير مضبوط في إعدادات Vercel" }, { status: 500 });
+    return NextResponse.json({ error: "TIKTOK_CLIENT_KEY غير مضبوط في إعدادات الاستضافة" }, { status: 500 });
   }
 
   const state = base64UrlEncode(crypto.randomBytes(16));

@@ -4,6 +4,7 @@ import { DragEvent, FormEvent, PointerEvent as ReactPointerEvent, useEffect, use
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import type { Employee, Team } from "../types";
+import { channelNames } from "../../channel-names";
 
 type BotListOption = { id: string; label: string; next: string | null };
 
@@ -144,21 +145,21 @@ function nodeTypeLabel(type: string, t: (ar: string, en: string) => string) {
 }
 
 const channels: { id: BotChannel; label: string }[] = [
-  { id: "whatsapp", label: "واتساب" },
-  { id: "telegram", label: "تيليجرام" },
-  { id: "instagram", label: "إنستقرام" },
-  { id: "facebook", label: "فيسبوك" },
-  { id: "x", label: "X" },
-  { id: "website", label: "الموقع" }
+  { id: "whatsapp", label: channelNames.whatsapp.ar },
+  { id: "telegram", label: channelNames.telegram.ar },
+  { id: "instagram", label: channelNames.instagram.ar },
+  { id: "facebook", label: channelNames.facebook.ar },
+  { id: "x", label: channelNames.x.ar },
+  { id: "website", label: channelNames.website.ar }
 ];
 
 const channelLabelsEn: Record<BotChannel, string> = {
-  whatsapp: "WhatsApp",
-  telegram: "Telegram",
-  instagram: "Instagram",
-  facebook: "Facebook",
-  x: "X",
-  website: "Website"
+  whatsapp: channelNames.whatsapp.en,
+  telegram: channelNames.telegram.en,
+  instagram: channelNames.instagram.en,
+  facebook: channelNames.facebook.en,
+  x: channelNames.x.en,
+  website: channelNames.website.en
 };
 
 function emptyContentFor(type: string): BotNodeContent {

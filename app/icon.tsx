@@ -18,16 +18,15 @@ export default function Icon() {
           border: "1px solid rgba(58, 189, 179, 0.55)"
         }}
       >
-        <svg width="40" height="40" viewBox="0 0 100 100" fill="none">
+        <svg width="44" height="30" viewBox="0 0 120 70" fill="none">
           <defs>
-            <linearGradient id="icon-mark" x1="14" y1="27" x2="91" y2="73" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#afeae4" />
-              <stop offset="0.48" stopColor="#3abdb3" />
-              <stop offset="1" stopColor="#178a82" />
+            <linearGradient id="icon-mark" x1="10" y1="35" x2="110" y2="35" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#20aef0" />
+              <stop offset="0.48" stopColor="#10c8c0" />
+              <stop offset="1" stopColor="#08dfa8" />
             </linearGradient>
           </defs>
-          <path d="M42 35C33 25 18 28 18 50C18 72 37 78 49 61L66 38C78 22 95 32 92 53C91 61 87 67 81 71" stroke="url(#icon-mark)" strokeWidth="13" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M72 63L82 72" stroke="#d6f5f1" strokeWidth="13" strokeLinecap="round" />
+          <path d="M48 23C38 10 18 11 10 29C2 49 20 64 39 56C48 52 55 42 62 34L72 23C84 10 105 14 109 32C113 50 95 64 80 56C74 53 69 47 65 42" stroke="url(#icon-mark)" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
     ),
