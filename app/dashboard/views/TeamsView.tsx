@@ -161,6 +161,10 @@ export default function TeamsView({
 
   async function submitTeam(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!teamForm.memberIds.length) {
+      setTeamError(t("اختر عضوًا واحدًا على الأقل قبل إنشاء الفريق", "Choose at least one member before creating the team"));
+      return;
+    }
     setSavingTeam(true);
     setTeamError("");
 

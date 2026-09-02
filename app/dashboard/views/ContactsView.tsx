@@ -55,6 +55,10 @@ export default function ContactsView({
   const [form, setForm] = useState<CustomerFormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [mergeTarget, setMergeTarget] = useState<Customer | null>(null);
+  const [mergeSourceId, setMergeSourceId] = useState("");
+  const [merging, setMerging] = useState(false);
+  const [mergeError, setMergeError] = useState("");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<CustomerChannelTab>("whatsapp");
   const contactIdLabel = activeTab === "whatsapp"
@@ -147,6 +151,36 @@ export default function ContactsView({
     await onRefreshData();
   }
 
+  function openMergeForm(customer: Customer) {
+    setMergeError("");
+    setMergeSourceId("");
+    setMergeTarget(customer);
+  }
+
+  async function submitMerge(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!mergeTarget || !mergeSourceId) return;
+    setMerging(true);
+    setMergeError("");
+
+    const response = await fetch(`/api/customers/${mergeTarget.id}/merge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceId: mergeSourceId })
+    });
+    const payload = (await response.json()) as { ok: boolean; error?: string };
+
+    if (!payload.ok) {
+      setMergeError(payload.error || t("تعذر دمج العميلين", "Could not merge the customers"));
+      setMerging(false);
+      return;
+    }
+
+    await onRefreshData();
+    setMerging(false);
+    setMergeTarget(null);
+  }
+
   return (
     <section className="page-stack">
       <div className="panel">
@@ -194,6 +228,7 @@ export default function ContactsView({
                   <td className="row-actions">
                     <button className="btn soft" type="button" onClick={() => onOpenConversation(customer.id)}>{t("إرسال رسالة", "Send Message")}</button>
                     <button className="btn soft" type="button" onClick={() => openEditForm(customer)}>{t("تعديل", "Edit")}</button>
+                    <button className="btn soft" type="button" onClick={() => openMergeForm(customer)} disabled={customers.length < 2}>{t("دمج", "Merge")}</button>
                     <button className="btn danger" type="button" onClick={() => deleteCustomer(customer)}>{t("حذف", "Delete")}</button>
                   </td>
                 </tr>
@@ -227,6 +262,34 @@ export default function ContactsView({
             <footer className="modal-foot">
               <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
               <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving") : t("حفظ", "Save")}</button>
+            </footer>
+          </form>
+        </div>
+      ) : null}
+
+      {mergeTarget ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setMergeTarget(null)}>
+          <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("دمج عملاء مكررين", "Merge duplicate customers")} onSubmit={submitMerge} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setMergeTarget(null)}>×</button>
+              <h2>{t("دمج عميل مكرر في", "Merge a duplicate customer into")} {mergeTarget.name}</h2>
+            </header>
+            <div className="account-modal-body form-grid">
+              <p>{t("كل محادثات العميل المختار ستنتقل إلى هذا العميل، وسيتم حذف السجل المكرر نهائيًا. لا يمكن التراجع عن هذا الإجراء.", "All conversations from the selected customer will move here, and the duplicate record will be permanently deleted. This can't be undone.")}</p>
+              <label>
+                <span>{t("العميل المكرر (سيُحذف)", "Duplicate customer (will be deleted)")}</span>
+                <select value={mergeSourceId} onChange={(event) => setMergeSourceId(event.target.value)} required>
+                  <option value="" disabled>{t("اختر عميلًا…", "Choose a customer…")}</option>
+                  {customers.filter((customer) => customer.id !== mergeTarget.id).map((customer) => (
+                    <option key={customer.id} value={customer.id}>{customer.name} · {customer.phone}</option>
+                  ))}
+                </select>
+              </label>
+              {mergeError ? <p className="form-error">{mergeError}</p> : null}
+            </div>
+            <footer className="modal-foot">
+              <button className="btn soft" type="button" onClick={() => setMergeTarget(null)}>{t("إلغاء", "Cancel")}</button>
+              <button className="btn primary" type="submit" disabled={merging || !mergeSourceId}>{merging ? t("جاري الدمج", "Merging") : t("دمج", "Merge")}</button>
             </footer>
           </form>
         </div>
