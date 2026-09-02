@@ -71,22 +71,31 @@ export async function getSubscriptionAccess(tenantId: string) {
 
 export async function getCurrentUser(options: { allowExpired?: boolean } = {}) {
   const cookieStore = await cookies();
-  const session = verifySessionToken(cookieStore.get(authCookieName)?.value);
+  const rawCookie = cookieStore.get(authCookieName)?.value;
+  const session = verifySessionToken(rawCookie);
 
   if (!session) {
+    console.error("DIAG getCurrentUser: no session", { hasCookie: Boolean(rawCookie) });
     return null;
   }
 
   const user = await getUserAccountById(session.userId);
   if (!user) {
+    console.error("DIAG getCurrentUser: no user for session.userId");
     return null;
   }
-  if (user.sessionVersion !== session.sessionVersion) return null;
+  if (user.sessionVersion !== session.sessionVersion) {
+    console.error("DIAG getCurrentUser: sessionVersion mismatch", { dbVersion: user.sessionVersion, tokenVersion: session.sessionVersion });
+    return null;
+  }
 
   const subscriptionAccess = await getSubscriptionAccess(user.tenantId);
   // Platform admins never get locked out of their own dashboard by an unpaid subscription.
   if (user.isPlatformAdmin === 1) subscriptionAccess.expired = false;
-  if (subscriptionAccess.expired && !options.allowExpired) return null;
+  if (subscriptionAccess.expired && !options.allowExpired) {
+    console.error("DIAG getCurrentUser: subscription expired", { allowExpired: options.allowExpired });
+    return null;
+  }
 
   const { passwordHash: _passwordHash, ...safeUser } = user;
   void _passwordHash;
