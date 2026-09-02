@@ -33,6 +33,7 @@ import InboxView from "./views/InboxView";
 import { allViewKeys, computeAllowedViews, canSeeAllConversations as sharedCanSeeAllConversations } from "../../lib/permissions";
 import { formatDateTime } from "../../lib/time";
 import { playNewMessageChime } from "./notification-sound";
+import TrialCountdownBanner from "./TrialCountdownBanner";
 
 type DashboardSubscription = {
   plan: string;
@@ -1094,6 +1095,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   return (
     <LanguageProvider language={language}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language} theme-${resolvedTheme}`} data-theme={resolvedTheme} dir={language === "en" ? "ltr" : "rtl"}>
+      {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
       <DashboardSidebar
         activeView={activeView}
         allowedViews={allowedViews}
@@ -1234,7 +1236,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     <div><span>{t("البريد الإلكتروني", "Email")}</span><b>{initialUser.email}</b></div>
                     <div><span>{t("الدور", "Role")}</span><b>{initialUser.role}</b></div>
                     <div><span>{t("الباقة", "Plan")}</span><b>{subscription?.plan || t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
-                    <div><span>{t("حالة الربط", "Connection status")}</span><b>{t("لم يتم الربط بعد", "Not connected yet")}</b></div>
+                    <div><span>{t("حالة ربط واتساب", "WhatsApp connection")}</span><b>{integrationStatus === "connected" ? t("متصل", "Connected") : integrationStatus === "pending" ? t("قيد الإعداد", "Pending setup") : t("لم يتم الربط بعد", "Not connected yet")}</b></div>
                   </div>
                   <div className="status-picker">
                     {(["متصل", "مشغول", "غير متصل"] as const).map((status) => (

@@ -26,3 +26,17 @@ export function isValidSaudiPhone(value: string): boolean {
   if (digits.startsWith("0")) digits = digits.slice(1);
   return /^5\d{8}$/.test(digits);
 }
+
+// A person/company name field: rejects empty strings, single-character
+// input, and anything that's only punctuation or whitespace with no real
+// letters - accepts Arabic and Latin scripts, digits, and typical
+// separators (space, dash, dot, apostrophe, ampersand).
+const NAME_HAS_LETTERS_REGEX = /\p{L}{2,}/u;
+const NAME_ALLOWED_CHARS_REGEX = /^[\p{L}\p{N}\s.'&-]+$/u;
+
+export function isValidDisplayName(value: string, minLength = 2): boolean {
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  if (trimmed.length < minLength) return false;
+  if (!NAME_ALLOWED_CHARS_REGEX.test(trimmed)) return false;
+  return NAME_HAS_LETTERS_REGEX.test(trimmed);
+}

@@ -12,7 +12,7 @@ type PaymentsViewProps = {
   initialStatus?: string;
 };
 
-const STATUS_FILTERS = ["الكل", "مكتمل", "قيد الانتظار"];
+const STATUS_FILTERS = ["الكل", "مكتمل", "قيد الانتظار", "منتهي الصلاحية"];
 const SOURCE_FILTERS = ["الكل", "اشتراك", "شحن رسائل حملات"];
 const PAYMENT_REFERENCE_TIME = Date.now();
 type SortKey = "recent" | "oldest" | "amount_desc" | "amount_asc";
@@ -31,6 +31,8 @@ function statusLabel(status: string, t: (ar: string, en: string) => string) {
       return t("مكتمل", "Completed");
     case "قيد الانتظار":
       return t("قيد الانتظار", "Pending");
+    case "منتهي الصلاحية":
+      return t("منتهي الصلاحية", "Expired");
     default:
       return status;
   }

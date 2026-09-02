@@ -21,8 +21,28 @@ export async function POST(request: NextRequest) {
   if (plan.monthlyPrice < 1) return NextResponse.json({ error: "سعر الباقة غير صالح" }, { status: 400 });
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
   const companyName = subscription?.companyName || user.name;
-  const paymentId = `sub-pay-${randomUUID()}`;
   const amountHalalas = plan.monthlyPrice * 100;
+
+  // A pending payment older than this was almost certainly abandoned (closed
+  // tab, back button, Moyasar sandbox test run) rather than still in
+  // progress - expire it instead of letting it block new checkouts and pile
+  // up forever as "pending" with no way to reconcile.
+  const pendingStaleAfterMs = 60 * 60 * 1000;
+  const staleCutoff = new Date(Date.now() - pendingStaleAfterMs).toISOString();
+  await prisma.subscriptionPayment.updateMany({
+    where: { tenantId: user.tenantId, status: "قيد الانتظار", createdAt: { lt: staleCutoff } },
+    data: { status: "منتهي الصلاحية" }
+  });
+
+  const activePending = await prisma.subscriptionPayment.findFirst({
+    where: { tenantId: user.tenantId, status: "قيد الانتظار", planName: plan.name },
+    orderBy: { createdAt: "desc" }
+  });
+  if (activePending?.paymentUrl) {
+    return NextResponse.json({ paymentUrl: activePending.paymentUrl });
+  }
+
+  const paymentId = `sub-pay-${randomUUID()}`;
   // Checkout only stages a SubscriptionPayment. The live Subscription is
   // not created or modified until Moyasar confirms a paid invoice.
   if (isMoyasarConfigured()) {
