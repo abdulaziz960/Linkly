@@ -22,6 +22,12 @@ type SendWhatsAppTemplateInput = {
   author?: string;
   contextMessageId?: string;
   keepWindowExpired?: boolean;
+  // A template with an IMAGE/VIDEO/DOCUMENT or TEXT header needs a matching
+  // header component on every send (see the comment above buildHeaderComponent).
+  templateId?: string;
+  headerType?: string;
+  headerText?: string;
+  headerMediaDataUrl?: string;
 };
 
 /**
@@ -74,6 +80,46 @@ export function templateParameters(templateText: string, value: string) {
   return isNamedFormat
     ? placeholders.map((name) => ({ type: "text", parameter_name: name, text: value }))
     : Array.from({ length: Math.max(...placeholders.map(Number)) }, () => ({ type: "text", text: value }));
+}
+
+// A template with an IMAGE/VIDEO/DOCUMENT or TEXT header is a required
+// component on every send, not just at creation - omitting it is a second,
+// distinct cause of the same #132012 mismatch error (the first being a body
+// parameter-format mismatch, handled by templateParameters above). Meta
+// doesn't accept the one-time upload handle used to register the template
+// here; it needs a plain URL it can re-fetch, so media headers use the
+// template's own saved media via /api/whatsapp/template-media/[id].
+function buildHeaderComponent(input: {
+  headerType?: string;
+  headerText?: string;
+  headerMediaDataUrl?: string;
+  templateId?: string;
+  value: string;
+}): Record<string, unknown> | undefined {
+  const headerType = input.headerType?.trim();
+  if (!headerType || headerType === "NONE") return undefined;
+
+  if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType)) {
+    if (!input.headerMediaDataUrl || !input.templateId) return undefined;
+    const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://linklysa.io").replace(/\/$/, "");
+    const mediaUrl = `${baseUrl}/api/whatsapp/template-media/${input.templateId}`;
+    const mediaKey = headerType.toLowerCase();
+    return { type: "header", parameters: [{ type: mediaKey, [mediaKey]: { link: mediaUrl } }] };
+  }
+
+  if (headerType === "TEXT") {
+    const headerPlaceholders = [...(input.headerText || "").matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)].map((match) => match[1]);
+    if (!headerPlaceholders.length) return undefined;
+    const headerIsNamed = headerPlaceholders.some((placeholder) => !/^\d+$/.test(placeholder));
+    return {
+      type: "header",
+      parameters: headerIsNamed
+        ? headerPlaceholders.map((name) => ({ type: "text", parameter_name: name, text: input.value }))
+        : headerPlaceholders.map(() => ({ type: "text", text: input.value }))
+    };
+  }
+
+  return undefined;
 }
 
 function renderTemplateText(templateText: string, customerName: string) {
@@ -143,7 +189,17 @@ export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInp
 
   const parameterText = input.customerName?.trim() || "عميلنا";
   const parameters = templateParameters(templateText, parameterText);
-  const components = parameters ? [{ type: "body", parameters }] : undefined;
+  const headerComponent = buildHeaderComponent({
+    headerType: input.headerType,
+    headerText: input.headerText,
+    headerMediaDataUrl: input.headerMediaDataUrl,
+    templateId: input.templateId,
+    value: parameterText
+  });
+  const components = [
+    ...(headerComponent ? [headerComponent] : []),
+    ...(parameters ? [{ type: "body", parameters }] : [])
+  ];
 
   let response: Response;
   try {
@@ -162,7 +218,7 @@ export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInp
         template: {
           name: templateName,
           language: { code: normalizeTemplateLanguage(input.language) },
-          ...(components ? { components } : {})
+          ...(components.length ? { components } : {})
         }
       })
     });
