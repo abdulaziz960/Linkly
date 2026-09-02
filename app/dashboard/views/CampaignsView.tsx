@@ -106,9 +106,6 @@ export default function CampaignsView({
     [templates, whatsappConnected]
   );
   const defaultTemplateName = approvedTemplates[0]?.name || "";
-  const selectedTemplate = approvedTemplates.find((template) => template.name === form.templateName);
-  const needsHeaderMedia = Boolean(selectedTemplate && ["IMAGE", "VIDEO"].includes(selectedTemplate.headerType || "NONE"));
-  const templateHasSavedMedia = Boolean(selectedTemplate?.hasHeaderMediaSaved);
   const emptyForm = useMemo<CampaignForm>(
     () => ({
       name: "",
@@ -124,6 +121,9 @@ export default function CampaignsView({
   const [form, setForm] = useState<CampaignForm>(emptyForm);
   const [campaignFile, setCampaignFile] = useState<File | null>(null);
   const [headerMediaFile, setHeaderMediaFile] = useState<File | null>(null);
+  const selectedTemplate = approvedTemplates.find((template) => template.name === form.templateName);
+  const needsHeaderMedia = Boolean(selectedTemplate && ["IMAGE", "VIDEO"].includes(selectedTemplate.headerType || "NONE"));
+  const templateHasSavedMedia = Boolean(selectedTemplate?.hasHeaderMediaSaved);
   const [recipientPreview, setRecipientPreview] = useState<number | null>(null);
   const [recipientPreviewLoading, setRecipientPreviewLoading] = useState(false);
   const [recipientPreviewError, setRecipientPreviewError] = useState("");
