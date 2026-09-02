@@ -1,12 +1,28 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans_Arabic } from "next/font/google";
+import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-const appFont = IBM_Plex_Sans_Arabic({
-  subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600", "700"],
+const appFont = localFont({
+  src: [
+    { path: "../public/fonts/thmanyah/sans/thmanyahsans-Light.woff2", weight: "300", style: "normal" },
+    { path: "../public/fonts/thmanyah/sans/thmanyahsans-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../public/fonts/thmanyah/sans/thmanyahsans-Medium.woff2", weight: "500", style: "normal" },
+    { path: "../public/fonts/thmanyah/sans/thmanyahsans-Bold.woff2", weight: "700", style: "normal" },
+    { path: "../public/fonts/thmanyah/sans/thmanyahsans-Black.woff2", weight: "900", style: "normal" }
+  ],
   variable: "--font-app",
+  display: "swap"
+});
+
+const displayFont = localFont({
+  src: [
+    { path: "../public/fonts/thmanyah/serif-display/thmanyahserifdisplay-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../public/fonts/thmanyah/serif-display/thmanyahserifdisplay-Medium.woff2", weight: "500", style: "normal" },
+    { path: "../public/fonts/thmanyah/serif-display/thmanyahserifdisplay-Bold.woff2", weight: "700", style: "normal" },
+    { path: "../public/fonts/thmanyah/serif-display/thmanyahserifdisplay-Black.woff2", weight: "900", style: "normal" }
+  ],
+  variable: "--font-display",
   display: "swap"
 });
 
@@ -40,7 +56,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl" className={appFont.variable}>
+    <html lang="ar" dir="rtl" className={`${appFont.variable} ${displayFont.variable}`}>
       <body>{children}</body>
     </html>
   );
