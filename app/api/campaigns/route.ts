@@ -55,6 +55,14 @@ export async function POST(request: NextRequest) {
   if (!template) return jsonError("القالب المختار غير موجود");
   if (template.status !== "معتمد") return jsonError("لازم يكون القالب معتمد من Meta قبل استخدامه بحملة");
 
+  // The UI's own "connected" indicator is client-side cached state - a
+  // campaign must never actually start unless the channel is connected
+  // right now, verified against the same table that indicator reads from.
+  const whatsappIntegration = await prisma.integrationSetting.findFirst({ where: { tenantId: user.tenantId, provider: "whatsapp_cloud" } });
+  if (!whatsappIntegration || whatsappIntegration.status !== "connected") {
+    return jsonError("واتساب غير مربوط بحسابك حاليًا. اربط القناة من الإعدادات قبل إنشاء حملة", 409);
+  }
+
   // A template's header *format* (image/video/document) is fixed at Meta
   // approval time, but WhatsApp expects fresh media on every send - the
   // campaign can supply its own, otherwise fall back to whatever was saved

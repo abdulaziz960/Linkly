@@ -3,7 +3,7 @@ import { createTenantWithSubscription } from "../../../lib/subscriptions";
 import { getActivePlans } from "../../../lib/plans";
 import { jsonError, jsonOk } from "../_utils/json";
 import { consumeRateLimit, requestIdentifier } from "../../../lib/rate-limit";
-import { isValidEmail, isValidSaudiPhone } from "../../../lib/validation";
+import { isValidEmail, isValidSaudiPhone, isValidDisplayName } from "../../../lib/validation";
 
 export const runtime = "nodejs";
 
@@ -44,6 +44,8 @@ export async function POST(request: NextRequest) {
   }
   if (!isValidEmail(ownerEmail)) return jsonError("أدخل بريداً إلكترونياً صحيحاً", 400);
   if (!isValidSaudiPhone(phone)) return jsonError("أدخل رقم جوال سعودي صحيح (مثال: 05XXXXXXXX)", 400);
+  if (!isValidDisplayName(companyName)) return jsonError("أدخل اسم نشاط تجاري صحيح (حرفين على الأقل)", 400);
+  if (!isValidDisplayName(ownerName)) return jsonError("أدخل اسمك الكامل (حرفين على الأقل)", 400);
   const allowedChannels = new Set(["whatsapp", "instagram", "telegram", "email", "tiktok"]);
   if (channels.some((channel) => !allowedChannels.has(channel))) return jsonError("إحدى القنوات المختارة غير صالحة", 400);
 

@@ -40,11 +40,13 @@ function subscriptionStatusLabel(status: string, lang: "ar" | "en") {
 export default function BillingPageClient({
   plans,
   subscription,
-  expired
+  expired,
+  isTestMode
 }: {
   plans: Plan[];
   subscription: Subscription;
   expired: boolean;
+  isTestMode: boolean;
 }) {
   const [lang, setLang] = useState<"ar" | "en">("ar");
   const text = copy[lang];
@@ -75,7 +77,7 @@ export default function BillingPageClient({
           </div>
         ) : null}
       </section>
-      <BillingClient plans={plans} currentPlan={subscription?.plan || ""} lang={lang} />
+      <BillingClient plans={plans} currentPlan={subscription?.plan || ""} lang={lang} isTestMode={isTestMode} />
     </main>
   );
 }

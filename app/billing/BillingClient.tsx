@@ -32,7 +32,7 @@ const copy = {
   }
 } as const;
 
-export default function BillingClient({ plans, currentPlan, lang = "ar" }: { plans: Plan[]; currentPlan: string; lang?: "ar" | "en" }) {
+export default function BillingClient({ plans, currentPlan, lang = "ar", isTestMode }: { plans: Plan[]; currentPlan: string; lang?: "ar" | "en"; isTestMode: boolean }) {
   const text = copy[lang];
   const [loading, setLoading] = useState(""); const [error, setError] = useState("");
   async function checkout(planId: string) {
@@ -44,5 +44,5 @@ export default function BillingClient({ plans, currentPlan, lang = "ar" }: { pla
     if (!response.ok || !payload.paymentUrl) { setLoading(""); setError(payload.error || text.genericError); return; }
     location.href = payload.paymentUrl;
   }
-  return <section><div className="plan-grid">{plans.map((plan, index) => <article className={`plan-card ${index === 1 ? "featured" : ""}`} key={plan.id}>{index === 1 ? <span className="recommended">{text.recommended}</span> : null}<h2>{plan.name}</h2><div className="plan-price"><b>{plan.monthlyPrice}</b><span>{text.perMonth}</span></div><ul><li>{text.upToUsers(plan.employeeLimit)}</li><li>{text.sharedInbox}</li><li>{text.automation}</li><li>{text.support}</li></ul><button disabled={loading !== ""} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : currentPlan === plan.name ? text.renewPlan : text.choosePlan}</button></article>)}</div>{error ? <p className="billing-error">{error}</p> : null}<p className="payment-note">{text.paymentNote}</p></section>;
+  return <section><div className="plan-grid">{plans.map((plan, index) => <article className={`plan-card ${index === 1 ? "featured" : ""}`} key={plan.id}>{index === 1 ? <span className="recommended">{text.recommended}</span> : null}<h2>{plan.name}</h2><div className="plan-price"><b>{plan.monthlyPrice}</b><span>{text.perMonth}</span></div><ul><li>{text.upToUsers(plan.employeeLimit)}</li><li>{text.sharedInbox}</li><li>{text.automation}</li><li>{text.support}</li></ul><button disabled={loading !== ""} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : currentPlan === plan.name ? text.renewPlan : text.choosePlan}</button></article>)}</div>{error ? <p className="billing-error">{error}</p> : null}{isTestMode ? <p className="payment-note">{text.paymentNote}</p> : null}</section>;
 }

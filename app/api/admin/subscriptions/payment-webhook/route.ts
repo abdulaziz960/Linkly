@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
   // for a genuinely paid invoice.
   const invoiceId = body.data?.invoice_id || body.data?.id;
   const status = body.data?.status;
-  if (!invoiceId || status !== "paid") {
-    console.error("[moyasar:subscriptions-webhook] skipped - not a paid invoice event", JSON.stringify(body));
+  if (!invoiceId) {
+    console.error("[moyasar:subscriptions-webhook] skipped - no invoice id", JSON.stringify(body));
     return NextResponse.json({ ok: true, skipped: true });
   }
 
@@ -48,6 +48,18 @@ export async function POST(request: NextRequest) {
   if (!payment) {
     console.error(`[moyasar:subscriptions-webhook] no SubscriptionPayment found for moyasarId=${invoiceId}`);
     return NextResponse.json({ ok: true, alreadyProcessed: true });
+  }
+
+  // Moyasar's other terminal invoice statuses (failed, canceled, expired,
+  // refunded, voided...) all mean this payment is definitely never going to
+  // complete - clear it out of "pending" rather than leaving it there
+  // forever with no way to tell a stuck invoice from a genuinely failed one.
+  if (status !== "paid") {
+    if (status && status !== "initiated" && payment.status === "قيد الانتظار") {
+      await prisma.subscriptionPayment.update({ where: { id: payment.id }, data: { status: "منتهي الصلاحية" } });
+    }
+    console.error("[moyasar:subscriptions-webhook] skipped - not a paid invoice event", JSON.stringify(body));
+    return NextResponse.json({ ok: true, skipped: true });
   }
 
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: payment.tenantId } });
