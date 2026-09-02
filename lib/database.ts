@@ -733,6 +733,13 @@ async function runSchemaMigrations() {
       SELECT 'tmpl-tenant-demo-' || name, 'tenant-demo', name, message, type, category, language, status, header_type, header_text, header_media, footer, button_type, button_text, button_phone, button_url, meta_id, synced_at, last_used FROM templates_old`);
     await prisma.$executeRawUnsafe(`DROP TABLE templates_old`);
   }
+  if (isPostgresDatabase) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD COLUMN IF NOT EXISTS header_media_data_url TEXT NOT NULL DEFAULT ''`);
+  } else if (!templateColumns.some((column) => column.name === "header_media_data_url")) {
+    // SQLite has no "ADD COLUMN IF NOT EXISTS" - guard with the same
+    // PRAGMA table_info check used for the templates table above.
+    await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD COLUMN header_media_data_url TEXT NOT NULL DEFAULT ''`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS quick_replies (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',

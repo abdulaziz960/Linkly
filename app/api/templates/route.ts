@@ -60,10 +60,16 @@ export async function POST(request: NextRequest) {
   const buttonUrl = body.buttonUrl || "";
 
   let headerMediaHandle = "";
+  let headerMediaDataUrl = "";
   if ((headerType === "IMAGE" || headerType === "VIDEO") && body.headerMediaDataUrl) {
     const uploadResult = await uploadMetaMedia(integration.accessToken, body.headerMediaDataUrl);
     if (!uploadResult.ok) return jsonError(uploadResult.error);
     headerMediaHandle = uploadResult.handle;
+    // Meta's upload handle is only valid for registering the template - it
+    // can't be reused to send messages later. Keep the actual image/video
+    // data too, so campaign sends have a stable link (our own domain) to
+    // hand Meta on every send instead of just at creation time.
+    headerMediaDataUrl = body.headerMediaDataUrl;
   }
 
   const metaResult = await createMetaTemplate(integration, {
@@ -97,6 +103,7 @@ export async function POST(request: NextRequest) {
         headerType,
         headerText,
         headerMedia: headerMediaHandle,
+        headerMediaDataUrl,
         footer,
         buttonType,
         buttonText,

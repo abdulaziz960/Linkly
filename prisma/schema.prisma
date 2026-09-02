@@ -148,6 +148,7 @@ model Template {
   headerType  String @default("NONE") @map("header_type")
   headerText  String @default("") @map("header_text")
   headerMedia String @default("") @map("header_media")
+  headerMediaDataUrl String @default("") @map("header_media_data_url")
   footer      String @default("")
   buttonType  String @default("NONE") @map("button_type")
   buttonText  String @default("") @map("button_text")
