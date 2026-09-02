@@ -152,7 +152,18 @@ function maybeEncryptGeneratedSecret(value: string) {
 
 function readStoredSecret(value?: string | null) {
   if (value?.startsWith("enc:v1:") && !hasIntegrationEncryptionKey()) return "";
-  return decryptSecret(value);
+  try {
+    return decryptSecret(value);
+  } catch (error) {
+    // AES-GCM throws "Unsupported state or unable to authenticate data" when
+    // the configured key doesn't match the one the value was encrypted
+    // under (e.g. ENCRYPTION_KEY rotated or regenerated since). That's
+    // unrecoverable for this stored value specifically - the account needs
+    // to reconnect - but it must not take down every other field/channel on
+    // the same request the way an uncaught throw here did.
+    console.error("readStoredSecret: failed to decrypt a stored integration secret", error);
+    return "";
+  }
 }
 
 async function runRequiredProductionMigrations() {

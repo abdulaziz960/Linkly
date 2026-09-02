@@ -22,13 +22,27 @@ function verifyMetaSignature(rawBody: string, signature: string | null) {
 
 type MetaAccount = { tenantId: string; accessToken: string; wabaId: string };
 
+// A stored access token that no longer decrypts under the current
+// encryption key (rotated/regenerated since it was saved) must not drop
+// the inbound message entirely - the tenant/wabaId are still real and the
+// message still needs to be stored; only auto-reply sending (which already
+// treats a blank accessToken as "not configured") is affected.
+function decryptStoredAccessToken(value: string) {
+  try {
+    return decryptSecret(value).trim();
+  } catch (error) {
+    console.error("Meta webhook: failed to decrypt stored access token", error);
+    return "";
+  }
+}
+
 async function resolveMetaAccount(provider: "instagram" | "facebook", accountId: string): Promise<MetaAccount | null> {
   if (!accountId) return null;
 
   const row = await prisma.integrationSetting.findFirst({ where: { provider, wabaId: accountId } });
   if (!row) return null;
 
-  return { tenantId: row.tenantId, accessToken: decryptSecret(row.accessToken).trim(), wabaId: row.wabaId };
+  return { tenantId: row.tenantId, accessToken: decryptStoredAccessToken(row.accessToken), wabaId: row.wabaId };
 }
 
 async function resolveWhatsAppAccount(phoneNumberId: string): Promise<MetaAccount | null> {
@@ -37,7 +51,7 @@ async function resolveWhatsAppAccount(phoneNumberId: string): Promise<MetaAccoun
   const row = await prisma.integrationSetting.findFirst({ where: { provider: "whatsapp_cloud", phoneNumberId } });
   if (!row) return null;
 
-  return { tenantId: row.tenantId, accessToken: decryptSecret(row.accessToken).trim(), wabaId: row.wabaId };
+  return { tenantId: row.tenantId, accessToken: decryptStoredAccessToken(row.accessToken), wabaId: row.wabaId };
 }
 
 export async function GET(request: NextRequest) {
