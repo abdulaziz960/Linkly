@@ -177,14 +177,45 @@ async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: 
   const value = recipientName.trim() || "عميلنا";
   const isNamedFormat = placeholders.some((placeholder) => !/^\d+$/.test(placeholder));
 
-  const components = placeholders.length
-    ? [{
-        type: "body",
-        parameters: isNamedFormat
-          ? placeholders.map((name) => ({ type: "text", parameter_name: name, text: value }))
-          : Array.from({ length: Math.max(...placeholders.map(Number)) }, () => ({ type: "text", text: value }))
-      }]
-    : undefined;
+  const components: Array<Record<string, unknown>> = [];
+
+  // A template with an IMAGE/VIDEO/DOCUMENT header is a required component
+  // on every send, not just at creation - omitting it is a second cause of
+  // the same #132012 mismatch error, distinct from the body-format bug
+  // above. Meta doesn't accept the one-time upload handle used to register
+  // the template here; it needs a plain URL it can re-fetch, so this reuses
+  // whatever image/video was saved when the template was created (see
+  // headerMediaDataUrl) via our own public media-serving endpoint.
+  if (["IMAGE", "VIDEO", "DOCUMENT"].includes(templateRecord.headerType) && templateRecord.headerMediaDataUrl) {
+    const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://linklysa.io").replace(/\/$/, "");
+    const mediaUrl = `${baseUrl}/api/whatsapp/template-media/${templateRecord.id}`;
+    const mediaKey = templateRecord.headerType.toLowerCase();
+    components.push({ type: "header", parameters: [{ type: mediaKey, [mediaKey]: { link: mediaUrl } }] });
+  } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(templateRecord.headerType)) {
+    return { ok: false as const, error: "هذا القالب يحتاج صورة/فيديو بالرأس - ارفعها من إعدادات القالب قبل الإرسال" };
+  }
+
+  const headerPlaceholders = templateRecord.headerType === "TEXT"
+    ? [...templateRecord.headerText.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)].map((match) => match[1])
+    : [];
+  if (headerPlaceholders.length) {
+    const headerIsNamed = headerPlaceholders.some((placeholder) => !/^\d+$/.test(placeholder));
+    components.push({
+      type: "header",
+      parameters: headerIsNamed
+        ? headerPlaceholders.map((name) => ({ type: "text", parameter_name: name, text: value }))
+        : headerPlaceholders.map(() => ({ type: "text", text: value }))
+    });
+  }
+
+  if (placeholders.length) {
+    components.push({
+      type: "body",
+      parameters: isNamedFormat
+        ? placeholders.map((name) => ({ type: "text", parameter_name: name, text: value }))
+        : Array.from({ length: Math.max(...placeholders.map(Number)) }, () => ({ type: "text", text: value }))
+    });
+  }
 
   const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
     method: "POST",
@@ -197,7 +228,7 @@ async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: 
       template: {
         name: templateName,
         language: { code: languageCode },
-        ...(components ? { components } : {})
+        ...(components.length ? { components } : {})
       }
     })
   });
