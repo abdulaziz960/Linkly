@@ -83,15 +83,19 @@ function parseEmailList(value?: string) {
 // arbitrary tenant account just because its email matches a string.
 const configuredSuperAdminEmail = (process.env.SUPER_ADMIN_EMAIL || "").trim().toLowerCase();
 const configuredSuperAdminName = (process.env.SUPER_ADMIN_NAME || "Abdulaziz").trim() || "Super Admin";
-const configuredSuperAdminPassword = process.env.SUPER_ADMIN_BOOTSTRAP_PASSWORD?.trim() || "";
-if (configuredSuperAdminPassword && !configuredSuperAdminEmail) {
-  throw new Error("SUPER_ADMIN_EMAIL is required when SUPER_ADMIN_BOOTSTRAP_PASSWORD is set");
-}
-const configuredSuperAdminPasswordError = configuredSuperAdminPassword
-  ? getPasswordValidationError(configuredSuperAdminPassword)
-  : null;
+const configuredSuperAdminPasswordCandidate = process.env.SUPER_ADMIN_BOOTSTRAP_PASSWORD?.trim() || "";
+const configuredSuperAdminPasswordError = configuredSuperAdminPasswordCandidate && !configuredSuperAdminEmail
+  ? "SUPER_ADMIN_EMAIL is required when SUPER_ADMIN_BOOTSTRAP_PASSWORD is set"
+  : configuredSuperAdminPasswordCandidate
+    ? getPasswordValidationError(configuredSuperAdminPasswordCandidate)
+    : null;
+const configuredSuperAdminPassword = configuredSuperAdminPasswordError
+  ? ""
+  : configuredSuperAdminPasswordCandidate;
 if (configuredSuperAdminPasswordError) {
-  throw new Error(`SUPER_ADMIN_BOOTSTRAP_PASSWORD is invalid: ${configuredSuperAdminPasswordError}`);
+  // Bootstrap is optional. A stale hosting variable must not take down login,
+  // dashboards, or unrelated API routes; disable only the unsafe bootstrap.
+  console.error(`Super-admin bootstrap disabled: ${configuredSuperAdminPasswordError}`);
 }
 const platformAdminEmails = Array.from(new Set([
   ...parseEmailList(process.env.PLATFORM_ADMIN_EMAILS),
