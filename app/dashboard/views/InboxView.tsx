@@ -18,6 +18,7 @@ import type {
 import { statusLabel } from "../utils/conversation";
 import { ChannelIcon } from "./SettingsView";
 import { isDeletedMessageText, useLanguage } from "../i18n";
+import { getChannelName } from "../../channel-names";
 
 type InboxViewProps = {
   activeConversation: Conversation;
@@ -98,35 +99,10 @@ const emojiCategories = [
 
 const RECENT_EMOJIS_STORAGE_KEY = "linkly:recent-emojis";
 
-const channelLabelsAr: Record<ConversationChannel, string> = {
-  whatsapp: "واتساب",
-  instagram: "Instagram",
-  x: "X",
-  facebook: "فيسبوك",
-  google_maps: "خرائط Google",
-  website: "الموقع الإلكتروني",
-  telegram: "تيليجرام",
-  email: "البريد الإلكتروني",
-  tiktok: "TikTok",
-  sms: "رسائل SMS"
-};
-
-const channelLabelsEn: Record<ConversationChannel, string> = {
-  whatsapp: "WhatsApp",
-  instagram: "Instagram",
-  x: "X",
-  facebook: "Facebook",
-  google_maps: "Google Maps",
-  website: "Website",
-  telegram: "Telegram",
-  email: "Email",
-  tiktok: "TikTok",
-  sms: "SMS"
-};
+const conversationChannels: ConversationChannel[] = ["whatsapp", "instagram", "x", "facebook", "google_maps", "website", "telegram", "email", "tiktok", "sms"];
 
 function getChannelLabel(conversation: Conversation, language: "ar" | "en") {
-  const labels = language === "en" ? channelLabelsEn : channelLabelsAr;
-  return labels[conversation.channel || "whatsapp"];
+  return getChannelName(conversation.channel || "whatsapp", language);
 }
 
 function getWaitBadge(conversation: Conversation, language: "ar" | "en") {
@@ -878,7 +854,7 @@ export default function InboxView({
           </div>
           {filtersOpen ? (
             <div className="inbox-advanced-filters">
-              <label><span>{t("القناة", "Channel")}</span><select value={selectedChannel} onChange={(event) => onChangeChannel(event.target.value as ConversationChannelFilter)}><option value="all">{t("كل القنوات", "All channels")}</option>{Object.keys(channelLabelsAr).map((channel) => <option key={channel} value={channel}>{language === "en" ? channelLabelsEn[channel as ConversationChannel] : channelLabelsAr[channel as ConversationChannel]}</option>)}</select></label>
+              <label><span>{t("القناة", "Channel")}</span><select value={selectedChannel} onChange={(event) => onChangeChannel(event.target.value as ConversationChannelFilter)}><option value="all">{t("كل القنوات", "All channels")}</option>{conversationChannels.map((channel) => <option key={channel} value={channel}>{getChannelName(channel, language)}</option>)}</select></label>
               <label><span>{t("الموظف", "Assignee")}</span><select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)}><option value="all">{t("كل الموظفين", "All assignees")}</option>{assigneeOptions.map((assignee) => <option key={assignee} value={assignee}>{assignee}</option>)}</select></label>
               <label><span>{t("الوسم", "Tag")}</span><select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}><option value="all">{t("كل الوسوم", "All tags")}</option>{tags.map((tag) => <option key={tag.id} value={tag.name}>{tag.name}</option>)}</select></label>
               <label><span>{t("الأولوية", "Priority")}</span><select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value as typeof priorityFilter)}><option value="all">{t("كل الأولويات", "All priorities")}</option><option value="urgent">{t("عاجلة", "Urgent")}</option><option value="high">{t("مرتفعة", "High")}</option><option value="normal">{t("عادية", "Normal")}</option></select></label>

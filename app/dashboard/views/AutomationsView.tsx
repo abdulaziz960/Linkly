@@ -62,6 +62,7 @@ function staticLabel(value: string | undefined, t: (ar: string, en: string) => s
     "العميل لديه وسم": t("العميل لديه وسم", "Customer has tag"),
     "حالة المحادثة": t("حالة المحادثة", "Conversation status"),
     "مصدر الرسالة": t("مصدر الرسالة", "Message source"),
+    "WhatsApp": t("واتساب", "WhatsApp"),
     "يساوي": t("يساوي", "Equals"),
     "يحتوي": t("يحتوي", "Contains"),
     "لا يساوي": t("لا يساوي", "Not equal to"),

@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import type { ConversationChannel, Customer } from "../types";
 import { ChannelIcon } from "./SettingsView";
 import { useLanguage } from "../i18n";
+import { channelNames } from "../../channel-names";
 
 type CustomerFormState = {
   id?: string;
@@ -14,16 +15,16 @@ type CustomerFormState = {
 type CustomerChannelTab = Extract<ConversationChannel, "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "sms" | "tiktok">;
 
 const customerTabs: { key: CustomerChannelTab; label: [string, string] }[] = [
-  { key: "whatsapp", label: ["واتساب", "WhatsApp"] },
-  { key: "instagram", label: ["إنستغرام", "Instagram"] },
-  { key: "facebook", label: ["فيسبوك", "Facebook"] },
-  { key: "telegram", label: ["تيليجرام", "Telegram"] },
-  { key: "x", label: ["X", "X"] },
-  { key: "google_maps", label: ["خرائط Google", "Google Maps"] },
-  { key: "email", label: ["البريد الإلكتروني", "Email"] },
-  { key: "website", label: ["الموقع", "Website"] },
-  { key: "sms", label: ["SMS", "SMS"] },
-  { key: "tiktok", label: ["TikTok", "TikTok"] }
+  { key: "whatsapp", label: [channelNames.whatsapp.ar, channelNames.whatsapp.en] },
+  { key: "instagram", label: [channelNames.instagram.ar, channelNames.instagram.en] },
+  { key: "facebook", label: [channelNames.facebook.ar, channelNames.facebook.en] },
+  { key: "telegram", label: [channelNames.telegram.ar, channelNames.telegram.en] },
+  { key: "x", label: [channelNames.x.ar, channelNames.x.en] },
+  { key: "google_maps", label: [channelNames.google_maps.ar, channelNames.google_maps.en] },
+  { key: "email", label: [channelNames.email.ar, channelNames.email.en] },
+  { key: "website", label: [channelNames.website.ar, channelNames.website.en] },
+  { key: "sms", label: [channelNames.sms.ar, channelNames.sms.en] },
+  { key: "tiktok", label: [channelNames.tiktok.ar, channelNames.tiktok.en] }
 ];
 
 function getCustomerChannels(customer: Customer): ConversationChannel[] {
@@ -59,13 +60,13 @@ export default function ContactsView({
   const contactIdLabel = activeTab === "whatsapp"
     ? t("رقم الجوال", "Phone Number")
     : activeTab === "instagram"
-      ? t("معرف الانستقرام", "Instagram ID")
+      ? t("معرّف إنستغرام", "Instagram ID")
       : activeTab === "facebook"
         ? t("معرف فيسبوك", "Facebook ID")
       : activeTab === "telegram"
         ? t("معرف تيليجرام", "Telegram ID")
       : activeTab === "google_maps"
-        ? t("معرف تقييم Google", "Google Review ID")
+        ? t("معرّف تقييم جوجل", "Google Review ID")
       : activeTab === "email"
         ? t("البريد الإلكتروني", "Email")
       : activeTab === "website"
@@ -73,8 +74,8 @@ export default function ContactsView({
       : activeTab === "sms"
         ? t("رقم الجوال", "Phone Number")
       : activeTab === "tiktok"
-        ? t("معرف TikTok", "TikTok ID")
-        : t("معرف X", "X ID");
+        ? t("معرّف تيك توك", "TikTok ID")
+        : t("معرّف إكس", "X ID");
 
   const tabCounts = useMemo(() => ({
     whatsapp: customers.filter((customer) => getCustomerChannels(customer).includes("whatsapp")).length,

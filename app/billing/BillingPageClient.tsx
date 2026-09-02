@@ -62,7 +62,7 @@ export default function BillingPageClient({
           <button type="button" aria-pressed={lang === "ar"} className={lang === "ar" ? "active" : ""} onClick={() => setLang("ar")}>العربية</button>
           <button type="button" aria-pressed={lang === "en"} className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>English</button>
         </div>
-        <div><Image src="/assets/linkly-logo.png" alt="" width={44} height={44} /><b>Linkly</b></div>
+        <div><Image src="/assets/linkly-logo.png" alt="" width={64} height={35} /><b>Linkly</b></div>
       </header>
       <section className="billing-hero">
         <span>{text.stepLabel}</span>

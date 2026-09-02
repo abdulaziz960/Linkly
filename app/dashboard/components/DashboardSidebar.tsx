@@ -4,6 +4,7 @@ import { useState, type FocusEvent, type MouseEvent, type ReactNode } from "reac
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
+import { getChannelName } from "../../channel-names";
 import type { ConversationChannel, ConversationChannelFilter, DashboardUser, ViewKey } from "../types";
 import { navItems, navItemLabelsEn } from "../data/navigation";
 import { ChannelIcon } from "../views/SettingsView";
@@ -106,20 +107,20 @@ export default function DashboardSidebar({
   ];
   const connected = integrationStatus === "connected";
   const linkedChannels: Array<{ key: ConversationChannel; label: string; connected: boolean }> = [
-    { key: "whatsapp", label: isEnglish ? "WhatsApp" : "واتساب", connected },
-    { key: "instagram", label: "Instagram", connected: instagramStatus === "connected" },
-    { key: "facebook", label: isEnglish ? "Facebook" : "فيسبوك", connected: facebookStatus === "connected" },
-    { key: "telegram", label: isEnglish ? "Telegram" : "تيليجرام", connected: telegramStatus === "connected" },
-    { key: "x", label: "X", connected: xStatus === "connected" },
-    { key: "google_maps", label: isEnglish ? "Google Maps" : "خرائط Google", connected: googleMapsStatus === "connected" },
-    { key: "email", label: isEnglish ? "Email" : "البريد الإلكتروني", connected: emailStatus === "connected" }
+    { key: "whatsapp", label: getChannelName("whatsapp", language), connected },
+    { key: "instagram", label: getChannelName("instagram", language), connected: instagramStatus === "connected" },
+    { key: "facebook", label: getChannelName("facebook", language), connected: facebookStatus === "connected" },
+    { key: "telegram", label: getChannelName("telegram", language), connected: telegramStatus === "connected" },
+    { key: "x", label: getChannelName("x", language), connected: xStatus === "connected" },
+    { key: "google_maps", label: getChannelName("google_maps", language), connected: googleMapsStatus === "connected" },
+    { key: "email", label: getChannelName("email", language), connected: emailStatus === "connected" }
   ];
   const visibleLinkedChannels = linkedChannels.filter((channel) => channel.connected);
 
   return (
     <aside className="dashboard-sidebar">
       <div className="sidebar-brand" aria-label="Linkly">
-        <Image src="/assets/linkly-logo.png" alt="Linkly" width={40} height={40} priority />
+        <Image src="/assets/linkly-logo.png" alt="Linkly" width={46} height={25} priority />
       </div>
       <div className="tenant-card">
         <b>{isEnglish ? "Account" : "حساب العميل"}</b>

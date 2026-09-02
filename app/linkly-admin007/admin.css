@@ -1,5 +1,5 @@
 /*
-  Admin dashboard visual language, redesigned per the shared Vercel-style
+  Admin dashboard visual language, redesigned for a clean operational interface
   design brief: near-monochrome (black/white, matching the Linkly mark),
   shadows standing in for borders, and status color reserved strictly for
   functional meaning (pills, dots) rather than decoration.
@@ -354,10 +354,9 @@
 }
 
 .admin-brand-mark img {
-  width: 22px;
-  height: 22px;
+  width: 34px;
+  height: auto;
   object-fit: contain;
-  filter: invert(1);
 }
 
 .admin-brand > div > strong,
@@ -1956,7 +1955,7 @@
 }
 
 .admin-brand-mark img {
-  filter: brightness(0) invert(1);
+  filter: none;
 }
 
 .admin-brand strong,

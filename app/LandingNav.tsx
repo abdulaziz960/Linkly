@@ -59,7 +59,7 @@ export default function LandingNav({ lang = "ar" }: { lang?: "ar" | "en" }) {
     <header className={s.navbar}>
       <div className={s.navInner}>
         <Link className={s.brand} href={homeHref} onClick={close} aria-label={text.brandAria}>
-          <Image src={logo} alt="" width={38} height={38} priority />
+          <Image src={logo} alt="" width={56} height={31} priority />
           <span>Linkly</span>
         </Link>
         <button className={s.menu} type="button" aria-label={open ? text.menuClose : text.menuOpen} aria-expanded={open} aria-controls="landing-navigation" onClick={() => setOpen(value => !value)}>

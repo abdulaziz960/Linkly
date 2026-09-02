@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title desc">
+  <title id="title">Linkly</title>
+  <desc id="desc">شعار لينكلي</desc>
+  <defs>
+    <linearGradient id="linkly-brand" x1="14" y1="28" x2="92" y2="73" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3abdb3"/>
+      <stop offset="0.52" stop-color="#178a82"/>
+      <stop offset="1" stop-color="#0f5f5a"/>
+    </linearGradient>
+    <linearGradient id="linkly-tail" x1="69" y1="59" x2="85" y2="75" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#11766f"/>
+      <stop offset="1" stop-color="#78d8cf"/>
+    </linearGradient>
+  </defs>
+  <path d="M42 35C33 25 18 28 18 50C18 72 37 78 49 61L66 38C78 22 95 32 92 53C91 61 87 67 81 71" fill="none" stroke="url(#linkly-brand)" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M72 63L82 72" fill="none" stroke="url(#linkly-tail)" stroke-width="13" stroke-linecap="round"/>
+</svg>

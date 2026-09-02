@@ -96,8 +96,8 @@
 }
 
 .login-brand img {
-  width: 42px;
-  height: 42px;
+  width: 72px;
+  height: auto;
   object-fit: contain;
 }
 

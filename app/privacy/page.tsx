@@ -12,7 +12,7 @@ export default function PrivacyPage() {
     <main className="legal-page">
       <section className="legal-shell">
         <Link className="legal-brand" href="/">
-          <span className="legal-logo">A</span>
+          <span className="legal-logo" aria-hidden="true" />
           Linkly
         </Link>
         <h1>سياسة الخصوصية</h1>
