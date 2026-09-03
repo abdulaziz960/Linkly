@@ -6,6 +6,7 @@ import { encryptSecret } from "../../../../lib/secret-storage";
 import { syncMetaTemplates } from "../../../../lib/meta-templates";
 import { verifyOAuthState } from "../../../../lib/oauth-state";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { popupCloseHtml } from "../../../../lib/popup-close";
 
 const techProviderMetaAppId = "1296230909161568";
 
@@ -100,9 +101,8 @@ async function fetchWhatsAppBusinessDetails(wabaId: string, accessToken: string)
 }
 
 function closePopupAndRedirect(origin: string, redirectPath: string) {
-  const fallbackUrl = `${origin}${redirectPath}`;
   return new NextResponse(
-    `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الربط</title></head><body><p>تم. سيتم إغلاق النافذة...</p><script>if(window.opener){window.opener.postMessage({type:"audiencew:meta-connected"},${JSON.stringify(origin)});window.close();}else{window.location.href=${JSON.stringify(fallbackUrl)};}</script></body></html>`,
+    popupCloseHtml(origin, "تم. سيتم إغلاق النافذة...", { type: "audiencew:meta-connected" }, redirectPath),
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }
   );
 }

@@ -4,12 +4,13 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { popupCloseHtml } from "../../../../lib/popup-close";
 
 export const runtime = "nodejs";
 
 function closePopup(origin: string, message: string) {
   return new NextResponse(
-    `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الربط</title></head><body><p>${message}</p><script>if(window.opener){window.opener.postMessage({type:"audiencew:meta-connected"},${JSON.stringify(origin)});window.close();}else{window.location.href=${JSON.stringify(`${origin}/dashboard?meta=tiktok-callback&view=settings`)};}</script></body></html>`,
+    popupCloseHtml(origin, message, { type: "audiencew:meta-connected" }, "/dashboard?meta=tiktok-callback&view=settings"),
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }
   );
 }
