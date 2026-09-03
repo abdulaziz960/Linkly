@@ -15,6 +15,12 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  // Platform admins are never a real tenant's customer-facing dashboard user -
+  // login already sends them to /linkly-admin007 (app/api/auth/login/route.ts),
+  // so a direct visit to /dashboard must not fall through to whatever tenant
+  // their account happens to be attached to.
+  if (user.isPlatformAdmin === 1) redirect("/linkly-admin007");
+
   if (user.subscriptionExpired) redirect("/billing?expired=1");
 
   const [subscription, invoices, campaignBalance] = await Promise.all([
