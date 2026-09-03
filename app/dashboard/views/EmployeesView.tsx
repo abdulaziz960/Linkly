@@ -104,6 +104,9 @@ export default function EmployeesView({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [activationUrl, setActivationUrl] = useState("");
+  const [resendingId, setResendingId] = useState("");
+  const [listNotice, setListNotice] = useState("");
+  const [listError, setListError] = useState("");
 
   function openCreateForm() {
     setError("");
@@ -188,6 +191,24 @@ export default function EmployeesView({
     setActivationUrl(payload.data?.inviteDelivery?.activationUrl || "");
   }
 
+  async function resendInvite(employee: Employee) {
+    setListError("");
+    setListNotice("");
+    setResendingId(employee.id);
+    try {
+      const response = await fetch(`/api/employees/${employee.id}/resend-invite`, { method: "POST" });
+      const payload = (await response.json()) as { ok: boolean; error?: string; data?: { inviteDelivery?: { message?: string; activationUrl?: string } } };
+      if (!payload.ok) {
+        setListError(payload.error || t("تعذر إعادة إرسال الدعوة", "Could not resend the invitation"));
+        return;
+      }
+      setListNotice(payload.data?.inviteDelivery?.message || t("تم إرسال الدعوة من جديد.", "The invitation was resent."));
+      setActivationUrl(payload.data?.inviteDelivery?.activationUrl || "");
+    } finally {
+      setResendingId("");
+    }
+  }
+
   async function deleteEmployee(employee: Employee) {
     if (!window.confirm(t(`حذف الموظف ${employee.name}؟`, `Delete employee ${employee.name}?`))) return;
     await fetch(`/api/employees/${employee.id}`, { method: "DELETE" });
@@ -226,6 +247,13 @@ export default function EmployeesView({
           <button className="btn soft" type="button" onClick={exportEmployees}>{t("تصدير", "Export")}</button>
           <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة موظف", "Add Employee")}</button>
         </div>
+        {listNotice ? <p className="form-success">{listNotice}</p> : null}
+        {listError ? <p className="form-error">{listError}</p> : null}
+        {!formOpen && activationUrl ? (
+          <a className="activation-link" href={activationUrl} target="_blank" rel="noreferrer">
+            {t("فتح رابط التفعيل", "Open Activation Link")}
+          </a>
+        ) : null}
         <div className="panel-body table-wrap">
           <table>
             <thead>
@@ -248,10 +276,21 @@ export default function EmployeesView({
                     <span className="table-subtitle">{employee.email}</span>
                   </td>
                   <td>{employeeRoleLabel(employee.role, t)}</td>
-                  <td><span className={employee.status === "متصل" ? "state ok" : employee.status === "مشغول" ? "state warn" : "state muted"}>{employeeStatusLabel(employee.status, t)}</span></td>
+                  <td>
+                    {employee.pendingActivation ? (
+                      <span className="state warn">{t("الدعوة معلقة", "Invitation Pending")}</span>
+                    ) : (
+                      <span className={employee.status === "متصل" ? "state ok" : employee.status === "مشغول" ? "state warn" : "state muted"}>{employeeStatusLabel(employee.status, t)}</span>
+                    )}
+                  </td>
                   <td>{employee.permissions}</td>
                   <td>{rating ? <span className="employee-rating">⭐ {rating.average} <small>({rating.count})</small></span> : <span className="table-subtitle">{t("غير متاح", "N/A")}</span>}</td>
                   <td className="row-actions">
+                    {employee.pendingActivation ? (
+                      <button className="btn soft" type="button" disabled={resendingId === employee.id} onClick={() => resendInvite(employee)}>
+                        {resendingId === employee.id ? t("جاري الإرسال…", "Sending…") : t("إعادة إرسال الدعوة", "Resend Invitation")}
+                      </button>
+                    ) : null}
                     <button className="btn soft" type="button" onClick={() => openEditForm(employee)}>{t("تعديل", "Edit")}</button>
                     <button className="btn danger" type="button" onClick={() => deleteEmployee(employee)}>{t("حذف", "Delete")}</button>
                   </td>

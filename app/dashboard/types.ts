@@ -116,6 +116,7 @@ export type Employee = {
   email: string;
   initial: string;
   hasAccount?: boolean;
+  pendingActivation?: boolean;
   lastLoginAt?: string;
   lastLoginIp?: string;
 };
