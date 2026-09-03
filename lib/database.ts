@@ -1851,7 +1851,8 @@ export async function getCampaigns(tenantId = "tenant-demo"): Promise<Campaign[]
     total: campaign.total,
     progress: campaign.progress,
     status: campaign.status as Campaign["status"],
-    updatedAt: campaign.updatedAt
+    updatedAt: campaign.updatedAt,
+    hasHeaderMedia: Boolean(campaign.headerMediaDataUrl)
   }));
 }
 

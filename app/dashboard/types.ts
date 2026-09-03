@@ -173,6 +173,7 @@ export type Campaign = {
   progress: string;
   status: "الحملة أنجزت" | "قيد الإرسال" | "مجدولة" | "ملغاة";
   updatedAt: string;
+  hasHeaderMedia?: boolean;
 };
 
 export type WorkSchedule = {
