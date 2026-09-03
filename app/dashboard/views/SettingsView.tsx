@@ -284,6 +284,12 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // WhatsApp Embedded Signup finishes (the FINISH postMessage) before our own
+  // /api/meta/callback fetch resolves and confirms the connection - without
+  // this flag the summary panel showed "the connection isn't complete yet,
+  // finish it first" for that whole gap, reading like the user needs to do
+  // something else, when the connection is actually completing itself.
+  const [connectingViaMeta, setConnectingViaMeta] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [checkingXRealtime, setCheckingXRealtime] = useState(false);
   const [copied, setCopied] = useState("");
@@ -680,6 +686,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         });
         setWizardStep(4);
         setLoading(false);
+        setConnectingViaMeta(false);
         return;
       }
 
@@ -698,6 +705,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
       if (selectedChannel !== "whatsapp" || payload?.type !== "WA_EMBEDDED_SIGNUP" || payload.event !== "FINISH") return;
 
+      setConnectingViaMeta(true);
       const metaData = payload.data ?? {};
       metaSignupDataRef.current = metaData;
       const patch: Partial<IntegrationSettings> = {
@@ -1317,7 +1325,13 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       );
     }
 
-    const summaryTitle = isConnected ? t("أصبح كل شيء جاهزًا", "Everything is ready") : isGoogleMaps ? t("بانتظار تفعيل الوصول", "Waiting for access to be activated") : t("لم يكتمل الربط بعد", "The connection isn't complete yet");
+    const summaryTitle = isConnected
+      ? t("أصبح كل شيء جاهزًا", "Everything is ready")
+      : connectingViaMeta
+        ? t("جاري الربط...", "Connecting...")
+        : isGoogleMaps
+          ? t("بانتظار تفعيل الوصول", "Waiting for access to be activated")
+          : t("لم يكتمل الربط بعد", "The connection isn't complete yet");
     const summaryText = isConnected
       ? isEmail
         ? t("بعد حفظ بيانات البريد، استخدم رابط الويبهوك لاستقبال الرسائل داخل صندوق المحادثات والرد عليها من المنصة.", "After saving your email details, use the webhook link to receive messages in the inbox and reply to them from the platform.")
@@ -1336,6 +1350,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         : isSms
           ? t("تم حفظ بيانات Unifonic. الرد على أي محادثة SMS من المنصة يرسل رسالة فعلية الآن.", "The Unifonic details have been saved. Replying to any SMS conversation from the platform now sends an actual message.")
         : t("بعد إكمال نافذة Meta سيتم حفظ حافظة الأعمال، حساب واتساب، رقم الهاتف، والصلاحيات في بيانات الربط.", "After completing the Meta window, the business portfolio, WhatsApp account, phone number, and permissions will be saved to the connection data.")
+      : connectingViaMeta
+        ? t("جاري الربط مع ميتا وسيتم التحديث مباشرة عند اكتمال الربط.", "Connecting with Meta - this will update automatically once the connection completes.")
       : isGoogleMaps
         ? settings.phoneNumber || t("تمت مصادقة Google، لكن لم يكتمل تفعيل قراءة بيانات النشاط التجاري بعد. بعد موافقة Google Business Profile API اضغط ربط Google مرة أخرى لاختيار الحساب والموقع.", "Google authentication succeeded, but reading the business data hasn't been activated yet. Once Google Business Profile API access is approved, click Connect Google again to choose the account and location.")
       : isTikTok
