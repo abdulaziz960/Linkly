@@ -287,13 +287,13 @@ export default function EmployeesView({
                   <td>{employee.permissions}</td>
                   <td>{rating ? <span className="employee-rating">⭐ {rating.average} <small>({rating.count})</small></span> : <span className="table-subtitle">{t("غير متاح", "N/A")}</span>}</td>
                   <td className="row-actions">
+                    <button className="btn soft" type="button" onClick={() => openEditForm(employee)}>{t("تعديل", "Edit")}</button>
+                    <button className="btn danger" type="button" onClick={() => deleteEmployee(employee)}>{t("حذف", "Delete")}</button>
                     {employee.pendingActivation ? (
                       <button className="btn soft" type="button" disabled={resendingId === employee.id} onClick={() => resendInvite(employee)}>
                         {resendingId === employee.id ? t("جاري الإرسال…", "Sending…") : t("إعادة إرسال الدعوة", "Resend Invitation")}
                       </button>
                     ) : null}
-                    <button className="btn soft" type="button" onClick={() => openEditForm(employee)}>{t("تعديل", "Edit")}</button>
-                    <button className="btn danger" type="button" onClick={() => deleteEmployee(employee)}>{t("حذف", "Delete")}</button>
                   </td>
                 </tr>
                 );
