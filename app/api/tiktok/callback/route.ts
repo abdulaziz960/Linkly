@@ -59,13 +59,17 @@ export async function GET(request: NextRequest) {
   const accessToken = tokenPayload.access_token;
   const openId = tokenPayload.open_id || "";
 
+  // display_name/username/avatar_url need user.info.profile; follower_count
+  // needs user.info.stats - fetching both together is how we justify (and
+  // actually use) both requested scopes, to show the connected account's
+  // identity and basic stats back to the business owner in Settings.
   const userInfoUrl = new URL("https://open.tiktokapis.com/v2/user/info/");
-  userInfoUrl.searchParams.set("fields", "open_id,display_name,avatar_url,username");
+  userInfoUrl.searchParams.set("fields", "open_id,display_name,avatar_url,username,follower_count");
   const userInfoResponse = await fetch(userInfoUrl, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
   const userInfoPayload = await userInfoResponse.json().catch(() => null) as {
-    data?: { user?: { open_id?: string; display_name?: string; username?: string } };
+    data?: { user?: { open_id?: string; display_name?: string; username?: string; follower_count?: number } };
   } | null;
   const account = userInfoPayload?.data?.user;
 
@@ -80,6 +84,7 @@ export async function GET(request: NextRequest) {
       status: "connected",
       wabaId: account?.open_id || openId || settings.wabaId,
       wabaName: account?.display_name || account?.username || settings.wabaName,
+      phoneNumber: typeof account?.follower_count === "number" ? String(account.follower_count) : settings.phoneNumber,
       accessToken: encryptSecret(accessToken),
       updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
         dateStyle: "medium",
