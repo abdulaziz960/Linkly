@@ -60,9 +60,16 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
   const settings = await getIntegrationSettings();
-  const allowedTokens = [process.env.META_WEBHOOK_VERIFY_TOKEN, settings.verifyToken].filter(Boolean);
+  // Secret Manager values (and manual copy/paste into env config) can pick
+  // up a trailing newline or surrounding whitespace that a strict === never
+  // matches against Meta's clean query param - trim both sides so a
+  // whitespace-only mismatch doesn't look identical to a wrong token.
+  const allowedTokens = [process.env.META_WEBHOOK_VERIFY_TOKEN, settings.verifyToken]
+    .filter(Boolean)
+    .map((value) => value!.trim());
+  const trimmedToken = token?.trim();
 
-  if (mode === "subscribe" && token && allowedTokens.includes(token) && challenge) {
+  if (mode === "subscribe" && trimmedToken && allowedTokens.includes(trimmedToken) && challenge) {
     return new NextResponse(challenge, { status: 200 });
   }
 
