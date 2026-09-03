@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   const codeVerifier = base64UrlEncode(crypto.randomBytes(48));
   const codeChallenge = base64UrlEncode(crypto.createHash("sha256").update(codeVerifier).digest());
 
-  const redirectUri = `${request.nextUrl.origin}/api/tiktok/callback`;
+  const redirectUri = `${getAppOrigin(request)}/api/tiktok/callback`;
   const authorizeUrl = new URL("https://www.tiktok.com/v2/auth/authorize/");
   authorizeUrl.searchParams.set("client_key", clientKey);
   authorizeUrl.searchParams.set("response_type", "code");

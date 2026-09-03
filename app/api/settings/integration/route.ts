@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret, integrationSecretFields, maskIntegrationSecrets, SECRET_MASK } from "../../../../lib/secret-storage";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 const allowedFields = [
   "provider",
@@ -192,7 +193,7 @@ async function verifyGoogleMapsConnection(
 function getAbsoluteWebhookUrl(request: NextRequest, webhookUrl?: string) {
   const value = webhookUrl?.trim() || "";
   if (value.startsWith("http")) return value;
-  return new URL(value || "/api/telegram/webhook", request.nextUrl.origin).toString();
+  return new URL(value || "/api/telegram/webhook", getAppOrigin(request)).toString();
 }
 
 async function verifyXConnection(

@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../../lib/auth";
 import { getIntegrationSettings } from "../../../../../lib/database";
 import { ensureXRealtimeDelivery } from "../../../../../lib/x-activity";
 import { prisma } from "../../../../../lib/prisma";
+import { getAppOrigin } from "../../../../../lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, "");
+    const baseUrl = getAppOrigin(request);
     // Must match the callback route's webhookUrl exactly (including
     // ?tenant=) - otherwise this creates a second, differently-scoped
     // webhook instead of reusing/repairing the tenant's own one.

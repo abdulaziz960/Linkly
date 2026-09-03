@@ -2,13 +2,12 @@ import type { NextRequest } from "next/server";
 import type { IntegrationSettings } from "../app/dashboard/types";
 import { prisma } from "./prisma";
 import { encryptSecret } from "./secret-storage";
+import { getAppOrigin } from "./app-url";
 
 export const googleBusinessScope = "https://www.googleapis.com/auth/business.manage";
-const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || "https://linklysa.io";
 
 export function getGoogleRedirectUri(request: NextRequest) {
-  const origin = request.nextUrl.hostname === "localhost" ? publicAppUrl : request.nextUrl.origin;
-  return `${origin}/api/google/callback`;
+  return `${getAppOrigin(request)}/api/google/callback`;
 }
 
 export function normalizeGoogleResourceId(value?: string) {

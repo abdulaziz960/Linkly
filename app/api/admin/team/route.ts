@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../lib/admin-auth";
 import { getPlatformTeam, invitePlatformAdmin } from "../../../../lib/platform-team";
 import { jsonError, jsonOk } from "../../_utils/json";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
   try {
     const { delivery } = await invitePlatformAdmin(
       { name: body.name || "", email: body.email || "" },
-      request.nextUrl.origin
+      getAppOrigin(request)
     );
     return jsonOk({ delivery });
   } catch (error) {

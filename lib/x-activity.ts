@@ -210,7 +210,7 @@ export async function ensureXRealtimeDelivery(input: {
   userAccessToken?: string;
   webhookUrl?: string;
 }) {
-  const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://audiencew.audience.sa").replace(/\/$/, "");
+  const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://linklysa.io").replace(/\/$/, "");
   const webhookUrl = input.webhookUrl || `${baseUrl}/api/x/webhook`;
   const webhookId = await ensureXWebhook(webhookUrl);
   const subscriptions = await ensureXActivitySubscriptions({

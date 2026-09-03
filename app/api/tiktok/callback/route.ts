@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code") || "";
   const state = searchParams.get("state") || "";
-  const origin = request.nextUrl.origin;
+  const origin = getAppOrigin(request);
 
   const savedState = request.cookies.get("tiktok_oauth_state")?.value || "";
   const codeVerifier = request.cookies.get("tiktok_oauth_verifier")?.value || "";

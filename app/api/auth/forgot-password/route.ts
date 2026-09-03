@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from "crypto";
 import { prisma } from "../../../../lib/prisma";
 import { sendActivationEmail } from "../../../../lib/email";
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
     })
   ]);
 
-  const origin = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "");
+  const origin = getAppOrigin(request);
   const activationUrl = `${origin}/activate?token=${resetToken}`;
   const delivery = await sendActivationEmail({
     to: email,
