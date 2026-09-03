@@ -2008,6 +2008,10 @@
   font-weight: 900;
 }
 
+.modal-top-notice {
+  margin: 0 20px 14px;
+}
+
 .activation-link {
   display: inline-flex;
   align-items: center;
