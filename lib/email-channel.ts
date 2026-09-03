@@ -77,11 +77,23 @@ export async function saveOAuthConnection(provider: EmailProvider, code: string,
   return emailAddress as string;
 }
 
+// A stored token that no longer decrypts under the current encryption key
+// must fail this one send/refresh attempt, not crash the whole request -
+// an empty token flows into the existing "not configured" handling below.
+function decryptStoredToken(value: string) {
+  try {
+    return decryptSecret(value);
+  } catch (error) {
+    console.error("Email channel: failed to decrypt a stored token", error);
+    return "";
+  }
+}
+
 async function refreshAccessToken(integration: EmailIntegration): Promise<string> {
   const clientId = envValue(process.env.GOOGLE_CLIENT_ID);
   const clientSecret = envValue(process.env.GOOGLE_CLIENT_SECRET);
-  const accessToken = decryptSecret(integration.accessToken);
-  const refreshToken = decryptSecret(integration.refreshToken);
+  const accessToken = decryptStoredToken(integration.accessToken);
+  const refreshToken = decryptStoredToken(integration.refreshToken);
   if (!clientId || !clientSecret || !refreshToken) return accessToken;
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -100,7 +112,7 @@ async function refreshAccessToken(integration: EmailIntegration): Promise<string
 
 async function getValidAccessToken(integration: EmailIntegration): Promise<string> {
   const expiresAt = integration.tokenExpiresAt ? new Date(integration.tokenExpiresAt).getTime() : 0;
-  if (expiresAt - Date.now() > 60_000) return decryptSecret(integration.accessToken);
+  if (expiresAt - Date.now() > 60_000) return decryptStoredToken(integration.accessToken);
   return refreshAccessToken(integration);
 }
 
