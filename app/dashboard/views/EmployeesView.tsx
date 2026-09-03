@@ -289,7 +289,7 @@ export default function EmployeesView({
                       <span className={employee.status === "متصل" ? "state ok" : employee.status === "مشغول" ? "state warn" : "state muted"}>{employeeStatusLabel(employee.status, t)}</span>
                     )}
                   </td>
-                  <td>{employee.permissions}</td>
+                  <td><span className="permissions-cell" title={employee.permissions}>{employee.permissions}</span></td>
                   <td>{rating ? <span className="employee-rating">⭐ {rating.average} <small>({rating.count})</small></span> : <span className="table-subtitle">{t("غير متاح", "N/A")}</span>}</td>
                   <td className="row-actions">
                     <button className="btn soft" type="button" onClick={() => openEditForm(employee)}>{t("تعديل", "Edit")}</button>
