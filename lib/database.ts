@@ -1678,7 +1678,7 @@ export async function getEmployees(tenantId = "tenant-demo"): Promise<Employee[]
     prisma.employee.findMany({ where: { tenantId } }),
     prisma.userAccount.findMany({
       where: { tenantId },
-      select: { email: true, lastLoginAt: true, lastLoginIp: true }
+      select: { email: true, passwordHash: true, lastLoginAt: true, lastLoginIp: true }
     })
   ]);
   const accountsByEmail = new Map(accounts.map((account) => [account.email.toLowerCase(), account]));
@@ -1694,6 +1694,7 @@ export async function getEmployees(tenantId = "tenant-demo"): Promise<Employee[]
       email: employee.email,
       initial: employee.initial,
       hasAccount: Boolean(account),
+      pendingActivation: Boolean(account && !account.passwordHash),
       lastLoginAt: account?.lastLoginAt || "",
       lastLoginIp: account?.lastLoginIp || ""
     };
