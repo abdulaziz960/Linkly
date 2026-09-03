@@ -166,6 +166,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const router = useRouter();
   const restoredNavigationRef = useRef(false);
   const loadDashboardDataSeqRef = useRef(0);
+  const loadDashboardDataInFlightRef = useRef(false);
   const seenInboundMessageIdsRef = useRef<Set<string> | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -398,6 +399,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
   const loadDashboardData = useCallback(async () => {
     const requestId = ++loadDashboardDataSeqRef.current;
+    loadDashboardDataInFlightRef.current = true;
     try {
       const [
         nextConversations,
@@ -474,6 +476,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       if (nextWorkSchedules) setWorkSchedules(nextWorkSchedules);
     } catch {
       // Keep local fallback data visible if the API is temporarily unavailable.
+    } finally {
+      loadDashboardDataInFlightRef.current = false;
     }
   }, []);
 
@@ -512,7 +516,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
   useEffect(() => {
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "visible" && !loadDashboardDataInFlightRef.current) {
         void loadDashboardData();
       }
     };
