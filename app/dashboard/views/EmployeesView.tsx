@@ -279,7 +279,12 @@ export default function EmployeesView({
                   <td>{employeeRoleLabel(employee.role, t)}</td>
                   <td>
                     {employee.pendingActivation ? (
-                      <span className="state warn">{t("الدعوة معلقة", "Invitation Pending")}</span>
+                      <div className="status-with-action">
+                        <span className="state warn">{t("الدعوة معلقة", "Invitation Pending")}</span>
+                        <button className="link-action" type="button" disabled={resendingId === employee.id} onClick={() => resendInvite(employee)}>
+                          {resendingId === employee.id ? t("جاري الإرسال…", "Sending…") : t("إعادة إرسال الدعوة", "Resend Invitation")}
+                        </button>
+                      </div>
                     ) : (
                       <span className={employee.status === "متصل" ? "state ok" : employee.status === "مشغول" ? "state warn" : "state muted"}>{employeeStatusLabel(employee.status, t)}</span>
                     )}
@@ -289,11 +294,6 @@ export default function EmployeesView({
                   <td className="row-actions">
                     <button className="btn soft" type="button" onClick={() => openEditForm(employee)}>{t("تعديل", "Edit")}</button>
                     <button className="btn danger" type="button" onClick={() => deleteEmployee(employee)}>{t("حذف", "Delete")}</button>
-                    {employee.pendingActivation ? (
-                      <button className="btn soft" type="button" disabled={resendingId === employee.id} onClick={() => resendInvite(employee)}>
-                        {resendingId === employee.id ? t("جاري الإرسال…", "Sending…") : t("إعادة إرسال الدعوة", "Resend Invitation")}
-                      </button>
-                    ) : null}
                   </td>
                 </tr>
                 );
