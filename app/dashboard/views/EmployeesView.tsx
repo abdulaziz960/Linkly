@@ -189,6 +189,7 @@ export default function EmployeesView({
 
     setNotice(payload.data?.inviteDelivery?.message || t("تم حفظ الموظف.", "Employee saved."));
     setActivationUrl(payload.data?.inviteDelivery?.activationUrl || "");
+    window.setTimeout(() => setNotice(""), 3000);
   }
 
   async function resendInvite(employee: Employee) {
@@ -309,6 +310,7 @@ export default function EmployeesView({
               <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
               <h2>{form.id ? t("تعديل موظف", "Edit Employee") : t("إضافة موظف", "Add Employee")}</h2>
             </header>
+            {notice ? <p className="form-success modal-top-notice">{notice}</p> : null}
             <div className="account-modal-body form-grid">
               <label>
                 <span>{t("اسم الموظف", "Employee Name")}</span>
@@ -365,7 +367,6 @@ export default function EmployeesView({
                 </div>
               </div>
               {error ? <p className="form-error">{error}</p> : null}
-              {notice ? <p className="form-success">{notice}</p> : null}
               {activationUrl ? (
                 <a className="activation-link" href={activationUrl} target="_blank" rel="noreferrer">
                   {t("فتح رابط التفعيل", "Open Activation Link")}
