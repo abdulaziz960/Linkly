@@ -1100,7 +1100,12 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <span>
               {isGmail && oauthEmailStatus?.emailAddress
                 ? t(`الحساب المتصل: ${oauthEmailStatus.emailAddress}`, `Connected account: ${oauthEmailStatus.emailAddress}`)
-                : t("يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل.", "You can edit the data or clear the connection from the connection and webhook section below.")}
+                : isTikTok && settings.wabaName
+                  ? t(
+                      `الحساب المتصل: ${settings.wabaName}${settings.phoneNumber ? ` · ${Number(settings.phoneNumber).toLocaleString("en-US")} متابع` : ""}`,
+                      `Connected account: ${settings.wabaName}${settings.phoneNumber ? ` · ${Number(settings.phoneNumber).toLocaleString("en-US")} followers` : ""}`
+                    )
+                  : t("يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل.", "You can edit the data or clear the connection from the connection and webhook section below.")}
             </span>
             {!isEmail && !isGoogleMaps && !isX && !isTelegram && !isWebsite && !isSms ? (
               <button type="button" onClick={() => isTikTok ? connectTikTokAccount() : openMetaWindow()}>
