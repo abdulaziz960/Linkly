@@ -3,16 +3,17 @@ import { randomBytes } from "crypto";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { getGoogleRedirectUri, googleBusinessScope } from "../../../../lib/google-business";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+  if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
 
   const settings = await getIntegrationSettings("google_maps", user.tenantId);
   const clientId = settings.appId.trim();
 
   if (!clientId || !settings.configId.trim()) {
-    return NextResponse.redirect(new URL("/dashboard?google=missing-credentials", request.nextUrl.origin));
+    return NextResponse.redirect(new URL("/dashboard?google=missing-credentials", getAppOrigin(request)));
   }
 
   const state = randomBytes(16).toString("hex");

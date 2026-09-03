@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveOAuthConnection, verifyOAuthState } from "../../../../../../lib/email-channel";
+import { getAppOrigin } from "../../../../../../lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { provider } = await params;
   const code = request.nextUrl.searchParams.get("code");
   const state = verifyOAuthState(request.nextUrl.searchParams.get("state"));
-  const origin = request.nextUrl.origin;
+  const origin = getAppOrigin(request);
   if (provider !== "gmail") return popupResult(origin, "error", "", "مزود غير معروف");
   if (!code) return popupResult(origin, "error", "", "لم يصل رمز التفويض (code) من Google");
   if (!state || state.provider !== provider) return popupResult(origin, "error", "", "فشل التحقق من حالة الطلب (state) - جرّب من جديد");

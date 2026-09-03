@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { getXPlatformCredentials } from "../../../../lib/x-platform";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -11,15 +12,16 @@ function base64Url(input: Buffer) {
 }
 
 export async function GET(request: NextRequest) {
+  const appOrigin = getAppOrigin(request);
   const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login", request.url));
+  if (!user) return NextResponse.redirect(new URL("/login", appOrigin));
 
   const settings = await getIntegrationSettings("x", user.tenantId);
   const { clientId, clientSecret } = getXPlatformCredentials(settings);
-  const redirectUri = `${request.nextUrl.origin}/api/x/callback`;
+  const redirectUri = `${appOrigin}/api/x/callback`;
 
   if (!clientId || !clientSecret) {
-    return NextResponse.redirect(new URL("/dashboard?x=missing-app-keys", request.url));
+    return NextResponse.redirect(new URL("/dashboard?x=missing-app-keys", appOrigin));
   }
 
   const state = base64Url(randomBytes(24));

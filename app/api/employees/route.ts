@@ -9,6 +9,7 @@ import { employeeLimitReachedMessage, getEmployeeLimitForTenant } from "../../..
 import { prisma } from "../../../lib/prisma";
 import { jsonError, jsonOk } from "../_utils/json";
 import { isValidEmail } from "../../../lib/validation";
+import { getAppOrigin } from "../../../lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
     return createdEmployee;
   });
 
-  const origin = request.nextUrl.origin;
+  const origin = getAppOrigin(request);
   const activationUrl = `${origin}/activate?token=${activationToken}`;
   const inviteDelivery = await sendActivationEmail({ to: email, name, activationUrl });
 

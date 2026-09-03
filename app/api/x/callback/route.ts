@@ -5,6 +5,7 @@ import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getXPlatformCredentials } from "../../../../lib/x-platform";
 import { ensureXRealtimeDelivery } from "../../../../lib/x-activity";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -28,7 +29,7 @@ type XMeResponse = {
 };
 
 function dashboardRedirect(request: NextRequest, status: string) {
-  return NextResponse.redirect(new URL(`/dashboard?x=${status}`, request.url));
+  return NextResponse.redirect(new URL(`/dashboard?x=${status}`, getAppOrigin(request)));
 }
 
 export async function GET(request: NextRequest) {
@@ -42,11 +43,11 @@ export async function GET(request: NextRequest) {
   }
 
   const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login", request.url));
+  if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
 
   const settings = await getIntegrationSettings("x", user.tenantId);
   const { clientId, clientSecret } = getXPlatformCredentials(settings);
-  const redirectUri = `${request.nextUrl.origin}/api/x/callback`;
+  const redirectUri = `${getAppOrigin(request)}/api/x/callback`;
 
   if (!clientId || !clientSecret) {
     return dashboardRedirect(request, "missing-app-keys");
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
     return dashboardRedirect(request, "account-failed");
   }
 
-  const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, "");
+  const baseUrl = getAppOrigin(request);
   // The platform's X App (and its webhook) is shared across all tenants, so
   // the callback URL must carry ?tenant= for the webhook route to know whose
   // event this is - without it, every tenant's events fell back to the

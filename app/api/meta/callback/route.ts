@@ -5,6 +5,7 @@ import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { syncMetaTemplates } from "../../../../lib/meta-templates";
 import { verifyOAuthState } from "../../../../lib/oauth-state";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 const techProviderMetaAppId = "1296230909161568";
 
@@ -152,12 +153,12 @@ export async function GET(request: NextRequest) {
 
   if (!stateValues && searchParams.has("code") && requestedChannelParam !== "whatsapp") {
     if (wantsJson) return NextResponse.json({ ok: false, error: "تعذر التحقق من طلب الربط" }, { status: 400 });
-    return closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=invalid-state&view=settings");
+    return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=invalid-state&view=settings");
   }
 
   if (!user) {
     if (wantsJson) return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
-    return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+    return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   }
 
   const settings = await getIntegrationSettings(channel, user.tenantId);
@@ -170,7 +171,7 @@ export async function GET(request: NextRequest) {
   if (channel === "instagram" && code) {
     const appId = settings.appId.trim() || process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";
     const appSecret = process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
-    const redirectUri = `${request.nextUrl.origin}/api/meta/callback`;
+    const redirectUri = `${getAppOrigin(request)}/api/meta/callback`;
 
     if (appId && appSecret) {
       const tokenForm = new URLSearchParams();
@@ -239,7 +240,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const response = closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=instagram-callback&view=settings");
+    const response = closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=instagram-callback&view=settings");
     response.cookies.delete("audiencew_meta_state");
     return response;
   }
@@ -250,7 +251,7 @@ export async function GET(request: NextRequest) {
     // Instagram-only app_id that used to live in settings.appId).
     const appId = techProviderMetaAppId;
     const appSecret = process.env.WHATSAPP_META_APP_SECRET || "";
-    const redirectUri = `${request.nextUrl.origin}/api/meta/callback`;
+    const redirectUri = `${getAppOrigin(request)}/api/meta/callback`;
 
     if (appId && appSecret) {
       const tokenUrl = new URL("https://graph.facebook.com/v22.0/oauth/access_token");
@@ -308,7 +309,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const response = closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=facebook-callback&view=settings");
+    const response = closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=facebook-callback&view=settings");
     response.cookies.delete("audiencew_meta_state");
     return response;
   }
@@ -380,7 +381,7 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  const response = closePopupAndRedirect(request.nextUrl.origin, "/dashboard?meta=callback&view=settings");
+  const response = closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=callback&view=settings");
   response.cookies.delete("audiencew_meta_state");
   return response;
 }

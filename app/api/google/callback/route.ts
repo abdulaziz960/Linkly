@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { getGoogleRedirectUri } from "../../../../lib/google-business";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 type GoogleTokenPayload = {
   access_token?: string;
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
   const savedState = request.cookies.get("audiencew_google_state")?.value;
-  const redirectTo = new URL("/dashboard", request.nextUrl.origin);
+  const redirectTo = new URL("/dashboard", getAppOrigin(request));
 
   if (!code || !state || state !== savedState) {
     redirectTo.searchParams.set("google", "invalid-state");
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
   }
 
   const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+  if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
 
   const settings = await getIntegrationSettings("google_maps", user.tenantId);
   const redirectUri = getGoogleRedirectUri(request);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { getIntegrationSettings, type IntegrationChannel } from "../../../../lib/database";
 import { createOAuthState } from "../../../../lib/oauth-state";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 const techProviderMetaAppId = "1296230909161568";
 const techProviderMetaConfigId = "1428169365888624";
@@ -14,7 +15,7 @@ function getChannel(request: NextRequest): Extract<IntegrationChannel, "whatsapp
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+  if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
 
   const channel = getChannel(request);
   const settings = await getIntegrationSettings(channel, user.tenantId);
@@ -30,10 +31,10 @@ export async function GET(request: NextRequest) {
   const configId = channel === "whatsapp" ? techProviderMetaConfigId : settings.configId.trim();
 
   if (!appId || !/^\d+$/.test(appId)) {
-    return NextResponse.redirect(new URL("/dashboard?meta=missing-app-id", request.nextUrl.origin));
+    return NextResponse.redirect(new URL("/dashboard?meta=missing-app-id", getAppOrigin(request)));
   }
 
-  const redirectUri = `${request.nextUrl.origin}/api/meta/callback`;
+  const redirectUri = `${getAppOrigin(request)}/api/meta/callback`;
   const metaUrl = new URL(channel === "instagram" ? "https://www.instagram.com/oauth/authorize" : "https://www.facebook.com/v22.0/dialog/oauth");
 
   metaUrl.searchParams.set("client_id", appId);
