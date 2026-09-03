@@ -4700,6 +4700,13 @@
   display: grid;
   place-items: center;
   color: #94a3b8;
+  overflow: hidden;
+}
+
+.campaign-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .progress-bar {

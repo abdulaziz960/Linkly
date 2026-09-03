@@ -121,6 +121,7 @@ export default function CampaignsView({
   const [form, setForm] = useState<CampaignForm>(emptyForm);
   const [campaignFile, setCampaignFile] = useState<File | null>(null);
   const [headerMediaFile, setHeaderMediaFile] = useState<File | null>(null);
+  const [brokenThumbIds, setBrokenThumbIds] = useState<Set<string>>(new Set());
   const selectedTemplate = approvedTemplates.find((template) => template.name === form.templateName);
   const needsHeaderMedia = Boolean(selectedTemplate && ["IMAGE", "VIDEO"].includes(selectedTemplate.headerType || "NONE"));
   const templateHasSavedMedia = Boolean(selectedTemplate?.hasHeaderMediaSaved);
@@ -441,7 +442,7 @@ export default function CampaignsView({
                 <tbody>
                   {campaignPagination.items.map((campaign) => (
                     <tr key={campaign.id}>
-                      <td><div className="campaign-name"><span className="campaign-thumb">{campaign.name.trim().charAt(0) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b></span></div></td>
+                      <td><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <img src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : campaign.name.trim().charAt(0) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b></span></div></td>
                       <td><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small></td>
                       <td><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
                       <td><span className={campaign.status === "ملغاة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
@@ -544,14 +545,14 @@ export default function CampaignsView({
                   </label>
                   {needsHeaderMedia ? (
                     <label>
-                      <span>{t("صورة أو فيديو الرأس", "Header image or video")}</span>
+                      <span>{t("أضف صورة أو فيديو", "Add image or video")}</span>
                       <div className="file-picker">
                         <button type="button" onClick={() => document.getElementById("campaign-header-media-input")?.click()}>{t("تصفح", "Browse")}</button>
                         <span>
                           {headerMediaFile?.name
                             || (templateHasSavedMedia
-                              ? t("سيتم استخدام صورة/فيديو القالب المحفوظة (اختياري: ارفع ملفاً لاستبدالها لهذه الحملة)", "The template's saved image/video will be used (optional: upload a file to override it for this campaign)")
-                              : t("اختر صورة أو فيديو لرأس القالب أو أسقطه هنا ...", "Choose an image or video for the template header, or drop it here..."))}
+                              ? t("سيتم استخدام الصورة/الفيديو المحفوظة (اختياري: ارفع ملفاً لاستبدالها لهذه الحملة)", "The saved image/video will be used (optional: upload a file to override it for this campaign)")
+                              : t("اختر صورة أو فيديو أو أسقطه هنا ...", "Choose an image or video, or drop it here..."))}
                         </span>
                         <input
                           id="campaign-header-media-input"
@@ -560,7 +561,7 @@ export default function CampaignsView({
                           onChange={(event) => setHeaderMediaFile(event.target.files?.[0] || null)}
                         />
                       </div>
-                      <small className="field-hint">{t("الحد الأقصى 16 ميجابايت. هذا القالب يحتاج صورة أو فيديو في الرأس.", "Max 16MB. This template requires a header image or video.")}</small>
+                      <small className="field-hint">{t("الحد الأقصى 16 ميجابايت.", "Max 16MB.")}</small>
                     </label>
                   ) : null}
                   <label>
