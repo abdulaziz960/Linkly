@@ -12,13 +12,17 @@ export default function OpenGraphImage() {
           <div style={{ width: 96, height: 96, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 26, background: "#123330" }}>
             <svg width="86" height="52" viewBox="0 0 120 70" fill="none">
               <defs>
-                <linearGradient id="og-mark" x1="10" y1="35" x2="110" y2="35" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#20aef0" />
-                  <stop offset="0.48" stopColor="#10c8c0" />
-                  <stop offset="1" stopColor="#08dfa8" />
+                <linearGradient id="og-left" x1="16" y1="15" x2="56" y2="55" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#3abdb3" />
+                  <stop offset="1" stopColor="#178a82" />
+                </linearGradient>
+                <linearGradient id="og-right" x1="64" y1="15" x2="104" y2="55" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#178a82" />
+                  <stop offset="1" stopColor="#0f5f5a" />
                 </linearGradient>
               </defs>
-              <path d="M48 23C38 10 18 11 10 29C2 49 20 64 39 56C48 52 55 42 62 34L72 23C84 10 105 14 109 32C113 50 95 64 80 56C74 53 69 47 65 42" stroke="url(#og-mark)" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="36" cy="35" r="15" stroke="url(#og-left)" strokeWidth="10" />
+              <circle cx="84" cy="35" r="15" stroke="url(#og-right)" strokeWidth="10" />
             </svg>
           </div>
           Linkly
