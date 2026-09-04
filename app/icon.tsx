@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { linklyLogoDataUrl } from "./logo-data";
 
 export const size = { width: 48, height: 48 };
 export const contentType = "image/png";
@@ -18,20 +19,8 @@ export default function Icon() {
           border: "1px solid rgba(43, 176, 242, 0.55)"
         }}
       >
-        <svg width="44" height="30" viewBox="0 0 120 70" fill="none">
-          <defs>
-            <linearGradient id="icon-left" x1="16" y1="15" x2="56" y2="55" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#2bb0f2" />
-              <stop offset="1" stopColor="#0a84dd" />
-            </linearGradient>
-            <linearGradient id="icon-right" x1="64" y1="15" x2="104" y2="55" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#19d9a8" />
-              <stop offset="1" stopColor="#00b884" />
-            </linearGradient>
-          </defs>
-          <circle cx="36" cy="35" r="15" stroke="url(#icon-left)" strokeWidth="10" />
-          <circle cx="84" cy="35" r="15" stroke="url(#icon-right)" strokeWidth="10" />
-        </svg>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={linklyLogoDataUrl} alt="" width={38} height={21} />
       </div>
     ),
     size
