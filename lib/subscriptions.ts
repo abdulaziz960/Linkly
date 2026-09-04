@@ -186,6 +186,85 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string): Prom
   return { activated };
 }
 
+/**
+ * Safety net behind the Moyasar webhooks: sweeps SubscriptionPayment/
+ * CampaignPayment rows still "قيد الانتظار" past staleAfterMs and asks
+ * Moyasar directly what actually happened to each one, rather than leaving
+ * them stuck forever if a webhook delivery was ever missed or misrouted.
+ * A row Moyasar confirms paid gets applied exactly like a live webhook
+ * would; anything else (failed/canceled/still genuinely unpaid after this
+ * long) is marked "منتهي الصلاحية" so it stops counting as outstanding
+ * revenue, with an admin-log alert either way so this doesn't happen
+ * silently.
+ */
+export async function reconcileStalePendingPayments(staleAfterMs = 24 * 60 * 60 * 1000) {
+  const { fetchMoyasarInvoice } = await import("./moyasar");
+  const cutoff = new Date(Date.now() - staleAfterMs).toISOString();
+  let reconciled = 0;
+  let expired = 0;
+
+  const stalePayments = await prisma.subscriptionPayment.findMany({
+    where: { status: "قيد الانتظار", createdAt: { lt: cutoff } },
+    take: 50
+  });
+  for (const payment of stalePayments) {
+    const invoice = payment.moyasarId ? await fetchMoyasarInvoice(payment.moyasarId) : null;
+    if (invoice?.status === "paid") {
+      const { activated } = await applyConfirmedSubscriptionPayment(payment.id);
+      if (activated) {
+        reconciled += 1;
+        const subscription = await prisma.subscription.findUnique({ where: { tenantId: payment.tenantId } });
+        await logAdminAction(
+          payment.tenantId,
+          subscription?.companyName || payment.tenantId,
+          `تمت مطابقة دفعة اشتراك متأخرة بقيمة ${payment.amount} ر.س بعد تحقق آلي من Moyasar (لم يصل الويبهوك في وقته).`,
+          "تنبيه"
+        );
+      }
+    } else {
+      await prisma.subscriptionPayment.update({ where: { id: payment.id }, data: { status: "منتهي الصلاحية" } });
+      expired += 1;
+    }
+  }
+
+  const staleCampaignPayments = await prisma.campaignPayment.findMany({
+    where: { status: "قيد الانتظار", createdAt: { lt: cutoff } },
+    take: 50
+  });
+  for (const payment of staleCampaignPayments) {
+    const invoice = payment.moyasarId ? await fetchMoyasarInvoice(payment.moyasarId) : null;
+    if (invoice?.status === "paid") {
+      const credited = await prisma.$transaction(async (tx) => {
+        const claimed = await tx.campaignPayment.updateMany({
+          where: { id: payment.id, status: { not: "مكتمل" } },
+          data: { status: "مكتمل", completedAt: new Date().toISOString() }
+        });
+        if (claimed.count !== 1) return false;
+        await tx.campaignBalance.upsert({
+          where: { tenantId: payment.tenantId },
+          update: { balance: { increment: payment.messages }, updatedAt: new Date().toISOString() },
+          create: { tenantId: payment.tenantId, balance: payment.messages, updatedAt: new Date().toISOString() }
+        });
+        return true;
+      });
+      if (credited) {
+        reconciled += 1;
+        await logAdminAction(
+          payment.tenantId,
+          payment.tenantId,
+          `تمت مطابقة دفعة شحن رسائل متأخرة بقيمة ${payment.amount} ر.س بعد تحقق آلي من Moyasar (لم يصل الويبهوك في وقته).`,
+          "تنبيه"
+        );
+      }
+    } else {
+      await prisma.campaignPayment.update({ where: { id: payment.id }, data: { status: "منتهي الصلاحية" } });
+      expired += 1;
+    }
+  }
+
+  return { reconciled, expired };
+}
+
 export async function logAdminAction(tenantId: string, clientName: string, message: string, level: "معلومة" | "تنبيه" | "خطأ" = "معلومة") {
   await prisma.adminLog.create({
     data: {
@@ -198,6 +277,61 @@ export async function logAdminAction(tenantId: string, clientName: string, messa
       message
     }
   });
+}
+
+const trialReminderStages: Array<{ id: string; withinHours: number }> = [
+  { id: "24h", withinHours: 24 },
+  { id: "6h", withinHours: 6 }
+];
+
+/**
+ * Nudges trial accounts toward converting before they expire. Runs off the
+ * existing cron trigger rather than a new schedule; dedup uses admin_logs
+ * itself (tagged with a [trial-reminder-*] marker) instead of a new DB
+ * column, so a subscription only gets each stage's email once regardless of
+ * how often the cron fires.
+ */
+export async function sendTrialEndingReminders(baseUrl: string) {
+  const { sendTrialEndingEmail } = await import("./email");
+  const trialSubscriptions = await prisma.subscription.findMany({ where: { status: "تجربة" } });
+  const now = Date.now();
+  let sent = 0;
+
+  for (const subscription of trialSubscriptions) {
+    const msLeft = new Date(subscription.renewalAt).getTime() - now;
+    if (!Number.isFinite(msLeft) || msLeft <= 0) continue;
+    const hoursLeft = msLeft / 3_600_000;
+    const stage = trialReminderStages.find((candidate) => hoursLeft <= candidate.withinHours);
+    if (!stage) continue;
+
+    const marker = `[trial-reminder-${stage.id}:${subscription.tenantId}]`;
+    const alreadySent = await prisma.adminLog.findFirst({ where: { message: { contains: marker } } });
+    if (alreadySent) continue;
+
+    const owner = await prisma.userAccount.findFirst({
+      where: { tenantId: subscription.tenantId, role: "مالك الحساب" },
+      orderBy: { createdAt: "asc" }
+    });
+
+    let delivered = false;
+    if (owner?.email) {
+      delivered = await sendTrialEndingEmail({
+        to: owner.email,
+        name: subscription.ownerName || owner.name,
+        hoursLeft: Math.max(1, Math.round(hoursLeft)),
+        billingUrl: `${baseUrl}/billing`
+      });
+    }
+
+    await logAdminAction(
+      subscription.tenantId,
+      subscription.companyName,
+      `${marker} ${delivered ? "تم إرسال" : "تعذر إرسال"} تذكير بانتهاء التجربة (${Math.max(1, Math.round(hoursLeft))} ساعة متبقية) ${owner?.email ? `إلى ${owner.email}` : "- لا يوجد بريد مالك حساب"}`
+    );
+    if (delivered) sent += 1;
+  }
+
+  return { sent };
 }
 
 type CreateTenantInput = {

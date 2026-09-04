@@ -126,10 +126,10 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
       </section>
 
       <section className="admin-revenue-strip">
-        <div><span>{t("المحصل", "Collected")}</span><strong>{formatNumber(collectedRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
-        <div><span>{t("المستحق", "Outstanding")}</span><strong>{formatNumber(outstandingRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
-        <div><span>MRR</span><strong>{formatNumber(monthlyRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
-        <div><span>ARR</span><strong>{formatNumber(annualRecurringRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
+        <div className="is-confirmed"><span>{t("المحصل", "Collected")}<em>{t("إيراد مؤكد", "Confirmed")}</em></span><strong>{formatNumber(collectedRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
+        <div className="is-pending"><span>{t("المستحق", "Outstanding")}<em>{t("معلّق تحت التحصيل", "Pending collection")}</em></span><strong>{formatNumber(outstandingRevenue)} <small>{t("ر.س", "SAR")}</small></strong>{pendingPayments.length ? <small className="admin-revenue-note">{t(`${formatNumber(pendingPayments.length)} دفعة لم تُؤكَّد بعد — غير محتسبة ضمن MRR/ARR`, `${formatNumber(pendingPayments.length)} payment(s) not yet confirmed — excluded from MRR/ARR`)}</small> : null}</div>
+        <div className="is-confirmed"><span>MRR<em>{t("إيراد مؤكد", "Confirmed")}</em></span><strong>{formatNumber(monthlyRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
+        <div className="is-confirmed"><span>ARR<em>{t("إيراد مؤكد", "Confirmed")}</em></span><strong>{formatNumber(annualRecurringRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
       </section>
 
       <section className="admin-overview-grid">
