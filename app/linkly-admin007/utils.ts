@@ -16,10 +16,18 @@ export function statusClass(status: string) {
   return "is-danger";
 }
 
-export function parseTimestamp(value: string) {
+export function parseTimestamp(rawValue: string) {
+  // Intl.DateTimeFormat("ar", ...) sprinkles invisible bidi control
+  // characters (U+200E/U+200F, and U+2066-U+2069 for isolates) around the
+  // date's numeric parts - invisible on screen, but they land right inside
+  // "01/09/2026" and silently break every regex/Date.parse attempt below
+  // unless stripped first. This is why some log entries showed "unknown
+  // time" despite having a perfectly real, displayable date.
+  const bidiControlChars = [0x200e, 0x200f, 0x2066, 0x2067, 0x2068, 0x2069].map((code) => String.fromCharCode(code));
+  const value = bidiControlChars.reduce((text, char) => text.split(char).join(""), rawValue);
   const direct = Date.parse(value);
   if (Number.isFinite(direct)) return direct;
-  const normalized = value.replace(/[٠-٩]/g, (n) => String("٠١٢٣٤٥٦٧٨٩".indexOf(n))).replace("،", " ");
+  const normalized = value.replace(/[٠-٩]/g, (n) => String("٠١٢٣٤٥٦٧٨٩".indexOf(n))).replace(/،/g, " ");
   const parsed = Date.parse(normalized);
   if (Number.isFinite(parsed)) return parsed;
   // Some log entries are stored as a pre-formatted Arabic locale string
