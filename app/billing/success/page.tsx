@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
 import Link from "next/link";
 import "../billing.css";
+import { useStoredLanguage } from "../../useStoredLanguage";
 
 const copy = {
   ar: {
@@ -19,7 +19,7 @@ const copy = {
 } as const;
 
 export default function BillingSuccess() {
-  const [lang, setLang] = useState<"ar" | "en">("ar");
+  const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
 
   return (
