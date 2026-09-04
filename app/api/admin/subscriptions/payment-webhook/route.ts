@@ -65,15 +65,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true });
   }
 
-  const subscription = await prisma.subscription.findUnique({ where: { tenantId: payment.tenantId } });
-  if (subscription) {
-    const { activated } = await applyConfirmedSubscriptionPayment(payment.id);
-    if (!activated) return NextResponse.json({ ok: true, alreadyProcessed: true });
+  // applyConfirmedSubscriptionPayment upserts the Subscription row itself,
+  // so it doesn't need one to already exist - requiring that here used to
+  // mean a tenant with no prior Subscription row (the seeded tenant-demo
+  // account never went through the normal trial-signup flow that creates
+  // one, for instance) could pay successfully and still never get
+  // activated.
+  const { activated } = await applyConfirmedSubscriptionPayment(payment.id);
+  if (!activated) return NextResponse.json({ ok: true, alreadyProcessed: true });
 
-    await logAdminAction(payment.tenantId, subscription.companyName, `تم استلام دفعة اشتراك بقيمة ${payment.amount} ر.س عبر Moyasar، وتم تجديد الاشتراك.`);
-  } else {
-    return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
-  }
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId: payment.tenantId } });
+  await logAdminAction(payment.tenantId, subscription?.companyName || payment.tenantId, `تم استلام دفعة اشتراك بقيمة ${payment.amount} ر.س عبر Moyasar، وتم تجديد الاشتراك.`);
 
   return NextResponse.json({ ok: true });
 }

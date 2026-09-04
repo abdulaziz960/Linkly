@@ -85,11 +85,6 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
 
   return (
     <>
-      <section className="admin-dashboard-period" aria-label={t("النطاق الزمني للوحة", "Dashboard date range")}>
-        <div><strong>{t("نطاق العرض", "View range")}</strong><small>{t("طبّق نطاقاً موحداً على مؤشرات المتابعة", "Use one range across monitoring indicators")}</small></div>
-        <div>{[["today", t("اليوم", "Today")], ["7d", t("آخر 7 أيام", "Last 7 days")], ["month", t("هذا الشهر", "This month")], ["custom", t("نطاق مخصص", "Custom range")]].map(([value, label]) => <button key={value} type="button" className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{label}</button>)}</div>
-      </section>
-
       <section className="admin-action-center">
         <div className="admin-action-title"><div><span>{t("الأولوية الآن", "Priority now")}</span><h2>{t("يتطلب إجراء الآن", "Needs action now")}</h2></div><strong>{formatNumber(overdueRenewals + pendingPayments.length + technicalErrors)}</strong></div>
         <div className="admin-action-grid">
@@ -98,6 +93,11 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
           <Link href="/linkly-admin007/logs?level=خطأ" className="admin-action-item is-danger"><span>×</span><div><strong>{formatNumber(technicalErrors)} {t("أخطاء تقنية", "technical errors")}</strong><small>{t("راجع سجل الأخطاء حسب الأحدث", "Review errors newest first")}</small></div><b>←</b></Link>
           <Link href="/linkly-admin007/clients?usage=inactive" className="admin-action-item"><span>○</span><div><strong>{formatNumber(inactiveUsage)} {t("عملاء دون استخدام", "clients without usage")}</strong><small>{t("لم تسجل لهم محادثات", "No conversations recorded")}</small></div><b>←</b></Link>
         </div>
+      </section>
+
+      <section className="admin-dashboard-period" aria-label={t("النطاق الزمني للوحة", "Dashboard date range")}>
+        <div><strong>{t("نطاق العرض", "View range")}</strong><small>{t("طبّق نطاقاً موحداً على مؤشرات المتابعة", "Use one range across monitoring indicators")}</small></div>
+        <div>{[["today", t("اليوم", "Today")], ["7d", t("آخر 7 أيام", "Last 7 days")], ["month", t("هذا الشهر", "This month")], ["custom", t("نطاق مخصص", "Custom range")]].map(([value, label]) => <button key={value} type="button" className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{label}</button>)}</div>
       </section>
 
       <section className="admin-section">
