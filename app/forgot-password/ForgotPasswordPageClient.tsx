@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import ForgotPasswordForm from "./ForgotPasswordForm";
+import { useStoredLanguage } from "../useStoredLanguage";
 
 const copy = {
   ar: {
@@ -18,7 +18,7 @@ const copy = {
 } as const;
 
 export default function ForgotPasswordPageClient() {
-  const [lang, setLang] = useState<"ar" | "en">("ar");
+  const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
 
   return (

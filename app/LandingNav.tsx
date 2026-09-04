@@ -53,6 +53,12 @@ export default function LandingNav({ lang = "ar" }: { lang?: "ar" | "en" }) {
     };
   }, [open]);
 
+  // Remember the landing page's language so login/signup and the rest of the
+  // journey (via useStoredLanguage) pick it up instead of resetting to Arabic.
+  useEffect(() => {
+    window.localStorage.setItem("audiencew-language", lang);
+  }, [lang]);
+
   const close = () => setOpen(false);
 
   return (
