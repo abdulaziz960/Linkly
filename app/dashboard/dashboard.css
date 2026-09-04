@@ -1171,6 +1171,16 @@
   font-weight: 900;
 }
 
+.icon-btn-close {
+  color: #d92d2d;
+  border-color: #f3c9c9;
+}
+
+.icon-btn-close:hover {
+  background: #fdeded;
+  border-color: #e89a9a;
+}
+
 .account-modal-body {
   display: grid;
   gap: 16px;
@@ -4007,9 +4017,13 @@
   border: 0;
   border-radius: 10px;
   background: var(--surface);
-  color: var(--text-secondary);
+  color: #d92d2d;
   font-size: 20px;
   font-weight: 900;
+}
+
+.automation-remove:hover {
+  background: #fdeded;
 }
 
 .automation-add {

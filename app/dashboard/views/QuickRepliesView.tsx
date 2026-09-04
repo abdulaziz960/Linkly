@@ -102,7 +102,7 @@ export default function QuickRepliesView({
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
           <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ رد سريع", "Save quick reply")} onSubmit={submitReply} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
               <h2>{form.id ? t("تعديل رد سريع", "Edit quick reply") : t("إضافة رد سريع", "Add quick reply")}</h2>
             </header>
             <div className="account-modal-body form-grid">

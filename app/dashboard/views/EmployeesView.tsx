@@ -307,7 +307,7 @@ export default function EmployeesView({
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
           <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ موظف", "Save employee")} onSubmit={submitEmployee} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
               <h2>{form.id ? t("تعديل موظف", "Edit Employee") : t("إضافة موظف", "Add Employee")}</h2>
             </header>
             {notice ? <p className="form-success modal-top-notice">{notice}</p> : null}

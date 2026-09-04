@@ -741,7 +741,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
         <div className="modal-backdrop" role="presentation" onClick={() => setBuilderOpen(false)}>
           <div className="account-modal form-modal bot-builder-modal" role="dialog" aria-modal="true" aria-label={t("إدارة خطوات الرد الآلي", "Manage auto reply steps")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setBuilderOpen(false)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setBuilderOpen(false)}>×</button>
               <h2>{editingNodeId ? t(`تعديل خطوة — ${channelLabel}`, `Edit step — ${channelLabel}`) : t(`إضافة خطوة — ${channelLabel}`, `Add step — ${channelLabel}`)}</h2>
             </header>
             <div className="account-modal-body">
