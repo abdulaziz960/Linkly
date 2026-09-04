@@ -13,12 +13,12 @@ export default function OpenGraphImage() {
             <svg width="86" height="52" viewBox="0 0 120 70" fill="none">
               <defs>
                 <linearGradient id="og-left" x1="16" y1="15" x2="56" y2="55" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#3abdb3" />
-                  <stop offset="1" stopColor="#178a82" />
+                  <stop stopColor="#2bb0f2" />
+                  <stop offset="1" stopColor="#0a84dd" />
                 </linearGradient>
                 <linearGradient id="og-right" x1="64" y1="15" x2="104" y2="55" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#178a82" />
-                  <stop offset="1" stopColor="#0f5f5a" />
+                  <stop stopColor="#19d9a8" />
+                  <stop offset="1" stopColor="#00b884" />
                 </linearGradient>
               </defs>
               <circle cx="36" cy="35" r="15" stroke="url(#og-left)" strokeWidth="10" />
