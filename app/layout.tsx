@@ -1,29 +1,34 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { IBM_Plex_Sans_Arabic, Noto_Kufi_Arabic, Space_Grotesk } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-const appFont = localFont({
-  src: [
-    { path: "../public/fonts/thmanyah/sans/thmanyahsans-Light.woff2", weight: "300", style: "normal" },
-    { path: "../public/fonts/thmanyah/sans/thmanyahsans-Regular.woff2", weight: "400", style: "normal" },
-    { path: "../public/fonts/thmanyah/sans/thmanyahsans-Medium.woff2", weight: "500", style: "normal" },
-    { path: "../public/fonts/thmanyah/sans/thmanyahsans-Bold.woff2", weight: "700", style: "normal" },
-    { path: "../public/fonts/thmanyah/sans/thmanyahsans-Black.woff2", weight: "900", style: "normal" }
-  ],
-  variable: "--font-app",
+// Latin text (the "Linkly" wordmark, digits) always resolves to Space
+// Grotesk first; Arabic text falls through automatically since Space
+// Grotesk has no Arabic glyphs - no separate numeral-specific styling
+// needed anywhere, the font stack order alone handles it.
+const latinFont = Space_Grotesk({
+  weight: ["300", "400", "500", "600", "700"],
+  subsets: ["latin"],
+  variable: "--font-latin",
+  display: "swap"
+});
+
+const bodyArabicFont = IBM_Plex_Sans_Arabic({
+  weight: ["300", "400", "500", "600", "700"],
+  subsets: ["arabic"],
+  variable: "--font-body-arabic",
   display: "swap"
 });
 
 // Every heading that uses --font-display sets font-weight: 700 explicitly
-// (see .hero h1, .intro h2, .finalCta h2 in page.module.css) - the other
-// three weights were dead preloaded weight on every page load, competing
-// with the LCP text paint for bandwidth on throttled mobile connections.
-const displayFont = localFont({
-  src: [
-    { path: "../public/fonts/thmanyah/serif-display/thmanyahserifdisplay-Bold.woff2", weight: "700", style: "normal" }
-  ],
-  variable: "--font-display",
+// (see .hero h1, .intro h2, .finalCta h2 in page.module.css, and the base
+// h1-h6 rule in globals.css) - no other weight is ever requested, so only
+// Bold is loaded.
+const displayArabicFont = Noto_Kufi_Arabic({
+  weight: ["700"],
+  subsets: ["arabic"],
+  variable: "--font-display-arabic",
   display: "swap"
 });
 
@@ -57,7 +62,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl" className={`${appFont.variable} ${displayFont.variable}`}>
+    <html lang="ar" dir="rtl" className={`${latinFont.variable} ${bodyArabicFont.variable} ${displayArabicFont.variable}`}>
       <body>{children}</body>
     </html>
   );
