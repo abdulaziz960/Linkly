@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
 import { getCurrentUser } from "../../../../../../lib/auth";
 import { prisma } from "../../../../../../lib/prisma";
-import { canReopen, recordSupportAuditLog, statusAfterCustomerReply, validateSupportAttachment, type SupportAttachmentInput } from "../../../../../../lib/support";
+import { canReopen, statusAfterCustomerReply, validateSupportAttachment, type SupportAttachmentInput } from "../../../../../../lib/support";
+import { recordSupportAuditLog } from "../../../../../../lib/support-server";
 import { jsonError, jsonOk } from "../../../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };

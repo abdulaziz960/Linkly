@@ -5,11 +5,10 @@ import { prisma } from "../../../../lib/prisma";
 import {
   isSupportCategory,
   isSupportPriority,
-  nextTicketNumber,
-  recordSupportAuditLog,
   validateSupportAttachment,
   type SupportAttachmentInput
 } from "../../../../lib/support";
+import { nextTicketNumber, recordSupportAuditLog } from "../../../../lib/support-server";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
