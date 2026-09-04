@@ -1,39 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
-import { verifyMoyasarWebhookSecret } from "../../../../lib/moyasar";
+import { fetchMoyasarInvoice, verifyMoyasarWebhookSecret } from "../../../../lib/moyasar";
 
 export const runtime = "nodejs";
 
 /**
- * Moyasar posts invoice status changes here. Nothing fires until
- * MOYASAR_WEBHOOK_SECRET is set and matches the secret configured on the
- * Moyasar dashboard side - see lib/moyasar.ts.
+ * Moyasar posts invoice status changes here. See
+ * app/api/admin/subscriptions/payment-webhook/route.ts for why we verify
+ * the invoice's status ourselves against Moyasar's API rather than trusting
+ * either notification shape's own `status` field - the account-level
+ * "Payments Webhooks" (secret_token required) may be missing or
+ * misconfigured on the Moyasar dashboard side, and the invoice's own
+ * callback_url has no secret_token to authenticate at all.
  */
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as {
     type?: string;
     secret_token?: string;
+    id?: string;
+    invoice_id?: string;
     data?: { id?: string; invoice_id?: string; status?: string; metadata?: Record<string, string> };
   } | null;
 
-  if (!body || !verifyMoyasarWebhookSecret(body.secret_token)) {
-    // See app/api/admin/subscriptions/payment-webhook/route.ts - the
-    // invoice's own callback_url delivers no secret_token at all and is
-    // expected to be rejected; only a present-but-wrong secret is worth
-    // logging.
-    if (body?.secret_token) {
-      console.error("[moyasar:campaigns-webhook] rejected - secret_token mismatch");
-    }
+  if (body?.secret_token && !verifyMoyasarWebhookSecret(body.secret_token)) {
+    console.error("[moyasar:campaigns-webhook] rejected - secret_token mismatch");
     return NextResponse.json({ error: "Unauthorized webhook" }, { status: 401 });
   }
 
-  // The account-level "Payments Webhooks" fire on Payment resources, not
-  // Invoice resources - data.id is the payment's own id, while data.invoice_id
-  // is the invoice id we actually stored as moyasarId.
-  const invoiceId = body.data?.invoice_id || body.data?.id;
-  const status = body.data?.status;
-  if (!invoiceId || status !== "paid") {
-    console.error("[moyasar:campaigns-webhook] skipped - not a paid invoice event", JSON.stringify(body));
+  const invoiceId = body?.data?.invoice_id || body?.data?.id || body?.invoice_id || body?.id;
+  if (!invoiceId) {
+    console.error("[moyasar:campaigns-webhook] skipped - no invoice id", JSON.stringify(body));
+    return NextResponse.json({ ok: true, skipped: true });
+  }
+
+  const verifiedInvoice = await fetchMoyasarInvoice(invoiceId);
+  if (verifiedInvoice?.status !== "paid") {
+    console.error(`[moyasar:campaigns-webhook] skipped - invoice ${invoiceId} is not paid (status=${verifiedInvoice?.status ?? "unverified"})`);
     return NextResponse.json({ ok: true, skipped: true });
   }
 

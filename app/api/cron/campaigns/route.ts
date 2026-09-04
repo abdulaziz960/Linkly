@@ -4,9 +4,13 @@ import { prisma } from "../../../../lib/prisma";
 import { processDueAutomations } from "../../../../lib/automation-engine";
 import { ensureSchema, getIntegrationSettings } from "../../../../lib/database";
 import { syncXTenant } from "../../../../lib/x-sync";
+import { reconcileStalePendingPayments, sendTrialEndingReminders } from "../../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+const baseUrl = () => (process.env.NODE_ENV === "production"
+  ? "https://linklysa.io"
+  : process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
 
 function isAuthorized(request: NextRequest) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -61,5 +65,8 @@ export async function GET(request: NextRequest) {
     result.status === "fulfilled" && result.value.ok ? total + result.value.synced : total
   ), 0);
 
-  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced });
+  const paymentsReconciled = await reconcileStalePendingPayments();
+  const trialReminders = await sendTrialEndingReminders(baseUrl());
+
+  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, trialReminders });
 }
