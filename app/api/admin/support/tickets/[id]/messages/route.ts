@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
 import { requirePlatformAdmin } from "../../../../../../../lib/admin-auth";
 import { prisma } from "../../../../../../../lib/prisma";
-import { recordSupportAuditLog, statusAfterAgentReply, validateSupportAttachment, type SupportAttachmentInput } from "../../../../../../../lib/support";
+import { statusAfterAgentReply, validateSupportAttachment, type SupportAttachmentInput } from "../../../../../../../lib/support";
+import { recordSupportAuditLog } from "../../../../../../../lib/support-server";
 import { jsonError, jsonOk } from "../../../../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };

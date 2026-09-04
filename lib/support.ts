@@ -1,7 +1,3 @@
-import { randomUUID } from "crypto";
-import type { Prisma } from "@prisma/client";
-import { prisma } from "./prisma";
-
 export const SUPPORT_STATUSES = [
   "new",
   "open",
@@ -63,15 +59,6 @@ export function canReopen(resolvedOrClosedAt: string, now: Date = new Date()): b
   return now.getTime() - closedTime <= REOPEN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 }
 
-export async function nextTicketNumber(tx: Prisma.TransactionClient): Promise<string> {
-  const counter = await tx.supportTicketCounter.upsert({
-    where: { id: "global" },
-    update: { value: { increment: 1 } },
-    create: { id: "global", value: 10001 }
-  });
-  return `LNK-${counter.value}`;
-}
-
 export type SupportAttachmentInput = {
   type?: "image" | "audio" | "document";
   name?: string;
@@ -120,27 +107,6 @@ export function validateSupportAttachment(attachment: SupportAttachmentInput): {
   const allowed = ATTACHMENT_MIME_ALLOWLIST[attachment.type] || [];
   if (!allowed.includes(mimeType)) return { error: "نوع المرفق غير مدعوم" };
   return { parsed: { mimeType, buffer: parsed.buffer } };
-}
-
-/** Writes a support-ticket event to the existing admin_logs table so it surfaces in the platform-admin notification bell (lib/notifications.ts already reads admin_logs) — no new notification infra. */
-export async function recordSupportAuditLog(input: {
-  actorName: string;
-  action: string;
-  ticketId: string;
-  ticketLabel: string;
-  level?: "معلومة" | "تنبيه" | "خطأ";
-}) {
-  await prisma.adminLog.create({
-    data: {
-      id: `support-${randomUUID()}`,
-      at: new Date().toISOString(),
-      clientId: input.ticketId,
-      clientName: input.ticketLabel,
-      source: "الدعم الفني",
-      level: input.level || "معلومة",
-      message: `${input.action} — بواسطة ${input.actorName}`
-    }
-  });
 }
 
 export type SupportMessageLike = { isInternal: number };
