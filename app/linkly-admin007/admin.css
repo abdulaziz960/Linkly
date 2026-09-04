@@ -1886,6 +1886,7 @@
 
   .admin-sidebar {
     min-height: auto;
+    min-width: 0;
     position: static;
   }
 
