@@ -21,7 +21,7 @@ function targetHref(item: AdminNotification) {
 
 export default function NotificationBell() {
   const { t } = useLanguage();
-  const { items, unreadCount, markAllRead } = useAdminNotifications();
+  const { items, actionableCount, markAllRead } = useAdminNotifications();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +58,7 @@ export default function NotificationBell() {
           <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
-        {unreadCount > 0 ? <span className="admin-nav-badge admin-notif-badge">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
+        {actionableCount > 0 ? <span className="admin-nav-badge admin-notif-badge">{actionableCount > 9 ? "9+" : actionableCount}</span> : null}
       </button>
 
       {open ? (
