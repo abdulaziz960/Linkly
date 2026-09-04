@@ -178,6 +178,20 @@ export default function DashboardSidebar({
           );
         })}
       </nav>
+      <Link
+        className="sidebar-billing-link"
+        href="/dashboard/support"
+        onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Support" : "الدعم الفني")}
+        onMouseLeave={hideSidebarTooltip}
+        onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Support" : "الدعم الفني")}
+        onBlur={hideSidebarTooltip}
+        aria-label={isEnglish ? "Support" : "الدعم الفني"}
+      >
+        <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2-2.4 3.6M12 17h.01" />
+        </svg>
+      </Link>
       {user.role === "مالك الحساب" ? (
         <Link
           className="sidebar-billing-link"

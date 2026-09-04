@@ -509,3 +509,58 @@ model RateLimit {
 
   @@map("rate_limits")
 }
+
+model SupportTicket {
+  id                  String                 @id
+  ticketNumber        String                 @unique @map("ticket_number")
+  tenantId            String                 @map("tenant_id")
+  createdByUserId     String                 @map("created_by_user_id")
+  createdByName       String                 @default("") @map("created_by_name")
+  createdByEmail      String                 @default("") @map("created_by_email")
+  companyName         String                 @default("") @map("company_name")
+  subject             String
+  category            String                 @default("other")
+  priority            String                 @default("normal")
+  status              String                 @default("new")
+  assignedAgentId     String                 @default("") @map("assigned_agent_id")
+  assignedAgentName   String                 @default("") @map("assigned_agent_name")
+  relatedUrl          String                 @default("") @map("related_url")
+  createdAt           String                 @map("created_at")
+  updatedAt           String                 @map("updated_at")
+  lastCustomerReplyAt String                 @default("") @map("last_customer_reply_at")
+  lastAgentReplyAt    String                 @default("") @map("last_agent_reply_at")
+  resolvedAt          String                 @default("") @map("resolved_at")
+  closedAt            String                 @default("") @map("closed_at")
+  messages            SupportTicketMessage[]
+
+  @@index([tenantId, status])
+  @@index([status, priority])
+  @@index([assignedAgentId])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id             String        @id
+  ticketId       String        @map("ticket_id")
+  senderType     String        @map("sender_type")
+  senderUserId   String        @default("") @map("sender_user_id")
+  senderName     String        @default("") @map("sender_name")
+  text           String
+  isInternal     Int           @default(0) @map("is_internal")
+  attachmentType String        @default("") @map("attachment_type")
+  attachmentUrl  String        @default("") @map("attachment_url")
+  attachmentName String        @default("") @map("attachment_name")
+  attachmentMime String        @default("") @map("attachment_mime")
+  createdAt      String        @map("created_at")
+  ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("support_ticket_messages")
+}
+
+model SupportTicketCounter {
+  id    String @id @default("global")
+  value Int    @default(10000)
+
+  @@map("support_ticket_counter")
+}
