@@ -140,6 +140,7 @@ export default function CampaignsView({
   const [chargeSubmitting, setChargeSubmitting] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [balance, setBalance] = useState(0);
+  const [lastTopUpAmount, setLastTopUpAmount] = useState(0);
   const [balanceTransactions, setBalanceTransactions] = useState<BalanceTransaction[]>([]);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [balanceLoadError, setBalanceLoadError] = useState("");
@@ -169,6 +170,7 @@ export default function CampaignsView({
         setBalanceLoadError(body?.error || `تعذر تحميل الرصيد (${response.status})`);
       } else {
         setBalance(body.data?.balance ?? 0);
+        setLastTopUpAmount(body.data?.lastTopUpAmount ?? 0);
         setBalanceTransactions(body.data?.transactions ?? []);
       }
     } catch {
@@ -466,6 +468,22 @@ export default function CampaignsView({
       ) : (
         <div className="balance-page">
           {balanceLoadError ? <p className="form-error">{balanceLoadError}</p> : null}
+          {(() => {
+            if (!lastTopUpAmount) return null;
+            const percentRemaining = (balance / lastTopUpAmount) * 100;
+            if (percentRemaining > 20) return null;
+            const critical = percentRemaining <= 5;
+            return (
+              <div className={`balance-low-banner ${critical ? "critical" : "warning"}`} role="alert">
+                <span>{critical ? "⛔" : "⚠️"}</span>
+                <div>
+                  <strong>{t(`رصيدك منخفض — ${Math.round(percentRemaining)}% متبقٍ`, `Balance running low — ${Math.round(percentRemaining)}% remaining`)}</strong>
+                  <p>{t(`تبقّى لديك ${balance.toLocaleString("en-US")} رسالة فقط. اشحن الآن حتى لا تتوقف حملاتك القادمة.`, `Only ${balance.toLocaleString("en-US")} messages left. Top up now to avoid interrupting upcoming campaigns.`)}</p>
+                </div>
+                <button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>{t("شحن الآن", "Top up now")}</button>
+              </div>
+            );
+          })()}
           <section className="campaign-balance-hero">
             <div><span>{t("رصيد الحملات", "CAMPAIGN BALANCE")}</span><h2>{t("تحكّم في رصيد الإرسال من مكان واحد", "Manage your sending balance in one place")}</h2><p>{t("اشحن الرصيد حسب احتياجك، ثم راقب كل عملية إضافة أو استخدام في السجل المالي أدناه.", "Top up as needed, then review every credit and usage entry in the ledger below.")}</p></div>
             <div className="campaign-balance-total"><small>{t("الرصيد المتاح", "Available balance")}</small><strong>{balanceLoading ? "..." : balance.toLocaleString("en-US")}</strong><span>{t("رسالة", "messages")}</span><button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>＋ {t("شحن الرصيد", "Top up balance")}</button></div>

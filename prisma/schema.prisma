@@ -244,9 +244,10 @@ model CampaignRecipient {
 }
 
 model CampaignBalance {
-  tenantId  String @id @map("tenant_id")
-  balance   Int    @default(0)
-  updatedAt String @map("updated_at")
+  tenantId        String @id @map("tenant_id")
+  balance         Int    @default(0)
+  lastTopUpAmount Int    @default(0) @map("last_top_up_amount")
+  updatedAt       String @map("updated_at")
 
   @@map("campaign_balances")
 }

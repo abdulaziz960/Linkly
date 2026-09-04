@@ -128,10 +128,20 @@ async function reserveCampaignCredit(tenantId: string) {
   return result.count === 1;
 }
 
+/**
+ * Records the size of a real top-up as the new "100%" baseline for low-balance
+ * alerts. Deliberately separate from adjustCampaignBalance, which is also used
+ * for small +1 refunds on a failed send - those must not redefine the baseline.
+ */
+async function recordTopUp(tenantId: string, messages: number) {
+  await adjustCampaignBalance(tenantId, messages);
+  await prisma.campaignBalance.update({ where: { tenantId }, data: { lastTopUpAmount: messages } });
+}
+
 /** Credits confirmed, paid balance - called from the Moyasar webhook once a payment succeeds. */
 export async function creditCampaignBalance(tenantId: string, messages: number) {
   await ensureSchema();
-  await adjustCampaignBalance(tenantId, messages);
+  await recordTopUp(tenantId, messages);
 }
 
 /** Manual balance top-up from the admin panel - recorded as a completed payment so it shows in the client's own transaction history. */
@@ -152,7 +162,7 @@ export async function addManualCampaignBalance(tenantId: string, messages: numbe
       completedAt: now
     }
   });
-  await adjustCampaignBalance(tenantId, messages);
+  await recordTopUp(tenantId, messages);
   return payment;
 }
 
