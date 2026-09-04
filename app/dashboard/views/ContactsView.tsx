@@ -245,7 +245,7 @@ export default function ContactsView({
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
           <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ عميل", "Save Customer")} onSubmit={submitCustomer} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
               <h2>{form.id ? t("تعديل عميل", "Edit Customer") : t("إضافة عميل", "Add Customer")}</h2>
             </header>
             <div className="account-modal-body form-grid">
@@ -271,7 +271,7 @@ export default function ContactsView({
         <div className="modal-backdrop" role="presentation" onClick={() => setMergeTarget(null)}>
           <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("دمج عملاء مكررين", "Merge duplicate customers")} onSubmit={submitMerge} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setMergeTarget(null)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setMergeTarget(null)}>×</button>
               <h2>{t("دمج عميل مكرر في", "Merge a duplicate customer into")} {mergeTarget.name}</h2>
             </header>
             <div className="account-modal-body form-grid">

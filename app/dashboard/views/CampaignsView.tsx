@@ -514,7 +514,7 @@ export default function CampaignsView({
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
           <form className="account-modal form-modal campaign-create-modal campaign-builder-modal" role="dialog" aria-modal="true" aria-label={t("حفظ حملة", "Save campaign")} onSubmit={submitCampaign} onClick={(event) => event.stopPropagation()}>
-            <header className="modal-head campaign-builder-head"><button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button><div><span>{t("منشئ الحملات", "CAMPAIGN BUILDER")}</span><h2>{form.id ? t("تعديل اسم الحملة", "Edit campaign name") : t("إنشاء حملة جديدة", "Create a new campaign")}</h2></div></header>
+            <header className="modal-head campaign-builder-head"><button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button><div><span>{t("منشئ الحملات", "CAMPAIGN BUILDER")}</span><h2>{form.id ? t("تعديل اسم الحملة", "Edit campaign name") : t("إنشاء حملة جديدة", "Create a new campaign")}</h2></div></header>
             <div className="account-modal-body form-grid campaign-builder-fields">
               {!form.id ? <div className="campaign-warning">{t("الرجاء قبل إرسال أي حملة قم بإنشاء حملة تجريبية تحتوي على رقمك فقط، لتتأكد من الإرسال ووصول الرسالة دون أي مشكلة في الإرسال", "Before sending any campaign, please create a test campaign with just your own number to confirm the message sends and arrives without issues.")}</div> : null}
               <label><span>{t("اسم الحملة", "Campaign name")}</span><input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder={t("اسم الحملة", "Campaign name")} required /></label>
@@ -626,7 +626,7 @@ export default function CampaignsView({
         <div className="modal-backdrop" role="presentation" onClick={() => setReportCampaign(null)}>
           <div className="account-modal campaign-report-modal" role="dialog" aria-modal="true" aria-label={t(`تقرير الحملة ${reportCampaign.name}`, `Campaign report for ${reportCampaign.name}`)} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setReportCampaign(null)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setReportCampaign(null)}>×</button>
               <h2>{t("تقرير الحملة", "Campaign report")} - {reportCampaign.name}</h2>
             </header>
             <div className="campaign-report-body">
@@ -667,7 +667,7 @@ export default function CampaignsView({
         <div className="modal-backdrop" role="presentation" onClick={() => setChargeOpen(false)}>
           <div className="account-modal balance-modal" role="dialog" aria-modal="true" aria-label={t("شحن رصيد الحملات", "Top up campaign balance")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setChargeOpen(false)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setChargeOpen(false)}>×</button>
               <h2>{t("شحن رصيد الحملات", "Top up campaign balance")}</h2>
             </header>
             <div className="account-modal-body balance-modal-body">
@@ -713,7 +713,7 @@ export default function CampaignsView({
         <div className="modal-backdrop" role="presentation" onClick={() => setPricingOpen(false)}>
           <div className="account-modal pricing-modal" role="dialog" aria-modal="true" aria-label={t("أسعار الرسائل التسويقية", "Marketing message pricing")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setPricingOpen(false)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setPricingOpen(false)}>×</button>
               <h2>{t("أسعار الرسائل التسويقية", "Marketing message pricing")}</h2>
             </header>
             <div className="account-modal-body">

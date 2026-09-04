@@ -956,10 +956,10 @@
 
 /* Operational log review */
 .logs-summary .admin-metrics { align-items: stretch; }
-.log-metric { position: relative; display: grid; grid-template-columns: 42px 1fr; grid-template-rows: auto auto auto; gap: 2px 12px; text-align: start; border: 0; color: var(--admin-ink); cursor: pointer; overflow: hidden; transition: transform .16s ease, box-shadow .16s ease; }
+.log-metric { position: relative; display: grid; grid-template-columns: 42px 1fr; grid-template-rows: auto auto auto; gap: 2px 12px; text-align: start; appearance: none; -webkit-appearance: none; border: 0; border-radius: var(--admin-radius); padding: 16px; background: var(--admin-surface); box-shadow: var(--admin-shadow-border); color: var(--admin-ink); font: inherit; cursor: pointer; overflow: hidden; transition: transform .16s ease, box-shadow .16s ease; }
 .log-metric::after { content: ""; position: absolute; inset-inline-start: 0; inset-block: 0; width: 3px; background: var(--log-accent, #64748b); }
-.log-metric:hover { transform: translateY(-2px); }
-.log-metric.is-active { box-shadow: 0 0 0 2px var(--log-accent, #64748b), 0 8px 24px rgba(15,23,42,.08); }
+.log-metric:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px var(--admin-line), 0 10px 20px rgba(15,23,42,.07); }
+.log-metric.is-active { background: color-mix(in srgb, var(--log-accent, #64748b) 8%, var(--admin-surface)); box-shadow: 0 0 0 2px var(--log-accent, #64748b), 0 8px 24px rgba(15,23,42,.08); }
 .log-metric > span:not(.log-metric-icon), .log-metric > strong, .log-metric > small { grid-column: 2; }
 .log-metric > strong { margin-top: 0; }
 .log-metric-icon, .log-level-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: var(--log-accent, #64748b); background: color-mix(in srgb, var(--log-accent, #64748b) 12%, transparent); grid-row: 1 / span 2; }

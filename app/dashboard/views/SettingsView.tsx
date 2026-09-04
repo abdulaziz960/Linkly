@@ -1446,7 +1446,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       {wizardModalOpen ? (
       <div className="modal-backdrop" role="presentation" onClick={() => setWizardModalOpen(false)}>
       <div className="account-modal channel-setup-modal" role="dialog" aria-modal="true" aria-label={t("إعداد القناة", "Channel setup")} onClick={(event) => event.stopPropagation()}>
-      <button className="icon-btn channel-setup-modal-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setWizardModalOpen(false)}>×</button>
+      <button className="icon-btn icon-btn-close channel-setup-modal-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setWizardModalOpen(false)}>×</button>
       <div id="channel-wizard-anchor" className={`settings-onboarding ${isConnected ? "connected" : ""}`}>
         {!isConnected ? (
           <aside className="meta-wizard-rail settings-rail">

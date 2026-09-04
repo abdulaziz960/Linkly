@@ -417,7 +417,7 @@ export default function TeamsView({
         <div className="modal-backdrop" role="presentation" onClick={() => setTeamFormOpen(false)}>
           <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ فريق", "Save Team")} onSubmit={submitTeam} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setTeamFormOpen(false)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setTeamFormOpen(false)}>×</button>
               <h2>{teamForm.id ? t("تعديل فريق", "Edit Team") : t("إضافة فريق", "Add Team")}</h2>
             </header>
             <div className="account-modal-body form-grid">
@@ -475,7 +475,7 @@ export default function TeamsView({
         <div className="modal-backdrop" role="presentation" onClick={() => setMembersOpen(null)}>
           <section className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("أعضاء الفريق", "Team Members")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setMembersOpen(null)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setMembersOpen(null)}>×</button>
               <h2>{t(`أعضاء فريق ${membersOpen.name}`, `Members of ${membersOpen.name}`)}</h2>
             </header>
             <div className="account-modal-body">
@@ -505,7 +505,7 @@ export default function TeamsView({
         <div className="modal-backdrop" role="presentation" onClick={() => setEmployeeFormOpen(false)}>
           <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ موظف", "Save employee")} onSubmit={submitEmployee} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setEmployeeFormOpen(false)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setEmployeeFormOpen(false)}>×</button>
               <h2>{employeeForm.id ? t("تعديل موظف", "Edit Employee") : t("إضافة مستخدم", "Add User")}</h2>
             </header>
             <div className="account-modal-body form-grid">
