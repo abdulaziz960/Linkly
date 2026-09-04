@@ -5,6 +5,7 @@ import { processDueAutomations } from "../../../../lib/automation-engine";
 import { ensureSchema, getIntegrationSettings } from "../../../../lib/database";
 import { syncXTenant } from "../../../../lib/x-sync";
 import { reconcileStalePendingPayments, sendTrialEndingReminders } from "../../../../lib/subscriptions";
+import { sendLowBalanceAlerts } from "../../../../lib/campaign-balance-alerts";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -67,6 +68,10 @@ export async function GET(request: NextRequest) {
 
   const paymentsReconciled = await reconcileStalePendingPayments();
   const trialReminders = await sendTrialEndingReminders(baseUrl());
+  const lowBalanceAlerts = await sendLowBalanceAlerts(baseUrl()).catch((error) => {
+    console.error("Low balance alerts failed", error);
+    return { sent: 0 };
+  });
 
-  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, trialReminders });
+  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, trialReminders, lowBalanceAlerts });
 }

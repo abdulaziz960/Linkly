@@ -368,6 +368,7 @@ async function runSchemaMigrations() {
       balance INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaign_balances ADD COLUMN IF NOT EXISTS last_top_up_amount INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS tenant_preferences (
       tenant_id TEXT PRIMARY KEY,
       leads_pipeline_enabled INTEGER NOT NULL DEFAULT 1,
@@ -847,6 +848,10 @@ async function runSchemaMigrations() {
     balance INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
   )`);
+  const campaignBalanceColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(campaign_balances)`);
+  if (!campaignBalanceColumns.some((column) => column.name === "last_top_up_amount")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaign_balances ADD COLUMN last_top_up_amount INTEGER NOT NULL DEFAULT 0`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS tenant_preferences (
     tenant_id TEXT PRIMARY KEY,
     leads_pipeline_enabled INTEGER NOT NULL DEFAULT 1,
