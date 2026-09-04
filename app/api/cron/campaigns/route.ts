@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { activateDueScheduledCampaigns, processCampaignBatch } from "../../../../lib/campaign-engine";
+import { activateDueScheduledCampaigns, activateDueRecurringCampaigns, processCampaignBatch } from "../../../../lib/campaign-engine";
 import { prisma } from "../../../../lib/prisma";
 import { processDueAutomations } from "../../../../lib/automation-engine";
 import { ensureSchema, getIntegrationSettings } from "../../../../lib/database";
@@ -25,10 +25,17 @@ export async function GET(request: NextRequest) {
 
   await ensureSchema();
 
-  const [campaignTenants, automationTenants, xTenants] = await Promise.all([
+  const [campaignTenants, recurringCampaignTenants, automationTenants, xTenants] = await Promise.all([
     prisma.campaign.findMany({
       distinct: ["tenantId"],
       where: { status: { in: ["مجدولة", "قيد الإرسال"] } },
+      select: { tenantId: true },
+      orderBy: { tenantId: "asc" },
+      take: 50
+    }),
+    prisma.campaignRecurrence.findMany({
+      distinct: ["tenantId"],
+      where: { status: "نشطة", nextRunAt: { lte: new Date().toISOString() } },
       select: { tenantId: true },
       orderBy: { tenantId: "asc" },
       take: 50
@@ -49,11 +56,12 @@ export async function GET(request: NextRequest) {
     })
   ]);
 
-  const tenantIds = [...new Set([...campaignTenants, ...automationTenants].map(({ tenantId }) => tenantId))];
+  const tenantIds = [...new Set([...campaignTenants, ...recurringCampaignTenants, ...automationTenants].map(({ tenantId }) => tenantId))];
   const xTenantIds = xTenants.map(({ tenantId }) => tenantId);
 
   for (const tenantId of tenantIds) {
     await activateDueScheduledCampaigns(tenantId);
+    await activateDueRecurringCampaigns(tenantId);
     await processCampaignBatch(tenantId, 25);
     await processDueAutomations(tenantId);
   }

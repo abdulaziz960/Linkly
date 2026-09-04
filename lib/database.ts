@@ -351,6 +351,23 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'ar'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS scheduled_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS header_media_data_url TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS recurrence_id TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recurrences (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      template_name TEXT NOT NULL,
+      language TEXT NOT NULL DEFAULT 'ar',
+      header_media_data_url TEXT NOT NULL DEFAULT '',
+      recipients_json TEXT NOT NULL,
+      interval_days INTEGER NOT NULL,
+      next_run_at TEXT NOT NULL,
+      end_at TEXT NOT NULL DEFAULT '',
+      occurrences INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'نشطة',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipients (
       id TEXT PRIMARY KEY,
       campaign_id TEXT NOT NULL,
@@ -824,7 +841,8 @@ async function runSchemaMigrations() {
     ["template_name", ""],
     ["language", "ar"],
     ["scheduled_at", ""],
-    ["header_media_data_url", ""]
+    ["header_media_data_url", ""],
+    ["recurrence_id", ""]
   ];
   for (const [columnName, defaultValue] of campaignTextColumns) {
     if (!campaignColumns.some((column) => column.name === columnName)) {
@@ -852,6 +870,22 @@ async function runSchemaMigrations() {
   if (!campaignBalanceColumns.some((column) => column.name === "last_top_up_amount")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE campaign_balances ADD COLUMN last_top_up_amount INTEGER NOT NULL DEFAULT 0`);
   }
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recurrences (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    template_name TEXT NOT NULL,
+    language TEXT NOT NULL DEFAULT 'ar',
+    header_media_data_url TEXT NOT NULL DEFAULT '',
+    recipients_json TEXT NOT NULL,
+    interval_days INTEGER NOT NULL,
+    next_run_at TEXT NOT NULL,
+    end_at TEXT NOT NULL DEFAULT '',
+    occurrences INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'نشطة',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS tenant_preferences (
     tenant_id TEXT PRIMARY KEY,
     leads_pipeline_enabled INTEGER NOT NULL DEFAULT 1,
@@ -1902,7 +1936,8 @@ export async function getCampaigns(tenantId = "tenant-demo"): Promise<Campaign[]
     progress: campaign.progress,
     status: campaign.status as Campaign["status"],
     updatedAt: campaign.updatedAt,
-    hasHeaderMedia: Boolean(campaign.headerMediaDataUrl)
+    hasHeaderMedia: Boolean(campaign.headerMediaDataUrl),
+    recurrenceId: campaign.recurrenceId || undefined
   }));
 }
 

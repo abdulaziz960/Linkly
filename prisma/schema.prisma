@@ -219,6 +219,7 @@ model Campaign {
   total        Int    @default(0)
   progress     String
   status       String
+  recurrenceId String @default("") @map("recurrence_id")
   updatedAt    String @map("updated_at")
 
   @@index([tenantId, status])
@@ -250,6 +251,27 @@ model CampaignBalance {
   updatedAt       String @map("updated_at")
 
   @@map("campaign_balances")
+}
+
+model CampaignRecurrence {
+  id                 String @id
+  tenantId           String @map("tenant_id")
+  name               String
+  templateName       String @map("template_name")
+  language           String @default("ar")
+  headerMediaDataUrl String @default("") @map("header_media_data_url")
+  recipientsJson     String @map("recipients_json")
+  intervalDays       Int    @map("interval_days")
+  nextRunAt          String @map("next_run_at")
+  endAt              String @default("") @map("end_at")
+  occurrences        Int    @default(1)
+  status             String @default("نشطة")
+  createdAt          String @map("created_at")
+  updatedAt          String @map("updated_at")
+
+  @@index([tenantId, status])
+  @@index([status, nextRunAt])
+  @@map("campaign_recurrences")
 }
 
 model CampaignPayment {
