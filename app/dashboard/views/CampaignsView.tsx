@@ -20,7 +20,27 @@ type CampaignForm = {
   fileName: string;
   scheduled: boolean;
   scheduledAt: string;
+  recurring: boolean;
+  recurrenceIntervalDays: number;
+  recurrenceEndAt: string;
 };
+
+type CampaignRecurrenceSummary = {
+  id: string;
+  name: string;
+  intervalDays: number;
+  nextRunAt: string;
+  endAt: string;
+  occurrences: number;
+  status: string;
+};
+
+const recurrenceIntervalOptions: Array<{ days: number; ar: string; en: string }> = [
+  { days: 1, ar: "يوميًا", en: "Daily" },
+  { days: 7, ar: "أسبوعيًا", en: "Weekly" },
+  { days: 14, ar: "كل أسبوعين", en: "Every 2 weeks" },
+  { days: 30, ar: "شهريًا", en: "Monthly" }
+];
 
 type PricingTier = {
   range: string;
@@ -113,12 +133,16 @@ export default function CampaignsView({
       templateName: defaultTemplateName,
       fileName: "",
       scheduled: false,
-      scheduledAt: ""
+      scheduledAt: "",
+      recurring: false,
+      recurrenceIntervalDays: 7,
+      recurrenceEndAt: ""
     }),
     [defaultTemplateName]
   );
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<CampaignForm>(emptyForm);
+  const [recurrences, setRecurrences] = useState<CampaignRecurrenceSummary[]>([]);
   const [campaignFile, setCampaignFile] = useState<File | null>(null);
   const [headerMediaFile, setHeaderMediaFile] = useState<File | null>(null);
   const [brokenThumbIds, setBrokenThumbIds] = useState<Set<string>>(new Set());
@@ -182,6 +206,29 @@ export default function CampaignsView({
   useEffect(() => {
     if (activeTab === "balance") loadBalance();
   }, [activeTab]);
+
+  async function loadRecurrences() {
+    try {
+      const response = await fetch("/api/campaigns/recurring");
+      const body = await response.json().catch(() => null);
+      if (response.ok && body?.ok) setRecurrences(body.data ?? []);
+    } catch {
+      // Non-critical - the compact recurring-series list simply stays empty on failure.
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "campaigns") loadRecurrences();
+  }, [activeTab]);
+
+  async function toggleRecurrence(id: string, nextStatus: "نشطة" | "متوقفة") {
+    await fetch(`/api/campaigns/recurring/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: nextStatus })
+    });
+    await loadRecurrences();
+  }
 
   const filteredCampaigns = useMemo(() => {
     const query = campaignSearch.trim().toLowerCase();
@@ -267,7 +314,10 @@ export default function CampaignsView({
             templateName: defaultTemplateName,
             fileName: "",
             scheduled: false,
-            scheduledAt: ""
+            scheduledAt: "",
+            recurring: false,
+            recurrenceIntervalDays: 7,
+            recurrenceEndAt: ""
           }
         : emptyForm
     );
@@ -320,6 +370,9 @@ export default function CampaignsView({
     body.set("templateName", form.templateName);
     body.set("scheduled", String(form.scheduled));
     body.set("scheduledAt", form.scheduledAt);
+    body.set("recurring", String(form.recurring));
+    body.set("recurrenceIntervalDays", String(form.recurrenceIntervalDays));
+    body.set("recurrenceEndAt", form.recurrenceEndAt);
     body.set("file", campaignFile);
     if (headerMediaFile) body.set("headerMedia", headerMediaFile);
 
@@ -332,6 +385,7 @@ export default function CampaignsView({
     }
 
     await onRefreshData();
+    if (form.recurring) await loadRecurrences();
     setSaving(false);
     setFormOpen(false);
     if (payload?.data?.balanceWarning) window.alert(payload.data.balanceWarning);
@@ -430,6 +484,30 @@ export default function CampaignsView({
             <article><span>{t("حملات مكتملة", "Completed")}</span><strong>{campaignOverview.completed}</strong><small>{t("أنهت عملية الإرسال", "finished sending")}</small></article>
             <article><span>{t("نشطة أو مجدولة", "Active or scheduled")}</span><strong>{campaignOverview.active}</strong><small>{t("تحتاج متابعة تشغيلية", "need operational follow-up")}</small></article>
           </section>
+          {recurrences.length ? (
+            <div className="campaign-board recurrence-board">
+              <div className="campaign-list-head"><div><h2>🔁 {t("الحملات المتكررة", "Recurring campaigns")}</h2><p>{t("سلاسل ترسل نفس الملف المرفوع تلقائيًا كل فترة.", "Series that automatically resend the uploaded file on a schedule.")}</p></div></div>
+              <div className="recurrence-list">
+                {recurrences.map((recurrence) => (
+                  <div className="recurrence-row" key={recurrence.id}>
+                    <div>
+                      <b>{recurrence.name}</b>
+                      <span>{t(recurrenceIntervalOptions.find((option) => option.days === recurrence.intervalDays)?.ar || "", recurrenceIntervalOptions.find((option) => option.days === recurrence.intervalDays)?.en || "")} · {t(`${recurrence.occurrences} إرسال حتى الآن`, `${recurrence.occurrences} sends so far`)}</span>
+                    </div>
+                    <span className={`recurrence-status ${recurrence.status === "نشطة" ? "active" : recurrence.status === "متوقفة" ? "paused" : "ended"}`}>
+                      {recurrence.status === "نشطة" ? t("نشطة", "Active") : recurrence.status === "متوقفة" ? t("متوقفة", "Paused") : t("منتهية", "Ended")}
+                    </span>
+                    <span className="recurrence-next">{recurrence.status === "نشطة" ? t(`القادم: ${formatDateTime(recurrence.nextRunAt)}`, `Next: ${formatDateTime(recurrence.nextRunAt)}`) : "—"}</span>
+                    {recurrence.status !== "منتهية" ? (
+                      <button className="btn soft" type="button" onClick={() => toggleRecurrence(recurrence.id, recurrence.status === "نشطة" ? "متوقفة" : "نشطة")}>
+                        {recurrence.status === "نشطة" ? t("إيقاف", "Pause") : t("استئناف", "Resume")}
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="campaign-board campaign-list-board">
             <div className="campaign-list-head"><div><h2>{t("كل الحملات", "All campaigns")}</h2><p>{t("تابع التنفيذ وافتح التقرير أو أوقف الحملة من نفس الصف.", "Track execution, open reports, or stop a campaign from the same row.")}</p></div><button className="reload" type="button" onClick={onRefreshData}>↻ {t("تحديث البيانات", "Refresh data")}</button></div>
             <div className="campaign-toolbar campaign-filterbar">
@@ -444,7 +522,7 @@ export default function CampaignsView({
                 <tbody>
                   {campaignPagination.items.map((campaign) => (
                     <tr key={campaign.id}>
-                      <td><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <img src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : campaign.name.trim().charAt(0) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b></span></div></td>
+                      <td><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <img src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : campaign.name.trim().charAt(0) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}</span></div></td>
                       <td><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small></td>
                       <td><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
                       <td><span className={campaign.status === "ملغاة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
@@ -617,7 +695,29 @@ export default function CampaignsView({
                     />
                   </label>
                   {form.scheduled ? (
-                    <label><span>{t("تاريخ ووقت الإرسال", "Send date and time")}</span><input type="datetime-local" value={form.scheduledAt} onChange={(event) => setForm((current) => ({ ...current, scheduledAt: event.target.value }))} /></label>
+                    <label><span>{form.recurring ? t("أول إرسال", "First send") : t("تاريخ ووقت الإرسال", "Send date and time")}</span><input type="datetime-local" value={form.scheduledAt} onChange={(event) => setForm((current) => ({ ...current, scheduledAt: event.target.value }))} /></label>
+                  ) : null}
+                  <label className="schedule-toggle">
+                    <span>🔁 {t("اجعلها متكررة", "Make it recurring")}</span>
+                    <button
+                      className={form.recurring ? "toggle on" : "toggle"}
+                      type="button"
+                      aria-pressed={form.recurring}
+                      onClick={() => setForm((current) => ({ ...current, recurring: !current.recurring }))}
+                    />
+                  </label>
+                  {form.recurring ? (
+                    <>
+                      <label>
+                        <span>{t("تكرار كل", "Repeat every")}</span>
+                        <CustomSelect
+                          value={String(form.recurrenceIntervalDays)}
+                          onChange={(value) => setForm((current) => ({ ...current, recurrenceIntervalDays: Number(value) }))}
+                          options={recurrenceIntervalOptions.map((option) => ({ value: String(option.days), label: t(option.ar, option.en) }))}
+                        />
+                      </label>
+                      <label><span>{t("تنتهي في (اختياري)", "Ends on (optional)")}</span><input type="date" value={form.recurrenceEndAt} onChange={(event) => setForm((current) => ({ ...current, recurrenceEndAt: event.target.value }))} /></label>
+                    </>
                   ) : null}
                   {!approvedTemplates.length ? (
                     <p className="form-error">
@@ -633,9 +733,9 @@ export default function CampaignsView({
             <aside className="campaign-live-preview" aria-label={t("معاينة الحملة", "Campaign preview")}>
               <div className="campaign-preview-title"><span>{t("معاينة مباشرة", "Live preview")}</span><small>{t("شكل تقريبي للرسالة", "Approximate message appearance")}</small></div>
               <div className="campaign-phone"><div className="campaign-phone-bar"><span>Linkly</span><i>•••</i></div><div className="campaign-phone-notice">{t("محادثة أعمال موثقة وآمنة", "Verified and secure business chat")}</div><div className="campaign-message-preview"><b>{form.name || t("اسم الحملة", "Campaign name")}</b><p>{approvedTemplates.find((template) => template.name === form.templateName)?.message || t("اختر قالباً معتمداً لتظهر معاينة نص الرسالة هنا.", "Choose an approved template to preview its message here.")}</p><time>3:34 PM</time></div></div>
-              <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{recipientPreview === null ? "—" : recipientPreview.toLocaleString("en-US")}</dd></div><div><dt>{t("طريقة الإرسال", "Delivery")}</dt><dd>{form.scheduled ? t("مجدولة", "Scheduled") : t("فوري", "Immediate")}</dd></div></dl>
+              <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{recipientPreview === null ? "—" : recipientPreview.toLocaleString("en-US")}</dd></div><div><dt>{t("طريقة الإرسال", "Delivery")}</dt><dd>{form.scheduled ? t("مجدولة", "Scheduled") : t("فوري", "Immediate")}</dd></div>{form.recurring ? <div><dt>{t("التكرار", "Repeats")}</dt><dd>{t(recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.ar || "", recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.en || "")}</dd></div> : null}</dl>
             </aside>
-            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && (!approvedTemplates.length || !campaignFile || !recipientPreview || (needsHeaderMedia && !templateHasSavedMedia && !headerMediaFile)))}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : form.scheduled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الحملة", "Send campaign")}</button></footer>
+            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && (!approvedTemplates.length || !campaignFile || !recipientPreview || (needsHeaderMedia && !templateHasSavedMedia && !headerMediaFile)))}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : form.recurring ? t("جدولة حملة متكررة", "Schedule recurring campaign") : form.scheduled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الحملة", "Send campaign")}</button></footer>
           </form>
         </div>
       ) : null}

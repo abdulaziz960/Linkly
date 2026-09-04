@@ -1,7 +1,9 @@
 import ExcelJS from "exceljs";
+import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema, getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
+import type { Prisma } from "@prisma/client";
 
 export type ParsedRecipient = { phone: string; name: string };
 
@@ -266,6 +268,155 @@ export async function activateDueScheduledCampaigns(tenantId: string) {
     where: { tenantId, status: "مجدولة", scheduledAt: { not: "", lte: now } },
     data: { status: "قيد الإرسال" }
   });
+}
+
+/** Creates one campaign + its recipient rows. Shared by the one-off create route and every recurring-campaign firing, so the two paths can never drift apart. */
+export async function spawnCampaignOccurrence(tx: Prisma.TransactionClient, params: {
+  tenantId: string;
+  name: string;
+  templateName: string;
+  language: string;
+  headerMediaDataUrl: string;
+  recipients: ParsedRecipient[];
+  status: string;
+  scheduledAt?: string;
+  recurrenceId?: string;
+}): Promise<string> {
+  const campaignId = `camp-${randomUUID()}`;
+  await tx.campaign.create({
+    data: {
+      id: campaignId,
+      tenantId: params.tenantId,
+      name: params.name,
+      channel: "whatsapp",
+      templateName: params.templateName,
+      language: params.language,
+      scheduledAt: params.scheduledAt || "",
+      headerMediaDataUrl: params.headerMediaDataUrl,
+      sent: 0,
+      total: params.recipients.length,
+      progress: "0%",
+      status: params.status,
+      recurrenceId: params.recurrenceId || "",
+      updatedAt: new Date().toLocaleString("en-US")
+    }
+  });
+  await tx.campaignRecipient.createMany({
+    data: params.recipients.map((recipient) => ({
+      id: `cr-${campaignId}-${recipient.phone}`,
+      campaignId,
+      tenantId: params.tenantId,
+      phone: recipient.phone,
+      name: recipient.name,
+      status: "قيد الإرسال",
+      createdAt: new Date().toISOString()
+    }))
+  });
+  return campaignId;
+}
+
+/** Fixed cadences only (no RRULE) - always adds whole days, so "monthly" is a 30-day interval, not a calendar month. */
+export function nextRecurrenceRun(current: Date, intervalDays: number): Date {
+  return new Date(current.getTime() + intervalDays * 24 * 60 * 60 * 1000);
+}
+
+export function isRecurrenceExpired(nextRunAt: string, endAt: string): boolean {
+  if (!endAt) return false;
+  const next = new Date(nextRunAt).getTime();
+  const end = new Date(endAt).getTime();
+  if (Number.isNaN(next) || Number.isNaN(end)) return false;
+  return next > end;
+}
+
+/** Creates a recurring campaign series and immediately spawns its first occurrence. */
+export async function createRecurringCampaign(tenantId: string, params: {
+  name: string;
+  templateName: string;
+  language: string;
+  headerMediaDataUrl: string;
+  recipients: ParsedRecipient[];
+  intervalDays: number;
+  startAt: Date | null;
+  endAt: string;
+}) {
+  await ensureSchema();
+  const now = new Date();
+  const isFutureStart = Boolean(params.startAt && params.startAt.getTime() > now.getTime());
+  const recurrenceId = `crec-${randomUUID()}`;
+  const firstRunAt = isFutureStart && params.startAt ? params.startAt : now;
+  const nextRunAt = nextRecurrenceRun(firstRunAt, params.intervalDays).toISOString();
+
+  const campaignId = await prisma.$transaction(async (tx) => {
+    await tx.campaignRecurrence.create({
+      data: {
+        id: recurrenceId,
+        tenantId,
+        name: params.name,
+        templateName: params.templateName,
+        language: params.language,
+        headerMediaDataUrl: params.headerMediaDataUrl,
+        recipientsJson: JSON.stringify(params.recipients),
+        intervalDays: params.intervalDays,
+        nextRunAt,
+        endAt: params.endAt,
+        occurrences: 1,
+        status: "نشطة",
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString()
+      }
+    });
+
+    return spawnCampaignOccurrence(tx, {
+      tenantId,
+      name: params.name,
+      templateName: params.templateName,
+      language: params.language,
+      headerMediaDataUrl: params.headerMediaDataUrl,
+      recipients: params.recipients,
+      status: isFutureStart ? "مجدولة" : "قيد الإرسال",
+      scheduledAt: isFutureStart && params.startAt ? params.startAt.toISOString() : "",
+      recurrenceId
+    });
+  });
+
+  return { recurrenceId, campaignId };
+}
+
+/** Fires any recurring series whose next run has come due, spawning a fresh occurrence and advancing the schedule. */
+export async function activateDueRecurringCampaigns(tenantId: string) {
+  await ensureSchema();
+  const now = new Date();
+  const due = await prisma.campaignRecurrence.findMany({
+    where: { tenantId, status: "نشطة", nextRunAt: { lte: now.toISOString() } }
+  });
+
+  for (const recurrence of due) {
+    const recipients: ParsedRecipient[] = JSON.parse(recurrence.recipientsJson);
+    const nextRun = nextRecurrenceRun(now, recurrence.intervalDays);
+    const expired = isRecurrenceExpired(nextRun.toISOString(), recurrence.endAt);
+
+    await prisma.$transaction(async (tx) => {
+      await spawnCampaignOccurrence(tx, {
+        tenantId,
+        name: recurrence.name,
+        templateName: recurrence.templateName,
+        language: recurrence.language,
+        headerMediaDataUrl: recurrence.headerMediaDataUrl,
+        recipients,
+        status: "قيد الإرسال",
+        recurrenceId: recurrence.id
+      });
+      await tx.campaignRecurrence.update({
+        where: { id: recurrence.id },
+        data: {
+          occurrences: { increment: 1 },
+          nextRunAt: nextRun.toISOString(),
+          status: expired ? "منتهية" : "نشطة",
+          updatedAt: new Date().toISOString()
+        }
+      });
+    });
+  }
 }
 
 /**

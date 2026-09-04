@@ -175,6 +175,7 @@ export type Campaign = {
   status: "الحملة أنجزت" | "قيد الإرسال" | "مجدولة" | "ملغاة";
   updatedAt: string;
   hasHeaderMedia?: boolean;
+  recurrenceId?: string;
 };
 
 export type WorkSchedule = {
