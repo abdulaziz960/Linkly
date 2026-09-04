@@ -11,22 +11,25 @@ type Props = {
 function remainingParts(renewalAt: string) {
   const msLeft = new Date(renewalAt).getTime() - Date.now();
   if (!Number.isFinite(msLeft)) return null;
-  const totalMinutes = Math.max(0, Math.floor(msLeft / 60000));
-  const days = Math.floor(totalMinutes / (60 * 24));
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
-  const minutes = totalMinutes % 60;
-  return { msLeft, days, hours, minutes };
+  const totalSeconds = Math.max(0, Math.floor(msLeft / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return { msLeft, days, hours, minutes, seconds };
 }
+
+const pad = (n: number) => String(n).padStart(2, "0");
 
 export default function TrialCountdownBanner({ status, renewalAt, language }: Props) {
   const t = (ar: string, en: string) => (language === "en" ? en : ar);
   const [remaining, setRemaining] = useState(() => (renewalAt ? remainingParts(renewalAt) : null));
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const willShow = status === "تجربة" && !!renewalAt && !!remaining;
+  const willShow = status === "تجربة" && !!renewalAt && !!remaining && remaining.msLeft > 0;
 
   useEffect(() => {
     if (!renewalAt) return;
-    const id = window.setInterval(() => setRemaining(remainingParts(renewalAt)), 60_000);
+    const id = window.setInterval(() => setRemaining(remainingParts(renewalAt)), 1000);
     return () => window.clearInterval(id);
   }, [renewalAt]);
 
@@ -49,27 +52,50 @@ export default function TrialCountdownBanner({ status, renewalAt, language }: Pr
     };
   }, [willShow]);
 
-  if (!willShow) return null;
+  if (status !== "تجربة" || !renewalAt || !remaining) return null;
 
   const expired = remaining.msLeft <= 0;
-  const timeLabel = expired
-    ? t("انتهت فترتك التجريبية", "Your trial has ended")
-    : remaining.days > 0
-      ? t(`باقي ${remaining.days} يوم و${remaining.hours} ساعة على انتهاء تجربتك المجانية`, `${remaining.days}d ${remaining.hours}h left in your free trial`)
-      : remaining.hours > 0
-        ? t(`باقي ${remaining.hours} ساعة و${remaining.minutes} دقيقة على انتهاء تجربتك المجانية`, `${remaining.hours}h ${remaining.minutes}m left in your free trial`)
-        : t(`باقي ${remaining.minutes} دقيقة على انتهاء تجربتك المجانية`, `${remaining.minutes}m left in your free trial`);
+
+  if (expired) {
+    return (
+      <div ref={rootRef} className="trial-countdown-banner expired" role="status">
+        <div className="trial-countdown-pill">
+          <i className="trial-countdown-icon" aria-hidden="true">⏳</i>
+          <span className="trial-countdown-text">{t("انتهت فترتك التجريبية", "Your trial has ended")}</span>
+          <Link href="/billing" className="trial-countdown-cta">
+            {t("الترقية الآن", "Upgrade now")}
+            <b aria-hidden="true">{t("←", "→")}</b>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const segments = [
+    remaining.days > 0 ? { value: remaining.days, label: t("يوم", "d") } : null,
+    { value: remaining.hours, label: t("س", "h") },
+    { value: remaining.minutes, label: t("د", "m") },
+    { value: remaining.seconds, label: t("ث", "s") }
+  ].filter(Boolean) as { value: number; label: string }[];
 
   return (
-    <div ref={rootRef} className={`trial-countdown-banner${expired ? " expired" : ""}`} role="status">
-      <span className="trial-countdown-text">
+    <div ref={rootRef} className="trial-countdown-banner" role="status">
+      <div className="trial-countdown-pill">
         <i className="trial-countdown-icon" aria-hidden="true">⏳</i>
-        {timeLabel}
-      </span>
-      <Link href="/billing" className="trial-countdown-cta">
-        {t("الترقية الآن", "Upgrade now")}
-        <b aria-hidden="true">{t("←", "→")}</b>
-      </Link>
+        <span className="trial-countdown-text">{t("تجربتك تنتهي خلال", "Trial ends in")}</span>
+        <span className="trial-countdown-clock" aria-live="off">
+          {segments.map((segment) => (
+            <span className="trial-countdown-segment" key={segment.label}>
+              <b>{pad(segment.value)}</b>
+              <small>{segment.label}</small>
+            </span>
+          ))}
+        </span>
+        <Link href="/billing" className="trial-countdown-cta">
+          {t("الترقية الآن", "Upgrade now")}
+          <b aria-hidden="true">{t("←", "→")}</b>
+        </Link>
+      </div>
     </div>
   );
 }
