@@ -15,18 +15,18 @@ export default function Icon() {
           justifyContent: "center",
           borderRadius: 13,
           background: "#062725",
-          border: "1px solid rgba(58, 189, 179, 0.55)"
+          border: "1px solid rgba(43, 176, 242, 0.55)"
         }}
       >
         <svg width="44" height="30" viewBox="0 0 120 70" fill="none">
           <defs>
             <linearGradient id="icon-left" x1="16" y1="15" x2="56" y2="55" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#3abdb3" />
-              <stop offset="1" stopColor="#178a82" />
+              <stop stopColor="#2bb0f2" />
+              <stop offset="1" stopColor="#0a84dd" />
             </linearGradient>
             <linearGradient id="icon-right" x1="64" y1="15" x2="104" y2="55" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#178a82" />
-              <stop offset="1" stopColor="#0f5f5a" />
+              <stop stopColor="#19d9a8" />
+              <stop offset="1" stopColor="#00b884" />
             </linearGradient>
           </defs>
           <circle cx="36" cy="35" r="15" stroke="url(#icon-left)" strokeWidth="10" />
