@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { PaymentRow, SubscriptionRow } from "./types";
 import type { AdminLog } from "../../lib/database";
-import { EXTRA_USER_PRICE, formatNumber, getRenewalAlert } from "./utils";
+import { EXTRA_USER_PRICE, formatNumber, getRenewalAlert, parseTimestamp } from "./utils";
 import AnimatedNumber from "./AnimatedNumber";
 import { useLanguage } from "./i18n";
 
@@ -29,7 +29,39 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
   const { t } = useLanguage();
   const [mounted, setMounted] = useState(false);
   const [period, setPeriod] = useState("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   useEffect(() => setMounted(true), []);
+
+  // Only metrics that represent something that *happened at a point in
+  // time* (an error was logged, a payment was collected) can meaningfully
+  // respect a date range. Status snapshots - active/trial clients, overdue
+  // renewals, MRR/ARR, outstanding payments still awaiting completion -
+  // describe the account's state right now, not an event within a window,
+  // so they stay unfiltered on purpose (filtering "outstanding payments" by
+  // "today" would hide a payment stuck since last week - exactly the thing
+  // that still needs attention).
+  const periodRange = (() => {
+    const now = Date.now();
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    if (period === "today") return { from: dayStart.getTime(), to: Infinity };
+    if (period === "7d") return { from: now - 7 * 86400000, to: Infinity };
+    if (period === "custom") {
+      return {
+        from: customFrom ? new Date(`${customFrom}T00:00:00`).getTime() : 0,
+        to: customTo ? new Date(`${customTo}T23:59:59`).getTime() : Infinity
+      };
+    }
+    return { from: monthStart.getTime(), to: Infinity };
+  })();
+  const inPeriod = (value: string) => {
+    const ts = parseTimestamp(value);
+    return ts >= periodRange.from && ts <= periodRange.to;
+  };
 
   const activeClients = subscriptions.filter((s) => s.status === "نشط").length;
   const trialClients = subscriptions.filter((s) => s.status === "تجربة").length;
@@ -42,12 +74,12 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
   const renewalAlertsCount = subscriptions.filter((s) => getRenewalAlert(s) !== null).length;
   const overdueRenewals = subscriptions.filter((s) => getRenewalAlert(s)?.tier === "overdue").length;
   const pendingPayments = payments.filter((payment) => payment.status === "قيد الانتظار");
-  const collectedRevenue = payments.filter((payment) => payment.status === "مكتمل").reduce((sum, payment) => sum + payment.amount, 0);
+  const collectedRevenue = payments.filter((payment) => payment.status === "مكتمل" && inPeriod(payment.completedAt || payment.createdAt)).reduce((sum, payment) => sum + payment.amount, 0);
   const outstandingRevenue = pendingPayments.reduce((sum, payment) => sum + payment.amount, 0);
   const annualRecurringRevenue = monthlyRevenue * 12;
   const averageConversations = subscriptions.length ? Math.round(totalConversations / subscriptions.length) : 0;
   const inactiveUsage = subscriptions.filter((subscription) => subscription.conversationCount === 0).length;
-  const technicalErrors = logs.filter((log) => log.level === "خطأ").length;
+  const technicalErrors = logs.filter((log) => log.level === "خطأ" && inPeriod(log.at)).length;
 
   const statusCounts = new Map<string, number>();
   for (const s of subscriptions) {
@@ -96,8 +128,16 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
       </section>
 
       <section className="admin-dashboard-period" aria-label={t("النطاق الزمني للوحة", "Dashboard date range")}>
-        <div><strong>{t("نطاق العرض", "View range")}</strong><small>{t("طبّق نطاقاً موحداً على مؤشرات المتابعة", "Use one range across monitoring indicators")}</small></div>
-        <div>{[["today", t("اليوم", "Today")], ["7d", t("آخر 7 أيام", "Last 7 days")], ["month", t("هذا الشهر", "This month")], ["custom", t("نطاق مخصص", "Custom range")]].map(([value, label]) => <button key={value} type="button" className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{label}</button>)}</div>
+        <div><strong>{t("نطاق العرض", "View range")}</strong><small>{t("ينطبق على الأخطاء والإيراد المحصّل — حالات العملاء والاشتراكات مؤشرات آنية دائماً", "Applies to errors and collected revenue — client/subscription status is always shown live")}</small></div>
+        <div>
+          <div>{[["today", t("اليوم", "Today")], ["7d", t("آخر 7 أيام", "Last 7 days")], ["month", t("هذا الشهر", "This month")], ["custom", t("نطاق مخصص", "Custom range")]].map(([value, label]) => <button key={value} type="button" className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{label}</button>)}</div>
+          {period === "custom" ? (
+            <div className="admin-dashboard-period-custom">
+              <label><span>{t("من تاريخ", "From")}</span><input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} /></label>
+              <label><span>{t("إلى تاريخ", "To")}</span><input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} /></label>
+            </div>
+          ) : null}
+        </div>
       </section>
 
       <section className="admin-section">
