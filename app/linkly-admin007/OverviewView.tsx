@@ -42,7 +42,7 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
   // "today" would hide a payment stuck since last week - exactly the thing
   // that still needs attention).
   const periodRange = (() => {
-    const now = Date.now();
+    const now = new Date().getTime();
     const dayStart = new Date();
     dayStart.setHours(0, 0, 0, 0);
     const monthStart = new Date();
