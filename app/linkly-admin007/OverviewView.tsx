@@ -34,8 +34,8 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
   useEffect(() => setMounted(true), []);
 
   // Only metrics that represent something that *happened at a point in
-  // time* (an error was logged, a payment was collected) can meaningfully
-  // respect a date range. Status snapshots - active/trial clients, overdue
+  // time* (a payment was collected) can meaningfully respect a date range.
+  // Status snapshots - active/trial clients, overdue
   // renewals, MRR/ARR, outstanding payments still awaiting completion -
   // describe the account's state right now, not an event within a window,
   // so they stay unfiltered on purpose (filtering "outstanding payments" by
@@ -79,7 +79,6 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
   const annualRecurringRevenue = monthlyRevenue * 12;
   const averageConversations = subscriptions.length ? Math.round(totalConversations / subscriptions.length) : 0;
   const inactiveUsage = subscriptions.filter((subscription) => subscription.conversationCount === 0).length;
-  const technicalErrors = logs.filter((log) => log.level === "خطأ" && inPeriod(log.at)).length;
 
   const statusCounts = new Map<string, number>();
   for (const s of subscriptions) {
@@ -118,17 +117,16 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
   return (
     <>
       <section className="admin-action-center">
-        <div className="admin-action-title"><div><span>{t("الأولوية الآن", "Priority now")}</span><h2>{t("يتطلب إجراء الآن", "Needs action now")}</h2></div><strong>{formatNumber(overdueRenewals + pendingPayments.length + technicalErrors)}</strong></div>
+        <div className="admin-action-title"><div><span>{t("الأولوية الآن", "Priority now")}</span><h2>{t("يتطلب إجراء الآن", "Needs action now")}</h2></div><strong>{formatNumber(overdueRenewals + pendingPayments.length)}</strong></div>
         <div className="admin-action-grid">
           <Link href="/linkly-admin007/alerts?status=overdue" className="admin-action-item is-danger"><span>!</span><div><strong>{formatNumber(overdueRenewals)} {t("تجديدات متأخرة", "overdue renewals")}</strong><small>{t("تحتاج تواصلاً أو تعليقاً مدروساً", "Need outreach or considered suspension")}</small></div><b>←</b></Link>
           <Link href="/linkly-admin007/payments?status=pending" className="admin-action-item is-warn"><span>◷</span><div><strong>{formatNumber(pendingPayments.length)} {t("دفعات بانتظار الإكمال", "pending payments")}</strong><small>{formatNumber(outstandingRevenue)} {t("ر.س مستحقة", "SAR outstanding")}</small></div><b>←</b></Link>
-          <Link href="/linkly-admin007/logs?level=خطأ" className="admin-action-item is-danger"><span>×</span><div><strong>{formatNumber(technicalErrors)} {t("أخطاء تقنية", "technical errors")}</strong><small>{t("راجع سجل الأخطاء حسب الأحدث", "Review errors newest first")}</small></div><b>←</b></Link>
           <Link href="/linkly-admin007/clients?usage=inactive" className="admin-action-item"><span>○</span><div><strong>{formatNumber(inactiveUsage)} {t("عملاء دون استخدام", "clients without usage")}</strong><small>{t("لم تسجل لهم محادثات", "No conversations recorded")}</small></div><b>←</b></Link>
         </div>
       </section>
 
       <section className="admin-dashboard-period" aria-label={t("النطاق الزمني للوحة", "Dashboard date range")}>
-        <div><strong>{t("نطاق العرض", "View range")}</strong><small>{t("ينطبق على الأخطاء والإيراد المحصّل — حالات العملاء والاشتراكات مؤشرات آنية دائماً", "Applies to errors and collected revenue — client/subscription status is always shown live")}</small></div>
+        <div><strong>{t("نطاق العرض", "View range")}</strong><small>{t("ينطبق على الإيراد المحصّل — حالات العملاء والاشتراكات مؤشرات آنية دائماً", "Applies to collected revenue — client/subscription status is always shown live")}</small></div>
         <div>
           <div>{[["today", t("اليوم", "Today")], ["7d", t("آخر 7 أيام", "Last 7 days")], ["month", t("هذا الشهر", "This month")], ["custom", t("نطاق مخصص", "Custom range")]].map(([value, label]) => <button key={value} type="button" className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{label}</button>)}</div>
           {period === "custom" ? (
