@@ -55,20 +55,41 @@ export async function getAdminNotifications(): Promise<AdminNotification[]> {
   }
   renewalNotifications.sort((a, b) => (a.level === "خطأ" ? 0 : 1) - (b.level === "خطأ" ? 0 : 1));
 
-  const logNotifications: AdminNotification[] = logs
-    .slice()
-    .reverse()
+  // Log rows are raw and technical (source is a route path, message is a
+  // full "GET /x فشل: ..." string) - unusable as a notification title
+  // as-is. They also repeat verbatim once per affected channel/request, so
+  // the same underlying incident (e.g. one bad credential breaking five
+  // integrations at once) used to show up as five near-identical rows.
+  // Collapse by a signature that strips the query string (the only thing
+  // that varies between them) and keep just the newest per signature, with
+  // a count for the rest.
+  const recentLogs = logs.slice().reverse().slice(0, 80);
+  const bySignature = new Map<string, { log: (typeof recentLogs)[number]; count: number }>();
+  for (const log of recentLogs) {
+    const signature = `${log.level}::${log.source}::${log.message.replace(/\?\S*/g, "")}`;
+    const existing = bySignature.get(signature);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      bySignature.set(signature, { log, count: 1 });
+    }
+  }
+
+  const logNotifications: AdminNotification[] = Array.from(bySignature.values())
     .slice(0, 40)
-    .map((log) => ({
-      id: log.id,
-      type: "log",
-      level: log.level,
-      title: log.source,
-      message: log.message,
-      at: log.at,
-      clientName: log.clientName,
-      tenantId: log.clientId
-    }));
+    .map(({ log, count }) => {
+      const summary = log.message.length > 70 ? `${log.message.slice(0, 70)}…` : log.message;
+      return {
+        id: log.id,
+        type: "log",
+        level: log.level,
+        title: count > 1 ? `${summary} (×${count})` : summary,
+        message: log.source,
+        at: log.at,
+        clientName: log.clientName,
+        tenantId: log.clientId
+      };
+    });
 
   return [...renewalNotifications, ...logNotifications];
 }

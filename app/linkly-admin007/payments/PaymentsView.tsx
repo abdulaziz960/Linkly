@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import type { PaymentRow, SubscriptionRow } from "../types";
 import { formatNumber, statusClass } from "../utils";
 import CustomSelect from "../../components/CustomSelect";
@@ -79,6 +79,7 @@ export default function PaymentsView({ subscriptions, payments, initialStatus = 
   const [toDate, setToDate] = useState("");
   const [minAmount, setMinAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const completedPayments = payments.filter((p) => p.status === "مكتمل");
   const pendingPayments = payments.filter((p) => p.status === "قيد الانتظار");
@@ -197,37 +198,56 @@ export default function PaymentsView({ subscriptions, payments, initialStatus = 
           <table>
             <thead>
               <tr>
-                <th>{t("التاريخ", "Date")}</th>
                 <th>{t("العميل", "Client")}</th>
-                <th>{t("النوع", "Type")}</th>
-                <th>{t("الرسائل", "Messages")}</th>
                 <th>{t("المبلغ", "Amount")}</th>
                 <th>{t("الحالة", "Status")}</th>
-                <th>{t("معرّف Moyasar", "Moyasar ID")}</th>
+                <th>{t("التاريخ", "Date")}</th>
+                <th>{t("النوع", "Type")}</th>
                 <th></th>
+              </tr>
+              <tr className="admin-table-summary-row">
+                <th>{t("الإجمالي", "Total")}</th>
+                <th>{formatNumber(visiblePayments.reduce((sum, p) => sum + p.amount, 0))} {t("ر.س", "SAR")}</th>
+                <th colSpan={4}>{formatNumber(visiblePayments.length)} {t("عملية", "payments")}</th>
               </tr>
             </thead>
             <tbody>
-              {visiblePayments.map((payment) => (
-                <tr key={payment.id}>
-                  <td>{payment.completedAt || payment.createdAt}</td>
-                  <td>{payment.companyName}</td>
-                  <td>{sourceLabel(payment.source, t)}</td>
-                  <td>{payment.messages ? formatNumber(payment.messages) : "—"}</td>
-                  <td>{formatNumber(payment.amount)} {t("ر.س", "SAR")}</td>
-                  <td>
-                    <span className={`admin-pill ${statusClass(payment.status)}`}>{statusLabel(payment.status, t)}</span>
-                  </td>
-                  <td dir="ltr">{payment.moyasarId || "—"}</td>
-                  <td>
-                    {payment.status === "قيد الانتظار" && payment.paymentUrl ? (
-                      <a className="admin-table-link" href={payment.paymentUrl} target="_blank" rel="noreferrer">
-                        {t("فتح رابط الدفع", "Open Payment Link")}
-                      </a>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
+              {visiblePayments.map((payment) => {
+                const expanded = expandedId === payment.id;
+                return (
+                <Fragment key={payment.id}>
+                  <tr>
+                    <td>{payment.companyName}</td>
+                    <td>{formatNumber(payment.amount)} {t("ر.س", "SAR")}</td>
+                    <td>
+                      <span className={`admin-pill ${statusClass(payment.status)}`}>{statusLabel(payment.status, t)}</span>
+                    </td>
+                    <td>{payment.completedAt || payment.createdAt}</td>
+                    <td>{sourceLabel(payment.source, t)}</td>
+                    <td>
+                      <button type="button" className="admin-table-expand" aria-expanded={expanded} onClick={() => setExpandedId(expanded ? null : payment.id)}>
+                        {t("التفاصيل", "Details")} {expanded ? "▴" : "▾"}
+                      </button>
+                    </td>
+                  </tr>
+                  {expanded ? (
+                    <tr className="admin-table-detail-row">
+                      <td colSpan={6}>
+                        <div className="admin-table-detail">
+                          {payment.messages ? <span>{t("الرسائل", "Messages")}: <b>{formatNumber(payment.messages)}</b></span> : null}
+                          <span>{t("معرّف Moyasar", "Moyasar ID")}: <b dir="ltr">{payment.moyasarId || "—"}</b></span>
+                          {payment.status === "قيد الانتظار" && payment.paymentUrl ? (
+                            <a className="admin-table-link" href={payment.paymentUrl} target="_blank" rel="noreferrer">
+                              {t("فتح رابط الدفع", "Open Payment Link")}
+                            </a>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

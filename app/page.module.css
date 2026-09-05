@@ -531,12 +531,10 @@
   text-align: center;
 }
 .productGrid {
-  max-width: 1180px;
+  max-width: 720px;
   margin: auto;
   display: grid;
-  grid-template-columns: 0.72fr 1.28fr;
-  gap: 40px;
-  align-items: center;
+  grid-template-columns: 1fr;
 }
 .numberList article {
   display: grid;
@@ -995,9 +993,6 @@
   .security {
     grid-template-columns: 1fr;
     gap: 42px;
-  }
-  .productGrid {
-    grid-template-columns: 1fr;
   }
   .numberList {
     display: grid;

@@ -1,13 +1,26 @@
 import { NextRequest } from "next/server";
-import { randomUUID } from "crypto";
 import { getCampaigns } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
-import { parseRecipientFile, activateDueScheduledCampaigns, processCampaignBatch, getCampaignBalance, parseRiyadhDateTime, MAX_CAMPAIGN_FILE_BYTES, MAX_CAMPAIGN_MEDIA_BYTES } from "../../../lib/campaign-engine";
+import {
+  parseRecipientFile,
+  activateDueScheduledCampaigns,
+  activateDueRecurringCampaigns,
+  processCampaignBatch,
+  getCampaignBalance,
+  parseRiyadhDateTime,
+  spawnCampaignOccurrence,
+  createRecurringCampaign,
+  MAX_CAMPAIGN_FILE_BYTES,
+  MAX_CAMPAIGN_MEDIA_BYTES
+} from "../../../lib/campaign-engine";
 import { userHasViewPermission } from "../../../lib/permissions-server";
+import { getSegmentById, resolveSegmentRecipients } from "../../../lib/segments";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
+
+const ALLOWED_RECURRENCE_INTERVAL_DAYS = new Set([1, 7, 14, 30]);
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -15,6 +28,7 @@ export async function GET() {
   if (!(await userHasViewPermission(user, "campaigns"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   await activateDueScheduledCampaigns(user.tenantId).catch((error) => console.error("Campaign scheduling check failed", error));
+  await activateDueRecurringCampaigns(user.tenantId).catch((error) => console.error("Recurring campaign check failed", error));
   processCampaignBatch(user.tenantId).catch((error) => console.error("Campaign batch send failed", error));
 
   return jsonOk(await getCampaigns(user.tenantId));
@@ -32,24 +46,38 @@ export async function POST(request: NextRequest) {
   const templateName = String(formData.get("templateName") || "").trim();
   const scheduled = formData.get("scheduled") === "true";
   const scheduledAt = String(formData.get("scheduledAt") || "").trim();
+  const recurring = formData.get("recurring") === "true";
+  const recurrenceIntervalDays = Number(formData.get("recurrenceIntervalDays") || 0);
+  const recurrenceEndAt = String(formData.get("recurrenceEndAt") || "").trim();
+  const audienceMode = formData.get("audienceMode") === "segment" ? "segment" : "file";
+  const segmentId = String(formData.get("segmentId") || "").trim();
   const file = formData.get("file");
   const headerMediaFile = formData.get("headerMedia");
+
+  if (recurring && !ALLOWED_RECURRENCE_INTERVAL_DAYS.has(recurrenceIntervalDays)) {
+    return jsonError("اختر فترة تكرار صحيحة");
+  }
 
   if (!name) return jsonError("اسم الحملة مطلوب");
   if (name.length > 120) return jsonError("اسم الحملة طويل جداً");
   if (!templateName) return jsonError("اختر قالب معتمد قبل إنشاء الحملة");
-  if (!(file instanceof File)) return jsonError("ارفع ملف Excel أو CSV يحتوي على أرقام العملاء");
-  const extension = file.name.toLowerCase().split(".").pop();
-  if (!extension || !["csv", "xlsx"].includes(extension)) return jsonError("صيغة الملف غير مدعومة. استخدم CSV أو XLSX فقط");
-  if (file.size <= 0 || file.size > MAX_CAMPAIGN_FILE_BYTES) return jsonError("حجم الملف يجب ألا يتجاوز 5 ميجابايت");
-  const allowedMimeTypes = new Set([
-    "text/csv",
-    "application/csv",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/octet-stream"
-  ]);
-  if (file.type && !allowedMimeTypes.has(file.type)) return jsonError("نوع الملف غير مدعوم");
+
+  if (audienceMode === "file") {
+    if (!(file instanceof File)) return jsonError("ارفع ملف Excel أو CSV يحتوي على أرقام العملاء");
+    const extension = file.name.toLowerCase().split(".").pop();
+    if (!extension || !["csv", "xlsx"].includes(extension)) return jsonError("صيغة الملف غير مدعومة. استخدم CSV أو XLSX فقط");
+    if (file.size <= 0 || file.size > MAX_CAMPAIGN_FILE_BYTES) return jsonError("حجم الملف يجب ألا يتجاوز 5 ميجابايت");
+    const allowedMimeTypes = new Set([
+      "text/csv",
+      "application/csv",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/octet-stream"
+    ]);
+    if (file.type && !allowedMimeTypes.has(file.type)) return jsonError("نوع الملف غير مدعوم");
+  } else if (!segmentId) {
+    return jsonError("اختر تقسيم جمهور لاستخدامه كجمهور الحملة");
+  }
 
   const template = await prisma.template.findFirst({ where: { name: templateName, tenantId: user.tenantId } });
   if (!template) return jsonError("القالب المختار غير موجود");
@@ -86,45 +114,46 @@ export async function POST(request: NextRequest) {
     return jsonError("هذا القالب يحتاج صورة أو فيديو بالرأس - ارفعها مع الحملة أو من إعدادات القالب أولاً");
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const recipients = await parseRecipientFile(buffer, file.name).catch(() => []);
-  if (!recipients.length) return jsonError("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.");
+  let recipients: Awaited<ReturnType<typeof resolveSegmentRecipients>>;
+  if (audienceMode === "segment") {
+    const segment = await getSegmentById(user.tenantId, segmentId);
+    if (!segment) return jsonError("التقسيم غير موجود", 404);
+    recipients = await resolveSegmentRecipients(user.tenantId, segment);
+    if (!recipients.length) return jsonError("ما فيه عملاء يطابقون هذا التقسيم حالياً.");
+  } else {
+    const buffer = Buffer.from(await (file as File).arrayBuffer());
+    recipients = await parseRecipientFile(buffer, (file as File).name).catch(() => []);
+    if (!recipients.length) return jsonError("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.");
+  }
 
   const scheduledDate = scheduled ? parseRiyadhDateTime(scheduledAt) : null;
   const isScheduledFuture = Boolean(scheduledDate && scheduledDate.getTime() > Date.now());
-  const campaignId = `camp-${randomUUID()}`;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.campaign.create({
-      data: {
-        id: campaignId,
-        tenantId: user.tenantId,
-        name,
-        channel: "whatsapp",
-        templateName,
-        language: template.language || "ar",
-        scheduledAt: isScheduledFuture && scheduledDate ? scheduledDate.toISOString() : "",
-        headerMediaDataUrl,
-        sent: 0,
-        total: recipients.length,
-        progress: "0%",
-        status: isScheduledFuture ? "مجدولة" : "قيد الإرسال",
-        updatedAt: new Date().toLocaleString("en-US")
-      }
+  let campaignId: string;
+  if (recurring) {
+    const created = await createRecurringCampaign(user.tenantId, {
+      name,
+      templateName,
+      language: template.language || "ar",
+      headerMediaDataUrl,
+      recipients,
+      intervalDays: recurrenceIntervalDays,
+      startAt: scheduledDate,
+      endAt: recurrenceEndAt
     });
-
-    await tx.campaignRecipient.createMany({
-      data: recipients.map((recipient) => ({
-          id: `cr-${campaignId}-${recipient.phone}`,
-          campaignId,
-          tenantId: user.tenantId,
-          phone: recipient.phone,
-          name: recipient.name,
-          status: "قيد الإرسال",
-          createdAt: new Date().toISOString()
-      }))
-    });
-  });
+    campaignId = created.campaignId;
+  } else {
+    campaignId = await prisma.$transaction((tx) => spawnCampaignOccurrence(tx, {
+      tenantId: user.tenantId,
+      name,
+      templateName,
+      language: template.language || "ar",
+      headerMediaDataUrl,
+      recipients,
+      status: isScheduledFuture ? "مجدولة" : "قيد الإرسال",
+      scheduledAt: isScheduledFuture && scheduledDate ? scheduledDate.toISOString() : ""
+    }));
+  }
 
   if (!isScheduledFuture) {
     processCampaignBatch(user.tenantId).catch((error) => console.error("Campaign batch send failed", error));

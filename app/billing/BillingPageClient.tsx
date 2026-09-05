@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import BillingClient from "./BillingClient";
+import { useStoredLanguage } from "../useStoredLanguage";
 
 type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number };
 type Subscription = { plan: string; status: string } | null;
@@ -48,7 +48,7 @@ export default function BillingPageClient({
   expired: boolean;
   isTestMode: boolean;
 }) {
-  const [lang, setLang] = useState<"ar" | "en">("ar");
+  const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
   const blockedReason = expired
     ? subscription?.status === "متوقف"

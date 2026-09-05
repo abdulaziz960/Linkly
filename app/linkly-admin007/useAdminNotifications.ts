@@ -112,6 +112,14 @@ export function useAdminNotifications() {
 
   return {
     items,
+    // The badge shown on the bell itself: how many currently-active items
+    // need attention (errors + alerts), independent of whether this browser
+    // has already opened the dropdown once. unreadCount (below) is a
+    // separate "seen" tracker used only to decide when to play the chime -
+    // using it for the badge too meant 15 still-unresolved errors read as
+    // "0 notifications" the moment anyone glanced at the dropdown once,
+    // even though nothing about them had actually been fixed.
+    actionableCount: items.filter((item) => item.level !== "معلومة").length,
     unreadCount: unreadIds.size,
     unreadIds,
     soundEnabled,

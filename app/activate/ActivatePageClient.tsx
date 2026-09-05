@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense } from "react";
 import Image from "next/image";
 import ActivateForm from "./ActivateForm";
+import { useStoredLanguage } from "../useStoredLanguage";
 
 const copy = {
   ar: {
@@ -18,7 +19,7 @@ const copy = {
 } as const;
 
 export default function ActivatePageClient() {
-  const [lang, setLang] = useState<"ar" | "en">("ar");
+  const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
 
   return (

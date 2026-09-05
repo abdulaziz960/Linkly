@@ -5,6 +5,7 @@ export type ViewKey =
   | "bot"
   | "automations"
   | "campaigns"
+  | "segments"
   | "templates"
   | "quickReplies"
   | "workHours"
@@ -136,6 +137,16 @@ export type Tag = {
   description: string;
 };
 
+export type Segment = {
+  id: string;
+  name: string;
+  tagNames: string[];
+  inactiveDays: number;
+  recipientCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type QuickReply = {
   id: string;
   shortcut: string;
@@ -175,6 +186,7 @@ export type Campaign = {
   status: "الحملة أنجزت" | "قيد الإرسال" | "مجدولة" | "ملغاة";
   updatedAt: string;
   hasHeaderMedia?: boolean;
+  recurrenceId?: string;
 };
 
 export type WorkSchedule = {

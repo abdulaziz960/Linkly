@@ -1,7 +1,6 @@
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
-import { getCampaignBalance } from "../../../../lib/campaign-engine";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -11,7 +10,9 @@ export async function GET() {
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
   if (!(await userHasViewPermission(user, "campaigns"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
-  const balance = await getCampaignBalance(user.tenantId);
+  const balanceRow = await prisma.campaignBalance.findUnique({ where: { tenantId: user.tenantId } });
+  const balance = balanceRow?.balance ?? 0;
+  const lastTopUpAmount = balanceRow?.lastTopUpAmount ?? 0;
   const payments = await prisma.campaignPayment.findMany({
     where: { tenantId: user.tenantId },
     orderBy: { createdAt: "desc" },
@@ -20,6 +21,7 @@ export async function GET() {
 
   return jsonOk({
     balance,
+    lastTopUpAmount,
     transactions: payments.map((payment) => ({
       id: payment.id,
       balance: payment.status === "مكتمل" ? payment.messages : 0,

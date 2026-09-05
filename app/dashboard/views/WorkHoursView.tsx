@@ -167,7 +167,7 @@ export default function WorkHoursView({
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
           <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ جدول عمل", "Save work schedule")} onSubmit={submitSchedule} onClick={(event) => event.stopPropagation()}>
-            <header className="modal-head"><button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button><h2>{form.id ? t("تعديل جدول", "Edit schedule") : t("إضافة جدول", "Add schedule")}</h2></header>
+            <header className="modal-head"><button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button><h2>{form.id ? t("تعديل جدول", "Edit schedule") : t("إضافة جدول", "Add schedule")}</h2></header>
             <div className="account-modal-body form-grid">
               <label>
                 <span>{t("الفريق", "Team")}</span>
