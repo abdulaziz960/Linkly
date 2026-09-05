@@ -8,6 +8,7 @@ import { sendFacebookTextMessage } from "./facebook-send";
 import { sendXTextMessage } from "./x-send";
 import { sendWebsiteTextMessage } from "./website-send";
 import { pickTeamAssignee } from "./automation-engine";
+import { findBestKbMatch } from "./knowledge-base";
 
 export type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x" | "website";
 
@@ -24,7 +25,8 @@ export type BotNodeContent =
   | { kind: "list"; text: string; options: BotListOption[] }
   | { kind: "team"; teamName: string }
   | { kind: "employee"; employeeName: string }
-  | { kind: "close"; text: string };
+  | { kind: "close"; text: string }
+  | { kind: "knowledgeBase"; noMatchText: string; next: string | null };
 
 export type BotNodeInput = {
   id?: string;
@@ -50,6 +52,7 @@ const MESSAGE_NODE_TYPE = "إرسال رسالة";
 const TEAM_NODE_TYPE = "تحويل لفريق";
 const EMPLOYEE_NODE_TYPE = "تحويل لموظف";
 const CLOSE_NODE_TYPE = "إغلاق المحادثة";
+const KNOWLEDGE_BASE_NODE_TYPE = "رد من قاعدة المعرفة";
 
 function settingsId(tenantId: string, channel: BotChannel) {
   return `bot-settings-${tenantId}-${channel}`;
@@ -151,7 +154,7 @@ export async function getBotNodes(tenantId = "tenant-demo", channel: BotChannel 
 }
 
 function remapNodeLinks(content: BotNodeContent, idMap: Map<string, string>): BotNodeContent {
-  if (content.kind === "message") {
+  if (content.kind === "message" || content.kind === "knowledgeBase") {
     return { ...content, next: content.next ? idMap.get(content.next) || content.next : null };
   }
   if (content.kind === "list") {
@@ -345,7 +348,7 @@ async function executeFrom(
   channel: BotChannel,
   nodes: BotNode[],
   startId: string,
-  ctx: { tenantId: string; conversationId: string; recipientId: string }
+  ctx: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string }
 ) {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   let currentId: string | null = startId;
@@ -399,6 +402,13 @@ async function executeFrom(
       return;
     }
 
+    if (node.type === KNOWLEDGE_BASE_NODE_TYPE && node.content.kind === "knowledgeBase") {
+      const match = await findBestKbMatch(ctx.tenantId, ctx.incomingText || "");
+      await sendBotText(channel, { ...ctx, text: match ? match.answer : node.content.noMatchText });
+      currentId = node.content.next;
+      continue;
+    }
+
     if (node.type === CLOSE_NODE_TYPE && node.content.kind === "close") {
       if (node.content.text.trim()) {
         await sendBotText(channel, { ...ctx, text: node.content.text });
@@ -434,7 +444,7 @@ export async function runChannelBot(
   const nodes = await getBotNodes(tenantId, channel);
   if (!nodes.length) return;
 
-  const ctx = { tenantId, conversationId: input.conversationId, recipientId: input.recipientId };
+  const ctx = { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, incomingText: input.incomingText };
 
   if (!conversation.botRanAt) {
     // Claim the "start the flow" step atomically: only the invocation whose
