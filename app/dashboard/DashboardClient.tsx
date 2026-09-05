@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -200,6 +200,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const profileLogoInputRef = useRef<HTMLInputElement>(null);
+  const topLinksRef = useRef<HTMLDivElement | null>(null);
   const [profileLogo, setProfileLogo] = useState(initialUser.profileLogo ?? "");
   const [draftProfileLogo, setDraftProfileLogo] = useState(initialUser.profileLogo ?? "");
   const [profileFeedback, setProfileFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -313,6 +314,26 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     if (!preferencesLoaded) return;
     window.localStorage.setItem("audiencew-language", language);
   }, [language, preferencesLoaded]);
+
+  // The sidebar/main columns size themselves against this (alongside
+  // --trial-banner-h) so the quick-links bar doesn't push the page taller
+  // than the viewport - same reasoning as TrialCountdownBanner's own height
+  // measurement, just for this row instead.
+  useLayoutEffect(() => {
+    const el = topLinksRef.current;
+    if (!el) {
+      document.documentElement.style.setProperty("--top-links-h", "0px");
+      return;
+    }
+    const update = () => document.documentElement.style.setProperty("--top-links-h", `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.setProperty("--top-links-h", "0px");
+    };
+  }, []);
 
   useEffect(() => {
     fetch("/api/settings/integration")
@@ -1097,7 +1118,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     <LanguageProvider language={language}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
-      <div className="dashboard-top-links">
+      <div className="dashboard-top-links" ref={topLinksRef}>
         <Link
           className="sidebar-billing-link is-support"
           href="/dashboard/support"

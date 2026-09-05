@@ -91,7 +91,7 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
-  grid-template-rows: auto minmax(0, calc(100vh - var(--trial-banner-h, 0px)));
+  grid-template-rows: auto minmax(0, calc(100vh - var(--trial-banner-h, 0px) - var(--top-links-h, 0px)));
   background: var(--bg);
   color: var(--ink);
   direction: ltr;
@@ -227,7 +227,7 @@
   grid-row: 2;
   direction: rtl;
   position: sticky;
-  top: var(--trial-banner-h, 0px);
+  top: calc(var(--trial-banner-h, 0px) + var(--top-links-h, 0px));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -7963,7 +7963,7 @@
 }
 
 .dashboard-main {
-  height: calc(100dvh - 8px - var(--trial-banner-h, 0px));
+  height: calc(100dvh - 8px - var(--trial-banner-h, 0px) - var(--top-links-h, 0px));
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid #b8d5cf;
@@ -8436,7 +8436,7 @@
   }
 
   .dashboard-main {
-    height: calc(100dvh - var(--trial-banner-h, 0px));
+    height: calc(100dvh - var(--trial-banner-h, 0px) - var(--top-links-h, 0px));
     border: 0;
     border-radius: 0;
   }
