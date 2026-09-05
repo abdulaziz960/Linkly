@@ -142,7 +142,7 @@ export default function TagsView({
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
           <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ وسم", "Save Tag")} onSubmit={submitTag} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
               <h2>{form.id ? t("تعديل وسم", "Edit Tag") : t("إضافة وسم", "Add Tag")}</h2>
             </header>
             <div className="account-modal-body form-grid">
@@ -172,7 +172,7 @@ export default function TagsView({
         <div className="modal-backdrop" role="presentation" onClick={() => setSelectedTag(null)}>
           <section className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t(`محادثات وسم ${selectedTag.name}`, `Conversations for tag ${selectedTag.name}`)} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setSelectedTag(null)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setSelectedTag(null)}>×</button>
               <h2>{t(`محادثات وسم ${selectedTag.name}`, `Conversations for tag ${selectedTag.name}`)}</h2>
             </header>
             <div className="account-modal-body">

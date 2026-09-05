@@ -478,7 +478,7 @@ export default function AutomationsView({
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
           <form className="account-modal form-modal automation-modal" role="dialog" aria-modal="true" aria-label={t("حفظ قاعدة أتمتة", "Save automation rule")} onSubmit={submitRule} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
               <h2>{form.id ? t("تعديل قاعدة أتمتة", "Edit Automation Rule") : t("إضافة قاعدة أتمتة", "Add Automation Rule")}</h2>
             </header>
             <div className="automation-stepper" aria-label={t("مراحل إنشاء الأتمتة", "Automation setup steps")}>

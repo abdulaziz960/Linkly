@@ -1201,7 +1201,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         <div className="modal-backdrop" role="presentation" onClick={() => setProfileOpen(false)}>
           <section className="account-modal" role="dialog" aria-modal="true" aria-label={t("الملف الشخصي", "Profile")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setProfileOpen(false)}>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setProfileOpen(false)}>
                 ×
               </button>
               <h2>{profilePanel === "billing" ? t("الفواتير والاشتراك", "Billing & subscription") : profilePanel === "security" ? t("الأمان", "Security") : t("الملف الشخصي", "Profile")}</h2>

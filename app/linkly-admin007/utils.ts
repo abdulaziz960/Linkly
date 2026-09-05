@@ -16,6 +16,34 @@ export function statusClass(status: string) {
   return "is-danger";
 }
 
+export function parseTimestamp(rawValue: string) {
+  // Intl.DateTimeFormat("ar", ...) sprinkles invisible bidi control
+  // characters (U+200E/U+200F, and U+2066-U+2069 for isolates) around the
+  // date's numeric parts - invisible on screen, but they land right inside
+  // "01/09/2026" and silently break every regex/Date.parse attempt below
+  // unless stripped first. This is why some log entries showed "unknown
+  // time" despite having a perfectly real, displayable date.
+  const bidiControlChars = [0x200e, 0x200f, 0x2066, 0x2067, 0x2068, 0x2069].map((code) => String.fromCharCode(code));
+  const value = bidiControlChars.reduce((text, char) => text.split(char).join(""), rawValue);
+  const direct = Date.parse(value);
+  if (Number.isFinite(direct)) return direct;
+  const normalized = value.replace(/[٠-٩]/g, (n) => String("٠١٢٣٤٥٦٧٨٩".indexOf(n))).replace(/،/g, " ");
+  const parsed = Date.parse(normalized);
+  if (Number.isFinite(parsed)) return parsed;
+  // Some log entries are stored as a pre-formatted Arabic locale string
+  // (DD/MM/YYYY h:mm + ص/م for AM/PM), which Date.parse can never
+  // understand in any engine/locale - parse that exact shape by hand.
+  const arabicLocaleMatch = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*(ص|م)?$/);
+  if (arabicLocaleMatch) {
+    const [, day, month, year, hour12Raw, minute, meridiem] = arabicLocaleMatch;
+    let hour = Number(hour12Raw) % 12;
+    if (meridiem === "م") hour += 12;
+    const date = new Date(Number(year), Number(month) - 1, Number(day), hour, Number(minute));
+    if (Number.isFinite(date.getTime())) return date.getTime();
+  }
+  return 0;
+}
+
 function parseRenewalDate(renewalAt: string) {
   if (!renewalAt) return null;
   const date = new Date(`${renewalAt}T00:00:00`);

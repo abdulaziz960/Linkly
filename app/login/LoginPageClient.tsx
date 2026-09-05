@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import LoginForm from "./LoginForm";
+import { useStoredLanguage } from "../useStoredLanguage";
 
 const copy = {
   ar: {
@@ -16,7 +16,7 @@ const copy = {
 };
 
 export default function LoginPageClient() {
-  const [lang, setLang] = useState<"ar" | "en">("ar");
+  const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
 
   return (

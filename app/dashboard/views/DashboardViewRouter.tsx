@@ -19,6 +19,7 @@ import ContactsView from "./ContactsView";
 import EmployeesView from "./EmployeesView";
 import QuickRepliesView from "./QuickRepliesView";
 import ReportsView from "./ReportsView";
+import SegmentsView from "./SegmentsView";
 import SettingsView from "./SettingsView";
 import TagsView from "./TagsView";
 import TeamsView from "./TeamsView";
@@ -76,6 +77,7 @@ export default function DashboardViewRouter({
     );
   }
   if (view === "campaigns") return <CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
+  if (view === "segments") return <SegmentsView tags={tags} />;
   if (view === "templates") return <TemplatesView templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "workHours") return <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} />;
