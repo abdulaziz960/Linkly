@@ -1097,13 +1097,22 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     }
   }
 
+  function openProfile() {
+    setDraftStatus(currentProfileStatus);
+    setDraftLanguage(language);
+    setDraftThemePreference(themePreference);
+    setDraftProfileLogo(profileLogo);
+    setProfileFeedback(null);
+    setProfileOpen(true);
+  }
+
   return (
     <LanguageProvider language={language}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language} theme-${resolvedTheme}`} data-theme={resolvedTheme} dir={language === "en" ? "ltr" : "rtl"}>
       {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
       <div className="dashboard-top-links">
         <Link
-          className="sidebar-billing-link"
+          className="sidebar-billing-link is-support"
           href="/dashboard/support"
           title={language === "en" ? "Support" : "الدعم الفني"}
           aria-label={language === "en" ? "Support" : "الدعم الفني"}
@@ -1112,9 +1121,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             <circle cx="12" cy="12" r="9" />
             <path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2-2.4 3.6M12 17h.01" />
           </svg>
+          <span>{language === "en" ? "Support" : "الدعم الفني"}</span>
         </Link>
         <Link
-          className="sidebar-billing-link"
+          className="sidebar-billing-link is-development"
           href="/dashboard/development"
           title={language === "en" ? "Development" : "تطوير المنصة"}
           aria-label={language === "en" ? "Development" : "تطوير المنصة"}
@@ -1122,10 +1132,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M9 17l-5-5 5-5M15 7l5 5-5 5" />
           </svg>
+          <span>{language === "en" ? "Development" : "تطوير المنصة"}</span>
         </Link>
         {initialUser.role === "مالك الحساب" ? (
           <Link
-            className="sidebar-billing-link"
+            className="sidebar-billing-link is-billing"
             href="/billing"
             title={language === "en" ? "Plans and billing" : "الباقات والاشتراك"}
             aria-label={language === "en" ? "Plans and billing" : "الباقات والاشتراك"}
@@ -1134,8 +1145,21 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
               <rect x="3" y="5" width="18" height="14" rx="2.5" />
               <path d="M3 10h18M7 15h4" />
             </svg>
+            <span>{language === "en" ? "Billing" : "الباقات"}</span>
           </Link>
         ) : null}
+        <button
+          type="button"
+          className="sidebar-billing-link is-profile"
+          onClick={openProfile}
+          title={language === "en" ? "Profile" : "الملف الشخصي"}
+          aria-label={language === "en" ? "Profile" : "الملف الشخصي"}
+        >
+          <span className={`dashboard-top-links-avatar ${profileLogo ? "has-logo" : ""}`}>
+            {profileLogo ? <Image src={profileLogo} alt="" width={22} height={22} unoptimized /> : accountInitial}
+          </span>
+          <span>{language === "en" ? "Profile" : "الملف الشخصي"}</span>
+        </button>
       </div>
       <DashboardSidebar
         activeView={activeView}
@@ -1147,22 +1171,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         xStatus={xStatus}
         googleMapsStatus={googleMapsStatus}
         emailStatus={emailStatus}
-        user={initialUser}
         planName={subscription?.plan || ""}
-        profileLogo={profileLogo}
-        profileStatus={currentProfileStatus}
         language={language}
         selectedChannel={selectedChannel}
         onChangeView={handleViewChange}
         onChangeChannel={handleChannelChange}
-        onOpenProfile={() => {
-          setDraftStatus(currentProfileStatus);
-          setDraftLanguage(language);
-          setDraftThemePreference(themePreference);
-          setDraftProfileLogo(profileLogo);
-          setProfileFeedback(null);
-          setProfileOpen(true);
-        }}
       />
 
       <main className="dashboard-main">
