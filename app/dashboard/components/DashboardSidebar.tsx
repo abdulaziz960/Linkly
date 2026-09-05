@@ -4,7 +4,7 @@ import { useState, type FocusEvent, type MouseEvent, type ReactNode } from "reac
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { getChannelName } from "../../channel-names";
-import type { ConversationChannel, ConversationChannelFilter, DashboardUser, ViewKey } from "../types";
+import type { ConversationChannel, ConversationChannelFilter, ViewKey } from "../types";
 import { navItems, navItemLabelsEn } from "../data/navigation";
 import { ChannelIcon } from "../views/SettingsView";
 
@@ -18,20 +18,12 @@ type DashboardSidebarProps = {
   xStatus: "connected" | "not_connected" | "pending";
   googleMapsStatus: "connected" | "not_connected" | "pending";
   emailStatus: "connected" | "not_connected" | "pending";
-  user: DashboardUser;
   planName: string;
-  profileLogo?: string;
-  profileStatus: "متصل" | "مشغول" | "غير متصل";
   selectedChannel: ConversationChannelFilter;
   language?: "ar" | "en";
   onChangeView: (view: ViewKey) => void;
   onChangeChannel: (channel: ConversationChannel) => void;
-  onOpenProfile: () => void;
 };
-
-function getInitial(name: string) {
-  return name.trim().charAt(0) || "ع";
-}
 
 type SidebarTooltipState = {
   label: string;
@@ -71,15 +63,11 @@ export default function DashboardSidebar({
   xStatus,
   googleMapsStatus,
   emailStatus,
-  user,
   planName,
-  profileLogo,
-  profileStatus,
   selectedChannel,
   language = "ar",
   onChangeView,
-  onChangeChannel,
-  onOpenProfile
+  onChangeChannel
 }: DashboardSidebarProps) {
   const [navigationSearchOpen, setNavigationSearchOpen] = useState(false);
   const [navigationSearch, setNavigationSearch] = useState("");
@@ -178,33 +166,6 @@ export default function DashboardSidebar({
           );
         })}
       </nav>
-      <button
-        className="account-btn"
-        type="button"
-        onClick={() => { hideSidebarTooltip(); onOpenProfile(); }}
-        onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Profile" : "الملف الشخصي")}
-        onMouseLeave={hideSidebarTooltip}
-        onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Profile" : "الملف الشخصي")}
-        onBlur={hideSidebarTooltip}
-        aria-label={isEnglish ? "Profile" : "الملف الشخصي"}
-      >
-        <span className={`account-avatar ${profileLogo ? "has-logo" : ""}`}>
-          {profileLogo ? <Image src={profileLogo} alt="" width={38} height={38} unoptimized /> : getInitial(user.name)}
-        </span>
-        <span>
-          <b>{user.name}</b>
-          <small>{user.role}</small>
-          <em className={profileStatus === "متصل" ? "online" : profileStatus === "مشغول" ? "busy" : "offline"}>
-            {isEnglish
-              ? profileStatus === "متصل"
-                ? "Online"
-                : profileStatus === "مشغول"
-                  ? "Busy"
-                  : "Offline"
-              : profileStatus}
-          </em>
-        </span>
-      </button>
       {sidebarTooltip && typeof document !== "undefined"
         ? createPortal(
           <span
