@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "crypto";
 import { getPasswordValidationError, hashPassword, verifyPassword } from "./passwords";
 import { decryptSecret, encryptSecret, hasIntegrationEncryptionKey, integrationSecretFields } from "./secret-storage";
 import { automationRules } from "../app/dashboard/data/automations";
+import { textSimilarity, SIMILARITY_CLUSTER_THRESHOLD } from "./text-similarity";
 import { templates } from "../app/dashboard/data/templates";
 import type {
   AutomationRule,
@@ -1889,22 +1890,47 @@ export async function syncAutomaticQuickReplies(tenantId: string) {
     }),
     prisma.quickReply.findMany({ where: { tenantId }, select: { text: true, shortcut: true } })
   ]);
-  const existingTexts = new Set(existing.map((reply) => normalizeQuickReplyText(reply.text)));
+  const existingTexts = existing.map((reply) => reply.text.trim());
   const shortcuts = new Set(existing.map((reply) => reply.shortcut.toLocaleLowerCase("en-US")));
+
+  // First pass: exact-normalized-text dedup keeps the candidate set small
+  // (typically far fewer than the 1000 scanned messages) before the more
+  // expensive pairwise similarity clustering below.
   const groups = new Map<string, { text: string; count: number }>();
   for (const message of messages) {
     if (!isSafeAutomaticReply(message.text)) continue;
     const normalized = normalizeQuickReplyText(message.text);
-    if (existingTexts.has(normalized)) continue;
     const current = groups.get(normalized);
     if (current) current.count += 1;
     else groups.set(normalized, { text: message.text.trim(), count: 1 });
   }
-  const candidates = Array.from(groups.entries())
-    .filter(([, item]) => item.count >= 3)
-    .sort(([, a], [, b]) => b.count - a.count)
+
+  // Second pass: cluster distinct groups by similarity so differently-worded
+  // phrasings of the same reply (not just literal repeats) count together.
+  // Each cluster's representative text is its highest-count member (ties
+  // keep whichever was seen first), tracked separately from the running
+  // total so a later, smaller group can never overwrite a bigger one.
+  const clusters: Array<{ text: string; count: number; topCount: number }> = [];
+  for (const group of groups.values()) {
+    const matchingCluster = clusters.find((cluster) => textSimilarity(cluster.text, group.text) >= SIMILARITY_CLUSTER_THRESHOLD);
+    if (matchingCluster) {
+      matchingCluster.count += group.count;
+      if (group.count > matchingCluster.topCount) {
+        matchingCluster.text = group.text;
+        matchingCluster.topCount = group.count;
+      }
+    } else {
+      clusters.push({ text: group.text, count: group.count, topCount: group.count });
+    }
+  }
+
+  const candidates = clusters
+    .filter((cluster) => cluster.count >= 3)
+    .filter((cluster) => !existingTexts.some((text) => textSimilarity(text, cluster.text) >= SIMILARITY_CLUSTER_THRESHOLD))
+    .sort((a, b) => b.count - a.count)
     .slice(0, 6);
-  for (const [normalized, item] of candidates) {
+  for (const item of candidates) {
+    const normalized = normalizeQuickReplyText(item.text);
     const hash = createHash("sha256").update(`${tenantId}:${normalized}`).digest("hex").slice(0, 14);
     let shortcut = automaticShortcut(item.text, hash);
     if (shortcuts.has(shortcut.toLocaleLowerCase("en-US"))) shortcut = `${shortcut}-${hash.slice(0, 4)}`;
