@@ -1,3 +1,21 @@
+/* The dashboard shell manages its own internal scroll areas (nav, main
+   content, message lists), each with their own styled/hidden scrollbar.
+   A page-level scrollbar can still appear here if any of that internal
+   sizing math is ever slightly off, and it renders as an ugly unstyled
+   native scrollbar since nothing on this route styles html/body directly -
+   hide it visually (scrolling, if ever actually needed, still works via
+   wheel/keyboard/touch) rather than let it flash into view. */
+html:has(.dashboard-shell),
+body:has(.dashboard-shell) {
+  scrollbar-width: none;
+}
+html:has(.dashboard-shell)::-webkit-scrollbar,
+body:has(.dashboard-shell)::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 :root {
   /* Linkly brand scale */
   --brand-50: #eefbf9;
@@ -227,7 +245,7 @@
   grid-row: 2;
   direction: rtl;
   position: sticky;
-  top: calc(var(--trial-banner-h, 0px) + var(--top-links-h, 0px));
+  top: var(--trial-banner-h, 0px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -7600,6 +7618,7 @@
 .dashboard-top-links {
   grid-column: 1;
   grid-row: 1;
+  align-self: start;
   position: sticky;
   top: 0;
   z-index: 6;
