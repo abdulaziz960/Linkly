@@ -311,6 +311,47 @@ model ConversationSummaryQueueItem {
   @@map("conversation_summary_queue")
 }
 
+model ApiKey {
+  id         String @id
+  tenantId   String @map("tenant_id")
+  name       String @default("")
+  keyHash    String @map("key_hash")
+  keyPrefix  String @map("key_prefix")
+  createdAt  String @map("created_at")
+  lastUsedAt String @default("") @map("last_used_at")
+
+  @@unique([keyHash])
+  @@index([tenantId])
+  @@map("api_keys")
+}
+
+model Webhook {
+  id        String @id
+  tenantId  String @map("tenant_id")
+  url       String
+  secret    String
+  events    String @default("")
+  active    Int    @default(1)
+  createdAt String @map("created_at")
+
+  @@index([tenantId])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id         String @id
+  webhookId  String @map("webhook_id")
+  tenantId   String @map("tenant_id")
+  event      String
+  httpStatus Int    @default(0) @map("http_status")
+  success    Int    @default(0)
+  createdAt  String @map("created_at")
+
+  @@index([webhookId, createdAt])
+  @@index([tenantId])
+  @@map("webhook_deliveries")
+}
+
 model CampaignPayment {
   id          String @id
   tenantId    String @map("tenant_id")
