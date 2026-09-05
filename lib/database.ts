@@ -329,6 +329,14 @@ async function runSchemaMigrations() {
     )`);
     await prisma.$executeRawUnsafe(`ALTER TABLE bot_nodes ADD COLUMN IF NOT EXISTS canvas_x DOUBLE PRECISION NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE bot_nodes ADD COLUMN IF NOT EXISTS canvas_y DOUBLE PRECISION NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS knowledge_base_entries (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      question TEXT NOT NULL DEFAULT '',
+      answer TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
     await prisma.$executeRawUnsafe(`ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS automation_queue (
       id TEXT PRIMARY KEY,
@@ -1256,6 +1264,14 @@ async function runSchemaMigrations() {
       await prisma.$executeRawUnsafe(`ALTER TABLE bot_nodes ADD COLUMN ${columnName} REAL NOT NULL DEFAULT 0`);
     }
   }
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS knowledge_base_entries (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    question TEXT NOT NULL DEFAULT '',
+    answer TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS support_tickets (
     id TEXT PRIMARY KEY,
     ticket_number TEXT NOT NULL UNIQUE,
