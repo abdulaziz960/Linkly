@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import { viewTitles } from "./data/navigation";
@@ -1100,6 +1101,42 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     <LanguageProvider language={language}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language} theme-${resolvedTheme}`} data-theme={resolvedTheme} dir={language === "en" ? "ltr" : "rtl"}>
       {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
+      <div className="dashboard-top-links">
+        <Link
+          className="sidebar-billing-link"
+          href="/dashboard/support"
+          title={language === "en" ? "Support" : "الدعم الفني"}
+          aria-label={language === "en" ? "Support" : "الدعم الفني"}
+        >
+          <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2-2.4 3.6M12 17h.01" />
+          </svg>
+        </Link>
+        <Link
+          className="sidebar-billing-link"
+          href="/dashboard/development"
+          title={language === "en" ? "Development" : "تطوير المنصة"}
+          aria-label={language === "en" ? "Development" : "تطوير المنصة"}
+        >
+          <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 17l-5-5 5-5M15 7l5 5-5 5" />
+          </svg>
+        </Link>
+        {initialUser.role === "مالك الحساب" ? (
+          <Link
+            className="sidebar-billing-link"
+            href="/billing"
+            title={language === "en" ? "Plans and billing" : "الباقات والاشتراك"}
+            aria-label={language === "en" ? "Plans and billing" : "الباقات والاشتراك"}
+          >
+            <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="2.5" />
+              <path d="M3 10h18M7 15h4" />
+            </svg>
+          </Link>
+        ) : null}
+      </div>
       <DashboardSidebar
         activeView={activeView}
         allowedViews={allowedViews}
