@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "crypto";
 import { getPasswordValidationError, hashPassword, verifyPassword } from "./passwords";
 import { decryptSecret, encryptSecret, hasIntegrationEncryptionKey, integrationSecretFields } from "./secret-storage";
 import { automationRules } from "../app/dashboard/data/automations";
+import { textSimilarity, SIMILARITY_CLUSTER_THRESHOLD } from "./text-similarity";
 import { templates } from "../app/dashboard/data/templates";
 import type {
   AutomationRule,
@@ -260,6 +261,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE tags DROP CONSTRAINT IF EXISTS tags_name_key`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'whatsapp'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_activity_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS closed_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS created_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS author TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_type TEXT NOT NULL DEFAULT ''`);
@@ -376,6 +378,48 @@ async function runSchemaMigrations() {
       inactive_days INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_insights (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL UNIQUE,
+      tenant_id TEXT NOT NULL,
+      intent TEXT NOT NULL DEFAULT '',
+      satisfaction_level TEXT NOT NULL DEFAULT '',
+      summary TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_summary_queue (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS api_keys (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '',
+      key_hash TEXT NOT NULL UNIQUE,
+      key_prefix TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_used_at TEXT NOT NULL DEFAULT ''
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhooks (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      url TEXT NOT NULL,
+      secret TEXT NOT NULL,
+      events TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id TEXT PRIMARY KEY,
+      webhook_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL,
+      event TEXT NOT NULL,
+      http_status INTEGER NOT NULL DEFAULT 0,
+      success INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
     )`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipients (
       id TEXT PRIMARY KEY,
@@ -641,6 +685,9 @@ async function runSchemaMigrations() {
   if (!conversationColumns.some((column) => column.name === "rating_at")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN rating_at TEXT NOT NULL DEFAULT ''`);
   }
+  if (!conversationColumns.some((column) => column.name === "closed_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN closed_at TEXT NOT NULL DEFAULT ''`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL,
@@ -903,6 +950,48 @@ async function runSchemaMigrations() {
     inactive_days INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_insights (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL UNIQUE,
+    tenant_id TEXT NOT NULL,
+    intent TEXT NOT NULL DEFAULT '',
+    satisfaction_level TEXT NOT NULL DEFAULT '',
+    summary TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_summary_queue (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS api_keys (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    key_hash TEXT NOT NULL UNIQUE,
+    key_prefix TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    last_used_at TEXT NOT NULL DEFAULT ''
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhooks (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    secret TEXT NOT NULL,
+    events TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    id TEXT PRIMARY KEY,
+    webhook_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    event TEXT NOT NULL,
+    http_status INTEGER NOT NULL DEFAULT 0,
+    success INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
   )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS tenant_preferences (
     tenant_id TEXT PRIMARY KEY,
@@ -1905,22 +1994,47 @@ export async function syncAutomaticQuickReplies(tenantId: string) {
     }),
     prisma.quickReply.findMany({ where: { tenantId }, select: { text: true, shortcut: true } })
   ]);
-  const existingTexts = new Set(existing.map((reply) => normalizeQuickReplyText(reply.text)));
+  const existingTexts = existing.map((reply) => reply.text.trim());
   const shortcuts = new Set(existing.map((reply) => reply.shortcut.toLocaleLowerCase("en-US")));
+
+  // First pass: exact-normalized-text dedup keeps the candidate set small
+  // (typically far fewer than the 1000 scanned messages) before the more
+  // expensive pairwise similarity clustering below.
   const groups = new Map<string, { text: string; count: number }>();
   for (const message of messages) {
     if (!isSafeAutomaticReply(message.text)) continue;
     const normalized = normalizeQuickReplyText(message.text);
-    if (existingTexts.has(normalized)) continue;
     const current = groups.get(normalized);
     if (current) current.count += 1;
     else groups.set(normalized, { text: message.text.trim(), count: 1 });
   }
-  const candidates = Array.from(groups.entries())
-    .filter(([, item]) => item.count >= 3)
-    .sort(([, a], [, b]) => b.count - a.count)
+
+  // Second pass: cluster distinct groups by similarity so differently-worded
+  // phrasings of the same reply (not just literal repeats) count together.
+  // Each cluster's representative text is its highest-count member (ties
+  // keep whichever was seen first), tracked separately from the running
+  // total so a later, smaller group can never overwrite a bigger one.
+  const clusters: Array<{ text: string; count: number; topCount: number }> = [];
+  for (const group of groups.values()) {
+    const matchingCluster = clusters.find((cluster) => textSimilarity(cluster.text, group.text) >= SIMILARITY_CLUSTER_THRESHOLD);
+    if (matchingCluster) {
+      matchingCluster.count += group.count;
+      if (group.count > matchingCluster.topCount) {
+        matchingCluster.text = group.text;
+        matchingCluster.topCount = group.count;
+      }
+    } else {
+      clusters.push({ text: group.text, count: group.count, topCount: group.count });
+    }
+  }
+
+  const candidates = clusters
+    .filter((cluster) => cluster.count >= 3)
+    .filter((cluster) => !existingTexts.some((text) => textSimilarity(text, cluster.text) >= SIMILARITY_CLUSTER_THRESHOLD))
+    .sort((a, b) => b.count - a.count)
     .slice(0, 6);
-  for (const [normalized, item] of candidates) {
+  for (const item of candidates) {
+    const normalized = normalizeQuickReplyText(item.text);
     const hash = createHash("sha256").update(`${tenantId}:${normalized}`).digest("hex").slice(0, 14);
     let shortcut = automaticShortcut(item.text, hash);
     if (shortcuts.has(shortcut.toLocaleLowerCase("en-US"))) shortcut = `${shortcut}-${hash.slice(0, 4)}`;
