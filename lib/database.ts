@@ -452,6 +452,9 @@ async function runSchemaMigrations() {
       leads_pipeline_enabled INTEGER NOT NULL DEFAULT 1,
       updated_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS brand_name TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS brand_logo_data_url TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS brand_color TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL,
@@ -1006,6 +1009,12 @@ async function runSchemaMigrations() {
     leads_pipeline_enabled INTEGER NOT NULL DEFAULT 1,
     updated_at TEXT NOT NULL
   )`);
+  const tenantPreferenceColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(tenant_preferences)`);
+  for (const columnName of ["brand_name", "brand_logo_data_url", "brand_color"]) {
+    if (!tenantPreferenceColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
+    }
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,

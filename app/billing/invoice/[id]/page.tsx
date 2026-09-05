@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../../../lib/auth";
 import { getInvoiceForTenant } from "../../../../lib/subscriptions";
+import { getTenantBranding } from "../../../../lib/tenant-branding";
 import InvoicePrintButton from "./InvoicePrintButton";
 import "../invoice.css";
 
@@ -27,7 +28,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   if (!user) redirect("/login");
 
   const { id } = await params;
-  const invoice = await getInvoiceForTenant(user.tenantId, id);
+  const [invoice, branding] = await Promise.all([getInvoiceForTenant(user.tenantId, id), getTenantBranding(user.tenantId)]);
 
   if (!invoice) {
     return (
@@ -54,7 +55,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     <main className="invoice-page">
       <div className="invoice-card">
         <div className="invoice-head">
-          <h1>Linkly</h1>
+          <h1>{branding.name}</h1>
           <div className="invoice-head-meta">
             <div>
               <span>RECEIPT NO. <em>رقم الإيصال</em></span>

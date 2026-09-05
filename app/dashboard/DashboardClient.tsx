@@ -105,7 +105,6 @@ const CUSTOMERS_CACHE_KEY = "audiencew:dashboard-customers";
 const DASHBOARD_VIEW_KEY = "audiencew:dashboard-active-view";
 const DASHBOARD_CHANNEL_KEY = "audiencew:dashboard-active-channel";
 const conversationChannels: ConversationChannel[] = ["whatsapp", "instagram", "x", "facebook", "google_maps", "website", "telegram", "email", "tiktok", "sms"];
-type ThemePreference = "light" | "dark" | "system";
 
 const MAX_PROFILE_LOGO_SOURCE_BYTES = 5 * 1024 * 1024;
 
@@ -181,6 +180,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>([]);
+  const [branding, setBranding] = useState({ name: "Linkly", logoDataUrl: "/assets/linkly-logo.png", color: "#178a82" });
   const [activeConversationId, setActiveConversationId] = useState("");
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [selectedChannel, setSelectedChannel] = useState<ConversationChannelFilter>("all");
@@ -197,9 +197,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const t = (ar: string, en: string) => (language === "en" ? en : ar);
   const [draftStatus, setDraftStatus] = useState<Employee["status"]>("متصل");
   const [draftLanguage, setDraftLanguage] = useState<"ar" | "en">("ar");
-  const [themePreference, setThemePreference] = useState<ThemePreference>("system");
-  const [draftThemePreference, setDraftThemePreference] = useState<ThemePreference>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const profileLogoInputRef = useRef<HTMLInputElement>(null);
@@ -309,18 +306,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     if (storedOwnerStatus === "متصل" || storedOwnerStatus === "مشغول" || storedOwnerStatus === "غير متصل") {
       setOwnerStatus(storedOwnerStatus);
     }
-    const storedTheme = window.localStorage.getItem("linkly-dashboard-theme");
-    if (storedTheme === "light" || storedTheme === "dark" || storedTheme === "system") setThemePreference(storedTheme);
     setPreferencesLoaded(true);
   }, [initialUser.id]);
-
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const updateResolvedTheme = () => setResolvedTheme(themePreference === "system" ? (media.matches ? "dark" : "light") : themePreference);
-    updateResolvedTheme();
-    media.addEventListener("change", updateResolvedTheme);
-    return () => media.removeEventListener("change", updateResolvedTheme);
-  }, [themePreference]);
 
   useEffect(() => {
     if (!preferencesLoaded) return;
@@ -412,7 +399,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         nextQuickReplies,
         nextAutomationRules,
         nextCampaigns,
-        nextWorkSchedules
+        nextWorkSchedules,
+        nextBranding
       ] = await Promise.all([
         fetchData<Conversation[]>("/api/conversations"),
         fetchData<Customer[]>("/api/customers"),
@@ -423,7 +411,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         fetchQuickRepliesWithSuggestions(),
         fetchData<AutomationRule[]>("/api/automations"),
         fetchData<Campaign[]>("/api/campaigns"),
-        fetchData<WorkSchedule[]>("/api/work-hours")
+        fetchData<WorkSchedule[]>("/api/work-hours"),
+        fetchData<{ name: string; logoDataUrl: string; color: string }>("/api/settings/branding")
       ]);
 
       if (requestId !== loadDashboardDataSeqRef.current) return;
@@ -475,6 +464,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       if (nextAutomationRules) setAutomationRules(nextAutomationRules);
       if (nextCampaigns) setCampaigns(nextCampaigns);
       if (nextWorkSchedules) setWorkSchedules(nextWorkSchedules);
+      if (nextBranding) setBranding(nextBranding);
     } catch {
       // Keep local fallback data visible if the API is temporarily unavailable.
     } finally {
@@ -1085,8 +1075,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       }
       setLanguage(draftLanguage);
       window.localStorage.setItem("audiencew-language", draftLanguage);
-      setThemePreference(draftThemePreference);
-      window.localStorage.setItem("linkly-dashboard-theme", draftThemePreference);
       const savedMessage = draftLanguage === "en" ? "Profile settings saved successfully." : "تم حفظ إعدادات الملف الشخصي بنجاح.";
       setProfileFeedback({ type: "success", message: savedMessage });
     } catch (error) {
@@ -1099,7 +1087,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
   return (
     <LanguageProvider language={language}>
-    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language} theme-${resolvedTheme}`} data-theme={resolvedTheme} dir={language === "en" ? "ltr" : "rtl"}>
+    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
       <div className="dashboard-top-links">
         <Link
@@ -1149,6 +1137,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         emailStatus={emailStatus}
         user={initialUser}
         planName={subscription?.plan || ""}
+        branding={branding}
         profileLogo={profileLogo}
         profileStatus={currentProfileStatus}
         language={language}
@@ -1158,7 +1147,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         onOpenProfile={() => {
           setDraftStatus(currentProfileStatus);
           setDraftLanguage(language);
-          setDraftThemePreference(themePreference);
           setDraftProfileLogo(profileLogo);
           setProfileFeedback(null);
           setProfileOpen(true);
@@ -1226,6 +1214,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             teams={teams}
             templates={templates}
             whatsappConnected={integrationStatus === "connected"}
+            branding={branding}
             onIntegrationChange={handleIntegrationChange}
             onRefreshData={loadDashboardData}
             onOpenConversation={handleOpenConversation}
@@ -1307,24 +1296,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                         </button>
                       ))}
                     </div>
-                  </div>
-                  <div className="theme-picker appearance-picker">
-                    <span>{draftLanguage === "en" ? "Appearance" : "المظهر"}</span>
-                    <div className="theme-picker-options">
-                      {([ ["light", t("فاتح", "Light")], ["dark", t("داكن", "Dark")], ["system", t("النظام", "System")] ] as const).map(([value, label]) => (
-                        <button
-                          key={value}
-                          type="button"
-                          className={draftThemePreference === value ? "active" : ""}
-                          aria-pressed={draftThemePreference === value}
-                          onClick={() => setDraftThemePreference(value)}
-                        >
-                          <span aria-hidden="true">{value === "light" ? "☀" : value === "dark" ? "☾" : "◐"}</span>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <small className="theme-picker-note">{t("الوضع الداكن يستخدم ألوانًا مخصصة تحافظ على التباين والحالات.", "Dark mode uses dedicated colors that preserve contrast and status meaning.")}</small>
                   </div>
                   <div className="profile-actions">
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>{t("الفواتير والاشتراك", "Billing & subscription")}</button>

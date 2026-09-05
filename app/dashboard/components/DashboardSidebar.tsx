@@ -20,6 +20,7 @@ type DashboardSidebarProps = {
   emailStatus: "connected" | "not_connected" | "pending";
   user: DashboardUser;
   planName: string;
+  branding: { name: string; logoDataUrl: string };
   profileLogo?: string;
   profileStatus: "متصل" | "مشغول" | "غير متصل";
   selectedChannel: ConversationChannelFilter;
@@ -73,6 +74,7 @@ export default function DashboardSidebar({
   emailStatus,
   user,
   planName,
+  branding,
   profileLogo,
   profileStatus,
   selectedChannel,
@@ -119,8 +121,8 @@ export default function DashboardSidebar({
 
   return (
     <aside className="dashboard-sidebar">
-      <div className="sidebar-brand" aria-label="Linkly">
-        <Image src="/assets/linkly-logo.png" alt="Linkly" width={46} height={25} priority />
+      <div className="sidebar-brand" aria-label={branding.name}>
+        <Image src={branding.logoDataUrl} alt={branding.name} width={46} height={25} priority unoptimized={branding.logoDataUrl.startsWith("data:")} />
       </div>
       <div className="tenant-card">
         <b>{isEnglish ? "Account" : "حساب العميل"}</b>

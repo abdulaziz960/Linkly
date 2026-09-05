@@ -41,12 +41,14 @@ export default function BillingPageClient({
   plans,
   subscription,
   expired,
-  isTestMode
+  isTestMode,
+  branding
 }: {
   plans: Plan[];
   subscription: Subscription;
   expired: boolean;
   isTestMode: boolean;
+  branding: { name: string; logoDataUrl: string };
 }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
@@ -64,7 +66,7 @@ export default function BillingPageClient({
           <button type="button" aria-pressed={lang === "ar"} className={lang === "ar" ? "active" : ""} onClick={() => setLang("ar")}>العربية</button>
           <button type="button" aria-pressed={lang === "en"} className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>English</button>
         </div>
-        <div><Image src="/assets/linkly-logo.png" alt="" width={64} height={35} /><b>Linkly</b></div>
+        <div><Image src={branding.logoDataUrl} alt="" width={64} height={35} unoptimized={branding.logoDataUrl.startsWith("data:")} /><b>{branding.name}</b></div>
       </header>
       <section className="billing-hero">
         <span>{text.stepLabel}</span>
