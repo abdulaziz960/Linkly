@@ -109,7 +109,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
-  grid-template-rows: auto minmax(0, calc(100vh - var(--trial-banner-h, 0px) - var(--top-links-h, 0px)));
+  grid-template-rows: minmax(0, max(var(--trial-banner-h, 0px), var(--top-links-h, 0px))) minmax(0, calc(100vh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)) - 8px));
   background: var(--bg);
   color: var(--ink);
   direction: ltr;
@@ -7982,7 +7982,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .dashboard-main {
-  height: calc(100dvh - 8px - var(--trial-banner-h, 0px) - var(--top-links-h, 0px));
+  height: calc(100dvh - 8px - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)));
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid #b8d5cf;
@@ -8451,11 +8451,12 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 @media (max-width: 1180px) {
 .dashboard-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, max(var(--trial-banner-h, 0px), var(--top-links-h, 0px))) minmax(0, calc(100vh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px))));
     padding: 0;
   }
 
   .dashboard-main {
-    height: calc(100dvh - var(--trial-banner-h, 0px) - var(--top-links-h, 0px));
+    height: calc(100dvh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)));
     border: 0;
     border-radius: 0;
   }
