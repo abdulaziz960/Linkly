@@ -6,6 +6,7 @@ import { ensureSchema, getIntegrationSettings } from "../../../../lib/database";
 import { syncXTenant } from "../../../../lib/x-sync";
 import { reconcileStalePendingPayments, sendTrialEndingReminders } from "../../../../lib/subscriptions";
 import { sendLowBalanceAlerts } from "../../../../lib/campaign-balance-alerts";
+import { processDueConversationSummaries } from "../../../../lib/conversation-insights";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   await ensureSchema();
 
-  const [campaignTenants, recurringCampaignTenants, automationTenants, xTenants] = await Promise.all([
+  const [campaignTenants, recurringCampaignTenants, automationTenants, conversationSummaryTenants, xTenants] = await Promise.all([
     prisma.campaign.findMany({
       distinct: ["tenantId"],
       where: { status: { in: ["مجدولة", "قيد الإرسال"] } },
@@ -47,6 +48,12 @@ export async function GET(request: NextRequest) {
       orderBy: { tenantId: "asc" },
       take: 50
     }),
+    prisma.conversationSummaryQueueItem.findMany({
+      distinct: ["tenantId"],
+      select: { tenantId: true },
+      orderBy: { tenantId: "asc" },
+      take: 50
+    }),
     prisma.integrationSetting.findMany({
       distinct: ["tenantId"],
       where: { provider: "x", status: "connected" },
@@ -56,7 +63,7 @@ export async function GET(request: NextRequest) {
     })
   ]);
 
-  const tenantIds = [...new Set([...campaignTenants, ...recurringCampaignTenants, ...automationTenants].map(({ tenantId }) => tenantId))];
+  const tenantIds = [...new Set([...campaignTenants, ...recurringCampaignTenants, ...automationTenants, ...conversationSummaryTenants].map(({ tenantId }) => tenantId))];
   const xTenantIds = xTenants.map(({ tenantId }) => tenantId);
 
   for (const tenantId of tenantIds) {
@@ -64,6 +71,7 @@ export async function GET(request: NextRequest) {
     await activateDueRecurringCampaigns(tenantId);
     await processCampaignBatch(tenantId, 25);
     await processDueAutomations(tenantId);
+    await processDueConversationSummaries(tenantId, 10);
   }
 
   const xResults = await Promise.allSettled(xTenantIds.map(async (tenantId) => {

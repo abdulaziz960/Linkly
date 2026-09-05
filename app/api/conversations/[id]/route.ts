@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { runAutomations } from "../../../../lib/automation-engine";
 import { requestRatingIfNeeded } from "../../../../lib/conversation-rating";
+import { enqueueConversationSummary } from "../../../../lib/conversation-insights";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = {
@@ -56,7 +57,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           assignee: body.assignee,
           status: body.status,
           unread: typeof body.unread === "number" ? Math.max(0, body.unread) : undefined,
-          windowExpired: typeof body.windowExpired === "boolean" ? (body.windowExpired ? 1 : 0) : undefined
+          windowExpired: typeof body.windowExpired === "boolean" ? (body.windowExpired ? 1 : 0) : undefined,
+          closedAt: body.status === "closed" ? new Date().toISOString() : undefined
         }
       });
       return tx.conversation.findFirstOrThrow({ where: { id, tenantId: user.tenantId } });
@@ -68,6 +70,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       });
       await requestRatingIfNeeded(id, user.tenantId).catch((error) => {
         console.error(`Rating request failed for conversation ${id}`, error);
+      });
+      await enqueueConversationSummary(id, user.tenantId).catch((error) => {
+        console.error(`Queuing AI summary failed for conversation ${id}`, error);
       });
     }
 

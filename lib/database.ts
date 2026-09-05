@@ -261,6 +261,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE tags DROP CONSTRAINT IF EXISTS tags_name_key`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'whatsapp'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_activity_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS closed_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS created_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS author TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_type TEXT NOT NULL DEFAULT ''`);
@@ -377,6 +378,21 @@ async function runSchemaMigrations() {
       inactive_days INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_insights (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL UNIQUE,
+      tenant_id TEXT NOT NULL,
+      intent TEXT NOT NULL DEFAULT '',
+      satisfaction_level TEXT NOT NULL DEFAULT '',
+      summary TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_summary_queue (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL,
+      created_at TEXT NOT NULL
     )`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipients (
       id TEXT PRIMARY KEY,
@@ -642,6 +658,9 @@ async function runSchemaMigrations() {
   if (!conversationColumns.some((column) => column.name === "rating_at")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN rating_at TEXT NOT NULL DEFAULT ''`);
   }
+  if (!conversationColumns.some((column) => column.name === "closed_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN closed_at TEXT NOT NULL DEFAULT ''`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL,
@@ -904,6 +923,21 @@ async function runSchemaMigrations() {
     inactive_days INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_insights (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL UNIQUE,
+    tenant_id TEXT NOT NULL,
+    intent TEXT NOT NULL DEFAULT '',
+    satisfaction_level TEXT NOT NULL DEFAULT '',
+    summary TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_summary_queue (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
   )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS tenant_preferences (
     tenant_id TEXT PRIMARY KEY,

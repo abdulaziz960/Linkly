@@ -38,6 +38,7 @@ model Conversation {
   ratingEmployee    String        @default("") @map("rating_employee")
   ratingRequestedAt String        @default("") @map("rating_requested_at")
   ratingAt          String        @default("") @map("rating_at")
+  closedAt          String        @default("") @map("closed_at")
   customer      Customer          @relation(fields: [customerId], references: [id])
   messages      Message[]
   tags          ConversationTag[]
@@ -285,6 +286,29 @@ model Segment {
 
   @@index([tenantId])
   @@map("segments")
+}
+
+model ConversationInsight {
+  id                String @id
+  conversationId    String @unique @map("conversation_id")
+  tenantId          String @map("tenant_id")
+  intent            String @default("")
+  satisfactionLevel String @default("") @map("satisfaction_level")
+  summary           String @default("")
+  createdAt         String @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@map("conversation_insights")
+}
+
+model ConversationSummaryQueueItem {
+  id             String @id
+  conversationId String @map("conversation_id")
+  tenantId       String @map("tenant_id")
+  createdAt      String @map("created_at")
+
+  @@index([tenantId])
+  @@map("conversation_summary_queue")
 }
 
 model CampaignPayment {
