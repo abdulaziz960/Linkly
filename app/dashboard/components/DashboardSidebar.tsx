@@ -19,6 +19,7 @@ type DashboardSidebarProps = {
   googleMapsStatus: "connected" | "not_connected" | "pending";
   emailStatus: "connected" | "not_connected" | "pending";
   planName: string;
+  branding: { name: string; logoDataUrl: string };
   selectedChannel: ConversationChannelFilter;
   language?: "ar" | "en";
   onChangeView: (view: ViewKey) => void;
@@ -64,6 +65,7 @@ export default function DashboardSidebar({
   googleMapsStatus,
   emailStatus,
   planName,
+  branding,
   selectedChannel,
   language = "ar",
   onChangeView,
@@ -107,8 +109,8 @@ export default function DashboardSidebar({
 
   return (
     <aside className="dashboard-sidebar">
-      <div className="sidebar-brand" aria-label="Linkly">
-        <Image src="/assets/linkly-logo.png" alt="Linkly" width={46} height={25} priority />
+      <div className="sidebar-brand" aria-label={branding.name}>
+        <Image src={branding.logoDataUrl} alt={branding.name} width={46} height={25} priority unoptimized={branding.logoDataUrl.startsWith("data:")} />
       </div>
       <div className="tenant-card">
         <b>{isEnglish ? "Account" : "حساب العميل"}</b>

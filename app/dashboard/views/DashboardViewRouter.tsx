@@ -14,6 +14,7 @@ import type {
 } from "../types";
 import AutomationsView from "./AutomationsView";
 import BotView from "./BotView";
+import BrandingView from "./BrandingView";
 import CampaignsView from "./CampaignsView";
 import ContactsView from "./ContactsView";
 import DevelopersView from "./DevelopersView";
@@ -40,6 +41,7 @@ type DashboardViewRouterProps = {
   teams: Team[];
   templates: MessageTemplate[];
   whatsappConnected: boolean;
+  branding: { name: string; logoDataUrl: string; color: string };
   onIntegrationChange: (settings: IntegrationSettings) => void;
   onRefreshData: () => Promise<void>;
   onOpenConversation: (conversationId: string) => void;
@@ -61,6 +63,7 @@ export default function DashboardViewRouter({
   teams,
   templates,
   whatsappConnected,
+  branding,
   view
 }: DashboardViewRouterProps) {
   if (view === "contacts") return <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
@@ -79,7 +82,7 @@ export default function DashboardViewRouter({
       />
     );
   }
-  if (view === "campaigns") return <CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
+  if (view === "campaigns") return <CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} brandName={branding.name} onRefreshData={onRefreshData} />;
   if (view === "segments") return <SegmentsView tags={tags} />;
   if (view === "templates") return <TemplatesView templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
@@ -89,5 +92,6 @@ export default function DashboardViewRouter({
   if (view === "employees") return <EmployeesView employees={employees} conversations={conversations} onRefreshData={onRefreshData} />;
   if (view === "settings") return <SettingsView onIntegrationChange={onIntegrationChange} />;
   if (view === "developers") return <DevelopersView />;
+  if (view === "branding") return <BrandingView onRefreshData={onRefreshData} />;
   return null;
 }

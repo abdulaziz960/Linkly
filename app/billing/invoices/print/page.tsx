@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../../../lib/auth";
 import { getInvoicesForTenant, getSubscriptionForTenant } from "../../../../lib/subscriptions";
+import { getTenantBranding } from "../../../../lib/tenant-branding";
 import InvoicePrintButton from "../../invoice/[id]/InvoicePrintButton";
 import "../../invoice/invoice.css";
 
@@ -20,9 +21,10 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
   if (!user) redirect("/login");
 
   const { from, to } = await searchParams;
-  const [subscription, allInvoices] = await Promise.all([
+  const [subscription, allInvoices, branding] = await Promise.all([
     getSubscriptionForTenant(user.tenantId),
-    getInvoicesForTenant(user.tenantId)
+    getInvoicesForTenant(user.tenantId),
+    getTenantBranding(user.tenantId)
   ]);
 
   const invoices = allInvoices.filter((invoice) => {
@@ -45,7 +47,7 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
     <main className="invoice-page">
       <div className="invoice-card">
         <div className="invoice-head">
-          <h1>Linkly</h1>
+          <h1>{branding.name}</h1>
           <div className="invoice-head-meta">
             <div>
               <span>PERIOD <em>الفترة</em></span>

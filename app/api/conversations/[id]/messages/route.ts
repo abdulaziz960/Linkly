@@ -6,6 +6,7 @@ import { getIntegrationSettings } from "../../../../../lib/database";
 import { sendEmailMessage } from "../../../../../lib/email-channel";
 import { replyToGoogleReview } from "../../../../../lib/google-business";
 import { sendUnifonicSms } from "../../../../../lib/sms-send";
+import { getTenantBranding } from "../../../../../lib/tenant-branding";
 import { prisma } from "../../../../../lib/prisma";
 import { formatMessageTime } from "../../../../../lib/time";
 import { normalizeWhatsAppPhone } from "../../../../../lib/whatsapp-inbox";
@@ -725,7 +726,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       const subject = latestEmailMessage?.sourceLabel
         ? `Re: ${latestEmailMessage.sourceLabel}`
-        : "رد من Linkly";
+        : `رد من ${(await getTenantBranding(user?.tenantId || "")).name}`;
       await sendEmailMessage(recipientEmail, text, subject, user?.tenantId);
 
       const message = await prisma.$transaction(async (tx) => {
