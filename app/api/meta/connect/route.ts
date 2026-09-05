@@ -6,13 +6,16 @@ import { getAppOrigin } from "../../../../lib/app-url";
 
 const techProviderMetaAppId = "1296230909161568";
 const techProviderMetaConfigId = "1428169365888624";
-// Instagram Login is a separate Meta app from the WhatsApp tech-provider one
-// above (Instagram API with Instagram Login has its own App ID). Hardcoded
-// the same way as the WhatsApp/Facebook app id, instead of trusting a
-// per-tenant settings.appId field - a tenant pasting the wrong App ID there
-// (e.g. the WhatsApp one) silently broke Instagram connect with Meta's
-// opaque "Invalid platform app" error.
+// Instagram is connected through its own separate Meta app ("Linkly int"),
+// set up as a Facebook Login for Business configuration (not the standalone
+// "Instagram API with Instagram Login" product) - so, like WhatsApp, it goes
+// through facebook.com/dialog/oauth with a config_id rather than
+// instagram.com/oauth/authorize. Hardcoded the same way as the WhatsApp/
+// Facebook app id, instead of trusting a per-tenant settings.appId field - a
+// tenant pasting the wrong App ID there (e.g. the WhatsApp one) silently
+// broke Instagram connect with Meta's opaque "Invalid platform app" error.
 const techProviderInstagramAppId = "1600375064844173";
+const techProviderInstagramConfigId = "1761045524833687";
 
 function getChannel(request: NextRequest): Extract<IntegrationChannel, "whatsapp" | "instagram" | "facebook"> {
   const channel = request.nextUrl.searchParams.get("channel");
@@ -26,42 +29,36 @@ export async function GET(request: NextRequest) {
 
   const channel = getChannel(request);
   const settings = await getIntegrationSettings(channel, user.tenantId);
-  // Instagram uses its own standalone "Instagram API with Instagram Login" app
-  // (instagram.com/oauth/authorize), whose App ID is NOT a valid classic
-  // Facebook Platform app ID. Facebook Pages need a real classic app for
-  // facebook.com/dialog/oauth, so it reuses Linkly's WhatsApp tech-provider
-  // app (already a verified, working classic Meta app) instead of falling
-  // back to the Instagram-only app ID, which produced "Invalid App ID".
   const appId = channel === "instagram" ? techProviderInstagramAppId : techProviderMetaAppId;
-  const configId = channel === "whatsapp" ? techProviderMetaConfigId : settings.configId.trim();
+  const configId = channel === "whatsapp"
+    ? techProviderMetaConfigId
+    : channel === "instagram"
+      ? techProviderInstagramConfigId
+      : settings.configId.trim();
 
   if (!appId || !/^\d+$/.test(appId)) {
     return NextResponse.redirect(new URL("/dashboard?meta=missing-app-id", getAppOrigin(request)));
   }
 
   const redirectUri = `${getAppOrigin(request)}/api/meta/callback`;
-  const metaUrl = new URL(channel === "instagram" ? "https://www.instagram.com/oauth/authorize" : "https://www.facebook.com/v22.0/dialog/oauth");
+  const metaUrl = new URL("https://www.facebook.com/v22.0/dialog/oauth");
 
   metaUrl.searchParams.set("client_id", appId);
   metaUrl.searchParams.set("redirect_uri", redirectUri);
   metaUrl.searchParams.set("response_type", "code");
   const oauthState = createOAuthState("meta", { channel });
   metaUrl.searchParams.set("state", oauthState.state);
-  metaUrl.searchParams.set(
-    "scope",
-    channel === "instagram"
-      ? "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments"
-      : channel === "facebook"
-        ? "pages_show_list,pages_read_engagement,pages_manage_metadata,pages_messaging"
-        : "whatsapp_business_management,whatsapp_business_messaging"
-  );
 
-  if (channel === "instagram") {
-    metaUrl.searchParams.set("enable_fb_login", "0");
-    metaUrl.searchParams.set("force_authentication", "1");
+  // Instagram's permissions are fixed by its Facebook Login for Business
+  // configuration (config_id below), not a manual scope list - only
+  // Facebook Pages (no configuration set up for it) still needs one here.
+  if (channel === "facebook") {
+    metaUrl.searchParams.set("scope", "pages_show_list,pages_read_engagement,pages_manage_metadata,pages_messaging");
+  } else if (channel === "whatsapp") {
+    metaUrl.searchParams.set("scope", "whatsapp_business_management,whatsapp_business_messaging");
   }
 
-  if (channel === "whatsapp" && configId) {
+  if ((channel === "whatsapp" || channel === "instagram") && configId) {
     metaUrl.searchParams.set("config_id", configId);
   }
 
