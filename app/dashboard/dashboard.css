@@ -626,13 +626,19 @@
 .chat-tabs,
 .composer-modes {
   display: flex;
+  flex: 0 0 auto;
   gap: 7px;
   padding: 10px;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.chat-tabs button {
+  flex: 0 0 auto;
 }
 
 .conversation-tabs {
