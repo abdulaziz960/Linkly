@@ -15,6 +15,7 @@ import {
   MAX_CAMPAIGN_MEDIA_BYTES
 } from "../../../lib/campaign-engine";
 import { userHasViewPermission } from "../../../lib/permissions-server";
+import { getSegmentById, resolveSegmentRecipients } from "../../../lib/segments";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
@@ -48,6 +49,8 @@ export async function POST(request: NextRequest) {
   const recurring = formData.get("recurring") === "true";
   const recurrenceIntervalDays = Number(formData.get("recurrenceIntervalDays") || 0);
   const recurrenceEndAt = String(formData.get("recurrenceEndAt") || "").trim();
+  const audienceMode = formData.get("audienceMode") === "segment" ? "segment" : "file";
+  const segmentId = String(formData.get("segmentId") || "").trim();
   const file = formData.get("file");
   const headerMediaFile = formData.get("headerMedia");
 
@@ -58,18 +61,23 @@ export async function POST(request: NextRequest) {
   if (!name) return jsonError("اسم الحملة مطلوب");
   if (name.length > 120) return jsonError("اسم الحملة طويل جداً");
   if (!templateName) return jsonError("اختر قالب معتمد قبل إنشاء الحملة");
-  if (!(file instanceof File)) return jsonError("ارفع ملف Excel أو CSV يحتوي على أرقام العملاء");
-  const extension = file.name.toLowerCase().split(".").pop();
-  if (!extension || !["csv", "xlsx"].includes(extension)) return jsonError("صيغة الملف غير مدعومة. استخدم CSV أو XLSX فقط");
-  if (file.size <= 0 || file.size > MAX_CAMPAIGN_FILE_BYTES) return jsonError("حجم الملف يجب ألا يتجاوز 5 ميجابايت");
-  const allowedMimeTypes = new Set([
-    "text/csv",
-    "application/csv",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/octet-stream"
-  ]);
-  if (file.type && !allowedMimeTypes.has(file.type)) return jsonError("نوع الملف غير مدعوم");
+
+  if (audienceMode === "file") {
+    if (!(file instanceof File)) return jsonError("ارفع ملف Excel أو CSV يحتوي على أرقام العملاء");
+    const extension = file.name.toLowerCase().split(".").pop();
+    if (!extension || !["csv", "xlsx"].includes(extension)) return jsonError("صيغة الملف غير مدعومة. استخدم CSV أو XLSX فقط");
+    if (file.size <= 0 || file.size > MAX_CAMPAIGN_FILE_BYTES) return jsonError("حجم الملف يجب ألا يتجاوز 5 ميجابايت");
+    const allowedMimeTypes = new Set([
+      "text/csv",
+      "application/csv",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/octet-stream"
+    ]);
+    if (file.type && !allowedMimeTypes.has(file.type)) return jsonError("نوع الملف غير مدعوم");
+  } else if (!segmentId) {
+    return jsonError("اختر تقسيم جمهور لاستخدامه كجمهور الحملة");
+  }
 
   const template = await prisma.template.findFirst({ where: { name: templateName, tenantId: user.tenantId } });
   if (!template) return jsonError("القالب المختار غير موجود");
@@ -106,9 +114,17 @@ export async function POST(request: NextRequest) {
     return jsonError("هذا القالب يحتاج صورة أو فيديو بالرأس - ارفعها مع الحملة أو من إعدادات القالب أولاً");
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const recipients = await parseRecipientFile(buffer, file.name).catch(() => []);
-  if (!recipients.length) return jsonError("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.");
+  let recipients: Awaited<ReturnType<typeof resolveSegmentRecipients>>;
+  if (audienceMode === "segment") {
+    const segment = await getSegmentById(user.tenantId, segmentId);
+    if (!segment) return jsonError("التقسيم غير موجود", 404);
+    recipients = await resolveSegmentRecipients(user.tenantId, segment);
+    if (!recipients.length) return jsonError("ما فيه عملاء يطابقون هذا التقسيم حالياً.");
+  } else {
+    const buffer = Buffer.from(await (file as File).arrayBuffer());
+    recipients = await parseRecipientFile(buffer, (file as File).name).catch(() => []);
+    if (!recipients.length) return jsonError("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.");
+  }
 
   const scheduledDate = scheduled ? parseRiyadhDateTime(scheduledAt) : null;
   const isScheduledFuture = Boolean(scheduledDate && scheduledDate.getTime() > Date.now());

@@ -3551,6 +3551,32 @@
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+.segment-tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-soft, rgba(0, 0, 0, 0.1));
+  border-radius: 10px;
+}
+
+.segment-tag-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.segment-tag-option .tag-color-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
 .icon-actions button {
   width: 36px;
   height: 36px;

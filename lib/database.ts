@@ -368,6 +368,15 @@ async function runSchemaMigrations() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS segments (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      tag_names TEXT NOT NULL DEFAULT '',
+      inactive_days INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipients (
       id TEXT PRIMARY KEY,
       campaign_id TEXT NOT NULL,
@@ -883,6 +892,15 @@ async function runSchemaMigrations() {
     end_at TEXT NOT NULL DEFAULT '',
     occurrences INTEGER NOT NULL DEFAULT 1,
     status TEXT NOT NULL DEFAULT 'نشطة',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS segments (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    tag_names TEXT NOT NULL DEFAULT '',
+    inactive_days INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
