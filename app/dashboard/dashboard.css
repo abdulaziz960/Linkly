@@ -3420,6 +3420,13 @@
   gap: 18px;
 }
 
+.page-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .page-hero h1 {
   margin: 0 0 10px;
   font-size: 28px;
@@ -3647,6 +3654,33 @@
 
 .automation-feedback.success { border-color: #8bcba2; background: #eaf8ef; color: #17613a; }
 .automation-feedback.error { border-color: #e6aaa4; background: #fff0ee; color: #912f28; }
+
+.automation-sim-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.automation-sim-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.automation-sim-match {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.automation-sim-match b { font-size: 14px; }
+.automation-sim-match small { color: var(--muted); font-weight: 700; }
+.automation-sim-match ul { margin: 4px 0 0; padding-inline-start: 18px; }
+.automation-sim-match li { font-size: 13px; font-weight: 700; }
 
 .automation-overview {
   display: grid;
@@ -7386,12 +7420,14 @@
     width: 100%;
   }
 
-  .automation-modal {
+  .automation-modal,
+  .automation-simulator-modal {
     width: min(100%, calc(100vw - 24px));
   }
 
   .automation-row,
-  .automation-row.action {
+  .automation-row.action,
+  .automation-sim-row {
     grid-template-columns: 1fr;
   }
 
