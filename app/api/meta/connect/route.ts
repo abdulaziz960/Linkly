@@ -12,7 +12,7 @@ const techProviderMetaConfigId = "1428169365888624";
 // per-tenant settings.appId field - a tenant pasting the wrong App ID there
 // (e.g. the WhatsApp one) silently broke Instagram connect with Meta's
 // opaque "Invalid platform app" error.
-const techProviderInstagramAppId = "1384578340228125";
+const techProviderInstagramAppId = "1600375064844173";
 
 function getChannel(request: NextRequest): Extract<IntegrationChannel, "whatsapp" | "instagram" | "facebook"> {
   const channel = request.nextUrl.searchParams.get("channel");
