@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   if (channel === "instagram") {
     metaUrl.searchParams.set(
       "scope",
-      "instagram_business_basic,instagram_business_manage_messages"
+      "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments"
     );
   } else if (channel === "facebook") {
     metaUrl.searchParams.set("scope", "pages_show_list,pages_read_engagement,pages_manage_metadata,pages_messaging");
