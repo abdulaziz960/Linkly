@@ -120,13 +120,6 @@ export default function DashboardSidebar({
 
   return (
     <aside className="dashboard-sidebar">
-      <div className="sidebar-brand" aria-label="Linkly">
-        <Image src="/assets/linkly-logo.png" alt="Linkly" width={46} height={25} priority />
-      </div>
-      <div className="tenant-card">
-        <b>{isEnglish ? "Account" : "حساب العميل"}</b>
-        <span>{planName || (isEnglish ? "No plan selected" : "لم يتم تحديد الباقة")}</span>
-      </div>
       <div className="sidebar-top-links">
         <Link
           className="sidebar-billing-link"
@@ -171,6 +164,13 @@ export default function DashboardSidebar({
             </svg>
           </Link>
         ) : null}
+      </div>
+      <div className="sidebar-brand" aria-label="Linkly">
+        <Image src="/assets/linkly-logo.png" alt="Linkly" width={46} height={25} priority />
+      </div>
+      <div className="tenant-card">
+        <b>{isEnglish ? "Account" : "حساب العميل"}</b>
+        <span>{planName || (isEnglish ? "No plan selected" : "لم يتم تحديد الباقة")}</span>
       </div>
       <nav className="dashboard-nav">
         <button
