@@ -7577,11 +7577,33 @@
 
 }
 
-.sidebar-top-links {
+.dashboard-top-links {
+  grid-column: 1;
+  grid-row: 1;
+  position: sticky;
+  top: 0;
+  z-index: 6;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 0 12px;
+  justify-self: start;
 }
+.dashboard-top-links .sidebar-billing-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+.dashboard-top-links .dashboard-nav-icon { color: var(--brand-600); }
+
 .sidebar-billing-link {
   display: flex;
   align-items: center;

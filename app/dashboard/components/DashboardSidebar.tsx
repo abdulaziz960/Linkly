@@ -2,7 +2,6 @@
 
 import { useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import Image from "next/image";
 import { getChannelName } from "../../channel-names";
 import type { ConversationChannel, ConversationChannelFilter, DashboardUser, ViewKey } from "../types";
@@ -120,51 +119,6 @@ export default function DashboardSidebar({
 
   return (
     <aside className="dashboard-sidebar">
-      <div className="sidebar-top-links">
-        <Link
-          className="sidebar-billing-link"
-          href="/dashboard/support"
-          onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Support" : "الدعم الفني")}
-          onMouseLeave={hideSidebarTooltip}
-          onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Support" : "الدعم الفني")}
-          onBlur={hideSidebarTooltip}
-          aria-label={isEnglish ? "Support" : "الدعم الفني"}
-        >
-          <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2-2.4 3.6M12 17h.01" />
-          </svg>
-        </Link>
-        <Link
-          className="sidebar-billing-link"
-          href="/dashboard/development"
-          onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Development" : "تطوير المنصة")}
-          onMouseLeave={hideSidebarTooltip}
-          onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Development" : "تطوير المنصة")}
-          onBlur={hideSidebarTooltip}
-          aria-label={isEnglish ? "Development" : "تطوير المنصة"}
-        >
-          <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M9 17l-5-5 5-5M15 7l5 5-5 5" />
-          </svg>
-        </Link>
-        {user.role === "مالك الحساب" ? (
-          <Link
-            className="sidebar-billing-link"
-            href="/billing"
-            onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Plans and billing" : "الباقات والاشتراك")}
-            onMouseLeave={hideSidebarTooltip}
-            onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Plans and billing" : "الباقات والاشتراك")}
-            onBlur={hideSidebarTooltip}
-            aria-label={isEnglish ? "Plans and billing" : "الباقات والاشتراك"}
-          >
-            <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3" y="5" width="18" height="14" rx="2.5" />
-              <path d="M3 10h18M7 15h4" />
-            </svg>
-          </Link>
-        ) : null}
-      </div>
       <div className="sidebar-brand" aria-label="Linkly">
         <Image src="/assets/linkly-logo.png" alt="Linkly" width={46} height={25} priority />
       </div>
