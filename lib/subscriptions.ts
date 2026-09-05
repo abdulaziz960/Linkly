@@ -293,6 +293,7 @@ const trialReminderStages: Array<{ id: string; withinHours: number }> = [
  */
 export async function sendTrialEndingReminders(baseUrl: string) {
   const { sendTrialEndingEmail } = await import("./email");
+  const { getTenantBranding } = await import("./tenant-branding");
   const trialSubscriptions = await prisma.subscription.findMany({ where: { status: "تجربة" } });
   const now = Date.now();
   let sent = 0;
@@ -315,11 +316,13 @@ export async function sendTrialEndingReminders(baseUrl: string) {
 
     let delivered = false;
     if (owner?.email) {
+      const branding = await getTenantBranding(subscription.tenantId);
       delivered = await sendTrialEndingEmail({
         to: owner.email,
         name: subscription.ownerName || owner.name,
         hoursLeft: Math.max(1, Math.round(hoursLeft)),
-        billingUrl: `${baseUrl}/billing`
+        billingUrl: `${baseUrl}/billing`,
+        branding: { name: branding.name, color: branding.color }
       });
     }
 

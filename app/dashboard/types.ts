@@ -14,7 +14,8 @@ export type ViewKey =
   | "teams"
   | "employees"
   | "settings"
-  | "developers";
+  | "developers"
+  | "branding";
 
 export type ConversationStatus = "assigned" | "unassigned" | "closed";
 export type ConversationFilter = "all" | ConversationStatus | "mine" | "unread";

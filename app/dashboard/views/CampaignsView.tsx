@@ -111,11 +111,13 @@ export default function CampaignsView({
   campaigns,
   templates,
   whatsappConnected,
+  brandName,
   onRefreshData
 }: {
   campaigns: Campaign[];
   templates: MessageTemplate[];
   whatsappConnected: boolean;
+  brandName: string;
   onRefreshData: () => Promise<void>;
 }) {
   const { t, language } = useLanguage();
@@ -806,7 +808,7 @@ export default function CampaignsView({
             </div>
             <aside className="campaign-live-preview" aria-label={t("معاينة الحملة", "Campaign preview")}>
               <div className="campaign-preview-title"><span>{t("معاينة مباشرة", "Live preview")}</span><small>{t("شكل تقريبي للرسالة", "Approximate message appearance")}</small></div>
-              <div className="campaign-phone"><div className="campaign-phone-bar"><span>Linkly</span><i>•••</i></div><div className="campaign-phone-notice">{t("محادثة أعمال موثقة وآمنة", "Verified and secure business chat")}</div><div className="campaign-message-preview"><b>{form.name || t("اسم الحملة", "Campaign name")}</b><p>{approvedTemplates.find((template) => template.name === form.templateName)?.message || t("اختر قالباً معتمداً لتظهر معاينة نص الرسالة هنا.", "Choose an approved template to preview its message here.")}</p><time>3:34 PM</time></div></div>
+              <div className="campaign-phone"><div className="campaign-phone-bar"><span>{brandName}</span><i>•••</i></div><div className="campaign-phone-notice">{t("محادثة أعمال موثقة وآمنة", "Verified and secure business chat")}</div><div className="campaign-message-preview"><b>{form.name || t("اسم الحملة", "Campaign name")}</b><p>{approvedTemplates.find((template) => template.name === form.templateName)?.message || t("اختر قالباً معتمداً لتظهر معاينة نص الرسالة هنا.", "Choose an approved template to preview its message here.")}</p><time>3:34 PM</time></div></div>
               <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{recipientPreview === null ? "—" : recipientPreview.toLocaleString("en-US")}</dd></div><div><dt>{t("طريقة الإرسال", "Delivery")}</dt><dd>{form.scheduled ? t("مجدولة", "Scheduled") : t("فوري", "Immediate")}</dd></div>{form.recurring ? <div><dt>{t("التكرار", "Repeats")}</dt><dd>{t(recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.ar || "", recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.en || "")}</dd></div> : null}</dl>
             </aside>
             <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && (!approvedTemplates.length || (form.audienceMode === "file" ? !campaignFile : !form.segmentId) || !recipientPreview || (needsHeaderMedia && !templateHasSavedMedia && !headerMediaFile)))}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : form.recurring ? t("جدولة حملة متكررة", "Schedule recurring campaign") : form.scheduled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الحملة", "Send campaign")}</button></footer>

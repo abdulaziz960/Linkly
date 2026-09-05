@@ -36,12 +36,15 @@ export async function sendLowBalanceAlerts(baseUrl: string) {
       let delivered = false;
       if (owner?.email) {
         const { sendLowBalanceEmail } = await import("./email");
+        const { getTenantBranding } = await import("./tenant-branding");
+        const branding = await getTenantBranding(row.tenantId);
         delivered = await sendLowBalanceEmail({
           to: owner.email,
           name: owner.name,
           remaining: row.balance,
           percent: Math.round(percent),
-          topUpUrl: `${baseUrl}/dashboard?view=campaigns&tab=balance`
+          topUpUrl: `${baseUrl}/dashboard?view=campaigns&tab=balance`,
+          branding: { name: branding.name, color: branding.color }
         });
       }
 
