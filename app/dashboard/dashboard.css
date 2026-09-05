@@ -8485,7 +8485,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 @media (max-width: 720px) {
-  .dashboard-main { height: 100dvh; min-height: 100dvh; }
+  .dashboard-main {
+    height: calc(100dvh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)));
+    min-height: 0;
+  }
 
   .mobile-topbar {
     min-height: 62px;
