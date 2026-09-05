@@ -14,6 +14,7 @@ const navItems = [
   { href: "/linkly-admin007/clients", labelAr: "العملاء", labelEn: "Clients" },
   { href: "/linkly-admin007/alerts", labelAr: "تنبيهات التجديد", labelEn: "Renewal alerts" },
   { href: "/linkly-admin007/support", labelAr: "الدعم الفني", labelEn: "Support" },
+  { href: "/linkly-admin007/development", labelAr: "التطوير", labelEn: "Development" },
   { href: "/linkly-admin007/payments", labelAr: "المدفوعات", labelEn: "Payments" },
   { href: "/linkly-admin007/plans", labelAr: "الباقات", labelEn: "Plans" },
   { href: "/linkly-admin007/team", labelAr: "الفريق", labelEn: "Team" },

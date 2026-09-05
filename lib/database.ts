@@ -1211,6 +1211,22 @@ async function runSchemaMigrations() {
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS support_tickets_status_priority_idx ON support_tickets(status, priority)`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS support_tickets_assigned_agent_id_idx ON support_tickets(assigned_agent_id)`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS support_ticket_messages_ticket_id_created_at_idx ON support_ticket_messages(ticket_id, created_at)`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS feature_requests (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    created_by_user_id TEXT NOT NULL,
+    created_by_name TEXT NOT NULL DEFAULT '',
+    company_name TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    rejection_reason TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    resolved_at TEXT NOT NULL DEFAULT ''
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS feature_requests_tenant_id_status_idx ON feature_requests(tenant_id, status)`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS feature_requests_status_idx ON feature_requests(status)`);
 }
 
 /**

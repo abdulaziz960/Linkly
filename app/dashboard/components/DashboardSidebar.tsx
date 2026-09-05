@@ -193,6 +193,19 @@ export default function DashboardSidebar({
           <path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2-2.4 3.6M12 17h.01" />
         </svg>
       </Link>
+      <Link
+        className="sidebar-billing-link"
+        href="/dashboard/development"
+        onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? "Development" : "تطوير المنصة")}
+        onMouseLeave={hideSidebarTooltip}
+        onFocus={(event) => showSidebarTooltip(event, isEnglish ? "Development" : "تطوير المنصة")}
+        onBlur={hideSidebarTooltip}
+        aria-label={isEnglish ? "Development" : "تطوير المنصة"}
+      >
+        <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9 17l-5-5 5-5M15 7l5 5-5 5" />
+        </svg>
+      </Link>
       {user.role === "مالك الحساب" ? (
         <Link
           className="sidebar-billing-link"
