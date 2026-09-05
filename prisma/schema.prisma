@@ -600,3 +600,22 @@ model SupportTicketCounter {
 
   @@map("support_ticket_counter")
 }
+
+model FeatureRequest {
+  id              String @id
+  tenantId        String @map("tenant_id")
+  createdByUserId String @map("created_by_user_id")
+  createdByName   String @default("") @map("created_by_name")
+  companyName     String @default("") @map("company_name")
+  title           String
+  description     String
+  status          String @default("pending")
+  rejectionReason String @default("") @map("rejection_reason")
+  createdAt       String @map("created_at")
+  updatedAt       String @map("updated_at")
+  resolvedAt      String @default("") @map("resolved_at")
+
+  @@index([tenantId, status])
+  @@index([status])
+  @@map("feature_requests")
+}
