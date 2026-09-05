@@ -6,16 +6,16 @@ import { getAppOrigin } from "../../../../lib/app-url";
 
 const techProviderMetaAppId = "1296230909161568";
 const techProviderMetaConfigId = "1428169365888624";
-// Instagram is connected through its own separate Meta app ("Linkly int"),
-// set up as a Facebook Login for Business configuration (not the standalone
-// "Instagram API with Instagram Login" product) - so, like WhatsApp, it goes
-// through facebook.com/dialog/oauth with a config_id rather than
-// instagram.com/oauth/authorize. Hardcoded the same way as the WhatsApp/
-// Facebook app id, instead of trusting a per-tenant settings.appId field - a
-// tenant pasting the wrong App ID there (e.g. the WhatsApp one) silently
+// Instagram is connected through the "API setup with Instagram login"
+// product on the same Meta app ("Linkly int") - a direct instagram.com
+// login, no Facebook Page required. Its App ID (visible under that
+// product's settings) is a *different* number from the app's main
+// Facebook App ID (1600375064844173, used for Basic Settings/Facebook
+// Login) - confirmed directly against Meta's dashboard. Hardcoded the same
+// way as the WhatsApp/Facebook app id, instead of trusting a per-tenant
+// settings.appId field - a tenant pasting the wrong App ID there silently
 // broke Instagram connect with Meta's opaque "Invalid platform app" error.
-const techProviderInstagramAppId = "1600375064844173";
-const techProviderInstagramConfigId = "1761045524833687";
+const techProviderInstagramAppId = "1384578340228125";
 
 function getChannel(request: NextRequest): Extract<IntegrationChannel, "whatsapp" | "instagram" | "facebook"> {
   const channel = request.nextUrl.searchParams.get("channel");
@@ -30,18 +30,14 @@ export async function GET(request: NextRequest) {
   const channel = getChannel(request);
   const settings = await getIntegrationSettings(channel, user.tenantId);
   const appId = channel === "instagram" ? techProviderInstagramAppId : techProviderMetaAppId;
-  const configId = channel === "whatsapp"
-    ? techProviderMetaConfigId
-    : channel === "instagram"
-      ? techProviderInstagramConfigId
-      : settings.configId.trim();
+  const configId = channel === "whatsapp" ? techProviderMetaConfigId : settings.configId.trim();
 
   if (!appId || !/^\d+$/.test(appId)) {
     return NextResponse.redirect(new URL("/dashboard?meta=missing-app-id", getAppOrigin(request)));
   }
 
   const redirectUri = `${getAppOrigin(request)}/api/meta/callback`;
-  const metaUrl = new URL("https://www.facebook.com/v22.0/dialog/oauth");
+  const metaUrl = new URL(channel === "instagram" ? "https://www.instagram.com/oauth/authorize" : "https://www.facebook.com/v22.0/dialog/oauth");
 
   metaUrl.searchParams.set("client_id", appId);
   metaUrl.searchParams.set("redirect_uri", redirectUri);
@@ -49,16 +45,18 @@ export async function GET(request: NextRequest) {
   const oauthState = createOAuthState("meta", { channel });
   metaUrl.searchParams.set("state", oauthState.state);
 
-  // Instagram's permissions are fixed by its Facebook Login for Business
-  // configuration (config_id below), not a manual scope list - only
-  // Facebook Pages (no configuration set up for it) still needs one here.
-  if (channel === "facebook") {
+  if (channel === "instagram") {
+    metaUrl.searchParams.set(
+      "scope",
+      "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish"
+    );
+  } else if (channel === "facebook") {
     metaUrl.searchParams.set("scope", "pages_show_list,pages_read_engagement,pages_manage_metadata,pages_messaging");
   } else if (channel === "whatsapp") {
     metaUrl.searchParams.set("scope", "whatsapp_business_management,whatsapp_business_messaging");
   }
 
-  if ((channel === "whatsapp" || channel === "instagram") && configId) {
+  if (channel === "whatsapp" && configId) {
     metaUrl.searchParams.set("config_id", configId);
   }
 

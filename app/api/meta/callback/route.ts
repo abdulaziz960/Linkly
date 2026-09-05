@@ -9,11 +9,30 @@ import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
 
 const techProviderMetaAppId = "1296230909161568";
-// Must match techProviderInstagramAppId/ConfigId in app/api/meta/connect/route.ts -
-// Instagram is a separate Meta app ("Linkly int") from the WhatsApp
-// tech-provider one, connected via a Facebook Login for Business
-// configuration rather than the standalone Instagram Login product.
-const techProviderInstagramAppId = "1600375064844173";
+// Must match techProviderInstagramAppId in app/api/meta/connect/route.ts -
+// this is Instagram's own App ID under "API setup with Instagram login" on
+// the "Linkly int" app, distinct from that same app's main Facebook App ID
+// (techProviderMetaAppId is a *different* Meta app entirely, WhatsApp's).
+const techProviderInstagramAppId = "1384578340228125";
+
+async function exchangeInstagramLongLivedToken(shortLivedToken: string, appSecret: string) {
+  if (!shortLivedToken || !appSecret) return shortLivedToken;
+
+  const url = new URL("https://graph.instagram.com/access_token");
+  url.searchParams.set("grant_type", "ig_exchange_token");
+  url.searchParams.set("client_secret", appSecret);
+  url.searchParams.set("access_token", shortLivedToken);
+
+  const response = await fetch(url);
+  const payload = await response.json().catch(() => null) as { access_token?: string } | null;
+
+  if (!response.ok || !payload?.access_token) {
+    console.error("Instagram long-lived token exchange failed", payload);
+    return shortLivedToken;
+  }
+
+  return payload.access_token;
+}
 
 async function exchangeWhatsAppCodeForToken(appId: string, appSecret: string, code: string) {
   if (!appId || !appSecret || !code) {
@@ -155,74 +174,63 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code") || "";
 
   if (channel === "instagram" && code) {
-    // Instagram goes through the same facebook.com/dialog/oauth + graph.facebook.com
-    // token exchange as the "facebook" channel below (Facebook Login for
-    // Business config, not the standalone Instagram Login product) - the
-    // Instagram Business Account is reached via the Facebook Page it's
-    // linked to, using that page's access token for messaging.
+    // Direct Instagram login ("API setup with Instagram login") - a
+    // separate token-exchange endpoint and its own App ID/secret, distinct
+    // from the Facebook-based flows below. No Facebook Page involved.
     const appId = techProviderInstagramAppId;
-    const appSecret = process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
+    const appSecret = process.env.INSTAGRAM_APP_SECRET || "";
     const redirectUri = `${getAppOrigin(request)}/api/meta/callback`;
 
     if (appId && appSecret) {
-      const tokenUrl = new URL("https://graph.facebook.com/v22.0/oauth/access_token");
-      tokenUrl.searchParams.set("client_id", appId);
-      tokenUrl.searchParams.set("client_secret", appSecret);
-      tokenUrl.searchParams.set("redirect_uri", redirectUri);
-      tokenUrl.searchParams.set("code", code);
+      const tokenForm = new URLSearchParams();
+      tokenForm.set("client_id", appId);
+      tokenForm.set("client_secret", appSecret);
+      tokenForm.set("grant_type", "authorization_code");
+      tokenForm.set("redirect_uri", redirectUri);
+      tokenForm.set("code", code);
 
-      const tokenResponse = await fetch(tokenUrl);
+      const tokenResponse = await fetch("https://api.instagram.com/oauth/access_token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: tokenForm
+      });
       const tokenPayload = await tokenResponse.json().catch(() => null) as {
         access_token?: string;
-        error?: { message?: string };
+        user_id?: string | number;
       } | null;
-      const userAccessToken = tokenPayload?.access_token || "";
+      const accessToken = tokenPayload?.access_token || "";
 
-      if (tokenResponse.ok && userAccessToken) {
-        const pagesUrl = new URL("https://graph.facebook.com/v22.0/me/accounts");
-        pagesUrl.searchParams.set("fields", "id,name,access_token,instagram_business_account{id,username,name}");
-        pagesUrl.searchParams.set("access_token", userAccessToken);
-        const pagesResponse = await fetch(pagesUrl);
-        const pagesPayload = await pagesResponse.json().catch(() => null) as {
-          data?: Array<{
-            id?: string;
-            name?: string;
-            access_token?: string;
-            instagram_business_account?: { id?: string; username?: string; name?: string };
-          }>;
+      if (tokenResponse.ok && accessToken) {
+        const longLivedAccessToken = await exchangeInstagramLongLivedToken(accessToken, appSecret);
+        const accountsUrl = new URL("https://graph.instagram.com/v22.0/me");
+        accountsUrl.searchParams.set("fields", "user_id,username,name,account_type");
+        accountsUrl.searchParams.set("access_token", longLivedAccessToken);
+        const accountsResponse = await fetch(accountsUrl);
+        const accountsPayload = await accountsResponse.json().catch(() => null) as {
+          user_id?: string | number;
+          username?: string;
+          name?: string;
+          account_type?: string;
         } | null;
-        const page = pagesPayload?.data?.find((item) => item.access_token && item.instagram_business_account?.id);
+        const instagramId = String(accountsPayload?.user_id || tokenPayload?.user_id || "");
 
-        if (page?.access_token && page.instagram_business_account?.id) {
-          const subscribedUrl = new URL(`https://graph.facebook.com/v22.0/${page.id}/subscribed_apps`);
-          subscribedUrl.searchParams.set("subscribed_fields", "messages,messaging_postbacks,message_reads,comments");
-          subscribedUrl.searchParams.set("access_token", page.access_token);
-          const subscribedResponse = await fetch(subscribedUrl, { method: "POST" });
-          const subscribedPayload = await subscribedResponse.json().catch(() => null);
-          if (!subscribedResponse.ok) {
-            console.error("Instagram (via Facebook Page) webhook subscription failed", subscribedPayload);
+        await prisma.integrationSetting.updateMany({
+          where: { id: settings.id, tenantId: user.tenantId },
+          data: {
+            status: instagramId ? "connected" : "pending",
+            businessName: accountsPayload?.account_type || settings.businessName,
+            wabaName: accountsPayload?.username || accountsPayload?.name || settings.wabaName,
+            wabaId: instagramId || settings.wabaId,
+            accessToken: encryptSecret(longLivedAccessToken),
+            updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
+              dateStyle: "medium",
+              timeStyle: "short",
+              timeZone: "Asia/Riyadh",
+              numberingSystem: "latn",
+              calendar: "gregory"
+            }).format(new Date())
           }
-
-          await prisma.integrationSetting.updateMany({
-            where: { id: settings.id, tenantId: user.tenantId },
-            data: {
-              status: "connected",
-              businessName: page.name || settings.businessName,
-              wabaName: page.instagram_business_account.username || page.instagram_business_account.name || settings.wabaName,
-              wabaId: page.instagram_business_account.id,
-              accessToken: encryptSecret(page.access_token),
-              updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
-                dateStyle: "medium",
-                timeStyle: "short",
-                timeZone: "Asia/Riyadh",
-                numberingSystem: "latn",
-                calendar: "gregory"
-              }).format(new Date())
-            }
-          });
-        } else {
-          console.error("Instagram connect: no Facebook Page with a linked Instagram Business Account found", pagesPayload);
-        }
+        });
       } else {
         console.error("Instagram token exchange failed", tokenPayload);
       }
