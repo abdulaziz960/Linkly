@@ -559,6 +559,9 @@ model SubscriptionPayment {
 model TenantPreference {
   tenantId             String @id @map("tenant_id")
   leadsPipelineEnabled Int    @default(1) @map("leads_pipeline_enabled")
+  brandName            String @default("") @map("brand_name")
+  brandLogoDataUrl     String @default("") @map("brand_logo_data_url")
+  brandColor           String @default("") @map("brand_color")
   updatedAt            String @map("updated_at")
 
   @@map("tenant_preferences")

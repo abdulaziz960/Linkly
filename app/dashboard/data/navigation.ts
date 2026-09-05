@@ -16,7 +16,8 @@ export const navItems: NavItem[] = [
   { key: "teams", label: "الفرق" },
   { key: "employees", label: "الموظفين والصلاحيات" },
   { key: "settings", label: "الإعدادات والربط" },
-  { key: "developers", label: "المطورون" }
+  { key: "developers", label: "المطورون" },
+  { key: "branding", label: "العلامة التجارية" }
 ];
 
 // English labels currently cover the sidebar navigation only (a partial,
@@ -37,7 +38,8 @@ export const navItemLabelsEn: Record<ViewKey, string> = {
   teams: "Teams",
   employees: "Employees & permissions",
   settings: "Settings & channels",
-  developers: "Developers"
+  developers: "Developers",
+  branding: "Branding"
 };
 
 export const viewTitles: Record<ViewKey, string> = {
@@ -56,5 +58,6 @@ export const viewTitles: Record<ViewKey, string> = {
   teams: "الفرق",
   employees: "الموظفين والصلاحيات",
   settings: "الإعدادات والربط",
-  developers: "المطورون"
+  developers: "المطورون",
+  branding: "العلامة التجارية"
 };

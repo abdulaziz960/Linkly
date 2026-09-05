@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../lib/auth";
 import { getActivePlans } from "../../lib/plans";
 import { getSubscriptionForTenant } from "../../lib/subscriptions";
 import { isMoyasarLiveMode } from "../../lib/moyasar";
+import { getTenantBranding } from "../../lib/tenant-branding";
 
 export const dynamic = "force-dynamic";
 import BillingPageClient from "./BillingPageClient";
@@ -14,6 +15,6 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) redirect("/login?next=/billing");
   if (user.role !== "مالك الحساب") redirect("/dashboard");
-  const [plans, subscription, { expired }] = await Promise.all([getActivePlans(), getSubscriptionForTenant(user.tenantId), searchParams]);
-  return <BillingPageClient plans={plans} subscription={subscription} expired={expired === "1"} isTestMode={!isMoyasarLiveMode()} />;
+  const [plans, subscription, { expired }, branding] = await Promise.all([getActivePlans(), getSubscriptionForTenant(user.tenantId), searchParams, getTenantBranding(user.tenantId)]);
+  return <BillingPageClient plans={plans} subscription={subscription} expired={expired === "1"} isTestMode={!isMoyasarLiveMode()} branding={branding} />;
 }

@@ -16,7 +16,8 @@ export const allViewKeys: ViewKey[] = [
   "teams",
   "employees",
   "settings",
-  "developers"
+  "developers",
+  "branding"
 ];
 
 export const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
@@ -33,7 +34,7 @@ export const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "فرق", views: ["teams"] },
   { keyword: "موظفين", views: ["employees"] },
   { keyword: "صلاحيات", views: ["employees"] },
-  { keyword: "ربط", views: ["settings", "developers"] }
+  { keyword: "ربط", views: ["settings", "developers", "branding"] }
 ];
 
 export function computeAllowedViews(role: string, permissions: string): ViewKey[] {
