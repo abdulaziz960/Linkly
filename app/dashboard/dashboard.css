@@ -7577,11 +7577,16 @@
 
 }
 
+.sidebar-top-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .sidebar-billing-link {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: auto 10px 8px;
+  margin: 0 10px;
   padding: 11px 12px;
   border: 1px solid rgba(255,255,255,.16);
   border-radius: 12px;
