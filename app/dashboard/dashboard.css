@@ -7645,6 +7645,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .dashboard-top-links .sidebar-billing-link:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1);
+  color: var(--ink, #111827);
 }
 .dashboard-top-links .sidebar-billing-link .dashboard-nav-icon {
   width: 18px;
