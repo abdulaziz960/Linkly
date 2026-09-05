@@ -394,6 +394,33 @@ async function runSchemaMigrations() {
       tenant_id TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS api_keys (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '',
+      key_hash TEXT NOT NULL UNIQUE,
+      key_prefix TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_used_at TEXT NOT NULL DEFAULT ''
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhooks (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      url TEXT NOT NULL,
+      secret TEXT NOT NULL,
+      events TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id TEXT PRIMARY KEY,
+      webhook_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL,
+      event TEXT NOT NULL,
+      http_status INTEGER NOT NULL DEFAULT 0,
+      success INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipients (
       id TEXT PRIMARY KEY,
       campaign_id TEXT NOT NULL,
@@ -937,6 +964,33 @@ async function runSchemaMigrations() {
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL,
     tenant_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS api_keys (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    key_hash TEXT NOT NULL UNIQUE,
+    key_prefix TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    last_used_at TEXT NOT NULL DEFAULT ''
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhooks (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    secret TEXT NOT NULL,
+    events TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    id TEXT PRIMARY KEY,
+    webhook_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    event TEXT NOT NULL,
+    http_status INTEGER NOT NULL DEFAULT 0,
+    success INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
   )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS tenant_preferences (

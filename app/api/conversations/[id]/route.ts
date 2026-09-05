@@ -4,6 +4,7 @@ import { prisma } from "../../../../lib/prisma";
 import { runAutomations } from "../../../../lib/automation-engine";
 import { requestRatingIfNeeded } from "../../../../lib/conversation-rating";
 import { enqueueConversationSummary } from "../../../../lib/conversation-insights";
+import { triggerWebhookEvent } from "../../../../lib/webhooks";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = {
@@ -73,6 +74,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       });
       await enqueueConversationSummary(id, user.tenantId).catch((error) => {
         console.error(`Queuing AI summary failed for conversation ${id}`, error);
+      });
+      await triggerWebhookEvent(user.tenantId, "conversation.closed", { conversationId: id }).catch((error) => {
+        console.error(`Webhook delivery failed for conversation ${id}`, error);
       });
     }
 
