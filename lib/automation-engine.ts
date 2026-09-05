@@ -10,6 +10,7 @@ import { sendWebsiteTextMessage } from "./website-send";
 import { sendEmailMessage } from "./email-channel";
 import { sendUnifonicSms } from "./sms-send";
 import { checkOffHoursAutoReply } from "./work-hours";
+import { triggerWebhookEvent } from "./webhooks";
 
 export type AutomationTrigger =
   | "تم إنشاء رسالة"
@@ -387,6 +388,9 @@ export async function runInboundMessageAutomations(conversationId: string, tenan
   }
 
   await checkOffHoursAutoReply(conversationId, tenantId);
+  await triggerWebhookEvent(tenantId, "message.received", { conversationId, text: messageText }).catch((error) => {
+    console.error(`Webhook delivery failed for conversation ${conversationId}`, error);
+  });
 }
 
 /**

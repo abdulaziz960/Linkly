@@ -12,7 +12,8 @@ export type ViewKey =
   | "reports"
   | "teams"
   | "employees"
-  | "settings";
+  | "settings"
+  | "developers";
 
 export type ConversationStatus = "assigned" | "unassigned" | "closed";
 export type ConversationFilter = "all" | ConversationStatus | "mine" | "unread";
@@ -145,6 +146,30 @@ export type Segment = {
   recipientCount: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ApiKeySummary = {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  createdAt: string;
+  lastUsedAt: string;
+};
+
+export type WebhookSummary = {
+  id: string;
+  url: string;
+  events: string[];
+  active: boolean;
+  createdAt: string;
+};
+
+export type WebhookDeliverySummary = {
+  id: string;
+  event: string;
+  httpStatus: number;
+  success: boolean;
+  createdAt: string;
 };
 
 export type QuickReply = {

@@ -16,6 +16,7 @@ import AutomationsView from "./AutomationsView";
 import BotView from "./BotView";
 import CampaignsView from "./CampaignsView";
 import ContactsView from "./ContactsView";
+import DevelopersView from "./DevelopersView";
 import EmployeesView from "./EmployeesView";
 import QuickRepliesView from "./QuickRepliesView";
 import ReportsView from "./ReportsView";
@@ -85,5 +86,6 @@ export default function DashboardViewRouter({
   if (view === "teams") return <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "employees") return <EmployeesView employees={employees} conversations={conversations} onRefreshData={onRefreshData} />;
   if (view === "settings") return <SettingsView onIntegrationChange={onIntegrationChange} />;
+  if (view === "developers") return <DevelopersView />;
   return null;
 }
