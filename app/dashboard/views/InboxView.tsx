@@ -1483,7 +1483,27 @@ export default function InboxView({
                   <dd>{getChannelLabel(activeConversation, language)}</dd>
                 </div>
                 <div>
-                  <dt>{t("رقم الجوال", "Phone number")}</dt>
+                  <dt>
+                    {activeConversation.channel === "whatsapp" || activeConversation.channel === "sms"
+                      ? t("رقم الجوال", "Phone number")
+                      : activeConversation.channel === "instagram"
+                        ? t("معرّف إنستغرام", "Instagram ID")
+                        : activeConversation.channel === "facebook"
+                          ? t("معرف فيسبوك", "Facebook ID")
+                          : activeConversation.channel === "telegram"
+                            ? t("معرف تيليجرام", "Telegram ID")
+                            : activeConversation.channel === "google_maps"
+                              ? t("معرّف تقييم جوجل", "Google Review ID")
+                              : activeConversation.channel === "email"
+                                ? t("البريد الإلكتروني", "Email")
+                                : activeConversation.channel === "website"
+                                  ? t("معرّف الزائر", "Visitor ID")
+                                  : activeConversation.channel === "tiktok"
+                                    ? t("معرّف تيك توك", "TikTok ID")
+                                    : activeConversation.channel === "x"
+                                      ? t("معرّف إكس", "X ID")
+                                      : t("المعرف", "ID")}
+                  </dt>
                   <dd dir="ltr">{activeConversation.phone}</dd>
                 </div>
                 <div>
