@@ -158,6 +158,7 @@ async function getInstagramSenderProfile(instagramUserId: string, accessToken: s
           username: typeof payload.username === "string" ? payload.username : undefined
         };
       }
+      console.error("Instagram sender profile lookup returned an error", { endpoint, status: response.status, payload });
     } catch (error) {
       console.error("Instagram sender profile lookup failed", error);
     }
