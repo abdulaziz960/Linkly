@@ -6,6 +6,13 @@ import { getAppOrigin } from "../../../../lib/app-url";
 
 const techProviderMetaAppId = "1296230909161568";
 const techProviderMetaConfigId = "1428169365888624";
+// Instagram Login is a separate Meta app from the WhatsApp tech-provider one
+// above (Instagram API with Instagram Login has its own App ID). Hardcoded
+// the same way as the WhatsApp/Facebook app id, instead of trusting a
+// per-tenant settings.appId field - a tenant pasting the wrong App ID there
+// (e.g. the WhatsApp one) silently broke Instagram connect with Meta's
+// opaque "Invalid platform app" error.
+const techProviderInstagramAppId = "1384578340228125";
 
 function getChannel(request: NextRequest): Extract<IntegrationChannel, "whatsapp" | "instagram" | "facebook"> {
   const channel = request.nextUrl.searchParams.get("channel");
@@ -25,9 +32,7 @@ export async function GET(request: NextRequest) {
   // facebook.com/dialog/oauth, so it reuses Linkly's WhatsApp tech-provider
   // app (already a verified, working classic Meta app) instead of falling
   // back to the Instagram-only app ID, which produced "Invalid App ID".
-  const appId = channel === "whatsapp" || channel === "facebook"
-    ? techProviderMetaAppId
-    : settings.appId.trim() || process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";
+  const appId = channel === "instagram" ? techProviderInstagramAppId : techProviderMetaAppId;
   const configId = channel === "whatsapp" ? techProviderMetaConfigId : settings.configId.trim();
 
   if (!appId || !/^\d+$/.test(appId)) {

@@ -9,6 +9,9 @@ import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
 
 const techProviderMetaAppId = "1296230909161568";
+// Must match techProviderInstagramAppId in app/api/meta/connect/route.ts -
+// Instagram Login is a separate Meta app from the WhatsApp tech-provider one.
+const techProviderInstagramAppId = "1384578340228125";
 
 async function exchangeInstagramLongLivedToken(shortLivedToken: string, appSecret: string) {
   if (!shortLivedToken || !appSecret) return shortLivedToken;
@@ -169,7 +172,7 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code") || "";
 
   if (channel === "instagram" && code) {
-    const appId = settings.appId.trim() || process.env.NEXT_PUBLIC_META_APP_ID || process.env.META_APP_ID || "";
+    const appId = techProviderInstagramAppId;
     const appSecret = process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
     const redirectUri = `${getAppOrigin(request)}/api/meta/callback`;
 
