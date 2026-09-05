@@ -727,6 +727,8 @@
   position: fixed;
   z-index: 120;
   width: min(240px, calc(100vw - 24px));
+  max-height: calc(100vh - var(--menu-top, 0px) - 12px);
+  overflow-y: auto;
   display: grid;
   gap: 6px;
   padding: 10px;

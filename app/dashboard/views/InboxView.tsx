@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import FilterButton from "../components/FilterButton";
 import CustomSelect from "../../components/CustomSelect";
 import type {
@@ -936,7 +936,7 @@ export default function InboxView({
           {contextConversation ? (
             <div
               className="conversation-context-menu"
-              style={{ left: conversationMenu?.x, top: conversationMenu?.y }}
+              style={{ left: conversationMenu?.x, top: conversationMenu?.y, "--menu-top": `${conversationMenu?.y ?? 0}px` } as CSSProperties}
               role="menu"
               aria-label={t("خيارات المحادثة", "Conversation options")}
               onClick={(event) => event.stopPropagation()}
