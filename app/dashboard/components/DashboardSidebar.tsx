@@ -49,6 +49,7 @@ function DashboardNavIcon({ view }: { view: ViewKey }) {
     bot: <><rect x="5" y="7" width="14" height="11" rx="3" /><path d="M12 3v4M9 12h.01M15 12h.01M9 15h6" /></>,
     automations: <><path d="m13 2-7 11h6l-1 9 7-12h-6l1-8Z" /></>,
     campaigns: <><path d="m4 13 12-5v8L4 11v2Z" /><path d="M7 13v6h3v-5" /></>,
+    segments: <><circle cx="7" cy="7" r="3" /><circle cx="17" cy="7" r="3" /><circle cx="12" cy="17" r="3" /></>,
     templates: <><path d="M6 3h12v18H6z" /><path d="M9 8h6M9 12h6M9 16h4" /></>,
     quickReplies: <><path d="M5 5h14v11H9l-4 3V5Z" /><path d="m13 8-3 4h3l-2 3" /></>,
     workHours: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
@@ -100,7 +101,7 @@ export default function DashboardSidebar({
   const visibleNavItems = navItems.filter((item) => allowedViews.includes(item.key));
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "التواصل", labelEn: "Communication", keys: ["inbox", "quickReplies", "workHours", "bot", "automations"] },
-    { label: "التسويق", labelEn: "Marketing", keys: ["campaigns", "templates"] },
+    { label: "التسويق", labelEn: "Marketing", keys: ["campaigns", "segments", "templates"] },
     { label: "إدارة العملاء", labelEn: "Customers", keys: ["contacts", "tags"] },
     { label: "الفريق", labelEn: "Team", keys: ["teams", "employees"] },
     { label: "التحليلات والإعدادات", labelEn: "Insights & settings", keys: ["reports", "settings"] }

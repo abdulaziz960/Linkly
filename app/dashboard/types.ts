@@ -5,6 +5,7 @@ export type ViewKey =
   | "bot"
   | "automations"
   | "campaigns"
+  | "segments"
   | "templates"
   | "quickReplies"
   | "workHours"
@@ -134,6 +135,16 @@ export type Tag = {
   name: string;
   color: string;
   description: string;
+};
+
+export type Segment = {
+  id: string;
+  name: string;
+  tagNames: string[];
+  inactiveDays: number;
+  recipientCount: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type QuickReply = {

@@ -274,6 +274,19 @@ model CampaignRecurrence {
   @@map("campaign_recurrences")
 }
 
+model Segment {
+  id           String @id
+  tenantId     String @map("tenant_id")
+  name         String
+  tagNames     String @default("") @map("tag_names")
+  inactiveDays Int    @default(0) @map("inactive_days")
+  createdAt    String @map("created_at")
+  updatedAt    String @map("updated_at")
+
+  @@index([tenantId])
+  @@map("segments")
+}
+
 model CampaignPayment {
   id          String @id
   tenantId    String @map("tenant_id")

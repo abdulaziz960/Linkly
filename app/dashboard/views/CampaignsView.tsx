@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import type { Campaign, MessageTemplate } from "../types";
+import type { Campaign, MessageTemplate, Segment } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import { formatDateTime } from "../../../lib/time";
@@ -23,6 +23,8 @@ type CampaignForm = {
   recurring: boolean;
   recurrenceIntervalDays: number;
   recurrenceEndAt: string;
+  audienceMode: "file" | "segment";
+  segmentId: string;
 };
 
 type CampaignRecurrenceSummary = {
@@ -136,13 +138,16 @@ export default function CampaignsView({
       scheduledAt: "",
       recurring: false,
       recurrenceIntervalDays: 7,
-      recurrenceEndAt: ""
+      recurrenceEndAt: "",
+      audienceMode: "file",
+      segmentId: ""
     }),
     [defaultTemplateName]
   );
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<CampaignForm>(emptyForm);
   const [recurrences, setRecurrences] = useState<CampaignRecurrenceSummary[]>([]);
+  const [segments, setSegments] = useState<Segment[]>([]);
   const [campaignFile, setCampaignFile] = useState<File | null>(null);
   const [headerMediaFile, setHeaderMediaFile] = useState<File | null>(null);
   const [brokenThumbIds, setBrokenThumbIds] = useState<Set<string>>(new Set());
@@ -220,6 +225,20 @@ export default function CampaignsView({
   useEffect(() => {
     if (activeTab === "campaigns") loadRecurrences();
   }, [activeTab]);
+
+  async function loadSegments() {
+    try {
+      const response = await fetch("/api/segments");
+      const body = await response.json().catch(() => null);
+      if (response.ok && body?.ok) setSegments(body.data ?? []);
+    } catch {
+      // Non-critical - the segment picker simply stays empty on failure.
+    }
+  }
+
+  useEffect(() => {
+    if (formOpen) loadSegments();
+  }, [formOpen]);
 
   async function toggleRecurrence(id: string, nextStatus: "نشطة" | "متوقفة") {
     await fetch(`/api/campaigns/recurring/${id}`, {
@@ -317,11 +336,31 @@ export default function CampaignsView({
             scheduledAt: "",
             recurring: false,
             recurrenceIntervalDays: 7,
-            recurrenceEndAt: ""
+            recurrenceEndAt: "",
+            audienceMode: "file",
+            segmentId: ""
           }
         : emptyForm
     );
     setFormOpen(true);
+  }
+
+  function selectSegment(segmentId: string) {
+    setForm((current) => ({ ...current, segmentId }));
+    const segment = segments.find((item) => item.id === segmentId);
+    setRecipientPreviewError("");
+    setRecipientPreview(segment ? segment.recipientCount : null);
+  }
+
+  function setAudienceMode(mode: "file" | "segment") {
+    setForm((current) => ({ ...current, audienceMode: mode, segmentId: mode === "file" ? "" : current.segmentId }));
+    setRecipientPreviewError("");
+    if (mode === "file") {
+      setRecipientPreview(campaignFile ? recipientPreview : null);
+    } else {
+      const segment = segments.find((item) => item.id === form.segmentId);
+      setRecipientPreview(segment ? segment.recipientCount : null);
+    }
   }
 
   async function openReport(campaign: Campaign) {
@@ -353,8 +392,14 @@ export default function CampaignsView({
       return;
     }
 
-    if (!campaignFile) {
+    if (form.audienceMode === "file" && !campaignFile) {
       setFormError(t("ارفع ملف Excel أو CSV يحتوي على أرقام العملاء", "Upload an Excel or CSV file containing your customers' numbers"));
+      setSaving(false);
+      return;
+    }
+
+    if (form.audienceMode === "segment" && !form.segmentId) {
+      setFormError(t("اختر تقسيم جمهور لاستخدامه كجمهور الحملة", "Choose a segment to use as the campaign's audience"));
       setSaving(false);
       return;
     }
@@ -373,7 +418,12 @@ export default function CampaignsView({
     body.set("recurring", String(form.recurring));
     body.set("recurrenceIntervalDays", String(form.recurrenceIntervalDays));
     body.set("recurrenceEndAt", form.recurrenceEndAt);
-    body.set("file", campaignFile);
+    body.set("audienceMode", form.audienceMode);
+    if (form.audienceMode === "segment") {
+      body.set("segmentId", form.segmentId);
+    } else if (campaignFile) {
+      body.set("file", campaignFile);
+    }
     if (headerMediaFile) body.set("headerMedia", headerMediaFile);
 
     const response = await fetch("/api/campaigns", { method: "POST", body });
@@ -661,30 +711,54 @@ export default function CampaignsView({
                     </label>
                   ) : null}
                   <label>
-                    <span>{t("ملف اكسل أو CSV", "Excel or CSV file")}</span>
-                    <div className="file-picker">
-                      <button type="button" onClick={() => document.getElementById("campaign-file-input")?.click()}>{t("تصفح", "Browse")}</button>
-                      <span>{campaignFile?.name || t("اختر ملف اكسل أو CSV أو أسقطه هنا ...", "Choose an Excel or CSV file, or drop it here...")}</span>
-                      <input
-                        id="campaign-file-input"
-                        type="file"
-                        accept=".xlsx,.xls,.csv"
-                        onChange={(event) => handleCampaignFileChange(event.target.files?.[0] || null)}
-                      />
+                    <span>{t("مصدر الجمهور", "Audience source")}</span>
+                    <div className="section-tabs">
+                      <button className={form.audienceMode === "file" ? "section-tab active" : "section-tab"} type="button" onClick={() => setAudienceMode("file")}>{t("📁 رفع ملف", "📁 Upload file")}</button>
+                      <button className={form.audienceMode === "segment" ? "section-tab active" : "section-tab"} type="button" onClick={() => setAudienceMode("segment")}>{t("🎯 تقسيم جمهور", "🎯 Segment")}</button>
                     </div>
-                    <small className="field-hint">{t("يجب أن تكون أرقام العملاء في أول عمود بصيغة 966 أو +966.", "Customer numbers must be in the first column, formatted as 966 or +966.")}</small>
-                    {recipientPreviewLoading ? (
-                      <small className="field-hint">{t("جاري فحص الملف...", "Checking the file...")}</small>
-                    ) : recipientPreviewError ? (
-                      <p className="form-error">{recipientPreviewError}</p>
-                    ) : recipientPreview !== null ? (
-                      <small className="field-hint">
-                        {recipientPreview > 0
-                          ? t(`تم العثور على ${recipientPreview.toLocaleString("en-US")} رقم صحيح في الملف.`, `Found ${recipientPreview.toLocaleString("en-US")} valid numbers in the file.`)
-                          : t("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.", "No valid numbers found in the file. Make sure numbers are in the first column.")}
-                      </small>
-                    ) : null}
                   </label>
+                  {form.audienceMode === "file" ? (
+                    <label>
+                      <span>{t("ملف اكسل أو CSV", "Excel or CSV file")}</span>
+                      <div className="file-picker">
+                        <button type="button" onClick={() => document.getElementById("campaign-file-input")?.click()}>{t("تصفح", "Browse")}</button>
+                        <span>{campaignFile?.name || t("اختر ملف اكسل أو CSV أو أسقطه هنا ...", "Choose an Excel or CSV file, or drop it here...")}</span>
+                        <input
+                          id="campaign-file-input"
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={(event) => handleCampaignFileChange(event.target.files?.[0] || null)}
+                        />
+                      </div>
+                      <small className="field-hint">{t("يجب أن تكون أرقام العملاء في أول عمود بصيغة 966 أو +966.", "Customer numbers must be in the first column, formatted as 966 or +966.")}</small>
+                      {recipientPreviewLoading ? (
+                        <small className="field-hint">{t("جاري فحص الملف...", "Checking the file...")}</small>
+                      ) : recipientPreviewError ? (
+                        <p className="form-error">{recipientPreviewError}</p>
+                      ) : recipientPreview !== null ? (
+                        <small className="field-hint">
+                          {recipientPreview > 0
+                            ? t(`تم العثور على ${recipientPreview.toLocaleString("en-US")} رقم صحيح في الملف.`, `Found ${recipientPreview.toLocaleString("en-US")} valid numbers in the file.`)
+                            : t("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.", "No valid numbers found in the file. Make sure numbers are in the first column.")}
+                        </small>
+                      ) : null}
+                    </label>
+                  ) : (
+                    <label>
+                      <span>{t("تقسيم الجمهور", "Segment")}</span>
+                      <CustomSelect
+                        value={form.segmentId}
+                        onChange={(value) => selectSegment(value)}
+                        options={segments.map((segment) => ({
+                          value: segment.id,
+                          label: `${segment.name} (${segment.recipientCount.toLocaleString("en-US")} ${t("عميل", "customers")})`
+                        }))}
+                      />
+                      {!segments.length ? (
+                        <small className="field-hint">{t("ما فيه تقسيمات جمهور بعد - أنشئ واحداً من صفحة تقسيم الجمهور.", "No segments yet - create one from the Segments page.")}</small>
+                      ) : null}
+                    </label>
+                  )}
                   <label className="schedule-toggle">
                     <span>{t("جدولة الحملة؟", "Schedule the campaign?")}</span>
                     <button
@@ -735,7 +809,7 @@ export default function CampaignsView({
               <div className="campaign-phone"><div className="campaign-phone-bar"><span>Linkly</span><i>•••</i></div><div className="campaign-phone-notice">{t("محادثة أعمال موثقة وآمنة", "Verified and secure business chat")}</div><div className="campaign-message-preview"><b>{form.name || t("اسم الحملة", "Campaign name")}</b><p>{approvedTemplates.find((template) => template.name === form.templateName)?.message || t("اختر قالباً معتمداً لتظهر معاينة نص الرسالة هنا.", "Choose an approved template to preview its message here.")}</p><time>3:34 PM</time></div></div>
               <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{recipientPreview === null ? "—" : recipientPreview.toLocaleString("en-US")}</dd></div><div><dt>{t("طريقة الإرسال", "Delivery")}</dt><dd>{form.scheduled ? t("مجدولة", "Scheduled") : t("فوري", "Immediate")}</dd></div>{form.recurring ? <div><dt>{t("التكرار", "Repeats")}</dt><dd>{t(recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.ar || "", recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.en || "")}</dd></div> : null}</dl>
             </aside>
-            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && (!approvedTemplates.length || !campaignFile || !recipientPreview || (needsHeaderMedia && !templateHasSavedMedia && !headerMediaFile)))}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : form.recurring ? t("جدولة حملة متكررة", "Schedule recurring campaign") : form.scheduled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الحملة", "Send campaign")}</button></footer>
+            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && (!approvedTemplates.length || (form.audienceMode === "file" ? !campaignFile : !form.segmentId) || !recipientPreview || (needsHeaderMedia && !templateHasSavedMedia && !headerMediaFile)))}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : form.recurring ? t("جدولة حملة متكررة", "Schedule recurring campaign") : form.scheduled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الحملة", "Send campaign")}</button></footer>
           </form>
         </div>
       ) : null}
