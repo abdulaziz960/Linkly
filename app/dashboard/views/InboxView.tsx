@@ -320,6 +320,7 @@ export default function InboxView({
   const [emojiSearch, setEmojiSearch] = useState("");
   const [recentEmojis, setRecentEmojis] = useState<string[]>([...emojiCategories[0].emojis]);
   const [conversationMenu, setConversationMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
+  const conversationMenuRef = useRef<HTMLDivElement | null>(null);
   const [messageMenu, setMessageMenu] = useState<{ messageId: string; x: number; y: number } | null>(null);
   const [replyTargetId, setReplyTargetId] = useState("");
   const [commentReplyTarget, setCommentReplyTarget] = useState<string>("");
@@ -573,17 +574,26 @@ export default function InboxView({
     if (!conversationMenu) return;
 
     const closeMenu = () => setConversationMenu(null);
+    // Scrolling *inside* the menu itself (now that it can scroll internally
+    // when it's taller than the remaining viewport space) still dispatches
+    // a "scroll" event that reaches this window-level capture listener, so
+    // without this check any scroll to reach items further down closed the
+    // menu before you could read them.
+    const closeOnOutsideScroll = (event: Event) => {
+      if (conversationMenuRef.current?.contains(event.target as Node)) return;
+      closeMenu();
+    };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") closeMenu();
     };
 
     window.addEventListener("click", closeMenu);
-    window.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("scroll", closeOnOutsideScroll, true);
     window.addEventListener("keydown", closeOnEscape);
 
     return () => {
       window.removeEventListener("click", closeMenu);
-      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("scroll", closeOnOutsideScroll, true);
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [conversationMenu]);
@@ -935,6 +945,7 @@ export default function InboxView({
           {displayedConversations.length > listLimit ? <button className="conversation-load-more" type="button" onClick={() => setListLimit((current) => current + 60)}>{t(`عرض 60 محادثة إضافية (${displayedConversations.length - listLimit} متبقية)`, `Load 60 more (${displayedConversations.length - listLimit} remaining)`)}</button> : null}
           {contextConversation ? (
             <div
+              ref={conversationMenuRef}
               className="conversation-context-menu"
               style={{ left: conversationMenu?.x, top: conversationMenu?.y, "--menu-top": `${conversationMenu?.y ?? 0}px` } as CSSProperties}
               role="menu"
