@@ -180,7 +180,7 @@ function getTelegramReplyMessageId(messageId?: string) {
   return Number.isFinite(numericId) ? numericId : undefined;
 }
 
-async function sendInstagramTextMessage(instagramAccountId: string, accessToken: string, recipientId: string, text: string, replyToMessageId?: string) {
+async function sendInstagramTextMessage(instagramAccountId: string, accessToken: string, recipientId: string, text: string, replyToMessageId?: string, useHumanAgentTag?: boolean) {
   const replyTo = getInstagramReplyMessageId(replyToMessageId);
   const buildPayload = (includeReplyTo: boolean) => ({
     recipient: {
@@ -189,6 +189,13 @@ async function sendInstagramTextMessage(instagramAccountId: string, accessToken:
     message: {
       text
     },
+    // Instagram's standard messaging window (like WhatsApp's) blocks a
+    // free-form reply once it's expired - the human_agent tag is Meta's
+    // sanctioned exception for a real support agent still handling an
+    // already-open conversation just outside that window (business closed
+    // over the weekend, an issue that took longer than a day to resolve),
+    // not for bot/automated sends.
+    ...(useHumanAgentTag ? { messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" } : {}),
     ...(includeReplyTo && replyTo ? { reply_to: { mid: replyTo } } : {})
   });
 
@@ -851,7 +858,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return jsonError("هذه محادثة حساب Instagram المرتبط نفسه وليست عميلاً. اختر محادثة عميل أخرى من القائمة.", 400);
       }
 
-      const metaResponse = await sendInstagramTextMessage(instagramAccountId, instagramAccessToken, recipientId, text, replyToMessage?.id);
+      const isInstagramWindowExpired = await isWhatsAppReplyWindowExpired(conversation.id, Boolean(conversation.windowExpired));
+      const metaResponse = await sendInstagramTextMessage(instagramAccountId, instagramAccessToken, recipientId, text, replyToMessage?.id, isInstagramWindowExpired);
 
       const message = await prisma.$transaction(async (tx) => {
         const created = await tx.message.create({
