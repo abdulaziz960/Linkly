@@ -11,7 +11,7 @@ import { popupCloseHtml } from "../../../../lib/popup-close";
 const techProviderMetaAppId = "1296230909161568";
 // Must match techProviderInstagramAppId in app/api/meta/connect/route.ts -
 // Instagram Login is a separate Meta app from the WhatsApp tech-provider one.
-const techProviderInstagramAppId = "1384578340228125";
+const techProviderInstagramAppId = "1600375064844173";
 
 async function exchangeInstagramLongLivedToken(shortLivedToken: string, appSecret: string) {
   if (!shortLivedToken || !appSecret) return shortLivedToken;
