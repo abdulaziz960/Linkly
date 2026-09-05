@@ -3,6 +3,7 @@ export type ViewKey =
   | "contacts"
   | "tags"
   | "bot"
+  | "knowledgeBase"
   | "automations"
   | "campaigns"
   | "segments"
@@ -136,6 +137,14 @@ export type Tag = {
   name: string;
   color: string;
   description: string;
+};
+
+export type KnowledgeBaseEntry = {
+  id: string;
+  question: string;
+  answer: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type Segment = {

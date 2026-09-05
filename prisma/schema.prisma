@@ -591,6 +591,18 @@ model BotNode {
   @@map("bot_nodes")
 }
 
+model KnowledgeBaseEntry {
+  id        String @id
+  tenantId  String @map("tenant_id")
+  question  String @default("")
+  answer    String
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+
+  @@index([tenantId])
+  @@map("knowledge_base_entries")
+}
+
 model AdminLog {
   id         String @id
   at         String

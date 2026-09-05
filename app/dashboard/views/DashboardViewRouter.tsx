@@ -18,6 +18,7 @@ import CampaignsView from "./CampaignsView";
 import ContactsView from "./ContactsView";
 import DevelopersView from "./DevelopersView";
 import EmployeesView from "./EmployeesView";
+import KnowledgeBaseView from "./KnowledgeBaseView";
 import QuickRepliesView from "./QuickRepliesView";
 import ReportsView from "./ReportsView";
 import SegmentsView from "./SegmentsView";
@@ -65,6 +66,7 @@ export default function DashboardViewRouter({
   if (view === "contacts") return <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "tags") return <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "bot") return <BotView teams={teams} employees={employees} />;
+  if (view === "knowledgeBase") return <KnowledgeBaseView />;
   if (view === "automations") {
     return (
       <AutomationsView
