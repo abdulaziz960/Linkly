@@ -29,6 +29,33 @@ type AutomationAction = {
   target: string;
 };
 
+type SimulationMatch = {
+  id: string;
+  name: string;
+  description: string;
+  actions: AutomationAction[];
+};
+
+const simulationTriggerOptions = ["تم إنشاء رسالة", "تم فتح محادثة", "رد العميل"];
+
+function isUnsetPlaceholder(value: string) {
+  return !value || value.startsWith("اختر ");
+}
+
+const simulationStatusMap: Record<string, string> = {
+  "غير مسندة": "unassigned",
+  "مسندة": "assigned",
+  "مغلقة": "closed",
+  "مفتوحة": "unassigned"
+};
+
+const simulationSourceMap: Record<string, string> = {
+  "WhatsApp": "whatsapp",
+  "المنصة": "website",
+  "حملة": "campaign",
+  "رد آلي": "bot"
+};
+
 type AutomationPreset = {
   id: string;
   icon: string;
@@ -153,6 +180,16 @@ export default function AutomationsView({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "enabled" | "disabled">("all");
 
+  const [simulatorOpen, setSimulatorOpen] = useState(false);
+  const [simTrigger, setSimTrigger] = useState("تم إنشاء رسالة");
+  const [simMessage, setSimMessage] = useState("");
+  const [simStatus, setSimStatus] = useState("اختر حالة");
+  const [simSource, setSimSource] = useState("اختر مصدر");
+  const [simTag, setSimTag] = useState("اختر وسم");
+  const [simRunning, setSimRunning] = useState(false);
+  const [simError, setSimError] = useState("");
+  const [simResults, setSimResults] = useState<SimulationMatch[] | null>(null);
+
   const presets = useMemo<AutomationPreset[]>(() => {
     const firstTeam = teams[0]?.name || "اختر فريق";
     const firstTag = tags[0]?.name || "اختر وسم";
@@ -227,6 +264,49 @@ export default function AutomationsView({
     setBuilderStep(1);
     setFeedback(null);
     setFormOpen(true);
+  }
+
+  function openSimulator() {
+    setSimTrigger("تم إنشاء رسالة");
+    setSimMessage("");
+    setSimStatus("اختر حالة");
+    setSimSource("اختر مصدر");
+    setSimTag("اختر وسم");
+    setSimError("");
+    setSimResults(null);
+    setSimulatorOpen(true);
+  }
+
+  async function runSimulation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!simMessage.trim()) {
+      setSimError(t("اكتب رسالة تجريبية أولاً", "Write a test message first"));
+      return;
+    }
+
+    setSimRunning(true);
+    setSimError("");
+    setSimResults(null);
+
+    const response = await fetch("/api/automations/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        trigger: simTrigger,
+        messageText: simMessage,
+        status: isUnsetPlaceholder(simStatus) ? undefined : simulationStatusMap[simStatus],
+        channel: isUnsetPlaceholder(simSource) ? undefined : simulationSourceMap[simSource],
+        tagNames: isUnsetPlaceholder(simTag) ? undefined : [simTag]
+      })
+    });
+    const payload = await response.json().catch(() => null);
+    setSimRunning(false);
+
+    if (!response.ok || !payload?.ok) {
+      setSimError(payload?.error || t("تعذر تشغيل المحاكاة", "Unable to run the simulation"));
+      return;
+    }
+    setSimResults(payload.data ?? []);
   }
 
   function openPreset(preset: AutomationPreset) {
@@ -389,7 +469,10 @@ export default function AutomationsView({
           <h1>{t("الأتمتة", "Automation")}</h1>
           <p>{t("خلّ المهام المتكررة تعمل وحدها: اختر متى تبدأ القاعدة، ثم حدد ما الذي تريد من Linkly تنفيذه.", "Let repetitive tasks run themselves: choose when the rule starts, then decide what Linkly should do.")}</p>
         </div>
-        <button className="btn primary" type="button" onClick={() => openForm()}>{t("＋ إنشاء أتمتة", "＋ Create automation")}</button>
+        <div className="page-hero-actions">
+          <button className="btn soft" type="button" onClick={openSimulator}>{t("🧪 تجربة رسالة", "🧪 Test a message")}</button>
+          <button className="btn primary" type="button" onClick={() => openForm()}>{t("＋ إنشاء أتمتة", "＋ Create automation")}</button>
+        </div>
       </div>
 
       {feedback && !formOpen ? <p className={`automation-feedback ${feedback.type}`} role="status">{feedback.message}</p> : null}
@@ -614,6 +697,78 @@ export default function AutomationsView({
               <div>{builderStep > 1 ? <button className="btn soft" type="button" onClick={() => { setFeedback(null); setBuilderStep((current) => current - 1); }}>{t("السابق", "Back")}</button> : <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button>}</div>
               <span>{t(`الخطوة ${builderStep} من 4`, `Step ${builderStep} of 4`)}</span>
               <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving...") : builderStep < 4 ? t("التالي", "Next") : form.enabled ? t("حفظ وتشغيل", "Save and enable") : t("حفظ كمتوقفة", "Save as disabled")}</button>
+            </footer>
+          </form>
+        </div>
+      ) : null}
+
+      {simulatorOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setSimulatorOpen(false)}>
+          <form className="account-modal form-modal automation-simulator-modal" role="dialog" aria-modal="true" aria-label={t("تجربة رسالة", "Test a message")} onSubmit={runSimulation} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setSimulatorOpen(false)}>×</button>
+              <h2>{t("🧪 تجربة رسالة", "🧪 Test a message")}</h2>
+            </header>
+            <div className="account-modal-body automation-simulator-body">
+              <p className="muted-copy">{t("اكتب رسالة تجريبية وشوف أي قواعد أتمتة ستنفذ عليها فعليًا - بدون تنفيذ أي إجراء حقيقي.", "Write a test message and see which automation rules would actually fire on it - without running any real action.")}</p>
+
+              <label>
+                <span>{t("الحدث", "Event")}</span>
+                <CustomSelect
+                  value={simTrigger}
+                  onChange={setSimTrigger}
+                  options={simulationTriggerOptions.map((option) => ({ value: option, label: staticLabel(option, t) }))}
+                />
+              </label>
+              <label>
+                <span>{t("الرسالة التجريبية", "Test message")}</span>
+                <textarea value={simMessage} onChange={(event) => setSimMessage(event.target.value)} rows={3} placeholder={t("اكتب رسالة كأنها من عميل...", "Write a message as if it came from a customer...")} required />
+              </label>
+              <div className="automation-sim-row">
+                <label>
+                  <span>{t("حالة المحادثة (اختياري)", "Conversation status (optional)")}</span>
+                  <CustomSelect value={simStatus} onChange={setSimStatus} options={conversationStatusOptions.map((option) => ({ value: option, label: staticLabel(option, t) }))} />
+                </label>
+                <label>
+                  <span>{t("مصدر الرسالة (اختياري)", "Message source (optional)")}</span>
+                  <CustomSelect value={simSource} onChange={setSimSource} options={messageSourceOptions.map((option) => ({ value: option, label: staticLabel(option, t) }))} />
+                </label>
+                <label>
+                  <span>{t("وسم العميل (اختياري)", "Customer tag (optional)")}</span>
+                  <CustomSelect value={simTag} onChange={setSimTag} options={tagOptions.map((option) => ({ value: option, label: staticLabel(option, t) }))} />
+                </label>
+              </div>
+
+              {simError ? <p className="form-error">{simError}</p> : null}
+
+              {simResults !== null ? (
+                <div className="automation-sim-results">
+                  {simResults.length === 0 ? (
+                    <p className="field-hint">{t("لا توجد قاعدة ستنفذ لهذه الرسالة.", "No rule would run for this message.")}</p>
+                  ) : (
+                    <>
+                      {simResults.length > 1 ? (
+                        <p className="automation-feedback error" role="status">{t("⚠️ أكثر من قاعدة ستنفذ لنفس الرسالة - تحقق من احتمال تعارض بينها.", "⚠️ More than one rule would run for this same message - check for a possible conflict between them.")}</p>
+                      ) : null}
+                      {simResults.map((match) => (
+                        <article className="automation-sim-match" key={match.id}>
+                          <b>{match.name}</b>
+                          {match.description ? <small>{match.description}</small> : null}
+                          <ul>
+                            {match.actions.map((action, index) => (
+                              <li key={index}>{staticLabel(action.type, t)}{action.target && action.target !== "لا يحتاج اختيار" ? `: ${staticLabel(action.target, t)}` : ""}</li>
+                            ))}
+                          </ul>
+                        </article>
+                      ))}
+                    </>
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <footer className="modal-foot">
+              <button className="btn soft" type="button" onClick={() => setSimulatorOpen(false)}>{t("إغلاق", "Close")}</button>
+              <button className="btn primary" type="submit" disabled={simRunning}>{simRunning ? t("جاري التجربة...", "Testing...") : t("تجربة", "Test")}</button>
             </footer>
           </form>
         </div>

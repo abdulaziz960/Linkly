@@ -274,6 +274,50 @@ async function executeRule(rule: { id: string; actionsJson: string }, tenantId: 
   }
 }
 
+export type SimulationTrigger = "تم إنشاء رسالة" | "تم فتح محادثة" | "رد العميل";
+
+export type SimulationMatch = {
+  id: string;
+  name: string;
+  description: string;
+  actions: StoredAction[];
+};
+
+/**
+ * Preview-only counterpart to runAutomations: reuses the exact same
+ * evaluateCondition predicate but never executes an action, queues one, or
+ * writes anything - lets a user test a message against their rules to spot
+ * conflicting/overlapping matches before turning a rule on for real.
+ */
+export async function simulateAutomationRules(tenantId: string, input: {
+  trigger: SimulationTrigger;
+  messageText: string;
+  status?: string;
+  tagNames?: string[];
+  channel?: string;
+}): Promise<SimulationMatch[]> {
+  const rules = await prisma.automationRule.findMany({
+    where: { tenantId, trigger: input.trigger, enabled: 1 }
+  });
+
+  const evalCtx = {
+    messageText: input.messageText,
+    status: input.status ?? "unassigned",
+    tagNames: input.tagNames ?? [],
+    channel: input.channel ?? "whatsapp",
+    messageAuthor: ""
+  };
+
+  return rules
+    .filter((rule) => parseJsonArray<StoredCondition>(rule.conditionsJson).every((condition) => evaluateCondition(condition, evalCtx)))
+    .map((rule) => ({
+      id: rule.id,
+      name: rule.name,
+      description: rule.description,
+      actions: parseJsonArray<StoredAction>(rule.actionsJson)
+    }));
+}
+
 /**
  * Called right after a message is stored (any channel) or a conversation's
  * status changes. Matches enabled rules for this trigger against the
