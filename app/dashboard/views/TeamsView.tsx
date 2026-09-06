@@ -341,7 +341,7 @@ export default function TeamsView({
                             <b>{employee.name}</b>
                           </div>
                         </td>
-                        <td><span className={employee.status === "متصل" ? "state ok" : employee.status === "مشغول" ? "state warn" : "state muted"}>{employeeStatusLabel(employee.status, t)}</span></td>
+                        <td><span className={employee.status === "متصل" ? "state online" : employee.status === "مشغول" ? "state busy" : "state offline"}>{employeeStatusLabel(employee.status, t)}</span></td>
                         <td>{employee.email}</td>
                         <td>{employeeRoleLabel(employee.role, t)}</td>
                         <td>{employeeTeams.length ? employeeTeams.join("، ") : "-"}</td>

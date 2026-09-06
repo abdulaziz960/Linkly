@@ -1264,7 +1264,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
               <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setProfileOpen(false)}>
                 ×
               </button>
-              <h2>{profilePanel === "billing" ? t("الفواتير والاشتراك", "Billing & subscription") : profilePanel === "security" ? t("الأمان", "Security") : t("الملف الشخصي", "Profile")}</h2>
+              <h2>{profilePanel === "billing" && initialUser.role === "مالك الحساب" ? t("الفواتير والاشتراك", "Billing & subscription") : profilePanel === "security" ? t("الأمان", "Security") : t("الملف الشخصي", "Profile")}</h2>
             </header>
             <div className="account-modal-body">
               {profilePanel === "main" ? (
@@ -1332,7 +1332,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     </div>
                   </div>
                   <div className="profile-actions">
-                    <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>{t("الفواتير والاشتراك", "Billing & subscription")}</button>
+                    {initialUser.role === "مالك الحساب" ? (
+                      <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>{t("الفواتير والاشتراك", "Billing & subscription")}</button>
+                    ) : null}
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("security")}>{t("الأمان", "Security")}</button>
                     <button className="btn danger" type="button" onClick={() => {
                       if (window.confirm(t("هل تريد تسجيل الخروج من لوحة Linkly؟", "Sign out of Linkly?"))) {
@@ -1344,12 +1346,12 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     }}>{t("تسجيل الخروج", "Sign out")}</button>
                   </div>
                 </>
-              ) : profilePanel === "billing" ? (
+              ) : profilePanel === "billing" && initialUser.role === "مالك الحساب" ? (
                 <>
                   <div className="profile-detail-panel">
                     <div><span>{t("الباقة الحالية", "Current plan")}</span><b>{subscription?.plan || t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
                     <div><span>{t("حالة الاشتراك", "Subscription status")}</span><b>{subscription?.status || t("—", "—")}</b></div>
-                    <div><span>{t("تجديد الاشتراك", "Renewal")}</span><b>{subscription?.billingCycle || t("—", "—")}{subscription?.renewalAt ? ` · ${subscription.renewalAt}` : ""}</b></div>
+                    <div><span>{t("تجديد الاشتراك", "Renewal")}</span><b>{subscription?.billingCycle || t("—", "—")}{subscription?.renewalAt ? ` · ${formatDateTime(subscription.renewalAt)}` : ""}</b></div>
                     <div><span>{t("رصيد الحملات", "Campaign balance")}</span><b>{t(`${campaignBalance.toLocaleString("ar")} رسالة متاحة`, `${campaignBalance.toLocaleString("en-US")} messages available`)}</b></div>
                   </div>
                   <div className="invoice-list">
@@ -1407,10 +1409,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
               ) : (
                 <div className="profile-detail-panel">
                   <div><span>{t("تسجيل الدخول", "Sign-in")}</span><b>{t("البريد الإلكتروني وكلمة المرور", "Email and password")}</b></div>
-                  <div><span>{t("التحقق الثنائي", "Two-factor authentication")}</span><b>{t("غير مفعل", "Not enabled")}</b></div>
-                  <div><span>{t("آخر دخول", "Last sign-in")}</span><b>{t("اليوم · الرياض", "Today · Riyadh")}</b></div>
+                  <div><span>{t("التحقق الثنائي", "Two-factor authentication")}</span><b>{t("غير متاح حاليًا", "Not available yet")}</b></div>
+                  <div><span>{t("آخر دخول", "Last sign-in")}</span><b>{initialUser.lastLoginAt ? formatDateTime(initialUser.lastLoginAt) : t("لا توجد بيانات بعد", "No data yet")}</b></div>
                   <div><span>{t("الصلاحيات", "Permissions")}</span><b>{initialUser.role}</b></div>
-                  <p className="muted-copy">{t("تظهر هنا إعدادات الحماية، الجلسات، والتحقق الثنائي عند ربط نظام الدخول الحقيقي.", "Security settings, sessions, and two-factor authentication will appear here once the real login system is connected.")}</p>
+                  <p className="muted-copy">{t("التحقق الثنائي وإدارة الجلسات النشطة قيد التطوير وستُضاف قريبًا.", "Two-factor authentication and active-session management are in development and will be added soon.")}</p>
                 </div>
               )}
               {profileFeedback ? <p className={`profile-save-feedback ${profileFeedback.type}`} role="status">{profileFeedback.message}</p> : null}
