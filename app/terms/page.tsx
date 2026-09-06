@@ -3,8 +3,9 @@ import Link from "next/link";
 import "../legal.css";
 
 export const metadata: Metadata = {
-  title: { absolute: "Terms of Service | Linkly" },
-  description: "Linkly terms of service"
+  title: { absolute: "شروط الاستخدام | Linkly" },
+  description: "شروط استخدام منصة Linkly لإدارة محادثات العملاء: الاستخدام المقبول، ربط القنوات، الحسابات، والبيانات.",
+  alternates: { canonical: "/terms", languages: { "ar-SA": "/terms", en: "/en/terms" } }
 };
 
 export default function TermsPage() {

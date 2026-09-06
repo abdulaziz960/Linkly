@@ -1,15 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import HtmlLangSync from "../../HtmlLangSync";
 import "../../legal.css";
 
 export const metadata: Metadata = {
   title: { absolute: "Terms of Service | Linkly" },
-  description: "Linkly terms of service"
+  description: "The terms governing use of the Linkly customer communication platform: acceptable use, channel connections, accounts, and data.",
+  alternates: { canonical: "/en/terms", languages: { "ar-SA": "/terms", en: "/en/terms" } }
 };
 
 export default function TermsPageEn() {
   return (
     <main className="legal-page" dir="ltr" lang="en">
+      <HtmlLangSync lang="en" dir="ltr" />
       <section className="legal-shell">
         <Link className="legal-brand" href="/en">
           <span className="legal-logo" aria-hidden="true" />

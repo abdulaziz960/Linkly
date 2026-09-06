@@ -3,8 +3,9 @@ import Link from "next/link";
 import "../legal.css";
 
 export const metadata: Metadata = {
-  title: { absolute: "Data Deletion | Linkly" },
-  description: "Linkly data deletion instructions"
+  title: { absolute: "حذف البيانات | Linkly" },
+  description: "طريقة طلب حذف حسابك وبيانات عملائك من منصة Linkly.",
+  alternates: { canonical: "/data-deletion", languages: { "ar-SA": "/data-deletion", en: "/en/data-deletion" } }
 };
 
 export default function DataDeletionPage() {
