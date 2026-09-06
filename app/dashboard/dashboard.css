@@ -2475,6 +2475,61 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   margin-top: 6px;
 }
 
+.workspace-switcher {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace-switcher-list {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace-switcher-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  cursor: pointer;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+.workspace-switcher-item:hover:not(:disabled) {
+  background: var(--surface-soft);
+  border-color: var(--brand-200);
+}
+
+.workspace-switcher-item:disabled {
+  cursor: default;
+}
+
+.workspace-switcher-item.active {
+  border-color: var(--brand);
+  background: var(--brand-50);
+}
+
+.workspace-switcher-item span {
+  font-weight: 900;
+}
+
+.workspace-switcher-item small {
+  color: var(--muted);
+}
+
+.workspace-switcher-item em {
+  margin-inline-start: auto;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--brand-700);
+}
+
 .profile-actions {
   display: flex;
   flex-wrap: wrap;

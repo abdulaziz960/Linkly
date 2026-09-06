@@ -492,6 +492,17 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS last_login_ip TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS disabled INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'employee_activation'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS employees_user_id_idx ON employees (user_id)`);
+    // One-time backfill: every Employee row historically has a matching
+    // UserAccount created alongside it (same email), so this recovers the
+    // membership link with no ambiguity for rows that predate the column.
+    await prisma.$executeRawUnsafe(`UPDATE employees SET user_id = user_accounts.id
+      FROM user_accounts
+      WHERE employees.user_id = '' AND lower(user_accounts.email) = lower(employees.email)`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN IF NOT EXISTS invite_tenant_id TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN IF NOT EXISTS permissions TEXT NOT NULL DEFAULT ''`);
     for (const email of platformAdminEmails) {
       await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = $1 AND is_platform_admin = 1`, email);
     }
@@ -743,12 +754,17 @@ async function runSchemaMigrations() {
     permissions TEXT NOT NULL,
     email TEXT NOT NULL,
     initial TEXT NOT NULL,
-    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
+    user_id TEXT NOT NULL DEFAULT ''
   )`);
   const employeeColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(employees)`);
   if (!employeeColumns.some((column) => column.name === "tenant_id")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE employees ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
   }
+  if (!employeeColumns.some((column) => column.name === "user_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE employees ADD COLUMN user_id TEXT NOT NULL DEFAULT ''`);
+  }
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS employees_user_id_idx ON employees (user_id)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS teams (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
@@ -1156,6 +1172,12 @@ async function runSchemaMigrations() {
   if (!userAccountColumns.some((column) => column.name === "disabled")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0`);
   }
+  // One-time backfill: every Employee row historically has a matching
+  // UserAccount created alongside it (same email), so this recovers the
+  // membership link with no ambiguity for rows that predate the column.
+  await prisma.$executeRawUnsafe(`UPDATE employees SET user_id = (
+    SELECT id FROM user_accounts WHERE lower(user_accounts.email) = lower(employees.email) LIMIT 1
+  ) WHERE user_id = ''`);
   for (const email of platformAdminEmails) {
     await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = ? AND is_platform_admin = 1`, email);
   }
@@ -1165,11 +1187,23 @@ async function runSchemaMigrations() {
     token_hash TEXT NOT NULL UNIQUE,
     expires_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    purpose TEXT NOT NULL DEFAULT 'employee_activation'
+    purpose TEXT NOT NULL DEFAULT 'employee_activation',
+    invite_tenant_id TEXT NOT NULL DEFAULT '',
+    role TEXT NOT NULL DEFAULT '',
+    permissions TEXT NOT NULL DEFAULT ''
   )`);
   const employeeInviteColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(employee_invites)`);
   if (!employeeInviteColumns.some((column) => column.name === "purpose")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN purpose TEXT NOT NULL DEFAULT 'employee_activation'`);
+  }
+  if (!employeeInviteColumns.some((column) => column.name === "invite_tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN invite_tenant_id TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!employeeInviteColumns.some((column) => column.name === "role")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN role TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!employeeInviteColumns.some((column) => column.name === "permissions")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN permissions TEXT NOT NULL DEFAULT ''`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS provider_clients (
     id TEXT PRIMARY KEY,
