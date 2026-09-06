@@ -4218,6 +4218,11 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   color: var(--status-warn-text);
 }
 
+.state.danger {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+}
+
 .state.muted,
 .state.off {
   background: var(--surface-soft);
@@ -6003,6 +6008,12 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border-radius: 14px;
   display: grid;
   place-items: center;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.channel-connect-card:hover .channel-icon {
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, .12);
 }
 
 .channel-connect-card .channel-icon svg {

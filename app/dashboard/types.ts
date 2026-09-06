@@ -121,6 +121,7 @@ export type Employee = {
   initial: string;
   hasAccount?: boolean;
   pendingActivation?: boolean;
+  disabled?: boolean;
   lastLoginAt?: string;
   lastLoginIp?: string;
 };

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
-import { deleteTenant, updateSubscription } from "../../../../../lib/subscriptions";
+import { updateSubscription } from "../../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -31,16 +31,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requirePlatformAdmin();
-  if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
-
-  const { id: tenantId } = await params;
-
-  try {
-    const result = await deleteTenant(tenantId);
-    return jsonOk(result);
-  } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "تعذر حذف العميل", 404);
-  }
+// Permanently deleting a client account is disabled by policy: no one can
+// wipe a tenant's data through the product. Set status to "متوقف" via
+// PATCH instead - it blocks the tenant's access immediately while keeping
+// every row (conversations, customers, billing history, ...) intact, and
+// can be reversed at any time by setting status back to "نشط".
+export async function DELETE() {
+  return jsonError("حذف حسابات العملاء نهائيًا غير متاح. استخدم تعطيل الحساب بدلاً من ذلك.", 403);
 }

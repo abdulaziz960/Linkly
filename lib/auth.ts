@@ -82,6 +82,7 @@ export async function getCurrentUser(options: { allowExpired?: boolean } = {}) {
     return null;
   }
   if (user.sessionVersion !== session.sessionVersion) return null;
+  if (user.disabled) return null;
 
   const subscriptionAccess = await getSubscriptionAccess(user.tenantId);
   // Platform admins never get locked out of their own dashboard by an unpaid subscription.
