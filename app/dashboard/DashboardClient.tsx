@@ -34,6 +34,7 @@ import InboxView from "./views/InboxView";
 import { allViewKeys, computeAllowedViews, canSeeAllConversations as sharedCanSeeAllConversations } from "../../lib/permissions";
 import { formatDateTime } from "../../lib/time";
 import { playNewMessageChime } from "./notification-sound";
+import { requestNotificationPermissionOnce, showNewMessageNotification } from "./notification-browser";
 import TrialCountdownBanner from "./TrialCountdownBanner";
 
 type DashboardSubscription = {
@@ -447,14 +448,17 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         }
         const previouslySeen = seenInboundMessageIdsRef.current;
         if (previouslySeen) {
-          let hasNewInboundMessage = false;
-          for (const id of inboundIds) {
-            if (!previouslySeen.has(id)) {
-              hasNewInboundMessage = true;
-              break;
-            }
+          const newSenderNames: string[] = [];
+          for (const conversation of nextConversations) {
+            const hasNewMessage = conversation.messages.some(
+              (message) => message.direction === "in" && !previouslySeen.has(message.id)
+            );
+            if (hasNewMessage) newSenderNames.push(conversation.customer);
           }
-          if (hasNewInboundMessage) playNewMessageChime();
+          if (newSenderNames.length) {
+            playNewMessageChime();
+            showNewMessageNotification(newSenderNames);
+          }
         }
         seenInboundMessageIdsRef.current = inboundIds;
 
@@ -590,6 +594,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     const intervalId = window.setInterval(syncEmailInbox, 30000);
     return () => window.clearInterval(intervalId);
   }, [loadDashboardData]);
+
+  useEffect(() => {
+    requestNotificationPermissionOnce();
+  }, []);
 
   useEffect(() => {
     writeCachedList(CONVERSATIONS_CACHE_KEY, conversations);
