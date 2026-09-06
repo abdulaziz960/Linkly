@@ -163,7 +163,7 @@ export async function storeIncomingEmail(input: LegacyIncomingEmail) {
     await tx.message.upsert({
       where: { id: messageId },
       update: {},
-      create: { id: messageId, conversationId, direction: "in", text, time: formatMessageTime(), author: "" }
+      create: { id: messageId, conversationId, direction: "in", text, time: formatMessageTime(new Date(activityAt)), createdAt: activityAt, author: "" }
     });
     await tx.conversation.update({
       where: { id: conversationId },
@@ -221,7 +221,7 @@ export async function storeOutgoingEmail(input: LegacyOutgoingEmail) {
     await tx.message.upsert({
       where: { id: messageId },
       update: {},
-      create: { id: messageId, conversationId, direction: "out", text, time: formatMessageTime(), author: "" }
+      create: { id: messageId, conversationId, direction: "out", text, time: formatMessageTime(new Date(activityAt)), createdAt: activityAt, author: "" }
     });
     await tx.conversation.update({
       where: { id: conversationId },
