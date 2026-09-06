@@ -22,6 +22,9 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ message: "بيانات الدخول غير صحيحة" }, { status: 401 });
   }
+  if (user.disabled) {
+    return NextResponse.json({ message: "تم تعطيل هذا الحساب. تواصل مع مسؤول حسابكم لإعادة تفعيله." }, { status: 403 });
+  }
   await recordUserLogin(user.id, getClientIp(request));
 
   const subscriptionAccess = user.isPlatformAdmin === 1 ? { expired: false } : await getSubscriptionAccess(user.tenantId);

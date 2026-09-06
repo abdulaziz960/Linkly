@@ -64,7 +64,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
   const [isCharging, setIsCharging] = useState(false);
   const [chargeError, setChargeError] = useState("");
   const [chargeUrl, setChargeUrl] = useState("");
-  const [deletingId, setDeletingId] = useState("");
+  const [togglingId, setTogglingId] = useState("");
   const [balanceClient, setBalanceClient] = useState<SubscriptionRow | null>(null);
   const [balanceMessages, setBalanceMessages] = useState("");
   const [balanceAmount, setBalanceAmount] = useState("");
@@ -115,20 +115,28 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     setChargeUrl("");
   }
 
-  async function handleDeleteClient(client: SubscriptionRow) {
-    const confirmMessage =
-      language === "en"
-        ? `Permanently delete "${client.companyName}"? This deletes the login account, payment history, and activity log. This cannot be undone.`
-        : `حذف "${client.companyName}" نهائيًا؟ هذا يحذف حساب الدخول وسجل المدفوعات والحركة، ولا يمكن التراجع.`;
+  async function handleToggleClientStatus(client: SubscriptionRow) {
+    const disabling = client.status !== "متوقف";
+    const confirmMessage = disabling
+      ? language === "en"
+        ? `Disable "${client.companyName}"? They'll lose access immediately, but nothing is deleted - you can re-enable them any time.`
+        : `تعطيل حساب "${client.companyName}"؟ سيفقد الوصول للوحته فورًا، لكن ولا شي ينحذف - تقدر تفعّله أي وقت.`
+      : language === "en"
+        ? `Re-enable "${client.companyName}"? They'll regain access immediately.`
+        : `تفعيل حساب "${client.companyName}" من جديد؟ راح يرجع له الوصول فورًا.`;
     if (!window.confirm(confirmMessage)) return;
 
-    setDeletingId(client.tenantId);
-    const response = await fetch(`/api/admin/clients/${client.tenantId}`, { method: "DELETE" });
+    setTogglingId(client.tenantId);
+    const response = await fetch(`/api/admin/clients/${client.tenantId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: disabling ? "متوقف" : "نشط" })
+    });
     const result = (await response.json()) as { ok: boolean; error?: string };
-    setDeletingId("");
+    setTogglingId("");
 
     if (!response.ok || !result.ok) {
-      window.alert(result.error || t("تعذر حذف العميل", "Could not delete the client"));
+      window.alert(result.error || t("تعذر تحديث حالة العميل", "Could not update the client's status"));
       return;
     }
 
@@ -434,11 +442,15 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                   </button>
                   <button
                     type="button"
-                    className="admin-danger-action"
-                    disabled={deletingId === client.tenantId}
-                    onClick={() => handleDeleteClient(client)}
+                    className={client.status === "متوقف" ? undefined : "admin-danger-action"}
+                    disabled={togglingId === client.tenantId}
+                    onClick={() => handleToggleClientStatus(client)}
                   >
-                    {deletingId === client.tenantId ? t("جاري الحذف...", "Deleting...") : t("حذف العميل", "Delete Client")}
+                    {togglingId === client.tenantId
+                      ? t("جاري التحديث...", "Updating...")
+                      : client.status === "متوقف"
+                        ? t("تفعيل الحساب", "Enable Account")
+                        : t("تعطيل الحساب", "Disable Account")}
                   </button>
                 </div>
               </article>

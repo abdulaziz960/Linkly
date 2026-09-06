@@ -430,6 +430,10 @@ model UserAccount {
   profileLogo     String @default("") @map("profile_logo")
   isPlatformAdmin Int    @default(0) @map("is_platform_admin")
   sessionVersion  Int    @default(0) @map("session_version")
+  // Blocks login/session refresh entirely while every row for this account
+  // stays intact - the account-level equivalent of a tenant's "متوقف"
+  // subscription status. Set/cleared via PATCH /api/employees/[id].
+  disabled        Int    @default(0)
   lastLoginAt     String @default("") @map("last_login_at")
   lastLoginIp     String @default("") @map("last_login_ip")
   createdAt       String @map("created_at")

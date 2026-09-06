@@ -1112,8 +1112,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       }
       setLanguage(draftLanguage);
       window.localStorage.setItem("audiencew-language", draftLanguage);
-      const savedMessage = draftLanguage === "en" ? "Profile settings saved successfully." : "تم حفظ إعدادات الملف الشخصي بنجاح.";
-      setProfileFeedback({ type: "success", message: savedMessage });
+      setProfileFeedback(null);
+      setProfileOpen(false);
     } catch (error) {
       const failMessage = draftLanguage === "en" ? "Could not save profile settings." : "تعذر حفظ إعدادات الملف الشخصي.";
       setProfileFeedback({ type: "error", message: error instanceof Error ? error.message : failMessage });

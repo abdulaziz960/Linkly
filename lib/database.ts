@@ -65,6 +65,7 @@ export type UserAccount = {
   profileLogo: string;
   isPlatformAdmin: number;
   sessionVersion: number;
+  disabled: number;
   lastLoginAt: string;
   lastLoginIp: string;
   createdAt: string;
@@ -489,6 +490,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS profile_logo TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS last_login_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS last_login_ip TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS disabled INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE employee_invites ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'employee_activation'`);
     for (const email of platformAdminEmails) {
       await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = $1 AND is_platform_admin = 1`, email);
@@ -1132,6 +1134,7 @@ async function runSchemaMigrations() {
     session_version INTEGER NOT NULL DEFAULT 0,
     last_login_at TEXT NOT NULL DEFAULT '',
     last_login_ip TEXT NOT NULL DEFAULT '',
+    disabled INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
   )`);
   const userAccountColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(user_accounts)`);
@@ -1149,6 +1152,9 @@ async function runSchemaMigrations() {
   }
   if (!userAccountColumns.some((column) => column.name === "last_login_ip")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN last_login_ip TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!userAccountColumns.some((column) => column.name === "disabled")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0`);
   }
   for (const email of platformAdminEmails) {
     await prisma.$executeRawUnsafe(`UPDATE user_accounts SET is_platform_admin = 1 WHERE email = ? AND is_platform_admin = 1`, email);
@@ -1930,7 +1936,7 @@ export async function getEmployees(tenantId = "tenant-demo"): Promise<Employee[]
     prisma.employee.findMany({ where: { tenantId } }),
     prisma.userAccount.findMany({
       where: { tenantId },
-      select: { email: true, passwordHash: true, lastLoginAt: true, lastLoginIp: true }
+      select: { email: true, passwordHash: true, disabled: true, lastLoginAt: true, lastLoginIp: true }
     })
   ]);
   const accountsByEmail = new Map(accounts.map((account) => [account.email.toLowerCase(), account]));
@@ -1947,6 +1953,7 @@ export async function getEmployees(tenantId = "tenant-demo"): Promise<Employee[]
       initial: employee.initial,
       hasAccount: Boolean(account),
       pendingActivation: Boolean(account && !account.passwordHash),
+      disabled: Boolean(account?.disabled),
       lastLoginAt: account?.lastLoginAt || "",
       lastLoginIp: account?.lastLoginIp || ""
     };
