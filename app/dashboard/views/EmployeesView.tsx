@@ -104,7 +104,7 @@ export default function EmployeesView({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [activationUrl, setActivationUrl] = useState("");
-  const [resendingId, setResendingId] = useState("");
+  const [rowBusyId, setRowBusyId] = useState("");
   const [listNotice, setListNotice] = useState("");
   const [listError, setListError] = useState("");
 
@@ -195,7 +195,7 @@ export default function EmployeesView({
   async function resendInvite(employee: Employee) {
     setListError("");
     setListNotice("");
-    setResendingId(employee.id);
+    setRowBusyId(employee.id);
     try {
       const response = await fetch(`/api/employees/${employee.id}/resend-invite`, { method: "POST" });
       const payload = (await response.json()) as { ok: boolean; error?: string; data?: { inviteDelivery?: { message?: string; activationUrl?: string } } };
@@ -206,14 +206,45 @@ export default function EmployeesView({
       setListNotice(payload.data?.inviteDelivery?.message || t("تم إرسال الدعوة من جديد.", "The invitation was resent."));
       setActivationUrl(payload.data?.inviteDelivery?.activationUrl || "");
     } finally {
-      setResendingId("");
+      setRowBusyId("");
     }
   }
 
-  async function deleteEmployee(employee: Employee) {
-    if (!window.confirm(t(`حذف الموظف ${employee.name}؟`, `Delete employee ${employee.name}?`))) return;
-    await fetch(`/api/employees/${employee.id}`, { method: "DELETE" });
-    await onRefreshData();
+  async function toggleEmployeeDisabled(employee: Employee) {
+    const disabling = !employee.disabled;
+    const confirmMessage = disabling
+      ? t(
+          `تعطيل حساب ${employee.name}؟ سيفقد الوصول فورًا، لكن ولا شي ينحذف - تقدر تفعّله أي وقت.`,
+          `Disable ${employee.name}'s account? They'll lose access immediately, but nothing is deleted - you can re-enable them any time.`
+        )
+      : t(`تفعيل حساب ${employee.name} من جديد؟`, `Re-enable ${employee.name}'s account?`);
+    if (!window.confirm(confirmMessage)) return;
+
+    setListError("");
+    setListNotice("");
+    setRowBusyId(employee.id);
+    try {
+      const response = await fetch(`/api/employees/${employee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: employee.name,
+          email: employee.email,
+          role: employee.role,
+          status: employee.status,
+          permissions: employee.permissions,
+          disabled: disabling
+        })
+      });
+      const payload = (await response.json()) as { ok: boolean; error?: string };
+      if (!payload.ok) {
+        setListError(payload.error || t("تعذر تحديث حالة الموظف", "Could not update the employee's status"));
+        return;
+      }
+      await onRefreshData();
+    } finally {
+      setRowBusyId("");
+    }
   }
 
   function exportEmployees() {
@@ -278,11 +309,13 @@ export default function EmployeesView({
                   </td>
                   <td>{employeeRoleLabel(employee.role, t)}</td>
                   <td>
-                    {employee.pendingActivation ? (
+                    {employee.disabled ? (
+                      <span className="state danger">{t("معطّل", "Disabled")}</span>
+                    ) : employee.pendingActivation ? (
                       <div className="status-with-action">
                         <span className="state warn">{t("الدعوة معلقة", "Invitation Pending")}</span>
-                        <button className="link-action" type="button" disabled={resendingId === employee.id} onClick={() => resendInvite(employee)}>
-                          {resendingId === employee.id ? t("جاري الإرسال…", "Sending…") : t("إعادة إرسال الدعوة", "Resend Invitation")}
+                        <button className="link-action" type="button" disabled={rowBusyId === employee.id} onClick={() => resendInvite(employee)}>
+                          {rowBusyId === employee.id ? t("جاري الإرسال…", "Sending…") : t("إعادة إرسال الدعوة", "Resend Invitation")}
                         </button>
                       </div>
                     ) : (
@@ -293,7 +326,20 @@ export default function EmployeesView({
                   <td>{rating ? <span className="employee-rating">⭐ {rating.average} <small>({rating.count})</small></span> : <span className="table-subtitle">{t("غير متاح", "N/A")}</span>}</td>
                   <td className="row-actions">
                     <button className="btn soft" type="button" onClick={() => openEditForm(employee)}>{t("تعديل", "Edit")}</button>
-                    <button className="btn danger" type="button" onClick={() => deleteEmployee(employee)}>{t("حذف", "Delete")}</button>
+                    {employee.role !== "مالك الحساب" ? (
+                      <button
+                        className={employee.disabled ? "btn soft" : "btn danger"}
+                        type="button"
+                        disabled={rowBusyId === employee.id}
+                        onClick={() => toggleEmployeeDisabled(employee)}
+                      >
+                        {rowBusyId === employee.id
+                          ? t("جاري التحديث…", "Updating…")
+                          : employee.disabled
+                            ? t("تفعيل", "Enable")
+                            : t("تعطيل", "Disable")}
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
                 );
