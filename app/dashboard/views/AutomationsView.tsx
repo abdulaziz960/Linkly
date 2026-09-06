@@ -709,7 +709,7 @@ export default function AutomationsView({
               <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setSimulatorOpen(false)}>×</button>
               <h2>{t("🧪 تجربة رسالة", "🧪 Test a message")}</h2>
             </header>
-            <div className="account-modal-body automation-simulator-body">
+            <div className="account-modal-body automation-simulator-body form-grid">
               <p className="muted-copy">{t("اكتب رسالة تجريبية وشوف أي قواعد أتمتة ستنفذ عليها فعليًا - بدون تنفيذ أي إجراء حقيقي.", "Write a test message and see which automation rules would actually fire on it - without running any real action.")}</p>
 
               <label>

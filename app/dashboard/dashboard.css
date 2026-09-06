@@ -3743,6 +3743,34 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   gap: 10px;
 }
 
+.automation-simulator-modal .modal-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.automation-simulator-modal .modal-foot .btn {
+  min-height: 50px;
+  padding: 0 26px;
+  font-size: 15px;
+  border-radius: 14px;
+}
+
+.automation-simulator-modal .modal-foot .btn.soft {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.automation-simulator-modal .modal-foot .btn.soft:hover {
+  background: var(--surface-soft);
+  border-color: #94a3b8;
+}
+
+.automation-simulator-modal .modal-foot .btn.primary {
+  box-shadow: 0 6px 16px rgba(23, 138, 130, 0.28);
+}
+
 .automation-sim-results {
   display: flex;
   flex-direction: column;
@@ -6036,27 +6064,27 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   position: relative;
   width: 52px;
   height: 52px;
-  border-radius: 14px;
-  overflow: hidden;
 }
 
 .channel-icon-soon-wrap .channel-icon {
   width: 100%;
   height: 100%;
-  filter: blur(2.5px) saturate(0.9);
+  opacity: 0.9;
 }
 
-.channel-icon-soon-badge {
+.channel-icon-soon-lock {
   position: absolute;
-  inset: 0;
+  bottom: -4px;
+  inset-inline-end: -4px;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.55);
-  color: var(--ink);
-  font-size: 9px;
-  font-weight: 900;
-  text-align: center;
-  line-height: 1.2;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
 .channel-connect-card.locked button {
