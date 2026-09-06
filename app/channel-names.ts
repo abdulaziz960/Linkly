@@ -10,7 +10,8 @@ export const channelNames = {
   gmail: { ar: "جيميل", en: "Gmail" },
   tiktok: { ar: "تيك توك", en: "TikTok" },
   sms: { ar: "الرسائل النصية", en: "SMS" },
-  youtube: { ar: "يوتيوب", en: "YouTube" }
+  youtube: { ar: "يوتيوب", en: "YouTube" },
+  linkedin: { ar: "لينكد إن", en: "LinkedIn" }
 } as const;
 
 export type ChannelNameKey = keyof typeof channelNames;

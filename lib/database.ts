@@ -271,6 +271,21 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS youtube_comments_synced_at TEXT NOT NULL DEFAULT ''`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_org_id TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_org_name TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_refresh_token TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_token_expires_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_comments_synced_at TEXT NOT NULL DEFAULT ''`
+  );
   // These three were only ever added inside the broad legacy schema-repair
   // block below, which is gated off in production - the same class of bug
   // as the user_accounts.disabled outage above. Prisma selects every
@@ -1171,7 +1186,12 @@ async function runSchemaMigrations() {
     `ALTER TABLE integration_settings ADD COLUMN youtube_channel_title TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN youtube_refresh_token TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN youtube_token_expires_at TEXT NOT NULL DEFAULT ''`,
-    `ALTER TABLE integration_settings ADD COLUMN youtube_comments_synced_at TEXT NOT NULL DEFAULT ''`
+    `ALTER TABLE integration_settings ADD COLUMN youtube_comments_synced_at TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN linkedin_org_id TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN linkedin_org_name TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN linkedin_refresh_token TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN linkedin_token_expires_at TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN linkedin_comments_synced_at TEXT NOT NULL DEFAULT ''`
   ]) {
     try {
       await prisma.$executeRawUnsafe(statement);
@@ -2257,7 +2277,7 @@ export async function getWorkSchedules(tenantId = "tenant-demo"): Promise<WorkSc
   }));
 }
 
-export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms" | "youtube";
+export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms" | "youtube" | "linkedin";
 
 export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "instagram") return "meta-instagram";
@@ -2270,6 +2290,7 @@ export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "tiktok") return "tiktok-channel";
   if (channel === "sms") return "sms-channel";
   if (channel === "youtube") return "youtube-channel";
+  if (channel === "linkedin") return "linkedin-channel";
   return "meta-whatsapp";
 }
 
@@ -2284,6 +2305,7 @@ function getIntegrationProvider(channel: IntegrationChannel) {
   if (channel === "tiktok") return "tiktok";
   if (channel === "sms") return "unifonic";
   if (channel === "youtube") return "youtube";
+  if (channel === "linkedin") return "linkedin";
   return "whatsapp_cloud";
 }
 
@@ -2310,11 +2332,11 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
       phoneNumber: "",
       phoneNumberId: "",
       wabaId: "",
-      appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
+      appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" || channel === "linkedin" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
       configId: "",
       verifyToken: randomUUID(),
       accessToken: "",
-      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : channel === "tiktok" ? `/api/tiktok/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "sms" ? `/api/sms/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "youtube" ? "/api/cron/youtube-comments" : "/api/meta/webhook",
+      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : channel === "tiktok" ? `/api/tiktok/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "sms" ? `/api/sms/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "youtube" ? "/api/cron/youtube-comments" : channel === "linkedin" ? "/api/cron/linkedin-comments" : "/api/meta/webhook",
       updatedAt: "اليوم"
     }
   });
@@ -2330,12 +2352,12 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
   const whatsappSettings = channel === "instagram" || channel === "facebook"
     ? await prisma.integrationSetting.findFirst({ where: { tenantId, provider: "whatsapp_cloud" } })
     : null;
-  const providerMetaSettings = tenantId !== "tenant-demo" && channel !== "telegram" && channel !== "x" && channel !== "google_maps" && channel !== "email" && channel !== "website" && channel !== "tiktok" && channel !== "sms" && channel !== "youtube"
+  const providerMetaSettings = tenantId !== "tenant-demo" && channel !== "telegram" && channel !== "x" && channel !== "google_maps" && channel !== "email" && channel !== "website" && channel !== "tiktok" && channel !== "sms" && channel !== "youtube" && channel !== "linkedin"
     ? await prisma.integrationSetting.findFirst({ where: { tenantId: "tenant-demo", provider: "whatsapp_cloud" } })
     : null;
   const fallbackAppId = channel === "google_maps"
     ? settings.appId || defaultGoogleClientId
-    : channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube"
+    : channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" || channel === "linkedin"
     ? settings.appId
     : channel === "instagram" || channel === "facebook"
     ? settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || ""
@@ -2343,7 +2365,7 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
   const storedConfigId = readStoredSecret(settings.configId);
   const fallbackConfigId = channel === "google_maps"
     ? storedConfigId || defaultGoogleClientSecret
-    : channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube"
+    : channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" || channel === "linkedin"
       ? storedConfigId
       : storedConfigId || defaultMetaConfigId || readStoredSecret(whatsappSettings?.configId) || readStoredSecret(providerMetaSettings?.configId) || "";
 
@@ -2387,6 +2409,11 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     youtubeRefreshToken: readStoredSecret(settings.youtubeRefreshToken),
     youtubeTokenExpiresAt: settings.youtubeTokenExpiresAt,
     youtubeCommentsSyncedAt: settings.youtubeCommentsSyncedAt,
+    linkedinOrgId: settings.linkedinOrgId,
+    linkedinOrgName: settings.linkedinOrgName,
+    linkedinRefreshToken: readStoredSecret(settings.linkedinRefreshToken),
+    linkedinTokenExpiresAt: settings.linkedinTokenExpiresAt,
+    linkedinCommentsSyncedAt: settings.linkedinCommentsSyncedAt,
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };
