@@ -39,7 +39,8 @@ const plans = [
   { name:"الأعمال", price:"999", audience:"الأنسب لفرق متعددة تحتاج واجهات تكامل وتقارير متقدمة.", cta:"جرّب باقة الأعمال", items:["حتى 10 مستخدمين","فرق متعددة","روابط استقبال وواجهات تكامل","دعم أولوية"] }
 ] as const;
 const jsonLd = { "@context":"https://schema.org", "@graph":[
-  { "@type":"Organization", name:"Linkly", url:"https://linklysa.io", logo:"https://linklysa.io/assets/linkly-logo.png" },
+  { "@type":"Organization", name:"Linkly", alternateName:["Linkly Saudi","Linkly السعودية","لنكلي"], url:"https://linklysa.io", logo:"https://linklysa.io/assets/linkly-logo.png", description:"لنكلي منصة سعودية لإدارة تواصل وخدمة العملاء، تساعد الشركات على إدارة محادثات واتساب، صندوق الوارد المشترك، الدعم الفني، التذاكر، المحادثة المباشرة والأتمتة من منصة مركزية واحدة.", areaServed:"SA" },
+  { "@type":"WebSite", name:"Linkly", url:"https://linklysa.io", inLanguage:["ar-SA","en"] },
   { "@type":"SoftwareApplication", name:"Linkly", applicationCategory:"BusinessApplication", operatingSystem:"Web", offers:{"@type":"AggregateOffer",lowPrice:"249",highPrice:"999",priceCurrency:"SAR"} },
   { "@type":"FAQPage", mainEntity:faqs.map(([q,a])=>({"@type":"Question",name:q,acceptedAnswer:{"@type":"Answer",text:a}})) }
 ]};
