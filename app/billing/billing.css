@@ -98,6 +98,20 @@
   border-color: #f3c8c2;
   font-weight: 800;
 }
+.billing-owner-notice-logout {
+  margin-top: 24px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--dark);
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.billing-owner-notice-logout:hover {
+  border-color: var(--brand);
+}
 .plan-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
