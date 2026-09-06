@@ -248,10 +248,13 @@ function formatEmailContent(text: string) {
     .replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/gim, "")
     .replace(/\bOn .{0,300}?\bwrote:[\s\S]*$/i, "")
     // Gmail's Arabic-locale quoted-reply header, e.g. "في أحد، ١٦ أغسطس،
-    // ٢٠٢٦ في ١٠:٠٦ م، كتب Name <email>:" followed by the quoted text.
+    // ٢٠٢٦ في ١٠:٠٦ م، كتب Name <email>:" followed by the quoted text. Gmail
+    // also phrases this as "...تمت كتابة ما يلي بواسطة Name <email>:" on some
+    // accounts/versions - same header, different wording, so both are
+    // matched or a real reply's quoted history leaks in as its own bubble.
     // \b doesn't work around Arabic letters in JS regex (they aren't \w),
     // so this omits it rather than silently failing to match.
-    .replace(/في\s.{0,300}?كتب\s.{0,200}?<[^<>]+>\s*:[\s\S]*$/, "")
+    .replace(/في\s.{0,300}?(?:كتب|تمت كتابة ما يلي بواسطة)\s.{0,200}?<[^<>]+>\s*:[\s\S]*$/, "")
     .replace(/^>.*$/gm, "")
     // A sender that mislabels its full HTML/MIME source as plain text (or
     // whose html-to-text conversion missed a <style> block) leaks raw
