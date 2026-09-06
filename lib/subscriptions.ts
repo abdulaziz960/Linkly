@@ -471,22 +471,38 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
   // automatically, the same way a paid checkout would apply them.
   let derivedEmployeeLimit = input.employeeLimit;
   let derivedAmount = input.amount;
+  let derivedStatus = input.status;
+  let derivedBillingCycle = input.billingCycle;
+  let derivedRenewalAt = input.renewalAt;
   if (input.plan !== undefined && input.plan !== existing.plan) {
     const targetPlan = await prisma.plan.findUnique({ where: { name: input.plan } });
     if (!targetPlan) throw new Error("الباقة المطلوبة غير موجودة");
     if (derivedEmployeeLimit === undefined) derivedEmployeeLimit = targetPlan.employeeLimit;
     if (derivedAmount === undefined) derivedAmount = targetPlan.monthlyPrice;
+    // Manually assigning a real plan to a tenant still on a trial cycle
+    // means the trial is over - graduate it into an active monthly
+    // subscription with a fresh renewal date, the same way a paid checkout
+    // would, instead of leaving a stale "تجربة" badge next to the new plan.
+    if (existing.billingCycle.startsWith("تجربة")) {
+      if (derivedStatus === undefined) derivedStatus = "نشط";
+      if (derivedBillingCycle === undefined) derivedBillingCycle = "شهري";
+      if (derivedRenewalAt === undefined) {
+        const renewalDate = new Date();
+        renewalDate.setMonth(renewalDate.getMonth() + 1);
+        derivedRenewalAt = renewalDate.toISOString().slice(0, 10);
+      }
+    }
   }
 
   const updated = await prisma.subscription.update({
     where: { tenantId },
     data: {
       plan: input.plan ?? existing.plan,
-      status: input.status ?? existing.status,
+      status: derivedStatus ?? existing.status,
       employeeLimit: derivedEmployeeLimit ?? existing.employeeLimit,
       amount: derivedAmount ?? existing.amount,
-      billingCycle: input.billingCycle ?? existing.billingCycle,
-      renewalAt: input.renewalAt ?? existing.renewalAt,
+      billingCycle: derivedBillingCycle ?? existing.billingCycle,
+      renewalAt: derivedRenewalAt ?? existing.renewalAt,
       updatedAt: nowTimestamp()
     }
   });
@@ -495,11 +511,14 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
   if (derivedEmployeeLimit !== undefined && derivedEmployeeLimit !== existing.employeeLimit) {
     changes.push(`حد المستخدمين من ${existing.employeeLimit} إلى ${derivedEmployeeLimit}`);
   }
-  if (input.status !== undefined && input.status !== existing.status) {
-    changes.push(`حالة الاشتراك من ${existing.status} إلى ${input.status}`);
+  if (derivedStatus !== undefined && derivedStatus !== existing.status) {
+    changes.push(`حالة الاشتراك من ${existing.status} إلى ${derivedStatus}`);
   }
   if (input.plan !== undefined && input.plan !== existing.plan) {
     changes.push(`الباقة من ${existing.plan} إلى ${input.plan}`);
+  }
+  if (derivedBillingCycle !== undefined && derivedBillingCycle !== existing.billingCycle) {
+    changes.push(`دورة الفوترة من ${existing.billingCycle} إلى ${derivedBillingCycle}`);
   }
   await logAdminAction(
     tenantId,
