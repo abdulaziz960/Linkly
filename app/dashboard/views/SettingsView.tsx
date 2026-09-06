@@ -1447,7 +1447,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   <span className={`channel-icon channel-icon-${channel.id}`}>
                     <ChannelIcon id={channel.id} />
                   </span>
-                  <span className="channel-icon-soon-badge">{t("قريباً", "Soon")}</span>
+                  <span className="channel-icon-soon-lock" aria-hidden="true">🔒</span>
                 </span>
                 <b>{channel.title}</b>
                 <small>{t("قريباً", "Coming soon")}</small>
@@ -1461,7 +1461,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   <span className={`channel-icon channel-icon-${channel.id}`}>
                     <ComingSoonChannelIcon id={channel.id as "linkedin" | "youtube"} />
                   </span>
-                  <span className="channel-icon-soon-badge">{t("قريباً", "Soon")}</span>
+                  <span className="channel-icon-soon-lock" aria-hidden="true">🔒</span>
                 </span>
                 <b>{channel.title}</b>
                 <small>{t("قريباً", "Coming soon")}</small>
