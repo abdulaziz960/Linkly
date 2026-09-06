@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import HtmlLangSync from "../../HtmlLangSync";
 import "../../legal.css";
 
 export const metadata: Metadata = {
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
 export default function ContactPageEn() {
   return (
     <main className="legal-page" dir="ltr" lang="en">
+      <HtmlLangSync lang="en" dir="ltr" />
       <section className="legal-shell">
         <Link className="legal-brand" href="/en">
           <span className="legal-logo" aria-hidden="true" />

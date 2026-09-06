@@ -3,8 +3,9 @@ import Link from "next/link";
 import "../legal.css";
 
 export const metadata: Metadata = {
-  title: { absolute: "Privacy Policy | Linkly" },
-  description: "Linkly privacy policy"
+  title: { absolute: "سياسة الخصوصية | Linkly" },
+  description: "كيف تجمع Linkly بيانات العملاء والحساب وتستخدمها وتحميها عبر القنوات المرتبطة مثل واتساب وإنستغرام والبريد.",
+  alternates: { canonical: "/privacy", languages: { "ar-SA": "/privacy", en: "/en/privacy" } }
 };
 
 export default function PrivacyPage() {
