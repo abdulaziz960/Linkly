@@ -7,6 +7,7 @@ import { sendEmailMessage } from "../../../../../lib/email-channel";
 import { outgoingEmailMessageId } from "../../../../../lib/email-inbox";
 import { replyToGoogleReview } from "../../../../../lib/google-business";
 import { postCommentReply as postYoutubeCommentReply } from "../../../../../lib/youtube";
+import { postCommentReply as postLinkedinCommentReply } from "../../../../../lib/linkedin";
 import { sendUnifonicSms } from "../../../../../lib/sms-send";
 import { getTenantBranding } from "../../../../../lib/tenant-branding";
 import { prisma } from "../../../../../lib/prisma";
@@ -927,6 +928,58 @@ export async function POST(request: NextRequest, context: RouteContext) {
             sourceId: sourceMessage?.sourceId || cleanReplyToCommentId,
             sourceUrl: sourceMessage?.sourceUrl || "",
             sourceLabel: sourceMessage?.sourceLabel || "الفيديو المرتبط"
+          }
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: text,
+            lastActivityAt: sentAt
+          }
+        });
+
+        return created;
+      });
+
+      return jsonOk(message);
+    }
+
+    if (conversation.channel === "linkedin") {
+      if (attachment) return jsonError("إرسال المرفقات في لينكد إن غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
+      if (!body.replyToCommentId) return jsonError("لينكد إن لا يدعم إلا الرد على التعليقات، لا رسائل خاصة.", 400);
+
+      const linkedinSettings = await getIntegrationSettings("linkedin", user?.tenantId);
+      if (!linkedinSettings.accessToken?.trim()) return jsonError("اربط صفحة لينكد إن أولاً قبل الرد على التعليقات");
+      if (!linkedinSettings.linkedinOrgId) return jsonError("تعذر تحديد صفحة لينكد إن المرتبطة، أعد الربط من الإعدادات");
+
+      const replyToCommentId = body.replyToCommentId;
+      const cleanReplyToCommentId = replyToCommentId.replace(/^li-/, "");
+
+      const sourceMessage = await prisma.message.findFirst({
+        where: { id: replyToCommentId, conversation: { tenantId: user.tenantId } }
+      });
+      const postUrn = sourceMessage?.sourceId || "";
+      if (!postUrn) return jsonError("تعذر تحديد المنشور المرتبط بهذا التعليق");
+
+      const orgUrn = `urn:li:organization:${linkedinSettings.linkedinOrgId}`;
+      await postLinkedinCommentReply(linkedinSettings, orgUrn, postUrn, cleanReplyToCommentId, text);
+
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            id: `m-${Date.now()}`,
+            conversationId: conversation.id,
+            direction,
+            text: `رد على التعليق: ${text}`,
+            time: messageTime,
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData,
+            sourceType: sourceMessage?.sourceType || "linkedin_comment",
+            sourceId: postUrn,
+            sourceUrl: sourceMessage?.sourceUrl || "",
+            sourceLabel: sourceMessage?.sourceLabel || "المنشور المرتبط"
           }
         });
 

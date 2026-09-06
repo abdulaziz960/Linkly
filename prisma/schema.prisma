@@ -421,6 +421,11 @@ model IntegrationSetting {
   youtubeRefreshToken String @default("") @map("youtube_refresh_token")
   youtubeTokenExpiresAt String @default("") @map("youtube_token_expires_at")
   youtubeCommentsSyncedAt String @default("") @map("youtube_comments_synced_at")
+  linkedinOrgId String @default("") @map("linkedin_org_id")
+  linkedinOrgName String @default("") @map("linkedin_org_name")
+  linkedinRefreshToken String @default("") @map("linkedin_refresh_token")
+  linkedinTokenExpiresAt String @default("") @map("linkedin_token_expires_at")
+  linkedinCommentsSyncedAt String @default("") @map("linkedin_comments_synced_at")
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 

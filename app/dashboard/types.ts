@@ -19,7 +19,7 @@ export type ViewKey =
 
 export type ConversationStatus = "assigned" | "unassigned" | "closed";
 export type ConversationFilter = "all" | ConversationStatus | "mine" | "unread";
-export type ConversationChannel = "whatsapp" | "instagram" | "x" | "facebook" | "google_maps" | "website" | "telegram" | "email" | "tiktok" | "sms" | "youtube";
+export type ConversationChannel = "whatsapp" | "instagram" | "x" | "facebook" | "google_maps" | "website" | "telegram" | "email" | "tiktok" | "sms" | "youtube" | "linkedin";
 export type ConversationChannelFilter = "all" | ConversationChannel;
 export type ChatPanel = "chat" | "profile";
 export type ComposerMode = "reply" | "note";
@@ -248,7 +248,7 @@ export type DashboardUser = {
 export type IntegrationSettings = {
   id: string;
   tenantId: string;
-  provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "unifonic" | "gmail" | "youtube" | "external";
+  provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "unifonic" | "gmail" | "youtube" | "linkedin" | "external";
   status: "connected" | "not_connected" | "pending";
   businessName: string;
   wabaName: string;
@@ -272,6 +272,11 @@ export type IntegrationSettings = {
   youtubeRefreshToken: string;
   youtubeTokenExpiresAt: string;
   youtubeCommentsSyncedAt: string;
+  linkedinOrgId: string;
+  linkedinOrgName: string;
+  linkedinRefreshToken: string;
+  linkedinTokenExpiresAt: string;
+  linkedinCommentsSyncedAt: string;
   webhookUrl: string;
   updatedAt: string;
 };

@@ -192,7 +192,7 @@ function getConversationTimeLabel(isoDate: string | undefined, fallbackTime: str
 }
 
 function isInstagramCommentMessage(channel: ConversationChannel, text: string, direction: string) {
-  return (channel === "instagram" || channel === "youtube") && direction === "in" && text.startsWith("تعليق:");
+  return (channel === "instagram" || channel === "youtube" || channel === "linkedin") && direction === "in" && text.startsWith("تعليق:");
 }
 
 function getMessagePreview(text: string, t: (ar: string, en: string) => string) {
@@ -1512,7 +1512,9 @@ export default function InboxView({
                                       ? t("معرّف إكس", "X ID")
                                       : activeConversation.channel === "youtube"
                                         ? t("معرّف قناة يوتيوب", "YouTube channel ID")
-                                        : t("المعرف", "ID")}
+                                        : activeConversation.channel === "linkedin"
+                                          ? t("معرّف حساب لينكد إن", "LinkedIn member ID")
+                                          : t("المعرف", "ID")}
                   </dt>
                   <dd dir="ltr">{activeConversation.phone}</dd>
                 </div>
