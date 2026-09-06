@@ -1354,6 +1354,27 @@ async function runSchemaMigrations() {
 export async function ensureSchema() {
   schemaPromise ??= runSchemaMigrations().catch((error) => {
     schemaPromise = null;
+    // TEMPORARY: /api/conversations, /api/customers, and /api/settings/branding
+    // are throwing 500s in production with no visible detail (Next hides
+    // route-handler error messages from the HTTP response). Surface the real
+    // cause both to stdout (Cloud Run log) and to the in-app admin log (no
+    // gcloud access needed to read it) - remove once the broken statement is
+    // identified and fixed.
+    const detail = error instanceof Error ? `${error.message}\n${error.stack || ""}` : String(error);
+    console.error("[ensureSchema] runSchemaMigrations failed:", detail);
+    prisma.adminLog.create({
+      data: {
+        id: `log-${randomUUID()}`,
+        at: new Date().toISOString(),
+        clientId: "system",
+        clientName: "النظام",
+        source: "ensureSchema (تشخيص مؤقت)",
+        level: "خطأ",
+        message: detail.slice(0, 4000)
+      }
+    }).catch((logError) => {
+      console.error("[ensureSchema] failed to write diagnostic admin log:", logError);
+    });
     throw error;
   });
   await schemaPromise;

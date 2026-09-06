@@ -241,6 +241,7 @@ export type DashboardUser = {
   role: string;
   tenantId: string;
   profileLogo?: string;
+  lastLoginAt?: string;
 };
 
 export type IntegrationSettings = {

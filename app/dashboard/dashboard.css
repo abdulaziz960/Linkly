@@ -1,3 +1,21 @@
+/* The dashboard shell manages its own internal scroll areas (nav, main
+   content, message lists), each with their own styled/hidden scrollbar.
+   A page-level scrollbar can still appear here if any of that internal
+   sizing math is ever slightly off, and it renders as an ugly unstyled
+   native scrollbar since nothing on this route styles html/body directly -
+   hide it visually (scrolling, if ever actually needed, still works via
+   wheel/keyboard/touch) rather than let it flash into view. */
+html:has(.dashboard-shell),
+body:has(.dashboard-shell) {
+  scrollbar-width: none;
+}
+html:has(.dashboard-shell)::-webkit-scrollbar,
+body:has(.dashboard-shell)::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 :root {
   /* Linkly brand scale */
   --brand-50: #eefbf9;
@@ -49,6 +67,9 @@
   --warn: #b45309;
   --danger: #b91c1c;
   --info: #1d4ed8;
+  --status-online: #16a34a;
+  --status-busy: #eab308;
+  --status-offline: #dc2626;
   --status-ok-bg: #dcfce7;
   --status-ok-bg-soft: #f0fdf4;
   --status-warn-bg: #ffedd5;
@@ -91,7 +112,7 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
-  grid-template-rows: auto minmax(0, calc(100vh - var(--trial-banner-h, 0px)));
+  grid-template-rows: minmax(0, max(var(--trial-banner-h, 0px), var(--top-links-h, 0px))) minmax(0, calc(100vh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)) - 8px));
   background: var(--bg);
   color: var(--ink);
   direction: ltr;
@@ -560,18 +581,18 @@
 }
 
 .account-btn em.online {
-  background: var(--ok);
+  background: var(--status-online);
   color: #fff;
 }
 
 .account-btn em.offline {
-  background: var(--surface-soft);
-  color: var(--text-secondary);
+  background: var(--status-offline);
+  color: #fff;
 }
 
 .account-btn em.busy {
-  background: var(--warn);
-  color: #fff;
+  background: var(--status-busy);
+  color: #422006;
 }
 
 .dashboard-main {
@@ -2272,18 +2293,18 @@
 }
 
 .account-summary em.online {
-  background: var(--ok);
+  background: var(--status-online);
   color: #fff;
 }
 
 .account-summary em.offline {
-  background: var(--surface-soft);
-  color: var(--text-secondary);
+  background: var(--status-offline);
+  color: #fff;
 }
 
 .account-summary em.busy {
-  background: var(--warn);
-  color: #fff;
+  background: var(--status-busy);
+  color: #422006;
 }
 
 .profile-logo-editor {
@@ -2414,20 +2435,20 @@
 }
 
 .status-picker button.active.online {
-  border-color: var(--ok);
-  background: var(--ok);
+  border-color: var(--status-online);
+  background: var(--status-online);
   color: #fff;
 }
 
 .status-picker button.active.busy {
-  border-color: var(--warn);
-  background: var(--warn);
-  color: #fff;
+  border-color: var(--status-busy);
+  background: var(--status-busy);
+  color: #422006;
 }
 
 .status-picker button.active.offline {
-  border-color: var(--text-secondary);
-  background: #475569;
+  border-color: var(--status-offline);
+  background: var(--status-offline);
   color: #fff;
 }
 
@@ -3722,6 +3743,34 @@
   gap: 10px;
 }
 
+.automation-simulator-modal .modal-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.automation-simulator-modal .modal-foot .btn {
+  min-height: 50px;
+  padding: 0 26px;
+  font-size: 15px;
+  border-radius: 14px;
+}
+
+.automation-simulator-modal .modal-foot .btn.soft {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.automation-simulator-modal .modal-foot .btn.soft:hover {
+  background: var(--surface-soft);
+  border-color: #94a3b8;
+}
+
+.automation-simulator-modal .modal-foot .btn.primary {
+  box-shadow: 0 6px 16px rgba(23, 138, 130, 0.28);
+}
+
 .automation-sim-results {
   display: flex;
   flex-direction: column;
@@ -4173,6 +4222,21 @@
 .state.off {
   background: var(--surface-soft);
   color: var(--text-secondary);
+}
+
+.state.online {
+  background: var(--status-online);
+  color: #fff;
+}
+
+.state.busy {
+  background: var(--status-busy);
+  color: #422006;
+}
+
+.state.offline {
+  background: var(--status-offline);
+  color: #fff;
 }
 
 .stats-grid {
@@ -5993,13 +6057,34 @@
 }
 
 .channel-connect-card.locked {
-  opacity: 0.6;
+  opacity: 0.85;
 }
 
-.channel-connect-card .channel-icon-locked {
-  background: var(--surface) !important;
-  color: var(--muted) !important;
-  font-size: 20px;
+.channel-icon-soon-wrap {
+  position: relative;
+  width: 52px;
+  height: 52px;
+}
+
+.channel-icon-soon-wrap .channel-icon {
+  width: 100%;
+  height: 100%;
+  opacity: 0.9;
+}
+
+.channel-icon-soon-lock {
+  position: absolute;
+  bottom: -4px;
+  inset-inline-end: -4px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
 .channel-connect-card.locked button {
@@ -6741,6 +6826,26 @@
 .channel-icon-sms {
   background: #dfeeeb !important;
   color: #106b65 !important;
+}
+
+.channel-icon-linkedin {
+  background: #e8f2fb !important;
+  color: #0a66c2 !important;
+}
+
+.channel-icon-linkedin svg {
+  fill: currentColor;
+  stroke: none;
+}
+
+.channel-icon-youtube {
+  background: #fee2e2 !important;
+  color: #ff0000 !important;
+}
+
+.channel-icon-youtube svg {
+  fill: currentColor;
+  stroke: none;
 }
 
 .channel-card b,
@@ -7625,6 +7730,7 @@
 .dashboard-top-links .sidebar-billing-link:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1);
+  color: var(--ink, #111827);
 }
 .dashboard-top-links .sidebar-billing-link .dashboard-nav-icon {
   width: 18px;
@@ -7962,7 +8068,7 @@
 }
 
 .dashboard-main {
-  height: calc(100dvh - 8px - var(--trial-banner-h, 0px));
+  height: calc(100dvh - 8px - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)));
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid #b8d5cf;
@@ -8431,11 +8537,12 @@
 @media (max-width: 1180px) {
 .dashboard-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, max(var(--trial-banner-h, 0px), var(--top-links-h, 0px))) minmax(0, calc(100vh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px))));
     padding: 0;
   }
 
   .dashboard-main {
-    height: calc(100dvh - var(--trial-banner-h, 0px));
+    height: calc(100dvh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)));
     border: 0;
     border-radius: 0;
   }
@@ -8463,7 +8570,10 @@
 }
 
 @media (max-width: 720px) {
-  .dashboard-main { height: 100dvh; min-height: 100dvh; }
+  .dashboard-main {
+    height: calc(100dvh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)));
+    min-height: 0;
+  }
 
   .mobile-topbar {
     min-height: 62px;
