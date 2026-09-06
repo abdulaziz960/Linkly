@@ -4,6 +4,7 @@ import { convertAudioToMp3 } from "../../../../../lib/audio-conversion";
 import { conversationMessageDelivery } from "../../../../../lib/conversation-message-delivery";
 import { getIntegrationSettings } from "../../../../../lib/database";
 import { sendEmailMessage } from "../../../../../lib/email-channel";
+import { outgoingEmailMessageId } from "../../../../../lib/email-inbox";
 import { replyToGoogleReview } from "../../../../../lib/google-business";
 import { postCommentReply as postYoutubeCommentReply } from "../../../../../lib/youtube";
 import { sendUnifonicSms } from "../../../../../lib/sms-send";
@@ -728,12 +729,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const subject = latestEmailMessage?.sourceLabel
         ? `Re: ${latestEmailMessage.sourceLabel}`
         : `رد من ${(await getTenantBranding(user?.tenantId || "")).name}`;
-      await sendEmailMessage(recipientEmail, text, subject, user?.tenantId);
+      const { gmailMessageId } = await sendEmailMessage(recipientEmail, text, subject, user?.tenantId);
+      // The Sent-folder poll (syncGmailInbox) will also see this exact
+      // message later - using its real Gmail id as the row id here makes
+      // that poll converge on the same row instead of creating a duplicate.
+      const messageId = gmailMessageId ? outgoingEmailMessageId(gmailMessageId) : `m-${Date.now()}`;
 
       const message = await prisma.$transaction(async (tx) => {
-        const created = await tx.message.create({
-          data: {
-            id: `m-${Date.now()}`,
+        const created = await tx.message.upsert({
+          where: { id: messageId },
+          update: {},
+          create: {
+            id: messageId,
             conversationId: conversation.id,
             direction,
             text,

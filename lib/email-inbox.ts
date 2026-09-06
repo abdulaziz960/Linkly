@@ -112,6 +112,17 @@ function key(value: string) {
   return crypto.createHash("sha256").update(value.trim().toLowerCase()).digest("hex").slice(0, 24);
 }
 
+/**
+ * Shared between the Sent-folder poll (storeOutgoingEmail) and the
+ * composer's own send path so a message sent through Linkly (which already
+ * knows the real Gmail message id at send time) and the later poll that
+ * finds the same message in Sent converge on the identical row instead of
+ * creating a duplicate.
+ */
+export function outgoingEmailMessageId(gmailMessageId: string) {
+  return `email-out-${key(gmailMessageId)}`;
+}
+
 type LegacyIncomingEmail = {
   from: string;
   fromName?: string;
@@ -162,5 +173,60 @@ export async function storeIncomingEmail(input: LegacyIncomingEmail) {
   }).then(async (result) => {
     await runInboundMessageAutomations(result.conversationId, tenantId, text);
     return result;
+  });
+}
+
+type LegacyOutgoingEmail = {
+  to: string;
+  subject?: string;
+  text: string;
+  messageId?: string;
+  sentAt?: Date;
+  tenantId?: string;
+};
+
+/**
+ * A reply an agent sends straight from Gmail's own web/app interface,
+ * bypassing Linkly's composer entirely, otherwise never appears in the
+ * conversation - syncGmailInbox() also polls Sent for these and hands
+ * them here so the thread stays complete either way.
+ */
+export async function storeOutgoingEmail(input: LegacyOutgoingEmail) {
+  const tenantId = input.tenantId || "tenant-demo";
+  const to = input.to.trim();
+  const addressMatch = to.match(/<([^>]+)>/);
+  const email = (addressMatch?.[1] || to).trim().toLowerCase();
+  if (!email) return null;
+  const customerId = `email-${key(`${tenantId}:${email}`)}`;
+  const conversationId = `email-${key(`${tenantId}:${email}`)}`;
+  const headerName = to.replace(/<[^>]+>/, "").replace(/^[\s\"']+|[\s\"']+$/g, "");
+  const name = headerName || email;
+  const subject = input.subject?.trim();
+  const text = subject ? `${subject}\n\n${input.text}` : input.text;
+  const activityAt = (input.sentAt ?? new Date()).toISOString();
+  const messageId = outgoingEmailMessageId(input.messageId || `${email}-${activityAt}-${text}`);
+
+  return prisma.$transaction(async (tx) => {
+    await tx.customer.upsert({
+      where: { id: customerId },
+      update: {},
+      create: { id: customerId, tenantId, name, phone: email, initial: name.charAt(0) || "ب" }
+    });
+    await tx.conversation.upsert({
+      where: { id: conversationId },
+      update: { channel: "email" },
+      create: { id: conversationId, tenantId, customerId, channel: "email", lastMessage: text, status: "unassigned", assignee: "بدون موظف", unread: 0, windowExpired: 0, lastActivityAt: activityAt }
+    });
+
+    await tx.message.upsert({
+      where: { id: messageId },
+      update: {},
+      create: { id: messageId, conversationId, direction: "out", text, time: formatMessageTime(), author: "" }
+    });
+    await tx.conversation.update({
+      where: { id: conversationId },
+      data: { lastMessage: text, lastActivityAt: activityAt, windowExpired: 0 }
+    });
+    return { conversationId, messageId };
   });
 }

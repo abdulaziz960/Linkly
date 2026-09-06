@@ -1,6 +1,6 @@
 import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { prisma } from "./prisma";
-import { storeIncomingEmail } from "./email-inbox";
+import { storeIncomingEmail, storeOutgoingEmail } from "./email-inbox";
 import { decryptSecret, encryptSecret } from "./secret-storage";
 import type { EmailIntegration } from "@prisma/client";
 
@@ -121,7 +121,7 @@ function encodeHeaderWord(value: string) {
   return `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
 }
 
-export async function sendEmailMessage(to: string, text: string, subject = "رسالة من Linkly", tenantId = "tenant-demo") {
+export async function sendEmailMessage(to: string, text: string, subject = "رسالة من Linkly", tenantId = "tenant-demo"): Promise<{ gmailMessageId?: string }> {
   const integration = await prisma.emailIntegration.findFirst({ where: { tenantId } })
     ?? await prisma.emailIntegration.findFirst({ where: { tenantId: "tenant-demo" } });
   if (integration?.provider === "gmail" && integration.accessToken) {
@@ -129,7 +129,12 @@ export async function sendEmailMessage(to: string, text: string, subject = "رس
     const fromHeader = integration.senderName ? `${encodeHeaderWord(integration.senderName)} <${integration.emailAddress}>` : integration.emailAddress;
     const raw = Buffer.from([`To: ${to}`, `From: ${fromHeader}`, `Subject: ${encodeHeaderWord(subject)}`, "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "", text].join("\r\n")).toString("base64url");
     const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ raw }) });
-    if (response.ok) return;
+    // The later Sent-folder poll (syncGmailInbox) will see this exact same
+    // message too - returning its real Gmail id lets the caller store it
+    // under the same deterministic id the poll would use, so the two
+    // converge on one row instead of creating a duplicate.
+    const payload = await response.json().catch(() => null) as { id?: string } | null;
+    if (response.ok) return { gmailMessageId: payload?.id };
     throw new Error("تعذر الإرسال عبر Gmail. أعد ربط الحساب إذا انتهت صلاحية التفويض.");
   }
   const googleScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
@@ -137,7 +142,7 @@ export async function sendEmailMessage(to: string, text: string, subject = "رس
   if (googleScriptUrl && googleScriptSecret) {
     const response = await fetch(googleScriptUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secret: googleScriptSecret, to, subject, text }) });
     const payload = await response.json().catch(() => null);
-    if (response.ok && payload?.ok) return;
+    if (response.ok && payload?.ok) return {};
     throw new Error("تعذر الإرسال عبر Google Script. تحقق من نشر السكربت وصلاحيات Gmail.");
   }
   throw new Error("اربط Gmail لتفعيل إرسال البريد.");
@@ -205,6 +210,28 @@ function extractPlainText(payload?: GmailMessagePart): string {
  * fetch messages newer than the last sync and hand each to storeIncomingEmail
  * (idempotent by Gmail message id, so calling this repeatedly is safe).
  */
+async function listGmailMessageIds(accessToken: string, query: string): Promise<string[]> {
+  const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+  listUrl.search = new URLSearchParams({ q: query, maxResults: "25" }).toString();
+  const listResponse = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!listResponse.ok) {
+    if (listResponse.status === 401) throw new Error("تعذر جلب الرسائل. أعد ربط حساب Gmail لأن التفويض انتهى.");
+    throw new Error("تعذر جلب الرسائل من Gmail.");
+  }
+  const listData = await listResponse.json();
+  return Array.isArray(listData.messages) ? listData.messages.map((message: { id: string }) => message.id) : [];
+}
+
+/**
+ * Gmail has no inbound webhook here, so incoming mail is pulled on demand:
+ * fetch messages newer than the last sync and hand each to storeIncomingEmail
+ * (idempotent by Gmail message id, so calling this repeatedly is safe).
+ *
+ * Also polls Sent - a reply an agent sends straight from Gmail's own
+ * interface, bypassing Linkly's composer, otherwise never shows up in the
+ * conversation. A message sent through Linkly's own composer converges on
+ * the same row instead of duplicating (see outgoingEmailMessageId).
+ */
 export async function syncGmailInbox(tenantId = "tenant-demo"): Promise<{ synced: number }> {
   const integration = await prisma.emailIntegration.findFirst({ where: { tenantId } });
   if (!integration || integration.provider !== "gmail" || !integration.accessToken) return { synced: 0 };
@@ -214,18 +241,10 @@ export async function syncGmailInbox(tenantId = "tenant-demo"): Promise<{ synced
     ? Math.floor(new Date(integration.lastSyncedAt).getTime() / 1000) - 60
     : Math.floor(Date.now() / 1000) - 24 * 60 * 60;
 
-  const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
-  listUrl.search = new URLSearchParams({ q: `in:inbox after:${afterSeconds}`, maxResults: "25" }).toString();
-  const listResponse = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!listResponse.ok) {
-    if (listResponse.status === 401) throw new Error("تعذر جلب الرسائل. أعد ربط حساب Gmail لأن التفويض انتهى.");
-    throw new Error("تعذر جلب الرسائل من Gmail.");
-  }
-  const listData = await listResponse.json();
-  const ids: string[] = Array.isArray(listData.messages) ? listData.messages.map((message: { id: string }) => message.id) : [];
-
   let synced = 0;
-  for (const id of ids) {
+
+  const inboxIds = await listGmailMessageIds(accessToken, `in:inbox after:${afterSeconds}`);
+  for (const id of inboxIds) {
     const messageResponse = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`, { headers: { Authorization: `Bearer ${accessToken}` } });
     if (!messageResponse.ok) continue;
     const message = await messageResponse.json();
@@ -244,6 +263,27 @@ export async function syncGmailInbox(tenantId = "tenant-demo"): Promise<{ synced
       tenantId
     });
     synced += 1;
+  }
+
+  const sentIds = await listGmailMessageIds(accessToken, `in:sent after:${afterSeconds}`);
+  for (const id of sentIds) {
+    const messageResponse = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!messageResponse.ok) continue;
+    const message = await messageResponse.json();
+    const headers: Array<{ name: string; value: string }> = message.payload?.headers || [];
+    const to = headers.find((header) => header.name === "To")?.value || "";
+    if (!to) continue;
+    const subject = headers.find((header) => header.name === "Subject")?.value || "";
+    const text = extractPlainText(message.payload) || message.snippet || "";
+    const result = await storeOutgoingEmail({
+      to,
+      subject,
+      text,
+      messageId: message.id,
+      sentAt: message.internalDate ? new Date(Number(message.internalDate)) : undefined,
+      tenantId
+    });
+    if (result) synced += 1;
   }
 
   await prisma.emailIntegration.update({ where: { id: integration.id }, data: { lastSyncedAt: new Date().toISOString() } });
