@@ -14,7 +14,7 @@ type DateRange = "all" | "today" | "7d" | "30d" | "custom";
 type EnrichedLog = AdminLog & { timestamp: number; actor: string; eventType: string; before: string; after: string; ip: string; device: string };
 type LogGroup = { id: string; primary: EnrichedLog; items: EnrichedLog[]; isGrouped: boolean };
 
-const LEVELS: LevelFilter[] = ["الكل", "معلومة", "تنبيه", "خطأ"];
+const LEVELS: LevelFilter[] = ["الكل", "معلومة", "تنبيه"];
 const PAGE_SIZE = 15;
 
 function Icon({ name }: { name: "search" | "info" | "warning" | "error" | "all" | "export" | "link" | "reset" | "chevron" | "empty" }) {
@@ -43,7 +43,7 @@ function csvCell(value: unknown) { return `"${String(value ?? "").replace(/"/g, 
 function downloadBlob(content: BlobPart, type: string, name: string) { const url = URL.createObjectURL(new Blob([content], { type })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = name; anchor.click(); URL.revokeObjectURL(url); }
 
 export default function LogsView({ subscriptions, logs, initialFilters }: LogsViewProps) {
-  const { t, language } = useLanguage(); const enrichedLogs = useMemo(() => logs.map(enrich), [logs]);
+  const { t, language } = useLanguage(); const enrichedLogs = useMemo(() => logs.filter((log) => log.level !== "خطأ").map(enrich), [logs]);
   const [client, setClient] = useState(initialFilters.client || "all"); const [query, setQuery] = useState(initialFilters.q || ""); const deferredQuery = useDeferredValue(query); const [level, setLevel] = useState<LevelFilter>(LEVELS.includes(initialFilters.level as LevelFilter) ? initialFilters.level as LevelFilter : "الكل"); const [dateRange, setDateRange] = useState<DateRange>(["all", "today", "7d", "30d", "custom"].includes(initialFilters.range || "") ? initialFilters.range as DateRange : "all"); const [fromDate, setFromDate] = useState(initialFilters.from || ""); const [toDate, setToDate] = useState(initialFilters.to || ""); const [eventType, setEventType] = useState(initialFilters.event || "all"); const [source, setSource] = useState(initialFilters.source || "all"); const [actor, setActor] = useState(initialFilters.actor || "all"); const [page, setPage] = useState(1); const [expanded, setExpanded] = useState<Set<string>>(new Set()); const [exportOpen, setExportOpen] = useState(false); const [copied, setCopied] = useState(false); const isFiltering = query !== deferredQuery;
   const sources = useMemo(() => Array.from(new Set(enrichedLogs.map((log) => log.source))).sort(), [enrichedLogs]); const actors = useMemo(() => Array.from(new Set(enrichedLogs.map((log) => log.actor))).sort(), [enrichedLogs]); const eventTypes = useMemo(() => Array.from(new Set(enrichedLogs.map((log) => log.eventType))).sort(), [enrichedLogs]);
   // eslint-disable-next-line react-hooks/purity

@@ -177,6 +177,29 @@ async function runRequiredProductionMigrations() {
   // broad legacy runtime schema repair is disabled. The statements are
   // idempotent and can be removed once every environment runs migrate deploy.
   await prisma.$executeRawUnsafe(
+    `ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS disabled INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE employees ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS employees_user_id_idx ON employees (user_id)`
+  );
+  await prisma.$executeRawUnsafe(
+    `UPDATE employees SET user_id = user_accounts.id
+     FROM user_accounts
+     WHERE employees.user_id = '' AND lower(user_accounts.email) = lower(employees.email)`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE employee_invites ADD COLUMN IF NOT EXISTS invite_tenant_id TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE employee_invites ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE employee_invites ADD COLUMN IF NOT EXISTS permissions TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
     `ALTER TABLE campaign_payments ADD COLUMN IF NOT EXISTS amount_halalas INTEGER NOT NULL DEFAULT 0`
   );
   await prisma.$executeRawUnsafe(
@@ -316,7 +339,6 @@ async function runSchemaMigrations() {
       updated_at TEXT NOT NULL
     )`);
     await prisma.$executeRawUnsafe(`ALTER TABLE bot_settings DROP CONSTRAINT IF EXISTS bot_settings_tenant_id_key`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE bot_nodes ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'whatsapp'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE bot_settings ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'whatsapp'`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS bot_nodes (
       id TEXT PRIMARY KEY,
@@ -328,6 +350,11 @@ async function runSchemaMigrations() {
       content TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`);
+    // Must run after the CREATE TABLE above - ALTER TABLE on a table that
+    // doesn't exist yet throws in Postgres even with IF NOT EXISTS on the
+    // column (that guard only covers the column, not the table), which
+    // previously aborted every single ensureSchema() call downstream.
+    await prisma.$executeRawUnsafe(`ALTER TABLE bot_nodes ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'whatsapp'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE bot_nodes ADD COLUMN IF NOT EXISTS canvas_x DOUBLE PRECISION NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE bot_nodes ADD COLUMN IF NOT EXISTS canvas_y DOUBLE PRECISION NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS knowledge_base_entries (
