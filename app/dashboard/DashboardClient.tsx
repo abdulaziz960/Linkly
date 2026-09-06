@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -34,6 +34,7 @@ import InboxView from "./views/InboxView";
 import { allViewKeys, computeAllowedViews, canSeeAllConversations as sharedCanSeeAllConversations } from "../../lib/permissions";
 import { formatDateTime } from "../../lib/time";
 import { playNewMessageChime } from "./notification-sound";
+import { requestNotificationPermissionOnce, showNewMessageNotification } from "./notification-browser";
 import TrialCountdownBanner from "./TrialCountdownBanner";
 
 type DashboardSubscription = {
@@ -200,6 +201,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const profileLogoInputRef = useRef<HTMLInputElement>(null);
+  const topLinksRef = useRef<HTMLDivElement | null>(null);
   const [profileLogo, setProfileLogo] = useState(initialUser.profileLogo ?? "");
   const [draftProfileLogo, setDraftProfileLogo] = useState(initialUser.profileLogo ?? "");
   const [profileFeedback, setProfileFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -314,6 +316,26 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     window.localStorage.setItem("audiencew-language", language);
   }, [language, preferencesLoaded]);
 
+  // The sidebar/main columns size themselves against this (alongside
+  // --trial-banner-h) so the quick-links bar doesn't push the page taller
+  // than the viewport - same reasoning as TrialCountdownBanner's own height
+  // measurement, just for this row instead.
+  useLayoutEffect(() => {
+    const el = topLinksRef.current;
+    if (!el) {
+      document.documentElement.style.setProperty("--top-links-h", "0px");
+      return;
+    }
+    const update = () => document.documentElement.style.setProperty("--top-links-h", `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.setProperty("--top-links-h", "0px");
+    };
+  }, []);
+
   useEffect(() => {
     fetch("/api/settings/integration")
       .then((response) => response.json())
@@ -426,14 +448,17 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         }
         const previouslySeen = seenInboundMessageIdsRef.current;
         if (previouslySeen) {
-          let hasNewInboundMessage = false;
-          for (const id of inboundIds) {
-            if (!previouslySeen.has(id)) {
-              hasNewInboundMessage = true;
-              break;
-            }
+          const newSenderNames: string[] = [];
+          for (const conversation of nextConversations) {
+            const hasNewMessage = conversation.messages.some(
+              (message) => message.direction === "in" && !previouslySeen.has(message.id)
+            );
+            if (hasNewMessage) newSenderNames.push(conversation.customer);
           }
-          if (hasNewInboundMessage) playNewMessageChime();
+          if (newSenderNames.length) {
+            playNewMessageChime();
+            showNewMessageNotification(newSenderNames);
+          }
         }
         seenInboundMessageIdsRef.current = inboundIds;
 
@@ -571,6 +596,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   }, [loadDashboardData]);
 
   useEffect(() => {
+    requestNotificationPermissionOnce();
+  }, []);
+
+  useEffect(() => {
     writeCachedList(CONVERSATIONS_CACHE_KEY, conversations);
   }, [conversations]);
 
@@ -580,6 +609,14 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
   useEffect(() => {
     if (restoredNavigationRef.current || typeof window === "undefined") return;
+    // Non-owner accounts start with fallbackEmployee's empty permissions
+    // (see currentEmployee above) until /api/employees resolves, so
+    // allowedViews is briefly just ["inbox"]. Restoring against that
+    // narrowed, temporary list - and immediately marking restoration done -
+    // permanently lost any other saved/URL view (e.g. reloading while on
+    // "الأتمتة" always bounced back to the inbox). Wait for the real
+    // employee record before attempting the one-time restore.
+    if (initialUser.role !== "مالك الحساب" && employees.length === 0) return;
 
     const params = new URLSearchParams(window.location.search);
     const requestedView = params.get("view") || window.localStorage.getItem(DASHBOARD_VIEW_KEY);
@@ -594,7 +631,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     }
 
     restoredNavigationRef.current = true;
-  }, [allowedViews]);
+  }, [allowedViews, initialUser.role, employees.length]);
 
   useEffect(() => {
     if (!restoredNavigationRef.current || typeof window === "undefined") return;
@@ -1097,7 +1134,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     <LanguageProvider language={language}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
-      <div className="dashboard-top-links">
+      <div className="dashboard-top-links" ref={topLinksRef}>
         <Link
           className="sidebar-billing-link is-support"
           href="/dashboard/support"
@@ -1243,7 +1280,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
               <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setProfileOpen(false)}>
                 ×
               </button>
-              <h2>{profilePanel === "billing" ? t("الفواتير والاشتراك", "Billing & subscription") : profilePanel === "security" ? t("الأمان", "Security") : t("الملف الشخصي", "Profile")}</h2>
+              <h2>{profilePanel === "billing" && initialUser.role === "مالك الحساب" ? t("الفواتير والاشتراك", "Billing & subscription") : profilePanel === "security" ? t("الأمان", "Security") : t("الملف الشخصي", "Profile")}</h2>
             </header>
             <div className="account-modal-body">
               {profilePanel === "main" ? (
@@ -1311,7 +1348,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     </div>
                   </div>
                   <div className="profile-actions">
-                    <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>{t("الفواتير والاشتراك", "Billing & subscription")}</button>
+                    {initialUser.role === "مالك الحساب" ? (
+                      <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>{t("الفواتير والاشتراك", "Billing & subscription")}</button>
+                    ) : null}
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("security")}>{t("الأمان", "Security")}</button>
                     <button className="btn danger" type="button" onClick={() => {
                       if (window.confirm(t("هل تريد تسجيل الخروج من لوحة Linkly؟", "Sign out of Linkly?"))) {
@@ -1323,12 +1362,12 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     }}>{t("تسجيل الخروج", "Sign out")}</button>
                   </div>
                 </>
-              ) : profilePanel === "billing" ? (
+              ) : profilePanel === "billing" && initialUser.role === "مالك الحساب" ? (
                 <>
                   <div className="profile-detail-panel">
                     <div><span>{t("الباقة الحالية", "Current plan")}</span><b>{subscription?.plan || t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
                     <div><span>{t("حالة الاشتراك", "Subscription status")}</span><b>{subscription?.status || t("—", "—")}</b></div>
-                    <div><span>{t("تجديد الاشتراك", "Renewal")}</span><b>{subscription?.billingCycle || t("—", "—")}{subscription?.renewalAt ? ` · ${subscription.renewalAt}` : ""}</b></div>
+                    <div><span>{t("تجديد الاشتراك", "Renewal")}</span><b>{subscription?.billingCycle || t("—", "—")}{subscription?.renewalAt ? ` · ${formatDateTime(subscription.renewalAt)}` : ""}</b></div>
                     <div><span>{t("رصيد الحملات", "Campaign balance")}</span><b>{t(`${campaignBalance.toLocaleString("ar")} رسالة متاحة`, `${campaignBalance.toLocaleString("en-US")} messages available`)}</b></div>
                   </div>
                   <div className="invoice-list">
@@ -1386,10 +1425,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
               ) : (
                 <div className="profile-detail-panel">
                   <div><span>{t("تسجيل الدخول", "Sign-in")}</span><b>{t("البريد الإلكتروني وكلمة المرور", "Email and password")}</b></div>
-                  <div><span>{t("التحقق الثنائي", "Two-factor authentication")}</span><b>{t("غير مفعل", "Not enabled")}</b></div>
-                  <div><span>{t("آخر دخول", "Last sign-in")}</span><b>{t("اليوم · الرياض", "Today · Riyadh")}</b></div>
+                  <div><span>{t("التحقق الثنائي", "Two-factor authentication")}</span><b>{t("غير متاح حاليًا", "Not available yet")}</b></div>
+                  <div><span>{t("آخر دخول", "Last sign-in")}</span><b>{initialUser.lastLoginAt ? formatDateTime(initialUser.lastLoginAt) : t("لا توجد بيانات بعد", "No data yet")}</b></div>
                   <div><span>{t("الصلاحيات", "Permissions")}</span><b>{initialUser.role}</b></div>
-                  <p className="muted-copy">{t("تظهر هنا إعدادات الحماية، الجلسات، والتحقق الثنائي عند ربط نظام الدخول الحقيقي.", "Security settings, sessions, and two-factor authentication will appear here once the real login system is connected.")}</p>
+                  <p className="muted-copy">{t("التحقق الثنائي وإدارة الجلسات النشطة قيد التطوير وستُضاف قريبًا.", "Two-factor authentication and active-session management are in development and will be added soon.")}</p>
                 </div>
               )}
               {profileFeedback ? <p className={`profile-save-feedback ${profileFeedback.type}`} role="status">{profileFeedback.message}</p> : null}

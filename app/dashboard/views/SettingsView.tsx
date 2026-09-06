@@ -262,6 +262,25 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
   );
 }
 
+// Not real ChannelId members - these two have no wizard/connection logic at
+// all yet, they're purely the "coming soon" placeholders below, hence a
+// separate tiny icon set instead of extending ChannelIcon's union.
+function ComingSoonChannelIcon({ id }: { id: "linkedin" | "youtube" }) {
+  if (id === "linkedin") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.38-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12ZM7.12 20.45H3.56V9h3.56v11.45Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="2" y="5" width="20" height="14" rx="4" />
+      <path d="M10 9.3v5.4l4.8-2.7L10 9.3Z" fill="#fff" stroke="none" />
+    </svg>
+  );
+}
+
 export default function SettingsView({ onIntegrationChange }: SettingsViewProps) {
   const { t } = useLanguage();
   const channels = useMemo(() => getChannels(t), [t]);
@@ -1424,7 +1443,12 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
             {channels.filter((channel) => temporarilyLockedChannelIds.has(channel.id)).map((channel) => (
               <div className="channel-connect-card locked" key={channel.id}>
-                <span className="channel-icon channel-icon-locked" aria-hidden="true">🔒</span>
+                <span className="channel-icon-soon-wrap">
+                  <span className={`channel-icon channel-icon-${channel.id}`}>
+                    <ChannelIcon id={channel.id} />
+                  </span>
+                  <span className="channel-icon-soon-lock" aria-hidden="true">🔒</span>
+                </span>
                 <b>{channel.title}</b>
                 <small>{t("قريباً", "Coming soon")}</small>
                 <button type="button" disabled>{t("قريباً", "Coming soon")}</button>
@@ -1433,7 +1457,12 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
             {comingSoonChannels.map((channel) => (
               <div className="channel-connect-card locked" key={channel.id}>
-                <span className="channel-icon channel-icon-locked" aria-hidden="true">🔒</span>
+                <span className="channel-icon-soon-wrap">
+                  <span className={`channel-icon channel-icon-${channel.id}`}>
+                    <ComingSoonChannelIcon id={channel.id as "linkedin" | "youtube"} />
+                  </span>
+                  <span className="channel-icon-soon-lock" aria-hidden="true">🔒</span>
+                </span>
                 <b>{channel.title}</b>
                 <small>{t("قريباً", "Coming soon")}</small>
                 <button type="button" disabled>{t("قريباً", "Coming soon")}</button>
