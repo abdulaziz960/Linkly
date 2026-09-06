@@ -5,6 +5,7 @@ import { conversationMessageDelivery } from "../../../../../lib/conversation-mes
 import { getIntegrationSettings } from "../../../../../lib/database";
 import { sendEmailMessage } from "../../../../../lib/email-channel";
 import { replyToGoogleReview } from "../../../../../lib/google-business";
+import { postCommentReply as postYoutubeCommentReply } from "../../../../../lib/youtube";
 import { sendUnifonicSms } from "../../../../../lib/sms-send";
 import { getTenantBranding } from "../../../../../lib/tenant-branding";
 import { prisma } from "../../../../../lib/prisma";
@@ -873,6 +874,52 @@ export async function POST(request: NextRequest, context: RouteContext) {
             createdAt: sentAt,
             author: user?.name ?? "",
             ...replyToData
+          }
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: text,
+            lastActivityAt: sentAt
+          }
+        });
+
+        return created;
+      });
+
+      return jsonOk(message);
+    }
+
+    if (conversation.channel === "youtube") {
+      if (attachment) return jsonError("إرسال المرفقات في يوتيوب غير مفعل حالياً، جرّب إرسال نص فقط.", 400);
+      if (!body.replyToCommentId) return jsonError("يوتيوب لا يدعم إلا الرد على التعليقات، لا رسائل خاصة.", 400);
+
+      const youtubeSettings = await getIntegrationSettings("youtube", user?.tenantId);
+      if (!youtubeSettings.accessToken?.trim()) return jsonError("اربط قناة يوتيوب أولاً قبل الرد على التعليقات");
+
+      const replyToCommentId = body.replyToCommentId;
+      const cleanReplyToCommentId = replyToCommentId.replace(/^yt-/, "");
+      const youtubeResponse = await postYoutubeCommentReply(youtubeSettings, cleanReplyToCommentId, text) as { id?: string } | null;
+
+      const message = await prisma.$transaction(async (tx) => {
+        const sourceMessage = await tx.message.findFirst({
+          where: { id: replyToCommentId, conversation: { tenantId: user.tenantId } }
+        });
+        const created = await tx.message.create({
+          data: {
+            id: youtubeResponse?.id ? `yt-comment-reply-${youtubeResponse.id}` : `m-${Date.now()}`,
+            conversationId: conversation.id,
+            direction,
+            text: `رد على التعليق: ${text}`,
+            time: messageTime,
+            createdAt: sentAt,
+            author: user?.name ?? "",
+            ...replyToData,
+            sourceType: sourceMessage?.sourceType || "youtube_comment",
+            sourceId: sourceMessage?.sourceId || cleanReplyToCommentId,
+            sourceUrl: sourceMessage?.sourceUrl || "",
+            sourceLabel: sourceMessage?.sourceLabel || "الفيديو المرتبط"
           }
         });
 

@@ -10,7 +10,8 @@ export const integrationSecretFields = [
   "xBearerToken",
   "xAccessToken",
   "xAccessTokenSecret",
-  "googleRefreshToken"
+  "googleRefreshToken",
+  "youtubeRefreshToken"
 ] as const;
 
 function encryptionKey() {
