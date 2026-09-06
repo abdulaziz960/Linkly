@@ -416,6 +416,11 @@ model IntegrationSetting {
   xDmRateLimitedUntil String @default("") @map("x_dm_rate_limited_until")
   xDmSyncedUntilId String @default("") @map("x_dm_synced_until_id")
   xMentionsSyncedUntilId String @default("") @map("x_mentions_synced_until_id")
+  youtubeChannelId String @default("") @map("youtube_channel_id")
+  youtubeChannelTitle String @default("") @map("youtube_channel_title")
+  youtubeRefreshToken String @default("") @map("youtube_refresh_token")
+  youtubeTokenExpiresAt String @default("") @map("youtube_token_expires_at")
+  youtubeCommentsSyncedAt String @default("") @map("youtube_comments_synced_at")
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 
