@@ -7822,23 +7822,15 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border: 0;
   font: inherit;
   cursor: pointer;
-}
-.dashboard-top-links-avatar {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: #fda4af;
-  color: #881337;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 900;
-  flex-shrink: 0;
   overflow: hidden;
 }
-.dashboard-top-links-avatar.has-logo { background: transparent; }
-.dashboard-top-links-avatar img { border-radius: 999px; }
+.dashboard-top-links .is-profile .dashboard-nav-icon { color: #be123c; }
+.dashboard-top-links-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 999px;
+}
 
 .sidebar-billing-link {
   display: flex;
