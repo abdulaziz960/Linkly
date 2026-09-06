@@ -126,8 +126,10 @@ async function sendOffHoursText(channel: string, tenantId: string, conversationI
 /**
  * Sends at most one automatic "we're closed" reply per conversation per day
  * when a customer message arrives outside every active work schedule for
- * the tenant. No-ops silently for channels we can't reply on (Google Maps,
- * TikTok) or tenants that haven't configured any schedule.
+ * the tenant - but only for a tenant that has explicitly opted in via an
+ * enabled "الرد خارج ساعات العمل" automation rule. No-ops silently for
+ * channels we can't reply on (Google Maps, TikTok) or tenants that haven't
+ * configured any schedule.
  */
 export async function checkOffHoursAutoReply(conversationId: string, tenantId: string) {
   try {
@@ -135,13 +137,15 @@ export async function checkOffHoursAutoReply(conversationId: string, tenantId: s
     // the literal id "auto-business-hours" can only ever belong to one
     // tenant across the whole database - looking it up by {tenantId, id}
     // silently matched nothing (and so always defaulted to "enabled") for
-    // every other tenant. Match on name instead, which each tenant's own
-    // row can share safely.
+    // every other tenant, with no way to turn it off. Match on name
+    // instead (safe to share per tenant), and require an explicit enabled
+    // row to actually send - opt-in, not opt-out, since no tenant has ever
+    // had a real chance to configure this.
     const configuredRule = await prisma.automationRule.findFirst({
       where: { tenantId, name: "الرد خارج ساعات العمل" },
       select: { enabled: true }
     });
-    if (configuredRule?.enabled === 0) return;
+    if (configuredRule?.enabled !== 1) return;
 
     const hasActiveSchedule = await prisma.workSchedule.count({ where: { tenantId, status: "نشط" } });
     if (!hasActiveSchedule) return;
