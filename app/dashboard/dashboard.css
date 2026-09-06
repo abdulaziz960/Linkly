@@ -7772,16 +7772,17 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   grid-column: 1;
   grid-row: 1;
   align-self: start;
-  justify-self: stretch;
+  justify-self: start;
   position: sticky;
   top: 0;
   z-index: 6;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  gap: 6px;
+  margin: 10px 0 0 14px;
+  padding: 6px;
+  border-radius: 18px;
+  background: var(--brand-950);
   flex-wrap: wrap;
 }
 .dashboard-top-links .sidebar-billing-link {
@@ -7789,18 +7790,19 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   padding: 0;
-  border-radius: 999px;
-  border: 1px solid transparent;
+  border-radius: 13px;
+  border: 0;
   text-decoration: none;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  color: #8fc4bd;
+  background: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 .dashboard-top-links .sidebar-billing-link:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 .dashboard-top-links .sidebar-billing-link[data-tooltip]::after {
   content: attr(data-tooltip);
@@ -7829,31 +7831,13 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+  color: inherit;
 }
-.dashboard-top-links .is-support {
-  background: #eef2ff;
-  color: #3730a3;
-}
-.dashboard-top-links .is-support .dashboard-nav-icon { color: #4338ca; }
-.dashboard-top-links .is-development {
-  background: #f3e8ff;
-  color: #6b21a8;
-}
-.dashboard-top-links .is-development .dashboard-nav-icon { color: #7e22ce; }
-.dashboard-top-links .is-billing {
-  background: #dcfce7;
-  color: #166534;
-}
-.dashboard-top-links .is-billing .dashboard-nav-icon { color: #15803d; }
 .dashboard-top-links .is-profile {
-  background: #ffe4e6;
-  color: #9f1239;
-  border: 0;
   font: inherit;
   cursor: pointer;
   overflow: hidden;
 }
-.dashboard-top-links .is-profile .dashboard-nav-icon { color: #be123c; }
 .dashboard-top-links-photo {
   width: 100%;
   height: 100%;
