@@ -7781,7 +7781,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   gap: 6px;
   margin: 0 0 0 4px;
   padding: 6px;
-  border-radius: 18px 18px 0 0;
+  border-radius: 22px 22px 0 0;
   background: var(--brand-950);
   flex-wrap: wrap;
 }
