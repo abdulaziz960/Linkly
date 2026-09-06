@@ -131,8 +131,14 @@ async function sendOffHoursText(channel: string, tenantId: string, conversationI
  */
 export async function checkOffHoursAutoReply(conversationId: string, tenantId: string) {
   try {
+    // AutomationRule.id is a global primary key, not scoped per tenant, so
+    // the literal id "auto-business-hours" can only ever belong to one
+    // tenant across the whole database - looking it up by {tenantId, id}
+    // silently matched nothing (and so always defaulted to "enabled") for
+    // every other tenant. Match on name instead, which each tenant's own
+    // row can share safely.
     const configuredRule = await prisma.automationRule.findFirst({
-      where: { tenantId, id: "auto-business-hours" },
+      where: { tenantId, name: "الرد خارج ساعات العمل" },
       select: { enabled: true }
     });
     if (configuredRule?.enabled === 0) return;

@@ -22,7 +22,12 @@ function stableId(value: string) {
 }
 
 function stripHtml(value = "") {
-  return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return value
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export async function storeEmailMessage(input: IncomingEmail) {
@@ -37,7 +42,14 @@ export async function storeEmailMessage(input: IncomingEmail) {
   const sourceId = input.messageId || input.internetMessageId || stableId(`${email}:${input.subject}:${input.receivedAt}:${input.text}`);
   const messageId = `email-in-${tenantKey}-${stableId(sourceId)}`;
   const createdAt = input.receivedAt || new Date().toISOString();
-  const body = (input.text || stripHtml(input.html) || "رسالة بريد واردة").trim();
+  // Some senders post the full HTML/MIME source into `text` instead of a
+  // real plain-text part (mislabeled or missing text/plain alternative),
+  // which otherwise skips stripHtml entirely and leaks raw <style>/CSS
+  // source into the conversation as if it were the customer's own message.
+  const looksLikeHtml = (value: string) => /<[a-z][\s\S]*>/i.test(value);
+  const rawText = input.text?.trim() || "";
+  const plainText = rawText && looksLikeHtml(rawText) ? stripHtml(rawText) : rawText;
+  const body = (plainText || stripHtml(input.html) || "رسالة بريد واردة").trim();
   const senderName = input.fromName?.trim() || email.split("@")[0] || "عميل البريد";
   const initial = senderName.slice(0, 1).toUpperCase() || "@";
 
