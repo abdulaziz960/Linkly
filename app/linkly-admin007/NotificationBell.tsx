@@ -32,8 +32,20 @@ export default function NotificationBell() {
         setOpen(false);
       }
     }
+    // The dropdown is positioned relative to the bell, not the viewport - if
+    // the page (or any scrollable panel/table under it) scrolls while it's
+    // open, it's left floating disconnected from the bell over whatever
+    // content is now underneath it. Closing on any scroll avoids that on
+    // every admin page, not just the ones we happen to test.
+    function handleScroll() {
+      setOpen(false);
+    }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("scroll", handleScroll, { capture: true });
+    };
   }, [open]);
 
   function handleToggle() {
