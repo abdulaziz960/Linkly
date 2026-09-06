@@ -67,6 +67,9 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   --warn: #b45309;
   --danger: #b91c1c;
   --info: #1d4ed8;
+  --status-online: #16a34a;
+  --status-busy: #eab308;
+  --status-offline: #dc2626;
   --status-ok-bg: #dcfce7;
   --status-ok-bg-soft: #f0fdf4;
   --status-warn-bg: #ffedd5;
@@ -578,18 +581,18 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .account-btn em.online {
-  background: var(--ok);
+  background: var(--status-online);
   color: #fff;
 }
 
 .account-btn em.offline {
-  background: var(--surface-soft);
-  color: var(--text-secondary);
+  background: var(--status-offline);
+  color: #fff;
 }
 
 .account-btn em.busy {
-  background: var(--warn);
-  color: #fff;
+  background: var(--status-busy);
+  color: #422006;
 }
 
 .dashboard-main {
@@ -2290,18 +2293,18 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .account-summary em.online {
-  background: var(--ok);
+  background: var(--status-online);
   color: #fff;
 }
 
 .account-summary em.offline {
-  background: var(--surface-soft);
-  color: var(--text-secondary);
+  background: var(--status-offline);
+  color: #fff;
 }
 
 .account-summary em.busy {
-  background: var(--warn);
-  color: #fff;
+  background: var(--status-busy);
+  color: #422006;
 }
 
 .profile-logo-editor {
@@ -2432,20 +2435,20 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .status-picker button.active.online {
-  border-color: var(--ok);
-  background: var(--ok);
+  border-color: var(--status-online);
+  background: var(--status-online);
   color: #fff;
 }
 
 .status-picker button.active.busy {
-  border-color: var(--warn);
-  background: var(--warn);
-  color: #fff;
+  border-color: var(--status-busy);
+  background: var(--status-busy);
+  color: #422006;
 }
 
 .status-picker button.active.offline {
-  border-color: var(--text-secondary);
-  background: #475569;
+  border-color: var(--status-offline);
+  background: var(--status-offline);
   color: #fff;
 }
 
@@ -4191,6 +4194,21 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .state.off {
   background: var(--surface-soft);
   color: var(--text-secondary);
+}
+
+.state.online {
+  background: var(--status-online);
+  color: #fff;
+}
+
+.state.busy {
+  background: var(--status-busy);
+  color: #422006;
+}
+
+.state.offline {
+  background: var(--status-offline);
+  color: #fff;
 }
 
 .stats-grid {

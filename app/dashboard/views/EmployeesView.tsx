@@ -286,7 +286,7 @@ export default function EmployeesView({
                         </button>
                       </div>
                     ) : (
-                      <span className={employee.status === "متصل" ? "state ok" : employee.status === "مشغول" ? "state warn" : "state muted"}>{employeeStatusLabel(employee.status, t)}</span>
+                      <span className={employee.status === "متصل" ? "state online" : employee.status === "مشغول" ? "state busy" : "state offline"}>{employeeStatusLabel(employee.status, t)}</span>
                     )}
                   </td>
                   <td><span className="permissions-cell" title={employee.permissions}>{employee.permissions}</span></td>
