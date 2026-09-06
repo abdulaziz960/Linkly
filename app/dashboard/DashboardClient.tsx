@@ -1145,7 +1145,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             <circle cx="12" cy="12" r="9" />
             <path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2-2.4 3.6M12 17h.01" />
           </svg>
-          <span>{language === "en" ? "Support" : "الدعم الفني"}</span>
         </Link>
         <Link
           className="sidebar-billing-link is-development"
@@ -1156,7 +1155,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M9 17l-5-5 5-5M15 7l5 5-5 5" />
           </svg>
-          <span>{language === "en" ? "Development" : "تطوير المنصة"}</span>
         </Link>
         {initialUser.role === "مالك الحساب" ? (
           <Link
@@ -1169,7 +1167,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
               <rect x="3" y="5" width="18" height="14" rx="2.5" />
               <path d="M3 10h18M7 15h4" />
             </svg>
-            <span>{language === "en" ? "Billing" : "الباقات"}</span>
           </Link>
         ) : null}
         <button
@@ -1182,7 +1179,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           <span className={`dashboard-top-links-avatar ${profileLogo ? "has-logo" : ""}`}>
             {profileLogo ? <Image src={profileLogo} alt="" width={22} height={22} unoptimized /> : accountInitial}
           </span>
-          <span>{language === "en" ? "Profile" : "الملف الشخصي"}</span>
         </button>
       </div>
       <DashboardSidebar
