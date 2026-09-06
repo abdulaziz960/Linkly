@@ -105,7 +105,7 @@ const CONVERSATIONS_CACHE_KEY = "audiencew:dashboard-conversations";
 const CUSTOMERS_CACHE_KEY = "audiencew:dashboard-customers";
 const DASHBOARD_VIEW_KEY = "audiencew:dashboard-active-view";
 const DASHBOARD_CHANNEL_KEY = "audiencew:dashboard-active-channel";
-const conversationChannels: ConversationChannel[] = ["whatsapp", "instagram", "x", "facebook", "google_maps", "website", "telegram", "email", "tiktok", "sms", "youtube"];
+const conversationChannels: ConversationChannel[] = ["whatsapp", "instagram", "x", "facebook", "google_maps", "website", "telegram", "email", "tiktok", "sms", "youtube", "linkedin"];
 
 const MAX_PROFILE_LOGO_SOURCE_BYTES = 5 * 1024 * 1024;
 
