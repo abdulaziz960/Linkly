@@ -256,6 +256,25 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_mentions_synced_until_id TEXT NOT NULL DEFAULT ''`
   );
+  // These three were only ever added inside the broad legacy schema-repair
+  // block below, which is gated off in production - the same class of bug
+  // as the user_accounts.disabled outage above. Prisma selects every
+  // TenantPreference/Conversation field on any plain query, so a live
+  // production DB missing them takes down every request that touches
+  // branding or the conversations list, not just the feature that added them.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS brand_name TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS brand_logo_data_url TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS brand_color TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS closed_at TEXT NOT NULL DEFAULT ''`
+  );
+
   // Legacy column from before this table's tenant scoping was renamed
   // workspace_id -> tenant_id (same class of leftover as the subscriptions
   // table cleanup above). Nothing in the current schema reads or writes
