@@ -56,17 +56,57 @@ export async function POST(request: NextRequest) {
   const existingEmployee = await prisma.employee.findFirst({ where: { email, tenantId: user.tenantId } });
   if (existingEmployee) return jsonError("يوجد موظف مسجل بهذا البريد الإلكتروني", 409);
 
-  const existingAccount = await prisma.userAccount.findUnique({ where: { email } });
-  if (existingAccount) {
-    return jsonError("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة", 409);
-  }
-
+  const role = body.role || "موظف دعم";
+  const permissions = body.permissions || "محادثات فقط";
   const activationToken = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(activationToken).digest("hex");
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 3).toISOString();
-  const role = body.role || "موظف دعم";
+  const origin = getAppOrigin(request);
+
+  const existingAccount = await prisma.userAccount.findUnique({ where: { email } });
+  if (existingAccount && existingAccount.tenantId === user.tenantId) {
+    // A UserAccount already sits in THIS same tenant (e.g. left over from a
+    // prior employee record) with no membership to attach a second time to -
+    // that's a same-company conflict, not a cross-tenant invite.
+    return jsonError("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة", 409);
+  }
+  if (existingAccount) {
+    // This email already has a login elsewhere on the platform - rather
+    // than blocking outright, offer to attach a second membership to that
+    // SAME account, but only once its owner actively confirms (a company
+    // shouldn't be able to silently attach itself to someone else's
+    // existing login just by knowing their email).
+    await prisma.employeeInvite.deleteMany({ where: { email, purpose: "cross_tenant_membership" } });
+    await prisma.employeeInvite.create({
+      data: {
+        id: `invite-${randomUUID()}`,
+        email,
+        tokenHash,
+        expiresAt,
+        createdAt: now.toISOString(),
+        purpose: "cross_tenant_membership",
+        inviteTenantId: user.tenantId,
+        role,
+        permissions
+      }
+    });
+
+    const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId }, select: { companyName: true } });
+    const joinUrl = `${origin}/join-workspace?token=${activationToken}`;
+    const inviteDelivery = await sendActivationEmail({
+      to: email,
+      name: existingAccount.name,
+      activationUrl: joinUrl,
+      purpose: "workspace_invite",
+      workspaceName: subscription?.companyName || ""
+    });
+
+    return jsonOk({ pendingCrossTenantInvite: true, email, inviteDelivery });
+  }
+
   const employeeId = `emp-${randomUUID()}`;
+  const userId = `user-${employeeId}`;
 
   const employee = await prisma.$transaction(async (tx) => {
     const createdEmployee = await tx.employee.create({
@@ -76,15 +116,16 @@ export async function POST(request: NextRequest) {
         email,
         role,
         status: body.status || "متصل",
-        permissions: body.permissions || "محادثات فقط",
+        permissions,
         initial: name.slice(0, 1),
-        tenantId: user.tenantId
+        tenantId: user.tenantId,
+        userId
       }
     });
 
     await tx.userAccount.create({
       data: {
-        id: `user-${employeeId}`,
+        id: userId,
         name,
         email,
         passwordHash: "",
@@ -109,7 +150,6 @@ export async function POST(request: NextRequest) {
     return createdEmployee;
   });
 
-  const origin = getAppOrigin(request);
   const activationUrl = `${origin}/activate?token=${activationToken}`;
   const inviteDelivery = await sendActivationEmail({ to: email, name, activationUrl });
 
