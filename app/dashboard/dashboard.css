@@ -7598,16 +7598,15 @@
 }
 
 .dashboard-top-links {
-  grid-column: 1;
-  grid-row: 1;
-  position: sticky;
-  top: 0;
-  z-index: 6;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 0 0 14px;
-  justify-self: start;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+  flex-wrap: wrap;
 }
 .dashboard-top-links .sidebar-billing-link {
   display: inline-flex;
