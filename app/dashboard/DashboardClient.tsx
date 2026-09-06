@@ -206,6 +206,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [draftProfileLogo, setDraftProfileLogo] = useState(initialUser.profileLogo ?? "");
   const [profileFeedback, setProfileFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [profilePanel, setProfilePanel] = useState<"main" | "billing" | "security">("main");
+  const [workspaces, setWorkspaces] = useState<{ tenantId: string; role: string; companyName: string; active: boolean }[]>([]);
+  const [switchingWorkspaceId, setSwitchingWorkspaceId] = useState("");
+  const [switchWorkspaceError, setSwitchWorkspaceError] = useState("");
   const [invoiceFromDate, setInvoiceFromDate] = useState("");
   const [invoiceToDate, setInvoiceToDate] = useState("");
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -389,11 +392,38 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     setDraftLanguage(language);
     setDraftProfileLogo(profileLogo);
     setProfileFeedback(null);
+    setSwitchWorkspaceError("");
+    fetch("/api/auth/my-workspaces")
+      .then((response) => (response.ok ? response.json() : { data: [] }))
+      .then((payload: { data?: typeof workspaces }) => setWorkspaces(payload.data || []))
+      .catch(() => setWorkspaces([]));
     // Sync drafts only at the moment the dialog opens - re-running this
     // whenever currentProfileStatus/language change would overwrite the
     // user's in-progress picks with the still-unsaved values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileOpen]);
+
+  async function handleSwitchWorkspace(tenantId: string) {
+    setSwitchWorkspaceError("");
+    setSwitchingWorkspaceId(tenantId);
+    try {
+      const response = await fetch("/api/auth/switch-workspace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId })
+      });
+      const payload = (await response.json()) as { ok: boolean; error?: string };
+      if (!payload.ok) {
+        setSwitchWorkspaceError(payload.error || t("تعذر تبديل الشركة", "Could not switch companies"));
+        return;
+      }
+      setWorkspaces((current) => current.map((workspace) => ({ ...workspace, active: workspace.tenantId === tenantId })));
+      router.replace("/dashboard?view=inbox");
+      router.refresh();
+    } finally {
+      setSwitchingWorkspaceId("");
+    }
+  }
 
   async function handleProfileLogoChange(file?: File) {
     if (!file) return;
@@ -1112,8 +1142,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       }
       setLanguage(draftLanguage);
       window.localStorage.setItem("audiencew-language", draftLanguage);
-      const savedMessage = draftLanguage === "en" ? "Profile settings saved successfully." : "تم حفظ إعدادات الملف الشخصي بنجاح.";
-      setProfileFeedback({ type: "success", message: savedMessage });
+      setProfileFeedback(null);
+      setProfileOpen(false);
     } catch (error) {
       const failMessage = draftLanguage === "en" ? "Could not save profile settings." : "تعذر حفظ إعدادات الملف الشخصي.";
       setProfileFeedback({ type: "error", message: error instanceof Error ? error.message : failMessage });
@@ -1314,6 +1344,27 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     <div><span>{t("الباقة", "Plan")}</span><b>{subscription?.plan || t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
                     <div><span>{t("حالة ربط واتساب", "WhatsApp connection")}</span><b>{integrationStatus === "connected" ? t("متصل", "Connected") : integrationStatus === "pending" ? t("قيد الإعداد", "Pending setup") : t("لم يتم الربط بعد", "Not connected yet")}</b></div>
                   </div>
+                  {workspaces.length > 1 ? (
+                    <div className="workspace-switcher">
+                      <b>{t("التبديل بين الشركات", "Switch Company")}</b>
+                      {switchWorkspaceError ? <p className="form-error">{switchWorkspaceError}</p> : null}
+                      <div className="workspace-switcher-list">
+                        {workspaces.map((workspace) => (
+                          <button
+                            key={workspace.tenantId}
+                            type="button"
+                            className={`workspace-switcher-item ${workspace.active ? "active" : ""}`}
+                            disabled={workspace.active || switchingWorkspaceId === workspace.tenantId}
+                            onClick={() => void handleSwitchWorkspace(workspace.tenantId)}
+                          >
+                            <span>{workspace.companyName || workspace.tenantId}</span>
+                            <small>{workspace.role}</small>
+                            {workspace.active ? <em>{t("الحالية", "Current")}</em> : switchingWorkspaceId === workspace.tenantId ? <em>{t("جاري التبديل…", "Switching…")}</em> : null}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="status-picker">
                     {(["متصل", "مشغول", "غير متصل"] as const).map((status) => (
                       <button

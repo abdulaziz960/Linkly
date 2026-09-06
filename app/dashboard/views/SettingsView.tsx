@@ -1450,7 +1450,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   <span className="channel-icon-soon-lock" aria-hidden="true">🔒</span>
                 </span>
                 <b>{channel.title}</b>
-                <small>{t("قريباً", "Coming soon")}</small>
                 <button type="button" disabled>{t("قريباً", "Coming soon")}</button>
               </div>
             ))}
@@ -1464,7 +1463,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   <span className="channel-icon-soon-lock" aria-hidden="true">🔒</span>
                 </span>
                 <b>{channel.title}</b>
-                <small>{t("قريباً", "Coming soon")}</small>
                 <button type="button" disabled>{t("قريباً", "Coming soon")}</button>
               </div>
             ))}

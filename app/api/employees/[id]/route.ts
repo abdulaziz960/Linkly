@@ -26,6 +26,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     role?: string;
     status?: string;
     permissions?: string;
+    disabled?: boolean;
   };
   const name = body.name?.trim();
   const email = body.email?.trim().toLowerCase();
@@ -48,6 +49,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // reassign the owner.
     if (existingEmployee.role === "مالك الحساب" && user.role !== "مالك الحساب") {
       return jsonError("لا يمكن تعديل حساب مالك الحساب", 403);
+    }
+    // Disabling your own account would lock you out with no one left to
+    // undo it, so block that specific combination even for the owner.
+    if (body.disabled && existingEmployee.email.toLowerCase() === user.email.toLowerCase()) {
+      return jsonError("لا يمكنك تعطيل حسابك الخاص", 403);
     }
 
     if (email !== existingEmployee.email) {
@@ -80,7 +86,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // the next session refresh instead of silently drifting apart.
       await tx.userAccount.updateMany({
         where: { email: existingEmployee.email, tenantId: user.tenantId },
-        data: { name, email, role }
+        data: {
+          name,
+          email,
+          role,
+          ...(body.disabled !== undefined ? { disabled: body.disabled ? 1 : 0 } : {}),
+          // Disabling kills any session already open on this account right
+          // now, instead of waiting for it to expire or be refreshed.
+          ...(body.disabled ? { sessionVersion: { increment: 1 } } : {})
+        }
       });
 
       return tx.employee.findFirstOrThrow({ where: { id, tenantId: user.tenantId } });
@@ -92,35 +106,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: NextRequest, context: RouteContext) {
-  const user = await getCurrentUser();
-  if (!user) return jsonError("غير مصرح", 401);
-  if (!(await userHasViewPermission(user, "employees"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
-
-  const { id } = await context.params;
-
-  try {
-    const employee = await prisma.employee.findFirst({ where: { id, tenantId: user.tenantId } });
-    if (!employee) return jsonError("تعذر حذف الموظف", 404);
-    // Only the account owner may delete the owner's own record - otherwise
-    // any employee with employees-management access could remove the owner
-    // (and, via the linked-account cleanup below, their login) outright.
-    if (employee.role === "مالك الحساب" && user.role !== "مالك الحساب") {
-      return jsonError("لا يمكن حذف حساب مالك الحساب", 403);
-    }
-
-    await prisma.$transaction([
-      prisma.teamMember.deleteMany({ where: { employeeId: id, team: { tenantId: user.tenantId } } }),
-      prisma.employeeInvite.deleteMany({ where: { email: employee.email } }),
-      // Scoped by tenantId too, not just email: email is globally unique on
-      // UserAccount today, but this keeps the delete tenant-safe even if
-      // that ever changes or a stale/duplicate row exists.
-      prisma.userAccount.deleteMany({ where: { email: employee.email, tenantId: user.tenantId } }),
-      prisma.employee.deleteMany({ where: { id, tenantId: user.tenantId } })
-    ]);
-
-    return jsonOk({ id });
-  } catch {
-    return jsonError("تعذر حذف الموظف", 404);
-  }
+// Permanently deleting an employee account is disabled by policy: no one
+// can wipe an employee's record, activity, or login through the product.
+// Use PATCH { disabled: true/false } instead - it blocks their login
+// immediately while keeping every row intact, and is fully reversible.
+export async function DELETE() {
+  return jsonError("حذف حسابات الموظفين نهائيًا غير متاح. استخدم تعطيل الحساب بدلاً من ذلك.", 403);
 }

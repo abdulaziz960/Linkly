@@ -88,10 +88,17 @@ model Employee {
   email       String
   initial     String
   tenantId    String       @map("tenant_id")
+  // Links this membership row to the one global login identity
+  // (UserAccount.id) it belongs to. Lets one identity hold a separate
+  // Employee row - with its own role/permissions - in more than one
+  // tenant. Backfilled from the historical 1:1 email match; see the
+  // "multi-workspace membership" migration.
+  userId      String       @default("") @map("user_id")
   teams       TeamMember[]
 
   @@index([tenantId])
   @@index([tenantId, email])
+  @@index([userId])
   @@map("employees")
 }
 
@@ -430,6 +437,10 @@ model UserAccount {
   profileLogo     String @default("") @map("profile_logo")
   isPlatformAdmin Int    @default(0) @map("is_platform_admin")
   sessionVersion  Int    @default(0) @map("session_version")
+  // Blocks login/session refresh entirely while every row for this account
+  // stays intact - the account-level equivalent of a tenant's "متوقف"
+  // subscription status. Set/cleared via PATCH /api/employees/[id].
+  disabled        Int    @default(0)
   lastLoginAt     String @default("") @map("last_login_at")
   lastLoginIp     String @default("") @map("last_login_ip")
   createdAt       String @map("created_at")
@@ -449,8 +460,16 @@ model EmployeeInvite {
   // platform-admin invites - all three set a first password on a brand-new
   // account) or "password_reset" (sets a new password on an existing,
   // already-activated account). /api/auth/activate enforces that a token
-  // can only be consumed for the account state its purpose implies.
-  purpose   String @default("employee_activation")
+  // can only be consumed for the account state its purpose implies. A
+  // fourth purpose, "cross_tenant_membership", invites an email that
+  // ALREADY has a UserAccount to join a second tenant as an employee -
+  // inviteTenantId/role/permissions below are only populated for that
+  // purpose; confirming sets no password (the account already has one),
+  // it just creates the new Employee membership row.
+  purpose        String @default("employee_activation")
+  inviteTenantId String @default("") @map("invite_tenant_id")
+  role           String @default("")
+  permissions    String @default("")
 
   @@map("employee_invites")
 }
