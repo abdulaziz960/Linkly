@@ -1165,6 +1165,22 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
       <div className="dashboard-top-links" ref={topLinksRef}>
+        <button
+          type="button"
+          className="sidebar-billing-link is-profile"
+          onClick={openProfile}
+          title={language === "en" ? "Profile" : "الملف الشخصي"}
+          aria-label={language === "en" ? "Profile" : "الملف الشخصي"}
+        >
+          {profileLogo ? (
+            <Image className="dashboard-top-links-photo" src={profileLogo} alt="" width={38} height={38} unoptimized />
+          ) : (
+            <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4.5 20c1-4.5 4-7 7.5-7s6.5 2.5 7.5 7" />
+            </svg>
+          )}
+        </button>
         <Link
           className="sidebar-billing-link is-support"
           href="/dashboard/support"
@@ -1199,17 +1215,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             </svg>
           </Link>
         ) : null}
-        <button
-          type="button"
-          className="sidebar-billing-link is-profile"
-          onClick={openProfile}
-          title={language === "en" ? "Profile" : "الملف الشخصي"}
-          aria-label={language === "en" ? "Profile" : "الملف الشخصي"}
-        >
-          <span className={`dashboard-top-links-avatar ${profileLogo ? "has-logo" : ""}`}>
-            {profileLogo ? <Image src={profileLogo} alt="" width={22} height={22} unoptimized /> : accountInitial}
-          </span>
-        </button>
       </div>
       <DashboardSidebar
         activeView={activeView}
