@@ -601,6 +601,14 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
   useEffect(() => {
     if (restoredNavigationRef.current || typeof window === "undefined") return;
+    // Non-owner accounts start with fallbackEmployee's empty permissions
+    // (see currentEmployee above) until /api/employees resolves, so
+    // allowedViews is briefly just ["inbox"]. Restoring against that
+    // narrowed, temporary list - and immediately marking restoration done -
+    // permanently lost any other saved/URL view (e.g. reloading while on
+    // "الأتمتة" always bounced back to the inbox). Wait for the real
+    // employee record before attempting the one-time restore.
+    if (initialUser.role !== "مالك الحساب" && employees.length === 0) return;
 
     const params = new URLSearchParams(window.location.search);
     const requestedView = params.get("view") || window.localStorage.getItem(DASHBOARD_VIEW_KEY);
@@ -615,7 +623,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     }
 
     restoredNavigationRef.current = true;
-  }, [allowedViews]);
+  }, [allowedViews, initialUser.role, employees.length]);
 
   useEffect(() => {
     if (!restoredNavigationRef.current || typeof window === "undefined") return;
