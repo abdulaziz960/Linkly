@@ -202,9 +202,6 @@ function getMessagePreview(text: string, t: (ar: string, en: string) => string) 
 
 function getSafeConversationPreview(text: string, t: (ar: string, en: string) => string) {
   const cleaned = formatEmailContent(text)
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
     .replace(/https?:\/\/\S+/gi, t("[رابط]", "[link]"))
     .replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, (email) => {
       const domain = email.split("@")[1] || "";
@@ -256,6 +253,14 @@ function formatEmailContent(text: string) {
     // so this omits it rather than silently failing to match.
     .replace(/في\s.{0,300}?كتب\s.{0,200}?<[^<>]+>\s*:[\s\S]*$/, "")
     .replace(/^>.*$/gm, "")
+    // A sender that mislabels its full HTML/MIME source as plain text (or
+    // whose html-to-text conversion missed a <style> block) leaks raw
+    // CSS/markup straight into the conversation - strip the tag content
+    // itself, not just markup. Runs last so it can't eat the "<email>"
+    // marker the Gmail quoted-reply match above depends on.
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
