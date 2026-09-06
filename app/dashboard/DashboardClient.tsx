@@ -1169,7 +1169,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           type="button"
           className="sidebar-billing-link is-profile"
           onClick={openProfile}
-          title={language === "en" ? "Profile" : "الملف الشخصي"}
+          data-tooltip={language === "en" ? "Profile" : "الملف الشخصي"}
           aria-label={language === "en" ? "Profile" : "الملف الشخصي"}
         >
           {profileLogo ? (
@@ -1184,7 +1184,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         <Link
           className="sidebar-billing-link is-support"
           href="/dashboard/support"
-          title={language === "en" ? "Support" : "الدعم الفني"}
+          data-tooltip={language === "en" ? "Support" : "الدعم الفني"}
           aria-label={language === "en" ? "Support" : "الدعم الفني"}
         >
           <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -1195,7 +1195,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         <Link
           className="sidebar-billing-link is-development"
           href="/dashboard/development"
-          title={language === "en" ? "Development" : "تطوير المنصة"}
+          data-tooltip={language === "en" ? "Development" : "تطوير المنصة"}
           aria-label={language === "en" ? "Development" : "تطوير المنصة"}
         >
           <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -1206,7 +1206,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           <Link
             className="sidebar-billing-link is-billing"
             href="/billing"
-            title={language === "en" ? "Plans and billing" : "الباقات والاشتراك"}
+            data-tooltip={language === "en" ? "Billing" : "الباقات"}
             aria-label={language === "en" ? "Plans and billing" : "الباقات والاشتراك"}
           >
             <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
