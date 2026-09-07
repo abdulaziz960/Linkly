@@ -498,7 +498,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   // Temporarily locked while these channels are paused for rework - the
   // underlying integrations stay intact, they're just hidden from new
   // connections for now.
-  const temporarilyLockedChannelIds = new Set<ChannelId>(["facebook", "sms", "google_maps"]);
+  const temporarilyLockedChannelIds = new Set<ChannelId>(["facebook", "sms", "google_maps", "linkedin"]);
 
   function goToChannelSetup(channelId: SelectableChannelId) {
     setSelectedChannel(channelId);
@@ -1524,10 +1524,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <h2>{t("القنوات", "Channels")}</h2>
             <p>{t("اربط حساباتك على وسائل التواصل لإدارة رسائل العملاء من مكان واحد", "Connect your social accounts to manage customer messages from one place")}</p>
           </div>
-          <button type="button" className="btn primary channels-overview-add" onClick={() => goToChannelSetup(selectedChannel)}>
-            <span aria-hidden="true">+</span>
-            {t("اربط قناة جديدة", "Connect a new channel")}
-          </button>
         </div>
 
         <div className="channels-overview-grid">
