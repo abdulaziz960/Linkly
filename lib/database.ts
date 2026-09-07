@@ -304,6 +304,51 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS closed_at TEXT NOT NULL DEFAULT ''`
   );
+  // Sales Kanban (pipeline stage/deal value) + marketing-click attribution -
+  // added directly here, not the disabled legacy block, per the closed_at
+  // lesson immediately above.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS pipeline_stage TEXT NOT NULL DEFAULT 'جديد'`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS deal_value DOUBLE PRECISION NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS attr_page_id TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS attr_link_id TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS attr_referrer TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS attr_utm_source TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS attr_utm_medium TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS attr_utm_campaign TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS attr_utm_content TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS link_clicks (
+    id TEXT PRIMARY KEY,
+    page_id TEXT NOT NULL,
+    link_id TEXT NOT NULL,
+    referrer TEXT NOT NULL DEFAULT '',
+    utm_source TEXT NOT NULL DEFAULT '',
+    utm_medium TEXT NOT NULL DEFAULT '',
+    utm_campaign TEXT NOT NULL DEFAULT '',
+    utm_content TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    matched_conversation_id TEXT NOT NULL DEFAULT ''
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS link_clicks_created_at_idx ON link_clicks (created_at)`
+  );
 
   // Legacy column from before this table's tenant scoping was renamed
   // workspace_id -> tenant_id (same class of leftover as the subscriptions
@@ -788,6 +833,45 @@ async function runSchemaMigrations() {
   if (!conversationColumns.some((column) => column.name === "closed_at")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN closed_at TEXT NOT NULL DEFAULT ''`);
   }
+  if (!conversationColumns.some((column) => column.name === "pipeline_stage")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN pipeline_stage TEXT NOT NULL DEFAULT 'جديد'`);
+  }
+  if (!conversationColumns.some((column) => column.name === "deal_value")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN deal_value REAL NOT NULL DEFAULT 0`);
+  }
+  if (!conversationColumns.some((column) => column.name === "attr_page_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_page_id TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "attr_link_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_link_id TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "attr_referrer")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_referrer TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "attr_utm_source")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_utm_source TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "attr_utm_medium")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_utm_medium TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "attr_utm_campaign")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_utm_campaign TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "attr_utm_content")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_utm_content TEXT NOT NULL DEFAULT ''`);
+  }
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS link_clicks (
+    id TEXT PRIMARY KEY,
+    page_id TEXT NOT NULL,
+    link_id TEXT NOT NULL,
+    referrer TEXT NOT NULL DEFAULT '',
+    utm_source TEXT NOT NULL DEFAULT '',
+    utm_medium TEXT NOT NULL DEFAULT '',
+    utm_campaign TEXT NOT NULL DEFAULT '',
+    utm_content TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    matched_conversation_id TEXT NOT NULL DEFAULT ''
+  )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL,
@@ -2024,7 +2108,16 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       tags: conversation.tags.map((tag) => tag.tagName),
       messages,
       rating: conversation.rating || undefined,
-      ratingEmployee: conversation.ratingEmployee || undefined
+      ratingEmployee: conversation.ratingEmployee || undefined,
+      pipelineStage: (conversation.pipelineStage || "جديد") as Conversation["pipelineStage"],
+      dealValue: conversation.dealValue || undefined,
+      attrPageId: conversation.attrPageId || undefined,
+      attrLinkId: conversation.attrLinkId || undefined,
+      attrReferrer: conversation.attrReferrer || undefined,
+      attrUtmSource: conversation.attrUtmSource || undefined,
+      attrUtmMedium: conversation.attrUtmMedium || undefined,
+      attrUtmCampaign: conversation.attrUtmCampaign || undefined,
+      attrUtmContent: conversation.attrUtmContent || undefined
     };
   });
 }

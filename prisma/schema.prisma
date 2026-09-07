@@ -39,6 +39,15 @@ model Conversation {
   ratingRequestedAt String        @default("") @map("rating_requested_at")
   ratingAt          String        @default("") @map("rating_at")
   closedAt          String        @default("") @map("closed_at")
+  pipelineStage String            @default("جديد") @map("pipeline_stage")
+  dealValue     Float             @default(0) @map("deal_value")
+  attrPageId    String            @default("") @map("attr_page_id")
+  attrLinkId    String            @default("") @map("attr_link_id")
+  attrReferrer  String            @default("") @map("attr_referrer")
+  attrUtmSource String            @default("") @map("attr_utm_source")
+  attrUtmMedium String            @default("") @map("attr_utm_medium")
+  attrUtmCampaign String          @default("") @map("attr_utm_campaign")
+  attrUtmContent String           @default("") @map("attr_utm_content")
   customer      Customer          @relation(fields: [customerId], references: [id])
   messages      Message[]
   tags          ConversationTag[]
@@ -727,4 +736,20 @@ model FeatureRequest {
   @@index([tenantId, status])
   @@index([status])
   @@map("feature_requests")
+}
+
+model LinkClick {
+  id                     String @id
+  pageId                 String @map("page_id")
+  linkId                 String @map("link_id")
+  referrer               String @default("")
+  utmSource              String @default("") @map("utm_source")
+  utmMedium              String @default("") @map("utm_medium")
+  utmCampaign            String @default("") @map("utm_campaign")
+  utmContent             String @default("") @map("utm_content")
+  createdAt              String @map("created_at")
+  matchedConversationId  String @default("") @map("matched_conversation_id")
+
+  @@index([createdAt])
+  @@map("link_clicks")
 }

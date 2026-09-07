@@ -7,6 +7,7 @@ export type ViewKey =
   | "automations"
   | "campaigns"
   | "segments"
+  | "pipeline"
   | "templates"
   | "quickReplies"
   | "workHours"
@@ -74,7 +75,21 @@ export type Conversation = {
   messages: Message[];
   rating?: number;
   ratingEmployee?: string;
+  pipelineStage?: PipelineStage;
+  dealValue?: number;
+  attrPageId?: string;
+  attrLinkId?: string;
+  attrReferrer?: string;
+  attrUtmSource?: string;
+  attrUtmMedium?: string;
+  attrUtmCampaign?: string;
+  attrUtmContent?: string;
 };
+
+export const pipelineStages = ["جديد", "مهتم", "مؤهل", "عرض سعر", "تم الحجز", "فاز", "خسر"] as const;
+export type PipelineStage = (typeof pipelineStages)[number];
+// Deal value only makes sense once there's an actual offer on the table.
+export const pipelineStagesWithDealValue: PipelineStage[] = ["عرض سعر", "تم الحجز", "فاز", "خسر"];
 
 export type Customer = {
   id: string;
