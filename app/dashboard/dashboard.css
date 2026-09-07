@@ -3623,6 +3623,18 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   padding: 14px;
   text-align: right;
   vertical-align: middle;
+  box-sizing: border-box;
+}
+
+/* A row's cells can hold very different content (a lone "Edit" button vs. a
+   full action bar, or a status badge vs. a badge plus a "Resend" link) -
+   without a shared floor, rows collapse to their own content height and the
+   border-bottom lines land at different levels from row to row. `height` on
+   a table row is treated as a minimum by browsers (rows never shrink below
+   their content), so this keeps every row's separator line level while still
+   letting a row with more content grow taller than the rest. */
+.table-wrap tbody tr {
+  height: 63px;
 }
 
 .table-wrap th {
