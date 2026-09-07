@@ -18,6 +18,12 @@ COPY . .
 # schema provider to "postgresql" and prisma generate targets it - no real
 # database is contacted at build time.
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so
+# this one has to arrive as a build arg (from cloudbuild.yaml's
+# --build-arg), not a Cloud Run runtime env var - a runtime-only var would
+# never reach the already-built client JS.
+ARG NEXT_PUBLIC_SALES_WHATSAPP_NUMBER=""
+ENV NEXT_PUBLIC_SALES_WHATSAPP_NUMBER=$NEXT_PUBLIC_SALES_WHATSAPP_NUMBER
 RUN node scripts/prisma-generate.mjs
 RUN npm run build
 
