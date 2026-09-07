@@ -498,7 +498,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   // Temporarily locked while these channels are paused for rework - the
   // underlying integrations stay intact, they're just hidden from new
   // connections for now.
-  const temporarilyLockedChannelIds = new Set<ChannelId>(["facebook", "sms", "google_maps"]);
+  const temporarilyLockedChannelIds = new Set<ChannelId>(["facebook", "sms", "google_maps", "linkedin"]);
 
   function goToChannelSetup(channelId: SelectableChannelId) {
     setSelectedChannel(channelId);
