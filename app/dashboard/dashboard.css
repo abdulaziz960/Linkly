@@ -3623,6 +3623,18 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   padding: 14px;
   text-align: right;
   vertical-align: middle;
+  box-sizing: border-box;
+}
+
+/* A row's cells can hold very different content (a lone "Edit" button vs. a
+   full action bar, or a status badge vs. a badge plus a "Resend" link) -
+   without a shared floor, rows collapse to their own content height and the
+   border-bottom lines land at different levels from row to row. `height` on
+   a table row is treated as a minimum by browsers (rows never shrink below
+   their content), so this keeps every row's separator line level while still
+   letting a row with more content grow taller than the rest. */
+.table-wrap tbody tr {
+  height: 63px;
 }
 
 .table-wrap th {
@@ -3673,7 +3685,6 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   line-height: 1.6;
 }
 
-.row-actions,
 .icon-actions {
   display: flex;
   gap: 8px;
@@ -3681,18 +3692,33 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   flex-wrap: wrap;
 }
 
+/* `.row-actions` is applied straight onto a <td> everywhere it's used. A
+   table cell with `display:flex` stops being sized like a normal table
+   cell - the browser no longer stretches it to match the row's other
+   cells - so on a row where a different column needed more height (a
+   status badge with an extra line, a larger thumbnail, etc.) the actions
+   cell fell short and its bottom border landed above the rest of the row.
+   Laying the buttons out with inline-flex + margins instead keeps the
+   <td> a genuine table cell, so it always matches its row's height. */
 .row-actions {
-  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.row-actions > * + * {
+  margin-inline-start: 8px;
 }
 
 .row-actions .btn,
 .row-actions .campaign-report {
+  display: inline-flex;
+  align-items: center;
   min-height: 35px;
   padding: 0 10px;
   border-width: 1px;
   border-radius: 8px;
   font-size: 11px;
   white-space: nowrap;
+  vertical-align: middle;
 }
 
 .tag-color-swatch {
@@ -7769,14 +7795,20 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .dashboard-top-links {
-  position: fixed;
-  top: 12px;
-  left: 12px;
-  z-index: 20;
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+  justify-self: start;
+  position: sticky;
+  top: 0;
+  z-index: 6;
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: calc(100vw - 24px);
+  gap: 6px;
+  margin: 0 0 0 20px;
+  padding: 6px;
+  border-radius: 22px 22px 0 0;
+  background: var(--brand-950);
   flex-wrap: wrap;
 }
 .dashboard-top-links .sidebar-billing-link {
@@ -7784,18 +7816,19 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   padding: 0;
-  border-radius: 999px;
-  border: 1px solid transparent;
+  border-radius: 13px;
+  border: 0;
   text-decoration: none;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  color: #8fc4bd;
+  background: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 .dashboard-top-links .sidebar-billing-link:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 .dashboard-top-links .sidebar-billing-link[data-tooltip]::after {
   content: attr(data-tooltip);
@@ -7824,31 +7857,13 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+  color: inherit;
 }
-.dashboard-top-links .is-support {
-  background: #eef2ff;
-  color: #3730a3;
-}
-.dashboard-top-links .is-support .dashboard-nav-icon { color: #4338ca; }
-.dashboard-top-links .is-development {
-  background: #f3e8ff;
-  color: #6b21a8;
-}
-.dashboard-top-links .is-development .dashboard-nav-icon { color: #7e22ce; }
-.dashboard-top-links .is-billing {
-  background: #dcfce7;
-  color: #166534;
-}
-.dashboard-top-links .is-billing .dashboard-nav-icon { color: #15803d; }
 .dashboard-top-links .is-profile {
-  background: #ffe4e6;
-  color: #9f1239;
-  border: 0;
   font: inherit;
   cursor: pointer;
   overflow: hidden;
 }
-.dashboard-top-links .is-profile .dashboard-nav-icon { color: #be123c; }
 .dashboard-top-links-photo {
   width: 100%;
   height: 100%;

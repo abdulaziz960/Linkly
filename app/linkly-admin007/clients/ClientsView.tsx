@@ -58,6 +58,10 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
   const [limitValue, setLimitValue] = useState("");
   const [isLimitSaving, setIsLimitSaving] = useState(false);
   const [limitError, setLimitError] = useState("");
+  const [planClient, setPlanClient] = useState<SubscriptionRow | null>(null);
+  const [planValue, setPlanValue] = useState("");
+  const [isPlanSaving, setIsPlanSaving] = useState(false);
+  const [planError, setPlanError] = useState("");
   const [chargeClient, setChargeClient] = useState<SubscriptionRow | null>(null);
   const [chargeAmount, setChargeAmount] = useState("");
   const [chargeGateway, setChargeGateway] = useState<"moyasar" | "stripe">("moyasar");
@@ -105,6 +109,41 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     }
 
     setLimitClient(null);
+    router.refresh();
+  }
+
+  function openPlanEditor(client: SubscriptionRow) {
+    setPlanClient(client);
+    setPlanValue(client.plan);
+    setPlanError("");
+  }
+
+  async function handleUpdatePlan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!planClient) return;
+    if (!planValue) {
+      setPlanError(t("اختر باقة", "Choose a plan"));
+      return;
+    }
+
+    setIsPlanSaving(true);
+    setPlanError("");
+
+    const response = await fetch(`/api/admin/clients/${planClient.tenantId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan: planValue })
+    });
+    const result = (await response.json()) as { ok: boolean; error?: string };
+
+    setIsPlanSaving(false);
+
+    if (!response.ok || !result.ok) {
+      setPlanError(result.error || t("تعذر تغيير الباقة", "Could not change the plan"));
+      return;
+    }
+
+    setPlanClient(null);
     router.refresh();
   }
 
@@ -434,6 +473,9 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                     {t("شحن / تجديد الاشتراك", "Charge / Renew Subscription")}
                   </button>
                   <Link href={`/linkly-admin007/logs?client=${client.tenantId}`}>{t("سجل الحركة", "Activity Log")}</Link>
+                  <button type="button" onClick={() => openPlanEditor(client)}>
+                    {t("تغيير الباقة يدويًا", "Change Plan Manually")}
+                  </button>
                   <button type="button" onClick={() => openLimitEditor(client)}>
                     {t("تعديل حد المستخدمين", "Edit User Limit")}
                   </button>
@@ -622,6 +664,61 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                 </button>
                 <button type="submit" disabled={isLimitSaving}>
                   {isLimitSaving ? t("جاري الحفظ...", "Saving...") : t("حفظ الحد", "Save Limit")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {planClient ? (
+        <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="change-plan-title">
+          <div className="admin-modal-card admin-user-limit-modal">
+            <div className="admin-modal-head">
+              <div>
+                <h2 id="change-plan-title">{t("تغيير الباقة يدويًا", "Change Plan Manually")}</h2>
+                <p>
+                  {t(
+                    "يغيّر باقة العميل مباشرة بدون إرسال رابط دفع - حد المستخدمين والسعر يتحدثان تلقائيًا حسب الباقة المختارة.",
+                    "Changes the client's plan directly with no payment link involved - the user limit and price update automatically to match the chosen plan."
+                  )}
+                </p>
+              </div>
+              <button type="button" onClick={() => setPlanClient(null)} aria-label={t("إغلاق", "Close")}>
+                ×
+              </button>
+            </div>
+
+            <form className="admin-client-form" onSubmit={handleUpdatePlan}>
+              <label>
+                {t("العميل", "Client")}
+                <input value={planClient.companyName} readOnly />
+              </label>
+              <label>
+                {t("الباقة الحالية", "Current Plan")}
+                <input value={planClient.plan} readOnly />
+              </label>
+              <label>
+                {t("الباقة الجديدة", "New Plan")}
+                <CustomSelect
+                  value={planValue}
+                  onChange={setPlanValue}
+                  options={
+                    plans.length
+                      ? plans.filter((p) => p.active === 1).map((p) => ({ value: p.name, label: `${p.name} (${formatNumber(p.monthlyPrice)} ${t("ر.س", "SAR")} - ${formatNumber(p.employeeLimit)} ${t("مستخدم", "users")})` }))
+                      : [{ value: planClient.plan, label: planClient.plan }]
+                  }
+                />
+              </label>
+
+              {planError ? <p className="admin-form-error">{planError}</p> : null}
+
+              <div className="admin-form-actions">
+                <button type="button" onClick={() => setPlanClient(null)}>
+                  {t("إلغاء", "Cancel")}
+                </button>
+                <button type="submit" disabled={isPlanSaving}>
+                  {isPlanSaving ? t("جاري الحفظ...", "Saving...") : t("حفظ الباقة", "Save Plan")}
                 </button>
               </div>
             </form>
