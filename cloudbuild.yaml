@@ -1,9 +1,17 @@
+substitutions:
+  # Set via a Cloud Build trigger substitution - a public phone number,
+  # not a secret, but still has to travel through as a build arg since
+  # Next.js inlines NEXT_PUBLIC_* vars at build time (see Dockerfile).
+  _SALES_WHATSAPP_NUMBER: ""
+
 steps:
   - name: "gcr.io/cloud-builders/docker"
     args:
       - "build"
       - "-t"
       - "me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$SHORT_SHA"
+      - "--build-arg"
+      - "NEXT_PUBLIC_SALES_WHATSAPP_NUMBER=$_SALES_WHATSAPP_NUMBER"
       - "."
   - name: "gcr.io/cloud-builders/docker"
     args:
