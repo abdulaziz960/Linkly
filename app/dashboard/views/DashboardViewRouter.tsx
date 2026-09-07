@@ -20,6 +20,7 @@ import ContactsView from "./ContactsView";
 import DevelopersView from "./DevelopersView";
 import EmployeesView from "./EmployeesView";
 import KnowledgeBaseView from "./KnowledgeBaseView";
+import PipelineView from "./PipelineView";
 import QuickRepliesView from "./QuickRepliesView";
 import ReportsView from "./ReportsView";
 import SegmentsView from "./SegmentsView";
@@ -84,6 +85,7 @@ export default function DashboardViewRouter({
   }
   if (view === "campaigns") return <CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} brandName={branding.name} onRefreshData={onRefreshData} />;
   if (view === "segments") return <SegmentsView tags={tags} />;
+  if (view === "pipeline") return <PipelineView conversations={conversations} automationRules={automationRules} templates={templates} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "templates") return <TemplatesView templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "workHours") return <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} />;

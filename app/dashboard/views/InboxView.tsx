@@ -323,6 +323,7 @@ export default function InboxView({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [isAiSuggesting, setIsAiSuggesting] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [emojiCategoryId, setEmojiCategoryId] = useState("recent");
   const [emojiSearch, setEmojiSearch] = useState("");
@@ -663,6 +664,32 @@ export default function InboxView({
       mimeType: file.type || "application/octet-stream"
     });
     event.target.value = "";
+  }
+
+  async function handleSuggestReply() {
+    if (!activeConversation.id || isAiSuggesting) return;
+    setIsAiSuggesting(true);
+    try {
+      const response = await fetch(`/api/conversations/${activeConversation.id}/suggest-reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language })
+      });
+      const result = await response.json().catch(() => null) as { ok?: boolean; data?: { suggestion: string | null; reason?: string } } | null;
+      if (result?.data?.reason === "not_configured") {
+        window.alert(t("لم يتم ربط مزود الذكاء الاصطناعي بعد.", "An AI provider hasn't been connected yet."));
+        return;
+      }
+      if (result?.data?.suggestion) {
+        onChangeMessage(result.data.suggestion);
+      } else {
+        window.alert(t("تعذر توليد اقتراح الآن، حاول مرة أخرى.", "Couldn't generate a suggestion right now, try again."));
+      }
+    } catch {
+      window.alert(t("تعذر توليد اقتراح الآن، حاول مرة أخرى.", "Couldn't generate a suggestion right now, try again."));
+    } finally {
+      setIsAiSuggesting(false);
+    }
   }
 
   async function handleAudioToggle() {
@@ -1437,6 +1464,16 @@ export default function InboxView({
                         <path d="M8 20h8" />
                       </svg>
                     )}
+                  </button>
+                  <button
+                    className="attachment-button ai-suggest-button"
+                    disabled={isComposerDisabled || isAiSuggesting}
+                    aria-label={t("اقترح رد بالذكاء الاصطناعي", "Suggest an AI reply")}
+                    title={t("اقترح رد بالذكاء الاصطناعي", "Suggest an AI reply")}
+                    type="button"
+                    onClick={handleSuggestReply}
+                  >
+                    {isAiSuggesting ? <span className="ai-suggest-spinner" aria-hidden="true" /> : <span aria-hidden="true">✨</span>}
                   </button>
                   <div className="quick-reply-picker-wrap composer-message-wrap">
                     {shouldShowQuickReplySuggestions ? (
