@@ -49,14 +49,19 @@ export async function suggestReply(context: { messages: SuggestReplyMessage[]; c
         })
       }
     );
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error("Gemini suggestReply call failed", response.status, await response.text().catch(() => ""));
+      return null;
+    }
 
     const payload = await response.json().catch(() => null) as {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
     } | null;
     const text = payload?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
+    if (!text) console.error("Gemini suggestReply returned no text", JSON.stringify(payload));
     return text || null;
-  } catch {
+  } catch (error) {
+    console.error("Gemini suggestReply threw", error);
     return null;
   }
 }
