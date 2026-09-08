@@ -13,6 +13,14 @@ model Customer {
   phone         String
   initial       String
   tenantId      String         @map("tenant_id")
+  attrPageId    String         @default("") @map("attr_page_id")
+  attrLinkId    String         @default("") @map("attr_link_id")
+  attrButtonId  String         @default("") @map("attr_button_id")
+  attrReferrer  String         @default("") @map("attr_referrer")
+  attrUtmSource String         @default("") @map("attr_utm_source")
+  attrUtmMedium String         @default("") @map("attr_utm_medium")
+  attrUtmCampaign String       @default("") @map("attr_utm_campaign")
+  attrUtmContent String        @default("") @map("attr_utm_content")
   conversations Conversation[]
 
   @@index([tenantId])
@@ -43,6 +51,7 @@ model Conversation {
   dealValue     Float             @default(0) @map("deal_value")
   attrPageId    String            @default("") @map("attr_page_id")
   attrLinkId    String            @default("") @map("attr_link_id")
+  attrButtonId  String            @default("") @map("attr_button_id")
   attrReferrer  String            @default("") @map("attr_referrer")
   attrUtmSource String            @default("") @map("attr_utm_source")
   attrUtmMedium String            @default("") @map("attr_utm_medium")
@@ -740,8 +749,10 @@ model FeatureRequest {
 
 model LinkClick {
   id                     String @id
+  tenantId               String @map("tenant_id")
   pageId                 String @map("page_id")
   linkId                 String @map("link_id")
+  buttonId               String @map("button_id")
   referrer               String @default("")
   utmSource              String @default("") @map("utm_source")
   utmMedium              String @default("") @map("utm_medium")
@@ -750,6 +761,6 @@ model LinkClick {
   createdAt              String @map("created_at")
   matchedConversationId  String @default("") @map("matched_conversation_id")
 
-  @@index([createdAt])
+  @@index([tenantId, createdAt])
   @@map("link_clicks")
 }

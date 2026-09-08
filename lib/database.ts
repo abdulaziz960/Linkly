@@ -320,6 +320,15 @@ async function runRequiredProductionMigrations() {
     `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS attr_link_id TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS attr_button_id TEXT NOT NULL DEFAULT ''`
+  );
+  for (const column of [
+    "attr_page_id", "attr_link_id", "attr_button_id", "attr_referrer",
+    "attr_utm_source", "attr_utm_medium", "attr_utm_campaign", "attr_utm_content"
+  ]) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS ${column} TEXT NOT NULL DEFAULT ''`);
+  }
+  await prisma.$executeRawUnsafe(
     `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS attr_referrer TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
@@ -336,8 +345,10 @@ async function runRequiredProductionMigrations() {
   );
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS link_clicks (
     id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
     page_id TEXT NOT NULL,
     link_id TEXT NOT NULL,
+    button_id TEXT NOT NULL DEFAULT '',
     referrer TEXT NOT NULL DEFAULT '',
     utm_source TEXT NOT NULL DEFAULT '',
     utm_medium TEXT NOT NULL DEFAULT '',
@@ -346,8 +357,10 @@ async function runRequiredProductionMigrations() {
     created_at TEXT NOT NULL,
     matched_conversation_id TEXT NOT NULL DEFAULT ''
   )`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE link_clicks ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE link_clicks ADD COLUMN IF NOT EXISTS button_id TEXT NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(
-    `CREATE INDEX IF NOT EXISTS link_clicks_created_at_idx ON link_clicks (created_at)`
+    `CREATE INDEX IF NOT EXISTS link_clicks_tenant_id_created_at_idx ON link_clicks (tenant_id, created_at)`
   );
 
   // Legacy column from before this table's tenant scoping was renamed
@@ -799,6 +812,14 @@ async function runSchemaMigrations() {
   if (!customerColumns.some((column) => column.name === "tenant_id")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
   }
+  for (const column of [
+    "attr_page_id", "attr_link_id", "attr_button_id", "attr_referrer",
+    "attr_utm_source", "attr_utm_medium", "attr_utm_campaign", "attr_utm_content"
+  ]) {
+    if (!customerColumns.some((existingColumn) => existingColumn.name === column)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`);
+    }
+  }
   const conversationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(conversations)`);
   if (!conversationColumns.some((column) => column.name === "tenant_id")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
@@ -845,6 +866,9 @@ async function runSchemaMigrations() {
   if (!conversationColumns.some((column) => column.name === "attr_link_id")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_link_id TEXT NOT NULL DEFAULT ''`);
   }
+  if (!conversationColumns.some((column) => column.name === "attr_button_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_button_id TEXT NOT NULL DEFAULT ''`);
+  }
   if (!conversationColumns.some((column) => column.name === "attr_referrer")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_referrer TEXT NOT NULL DEFAULT ''`);
   }
@@ -862,8 +886,10 @@ async function runSchemaMigrations() {
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS link_clicks (
     id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
     page_id TEXT NOT NULL,
     link_id TEXT NOT NULL,
+    button_id TEXT NOT NULL DEFAULT '',
     referrer TEXT NOT NULL DEFAULT '',
     utm_source TEXT NOT NULL DEFAULT '',
     utm_medium TEXT NOT NULL DEFAULT '',
@@ -872,6 +898,14 @@ async function runSchemaMigrations() {
     created_at TEXT NOT NULL,
     matched_conversation_id TEXT NOT NULL DEFAULT ''
   )`);
+  const linkClickColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(link_clicks)`);
+  if (!linkClickColumns.some((column) => column.name === "tenant_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE link_clicks ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
+  }
+  if (!linkClickColumns.some((column) => column.name === "button_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE link_clicks ADD COLUMN button_id TEXT NOT NULL DEFAULT ''`);
+  }
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS link_clicks_tenant_id_created_at_idx ON link_clicks (tenant_id, created_at)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL,
@@ -2023,7 +2057,15 @@ export async function getCustomers(tenantId = "tenant-demo"): Promise<Customer[]
       phone: customer.phone,
       initial: customer.initial,
       channels,
-      tags: Array.from(new Set(customer.conversations.flatMap((conversation) => conversation.tags.map((tag) => tag.tagName))))
+      tags: Array.from(new Set(customer.conversations.flatMap((conversation) => conversation.tags.map((tag) => tag.tagName)))),
+      attrPageId: customer.attrPageId || undefined,
+      attrLinkId: customer.attrLinkId || undefined,
+      attrButtonId: customer.attrButtonId || undefined,
+      attrReferrer: customer.attrReferrer || undefined,
+      attrUtmSource: customer.attrUtmSource || undefined,
+      attrUtmMedium: customer.attrUtmMedium || undefined,
+      attrUtmCampaign: customer.attrUtmCampaign || undefined,
+      attrUtmContent: customer.attrUtmContent || undefined
     };
   });
 }
@@ -2113,6 +2155,7 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       dealValue: conversation.dealValue || undefined,
       attrPageId: conversation.attrPageId || undefined,
       attrLinkId: conversation.attrLinkId || undefined,
+      attrButtonId: conversation.attrButtonId || undefined,
       attrReferrer: conversation.attrReferrer || undefined,
       attrUtmSource: conversation.attrUtmSource || undefined,
       attrUtmMedium: conversation.attrUtmMedium || undefined,

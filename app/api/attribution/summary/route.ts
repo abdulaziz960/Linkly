@@ -6,11 +6,6 @@ import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
 
-// LinkClick has no tenantId - it's recorded from the anonymous marketing
-// site, before any tenant exists, and there's only one marketing site
-// (Linkly's own). Any authenticated user can read the aggregate click
-// counts; matching them to won deals still respects tenant scoping via the
-// conversations query in ReportsView itself.
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
@@ -23,17 +18,26 @@ export async function GET(request: NextRequest) {
   await ensureSchema();
 
   const clicks = await prisma.linkClick.findMany({
-    where: fromIso && toIso ? { createdAt: { gte: fromIso, lte: toIso } } : {},
-    select: { pageId: true, linkId: true, matchedConversationId: true }
+    where: { tenantId: user.tenantId, ...(fromIso && toIso ? { createdAt: { gte: fromIso, lte: toIso } } : {}) },
+    select: { pageId: true, linkId: true, buttonId: true, matchedConversationId: true }
   });
 
   const byPage = new Map<string, { pageId: string; clicks: number; matched: number }>();
+  const byButton = new Map<string, { buttonId: string; pageId: string; linkId: string; clicks: number; matched: number }>();
   for (const click of clicks) {
     const entry = byPage.get(click.pageId) || { pageId: click.pageId, clicks: 0, matched: 0 };
     entry.clicks += 1;
     if (click.matchedConversationId) entry.matched += 1;
     byPage.set(click.pageId, entry);
+    const key = `${click.pageId}:${click.linkId}:${click.buttonId}`;
+    const button = byButton.get(key) || { buttonId: click.buttonId, pageId: click.pageId, linkId: click.linkId, clicks: 0, matched: 0 };
+    button.clicks += 1;
+    if (click.matchedConversationId) button.matched += 1;
+    byButton.set(key, button);
   }
 
-  return jsonOk({ byPage: Array.from(byPage.values()) });
+  return jsonOk({
+    byPage: Array.from(byPage.values()),
+    byButton: Array.from(byButton.values()).sort((a, b) => b.matched - a.matched || b.clicks - a.clicks)
+  });
 }

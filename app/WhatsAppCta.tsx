@@ -11,12 +11,14 @@ import { useState } from "react";
 export default function WhatsAppCta({
   pageId,
   linkId,
+  buttonId,
   message,
   className,
   children
 }: {
   pageId: string;
   linkId: string;
+  buttonId?: string;
   message: string;
   className?: string;
   children: React.ReactNode;
@@ -40,6 +42,7 @@ export default function WhatsAppCta({
         body: JSON.stringify({
           pageId,
           linkId,
+          buttonId: buttonId || linkId,
           referrer: document.referrer || "",
           utmSource: params.get("utm_source") || "",
           utmMedium: params.get("utm_medium") || "",

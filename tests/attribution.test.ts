@@ -30,8 +30,10 @@ describe("storeWhatsAppMessage attribution", () => {
     await prisma.linkClick.create({
       data: {
         id: "click-abc123",
+        tenantId: "tenant-attr-test",
         pageId: "home",
         linkId: "hero-whatsapp",
+        buttonId: "hero-primary-whatsapp",
         referrer: "https://example.com",
         utmSource: "google",
         utmMedium: "cpc",
@@ -52,12 +54,17 @@ describe("storeWhatsAppMessage attribution", () => {
     const conversation = await prisma.conversation.findUnique({ where: { id: result.conversationId } });
     expect(conversation?.attrPageId).toBe("home");
     expect(conversation?.attrLinkId).toBe("hero-whatsapp");
+    expect(conversation?.attrButtonId).toBe("hero-primary-whatsapp");
     expect(conversation?.attrUtmSource).toBe("google");
     expect(conversation?.lastMessage).toBe("مرحباً، أبغى أعرف أكثر عن Linkly");
     expect(conversation?.lastMessage).not.toContain("REF:");
 
     const message = await prisma.message.findUnique({ where: { id: result.message.id } });
     expect(message?.text).not.toContain("REF:");
+
+    const customer = await prisma.customer.findUnique({ where: { id: conversation?.customerId } });
+    expect(customer?.attrPageId).toBe("home");
+    expect(customer?.attrButtonId).toBe("hero-primary-whatsapp");
 
     const click = await prisma.linkClick.findUnique({ where: { id: "click-abc123" } });
     expect(click?.matchedConversationId).toBe(result.conversationId);
@@ -70,8 +77,10 @@ describe("storeWhatsAppMessage attribution", () => {
     await prisma.linkClick.create({
       data: {
         id: "click-second-msg",
+        tenantId: "tenant-attr-test",
         pageId: "home",
         linkId: "hero-whatsapp",
+        buttonId: "hero-primary-whatsapp",
         referrer: "",
         utmSource: "",
         utmMedium: "",
@@ -115,5 +124,30 @@ describe("storeWhatsAppMessage attribution", () => {
     const badRefConversation = await prisma.conversation.findUnique({ where: { id: badRef.conversationId } });
     expect(badRefConversation?.attrPageId).toBe("");
     expect(badRefConversation?.lastMessage).toBe("رسالة");
+  });
+
+  it("does not apply a click token belonging to another workspace", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { storeWhatsAppMessage } = await import("../lib/whatsapp-inbox");
+    await prisma.linkClick.create({
+      data: {
+        id: "click-other-workspace",
+        tenantId: "tenant-other",
+        pageId: "private-page",
+        linkId: "private-link",
+        buttonId: "private-button",
+        createdAt: new Date().toISOString()
+      }
+    });
+
+    const result = await storeWhatsAppMessage({
+      phone: "966500000005",
+      text: "رسالة\n​[REF:click-other-workspace]",
+      direction: "in",
+      tenantId: "tenant-attr-test"
+    });
+    const conversation = await prisma.conversation.findUnique({ where: { id: result.conversationId } });
+    expect(conversation?.attrPageId).toBe("");
+    expect(conversation?.attrButtonId).toBe("");
   });
 });

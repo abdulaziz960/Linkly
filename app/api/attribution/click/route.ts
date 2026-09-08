@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null) as {
     pageId?: string;
     linkId?: string;
+    buttonId?: string;
     referrer?: string;
     utmSource?: string;
     utmMedium?: string;
@@ -37,8 +38,10 @@ export async function POST(request: NextRequest) {
   await prisma.linkClick.create({
     data: {
       id,
+      tenantId: process.env.ATTRIBUTION_TENANT_ID?.trim() || "tenant-demo",
       pageId: body.pageId.slice(0, 100),
       linkId: body.linkId.slice(0, 100),
+      buttonId: (body.buttonId || body.linkId).slice(0, 100),
       referrer: (body.referrer || "").slice(0, 500),
       utmSource: (body.utmSource || "").slice(0, 200),
       utmMedium: (body.utmMedium || "").slice(0, 200),
