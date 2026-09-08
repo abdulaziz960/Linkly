@@ -81,9 +81,15 @@ describe("Linkly Conversations vertical slice", () => {
       attrButtonId: "pricing-whatsapp-primary"
     });
 
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+    const { prisma } = await import("../lib/prisma");
+    await prisma.message.createMany({ data: Array.from({ length: 60 }, (_, index) => ({
+      id: `history-${index}`, conversationId: inbound.conversationId, direction: "in", text: `latest-context-${index}`,
+      time: "12:00", createdAt: new Date(Date.now() + index * 1000).toISOString()
+    })) });
+    const providerFetch = vi.fn(async () => new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: "أهلاً بك، يسعدني شرح باقة النمو لك." }] } }]
-    }), { status: 200 })));
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", providerFetch);
     const { POST: suggestReply } = await import("../app/api/conversations/[id]/suggest-reply/route");
     const suggestionResponse = await suggestReply(
       new NextRequest(`http://localhost/api/conversations/${inbound.conversationId}/suggest-reply`, {
@@ -97,6 +103,8 @@ describe("Linkly Conversations vertical slice", () => {
       ok: true,
       data: { suggestion: "أهلاً بك، يسعدني شرح باقة النمو لك." }
     });
+    expect(JSON.stringify(providerFetch.mock.calls)).toContain("latest-context-59");
+    expect(JSON.stringify(providerFetch.mock.calls)).not.toContain("latest-context-0");
 
     const { PATCH: updateConversation } = await import("../app/api/conversations/[id]/route");
     const dealResponse = await updateConversation(

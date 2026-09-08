@@ -764,3 +764,44 @@ model LinkClick {
   @@index([tenantId, createdAt])
   @@map("link_clicks")
 }
+
+model AiWorkspaceSetting {
+  tenantId String @id @map("tenant_id")
+  provider String @default("gemini")
+  model String @default("")
+  apiKey String @default("") @map("api_key")
+  enabled Int @default(0)
+  prompt String @default("")
+  dailyLimit Int @default(100) @map("daily_limit")
+  monthlyLimit Int @default(1000) @map("monthly_limit")
+  inputRate Float? @map("input_rate")
+  outputRate Float? @map("output_rate")
+  updatedAt String @map("updated_at")
+  @@map("ai_workspace_settings")
+}
+
+model AiUsageBucket {
+  id String @id
+  tenantId String @map("tenant_id")
+  period String
+  count Int @default(0)
+  @@index([tenantId, period])
+  @@map("ai_usage_buckets")
+}
+
+model AiUsageEvent {
+  id String @id
+  tenantId String @map("tenant_id")
+  userId String @map("user_id")
+  conversationId String @map("conversation_id")
+  provider String
+  model String
+  operation String
+  status String
+  inputTokens Int? @map("input_tokens")
+  outputTokens Int? @map("output_tokens")
+  estimatedCost Float? @map("estimated_cost")
+  createdAt String @map("created_at")
+  @@index([tenantId, createdAt])
+  @@map("ai_usage_events")
+}

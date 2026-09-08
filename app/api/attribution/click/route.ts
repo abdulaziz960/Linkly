@@ -28,8 +28,13 @@ export async function POST(request: NextRequest) {
     utmCampaign?: string;
     utmContent?: string;
   } | null;
-  if (!body?.pageId || !body.linkId) {
+  if (!body || typeof body.pageId !== "string" || !body.pageId.trim() || typeof body.linkId !== "string" || !body.linkId.trim()) {
     return NextResponse.json({ ok: false, error: "pageId و linkId مطلوبان" }, { status: 400 });
+  }
+  for (const key of ["buttonId", "referrer", "utmSource", "utmMedium", "utmCampaign", "utmContent"] as const) {
+    if (body[key] !== undefined && typeof body[key] !== "string") {
+      return NextResponse.json({ ok: false, error: "بيانات المصدر غير صالحة" }, { status: 400 });
+    }
   }
 
   await ensureSchema();

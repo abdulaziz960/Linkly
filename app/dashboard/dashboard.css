@@ -9781,6 +9781,19 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   font-weight: 800;
 }
 
+.ai-settings-form {
+  display: grid;
+  gap: 16px;
+  max-width: 740px;
+  margin-block-end: 32px;
+}
+.ai-settings-form label { display: grid; gap: 6px; }
+.ai-settings-form input:not([type="checkbox"]), .ai-settings-form select, .ai-settings-form textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid #b9d9d5; border-radius: 10px;
+  color: #143e3a; background: #fff; font: inherit;
+}
+.ai-settings-form p { margin: 0; color: #476b67; }
+.ai-settings-form textarea { min-height: 100px; }
 .ai-suggest-button {
   font-size: 16px;
 }

@@ -3,6 +3,7 @@ export type ViewKey =
   | "contacts"
   | "tags"
   | "bot"
+  | "ai"
   | "knowledgeBase"
   | "automations"
   | "campaigns"

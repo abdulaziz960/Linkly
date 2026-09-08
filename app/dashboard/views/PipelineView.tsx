@@ -43,6 +43,7 @@ function CardBody({
   onSendTemplate,
   onRunAutomation,
   onOpenConversation,
+  onMove,
   feedback
 }: {
   conversation: Conversation;
@@ -58,13 +59,14 @@ function CardBody({
   onSendTemplate?: (id: string, templateName: string) => void;
   onRunAutomation?: (id: string, ruleId: string) => void;
   onOpenConversation?: (id: string) => void;
+  onMove?: (id: string, stage: PipelineStage) => void;
   feedback?: string;
 }) {
   const showDealValue = pipelineStagesWithDealValue.includes((conversation.pipelineStage ?? "جديد") as PipelineStage);
   const [dealInput, setDealInput] = useState(String(conversation.dealValue ?? 0));
 
   return (
-    <div className="pipeline-card">
+    <div className="pipeline-card" data-conversation-id={conversation.id}>
       <div className="pipeline-card-top">
         <b>{conversation.customer}</b>
         <span className="pipeline-card-channel">{conversation.channel}</span>
@@ -74,6 +76,14 @@ function CardBody({
         <span>{conversation.assignee}</span>
         <span>{conversation.attrUtmSource || t("مباشر", "Direct")}</span>
       </div>
+      {onMove ? <label className="pipeline-card-meta">
+        {t("المرحلة", "Stage")}
+        <select aria-label={t("مرحلة الصفقة", "Deal stage")} value={conversation.pipelineStage || "جديد"}
+          onPointerDown={(event) => event.stopPropagation()}
+          onChange={(event) => onMove(conversation.id, event.target.value as PipelineStage)}>
+          {pipelineStages.map((stage) => <option key={stage} value={stage}>{stageLabel(stage, t)}</option>)}
+        </select>
+      </label> : null}
       {conversation.tags?.length ? (
         <div className="pipeline-card-tags">
           {conversation.tags.map((tag) => <span key={tag}>{tag}</span>)}
@@ -84,6 +94,8 @@ function CardBody({
           <span>{t("القيمة", "Value")}</span>
           <input
             type="number"
+            aria-label={t("قيمة الصفقة", "Deal value")}
+            onPointerDown={(event) => event.stopPropagation()}
             min={0}
             value={dealInput}
             onChange={(event) => setDealInput(event.target.value)}
@@ -125,7 +137,7 @@ function CardBody({
           ) : null}
         </div>
       ) : null}
-      {feedback ? <small className="pipeline-card-feedback">{feedback}</small> : null}
+      {feedback ? <small className="pipeline-card-feedback" role="status">{feedback}</small> : null}
     </div>
   );
 }
@@ -179,12 +191,13 @@ export default function PipelineView({ conversations, automationRules, templates
   async function moveConversation(id: string, stage: PipelineStage) {
     setLocalStages((current) => ({ ...current, [id]: stage }));
     const closing = stage === "فاز" || stage === "خسر";
-    await fetch(`/api/conversations/${id}`, {
+    const response = await fetch(`/api/conversations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pipelineStage: stage, ...(closing ? { status: "closed" } : {}) })
-    }).catch(() => {});
-    await onRefreshData();
+    }).catch(() => null);
+    setFeedback((current) => ({ ...current, [id]: response?.ok ? t("تم حفظ المرحلة", "Stage saved") : t("تعذر حفظ المرحلة، حاول مجدداً", "Couldn't save stage; try again") }));
+    await onRefreshData().catch(() => {});
     setLocalStages((current) => {
       const next = { ...current };
       delete next[id];
@@ -194,12 +207,13 @@ export default function PipelineView({ conversations, automationRules, templates
 
   async function setDealValue(id: string, value: number) {
     setSavingValueId(id);
-    await fetch(`/api/conversations/${id}`, {
+    const response = await fetch(`/api/conversations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dealValue: value })
-    }).catch(() => {});
-    await onRefreshData();
+    }).catch(() => null);
+    setFeedback((current) => ({ ...current, [id]: response?.ok ? t("تم حفظ القيمة", "Value saved") : t("تعذر حفظ القيمة، حاول مجدداً", "Couldn't save value; try again") }));
+    await onRefreshData().catch(() => {});
     setSavingValueId(null);
   }
 
@@ -264,6 +278,7 @@ export default function PipelineView({ conversations, automationRules, templates
                     onSendTemplate={sendTemplate}
                     onRunAutomation={runAutomation}
                     onOpenConversation={onOpenConversation}
+                    onMove={moveConversation}
                     feedback={feedback[conversation.id]}
                   />
                 ))}

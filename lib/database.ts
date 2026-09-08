@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { ensureAiSchema } from "./ai-schema";
 import { createHash, randomUUID } from "crypto";
 import { getPasswordValidationError, hashPassword, verifyPassword } from "./passwords";
 import { decryptSecret, encryptSecret, hasIntegrationEncryptionKey, integrationSecretFields } from "./secret-storage";
@@ -1596,7 +1597,7 @@ async function runSchemaMigrations() {
  * serverless instance the same way seedDatabase() already is below.
  */
 export async function ensureSchema() {
-  schemaPromise ??= runSchemaMigrations().catch((error) => {
+  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).catch((error) => {
     schemaPromise = null;
     throw error;
   });

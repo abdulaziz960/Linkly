@@ -37,6 +37,11 @@ function DashboardNavIcon({ view }: { view: ViewKey }) {
   const paths: Partial<Record<ViewKey, ReactNode>> = {
     inbox: <><path d="M4 5h16v11H8l-4 3V5Z" /><path d="M8 9h8M8 12h5" /></>,
     contacts: <><circle cx="12" cy="8" r="3" /><path d="M5.5 19c.7-4 3-6 6.5-6s5.8 2 6.5 6" /></>,
+    pipeline: <><rect x="3" y="4" width="5" height="16" rx="1" /><rect x="10" y="4" width="5" height="11" rx="1" /><rect x="17" y="4" width="4" height="7" rx="1" /></>,
+    ai: <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z" />,
+    knowledgeBase: <><path d="M12 5v15M3 4h5l4 2 4-2h5v15h-5l-4 2-4-2H3z" /></>,
+    developers: <><path d="m8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16" /></>,
+    branding: <><circle cx="12" cy="12" r="8" /><path d="m8 16 4-9 4 9m-6-3h4" /></>,
     tags: <path d="m4 12 8-8h7v7l-8 8-7-7Zm11-4h.01" />,
     bot: <><rect x="5" y="7" width="14" height="11" rx="3" /><path d="M12 3v4M9 12h.01M15 12h.01M9 15h6" /></>,
     automations: <><path d="m13 2-7 11h6l-1 9 7-12h-6l1-8Z" /></>,
@@ -89,11 +94,15 @@ export default function DashboardSidebar({
   const hideSidebarTooltip = () => setSidebarTooltip(null);
   const visibleNavItems = navItems.filter((item) => allowedViews.includes(item.key));
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
-    { label: "التواصل", labelEn: "Communication", keys: ["inbox", "quickReplies", "workHours", "bot", "automations"] },
-    { label: "التسويق", labelEn: "Marketing", keys: ["campaigns", "segments", "templates"] },
-    { label: "إدارة العملاء", labelEn: "Customers", keys: ["contacts", "tags"] },
-    { label: "الفريق", labelEn: "Team", keys: ["teams", "employees"] },
-    { label: "التحليلات والإعدادات", labelEn: "Insights & settings", keys: ["reports", "settings"] }
+    { label: "صندوق الوارد", labelEn: "Inbox", keys: ["inbox", "quickReplies"] },
+    { label: "جهات الاتصال", labelEn: "Contacts", keys: ["contacts", "tags"] },
+    { label: "المبيعات", labelEn: "Pipeline", keys: ["pipeline"] },
+    { label: "الحملات", labelEn: "Campaigns", keys: ["campaigns", "segments", "templates"] },
+    { label: "الأتمتة", labelEn: "Automations", keys: ["automations"] },
+    { label: "الذكاء الاصطناعي", labelEn: "AI", keys: ["ai", "bot", "knowledgeBase"] },
+    { label: "التحليلات", labelEn: "Analytics", keys: ["reports"] },
+    { label: "التكاملات", labelEn: "Integrations", keys: ["settings", "developers"] },
+    { label: "الإعدادات", labelEn: "Settings", keys: ["teams", "employees", "workHours", "branding"] }
   ];
   const connected = integrationStatus === "connected";
   const linkedChannels: Array<{ key: ConversationChannel; label: string; connected: boolean }> = [

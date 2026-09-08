@@ -1,0 +1,7 @@
+import { prisma } from "./prisma";
+
+// Same additive schema for SQLite tests and PostgreSQL deployments.
+export async function ensureAiSchema() {
+  const statements = "CREATE TABLE IF NOT EXISTS ai_workspace_settings (\n  tenant_id TEXT PRIMARY KEY,\n  provider TEXT NOT NULL DEFAULT 'gemini',\n  model TEXT NOT NULL DEFAULT '',\n  api_key TEXT NOT NULL DEFAULT '',\n  enabled INTEGER NOT NULL DEFAULT 0,\n  prompt TEXT NOT NULL DEFAULT '',\n  daily_limit INTEGER NOT NULL DEFAULT 100,\n  monthly_limit INTEGER NOT NULL DEFAULT 1000,\n  input_rate DOUBLE PRECISION,\n  output_rate DOUBLE PRECISION,\n  updated_at TEXT NOT NULL\n);\nCREATE TABLE IF NOT EXISTS ai_usage_buckets (\n  id TEXT PRIMARY KEY,\n  tenant_id TEXT NOT NULL,\n  period TEXT NOT NULL,\n  count INTEGER NOT NULL DEFAULT 0\n);\nCREATE INDEX IF NOT EXISTS ai_usage_buckets_tenant_id_period_idx ON ai_usage_buckets(tenant_id, period);\nCREATE TABLE IF NOT EXISTS ai_usage_events (\n  id TEXT PRIMARY KEY,\n  tenant_id TEXT NOT NULL,\n  user_id TEXT NOT NULL,\n  conversation_id TEXT NOT NULL,\n  provider TEXT NOT NULL,\n  model TEXT NOT NULL,\n  operation TEXT NOT NULL,\n  status TEXT NOT NULL,\n  input_tokens INTEGER,\n  output_tokens INTEGER,\n  estimated_cost DOUBLE PRECISION,\n  created_at TEXT NOT NULL\n);\nCREATE INDEX IF NOT EXISTS ai_usage_events_tenant_id_created_at_idx ON ai_usage_events(tenant_id, created_at);\n".split(";").filter((statement) => statement.trim());
+  for (const statement of statements) await prisma.$executeRawUnsafe(statement);
+}
