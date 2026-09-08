@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:browser": "playwright test",
     "admin:create": "node scripts/create-super-admin.mjs",
     "postinstall": "node scripts/prisma-generate.mjs",
     "db:push": "node scripts/prisma-db-push.mjs",
@@ -26,6 +27,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.15.32",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",

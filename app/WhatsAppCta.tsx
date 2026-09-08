@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 // A real WhatsApp click-to-chat CTA for the marketing site, distinct from
 // the existing "ابدأ تجربتك مجانًا" signup buttons. Records a LinkClick
@@ -24,19 +24,22 @@ export default function WhatsAppCta({
   children: React.ReactNode;
 }) {
   const [pending, setPending] = useState(false);
+  const navigating = useRef(false);
   const number = process.env.NEXT_PUBLIC_SALES_WHATSAPP_NUMBER;
 
   if (!number) return null;
 
   async function handleClick(event: React.MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
-    if (pending) return;
+    if (navigating.current) return;
+    navigating.current = true;
     setPending(true);
 
     let ref = "";
     try {
       const params = new URLSearchParams(window.location.search);
       const response = await fetch("/api/attribution/click", {
+        signal: AbortSignal.timeout(4000),
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -56,14 +59,15 @@ export default function WhatsAppCta({
       // Attribution is best-effort - never block the visitor from reaching WhatsApp over it.
     } finally {
       setPending(false);
+      navigating.current = false;
     }
 
     const text = ref ? `${message}\n​[REF:${ref}]` : message;
-    window.open(`https://wa.me/${number}?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+    window.location.assign(`https://wa.me/${number}?text=${encodeURIComponent(text)}`);
   }
 
   return (
-    <a href={`https://wa.me/${number}`} className={className} onClick={handleClick} aria-busy={pending}>
+    <a href={`https://wa.me/${number}?text=${encodeURIComponent(message)}`} className={className} onClick={handleClick} aria-busy={pending}>
       {children}
     </a>
   );
