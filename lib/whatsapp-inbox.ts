@@ -65,10 +65,18 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
   const messageId = input.messageId ? `wa-${input.messageId}` : `wa-${input.direction}-${phone}-${Date.now()}`;
   const startClosed = await shouldStartConversationClosed(tenantId, "whatsapp");
   const { cleanText, linkClickId } = input.direction === "in" ? extractAttributionMarker(input.text) : { cleanText: input.text, linkClickId: null };
-  const linkClick = linkClickId ? await prisma.linkClick.findUnique({ where: { id: linkClickId } }) : null;
+  const linkClick = linkClickId
+    ? await prisma.linkClick.findFirst({ where: { id: linkClickId, tenantId, matchedConversationId: "" } })
+    : null;
   const ratingRecorded = input.direction === "in" ? await maybeRecordRatingReply(conversationId, cleanText) : false;
 
   return prisma.$transaction(async (tx) => {
+    const existingConversation = await tx.conversation.findUnique({ where: { id: conversationId }, select: { id: true } });
+    const claimedLinkClick = !existingConversation && linkClick && (await tx.linkClick.updateMany({
+      where: { id: linkClick.id, tenantId, matchedConversationId: "" },
+      data: { matchedConversationId: conversationId }
+    })).count === 1 ? linkClick : null;
+
     await tx.customer.upsert({
       where: { id: customerId },
       update: {
@@ -82,7 +90,15 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
         name,
         phone,
         initial: getCustomerInitial(name, phone),
-        tenantId
+        tenantId,
+        attrPageId: claimedLinkClick?.pageId ?? "",
+        attrLinkId: claimedLinkClick?.linkId ?? "",
+        attrButtonId: claimedLinkClick?.buttonId ?? "",
+        attrReferrer: claimedLinkClick?.referrer ?? "",
+        attrUtmSource: claimedLinkClick?.utmSource ?? "",
+        attrUtmMedium: claimedLinkClick?.utmMedium ?? "",
+        attrUtmCampaign: claimedLinkClick?.utmCampaign ?? "",
+        attrUtmContent: claimedLinkClick?.utmContent ?? ""
       }
     });
 
@@ -104,13 +120,14 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
         // ignores `create` entirely when the conversation already exists,
         // so a phone's second-ever message can never overwrite attribution
         // recorded on its first.
-        attrPageId: linkClick?.pageId ?? "",
-        attrLinkId: linkClick?.linkId ?? "",
-        attrReferrer: linkClick?.referrer ?? "",
-        attrUtmSource: linkClick?.utmSource ?? "",
-        attrUtmMedium: linkClick?.utmMedium ?? "",
-        attrUtmCampaign: linkClick?.utmCampaign ?? "",
-        attrUtmContent: linkClick?.utmContent ?? ""
+        attrPageId: claimedLinkClick?.pageId ?? "",
+        attrLinkId: claimedLinkClick?.linkId ?? "",
+        attrButtonId: claimedLinkClick?.buttonId ?? "",
+        attrReferrer: claimedLinkClick?.referrer ?? "",
+        attrUtmSource: claimedLinkClick?.utmSource ?? "",
+        attrUtmMedium: claimedLinkClick?.utmMedium ?? "",
+        attrUtmCampaign: claimedLinkClick?.utmCampaign ?? "",
+        attrUtmContent: claimedLinkClick?.utmContent ?? ""
       }
     });
 
@@ -184,14 +201,6 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
   }).then(async (result) => {
     if (input.direction === "in" && result.isNew) {
       await runInboundMessageAutomations(result.conversationId, tenantId, cleanText);
-      if (linkClick && !linkClick.matchedConversationId) {
-        await prisma.linkClick.update({
-          where: { id: linkClick.id },
-          data: { matchedConversationId: result.conversationId }
-        }).catch(() => {
-          // Best-effort bookkeeping only - never fail message storage over it.
-        });
-      }
     }
     if (ratingRecorded) {
       await sendRatingThanks(result.conversationId);

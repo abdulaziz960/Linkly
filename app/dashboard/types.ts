@@ -79,6 +79,7 @@ export type Conversation = {
   dealValue?: number;
   attrPageId?: string;
   attrLinkId?: string;
+  attrButtonId?: string;
   attrReferrer?: string;
   attrUtmSource?: string;
   attrUtmMedium?: string;
@@ -98,6 +99,14 @@ export type Customer = {
   initial: string;
   channels: ConversationChannel[];
   tags: string[];
+  attrPageId?: string;
+  attrLinkId?: string;
+  attrButtonId?: string;
+  attrReferrer?: string;
+  attrUtmSource?: string;
+  attrUtmMedium?: string;
+  attrUtmCampaign?: string;
+  attrUtmContent?: string;
 };
 
 export type MessageTemplate = {
