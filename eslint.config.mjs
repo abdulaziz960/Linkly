@@ -15,5 +15,5 @@ export default defineConfig([
       "@next/next/no-html-link-for-pages": "off"
     }
   },
-  globalIgnores([".next/**", ".agents/**", ".codex/**", "out/**", "build/**", "prisma/.generated/**", "public/**", "app.js", "next-env.d.ts"])
+  globalIgnores([".next/**", ".agents/**", ".codex/**", "test-results/**", "playwright-report/**", "out/**", "build/**", "prisma/.generated/**", "public/**", "app.js", "next-env.d.ts"])
 ]);

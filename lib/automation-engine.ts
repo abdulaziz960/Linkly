@@ -275,6 +275,19 @@ async function executeRule(rule: { id: string; actionsJson: string }, tenantId: 
   }
 }
 
+/**
+ * Runs one specific rule's actions against one conversation right now,
+ * skipping its trigger/condition matching entirely - for the Kanban card's
+ * "تشغيل أتمتة" quick action, where the agent is explicitly choosing to run
+ * it, not waiting for its normal trigger to fire.
+ */
+export async function runAutomationRuleManually(ruleId: string, tenantId: string, conversationId: string) {
+  await ensureSchema();
+  const rule = await prisma.automationRule.findFirst({ where: { id: ruleId, tenantId } });
+  if (!rule) throw new Error("rule-not-found");
+  await executeRule(rule, tenantId, conversationId);
+}
+
 export type SimulationTrigger = "تم إنشاء رسالة" | "تم فتح محادثة" | "رد العميل";
 
 export type SimulationMatch = {
