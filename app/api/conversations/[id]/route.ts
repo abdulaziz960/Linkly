@@ -6,6 +6,7 @@ import { requestRatingIfNeeded } from "../../../../lib/conversation-rating";
 import { enqueueConversationSummary } from "../../../../lib/conversation-insights";
 import { triggerWebhookEvent } from "../../../../lib/webhooks";
 import { jsonError, jsonOk } from "../../_utils/json";
+import { pipelineStages } from "../../../dashboard/types";
 
 type RouteContext = {
   params: Promise<{
@@ -27,7 +28,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     unread?: number;
     windowExpired?: boolean;
     tags?: string[];
+    pipelineStage?: string;
+    dealValue?: number;
   };
+
+  if (body.pipelineStage && !pipelineStages.includes(body.pipelineStage as (typeof pipelineStages)[number])) {
+    return jsonError("مرحلة غير معروفة", 400);
+  }
 
   try {
     const conversation = await prisma.$transaction(async (tx) => {
@@ -59,7 +66,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           status: body.status,
           unread: typeof body.unread === "number" ? Math.max(0, body.unread) : undefined,
           windowExpired: typeof body.windowExpired === "boolean" ? (body.windowExpired ? 1 : 0) : undefined,
-          closedAt: body.status === "closed" ? new Date().toISOString() : undefined
+          closedAt: body.status === "closed" ? new Date().toISOString() : undefined,
+          pipelineStage: body.pipelineStage,
+          dealValue: typeof body.dealValue === "number" && Number.isFinite(body.dealValue) ? Math.max(0, body.dealValue) : undefined
         }
       });
       return tx.conversation.findFirstOrThrow({ where: { id, tenantId: user.tenantId } });

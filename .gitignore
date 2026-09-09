@@ -15,4 +15,6 @@ preview_pdf/
 .env*
 !.env.example
 tsconfig.tsbuildinfo
+playwright-report/
+test-results/
 SAAS_AUDIT_REPORT.md

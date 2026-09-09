@@ -19,6 +19,7 @@ import { statusLabel } from "../utils/conversation";
 import { ChannelIcon } from "./SettingsView";
 import { isDeletedMessageText, useLanguage } from "../i18n";
 import { getChannelName } from "../../channel-names";
+import type { AiOperation } from "../../../lib/ai-types";
 
 type InboxViewProps = {
   activeConversation: Conversation;
@@ -323,6 +324,12 @@ export default function InboxView({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [isAiSuggesting, setIsAiSuggesting] = useState(false);
+  const [aiOperation, setAiOperation] = useState<AiOperation>("reply");
+  const [aiFeedback, setAiFeedback] = useState("");
+  const [aiFeedbackConversationId, setAiFeedbackConversationId] = useState("");
+  const aiRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => { aiRequest.current?.abort(); }, [activeConversation.id]);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [emojiCategoryId, setEmojiCategoryId] = useState("recent");
   const [emojiSearch, setEmojiSearch] = useState("");
@@ -663,6 +670,43 @@ export default function InboxView({
       mimeType: file.type || "application/octet-stream"
     });
     event.target.value = "";
+  }
+
+  async function handleSuggestReply() {
+    if (!activeConversation.id || isAiSuggesting) return;
+    setIsAiSuggesting(true);
+    setAiFeedback("");
+    setAiFeedbackConversationId(activeConversation.id);
+    const controller = new AbortController();
+    aiRequest.current = controller;
+    try {
+      const response = await fetch(`/api/conversations/${activeConversation.id}/suggest-reply`, {
+        signal: controller.signal,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: aiOperation === "translate" ? (language === "ar" ? "en" : "ar") : language, operation: aiOperation, draft: message })
+      });
+      const result = await response.json().catch(() => null) as { ok?: boolean; data?: { suggestion: string | null; reason?: string } } | null;
+      if (controller.signal.aborted) return;
+      if (result?.data?.reason === "usage_limit") {
+        setAiFeedback(t("تم بلوغ حد استخدام AI. راجع مالك الحساب.", "AI usage limit reached. Contact your workspace owner."));
+        return;
+      }
+      if (result?.data?.reason === "not_configured") {
+        setAiFeedback(t("لم يتم ربط مزود الذكاء الاصطناعي بعد.", "An AI provider hasn't been connected yet."));
+        return;
+      }
+      if (response.ok && result?.ok && result.data?.suggestion) {
+        if (["summarize", "sentiment", "next_step"].includes(aiOperation)) setAiFeedback(result.data.suggestion);
+        else onChangeMessage(result.data.suggestion);
+      } else {
+        setAiFeedback(t("تعذر توليد اقتراح. تحقق من تفعيل AI والمفتاح، واكتب مسودة للتصحيح أو الترجمة.", "Couldn't generate a suggestion. Check AI settings; rewriting and translation require a draft."));
+      }
+    } catch {
+      if (!controller.signal.aborted) setAiFeedback(t("تعذر توليد اقتراح الآن، حاول مرة أخرى.", "Couldn't generate a suggestion right now, try again."));
+    } finally {
+      setIsAiSuggesting(false);
+    }
   }
 
   async function handleAudioToggle() {
@@ -1438,6 +1482,26 @@ export default function InboxView({
                       </svg>
                     )}
                   </button>
+                  <button
+                    className="attachment-button ai-suggest-button"
+                    disabled={isComposerDisabled || isAiSuggesting}
+                    aria-label={t("اقترح رد بالذكاء الاصطناعي", "Suggest an AI reply")}
+                    title={t("اقترح رد بالذكاء الاصطناعي", "Suggest an AI reply")}
+                    type="button"
+                    onClick={handleSuggestReply}
+                  >
+                    {isAiSuggesting ? <span className="ai-suggest-spinner" aria-hidden="true" /> : <span aria-hidden="true">✨</span>}
+                  </button>
+                  <select aria-label={t("أداة مساعد AI", "AI Copilot tool")} value={aiOperation} onChange={(event) => setAiOperation(event.target.value as AiOperation)} disabled={isAiSuggesting}>
+                    <option value="reply">{t("اقتراح رد", "Suggest reply")}</option>
+                    <option value="rewrite">{t("إعادة صياغة المسودة", "Rewrite draft")}</option>
+                    <option value="correct">{t("تصحيح المسودة", "Correct draft")}</option>
+                    <option value="translate">{t("ترجمة المسودة للإنجليزية", "Translate draft to Arabic")}</option>
+                    <option value="summarize">{t("تلخيص المحادثة", "Summarize conversation")}</option>
+                    <option value="sentiment">{t("تحليل المشاعر", "Analyze sentiment")}</option>
+                    <option value="next_step">{t("الخطوة التالية", "Next step")}</option>
+                  </select>
+                  {aiFeedback && aiFeedbackConversationId === activeConversation.id ? <p role="status" style={{ whiteSpace: "pre-wrap" }}>{aiFeedback}</p> : null}
                   <div className="quick-reply-picker-wrap composer-message-wrap">
                     {shouldShowQuickReplySuggestions ? (
                       <div className="quick-reply-picker" role="menu" aria-label={t("الردود السريعة", "Quick replies")}>
@@ -1481,6 +1545,21 @@ export default function InboxView({
           <div className="profile-panel">
             <div className="profile-card">
               <h2>{t("بيانات العميل", "Customer details")}</h2>
+              {activeConversation.attrPageId ? <section aria-label={t("مصدر العميل", "Customer attribution")}>
+                <h3>{t("مصدر العميل", "Customer attribution")}</h3>
+                <dl>
+                  {[
+                    [t("الصفحة", "Page"), activeConversation.attrPageId],
+                    [t("الرابط", "Link"), activeConversation.attrLinkId],
+                    [t("الزر", "Button"), activeConversation.attrButtonId],
+                    [t("المصدر", "Source"), activeConversation.attrUtmSource],
+                    [t("الوسيط", "Medium"), activeConversation.attrUtmMedium],
+                    [t("الحملة", "Campaign"), activeConversation.attrUtmCampaign],
+                    [t("المحتوى", "Content"), activeConversation.attrUtmContent],
+                    [t("المُحيل", "Referrer"), activeConversation.attrReferrer]
+                  ].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd dir="auto">{value}</dd></div>)}
+                </dl>
+              </section> : null}
               <dl>
                 <div>
                   <dt>{t("الاسم", "Name")}</dt>

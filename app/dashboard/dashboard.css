@@ -3623,6 +3623,18 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   padding: 14px;
   text-align: right;
   vertical-align: middle;
+  box-sizing: border-box;
+}
+
+/* A row's cells can hold very different content (a lone "Edit" button vs. a
+   full action bar, or a status badge vs. a badge plus a "Resend" link) -
+   without a shared floor, rows collapse to their own content height and the
+   border-bottom lines land at different levels from row to row. `height` on
+   a table row is treated as a minimum by browsers (rows never shrink below
+   their content), so this keeps every row's separator line level while still
+   letting a row with more content grow taller than the rest. */
+.table-wrap tbody tr {
+  height: 63px;
 }
 
 .table-wrap th {
@@ -3673,7 +3685,6 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   line-height: 1.6;
 }
 
-.row-actions,
 .icon-actions {
   display: flex;
   gap: 8px;
@@ -3681,18 +3692,33 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   flex-wrap: wrap;
 }
 
+/* `.row-actions` is applied straight onto a <td> everywhere it's used. A
+   table cell with `display:flex` stops being sized like a normal table
+   cell - the browser no longer stretches it to match the row's other
+   cells - so on a row where a different column needed more height (a
+   status badge with an extra line, a larger thumbnail, etc.) the actions
+   cell fell short and its bottom border landed above the rest of the row.
+   Laying the buttons out with inline-flex + margins instead keeps the
+   <td> a genuine table cell, so it always matches its row's height. */
 .row-actions {
-  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.row-actions > * + * {
+  margin-inline-start: 8px;
 }
 
 .row-actions .btn,
 .row-actions .campaign-report {
+  display: inline-flex;
+  align-items: center;
   min-height: 35px;
   padding: 0 10px;
   border-width: 1px;
   border-radius: 8px;
   font-size: 11px;
   white-space: nowrap;
+  vertical-align: middle;
 }
 
 .tag-color-swatch {
@@ -9504,3 +9530,295 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .trial-countdown-banner.expired .trial-countdown-cta{background:var(--danger)}
 .trial-countdown-banner.expired .trial-countdown-cta:hover{background:#991b1b}
 @media(max-width:680px){.trial-countdown-pill{padding:5px 6px 5px 10px;gap:6px}.trial-countdown-text{font-size:11px}.trial-countdown-segment small{display:none}.trial-countdown-cta{padding:5px 10px}}
+
+.pipeline-view {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.pipeline-head h2 {
+  margin: 0 0 4px;
+}
+
+.pipeline-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pipeline-board {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  min-height: 0;
+  padding-bottom: 8px;
+}
+
+.pipeline-column {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-soft);
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+.pipeline-column.over {
+  background: var(--brand-50);
+  border-color: var(--brand-300);
+}
+
+.pipeline-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.pipeline-column-head span {
+  display: inline-flex;
+  min-width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-weight: 900;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pipeline-column-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  overflow-y: auto;
+  min-height: 60px;
+}
+
+.pipeline-card-drag {
+  cursor: grab;
+  touch-action: none;
+}
+
+.pipeline-card-drag.dragging {
+  opacity: 0.4;
+}
+
+.pipeline-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+}
+
+.pipeline-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pipeline-card-top b {
+  font-size: 13px;
+}
+
+.pipeline-card-channel {
+  font-size: 10px;
+  font-weight: 900;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.pipeline-card-last {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pipeline-card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.pipeline-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.pipeline-card-tags span {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--brand-50);
+  color: var(--brand-700);
+}
+
+.pipeline-card-deal {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px 8px;
+}
+
+.pipeline-card-deal span {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.pipeline-card-deal input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-weight: 900;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.pipeline-card-deal input:focus {
+  outline: none;
+}
+
+.pipeline-card-deal small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.pipeline-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pipeline-card-actions button {
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pipeline-card-actions button:hover {
+  border-color: var(--brand);
+  color: var(--brand-700);
+}
+
+.pipeline-card-menu-wrap {
+  position: relative;
+}
+
+.pipeline-card-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  inset-inline-start: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 160px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, .14);
+  padding: 6px;
+}
+
+.pipeline-card-menu button {
+  border: 0;
+  background: transparent;
+  text-align: start;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pipeline-card-menu button:hover {
+  background: var(--surface-soft);
+}
+
+.pipeline-card-menu p {
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pipeline-card-feedback {
+  color: var(--brand-700);
+  font-weight: 800;
+}
+
+.ai-settings-form {
+  display: grid;
+  gap: 16px;
+  max-width: 740px;
+  margin-block-end: 32px;
+}
+.ai-settings-form label { display: grid; gap: 6px; }
+.ai-settings-form input:not([type="checkbox"]), .ai-settings-form select, .ai-settings-form textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid #b9d9d5; border-radius: 10px;
+  color: #143e3a; background: #fff; font: inherit;
+}
+.ai-settings-form p { margin: 0; color: #476b67; }
+.ai-settings-form textarea { min-height: 100px; }
+.ai-suggest-button {
+  font-size: 16px;
+}
+
+.ai-suggest-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: ai-suggest-spin .7s linear infinite;
+}
+
+@keyframes ai-suggest-spin {
+  to { transform: rotate(360deg); }
+}
+
+.report-subheading {
+  margin: 18px 0 10px;
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.report-subheading:first-child {
+  margin-top: 0;
+}

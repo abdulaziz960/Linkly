@@ -38,6 +38,20 @@ function getCustomerInitial(name: string, phone: string) {
   return name.trim().charAt(0) || phone.slice(-1) || "ع";
 }
 
+// The WhatsApp CTA on the marketing site appends an invisible marker to the
+// pre-filled click-to-chat text (see app/WhatsAppCta.tsx) so the customer's
+// first message carries which LinkClick it came from, without the marker
+// being visible in their message. Strip it out before the text is ever
+// stored/displayed, and hand back the click id so the caller can attribute
+// the new conversation to it.
+const attributionMarkerPattern = /\n?​?\[REF:([A-Za-z0-9_-]+)\]\s*$/;
+
+function extractAttributionMarker(text: string): { cleanText: string; linkClickId: string | null } {
+  const match = text.match(attributionMarkerPattern);
+  if (!match) return { cleanText: text, linkClickId: null };
+  return { cleanText: text.slice(0, match.index).trimEnd(), linkClickId: match[1] };
+}
+
 export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
   await ensureSchema();
 
@@ -50,9 +64,19 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
   const conversationId = `${scopedPrefix}conv-${phone}`;
   const messageId = input.messageId ? `wa-${input.messageId}` : `wa-${input.direction}-${phone}-${Date.now()}`;
   const startClosed = await shouldStartConversationClosed(tenantId, "whatsapp");
-  const ratingRecorded = input.direction === "in" ? await maybeRecordRatingReply(conversationId, input.text) : false;
+  const { cleanText, linkClickId } = input.direction === "in" ? extractAttributionMarker(input.text) : { cleanText: input.text, linkClickId: null };
+  const linkClick = linkClickId
+    ? await prisma.linkClick.findFirst({ where: { id: linkClickId, tenantId, matchedConversationId: "" } })
+    : null;
+  const ratingRecorded = input.direction === "in" ? await maybeRecordRatingReply(conversationId, cleanText) : false;
 
   return prisma.$transaction(async (tx) => {
+    const existingConversation = await tx.conversation.findUnique({ where: { id: conversationId }, select: { id: true } });
+    const claimedLinkClick = !existingConversation && linkClick && (await tx.linkClick.updateMany({
+      where: { id: linkClick.id, tenantId, matchedConversationId: "" },
+      data: { matchedConversationId: conversationId }
+    })).count === 1 ? linkClick : null;
+
     await tx.customer.upsert({
       where: { id: customerId },
       update: {
@@ -66,7 +90,15 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
         name,
         phone,
         initial: getCustomerInitial(name, phone),
-        tenantId
+        tenantId,
+        attrPageId: claimedLinkClick?.pageId ?? "",
+        attrLinkId: claimedLinkClick?.linkId ?? "",
+        attrButtonId: claimedLinkClick?.buttonId ?? "",
+        attrReferrer: claimedLinkClick?.referrer ?? "",
+        attrUtmSource: claimedLinkClick?.utmSource ?? "",
+        attrUtmMedium: claimedLinkClick?.utmMedium ?? "",
+        attrUtmCampaign: claimedLinkClick?.utmCampaign ?? "",
+        attrUtmContent: claimedLinkClick?.utmContent ?? ""
       }
     });
 
@@ -77,13 +109,25 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
         id: conversationId,
         customerId,
         channel: "whatsapp",
-        lastMessage: input.text,
+        lastMessage: cleanText,
         status: startClosed ? "closed" : "unassigned",
         assignee: "بدون موظف",
         unread: 0,
         windowExpired: 0,
         lastActivityAt: activityAt,
-        tenantId
+        tenantId,
+        // Only takes effect if this is a genuinely new row - upsert()
+        // ignores `create` entirely when the conversation already exists,
+        // so a phone's second-ever message can never overwrite attribution
+        // recorded on its first.
+        attrPageId: claimedLinkClick?.pageId ?? "",
+        attrLinkId: claimedLinkClick?.linkId ?? "",
+        attrButtonId: claimedLinkClick?.buttonId ?? "",
+        attrReferrer: claimedLinkClick?.referrer ?? "",
+        attrUtmSource: claimedLinkClick?.utmSource ?? "",
+        attrUtmMedium: claimedLinkClick?.utmMedium ?? "",
+        attrUtmCampaign: claimedLinkClick?.utmCampaign ?? "",
+        attrUtmContent: claimedLinkClick?.utmContent ?? ""
       }
     });
 
@@ -120,7 +164,7 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
         id: messageId,
         conversationId,
         direction: input.direction,
-        text: input.text,
+        text: cleanText,
         time: formatMessageTime(input.receivedAt ?? new Date()),
         createdAt: activityAt,
         author: input.author || "",
@@ -142,7 +186,7 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
     await tx.conversation.update({
       where: { id: conversationId },
       data: {
-        lastMessage: input.text,
+        lastMessage: cleanText,
         unread: input.direction === "in" ? { increment: 1 } : undefined,
         windowExpired: 0,
         lastActivityAt: activityAt
@@ -156,7 +200,7 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
     };
   }).then(async (result) => {
     if (input.direction === "in" && result.isNew) {
-      await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
+      await runInboundMessageAutomations(result.conversationId, tenantId, cleanText);
     }
     if (ratingRecorded) {
       await sendRatingThanks(result.conversationId);

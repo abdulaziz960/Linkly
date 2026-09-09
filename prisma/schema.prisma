@@ -13,6 +13,14 @@ model Customer {
   phone         String
   initial       String
   tenantId      String         @map("tenant_id")
+  attrPageId    String         @default("") @map("attr_page_id")
+  attrLinkId    String         @default("") @map("attr_link_id")
+  attrButtonId  String         @default("") @map("attr_button_id")
+  attrReferrer  String         @default("") @map("attr_referrer")
+  attrUtmSource String         @default("") @map("attr_utm_source")
+  attrUtmMedium String         @default("") @map("attr_utm_medium")
+  attrUtmCampaign String       @default("") @map("attr_utm_campaign")
+  attrUtmContent String        @default("") @map("attr_utm_content")
   conversations Conversation[]
 
   @@index([tenantId])
@@ -39,6 +47,16 @@ model Conversation {
   ratingRequestedAt String        @default("") @map("rating_requested_at")
   ratingAt          String        @default("") @map("rating_at")
   closedAt          String        @default("") @map("closed_at")
+  pipelineStage String            @default("جديد") @map("pipeline_stage")
+  dealValue     Float             @default(0) @map("deal_value")
+  attrPageId    String            @default("") @map("attr_page_id")
+  attrLinkId    String            @default("") @map("attr_link_id")
+  attrButtonId  String            @default("") @map("attr_button_id")
+  attrReferrer  String            @default("") @map("attr_referrer")
+  attrUtmSource String            @default("") @map("attr_utm_source")
+  attrUtmMedium String            @default("") @map("attr_utm_medium")
+  attrUtmCampaign String          @default("") @map("attr_utm_campaign")
+  attrUtmContent String           @default("") @map("attr_utm_content")
   customer      Customer          @relation(fields: [customerId], references: [id])
   messages      Message[]
   tags          ConversationTag[]
@@ -727,4 +745,63 @@ model FeatureRequest {
   @@index([tenantId, status])
   @@index([status])
   @@map("feature_requests")
+}
+
+model LinkClick {
+  id                     String @id
+  tenantId               String @map("tenant_id")
+  pageId                 String @map("page_id")
+  linkId                 String @map("link_id")
+  buttonId               String @map("button_id")
+  referrer               String @default("")
+  utmSource              String @default("") @map("utm_source")
+  utmMedium              String @default("") @map("utm_medium")
+  utmCampaign            String @default("") @map("utm_campaign")
+  utmContent             String @default("") @map("utm_content")
+  createdAt              String @map("created_at")
+  matchedConversationId  String @default("") @map("matched_conversation_id")
+
+  @@index([tenantId, createdAt])
+  @@map("link_clicks")
+}
+
+model AiWorkspaceSetting {
+  tenantId String @id @map("tenant_id")
+  provider String @default("gemini")
+  model String @default("")
+  apiKey String @default("") @map("api_key")
+  enabled Int @default(0)
+  prompt String @default("")
+  dailyLimit Int @default(100) @map("daily_limit")
+  monthlyLimit Int @default(1000) @map("monthly_limit")
+  inputRate Float? @map("input_rate")
+  outputRate Float? @map("output_rate")
+  updatedAt String @map("updated_at")
+  @@map("ai_workspace_settings")
+}
+
+model AiUsageBucket {
+  id String @id
+  tenantId String @map("tenant_id")
+  period String
+  count Int @default(0)
+  @@index([tenantId, period])
+  @@map("ai_usage_buckets")
+}
+
+model AiUsageEvent {
+  id String @id
+  tenantId String @map("tenant_id")
+  userId String @map("user_id")
+  conversationId String @map("conversation_id")
+  provider String
+  model String
+  operation String
+  status String
+  inputTokens Int? @map("input_tokens")
+  outputTokens Int? @map("output_tokens")
+  estimatedCost Float? @map("estimated_cost")
+  createdAt String @map("created_at")
+  @@index([tenantId, createdAt])
+  @@map("ai_usage_events")
 }
