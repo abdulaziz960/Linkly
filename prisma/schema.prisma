@@ -246,6 +246,12 @@ model Campaign {
   progress     String
   status       String
   recurrenceId String @default("") @map("recurrence_id")
+  // A campaign opts into per-recipient link tracking (see CampaignRecipient
+  // below) - when on, the single body placeholder in the template is filled
+  // with each recipient's own tracking link instead of their name, and
+  // clicking it redirects to destinationUrl.
+  linkTrackingEnabled Int    @default(0) @map("link_tracking_enabled")
+  destinationUrl      String @default("") @map("destination_url")
   updatedAt    String @map("updated_at")
 
   @@index([tenantId, status])
@@ -263,10 +269,18 @@ model CampaignRecipient {
   error      String @default("")
   messageId  String @default("") @map("message_id")
   sentAt     String @default("") @map("sent_at")
+  // Opaque per-recipient code embedded in the tracking link sent in their
+  // message (only set when the campaign has linkTrackingEnabled). readAt is
+  // stamped from the WhatsApp "read" status webhook; clickedAt from the
+  // public tracking redirect route.
+  trackingCode String @default("") @map("tracking_code")
+  readAt       String @default("") @map("read_at")
+  clickedAt    String @default("") @map("clicked_at")
   createdAt  String @map("created_at")
 
   @@index([tenantId, status])
   @@index([campaignId, status])
+  @@index([trackingCode])
   @@map("campaign_recipients")
 }
 
@@ -444,6 +458,14 @@ model IntegrationSetting {
   linkedinRefreshToken String @default("") @map("linkedin_refresh_token")
   linkedinTokenExpiresAt String @default("") @map("linkedin_token_expires_at")
   linkedinCommentsSyncedAt String @default("") @map("linkedin_comments_synced_at")
+  leadAdsEnabled Int @default(0) @map("lead_ads_enabled")
+  leadWelcomeTemplateName String @default("") @map("lead_welcome_template_name")
+  snapchatAdAccountId String @default("") @map("snapchat_ad_account_id")
+  snapchatOrganizationId String @default("") @map("snapchat_organization_id")
+  snapchatOrgName String @default("") @map("snapchat_org_name")
+  snapchatRefreshToken String @default("") @map("snapchat_refresh_token")
+  snapchatTokenExpiresAt String @default("") @map("snapchat_token_expires_at")
+  snapchatLeadsSyncedAt String @default("") @map("snapchat_leads_synced_at")
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 
@@ -452,7 +474,31 @@ model IntegrationSetting {
   @@index([tenantId, provider])
   @@index([provider, wabaId])
   @@index([provider, phoneNumberId])
+  @@index([provider, snapchatAdAccountId])
   @@map("integration_settings")
+}
+
+model Lead {
+  id             String @id
+  tenantId       String @map("tenant_id")
+  customerId     String @map("customer_id")
+  conversationId String @default("") @map("conversation_id")
+  source         String
+  sourceId       String @default("") @map("source_id")
+  formId         String @default("") @map("form_id")
+  formName       String @default("") @map("form_name")
+  campaignId     String @default("") @map("campaign_id")
+  adAccountId    String @default("") @map("ad_account_id")
+  name           String @default("")
+  phone          String @default("")
+  email          String @default("")
+  answersJson    String @default("") @map("answers_json")
+  createdAt      String @map("created_at")
+
+  @@index([tenantId])
+  @@index([tenantId, source])
+  @@index([tenantId, createdAt])
+  @@map("leads")
 }
 
 model UserAccount {

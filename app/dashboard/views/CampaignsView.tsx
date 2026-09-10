@@ -25,6 +25,8 @@ type CampaignForm = {
   recurrenceEndAt: string;
   audienceMode: "file" | "segment";
   segmentId: string;
+  linkTrackingEnabled: boolean;
+  destinationUrl: string;
 };
 
 type CampaignRecurrenceSummary = {
@@ -66,7 +68,25 @@ type ReportRow = {
   status: string;
   error: string;
   date: string;
+  readAt: string;
+  clickedAt: string;
 };
+
+type EngagementBucket = "notOpened" | "opened" | "clicked";
+
+function engagementBucket(row: ReportRow): EngagementBucket | null {
+  if (row.status !== "تم الإرسال") return null;
+  if (row.clickedAt) return "clicked";
+  if (row.readAt) return "opened";
+  return "notOpened";
+}
+
+function engagementLabel(bucket: EngagementBucket | null, t: (ar: string, en: string) => string) {
+  if (bucket === "clicked") return t("تفاعل", "Clicked");
+  if (bucket === "opened") return t("فتحها بدون ضغط", "Opened, no click");
+  if (bucket === "notOpened") return t("ما فتحها", "Not opened");
+  return "-";
+}
 
 const marketingMessagePrices: PricingTier[] = [
   { range: "1k إلى 5k", min: 1000, max: 5000, rate: 0.03 },
@@ -142,7 +162,9 @@ export default function CampaignsView({
       recurrenceIntervalDays: 7,
       recurrenceEndAt: "",
       audienceMode: "file",
-      segmentId: ""
+      segmentId: "",
+      linkTrackingEnabled: false,
+      destinationUrl: ""
     }),
     [defaultTemplateName]
   );
@@ -165,6 +187,8 @@ export default function CampaignsView({
   const [reportCampaign, setReportCampaign] = useState<Campaign | null>(null);
   const [reportRows, setReportRows] = useState<ReportRow[]>([]);
   const [reportLoading, setReportLoading] = useState(false);
+  const [reportLinkTrackingEnabled, setReportLinkTrackingEnabled] = useState(false);
+  const [reportEngagementFilter, setReportEngagementFilter] = useState<EngagementBucket | null>(null);
   const [chargeOpen, setChargeOpen] = useState(false);
   const [chargeMessages, setChargeMessages] = useState("5000");
   const [chargeError, setChargeError] = useState("");
@@ -263,16 +287,22 @@ export default function CampaignsView({
     return rows;
   }, [campaignSearch, campaignSort, campaignStatusFilter, campaigns]);
   const campaignPagination = paginate(filteredCampaigns, campaignPage, Number(campaignPageSize));
+  const reportEngagementCounts = useMemo(() => {
+    const counts: Record<EngagementBucket, number> = { notOpened: 0, opened: 0, clicked: 0 };
+    for (const row of reportRows) {
+      const bucket = engagementBucket(row);
+      if (bucket) counts[bucket] += 1;
+    }
+    return counts;
+  }, [reportRows]);
   const filteredReportRows = useMemo(() => {
     const query = reportSearch.trim().toLowerCase();
-    if (!query) return reportRows;
-
-    return reportRows.filter((row) => (
-      row.phone.includes(query) ||
-      row.status.toLowerCase().includes(query) ||
-      row.date.toLowerCase().includes(query)
-    ));
-  }, [reportRows, reportSearch]);
+    return reportRows.filter((row) => {
+      if (reportEngagementFilter && engagementBucket(row) !== reportEngagementFilter) return false;
+      if (!query) return true;
+      return row.phone.includes(query) || row.status.toLowerCase().includes(query) || row.date.toLowerCase().includes(query);
+    });
+  }, [reportRows, reportSearch, reportEngagementFilter]);
   const reportPagination = paginate(filteredReportRows, reportPage, Number(reportPageSize));
   const filteredBalanceTransactions = useMemo(() => {
     const query = balanceSearch.trim().toLowerCase();
@@ -340,7 +370,9 @@ export default function CampaignsView({
             recurrenceIntervalDays: 7,
             recurrenceEndAt: "",
             audienceMode: "file",
-            segmentId: ""
+            segmentId: "",
+            linkTrackingEnabled: false,
+            destinationUrl: ""
           }
         : emptyForm
     );
@@ -369,11 +401,13 @@ export default function CampaignsView({
     setReportSearch("");
     setReportPage(1);
     setReportPageSize("10");
+    setReportEngagementFilter(null);
     setReportCampaign(campaign);
     setReportLoading(true);
     const response = await fetch(`/api/campaigns/${campaign.id}/report`);
     const body = await response.json().catch(() => null);
-    setReportRows(response.ok && body?.ok ? body.data ?? [] : []);
+    setReportRows(response.ok && body?.ok ? body.data?.recipients ?? [] : []);
+    setReportLinkTrackingEnabled(Boolean(response.ok && body?.ok && body.data?.linkTrackingEnabled));
     setReportLoading(false);
   }
 
@@ -427,6 +461,8 @@ export default function CampaignsView({
       body.set("file", campaignFile);
     }
     if (headerMediaFile) body.set("headerMedia", headerMediaFile);
+    body.set("linkTrackingEnabled", String(form.linkTrackingEnabled));
+    if (form.linkTrackingEnabled) body.set("destinationUrl", form.destinationUrl);
 
     const response = await fetch("/api/campaigns", { method: "POST", body });
     const payload = await response.json().catch(() => null);
@@ -499,8 +535,13 @@ export default function CampaignsView({
   }
 
   function downloadCampaignReport(campaign: Campaign) {
-    const header = [t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التاريخ", "Date")];
-    const csv = [header, ...reportRows.map((row) => [row.phone, row.status, formatDateTime(row.date)])]
+    const header = reportLinkTrackingEnabled
+      ? [t("الاسم", "Name"), t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التفاعل", "Engagement"), t("التاريخ", "Date")]
+      : [t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التاريخ", "Date")];
+    const rows = filteredReportRows.map((row) => reportLinkTrackingEnabled
+      ? [row.name, row.phone, row.status, engagementLabel(engagementBucket(row), t), formatDateTime(row.date)]
+      : [row.phone, row.status, formatDateTime(row.date)]);
+    const csv = [header, ...rows]
       .map((row) => row.map(escapeCsvCell).join(","))
       .join("\n");
     const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
@@ -795,6 +836,32 @@ export default function CampaignsView({
                       <label><span>{t("تنتهي في (اختياري)", "Ends on (optional)")}</span><input type="date" value={form.recurrenceEndAt} onChange={(event) => setForm((current) => ({ ...current, recurrenceEndAt: event.target.value }))} /></label>
                     </>
                   ) : null}
+                  {!form.recurring ? (
+                    <>
+                      <label className="schedule-toggle">
+                        <span>🔗 {t("تفعيل تتبع الروابط لكل عميل", "Enable per-customer link tracking")}</span>
+                        <button
+                          className={form.linkTrackingEnabled ? "toggle on" : "toggle"}
+                          type="button"
+                          aria-pressed={form.linkTrackingEnabled}
+                          onClick={() => setForm((current) => ({ ...current, linkTrackingEnabled: !current.linkTrackingEnabled }))}
+                        />
+                      </label>
+                      {form.linkTrackingEnabled ? (
+                        <label>
+                          <span>{t("رابط الوجهة بعد الضغط", "Destination link after click")}</span>
+                          <input
+                            dir="ltr"
+                            type="url"
+                            placeholder="https://example.com"
+                            value={form.destinationUrl}
+                            onChange={(event) => setForm((current) => ({ ...current, destinationUrl: event.target.value }))}
+                          />
+                          <small>{t("آخر متغير بنص القالب سيُستبدل تلقائيًا برابط تتبع فريد لكل عميل. لو القالب فيه متغيرين، الأول يفضل لاسم العميل والثاني (الأخير) يصير الرابط.", "The last variable in the template body is automatically replaced with each customer's own unique tracking link. With two variables, the first still carries the customer's name and the last (the link) does the tracking.")}</small>
+                        </label>
+                      ) : null}
+                    </>
+                  ) : null}
                   {!approvedTemplates.length ? (
                     <p className="form-error">
                       {!whatsappConnected
@@ -824,6 +891,34 @@ export default function CampaignsView({
               <h2>{t("تقرير الحملة", "Campaign report")} - {reportCampaign.name}</h2>
             </header>
             <div className="campaign-report-body">
+              {reportLinkTrackingEnabled ? (
+                <div className="campaign-engagement-tiles">
+                  <button
+                    type="button"
+                    className={reportEngagementFilter === "notOpened" ? "engagement-tile active" : "engagement-tile"}
+                    onClick={() => { setReportEngagementFilter((current) => current === "notOpened" ? null : "notOpened"); setReportPage(1); }}
+                  >
+                    <b>{reportEngagementCounts.notOpened.toLocaleString("en-US")}</b>
+                    <span>{t("ما فتحها", "Not opened")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={reportEngagementFilter === "opened" ? "engagement-tile active" : "engagement-tile"}
+                    onClick={() => { setReportEngagementFilter((current) => current === "opened" ? null : "opened"); setReportPage(1); }}
+                  >
+                    <b>{reportEngagementCounts.opened.toLocaleString("en-US")}</b>
+                    <span>{t("فتحها بدون ضغط", "Opened, no click")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={reportEngagementFilter === "clicked" ? "engagement-tile active" : "engagement-tile"}
+                    onClick={() => { setReportEngagementFilter((current) => current === "clicked" ? null : "clicked"); setReportPage(1); }}
+                  >
+                    <b>{reportEngagementCounts.clicked.toLocaleString("en-US")}</b>
+                    <span>{t("تفاعل", "Clicked")}</span>
+                  </button>
+                </div>
+              ) : null}
               <div className="campaign-toolbar report-toolbar">
                 <input value={reportSearch} onChange={(event) => { setReportSearch(event.target.value); setReportPage(1); }} placeholder={t("بحث...", "Search...")} />
                 <button className="btn primary" type="button" onClick={() => downloadCampaignReport(reportCampaign)}>{t("تنزيل", "Download")}</button>
@@ -831,21 +926,37 @@ export default function CampaignsView({
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>{t("رقم الهاتف", "Phone number")}</th><th>{t("الحالة", "Status")}</th><th>{t("التاريخ", "Date")}</th></tr></thead>
+                  <thead>
+                    <tr>
+                      {reportLinkTrackingEnabled ? <th>{t("الاسم", "Name")}</th> : null}
+                      <th>{t("رقم الهاتف", "Phone number")}</th>
+                      <th>{t("الحالة", "Status")}</th>
+                      {reportLinkTrackingEnabled ? <th>{t("التفاعل", "Engagement")}</th> : null}
+                      <th>{t("التاريخ", "Date")}</th>
+                      {reportLinkTrackingEnabled ? <th>{t("إجراء", "Action")}</th> : null}
+                    </tr>
+                  </thead>
                   <tbody>
-                    {reportLoading ? <tr><td colSpan={3}>{t("جارٍ التحميل...", "Loading...")}</td></tr> : null}
+                    {reportLoading ? <tr><td colSpan={reportLinkTrackingEnabled ? 6 : 3}>{t("جارٍ التحميل...", "Loading...")}</td></tr> : null}
                     {!reportLoading ? reportPagination.items.map((row) => (
                       <tr key={row.phone}>
+                        {reportLinkTrackingEnabled ? <td>{row.name || "-"}</td> : null}
                         <td dir="ltr">{row.phone}</td>
                         <td>
                           <span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span>
                           {row.error ? <small className="campaign-report-error">{row.error}</small> : null}
                         </td>
+                        {reportLinkTrackingEnabled ? <td>{engagementLabel(engagementBucket(row), t)}</td> : null}
                         <td><span className="campaign-date">◴ {formatDateTime(row.date)}</span></td>
+                        {reportLinkTrackingEnabled ? (
+                          <td>
+                            <a className="btn soft" href={`https://wa.me/${row.phone}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a>
+                          </td>
+                        ) : null}
                       </tr>
                     )) : null}
                     {!reportLoading && !reportPagination.items.length ? (
-                      <tr><td colSpan={3}>{t("لا توجد أرقام مطابقة للبحث.", "No numbers match your search.")}</td></tr>
+                      <tr><td colSpan={reportLinkTrackingEnabled ? 6 : 3}>{t("لا توجد أرقام مطابقة للبحث.", "No numbers match your search.")}</td></tr>
                     ) : null}
                   </tbody>
                 </table>

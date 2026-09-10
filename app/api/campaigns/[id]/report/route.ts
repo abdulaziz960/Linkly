@@ -22,13 +22,16 @@ export async function GET(_request: Request, context: RouteContext) {
     take: 5000
   });
 
-  return jsonOk(
-    recipients.map((recipient) => ({
+  return jsonOk({
+    linkTrackingEnabled: Boolean(campaign.linkTrackingEnabled),
+    recipients: recipients.map((recipient) => ({
       phone: recipient.phone,
       name: recipient.name,
       status: recipient.status,
       error: recipient.error,
-      date: recipient.sentAt || recipient.createdAt
+      date: recipient.sentAt || recipient.createdAt,
+      readAt: recipient.readAt,
+      clickedAt: recipient.clickedAt
     }))
-  );
+  });
 }

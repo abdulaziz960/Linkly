@@ -1593,7 +1593,9 @@ export default function InboxView({
                                         ? t("معرّف قناة يوتيوب", "YouTube channel ID")
                                         : activeConversation.channel === "linkedin"
                                           ? t("معرّف حساب لينكد إن", "LinkedIn member ID")
-                                          : t("المعرف", "ID")}
+                                          : activeConversation.channel === "snapchat"
+                                            ? t("معرّف نموذج سناب شات", "Snapchat lead form ID")
+                                            : t("المعرف", "ID")}
                   </dt>
                   <dd dir="ltr">{activeConversation.phone}</dd>
                 </div>

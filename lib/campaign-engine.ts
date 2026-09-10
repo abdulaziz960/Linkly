@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema, getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
+import { getAppOrigin } from "./app-url";
 import type { Prisma } from "@prisma/client";
 
 export type ParsedRecipient = { phone: string; name: string };
@@ -168,7 +169,7 @@ export async function addManualCampaignBalance(tenantId: string, messages: numbe
   return payment;
 }
 
-async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false) {
+export async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false, linkUrl = "") {
   const settings = await getIntegrationSettings("whatsapp", tenantId);
   const phoneNumberId = settings.phoneNumberId?.trim();
   const accessToken = settings.accessToken?.trim();
@@ -227,11 +228,18 @@ async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: 
   }
 
   if (placeholders.length) {
+    // With link tracking, the LAST body variable carries the recipient's
+    // tracking link and every earlier one still carries their name - lets a
+    // template do "{{1}} name ... {{2}} link" as well as the single-variable
+    // "{{1}} link" case (trivially "last" too), without the caller having to
+    // know which position means what.
+    const bodyValueAt = (position: number, total: number) => (linkUrl && position === total - 1 ? linkUrl : value);
+    const positionalCount = isNamedFormat ? placeholders.length : Math.max(...placeholders.map(Number));
     components.push({
       type: "body",
       parameters: isNamedFormat
-        ? placeholders.map((name) => ({ type: "text", parameter_name: name, text: value }))
-        : Array.from({ length: Math.max(...placeholders.map(Number)) }, () => ({ type: "text", text: value }))
+        ? placeholders.map((name, index) => ({ type: "text", parameter_name: name, text: bodyValueAt(index, placeholders.length) }))
+        : Array.from({ length: positionalCount }, (_, index) => ({ type: "text", text: bodyValueAt(index, positionalCount) }))
     });
   }
 
@@ -281,6 +289,8 @@ export async function spawnCampaignOccurrence(tx: Prisma.TransactionClient, para
   status: string;
   scheduledAt?: string;
   recurrenceId?: string;
+  linkTrackingEnabled?: boolean;
+  destinationUrl?: string;
 }): Promise<string> {
   const campaignId = `camp-${randomUUID()}`;
   await tx.campaign.create({
@@ -298,6 +308,8 @@ export async function spawnCampaignOccurrence(tx: Prisma.TransactionClient, para
       progress: "0%",
       status: params.status,
       recurrenceId: params.recurrenceId || "",
+      linkTrackingEnabled: params.linkTrackingEnabled ? 1 : 0,
+      destinationUrl: params.destinationUrl || "",
       updatedAt: new Date().toLocaleString("en-US")
     }
   });
@@ -467,6 +479,17 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
         continue;
       }
 
+      // With link tracking on, the template's LAST body placeholder carries
+      // this recipient's own tracking link - any earlier placeholder (e.g.
+      // a template written as "{{1}} name ... {{2}} link") still gets their
+      // name, via sendWhatsAppTemplate's linkUrl param.
+      let trackingCode = "";
+      let linkUrl = "";
+      if (campaign.linkTrackingEnabled) {
+        trackingCode = randomUUID().replace(/-/g, "");
+        linkUrl = `${getAppOrigin()}/api/campaigns/t/${trackingCode}`;
+      }
+
       let result: Awaited<ReturnType<typeof sendWhatsAppTemplate>>;
       try {
         result = await sendWhatsAppTemplate(
@@ -476,7 +499,8 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
           campaign.language || "ar",
           recipient.name,
           campaign.id,
-          Boolean(campaign.headerMediaDataUrl)
+          Boolean(campaign.headerMediaDataUrl),
+          linkUrl
         );
       } catch {
         await adjustCampaignBalance(tenantId, 1);
@@ -490,7 +514,7 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
       if (result.ok) {
         await prisma.campaignRecipient.update({
           where: { id: recipient.id },
-          data: { status: "تم الإرسال", messageId: result.messageId, sentAt: new Date().toISOString(), error: "" }
+          data: { status: "تم الإرسال", messageId: result.messageId, sentAt: new Date().toISOString(), error: "", trackingCode }
         });
         await prisma.campaign.update({
           where: { id: campaign.id },

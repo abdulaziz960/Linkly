@@ -91,4 +91,26 @@ describe("triggerWebhookEvent", () => {
     const expected = `sha256=${createHmac("sha256", webhook.secret).update(capturedBody).digest("hex")}`;
     expect(capturedSignature).toBe(expected);
   });
+
+  it("delivers lead.created with the lead's fields and a valid signature", async () => {
+    const { createWebhook, triggerWebhookEvent } = await import("../lib/webhooks");
+
+    let capturedBody = "";
+    let capturedSignature = "";
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      capturedBody = String(init.body);
+      capturedSignature = (init.headers as Record<string, string>)["X-Linkly-Signature"];
+      return new Response("ok", { status: 200 });
+    }));
+
+    const webhook = await createWebhook(tenantId, { url: "https://example.com/lead-hook", events: ["lead.created"] });
+    await triggerWebhookEvent(tenantId, "lead.created", { id: "lead-1", source: "snapchat", name: "عميل محتمل" });
+
+    const parsed = JSON.parse(capturedBody);
+    expect(parsed.event).toBe("lead.created");
+    expect(parsed.data).toMatchObject({ id: "lead-1", source: "snapchat", name: "عميل محتمل" });
+
+    const expected = `sha256=${createHmac("sha256", webhook.secret).update(capturedBody).digest("hex")}`;
+    expect(capturedSignature).toBe(expected);
+  });
 });

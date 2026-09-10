@@ -25,10 +25,11 @@ const allowedFields = [
   "googleAccountId",
   "googleLocationId",
   "googleRefreshToken",
-  "webhookUrl"
+  "webhookUrl",
+  "leadWelcomeTemplateName"
 ] as const;
 
-type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms";
+type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms" | "youtube" | "linkedin" | "snapchat" | "meta_leads";
 type IntegrationField = (typeof allowedFields)[number];
 type ConnectionCheck = {
   status: string;
@@ -110,7 +111,7 @@ const smsRequiredConnectionFields: Array<{ field: IntegrationField; label: strin
 
 function getIntegrationChannel(request: NextRequest): IntegrationChannel {
   const channel = request.nextUrl.searchParams.get("channel");
-  if (channel === "instagram" || channel === "facebook" || channel === "telegram" || channel === "x" || channel === "google_maps" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms") return channel;
+  if (channel === "instagram" || channel === "facebook" || channel === "telegram" || channel === "x" || channel === "google_maps" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" || channel === "linkedin" || channel === "snapchat" || channel === "meta_leads") return channel;
   return "whatsapp";
 }
 
@@ -121,7 +122,7 @@ function getIntegrationId(channel: IntegrationChannel, tenantId?: string) {
 function getMissingConnectionFields(settings: Partial<Record<IntegrationField, string>>, channel: IntegrationChannel) {
   const requiredConnectionFields = channel === "instagram"
     ? instagramRequiredConnectionFields
-    : channel === "facebook"
+    : channel === "facebook" || channel === "meta_leads"
       ? facebookRequiredConnectionFields
     : channel === "telegram"
       ? telegramRequiredConnectionFields
@@ -394,10 +395,10 @@ async function verifyMetaConnection(settings: Partial<Record<IntegrationField, s
     };
   }
 
-  const metaObjectId = channel === "instagram" || channel === "facebook" ? settings.wabaId : settings.phoneNumberId;
+  const metaObjectId = channel === "instagram" || channel === "facebook" || channel === "meta_leads" ? settings.wabaId : settings.phoneNumberId;
   const graphHost = channel === "instagram" ? "https://graph.instagram.com" : "https://graph.facebook.com";
   const url = new URL(`${graphHost}/v22.0/${metaObjectId}`);
-  url.searchParams.set("fields", channel === "instagram" ? "id,username,name" : channel === "facebook" ? "id,name" : "id,display_phone_number,verified_name");
+  url.searchParams.set("fields", channel === "instagram" ? "id,username,name" : channel === "facebook" || channel === "meta_leads" ? "id,name" : "id,display_phone_number,verified_name");
 
   try {
     const response = await fetch(url, {
@@ -425,11 +426,11 @@ async function verifyMetaConnection(settings: Partial<Record<IntegrationField, s
       status: "connected",
       message: channel === "instagram"
         ? "متصل: تم التحقق من حساب Instagram بنجاح"
-        : channel === "facebook"
+        : channel === "facebook" || channel === "meta_leads"
           ? "متصل: تم التحقق من صفحة Facebook بنجاح"
           : "متصل: تم التحقق من بيانات Meta بنجاح",
       missingFields: [],
-      verifiedName: channel === "instagram" || channel === "facebook" ? result?.username || result?.name : result?.verified_name,
+      verifiedName: channel === "instagram" || channel === "facebook" || channel === "meta_leads" ? result?.username || result?.name : result?.verified_name,
       displayPhoneNumber: result?.display_phone_number
     };
   } catch {
@@ -514,10 +515,17 @@ export async function PATCH(request: NextRequest) {
           ? await verifySmsConnection({ ...existingSettings, ...verificationData })
       : await verifyMetaConnection({ ...existingSettings, ...verificationData }, channel);
   const integrationId = getIntegrationId(channel, user.tenantId);
+  // leadAdsEnabled is an Int column, not a string like every field in
+  // `allowedFields` - kept out of that generic loop/typing and merged in
+  // separately here instead of widening IntegrationField to non-string values.
+  const leadAdsEnabledUpdate = channel === "meta_leads" && (typeof body.leadAdsEnabled === "boolean" || typeof body.leadAdsEnabled === "number")
+    ? { leadAdsEnabled: body.leadAdsEnabled ? 1 : 0 }
+    : {};
   await prisma.integrationSetting.updateMany({
     where: { id: integrationId, tenantId: user.tenantId },
     data: {
       ...data,
+      ...leadAdsEnabledUpdate,
       provider: channel === "instagram" ? "instagram" : channel === "facebook" ? "facebook" : channel === "telegram" ? "telegram" : channel === "x" ? "x" : channel === "google_maps" ? "google_maps" : channel === "email" ? "email" : channel === "tiktok" ? "tiktok" : channel === "sms" ? "unifonic" : data.provider,
       status: connectionCheck.status,
       updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {

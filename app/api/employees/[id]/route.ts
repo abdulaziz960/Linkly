@@ -5,6 +5,7 @@ import { isOwnerEquivalentGrant } from "../../../../lib/permissions";
 import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
 import { isValidEmail } from "../../../../lib/validation";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 
 type RouteContext = {
   params: Promise<{
@@ -99,6 +100,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       return tx.employee.findFirstOrThrow({ where: { id, tenantId: user.tenantId } });
     });
+
+    if (body.disabled !== undefined) {
+      await logAdminAction(
+        user.tenantId,
+        await getTenantCompanyName(user.tenantId),
+        `${body.disabled ? "تم تعطيل" : "تم تفعيل"} حساب الموظف "${employee.name}" بواسطة ${user.name}.`,
+        body.disabled ? "تنبيه" : "معلومة",
+        "الموظفون"
+      );
+    }
 
     return jsonOk(employee);
   } catch {

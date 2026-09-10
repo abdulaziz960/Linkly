@@ -17,6 +17,12 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 :root {
+  /* Read by the sidebar search popover, which is portaled straight to
+     <body> (to escape the sidebar's own stacking context) and so can't
+     rely on the .dashboard-shell-scoped redeclaration of this variable
+     further down this file - keep both in sync if the sidebar width changes. */
+  --dashboard-sidebar-width: 88px;
+
   /* Linkly brand scale */
   --brand-50: #eefbf9;
   --brand-100: #d6f5f1;
@@ -1679,6 +1685,24 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border-radius: 12px;
   overflow: hidden;
   background: var(--surface-soft);
+}
+
+.template-variable-examples {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.template-variable-examples label {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.template-variable-examples label span {
+  font-weight: 900;
+  color: var(--text-secondary);
 }
 
 .template-toolbar {
@@ -5094,6 +5118,37 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   width: min(1180px, 100%);
 }
 
+.campaign-engagement-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 34px 18px;
+}
+
+.engagement-tile {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 14px 16px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.engagement-tile b {
+  font-size: 22px;
+  color: var(--ink);
+}
+
+.engagement-tile.active {
+  border-color: #117d75;
+  background: #eaf5f3;
+}
+
 .campaign-create-modal {
   width: min(1100px, 100%);
 }
@@ -6930,6 +6985,16 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   stroke: none;
 }
 
+.channel-icon-snapchat {
+  background: #fffab8 !important;
+  color: #262626 !important;
+}
+
+.channel-icon-snapchat svg {
+  fill: currentColor;
+  stroke: none;
+}
+
 .channel-icon-youtube {
   background: #fee2e2 !important;
   color: #ff0000 !important;
@@ -8009,6 +8074,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   z-index: 420;
   top: 18px;
   right: calc(var(--dashboard-sidebar-width) + 14px);
+  direction: rtl;
   width: min(310px, calc(100vw - 116px));
   padding: 12px;
   border: 1px solid #9fc9c3;
@@ -8018,9 +8084,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   box-shadow: 0 18px 50px rgba(8, 39, 36, .22);
 }
 
-.dashboard-shell.lang-en .sidebar-search-popover {
+.sidebar-search-popover.lang-en {
   right: auto;
   left: calc(var(--dashboard-sidebar-width) + 14px);
+  direction: ltr;
 }
 
 .sidebar-search-popover label {
@@ -8058,7 +8125,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   overflow-y: auto;
 }
 
-.dashboard-nav .sidebar-search-popover button {
+.sidebar-search-popover button {
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -8074,8 +8141,8 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   text-align: start;
 }
 
-.dashboard-nav .sidebar-search-popover button:hover,
-.dashboard-nav .sidebar-search-popover button:focus-visible {
+.sidebar-search-popover button:hover,
+.sidebar-search-popover button:focus-visible {
   background: #dfeeea;
   color: #0e625c;
 }

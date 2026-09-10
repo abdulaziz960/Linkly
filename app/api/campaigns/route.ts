@@ -17,6 +17,7 @@ import {
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { getSegmentById, resolveSegmentRecipients } from "../../../lib/segments";
 import { jsonError, jsonOk } from "../_utils/json";
+import { logAdminAction, getTenantCompanyName } from "../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -53,9 +54,23 @@ export async function POST(request: NextRequest) {
   const segmentId = String(formData.get("segmentId") || "").trim();
   const file = formData.get("file");
   const headerMediaFile = formData.get("headerMedia");
+  // Link tracking isn't threaded through CampaignRecurrence yet, so it's
+  // only offered (and only takes effect) for one-off campaigns - the
+  // dashboard form hides the checkbox once "recurring" is checked.
+  const linkTrackingEnabled = !recurring && formData.get("linkTrackingEnabled") === "true";
+  const destinationUrl = String(formData.get("destinationUrl") || "").trim();
 
   if (recurring && !ALLOWED_RECURRENCE_INTERVAL_DAYS.has(recurrenceIntervalDays)) {
     return jsonError("اختر فترة تكرار صحيحة");
+  }
+
+  if (linkTrackingEnabled) {
+    if (!destinationUrl) return jsonError("أدخل رابط الوجهة بعد الضغط لتفعيل تتبع الروابط");
+    try {
+      new URL(destinationUrl);
+    } catch {
+      return jsonError("رابط الوجهة غير صحيح");
+    }
   }
 
   if (!name) return jsonError("اسم الحملة مطلوب");
@@ -151,7 +166,9 @@ export async function POST(request: NextRequest) {
       headerMediaDataUrl,
       recipients,
       status: isScheduledFuture ? "مجدولة" : "قيد الإرسال",
-      scheduledAt: isScheduledFuture && scheduledDate ? scheduledDate.toISOString() : ""
+      scheduledAt: isScheduledFuture && scheduledDate ? scheduledDate.toISOString() : "",
+      linkTrackingEnabled,
+      destinationUrl
     }));
   }
 
@@ -165,6 +182,14 @@ export async function POST(request: NextRequest) {
   const balanceWarning = !isScheduledFuture && balance < recipients.length
     ? `تنبيه: رصيدك الحالي (${balance.toLocaleString("en-US")} رسالة) أقل من عدد المستلمين (${recipients.length.toLocaleString("en-US")}). بيتم الإرسال حسب الرصيد المتاح فقط وتتوقف الحملة بعده.`
     : undefined;
+
+  await logAdminAction(
+    user.tenantId,
+    await getTenantCompanyName(user.tenantId),
+    `تم إنشاء حملة "${name}" (${recipients.length.toLocaleString("en-US")} مستلم) بواسطة ${user.name}.`,
+    "معلومة",
+    "الحملات"
+  );
 
   return jsonOk({ ...campaign, balanceWarning });
 }
