@@ -5,10 +5,13 @@ import { useLanguage } from "../i18n";
 import { ChannelIcon } from "./SettingsView";
 import type { IntegrationSettings } from "../types";
 
-type AdChannel = "facebook" | "snapchat" | "tiktok";
+type AdChannel = "meta_leads" | "snapchat" | "tiktok";
 
 const connectUrls: Record<AdChannel, string> = {
-  facebook: "/api/meta/connect?channel=facebook",
+  // A connection kept separate from the "facebook" Messenger channel (see
+  // app/api/meta/connect) - enabling Lead Ads must never implicitly turn on
+  // the still-locked, unreviewed Messenger channel, or vice versa.
+  meta_leads: "/api/meta/connect?channel=meta_leads",
   snapchat: "/api/snapchat/connect",
   tiktok: "/api/tiktok/connect"
 };
@@ -28,7 +31,7 @@ export default function IntegrationsView() {
   useEffect(() => {
     let cancelled = false;
     Promise.all(
-      (["facebook", "snapchat", "tiktok"] as AdChannel[]).map((channel) =>
+      (["meta_leads", "snapchat", "tiktok"] as AdChannel[]).map((channel) =>
         fetch(`/api/settings/integration?channel=${channel}`)
           .then((response) => response.json())
           .then((data) => [channel, data] as const)
@@ -54,13 +57,13 @@ export default function IntegrationsView() {
   }, []);
 
   async function saveLeadAdsSettings(next: Partial<IntegrationSettings>) {
-    const current = settingsByChannel.facebook;
+    const current = settingsByChannel.meta_leads;
     if (!current) return;
     const merged = { ...current, ...next };
-    setSettingsByChannel((prev) => ({ ...prev, facebook: merged }));
+    setSettingsByChannel((prev) => ({ ...prev, meta_leads: merged }));
     setSaving(true);
     try {
-      await fetch("/api/settings/integration?channel=facebook", {
+      await fetch("/api/settings/integration?channel=meta_leads", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(merged)
@@ -76,7 +79,7 @@ export default function IntegrationsView() {
 
   const cards: Array<{ id: AdChannel; title: string; description: string }> = [
     {
-      id: "facebook",
+      id: "meta_leads",
       title: t("ميتا (فيسبوك وانستقرام)", "Meta (Facebook & Instagram)"),
       description: t("استقبل العملاء المحتملين من إعلانات Lead Ads تلقائيًا على واتساب.", "Automatically receive leads from Lead Ads into WhatsApp.")
     },
@@ -108,8 +111,8 @@ export default function IntegrationsView() {
           return (
             <div key={card.id} className="meta-test-card">
               <div>
-                <span className={`channel-icon channel-icon-${card.id === "facebook" ? "facebook" : card.id}`}>
-                  <ChannelIcon id={card.id === "facebook" ? "facebook" : card.id} />
+                <span className={`channel-icon channel-icon-${card.id === "meta_leads" ? "facebook" : card.id}`}>
+                  <ChannelIcon id={card.id === "meta_leads" ? "facebook" : card.id} />
                 </span>
                 <h3>{card.title}</h3>
                 <p>{card.description}</p>
@@ -119,7 +122,7 @@ export default function IntegrationsView() {
                 {settings?.status === "connected" ? t("إعادة الربط", "Reconnect") : t("ربط", "Connect")}
               </button>
 
-              {card.id === "facebook" && settings?.status === "connected" ? (
+              {card.id === "meta_leads" && settings?.status === "connected" ? (
                 <>
                   <label className="check-row">
                     <input

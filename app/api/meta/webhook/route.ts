@@ -41,7 +41,7 @@ function decryptStoredAccessToken(value: string) {
   }
 }
 
-async function resolveMetaAccount(provider: "instagram" | "facebook", accountId: string): Promise<MetaAccount | null> {
+async function resolveMetaAccount(provider: "instagram" | "facebook" | "meta_leads", accountId: string): Promise<MetaAccount | null> {
   if (!accountId) return null;
 
   const row = await prisma.integrationSetting.findFirst({ where: { provider, wabaId: accountId } });
@@ -284,7 +284,7 @@ export async function POST(request: NextRequest) {
   const entries = Array.isArray(payload.entry) ? payload.entry : [];
   const accountCache = new Map<string, MetaAccount | null>();
 
-  async function lookupMetaAccount(provider: "instagram" | "facebook", accountId: string) {
+  async function lookupMetaAccount(provider: "instagram" | "facebook" | "meta_leads", accountId: string) {
     const cacheKey = `${provider}:${accountId}`;
     if (accountCache.has(cacheKey)) return accountCache.get(cacheKey) ?? null;
     const account = await resolveMetaAccount(provider, accountId);
@@ -368,9 +368,9 @@ export async function POST(request: NextRequest) {
       const value = change.value || {};
 
       if (change.field === "leadgen" && value.leadgen_id) {
-        const facebookAccount = await lookupMetaAccount("facebook", String(value.page_id || entry.id || ""));
-        if (facebookAccount) {
-          await handleMetaLeadgenEvent(facebookAccount.tenantId, facebookAccount.accessToken, String(value.leadgen_id));
+        const leadsAccount = await lookupMetaAccount("meta_leads", String(value.page_id || entry.id || ""));
+        if (leadsAccount) {
+          await handleMetaLeadgenEvent(leadsAccount.tenantId, leadsAccount.accessToken, String(value.leadgen_id));
           savedMessages.push(String(value.leadgen_id));
         }
         continue;

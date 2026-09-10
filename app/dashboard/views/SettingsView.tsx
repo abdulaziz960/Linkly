@@ -439,16 +439,15 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }, [isWhatsApp, settings.status]);
 
   useEffect(() => {
-    if (!(isWhatsApp || isFacebook) || settings.status !== "connected") return;
+    if (!isWhatsApp || settings.status !== "connected") return;
     let cancelled = false;
     // Sync first so an account connected before this feature existed (or
     // whose local Template rows are stale) still picks up whatever's
     // already approved on the WABA - including Meta's built-in
     // "hello_world" sample - without the user having to visit the
-    // Templates page and press sync manually. Facebook also reads this list
-    // (for the lead-ads welcome-template picker below) but has no WABA of
-    // its own to sync against, so it just reads whatever WhatsApp already synced.
-    (isFacebook ? Promise.resolve() : fetch("/api/templates/sync-meta", { method: "POST" }).then(() => undefined).catch(() => undefined))
+    // Templates page and press sync manually.
+    fetch("/api/templates/sync-meta", { method: "POST" })
+      .catch(() => null)
       .then(() => fetch("/api/templates"))
       .then((response) => response.json())
       .then((result: { ok: boolean; data?: Array<{ name: string; message: string; status?: string }> }) => {
@@ -461,7 +460,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     return () => {
       cancelled = true;
     };
-  }, [isWhatsApp, isFacebook, settings.status]);
+  }, [isWhatsApp, settings.status]);
 
   useEffect(() => {
     // Fetch once on mount (not gated on isGmail) so the overview list shows
@@ -815,10 +814,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   function updateField(field: keyof IntegrationSettings, value: string) {
     setSettings((current) => ({ ...current, [field]: value }));
-  }
-
-  function updateLeadAdsEnabled(enabled: boolean) {
-    setSettings((current) => ({ ...current, leadAdsEnabled: enabled ? 1 : 0 }));
   }
 
   async function copyValue(label: string, value: string) {
@@ -2011,34 +2006,6 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <small>{t("الاستقبال يحتاج أن يكون الويبهوك مفعّلًا على رابط الاستضافة.", "Receiving requires the webhook to be active on your hosting URL.")}</small>
             </div>
             {testFeedback && <p className={`meta-test-feedback ${testFeedback.type}`}>{testFeedback.text}</p>}
-          </div> : null}
-
-          {isFacebook && settings.status === "connected" ? <div className="meta-test-card">
-            <div>
-              <h3>{t("الترحيب التلقائي من إعلانات Lead Ads", "Automatic welcome from Lead Ads")}</h3>
-              <p>{t("لما عميل يعبّي فورم تسجيل داخل إعلان فيسبوك/انستقرام (Lead Ad)، افتح له محادثة واتساب تلقائية فيها رسالة ترحيب باسمه.", "When a customer fills out a Facebook/Instagram Lead Ad form, automatically open a WhatsApp conversation with a welcome message addressed to them.")}</p>
-            </div>
-            <label className="check-row">
-              <input type="checkbox" checked={settings.leadAdsEnabled === 1} onChange={(event) => updateLeadAdsEnabled(event.target.checked)} />
-              {t("تفعيل الترحيب التلقائي", "Enable automatic welcome")}
-            </label>
-            {settings.leadAdsEnabled === 1 ? (
-              <div className="meta-test-grid">
-                <label>
-                  {t("قالب الترحيب", "Welcome template")}
-                  {testTemplates.length ? (
-                    <select value={settings.leadWelcomeTemplateName} onChange={(event) => updateField("leadWelcomeTemplateName", event.target.value)}>
-                      <option value="">{t("اختر قالبًا", "Choose a template")}</option>
-                      {testTemplates.map((template) => (
-                        <option key={template.name} value={template.name}>{template.name}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p className="meta-test-warning">{t("ما فيه قوالب معتمدة على حسابك بعد. أنشئ قالبًا من صفحة القوالب وانتظر اعتماده أولاً.", "Your account has no approved templates yet. Create one on the Templates page and wait for it to be approved first.")}</p>
-                  )}
-                </label>
-              </div>
-            ) : null}
           </div> : null}
 
           {!isGoogleMaps && !isYoutube && !isLinkedin && !isSnapchat && !isWebsite && !isInstagram && !isFacebook && !isWhatsApp && !isX && !isGmail && !isTikTok ? <div className="webhook-card">

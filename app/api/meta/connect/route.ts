@@ -17,9 +17,9 @@ const techProviderMetaConfigId = "1428169365888624";
 // broke Instagram connect with Meta's opaque "Invalid platform app" error.
 const techProviderInstagramAppId = "1384578340228125";
 
-function getChannel(request: NextRequest): Extract<IntegrationChannel, "whatsapp" | "instagram" | "facebook"> {
+function getChannel(request: NextRequest): Extract<IntegrationChannel, "whatsapp" | "instagram" | "facebook" | "meta_leads"> {
   const channel = request.nextUrl.searchParams.get("channel");
-  if (channel === "instagram" || channel === "facebook") return channel;
+  if (channel === "instagram" || channel === "facebook" || channel === "meta_leads") return channel;
   return "whatsapp";
 }
 
@@ -51,7 +51,12 @@ export async function GET(request: NextRequest) {
       "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments"
     );
   } else if (channel === "facebook") {
-    metaUrl.searchParams.set("scope", "pages_show_list,pages_read_engagement,pages_manage_metadata,pages_messaging,leads_retrieval");
+    // Messenger only - leads_retrieval lives on the separate "meta_leads"
+    // connection below so enabling Lead Ads never silently activates the
+    // (still locked/unreviewed) Messenger channel, and vice versa.
+    metaUrl.searchParams.set("scope", "pages_show_list,pages_read_engagement,pages_manage_metadata,pages_messaging");
+  } else if (channel === "meta_leads") {
+    metaUrl.searchParams.set("scope", "pages_show_list,pages_read_engagement,leads_retrieval");
   } else if (channel === "whatsapp") {
     metaUrl.searchParams.set("scope", "whatsapp_business_management,whatsapp_business_messaging");
   }

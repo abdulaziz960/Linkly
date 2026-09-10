@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
   const stateValues = verifyOAuthState(searchParams.get("state"), "meta", request.cookies.get("audiencew_meta_state")?.value);
   const requestedChannelParam = searchParams.get("channel") || "";
   const requestedChannel = stateValues?.channel || requestedChannelParam || "";
-  const channel = requestedChannel === "instagram" || requestedChannel === "facebook" ? requestedChannel : "whatsapp";
+  const channel = requestedChannel === "instagram" || requestedChannel === "facebook" || requestedChannel === "meta_leads" ? requestedChannel : "whatsapp";
   const user = await getCurrentUser();
   const wantsJson = request.headers.get("accept")?.includes("application/json");
 
@@ -255,13 +255,20 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  if (channel === "facebook" && code) {
+  if ((channel === "facebook" || channel === "meta_leads") && code) {
     // Must match the client_id actually sent to facebook.com/dialog/oauth in
     // /api/meta/connect (Linkly's WhatsApp tech-provider app, not the
     // Instagram-only app_id that used to live in settings.appId).
     const appId = techProviderMetaAppId;
     const appSecret = process.env.WHATSAPP_META_APP_SECRET || "";
     const redirectUri = `${getAppOrigin(request)}/api/meta/callback`;
+    // Kept as two entirely separate IntegrationSetting rows/connections
+    // (see app/api/meta/connect) rather than sharing the Messenger
+    // connection's Page token - subscribing this Page to "leadgen" must not
+    // depend on, or implicitly flip on, the still-locked Messenger channel.
+    const subscribedFields = channel === "meta_leads"
+      ? "leadgen"
+      : "messages,messaging_postbacks,message_deliveries,message_reads";
 
     if (appId && appSecret) {
       const tokenUrl = new URL("https://graph.facebook.com/v22.0/oauth/access_token");
@@ -289,7 +296,7 @@ export async function GET(request: NextRequest) {
 
         if (page?.id && page.access_token) {
           const subscribedUrl = new URL(`https://graph.facebook.com/v22.0/${page.id}/subscribed_apps`);
-          subscribedUrl.searchParams.set("subscribed_fields", "messages,messaging_postbacks,message_deliveries,message_reads,leadgen");
+          subscribedUrl.searchParams.set("subscribed_fields", subscribedFields);
           subscribedUrl.searchParams.set("access_token", page.access_token);
           const subscribedResponse = await fetch(subscribedUrl, { method: "POST" });
           const subscribedPayload = await subscribedResponse.json().catch(() => null);
@@ -319,7 +326,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const response = closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=facebook-callback&view=settings");
+    const redirectView = channel === "meta_leads" ? "integrations" : "settings";
+    const response = closePopupAndRedirect(getAppOrigin(request), `/dashboard?meta=facebook-callback&view=${redirectView}`);
     response.cookies.delete("audiencew_meta_state");
     return response;
   }
