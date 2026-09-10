@@ -31,11 +31,53 @@ export function mapMetaStatus(status?: string) {
   return statusMap[status || "PENDING"] || "قيد المراجعة";
 }
 
+// Meta rejects template creation with a bare "Invalid parameter" whenever a
+// HEADER/BODY text contains a {{..}} placeholder but the component has no
+// matching `example` - it has no way to render a preview for review
+// otherwise. The example values themselves are never shown to real
+// customers (the actual send always supplies real values instead), so any
+// plausible placeholder text satisfies it. Our own campaign convention puts
+// a name first and a tracking link last (see sendWhatsAppTemplate), so the
+// examples follow that shape without assuming every template uses it.
+function placeholderNames(text: string) {
+  return [...text.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)].map((match) => match[1]);
+}
+
+function exampleValueFor(placeholder: string, index: number, total: number) {
+  if (!/^\d+$/.test(placeholder)) return `قيمة ${placeholder}`;
+  if (index === total - 1 && total > 1) return "https://example.com";
+  return "محمد";
+}
+
+function textExample(text: string) {
+  const placeholders = placeholderNames(text);
+  if (!placeholders.length) return undefined;
+
+  const isNamed = placeholders.some((placeholder) => !/^\d+$/.test(placeholder));
+  if (isNamed) {
+    return {
+      body_text_named_params: placeholders.map((placeholder, index) => ({
+        param_name: placeholder,
+        example: exampleValueFor(placeholder, index, placeholders.length)
+      }))
+    };
+  }
+
+  const count = Math.max(...placeholders.map(Number));
+  return {
+    body_text: [Array.from({ length: count }, (_, index) => exampleValueFor(String(index + 1), index, count))]
+  };
+}
+
 export function buildTemplateComponents(data: TemplateComponentData) {
   const components: Array<Record<string, unknown>> = [];
 
   if (data.headerType === "TEXT" && data.headerText.trim()) {
-    components.push({ type: "HEADER", format: "TEXT", text: data.headerText.trim() });
+    const headerPlaceholders = placeholderNames(data.headerText);
+    const headerExample = headerPlaceholders.length
+      ? { header_text: [exampleValueFor(headerPlaceholders[0], 0, headerPlaceholders.length)] }
+      : undefined;
+    components.push({ type: "HEADER", format: "TEXT", text: data.headerText.trim(), ...(headerExample ? { example: headerExample } : {}) });
   }
 
   if (data.headerType === "IMAGE" && data.headerMediaHandle.trim()) {
@@ -46,7 +88,9 @@ export function buildTemplateComponents(data: TemplateComponentData) {
     components.push({ type: "HEADER", format: "VIDEO", example: { header_handle: [data.headerMediaHandle.trim()] } });
   }
 
-  components.push({ type: "BODY", text: data.message.trim() });
+  const bodyText = data.message.trim();
+  const bodyExample = textExample(bodyText);
+  components.push({ type: "BODY", text: bodyText, ...(bodyExample ? { example: bodyExample } : {}) });
 
   if (data.footer.trim()) {
     components.push({ type: "FOOTER", text: data.footer.trim() });
