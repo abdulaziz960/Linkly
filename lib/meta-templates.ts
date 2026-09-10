@@ -13,11 +13,34 @@ type TemplateComponentData = {
   buttonText: string;
   buttonPhone: string;
   buttonUrl: string;
+  // User-supplied sample values for {{..}} body placeholders, keyed by
+  // placeholder name (e.g. "1", "2" for positional). Falls back to
+  // exampleValueFor()'s generic guess for any placeholder left unset.
+  bodyExamples?: Record<string, string>;
 };
 
 export type MetaTemplateResult =
   | { ok: true; id: string; status: string }
   | { ok: false; error: string };
+
+// Meta's top-level error.message is often a generic label ("Invalid
+// parameter") - the actually useful, human-readable reason lives in
+// error_user_msg/error_user_title (when present) or error_data.details.
+// Surface whichever of those exists instead of the generic message alone.
+type MetaApiError = {
+  message?: string;
+  error_user_title?: string;
+  error_user_msg?: string;
+  error_data?: { details?: string };
+};
+
+function describeMetaError(error?: MetaApiError) {
+  if (!error) return "";
+  const detail = error.error_user_msg || error.error_data?.details;
+  if (detail && error.error_user_title) return `${error.error_user_title}: ${detail}`;
+  if (detail) return detail;
+  return error.message || "";
+}
 
 const statusMap: Record<string, string> = {
   APPROVED: "معتمد",
@@ -43,13 +66,15 @@ function placeholderNames(text: string) {
   return [...text.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)].map((match) => match[1]);
 }
 
-function exampleValueFor(placeholder: string, index: number, total: number) {
+function exampleValueFor(placeholder: string, index: number, total: number, overrides?: Record<string, string>) {
+  const override = overrides?.[placeholder]?.trim();
+  if (override) return override;
   if (!/^\d+$/.test(placeholder)) return `قيمة ${placeholder}`;
   if (index === total - 1 && total > 1) return "https://example.com";
   return "محمد";
 }
 
-function textExample(text: string) {
+function textExample(text: string, overrides?: Record<string, string>) {
   const placeholders = placeholderNames(text);
   if (!placeholders.length) return undefined;
 
@@ -58,14 +83,14 @@ function textExample(text: string) {
     return {
       body_text_named_params: placeholders.map((placeholder, index) => ({
         param_name: placeholder,
-        example: exampleValueFor(placeholder, index, placeholders.length)
+        example: exampleValueFor(placeholder, index, placeholders.length, overrides)
       }))
     };
   }
 
   const count = Math.max(...placeholders.map(Number));
   return {
-    body_text: [Array.from({ length: count }, (_, index) => exampleValueFor(String(index + 1), index, count))]
+    body_text: [Array.from({ length: count }, (_, index) => exampleValueFor(String(index + 1), index, count, overrides))]
   };
 }
 
@@ -89,7 +114,7 @@ export function buildTemplateComponents(data: TemplateComponentData) {
   }
 
   const bodyText = data.message.trim();
-  const bodyExample = textExample(bodyText);
+  const bodyExample = textExample(bodyText, data.bodyExamples);
   components.push({ type: "BODY", text: bodyText, ...(bodyExample ? { example: bodyExample } : {}) });
 
   if (data.footer.trim()) {
@@ -148,11 +173,12 @@ export async function createMetaTemplate(
   const payload = (await response.json().catch(() => ({}))) as {
     id?: string;
     status?: string;
-    error?: { message?: string };
+    error?: MetaApiError;
   };
 
   if (!response.ok) {
-    return { ok: false, error: payload.error?.message || "تعذر إرسال القالب إلى Meta." };
+    if (payload.error) console.error("Meta template create rejected", payload.error);
+    return { ok: false, error: describeMetaError(payload.error) || "تعذر إرسال القالب إلى Meta." };
   }
 
   return { ok: true, id: payload.id || "", status: mapMetaStatus(payload.status) };
@@ -187,11 +213,12 @@ export async function editMetaTemplate(
 
   const payload = (await response.json().catch(() => ({}))) as {
     success?: boolean;
-    error?: { message?: string };
+    error?: MetaApiError;
   };
 
   if (!response.ok || payload.success === false) {
-    return { ok: false, error: payload.error?.message || "تعذر تحديث القالب في Meta." };
+    if (payload.error) console.error("Meta template edit rejected", payload.error);
+    return { ok: false, error: describeMetaError(payload.error) || "تعذر تحديث القالب في Meta." };
   }
 
   return { ok: true, id: metaId, status: "قيد المراجعة" };
