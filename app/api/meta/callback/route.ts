@@ -289,7 +289,7 @@ export async function GET(request: NextRequest) {
 
         if (page?.id && page.access_token) {
           const subscribedUrl = new URL(`https://graph.facebook.com/v22.0/${page.id}/subscribed_apps`);
-          subscribedUrl.searchParams.set("subscribed_fields", "messages,messaging_postbacks,message_deliveries,message_reads");
+          subscribedUrl.searchParams.set("subscribed_fields", "messages,messaging_postbacks,message_deliveries,message_reads,leadgen");
           subscribedUrl.searchParams.set("access_token", page.access_token);
           const subscribedResponse = await fetch(subscribedUrl, { method: "POST" });
           const subscribedPayload = await subscribedResponse.json().catch(() => null);

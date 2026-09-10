@@ -6,6 +6,7 @@ import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
 import { runWhatsAppBot, runChannelBot } from "../../../../lib/bot-engine";
 import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
+import { handleMetaLeadgenEvent } from "../../../../lib/meta-leads";
 import { prisma } from "../../../../lib/prisma";
 import { decryptSecret } from "../../../../lib/secret-storage";
 import { verifyPrefixedHmac } from "../../../../lib/webhook-security";
@@ -365,6 +366,16 @@ export async function POST(request: NextRequest) {
 
     for (const change of changes) {
       const value = change.value || {};
+
+      if (change.field === "leadgen" && value.leadgen_id) {
+        const facebookAccount = await lookupMetaAccount("facebook", String(value.page_id || entry.id || ""));
+        if (facebookAccount) {
+          await handleMetaLeadgenEvent(facebookAccount.tenantId, facebookAccount.accessToken, String(value.leadgen_id));
+          savedMessages.push(String(value.leadgen_id));
+        }
+        continue;
+      }
+
       if (change.field === "comments" || value.media || value.comment_id || value.from?.id) {
         const instagramUserId = value.from?.id || value.user_id || value.sender_id || value.id;
         if (instagramUserId) {

@@ -444,6 +444,8 @@ model IntegrationSetting {
   linkedinRefreshToken String @default("") @map("linkedin_refresh_token")
   linkedinTokenExpiresAt String @default("") @map("linkedin_token_expires_at")
   linkedinCommentsSyncedAt String @default("") @map("linkedin_comments_synced_at")
+  leadAdsEnabled Int @default(0) @map("lead_ads_enabled")
+  leadWelcomeTemplateName String @default("") @map("lead_welcome_template_name")
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 
