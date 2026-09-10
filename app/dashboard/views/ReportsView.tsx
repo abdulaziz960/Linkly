@@ -29,7 +29,8 @@ const CHANNEL_LABELS: Record<ConversationChannel, [string, string]> = {
   tiktok: [channelNames.tiktok.ar, channelNames.tiktok.en],
   sms: [channelNames.sms.ar, channelNames.sms.en],
   youtube: [channelNames.youtube.ar, channelNames.youtube.en],
-  linkedin: [channelNames.linkedin.ar, channelNames.linkedin.en]
+  linkedin: [channelNames.linkedin.ar, channelNames.linkedin.en],
+  snapchat: [channelNames.snapchat.ar, channelNames.snapchat.en]
 };
 
 function Icon({ name }: { name: "refresh" | "export" | "info" | "alert" | "trend" | "empty" | "search" }) {
