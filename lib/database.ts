@@ -287,6 +287,12 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_comments_synced_at TEXT NOT NULL DEFAULT ''`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS lead_ads_enabled INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS lead_welcome_template_name TEXT NOT NULL DEFAULT ''`
+  );
   // These three were only ever added inside the broad legacy schema-repair
   // block below, which is gated off in production - the same class of bug
   // as the user_accounts.disabled outage above. Prisma selects every
@@ -1352,7 +1358,9 @@ async function runSchemaMigrations() {
     `ALTER TABLE integration_settings ADD COLUMN linkedin_org_name TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN linkedin_refresh_token TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN linkedin_token_expires_at TEXT NOT NULL DEFAULT ''`,
-    `ALTER TABLE integration_settings ADD COLUMN linkedin_comments_synced_at TEXT NOT NULL DEFAULT ''`
+    `ALTER TABLE integration_settings ADD COLUMN linkedin_comments_synced_at TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN lead_ads_enabled INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE integration_settings ADD COLUMN lead_welcome_template_name TEXT NOT NULL DEFAULT ''`
   ]) {
     try {
       await prisma.$executeRawUnsafe(statement);
@@ -2572,6 +2580,8 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     linkedinRefreshToken: readStoredSecret(settings.linkedinRefreshToken),
     linkedinTokenExpiresAt: settings.linkedinTokenExpiresAt,
     linkedinCommentsSyncedAt: settings.linkedinCommentsSyncedAt,
+    leadAdsEnabled: settings.leadAdsEnabled,
+    leadWelcomeTemplateName: settings.leadWelcomeTemplateName,
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };

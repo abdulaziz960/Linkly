@@ -168,7 +168,7 @@ export async function addManualCampaignBalance(tenantId: string, messages: numbe
   return payment;
 }
 
-async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false) {
+export async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false) {
   const settings = await getIntegrationSettings("whatsapp", tenantId);
   const phoneNumberId = settings.phoneNumberId?.trim();
   const accessToken = settings.accessToken?.trim();

@@ -302,6 +302,8 @@ export type IntegrationSettings = {
   linkedinRefreshToken: string;
   linkedinTokenExpiresAt: string;
   linkedinCommentsSyncedAt: string;
+  leadAdsEnabled: number;
+  leadWelcomeTemplateName: string;
   webhookUrl: string;
   updatedAt: string;
 };

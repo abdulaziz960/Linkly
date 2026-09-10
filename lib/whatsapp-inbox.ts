@@ -23,6 +23,21 @@ type StoreWhatsAppMessageInput = {
     metaMediaId?: string;
   };
   replyToMessageId?: string;
+  // Explicit attribution for conversations created with no inbound customer
+  // text to extract a [REF:id] marker from - e.g. a lead-ads webhook, where
+  // the "click" was filling out a form inside Meta/TikTok/Snap rather than
+  // following a tracked link. Only applied when the conversation is new,
+  // same as the marker-based path below.
+  attribution?: {
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    utmContent?: string;
+    pageId?: string;
+    linkId?: string;
+    buttonId?: string;
+    referrer?: string;
+  };
 };
 
 export function normalizeWhatsAppPhone(phone: string) {
@@ -77,6 +92,17 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
       data: { matchedConversationId: conversationId }
     })).count === 1 ? linkClick : null;
 
+    const attribution = {
+      attrPageId: input.attribution?.pageId ?? claimedLinkClick?.pageId ?? "",
+      attrLinkId: input.attribution?.linkId ?? claimedLinkClick?.linkId ?? "",
+      attrButtonId: input.attribution?.buttonId ?? claimedLinkClick?.buttonId ?? "",
+      attrReferrer: input.attribution?.referrer ?? claimedLinkClick?.referrer ?? "",
+      attrUtmSource: input.attribution?.utmSource ?? claimedLinkClick?.utmSource ?? "",
+      attrUtmMedium: input.attribution?.utmMedium ?? claimedLinkClick?.utmMedium ?? "",
+      attrUtmCampaign: input.attribution?.utmCampaign ?? claimedLinkClick?.utmCampaign ?? "",
+      attrUtmContent: input.attribution?.utmContent ?? claimedLinkClick?.utmContent ?? ""
+    };
+
     await tx.customer.upsert({
       where: { id: customerId },
       update: {
@@ -91,14 +117,7 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
         phone,
         initial: getCustomerInitial(name, phone),
         tenantId,
-        attrPageId: claimedLinkClick?.pageId ?? "",
-        attrLinkId: claimedLinkClick?.linkId ?? "",
-        attrButtonId: claimedLinkClick?.buttonId ?? "",
-        attrReferrer: claimedLinkClick?.referrer ?? "",
-        attrUtmSource: claimedLinkClick?.utmSource ?? "",
-        attrUtmMedium: claimedLinkClick?.utmMedium ?? "",
-        attrUtmCampaign: claimedLinkClick?.utmCampaign ?? "",
-        attrUtmContent: claimedLinkClick?.utmContent ?? ""
+        ...attribution
       }
     });
 
@@ -120,14 +139,7 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
         // ignores `create` entirely when the conversation already exists,
         // so a phone's second-ever message can never overwrite attribution
         // recorded on its first.
-        attrPageId: claimedLinkClick?.pageId ?? "",
-        attrLinkId: claimedLinkClick?.linkId ?? "",
-        attrButtonId: claimedLinkClick?.buttonId ?? "",
-        attrReferrer: claimedLinkClick?.referrer ?? "",
-        attrUtmSource: claimedLinkClick?.utmSource ?? "",
-        attrUtmMedium: claimedLinkClick?.utmMedium ?? "",
-        attrUtmCampaign: claimedLinkClick?.utmCampaign ?? "",
-        attrUtmContent: claimedLinkClick?.utmContent ?? ""
+        ...attribution
       }
     });
 

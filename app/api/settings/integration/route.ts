@@ -25,7 +25,8 @@ const allowedFields = [
   "googleAccountId",
   "googleLocationId",
   "googleRefreshToken",
-  "webhookUrl"
+  "webhookUrl",
+  "leadWelcomeTemplateName"
 ] as const;
 
 type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms";
@@ -514,10 +515,17 @@ export async function PATCH(request: NextRequest) {
           ? await verifySmsConnection({ ...existingSettings, ...verificationData })
       : await verifyMetaConnection({ ...existingSettings, ...verificationData }, channel);
   const integrationId = getIntegrationId(channel, user.tenantId);
+  // leadAdsEnabled is an Int column, not a string like every field in
+  // `allowedFields` - kept out of that generic loop/typing and merged in
+  // separately here instead of widening IntegrationField to non-string values.
+  const leadAdsEnabledUpdate = channel === "facebook" && (typeof body.leadAdsEnabled === "boolean" || typeof body.leadAdsEnabled === "number")
+    ? { leadAdsEnabled: body.leadAdsEnabled ? 1 : 0 }
+    : {};
   await prisma.integrationSetting.updateMany({
     where: { id: integrationId, tenantId: user.tenantId },
     data: {
       ...data,
+      ...leadAdsEnabledUpdate,
       provider: channel === "instagram" ? "instagram" : channel === "facebook" ? "facebook" : channel === "telegram" ? "telegram" : channel === "x" ? "x" : channel === "google_maps" ? "google_maps" : channel === "email" ? "email" : channel === "tiktok" ? "tiktok" : channel === "sms" ? "unifonic" : data.provider,
       status: connectionCheck.status,
       updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {

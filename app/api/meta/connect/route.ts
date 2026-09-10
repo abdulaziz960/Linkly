@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments"
     );
   } else if (channel === "facebook") {
-    metaUrl.searchParams.set("scope", "pages_show_list,pages_read_engagement,pages_manage_metadata,pages_messaging");
+    metaUrl.searchParams.set("scope", "pages_show_list,pages_read_engagement,pages_manage_metadata,pages_messaging,leads_retrieval");
   } else if (channel === "whatsapp") {
     metaUrl.searchParams.set("scope", "whatsapp_business_management,whatsapp_business_messaging");
   }
