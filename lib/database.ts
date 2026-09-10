@@ -383,6 +383,27 @@ async function runRequiredProductionMigrations() {
     `ALTER TABLE templates DROP COLUMN IF EXISTS workspace_id`
   );
 
+  // Campaign link-click tracking - added directly here, not the disabled
+  // legacy block, per the closed_at lesson above.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS link_tracking_enabled INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS destination_url TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS tracking_code TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS read_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS clicked_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS campaign_recipients_tracking_code_idx ON campaign_recipients(tracking_code)`
+  );
+
   // Workspace AI settings/usage tables - added directly here, not the
   // disabled legacy block, per the closed_at lesson above.
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS ai_workspace_settings (
@@ -1224,6 +1245,12 @@ async function runSchemaMigrations() {
       await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT '${defaultValue}'`);
     }
   }
+  if (!campaignColumns.some((column) => column.name === "link_tracking_enabled")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN link_tracking_enabled INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!campaignColumns.some((column) => column.name === "destination_url")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN destination_url TEXT NOT NULL DEFAULT ''`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipients (
     id TEXT PRIMARY KEY,
     campaign_id TEXT NOT NULL,
@@ -1236,6 +1263,13 @@ async function runSchemaMigrations() {
     sent_at TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
   )`);
+  const campaignRecipientColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(campaign_recipients)`);
+  for (const columnName of ["tracking_code", "read_at", "clicked_at"]) {
+    if (!campaignRecipientColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
+    }
+  }
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS campaign_recipients_tracking_code_idx ON campaign_recipients(tracking_code)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balances (
     tenant_id TEXT PRIMARY KEY,
     balance INTEGER NOT NULL DEFAULT 0,

@@ -5100,6 +5100,37 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   width: min(1180px, 100%);
 }
 
+.campaign-engagement-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 34px 18px;
+}
+
+.engagement-tile {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 14px 16px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.engagement-tile b {
+  font-size: 22px;
+  color: var(--ink);
+}
+
+.engagement-tile.active {
+  border-color: #117d75;
+  background: #eaf5f3;
+}
+
 .campaign-create-modal {
   width: min(1100px, 100%);
 }
