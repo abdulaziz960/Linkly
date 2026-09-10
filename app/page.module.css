@@ -131,13 +131,6 @@
   font-size: 14px;
   font-weight: 700;
 }
-.eyebrow i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 0 4px #dcfce7;
-}
 .hero h1 {
   font-family: var(--font-display);
   font-weight: 700;
@@ -1775,9 +1768,6 @@
     transition: none !important;
   }
 }
-.eyebrow i {
-  animation: linklyPulse 2.2s ease-out infinite;
-}
 .preview > header > span {
   position: relative;
 }
@@ -2009,7 +1999,6 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .eyebrow i,
   .preview > header > span:before {
     animation: none;
   }
