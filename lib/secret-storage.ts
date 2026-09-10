@@ -11,7 +11,9 @@ export const integrationSecretFields = [
   "xAccessToken",
   "xAccessTokenSecret",
   "googleRefreshToken",
-  "youtubeRefreshToken"
+  "youtubeRefreshToken",
+  "linkedinRefreshToken",
+  "snapchatRefreshToken"
 ] as const;
 
 function encryptionKey() {

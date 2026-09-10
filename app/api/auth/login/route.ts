@@ -3,6 +3,7 @@ import { authCookieName, createSessionToken, getSubscriptionAccess } from "../..
 import { recordUserLogin, verifyUserCredentials } from "../../../../lib/database";
 import { consumeRateLimit, getClientIp, requestIdentifier } from "../../../../lib/rate-limit";
 import { prisma } from "../../../../lib/prisma";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
@@ -25,7 +26,18 @@ export async function POST(request: NextRequest) {
   if (user.disabled) {
     return NextResponse.json({ message: "تم تعطيل هذا الحساب. تواصل مع مسؤول حسابكم لإعادة تفعيله." }, { status: 403 });
   }
-  await recordUserLogin(user.id, getClientIp(request));
+  const clientIp = getClientIp(request);
+  await recordUserLogin(user.id, clientIp);
+
+  if (user.isPlatformAdmin !== 1) {
+    await logAdminAction(
+      user.tenantId,
+      await getTenantCompanyName(user.tenantId),
+      `تسجيل دخول ناجح بواسطة ${user.name} (${user.email}) — IP: ${clientIp}`,
+      "معلومة",
+      "تسجيل الدخول"
+    );
+  }
 
   const subscriptionAccess = user.isPlatformAdmin === 1 ? { expired: false } : await getSubscriptionAccess(user.tenantId);
   const shouldOnboard = !subscriptionAccess.expired && user.isPlatformAdmin !== 1 && user.role === "مالك الحساب";

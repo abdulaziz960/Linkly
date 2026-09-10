@@ -6,6 +6,7 @@ import { userHasViewPermission } from "../../../lib/permissions-server";
 import { prisma } from "../../../lib/prisma";
 import { jsonError, jsonOk } from "../_utils/json";
 import { isValidSaudiPhone } from "../../../lib/validation";
+import { logAdminAction, getTenantCompanyName } from "../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -56,6 +57,14 @@ export async function POST(request: NextRequest) {
 
     return created;
   });
+
+  await logAdminAction(
+    user.tenantId,
+    await getTenantCompanyName(user.tenantId),
+    `تمت إضافة العميل "${name}" بواسطة ${user.name}.`,
+    "معلومة",
+    "العملاء"
+  );
 
   return jsonOk(customer);
 }

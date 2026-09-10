@@ -6,7 +6,8 @@ import { useLanguage } from "../i18n";
 
 const EVENT_OPTIONS: Array<{ value: string; ar: string; en: string }> = [
   { value: "message.received", ar: "استلام رسالة", en: "Message received" },
-  { value: "conversation.closed", ar: "إغلاق محادثة", en: "Conversation closed" }
+  { value: "conversation.closed", ar: "إغلاق محادثة", en: "Conversation closed" },
+  { value: "lead.created", ar: "عميل محتمل جديد", en: "New lead" }
 ];
 
 export default function DevelopersView() {
@@ -264,6 +265,58 @@ curl -X POST https://linklysa.io/api/v1/customers \\
           <pre className="code-block">{`const crypto = require("crypto");
 const expected = "sha256=" + crypto.createHmac("sha256", webhookSecret).update(rawRequestBody).digest("hex");
 if (expected !== request.headers["x-linkly-signature"]) throw new Error("Invalid signature");`}</pre>
+
+          <h3>{t("العملاء المحتملون (Leads)", "Leads")}</h3>
+          <p>{t("يُنشئ لنكلي عميلاً محتملاً تلقائياً كل ما وصل نموذج من قناة مخصصة لجمع الليدات (حالياً: نماذج Snapchat Lead Generation الأصلية) - ويظهر بنفس الوقت كمحادثة عادية في صندوق المحادثات، مع رسالة واحدة تلخّص إجابات النموذج.", "Linkly automatically creates a lead whenever a lead-generation channel captures a submission (currently: native Snapchat Lead Generation forms) - it also appears as a normal conversation in the inbox, with one message summarizing the form's answers.")}</p>
+          <pre className="code-block">{`curl https://linklysa.io/api/v1/leads?limit=25 \\
+  -H "Authorization: Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx"
+
+# {
+#   "ok": true,
+#   "data": {
+#     "items": [
+#       {
+#         "id": "lead-...",
+#         "customerId": "c-...",
+#         "conversationId": "c-...",
+#         "source": "snapchat",
+#         "formName": "عرض سبتمبر",
+#         "name": "عميل محتمل",
+#         "phone": "+9665...",
+#         "email": "",
+#         "createdAt": "2026-09-10T10:15:30.000Z"
+#       }
+#     ],
+#     "nextCursor": null
+#   }
+# }`}</pre>
+          <pre className="code-block">{`curl https://linklysa.io/api/v1/leads/lead-... \\
+  -H "Authorization: Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx"
+
+# يرجع نفس الحقول أعلاه بالإضافة إلى answers، وهي مصفوفة
+# أسئلة/أجوبة النموذج كما وصلت من القناة.`}</pre>
+          <p>{t("عند تفعيل حدث \"عميل محتمل جديد\" على أي Webhook، يصل نفس شكل الحدث الموثّق أعلاه:", "When you subscribe a webhook to the \"New lead\" event, it receives the same envelope documented above:")}</p>
+          <pre className="code-block">{`{
+  "event": "lead.created",
+  "data": {
+    "id": "lead-...",
+    "source": "snapchat",
+    "customerId": "c-...",
+    "conversationId": "c-...",
+    "formId": "...",
+    "formName": "عرض سبتمبر",
+    "name": "عميل محتمل",
+    "phone": "+9665...",
+    "email": "",
+    "answers": [{ "question": "PHONE_NUMBER", "answer": "+9665..." }],
+    "createdAt": "2026-09-10T10:15:30.000Z"
+  },
+  "sentAt": "2026-09-10T10:15:31.000Z"
+}`}</pre>
+
+          <h3>{t("نماذج سناب شات (Snapchat Lead Ads)", "Snapchat Lead Ads")}</h3>
+          <p>{t("بعد ربط حساب سناب شات الإعلاني من الإعدادات ← القنوات، يقرأ لنكلي نماذج Lead Generation الجديدة من حسابك دورياً. كل عميل محتمل جديد يُنشئ محادثة في صندوق المحادثات، وسجل عميل محتمل عبر الـ API أعلاه، وحدث \"عميل محتمل جديد\" على أي Webhook مفعّل.", "After connecting your Snapchat ad account from Settings → Channels, Linkly periodically reads new Lead Generation submissions from your account. Each new lead creates a conversation in the inbox, a lead record via the API above, and fires the \"New lead\" event on any active webhook.")}</p>
+          <p className="muted-copy">{t("هذه القناة مبنية بالكامل لكن معروضة حالياً كـ\"قريباً\" بانتظار موافقة سناب شات على تطبيقنا لاستخدام Marketing API.", "This channel is fully built but currently shown as \"coming soon\", pending Snapchat's approval of our app for the Marketing API.")}</p>
 
           <h3>{t("مثال: تكامل مع سلة أو زد", "Example: integrating with Salla or Zid")}</h3>
           <p>{t("عند وصول Webhook \"order.created\" من سلة أو زد لمتجرك، نادِ نفس المسارين التاليين من كود متجرك:", "When your store receives an \"order.created\" webhook from Salla or Zid, call these two endpoints in sequence from your store's own webhook handler:")}</p>

@@ -11,7 +11,8 @@ export const channelNames = {
   tiktok: { ar: "تيك توك", en: "TikTok" },
   sms: { ar: "الرسائل النصية", en: "SMS" },
   youtube: { ar: "يوتيوب", en: "YouTube" },
-  linkedin: { ar: "لينكد إن", en: "LinkedIn" }
+  linkedin: { ar: "لينكد إن", en: "LinkedIn" },
+  snapchat: { ar: "سناب شات", en: "Snapchat" }
 } as const;
 
 export type ChannelNameKey = keyof typeof channelNames;

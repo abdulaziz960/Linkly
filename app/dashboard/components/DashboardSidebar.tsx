@@ -139,19 +139,22 @@ export default function DashboardSidebar({
         >
           <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m16.5 16.5 4 4" /></svg>
         </button>
-        {navigationSearchOpen ? (
-          <div className="sidebar-search-popover">
-            <label><span>{isEnglish ? "Go to" : "انتقل إلى"}</span><input autoFocus value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} placeholder={isEnglish ? "Search sections..." : "ابحث عن قسم..."} /></label>
-            <div>
-              {visibleNavItems.filter((item) => `${item.label} ${navItemLabelsEn[item.key]}`.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((item) => (
-                <button key={item.key} type="button" onClick={() => { onChangeView(item.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{isEnglish ? navItemLabelsEn[item.key] : item.label}</span></button>
-              ))}
-              {visibleLinkedChannels.filter((channel) => channel.label.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((channel) => (
-                <button key={channel.key} type="button" onClick={() => { onChangeChannel(channel.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><span className={`nav-channel-dot ${channel.key}`} aria-hidden="true"><ChannelIcon id={channel.key} /></span><span>{channel.label}</span></button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        {navigationSearchOpen && typeof document !== "undefined"
+          ? createPortal(
+            <div className={`sidebar-search-popover${isEnglish ? " lang-en" : ""}`}>
+              <label><span>{isEnglish ? "Go to" : "انتقل إلى"}</span><input autoFocus value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} placeholder={isEnglish ? "Search sections..." : "ابحث عن قسم..."} /></label>
+              <div>
+                {visibleNavItems.filter((item) => `${item.label} ${navItemLabelsEn[item.key]}`.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((item) => (
+                  <button key={item.key} type="button" onClick={() => { onChangeView(item.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{isEnglish ? navItemLabelsEn[item.key] : item.label}</span></button>
+                ))}
+                {visibleLinkedChannels.filter((channel) => channel.label.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((channel) => (
+                  <button key={channel.key} type="button" onClick={() => { onChangeChannel(channel.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><span className={`nav-channel-dot ${channel.key}`} aria-hidden="true"><ChannelIcon id={channel.key} /></span><span>{channel.label}</span></button>
+                ))}
+              </div>
+            </div>,
+            document.body
+          )
+          : null}
         {navigationGroups.map((group) => {
           const groupItems = visibleNavItems.filter((item) => group.keys.includes(item.key));
           if (!groupItems.length) return null;
