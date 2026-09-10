@@ -169,7 +169,7 @@ export async function addManualCampaignBalance(tenantId: string, messages: numbe
   return payment;
 }
 
-export async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false) {
+export async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false, linkUrl = "") {
   const settings = await getIntegrationSettings("whatsapp", tenantId);
   const phoneNumberId = settings.phoneNumberId?.trim();
   const accessToken = settings.accessToken?.trim();
@@ -228,11 +228,18 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
   }
 
   if (placeholders.length) {
+    // With link tracking, the LAST body variable carries the recipient's
+    // tracking link and every earlier one still carries their name - lets a
+    // template do "{{1}} name ... {{2}} link" as well as the single-variable
+    // "{{1}} link" case (trivially "last" too), without the caller having to
+    // know which position means what.
+    const bodyValueAt = (position: number, total: number) => (linkUrl && position === total - 1 ? linkUrl : value);
+    const positionalCount = isNamedFormat ? placeholders.length : Math.max(...placeholders.map(Number));
     components.push({
       type: "body",
       parameters: isNamedFormat
-        ? placeholders.map((name) => ({ type: "text", parameter_name: name, text: value }))
-        : Array.from({ length: Math.max(...placeholders.map(Number)) }, () => ({ type: "text", text: value }))
+        ? placeholders.map((name, index) => ({ type: "text", parameter_name: name, text: bodyValueAt(index, placeholders.length) }))
+        : Array.from({ length: positionalCount }, (_, index) => ({ type: "text", text: bodyValueAt(index, positionalCount) }))
     });
   }
 
@@ -472,15 +479,15 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
         continue;
       }
 
-      // With link tracking on, the template's single body placeholder
-      // carries this recipient's own tracking link instead of their name -
-      // sendWhatsAppTemplate fills every placeholder with whatever value it
-      // gets, so this is the one integration point needed to swap it in.
+      // With link tracking on, the template's LAST body placeholder carries
+      // this recipient's own tracking link - any earlier placeholder (e.g.
+      // a template written as "{{1}} name ... {{2}} link") still gets their
+      // name, via sendWhatsAppTemplate's linkUrl param.
       let trackingCode = "";
-      let bodyValue = recipient.name;
+      let linkUrl = "";
       if (campaign.linkTrackingEnabled) {
         trackingCode = randomUUID().replace(/-/g, "");
-        bodyValue = `${getAppOrigin()}/api/campaigns/t/${trackingCode}`;
+        linkUrl = `${getAppOrigin()}/api/campaigns/t/${trackingCode}`;
       }
 
       let result: Awaited<ReturnType<typeof sendWhatsAppTemplate>>;
@@ -490,9 +497,10 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
           recipient.phone,
           campaign.templateName,
           campaign.language || "ar",
-          bodyValue,
+          recipient.name,
           campaign.id,
-          Boolean(campaign.headerMediaDataUrl)
+          Boolean(campaign.headerMediaDataUrl),
+          linkUrl
         );
       } catch {
         await adjustCampaignBalance(tenantId, 1);

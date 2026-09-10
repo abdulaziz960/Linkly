@@ -857,7 +857,7 @@ export default function CampaignsView({
                             value={form.destinationUrl}
                             onChange={(event) => setForm((current) => ({ ...current, destinationUrl: event.target.value }))}
                           />
-                          <small>{t("قالب الرسالة يحتاج متغيرًا واحدًا بالنص - سيُستبدل تلقائيًا برابط تتبع فريد لكل عميل بدل اسمه.", "The template's single body variable will automatically carry each customer's own unique tracking link instead of their name.")}</small>
+                          <small>{t("آخر متغير بنص القالب سيُستبدل تلقائيًا برابط تتبع فريد لكل عميل. لو القالب فيه متغيرين، الأول يفضل لاسم العميل والثاني (الأخير) يصير الرابط.", "The last variable in the template body is automatically replaced with each customer's own unique tracking link. With two variables, the first still carries the customer's name and the last (the link) does the tracking.")}</small>
                         </label>
                       ) : null}
                     </>
