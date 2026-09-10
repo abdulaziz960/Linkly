@@ -2516,7 +2516,7 @@ export async function getWorkSchedules(tenantId = "tenant-demo"): Promise<WorkSc
   }));
 }
 
-export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms" | "youtube" | "linkedin" | "snapchat";
+export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms" | "youtube" | "linkedin" | "snapchat" | "meta_leads";
 
 export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "instagram") return "meta-instagram";
@@ -2531,6 +2531,7 @@ export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "youtube") return "youtube-channel";
   if (channel === "linkedin") return "linkedin-channel";
   if (channel === "snapchat") return "snapchat-channel";
+  if (channel === "meta_leads") return "meta-leads";
   return "meta-whatsapp";
 }
 
@@ -2547,6 +2548,7 @@ function getIntegrationProvider(channel: IntegrationChannel) {
   if (channel === "youtube") return "youtube";
   if (channel === "linkedin") return "linkedin";
   if (channel === "snapchat") return "snapchat";
+  if (channel === "meta_leads") return "meta_leads";
   return "whatsapp_cloud";
 }
 

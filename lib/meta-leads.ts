@@ -51,8 +51,8 @@ export async function fetchMetaLead(leadgenId: string, pageAccessToken: string):
  * silently inactive rather than failing loudly for tenants who never set it up.
  */
 export async function handleMetaLeadgenEvent(tenantId: string, pageAccessToken: string, leadgenId: string) {
-  const facebookSettings = await getIntegrationSettings("facebook", tenantId);
-  if (!facebookSettings.leadAdsEnabled || !facebookSettings.leadWelcomeTemplateName.trim()) return;
+  const leadsSettings = await getIntegrationSettings("meta_leads", tenantId);
+  if (!leadsSettings.leadAdsEnabled || !leadsSettings.leadWelcomeTemplateName.trim()) return;
 
   const whatsappSettings = await getIntegrationSettings("whatsapp", tenantId);
   if (!whatsappSettings.phoneNumberId || !whatsappSettings.accessToken) return;
@@ -84,5 +84,5 @@ export async function handleMetaLeadgenEvent(tenantId: string, pageAccessToken: 
 
   if (!stored.isNew) return;
 
-  await sendWhatsAppTemplate(tenantId, phone, facebookSettings.leadWelcomeTemplateName, "ar", name);
+  await sendWhatsAppTemplate(tenantId, phone, leadsSettings.leadWelcomeTemplateName, "ar", name);
 }
