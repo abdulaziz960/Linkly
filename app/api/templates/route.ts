@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
     buttonText?: string;
     buttonPhone?: string;
     buttonUrl?: string;
+    bodyExamples?: Record<string, string>;
   };
   const name = body.name?.trim();
   const message = body.message?.trim();
@@ -84,7 +85,8 @@ export async function POST(request: NextRequest) {
     buttonType,
     buttonText,
     buttonPhone,
-    buttonUrl
+    buttonUrl,
+    bodyExamples: body.bodyExamples
   });
 
   if (!metaResult.ok) return jsonError(metaResult.error);

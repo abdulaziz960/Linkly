@@ -53,7 +53,8 @@ function DashboardNavIcon({ view }: { view: ViewKey }) {
     reports: <><path d="M5 20V9M12 20V4M19 20v-7" /></>,
     teams: <><circle cx="8" cy="9" r="3" /><circle cx="17" cy="10" r="2.5" /><path d="M2.5 19c.5-4 2.5-6 5.5-6s5 2 5.5 6M14 14c3 0 5 1.5 5.5 4.5" /></>,
     employees: <><rect x="4" y="5" width="16" height="14" rx="3" /><circle cx="9" cy="11" r="2" /><path d="M6.5 16c.5-2 1.3-3 2.5-3s2 1 2.5 3M14 10h3M14 14h3" /></>,
-    settings: <><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L14.5 3h-5l-.4 3.1a8 8 0 0 0-1.7 1L5 6.1 3 9.5 5.1 11a7 7 0 0 0 0 2L3 14.5 5 18l2.4-1.1a8 8 0 0 0 1.7 1l.4 3.1h5l.4-3.1a8 8 0 0 0 1.7-1L19 18l2-3.5-2.1-1.5c.1-.3.1-.7.1-1Z" /></>
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L14.5 3h-5l-.4 3.1a8 8 0 0 0-1.7 1L5 6.1 3 9.5 5.1 11a7 7 0 0 0 0 2L3 14.5 5 18l2.4-1.1a8 8 0 0 0 1.7 1l.4 3.1h5l.4-3.1a8 8 0 0 0 1.7-1L19 18l2-3.5-2.1-1.5c.1-.3.1-.7.1-1Z" /></>,
+    integrations: <><path d="M9 3v4M15 3v4M9 21v-4M15 21v-4" /><rect x="6" y="7" width="12" height="10" rx="3" /></>
   };
 
   return <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[view]}</svg>;
@@ -101,7 +102,7 @@ export default function DashboardSidebar({
     { label: "الأتمتة", labelEn: "Automations", keys: ["automations"] },
     { label: "الذكاء الاصطناعي", labelEn: "AI", keys: ["ai", "bot", "knowledgeBase"] },
     { label: "التحليلات", labelEn: "Analytics", keys: ["reports"] },
-    { label: "التكاملات", labelEn: "Integrations", keys: ["settings", "developers"] },
+    { label: "التكاملات", labelEn: "Integrations", keys: ["integrations", "settings", "developers"] },
     { label: "الإعدادات", labelEn: "Settings", keys: ["teams", "employees", "workHours", "branding"] }
   ];
   const connected = integrationStatus === "connected";
@@ -139,19 +140,22 @@ export default function DashboardSidebar({
         >
           <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m16.5 16.5 4 4" /></svg>
         </button>
-        {navigationSearchOpen ? (
-          <div className="sidebar-search-popover">
-            <label><span>{isEnglish ? "Go to" : "انتقل إلى"}</span><input autoFocus value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} placeholder={isEnglish ? "Search sections..." : "ابحث عن قسم..."} /></label>
-            <div>
-              {visibleNavItems.filter((item) => `${item.label} ${navItemLabelsEn[item.key]}`.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((item) => (
-                <button key={item.key} type="button" onClick={() => { onChangeView(item.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{isEnglish ? navItemLabelsEn[item.key] : item.label}</span></button>
-              ))}
-              {visibleLinkedChannels.filter((channel) => channel.label.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((channel) => (
-                <button key={channel.key} type="button" onClick={() => { onChangeChannel(channel.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><span className={`nav-channel-dot ${channel.key}`} aria-hidden="true"><ChannelIcon id={channel.key} /></span><span>{channel.label}</span></button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        {navigationSearchOpen && typeof document !== "undefined"
+          ? createPortal(
+            <div className={`sidebar-search-popover${isEnglish ? " lang-en" : ""}`}>
+              <label><span>{isEnglish ? "Go to" : "انتقل إلى"}</span><input autoFocus value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} placeholder={isEnglish ? "Search sections..." : "ابحث عن قسم..."} /></label>
+              <div>
+                {visibleNavItems.filter((item) => `${item.label} ${navItemLabelsEn[item.key]}`.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((item) => (
+                  <button key={item.key} type="button" onClick={() => { onChangeView(item.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{isEnglish ? navItemLabelsEn[item.key] : item.label}</span></button>
+                ))}
+                {visibleLinkedChannels.filter((channel) => channel.label.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((channel) => (
+                  <button key={channel.key} type="button" onClick={() => { onChangeChannel(channel.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><span className={`nav-channel-dot ${channel.key}`} aria-hidden="true"><ChannelIcon id={channel.key} /></span><span>{channel.label}</span></button>
+                ))}
+              </div>
+            </div>,
+            document.body
+          )
+          : null}
         {navigationGroups.map((group) => {
           const groupItems = visibleNavItems.filter((item) => group.keys.includes(item.key));
           if (!groupItems.length) return null;

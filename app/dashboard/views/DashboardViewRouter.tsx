@@ -20,6 +20,7 @@ import CampaignsView from "./CampaignsView";
 import ContactsView from "./ContactsView";
 import DevelopersView from "./DevelopersView";
 import EmployeesView from "./EmployeesView";
+import IntegrationsView from "./IntegrationsView";
 import KnowledgeBaseView from "./KnowledgeBaseView";
 import PipelineView from "./PipelineView";
 import QuickRepliesView from "./QuickRepliesView";
@@ -95,6 +96,7 @@ export default function DashboardViewRouter({
   if (view === "teams") return <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "employees") return <EmployeesView employees={employees} conversations={conversations} onRefreshData={onRefreshData} />;
   if (view === "settings") return <SettingsView onIntegrationChange={onIntegrationChange} />;
+  if (view === "integrations") return <IntegrationsView />;
   if (view === "developers") return <DevelopersView />;
   if (view === "branding") return <BrandingView onRefreshData={onRefreshData} />;
   return null;

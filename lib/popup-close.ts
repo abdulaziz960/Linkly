@@ -9,7 +9,7 @@
  * That doesn't affect window.close() (script-opened windows can always
  * self-close, independent of opener), so close() is attempted
  * unconditionally - the location.href fallback only fires if the window
- * is still open after a short delay, i.e. it truly wasn't a popup Claude
+ * is still open after a short delay, i.e. it truly wasn't a popup we
  * opened via window.open() (e.g. someone opened the callback URL directly).
  */
 export function popupCloseHtml(origin: string, bodyMessage: string, postMessagePayload: unknown, fallbackPath: string) {

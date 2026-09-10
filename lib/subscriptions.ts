@@ -265,18 +265,27 @@ export async function reconcileStalePendingPayments(staleAfterMs = 24 * 60 * 60 
   return { reconciled, expired };
 }
 
-export async function logAdminAction(tenantId: string, clientName: string, message: string, level: "معلومة" | "تنبيه" | "خطأ" = "معلومة") {
+export async function logAdminAction(tenantId: string, clientName: string, message: string, level: "معلومة" | "تنبيه" | "خطأ" = "معلومة", source = "لوحة الأدمن") {
   await prisma.adminLog.create({
     data: {
       id: `log-${randomUUID()}`,
       at: nowTimestamp(),
       clientId: tenantId,
       clientName,
-      source: "لوحة الأدمن",
+      source,
       level,
       message
     }
   });
+}
+
+// Every admin_logs call site needs the tenant's display name (the table
+// only stores it as a denormalized string, not a live join) - this is the
+// same subscription.companyName-with-tenantId-fallback lookup every
+// existing site already duplicated ad hoc.
+export async function getTenantCompanyName(tenantId: string): Promise<string> {
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+  return subscription?.companyName || tenantId;
 }
 
 const trialReminderStages: Array<{ id: string; withinHours: number }> = [

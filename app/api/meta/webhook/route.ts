@@ -6,6 +6,7 @@ import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
 import { runWhatsAppBot, runChannelBot } from "../../../../lib/bot-engine";
 import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
+import { handleMetaLeadgenEvent } from "../../../../lib/meta-leads";
 import { prisma } from "../../../../lib/prisma";
 import { decryptSecret } from "../../../../lib/secret-storage";
 import { verifyPrefixedHmac } from "../../../../lib/webhook-security";
@@ -40,7 +41,7 @@ function decryptStoredAccessToken(value: string) {
   }
 }
 
-async function resolveMetaAccount(provider: "instagram" | "facebook", accountId: string): Promise<MetaAccount | null> {
+async function resolveMetaAccount(provider: "instagram" | "facebook" | "meta_leads", accountId: string): Promise<MetaAccount | null> {
   if (!accountId) return null;
 
   const row = await prisma.integrationSetting.findFirst({ where: { provider, wabaId: accountId } });
@@ -283,7 +284,7 @@ export async function POST(request: NextRequest) {
   const entries = Array.isArray(payload.entry) ? payload.entry : [];
   const accountCache = new Map<string, MetaAccount | null>();
 
-  async function lookupMetaAccount(provider: "instagram" | "facebook", accountId: string) {
+  async function lookupMetaAccount(provider: "instagram" | "facebook" | "meta_leads", accountId: string) {
     const cacheKey = `${provider}:${accountId}`;
     if (accountCache.has(cacheKey)) return accountCache.get(cacheKey) ?? null;
     const account = await resolveMetaAccount(provider, accountId);
@@ -365,6 +366,16 @@ export async function POST(request: NextRequest) {
 
     for (const change of changes) {
       const value = change.value || {};
+
+      if (change.field === "leadgen" && value.leadgen_id) {
+        const leadsAccount = await lookupMetaAccount("meta_leads", String(value.page_id || entry.id || ""));
+        if (leadsAccount) {
+          await handleMetaLeadgenEvent(leadsAccount.tenantId, leadsAccount.accessToken, String(value.leadgen_id));
+          savedMessages.push(String(value.leadgen_id));
+        }
+        continue;
+      }
+
       if (change.field === "comments" || value.media || value.comment_id || value.from?.id) {
         const instagramUserId = value.from?.id || value.user_id || value.sender_id || value.id;
         if (instagramUserId) {
@@ -422,6 +433,17 @@ export async function POST(request: NextRequest) {
           });
         } catch (error) {
           console.error("Failed to persist WhatsApp delivery status", error);
+        }
+
+        if (status.status === "read") {
+          try {
+            await prisma.campaignRecipient.updateMany({
+              where: { messageId: status.id, tenantId: whatsappAccount.tenantId, readAt: "" },
+              data: { readAt: new Date().toISOString() }
+            });
+          } catch (error) {
+            console.error("Failed to stamp campaign recipient read status", error);
+          }
         }
       }
 

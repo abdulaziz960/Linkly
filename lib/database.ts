@@ -287,6 +287,12 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_comments_synced_at TEXT NOT NULL DEFAULT ''`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS lead_ads_enabled INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS lead_welcome_template_name TEXT NOT NULL DEFAULT ''`
+  );
   // These three were only ever added inside the broad legacy schema-repair
   // block below, which is gated off in production - the same class of bug
   // as the user_accounts.disabled outage above. Prisma selects every
@@ -375,6 +381,116 @@ async function runRequiredProductionMigrations() {
   // indexes with it.
   await prisma.$executeRawUnsafe(
     `ALTER TABLE templates DROP COLUMN IF EXISTS workspace_id`
+  );
+
+  // Campaign link-click tracking - added directly here, not the disabled
+  // legacy block, per the closed_at lesson above.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS link_tracking_enabled INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS destination_url TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS tracking_code TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS read_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS clicked_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS campaign_recipients_tracking_code_idx ON campaign_recipients(tracking_code)`
+  );
+
+  // Workspace AI settings/usage tables - added directly here, not the
+  // disabled legacy block, per the closed_at lesson above.
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS ai_workspace_settings (
+    tenant_id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL DEFAULT 'gemini',
+    model TEXT NOT NULL DEFAULT '',
+    api_key TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 0,
+    prompt TEXT NOT NULL DEFAULT '',
+    daily_limit INTEGER NOT NULL DEFAULT 100,
+    monthly_limit INTEGER NOT NULL DEFAULT 1000,
+    input_rate DOUBLE PRECISION,
+    output_rate DOUBLE PRECISION,
+    updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS ai_usage_buckets (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    period TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS ai_usage_buckets_tenant_id_period_idx ON ai_usage_buckets(tenant_id, period)`
+  );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS ai_usage_events (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    status TEXT NOT NULL,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    estimated_cost DOUBLE PRECISION,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS ai_usage_events_tenant_id_created_at_idx ON ai_usage_events(tenant_id, created_at)`
+  );
+
+  // Snapchat channel + the Leads table it feeds - added directly here, not
+  // the disabled legacy block, per the closed_at lesson above.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS snapchat_ad_account_id TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS snapchat_organization_id TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS snapchat_org_name TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS snapchat_refresh_token TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS snapchat_token_expires_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS snapchat_leads_synced_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS leads (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    customer_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL,
+    source_id TEXT NOT NULL DEFAULT '',
+    form_id TEXT NOT NULL DEFAULT '',
+    form_name TEXT NOT NULL DEFAULT '',
+    campaign_id TEXT NOT NULL DEFAULT '',
+    ad_account_id TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    answers_json TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS leads_tenant_id_idx ON leads(tenant_id)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS leads_tenant_id_source_idx ON leads(tenant_id, source)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS leads_tenant_id_created_at_idx ON leads(tenant_id, created_at)`
   );
 }
 
@@ -1129,6 +1245,12 @@ async function runSchemaMigrations() {
       await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT '${defaultValue}'`);
     }
   }
+  if (!campaignColumns.some((column) => column.name === "link_tracking_enabled")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN link_tracking_enabled INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!campaignColumns.some((column) => column.name === "destination_url")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN destination_url TEXT NOT NULL DEFAULT ''`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipients (
     id TEXT PRIMARY KEY,
     campaign_id TEXT NOT NULL,
@@ -1141,6 +1263,13 @@ async function runSchemaMigrations() {
     sent_at TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
   )`);
+  const campaignRecipientColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(campaign_recipients)`);
+  for (const columnName of ["tracking_code", "read_at", "clicked_at"]) {
+    if (!campaignRecipientColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
+    }
+  }
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS campaign_recipients_tracking_code_idx ON campaign_recipients(tracking_code)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balances (
     tenant_id TEXT PRIMARY KEY,
     balance INTEGER NOT NULL DEFAULT 0,
@@ -1310,7 +1439,15 @@ async function runSchemaMigrations() {
     `ALTER TABLE integration_settings ADD COLUMN linkedin_org_name TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN linkedin_refresh_token TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN linkedin_token_expires_at TEXT NOT NULL DEFAULT ''`,
-    `ALTER TABLE integration_settings ADD COLUMN linkedin_comments_synced_at TEXT NOT NULL DEFAULT ''`
+    `ALTER TABLE integration_settings ADD COLUMN linkedin_comments_synced_at TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN lead_ads_enabled INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE integration_settings ADD COLUMN lead_welcome_template_name TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN snapchat_ad_account_id TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN snapchat_organization_id TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN snapchat_org_name TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN snapchat_refresh_token TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN snapchat_token_expires_at TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN snapchat_leads_synced_at TEXT NOT NULL DEFAULT ''`
   ]) {
     try {
       await prisma.$executeRawUnsafe(statement);
@@ -1318,6 +1455,26 @@ async function runSchemaMigrations() {
       // Existing databases already have this column.
     }
   }
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS leads (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    customer_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL,
+    source_id TEXT NOT NULL DEFAULT '',
+    form_id TEXT NOT NULL DEFAULT '',
+    form_name TEXT NOT NULL DEFAULT '',
+    campaign_id TEXT NOT NULL DEFAULT '',
+    ad_account_id TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    answers_json TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS leads_tenant_id_idx ON leads(tenant_id)`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS leads_tenant_id_source_idx ON leads(tenant_id, source)`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS leads_tenant_id_created_at_idx ON leads(tenant_id, created_at)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS email_integrations (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL DEFAULT 'tenant-demo',
@@ -2393,7 +2550,7 @@ export async function getWorkSchedules(tenantId = "tenant-demo"): Promise<WorkSc
   }));
 }
 
-export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms" | "youtube" | "linkedin";
+export type IntegrationChannel = "whatsapp" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "sms" | "youtube" | "linkedin" | "snapchat" | "meta_leads";
 
 export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "instagram") return "meta-instagram";
@@ -2407,6 +2564,8 @@ export function getIntegrationBaseId(channel: IntegrationChannel) {
   if (channel === "sms") return "sms-channel";
   if (channel === "youtube") return "youtube-channel";
   if (channel === "linkedin") return "linkedin-channel";
+  if (channel === "snapchat") return "snapchat-channel";
+  if (channel === "meta_leads") return "meta-leads";
   return "meta-whatsapp";
 }
 
@@ -2422,6 +2581,8 @@ function getIntegrationProvider(channel: IntegrationChannel) {
   if (channel === "sms") return "unifonic";
   if (channel === "youtube") return "youtube";
   if (channel === "linkedin") return "linkedin";
+  if (channel === "snapchat") return "snapchat";
+  if (channel === "meta_leads") return "meta_leads";
   return "whatsapp_cloud";
 }
 
@@ -2448,11 +2609,11 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
       phoneNumber: "",
       phoneNumberId: "",
       wabaId: "",
-      appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" || channel === "linkedin" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
+      appId: channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" || channel === "linkedin" || channel === "snapchat" ? "" : channel === "google_maps" ? defaultGoogleClientId : defaultMetaAppId,
       configId: "",
       verifyToken: randomUUID(),
       accessToken: "",
-      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : channel === "tiktok" ? `/api/tiktok/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "sms" ? `/api/sms/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "youtube" ? "/api/cron/youtube-comments" : channel === "linkedin" ? "/api/cron/linkedin-comments" : "/api/meta/webhook",
+      webhookUrl: channel === "telegram" ? `/api/telegram/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "x" ? `/api/x/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "google_maps" ? "/api/google/reviews/sync" : channel === "email" ? "/api/email/inbound" : channel === "website" ? "/api/website/message" : channel === "tiktok" ? `/api/tiktok/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "sms" ? `/api/sms/webhook${tenantId && tenantId !== "tenant-demo" ? `?tenant=${tenantId}` : ""}` : channel === "youtube" ? "/api/cron/youtube-comments" : channel === "linkedin" ? "/api/cron/linkedin-comments" : channel === "snapchat" ? "/api/cron/snapchat-leads" : "/api/meta/webhook",
       updatedAt: "اليوم"
     }
   });
@@ -2468,12 +2629,12 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
   const whatsappSettings = channel === "instagram" || channel === "facebook"
     ? await prisma.integrationSetting.findFirst({ where: { tenantId, provider: "whatsapp_cloud" } })
     : null;
-  const providerMetaSettings = tenantId !== "tenant-demo" && channel !== "telegram" && channel !== "x" && channel !== "google_maps" && channel !== "email" && channel !== "website" && channel !== "tiktok" && channel !== "sms" && channel !== "youtube" && channel !== "linkedin"
+  const providerMetaSettings = tenantId !== "tenant-demo" && channel !== "telegram" && channel !== "x" && channel !== "google_maps" && channel !== "email" && channel !== "website" && channel !== "tiktok" && channel !== "sms" && channel !== "youtube" && channel !== "linkedin" && channel !== "snapchat"
     ? await prisma.integrationSetting.findFirst({ where: { tenantId: "tenant-demo", provider: "whatsapp_cloud" } })
     : null;
   const fallbackAppId = channel === "google_maps"
     ? settings.appId || defaultGoogleClientId
-    : channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" || channel === "linkedin"
+    : channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" || channel === "linkedin" || channel === "snapchat"
     ? settings.appId
     : channel === "instagram" || channel === "facebook"
     ? settings.appId || defaultMetaAppId || whatsappSettings?.appId || providerMetaSettings?.appId || ""
@@ -2481,7 +2642,7 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
   const storedConfigId = readStoredSecret(settings.configId);
   const fallbackConfigId = channel === "google_maps"
     ? storedConfigId || defaultGoogleClientSecret
-    : channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" || channel === "linkedin"
+    : channel === "telegram" || channel === "x" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" || channel === "linkedin" || channel === "snapchat"
       ? storedConfigId
       : storedConfigId || defaultMetaConfigId || readStoredSecret(whatsappSettings?.configId) || readStoredSecret(providerMetaSettings?.configId) || "";
 
@@ -2530,6 +2691,14 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     linkedinRefreshToken: readStoredSecret(settings.linkedinRefreshToken),
     linkedinTokenExpiresAt: settings.linkedinTokenExpiresAt,
     linkedinCommentsSyncedAt: settings.linkedinCommentsSyncedAt,
+    leadAdsEnabled: settings.leadAdsEnabled,
+    leadWelcomeTemplateName: settings.leadWelcomeTemplateName,
+    snapchatAdAccountId: settings.snapchatAdAccountId,
+    snapchatOrganizationId: settings.snapchatOrganizationId,
+    snapchatOrgName: settings.snapchatOrgName,
+    snapchatRefreshToken: readStoredSecret(settings.snapchatRefreshToken),
+    snapchatTokenExpiresAt: settings.snapchatTokenExpiresAt,
+    snapchatLeadsSyncedAt: settings.snapchatLeadsSyncedAt,
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };

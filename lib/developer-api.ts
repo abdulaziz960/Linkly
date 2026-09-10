@@ -160,6 +160,56 @@ export async function listApiCustomers(tenantId: string, options: { limit: numbe
   };
 }
 
+export async function listApiLeads(tenantId: string, options: { limit: number; cursor?: string }) {
+  const rows = await prisma.lead.findMany({
+    where: { tenantId },
+    orderBy: { id: "asc" },
+    take: options.limit,
+    ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {})
+  });
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      customerId: row.customerId,
+      conversationId: row.conversationId,
+      source: row.source,
+      formName: row.formName,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      createdAt: row.createdAt
+    })),
+    nextCursor: rows.length === options.limit ? rows[rows.length - 1]?.id : null
+  };
+}
+
+export async function getApiLead(tenantId: string, id: string) {
+  const row = await prisma.lead.findFirst({ where: { id, tenantId } });
+  if (!row) return null;
+
+  let answers: unknown = [];
+  try {
+    answers = JSON.parse(row.answersJson || "[]");
+  } catch {
+    answers = [];
+  }
+
+  return {
+    id: row.id,
+    customerId: row.customerId,
+    conversationId: row.conversationId,
+    source: row.source,
+    formId: row.formId,
+    formName: row.formName,
+    adAccountId: row.adAccountId,
+    name: row.name,
+    phone: row.phone,
+    email: row.email,
+    answers,
+    createdAt: row.createdAt
+  };
+}
+
 export async function upsertApiCustomer(tenantId: string, input: { phone: string; name: string }) {
   const existing = await prisma.customer.findFirst({ where: { tenantId, phone: input.phone } });
   if (existing) {

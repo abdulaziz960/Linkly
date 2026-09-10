@@ -18,6 +18,7 @@ export const navItems: NavItem[] = [
   { key: "teams", label: "الفرق" },
   { key: "employees", label: "الموظفين والصلاحيات" },
   { key: "settings", label: "الإعدادات والربط" },
+  { key: "integrations", label: "التكاملات" },
   { key: "developers", label: "المطورون" },
   { key: "branding", label: "العلامة التجارية" }
 ];
@@ -42,6 +43,7 @@ export const navItemLabelsEn: Record<ViewKey, string> = {
   teams: "Teams",
   employees: "Employees & permissions",
   settings: "Settings & channels",
+  integrations: "Integrations",
   developers: "Developers",
   branding: "Branding"
 };
@@ -64,6 +66,7 @@ export const viewTitles: Record<ViewKey, string> = {
   teams: "الفرق",
   employees: "الموظفين والصلاحيات",
   settings: "الإعدادات والربط",
+  integrations: "التكاملات",
   developers: "المطورون",
   branding: "العلامة التجارية"
 };
