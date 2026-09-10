@@ -21,7 +21,7 @@ export type ViewKey =
 
 export type ConversationStatus = "assigned" | "unassigned" | "closed";
 export type ConversationFilter = "all" | ConversationStatus | "mine" | "unread";
-export type ConversationChannel = "whatsapp" | "instagram" | "x" | "facebook" | "google_maps" | "website" | "telegram" | "email" | "tiktok" | "sms" | "youtube" | "linkedin";
+export type ConversationChannel = "whatsapp" | "instagram" | "x" | "facebook" | "google_maps" | "website" | "telegram" | "email" | "tiktok" | "sms" | "youtube" | "linkedin" | "snapchat";
 export type ConversationChannelFilter = "all" | ConversationChannel;
 export type ChatPanel = "chat" | "profile";
 export type ComposerMode = "reply" | "note";
@@ -273,7 +273,7 @@ export type DashboardUser = {
 export type IntegrationSettings = {
   id: string;
   tenantId: string;
-  provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "unifonic" | "gmail" | "youtube" | "linkedin" | "external";
+  provider: "whatsapp_cloud" | "instagram" | "facebook" | "telegram" | "x" | "google_maps" | "email" | "website" | "tiktok" | "unifonic" | "gmail" | "youtube" | "linkedin" | "snapchat" | "external";
   status: "connected" | "not_connected" | "pending";
   businessName: string;
   wabaName: string;
@@ -304,6 +304,12 @@ export type IntegrationSettings = {
   linkedinCommentsSyncedAt: string;
   leadAdsEnabled: number;
   leadWelcomeTemplateName: string;
+  snapchatAdAccountId: string;
+  snapchatOrganizationId: string;
+  snapchatOrgName: string;
+  snapchatRefreshToken: string;
+  snapchatTokenExpiresAt: string;
+  snapchatLeadsSyncedAt: string;
   webhookUrl: string;
   updatedAt: string;
 };

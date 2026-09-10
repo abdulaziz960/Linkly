@@ -78,6 +78,12 @@ const emptySettings: IntegrationSettings = {
   linkedinCommentsSyncedAt: "",
   leadAdsEnabled: 0,
   leadWelcomeTemplateName: "",
+  snapchatAdAccountId: "",
+  snapchatOrganizationId: "",
+  snapchatOrgName: "",
+  snapchatRefreshToken: "",
+  snapchatTokenExpiresAt: "",
+  snapchatLeadsSyncedAt: "",
   webhookUrl: "/api/meta/webhook",
   updatedAt: "-"
 };
@@ -114,7 +120,7 @@ function getWizardSteps(t: TFn) {
   ];
 }
 
-export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "x" | "email" | "gmail" | "zapier" | "google_maps" | "tiktok" | "sms" | "youtube" | "linkedin";
+export type ChannelId = "whatsapp" | "facebook" | "website" | "instagram" | "telegram" | "x" | "email" | "gmail" | "zapier" | "google_maps" | "tiktok" | "sms" | "youtube" | "linkedin" | "snapchat";
 // The channel picker/wizard never selects the raw "email" record directly —
 // Gmail is the only UI-facing channel for it (see apiChannel()) — so the
 // selectable subset excludes it.
@@ -134,7 +140,8 @@ function getChannels(t: TFn): Array<{ id: SelectableChannelId; title: string; de
     { id: "tiktok", title: t(channelNames.tiktok.ar, channelNames.tiktok.en), description: t("بانتظار موافقة تيك توك على مراسلة الأعمال", "Waiting for TikTok's Business Messaging approval"), active: true },
     { id: "sms", title: t(channelNames.sms.ar, channelNames.sms.en), description: t("أرسل واستقبل الرسائل النصية عبر يونيفونك", "Send and receive SMS messages via Unifonic"), active: true },
     { id: "youtube", title: t(channelNames.youtube.ar, channelNames.youtube.en), description: t("استقبل وردّ على تعليقات فيديوهاتك", "Receive and reply to your videos' comments"), active: true },
-    { id: "linkedin", title: t(channelNames.linkedin.ar, channelNames.linkedin.en), description: t("استقبل وردّ على تعليقات منشورات صفحتك", "Receive and reply to your page's post comments"), active: true }
+    { id: "linkedin", title: t(channelNames.linkedin.ar, channelNames.linkedin.en), description: t("استقبل وردّ على تعليقات منشورات صفحتك", "Receive and reply to your page's post comments"), active: true },
+    { id: "snapchat", title: t(channelNames.snapchat.ar, channelNames.snapchat.en), description: t("استقبل عملاء نماذج إعلانات سناب شات المحتملين", "Receive leads from Snapchat Lead Generation Ads"), active: true }
   ];
 }
 
@@ -285,6 +292,14 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
     );
   }
 
+  if (id === "snapchat") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2.7c2.55 0 4.2 1.99 4.2 4.6 0 .58-.03 1.4-.09 2.05.03.02.34.2.83.2.5 0 .82-.14.98-.14.32 0 .55.22.55.5 0 .32-.29.48-.72.63-.35.13-.79.24-.79.45 0 .1.06.24.14.4.5 1.06 1.56 2.16 3.29 2.55.19.04.31.16.31.32 0 .1-.03.2-.14.3-.34.32-1.15.6-2.19.79-.06.06-.09.5-.16.72-.06.2-.19.32-.44.32h-.03c-.24 0-.6-.05-1.06-.05-.66 0-1.19.13-1.85.6-.72.5-1.5 1.07-2.83 1.07s-2.09-.56-2.82-1.06c-.66-.47-1.2-.6-1.86-.6-.47 0-.83.05-1.05.05h-.04c-.25 0-.38-.12-.44-.32-.07-.22-.1-.66-.16-.72-1.04-.19-1.85-.47-2.19-.79-.11-.1-.14-.2-.14-.3 0-.16.12-.28.31-.32 1.73-.39 2.79-1.49 3.29-2.55.08-.16.14-.3.14-.4 0-.21-.44-.32-.79-.45-.43-.15-.72-.31-.72-.63 0-.28.23-.5.55-.5.16 0 .48.14.98.14.49 0 .8-.18.83-.2-.06-.65-.09-1.47-.09-2.05 0-2.61 1.65-4.6 4.2-4.6Z" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M5 6h14v9H8.8L5 18.5V6Z" />
@@ -313,6 +328,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     if (params.has("gmail")) return "gmail";
     if (params.has("youtube")) return "youtube";
     if (params.has("linkedin")) return "linkedin";
+    if (params.has("snapchat")) return "snapchat";
     return "whatsapp";
   });
   const [loading, setLoading] = useState(true);
@@ -350,7 +366,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     // silently dropping the result behind the closed overview.
     if (typeof window === "undefined") return false;
     const params = new URLSearchParams(window.location.search);
-    return params.has("meta") || params.has("gmail") || params.has("youtube") || params.has("linkedin");
+    return params.has("meta") || params.has("gmail") || params.has("youtube") || params.has("linkedin") || params.has("snapchat");
   });
   useEffect(() => {
     // Strip the one-time OAuth callback params (meta=..., channel=email,
@@ -358,11 +374,12 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     // or simply revisiting this URL keeps reopening the same modal forever.
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
-    if (!url.searchParams.has("meta") && !url.searchParams.has("gmail") && !url.searchParams.has("youtube") && !url.searchParams.has("linkedin")) return;
+    if (!url.searchParams.has("meta") && !url.searchParams.has("gmail") && !url.searchParams.has("youtube") && !url.searchParams.has("linkedin") && !url.searchParams.has("snapchat")) return;
     url.searchParams.delete("meta");
     url.searchParams.delete("gmail");
     url.searchParams.delete("youtube");
     url.searchParams.delete("linkedin");
+    url.searchParams.delete("snapchat");
     url.searchParams.delete("channel");
     window.history.replaceState(null, "", url.toString());
   }, []);
@@ -375,6 +392,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const isGoogleMaps = selectedChannel === "google_maps";
   const isYoutube = selectedChannel === "youtube";
   const isLinkedin = selectedChannel === "linkedin";
+  const isSnapchat = selectedChannel === "snapchat";
   const isGmail = selectedChannel === "gmail";
   const isZapier = selectedChannel === "zapier";
   const isEmail = isGmail || isZapier;
@@ -394,7 +412,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   // once the OAuth round trip actually finishes (isConnected). Clicking
   // Connect should go straight to the Meta window, not to a form.
   const showIntegrationData = (
-    isTelegram || isGoogleMaps || isEmail || isWebsite || isYoutube || isLinkedin
+    isTelegram || isGoogleMaps || isEmail || isWebsite || isYoutube || isLinkedin || isSnapchat
       ? wizardStep >= 4
       : isFacebook || isInstagram || isWhatsApp || isX
         ? false
@@ -501,7 +519,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   // Temporarily locked while these channels are paused for rework - the
   // underlying integrations stay intact, they're just hidden from new
   // connections for now.
-  const temporarilyLockedChannelIds = new Set<ChannelId>(["facebook", "sms", "google_maps", "linkedin"]);
+  const temporarilyLockedChannelIds = new Set<ChannelId>(["facebook", "sms", "google_maps", "linkedin", "snapchat"]);
 
   function goToChannelSetup(channelId: SelectableChannelId) {
     setSelectedChannel(channelId);
@@ -537,7 +555,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     return `https://t.me/${username}`;
   }, [isTelegram, settings.status, settings.wabaName]);
   const currentWizardSteps = useMemo(() => {
-    const channelName = isWebsite ? t(channelNames.website.ar, channelNames.website.en) : isTikTok ? t(channelNames.tiktok.ar, channelNames.tiktok.en) : isSms ? t(channelNames.sms.ar, channelNames.sms.en) : isZapier ? "Zapier" : isGmail ? t(channelNames.gmail.ar, channelNames.gmail.en) : isGoogleMaps ? t(channelNames.google_maps.ar, channelNames.google_maps.en) : isYoutube ? t(channelNames.youtube.ar, channelNames.youtube.en) : isLinkedin ? t(channelNames.linkedin.ar, channelNames.linkedin.en) : isX ? t(channelNames.x.ar, channelNames.x.en) : isTelegram ? t(channelNames.telegram.ar, channelNames.telegram.en) : isFacebook ? t(channelNames.facebook.ar, channelNames.facebook.en) : isInstagram ? t(channelNames.instagram.ar, channelNames.instagram.en) : t(channelNames.whatsapp.ar, channelNames.whatsapp.en);
+    const channelName = isWebsite ? t(channelNames.website.ar, channelNames.website.en) : isTikTok ? t(channelNames.tiktok.ar, channelNames.tiktok.en) : isSms ? t(channelNames.sms.ar, channelNames.sms.en) : isZapier ? "Zapier" : isGmail ? t(channelNames.gmail.ar, channelNames.gmail.en) : isGoogleMaps ? t(channelNames.google_maps.ar, channelNames.google_maps.en) : isYoutube ? t(channelNames.youtube.ar, channelNames.youtube.en) : isLinkedin ? t(channelNames.linkedin.ar, channelNames.linkedin.en) : isSnapchat ? t(channelNames.snapchat.ar, channelNames.snapchat.en) : isX ? t(channelNames.x.ar, channelNames.x.en) : isTelegram ? t(channelNames.telegram.ar, channelNames.telegram.en) : isFacebook ? t(channelNames.facebook.ar, channelNames.facebook.en) : isInstagram ? t(channelNames.instagram.ar, channelNames.instagram.en) : t(channelNames.whatsapp.ar, channelNames.whatsapp.en);
 
     return wizardSteps.map((step, index) => {
       if (index === 0) {
@@ -567,6 +585,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           ? {
               title: t("تجهيز لينكد إن", "Set up LinkedIn"),
               description: t("الربط يتم مباشرة من صفحة الشركة على لينكد إن.", "The connection is made directly from the LinkedIn Company Page.")
+            }
+          : isSnapchat
+          ? {
+              title: t("تجهيز سناب شات", "Set up Snapchat"),
+              description: t("الربط يتم مباشرة من حساب سناب شات الإعلاني.", "The connection is made directly from the Snapchat ad account.")
             }
           : isX
           ? {
@@ -622,6 +645,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               title: t("ربط لينكد إن", "Connect LinkedIn"),
               description: t("اضغط ربط لينكد إن واختر صفحة الشركة.", "Click Connect LinkedIn and choose the Company Page.")
             }
+          : isSnapchat
+          ? {
+              title: t("ربط سناب شات", "Connect Snapchat"),
+              description: t("اضغط ربط سناب شات واختر الحساب الإعلاني.", "Click Connect Snapchat and choose the ad account.")
+            }
           : isX
           ? {
               title: t("ربط X", "Connect X"),
@@ -660,7 +688,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         description: isConnected ? t(`أصبحت قناة ${channelName} جاهزة الآن.`, `The ${channelName} channel is now ready.`) : t(`لم تكتمل قناة ${channelName} بعد.`, `The ${channelName} channel isn't set up yet.`)
       };
     });
-  }, [isConnected, isEmail, isFacebook, isGmail, isGoogleMaps, isYoutube, isLinkedin, isInstagram, isTelegram, isX, isTikTok, isSms, isWebsite, isZapier, wizardSteps, t]);
+  }, [isConnected, isEmail, isFacebook, isGmail, isGoogleMaps, isYoutube, isLinkedin, isSnapchat, isInstagram, isTelegram, isX, isTikTok, isSms, isWebsite, isZapier, wizardSteps, t]);
 
   useEffect(() => {
     const isFirstLoad = !hasSelectedChannelRef.current;
@@ -1147,6 +1175,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     window.location.assign(new URL("/api/linkedin/connect", window.location.origin).toString());
   }
 
+  async function connectSnapchat() {
+    window.location.assign(new URL("/api/snapchat/connect", window.location.origin).toString());
+  }
+
   async function syncGoogleReviews() {
     const response = await fetch("/api/google/reviews/sync", { method: "POST" });
     const result = await response.json().catch(() => null) as { ok?: boolean; synced?: number; error?: string } | null;
@@ -1162,7 +1194,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       return (
         <div className="meta-wizard-panel">
           <div className="connected-channel-note">
-            <b>{isWebsite ? t("ودجت الموقع جاهز", "Website widget ready") : isSms ? t("SMS متصل", "SMS connected") : isTikTok ? t("TikTok متصل", "TikTok connected") : isGmail ? t("Gmail متصل", "Gmail connected") : isZapier ? t("Zapier متصل", "Zapier connected") : isGoogleMaps ? t("خرائط Google متصلة", "Google Maps connected") : isYoutube ? t("يوتيوب متصل", "YouTube connected") : isLinkedin ? t("لينكد إن متصل", "LinkedIn connected") : isX ? t("X متصل", "X connected") : isTelegram ? t("تيليجرام متصل", "Telegram connected") : isFacebook ? t("فيسبوك متصل", "Facebook connected") : isInstagram ? t("Instagram متصل", "Instagram connected") : t("واتساب متصل", "WhatsApp connected")}</b>
+            <b>{isWebsite ? t("ودجت الموقع جاهز", "Website widget ready") : isSms ? t("SMS متصل", "SMS connected") : isTikTok ? t("TikTok متصل", "TikTok connected") : isGmail ? t("Gmail متصل", "Gmail connected") : isZapier ? t("Zapier متصل", "Zapier connected") : isGoogleMaps ? t("خرائط Google متصلة", "Google Maps connected") : isYoutube ? t("يوتيوب متصل", "YouTube connected") : isLinkedin ? t("لينكد إن متصل", "LinkedIn connected") : isSnapchat ? t("سناب شات متصل", "Snapchat connected") : isX ? t("X متصل", "X connected") : isTelegram ? t("تيليجرام متصل", "Telegram connected") : isFacebook ? t("فيسبوك متصل", "Facebook connected") : isInstagram ? t("Instagram متصل", "Instagram connected") : t("واتساب متصل", "WhatsApp connected")}</b>
             <span>
               {isGmail && oauthEmailStatus?.emailAddress
                 ? t(`الحساب المتصل: ${oauthEmailStatus.emailAddress}`, `Connected account: ${oauthEmailStatus.emailAddress}`)
@@ -1173,7 +1205,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                     )
                   : t("يمكنك تعديل البيانات أو مسح الربط من قسم بيانات الربط والويبهوك بالأسفل.", "You can edit the data or clear the connection from the connection and webhook section below.")}
             </span>
-            {!isEmail && !isGoogleMaps && !isYoutube && !isLinkedin && !isX && !isTelegram && !isWebsite && !isSms ? (
+            {!isEmail && !isGoogleMaps && !isYoutube && !isLinkedin && !isSnapchat && !isX && !isTelegram && !isWebsite && !isSms ? (
               <button type="button" onClick={() => isTikTok ? connectTikTokAccount() : openMetaWindow()}>
                 {isTikTok ? t("ربط حساب TikTok آخر", "Connect another TikTok account") : isFacebook ? t("ربط صفحة Facebook", "Connect a Facebook page") : isInstagram ? t("ربط Instagram", "Connect Instagram") : t("ربط واتساب جديد", "Connect a new WhatsApp number")}
               </button>
@@ -1347,6 +1379,34 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         );
       }
 
+      if (isSnapchat) {
+        return (
+          <div className="meta-wizard-panel">
+            <div className="meta-signup-card">
+              <span className="provider-round-icon channel-icon-snapchat">
+                <ChannelIcon id="snapchat" />
+              </span>
+              <h3>{t("ربط سناب شات", "Connect Snapchat")}</h3>
+              <p>{t("اربط حسابك الإعلاني على سناب شات حتى تصل نماذج Lead Generation الأصلية إلى صندوق المحادثات تلقائيًا. يتطلب هذا موافقة سناب شات المسبقة على تطبيقك لاستخدام Marketing API.", "Connect your Snapchat ad account so native Lead Generation form submissions land in the inbox automatically. This requires Snapchat's prior approval of your app for the Marketing API.")}</p>
+              <div className="google-business-summary">
+                <div>
+                  <span>{t("حالة الربط", "Connection status")}</span>
+                  <b>{statusLabel(settings.status, t)}</b>
+                </div>
+                <div>
+                  <span>{t("الحساب الإعلاني", "Ad account")}</span>
+                  <b>{settings.snapchatOrgName || t("لم يتم اختيار حساب بعد", "No account selected yet")}</b>
+                </div>
+                <p>{t("اضغط ربط سناب شات وسجّل الدخول بحساب يدير الحساب الإعلاني.", "Click Connect Snapchat and sign in with an account that manages the ad account.")}</p>
+              </div>
+              <button type="button" onClick={connectSnapchat}>
+                {t("ربط سناب شات", "Connect Snapchat")}
+              </button>
+            </div>
+          </div>
+        );
+      }
+
       if (isTelegram) {
         return (
           <div className="meta-wizard-panel">
@@ -1462,7 +1522,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             ? t("بانتظار اختيار القناة", "Waiting for the channel to be chosen")
             : isLinkedin
               ? t("بانتظار اختيار الصفحة", "Waiting for the page to be chosen")
-              : t("لم يكتمل الربط بعد", "The connection isn't complete yet");
+              : isSnapchat
+                ? t("بانتظار اختيار الحساب الإعلاني", "Waiting for the ad account to be chosen")
+                : t("لم يكتمل الربط بعد", "The connection isn't complete yet");
     const summaryText = isConnected
       ? isEmail
         ? t("بعد حفظ بيانات البريد، استخدم رابط الويبهوك لاستقبال الرسائل داخل صندوق المحادثات والرد عليها من المنصة.", "After saving your email details, use the webhook link to receive messages in the inbox and reply to them from the platform.")
@@ -1472,6 +1534,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           ? t("تم حفظ حساب القناة، وستظهر تعليقات فيديوهاتك داخل صندوق المحادثات.", "The channel account has been saved, and your videos' comments will appear in the inbox.")
         : isLinkedin
           ? t("تم حفظ صفحة الشركة، وستظهر تعليقات منشوراتك داخل صندوق المحادثات.", "The Company Page has been saved, and comments on your posts will appear in the inbox.")
+        : isSnapchat
+          ? t("تم حفظ الحساب الإعلاني، وستظهر نماذج الليدات الجديدة داخل صندوق المحادثات.", "The ad account has been saved, and new lead form submissions will appear in the inbox.")
         : isX
           ? t("بعد حفظ مفاتيح X ستكون القناة جاهزة للمرحلة التالية: تفعيل استقبال الرسائل الخاصة والردود على التغريدات.", "After saving your X keys, the channel will be ready for the next stage: enabling DM receiving and replies to tweets.")
         : isTelegram
@@ -1493,6 +1557,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         ? t("اضغط ربط يوتيوب واختر القناة التي تديرها.", "Click Connect YouTube and choose the channel you manage.")
       : isLinkedin
         ? t("اضغط ربط لينكد إن واختر صفحة الشركة التي تديرها.", "Click Connect LinkedIn and choose the Company Page you manage.")
+      : isSnapchat
+        ? t("اضغط ربط سناب شات واختر الحساب الإعلاني الذي تديره.", "Click Connect Snapchat and choose the ad account you manage.")
       : isTikTok
         ? t("احفظ App Key وApp Secret وAccess Token بعد ما توافق عليك TikTok.", "Save the App Key, App Secret, and Access Token once TikTok approves you.")
       : isSms
@@ -1514,8 +1580,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               ) : (
                 <div className="summary-list">
                   <b>{settings.businessName || t("حافظة الأعمال", "Business portfolio")}</b>
-                  <b>{isYoutube ? settings.youtubeChannelTitle || t("قناة يوتيوب", "YouTube channel") : isLinkedin ? settings.linkedinOrgName || t("صفحة لينكد إن", "LinkedIn page") : settings.wabaName || (isGoogleMaps ? t("موقع Google", "Google location") : isX ? t("حساب X", "X account") : isTikTok ? t("حساب TikTok", "TikTok account") : isSms ? t("قناة SMS", "SMS channel") : isTelegram ? t("بوت Telegram", "Telegram bot") : isFacebook ? t("صفحة Facebook", "Facebook page") : isInstagram ? t("حساب Instagram", "Instagram account") : t("حساب واتساب للأعمال", "WhatsApp Business account"))}</b>
-                  <b dir="ltr">{isYoutube ? settings.youtubeChannelId || "YouTube Channel ID" : isLinkedin ? settings.linkedinOrgId || "LinkedIn Organization ID" : isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTikTok ? settings.appId || "TikTok App Key" : isSms ? settings.phoneNumber || "Sender ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || t("رقم واتساب", "WhatsApp number")}</b>
+                  <b>{isYoutube ? settings.youtubeChannelTitle || t("قناة يوتيوب", "YouTube channel") : isLinkedin ? settings.linkedinOrgName || t("صفحة لينكد إن", "LinkedIn page") : isSnapchat ? settings.snapchatOrgName || t("حساب سناب شات الإعلاني", "Snapchat ad account") : settings.wabaName || (isGoogleMaps ? t("موقع Google", "Google location") : isX ? t("حساب X", "X account") : isTikTok ? t("حساب TikTok", "TikTok account") : isSms ? t("قناة SMS", "SMS channel") : isTelegram ? t("بوت Telegram", "Telegram bot") : isFacebook ? t("صفحة Facebook", "Facebook page") : isInstagram ? t("حساب Instagram", "Instagram account") : t("حساب واتساب للأعمال", "WhatsApp Business account"))}</b>
+                  <b dir="ltr">{isYoutube ? settings.youtubeChannelId || "YouTube Channel ID" : isLinkedin ? settings.linkedinOrgId || "LinkedIn Organization ID" : isSnapchat ? settings.snapchatAdAccountId || "Snapchat Ad Account ID" : isGoogleMaps ? settings.googleLocationId || "Google Location ID" : isX ? settings.wabaId || "X Account ID" : isTikTok ? settings.appId || "TikTok App Key" : isSms ? settings.phoneNumber || "Sender ID" : isTelegram ? settings.phoneNumber || "Bot ID" : isFacebook ? settings.wabaId || "Facebook Page ID" : isInstagram ? settings.wabaId || "Instagram Account ID" : settings.phoneNumber || t("رقم واتساب", "WhatsApp number")}</b>
                 </div>
               )}
         </div>
@@ -1605,7 +1671,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {renderWizardContent()}
           {!isConnected && !isTelegram && !isX ? (
             <div className="settings-onboarding-actions">
-              {wizardStep !== 4 && !((isGoogleMaps || isYoutube || isLinkedin || isWhatsApp || isInstagram || isFacebook) && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
+              {wizardStep !== 4 && !((isGoogleMaps || isYoutube || isLinkedin || isSnapchat || isWhatsApp || isInstagram || isFacebook) && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
                 if (wizardStep === 3 && isGoogleMaps) {
                   connectGoogleMaps();
                   return;
@@ -1618,9 +1684,13 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   connectLinkedin();
                   return;
                 }
+                if (wizardStep === 3 && isSnapchat) {
+                  connectSnapchat();
+                  return;
+                }
                 setWizardStep((step) => Math.min(4, step + 1));
               }}>
-                {wizardStep === 3 ? (isGoogleMaps ? t("ربط Google", "Connect Google") : isYoutube ? t("ربط يوتيوب", "Connect YouTube") : isLinkedin ? t("ربط لينكد إن", "Connect LinkedIn") : t("إدخال البيانات", "Enter details")) : t("التالي", "Next")}
+                {wizardStep === 3 ? (isGoogleMaps ? t("ربط Google", "Connect Google") : isYoutube ? t("ربط يوتيوب", "Connect YouTube") : isLinkedin ? t("ربط لينكد إن", "Connect LinkedIn") : isSnapchat ? t("ربط سناب شات", "Connect Snapchat") : t("إدخال البيانات", "Enter details")) : t("التالي", "Next")}
               </button> : null}
             </div>
           ) : null}
@@ -1666,13 +1736,13 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           {!(isGmail && !isConnected) ? (
           <div className="settings-form-head">
             <div>
-              <h2>{isWebsite ? t("أداة محادثة الموقع", "Website widget") : isGoogleMaps ? t("ربط نشاط جوجل التجاري", "Connect Google Business") : isYoutube ? t("ربط قناة يوتيوب", "Connect YouTube channel") : isLinkedin ? t("ربط صفحة لينكد إن", "Connect LinkedIn page") : isWhatsApp ? t("ربط واتساب", "Connect WhatsApp") : isZapier ? t("ربط Zapier لاستقبال العملاء", "Connect Zapier lead intake") : hideManualEmailSetup ? t("حساب البريد المرتبط", "Connected email account") : isX ? t("بيانات الحساب", "Account details") : t("بيانات الربط والويب هوك", "Connection and webhook details")}</h2>
-              <p>{isWebsite ? t("مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى.", "The site key below is unique to your account and is already embedded in the code above.") : hideManualEmailSetup ? t("الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب.", "The account is connected via OAuth and works automatically without extra settings. Click Clear Connection Data to disconnect it.") : isEmail ? t("هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook.", "This data saves the email channel and is used to receive messages via webhook.") : isGoogleMaps ? t("لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة.", "You don't need to fill in any fields here. Click Connect Google and choose the business account, and the connection data will be saved automatically after approval.") : isYoutube ? t("لا تحتاج إدخال حقول هنا. اضغط ربط يوتيوب واختر القناة، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة.", "You don't need to fill in any fields here. Click Connect YouTube and choose the channel, and the connection data will be saved automatically after approval.") : isLinkedin ? t("لا تحتاج إدخال حقول هنا. اضغط ربط لينكد إن واختر الصفحة، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة.", "You don't need to fill in any fields here. Click Connect LinkedIn and choose the page, and the connection data will be saved automatically after approval.") : isX ? t("بيانات حسابك المرتبط تظهر هنا تلقائيًا بعد الضغط على ربط X بالأعلى.", "Your connected account details appear here automatically after clicking Connect X above.") : isTikTok ? t("احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging.", "Save the TikTok app details now; actual sending and receiving starts once TikTok approves Business Messaging access.") : isSms ? t("بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز.", "Unifonic details for sending SMS messages to customers. Receiving replies is still being built.") : isTelegram ? t("هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة.", "This data saves the Telegram connection and activates the webhook automatically to receive messages in the platform.") : isFacebook ? t("هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة.", "This data saves the Facebook page and is used to send and receive Messenger messages in the platform.") : isInstagram ? t("هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة.", "This data saves the Instagram connection and is used to receive messages and comments in the platform.") : t("اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط.", "Connect a WhatsApp account from the Meta window. The account and number details will be saved automatically once the connection is complete.")}</p>
+              <h2>{isWebsite ? t("أداة محادثة الموقع", "Website widget") : isGoogleMaps ? t("ربط نشاط جوجل التجاري", "Connect Google Business") : isYoutube ? t("ربط قناة يوتيوب", "Connect YouTube channel") : isLinkedin ? t("ربط صفحة لينكد إن", "Connect LinkedIn page") : isSnapchat ? t("ربط حساب سناب شات", "Connect Snapchat account") : isWhatsApp ? t("ربط واتساب", "Connect WhatsApp") : isZapier ? t("ربط Zapier لاستقبال العملاء", "Connect Zapier lead intake") : hideManualEmailSetup ? t("حساب البريد المرتبط", "Connected email account") : isX ? t("بيانات الحساب", "Account details") : t("بيانات الربط والويب هوك", "Connection and webhook details")}</h2>
+              <p>{isWebsite ? t("مفتاح الموقع أدناه فريد لحسابك ومُضمّن تلقائياً بكود التضمين بالأعلى.", "The site key below is unique to your account and is already embedded in the code above.") : hideManualEmailSetup ? t("الحساب متصل عبر OAuth ويعمل تلقائيًا بدون إعدادات إضافية. اضغط مسح بيانات الربط لفصل الحساب.", "The account is connected via OAuth and works automatically without extra settings. Click Clear Connection Data to disconnect it.") : isEmail ? t("هذه البيانات تحفظ قناة البريد الإلكتروني وتستخدم في استقبال الرسائل عبر Webhook.", "This data saves the email channel and is used to receive messages via webhook.") : isGoogleMaps ? t("لا تحتاج إدخال حقول هنا. اضغط ربط Google واختر حساب النشاط التجاري، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة.", "You don't need to fill in any fields here. Click Connect Google and choose the business account, and the connection data will be saved automatically after approval.") : isYoutube ? t("لا تحتاج إدخال حقول هنا. اضغط ربط يوتيوب واختر القناة، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة.", "You don't need to fill in any fields here. Click Connect YouTube and choose the channel, and the connection data will be saved automatically after approval.") : isLinkedin ? t("لا تحتاج إدخال حقول هنا. اضغط ربط لينكد إن واختر الصفحة، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة.", "You don't need to fill in any fields here. Click Connect LinkedIn and choose the page, and the connection data will be saved automatically after approval.") : isSnapchat ? t("لا تحتاج إدخال حقول هنا. اضغط ربط سناب شات واختر الحساب الإعلاني، وسيتم حفظ بيانات الربط تلقائياً بعد الموافقة.", "You don't need to fill in any fields here. Click Connect Snapchat and choose the ad account, and the connection data will be saved automatically after approval.") : isX ? t("بيانات حسابك المرتبط تظهر هنا تلقائيًا بعد الضغط على ربط X بالأعلى.", "Your connected account details appear here automatically after clicking Connect X above.") : isTikTok ? t("احفظ بيانات تطبيق TikTok الآن؛ الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging.", "Save the TikTok app details now; actual sending and receiving starts once TikTok approves Business Messaging access.") : isSms ? t("بيانات Unifonic لإرسال رسائل SMS للعملاء. استقبال الردود قيد التجهيز.", "Unifonic details for sending SMS messages to customers. Receiving replies is still being built.") : isTelegram ? t("هذه البيانات تحفظ ربط Telegram وتفعّل الويبهوك تلقائياً لاستقبال الرسائل داخل المنصة.", "This data saves the Telegram connection and activates the webhook automatically to receive messages in the platform.") : isFacebook ? t("هذه البيانات تحفظ صفحة Facebook وتستخدم في استقبال وإرسال رسائل Messenger داخل المنصة.", "This data saves the Facebook page and is used to send and receive Messenger messages in the platform.") : isInstagram ? t("هذه البيانات تحفظ ربط Instagram وتستخدم في استقبال الرسائل والتعليقات داخل المنصة.", "This data saves the Instagram connection and is used to receive messages and comments in the platform.") : t("اربط حساب واتساب من نافذة Meta. سيتم حفظ بيانات الحساب والرقم تلقائياً بعد اكتمال الربط.", "Connect a WhatsApp account from the Meta window. The account and number details will be saved automatically once the connection is complete.")}</p>
             </div>
             {!isWebsite ? <button className="soft-action" disabled={saving || loading} type="button" onClick={resetIntegrationData}>
               {t("مسح بيانات الربط", "Clear connection data")}
             </button> : null}
-            {!isGoogleMaps && !isYoutube && !isLinkedin && !isWhatsApp && !isX && !isWebsite && !(hideManualEmailSetup) ? <button className="primary-action" disabled={saving || loading} type="submit">
+            {!isGoogleMaps && !isYoutube && !isLinkedin && !isSnapchat && !isWhatsApp && !isX && !isWebsite && !(hideManualEmailSetup) ? <button className="primary-action" disabled={saving || loading} type="submit">
               {saving ? t("جاري الحفظ...", "Saving...") : t("حفظ الإعدادات", "Save settings")}
             </button> : null}
             {isWhatsApp ? <button className="primary-action" disabled={saving || loading} type="button" onClick={async () => { setSaving(true); await persistSettings(); setSaving(false); }}>
@@ -1700,7 +1770,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             </div>
           ) : null}
 
-          {!isGoogleMaps && !isYoutube && !isLinkedin && !isWebsite && !isGmail ? <div className="settings-fields">
+          {!isGoogleMaps && !isYoutube && !isLinkedin && !isSnapchat && !isWebsite && !isGmail ? <div className="settings-fields">
             {!isWhatsApp && !isX && !isTelegram && !isEmail ? <label>
               {t("اسم النشاط التجاري", "Business name")}
               <input value={settings.businessName} onChange={(event) => updateField("businessName", event.target.value)} />
@@ -1900,7 +1970,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             {businessProfileFeedback && <p className={`meta-test-feedback ${businessProfileFeedback.type}`}>{businessProfileFeedback.text}</p>}
           </div> : null}
 
-          {!isInstagram && !isFacebook && !isTelegram && !isX && !isGoogleMaps && !isYoutube && !isLinkedin && !isEmail && !isWebsite && !isTikTok && !isSms && settings.status === "connected" ? <div className="meta-test-card">
+          {!isInstagram && !isFacebook && !isTelegram && !isX && !isGoogleMaps && !isYoutube && !isLinkedin && !isSnapchat && !isEmail && !isWebsite && !isTikTok && !isSms && settings.status === "connected" ? <div className="meta-test-card">
             <div>
               <h3>{t("تجربة رقم التست", "Test number trial")}</h3>
               <p>{t("أضف رقمك في قائمة أرقام الاختبار داخل Meta، ثم أرسل رسالة للتأكد من الإرسال والاستقبال.", "Add your number to the test number list in Meta, then send a message to confirm sending and receiving work.")}</p>
@@ -1971,7 +2041,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             ) : null}
           </div> : null}
 
-          {!isGoogleMaps && !isYoutube && !isLinkedin && !isWebsite && !isInstagram && !isFacebook && !isWhatsApp && !isX && !isGmail && !isTikTok ? <div className="webhook-card">
+          {!isGoogleMaps && !isYoutube && !isLinkedin && !isSnapchat && !isWebsite && !isInstagram && !isFacebook && !isWhatsApp && !isX && !isGmail && !isTikTok ? <div className="webhook-card">
             <div>
               <h3>{t("إعدادات الويب هوك", "Webhook settings")} — {isZapier ? "Zapier" : isEmail ? (isGmail ? t(channelNames.gmail.ar, channelNames.gmail.en) : t(channelNames.email.ar, channelNames.email.en)) : isTikTok ? t(channelNames.tiktok.ar, channelNames.tiktok.en) : isSms ? t(channelNames.sms.ar, channelNames.sms.en) : isX ? t(channelNames.x.ar, channelNames.x.en) : isTelegram ? t(channelNames.telegram.ar, channelNames.telegram.en) : isFacebook ? t(channelNames.facebook.ar, channelNames.facebook.en) : isInstagram ? t(channelNames.instagram.ar, channelNames.instagram.en) : t(channelNames.whatsapp.ar, channelNames.whatsapp.en)}</h3>
               <p>{isEmail ? t("انسخ هذا الرابط مع Secret Token وضعه في Zapier أو Make أو مزود البريد لإرسال الرسائل الواردة إلى المنصة.", "Copy this link along with the Secret Token and add it to Zapier, Make, or your email provider to send inbound messages to the platform.") : isGoogleMaps ? t("هذا الرابط يستخدمه النظام لمزامنة تقييمات Google عند الطلب أو بشكل دوري داخل المنصة.", "The system uses this link to sync Google reviews on demand or periodically within the platform.") : isX ? t("استخدم هذا الرابط كـ Webhook URL في X عند توفر Account Activity API. Webhook Secret يحمي الطلبات.", "Use this link as the Webhook URL in X when the Account Activity API is available. The Webhook Secret protects the requests.") : isTelegram ? t("سيتم تفعيل هذا الرابط تلقائياً في Telegram عند حفظ Bot Token. Secret Token يحمي الويبهوك من الطلبات غير المعروفة.", "This link will be activated automatically in Telegram once you save the Bot Token. The Secret Token protects the webhook from unknown requests.") : isFacebook ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل Facebook Messenger.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Facebook Messenger messages.") : isInstagram ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل وتعليقات Instagram.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive Instagram messages and comments.") : isTikTok ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق TikTok لاستقبال رسائل وتعليقات TikTok بعد موافقة Business Messaging.", "Copy the webhook link and Verify Token and add them to your TikTok app settings to receive TikTok messages and comments once Business Messaging is approved.") : isSms ? t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات Unifonic لاستقبال ردود العملاء عبر SMS.", "Copy the webhook link and Verify Token and add them to your Unifonic settings to receive customer replies via SMS.") : t("انسخ رابط الويبهوك و Verify Token وضعها في إعدادات تطبيق Meta لاستقبال رسائل WhatsApp.", "Copy the webhook link and Verify Token and add them to your Meta app settings to receive WhatsApp messages.")}</p>

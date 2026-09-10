@@ -2,9 +2,9 @@ import { randomBytes, randomUUID, createHmac } from "crypto";
 import { prisma } from "./prisma";
 import { encryptSecret, decryptSecret } from "./secret-storage";
 
-export type WebhookEvent = "message.received" | "conversation.closed";
+export type WebhookEvent = "message.received" | "conversation.closed" | "lead.created";
 
-const VALID_EVENTS: WebhookEvent[] = ["message.received", "conversation.closed"];
+const VALID_EVENTS: WebhookEvent[] = ["message.received", "conversation.closed", "lead.created"];
 
 function parseEvents(value: string): string[] {
   try {

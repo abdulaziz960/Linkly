@@ -5,6 +5,7 @@ import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { prisma } from "../../../lib/prisma";
 import { jsonError, jsonOk } from "../_utils/json";
+import { logAdminAction, getTenantCompanyName } from "../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -46,6 +47,14 @@ export async function POST(request: NextRequest) {
     },
     include: { members: true }
   });
+
+  await logAdminAction(
+    user.tenantId,
+    await getTenantCompanyName(user.tenantId),
+    `تم إنشاء فريق "${name}" بواسطة ${user.name}.`,
+    "معلومة",
+    "الفرق"
+  );
 
   return jsonOk(team);
 }
