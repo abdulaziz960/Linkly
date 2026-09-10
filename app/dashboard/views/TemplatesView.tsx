@@ -23,7 +23,25 @@ type TemplateFormState = {
   buttonUrl: string;
   lastUsed: string;
   editing: boolean;
+  bodyExamples: Record<string, string>;
 };
+
+// Meta rejects a template whose body starts or ends with a variable outright
+// (no preview can render around it) - catching it here saves a round trip
+// to their API for a mistake the create/edit form can flag immediately.
+const edgePlaceholderPattern = /^\s*\{\{\s*[a-zA-Z0-9_]+\s*\}\}|\{\{\s*[a-zA-Z0-9_]+\s*\}\}\s*$/;
+
+function extractPlaceholders(text: string) {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const match of text.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)) {
+    if (!seen.has(match[1])) {
+      seen.add(match[1]);
+      ordered.push(match[1]);
+    }
+  }
+  return ordered;
+}
 
 const languages = [
   { label: "Arabic", value: "ar" },
@@ -67,7 +85,8 @@ export default function TemplatesView({
       buttonPhone: "",
       buttonUrl: "",
       lastUsed: "-",
-      editing: false
+      editing: false,
+      bodyExamples: {}
     }),
     []
   );
@@ -78,6 +97,7 @@ export default function TemplatesView({
   const [error, setError] = useState("");
   const [syncNotice, setSyncNotice] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
+  const bodyPlaceholders = useMemo(() => extractPlaceholders(form.message), [form.message]);
 
   function handleHeaderImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -124,15 +144,22 @@ export default function TemplatesView({
       buttonPhone: template.buttonPhone || "",
       buttonUrl: template.buttonUrl || "",
       lastUsed: template.lastUsed || "-",
-      editing: true
+      editing: true,
+      bodyExamples: {}
     });
     setFormOpen(true);
   }
 
   async function submitTemplate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSaving(true);
     setError("");
+
+    if (edgePlaceholderPattern.test(form.message)) {
+      setError(t("يجب ألا تكون المتغيرات في بداية القالب أو نهايته - أضف كلمة أو رمز قبل أول متغير وبعد آخر متغير.", "Variables can't be at the very start or end of the template - add a word or character before the first and after the last one."));
+      return;
+    }
+
+    setSaving(true);
 
     const response = await fetch(form.editing ? `/api/templates/${encodeURIComponent(form.name)}` : "/api/templates", {
       method: form.editing ? "PATCH" : "POST",
@@ -399,6 +426,21 @@ export default function TemplatesView({
                       required
                     />
                   </div>
+                  {bodyPlaceholders.length ? (
+                    <div className="template-variable-examples">
+                      <small className="field-hint">{t("أضف عينة لكل متغير حتى تتمكن Meta من مراجعة القالب - تُستخدم للمراجعة فقط ولن تُرسل إلى عملائك.", "Add a sample for each variable so Meta can review the template - used for review only, never sent to your customers.")}</small>
+                      {bodyPlaceholders.map((placeholder) => (
+                        <label key={placeholder}>
+                          <span dir="ltr">{`{{${placeholder}}}`}</span>
+                          <input
+                            value={form.bodyExamples[placeholder] || ""}
+                            onChange={(event) => setForm((current) => ({ ...current, bodyExamples: { ...current.bodyExamples, [placeholder]: event.target.value } }))}
+                            placeholder={t("مثال: محمد", "Example: Mohammed")}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="template-section">

@@ -1687,6 +1687,24 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   background: var(--surface-soft);
 }
 
+.template-variable-examples {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.template-variable-examples label {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.template-variable-examples label span {
+  font-weight: 900;
+  color: var(--text-secondary);
+}
+
 .template-toolbar {
   display: flex;
   align-items: center;
