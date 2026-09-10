@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 
 type RouteContext = {
   params: Promise<{
@@ -61,6 +62,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       });
     });
 
+    await logAdminAction(
+      user.tenantId,
+      await getTenantCompanyName(user.tenantId),
+      `تم تعديل فريق "${name}" بواسطة ${user.name}.`,
+      "معلومة",
+      "الفرق"
+    );
+
     return jsonOk(team);
   } catch {
     return jsonError("تعذر تحديث الفريق", 404);
@@ -81,6 +90,14 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       prisma.teamMember.deleteMany({ where: { teamId: id, team: { tenantId: user.tenantId } } }),
       prisma.team.deleteMany({ where: { id, tenantId: user.tenantId } })
     ]);
+
+    await logAdminAction(
+      user.tenantId,
+      await getTenantCompanyName(user.tenantId),
+      `تم حذف فريق "${existing.name}" بواسطة ${user.name}.`,
+      "تنبيه",
+      "الفرق"
+    );
 
     return jsonOk({ id });
   } catch {

@@ -17,6 +17,7 @@ import {
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { getSegmentById, resolveSegmentRecipients } from "../../../lib/segments";
 import { jsonError, jsonOk } from "../_utils/json";
+import { logAdminAction, getTenantCompanyName } from "../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -165,6 +166,14 @@ export async function POST(request: NextRequest) {
   const balanceWarning = !isScheduledFuture && balance < recipients.length
     ? `تنبيه: رصيدك الحالي (${balance.toLocaleString("en-US")} رسالة) أقل من عدد المستلمين (${recipients.length.toLocaleString("en-US")}). بيتم الإرسال حسب الرصيد المتاح فقط وتتوقف الحملة بعده.`
     : undefined;
+
+  await logAdminAction(
+    user.tenantId,
+    await getTenantCompanyName(user.tenantId),
+    `تم إنشاء حملة "${name}" (${recipients.length.toLocaleString("en-US")} مستلم) بواسطة ${user.name}.`,
+    "معلومة",
+    "الحملات"
+  );
 
   return jsonOk({ ...campaign, balanceWarning });
 }
