@@ -16,6 +16,7 @@ export type ViewKey =
   | "teams"
   | "employees"
   | "settings"
+  | "integrations"
   | "developers"
   | "branding";
 
