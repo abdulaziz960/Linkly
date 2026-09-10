@@ -10,6 +10,7 @@ import { prisma } from "../../../lib/prisma";
 import { jsonError, jsonOk } from "../_utils/json";
 import { isValidEmail } from "../../../lib/validation";
 import { getAppOrigin } from "../../../lib/app-url";
+import { logAdminAction, getTenantCompanyName } from "../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -152,6 +153,14 @@ export async function POST(request: NextRequest) {
 
   const activationUrl = `${origin}/activate?token=${activationToken}`;
   const inviteDelivery = await sendActivationEmail({ to: email, name, activationUrl });
+
+  await logAdminAction(
+    user.tenantId,
+    await getTenantCompanyName(user.tenantId),
+    `تمت إضافة الموظف "${name}" (${email}) بواسطة ${user.name}.`,
+    "معلومة",
+    "الموظفون"
+  );
 
   return jsonOk({ ...employee, inviteDelivery });
 }

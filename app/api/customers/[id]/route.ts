@@ -4,6 +4,7 @@ import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
 import { isValidSaudiPhone } from "../../../../lib/validation";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 
 type RouteContext = {
   params: Promise<{
@@ -44,6 +45,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     });
     const customer = await prisma.customer.findFirst({ where: { id, tenantId: user.tenantId } });
+
+    await logAdminAction(
+      user.tenantId,
+      await getTenantCompanyName(user.tenantId),
+      `تم تعديل بيانات العميل "${name}" بواسطة ${user.name}.`,
+      "معلومة",
+      "العملاء"
+    );
 
     return jsonOk(customer);
   } catch {
