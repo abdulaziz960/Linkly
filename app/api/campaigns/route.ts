@@ -54,9 +54,23 @@ export async function POST(request: NextRequest) {
   const segmentId = String(formData.get("segmentId") || "").trim();
   const file = formData.get("file");
   const headerMediaFile = formData.get("headerMedia");
+  // Link tracking isn't threaded through CampaignRecurrence yet, so it's
+  // only offered (and only takes effect) for one-off campaigns - the
+  // dashboard form hides the checkbox once "recurring" is checked.
+  const linkTrackingEnabled = !recurring && formData.get("linkTrackingEnabled") === "true";
+  const destinationUrl = String(formData.get("destinationUrl") || "").trim();
 
   if (recurring && !ALLOWED_RECURRENCE_INTERVAL_DAYS.has(recurrenceIntervalDays)) {
     return jsonError("اختر فترة تكرار صحيحة");
+  }
+
+  if (linkTrackingEnabled) {
+    if (!destinationUrl) return jsonError("أدخل رابط الوجهة بعد الضغط لتفعيل تتبع الروابط");
+    try {
+      new URL(destinationUrl);
+    } catch {
+      return jsonError("رابط الوجهة غير صحيح");
+    }
   }
 
   if (!name) return jsonError("اسم الحملة مطلوب");
@@ -152,7 +166,9 @@ export async function POST(request: NextRequest) {
       headerMediaDataUrl,
       recipients,
       status: isScheduledFuture ? "مجدولة" : "قيد الإرسال",
-      scheduledAt: isScheduledFuture && scheduledDate ? scheduledDate.toISOString() : ""
+      scheduledAt: isScheduledFuture && scheduledDate ? scheduledDate.toISOString() : "",
+      linkTrackingEnabled,
+      destinationUrl
     }));
   }
 

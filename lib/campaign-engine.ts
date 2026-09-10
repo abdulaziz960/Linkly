@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema, getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
+import { getAppOrigin } from "./app-url";
 import type { Prisma } from "@prisma/client";
 
 export type ParsedRecipient = { phone: string; name: string };
@@ -281,6 +282,8 @@ export async function spawnCampaignOccurrence(tx: Prisma.TransactionClient, para
   status: string;
   scheduledAt?: string;
   recurrenceId?: string;
+  linkTrackingEnabled?: boolean;
+  destinationUrl?: string;
 }): Promise<string> {
   const campaignId = `camp-${randomUUID()}`;
   await tx.campaign.create({
@@ -298,6 +301,8 @@ export async function spawnCampaignOccurrence(tx: Prisma.TransactionClient, para
       progress: "0%",
       status: params.status,
       recurrenceId: params.recurrenceId || "",
+      linkTrackingEnabled: params.linkTrackingEnabled ? 1 : 0,
+      destinationUrl: params.destinationUrl || "",
       updatedAt: new Date().toLocaleString("en-US")
     }
   });
@@ -467,6 +472,17 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
         continue;
       }
 
+      // With link tracking on, the template's single body placeholder
+      // carries this recipient's own tracking link instead of their name -
+      // sendWhatsAppTemplate fills every placeholder with whatever value it
+      // gets, so this is the one integration point needed to swap it in.
+      let trackingCode = "";
+      let bodyValue = recipient.name;
+      if (campaign.linkTrackingEnabled) {
+        trackingCode = randomUUID().replace(/-/g, "");
+        bodyValue = `${getAppOrigin()}/api/campaigns/t/${trackingCode}`;
+      }
+
       let result: Awaited<ReturnType<typeof sendWhatsAppTemplate>>;
       try {
         result = await sendWhatsAppTemplate(
@@ -474,7 +490,7 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
           recipient.phone,
           campaign.templateName,
           campaign.language || "ar",
-          recipient.name,
+          bodyValue,
           campaign.id,
           Boolean(campaign.headerMediaDataUrl)
         );
@@ -490,7 +506,7 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
       if (result.ok) {
         await prisma.campaignRecipient.update({
           where: { id: recipient.id },
-          data: { status: "تم الإرسال", messageId: result.messageId, sentAt: new Date().toISOString(), error: "" }
+          data: { status: "تم الإرسال", messageId: result.messageId, sentAt: new Date().toISOString(), error: "", trackingCode }
         });
         await prisma.campaign.update({
           where: { id: campaign.id },

@@ -434,6 +434,17 @@ export async function POST(request: NextRequest) {
         } catch (error) {
           console.error("Failed to persist WhatsApp delivery status", error);
         }
+
+        if (status.status === "read") {
+          try {
+            await prisma.campaignRecipient.updateMany({
+              where: { messageId: status.id, tenantId: whatsappAccount.tenantId, readAt: "" },
+              data: { readAt: new Date().toISOString() }
+            });
+          } catch (error) {
+            console.error("Failed to stamp campaign recipient read status", error);
+          }
+        }
       }
 
       for (const message of messages) {
