@@ -6930,6 +6930,16 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   stroke: none;
 }
 
+.channel-icon-snapchat {
+  background: #fffab8 !important;
+  color: #262626 !important;
+}
+
+.channel-icon-snapchat svg {
+  fill: currentColor;
+  stroke: none;
+}
+
 .channel-icon-youtube {
   background: #fee2e2 !important;
   color: #ff0000 !important;

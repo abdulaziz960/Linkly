@@ -444,6 +444,12 @@ model IntegrationSetting {
   linkedinRefreshToken String @default("") @map("linkedin_refresh_token")
   linkedinTokenExpiresAt String @default("") @map("linkedin_token_expires_at")
   linkedinCommentsSyncedAt String @default("") @map("linkedin_comments_synced_at")
+  snapchatAdAccountId String @default("") @map("snapchat_ad_account_id")
+  snapchatOrganizationId String @default("") @map("snapchat_organization_id")
+  snapchatOrgName String @default("") @map("snapchat_org_name")
+  snapchatRefreshToken String @default("") @map("snapchat_refresh_token")
+  snapchatTokenExpiresAt String @default("") @map("snapchat_token_expires_at")
+  snapchatLeadsSyncedAt String @default("") @map("snapchat_leads_synced_at")
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 
@@ -452,7 +458,31 @@ model IntegrationSetting {
   @@index([tenantId, provider])
   @@index([provider, wabaId])
   @@index([provider, phoneNumberId])
+  @@index([provider, snapchatAdAccountId])
   @@map("integration_settings")
+}
+
+model Lead {
+  id             String @id
+  tenantId       String @map("tenant_id")
+  customerId     String @map("customer_id")
+  conversationId String @default("") @map("conversation_id")
+  source         String
+  sourceId       String @default("") @map("source_id")
+  formId         String @default("") @map("form_id")
+  formName       String @default("") @map("form_name")
+  campaignId     String @default("") @map("campaign_id")
+  adAccountId    String @default("") @map("ad_account_id")
+  name           String @default("")
+  phone          String @default("")
+  email          String @default("")
+  answersJson    String @default("") @map("answers_json")
+  createdAt      String @map("created_at")
+
+  @@index([tenantId])
+  @@index([tenantId, source])
+  @@index([tenantId, createdAt])
+  @@map("leads")
 }
 
 model UserAccount {
