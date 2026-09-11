@@ -605,6 +605,12 @@ model Plan {
   employeeLimit Int    @default(1) @map("employee_limit")
   sortOrder     Int    @default(0) @map("sort_order")
   active        Int    @default(1)
+  // 0 means the AI Copilot isn't included in this plan at all - the
+  // Linkly-managed (platform-key) mode only ever activates for a tenant
+  // whose current plan has a positive daily limit. Tenants can still bring
+  // their own API key on any plan (see AiWorkspaceSetting), unaffected by this.
+  aiDailyLimit   Int @default(0) @map("ai_daily_limit")
+  aiMonthlyLimit Int @default(0) @map("ai_monthly_limit")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 

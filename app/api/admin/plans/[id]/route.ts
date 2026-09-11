@@ -14,6 +14,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     monthlyPrice?: number;
     employeeLimit?: number;
     active?: boolean;
+    aiDailyLimit?: number;
+    aiMonthlyLimit?: number;
   };
 
   try {
