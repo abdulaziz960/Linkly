@@ -9,6 +9,7 @@ import { sendXTextMessage } from "./x-send";
 import { sendWebsiteTextMessage } from "./website-send";
 import { pickTeamAssignee } from "./automation-engine";
 import { findBestKbMatch } from "./knowledge-base";
+import { runWorkspaceAi } from "./workspace-ai";
 
 export type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x" | "website";
 
@@ -26,7 +27,15 @@ export type BotNodeContent =
   | { kind: "team"; teamName: string }
   | { kind: "employee"; employeeName: string }
   | { kind: "close"; text: string }
-  | { kind: "knowledgeBase"; noMatchText: string; next: string | null };
+  | { kind: "knowledgeBase"; noMatchText: string; next: string | null }
+  // Fully autonomous - answers with the tenant's own "مساعد AI" (see
+  // lib/workspace-ai.ts) instead of a human approving a suggestion first.
+  // `next` only fires when the AI has nothing to say (disabled, no key,
+  // over its usage limit) - a fallback route, e.g. to a human/team node.
+  // A successful answer keeps the conversation "waiting" at this same node
+  // (see runChannelBot) so every further customer message gets answered by
+  // AI too, instead of running once and going silent.
+  | { kind: "aiReply"; next: string | null };
 
 export type BotNodeInput = {
   id?: string;
@@ -53,6 +62,7 @@ const TEAM_NODE_TYPE = "تحويل لفريق";
 const EMPLOYEE_NODE_TYPE = "تحويل لموظف";
 const CLOSE_NODE_TYPE = "إغلاق المحادثة";
 const KNOWLEDGE_BASE_NODE_TYPE = "رد من قاعدة المعرفة";
+const AI_REPLY_NODE_TYPE = "رد AI تلقائي";
 
 function settingsId(tenantId: string, channel: BotChannel) {
   return `bot-settings-${tenantId}-${channel}`;
@@ -154,7 +164,7 @@ export async function getBotNodes(tenantId = "tenant-demo", channel: BotChannel 
 }
 
 function remapNodeLinks(content: BotNodeContent, idMap: Map<string, string>): BotNodeContent {
-  if (content.kind === "message" || content.kind === "knowledgeBase") {
+  if (content.kind === "message" || content.kind === "knowledgeBase" || content.kind === "aiReply") {
     return { ...content, next: content.next ? idMap.get(content.next) || content.next : null };
   }
   if (content.kind === "list") {
@@ -341,6 +351,32 @@ export async function sendBotText(channel: BotChannel, args: { tenantId: string;
   });
 }
 
+const AI_REPLY_BOT_USER_ID = "bot-ai-reply";
+
+async function getAiReplyText(tenantId: string, conversationId: string): Promise<string | null> {
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    include: { customer: true }
+  });
+  if (!conversation) return null;
+
+  const messages = await prisma.message.findMany({
+    where: { conversationId },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { direction: true, text: true },
+    take: 50
+  });
+
+  const result = await runWorkspaceAi(tenantId, AI_REPLY_BOT_USER_ID, conversationId, {
+    messages: messages.reverse().map((message) => ({ direction: message.direction as "in" | "out" | "note", text: message.text })),
+    customerName: conversation.customer.name,
+    language: "ar",
+    operation: "reply"
+  });
+
+  return result.suggestion?.trim() || null;
+}
+
 // Runs a single step, then follows its explicit "next" connection (drawn on
 // the canvas) rather than falling through array order - a step with no
 // outgoing connection simply stops there instead of guessing.
@@ -409,6 +445,24 @@ async function executeFrom(
       continue;
     }
 
+    if (node.type === AI_REPLY_NODE_TYPE && node.content.kind === "aiReply") {
+      const suggestion = await getAiReplyText(ctx.tenantId, ctx.conversationId);
+      if (suggestion) {
+        await sendBotText(channel, { ...ctx, text: suggestion });
+        // Stays "waiting" here (not advancing to `next`) so every further
+        // customer message keeps getting answered by AI too, the same way
+        // a list node waits for the customer's tap instead of the flow
+        // continuing on its own.
+        await prisma.conversation.update({
+          where: { id: ctx.conversationId },
+          data: { botWaitingNodeId: node.id }
+        });
+        return;
+      }
+      currentId = node.content.next;
+      continue;
+    }
+
     if (node.type === CLOSE_NODE_TYPE && node.content.kind === "close") {
       if (node.content.text.trim()) {
         await sendBotText(channel, { ...ctx, text: node.content.text });
@@ -466,6 +520,16 @@ export async function runChannelBot(
     const waitingNode = nodes.find((node) => node.id === waitingId);
     if (!waitingNode) {
       await prisma.conversation.updateMany({ where: { id: input.conversationId, botWaitingNodeId: waitingId }, data: { botWaitingNodeId: "" } });
+      return;
+    }
+
+    if (waitingNode.content.kind === "aiReply") {
+      const claimed = await prisma.conversation.updateMany({
+        where: { id: input.conversationId, botWaitingNodeId: waitingId },
+        data: { botWaitingNodeId: "" }
+      });
+      if (claimed.count === 0) return;
+      await executeFrom(channel, nodes, waitingId, ctx);
       return;
     }
 
