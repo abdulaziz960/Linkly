@@ -403,6 +403,12 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS campaign_recipients_tracking_code_idx ON campaign_recipients(tracking_code)`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE plans ADD COLUMN IF NOT EXISTS ai_daily_limit INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE plans ADD COLUMN IF NOT EXISTS ai_monthly_limit INTEGER NOT NULL DEFAULT 0`
+  );
 
   // Workspace AI settings/usage tables - added directly here, not the
   // disabled legacy block, per the closed_at lesson above.
@@ -1612,6 +1618,12 @@ async function runSchemaMigrations() {
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
+  const planColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(plans)`);
+  for (const columnName of ["ai_daily_limit", "ai_monthly_limit"]) {
+    if (!planColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN ${columnName} INTEGER NOT NULL DEFAULT 0`);
+    }
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL UNIQUE,

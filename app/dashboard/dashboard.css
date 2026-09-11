@@ -9848,6 +9848,22 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   font-weight: 800;
 }
 
+.ai-managed-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 740px;
+  margin-block-end: 16px;
+  padding: 16px 18px;
+  border: 1px solid #b9d9d5;
+  border-radius: 14px;
+  background: #f2f9f7;
+}
+.ai-managed-panel h3 { margin: 0 0 4px; }
+.ai-managed-panel p { margin: 0; color: #476b67; }
+.ai-managed-warning { color: #a06b1e !important; }
+
 .ai-settings-form {
   display: grid;
   gap: 16px;

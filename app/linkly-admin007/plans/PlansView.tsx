@@ -21,6 +21,8 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
   const [editPlan, setEditPlan] = useState<PlanRow | null>(null);
   const [editPlanPrice, setEditPlanPrice] = useState("");
   const [editPlanLimit, setEditPlanLimit] = useState("");
+  const [editPlanAiDailyLimit, setEditPlanAiDailyLimit] = useState("0");
+  const [editPlanAiMonthlyLimit, setEditPlanAiMonthlyLimit] = useState("0");
   const [editPlanActive, setEditPlanActive] = useState(true);
   const [isEditPlanSaving, setIsEditPlanSaving] = useState(false);
   const [editPlanError, setEditPlanError] = useState("");
@@ -39,7 +41,9 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
     const payload = {
       name: String(formData.get("name") || ""),
       monthlyPrice: Number(formData.get("monthlyPrice") || 0),
-      employeeLimit: Number(formData.get("employeeLimit") || 1)
+      employeeLimit: Number(formData.get("employeeLimit") || 1),
+      aiDailyLimit: Number(formData.get("aiDailyLimit") || 0),
+      aiMonthlyLimit: Number(formData.get("aiMonthlyLimit") || 0)
     };
 
     const response = await fetch("/api/admin/plans", {
@@ -64,6 +68,8 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
     setEditPlan(plan);
     setEditPlanPrice(String(plan.monthlyPrice));
     setEditPlanLimit(String(plan.employeeLimit));
+    setEditPlanAiDailyLimit(String(plan.aiDailyLimit));
+    setEditPlanAiMonthlyLimit(String(plan.aiMonthlyLimit));
     setEditPlanActive(plan.active === 1);
     setEditPlanError("");
   }
@@ -74,8 +80,15 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
 
     const monthlyPrice = Number(editPlanPrice);
     const employeeLimit = Number(editPlanLimit);
-    if (!Number.isFinite(monthlyPrice) || monthlyPrice < 0 || !Number.isFinite(employeeLimit) || employeeLimit < 1) {
-      setEditPlanError(t("تحقق من السعر وحد المستخدمين", "Check the price and user limit"));
+    const aiDailyLimit = Number(editPlanAiDailyLimit);
+    const aiMonthlyLimit = Number(editPlanAiMonthlyLimit);
+    if (
+      !Number.isFinite(monthlyPrice) || monthlyPrice < 0 ||
+      !Number.isFinite(employeeLimit) || employeeLimit < 1 ||
+      !Number.isFinite(aiDailyLimit) || aiDailyLimit < 0 ||
+      !Number.isFinite(aiMonthlyLimit) || aiMonthlyLimit < 0
+    ) {
+      setEditPlanError(t("تحقق من السعر وحد المستخدمين وحدود الذكاء الاصطناعي", "Check the price, user limit, and AI limits"));
       return;
     }
 
@@ -85,7 +98,7 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
     const response = await fetch(`/api/admin/plans/${editPlan.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ monthlyPrice, employeeLimit, active: editPlanActive })
+      body: JSON.stringify({ monthlyPrice, employeeLimit, aiDailyLimit, aiMonthlyLimit, active: editPlanActive })
     });
     const result = (await response.json()) as { ok: boolean; error?: string };
 
@@ -178,6 +191,10 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
                     <strong>{formatNumber(plan.employeeLimit)}</strong>
                   </li>
                   <li>
+                    <span>{t("مساعد AI", "AI Copilot")}</span>
+                    <strong>{plan.aiDailyLimit > 0 ? t(`${formatNumber(plan.aiDailyLimit)} يوميًا`, `${formatNumber(plan.aiDailyLimit)}/day`) : t("غير متاح", "Not included")}</strong>
+                  </li>
+                  <li>
                     <span>{t("المشتركون", "Subscribers")}</span>
                     <strong>{formatNumber(subscribers)}</strong>
                   </li>
@@ -218,6 +235,14 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
               <label>
                 {t("حد المستخدمين", "User limit")}
                 <input name="employeeLimit" type="number" min="1" defaultValue="1" required />
+              </label>
+              <label>
+                {t("حد مساعد AI اليومي (0 = غير متاح بهذي الباقة)", "AI Copilot daily limit (0 = not included in this plan)")}
+                <input name="aiDailyLimit" type="number" min="0" defaultValue="0" />
+              </label>
+              <label>
+                {t("حد مساعد AI الشهري", "AI Copilot monthly limit")}
+                <input name="aiMonthlyLimit" type="number" min="0" defaultValue="0" />
               </label>
 
               {planFormError ? <p className="admin-form-error">{planFormError}</p> : null}
@@ -268,6 +293,24 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
                   min="1"
                   value={editPlanLimit}
                   onChange={(event) => setEditPlanLimit(event.target.value)}
+                />
+              </label>
+              <label>
+                {t("حد مساعد AI اليومي (0 = غير متاح بهذي الباقة)", "AI Copilot daily limit (0 = not included in this plan)")}
+                <input
+                  type="number"
+                  min="0"
+                  value={editPlanAiDailyLimit}
+                  onChange={(event) => setEditPlanAiDailyLimit(event.target.value)}
+                />
+              </label>
+              <label>
+                {t("حد مساعد AI الشهري", "AI Copilot monthly limit")}
+                <input
+                  type="number"
+                  min="0"
+                  value={editPlanAiMonthlyLimit}
+                  onChange={(event) => setEditPlanAiMonthlyLimit(event.target.value)}
                 />
               </label>
               <label className="admin-checkbox-label">

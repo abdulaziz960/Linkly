@@ -20,13 +20,17 @@ export async function POST(request: NextRequest) {
     name?: string;
     monthlyPrice?: number;
     employeeLimit?: number;
+    aiDailyLimit?: number;
+    aiMonthlyLimit?: number;
   };
 
   try {
     const plan = await createPlan({
       name: body.name || "",
       monthlyPrice: Number(body.monthlyPrice ?? 0),
-      employeeLimit: Number(body.employeeLimit ?? 1)
+      employeeLimit: Number(body.employeeLimit ?? 1),
+      aiDailyLimit: Number(body.aiDailyLimit ?? 0),
+      aiMonthlyLimit: Number(body.aiMonthlyLimit ?? 0)
     });
     return jsonOk(plan);
   } catch (error) {
