@@ -161,4 +161,69 @@ describe("Campaign link-click tracking end-to-end", () => {
     expect(invalidCodeResponse.status).toBe(307);
     expect(invalidCodeResponse.headers.get("location")).toBe("https://linklysa.test/");
   });
+
+  it("sends the tracking link on a dynamic URL button instead of body text when the template has one", async () => {
+    const tenantIdButton = "tenant-link-tracking-button";
+    const phoneNumberIdButton = "test-phone-number-id-button";
+    const recipientPhoneButton = "966500000002";
+    const whatsappMessageIdButton = "wamid.TESTMESSAGE-BUTTON";
+
+    const { prisma } = await import("../lib/prisma");
+    const { encryptSecret } = await import("../lib/secret-storage");
+    const { spawnCampaignOccurrence, processCampaignBatch } = await import("../lib/campaign-engine");
+
+    await prisma.integrationSetting.create({
+      data: {
+        id: `wa-${tenantIdButton}`, tenantId: tenantIdButton, provider: "whatsapp_cloud", status: "connected",
+        businessName: "", wabaName: "", phoneNumber: "", phoneNumberId: phoneNumberIdButton, wabaId: "test-waba-id-button",
+        appId: "", configId: "", verifyToken: "", accessToken: encryptSecret("test-access-token"),
+        webhookUrl: "/api/meta/webhook", updatedAt: new Date().toISOString()
+      }
+    });
+    await prisma.campaignBalance.create({ data: { tenantId: tenantIdButton, balance: 10, updatedAt: new Date().toISOString() } });
+    // No {{..}} in the body at all - the tracking link is carried entirely
+    // by the dynamic URL button below.
+    await prisma.template.create({
+      data: {
+        id: `tmpl-${tenantIdButton}-national-day`, tenantId: tenantIdButton, name: "national_day_button", message: "أهلاً بك! لدينا عرض خاص بمناسبة اليوم الوطني.",
+        type: "تسويق", category: "MARKETING", language: "ar", status: "معتمد", headerType: "NONE",
+        headerText: "", headerMedia: "", footer: "", buttonType: "URL", buttonText: "تفضل بالضغط هنا",
+        buttonPhone: "", buttonUrl: "https://linklysa.test/api/campaigns/t/{{1}}",
+        syncedAt: "-", lastUsed: "-"
+      }
+    });
+
+    const campaignId = await prisma.$transaction((tx) => spawnCampaignOccurrence(tx, {
+      tenantId: tenantIdButton, name: "حملة الزر", templateName: "national_day_button", language: "ar", headerMediaDataUrl: "",
+      recipients: [{ phone: recipientPhoneButton, name: "عميل الزر" }], status: "قيد الإرسال",
+      linkTrackingEnabled: true, destinationUrl: "https://example.com/thanks-button"
+    }));
+
+    let sentBodyText = "";
+    let sentButtonSuffix = "";
+    const providerFetch = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      if (String(url).includes("/messages")) {
+        const body = JSON.parse(String(init?.body || "{}"));
+        const components: Array<Record<string, unknown>> = body?.template?.components || [];
+        sentBodyText = (components.find((component) => component.type === "body")?.parameters as Array<{ text?: string }> | undefined)?.[0]?.text || "";
+        const buttonComponent = components.find((component) => component.type === "button");
+        sentButtonSuffix = (buttonComponent?.parameters as Array<{ text?: string }> | undefined)?.[0]?.text || "";
+        return new Response(JSON.stringify({ messages: [{ id: whatsappMessageIdButton }] }), { status: 200 });
+      }
+      throw new Error(`Unexpected fetch call in test: ${url}`);
+    });
+    vi.stubGlobal("fetch", providerFetch);
+
+    await processCampaignBatch(tenantIdButton);
+
+    // The body text is untouched (no placeholder) - the tracking link must
+    // go on the button, not get appended to the body.
+    expect(sentBodyText).not.toContain("/api/campaigns/t/");
+    const recipient = await prisma.campaignRecipient.findFirstOrThrow({ where: { campaignId } });
+    expect(recipient.status).toBe("تم الإرسال");
+    expect(recipient.trackingCode).toBeTruthy();
+    // The button parameter is the bare suffix (Meta appends it to the
+    // template's own registered "...{{1}}" URL) - not a full URL.
+    expect(sentButtonSuffix).toBe(recipient.trackingCode);
+  });
 });
