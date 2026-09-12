@@ -320,6 +320,13 @@ model Segment {
   name         String
   tagNames     String @default("") @map("tag_names")
   inactiveDays Int    @default(0) @map("inactive_days")
+  // Targets customers by their engagement with one past campaign (e.g.
+  // "didn't open my last campaign") - both empty together means this
+  // condition isn't applied. sourceCampaignId is validated against the
+  // tenant's own campaigns at write time; engagementBucket mirrors
+  // engagementBucketFor()'s return values ("notOpened" | "opened" | "clicked").
+  sourceCampaignId String @default("") @map("source_campaign_id")
+  engagementBucket String @default("") @map("engagement_bucket")
   createdAt    String @map("created_at")
   updatedAt    String @map("updated_at")
 

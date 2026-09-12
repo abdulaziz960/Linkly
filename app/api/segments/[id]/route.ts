@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "../../../../lib/prisma";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
-import { deleteSegment, resolveSegmentRecipients, updateSegment } from "../../../../lib/segments";
+import { deleteSegment, resolveEngagementFields, resolveSegmentRecipients, updateSegment } from "../../../../lib/segments";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -15,7 +15,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!(await userHasViewPermission(user, "segments"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const { id } = await context.params;
-  const body = (await request.json().catch(() => null)) as { name?: string; tagNames?: string[]; inactiveDays?: number } | null;
+  const body = (await request.json().catch(() => null)) as { name?: string; tagNames?: string[]; inactiveDays?: number; sourceCampaignId?: string; engagementBucket?: string } | null;
   const name = body?.name?.trim();
   if (!name) return jsonError("اسم التقسيم مطلوب");
 
@@ -29,7 +29,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (tagNames.some((tagName) => !validTagNames.has(tagName))) return jsonError("أحد الوسوم المختارة غير موجود");
   }
 
-  const segment = await updateSegment(user.tenantId, id, { name, tagNames, inactiveDays });
+  const { sourceCampaignId, engagementBucket, error: engagementError } = await resolveEngagementFields(user.tenantId, body);
+  if (engagementError) return jsonError(engagementError);
+
+  const segment = await updateSegment(user.tenantId, id, { name, tagNames, inactiveDays, sourceCampaignId, engagementBucket });
   if (!segment) return jsonError("التقسيم غير موجود", 404);
 
   const recipientCount = (await resolveSegmentRecipients(user.tenantId, segment)).length;

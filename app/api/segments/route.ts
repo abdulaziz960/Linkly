@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
-import { createSegment, getSegments, resolveSegmentRecipients } from "../../../lib/segments";
+import { createSegment, getSegments, resolveEngagementFields, resolveSegmentRecipients } from "../../../lib/segments";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   if (!user) return jsonError("غير مصرح", 401);
   if (!(await userHasViewPermission(user, "segments"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
-  const body = (await request.json().catch(() => null)) as { name?: string; tagNames?: string[]; inactiveDays?: number } | null;
+  const body = (await request.json().catch(() => null)) as { name?: string; tagNames?: string[]; inactiveDays?: number; sourceCampaignId?: string; engagementBucket?: string } | null;
   const name = body?.name?.trim();
   if (!name) return jsonError("اسم التقسيم مطلوب");
 
@@ -40,7 +40,10 @@ export async function POST(request: NextRequest) {
     if (tagNames.some((tagName) => !validTagNames.has(tagName))) return jsonError("أحد الوسوم المختارة غير موجود");
   }
 
-  const segment = await createSegment(user.tenantId, { name, tagNames, inactiveDays });
+  const { sourceCampaignId, engagementBucket, error: engagementError } = await resolveEngagementFields(user.tenantId, body);
+  if (engagementError) return jsonError(engagementError);
+
+  const segment = await createSegment(user.tenantId, { name, tagNames, inactiveDays, sourceCampaignId, engagementBucket });
   const recipientCount = (await resolveSegmentRecipients(user.tenantId, segment)).length;
 
   return jsonOk({ ...segment, recipientCount });
