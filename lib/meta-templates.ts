@@ -17,6 +17,11 @@ type TemplateComponentData = {
   // placeholder name (e.g. "1", "2" for positional). Falls back to
   // exampleValueFor()'s generic guess for any placeholder left unset.
   bodyExamples?: Record<string, string>;
+  // Sample full URL for a dynamic URL button (buttonUrl ending in "{{1}}",
+  // e.g. "https://linklysa.io/api/campaigns/t/{{1}}") - same review-only
+  // purpose as bodyExamples, required by Meta whenever the button URL has
+  // a placeholder.
+  buttonUrlExample?: string;
 };
 
 export type MetaTemplateResult =
@@ -129,6 +134,14 @@ export function buildTemplateComponents(data: TemplateComponentData) {
     } else if (data.buttonType === "URL") {
       button.type = "URL";
       button.url = data.buttonUrl.trim();
+      // A URL button ending in "{{1}}" is a dynamic per-send suffix (this is
+      // how a campaign's per-recipient tracking link can be a real button
+      // instead of plain body text) - Meta requires a full example URL for
+      // its review UI whenever that placeholder is present, same reasoning
+      // as the body/header examples above.
+      if (/\{\{\s*1\s*\}\}\s*$/.test(button.url as string)) {
+        button.example = [data.buttonUrlExample?.trim() || (button.url as string).replace(/\{\{\s*1\s*\}\}\s*$/, "sample123")];
+      }
     } else {
       button.type = "QUICK_REPLY";
     }

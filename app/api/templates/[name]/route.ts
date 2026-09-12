@@ -38,6 +38,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     buttonUrl?: string;
     lastUsed?: string;
     bodyExamples?: Record<string, string>;
+    buttonUrlExample?: string;
   };
   const message = body.message?.trim();
 
@@ -86,7 +87,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       buttonText,
       buttonPhone,
       buttonUrl,
-      bodyExamples: body.bodyExamples
+      bodyExamples: body.bodyExamples,
+      buttonUrlExample: body.buttonUrlExample
     });
 
     if (!metaResult.ok) return jsonError(metaResult.error);
