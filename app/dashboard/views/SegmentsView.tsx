@@ -1,27 +1,37 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import type { Segment, Tag } from "../types";
+import type { Campaign, Segment, Tag } from "../types";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type SegmentFormState = {
   id?: string;
   name: string;
   tagNames: string[];
   inactiveDays: string;
+  sourceCampaignId: string;
+  engagementBucket: "" | "notOpened" | "opened" | "clicked";
 };
 
-const emptyForm: SegmentFormState = { name: "", tagNames: [], inactiveDays: "" };
+const emptyForm: SegmentFormState = { name: "", tagNames: [], inactiveDays: "", sourceCampaignId: "", engagementBucket: "" };
+
+// A segment can only target a campaign that has actually gone out - one
+// still scheduled or cancelled has no CampaignRecipient engagement data yet.
+const launchedCampaignStatuses = new Set(["قيد الإرسال", "الحملة أنجزت"]);
 
 export default function SegmentsView({ tags }: { tags: Tag[] }) {
   const { t } = useLanguage();
   const [segments, setSegments] = useState<Segment[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<SegmentFormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+
+  const launchedCampaigns = useMemo(() => campaigns.filter((campaign) => launchedCampaignStatuses.has(campaign.status)), [campaigns]);
 
   async function loadSegments() {
     setLoading(true);
@@ -35,8 +45,19 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
     setLoading(false);
   }
 
+  async function loadCampaigns() {
+    try {
+      const response = await fetch("/api/campaigns");
+      const body = await response.json().catch(() => null);
+      if (response.ok && body?.ok) setCampaigns(body.data ?? []);
+    } catch {
+      // Non-critical - campaign-engagement targeting just won't be offered.
+    }
+  }
+
   useEffect(() => {
     loadSegments();
+    loadCampaigns();
   }, []);
 
   const filteredSegments = useMemo(() => {
@@ -53,7 +74,11 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
 
   function openEditForm(segment: Segment) {
     setError("");
-    setForm({ id: segment.id, name: segment.name, tagNames: segment.tagNames, inactiveDays: segment.inactiveDays ? String(segment.inactiveDays) : "" });
+    setForm({
+      id: segment.id, name: segment.name, tagNames: segment.tagNames,
+      inactiveDays: segment.inactiveDays ? String(segment.inactiveDays) : "",
+      sourceCampaignId: segment.sourceCampaignId, engagementBucket: segment.engagementBucket
+    });
     setFormOpen(true);
   }
 
@@ -77,7 +102,9 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
       body: JSON.stringify({
         name: form.name,
         tagNames: form.tagNames,
-        inactiveDays: Number(form.inactiveDays) || 0
+        inactiveDays: Number(form.inactiveDays) || 0,
+        sourceCampaignId: form.sourceCampaignId,
+        engagementBucket: form.engagementBucket
       })
     });
     const payload = await response.json().catch(() => null);
@@ -99,10 +126,21 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
     await loadSegments();
   }
 
+  function engagementBucketLabel(bucket: SegmentFormState["engagementBucket"]) {
+    if (bucket === "clicked") return t("تفاعل مع الحملة", "Clicked the campaign");
+    if (bucket === "opened") return t("فتح الحملة بدون تفاعل", "Opened the campaign, no click");
+    if (bucket === "notOpened") return t("لم يفتح الحملة", "Didn't open the campaign");
+    return "";
+  }
+
   function criteriaSummary(segment: Segment) {
     const parts: string[] = [];
     if (segment.tagNames.length) parts.push(t(`الوسم: ${segment.tagNames.join("، ")}`, `Tag: ${segment.tagNames.join(", ")}`));
     if (segment.inactiveDays > 0) parts.push(t(`لم يتفاعل آخر ${segment.inactiveDays} يوم`, `Inactive for ${segment.inactiveDays}+ days`));
+    if (segment.sourceCampaignId && segment.engagementBucket) {
+      const campaignName = campaigns.find((campaign) => campaign.id === segment.sourceCampaignId)?.name || t("حملة محذوفة", "Deleted campaign");
+      parts.push(`${engagementBucketLabel(segment.engagementBucket)} (${campaignName})`);
+    }
     return parts.length ? parts.join(" + ") : t("كل العملاء", "All customers");
   }
 
@@ -178,6 +216,33 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
                 />
                 <small className="field-hint">{t("مثال: 30 يعني عملاء لم يتفاعلوا خلال آخر 30 يوم.", "Example: 30 means customers who haven't interacted in the last 30 days.")}</small>
               </label>
+              <label>
+                <span>{t("استهداف حسب تفاعل حملة سابقة (اختياري)", "Target by a past campaign's engagement (optional)")}</span>
+                <CustomSelect
+                  value={form.sourceCampaignId}
+                  onChange={(value) => setForm((current) => ({ ...current, sourceCampaignId: value, engagementBucket: value ? current.engagementBucket : "" }))}
+                  options={[
+                    { value: "", label: t("بدون شرط", "No condition") },
+                    ...launchedCampaigns.map((campaign) => ({ value: campaign.id, label: campaign.name }))
+                  ]}
+                />
+              </label>
+              {form.sourceCampaignId ? (
+                <label>
+                  <span>{t("حالة التفاعل", "Engagement state")}</span>
+                  <CustomSelect
+                    value={form.engagementBucket}
+                    onChange={(value) => setForm((current) => ({ ...current, engagementBucket: value as SegmentFormState["engagementBucket"] }))}
+                    options={[
+                      { value: "", label: t("اختر حالة", "Choose a state") },
+                      { value: "notOpened", label: t("لم يفتح الرسالة", "Didn't open the message") },
+                      { value: "opened", label: t("فتحها بدون تفاعل", "Opened, no click") },
+                      { value: "clicked", label: t("تفاعل (ضغط الرابط أو الزر)", "Clicked (link or button)") }
+                    ]}
+                  />
+                  <small className="field-hint">{t("يقتصر هذا الشرط على عملاء تلك الحملة المحددة، بحسب حالة رسالتهم فيها.", "This condition only applies to that campaign's own recipients, based on their status in it.")}</small>
+                </label>
+              ) : null}
               {error ? <p className="form-error">{error}</p> : null}
             </div>
             <footer className="modal-foot">

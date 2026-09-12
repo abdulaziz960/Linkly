@@ -410,6 +410,16 @@ async function runRequiredProductionMigrations() {
     `ALTER TABLE plans ADD COLUMN IF NOT EXISTS ai_monthly_limit INTEGER NOT NULL DEFAULT 0`
   );
 
+  // Segment targeting by a past campaign's engagement bucket - added
+  // directly here, not the disabled legacy block, per the closed_at lesson
+  // above.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE segments ADD COLUMN IF NOT EXISTS source_campaign_id TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_bucket TEXT NOT NULL DEFAULT ''`
+  );
+
   // Workspace AI settings/usage tables - added directly here, not the
   // disabled legacy block, per the closed_at lesson above.
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS ai_workspace_settings (
@@ -1310,6 +1320,12 @@ async function runSchemaMigrations() {
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
+  const segmentColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(segments)`);
+  for (const columnName of ["source_campaign_id", "engagement_bucket"]) {
+    if (!segmentColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE segments ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
+    }
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_insights (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL UNIQUE,

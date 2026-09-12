@@ -1,15 +1,22 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
+import { engagementBucketFor, type EngagementBucket } from "./campaign-engagement";
 import type { ParsedRecipient } from "./campaign-engine";
 
-export type SegmentCriteria = { tagNames: string[]; inactiveDays: number };
+// sourceCampaignId/engagementBucket target customers by how they engaged
+// with one past campaign (e.g. "didn't open my last campaign"). Both empty
+// together means the condition isn't applied - the two are always set or
+// cleared as a pair (enforced at the API layer).
+export type SegmentCriteria = { tagNames: string[]; inactiveDays: number; sourceCampaignId: string; engagementBucket: EngagementBucket | "" };
 
 export type SegmentRecord = {
   id: string;
   name: string;
   tagNames: string[];
   inactiveDays: number;
+  sourceCampaignId: string;
+  engagementBucket: EngagementBucket | "";
   createdAt: string;
   updatedAt: string;
 };
@@ -23,12 +30,16 @@ function parseTagNames(value: string): string[] {
   }
 }
 
-function toSegmentRecord(row: { id: string; name: string; tagNames: string; inactiveDays: number; createdAt: string; updatedAt: string }): SegmentRecord {
+type SegmentRow = { id: string; name: string; tagNames: string; inactiveDays: number; sourceCampaignId: string; engagementBucket: string; createdAt: string; updatedAt: string };
+
+function toSegmentRecord(row: SegmentRow): SegmentRecord {
   return {
     id: row.id,
     name: row.name,
     tagNames: parseTagNames(row.tagNames),
     inactiveDays: row.inactiveDays,
+    sourceCampaignId: row.sourceCampaignId,
+    engagementBucket: row.engagementBucket === "notOpened" || row.engagementBucket === "opened" || row.engagementBucket === "clicked" ? row.engagementBucket : "",
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -44,7 +55,31 @@ export async function getSegmentById(tenantId: string, id: string): Promise<Segm
   return row ? toSegmentRecord(row) : null;
 }
 
-export async function createSegment(tenantId: string, input: { name: string; tagNames: string[]; inactiveDays: number }): Promise<SegmentRecord> {
+const validEngagementBuckets = new Set(["notOpened", "opened", "clicked"]);
+
+/**
+ * The two engagement-targeting fields are always set or cleared as a pair -
+ * a campaign with no bucket (or vice versa) is meaningless input, not a
+ * valid "only one condition" state. Also confirms the campaign actually
+ * belongs to this tenant, so a segment can never be pointed at another
+ * tenant's campaign data.
+ */
+export async function resolveEngagementFields(tenantId: string, body: { sourceCampaignId?: string; engagementBucket?: string } | null): Promise<{ sourceCampaignId: string; engagementBucket: EngagementBucket | ""; error?: string }> {
+  const sourceCampaignId = body?.sourceCampaignId?.trim() || "";
+  const engagementBucketRaw = body?.engagementBucket?.trim() || "";
+  if (!sourceCampaignId && !engagementBucketRaw) return { sourceCampaignId: "", engagementBucket: "" };
+  if (!sourceCampaignId || !engagementBucketRaw) return { sourceCampaignId: "", engagementBucket: "", error: "اختر الحملة وحالة التفاعل معًا" };
+  if (!validEngagementBuckets.has(engagementBucketRaw)) return { sourceCampaignId: "", engagementBucket: "", error: "حالة تفاعل غير صالحة" };
+
+  const campaign = await prisma.campaign.findFirst({ where: { id: sourceCampaignId, tenantId } });
+  if (!campaign) return { sourceCampaignId: "", engagementBucket: "", error: "الحملة المختارة غير موجودة" };
+
+  return { sourceCampaignId, engagementBucket: engagementBucketRaw as EngagementBucket };
+}
+
+type SegmentInput = { name: string; tagNames: string[]; inactiveDays: number; sourceCampaignId: string; engagementBucket: EngagementBucket | "" };
+
+export async function createSegment(tenantId: string, input: SegmentInput): Promise<SegmentRecord> {
   const now = new Date().toISOString();
   const row = await prisma.segment.create({
     data: {
@@ -53,6 +88,8 @@ export async function createSegment(tenantId: string, input: { name: string; tag
       name: input.name,
       tagNames: JSON.stringify(input.tagNames),
       inactiveDays: input.inactiveDays,
+      sourceCampaignId: input.sourceCampaignId,
+      engagementBucket: input.engagementBucket,
       createdAt: now,
       updatedAt: now
     }
@@ -60,7 +97,7 @@ export async function createSegment(tenantId: string, input: { name: string; tag
   return toSegmentRecord(row);
 }
 
-export async function updateSegment(tenantId: string, id: string, input: { name: string; tagNames: string[]; inactiveDays: number }): Promise<SegmentRecord | null> {
+export async function updateSegment(tenantId: string, id: string, input: SegmentInput): Promise<SegmentRecord | null> {
   const existing = await prisma.segment.findFirst({ where: { id, tenantId } });
   if (!existing) return null;
   const row = await prisma.segment.update({
@@ -69,6 +106,8 @@ export async function updateSegment(tenantId: string, id: string, input: { name:
       name: input.name,
       tagNames: JSON.stringify(input.tagNames),
       inactiveDays: input.inactiveDays,
+      sourceCampaignId: input.sourceCampaignId,
+      engagementBucket: input.engagementBucket,
       updatedAt: new Date().toISOString()
     }
   });
@@ -104,11 +143,29 @@ export function isCustomerInactive(mostRecentActivityAt: string, inactiveDays: n
   return mostRecentActivityAt < cutoff;
 }
 
+/**
+ * CampaignRecipient has no customerId - it's only ever matched to a
+ * customer by normalized phone, same as everywhere else in this file. Both
+ * criteria fields are always set or cleared together (enforced by the
+ * segments API), so checking one is enough to know whether to apply this.
+ */
+async function resolveCampaignEngagementPhones(tenantId: string, criteria: SegmentCriteria): Promise<Set<string> | null> {
+  if (!criteria.sourceCampaignId || !criteria.engagementBucket) return null;
+  const recipients = await prisma.campaignRecipient.findMany({ where: { tenantId, campaignId: criteria.sourceCampaignId } });
+  const matching = new Set<string>();
+  for (const recipient of recipients) {
+    if (engagementBucketFor(recipient) !== criteria.engagementBucket) continue;
+    const phone = normalizeWhatsAppPhone(recipient.phone);
+    if (phone) matching.add(phone);
+  }
+  return matching;
+}
+
 export async function resolveSegmentRecipients(tenantId: string, criteria: SegmentCriteria): Promise<ParsedRecipient[]> {
-  const customers = await prisma.customer.findMany({
-    where: { tenantId },
-    include: { conversations: { include: { tags: true } } }
-  });
+  const [customers, engagementPhones] = await Promise.all([
+    prisma.customer.findMany({ where: { tenantId }, include: { conversations: { include: { tags: true } } } }),
+    resolveCampaignEngagementPhones(tenantId, criteria)
+  ]);
 
   const now = new Date();
   const recipients: ParsedRecipient[] = [];
@@ -125,6 +182,7 @@ export async function resolveSegmentRecipients(tenantId: string, criteria: Segme
 
     const phone = normalizeWhatsAppPhone(customer.phone);
     if (!phone || seen.has(phone)) continue;
+    if (engagementPhones && !engagementPhones.has(phone)) continue;
     seen.add(phone);
     recipients.push({ phone, name: customer.name });
   }

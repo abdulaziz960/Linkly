@@ -5,6 +5,7 @@ import type { Campaign, MessageTemplate, Segment } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import { formatDateTime } from "../../../lib/time";
+import { engagementBucketFor, type EngagementBucket } from "../../../lib/campaign-engagement";
 
 const pageSizeOptions = [
   { value: "10", label: "10" },
@@ -72,14 +73,7 @@ type ReportRow = {
   clickedAt: string;
 };
 
-type EngagementBucket = "notOpened" | "opened" | "clicked";
-
-function engagementBucket(row: ReportRow): EngagementBucket | null {
-  if (row.status !== "تم الإرسال") return null;
-  if (row.clickedAt) return "clicked";
-  if (row.readAt) return "opened";
-  return "notOpened";
-}
+const engagementBucket = engagementBucketFor;
 
 function engagementLabel(bucket: EngagementBucket | null, t: (ar: string, en: string) => string) {
   if (bucket === "clicked") return t("تفاعل", "Clicked");
