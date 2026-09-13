@@ -29,7 +29,7 @@ const emptyForm: SegmentFormState = {
 // still scheduled or cancelled has no CampaignRecipient engagement data yet.
 const launchedCampaignStatuses = new Set(["قيد الإرسال", "الحملة أنجزت"]);
 
-type OverviewRow = { name: string; phone: string };
+type OverviewRow = { name: string; phone: string; campaignName: string };
 type Overview = { counts: Record<EngagementBucket, number>; rows: Record<EngagementBucket, OverviewRow[]> };
 
 function downloadBlob(content: BlobPart, type: string, name: string) {
@@ -259,7 +259,8 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
     const sheet = book.addWorksheet(shortBucketLabel(activeBucket), { views: [{ rightToLeft: language === "ar" }] });
     sheet.columns = [
       { header: t("الاسم", "Name"), key: "name", width: 28 },
-      { header: t("رقم الهاتف", "Phone number"), key: "phone", width: 20 }
+      { header: t("رقم الهاتف", "Phone number"), key: "phone", width: 20 },
+      { header: t("من أي حملة", "From which campaign"), key: "campaignName", width: 28 }
     ];
     rows.forEach((row) => sheet.addRow(row));
     sheet.getRow(1).font = { bold: true };
@@ -305,16 +306,17 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
                   </div>
                   <div className="table-wrap">
                     <table>
-                      <thead><tr><th>{t("الاسم", "Name")}</th><th>{t("رقم الهاتف", "Phone number")}</th><th className="segments-print-hide">{t("إجراء", "Action")}</th></tr></thead>
+                      <thead><tr><th>{t("الاسم", "Name")}</th><th>{t("رقم الهاتف", "Phone number")}</th><th>{t("من أي حملة", "From which campaign")}</th><th className="segments-print-hide">{t("إجراء", "Action")}</th></tr></thead>
                       <tbody>
                         {overview.rows[activeBucket].map((row) => (
                           <tr key={row.phone}>
                             <td>{row.name || "-"}</td>
                             <td dir="ltr">{row.phone}</td>
+                            <td>{row.campaignName || t("حملة محذوفة", "Deleted campaign")}</td>
                             <td className="segments-print-hide"><a className="btn soft" href={`https://wa.me/${row.phone}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a></td>
                           </tr>
                         ))}
-                        {!overview.rows[activeBucket].length ? <tr><td colSpan={3}>{t("لا يوجد عملاء بهذه الحالة.", "No customers in this state.")}</td></tr> : null}
+                        {!overview.rows[activeBucket].length ? <tr><td colSpan={4}>{t("لا يوجد عملاء بهذه الحالة.", "No customers in this state.")}</td></tr> : null}
                       </tbody>
                     </table>
                   </div>

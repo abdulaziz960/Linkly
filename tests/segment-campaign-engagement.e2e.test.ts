@@ -109,6 +109,8 @@ describe("Segment targeting by a past campaign's engagement", () => {
     expect(overview.rows.clicked.map((row) => row.phone)).toEqual(["966500000011"]);
     expect(overview.rows.opened.map((row) => row.phone)).toEqual(["966500000012"]);
     expect(overview.rows.notOpened.map((row) => row.phone)).toEqual(["966500000013"]);
+    // Each row names the campaign that produced its engagement.
+    expect(overview.rows.clicked[0].campaignName).toBe("حملة الاختبار");
 
     // A date range that includes this campaign's send date still finds them...
     const inRange = await getCrossCampaignEngagement(tenantId, "2026-09-12", "2026-09-12");
