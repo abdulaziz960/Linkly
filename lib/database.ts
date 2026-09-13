@@ -419,6 +419,12 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_bucket TEXT NOT NULL DEFAULT ''`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_date_from TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_date_to TEXT NOT NULL DEFAULT ''`
+  );
 
   // Workspace AI settings/usage tables - added directly here, not the
   // disabled legacy block, per the closed_at lesson above.
@@ -1321,7 +1327,7 @@ async function runSchemaMigrations() {
     updated_at TEXT NOT NULL
   )`);
   const segmentColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(segments)`);
-  for (const columnName of ["source_campaign_id", "engagement_bucket"]) {
+  for (const columnName of ["source_campaign_id", "engagement_bucket", "engagement_date_from", "engagement_date_to"]) {
     if (!segmentColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE segments ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }

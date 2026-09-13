@@ -52,13 +52,13 @@ describe("Segment targeting by a past campaign's engagement", () => {
 
     await prisma.campaignRecipient.createMany({
       data: [
-        { id: "cr-1", campaignId: campaign.id, tenantId, phone: "966500000011", name: "عميل ضغط الرابط", status: "تم الإرسال", messageId: "wamid-1", readAt: "2026-09-12T10:00:00.000Z", clickedAt: "2026-09-12T10:05:00.000Z", createdAt: new Date().toISOString() },
-        { id: "cr-2", campaignId: campaign.id, tenantId, phone: "966500000012", name: "عميل فتح فقط", status: "تم الإرسال", messageId: "wamid-2", readAt: "2026-09-12T10:00:00.000Z", clickedAt: "", createdAt: new Date().toISOString() },
-        { id: "cr-3", campaignId: campaign.id, tenantId, phone: "966500000013", name: "عميل لم يفتح", status: "تم الإرسال", messageId: "wamid-3", readAt: "", clickedAt: "", createdAt: new Date().toISOString() }
+        { id: "cr-1", campaignId: campaign.id, tenantId, phone: "966500000011", name: "عميل ضغط الرابط", status: "تم الإرسال", messageId: "wamid-1", sentAt: "2026-09-12T09:00:00.000Z", readAt: "2026-09-12T10:00:00.000Z", clickedAt: "2026-09-12T10:05:00.000Z", createdAt: new Date().toISOString() },
+        { id: "cr-2", campaignId: campaign.id, tenantId, phone: "966500000012", name: "عميل فتح فقط", status: "تم الإرسال", messageId: "wamid-2", sentAt: "2026-09-12T09:00:00.000Z", readAt: "2026-09-12T10:00:00.000Z", clickedAt: "", createdAt: new Date().toISOString() },
+        { id: "cr-3", campaignId: campaign.id, tenantId, phone: "966500000013", name: "عميل لم يفتح", status: "تم الإرسال", messageId: "wamid-3", sentAt: "2026-09-12T09:00:00.000Z", readAt: "", clickedAt: "", createdAt: new Date().toISOString() }
       ]
     });
 
-    const baseCriteria = { tagNames: [], inactiveDays: 0 };
+    const baseCriteria = { tagNames: [], inactiveDays: 0, engagementDateFrom: "", engagementDateTo: "" };
 
     const clicked = await resolveSegmentRecipients(tenantId, { ...baseCriteria, sourceCampaignId: campaign.id, engagementBucket: "clicked" });
     expect(clicked.map((recipient) => recipient.phone)).toEqual(["966500000011"]);
@@ -75,12 +75,15 @@ describe("Segment targeting by a past campaign's engagement", () => {
       "966500000011", "966500000012", "966500000013", "966500000014"
     ]);
 
-    // Validation: the two fields must be set or cleared together.
+    // Validation: engagementBucket is the trigger - a leftover campaign or
+    // date with no bucket is an error, but the bucket alone (targeting every
+    // campaign) is valid on its own.
     const onlyCampaign = await resolveEngagementFields(tenantId, { sourceCampaignId: campaign.id, engagementBucket: "" });
     expect(onlyCampaign.error).toBeTruthy();
 
-    const onlyBucket = await resolveEngagementFields(tenantId, { sourceCampaignId: "", engagementBucket: "clicked" });
-    expect(onlyBucket.error).toBeTruthy();
+    const bucketAlone = await resolveEngagementFields(tenantId, { sourceCampaignId: "", engagementBucket: "clicked" });
+    expect(bucketAlone.error).toBeUndefined();
+    expect(bucketAlone.sourceCampaignId).toBe("");
 
     const neither = await resolveEngagementFields(tenantId, { sourceCampaignId: "", engagementBucket: "" });
     expect(neither.error).toBeUndefined();
@@ -90,8 +93,29 @@ describe("Segment targeting by a past campaign's engagement", () => {
     expect(valid.error).toBeUndefined();
     expect(valid.sourceCampaignId).toBe(campaign.id);
 
+    // A bad date range (start after end) is rejected.
+    const badRange = await resolveEngagementFields(tenantId, { engagementBucket: "clicked", engagementDateFrom: "2026-09-15", engagementDateTo: "2026-09-01" });
+    expect(badRange.error).toBeTruthy();
+
     // A segment must never be pointable at another tenant's campaign.
     const crossTenant = await resolveEngagementFields(otherTenantId, { sourceCampaignId: campaign.id, engagementBucket: "clicked" });
     expect(crossTenant.error).toBeTruthy();
+
+    // getCrossCampaignEngagement aggregates every campaign at once, deduping
+    // each customer down to their single best bucket.
+    const { getCrossCampaignEngagement } = await import("../lib/segments");
+    const overview = await getCrossCampaignEngagement(tenantId, "", "");
+    expect(overview.counts).toEqual({ notOpened: 1, opened: 1, clicked: 1 });
+    expect(overview.rows.clicked.map((row) => row.phone)).toEqual(["966500000011"]);
+    expect(overview.rows.opened.map((row) => row.phone)).toEqual(["966500000012"]);
+    expect(overview.rows.notOpened.map((row) => row.phone)).toEqual(["966500000013"]);
+
+    // A date range that includes this campaign's send date still finds them...
+    const inRange = await getCrossCampaignEngagement(tenantId, "2026-09-12", "2026-09-12");
+    expect(inRange.counts).toEqual({ notOpened: 1, opened: 1, clicked: 1 });
+
+    // ...but a range that excludes it yields nothing.
+    const outOfRange = await getCrossCampaignEngagement(tenantId, "2026-01-01", "2026-01-02");
+    expect(outOfRange.counts).toEqual({ notOpened: 0, opened: 0, clicked: 0 });
   });
 });

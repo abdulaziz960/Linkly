@@ -4439,6 +4439,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 @media(max-width:680px){.report-filter-grid{grid-template-columns:1fr 1fr}.report-filter-actions{align-items:stretch;flex-direction:column}.report-filter-actions>span{margin:0}.report-metrics,.reports-alert-grid{grid-template-columns:1fr}.reports-page .panel-head{align-items:stretch;flex-direction:column}.report-employee-search input{width:100%}.report-custom-range{display:grid;grid-template-columns:1fr 1fr}.report-series{padding:12px}.report-heatmap{padding:12px}}
 @media(max-width:440px){.report-filter-grid,.report-custom-range{grid-template-columns:1fr}.report-periods button{flex:1 1 45%}}
 @media print{.dashboard-sidebar,.reports-filters,.reports-hero-actions,.reports-attention button,.btn{display:none!important}.reports-page{display:block}.reports-page>*{break-inside:avoid;margin-bottom:14px}.report-metrics{grid-template-columns:repeat(3,1fr)}body{background:#fff}}
+@media print{.dashboard-sidebar,.segments-page .campaign-classification-panel,.segments-page .segments-manual-panel,.segments-print-hide{display:none!important}.segments-page{display:block}body{background:#fff}}
 
 .section-tabs {
   display: flex;
@@ -5193,6 +5194,19 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .campaign-engagement-card .campaign-engagement-tiles,
 .campaign-engagement-card .campaign-pages {
   padding-inline: 0;
+}
+
+.quick-save-segment {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.quick-save-segment input {
+  flex: 1;
+  min-width: 220px;
 }
 
 .campaign-create-modal {

@@ -182,6 +182,8 @@ export type Segment = {
   inactiveDays: number;
   sourceCampaignId: string;
   engagementBucket: "" | "notOpened" | "opened" | "clicked";
+  engagementDateFrom: string;
+  engagementDateTo: string;
   recipientCount: number;
   createdAt: string;
   updatedAt: string;
