@@ -211,7 +211,7 @@ async function resolveCampaignEngagementPhones(tenantId: string, criteria: Segme
   return matching;
 }
 
-export type CrossCampaignEngagementRow = { name: string; phone: string };
+export type CrossCampaignEngagementRow = { name: string; phone: string; campaignName: string };
 export type CrossCampaignEngagementResult = {
   counts: Record<EngagementBucket, number>;
   rows: Record<EngagementBucket, CrossCampaignEngagementRow[]>;
@@ -221,15 +221,17 @@ export type CrossCampaignEngagementResult = {
  * The all-customers, cross-campaign breakdown shown on the Segments page.
  * A customer can appear in several campaigns with different outcomes, so
  * each phone is counted once under its single best engagement
- * (clicked > opened > notOpened) rather than once per campaign.
+ * (clicked > opened > notOpened) rather than once per campaign - campaignName
+ * reflects whichever campaign produced that winning engagement.
  */
 export async function getCrossCampaignEngagement(tenantId: string, dateFrom: string, dateTo: string): Promise<CrossCampaignEngagementResult> {
   const recipients = await prisma.campaignRecipient.findMany({
     where: { tenantId, ...sentAtRangeWhere(dateFrom, dateTo) }
   });
+  const campaignNames = new Map((await prisma.campaign.findMany({ where: { tenantId }, select: { id: true, name: true } })).map((campaign) => [campaign.id, campaign.name]));
 
   const bucketRank: Record<EngagementBucket, number> = { clicked: 3, opened: 2, notOpened: 1 };
-  const bestByPhone = new Map<string, { bucket: EngagementBucket; name: string }>();
+  const bestByPhone = new Map<string, { bucket: EngagementBucket; name: string; campaignName: string }>();
   for (const recipient of recipients) {
     const bucket = engagementBucketFor(recipient);
     if (!bucket) continue;
@@ -237,15 +239,15 @@ export async function getCrossCampaignEngagement(tenantId: string, dateFrom: str
     if (!phone) continue;
     const existing = bestByPhone.get(phone);
     if (!existing || bucketRank[bucket] > bucketRank[existing.bucket]) {
-      bestByPhone.set(phone, { bucket, name: recipient.name });
+      bestByPhone.set(phone, { bucket, name: recipient.name, campaignName: campaignNames.get(recipient.campaignId) || "" });
     }
   }
 
   const counts: Record<EngagementBucket, number> = { notOpened: 0, opened: 0, clicked: 0 };
   const rows: Record<EngagementBucket, CrossCampaignEngagementRow[]> = { notOpened: [], opened: [], clicked: [] };
-  for (const [phone, { bucket, name }] of bestByPhone) {
+  for (const [phone, { bucket, name, campaignName }] of bestByPhone) {
     counts[bucket] += 1;
-    rows[bucket].push({ name, phone });
+    rows[bucket].push({ name, phone, campaignName });
   }
   return { counts, rows };
 }
