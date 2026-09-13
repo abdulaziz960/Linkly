@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Campaign, Segment, Tag } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
+import CampaignEngagementReport from "../components/CampaignEngagementReport";
 
 type SegmentFormState = {
   id?: string;
@@ -30,6 +31,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
 
   const launchedCampaigns = useMemo(() => campaigns.filter((campaign) => launchedCampaignStatuses.has(campaign.status)), [campaigns]);
 
@@ -146,6 +148,28 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
 
   return (
     <section className="page-stack">
+      <div className="panel">
+        <div className="panel-head">
+          <h2>{t("تصنيف حسب الحملات", "Classification by campaign")}</h2>
+        </div>
+        <div className="panel-body">
+          <p className="muted-copy">{t("كل حملة أرسلتها تظهر هنا تلقائيًا مع تصنيف عملائها حسب تفاعلهم - اضغط على الحملة لعرض القوائم وإرسال رسالة مباشرة لأي عميل.", "Every campaign you've sent appears here automatically, with its recipients classified by engagement - click a campaign to see the lists and message any customer directly.")}</p>
+          <div className="campaign-engagement-list">
+            {launchedCampaigns.map((campaign) => (
+              <div key={campaign.id} className="campaign-engagement-card">
+                <button type="button" className="campaign-engagement-card-head" onClick={() => setExpandedCampaignId((current) => current === campaign.id ? null : campaign.id)}>
+                  <span>{campaign.name}</span>
+                  <span className="campaign-engagement-card-meta">{campaign.updatedAt} · {campaign.sent.toLocaleString("en-US")}/{campaign.total.toLocaleString("en-US")}</span>
+                  <span aria-hidden="true">{expandedCampaignId === campaign.id ? "▲" : "▼"}</span>
+                </button>
+                {expandedCampaignId === campaign.id ? <CampaignEngagementReport campaignId={campaign.id} campaignName={campaign.name} /> : null}
+              </div>
+            ))}
+            {!launchedCampaigns.length ? <p className="muted-copy">{t("لا توجد حملات مرسلة بعد.", "No campaigns sent yet.")}</p> : null}
+          </div>
+        </div>
+      </div>
+
       <div className="panel">
         <div className="panel-head">
           <h2>{t("تقسيم الجمهور", "Segments")}</h2>
