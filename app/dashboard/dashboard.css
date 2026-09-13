@@ -5149,6 +5149,52 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   background: #eaf5f3;
 }
 
+.campaign-engagement-list {
+  display: grid;
+  gap: 12px;
+}
+
+.campaign-engagement-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.campaign-engagement-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 18px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: right;
+}
+
+.campaign-engagement-card-meta {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.campaign-engagement-card .campaign-report-body {
+  padding: 0 18px 18px;
+  border-top: 1px solid var(--line);
+  margin-top: 2px;
+  padding-top: 14px;
+}
+
+.campaign-engagement-card .campaign-engagement-tiles,
+.campaign-engagement-card .campaign-pages {
+  padding-inline: 0;
+}
+
 .campaign-create-modal {
   width: min(1100px, 100%);
 }
