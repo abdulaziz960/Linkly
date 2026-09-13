@@ -320,13 +320,19 @@ model Segment {
   name         String
   tagNames     String @default("") @map("tag_names")
   inactiveDays Int    @default(0) @map("inactive_days")
-  // Targets customers by their engagement with one past campaign (e.g.
-  // "didn't open my last campaign") - both empty together means this
-  // condition isn't applied. sourceCampaignId is validated against the
-  // tenant's own campaigns at write time; engagementBucket mirrors
-  // engagementBucketFor()'s return values ("notOpened" | "opened" | "clicked").
+  // Targets customers by their campaign engagement. engagementBucket is the
+  // trigger for this whole condition - empty means it's off, and
+  // sourceCampaignId/engagementDateFrom/engagementDateTo are then cleared
+  // too. When set, sourceCampaignId optionally narrows to one campaign
+  // (empty = every campaign) and the two dates optionally narrow to
+  // recipients sent within that range (empty = unbounded); sourceCampaignId
+  // is validated against the tenant's own campaigns at write time.
+  // engagementBucket mirrors engagementBucketFor()'s return values
+  // ("notOpened" | "opened" | "clicked").
   sourceCampaignId String @default("") @map("source_campaign_id")
   engagementBucket String @default("") @map("engagement_bucket")
+  engagementDateFrom String @default("") @map("engagement_date_from")
+  engagementDateTo String @default("") @map("engagement_date_to")
   createdAt    String @map("created_at")
   updatedAt    String @map("updated_at")
 

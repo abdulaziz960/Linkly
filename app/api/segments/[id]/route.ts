@@ -15,7 +15,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!(await userHasViewPermission(user, "segments"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const { id } = await context.params;
-  const body = (await request.json().catch(() => null)) as { name?: string; tagNames?: string[]; inactiveDays?: number; sourceCampaignId?: string; engagementBucket?: string } | null;
+  const body = (await request.json().catch(() => null)) as { name?: string; tagNames?: string[]; inactiveDays?: number; sourceCampaignId?: string; engagementBucket?: string; engagementDateFrom?: string; engagementDateTo?: string } | null;
   const name = body?.name?.trim();
   if (!name) return jsonError("اسم التقسيم مطلوب");
 
@@ -29,10 +29,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (tagNames.some((tagName) => !validTagNames.has(tagName))) return jsonError("أحد الوسوم المختارة غير موجود");
   }
 
-  const { sourceCampaignId, engagementBucket, error: engagementError } = await resolveEngagementFields(user.tenantId, body);
+  const { sourceCampaignId, engagementBucket, engagementDateFrom, engagementDateTo, error: engagementError } = await resolveEngagementFields(user.tenantId, body);
   if (engagementError) return jsonError(engagementError);
 
-  const segment = await updateSegment(user.tenantId, id, { name, tagNames, inactiveDays, sourceCampaignId, engagementBucket });
+  const segment = await updateSegment(user.tenantId, id, { name, tagNames, inactiveDays, sourceCampaignId, engagementBucket, engagementDateFrom, engagementDateTo });
   if (!segment) return jsonError("التقسيم غير موجود", 404);
 
   const recipientCount = (await resolveSegmentRecipients(user.tenantId, segment)).length;

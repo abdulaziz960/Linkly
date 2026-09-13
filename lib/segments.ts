@@ -4,11 +4,19 @@ import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
 import { engagementBucketFor, type EngagementBucket } from "./campaign-engagement";
 import type { ParsedRecipient } from "./campaign-engine";
 
-// sourceCampaignId/engagementBucket target customers by how they engaged
-// with one past campaign (e.g. "didn't open my last campaign"). Both empty
-// together means the condition isn't applied - the two are always set or
-// cleared as a pair (enforced at the API layer).
-export type SegmentCriteria = { tagNames: string[]; inactiveDays: number; sourceCampaignId: string; engagementBucket: EngagementBucket | "" };
+// engagementBucket is the trigger for campaign-engagement targeting -
+// empty means the condition isn't applied at all. When set, sourceCampaignId
+// optionally narrows to one campaign (empty = every campaign) and the two
+// dates optionally narrow to recipients sent within that range (empty =
+// unbounded on that side). All enforced together at the API layer.
+export type SegmentCriteria = {
+  tagNames: string[];
+  inactiveDays: number;
+  sourceCampaignId: string;
+  engagementBucket: EngagementBucket | "";
+  engagementDateFrom: string;
+  engagementDateTo: string;
+};
 
 export type SegmentRecord = {
   id: string;
@@ -17,6 +25,8 @@ export type SegmentRecord = {
   inactiveDays: number;
   sourceCampaignId: string;
   engagementBucket: EngagementBucket | "";
+  engagementDateFrom: string;
+  engagementDateTo: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -30,7 +40,7 @@ function parseTagNames(value: string): string[] {
   }
 }
 
-type SegmentRow = { id: string; name: string; tagNames: string; inactiveDays: number; sourceCampaignId: string; engagementBucket: string; createdAt: string; updatedAt: string };
+type SegmentRow = { id: string; name: string; tagNames: string; inactiveDays: number; sourceCampaignId: string; engagementBucket: string; engagementDateFrom: string; engagementDateTo: string; createdAt: string; updatedAt: string };
 
 function toSegmentRecord(row: SegmentRow): SegmentRecord {
   return {
@@ -40,6 +50,8 @@ function toSegmentRecord(row: SegmentRow): SegmentRecord {
     inactiveDays: row.inactiveDays,
     sourceCampaignId: row.sourceCampaignId,
     engagementBucket: row.engagementBucket === "notOpened" || row.engagementBucket === "opened" || row.engagementBucket === "clicked" ? row.engagementBucket : "",
+    engagementDateFrom: row.engagementDateFrom,
+    engagementDateTo: row.engagementDateTo,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -56,28 +68,44 @@ export async function getSegmentById(tenantId: string, id: string): Promise<Segm
 }
 
 const validEngagementBuckets = new Set(["notOpened", "opened", "clicked"]);
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+type EngagementFieldsInput = { sourceCampaignId?: string; engagementBucket?: string; engagementDateFrom?: string; engagementDateTo?: string };
+type EngagementFieldsResult = { sourceCampaignId: string; engagementBucket: EngagementBucket | ""; engagementDateFrom: string; engagementDateTo: string; error?: string };
 
 /**
- * The two engagement-targeting fields are always set or cleared as a pair -
- * a campaign with no bucket (or vice versa) is meaningless input, not a
- * valid "only one condition" state. Also confirms the campaign actually
- * belongs to this tenant, so a segment can never be pointed at another
- * tenant's campaign data.
+ * engagementBucket is the trigger for the whole condition - empty clears
+ * everything else too, since a leftover campaign/date with no bucket is
+ * meaningless. When a bucket IS set, sourceCampaignId and the two dates are
+ * each independently optional refinements (empty = unbounded on that side).
+ * Confirms a given campaign actually belongs to this tenant, so a segment
+ * can never be pointed at another tenant's campaign data.
  */
-export async function resolveEngagementFields(tenantId: string, body: { sourceCampaignId?: string; engagementBucket?: string } | null): Promise<{ sourceCampaignId: string; engagementBucket: EngagementBucket | ""; error?: string }> {
+export async function resolveEngagementFields(tenantId: string, body: EngagementFieldsInput | null): Promise<EngagementFieldsResult> {
+  const empty = { sourceCampaignId: "", engagementBucket: "" as const, engagementDateFrom: "", engagementDateTo: "" };
   const sourceCampaignId = body?.sourceCampaignId?.trim() || "";
   const engagementBucketRaw = body?.engagementBucket?.trim() || "";
-  if (!sourceCampaignId && !engagementBucketRaw) return { sourceCampaignId: "", engagementBucket: "" };
-  if (!sourceCampaignId || !engagementBucketRaw) return { sourceCampaignId: "", engagementBucket: "", error: "اختر الحملة وحالة التفاعل معًا" };
-  if (!validEngagementBuckets.has(engagementBucketRaw)) return { sourceCampaignId: "", engagementBucket: "", error: "حالة تفاعل غير صالحة" };
+  const engagementDateFrom = body?.engagementDateFrom?.trim() || "";
+  const engagementDateTo = body?.engagementDateTo?.trim() || "";
 
-  const campaign = await prisma.campaign.findFirst({ where: { id: sourceCampaignId, tenantId } });
-  if (!campaign) return { sourceCampaignId: "", engagementBucket: "", error: "الحملة المختارة غير موجودة" };
+  if (!engagementBucketRaw) {
+    if (sourceCampaignId || engagementDateFrom || engagementDateTo) return { ...empty, error: "اختر حالة التفاعل أولًا" };
+    return empty;
+  }
+  if (!validEngagementBuckets.has(engagementBucketRaw)) return { ...empty, error: "حالة تفاعل غير صالحة" };
+  if (engagementDateFrom && !isoDatePattern.test(engagementDateFrom)) return { ...empty, error: "تنسيق تاريخ البداية غير صالح" };
+  if (engagementDateTo && !isoDatePattern.test(engagementDateTo)) return { ...empty, error: "تنسيق تاريخ النهاية غير صالح" };
+  if (engagementDateFrom && engagementDateTo && engagementDateFrom > engagementDateTo) return { ...empty, error: "تاريخ البداية يجب أن يسبق تاريخ النهاية" };
 
-  return { sourceCampaignId, engagementBucket: engagementBucketRaw as EngagementBucket };
+  if (sourceCampaignId) {
+    const campaign = await prisma.campaign.findFirst({ where: { id: sourceCampaignId, tenantId } });
+    if (!campaign) return { ...empty, error: "الحملة المختارة غير موجودة" };
+  }
+
+  return { sourceCampaignId, engagementBucket: engagementBucketRaw as EngagementBucket, engagementDateFrom, engagementDateTo };
 }
 
-type SegmentInput = { name: string; tagNames: string[]; inactiveDays: number; sourceCampaignId: string; engagementBucket: EngagementBucket | "" };
+type SegmentInput = { name: string; tagNames: string[]; inactiveDays: number; sourceCampaignId: string; engagementBucket: EngagementBucket | ""; engagementDateFrom: string; engagementDateTo: string };
 
 export async function createSegment(tenantId: string, input: SegmentInput): Promise<SegmentRecord> {
   const now = new Date().toISOString();
@@ -90,6 +118,8 @@ export async function createSegment(tenantId: string, input: SegmentInput): Prom
       inactiveDays: input.inactiveDays,
       sourceCampaignId: input.sourceCampaignId,
       engagementBucket: input.engagementBucket,
+      engagementDateFrom: input.engagementDateFrom,
+      engagementDateTo: input.engagementDateTo,
       createdAt: now,
       updatedAt: now
     }
@@ -108,6 +138,8 @@ export async function updateSegment(tenantId: string, id: string, input: Segment
       inactiveDays: input.inactiveDays,
       sourceCampaignId: input.sourceCampaignId,
       engagementBucket: input.engagementBucket,
+      engagementDateFrom: input.engagementDateFrom,
+      engagementDateTo: input.engagementDateTo,
       updatedAt: new Date().toISOString()
     }
   });
@@ -143,15 +175,33 @@ export function isCustomerInactive(mostRecentActivityAt: string, inactiveDays: n
   return mostRecentActivityAt < cutoff;
 }
 
+/** sentAt is only ever set on a successfully-sent recipient row, as a plain ISO string - lexicographic comparison works fine for the range bounds. */
+function sentAtRangeWhere(dateFrom: string, dateTo: string) {
+  if (!dateFrom && !dateTo) return {};
+  return {
+    sentAt: {
+      ...(dateFrom ? { gte: dateFrom } : {}),
+      ...(dateTo ? { lte: `${dateTo}T23:59:59.999Z` } : {})
+    }
+  };
+}
+
 /**
  * CampaignRecipient has no customerId - it's only ever matched to a
- * customer by normalized phone, same as everywhere else in this file. Both
- * criteria fields are always set or cleared together (enforced by the
- * segments API), so checking one is enough to know whether to apply this.
+ * customer by normalized phone, same as everywhere else in this file.
+ * engagementBucket being empty means the whole condition is off (enforced
+ * by resolveEngagementFields); sourceCampaignId and the two dates are each
+ * independently optional beyond that.
  */
 async function resolveCampaignEngagementPhones(tenantId: string, criteria: SegmentCriteria): Promise<Set<string> | null> {
-  if (!criteria.sourceCampaignId || !criteria.engagementBucket) return null;
-  const recipients = await prisma.campaignRecipient.findMany({ where: { tenantId, campaignId: criteria.sourceCampaignId } });
+  if (!criteria.engagementBucket) return null;
+  const recipients = await prisma.campaignRecipient.findMany({
+    where: {
+      tenantId,
+      ...(criteria.sourceCampaignId ? { campaignId: criteria.sourceCampaignId } : {}),
+      ...sentAtRangeWhere(criteria.engagementDateFrom, criteria.engagementDateTo)
+    }
+  });
   const matching = new Set<string>();
   for (const recipient of recipients) {
     if (engagementBucketFor(recipient) !== criteria.engagementBucket) continue;
@@ -159,6 +209,45 @@ async function resolveCampaignEngagementPhones(tenantId: string, criteria: Segme
     if (phone) matching.add(phone);
   }
   return matching;
+}
+
+export type CrossCampaignEngagementRow = { name: string; phone: string };
+export type CrossCampaignEngagementResult = {
+  counts: Record<EngagementBucket, number>;
+  rows: Record<EngagementBucket, CrossCampaignEngagementRow[]>;
+};
+
+/**
+ * The all-customers, cross-campaign breakdown shown on the Segments page.
+ * A customer can appear in several campaigns with different outcomes, so
+ * each phone is counted once under its single best engagement
+ * (clicked > opened > notOpened) rather than once per campaign.
+ */
+export async function getCrossCampaignEngagement(tenantId: string, dateFrom: string, dateTo: string): Promise<CrossCampaignEngagementResult> {
+  const recipients = await prisma.campaignRecipient.findMany({
+    where: { tenantId, ...sentAtRangeWhere(dateFrom, dateTo) }
+  });
+
+  const bucketRank: Record<EngagementBucket, number> = { clicked: 3, opened: 2, notOpened: 1 };
+  const bestByPhone = new Map<string, { bucket: EngagementBucket; name: string }>();
+  for (const recipient of recipients) {
+    const bucket = engagementBucketFor(recipient);
+    if (!bucket) continue;
+    const phone = normalizeWhatsAppPhone(recipient.phone);
+    if (!phone) continue;
+    const existing = bestByPhone.get(phone);
+    if (!existing || bucketRank[bucket] > bucketRank[existing.bucket]) {
+      bestByPhone.set(phone, { bucket, name: recipient.name });
+    }
+  }
+
+  const counts: Record<EngagementBucket, number> = { notOpened: 0, opened: 0, clicked: 0 };
+  const rows: Record<EngagementBucket, CrossCampaignEngagementRow[]> = { notOpened: [], opened: [], clicked: [] };
+  for (const [phone, { bucket, name }] of bestByPhone) {
+    counts[bucket] += 1;
+    rows[bucket].push({ name, phone });
+  }
+  return { counts, rows };
 }
 
 export async function resolveSegmentRecipients(tenantId: string, criteria: SegmentCriteria): Promise<ParsedRecipient[]> {
