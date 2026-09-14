@@ -191,9 +191,12 @@ function sentAtRangeWhere(dateFrom: string, dateTo: string) {
  * customer by normalized phone, same as everywhere else in this file.
  * engagementBucket being empty means the whole condition is off (enforced
  * by resolveEngagementFields); sourceCampaignId and the two dates are each
- * independently optional beyond that.
+ * independently optional beyond that. Maps each matching phone to the name
+ * of whichever campaign produced the match (first one found is kept - a
+ * phone can only appear more than once here when sourceCampaignId is empty
+ * and it matched the bucket in more than one campaign).
  */
-async function resolveCampaignEngagementPhones(tenantId: string, criteria: SegmentCriteria): Promise<Set<string> | null> {
+async function resolveCampaignEngagementMatches(tenantId: string, criteria: SegmentCriteria): Promise<Map<string, string> | null> {
   if (!criteria.engagementBucket) return null;
   const recipients = await prisma.campaignRecipient.findMany({
     where: {
@@ -202,13 +205,16 @@ async function resolveCampaignEngagementPhones(tenantId: string, criteria: Segme
       ...sentAtRangeWhere(criteria.engagementDateFrom, criteria.engagementDateTo)
     }
   });
-  const matching = new Set<string>();
+  const campaignIds = Array.from(new Set(recipients.map((recipient) => recipient.campaignId)));
+  const campaignNames = new Map((await prisma.campaign.findMany({ where: { id: { in: campaignIds } }, select: { id: true, name: true } })).map((campaign) => [campaign.id, campaign.name]));
+
+  const matches = new Map<string, string>();
   for (const recipient of recipients) {
     if (engagementBucketFor(recipient) !== criteria.engagementBucket) continue;
     const phone = normalizeWhatsAppPhone(recipient.phone);
-    if (phone) matching.add(phone);
+    if (phone && !matches.has(phone)) matches.set(phone, campaignNames.get(recipient.campaignId) || "");
   }
-  return matching;
+  return matches;
 }
 
 export type CrossCampaignEngagementRow = { name: string; phone: string; campaignName: string };
@@ -253,13 +259,21 @@ export async function getCrossCampaignEngagement(tenantId: string, dateFrom: str
 }
 
 export async function resolveSegmentRecipients(tenantId: string, criteria: SegmentCriteria): Promise<ParsedRecipient[]> {
-  const [customers, engagementPhones] = await Promise.all([
+  const details = await getSegmentRecipientDetails(tenantId, criteria);
+  return details.map((row) => ({ phone: row.phone, name: row.name }));
+}
+
+export type SegmentRecipientDetail = { name: string; phone: string; campaignName: string };
+
+/** Same matching as resolveSegmentRecipients, plus which campaign (if any) produced each row's engagement match - "" for a segment with no campaign-engagement condition, or a phone matched only by tags/inactivity. */
+export async function getSegmentRecipientDetails(tenantId: string, criteria: SegmentCriteria): Promise<SegmentRecipientDetail[]> {
+  const [customers, engagementMatches] = await Promise.all([
     prisma.customer.findMany({ where: { tenantId }, include: { conversations: { include: { tags: true } } } }),
-    resolveCampaignEngagementPhones(tenantId, criteria)
+    resolveCampaignEngagementMatches(tenantId, criteria)
   ]);
 
   const now = new Date();
-  const recipients: ParsedRecipient[] = [];
+  const recipients: SegmentRecipientDetail[] = [];
   const seen = new Set<string>();
 
   for (const customer of customers) {
@@ -273,9 +287,9 @@ export async function resolveSegmentRecipients(tenantId: string, criteria: Segme
 
     const phone = normalizeWhatsAppPhone(customer.phone);
     if (!phone || seen.has(phone)) continue;
-    if (engagementPhones && !engagementPhones.has(phone)) continue;
+    if (engagementMatches && !engagementMatches.has(phone)) continue;
     seen.add(phone);
-    recipients.push({ phone, name: customer.name });
+    recipients.push({ phone, name: customer.name, campaignName: engagementMatches?.get(phone) || "" });
   }
 
   return recipients;

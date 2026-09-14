@@ -5209,6 +5209,14 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   min-width: 220px;
 }
 
+.segment-row-clickable {
+  cursor: pointer;
+}
+
+.segment-row-clickable:hover {
+  background: var(--surface);
+}
+
 .campaign-create-modal {
   width: min(1100px, 100%);
 }
