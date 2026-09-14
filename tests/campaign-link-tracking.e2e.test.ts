@@ -226,4 +226,82 @@ describe("Campaign link-click tracking end-to-end", () => {
     // template's own registered "...{{1}}" URL) - not a full URL.
     expect(sentButtonSuffix).toBe(recipient.trackingCode);
   });
+
+  it("classifies an async WhatsApp delivery failure as notReceived, distinct from a real read/click", async () => {
+    const tenantIdFailed = "tenant-link-tracking-failed";
+    const phoneNumberIdFailed = "test-phone-number-id-failed";
+    const recipientPhoneFailed = "966500000003";
+    const whatsappMessageIdFailed = "wamid.TESTMESSAGE-FAILED";
+
+    const { prisma } = await import("../lib/prisma");
+    const { encryptSecret } = await import("../lib/secret-storage");
+    const { spawnCampaignOccurrence, processCampaignBatch } = await import("../lib/campaign-engine");
+    const { engagementBucketFor } = await import("../lib/campaign-engagement");
+
+    await prisma.integrationSetting.create({
+      data: {
+        id: `wa-${tenantIdFailed}`, tenantId: tenantIdFailed, provider: "whatsapp_cloud", status: "connected",
+        businessName: "", wabaName: "", phoneNumber: "", phoneNumberId: phoneNumberIdFailed, wabaId: "test-waba-id-failed",
+        appId: "", configId: "", verifyToken: "", accessToken: encryptSecret("test-access-token"),
+        webhookUrl: "/api/meta/webhook", updatedAt: new Date().toISOString()
+      }
+    });
+    await prisma.campaignBalance.create({ data: { tenantId: tenantIdFailed, balance: 10, updatedAt: new Date().toISOString() } });
+    await prisma.template.create({
+      data: {
+        id: `tmpl-${tenantIdFailed}-welcome`, tenantId: tenantIdFailed, name: "welcome", message: "أهلاً بك في خدماتنا!",
+        type: "تسويق", category: "MARKETING", language: "ar", status: "معتمد", headerType: "NONE",
+        headerText: "", headerMedia: "", footer: "", buttonType: "NONE", buttonText: "", buttonPhone: "", buttonUrl: "",
+        syncedAt: "-", lastUsed: "-"
+      }
+    });
+
+    const campaignId = await prisma.$transaction((tx) => spawnCampaignOccurrence(tx, {
+      tenantId: tenantIdFailed, name: "حملة اختبار فشل التسليم", templateName: "welcome", language: "ar", headerMediaDataUrl: "",
+      recipients: [{ phone: recipientPhoneFailed, name: "عميل مقفل الرسائل الترويجية" }], status: "قيد الإرسال"
+    }));
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ messages: [{ id: whatsappMessageIdFailed }] }), { status: 200 })));
+    await processCampaignBatch(tenantIdFailed);
+
+    const recipientAfterSend = await prisma.campaignRecipient.findFirstOrThrow({ where: { campaignId } });
+    expect(recipientAfterSend.status).toBe("تم الإرسال");
+    // WhatsApp accepted the send, so on its own this looks like "notOpened" -
+    // a real customer who simply hasn't read it yet.
+    expect(engagementBucketFor(recipientAfterSend)).toBe("notOpened");
+
+    // WhatsApp's real async delivery-failure webhook - e.g. this customer
+    // has marketing/template messages turned off, so the message never
+    // actually reached their phone despite being accepted for sending.
+    const { POST: metaWebhook } = await import("../app/api/meta/webhook/route");
+    const failedStatusPayload = JSON.stringify({
+      entry: [{
+        id: "test-waba-id-failed",
+        changes: [{
+          field: "messages",
+          value: {
+            metadata: { phone_number_id: phoneNumberIdFailed },
+            statuses: [{
+              id: whatsappMessageIdFailed, status: "failed", recipient_id: recipientPhoneFailed,
+              errors: [{ title: "Message undeliverable - marketing messages disabled" }]
+            }]
+          }
+        }]
+      }]
+    });
+    const webhookResponse = await metaWebhook(signedWebhookRequest(failedStatusPayload));
+    expect(webhookResponse.status).toBe(200);
+
+    const recipientAfterFailure = await prisma.campaignRecipient.findFirstOrThrow({ where: { campaignId } });
+    expect(recipientAfterFailure.deliveryFailed).toBe(1);
+    expect(recipientAfterFailure.deliveryError).toContain("marketing messages disabled");
+    // Now correctly reclassified as never received, not merely unopened.
+    expect(engagementBucketFor(recipientAfterFailure)).toBe("notReceived");
+
+    // A later "read" event for the same message must never override a
+    // confirmed delivery failure - WhatsApp doesn't send both for the same
+    // message, but the bucket logic itself must still treat deliveryFailed
+    // as authoritative if it somehow did.
+    expect(engagementBucketFor({ ...recipientAfterFailure, readAt: "2026-09-14T10:00:00.000Z" })).toBe("notReceived");
+  });
 });

@@ -5126,6 +5126,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   padding: 0 34px 18px;
 }
 
+.campaign-engagement-tiles-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .engagement-tile {
   display: grid;
   gap: 4px;

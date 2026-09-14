@@ -20,12 +20,14 @@ type ReportRow = {
   date: string;
   readAt: string;
   clickedAt: string;
+  deliveryFailed: number;
 };
 
 function engagementLabel(bucket: EngagementBucket | null, t: (ar: string, en: string) => string) {
   if (bucket === "clicked") return t("تفاعل", "Clicked");
   if (bucket === "opened") return t("فتحها بدون ضغط", "Opened, no click");
   if (bucket === "notOpened") return t("ما فتحها", "Not opened");
+  if (bucket === "notReceived") return t("لم يستلم الرسالة", "Didn't receive the message");
   return "-";
 }
 
@@ -74,7 +76,6 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
   const { t } = useLanguage();
   const [rows, setRows] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [linkTrackingEnabled, setLinkTrackingEnabled] = useState(false);
   const [engagementFilter, setEngagementFilter] = useState<EngagementBucket | null>(null);
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState("10");
@@ -92,7 +93,6 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
       .then((body) => {
         if (cancelled) return;
         setRows(body?.ok ? body.data?.recipients ?? [] : []);
-        setLinkTrackingEnabled(Boolean(body?.ok && body.data?.linkTrackingEnabled));
         setLoading(false);
       })
       .catch(() => { if (!cancelled) setLoading(false); });
@@ -100,7 +100,7 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
   }, [campaignId]);
 
   const engagementCounts = useMemo(() => {
-    const counts: Record<EngagementBucket, number> = { notOpened: 0, opened: 0, clicked: 0 };
+    const counts: Record<EngagementBucket, number> = { notReceived: 0, notOpened: 0, opened: 0, clicked: 0 };
     for (const row of rows) {
       const bucket = engagementBucketFor(row);
       if (bucket) counts[bucket] += 1;
@@ -120,12 +120,8 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
   const pagination = paginate(filteredRows, page, Number(pageSize));
 
   function downloadReport() {
-    const header = linkTrackingEnabled
-      ? [t("الاسم", "Name"), t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التفاعل", "Engagement"), t("التاريخ", "Date")]
-      : [t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التاريخ", "Date")];
-    const csvRows = filteredRows.map((row) => linkTrackingEnabled
-      ? [row.name, row.phone, row.status, engagementLabel(engagementBucketFor(row), t), formatDateTime(row.date)]
-      : [row.phone, row.status, formatDateTime(row.date)]);
+    const header = [t("الاسم", "Name"), t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التفاعل", "Engagement"), t("التاريخ", "Date")];
+    const csvRows = filteredRows.map((row) => [row.name, row.phone, row.status, engagementLabel(engagementBucketFor(row), t), formatDateTime(row.date)]);
     const csv = [header, ...csvRows].map((row) => row.map(escapeCsvCell).join(",")).join("\n");
     const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -138,22 +134,24 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
 
   return (
     <div className="campaign-report-body">
-      {linkTrackingEnabled ? (
-        <div className="campaign-engagement-tiles">
-          <button type="button" className={engagementFilter === "notOpened" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "notOpened" ? null : "notOpened"); setPage(1); }}>
-            <b>{engagementCounts.notOpened.toLocaleString("en-US")}</b>
-            <span>{t("ما فتحها", "Not opened")}</span>
-          </button>
-          <button type="button" className={engagementFilter === "opened" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "opened" ? null : "opened"); setPage(1); }}>
-            <b>{engagementCounts.opened.toLocaleString("en-US")}</b>
-            <span>{t("فتحها بدون ضغط", "Opened, no click")}</span>
-          </button>
-          <button type="button" className={engagementFilter === "clicked" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "clicked" ? null : "clicked"); setPage(1); }}>
-            <b>{engagementCounts.clicked.toLocaleString("en-US")}</b>
-            <span>{t("تفاعل", "Clicked")}</span>
-          </button>
-        </div>
-      ) : null}
+      <div className="campaign-engagement-tiles campaign-engagement-tiles-4">
+        <button type="button" className={engagementFilter === "notReceived" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "notReceived" ? null : "notReceived"); setPage(1); }}>
+          <b>{engagementCounts.notReceived.toLocaleString("en-US")}</b>
+          <span>{t("لم يستلم الرسالة", "Didn't receive")}</span>
+        </button>
+        <button type="button" className={engagementFilter === "notOpened" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "notOpened" ? null : "notOpened"); setPage(1); }}>
+          <b>{engagementCounts.notOpened.toLocaleString("en-US")}</b>
+          <span>{t("ما فتحها", "Not opened")}</span>
+        </button>
+        <button type="button" className={engagementFilter === "opened" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "opened" ? null : "opened"); setPage(1); }}>
+          <b>{engagementCounts.opened.toLocaleString("en-US")}</b>
+          <span>{t("فتحها بدون ضغط", "Opened, no click")}</span>
+        </button>
+        <button type="button" className={engagementFilter === "clicked" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "clicked" ? null : "clicked"); setPage(1); }}>
+          <b>{engagementCounts.clicked.toLocaleString("en-US")}</b>
+          <span>{t("تفاعل", "Clicked")}</span>
+        </button>
+      </div>
       <div className="campaign-toolbar report-toolbar">
         <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder={t("بحث...", "Search...")} />
         <button className="btn primary" type="button" onClick={downloadReport}>{t("تنزيل", "Download")}</button>
@@ -163,35 +161,33 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
         <table>
           <thead>
             <tr>
-              {linkTrackingEnabled ? <th>{t("الاسم", "Name")}</th> : null}
+              <th>{t("الاسم", "Name")}</th>
               <th>{t("رقم الهاتف", "Phone number")}</th>
               <th>{t("الحالة", "Status")}</th>
-              {linkTrackingEnabled ? <th>{t("التفاعل", "Engagement")}</th> : null}
+              <th>{t("التفاعل", "Engagement")}</th>
               <th>{t("التاريخ", "Date")}</th>
-              {linkTrackingEnabled ? <th>{t("إجراء", "Action")}</th> : null}
+              <th>{t("إجراء", "Action")}</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={linkTrackingEnabled ? 6 : 3}>{t("جارٍ التحميل...", "Loading...")}</td></tr> : null}
+            {loading ? <tr><td colSpan={6}>{t("جارٍ التحميل...", "Loading...")}</td></tr> : null}
             {!loading ? pagination.items.map((row) => (
               <tr key={row.phone}>
-                {linkTrackingEnabled ? <td>{row.name || "-"}</td> : null}
+                <td>{row.name || "-"}</td>
                 <td dir="ltr">{row.phone}</td>
                 <td>
                   <span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span>
                   {row.error ? <small className="campaign-report-error">{row.error}</small> : null}
                 </td>
-                {linkTrackingEnabled ? <td>{engagementLabel(engagementBucketFor(row), t)}</td> : null}
+                <td>{engagementLabel(engagementBucketFor(row), t)}</td>
                 <td><span className="campaign-date">◴ {formatDateTime(row.date)}</span></td>
-                {linkTrackingEnabled ? (
-                  <td>
-                    <a className="btn soft" href={`https://wa.me/${row.phone}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a>
-                  </td>
-                ) : null}
+                <td>
+                  <a className="btn soft" href={`https://wa.me/${row.phone}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a>
+                </td>
               </tr>
             )) : null}
             {!loading && !pagination.items.length ? (
-              <tr><td colSpan={linkTrackingEnabled ? 6 : 3}>{t("لا توجد أرقام مطابقة للبحث.", "No numbers match your search.")}</td></tr>
+              <tr><td colSpan={6}>{t("لا توجد أرقام مطابقة للبحث.", "No numbers match your search.")}</td></tr>
             ) : null}
           </tbody>
         </table>
