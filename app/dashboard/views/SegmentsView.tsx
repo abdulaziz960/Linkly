@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Fragment, FormEvent, useEffect, useMemo, useState } from "react";
 import type { Campaign, Segment, Tag } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
@@ -31,6 +31,7 @@ const launchedCampaignStatuses = new Set(["قيد الإرسال", "الحملة
 
 type OverviewRow = { name: string; phone: string; campaignName: string };
 type Overview = { counts: Record<EngagementBucket, number>; rows: Record<EngagementBucket, OverviewRow[]> };
+type SegmentRecipientDetail = { name: string; phone: string; campaignName: string };
 
 function downloadBlob(content: BlobPart, type: string, name: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -61,6 +62,9 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
   const [quickSaveName, setQuickSaveName] = useState("");
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickSaveMessage, setQuickSaveMessage] = useState("");
+  const [expandedSegmentId, setExpandedSegmentId] = useState<string | null>(null);
+  const [segmentDetails, setSegmentDetails] = useState<SegmentRecipientDetail[]>([]);
+  const [segmentDetailsLoading, setSegmentDetailsLoading] = useState(false);
 
   const launchedCampaigns = useMemo(() => campaigns.filter((campaign) => launchedCampaignStatuses.has(campaign.status)), [campaigns]);
 
@@ -133,15 +137,22 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
     setFormOpen(true);
   }
 
-  function openEditForm(segment: Segment) {
-    setError("");
-    setForm({
-      id: segment.id, name: segment.name, tagNames: segment.tagNames,
-      inactiveDays: segment.inactiveDays ? String(segment.inactiveDays) : "",
-      sourceCampaignId: segment.sourceCampaignId, engagementBucket: segment.engagementBucket,
-      engagementDateFrom: segment.engagementDateFrom, engagementDateTo: segment.engagementDateTo
-    });
-    setFormOpen(true);
+  async function toggleSegmentDetails(segment: Segment) {
+    if (expandedSegmentId === segment.id) {
+      setExpandedSegmentId(null);
+      return;
+    }
+    setExpandedSegmentId(segment.id);
+    setSegmentDetails([]);
+    setSegmentDetailsLoading(true);
+    try {
+      const response = await fetch(`/api/segments/${segment.id}/recipients`);
+      const body = await response.json().catch(() => null);
+      setSegmentDetails(response.ok && body?.ok ? body.data ?? [] : []);
+    } catch {
+      setSegmentDetails([]);
+    }
+    setSegmentDetailsLoading(false);
   }
 
   function toggleTag(tagName: string) {
@@ -214,12 +225,6 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
     setQuickSaveName("");
     setQuickSaveMessage(t("تم حفظ المجموعة بنجاح - تقدر تختارها الآن عند إنشاء حملة.", "Group saved - you can now pick it when creating a campaign."));
     setQuickSaving(false);
-  }
-
-  async function deleteSegment(segment: Segment) {
-    if (!window.confirm(t(`حذف تقسيم ${segment.name}؟`, `Delete segment "${segment.name}"?`))) return;
-    await fetch(`/api/segments/${segment.id}`, { method: "DELETE" });
-    await loadSegments();
   }
 
   function engagementBucketLabel(bucket: EngagementBucketOrEmpty) {
@@ -367,21 +372,43 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
             <button className="btn soft" type="button" onClick={() => setSearch("")}>{t("مسح", "Clear")}</button>
           </div>
           <table>
-            <thead><tr><th>{t("الاسم", "Name")}</th><th>{t("الشروط", "Criteria")}</th><th>{t("عدد العملاء", "Recipients")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
+            <thead><tr><th>{t("الاسم", "Name")}</th><th>{t("الشروط", "Criteria")}</th><th>{t("عدد العملاء", "Recipients")}</th></tr></thead>
             <tbody>
               {filteredSegments.map((segment) => (
-                <tr key={segment.id}>
-                  <td><b>{segment.name}</b></td>
-                  <td>{criteriaSummary(segment)}</td>
-                  <td>{segment.recipientCount.toLocaleString("en-US")}</td>
-                  <td className="row-actions">
-                    <button className="btn soft" type="button" onClick={() => openEditForm(segment)}>{t("تعديل", "Edit")}</button>
-                    <button className="btn danger" type="button" onClick={() => deleteSegment(segment)}>{t("حذف", "Delete")}</button>
-                  </td>
-                </tr>
+                <Fragment key={segment.id}>
+                  <tr className="segment-row-clickable" onClick={() => toggleSegmentDetails(segment)}>
+                    <td><b>{segment.name}</b> <span aria-hidden="true">{expandedSegmentId === segment.id ? "▲" : "▼"}</span></td>
+                    <td>{criteriaSummary(segment)}</td>
+                    <td>{segment.recipientCount.toLocaleString("en-US")}</td>
+                  </tr>
+                  {expandedSegmentId === segment.id ? (
+                    <tr>
+                      <td colSpan={3}>
+                        {segmentDetailsLoading ? <p className="muted-copy">{t("جارٍ التحميل...", "Loading...")}</p> : (
+                          <div className="table-wrap">
+                            <table>
+                              <thead><tr><th>{t("الاسم", "Name")}</th><th>{t("رقم الهاتف", "Phone number")}</th><th>{t("من أي حملة", "From which campaign")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
+                              <tbody>
+                                {segmentDetails.map((row) => (
+                                  <tr key={row.phone}>
+                                    <td>{row.name || "-"}</td>
+                                    <td dir="ltr">{row.phone}</td>
+                                    <td>{row.campaignName || "-"}</td>
+                                    <td><a className="btn soft" href={`https://wa.me/${row.phone}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a></td>
+                                  </tr>
+                                ))}
+                                {!segmentDetails.length ? <tr><td colSpan={4}>{t("لا يوجد عملاء مطابقون حاليًا.", "No matching customers right now.")}</td></tr> : null}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               ))}
               {!filteredSegments.length ? (
-                <tr><td colSpan={4}>{loading ? t("جاري التحميل...", "Loading...") : segments.length ? t("لا توجد تقسيمات مطابقة للبحث.", "No segments match your search.") : t("لا توجد تقسيمات بعد، اضغط \"إضافة تقسيم\" لإنشاء أول واحد.", "No segments yet — click \"Add segment\" to create your first one.")}</td></tr>
+                <tr><td colSpan={3}>{loading ? t("جاري التحميل...", "Loading...") : segments.length ? t("لا توجد تقسيمات مطابقة للبحث.", "No segments match your search.") : t("لا توجد تقسيمات بعد، اضغط \"إضافة تقسيم\" لإنشاء أول واحد.", "No segments yet — click \"Add segment\" to create your first one.")}</td></tr>
               ) : null}
             </tbody>
           </table>
