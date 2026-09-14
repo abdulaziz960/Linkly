@@ -31,7 +31,8 @@ export async function GET(_request: Request, context: RouteContext) {
       error: recipient.error,
       date: recipient.sentAt || recipient.createdAt,
       readAt: recipient.readAt,
-      clickedAt: recipient.clickedAt
+      clickedAt: recipient.clickedAt,
+      deliveryFailed: recipient.deliveryFailed
     }))
   });
 }

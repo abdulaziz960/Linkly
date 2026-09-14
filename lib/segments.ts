@@ -49,7 +49,7 @@ function toSegmentRecord(row: SegmentRow): SegmentRecord {
     tagNames: parseTagNames(row.tagNames),
     inactiveDays: row.inactiveDays,
     sourceCampaignId: row.sourceCampaignId,
-    engagementBucket: row.engagementBucket === "notOpened" || row.engagementBucket === "opened" || row.engagementBucket === "clicked" ? row.engagementBucket : "",
+    engagementBucket: row.engagementBucket === "notReceived" || row.engagementBucket === "notOpened" || row.engagementBucket === "opened" || row.engagementBucket === "clicked" ? row.engagementBucket : "",
     engagementDateFrom: row.engagementDateFrom,
     engagementDateTo: row.engagementDateTo,
     createdAt: row.createdAt,
@@ -67,7 +67,7 @@ export async function getSegmentById(tenantId: string, id: string): Promise<Segm
   return row ? toSegmentRecord(row) : null;
 }
 
-const validEngagementBuckets = new Set(["notOpened", "opened", "clicked"]);
+const validEngagementBuckets = new Set(["notReceived", "notOpened", "opened", "clicked"]);
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 type EngagementFieldsInput = { sourceCampaignId?: string; engagementBucket?: string; engagementDateFrom?: string; engagementDateTo?: string };
@@ -227,8 +227,9 @@ export type CrossCampaignEngagementResult = {
  * The all-customers, cross-campaign breakdown shown on the Segments page.
  * A customer can appear in several campaigns with different outcomes, so
  * each phone is counted once under its single best engagement
- * (clicked > opened > notOpened) rather than once per campaign - campaignName
- * reflects whichever campaign produced that winning engagement.
+ * (clicked > opened > notOpened > notReceived) rather than once per
+ * campaign - campaignName reflects whichever campaign produced that
+ * winning engagement.
  */
 export async function getCrossCampaignEngagement(tenantId: string, dateFrom: string, dateTo: string): Promise<CrossCampaignEngagementResult> {
   const recipients = await prisma.campaignRecipient.findMany({
@@ -236,7 +237,7 @@ export async function getCrossCampaignEngagement(tenantId: string, dateFrom: str
   });
   const campaignNames = new Map((await prisma.campaign.findMany({ where: { tenantId }, select: { id: true, name: true } })).map((campaign) => [campaign.id, campaign.name]));
 
-  const bucketRank: Record<EngagementBucket, number> = { clicked: 3, opened: 2, notOpened: 1 };
+  const bucketRank: Record<EngagementBucket, number> = { clicked: 4, opened: 3, notOpened: 2, notReceived: 1 };
   const bestByPhone = new Map<string, { bucket: EngagementBucket; name: string; campaignName: string }>();
   for (const recipient of recipients) {
     const bucket = engagementBucketFor(recipient);
@@ -249,8 +250,8 @@ export async function getCrossCampaignEngagement(tenantId: string, dateFrom: str
     }
   }
 
-  const counts: Record<EngagementBucket, number> = { notOpened: 0, opened: 0, clicked: 0 };
-  const rows: Record<EngagementBucket, CrossCampaignEngagementRow[]> = { notOpened: [], opened: [], clicked: [] };
+  const counts: Record<EngagementBucket, number> = { notReceived: 0, notOpened: 0, opened: 0, clicked: 0 };
+  const rows: Record<EngagementBucket, CrossCampaignEngagementRow[]> = { notReceived: [], notOpened: [], opened: [], clicked: [] };
   for (const [phone, { bucket, name, campaignName }] of bestByPhone) {
     counts[bucket] += 1;
     rows[bucket].push({ name, phone, campaignName });

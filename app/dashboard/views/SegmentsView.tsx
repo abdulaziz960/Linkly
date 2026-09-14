@@ -231,13 +231,15 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
     if (bucket === "clicked") return t("تفاعل مع الحملة", "Clicked the campaign");
     if (bucket === "opened") return t("فتح الحملة بدون تفاعل", "Opened the campaign, no click");
     if (bucket === "notOpened") return t("لم يفتح الحملة", "Didn't open the campaign");
+    if (bucket === "notReceived") return t("لم يستلم الرسالة", "Didn't receive the message");
     return "";
   }
 
   function shortBucketLabel(bucket: EngagementBucket) {
     if (bucket === "clicked") return t("تفاعل", "Clicked");
     if (bucket === "opened") return t("فتحها بدون ضغط", "Opened, no click");
-    return t("ما فتحها", "Not opened");
+    if (bucket === "notOpened") return t("ما فتحها", "Not opened");
+    return t("لم يستلم الرسالة", "Didn't receive");
   }
 
   function criteriaSummary(segment: Segment) {
@@ -290,8 +292,8 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
           {overviewLoading ? <p className="muted-copy">{t("جارٍ التحميل...", "Loading...")}</p> : null}
           {!overviewLoading && overview ? (
             <>
-              <div className="campaign-engagement-tiles segments-print-hide">
-                {(["notOpened", "opened", "clicked"] as EngagementBucket[]).map((bucket) => (
+              <div className="campaign-engagement-tiles campaign-engagement-tiles-4 segments-print-hide">
+                {(["notReceived", "notOpened", "opened", "clicked"] as EngagementBucket[]).map((bucket) => (
                   <button
                     key={bucket}
                     type="button"
@@ -463,6 +465,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
                   }))}
                   options={[
                     { value: "", label: t("بدون شرط", "No condition") },
+                    { value: "notReceived", label: t("لم يستلم الرسالة", "Didn't receive the message") },
                     { value: "notOpened", label: t("لم يفتح الرسالة", "Didn't open the message") },
                     { value: "opened", label: t("فتحها بدون تفاعل", "Opened, no click") },
                     { value: "clicked", label: t("تفاعل (ضغط الرابط أو الزر)", "Clicked (link or button)") }

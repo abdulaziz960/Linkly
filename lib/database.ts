@@ -401,6 +401,12 @@ async function runRequiredProductionMigrations() {
     `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS clicked_at TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS delivery_failed INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS delivery_error TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS campaign_recipients_tracking_code_idx ON campaign_recipients(tracking_code)`
   );
   await prisma.$executeRawUnsafe(
@@ -1286,10 +1292,13 @@ async function runSchemaMigrations() {
     created_at TEXT NOT NULL
   )`);
   const campaignRecipientColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(campaign_recipients)`);
-  for (const columnName of ["tracking_code", "read_at", "clicked_at"]) {
+  for (const columnName of ["tracking_code", "read_at", "clicked_at", "delivery_error"]) {
     if (!campaignRecipientColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
+  }
+  if (!campaignRecipientColumns.some((column) => column.name === "delivery_failed")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN delivery_failed INTEGER NOT NULL DEFAULT 0`);
   }
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS campaign_recipients_tracking_code_idx ON campaign_recipients(tracking_code)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balances (

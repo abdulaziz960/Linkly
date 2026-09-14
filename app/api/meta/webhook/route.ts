@@ -445,6 +445,23 @@ export async function POST(request: NextRequest) {
             console.error("Failed to stamp campaign recipient read status", error);
           }
         }
+
+        // WhatsApp can accept a campaign send ("تم الإرسال") and only later
+        // report it couldn't actually be delivered - most commonly because
+        // the recipient has marketing/template messages turned off, or
+        // blocked the business. Surfaced as its own "لم يستلم الرسالة"
+        // engagement bucket (see lib/campaign-engagement.ts) instead of
+        // silently vanishing from every campaign report.
+        if (status.status === "failed") {
+          try {
+            await prisma.campaignRecipient.updateMany({
+              where: { messageId: status.id, tenantId: whatsappAccount.tenantId },
+              data: { deliveryFailed: 1, deliveryError: status.errors?.[0]?.title || status.errors?.[0]?.message || "" }
+            });
+          } catch (error) {
+            console.error("Failed to stamp campaign recipient delivery failure", error);
+          }
+        }
       }
 
       for (const message of messages) {

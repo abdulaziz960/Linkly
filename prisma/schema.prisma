@@ -276,6 +276,14 @@ model CampaignRecipient {
   trackingCode String @default("") @map("tracking_code")
   readAt       String @default("") @map("read_at")
   clickedAt    String @default("") @map("clicked_at")
+  // WhatsApp can accept a send (status "تم الإرسال") and only later report
+  // async delivery failure via a "failed" status webhook event - most
+  // commonly because the recipient has marketing/template messages turned
+  // off, or blocked the business. Stamped by app/api/meta/webhook/route.ts;
+  // distinct from `error`, which only ever holds OUR OWN immediate send
+  // failure reason.
+  deliveryFailed Int    @default(0) @map("delivery_failed")
+  deliveryError  String @default("") @map("delivery_error")
   createdAt  String @map("created_at")
 
   @@index([tenantId, status])
