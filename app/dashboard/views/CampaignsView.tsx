@@ -703,7 +703,7 @@ export default function CampaignsView({
                     </label>
                   ) : (
                     <label>
-                      <span>{t("تقسيم الجمهور", "Segment")}</span>
+                      <span>{t("تقسيم العملاء", "Segment")}</span>
                       <CustomSelect
                         value={form.segmentId}
                         onChange={(value) => selectSegment(value)}
@@ -713,7 +713,7 @@ export default function CampaignsView({
                         }))}
                       />
                       {!segments.length ? (
-                        <small className="field-hint">{t("ما فيه تقسيمات جمهور بعد - أنشئ واحداً من صفحة تقسيم الجمهور.", "No segments yet - create one from the Segments page.")}</small>
+                        <small className="field-hint">{t("ما فيه تقسيمات عملاء بعد - أنشئ واحداً من صفحة تقسيم العملاء.", "No segments yet - create one from the Customer Segments page.")}</small>
                       ) : null}
                     </label>
                   )}
