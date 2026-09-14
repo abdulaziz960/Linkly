@@ -363,7 +363,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
 
       <div className="panel segments-manual-panel">
         <div className="panel-head">
-          <h2>{t("تقسيم الجمهور", "Segments")}</h2>
+          <h2>{t("تقسيم العملاء", "Customer Segments")}</h2>
           <span />
           <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة تقسيم", "Add segment")}</button>
         </div>
