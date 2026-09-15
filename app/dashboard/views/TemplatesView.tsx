@@ -519,14 +519,32 @@ export default function TemplatesView({
                       </label>
                       <label>
                         <span>{t("الرابط", "URL")}</span>
-                        <input dir="ltr" value={form.buttonUrl} onChange={(event) => setForm((current) => ({ ...current, buttonUrl: event.target.value }))} placeholder="https://example.com" />
-                        <small>{t("لجعل رابط تتبع الحملة يظهر كزر بدل نص داخل الرسالة، أنهِ الرابط بـ {{1}} مثل: https://linklysa.io/api/campaigns/t/{{1}}", "To make a campaign's tracking link appear as a button instead of body text, end the URL with {{1}}, e.g. https://linklysa.io/api/campaigns/t/{{1}}")}</small>
+                        <div className="template-button-url-row">
+                          <input dir="ltr" value={form.buttonUrl} onChange={(event) => setForm((current) => ({ ...current, buttonUrl: event.target.value }))} placeholder="https://example.com" />
+                          <button
+                            type="button"
+                            className="btn soft"
+                            onClick={() => setForm((current) => ({ ...current, buttonUrl: "https://linklysa.io/api/campaigns/t/{{1}}" }))}
+                          >
+                            {t("استخدم رابط تتبع الحملات", "Use campaign tracking link")}
+                          </button>
+                        </div>
+                        <small>{t("لجعل رابط تتبع الحملة يظهر كزر بدل نص داخل الرسالة، أنهِ الرابط بـ {{1}} - أو اضغط الزر أعلاه ليُملأ تلقائيًا بدون أخطاء كتابة.", "To make a campaign's tracking link appear as a button instead of body text, end the URL with {{1}} - or click the button above to fill it in automatically with no typos.")}</small>
                       </label>
                       {dynamicButtonUrlPattern.test(form.buttonUrl) ? (
-                        <label>
-                          <span>{t("مثال للرابط الكامل (لمراجعة Meta فقط)", "Full URL example (for Meta's review only)")}</span>
-                          <input dir="ltr" value={form.buttonUrlExample} onChange={(event) => setForm((current) => ({ ...current, buttonUrlExample: event.target.value }))} placeholder={form.buttonUrl.replace(dynamicButtonUrlPattern, "sample123")} />
-                        </label>
+                        <>
+                          <label>
+                            <span>{t("مثال للرابط الكامل (لمراجعة Meta فقط)", "Full URL example (for Meta's review only)")}</span>
+                            <input dir="ltr" value={form.buttonUrlExample} onChange={(event) => setForm((current) => ({ ...current, buttonUrlExample: event.target.value }))} placeholder={form.buttonUrl.replace(dynamicButtonUrlPattern, "sample123")} />
+                            <small>{t("مثال وهمي كامل بدون {{1}} - يُستخدم لمراجعة Meta فقط، ما يصل للعملاء.", "A complete dummy example without {{1}} - used only for Meta's review, never sent to real customers.")}</small>
+                          </label>
+                          <p className="template-button-url-warning">
+                            {t(
+                              "⚠️ أنشئ هذا القالب من هنا فقط، وليس من واجهة واتساب مانجر (WhatsApp Manager) الرسمية لدى Meta - واجهتهم لهذا النوع من الأزرار فيها خلل معروف يضيف رمز {{1}} تلقائيًا بآخر الرابط حتى لو كتبته بنفسك، فيتكرر ويكسر الرابط. من هذا النموذج، رابطك يُرسل لواتساب كما هو تمامًا بدون أي تكرار.",
+                              "Create this template only from here, not from Meta's own WhatsApp Manager composer - their interface has a known bug for this button type that auto-appends {{1}} at the end even if you already typed it yourself, duplicating it and breaking the link. From this form, your URL is sent to WhatsApp exactly as typed, with no duplication."
+                            )}
+                          </p>
+                        </>
                       ) : null}
                     </div>
                   ) : null}
