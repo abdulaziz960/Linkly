@@ -327,7 +327,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
                             <td>{row.name || "-"}</td>
                             <td dir="ltr">{row.phone}</td>
                             <td>{row.campaignName || t("حملة محذوفة", "Deleted campaign")}</td>
-                            <td className="segments-print-hide"><a className="btn soft" href={`https://wa.me/${row.phone}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a></td>
+                            <td className="segments-print-hide"><a className="btn soft" href={`/dashboard?view=inbox&phone=${encodeURIComponent(row.phone)}&name=${encodeURIComponent(row.name)}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a></td>
                           </tr>
                         ))}
                         {!overview.rows[activeBucket].length ? <tr><td colSpan={4}>{t("لا يوجد عملاء بهذه الحالة.", "No customers in this state.")}</td></tr> : null}
@@ -403,7 +403,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
                                     <td>{row.name || "-"}</td>
                                     <td dir="ltr">{row.phone}</td>
                                     <td>{row.campaignName || "-"}</td>
-                                    <td><a className="btn soft" href={`https://wa.me/${row.phone}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a></td>
+                                    <td><a className="btn soft" href={`/dashboard?view=inbox&phone=${encodeURIComponent(row.phone)}&name=${encodeURIComponent(row.name)}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a></td>
                                   </tr>
                                 ))}
                                 {!segmentDetails.length ? <tr><td colSpan={4}>{t("لا يوجد عملاء مطابقون حاليًا.", "No matching customers right now.")}</td></tr> : null}

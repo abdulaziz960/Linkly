@@ -660,7 +660,22 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       setSelectedChannel(requestedChannel);
     }
 
+    const requestedPhone = params.get("phone");
+    if (requestedPhone) {
+      void handleOpenConversationByPhone(requestedPhone, params.get("name") || undefined);
+      // One-time entry point - strip it so a later reload/back-navigation
+      // doesn't reopen (or re-upsert) the same conversation.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("phone");
+      url.searchParams.delete("name");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+
     restoredNavigationRef.current = true;
+    // This is a one-time restore gated by restoredNavigationRef, not a
+    // reactive sync - intentionally excluding handleOpenConversationByPhone
+    // (and the other closures already omitted above) from the deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowedViews, initialUser.role, employees.length]);
 
   useEffect(() => {
@@ -833,6 +848,51 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         body: JSON.stringify({ unread: 0 })
       });
     }
+  }
+
+  /**
+   * Entry point for "send message" links outside the inbox tree (campaign
+   * reports, segment lists) that only ever have a phone number, not a
+   * customer id - e.g. from /dashboard?view=inbox&phone=...&name=... on
+   * first load. The API route upserts the same customer a real inbound
+   * WhatsApp message would create, so this always lands on a real
+   * conversation, even for a phone-only lead never seen in the inbox before.
+   */
+  async function handleOpenConversationByPhone(phone: string, name?: string) {
+    if (!allowedViews.includes("inbox")) return;
+    const response = await fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, name })
+    });
+
+    if (!response.ok) {
+      window.alert(await readApiError(response, language));
+      return;
+    }
+
+    const payload = (await response.json()) as { ok: boolean; data?: Conversation; error?: string };
+    if (!payload.ok || !payload.data) {
+      window.alert(payload.error || t("تعذر فتح محادثة العميل", "Could not open the customer conversation"));
+      return;
+    }
+
+    const conversation = payload.data;
+    setConversations((current) => {
+      const exists = current.some((item) => item.id === conversation.id);
+      const nextConversations = exists
+        ? current.map((item) => (item.id === conversation.id ? conversation : item))
+        : [conversation, ...current];
+
+      writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
+      return nextConversations;
+    });
+
+    setActiveConversationId(conversation.id);
+    setSelectedChannel("all");
+    setActiveView("inbox");
+    setChatPanel("chat");
+    setMobileChatOpen(true);
   }
 
   async function handleAssigneeChange(assignee: string) {
