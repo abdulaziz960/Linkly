@@ -1705,6 +1705,30 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   color: var(--text-secondary);
 }
 
+.template-button-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.template-button-url-row input {
+  flex: 1;
+}
+
+.template-button-url-row .btn {
+  white-space: nowrap;
+}
+
+.template-button-url-warning {
+  margin: 8px 0 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--status-warn-bg-soft);
+  color: #b5750a;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
 .template-toolbar {
   display: flex;
   align-items: center;
