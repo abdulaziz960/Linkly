@@ -519,27 +519,22 @@ export default function TemplatesView({
                       </label>
                       <label>
                         <span>{t("الرابط", "URL")}</span>
-                        <input dir="ltr" value={form.buttonUrl} onChange={(event) => setForm((current) => ({ ...current, buttonUrl: event.target.value }))} placeholder="https://example.com" />
-                        <button
-                          type="button"
-                          className="btn soft template-button-url-fill"
-                          disabled={dynamicButtonUrlPattern.test(form.buttonUrl)}
-                          onClick={() => setForm((current) => {
-                            const base = current.buttonUrl.trim();
-                            const withSlash = base && !base.endsWith("/") ? `${base}/` : base;
-                            return { ...current, buttonUrl: `${withSlash}api/campaigns/t/{{1}}` };
-                          })}
-                        >
-                          {t("اضغط هنا لجعل الرابط رابط تتبع", "Click here to make this a tracking link")}
-                        </button>
+                        <div className="template-button-url-row">
+                          <input dir="ltr" value={form.buttonUrl} onChange={(event) => setForm((current) => ({ ...current, buttonUrl: event.target.value }))} placeholder="https://example.com" />
+                          <button
+                            type="button"
+                            className="btn soft template-button-url-fill"
+                            disabled={dynamicButtonUrlPattern.test(form.buttonUrl)}
+                            onClick={() => setForm((current) => {
+                              const base = current.buttonUrl.trim();
+                              const withSlash = base && !base.endsWith("/") ? `${base}/` : base;
+                              return { ...current, buttonUrl: `${withSlash}api/campaigns/t/{{1}}` };
+                            })}
+                          >
+                            {t("اضغط هنا لجعل الرابط رابط تتبع", "Click here to make this a tracking link")}
+                          </button>
+                        </div>
                       </label>
-                      {dynamicButtonUrlPattern.test(form.buttonUrl) ? (
-                        <label>
-                          <span>{t("مثال للرابط الكامل (لمراجعة Meta فقط)", "Full URL example (for Meta's review only)")}</span>
-                          <input dir="ltr" value={form.buttonUrlExample || form.buttonUrl.replace(dynamicButtonUrlPattern, "sample123")} onChange={(event) => setForm((current) => ({ ...current, buttonUrlExample: event.target.value }))} />
-                          <small>{t("مثال وهمي كامل بدون {{1}} - يُستخدم لمراجعة Meta فقط، ما يصل للعملاء.", "A complete dummy example without {{1}} - used only for Meta's review, never sent to real customers.")}</small>
-                        </label>
-                      ) : null}
                     </div>
                   ) : null}
                 </div>
