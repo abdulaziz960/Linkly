@@ -182,7 +182,7 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
                 <td>{engagementLabel(engagementBucketFor(row), t)}</td>
                 <td><span className="campaign-date">◴ {formatDateTime(row.date)}</span></td>
                 <td>
-                  <a className="btn soft" href={`https://wa.me/${row.phone}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a>
+                  <a className="btn soft" href={`/dashboard?view=inbox&phone=${encodeURIComponent(row.phone)}&name=${encodeURIComponent(row.name)}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a>
                 </td>
               </tr>
             )) : null}
