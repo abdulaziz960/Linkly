@@ -1,0 +1,2 @@
+ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_date_from TEXT NOT NULL DEFAULT '';
+ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_date_to TEXT NOT NULL DEFAULT '';

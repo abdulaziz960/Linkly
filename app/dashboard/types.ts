@@ -180,6 +180,10 @@ export type Segment = {
   name: string;
   tagNames: string[];
   inactiveDays: number;
+  sourceCampaignId: string;
+  engagementBucket: "" | "notOpened" | "opened" | "clicked";
+  engagementDateFrom: string;
+  engagementDateTo: string;
   recipientCount: number;
   createdAt: string;
   updatedAt: string;

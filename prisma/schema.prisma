@@ -276,6 +276,14 @@ model CampaignRecipient {
   trackingCode String @default("") @map("tracking_code")
   readAt       String @default("") @map("read_at")
   clickedAt    String @default("") @map("clicked_at")
+  // WhatsApp can accept a send (status "تم الإرسال") and only later report
+  // async delivery failure via a "failed" status webhook event - most
+  // commonly because the recipient has marketing/template messages turned
+  // off, or blocked the business. Stamped by app/api/meta/webhook/route.ts;
+  // distinct from `error`, which only ever holds OUR OWN immediate send
+  // failure reason.
+  deliveryFailed Int    @default(0) @map("delivery_failed")
+  deliveryError  String @default("") @map("delivery_error")
   createdAt  String @map("created_at")
 
   @@index([tenantId, status])
@@ -320,6 +328,19 @@ model Segment {
   name         String
   tagNames     String @default("") @map("tag_names")
   inactiveDays Int    @default(0) @map("inactive_days")
+  // Targets customers by their campaign engagement. engagementBucket is the
+  // trigger for this whole condition - empty means it's off, and
+  // sourceCampaignId/engagementDateFrom/engagementDateTo are then cleared
+  // too. When set, sourceCampaignId optionally narrows to one campaign
+  // (empty = every campaign) and the two dates optionally narrow to
+  // recipients sent within that range (empty = unbounded); sourceCampaignId
+  // is validated against the tenant's own campaigns at write time.
+  // engagementBucket mirrors engagementBucketFor()'s return values
+  // ("notOpened" | "opened" | "clicked").
+  sourceCampaignId String @default("") @map("source_campaign_id")
+  engagementBucket String @default("") @map("engagement_bucket")
+  engagementDateFrom String @default("") @map("engagement_date_from")
+  engagementDateTo String @default("") @map("engagement_date_to")
   createdAt    String @map("created_at")
   updatedAt    String @map("updated_at")
 
@@ -605,6 +626,12 @@ model Plan {
   employeeLimit Int    @default(1) @map("employee_limit")
   sortOrder     Int    @default(0) @map("sort_order")
   active        Int    @default(1)
+  // 0 means the AI Copilot isn't included in this plan at all - the
+  // Linkly-managed (platform-key) mode only ever activates for a tenant
+  // whose current plan has a positive daily limit. Tenants can still bring
+  // their own API key on any plan (see AiWorkspaceSetting), unaffected by this.
+  aiDailyLimit   Int @default(0) @map("ai_daily_limit")
+  aiMonthlyLimit Int @default(0) @map("ai_monthly_limit")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 

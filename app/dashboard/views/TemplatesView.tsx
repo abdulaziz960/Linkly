@@ -24,7 +24,13 @@ type TemplateFormState = {
   lastUsed: string;
   editing: boolean;
   bodyExamples: Record<string, string>;
+  buttonUrlExample: string;
 };
+
+// A URL button ending in "{{1}}" is a dynamic per-send suffix - lets a
+// campaign's tracking link be sent as a real button instead of plain text
+// inside the message body (see sendWhatsAppTemplate in lib/campaign-engine.ts).
+const dynamicButtonUrlPattern = /\{\{\s*1\s*\}\}\s*$/;
 
 // Meta rejects a template whose body starts or ends with a variable outright
 // (no preview can render around it) - catching it here saves a round trip
@@ -86,7 +92,8 @@ export default function TemplatesView({
       buttonUrl: "",
       lastUsed: "-",
       editing: false,
-      bodyExamples: {}
+      bodyExamples: {},
+      buttonUrlExample: ""
     }),
     []
   );
@@ -145,7 +152,8 @@ export default function TemplatesView({
       buttonUrl: template.buttonUrl || "",
       lastUsed: template.lastUsed || "-",
       editing: true,
-      bodyExamples: {}
+      bodyExamples: {},
+      buttonUrlExample: ""
     });
     setFormOpen(true);
   }
@@ -512,7 +520,14 @@ export default function TemplatesView({
                       <label>
                         <span>{t("الرابط", "URL")}</span>
                         <input dir="ltr" value={form.buttonUrl} onChange={(event) => setForm((current) => ({ ...current, buttonUrl: event.target.value }))} placeholder="https://example.com" />
+                        <small>{t("لجعل رابط تتبع الحملة يظهر كزر بدل نص داخل الرسالة، أنهِ الرابط بـ {{1}} مثل: https://linklysa.io/api/campaigns/t/{{1}}", "To make a campaign's tracking link appear as a button instead of body text, end the URL with {{1}}, e.g. https://linklysa.io/api/campaigns/t/{{1}}")}</small>
                       </label>
+                      {dynamicButtonUrlPattern.test(form.buttonUrl) ? (
+                        <label>
+                          <span>{t("مثال للرابط الكامل (لمراجعة Meta فقط)", "Full URL example (for Meta's review only)")}</span>
+                          <input dir="ltr" value={form.buttonUrlExample} onChange={(event) => setForm((current) => ({ ...current, buttonUrlExample: event.target.value }))} placeholder={form.buttonUrl.replace(dynamicButtonUrlPattern, "sample123")} />
+                        </label>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
