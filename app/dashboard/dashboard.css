@@ -1445,6 +1445,16 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   min-width: 0;
 }
 
+.template-button-url-example {
+  margin-top: 4px;
+}
+
+.template-button-url-example small {
+  color: var(--muted);
+  font-weight: 750;
+  font-size: 12.5px;
+}
+
 .template-editor input:focus,
 .template-editor select:focus,
 .template-editor textarea:focus {

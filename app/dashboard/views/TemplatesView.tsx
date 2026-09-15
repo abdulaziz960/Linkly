@@ -537,6 +537,17 @@ export default function TemplatesView({
                       </label>
                     </div>
                   ) : null}
+                  {form.buttonType === "URL" && dynamicButtonUrlPattern.test(form.buttonUrl) ? (
+                    <label className="template-button-url-example">
+                      <span>{t("مثال للرابط", "URL example")}</span>
+                      <input
+                        dir="ltr"
+                        value={form.buttonUrlExample || form.buttonUrl.replace(dynamicButtonUrlPattern, "sample123")}
+                        onChange={(event) => setForm((current) => ({ ...current, buttonUrlExample: event.target.value }))}
+                      />
+                      <small>{t("مثال يُستخدم لمراجعة Meta فقط، ما يصل للعملاء.", "Example used only for Meta's review — never sent to customers.")}</small>
+                    </label>
+                  ) : null}
                 </div>
 
                 <div className="template-section">
