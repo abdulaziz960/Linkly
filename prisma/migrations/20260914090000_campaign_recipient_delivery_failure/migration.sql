@@ -1,0 +1,2 @@
+ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS delivery_failed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS delivery_error TEXT NOT NULL DEFAULT '';

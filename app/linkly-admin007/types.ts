@@ -36,6 +36,8 @@ export type PlanRow = {
   name: string;
   monthlyPrice: number;
   employeeLimit: number;
+  aiDailyLimit: number;
+  aiMonthlyLimit: number;
   sortOrder: number;
   active: number;
   createdAt: string;

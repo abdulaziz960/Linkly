@@ -401,7 +401,35 @@ async function runRequiredProductionMigrations() {
     `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS clicked_at TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS delivery_failed INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS delivery_error TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS campaign_recipients_tracking_code_idx ON campaign_recipients(tracking_code)`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE plans ADD COLUMN IF NOT EXISTS ai_daily_limit INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE plans ADD COLUMN IF NOT EXISTS ai_monthly_limit INTEGER NOT NULL DEFAULT 0`
+  );
+
+  // Segment targeting by a past campaign's engagement bucket - added
+  // directly here, not the disabled legacy block, per the closed_at lesson
+  // above.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE segments ADD COLUMN IF NOT EXISTS source_campaign_id TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_bucket TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_date_from TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_date_to TEXT NOT NULL DEFAULT ''`
   );
 
   // Workspace AI settings/usage tables - added directly here, not the
@@ -1264,10 +1292,13 @@ async function runSchemaMigrations() {
     created_at TEXT NOT NULL
   )`);
   const campaignRecipientColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(campaign_recipients)`);
-  for (const columnName of ["tracking_code", "read_at", "clicked_at"]) {
+  for (const columnName of ["tracking_code", "read_at", "clicked_at", "delivery_error"]) {
     if (!campaignRecipientColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
+  }
+  if (!campaignRecipientColumns.some((column) => column.name === "delivery_failed")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN delivery_failed INTEGER NOT NULL DEFAULT 0`);
   }
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS campaign_recipients_tracking_code_idx ON campaign_recipients(tracking_code)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balances (
@@ -1304,6 +1335,12 @@ async function runSchemaMigrations() {
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
+  const segmentColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(segments)`);
+  for (const columnName of ["source_campaign_id", "engagement_bucket", "engagement_date_from", "engagement_date_to"]) {
+    if (!segmentColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE segments ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
+    }
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_insights (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL UNIQUE,
@@ -1612,6 +1649,12 @@ async function runSchemaMigrations() {
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
+  const planColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(plans)`);
+  for (const columnName of ["ai_daily_limit", "ai_monthly_limit"]) {
+    if (!planColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN ${columnName} INTEGER NOT NULL DEFAULT 0`);
+    }
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL UNIQUE,

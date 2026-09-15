@@ -44,10 +44,15 @@ export async function PUT(request: NextRequest) {
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
     const existing = await tx.aiWorkspaceSetting.findUnique({ where: { tenantId: user.tenantId } });
-    // Switching providers must never reuse the previous provider's key.
+    // Switching providers must never reuse the previous provider's key. An
+    // empty key here (none entered, or the first-ever save) is left empty
+    // on purpose - runWorkspaceAi treats that as "use the Linkly-managed
+    // key", which only actually works if this tenant's plan includes it.
+    // Silently filling in the platform's own key here would let any tenant
+    // use managed AI regardless of plan.
     const apiKey = body.apiKey?.trim() ? encryptSecret(body.apiKey.trim())
       : existing && existing.provider === body.provider ? existing.apiKey
-      : !existing && body.provider === "gemini" ? encryptSecret(process.env.GEMINI_API_KEY?.trim() || "") : "";
+      : "";
     const data = { provider: body.provider, model: body.model, enabled: body.enabled ? 1 : 0,
       prompt: body.prompt, dailyLimit: body.dailyLimit, monthlyLimit: body.monthlyLimit,
       inputRate: body.inputRate, outputRate: body.outputRate, apiKey, updatedAt: new Date().toISOString() };

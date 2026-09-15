@@ -86,6 +86,18 @@ describe("Linkly Conversations vertical slice", () => {
       id: `history-${index}`, conversationId: inbound.conversationId, direction: "in", text: `latest-context-${index}`,
       time: "12:00", createdAt: new Date(Date.now() + index * 1000).toISOString()
     })) });
+    // runWorkspaceAi requires an explicit, enabled AiWorkspaceSetting row -
+    // there's no implicit default-on state anymore (see lib/workspace-ai.ts).
+    // A tenant's own key (BYOK) is the simplest path for this test; the
+    // Linkly-managed path is covered separately and needs a qualifying plan too.
+    const { encryptSecret } = await import("../lib/secret-storage");
+    await prisma.aiWorkspaceSetting.create({
+      data: {
+        tenantId, provider: "gemini", model: "gemini-2.5-flash", apiKey: encryptSecret("test-gemini-key"),
+        enabled: 1, prompt: "", dailyLimit: 100, monthlyLimit: 1000, updatedAt: new Date().toISOString()
+      }
+    });
+
     const providerFetch = vi.fn(async () => new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: "أهلاً بك، يسعدني شرح باقة النمو لك." }] } }]
     }), { status: 200 }));

@@ -3,7 +3,6 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema, getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
-import { getAppOrigin } from "./app-url";
 import type { Prisma } from "@prisma/client";
 
 export type ParsedRecipient = { phone: string; name: string };
@@ -169,7 +168,7 @@ export async function addManualCampaignBalance(tenantId: string, messages: numbe
   return payment;
 }
 
-export async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false, linkUrl = "") {
+export async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false, trackingCode = "") {
   const settings = await getIntegrationSettings("whatsapp", tenantId);
   const phoneNumberId = settings.phoneNumberId?.trim();
   const accessToken = settings.accessToken?.trim();
@@ -178,6 +177,8 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
   const languageCode = language === "Arabic" || language === "العربية" || !language ? "ar" : language === "English" || language === "الإنجليزية" ? "en_US" : language;
   const templateRecord = await prisma.template.findFirst({ where: { tenantId, name: templateName, status: "معتمد" } });
   if (!templateRecord) return { ok: false as const, error: "قالب واتساب غير موجود أو غير معتمد" };
+
+  const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://linklysa.io").replace(/\/$/, "");
 
   // WhatsApp templates use one of two variable formats, fixed at creation:
   // positional ({{1}}, {{2}}, ...) or named ({{customer_name}}, ...) - Meta
@@ -204,7 +205,6 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
   // fall back to the template's own saved media otherwise.
   const needsHeaderMedia = ["IMAGE", "VIDEO", "DOCUMENT"].includes(templateRecord.headerType);
   if (needsHeaderMedia && (campaignHasHeaderMedia || templateRecord.headerMediaDataUrl)) {
-    const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://linklysa.io").replace(/\/$/, "");
     const mediaUrl = campaignHasHeaderMedia
       ? `${baseUrl}/api/whatsapp/campaign-media/${campaignId}`
       : `${baseUrl}/api/whatsapp/template-media/${templateRecord.id}`;
@@ -227,6 +227,21 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
     });
   }
 
+  // A URL button ending in "{{1}}" (set up in the template editor, see
+  // TemplatesView.tsx) is a dynamic per-send suffix - the recipient's
+  // tracking link then goes on the BUTTON instead of inline in the body
+  // text. A template built this way is useless without a tracking code to
+  // fill it, so treat that combination as a hard error rather than silently
+  // sending a broken link.
+  const hasDynamicUrlButton = templateRecord.buttonType === "URL" && /\{\{\s*1\s*\}\}\s*$/.test(templateRecord.buttonUrl);
+  if (hasDynamicUrlButton && !trackingCode) {
+    return { ok: false as const, error: "هذا القالب يحتاج تفعيل تتبع الروابط لهذه الحملة - الزر يعتمد على رابط تتبع لكل عميل" };
+  }
+
+  // Without a dynamic button, link tracking falls back to embedding the
+  // full tracking link as plain body text (the original convention).
+  const linkUrl = !hasDynamicUrlButton && trackingCode ? `${baseUrl}/api/campaigns/t/${trackingCode}` : "";
+
   if (placeholders.length) {
     // With link tracking, the LAST body variable carries the recipient's
     // tracking link and every earlier one still carries their name - lets a
@@ -241,6 +256,10 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
         ? placeholders.map((name, index) => ({ type: "text", parameter_name: name, text: bodyValueAt(index, placeholders.length) }))
         : Array.from({ length: positionalCount }, (_, index) => ({ type: "text", text: bodyValueAt(index, positionalCount) }))
     });
+  }
+
+  if (hasDynamicUrlButton) {
+    components.push({ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: trackingCode }] });
   }
 
   const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
@@ -479,16 +498,11 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
         continue;
       }
 
-      // With link tracking on, the template's LAST body placeholder carries
-      // this recipient's own tracking link - any earlier placeholder (e.g.
-      // a template written as "{{1}} name ... {{2}} link") still gets their
-      // name, via sendWhatsAppTemplate's linkUrl param.
-      let trackingCode = "";
-      let linkUrl = "";
-      if (campaign.linkTrackingEnabled) {
-        trackingCode = randomUUID().replace(/-/g, "");
-        linkUrl = `${getAppOrigin()}/api/campaigns/t/${trackingCode}`;
-      }
+      // With link tracking on, sendWhatsAppTemplate places this recipient's
+      // tracking code either on a dynamic URL button (when the template has
+      // one) or as the LAST body placeholder (any earlier one still gets
+      // their name, e.g. a template written as "{{1}} name ... {{2}} link").
+      const trackingCode = campaign.linkTrackingEnabled ? randomUUID().replace(/-/g, "") : "";
 
       let result: Awaited<ReturnType<typeof sendWhatsAppTemplate>>;
       try {
@@ -500,7 +514,7 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
           recipient.name,
           campaign.id,
           Boolean(campaign.headerMediaDataUrl),
-          linkUrl
+          trackingCode
         );
       } catch {
         await adjustCampaignBalance(tenantId, 1);

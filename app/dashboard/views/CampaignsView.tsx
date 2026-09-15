@@ -5,6 +5,7 @@ import type { Campaign, MessageTemplate, Segment } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import { formatDateTime } from "../../../lib/time";
+import CampaignEngagementReport from "../components/CampaignEngagementReport";
 
 const pageSizeOptions = [
   { value: "10", label: "10" },
@@ -62,32 +63,6 @@ type BalanceTransaction = {
   cost?: number;
 };
 
-type ReportRow = {
-  phone: string;
-  name: string;
-  status: string;
-  error: string;
-  date: string;
-  readAt: string;
-  clickedAt: string;
-};
-
-type EngagementBucket = "notOpened" | "opened" | "clicked";
-
-function engagementBucket(row: ReportRow): EngagementBucket | null {
-  if (row.status !== "تم الإرسال") return null;
-  if (row.clickedAt) return "clicked";
-  if (row.readAt) return "opened";
-  return "notOpened";
-}
-
-function engagementLabel(bucket: EngagementBucket | null, t: (ar: string, en: string) => string) {
-  if (bucket === "clicked") return t("تفاعل", "Clicked");
-  if (bucket === "opened") return t("فتحها بدون ضغط", "Opened, no click");
-  if (bucket === "notOpened") return t("ما فتحها", "Not opened");
-  return "-";
-}
-
 const marketingMessagePrices: PricingTier[] = [
   { range: "1k إلى 5k", min: 1000, max: 5000, rate: 0.03 },
   { range: "5k إلى 10k", min: 5001, max: 10000, rate: 0.028 },
@@ -116,13 +91,6 @@ function campaignStatusLabel(status: string, t: (ar: string, en: string) => stri
 function transactionStatusLabel(status: string, t: (ar: string, en: string) => string) {
   if (status === "مكتمل") return t("مكتمل", "Completed");
   if (status === "قيد الانتظار") return t("قيد الانتظار", "Pending");
-  if (status === "فشل") return t("فشل", "Failed");
-  return status;
-}
-
-function reportRowStatusLabel(status: string, t: (ar: string, en: string) => string) {
-  if (status === "تم الإرسال") return t("تم الإرسال", "Sent");
-  if (status === "قيد الإرسال") return t("قيد الإرسال", "Sending");
   if (status === "فشل") return t("فشل", "Failed");
   return status;
 }
@@ -185,10 +153,6 @@ export default function CampaignsView({
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"campaigns" | "balance">("campaigns");
   const [reportCampaign, setReportCampaign] = useState<Campaign | null>(null);
-  const [reportRows, setReportRows] = useState<ReportRow[]>([]);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportLinkTrackingEnabled, setReportLinkTrackingEnabled] = useState(false);
-  const [reportEngagementFilter, setReportEngagementFilter] = useState<EngagementBucket | null>(null);
   const [chargeOpen, setChargeOpen] = useState(false);
   const [chargeMessages, setChargeMessages] = useState("5000");
   const [chargeError, setChargeError] = useState("");
@@ -204,9 +168,6 @@ export default function CampaignsView({
   const [campaignSort, setCampaignSort] = useState("latest");
   const [campaignPageSize, setCampaignPageSize] = useState("10");
   const [campaignPage, setCampaignPage] = useState(1);
-  const [reportSearch, setReportSearch] = useState("");
-  const [reportPageSize, setReportPageSize] = useState("10");
-  const [reportPage, setReportPage] = useState(1);
   const [balanceSearch, setBalanceSearch] = useState("");
   const [balancePageSize, setBalancePageSize] = useState("10");
   const [balancePage, setBalancePage] = useState(1);
@@ -287,23 +248,6 @@ export default function CampaignsView({
     return rows;
   }, [campaignSearch, campaignSort, campaignStatusFilter, campaigns]);
   const campaignPagination = paginate(filteredCampaigns, campaignPage, Number(campaignPageSize));
-  const reportEngagementCounts = useMemo(() => {
-    const counts: Record<EngagementBucket, number> = { notOpened: 0, opened: 0, clicked: 0 };
-    for (const row of reportRows) {
-      const bucket = engagementBucket(row);
-      if (bucket) counts[bucket] += 1;
-    }
-    return counts;
-  }, [reportRows]);
-  const filteredReportRows = useMemo(() => {
-    const query = reportSearch.trim().toLowerCase();
-    return reportRows.filter((row) => {
-      if (reportEngagementFilter && engagementBucket(row) !== reportEngagementFilter) return false;
-      if (!query) return true;
-      return row.phone.includes(query) || row.status.toLowerCase().includes(query) || row.date.toLowerCase().includes(query);
-    });
-  }, [reportRows, reportSearch, reportEngagementFilter]);
-  const reportPagination = paginate(filteredReportRows, reportPage, Number(reportPageSize));
   const filteredBalanceTransactions = useMemo(() => {
     const query = balanceSearch.trim().toLowerCase();
     if (!query) return balanceTransactions;
@@ -397,18 +341,8 @@ export default function CampaignsView({
     }
   }
 
-  async function openReport(campaign: Campaign) {
-    setReportSearch("");
-    setReportPage(1);
-    setReportPageSize("10");
-    setReportEngagementFilter(null);
+  function openReport(campaign: Campaign) {
     setReportCampaign(campaign);
-    setReportLoading(true);
-    const response = await fetch(`/api/campaigns/${campaign.id}/report`);
-    const body = await response.json().catch(() => null);
-    setReportRows(response.ok && body?.ok ? body.data?.recipients ?? [] : []);
-    setReportLinkTrackingEnabled(Boolean(response.ok && body?.ok && body.data?.linkTrackingEnabled));
-    setReportLoading(false);
   }
 
   async function submitCampaign(event: FormEvent<HTMLFormElement>) {
@@ -532,25 +466,6 @@ export default function CampaignsView({
     setChargeSubmitting(false);
     setChargeOpen(false);
     loadBalance();
-  }
-
-  function downloadCampaignReport(campaign: Campaign) {
-    const header = reportLinkTrackingEnabled
-      ? [t("الاسم", "Name"), t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التفاعل", "Engagement"), t("التاريخ", "Date")]
-      : [t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التاريخ", "Date")];
-    const rows = filteredReportRows.map((row) => reportLinkTrackingEnabled
-      ? [row.name, row.phone, row.status, engagementLabel(engagementBucket(row), t), formatDateTime(row.date)]
-      : [row.phone, row.status, formatDateTime(row.date)]);
-    const csv = [header, ...rows]
-      .map((row) => row.map(escapeCsvCell).join(","))
-      .join("\n");
-    const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${campaign.name}-report.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
   }
 
   return (
@@ -788,7 +703,7 @@ export default function CampaignsView({
                     </label>
                   ) : (
                     <label>
-                      <span>{t("تقسيم الجمهور", "Segment")}</span>
+                      <span>{t("تقسيم العملاء", "Segment")}</span>
                       <CustomSelect
                         value={form.segmentId}
                         onChange={(value) => selectSegment(value)}
@@ -798,7 +713,7 @@ export default function CampaignsView({
                         }))}
                       />
                       {!segments.length ? (
-                        <small className="field-hint">{t("ما فيه تقسيمات جمهور بعد - أنشئ واحداً من صفحة تقسيم الجمهور.", "No segments yet - create one from the Segments page.")}</small>
+                        <small className="field-hint">{t("ما فيه تقسيمات عملاء بعد - أنشئ واحداً من صفحة تقسيم العملاء.", "No segments yet - create one from the Customer Segments page.")}</small>
                       ) : null}
                     </label>
                   )}
@@ -890,79 +805,7 @@ export default function CampaignsView({
               <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setReportCampaign(null)}>×</button>
               <h2>{t("تقرير الحملة", "Campaign report")} - {reportCampaign.name}</h2>
             </header>
-            <div className="campaign-report-body">
-              {reportLinkTrackingEnabled ? (
-                <div className="campaign-engagement-tiles">
-                  <button
-                    type="button"
-                    className={reportEngagementFilter === "notOpened" ? "engagement-tile active" : "engagement-tile"}
-                    onClick={() => { setReportEngagementFilter((current) => current === "notOpened" ? null : "notOpened"); setReportPage(1); }}
-                  >
-                    <b>{reportEngagementCounts.notOpened.toLocaleString("en-US")}</b>
-                    <span>{t("ما فتحها", "Not opened")}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={reportEngagementFilter === "opened" ? "engagement-tile active" : "engagement-tile"}
-                    onClick={() => { setReportEngagementFilter((current) => current === "opened" ? null : "opened"); setReportPage(1); }}
-                  >
-                    <b>{reportEngagementCounts.opened.toLocaleString("en-US")}</b>
-                    <span>{t("فتحها بدون ضغط", "Opened, no click")}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={reportEngagementFilter === "clicked" ? "engagement-tile active" : "engagement-tile"}
-                    onClick={() => { setReportEngagementFilter((current) => current === "clicked" ? null : "clicked"); setReportPage(1); }}
-                  >
-                    <b>{reportEngagementCounts.clicked.toLocaleString("en-US")}</b>
-                    <span>{t("تفاعل", "Clicked")}</span>
-                  </button>
-                </div>
-              ) : null}
-              <div className="campaign-toolbar report-toolbar">
-                <input value={reportSearch} onChange={(event) => { setReportSearch(event.target.value); setReportPage(1); }} placeholder={t("بحث...", "Search...")} />
-                <button className="btn primary" type="button" onClick={() => downloadCampaignReport(reportCampaign)}>{t("تنزيل", "Download")}</button>
-                <label className="entries">{t("عرض", "Show")} <CustomSelect className="page-size" value={reportPageSize} onChange={(value) => { setReportPageSize(value); setReportPage(1); }} options={pageSizeOptions} /> {t("إدخالات", "entries")}</label>
-              </div>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      {reportLinkTrackingEnabled ? <th>{t("الاسم", "Name")}</th> : null}
-                      <th>{t("رقم الهاتف", "Phone number")}</th>
-                      <th>{t("الحالة", "Status")}</th>
-                      {reportLinkTrackingEnabled ? <th>{t("التفاعل", "Engagement")}</th> : null}
-                      <th>{t("التاريخ", "Date")}</th>
-                      {reportLinkTrackingEnabled ? <th>{t("إجراء", "Action")}</th> : null}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reportLoading ? <tr><td colSpan={reportLinkTrackingEnabled ? 6 : 3}>{t("جارٍ التحميل...", "Loading...")}</td></tr> : null}
-                    {!reportLoading ? reportPagination.items.map((row) => (
-                      <tr key={row.phone}>
-                        {reportLinkTrackingEnabled ? <td>{row.name || "-"}</td> : null}
-                        <td dir="ltr">{row.phone}</td>
-                        <td>
-                          <span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span>
-                          {row.error ? <small className="campaign-report-error">{row.error}</small> : null}
-                        </td>
-                        {reportLinkTrackingEnabled ? <td>{engagementLabel(engagementBucket(row), t)}</td> : null}
-                        <td><span className="campaign-date">◴ {formatDateTime(row.date)}</span></td>
-                        {reportLinkTrackingEnabled ? (
-                          <td>
-                            <a className="btn soft" href={`https://wa.me/${row.phone}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a>
-                          </td>
-                        ) : null}
-                      </tr>
-                    )) : null}
-                    {!reportLoading && !reportPagination.items.length ? (
-                      <tr><td colSpan={reportLinkTrackingEnabled ? 6 : 3}>{t("لا توجد أرقام مطابقة للبحث.", "No numbers match your search.")}</td></tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-              <Pagination currentPage={reportPagination.page} totalPages={reportPagination.totalPages} onPageChange={setReportPage} />
-            </div>
+            <CampaignEngagementReport campaignId={reportCampaign.id} campaignName={reportCampaign.name} />
             <footer className="modal-foot"><button className="btn primary" type="button" onClick={() => setReportCampaign(null)}>{t("حسنًا", "OK")}</button></footer>
           </div>
         </div>
@@ -1084,9 +927,4 @@ function formatCurrency(value: number, language: string = "ar") {
 function formatBalanceMovement(value: number) {
   const sign = value > 0 ? "+" : "-";
   return `${sign} ${Math.abs(value).toLocaleString("en-US")}`;
-}
-
-function escapeCsvCell(value: string | number) {
-  const text = String(value).replaceAll('"', '""');
-  return `"${text}"`;
 }
