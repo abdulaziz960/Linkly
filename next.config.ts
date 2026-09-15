@@ -3,13 +3,13 @@ import type { NextConfig } from "next";
 const isDevelopment = process.env.NODE_ENV === "development";
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} https://connect.facebook.net`,
+  `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} https://connect.facebook.net https://www.googletagmanager.com`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "media-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://graph.facebook.com https://www.facebook.com https://connect.facebook.net",
-  "frame-src https://www.facebook.com https://web.facebook.com https://business.facebook.com",
+  "connect-src 'self' https://graph.facebook.com https://www.facebook.com https://connect.facebook.net https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com",
+  "frame-src https://www.facebook.com https://web.facebook.com https://business.facebook.com https://www.googletagmanager.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
