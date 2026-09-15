@@ -5221,6 +5221,46 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   background: var(--surface);
 }
 
+.segments-page-intro {
+  margin: 0;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text-secondary);
+  line-height: 1.9;
+}
+
+.segment-section-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #117d75;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.segment-section-tag {
+  display: inline-block;
+  margin-inline-start: 8px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: middle;
+  background: #eaf5f3;
+  color: #117d75;
+}
+
+.segment-section-tag-manual {
+  background: #fdf1e0;
+  color: #b5750a;
+}
+
 .campaign-create-modal {
   width: min(1100px, 100%);
 }
