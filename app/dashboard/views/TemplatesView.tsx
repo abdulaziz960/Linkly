@@ -530,14 +530,13 @@ export default function TemplatesView({
                             return { ...current, buttonUrl: `${withSlash}api/campaigns/t/{{1}}` };
                           })}
                         >
-                          {t("↳ أضف مسار تتبع الحملات (api/campaigns/t/{{1}}) لنهاية الرابط أعلاه", "↳ Add the campaign tracking path (api/campaigns/t/{{1}}) to the end of the URL above")}
+                          {t("اضغط هنا لجعل الرابط رابط تتبع", "Click here to make this a tracking link")}
                         </button>
-                        <small>{t("لجعل رابط تتبع الحملة يظهر كزر بدل نص داخل الرسالة، أنهِ الرابط بمسار التتبع المنتهي بـ {{1}} - أو اكتب نطاقك (مثل https://linklysa.io) واضغط الزر أعلاه ليُضاف المسار الكامل تلقائيًا بدون أخطاء كتابة.", "To make a campaign's tracking link appear as a button instead of body text, end the URL with the tracking path ending in {{1}} - or type your domain (e.g. https://linklysa.io) and click the button above to append the full path automatically with no typos.")}</small>
                       </label>
                       {dynamicButtonUrlPattern.test(form.buttonUrl) ? (
                         <label>
                           <span>{t("مثال للرابط الكامل (لمراجعة Meta فقط)", "Full URL example (for Meta's review only)")}</span>
-                          <input dir="ltr" value={form.buttonUrlExample} onChange={(event) => setForm((current) => ({ ...current, buttonUrlExample: event.target.value }))} placeholder={form.buttonUrl.replace(dynamicButtonUrlPattern, "sample123")} />
+                          <input dir="ltr" value={form.buttonUrlExample || form.buttonUrl.replace(dynamicButtonUrlPattern, "sample123")} onChange={(event) => setForm((current) => ({ ...current, buttonUrlExample: event.target.value }))} />
                           <small>{t("مثال وهمي كامل بدون {{1}} - يُستخدم لمراجعة Meta فقط، ما يصل للعملاء.", "A complete dummy example without {{1}} - used only for Meta's review, never sent to real customers.")}</small>
                         </label>
                       ) : null}

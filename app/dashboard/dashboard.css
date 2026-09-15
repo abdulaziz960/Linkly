@@ -1709,6 +1709,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   margin-top: 6px;
   width: fit-content;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .template-button-url-fill:disabled {
