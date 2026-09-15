@@ -1429,9 +1429,20 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 
 .template-action-grid {
   display: grid;
-  grid-template-columns: minmax(160px, 0.9fr) minmax(180px, 1fr) minmax(220px, 1.2fr);
+  grid-template-columns: minmax(140px, 0.7fr) minmax(150px, 0.8fr) minmax(320px, 1.8fr);
   gap: 12px;
   align-items: end;
+}
+
+.template-button-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.template-button-url-row input {
+  flex: 1;
+  min-width: 0;
 }
 
 .template-editor input:focus,
@@ -1706,10 +1717,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .template-button-url-fill {
-  margin-top: 6px;
   width: fit-content;
   font-size: 13px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .template-button-url-fill:disabled {
