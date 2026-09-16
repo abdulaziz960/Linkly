@@ -24,12 +24,20 @@ type ReportRow = {
   deliveryFailed: number;
 };
 
-function engagementLabel(bucket: EngagementBucket | null, t: (ar: string, en: string) => string, clickCount = 0) {
-  if (bucket === "clicked") return clickCount > 1 ? t(`تفاعل (${clickCount} نقرات)`, `Clicked (${clickCount}x)`) : t("تفاعل", "Clicked");
+function engagementLabel(bucket: EngagementBucket | null, t: (ar: string, en: string) => string) {
+  if (bucket === "clicked") return t("تفاعل", "Clicked");
   if (bucket === "opened") return t("فتحها بدون ضغط", "Opened, no click");
   if (bucket === "notOpened") return t("ما فتحها", "Not opened");
   if (bucket === "notReceived") return t("لم يستلم الرسالة", "Didn't receive the message");
   return "-";
+}
+
+// clickCount is 0 for a recipient who clicked before this counter existed
+// (the column defaults to 0 and old clicks are never backfilled) - "-" is
+// clearer there than a misleading "0" next to a "Clicked" row.
+function clickCountLabel(bucket: EngagementBucket | null, clickCount: number) {
+  if (bucket !== "clicked" || clickCount <= 0) return "-";
+  return clickCount.toLocaleString("en-US");
 }
 
 function reportRowStatusLabel(status: string, t: (ar: string, en: string) => string) {
@@ -121,8 +129,11 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
   const pagination = paginate(filteredRows, page, Number(pageSize));
 
   function downloadReport() {
-    const header = [t("الاسم", "Name"), t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التفاعل", "Engagement"), t("التاريخ", "Date")];
-    const csvRows = filteredRows.map((row) => [row.name, row.phone, row.status, engagementLabel(engagementBucketFor(row), t, row.clickCount), formatDateTime(row.date)]);
+    const header = [t("الاسم", "Name"), t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التفاعل", "Engagement"), t("مرات النقر", "Clicks"), t("التاريخ", "Date")];
+    const csvRows = filteredRows.map((row) => {
+      const bucket = engagementBucketFor(row);
+      return [row.name, row.phone, row.status, engagementLabel(bucket, t), clickCountLabel(bucket, row.clickCount), formatDateTime(row.date)];
+    });
     const csv = [header, ...csvRows].map((row) => row.map(escapeCsvCell).join(",")).join("\n");
     const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -166,29 +177,34 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
               <th>{t("رقم الهاتف", "Phone number")}</th>
               <th>{t("الحالة", "Status")}</th>
               <th>{t("التفاعل", "Engagement")}</th>
+              <th>{t("مرات النقر", "Clicks")}</th>
               <th>{t("التاريخ", "Date")}</th>
               <th>{t("إجراء", "Action")}</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={6}>{t("جارٍ التحميل...", "Loading...")}</td></tr> : null}
-            {!loading ? pagination.items.map((row) => (
-              <tr key={row.phone}>
-                <td>{row.name || "-"}</td>
-                <td dir="ltr">{row.phone}</td>
-                <td>
-                  <span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span>
-                  {row.error ? <small className="campaign-report-error">{row.error}</small> : null}
-                </td>
-                <td>{engagementLabel(engagementBucketFor(row), t, row.clickCount)}</td>
-                <td><span className="campaign-date">◴ {formatDateTime(row.date)}</span></td>
-                <td>
-                  <a className="btn soft" href={`/dashboard?view=inbox&phone=${encodeURIComponent(row.phone)}&name=${encodeURIComponent(row.name)}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a>
-                </td>
-              </tr>
-            )) : null}
+            {loading ? <tr><td colSpan={7}>{t("جارٍ التحميل...", "Loading...")}</td></tr> : null}
+            {!loading ? pagination.items.map((row) => {
+              const bucket = engagementBucketFor(row);
+              return (
+                <tr key={row.phone}>
+                  <td>{row.name || "-"}</td>
+                  <td dir="ltr">{row.phone}</td>
+                  <td>
+                    <span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span>
+                    {row.error ? <small className="campaign-report-error">{row.error}</small> : null}
+                  </td>
+                  <td>{engagementLabel(bucket, t)}</td>
+                  <td>{clickCountLabel(bucket, row.clickCount)}</td>
+                  <td><span className="campaign-date">◴ {formatDateTime(row.date)}</span></td>
+                  <td>
+                    <a className="btn soft" href={`/dashboard?view=inbox&phone=${encodeURIComponent(row.phone)}&name=${encodeURIComponent(row.name)}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a>
+                  </td>
+                </tr>
+              );
+            }) : null}
             {!loading && !pagination.items.length ? (
-              <tr><td colSpan={6}>{t("لا توجد أرقام مطابقة للبحث.", "No numbers match your search.")}</td></tr>
+              <tr><td colSpan={7}>{t("لا توجد أرقام مطابقة للبحث.", "No numbers match your search.")}</td></tr>
             ) : null}
           </tbody>
         </table>
