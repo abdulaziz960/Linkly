@@ -149,9 +149,21 @@ describe("Campaign link-click tracking end-to-end", () => {
 
     const recipientAfterClick = await prisma.campaignRecipient.findFirstOrThrow({ where: { campaignId } });
     expect(recipientAfterClick.clickedAt).toBeTruthy();
+    expect(recipientAfterClick.clickCount).toBe(1);
     // Clicked - the "clicked" bucket, same rule CampaignsView.tsx's
     // engagementBucket() uses (clickedAt takes priority over readAt).
     expect(Boolean(recipientAfterClick.clickedAt)).toBe(true);
+
+    // The customer taps the same link again - clickedAt (first-click time)
+    // must stay put, but the tally keeps counting every subsequent visit.
+    const firstClickedAt = recipientAfterClick.clickedAt;
+    await trackingRedirect(
+      new NextRequest(`http://localhost/api/campaigns/t/${trackingCode}`),
+      { params: Promise.resolve({ code: trackingCode }) }
+    );
+    const recipientAfterSecondClick = await prisma.campaignRecipient.findFirstOrThrow({ where: { campaignId } });
+    expect(recipientAfterSecondClick.clickCount).toBe(2);
+    expect(recipientAfterSecondClick.clickedAt).toBe(firstClickedAt);
 
     // An unrelated/invalid code must never 500 or leak another tenant's data.
     const invalidCodeResponse = await trackingRedirect(

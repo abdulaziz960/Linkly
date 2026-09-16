@@ -28,12 +28,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.redirect(fallbackUrl);
   }
 
-  if (!recipient.clickedAt) {
-    await prisma.campaignRecipient.update({
-      where: { id: recipient.id },
-      data: { clickedAt: new Date().toISOString() }
-    });
-  }
+  await prisma.campaignRecipient.update({
+    where: { id: recipient.id },
+    data: {
+      clickedAt: recipient.clickedAt || new Date().toISOString(),
+      clickCount: { increment: 1 }
+    }
+  });
 
   const campaign = await prisma.campaign.findUnique({ where: { id: recipient.campaignId } });
   const destination = campaign?.destinationUrl.trim();

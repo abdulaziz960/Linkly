@@ -32,6 +32,7 @@ export async function GET(_request: Request, context: RouteContext) {
       date: recipient.sentAt || recipient.createdAt,
       readAt: recipient.readAt,
       clickedAt: recipient.clickedAt,
+      clickCount: recipient.clickCount,
       deliveryFailed: recipient.deliveryFailed
     }))
   });

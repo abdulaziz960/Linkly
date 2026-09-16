@@ -20,11 +20,12 @@ type ReportRow = {
   date: string;
   readAt: string;
   clickedAt: string;
+  clickCount: number;
   deliveryFailed: number;
 };
 
-function engagementLabel(bucket: EngagementBucket | null, t: (ar: string, en: string) => string) {
-  if (bucket === "clicked") return t("تفاعل", "Clicked");
+function engagementLabel(bucket: EngagementBucket | null, t: (ar: string, en: string) => string, clickCount = 0) {
+  if (bucket === "clicked") return clickCount > 1 ? t(`تفاعل (${clickCount} نقرات)`, `Clicked (${clickCount}x)`) : t("تفاعل", "Clicked");
   if (bucket === "opened") return t("فتحها بدون ضغط", "Opened, no click");
   if (bucket === "notOpened") return t("ما فتحها", "Not opened");
   if (bucket === "notReceived") return t("لم يستلم الرسالة", "Didn't receive the message");
@@ -121,7 +122,7 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
 
   function downloadReport() {
     const header = [t("الاسم", "Name"), t("رقم الهاتف", "Phone number"), t("الحالة", "Status"), t("التفاعل", "Engagement"), t("التاريخ", "Date")];
-    const csvRows = filteredRows.map((row) => [row.name, row.phone, row.status, engagementLabel(engagementBucketFor(row), t), formatDateTime(row.date)]);
+    const csvRows = filteredRows.map((row) => [row.name, row.phone, row.status, engagementLabel(engagementBucketFor(row), t, row.clickCount), formatDateTime(row.date)]);
     const csv = [header, ...csvRows].map((row) => row.map(escapeCsvCell).join(",")).join("\n");
     const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -179,7 +180,7 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
                   <span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span>
                   {row.error ? <small className="campaign-report-error">{row.error}</small> : null}
                 </td>
-                <td>{engagementLabel(engagementBucketFor(row), t)}</td>
+                <td>{engagementLabel(engagementBucketFor(row), t, row.clickCount)}</td>
                 <td><span className="campaign-date">◴ {formatDateTime(row.date)}</span></td>
                 <td>
                   <a className="btn soft" href={`/dashboard?view=inbox&phone=${encodeURIComponent(row.phone)}&name=${encodeURIComponent(row.name)}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a>
