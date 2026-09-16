@@ -523,6 +523,24 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS leads_tenant_id_created_at_idx ON leads(tenant_id, created_at)`
   );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_key ON push_subscriptions(endpoint)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS push_subscriptions_tenant_id_idx ON push_subscriptions(tenant_id)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx ON push_subscriptions(user_id)`
+  );
 }
 
 async function runSchemaMigrations() {
@@ -1316,6 +1334,18 @@ async function runSchemaMigrations() {
   if (!campaignBalanceColumns.some((column) => column.name === "last_top_up_amount")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE campaign_balances ADD COLUMN last_top_up_amount INTEGER NOT NULL DEFAULT 0`);
   }
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_key ON push_subscriptions(endpoint)`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS push_subscriptions_tenant_id_idx ON push_subscriptions(tenant_id)`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx ON push_subscriptions(user_id)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recurrences (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,

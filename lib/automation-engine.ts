@@ -11,6 +11,7 @@ import { sendEmailMessage } from "./email-channel";
 import { sendUnifonicSms } from "./sms-send";
 import { checkOffHoursAutoReply } from "./work-hours";
 import { triggerWebhookEvent } from "./webhooks";
+import { notifyTenant } from "./push-notifications";
 
 export type AutomationTrigger =
   | "تم إنشاء رسالة"
@@ -404,6 +405,20 @@ export async function runInboundMessageAutomations(conversationId: string, tenan
   await triggerWebhookEvent(tenantId, "message.received", { conversationId, text: messageText }).catch((error) => {
     console.error(`Webhook delivery failed for conversation ${conversationId}`, error);
   });
+
+  await prisma.conversation.findUnique({ where: { id: conversationId }, select: { customer: { select: { name: true, phone: true } } } })
+    .then((conversation) => notifyTenant(tenantId, {
+      title: conversation?.customer.name || "رسالة جديدة",
+      body: messageText.trim() || "📎 مرفق جديد",
+      // Same deep-link shape DashboardClient.tsx's requestedPhone handler
+      // already consumes (see the campaign report's "send message" link) -
+      // reuses that existing open-by-phone flow instead of inventing a
+      // second one keyed by conversationId.
+      url: conversation?.customer.phone
+        ? `/dashboard?view=inbox&phone=${encodeURIComponent(conversation.customer.phone)}&name=${encodeURIComponent(conversation.customer.name)}`
+        : "/dashboard?view=inbox"
+    }))
+    .catch((error) => console.error(`Push notification failed for conversation ${conversationId}`, error));
 }
 
 /**

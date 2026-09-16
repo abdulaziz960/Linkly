@@ -546,6 +546,25 @@ model UserAccount {
   @@map("user_accounts")
 }
 
+// One row per browser/device the PWA install flow got Web Push permission
+// on (app/dashboard's "ثبّت التطبيق" button). endpoint is unique per
+// browser+device, so re-subscribing the same device upserts rather than
+// duplicating. Sent to on every inbound message/reply - see
+// lib/push-notifications.ts.
+model PushSubscription {
+  id        String @id
+  userId    String @map("user_id")
+  tenantId  String @map("tenant_id")
+  endpoint  String @unique
+  p256dh    String
+  auth      String
+  createdAt String @map("created_at")
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
 model EmployeeInvite {
   id        String @id
   email     String

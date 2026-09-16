@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
+import PwaInstallButton from "./components/PwaInstallButton";
 import { viewTitles } from "./data/navigation";
 import { DELETED_MESSAGE_TEXT, LanguageProvider } from "./i18n";
 import type {
@@ -1225,6 +1226,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
       <div className="dashboard-top-links" ref={topLinksRef}>
+        <PwaInstallButton />
         <button
           type="button"
           className="sidebar-billing-link is-profile"
