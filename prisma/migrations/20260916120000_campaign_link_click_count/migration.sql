@@ -1,0 +1,1 @@
+ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS click_count INTEGER NOT NULL DEFAULT 0;
