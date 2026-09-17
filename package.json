@@ -13,7 +13,13 @@
     "admin:create": "node scripts/create-super-admin.mjs",
     "postinstall": "node scripts/prisma-generate.mjs",
     "db:push": "node scripts/prisma-db-push.mjs",
-    "db:migrate:deploy": "node scripts/prisma-migrate-deploy.mjs"
+    "db:migrate:deploy": "node --env-file-if-exists=.env.db scripts/with-postgres-client.mjs scripts/prisma-migrate-deploy.mjs",
+    "db:proxy": "sh scripts/db-proxy.sh",
+    "db:env": "node scripts/db-env.mjs",
+    "db:check": "node --env-file-if-exists=.env.db scripts/with-postgres-client.mjs scripts/db-payments-check.mjs",
+    "db:baseline": "node --env-file-if-exists=.env.db scripts/with-postgres-client.mjs scripts/prisma-baseline.mjs",
+    "db:resolve": "node --env-file-if-exists=.env.db scripts/with-postgres-client.mjs scripts/prisma-resolve.mjs",
+    "db:rehearse": "node --env-file-if-exists=.env.db scripts/with-postgres-client.mjs scripts/db-rehearse.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

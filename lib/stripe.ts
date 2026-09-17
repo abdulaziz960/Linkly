@@ -20,6 +20,9 @@ type StripeCheckoutSession = {
 type StripeCheckoutSessionStatus = {
   id: string;
   paymentStatus: string;
+  /** Smallest currency unit (halalas for SAR); NaN when Stripe omits it. */
+  amountTotal: number;
+  currency: string;
 };
 
 function stripeSecretKey() {
@@ -77,11 +80,16 @@ export async function retrieveStripeCheckoutSession(sessionId: string): Promise<
     headers: { Authorization: `Bearer ${secretKey}` }
   });
 
-  const payload = (await response.json().catch(() => null)) as { id?: string; payment_status?: string } | null;
+  const payload = (await response.json().catch(() => null)) as { id?: string; payment_status?: string; amount_total?: number | null; currency?: string | null } | null;
   if (!response.ok || !payload?.id) {
     console.error("Stripe checkout session lookup failed", payload);
     throw new Error("STRIPE_SESSION_LOOKUP_FAILED");
   }
 
-  return { id: payload.id, paymentStatus: payload.payment_status || "unpaid" };
+  return {
+    id: payload.id,
+    paymentStatus: payload.payment_status || "unpaid",
+    amountTotal: typeof payload.amount_total === "number" ? payload.amount_total : Number.NaN,
+    currency: payload.currency || ""
+  };
 }

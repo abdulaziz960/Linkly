@@ -3,6 +3,60 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { sendActivationEmail } from "./email";
 import { isValidEmail } from "./validation";
+import { PAYMENT_STATUS, mapMoyasarInvoiceStatus, type PaymentKind } from "./payment-status";
+import type { GatewayPaymentDetails } from "./moyasar";
+
+/** Length of one paid subscription period. Every plan bills monthly today. */
+export const SUBSCRIPTION_PERIOD_MONTHS = 1;
+
+function addMonths(date: Date, months: number) {
+  const next = new Date(date.getTime());
+  const day = next.getUTCDate();
+  next.setUTCMonth(next.getUTCMonth() + months);
+  // Clamp "Jan 31 + 1 month" to the last day of February instead of
+  // overflowing into March.
+  if (next.getUTCDate() !== day) next.setUTCDate(0);
+  return next;
+}
+
+function isoDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Decides the period a confirmed subscription payment buys.
+ *
+ * - Renewal of the SAME plan on an active subscription that is still paid
+ *   up: the new period starts where the current one ends, so paying a week
+ *   early never costs the customer that week.
+ * - Anything else (trial converting, suspended account reactivating, an
+ *   overdue renewal, or a plan change): the period starts now. A plan change
+ *   takes effect immediately and is not prorated.
+ */
+export function computeSubscriptionPeriod(input: {
+  now: Date;
+  currentStatus?: string;
+  currentPlan?: string;
+  currentRenewalAt?: string;
+  stagedPlanName?: string;
+}) {
+  const currentPaidThrough = input.currentRenewalAt ? new Date(input.currentRenewalAt) : null;
+  const samePlan = !input.stagedPlanName || input.stagedPlanName === input.currentPlan;
+  const stillPaidUp = input.currentStatus === "نشط" && currentPaidThrough !== null && Number.isFinite(currentPaidThrough.getTime()) && currentPaidThrough.getTime() > input.now.getTime();
+  const periodStart = samePlan && stillPaidUp && currentPaidThrough ? currentPaidThrough : input.now;
+  const periodEnd = addMonths(periodStart, SUBSCRIPTION_PERIOD_MONTHS);
+  return { periodStart: isoDate(periodStart), periodEnd: isoDate(periodEnd), extendedFromCurrent: periodStart !== input.now };
+}
+
+function gatewayColumns(details?: GatewayPaymentDetails) {
+  return {
+    ...(details?.gateway ? { gateway: details.gateway } : {}),
+    ...(details?.gatewayStatus !== undefined ? { gatewayStatus: details.gatewayStatus } : {}),
+    ...(details?.gatewayPaymentId !== undefined ? { gatewayPaymentId: details.gatewayPaymentId } : {}),
+    ...(details?.paymentMethod !== undefined ? { paymentMethod: details.paymentMethod } : {}),
+    ...(details?.failureReason !== undefined ? { failureReason: details.failureReason } : {})
+  };
+}
 
 export const planEmployeeLimits: Record<string, number> = {
   "باقة البداية": 1,
@@ -127,19 +181,34 @@ export async function getInvoiceForTenant(tenantId: string, invoiceId: string) {
  * is a no-op (returns activated: false) via a compare-and-swap update, so
  * a redelivered webhook or a double confirm click can't double-renew.
  */
-export async function applyConfirmedSubscriptionPayment(paymentId: string): Promise<{ activated: boolean }> {
+export async function applyConfirmedSubscriptionPayment(paymentId: string, details?: GatewayPaymentDetails): Promise<{ activated: boolean; periodStart?: string; periodEnd?: string }> {
   const payment = await prisma.subscriptionPayment.findUnique({ where: { id: paymentId } });
   if (!payment) return { activated: false };
 
-  const renewalAt = new Date();
-  renewalAt.setMonth(renewalAt.getMonth() + 1);
-
-  const activated = await prisma.$transaction(async (tx) => {
-    const claimed = await tx.subscriptionPayment.updateMany({
-      where: { id: payment.id, status: { not: "مكتمل" } },
-      data: { status: "مكتمل", completedAt: new Date().toISOString() }
+  const result = await prisma.$transaction(async (tx) => {
+    const existing = await tx.subscription.findUnique({ where: { tenantId: payment.tenantId } });
+    const nowDate = new Date();
+    const now = nowDate.toISOString();
+    const period = computeSubscriptionPeriod({
+      now: nowDate,
+      currentStatus: existing?.status,
+      currentPlan: existing?.plan,
+      currentRenewalAt: existing?.renewalAt,
+      stagedPlanName: payment.planName
     });
-    if (claimed.count !== 1) return false;
+
+    const claimed = await tx.subscriptionPayment.updateMany({
+      where: { id: payment.id, status: { not: PAYMENT_STATUS.completed } },
+      data: {
+        status: PAYMENT_STATUS.completed,
+        completedAt: now,
+        periodStart: period.periodStart,
+        periodEnd: period.periodEnd,
+        failedAt: "",
+        ...gatewayColumns({ ...details, gatewayStatus: details?.gatewayStatus ?? "paid", failureReason: "" })
+      }
+    });
+    if (claimed.count !== 1) return null;
 
     const amountSar = payment.amountHalalas > 0 ? Math.round(payment.amountHalalas / 100) : Math.round(payment.amount);
     const owner = await tx.userAccount.findFirst({
@@ -149,7 +218,6 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string): Prom
       where: { tenantId: payment.tenantId },
       orderBy: { createdAt: "asc" }
     });
-    const now = new Date().toISOString();
 
     await tx.subscription.upsert({
       where: { tenantId: payment.tenantId },
@@ -157,12 +225,21 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string): Prom
         status: "نشط",
         amount: amountSar,
         billingCycle: "شهري",
-        renewalAt: renewalAt.toISOString().slice(0, 10),
+        renewalAt: period.periodEnd,
         updatedAt: nowTimestamp(),
-        // Only overwrite plan/employeeLimit if this payment actually staged
-        // an upgrade (planName non-empty) - a plain renewal payment leaves
-        // the current plan as-is.
-        ...(payment.planName ? { plan: payment.planName, employeeLimit: payment.planEmployeeLimit } : {})
+        // Plan/employeeLimit come from the staged plan whenever the payment
+        // carries one (every self-serve checkout; admin invoices carry none
+        // and leave the plan as-is). Renewing the SAME plan never lowers a
+        // limit the platform team raised by hand; a real plan change applies
+        // the new plan's limit exactly.
+        ...(payment.planName
+          ? {
+              plan: payment.planName,
+              employeeLimit: existing && existing.plan === payment.planName
+                ? Math.max(existing.employeeLimit, payment.planEmployeeLimit)
+                : payment.planEmployeeLimit
+            }
+          : {})
       },
       create: {
         id: `sub-${payment.tenantId}`,
@@ -175,15 +252,128 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string): Prom
         employeeLimit: payment.planName ? payment.planEmployeeLimit : 1,
         amount: amountSar,
         billingCycle: "شهري",
-        renewalAt: renewalAt.toISOString().slice(0, 10),
+        renewalAt: period.periodEnd,
         createdAt: now,
         updatedAt: nowTimestamp()
       }
     });
+    return period;
+  });
+
+  if (!result) return { activated: false };
+  return { activated: true, periodStart: result.periodStart, periodEnd: result.periodEnd };
+}
+
+/**
+ * Campaign-message counterpart of applyConfirmedSubscriptionPayment: marks
+ * the CampaignPayment completed and credits the tenant's message balance -
+ * the ONLY place a paid top-up turns into sendable messages. Idempotent via
+ * the same compare-and-swap claim, so a redelivered webhook can't double
+ * credit. Also records the top-up as the new 100% baseline for the
+ * low-balance alerts (50%/20%/5%), which previously only happened for manual
+ * admin top-ups and never for real paid ones.
+ */
+export async function applyConfirmedCampaignPayment(paymentId: string, details?: GatewayPaymentDetails): Promise<{ credited: boolean; messages: number }> {
+  const payment = await prisma.campaignPayment.findUnique({ where: { id: paymentId } });
+  if (!payment) return { credited: false, messages: 0 };
+
+  const credited = await prisma.$transaction(async (tx) => {
+    const now = new Date().toISOString();
+    const claimed = await tx.campaignPayment.updateMany({
+      where: { id: payment.id, status: { not: PAYMENT_STATUS.completed } },
+      data: {
+        status: PAYMENT_STATUS.completed,
+        completedAt: now,
+        failedAt: "",
+        ...gatewayColumns({ ...details, gatewayStatus: details?.gatewayStatus ?? "paid", failureReason: "" })
+      }
+    });
+    if (claimed.count !== 1) return false;
+    await tx.campaignBalance.upsert({
+      where: { tenantId: payment.tenantId },
+      update: { balance: { increment: payment.messages }, lastTopUpAmount: payment.messages, updatedAt: now },
+      create: { tenantId: payment.tenantId, balance: payment.messages, lastTopUpAmount: payment.messages, updatedAt: now }
+    });
     return true;
   });
 
-  return { activated };
+  return { credited, messages: credited ? payment.messages : 0 };
+}
+
+/**
+ * Records a non-success outcome from the gateway on a payment row.
+ *
+ * - "failed"/"expired" only ever move a PENDING row (a completed payment
+ *   can't retroactively fail).
+ * - "refunded" only ever moves a COMPLETED row, and does NOT revoke the
+ *   subscription/balance automatically - it raises an admin alert instead,
+ *   so a human decides whether to suspend the tenant or claw back credit.
+ *
+ * Returns whether a row actually changed, so callers can skip logging for
+ * redelivered events.
+ */
+export async function markPaymentOutcome(
+  kind: PaymentKind,
+  paymentId: string,
+  outcome: "failed" | "expired" | "refunded",
+  details?: GatewayPaymentDetails
+): Promise<{ changed: boolean }> {
+  const now = new Date().toISOString();
+  const nextStatus = outcome === "failed" ? PAYMENT_STATUS.failed : outcome === "expired" ? PAYMENT_STATUS.expired : PAYMENT_STATUS.refunded;
+  const fromStatus = outcome === "refunded" ? PAYMENT_STATUS.completed : PAYMENT_STATUS.pending;
+  const data = {
+    status: nextStatus,
+    ...(outcome === "refunded" ? {} : { failedAt: now }),
+    ...gatewayColumns(details)
+  };
+
+  const result = kind === "subscription"
+    ? await prisma.subscriptionPayment.updateMany({ where: { id: paymentId, status: fromStatus }, data })
+    : await prisma.campaignPayment.updateMany({ where: { id: paymentId, status: fromStatus }, data });
+  const changed = result.count === 1;
+
+  if (changed && outcome === "refunded") {
+    const payment = kind === "subscription"
+      ? await prisma.subscriptionPayment.findUnique({ where: { id: paymentId } })
+      : await prisma.campaignPayment.findUnique({ where: { id: paymentId } });
+    if (payment) {
+      await logAdminAction(
+        payment.tenantId,
+        await getTenantCompanyName(payment.tenantId),
+        `تم استرداد دفعة ${kind === "subscription" ? "اشتراك" : "شحن رسائل"} بقيمة ${payment.amount} ر.س عبر بوابة الدفع (${payment.moyasarId}). راجع حالة الحساب وقرر تعليق الاشتراك أو خصم الرصيد يدويًا.`,
+        "تنبيه"
+      );
+    }
+  }
+
+  return { changed };
+}
+
+/**
+ * Applies a verified Moyasar invoice status to one of our payment rows.
+ * Shared by the live webhooks and the cron reconciler so both record the
+ * same statuses, gateway details and side effects (activation / credit /
+ * admin log). `invoiceStatus` MUST come from fetchMoyasarInvoice, never from
+ * a webhook body. Returns what happened for logging.
+ */
+export async function applyVerifiedGatewayOutcome(
+  kind: PaymentKind,
+  paymentId: string,
+  invoiceStatus: string,
+  details?: GatewayPaymentDetails
+): Promise<{ outcome: "completed" | "failed" | "expired" | "refunded" | "pending"; changed: boolean }> {
+  const mapped = mapMoyasarInvoiceStatus(invoiceStatus);
+  if (!mapped) return { outcome: "pending", changed: false };
+  if (mapped === "completed") {
+    if (kind === "subscription") {
+      const { activated } = await applyConfirmedSubscriptionPayment(paymentId, details);
+      return { outcome: "completed", changed: activated };
+    }
+    const { credited } = await applyConfirmedCampaignPayment(paymentId, details);
+    return { outcome: "completed", changed: credited };
+  }
+  const { changed } = await markPaymentOutcome(kind, paymentId, mapped, details);
+  return { outcome: mapped, changed };
 }
 
 /**
@@ -198,71 +388,78 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string): Prom
  * silently.
  */
 export async function reconcileStalePendingPayments(staleAfterMs = 24 * 60 * 60 * 1000) {
-  const { fetchMoyasarInvoice } = await import("./moyasar");
+  const { fetchMoyasarInvoice, summarizeMoyasarInvoice } = await import("./moyasar");
   const cutoff = new Date(Date.now() - staleAfterMs).toISOString();
   let reconciled = 0;
   let expired = 0;
+  let failed = 0;
+
+  const reconcileOne = async (kind: PaymentKind, payment: { id: string; tenantId: string; amount: number; amountHalalas: number; moyasarId: string }) => {
+    // Only real Moyasar invoices can be asked about. Dev-simulator ("test_"),
+    // Stripe ("stripe_test_") and manual rows have nothing to verify against,
+    // so past the stale window they simply expire.
+    const isMoyasarInvoice = payment.moyasarId && !payment.moyasarId.startsWith("test_") && !payment.moyasarId.startsWith("stripe_test_");
+    const invoice = isMoyasarInvoice ? await fetchMoyasarInvoice(payment.moyasarId) : null;
+
+    if (invoice && !invoiceAmountMatches(invoice.amount, payment)) {
+      await logAdminAction(
+        payment.tenantId,
+        await getTenantCompanyName(payment.tenantId),
+        `تعارض مبلغ أثناء المطابقة الآلية: فاتورة Moyasar ${invoice.id} بقيمة ${invoice.amount} هللة بينما الدفعة المسجلة ${expectedHalalas(payment)} هللة. لم يتم تفعيل أي مزايا - تحقق يدويًا.`,
+        "خطأ"
+      );
+      return;
+    }
+
+    const status = invoice?.status && mapMoyasarInvoiceStatus(invoice.status) ? invoice.status : "expired";
+    const details = invoice ? summarizeMoyasarInvoice(invoice) : { gatewayStatus: "expired", failureReason: "لم يُستكمل الدفع خلال المهلة" };
+    const { outcome, changed } = await applyVerifiedGatewayOutcome(kind, payment.id, status, details);
+    if (!changed) return;
+
+    if (outcome === "completed") {
+      reconciled += 1;
+      await logAdminAction(
+        payment.tenantId,
+        await getTenantCompanyName(payment.tenantId),
+        `تمت مطابقة دفعة ${kind === "subscription" ? "اشتراك" : "شحن رسائل"} متأخرة بقيمة ${payment.amount} ر.س بعد تحقق آلي من Moyasar (لم يصل الويبهوك في وقته).`,
+        "تنبيه"
+      );
+    } else if (outcome === "failed") {
+      failed += 1;
+    } else {
+      expired += 1;
+    }
+  };
 
   const stalePayments = await prisma.subscriptionPayment.findMany({
-    where: { status: "قيد الانتظار", createdAt: { lt: cutoff } },
+    where: { status: PAYMENT_STATUS.pending, createdAt: { lt: cutoff } },
     take: 50
   });
-  for (const payment of stalePayments) {
-    const invoice = payment.moyasarId ? await fetchMoyasarInvoice(payment.moyasarId) : null;
-    if (invoice?.status === "paid") {
-      const { activated } = await applyConfirmedSubscriptionPayment(payment.id);
-      if (activated) {
-        reconciled += 1;
-        const subscription = await prisma.subscription.findUnique({ where: { tenantId: payment.tenantId } });
-        await logAdminAction(
-          payment.tenantId,
-          subscription?.companyName || payment.tenantId,
-          `تمت مطابقة دفعة اشتراك متأخرة بقيمة ${payment.amount} ر.س بعد تحقق آلي من Moyasar (لم يصل الويبهوك في وقته).`,
-          "تنبيه"
-        );
-      }
-    } else {
-      await prisma.subscriptionPayment.update({ where: { id: payment.id }, data: { status: "منتهي الصلاحية" } });
-      expired += 1;
-    }
-  }
+  for (const payment of stalePayments) await reconcileOne("subscription", payment);
 
   const staleCampaignPayments = await prisma.campaignPayment.findMany({
-    where: { status: "قيد الانتظار", createdAt: { lt: cutoff } },
+    where: { status: PAYMENT_STATUS.pending, createdAt: { lt: cutoff } },
     take: 50
   });
-  for (const payment of staleCampaignPayments) {
-    const invoice = payment.moyasarId ? await fetchMoyasarInvoice(payment.moyasarId) : null;
-    if (invoice?.status === "paid") {
-      const credited = await prisma.$transaction(async (tx) => {
-        const claimed = await tx.campaignPayment.updateMany({
-          where: { id: payment.id, status: { not: "مكتمل" } },
-          data: { status: "مكتمل", completedAt: new Date().toISOString() }
-        });
-        if (claimed.count !== 1) return false;
-        await tx.campaignBalance.upsert({
-          where: { tenantId: payment.tenantId },
-          update: { balance: { increment: payment.messages }, updatedAt: new Date().toISOString() },
-          create: { tenantId: payment.tenantId, balance: payment.messages, updatedAt: new Date().toISOString() }
-        });
-        return true;
-      });
-      if (credited) {
-        reconciled += 1;
-        await logAdminAction(
-          payment.tenantId,
-          payment.tenantId,
-          `تمت مطابقة دفعة شحن رسائل متأخرة بقيمة ${payment.amount} ر.س بعد تحقق آلي من Moyasar (لم يصل الويبهوك في وقته).`,
-          "تنبيه"
-        );
-      }
-    } else {
-      await prisma.campaignPayment.update({ where: { id: payment.id }, data: { status: "منتهي الصلاحية" } });
-      expired += 1;
-    }
-  }
+  for (const payment of staleCampaignPayments) await reconcileOne("campaign_topup", payment);
 
-  return { reconciled, expired };
+  return { reconciled, expired, failed };
+}
+
+/** The halalas we expect the gateway to have charged for a payment row. */
+export function expectedHalalas(payment: { amount: number; amountHalalas: number }) {
+  return payment.amountHalalas > 0 ? payment.amountHalalas : Math.round(payment.amount * 100);
+}
+
+/**
+ * A paid invoice only activates benefits when the amount Moyasar actually
+ * collected matches what we staged. Invoices are created by us with a fixed
+ * amount, so a mismatch means a tampered/mismatched record - never apply it
+ * silently.
+ */
+export function invoiceAmountMatches(invoiceAmountHalalas: number, payment: { amount: number; amountHalalas: number }) {
+  if (!Number.isFinite(invoiceAmountHalalas) || invoiceAmountHalalas <= 0) return false;
+  return invoiceAmountHalalas === expectedHalalas(payment);
 }
 
 export async function logAdminAction(tenantId: string, clientName: string, message: string, level: "معلومة" | "تنبيه" | "خطأ" = "معلومة", source = "لوحة الأدمن") {

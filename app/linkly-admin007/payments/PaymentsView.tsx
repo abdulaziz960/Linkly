@@ -12,7 +12,7 @@ type PaymentsViewProps = {
   initialStatus?: string;
 };
 
-const STATUS_FILTERS = ["الكل", "مكتمل", "قيد الانتظار", "منتهي الصلاحية"];
+const STATUS_FILTERS = ["الكل", "مكتمل", "قيد الانتظار", "فشل", "منتهي الصلاحية", "مسترد"];
 const SOURCE_FILTERS = ["الكل", "اشتراك", "شحن رسائل حملات"];
 const PAYMENT_REFERENCE_TIME = Date.now();
 type SortKey = "recent" | "oldest" | "amount_desc" | "amount_asc";
@@ -33,8 +33,27 @@ function statusLabel(status: string, t: (ar: string, en: string) => string) {
       return t("قيد الانتظار", "Pending");
     case "منتهي الصلاحية":
       return t("منتهي الصلاحية", "Expired");
+    case "فشل":
+      return t("فشل", "Failed");
+    case "مسترد":
+      return t("مسترد", "Refunded");
     default:
       return status;
+  }
+}
+
+function gatewayLabel(gateway: string | undefined, t: (ar: string, en: string) => string) {
+  switch (gateway) {
+    case "moyasar":
+      return "Moyasar";
+    case "stripe":
+      return t("Stripe (اختبار)", "Stripe (test)");
+    case "manual":
+      return t("إضافة يدوية", "Manual");
+    case "test":
+      return t("محاكاة", "Simulated");
+    default:
+      return "—";
   }
 }
 
@@ -235,7 +254,14 @@ export default function PaymentsView({ subscriptions, payments, initialStatus = 
                       <td colSpan={6}>
                         <div className="admin-table-detail">
                           {payment.messages ? <span>{t("الرسائل", "Messages")}: <b>{formatNumber(payment.messages)}</b></span> : null}
-                          <span>{t("معرّف Moyasar", "Moyasar ID")}: <b dir="ltr">{payment.moyasarId || "—"}</b></span>
+                          {payment.planName ? <span>{t("الباقة", "Plan")}: <b>{payment.planName}</b></span> : null}
+                          <span>{t("البوابة", "Gateway")}: <b>{gatewayLabel(payment.gateway, t)}</b></span>
+                          <span>{t("معرّف الفاتورة", "Invoice ID")}: <b dir="ltr">{payment.moyasarId || "—"}</b></span>
+                          {payment.gatewayPaymentId ? <span>{t("معرّف عملية الدفع", "Payment ID")}: <b dir="ltr">{payment.gatewayPaymentId}</b></span> : null}
+                          {payment.paymentMethod ? <span>{t("طريقة الدفع", "Method")}: <b dir="ltr">{payment.paymentMethod}</b></span> : null}
+                          {payment.periodStart && payment.periodEnd ? <span>{t("الفترة", "Period")}: <b dir="ltr">{payment.periodStart} → {payment.periodEnd}</b></span> : null}
+                          {payment.initiatedBy ? <span>{t("أُنشئت بواسطة", "Initiated by")}: <b>{payment.initiatedBy === "admin" ? t("فريق Linkly", "Linkly team") : payment.initiatedBy === "owner" ? t("مالك الحساب", "Account owner") : payment.initiatedBy === "member" ? t("موظف لدى العميل", "Client employee") : payment.initiatedBy}</b></span> : null}
+                          {payment.failureReason ? <span>{t("سبب الفشل", "Failure reason")}: <b dir="ltr">{payment.failureReason}</b></span> : null}
                           {payment.status === "قيد الانتظار" && payment.paymentUrl ? (
                             <a className="admin-table-link" href={payment.paymentUrl} target="_blank" rel="noreferrer">
                               {t("فتح رابط الدفع", "Open Payment Link")}
