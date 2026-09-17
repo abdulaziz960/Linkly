@@ -7729,7 +7729,12 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
     grid-template-columns: 1fr;
   }
 
-  .dashboard-sidebar {
+  .dashboard-shell .dashboard-sidebar {
+    /* .dashboard-shell prefix raises specificity above the bare, unconditional
+       .dashboard-sidebar { width: var(--dashboard-sidebar-width) } rule further
+       down this file (the 88px desktop icon-rail width) - without it, that
+       later same-specificity rule wins the cascade at every width and this
+       300px mobile drawer collapses back down to icon-only width. */
     position: fixed;
     inset: 0 0 0 auto;
     z-index: 30;
@@ -8856,7 +8861,13 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   }
 
   .dashboard-sidebar {
-    width: var(--dashboard-sidebar-width);
+    /* Do NOT set width here: an earlier (max-width: 1180px) block already
+       sets the mobile drawer to 300px with labeled nav groups. This block
+       used to reassert width: var(--dashboard-sidebar-width) (the 88px
+       desktop icon-rail value), which - being later in the cascade at the
+       same specificity - silently collapsed the open drawer back down to
+       icon-only width, hiding every group label behind a 1180px-wide menu
+       that never widened past 88px. */
     border-radius: 18px 0 0 18px;
   }
 

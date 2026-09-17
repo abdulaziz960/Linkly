@@ -7,12 +7,12 @@ import { useStoredLanguage } from "../useStoredLanguage";
 const copy = {
   ar: {
     ariaLabel: "استعادة كلمة المرور",
-    tagline: "منصة إدارة محادثات واتساب للأعمال",
+    tagline: "منصة موحّدة لإدارة محادثات عملائك عبر كل القنوات",
     heading: "استعادة كلمة المرور"
   },
   en: {
     ariaLabel: "Reset your password",
-    tagline: "WhatsApp business conversation platform",
+    tagline: "One unified platform for every customer channel",
     heading: "Reset your password"
   }
 } as const;
