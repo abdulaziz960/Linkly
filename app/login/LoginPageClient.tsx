@@ -6,11 +6,11 @@ import { useStoredLanguage } from "../useStoredLanguage";
 
 const copy = {
   ar: {
-    tagline: "منصة إدارة محادثات واتساب للأعمال",
+    tagline: "منصة موحّدة لإدارة محادثات عملائك عبر كل القنوات",
     welcome: "مرحباً بعودتك"
   },
   en: {
-    tagline: "WhatsApp business conversation platform",
+    tagline: "One unified platform for every customer channel",
     welcome: "Welcome back"
   }
 };
