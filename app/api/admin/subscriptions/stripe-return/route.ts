@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { ensureSchema } from "../../../../../lib/database";
 import { prisma } from "../../../../../lib/prisma";
 import { retrieveStripeCheckoutSession } from "../../../../../lib/stripe";
-import { applyConfirmedSubscriptionPayment, logAdminAction } from "../../../../../lib/subscriptions";
+import { applyConfirmedSubscriptionPayment, expectedHalalas, logAdminAction } from "../../../../../lib/subscriptions";
+import { getPaymentCallbackOrigin } from "../../../../../lib/app-url";
 
 export const runtime = "nodejs";
 
-function baseUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
-}
+const baseUrl = getPaymentCallbackOrigin;
 
 /**
  * Stripe redirects the admin back here after checkout. Rather than trust
@@ -28,12 +27,22 @@ export async function GET(request: NextRequest) {
   await ensureSchema();
   const payment = await prisma.subscriptionPayment.findUnique({ where: { id: paymentId } });
 
-  if (payment && payment.status !== "مكتمل") {
+  // The session must be the one created for THIS payment row (charge route
+  // stores it as stripe_test_<session id>); otherwise any paid session could
+  // be replayed against a different, larger payment.
+  if (payment && payment.status !== "مكتمل" && payment.moyasarId === `stripe_test_${sessionId}`) {
     try {
       const session = await retrieveStripeCheckoutSession(sessionId);
-      if (session.paymentStatus === "paid") {
+      if (session.paymentStatus === "paid" && session.amountTotal !== expectedHalalas(payment)) {
+        console.error(`Stripe return amount mismatch for ${payment.id}: session=${session.amountTotal} expected=${expectedHalalas(payment)}`);
+      } else if (session.paymentStatus === "paid") {
         const subscription = await prisma.subscription.findUnique({ where: { tenantId: payment.tenantId } });
-        const { activated } = await applyConfirmedSubscriptionPayment(payment.id);
+        const { activated } = await applyConfirmedSubscriptionPayment(payment.id, {
+          gateway: "stripe",
+          gatewayStatus: session.paymentStatus,
+          gatewayPaymentId: session.id,
+          paymentMethod: "card"
+        });
 
         if (activated && subscription) {
           await logAdminAction(

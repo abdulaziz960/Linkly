@@ -8,6 +8,6 @@ export async function POST(request: NextRequest) {
   const user=await getCurrentUser({ allowExpired: true }); if(!user)return NextResponse.json({error:"سجّل الدخول أولًا"},{status:401});
   const {paymentId}=await request.json().catch(()=>({paymentId:""})) as {paymentId?:string}; await ensureSchema();
   const payment=await prisma.subscriptionPayment.findFirst({where:{id:paymentId,tenantId:user.tenantId}}); if(!payment||!payment.moyasarId.startsWith("test_"))return NextResponse.json({error:"عملية الدفع غير موجودة"},{status:404});
-  await applyConfirmedSubscriptionPayment(payment.id);
+  await applyConfirmedSubscriptionPayment(payment.id, { gateway: "test", gatewayStatus: "paid", gatewayPaymentId: `test_${payment.id}`, paymentMethod: "simulated" });
   return NextResponse.json({ok:true});
 }

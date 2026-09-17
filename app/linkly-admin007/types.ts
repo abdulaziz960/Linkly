@@ -29,6 +29,17 @@ export type PaymentRow = {
   completedAt: string;
   source: string;
   messages: number;
+  // Payment ledger details (lib/payment-status.ts, docs/payments.md).
+  gateway?: string;
+  gatewayPaymentId?: string;
+  paymentMethod?: string;
+  gatewayStatus?: string;
+  failureReason?: string;
+  failedAt?: string;
+  initiatedBy?: string;
+  planName?: string;
+  periodStart?: string;
+  periodEnd?: string;
 };
 
 export type PlanRow = {

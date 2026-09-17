@@ -57,16 +57,36 @@ export function verifySessionToken(token?: string) {
   return { userId, sessionVersion: sessionVersionNumber };
 }
 
+/**
+ * Days an ACTIVE (paid) subscription may run past its paid-through date
+ * (renewalAt) before the workspace is locked to /billing like an expired
+ * trial. Unset/blank keeps the historical behaviour: a paid subscription is
+ * never locked out for non-renewal, it just shows as overdue in the admin
+ * panel. Set e.g. SUBSCRIPTION_GRACE_DAYS=7 to enforce renewals.
+ */
+export function subscriptionGraceDays(): number | null {
+  const raw = process.env.SUBSCRIPTION_GRACE_DAYS?.trim();
+  if (!raw) return null;
+  const days = Number(raw);
+  return Number.isFinite(days) && days >= 0 ? days : null;
+}
+
 export async function getSubscriptionAccess(tenantId: string) {
   const subscription = await prisma.subscription.findUnique({
     where: { tenantId },
     select: { status: true, renewalAt: true }
   });
-  if (!subscription) return { expired: false };
+  if (!subscription) return { expired: false, overdue: false };
   const expiry = subscription.renewalAt ? new Date(subscription.renewalAt).getTime() : Number.NaN;
-  const trialExpired = subscription.status === "تجربة" && Number.isFinite(expiry) && expiry <= Date.now();
-  const expired = trialExpired || subscription.status === "متوقف";
-  return { expired, status: subscription.status, renewalAt: subscription.renewalAt };
+  const now = Date.now();
+  const trialExpired = subscription.status === "تجربة" && Number.isFinite(expiry) && expiry <= now;
+  // renewalAt is the paid-through date for an active subscription; past it
+  // the tenant has not paid for the current period.
+  const overdue = subscription.status === "نشط" && Number.isFinite(expiry) && expiry <= now;
+  const graceDays = subscriptionGraceDays();
+  const renewalLapsed = overdue && graceDays !== null && expiry + graceDays * 86_400_000 <= now;
+  const expired = trialExpired || renewalLapsed || subscription.status === "متوقف";
+  return { expired, overdue, status: subscription.status, renewalAt: subscription.renewalAt };
 }
 
 export async function getCurrentUser(options: { allowExpired?: boolean } = {}) {

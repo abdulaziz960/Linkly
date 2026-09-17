@@ -16,7 +16,8 @@ const copy = {
     subheading: "اشتراك شهري مرن، ويمكنك تغيير الباقة لاحقًا.",
     currentPlan: "اشتراكك الحالي:",
     blockedSuspended: "تم إيقاف حسابك من فريق Linkly. اختر باقة وأكمل الدفع لإعادة تفعيله، أو تواصل معنا إذا كان هذا خطأ.",
-    blockedTrialEnded: "انتهت فترتك التجريبية. اختر باقة وأكمل الدفع لمتابعة استخدام حسابك."
+    blockedTrialEnded: "انتهت فترتك التجريبية. اختر باقة وأكمل الدفع لمتابعة استخدام حسابك.",
+    blockedRenewalLapsed: "انتهت فترة اشتراكك المدفوعة ولم يتم التجديد. جدّد باقتك لمتابعة استخدام حسابك - بياناتك محفوظة بالكامل."
   },
   en: {
     backToDashboard: "→ Back to dashboard",
@@ -25,7 +26,8 @@ const copy = {
     subheading: "A flexible monthly subscription — you can change your plan later.",
     currentPlan: "Your current subscription:",
     blockedSuspended: "Your account has been suspended by the Linkly team. Choose a plan and complete payment to reactivate it, or contact us if this is a mistake.",
-    blockedTrialEnded: "Your trial period has ended. Choose a plan and complete payment to keep using your account."
+    blockedTrialEnded: "Your trial period has ended. Choose a plan and complete payment to keep using your account.",
+    blockedRenewalLapsed: "Your paid subscription period has ended and was not renewed. Renew your plan to keep using your account - all your data is intact."
   }
 } as const;
 
@@ -55,7 +57,9 @@ export default function BillingPageClient({
   const blockedReason = expired
     ? subscription?.status === "متوقف"
       ? text.blockedSuspended
-      : text.blockedTrialEnded
+      : subscription?.status === "نشط"
+        ? text.blockedRenewalLapsed
+        : text.blockedTrialEnded
     : "";
 
   return (

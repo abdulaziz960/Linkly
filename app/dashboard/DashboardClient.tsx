@@ -1278,6 +1278,14 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           </Link>
         ) : null}
       </div>
+      {menuOpen ? (
+        <div
+          className="dashboard-menu-backdrop"
+          onClick={() => setMenuOpen(false)}
+          onTouchMove={() => setMenuOpen(false)}
+          aria-hidden="true"
+        />
+      ) : null}
       <DashboardSidebar
         activeView={activeView}
         allowedViews={allowedViews}

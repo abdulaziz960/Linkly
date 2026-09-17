@@ -22,17 +22,18 @@ function playTone(context: AudioContext, frequency: number, startTime: number, d
   oscillator.stop(startTime + duration + 0.02);
 }
 
-// A short two-note "ping" chime for new inbound messages, played once per
-// batch of new messages - synthesized so we don't need to ship/license an
-// audio asset.
+// Linkly's own three-note "ding-ding-ding" chime for new inbound messages,
+// played once per batch of new messages - a rising A5-D6-G6 arpeggio,
+// synthesized so we don't need to ship/license an audio asset.
 export function playNewMessageChime() {
   try {
     const context = getAudioContext();
     if (!context) return;
     if (context.state === "suspended") void context.resume();
     const now = context.currentTime;
-    playTone(context, 1046.5, now, 0.18, 0.16);
-    playTone(context, 1318.5, now + 0.09, 0.22, 0.14);
+    playTone(context, 880.0, now, 0.14, 0.15);
+    playTone(context, 1174.66, now + 0.07, 0.16, 0.15);
+    playTone(context, 1568.0, now + 0.16, 0.3, 0.13);
   } catch {
     // Ignore - notification sound is a nice-to-have, never worth surfacing an error for.
   }
