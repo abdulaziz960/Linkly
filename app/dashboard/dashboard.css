@@ -7729,7 +7729,12 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
     grid-template-columns: 1fr;
   }
 
-  .dashboard-sidebar {
+  .dashboard-shell .dashboard-sidebar {
+    /* .dashboard-shell prefix raises specificity above the bare, unconditional
+       .dashboard-sidebar { width: var(--dashboard-sidebar-width) } rule further
+       down this file (the 88px desktop icon-rail width) - without it, that
+       later same-specificity rule wins the cascade at every width and this
+       300px mobile drawer collapses back down to icon-only width. */
     position: fixed;
     inset: 0 0 0 auto;
     z-index: 30;
