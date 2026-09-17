@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useStoredLanguage } from "../../../../useStoredLanguage";
 import { statusLabel, priorityLabel, categoryLabel, statusBadgeClass, priorityBadgeClass } from "../../../../../lib/support-labels";
@@ -166,7 +167,15 @@ export default function TicketThreadClient({ ticketId }: { ticketId: string }) {
                 {message.text ? <p className={message.senderType === "system" ? "support-system-note" : ""}>{message.text}</p> : null}
                 {message.attachmentUrl ? (
                   message.attachmentType === "image" ? (
-                    <img className="support-message-attachment-image" src={message.attachmentUrl} alt={message.attachmentName} />
+                    <Image
+                      className="support-message-attachment-image"
+                      src={message.attachmentUrl}
+                      alt={message.attachmentName}
+                      width={260}
+                      height={260}
+                      style={{ width: "auto", height: "auto" }}
+                      unoptimized={message.attachmentUrl.startsWith("data:")}
+                    />
                   ) : (
                     <a className="support-message-attachment-file" href={message.attachmentUrl} download={message.attachmentName}>{message.attachmentName}</a>
                   )
