@@ -1285,6 +1285,9 @@
     font-weight: 800;
     box-shadow: 0 12px 30px #0f172a38;
   }
+  .mobileCta.mobileCtaHidden {
+    display: none;
+  }
 }
 @media (max-width: 420px) {
   .hero {
