@@ -1423,9 +1423,16 @@
     pointer-events: auto;
   }
   .navBackdrop {
+    /* inset's implicit top/bottom auto-height stretch doesn't apply to a
+       native <button> (it sizes to its intrinsic/replaced content instead),
+       so this collapsed to ~2px tall and made click-outside-to-close work
+       almost nowhere - set an explicit height instead. */
     position: fixed;
     z-index: 1;
-    inset: 72px 0 0;
+    top: 72px;
+    left: 0;
+    right: 0;
+    height: calc(100dvh - 72px);
     border: 0;
     background: #10181640;
     backdrop-filter: blur(2px);
@@ -1471,7 +1478,8 @@
 }
 @media (max-width: 700px) {
   .navBackdrop {
-    inset: 66px 0 0;
+    top: 66px;
+    height: calc(100dvh - 66px);
   }
   .navInner nav {
     top: calc(100% + 8px);
