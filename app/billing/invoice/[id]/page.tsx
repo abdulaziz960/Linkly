@@ -23,6 +23,22 @@ function addOneMonth(value: string) {
   return date;
 }
 
+/**
+ * Human labels for the gateway's payment-method string ("creditcard/mada",
+ * "applepay", "stcpay", "manual", ...). Unknown values fall back to "Card".
+ */
+function paymentMethodDisplay(method: string | undefined, gateway: string | undefined) {
+  const value = (method || "").toLowerCase();
+  if (gateway === "manual" || value === "manual") return { en: "Manual credit", ar: "إضافة يدوية" };
+  if (value.includes("applepay")) return { en: "Apple Pay", ar: "Apple Pay" };
+  if (value.includes("stcpay")) return { en: "stc pay", ar: "stc pay" };
+  if (value.includes("mada")) return { en: "mada card", ar: "بطاقة مدى" };
+  if (value.includes("visa")) return { en: "Visa card", ar: "بطاقة Visa" };
+  if (value.includes("master")) return { en: "Mastercard", ar: "بطاقة Mastercard" };
+  if (value === "simulated") return { en: "Test payment", ar: "دفع تجريبي" };
+  return { en: "Card", ar: "بطاقة" };
+}
+
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) redirect("/login");
@@ -43,10 +59,16 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
   const isPaid = invoice.status === "مكتمل";
   const isSubscription = invoice.source === "اشتراك";
-  const receiptNo = (invoice.moyasarId || invoice.id).slice(0, 20).toUpperCase();
+  const receiptNo = (invoice.gatewayPaymentId || invoice.moyasarId || invoice.id).slice(0, 20).toUpperCase();
+  // Confirmed payments carry the exact period they bought (a renewal paid
+  // early extends from the previous paid-through date). Older rows and
+  // still-pending invoices fall back to "one month from creation".
   const periodCovered = isSubscription
-    ? `${formatDateOnly(invoice.createdAt)} - ${formatDateOnly(addOneMonth(invoice.createdAt).toISOString())}`
+    ? invoice.periodStart && invoice.periodEnd
+      ? `${formatDateOnly(invoice.periodStart)} - ${formatDateOnly(invoice.periodEnd)}`
+      : `${formatDateOnly(invoice.createdAt)} - ${formatDateOnly(addOneMonth(invoice.createdAt).toISOString())}`
     : null;
+  const paymentMethodLabel = paymentMethodDisplay(invoice.paymentMethod, invoice.gateway);
   const itemLabelAr = isSubscription ? `اشتراك Linkly - ${invoice.planName || "باقة"}` : `شحن رسائل حملات`;
   const itemLabelEn = isSubscription ? `Linkly subscription - ${invoice.planName || "plan"}` : "Campaign message top-up";
   const qty = isSubscription ? 1 : invoice.messages;
@@ -90,7 +112,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           ) : null}
           <div>
             <span>PAYMENT METHOD <em>طريقة الدفع</em></span>
-            <b>Card <em>بطاقة</em></b>
+            <b>{paymentMethodLabel.en} <em>{paymentMethodLabel.ar}</em></b>
           </div>
         </div>
 

@@ -24,4 +24,18 @@ export function getAppOrigin(request?: { nextUrl?: { origin: string }; url?: str
   return "https://linklysa.io";
 }
 
+/**
+ * Origin for URLs handed to a payment gateway (Moyasar callback_url,
+ * success_url, back_url; Stripe success/cancel). These are called by a
+ * third party or opened after payment, so they must never be derived from
+ * the incoming request (which on Cloud Run can be https://0.0.0.0:8080).
+ * Configured APP_URL / NEXT_PUBLIC_APP_URL first; otherwise the production
+ * domain in production and localhost in development.
+ */
+export function getPaymentCallbackOrigin() {
+  const configured = process.env.APP_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+  return process.env.NODE_ENV === "production" ? "https://linklysa.io" : "http://localhost:3000";
+}
+
 export type AppOriginRequest = NextRequest | Request;

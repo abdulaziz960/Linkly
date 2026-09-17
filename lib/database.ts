@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { ensureAiSchema } from "./ai-schema";
+import { emailIntegrationId, findTenantEmailIntegration } from "./email-integration-lookup";
 import { createHash, randomUUID } from "crypto";
 import { getPasswordValidationError, hashPassword, verifyPassword } from "./passwords";
 import { decryptSecret, encryptSecret, hasIntegrationEncryptionKey, integrationSecretFields } from "./secret-storage";
@@ -169,6 +170,77 @@ function readStoredSecret(value?: string | null) {
   }
 }
 
+// Columns added by the payment-ledger migration, declared once so the
+// PostgreSQL compatibility bridge, the legacy PostgreSQL repair path and
+// the SQLite bootstrap can never drift from each other (or from
+// prisma/schema.prisma). Each is TEXT NOT NULL DEFAULT ''.
+const paymentLedgerColumns: Record<"subscription_payments" | "campaign_payments", string[]> = {
+  subscription_payments: [
+    "gateway",
+    "gateway_payment_id",
+    "payment_method",
+    "gateway_status",
+    "failure_reason",
+    "failed_at",
+    "initiated_by",
+    "metadata_json",
+    "period_start",
+    "period_end"
+  ],
+  campaign_payments: [
+    "gateway",
+    "gateway_payment_id",
+    "payment_method",
+    "gateway_status",
+    "failure_reason",
+    "failed_at",
+    "initiated_by",
+    "metadata_json"
+  ]
+};
+
+// Checks information_schema first and only ALTERs what is actually missing:
+// even `ADD COLUMN IF NOT EXISTS` takes an ACCESS EXCLUSIVE lock, and this
+// runs on every new instance - an unconditional ALTER could queue behind any
+// open transaction and stall the billing pages that read these tables.
+async function ensurePostgresPaymentLedgerColumns() {
+  const tables = Object.keys(paymentLedgerColumns);
+  const rows = await prisma.$queryRawUnsafe<Array<{ table_name: string; column_name: string }>>(
+    `SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name IN (${tables.map((_, i) => `$${i + 1}`).join(", ")})`,
+    ...tables
+  );
+  const present = new Set(rows.map((row) => `${row.table_name}.${row.column_name}`));
+  const presentTables = new Set(rows.map((row) => row.table_name));
+  const alters: string[] = [];
+  for (const [table, columns] of Object.entries(paymentLedgerColumns)) {
+    // A table that doesn't exist yet is created elsewhere with these columns.
+    if (!presentTables.has(table)) continue;
+    const missing = columns.filter((column) => !present.has(`${table}.${column}`));
+    if (!missing.length) continue;
+    alters.push(`ALTER TABLE ${table} ${missing.map((column) => `ADD COLUMN IF NOT EXISTS ${column} TEXT NOT NULL DEFAULT ''`).join(", ")}`);
+  }
+  if (!alters.length) return;
+  // Both tables in ONE transaction, so a reader never sees a half-applied
+  // state (one payment table with the new columns and the other without).
+  // One transaction = one pooled connection, so SET LOCAL applies to every ALTER.
+  await prisma.$transaction([
+    prisma.$executeRawUnsafe(`SET LOCAL lock_timeout = '10s'`),
+    ...alters.map((statement) => prisma.$executeRawUnsafe(statement))
+  ]);
+}
+
+// SQLite has no ADD COLUMN IF NOT EXISTS, so consult PRAGMA table_info first.
+async function ensureSqlitePaymentLedgerColumns() {
+  for (const [table, columns] of Object.entries(paymentLedgerColumns)) {
+    const existing = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(${table})`);
+    for (const column of columns) {
+      if (!existing.some((entry) => entry.name === column)) {
+        await prisma.$executeRawUnsafe(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`);
+      }
+    }
+  }
+}
+
 async function runRequiredProductionMigrations() {
   if (!isPostgresDatabase) return;
 
@@ -233,6 +305,11 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `UPDATE subscription_payments SET amount_halalas = CAST(ROUND(amount * 100) AS INTEGER) WHERE amount_halalas = 0 AND amount IS NOT NULL`
   );
+  // Payment ledger details (migration 20260917090000_payment_ledger_details).
+  // Same additive bridge as above: the generated Prisma client selects these
+  // columns on every payment read, so they must exist the moment a build
+  // that knows about them starts serving - before `migrate deploy` has run.
+  await ensurePostgresPaymentLedgerColumns();
   await prisma.$executeRawUnsafe(
     `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS rating INTEGER NOT NULL DEFAULT 0`
   );
@@ -952,6 +1029,7 @@ async function runSchemaMigrations() {
     // only gets the new plan's benefits once payment actually confirms.
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_name TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_employee_limit INTEGER NOT NULL DEFAULT 0`);
+    await ensurePostgresPaymentLedgerColumns();
     return;
   }
 
@@ -1729,6 +1807,9 @@ async function runSchemaMigrations() {
   if (!subscriptionPaymentColumns.some((column) => column.name === "plan_employee_limit")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN plan_employee_limit INTEGER NOT NULL DEFAULT 0`);
   }
+  // subscriptions, subscription_payments and campaign_payments all exist by
+  // this point - add the payment-ledger columns to each.
+  await ensureSqlitePaymentLedgerColumns();
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS bot_settings (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL UNIQUE,
@@ -1843,18 +1924,24 @@ export async function ensureSchema() {
 async function seedDatabase() {
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
-    await tx.emailIntegration.upsert({
-      where: { id: "primary-email" },
-      update: {},
-      create: {
-        id: "primary-email",
-        tenantId: "tenant-demo",
-        provider: "webhook",
-        status: "not_connected",
-        webhookSecret: maybeEncryptGeneratedSecret(process.env.EMAIL_WEBHOOK_SECRET || randomUUID()),
-        updatedAt: new Date().toISOString()
-      }
-    });
+    // tenant-demo gets a default email integration only if it has none.
+    // This used to upsert a fixed `primary-email` row, which re-created a
+    // second tenant-demo row whenever `primary-email` had been removed or
+    // re-assigned - and, once email_integrations.tenant_id is unique, made
+    // this whole seed transaction (and every request awaiting it) fail.
+    const existingDemoEmail = await tx.emailIntegration.findFirst({ where: { tenantId: "tenant-demo" }, select: { id: true } });
+    if (!existingDemoEmail) {
+      await tx.emailIntegration.create({
+        data: {
+          id: emailIntegrationId("tenant-demo"),
+          tenantId: "tenant-demo",
+          provider: "gmail",
+          status: "not_connected",
+          webhookSecret: maybeEncryptGeneratedSecret(process.env.EMAIL_WEBHOOK_SECRET || randomUUID()),
+          updatedAt: new Date().toISOString()
+        }
+      });
+    }
     await tx.integrationSetting.upsert({
       where: { id: "meta-whatsapp" },
       update: {},
@@ -2805,12 +2892,12 @@ export type EmailIntegrationSettings = {
 
 export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Promise<EmailIntegrationSettings> {
   await ensureSeeded();
-  const tenantSettings = await prisma.emailIntegration.findFirst({ where: { tenantId } });
+  const tenantSettings = await findTenantEmailIntegration(tenantId);
   const settings = tenantSettings ?? (tenantId === "tenant-demo"
     ? await prisma.emailIntegration.findFirstOrThrow({ where: { tenantId } })
     : await prisma.emailIntegration.create({
       data: {
-        id: `email:${tenantId}`,
+        id: emailIntegrationId(tenantId),
         tenantId,
         provider: "gmail",
         status: "not_connected",

@@ -161,7 +161,11 @@ export async function addManualCampaignBalance(tenantId: string, messages: numbe
       moyasarId: "",
       paymentUrl: "",
       createdAt: now,
-      completedAt: now
+      completedAt: now,
+      gateway: "manual",
+      gatewayStatus: "paid",
+      paymentMethod: "manual",
+      initiatedBy: "admin"
     }
   });
   await recordTopUp(tenantId, messages);
