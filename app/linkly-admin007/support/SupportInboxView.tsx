@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../i18n";
 import { statusLabel, priorityLabel, statusBadgeClass, priorityBadgeClass } from "../../../lib/support-labels";
@@ -261,7 +262,14 @@ export default function SupportInboxView({ adminId, adminName }: { adminId: stri
                     {message.text ? <p>{message.text}</p> : null}
                     {message.attachmentUrl ? (
                       message.attachmentType === "image" ? (
-                        <img className="support-message-attachment-image" src={message.attachmentUrl} alt={message.attachmentName} />
+                        <Image
+                          className="support-message-attachment-image"
+                          src={message.attachmentUrl}
+                          alt={message.attachmentName}
+                          width={640}
+                          height={480}
+                          unoptimized
+                        />
                       ) : (
                         <a className="support-message-attachment-file" href={message.attachmentUrl} download={message.attachmentName}>{message.attachmentName}</a>
                       )

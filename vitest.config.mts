@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 // pick up on its own. Without this, any test that transitively imports a
 // module using the "@/" alias (e.g. lib/email-inbox.ts) fails to resolve.
 export default defineConfig({
-  // Database suites each start a Prisma engine; bound parallelism on large hosts.
-  test: { include: ["tests/**/*.test.ts"], maxWorkers: 2 },
+  // Database suites mutate process-wide environment variables and share the
+  // Prisma singleton, so running files in parallel causes cross-suite
+  // database races and intermittent timeouts.
+  test: { include: ["tests/**/*.test.ts"], maxWorkers: 1 },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL(".", import.meta.url))

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Campaign, MessageTemplate, Segment } from "../types";
 import { useLanguage } from "../i18n";
@@ -530,7 +531,7 @@ export default function CampaignsView({
                 <tbody>
                   {campaignPagination.items.map((campaign) => (
                     <tr key={campaign.id}>
-                      <td><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <img src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : campaign.name.trim().charAt(0) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}</span></div></td>
+                      <td><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <Image src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" width={48} height={48} onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : campaign.name.trim().charAt(0) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}</span></div></td>
                       <td><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small></td>
                       <td><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
                       <td><span className={campaign.status === "ملغاة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>

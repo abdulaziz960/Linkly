@@ -16,7 +16,8 @@ const appFont = localFont({
     { path: "../public/fonts/thmanyah/sans/thmanyahsans-Black.woff2", weight: "900", style: "normal" }
   ],
   variable: "--font-app",
-  display: "swap"
+  display: "swap",
+  preload: false
 });
 
 // Every heading that uses --font-display sets font-weight: 700 explicitly
