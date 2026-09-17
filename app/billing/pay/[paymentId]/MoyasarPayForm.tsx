@@ -55,7 +55,11 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
       currency: "SAR",
       description,
       publishable_api_key: publishableKey,
-      callback_url: `${window.location.origin}/billing/success`,
+      // Cards that need out-of-band 3-D Secure fully navigate the browser
+      // away and back rather than resolving inside on_completed below, so
+      // the paymentId is threaded through the query string - /billing/success
+      // needs it to run the same server-side confirm on that return trip.
+      callback_url: `${window.location.origin}/billing/success?paymentId=${encodeURIComponent(paymentId)}`,
       methods: ["creditcard"],
       on_completed: async (payment: { id: string }) => {
         setConfirming(true);
