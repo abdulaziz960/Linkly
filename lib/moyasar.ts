@@ -263,6 +263,73 @@ export function summarizeMoyasarInvoice(invoice: MoyasarInvoiceDetails): Gateway
   };
 }
 
+/** The subset of a direct Moyasar Payment object (not an invoice) we act on. */
+export type MoyasarPaymentDetails = {
+  id: string;
+  status: string;
+  /** Halalas. */
+  amount: number;
+  currency: string;
+  metadata: Record<string, string>;
+  sourceType: string;
+  sourceCompany: string;
+  message: string;
+};
+
+/**
+ * Fetches a Payment object's current status directly from Moyasar. Used by
+ * the embedded checkout form (Moyasar.js creates the Payment client-side
+ * with the publishable key - our server never sees it until the browser
+ * reports an id back), never trusting that client-reported status the same
+ * way fetchMoyasarInvoice never trusts a webhook body.
+ */
+export async function fetchMoyasarPayment(id: string): Promise<MoyasarPaymentDetails | null> {
+  const secretKey = moyasarSecretKey();
+  if (!secretKey || !id) return null;
+
+  const response = await fetch(`https://api.moyasar.com/v1/payments/${encodeURIComponent(id)}`, {
+    headers: { Authorization: authorizationHeader(secretKey) }
+  });
+  if (!response.ok) return null;
+
+  const payload = await response.json().catch(() => null) as {
+    id?: string;
+    status?: string;
+    amount?: number;
+    currency?: string;
+    metadata?: Record<string, unknown> | null;
+    source?: { type?: string; company?: string; message?: string | null };
+  } | null;
+  if (!payload?.id || !payload.status) return null;
+
+  const metadata: Record<string, string> = {};
+  for (const [key, value] of Object.entries(payload.metadata || {})) {
+    if (value !== null && value !== undefined) metadata[key] = String(value);
+  }
+
+  return {
+    id: payload.id,
+    status: payload.status,
+    amount: Number(payload.amount) || 0,
+    currency: payload.currency || "SAR",
+    metadata,
+    sourceType: payload.source?.type || "",
+    sourceCompany: payload.source?.company || "",
+    message: payload.source?.message || ""
+  };
+}
+
+/** Flattens a verified Payment object into the columns we store on our own payment row. */
+export function summarizeMoyasarPayment(payment: MoyasarPaymentDetails): GatewayPaymentDetails {
+  return {
+    gateway: "moyasar",
+    gatewayStatus: payment.status,
+    gatewayPaymentId: payment.id,
+    paymentMethod: [payment.sourceType, payment.sourceCompany].filter(Boolean).join("/"),
+    failureReason: payment.status === "paid" ? "" : (payment.message || "")
+  };
+}
+
 /**
  * Verifies a webhook request came from Moyasar using the shared secret
  * configured on both sides (Moyasar dashboard + MOYASAR_WEBHOOK_SECRET).

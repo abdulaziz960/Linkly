@@ -3,12 +3,15 @@ import type { NextConfig } from "next";
 const isDevelopment = process.env.NODE_ENV === "development";
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} https://connect.facebook.net https://www.googletagmanager.com`,
-  "style-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} https://connect.facebook.net https://www.googletagmanager.com https://cdn.moyasar.com`,
+  "style-src 'self' 'unsafe-inline' https://cdn.moyasar.com",
   "img-src 'self' data: blob: https:",
   "media-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://graph.facebook.com https://www.facebook.com https://connect.facebook.net https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com",
+  // api.moyasar.com: the embedded checkout form (app/billing/pay/[paymentId])
+  // posts card details there directly from the browser with the publishable
+  // key - never through our server. See lib/moyasar.ts's module comment.
+  "connect-src 'self' https://graph.facebook.com https://www.facebook.com https://connect.facebook.net https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com https://api.moyasar.com",
   "frame-src https://www.facebook.com https://web.facebook.com https://business.facebook.com https://www.googletagmanager.com",
   "object-src 'none'",
   "base-uri 'self'",

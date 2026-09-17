@@ -24,6 +24,11 @@ ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 # never reach the already-built client JS.
 ARG NEXT_PUBLIC_SALES_WHATSAPP_NUMBER=""
 ENV NEXT_PUBLIC_SALES_WHATSAPP_NUMBER=$NEXT_PUBLIC_SALES_WHATSAPP_NUMBER
+# Safe to expose client-side by design (Moyasar's own public/publishable
+# key, distinct from MOYASAR_SECRET_KEY) - the embedded checkout form
+# (app/billing/pay/[paymentId]) needs it in the browser bundle.
+ARG NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY=""
+ENV NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY=$NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY
 RUN node scripts/prisma-generate.mjs
 RUN npm run build
 

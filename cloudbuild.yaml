@@ -3,6 +3,9 @@ substitutions:
   # not a secret, but still has to travel through as a build arg since
   # Next.js inlines NEXT_PUBLIC_* vars at build time (see Dockerfile).
   _SALES_WHATSAPP_NUMBER: ""
+  # Moyasar's own public/publishable key (pk_test_.../pk_live_...) - safe by
+  # design, but same build-arg mechanism as above since it's NEXT_PUBLIC_*.
+  _MOYASAR_PUBLISHABLE_KEY: ""
 
 steps:
   - name: "gcr.io/cloud-builders/docker"
@@ -12,6 +15,8 @@ steps:
       - "me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$BUILD_ID"
       - "--build-arg"
       - "NEXT_PUBLIC_SALES_WHATSAPP_NUMBER=$_SALES_WHATSAPP_NUMBER"
+      - "--build-arg"
+      - "NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY=$_MOYASAR_PUBLISHABLE_KEY"
       - "."
   - name: "gcr.io/cloud-builders/docker"
     args:
