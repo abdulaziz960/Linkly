@@ -50,9 +50,9 @@ function isUnsetPlaceholder(value: string) {
   return !value || value.startsWith("اختر ") || value === "لا يحتاج اختيار";
 }
 
-async function loadConversationContext(conversationId: string) {
-  const conversation = await prisma.conversation.findUnique({
-    where: { id: conversationId },
+async function loadConversationContext(conversationId: string, tenantId: string) {
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId },
     include: { customer: true, tags: true }
   });
   return conversation;
@@ -238,7 +238,7 @@ async function executeAction(action: StoredAction, tenantId: string, conversatio
     const template = await prisma.template.findFirst({ where: { name: action.target, tenantId } });
     if (!template) return;
 
-    const conversation = await loadConversationContext(conversationId);
+    const conversation = await loadConversationContext(conversationId, tenantId);
     if (!conversation) return;
 
     if (conversation.channel === "whatsapp") {
@@ -266,6 +266,12 @@ async function executeAction(action: StoredAction, tenantId: string, conversatio
 }
 
 async function executeRule(rule: { id: string; actionsJson: string }, tenantId: string, conversationId: string) {
+  // Guards every caller (manual run, trigger match, queued run) against ever
+  // acting on a conversation outside the rule's own tenant, even if
+  // conversationId originated from a client-supplied value.
+  const conversation = await loadConversationContext(conversationId, tenantId);
+  if (!conversation) return;
+
   const actions = parseJsonArray<StoredAction>(rule.actionsJson);
   for (const action of actions) {
     try {
@@ -286,6 +292,8 @@ export async function runAutomationRuleManually(ruleId: string, tenantId: string
   await ensureSchema();
   const rule = await prisma.automationRule.findFirst({ where: { id: ruleId, tenantId } });
   if (!rule) throw new Error("rule-not-found");
+  const conversation = await loadConversationContext(conversationId, tenantId);
+  if (!conversation) throw new Error("conversation-not-found");
   await executeRule(rule, tenantId, conversationId);
 }
 
@@ -342,7 +350,7 @@ export async function simulateAutomationRules(tenantId: string, input: {
 export async function runAutomations(trigger: AutomationTrigger, ctx: RunContext) {
   await ensureSchema();
 
-  const conversation = await loadConversationContext(ctx.conversationId);
+  const conversation = await loadConversationContext(ctx.conversationId, ctx.tenantId);
   if (!conversation) return;
 
   const rules = await prisma.automationRule.findMany({

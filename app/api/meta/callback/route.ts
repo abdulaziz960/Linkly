@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   const wantsJson = request.headers.get("accept")?.includes("application/json");
 
-  if (!stateValues && searchParams.has("code") && requestedChannelParam !== "whatsapp") {
+  if (!stateValues && searchParams.has("code")) {
     if (wantsJson) return NextResponse.json({ ok: false, error: "تعذر التحقق من طلب الربط" }, { status: 400 });
     return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=invalid-state&view=settings");
   }
