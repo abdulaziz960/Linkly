@@ -76,8 +76,15 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentId, moyasarPaymentId: payment.id })
           });
-          const payload = await response.json().catch(() => ({})) as { error?: string };
+          const payload = await response.json().catch(() => ({})) as { error?: string; outcome?: string };
           if (!response.ok) throw new Error(payload.error || "تعذر تأكيد الدفعة");
+          // confirmUrl answers HTTP 200 even for a declined card (it only
+          // fails the request itself on an amount mismatch) - outcome is the
+          // real verified result, and a non-completed one must never reach
+          // the success page the same way a passed 3-D-Secure return does.
+          if (payload.outcome !== "completed" && payload.outcome !== "already_processed") {
+            throw new Error("لم تتم الموافقة على الدفعة من جهة البنك. تحقق من بيانات البطاقة أو استخدم بطاقة أخرى.");
+          }
           router.push(`/billing/success?kind=${kind}`);
         } catch (err) {
           setConfirming(false);

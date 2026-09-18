@@ -361,6 +361,60 @@ describe("Moyasar webhook processing", () => {
   });
 });
 
+describe("stale pending payment reconciliation", () => {
+  function mockInvoiceMissPaymentHit(payment: Record<string, unknown>) {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (String(url).includes("/v1/invoices/")) return new Response("Not Found", { status: 404 });
+      return new Response(JSON.stringify(payment), { status: 200 });
+    }));
+  }
+
+  it("falls back to a direct Payment lookup when a stale row's moyasarId is a Payment id, not an invoice id", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { ensureSchema } = await import("../lib/database");
+    const { reconcileStalePendingPayments } = await import("../lib/subscriptions");
+    await ensureSchema();
+
+    const tenantId = "tenant-reconcile-embedded";
+    const now = new Date().toISOString();
+    // The embedded checkout (app/api/billing/confirm-payment) writes the raw
+    // Moyasar Payment id straight into moyasarId as soon as on_completed
+    // fires - even for a row still pending an out-of-band 3-D-Secure return.
+    // A stale sweep must not treat a 404 on the INVOICE endpoint as proof
+    // the payment doesn't exist.
+    const staleCreatedAt = new Date(Date.now() - 25 * 3_600_000).toISOString();
+    await prisma.userAccount.create({ data: { id: `user-${tenantId}`, name: "Reconcile Owner", email: "reconcile@ledger.example", passwordHash: "x", role: "مالك الحساب", tenantId, createdAt: now } });
+    await prisma.subscriptionPayment.create({
+      data: { id: `pay-${tenantId}`, tenantId, amount: 499, amountHalalas: 49900, status: "قيد الانتظار", moyasarId: "pay_embedded_3ds", paymentUrl: "", createdAt: staleCreatedAt, planName: "باقة النمو", planEmployeeLimit: 3 }
+    });
+
+    mockInvoiceMissPaymentHit({ id: "pay_embedded_3ds", status: "paid", amount: 49900, currency: "SAR", source: { type: "creditcard", company: "mada", message: "APPROVED" } });
+
+    const result = await reconcileStalePendingPayments(24 * 3_600_000);
+    expect(result.reconciled).toBe(1);
+    expect(await prisma.subscriptionPayment.findUnique({ where: { id: `pay-${tenantId}` } })).toMatchObject({ status: "مكتمل", gatewayPaymentId: "pay_embedded_3ds", paymentMethod: "creditcard/mada" });
+    expect(await prisma.subscription.findUnique({ where: { tenantId } })).toMatchObject({ status: "نشط", plan: "باقة النمو" });
+  });
+
+  it("expires a stale row when neither the invoice nor the Payment endpoint knows it", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { ensureSchema } = await import("../lib/database");
+    const { reconcileStalePendingPayments } = await import("../lib/subscriptions");
+    await ensureSchema();
+
+    const tenantId = "tenant-reconcile-abandoned";
+    const staleCreatedAt = new Date(Date.now() - 25 * 3_600_000).toISOString();
+    await prisma.subscriptionPayment.create({
+      data: { id: `pay-${tenantId}`, tenantId, amount: 499, amountHalalas: 49900, status: "قيد الانتظار", moyasarId: "pay_never_attempted", paymentUrl: "", createdAt: staleCreatedAt }
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("Not Found", { status: 404 })));
+
+    const result = await reconcileStalePendingPayments(24 * 3_600_000);
+    expect(result.expired).toBe(1);
+    expect((await prisma.subscriptionPayment.findUnique({ where: { id: `pay-${tenantId}` } }))?.status).toBe("منتهي الصلاحية");
+  });
+});
+
 describe("payment callback origin", () => {
   it("never derives gateway URLs from the request and falls back per environment", async () => {
     const { getPaymentCallbackOrigin } = await import("../lib/app-url");

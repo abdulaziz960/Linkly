@@ -388,31 +388,45 @@ export async function applyVerifiedGatewayOutcome(
  * silently.
  */
 export async function reconcileStalePendingPayments(staleAfterMs = 24 * 60 * 60 * 1000) {
-  const { fetchMoyasarInvoice, summarizeMoyasarInvoice } = await import("./moyasar");
+  const { fetchMoyasarInvoice, fetchMoyasarPayment, summarizeMoyasarInvoice, summarizeMoyasarPayment } = await import("./moyasar");
   const cutoff = new Date(Date.now() - staleAfterMs).toISOString();
   let reconciled = 0;
   let expired = 0;
   let failed = 0;
 
   const reconcileOne = async (kind: PaymentKind, payment: { id: string; tenantId: string; amount: number; amountHalalas: number; moyasarId: string }) => {
-    // Only real Moyasar invoices can be asked about. Dev-simulator ("test_"),
+    // Only real Moyasar ids can be asked about. Dev-simulator ("test_"),
     // Stripe ("stripe_test_") and manual rows have nothing to verify against,
     // so past the stale window they simply expire.
-    const isMoyasarInvoice = payment.moyasarId && !payment.moyasarId.startsWith("test_") && !payment.moyasarId.startsWith("stripe_test_");
-    const invoice = isMoyasarInvoice ? await fetchMoyasarInvoice(payment.moyasarId) : null;
+    const isMoyasarId = payment.moyasarId && !payment.moyasarId.startsWith("test_") && !payment.moyasarId.startsWith("stripe_test_");
+    // A row can hold either a hosted-invoice id (admin-created charges) or a
+    // raw Payment id (the embedded checkout writes the Payment id straight
+    // into moyasarId once on_completed fires, even for a still-pending row
+    // awaiting out-of-band 3-D Secure - see confirm-payment routes). There is
+    // no reliable way to tell which from the id alone, so try invoice first
+    // and fall back to a direct Payment lookup rather than treating a 404
+    // here as "this payment doesn't exist".
+    const invoice = isMoyasarId ? await fetchMoyasarInvoice(payment.moyasarId) : null;
+    const moyasarPayment = isMoyasarId && !invoice ? await fetchMoyasarPayment(payment.moyasarId) : null;
+    const gatewayAmount = invoice?.amount ?? moyasarPayment?.amount;
+    const gatewayStatus = invoice?.status ?? moyasarPayment?.status;
 
-    if (invoice && !invoiceAmountMatches(invoice.amount, payment)) {
+    if (gatewayAmount !== undefined && !invoiceAmountMatches(gatewayAmount, payment)) {
       await logAdminAction(
         payment.tenantId,
         await getTenantCompanyName(payment.tenantId),
-        `تعارض مبلغ أثناء المطابقة الآلية: فاتورة Moyasar ${invoice.id} بقيمة ${invoice.amount} هللة بينما الدفعة المسجلة ${expectedHalalas(payment)} هللة. لم يتم تفعيل أي مزايا - تحقق يدويًا.`,
+        `تعارض مبلغ أثناء المطابقة الآلية: دفعة Moyasar ${invoice?.id ?? moyasarPayment?.id} بقيمة ${gatewayAmount} هللة بينما الدفعة المسجلة ${expectedHalalas(payment)} هللة. لم يتم تفعيل أي مزايا - تحقق يدويًا.`,
         "خطأ"
       );
       return;
     }
 
-    const status = invoice?.status && mapMoyasarInvoiceStatus(invoice.status) ? invoice.status : "expired";
-    const details = invoice ? summarizeMoyasarInvoice(invoice) : { gatewayStatus: "expired", failureReason: "لم يُستكمل الدفع خلال المهلة" };
+    const status = gatewayStatus && mapMoyasarInvoiceStatus(gatewayStatus) ? gatewayStatus : "expired";
+    const details = invoice
+      ? summarizeMoyasarInvoice(invoice)
+      : moyasarPayment
+        ? summarizeMoyasarPayment(moyasarPayment)
+        : { gatewayStatus: "expired", failureReason: "لم يُستكمل الدفع خلال المهلة" };
     const { outcome, changed } = await applyVerifiedGatewayOutcome(kind, payment.id, status, details);
     if (!changed) return;
 
