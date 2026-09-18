@@ -154,32 +154,43 @@
   gap: 12px;
   flex-wrap: wrap;
 }
+/* A quiet, secondary-weight link below the primary actions - not a
+   third button competing with primaryLarge/whatsappCta for attention. */
 .secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  color: var(--dark);
+  font-weight: 700;
+  font-size: 15px;
+  transition: gap 0.15s ease;
+}
+.secondary:hover {
+  gap: 10px;
+  text-decoration: underline;
+}
+/* Secondary-weight next to primaryLarge: a light outline, not a second
+   solid-filled button - the WhatsApp green stays on the icon only, so
+   it reads as "also available here" rather than competing for the
+   same amount of attention as the primary CTA. */
+.whatsappCta {
   min-height: 52px;
-  padding: 0 20px;
-  border: 1px solid var(--line);
+  padding: 0 22px;
   border-radius: var(--rs);
   color: var(--ink);
   font-weight: 700;
   display: inline-flex;
   align-items: center;
-}
-.whatsappCta {
-  min-height: 52px;
-  padding: 0 22px;
-  border-radius: var(--rs);
-  color: #fff;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
   gap: 9px;
-  background: #25d366;
-  box-shadow: 0 10px 24px #25d36633;
+  background: #fff;
+  border: 1px solid #bfe8d2;
   transition: 0.18s ease;
   cursor: pointer;
 }
 .whatsappCta:hover {
-  filter: brightness(0.95);
+  background: #f2fbf6;
+  border-color: #25d366;
   transform: translateY(-1px);
 }
 .whatsappCta[aria-busy="true"] {
@@ -189,7 +200,7 @@
 .whatsappCta svg {
   width: 20px;
   height: 20px;
-  fill: currentColor;
+  fill: #1fb257;
   flex-shrink: 0;
 }
 .micro {
@@ -1075,9 +1086,11 @@
     display: grid;
   }
   .primaryLarge,
-  .secondary,
   .whatsappCta {
     width: 100%;
+    justify-content: center;
+  }
+  .secondary {
     justify-content: center;
   }
   .micro {
