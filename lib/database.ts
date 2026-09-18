@@ -618,6 +618,12 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx ON push_subscriptions(user_id)`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS marketing_opt_out INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS marketing_opt_out_at TEXT NOT NULL DEFAULT ''`
+  );
 }
 
 async function runSchemaMigrations() {
@@ -1063,6 +1069,12 @@ async function runSchemaMigrations() {
     if (!customerColumns.some((existingColumn) => existingColumn.name === column)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`);
     }
+  }
+  if (!customerColumns.some((column) => column.name === "marketing_opt_out")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN marketing_opt_out INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!customerColumns.some((column) => column.name === "marketing_opt_out_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN marketing_opt_out_at TEXT NOT NULL DEFAULT ''`);
   }
   const conversationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(conversations)`);
   if (!conversationColumns.some((column) => column.name === "tenant_id")) {

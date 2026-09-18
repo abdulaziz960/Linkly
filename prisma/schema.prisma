@@ -21,6 +21,12 @@ model Customer {
   attrUtmMedium String         @default("") @map("attr_utm_medium")
   attrUtmCampaign String       @default("") @map("attr_utm_campaign")
   attrUtmContent String        @default("") @map("attr_utm_content")
+  // Set when the customer replies STOP (or an Arabic equivalent) to a
+  // WhatsApp message - lib/marketing-optout.ts. Checked by
+  // lib/campaign-engine.ts before sending any campaign template; never
+  // affects one-to-one replies from the inbox.
+  marketingOptOut   Int    @default(0) @map("marketing_opt_out")
+  marketingOptOutAt String @default("") @map("marketing_opt_out_at")
   conversations Conversation[]
 
   @@index([tenantId])

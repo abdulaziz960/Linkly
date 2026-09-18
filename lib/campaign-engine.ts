@@ -494,6 +494,22 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
         data: { status: "جارٍ الإرسال" }
       });
       if (claimed.count !== 1) continue;
+
+      // Checked before spending any campaign credit - a customer who
+      // replied STOP (lib/marketing-optout.ts) must never receive another
+      // campaign template, regardless of which campaign or list they're on.
+      const optedOut = await prisma.customer.findFirst({
+        where: { tenantId, phone: recipient.phone, marketingOptOut: 1 },
+        select: { id: true }
+      });
+      if (optedOut) {
+        await prisma.campaignRecipient.update({
+          where: { id: recipient.id },
+          data: { status: "فشل الإرسال", error: "ألغى العميل اشتراكه من رسائل الحملات" }
+        });
+        continue;
+      }
+
       const hasCredit = await reserveCampaignCredit(tenantId);
       if (!hasCredit) {
         await prisma.campaignRecipient.update({
