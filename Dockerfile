@@ -29,6 +29,10 @@ ENV NEXT_PUBLIC_SALES_WHATSAPP_NUMBER=$NEXT_PUBLIC_SALES_WHATSAPP_NUMBER
 # (app/billing/pay/[paymentId]) needs it in the browser bundle.
 ARG NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY=""
 ENV NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY=$NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY
+# Sentry DSNs only accept events (no read/write access to anything), so this
+# is safe to expose client-side the same way - see instrumentation-client.ts.
+ARG NEXT_PUBLIC_SENTRY_DSN=""
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 RUN node scripts/prisma-generate.mjs
 RUN npm run build
 

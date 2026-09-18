@@ -6,6 +6,11 @@ substitutions:
   # Moyasar's own public/publishable key (pk_test_.../pk_live_...) - safe by
   # design, but same build-arg mechanism as above since it's NEXT_PUBLIC_*.
   _MOYASAR_PUBLISHABLE_KEY: ""
+  # Sentry DSN - not a secret (accepts events only), same build-arg mechanism.
+  # Leave empty to keep error monitoring off. The server/edge Sentry init
+  # (sentry.server.config.ts/sentry.edge.config.ts) reads a separate runtime
+  # env var, SENTRY_DSN, set directly on the Cloud Run service - not here.
+  _SENTRY_DSN: ""
 
 steps:
   - name: "gcr.io/cloud-builders/docker"
@@ -17,6 +22,8 @@ steps:
       - "NEXT_PUBLIC_SALES_WHATSAPP_NUMBER=$_SALES_WHATSAPP_NUMBER"
       - "--build-arg"
       - "NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY=$_MOYASAR_PUBLISHABLE_KEY"
+      - "--build-arg"
+      - "NEXT_PUBLIC_SENTRY_DSN=$_SENTRY_DSN"
       - "."
   - name: "gcr.io/cloud-builders/docker"
     args:
