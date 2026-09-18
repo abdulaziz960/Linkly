@@ -10,7 +10,7 @@ Linkly sells two things:
 2. **Campaign message credits** for WhatsApp campaigns. Each tenant has one
    `CampaignBalance` row holding `balance` (messages remaining). Sending a
    campaign message decrements it by one; a top-up adds a purchased block
-   (1,000 to 1,000,000 messages, volume-priced in `lib/campaign-engine.ts`).
+   (1 to 1,000,000 messages, volume-priced in `lib/campaign-engine.ts`).
 
 Both are paid through **Moyasar**. Linkly never handles card data: either
 Moyasar.js renders the card fields directly (embedded checkout, below) or,

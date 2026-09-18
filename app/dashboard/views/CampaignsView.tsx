@@ -65,6 +65,7 @@ type BalanceTransaction = {
 };
 
 const marketingMessagePrices: PricingTier[] = [
+  { range: "1 إلى 999", min: 1, max: 999, rate: 0.032 },
   { range: "1k إلى 5k", min: 1000, max: 5000, rate: 0.03 },
   { range: "5k إلى 10k", min: 5001, max: 10000, rate: 0.028 },
   { range: "10k إلى 25k", min: 10001, max: 25000, rate: 0.026 },
@@ -823,20 +824,20 @@ export default function CampaignsView({
               <div className="balance-selected-package">
                 <span>{t("الرصيد المطلوب", "Requested balance")}</span>
                 <b>{parsedChargeMessages.toLocaleString("en-US")} {t("رسالة", "messages")}</b>
-                <strong>{chargeTier ? t(`${formatCurrency(chargeTier.rate, "ar")} لكل رسالة`, `${formatCurrency(chargeTier.rate, "en")} per message`) : t("أدخل 1,000 رسالة أو أكثر", "Enter 1,000 messages or more")}</strong>
+                <strong>{chargeTier ? t(`${formatCurrency(chargeTier.rate, "ar")} لكل رسالة`, `${formatCurrency(chargeTier.rate, "en")} per message`) : t("أدخل رسالة واحدة أو أكثر", "Enter 1 message or more")}</strong>
               </div>
               <label>
                 <span>{t("عدد رسائل الحملات", "Number of campaign messages")}</span>
                 <input
                   inputMode="numeric"
-                  min="1000"
+                  min="1"
                   value={chargeMessages}
                   onChange={(event) => setChargeMessages(event.target.value)}
                   placeholder={t("مثال: 5000", "Example: 5000")}
                 />
               </label>
               <div className="charge-presets" aria-label={t("اختيارات سريعة للشحن", "Quick top-up options")}>
-                {[1000, 5000, 10000, 25000, 50000, 100000].map((value) => (
+                {[100, 500, 1000, 5000, 10000, 25000, 50000, 100000].map((value) => (
                   <button key={value} type="button" onClick={() => setChargeMessages(String(value))}>
                     {value.toLocaleString("en-US")} {t("رسالة", "messages")}
                   </button>

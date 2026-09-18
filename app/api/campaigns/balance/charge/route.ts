@@ -26,11 +26,10 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as { messages?: number };
   const messages = Math.max(0, Math.floor(Number(body.messages) || 0));
-  if (messages < 1000) return jsonError("أقل كمية شحن هي 1,000 رسالة");
 
   const amount = calculateChargeAmount(messages);
   const amountHalalas = calculateChargeAmountHalalas(messages);
-  if (!amount || !amountHalalas) return jsonError("عدد الرسائل خارج نطاق الشرائح المتاحة (حتى 1,000,000 رسالة)");
+  if (!amount || !amountHalalas) return jsonError("عدد الرسائل خارج النطاق المتاح (من رسالة واحدة حتى 1,000,000 رسالة)");
 
   if (!isMoyasarConfigured()) {
     return jsonError("بوابة الدفع غير مفعّلة بعد. أضف MOYASAR_SECRET_KEY في متغيرات البيئة لتفعيل الشحن الفعلي.", 503);

@@ -29,6 +29,7 @@ export function parseRiyadhDateTime(value: string): Date | null {
 }
 
 const marketingMessagePrices = [
+  { min: 1, max: 999, halalasPerThousand: 3200 },
   { min: 1000, max: 5000, halalasPerThousand: 3000 },
   { min: 5001, max: 10000, halalasPerThousand: 2800 },
   { min: 10001, max: 25000, halalasPerThousand: 2600 },
