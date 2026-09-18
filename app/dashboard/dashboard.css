@@ -2622,6 +2622,55 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   margin: 0;
 }
 
+.profile-detail-panel .danger-zone {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-color: var(--status-danger-bg);
+  background: var(--status-danger-bg-soft);
+}
+
+.profile-detail-panel .danger-zone > b {
+  margin-top: 0;
+  color: var(--status-danger-text);
+}
+
+.profile-detail-panel .danger-zone > p {
+  grid-column: auto;
+}
+
+.profile-detail-panel .danger-zone-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.danger-zone-confirm label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 800;
+}
+
+.danger-zone-confirm input {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.danger-zone-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .invoice-list {
   margin-top: 16px;
 }

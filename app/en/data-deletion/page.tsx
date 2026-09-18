@@ -30,10 +30,18 @@ export default function DataDeletionPageEn() {
         <h2>How to request data deletion</h2>
         <ol>
           <li>Log in to your Linkly account.</li>
-          <li>Go to Settings &amp; Connections and disconnect any channels you no longer want to keep.</li>
-          <li>To delete your full account data, send a deletion request to: marketing@audience.sa.</li>
-          <li>Use the subject line: Data Deletion Request.</li>
-          <li>Include your company name, registered email, and the channels you want deleted.</li>
+          <li>To disconnect a single channel only, go to Settings &amp; Connections and disconnect it.</li>
+          <li>
+            To delete your full account data immediately, the account owner can do it directly: open the account
+            avatar at the top of the dashboard → Security → Danger zone → Permanently delete account. This erases
+            all of the company's data (conversations, customers, campaigns, employees, billing history)
+            immediately and cannot be undone.
+          </li>
+          <li>
+            If you can't access the account, or the request isn't from the account owner, send a deletion request
+            to marketing@audience.sa with the subject line "Data Deletion Request", including your company name,
+            registered email, and the channels you want deleted.
+          </li>
         </ol>
 
         <h2>Deleting Meta data</h2>

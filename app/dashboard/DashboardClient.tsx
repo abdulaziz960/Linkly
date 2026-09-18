@@ -39,6 +39,7 @@ import { requestNotificationPermissionOnce, showNewMessageNotification } from ".
 import TrialCountdownBanner from "./TrialCountdownBanner";
 
 type DashboardSubscription = {
+  companyName: string;
   plan: string;
   status: string;
   billingCycle: string;
@@ -212,6 +213,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [switchWorkspaceError, setSwitchWorkspaceError] = useState("");
   const [invoiceFromDate, setInvoiceFromDate] = useState("");
   const [invoiceToDate, setInvoiceToDate] = useState("");
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
   const [facebookStatus, setFacebookStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -1213,6 +1218,23 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     }
   }
 
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const response = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmCompanyName: deleteConfirmText })
+      });
+      if (!response.ok) throw new Error(await readApiError(response, language));
+      router.replace("/login");
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : t("تعذر حذف الحساب", "Could not delete the account"));
+      setDeleting(false);
+    }
+  }
+
   function openProfile() {
     setDraftStatus(currentProfileStatus);
     setDraftLanguage(language);
@@ -1551,6 +1573,34 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                   <div><span>{t("آخر دخول", "Last sign-in")}</span><b>{initialUser.lastLoginAt ? formatDateTime(initialUser.lastLoginAt) : t("لا توجد بيانات بعد", "No data yet")}</b></div>
                   <div><span>{t("الصلاحيات", "Permissions")}</span><b>{initialUser.role}</b></div>
                   <p className="muted-copy">{t("التحقق الثنائي وإدارة الجلسات النشطة قيد التطوير وستُضاف قريبًا.", "Two-factor authentication and active-session management are in development and will be added soon.")}</p>
+                  {initialUser.role === "مالك الحساب" ? (
+                    <div className="danger-zone">
+                      <b>{t("منطقة الخطر", "Danger zone")}</b>
+                      <p className="muted-copy">{t("حذف الحساب يمسح كل بيانات الشركة نهائيًا: المحادثات، العملاء، الحملات، الموظفون، وسجل الفواتير. لا يمكن التراجع عن هذا الإجراء.", "Deleting the account permanently erases all of the company's data: conversations, customers, campaigns, employees, and billing history. This cannot be undone.")}</p>
+                      {!deleteAccountOpen ? (
+                        <button className="btn danger" type="button" onClick={() => { setDeleteAccountOpen(true); setDeleteConfirmText(""); setDeleteError(""); }}>{t("حذف الحساب نهائيًا", "Permanently delete account")}</button>
+                      ) : (
+                        <div className="danger-zone-confirm">
+                          <label>
+                            {t(`للتأكيد، اكتب اسم الشركة بالضبط: ${subscription?.companyName || ""}`, `To confirm, type the company name exactly: ${subscription?.companyName || ""}`)}
+                            <input type="text" value={deleteConfirmText} onChange={(event) => setDeleteConfirmText(event.target.value)} disabled={deleting} />
+                          </label>
+                          {deleteError ? <p className="form-error">{deleteError}</p> : null}
+                          <div className="danger-zone-actions">
+                            <button className="btn soft" type="button" disabled={deleting} onClick={() => setDeleteAccountOpen(false)}>{t("إلغاء", "Cancel")}</button>
+                            <button
+                              className="btn danger"
+                              type="button"
+                              disabled={deleting || !subscription?.companyName || deleteConfirmText.trim() !== subscription.companyName}
+                              onClick={() => void handleDeleteAccount()}
+                            >
+                              {deleting ? t("جارٍ الحذف...", "Deleting...") : t("تأكيد الحذف النهائي", "Confirm permanent deletion")}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               )}
               {profileFeedback ? <p className={`profile-save-feedback ${profileFeedback.type}`} role="status">{profileFeedback.message}</p> : null}
