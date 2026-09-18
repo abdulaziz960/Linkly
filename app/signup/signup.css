@@ -21,3 +21,27 @@
   clip-path: inset(50%) !important;
   white-space: nowrap !important;
 }
+
+.signup-terms {
+  display: flex !important;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 400 !important;
+  font-size: 14px;
+  color: #4c635f;
+}
+
+.signup-terms input {
+  min-height: auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: #178a82;
+}
+
+.signup-terms a {
+  color: #106b65;
+  font-weight: 700;
+}

@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import nextEnv from "@next/env";
@@ -24,6 +24,10 @@ export function writePrismaSchema() {
   mkdirSync(dirname(generatedSchemaPath), { recursive: true });
   writeFileSync(generatedSchemaPath, schema);
   if (existsSync(migrationsPath)) {
+    // Replace, don't merge: `prisma migrate deploy` executes every folder in
+    // this copy, so a migration deleted or renamed in prisma/migrations (or
+    // left behind by another branch) must not survive here.
+    rmSync(generatedMigrationsPath, { recursive: true, force: true });
     cpSync(migrationsPath, generatedMigrationsPath, { recursive: true, force: true });
   }
 

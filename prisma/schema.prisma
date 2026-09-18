@@ -21,6 +21,12 @@ model Customer {
   attrUtmMedium String         @default("") @map("attr_utm_medium")
   attrUtmCampaign String       @default("") @map("attr_utm_campaign")
   attrUtmContent String        @default("") @map("attr_utm_content")
+  // Set when the customer replies STOP (or an Arabic equivalent) to a
+  // WhatsApp message - lib/marketing-optout.ts. Checked by
+  // lib/campaign-engine.ts before sending any campaign template; never
+  // affects one-to-one replies from the inbox.
+  marketingOptOut   Int    @default(0) @map("marketing_opt_out")
+  marketingOptOutAt String @default("") @map("marketing_opt_out_at")
   conversations Conversation[]
 
   @@index([tenantId])
@@ -276,6 +282,7 @@ model CampaignRecipient {
   trackingCode String @default("") @map("tracking_code")
   readAt       String @default("") @map("read_at")
   clickedAt    String @default("") @map("clicked_at")
+  clickCount   Int    @default(0) @map("click_count")
   // WhatsApp can accept a send (status "تم الإرسال") and only later report
   // async delivery failure via a "failed" status webhook event - most
   // commonly because the recipient has marketing/template messages turned
@@ -418,11 +425,28 @@ model CampaignPayment {
   messages    Int
   amount      Float
   amountHalalas Int @default(0) @map("amount_halalas")
+  // One of lib/payment-status.ts PAYMENT_STATUS values.
   status      String @default("قيد الانتظار")
+  // Gateway-side invoice/session id ("inv_…" for Moyasar, "stripe_test_…",
+  // "test_…" for the dev simulator, "" for manual admin top-ups).
   moyasarId   String @default("") @map("moyasar_id")
   paymentUrl  String @default("") @map("payment_url")
   createdAt   String @map("created_at")
   completedAt String @default("") @map("completed_at")
+  // Payment ledger details (see docs/payments.md). gateway is one of
+  // lib/payment-status.ts PAYMENT_GATEWAY; gatewayPaymentId is the actual
+  // payment attempt id inside the invoice (Moyasar "pay_…"), distinct from
+  // moyasarId; paymentMethod e.g. "creditcard/mada", "applepay", "stcpay".
+  gateway          String @default("") @map("gateway")
+  gatewayPaymentId String @default("") @map("gateway_payment_id")
+  paymentMethod    String @default("") @map("payment_method")
+  gatewayStatus    String @default("") @map("gateway_status")
+  failureReason    String @default("") @map("failure_reason")
+  failedAt         String @default("") @map("failed_at")
+  // "owner" (self-serve), "admin" (platform team), "system".
+  initiatedBy      String @default("") @map("initiated_by")
+  // JSON of the metadata we sent to the gateway (always includes platform: Linkly).
+  metadataJson     String @default("") @map("metadata_json")
 
   @@index([tenantId, status])
   @@index([moyasarId])
@@ -545,6 +569,25 @@ model UserAccount {
   @@map("user_accounts")
 }
 
+// One row per browser/device the PWA install flow got Web Push permission
+// on (app/dashboard's "ثبّت التطبيق" button). endpoint is unique per
+// browser+device, so re-subscribing the same device upserts rather than
+// duplicating. Sent to on every inbound message/reply - see
+// lib/push-notifications.ts.
+model PushSubscription {
+  id        String @id
+  userId    String @map("user_id")
+  tenantId  String @map("tenant_id")
+  endpoint  String @unique
+  p256dh    String
+  auth      String
+  createdAt String @map("created_at")
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
 model EmployeeInvite {
   id        String @id
   email     String
@@ -649,6 +692,9 @@ model Subscription {
   employeeLimit Int    @default(3) @map("employee_limit")
   amount        Int    @default(0)
   billingCycle  String @default("شهري") @map("billing_cycle")
+  // Paid-through date for an active subscription / trial end for a trial.
+  // An active subscription with renewalAt in the past is overdue (unpaid)
+  // - see subscriptionPaymentState() in lib/payment-status.ts.
   renewalAt     String @default("") @map("renewal_at")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
@@ -670,6 +716,20 @@ model SubscriptionPayment {
   // payment is confirmed paid, so benefits never precede payment.
   planName          String @default("") @map("plan_name")
   planEmployeeLimit Int    @default(0) @map("plan_employee_limit")
+  // Payment ledger details (see docs/payments.md and CampaignPayment above).
+  gateway          String @default("") @map("gateway")
+  gatewayPaymentId String @default("") @map("gateway_payment_id")
+  paymentMethod    String @default("") @map("payment_method")
+  gatewayStatus    String @default("") @map("gateway_status")
+  failureReason    String @default("") @map("failure_reason")
+  failedAt         String @default("") @map("failed_at")
+  initiatedBy      String @default("") @map("initiated_by")
+  metadataJson     String @default("") @map("metadata_json")
+  // The subscription period this payment bought (ISO dates). Set when the
+  // payment is confirmed; a renewal paid early extends from the current
+  // paid-through date rather than from "today", so no paid days are lost.
+  periodStart      String @default("") @map("period_start")
+  periodEnd        String @default("") @map("period_end")
 
   @@index([tenantId, status])
   @@index([moyasarId])

@@ -1,7 +1,18 @@
 import type { Instrumentation } from "next";
 import { randomUUID } from "crypto";
 
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") await import("./sentry.server.config");
+  if (process.env.NEXT_RUNTIME === "edge") await import("./sentry.edge.config");
+}
+
 export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
+  // Sentry.init() only runs in sentry.server.config.ts/sentry.edge.config.ts
+  // when SENTRY_DSN is set - calling captureRequestError when it never ran
+  // is a documented no-op, not an error.
+  const Sentry = await import("@sentry/nextjs");
+  Sentry.captureRequestError(error, request, context);
+
   const value = error instanceof Error ? error : new Error(String(error));
   const digest = "digest" in value ? String(value.digest) : undefined;
   console.error(JSON.stringify({

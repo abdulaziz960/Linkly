@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { storeIncomingEmail, storeOutgoingEmail } from "./email-inbox";
 import { decryptSecret, encryptSecret } from "./secret-storage";
 import type { EmailIntegration } from "@prisma/client";
+import { emailIntegrationId, findTenantEmailIntegration } from "./email-integration-lookup";
 
 type EmailProvider = "gmail";
 type OAuthOwner = { userId: string; tenantId: string };
@@ -69,11 +70,21 @@ export async function saveOAuthConnection(provider: EmailProvider, code: string,
   const emailAddress = profile.email;
   if (!emailAddress) throw new Error("Could not identify the email account");
   const senderName = profile.name || "";
-  await prisma.emailIntegration.upsert({
-    where: { id: `email:${tenantId}` },
-    update: { provider, status: "connected", senderName, emailAddress, accessToken: encryptSecret(tokens.access_token), ...(tokens.refresh_token ? { refreshToken: encryptSecret(tokens.refresh_token) } : {}), tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updatedAt: new Date().toISOString() },
-    create: { id: `email:${tenantId}`, tenantId, provider, status: "connected", senderName, emailAddress, webhookSecret: encryptSecret(randomUUID()), accessToken: encryptSecret(tokens.access_token), refreshToken: encryptSecret(tokens.refresh_token || ""), tokenExpiresAt: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString(), updatedAt: new Date().toISOString() }
-  });
+  // Reuse the tenant's existing row (whatever its id) instead of upserting
+  // by `email:<tenant>`: a tenant has exactly one email integration, and a
+  // second row violates the unique index on email_integrations.tenant_id.
+  const tokenExpiresAt = new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000).toISOString();
+  const existing = await findTenantEmailIntegration(tenantId);
+  if (existing) {
+    await prisma.emailIntegration.update({
+      where: { id: existing.id },
+      data: { provider, status: "connected", senderName, emailAddress, accessToken: encryptSecret(tokens.access_token), ...(tokens.refresh_token ? { refreshToken: encryptSecret(tokens.refresh_token) } : {}), tokenExpiresAt, updatedAt: new Date().toISOString() }
+    });
+  } else {
+    await prisma.emailIntegration.create({
+      data: { id: emailIntegrationId(tenantId), tenantId, provider, status: "connected", senderName, emailAddress, webhookSecret: encryptSecret(randomUUID()), accessToken: encryptSecret(tokens.access_token), refreshToken: encryptSecret(tokens.refresh_token || ""), tokenExpiresAt, updatedAt: new Date().toISOString() }
+    });
+  }
   return emailAddress as string;
 }
 
@@ -122,8 +133,8 @@ function encodeHeaderWord(value: string) {
 }
 
 export async function sendEmailMessage(to: string, text: string, subject = "رسالة من Linkly", tenantId = "tenant-demo"): Promise<{ gmailMessageId?: string }> {
-  const integration = await prisma.emailIntegration.findFirst({ where: { tenantId } })
-    ?? await prisma.emailIntegration.findFirst({ where: { tenantId: "tenant-demo" } });
+  const integration = await findTenantEmailIntegration(tenantId)
+    ?? await findTenantEmailIntegration("tenant-demo");
   if (integration?.provider === "gmail" && integration.accessToken) {
     const accessToken = await getValidAccessToken(integration);
     const fromHeader = integration.senderName ? `${encodeHeaderWord(integration.senderName)} <${integration.emailAddress}>` : integration.emailAddress;
@@ -233,7 +244,7 @@ async function listGmailMessageIds(accessToken: string, query: string): Promise<
  * the same row instead of duplicating (see outgoingEmailMessageId).
  */
 export async function syncGmailInbox(tenantId = "tenant-demo"): Promise<{ synced: number }> {
-  const integration = await prisma.emailIntegration.findFirst({ where: { tenantId } });
+  const integration = await findTenantEmailIntegration(tenantId);
   if (!integration || integration.provider !== "gmail" || !integration.accessToken) return { synced: 0 };
 
   const accessToken = await getValidAccessToken(integration);

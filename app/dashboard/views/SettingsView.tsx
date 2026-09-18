@@ -1061,12 +1061,29 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         return false;
       }
 
+      // FB.login()'s embedded-signup popup never navigates through
+      // /api/meta/connect, so that route's CSRF state cookie is never set
+      // for this flow. Mint the same signed state here instead, right
+      // before opening the popup, so the callback can still verify it.
+      let signupState = "";
+      try {
+        const stateResponse = await fetch("/api/meta/whatsapp-signup-state", { headers: { Accept: "application/json" } });
+        const stateData = await stateResponse.json() as { ok: boolean; state?: string };
+        signupState = stateData?.state || "";
+      } catch {
+        signupState = "";
+      }
+      if (!signupState) {
+        window.alert(t("تعذر بدء طلب الربط الآمن. حاول من جديد.", "Couldn't start the secure connection request. Please try again."));
+        return false;
+      }
+
       w.FB.login(
         (response: { authResponse?: { code?: string } }) => {
           const code = response?.authResponse?.code;
           if (!code) return;
 
-          fetch(`/api/meta/callback?channel=whatsapp&code=${encodeURIComponent(code)}`, {
+          fetch(`/api/meta/callback?channel=whatsapp&code=${encodeURIComponent(code)}&state=${encodeURIComponent(signupState)}`, {
             headers: { Accept: "application/json" }
           })
             .then((res) => res.json())

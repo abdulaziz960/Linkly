@@ -1,14 +1,21 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} https://connect.facebook.net https://www.googletagmanager.com`,
-  "style-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} https://connect.facebook.net https://www.googletagmanager.com https://cdn.moyasar.com`,
+  "style-src 'self' 'unsafe-inline' https://cdn.moyasar.com",
   "img-src 'self' data: blob: https:",
   "media-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://graph.facebook.com https://www.facebook.com https://connect.facebook.net https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com",
+  // api.moyasar.com: the embedded checkout form (app/billing/pay/[paymentId])
+  // posts card details there directly from the browser with the publishable
+  // key - never through our server. See lib/moyasar.ts's module comment.
+  // *.sentry.io / *.ingest.sentry.io: client-side error/performance events
+  // (instrumentation-client.ts) - a Sentry DSN only ever accepts events, so
+  // this is fine to leave open even before SENTRY_DSN is actually set.
+  "connect-src 'self' https://graph.facebook.com https://www.facebook.com https://connect.facebook.net https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com https://api.moyasar.com https://*.sentry.io https://*.ingest.sentry.io",
   "frame-src https://www.facebook.com https://web.facebook.com https://business.facebook.com https://www.googletagmanager.com",
   "object-src 'none'",
   "base-uri 'self'",
@@ -63,4 +70,10 @@ const nextConfig: NextConfig = {
   }
 };
 
-export default nextConfig;
+// Uploads source maps to Sentry for readable stack traces (needs
+// SENTRY_AUTH_TOKEN/SENTRY_ORG/SENTRY_PROJECT at build time to actually
+// upload; silently skips that step otherwise, build/runtime behavior is
+// unaffected either way). No-op on every request when SENTRY_DSN is unset.
+export default withSentryConfig(nextConfig, {
+  silent: true
+});

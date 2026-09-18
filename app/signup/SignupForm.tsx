@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import CustomSelect from "../components/CustomSelect";
 
 const teamSizeOptions = [
@@ -42,6 +43,11 @@ const copy = {
     phonePlaceholder: "05xxxxxxxx",
     teamSize: "حجم الفريق",
     channelsLegend: "القنوات التي تريد تجربتها",
+    termsPrefix: "أوافق على",
+    termsOf: "شروط الاستخدام",
+    and: "و",
+    privacyOf: "سياسة الخصوصية",
+    termsRequired: "يجب الموافقة على شروط الاستخدام وسياسة الخصوصية",
     submitting: "جاري تجهيز مساحتك...",
     submit: "ابدأ تجربتي مجانًا",
     genericError: "تعذر إنشاء الحساب"
@@ -59,6 +65,11 @@ const copy = {
     phonePlaceholder: "05xxxxxxxx",
     teamSize: "Team size",
     channelsLegend: "Channels you want to try",
+    termsPrefix: "I agree to the",
+    termsOf: "Terms of Service",
+    and: "and",
+    privacyOf: "Privacy Policy",
+    termsRequired: "You must agree to the Terms of Service and Privacy Policy",
     submitting: "Setting up your workspace...",
     submit: "Start my free trial",
     genericError: "Couldn't create the account"
@@ -70,15 +81,17 @@ export default function SignupForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
   const text = copy[lang];
   const channelOptions = channels[lang];
   const [selected, setSelected] = useState<string[]>(["whatsapp"]);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!termsAccepted) return setError(text.termsRequired);
     setLoading(true); setError("");
     const form = new FormData(event.currentTarget);
     const response = await fetch("/api/trial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-      companyName: form.get("companyName"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), teamSize: form.get("teamSize"), channels: selected, website: form.get("website")
+      companyName: form.get("companyName"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), teamSize: form.get("teamSize"), channels: selected, website: form.get("website"), termsAccepted
     }) });
     const payload = await response.json().catch(() => ({})) as {
       error?: string;
@@ -107,7 +120,13 @@ export default function SignupForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
         <fieldset><legend>{text.channelsLegend}</legend><div className="channel-choices">{channelOptions.map(channel => <button className={selected.includes(channel.value) ? "selected" : ""} type="button" key={channel.value} aria-pressed={selected.includes(channel.value)} onClick={() => setSelected(current => current.includes(channel.value) ? current.filter(item => item !== channel.value) : [...current, channel.value])}>{channel.label}</button>)}</div></fieldset>
       </div>
     </details>
+    <label className="signup-terms">
+      <input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} required />
+      <span>
+        {text.termsPrefix} <Link href={lang === "en" ? "/en/terms" : "/terms"} target="_blank" rel="noopener noreferrer">{text.termsOf}</Link> {text.and} <Link href={lang === "en" ? "/en/privacy" : "/privacy"} target="_blank" rel="noopener noreferrer">{text.privacyOf}</Link>
+      </span>
+    </label>
     {error ? <p className="journey-error" role="alert">{error}</p> : null}
-    <button className="journey-submit" disabled={loading}>{loading ? text.submitting : text.submit}</button>
+    <button className="journey-submit" disabled={loading || !termsAccepted}>{loading ? text.submitting : text.submit}</button>
   </form>;
 }

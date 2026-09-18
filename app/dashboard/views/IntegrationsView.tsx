@@ -80,7 +80,7 @@ export default function IntegrationsView() {
   const cards: Array<{ id: AdChannel; title: string; description: string }> = [
     {
       id: "meta_leads",
-      title: t("ميتا (فيسبوك وانستقرام)", "Meta (Facebook & Instagram)"),
+      title: t("ميتا (فيسبوك وإنستغرام)", "Meta (Facebook & Instagram)"),
       description: t("استقبل العملاء المحتملين من إعلانات Lead Ads تلقائيًا على واتساب.", "Automatically receive leads from Lead Ads into WhatsApp.")
     },
     {

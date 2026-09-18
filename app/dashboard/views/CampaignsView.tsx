@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import type { Campaign, MessageTemplate, Segment } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
@@ -64,6 +65,7 @@ type BalanceTransaction = {
 };
 
 const marketingMessagePrices: PricingTier[] = [
+  { range: "1 إلى 999", min: 1, max: 999, rate: 0.032 },
   { range: "1k إلى 5k", min: 1000, max: 5000, rate: 0.03 },
   { range: "5k إلى 10k", min: 5001, max: 10000, rate: 0.028 },
   { range: "10k إلى 25k", min: 10001, max: 25000, rate: 0.026 },
@@ -462,7 +464,7 @@ export default function CampaignsView({
       return;
     }
 
-    window.open(payload?.data?.paymentUrl, "_blank", "noopener");
+    window.open(`/billing/pay/campaign/${payload?.data?.paymentId}`, "_blank", "noopener");
     setChargeSubmitting(false);
     setChargeOpen(false);
     loadBalance();
@@ -530,7 +532,7 @@ export default function CampaignsView({
                 <tbody>
                   {campaignPagination.items.map((campaign) => (
                     <tr key={campaign.id}>
-                      <td><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <img src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : campaign.name.trim().charAt(0) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}</span></div></td>
+                      <td><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <Image src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" width={42} height={42} unoptimized onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : campaign.name.trim().charAt(0) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}</span></div></td>
                       <td><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small></td>
                       <td><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
                       <td><span className={campaign.status === "ملغاة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
@@ -625,7 +627,7 @@ export default function CampaignsView({
               {!form.id ? (
                 <>
                   <label>
-                    <span>{t("قناة الواتس اب", "WhatsApp channel")}</span>
+                    <span>{t("قناة واتساب", "WhatsApp channel")}</span>
                     <input value={t("واتساب", "WhatsApp")} readOnly />
                   </label>
                   <label>
@@ -822,20 +824,20 @@ export default function CampaignsView({
               <div className="balance-selected-package">
                 <span>{t("الرصيد المطلوب", "Requested balance")}</span>
                 <b>{parsedChargeMessages.toLocaleString("en-US")} {t("رسالة", "messages")}</b>
-                <strong>{chargeTier ? t(`${formatCurrency(chargeTier.rate, "ar")} لكل رسالة`, `${formatCurrency(chargeTier.rate, "en")} per message`) : t("أدخل 1,000 رسالة أو أكثر", "Enter 1,000 messages or more")}</strong>
+                <strong>{chargeTier ? t(`${formatCurrency(chargeTier.rate, "ar")} لكل رسالة`, `${formatCurrency(chargeTier.rate, "en")} per message`) : t("أدخل رسالة واحدة أو أكثر", "Enter 1 message or more")}</strong>
               </div>
               <label>
                 <span>{t("عدد رسائل الحملات", "Number of campaign messages")}</span>
                 <input
                   inputMode="numeric"
-                  min="1000"
+                  min="1"
                   value={chargeMessages}
                   onChange={(event) => setChargeMessages(event.target.value)}
                   placeholder={t("مثال: 5000", "Example: 5000")}
                 />
               </label>
               <div className="charge-presets" aria-label={t("اختيارات سريعة للشحن", "Quick top-up options")}>
-                {[1000, 5000, 10000, 25000, 50000, 100000].map((value) => (
+                {[100, 500, 1000, 5000, 10000, 25000, 50000, 100000].map((value) => (
                   <button key={value} type="button" onClick={() => setChargeMessages(String(value))}>
                     {value.toLocaleString("en-US")} {t("رسالة", "messages")}
                   </button>

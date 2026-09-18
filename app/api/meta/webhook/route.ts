@@ -6,6 +6,7 @@ import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
 import { runWhatsAppBot, runChannelBot } from "../../../../lib/bot-engine";
 import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
+import { handleMarketingOptOutKeyword } from "../../../../lib/marketing-optout";
 import { handleMetaLeadgenEvent } from "../../../../lib/meta-leads";
 import { prisma } from "../../../../lib/prisma";
 import { decryptSecret } from "../../../../lib/secret-storage";
@@ -484,6 +485,12 @@ export async function POST(request: NextRequest) {
         });
 
         if (stored.isNew) {
+          await handleMarketingOptOutKeyword({
+            tenantId: whatsappAccount.tenantId,
+            conversationId: stored.conversationId,
+            phone: message.from,
+            text
+          });
           await runWhatsAppBot({
             tenantId: whatsappAccount.tenantId,
             conversationId: stored.conversationId,

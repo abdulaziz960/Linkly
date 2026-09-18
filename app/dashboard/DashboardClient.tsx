@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
+import PwaInstallButton from "./components/PwaInstallButton";
 import { viewTitles } from "./data/navigation";
 import { DELETED_MESSAGE_TEXT, LanguageProvider } from "./i18n";
 import type {
@@ -38,6 +39,7 @@ import { requestNotificationPermissionOnce, showNewMessageNotification } from ".
 import TrialCountdownBanner from "./TrialCountdownBanner";
 
 type DashboardSubscription = {
+  companyName: string;
   plan: string;
   status: string;
   billingCycle: string;
@@ -211,6 +213,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [switchWorkspaceError, setSwitchWorkspaceError] = useState("");
   const [invoiceFromDate, setInvoiceFromDate] = useState("");
   const [invoiceToDate, setInvoiceToDate] = useState("");
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
   const [facebookStatus, setFacebookStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -660,7 +666,22 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       setSelectedChannel(requestedChannel);
     }
 
+    const requestedPhone = params.get("phone");
+    if (requestedPhone) {
+      void handleOpenConversationByPhone(requestedPhone, params.get("name") || undefined);
+      // One-time entry point - strip it so a later reload/back-navigation
+      // doesn't reopen (or re-upsert) the same conversation.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("phone");
+      url.searchParams.delete("name");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+
     restoredNavigationRef.current = true;
+    // This is a one-time restore gated by restoredNavigationRef, not a
+    // reactive sync - intentionally excluding handleOpenConversationByPhone
+    // (and the other closures already omitted above) from the deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowedViews, initialUser.role, employees.length]);
 
   useEffect(() => {
@@ -833,6 +854,51 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         body: JSON.stringify({ unread: 0 })
       });
     }
+  }
+
+  /**
+   * Entry point for "send message" links outside the inbox tree (campaign
+   * reports, segment lists) that only ever have a phone number, not a
+   * customer id - e.g. from /dashboard?view=inbox&phone=...&name=... on
+   * first load. The API route upserts the same customer a real inbound
+   * WhatsApp message would create, so this always lands on a real
+   * conversation, even for a phone-only lead never seen in the inbox before.
+   */
+  async function handleOpenConversationByPhone(phone: string, name?: string) {
+    if (!allowedViews.includes("inbox")) return;
+    const response = await fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, name })
+    });
+
+    if (!response.ok) {
+      window.alert(await readApiError(response, language));
+      return;
+    }
+
+    const payload = (await response.json()) as { ok: boolean; data?: Conversation; error?: string };
+    if (!payload.ok || !payload.data) {
+      window.alert(payload.error || t("تعذر فتح محادثة العميل", "Could not open the customer conversation"));
+      return;
+    }
+
+    const conversation = payload.data;
+    setConversations((current) => {
+      const exists = current.some((item) => item.id === conversation.id);
+      const nextConversations = exists
+        ? current.map((item) => (item.id === conversation.id ? conversation : item))
+        : [conversation, ...current];
+
+      writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
+      return nextConversations;
+    });
+
+    setActiveConversationId(conversation.id);
+    setSelectedChannel("all");
+    setActiveView("inbox");
+    setChatPanel("chat");
+    setMobileChatOpen(true);
   }
 
   async function handleAssigneeChange(assignee: string) {
@@ -1152,6 +1218,23 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     }
   }
 
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const response = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmCompanyName: deleteConfirmText })
+      });
+      if (!response.ok) throw new Error(await readApiError(response, language));
+      router.replace("/login");
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : t("تعذر حذف الحساب", "Could not delete the account"));
+      setDeleting(false);
+    }
+  }
+
   function openProfile() {
     setDraftStatus(currentProfileStatus);
     setDraftLanguage(language);
@@ -1165,6 +1248,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
       <div className="dashboard-top-links" ref={topLinksRef}>
+        <PwaInstallButton />
         <button
           type="button"
           className="sidebar-billing-link is-profile"
@@ -1216,6 +1300,14 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           </Link>
         ) : null}
       </div>
+      {menuOpen ? (
+        <div
+          className="dashboard-menu-backdrop"
+          onClick={() => setMenuOpen(false)}
+          onTouchMove={() => setMenuOpen(false)}
+          aria-hidden="true"
+        />
+      ) : null}
       <DashboardSidebar
         activeView={activeView}
         allowedViews={allowedViews}
@@ -1481,6 +1573,34 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                   <div><span>{t("آخر دخول", "Last sign-in")}</span><b>{initialUser.lastLoginAt ? formatDateTime(initialUser.lastLoginAt) : t("لا توجد بيانات بعد", "No data yet")}</b></div>
                   <div><span>{t("الصلاحيات", "Permissions")}</span><b>{initialUser.role}</b></div>
                   <p className="muted-copy">{t("التحقق الثنائي وإدارة الجلسات النشطة قيد التطوير وستُضاف قريبًا.", "Two-factor authentication and active-session management are in development and will be added soon.")}</p>
+                  {initialUser.role === "مالك الحساب" ? (
+                    <div className="danger-zone">
+                      <b>{t("منطقة الخطر", "Danger zone")}</b>
+                      <p className="muted-copy">{t("حذف الحساب يمسح كل بيانات الشركة نهائيًا: المحادثات، العملاء، الحملات، الموظفون، وسجل الفواتير. لا يمكن التراجع عن هذا الإجراء.", "Deleting the account permanently erases all of the company's data: conversations, customers, campaigns, employees, and billing history. This cannot be undone.")}</p>
+                      {!deleteAccountOpen ? (
+                        <button className="btn danger" type="button" onClick={() => { setDeleteAccountOpen(true); setDeleteConfirmText(""); setDeleteError(""); }}>{t("حذف الحساب نهائيًا", "Permanently delete account")}</button>
+                      ) : (
+                        <div className="danger-zone-confirm">
+                          <label>
+                            {t(`للتأكيد، اكتب اسم الشركة بالضبط: ${subscription?.companyName || ""}`, `To confirm, type the company name exactly: ${subscription?.companyName || ""}`)}
+                            <input type="text" value={deleteConfirmText} onChange={(event) => setDeleteConfirmText(event.target.value)} disabled={deleting} />
+                          </label>
+                          {deleteError ? <p className="form-error">{deleteError}</p> : null}
+                          <div className="danger-zone-actions">
+                            <button className="btn soft" type="button" disabled={deleting} onClick={() => setDeleteAccountOpen(false)}>{t("إلغاء", "Cancel")}</button>
+                            <button
+                              className="btn danger"
+                              type="button"
+                              disabled={deleting || !subscription?.companyName || deleteConfirmText.trim() !== subscription.companyName}
+                              onClick={() => void handleDeleteAccount()}
+                            >
+                              {deleting ? t("جارٍ الحذف...", "Deleting...") : t("تأكيد الحذف النهائي", "Confirm permanent deletion")}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               )}
               {profileFeedback ? <p className={`profile-save-feedback ${profileFeedback.type}`} role="status">{profileFeedback.message}</p> : null}

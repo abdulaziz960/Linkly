@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import HtmlLangSync from "../../HtmlLangSync";
+import CookieSettingsLink from "../../CookieSettingsLink";
 import "../../legal.css";
 
 export const metadata: Metadata = {
@@ -23,8 +24,9 @@ export default function PrivacyPageEn() {
 
         <p>
           Linkly is a platform for managing customer conversations across multiple channels such as WhatsApp,
-          Instagram, Facebook Messenger, Telegram, and Google Maps reviews. This policy explains how we collect,
-          use, and protect data when you use the platform.
+          Instagram, Facebook Messenger, Telegram, email, X (Twitter), LinkedIn, Snapchat, YouTube, TikTok (pending
+          platform approval), and Google Maps reviews. This policy explains how we collect, use, and protect data
+          when you use the platform.
         </p>
 
         <h2>Data we collect</h2>
@@ -47,13 +49,24 @@ export default function PrivacyPageEn() {
           We use Meta Platform data solely to provide messaging and customer-service features on behalf of the
           customer who granted authorization. We do not sell Meta data, do not use it for advertising purposes
           unrelated to the service, and do not share it with third parties except where necessary to provide the
-          service or comply with regulations.
+          service or comply with regulations. The same principle applies to data from any other channel you
+          connect (X, LinkedIn, Snapchat, YouTube, TikTok, Telegram, or email): it is used solely to operate
+          messaging and engagement features on your behalf, and is never sold or used for advertising unrelated to
+          the service.
         </p>
 
         <h2>Data protection</h2>
         <p>
           We apply appropriate measures to protect data and restrict access according to permissions within the
           account. Each customer retains control over their connection, employee, and permission settings.
+        </p>
+
+        <h2>Cookies and analytics</h2>
+        <p>
+          Our marketing site uses analytics cookies (Google Analytics via Google Tag Manager) solely to understand
+          and improve site usage - never for targeted advertising. These tools are never loaded and no analytics
+          cookie is ever stored until you explicitly consent via the cookie notice shown on your first visit, and
+          you can accept or withdraw that consent at any time.
         </p>
 
         <h2>Data retention and deletion</h2>
@@ -71,6 +84,7 @@ export default function PrivacyPageEn() {
         <nav className="legal-links">
           <Link href="/en/terms">Terms of use</Link>
           <Link href="/en/data-deletion">Data deletion</Link>
+          <CookieSettingsLink label="Cookie settings" />
           <Link href="/en">Home</Link>
           <Link href="/privacy">العربية</Link>
         </nav>

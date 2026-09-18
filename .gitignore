@@ -7,6 +7,14 @@ npm-debug.log*
 .env.local
 data/*.sqlite
 data/*.db
+# CI's throwaway build database (.github/workflows/ci.yml) and every test
+# file's isolated tests/.tmp-*.db (created/removed per-file, but left
+# behind uncommitted if a test crashes mid-run instead of hitting its
+# afterAll cleanup).
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 prisma/.generated/
 app/generated/
 preview_pdf/
