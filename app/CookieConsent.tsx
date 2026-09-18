@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import Script from "next/script";
 
 const CONSENT_STORAGE_KEY = "linkly-analytics-consent";
@@ -14,12 +15,14 @@ type Consent = "accepted" | "rejected" | null;
 
 const copy = {
   ar: {
-    text: "نستخدم كوكيز تحليلية (Google Analytics) لفهم استخدام الموقع وتحسينه. بياناتك الشخصية داخل المنصة لا تُشارك مع أي طرف تحليلي.",
+    text: "نستخدم ملفات تعريف الارتباط (الكوكيز) لتحسين تجربتك على موقعنا وتحليل الاستخدام. بمتابعتك تصفح الموقع أو الضغط على \"قبول\"، أنت توافق على استخدامنا لها.",
+    learnMore: "سياسة الخصوصية",
     reject: "رفض",
     accept: "قبول"
   },
   en: {
-    text: "We use analytics cookies (Google Analytics) to understand and improve site usage. Your personal data inside the platform is never shared with any analytics provider.",
+    text: "We use cookies to improve your experience on our site and analyze usage. By continuing to browse or clicking \"Accept\", you agree to our use of cookies.",
+    learnMore: "Privacy Policy",
     reject: "Reject",
     accept: "Accept"
   }
@@ -112,7 +115,12 @@ gtag('config', '${GTAG_ID}');`}
             lineHeight: 1.6
           }}
         >
-          <p style={{ margin: 0, flex: "1 1 260px" }}>{text.text}</p>
+          <p style={{ margin: 0, flex: "1 1 260px" }}>
+            {text.text}{" "}
+            <Link href={lang === "en" ? "/en/privacy" : "/privacy"} style={{ color: "inherit", textDecoration: "underline", fontWeight: 700 }}>
+              {text.learnMore}
+            </Link>
+          </p>
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
             <button
               type="button"
