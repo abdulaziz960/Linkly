@@ -3,18 +3,21 @@ import { randomUUID } from "crypto";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { prisma } from "../../../../../lib/prisma";
-import { getPaymentCallbackOrigin } from "../../../../../lib/app-url";
 import { calculateChargeAmount, calculateChargeAmountHalalas } from "../../../../../lib/campaign-engine";
-import { buildPaymentMetadata, createMoyasarInvoice, isMoyasarConfigured, paymentDescription } from "../../../../../lib/moyasar";
+import { buildPaymentMetadata, isMoyasarConfigured } from "../../../../../lib/moyasar";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../../lib/payment-status";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
 
 /**
- * Campaign-message top-up: stages a CampaignPayment and sends the user to
- * Moyasar's hosted page. Messages are credited to the tenant's balance only
- * once Moyasar confirms the invoice paid (lib/moyasar-webhook.ts).
+ * Campaign-message top-up: stages a pending CampaignPayment and sends the
+ * user to our own embedded card form at /billing/pay/campaign/[paymentId]
+ * (same Moyasar.js embedded pattern as the subscription checkout - see
+ * app/api/billing/checkout/route.ts). No Moyasar invoice is created up
+ * front; the browser creates the actual Moyasar Payment directly with the
+ * publishable key, and /api/campaigns/balance/confirm-payment verifies it
+ * with our secret key before crediting the balance.
  */
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
@@ -34,7 +37,6 @@ export async function POST(request: NextRequest) {
   }
 
   const paymentId = `pay-${randomUUID()}`;
-  const origin = getPaymentCallbackOrigin();
   // Any employee with the campaigns permission may top up, not only the owner.
   const initiatedBy = user.role === "مالك الحساب" ? "owner" : "member";
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId }, select: { companyName: true } });
@@ -48,38 +50,21 @@ export async function POST(request: NextRequest) {
     gateway: PAYMENT_GATEWAY.moyasar
   });
 
-  try {
-    const invoice = await createMoyasarInvoice({
+  await prisma.campaignPayment.create({
+    data: {
+      id: paymentId,
+      tenantId: user.tenantId,
+      messages,
       amount,
       amountHalalas,
-      description: paymentDescription("campaign_topup", { messages }),
-      callbackUrl: `${origin}/api/campaigns/payment-webhook`,
-      successUrl: `${origin}/dashboard?view=campaigns&tab=balance`,
-      backUrl: `${origin}/dashboard?view=campaigns&tab=balance`,
-      metadata
-    });
+      status: PAYMENT_STATUS.pending,
+      createdAt: new Date().toISOString(),
+      gateway: PAYMENT_GATEWAY.moyasar,
+      gatewayStatus: "initiated",
+      initiatedBy,
+      metadataJson: JSON.stringify(metadata)
+    }
+  });
 
-    await prisma.campaignPayment.create({
-      data: {
-        id: paymentId,
-        tenantId: user.tenantId,
-        messages,
-        amount,
-        amountHalalas,
-        status: PAYMENT_STATUS.pending,
-        moyasarId: invoice.id,
-        paymentUrl: invoice.url,
-        createdAt: new Date().toISOString(),
-        gateway: PAYMENT_GATEWAY.moyasar,
-        gatewayStatus: invoice.status,
-        initiatedBy,
-        metadataJson: JSON.stringify(metadata)
-      }
-    });
-
-    return jsonOk({ paymentUrl: invoice.url });
-  } catch (error) {
-    console.error("Moyasar charge request failed", error);
-    return jsonError("تعذر إنشاء طلب الدفع، حاول مرة أخرى", 502);
-  }
+  return jsonOk({ paymentId });
 }

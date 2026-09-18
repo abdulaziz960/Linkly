@@ -463,7 +463,7 @@ export default function CampaignsView({
       return;
     }
 
-    window.open(payload?.data?.paymentUrl, "_blank", "noopener");
+    window.open(`/billing/pay/campaign/${payload?.data?.paymentId}`, "_blank", "noopener");
     setChargeSubmitting(false);
     setChargeOpen(false);
     loadBalance();

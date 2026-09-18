@@ -15,6 +15,10 @@ type Props = {
   amountHalalas: number;
   description: string;
   publishableKey: string;
+  /** Which payment row this confirms against - see /billing/success. Defaults to "subscription". */
+  kind?: "subscription" | "campaign_topup";
+  /** Server route that verifies the completed payment and applies its outcome. */
+  confirmUrl?: string;
 };
 
 const MOYASAR_JS_URL = "https://cdn.moyasar.com/mpf/1.16.0/moyasar.js";
@@ -24,10 +28,12 @@ const MOYASAR_CSS_URL = "https://cdn.moyasar.com/mpf/1.16.0/moyasar.css";
  * Renders Moyasar's embedded card-entry widget (their JS, our page around
  * it) and confirms the result with our own server the moment it completes -
  * on_completed's payment.status is client-reported and never trusted for
- * activation; /api/billing/confirm-payment re-fetches the real status with
- * the secret key before anything is applied.
+ * activation; confirmUrl re-fetches the real status with the secret key
+ * before anything is applied. Shared by the subscription checkout
+ * (app/billing/pay/[paymentId]) and the campaign top-up checkout
+ * (app/billing/pay/campaign/[paymentId]) via the kind/confirmUrl props.
  */
-export default function MoyasarPayForm({ paymentId, amountHalalas, description, publishableKey }: Props) {
+export default function MoyasarPayForm({ paymentId, amountHalalas, description, publishableKey, kind = "subscription", confirmUrl = "/api/billing/confirm-payment" }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState("");
@@ -59,20 +65,20 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
       // away and back rather than resolving inside on_completed below, so
       // the paymentId is threaded through the query string - /billing/success
       // needs it to run the same server-side confirm on that return trip.
-      callback_url: `${window.location.origin}/billing/success?paymentId=${encodeURIComponent(paymentId)}`,
+      callback_url: `${window.location.origin}/billing/success?paymentId=${encodeURIComponent(paymentId)}&kind=${kind}`,
       methods: ["creditcard"],
       on_completed: async (payment: { id: string }) => {
         setConfirming(true);
         setError("");
         try {
-          const response = await fetch("/api/billing/confirm-payment", {
+          const response = await fetch(confirmUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentId, moyasarPaymentId: payment.id })
           });
           const payload = await response.json().catch(() => ({})) as { error?: string };
           if (!response.ok) throw new Error(payload.error || "تعذر تأكيد الدفعة");
-          router.push("/billing/success");
+          router.push(`/billing/success?kind=${kind}`);
         } catch (err) {
           setConfirming(false);
           setError(err instanceof Error ? err.message : "تعذر تأكيد الدفعة");

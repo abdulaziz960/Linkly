@@ -7,53 +7,80 @@ import { useStoredLanguage } from "../../useStoredLanguage";
 
 const copy = {
   ar: {
-    heading: "تم تفعيل الاشتراك",
-    body: "اكتملت رحلة الشراء بنجاح وأصبحت الباقة نشطة على حسابك.",
+    subscription: {
+      heading: "تم تفعيل الاشتراك",
+      body: "اكتملت رحلة الشراء بنجاح وأصبحت الباقة نشطة على حسابك.",
+      failedHeading: "تعذر إتمام الدفع",
+      failedBody: "لم يتم تأكيد الدفعة بعد بنك البطاقة. لم يُخصم أي مبلغ وتفعّل الاشتراك، يمكنك إعادة المحاولة من صفحة الاشتراك.",
+      backToBilling: "العودة إلى صفحة الاشتراك"
+    },
+    campaign_topup: {
+      heading: "تمت إضافة الرصيد",
+      body: "اكتملت عملية الشحن بنجاح وأصبح الرصيد الجديد متاحًا لحملاتك.",
+      failedHeading: "تعذر إتمام الدفع",
+      failedBody: "لم يتم تأكيد الدفعة بعد بنك البطاقة. لم يُخصم أي مبلغ ولم يُضَف أي رصيد، يمكنك إعادة المحاولة من تبويب الرصيد والشحن.",
+      backToBilling: "العودة إلى لوحة العميل"
+    },
     backToDashboard: "العودة إلى لوحة العميل",
     viewSubscription: "عرض تفاصيل الاشتراك",
-    confirming: "جارٍ التحقق من الدفعة...",
-    failedHeading: "تعذر إتمام الدفع",
-    failedBody: "لم يتم تأكيد الدفعة بعد بنك البطاقة. لم يُخصم أي مبلغ وتفعّل الاشتراك، يمكنك إعادة المحاولة من صفحة الاشتراك.",
-    backToBilling: "العودة إلى صفحة الاشتراك"
+    confirming: "جارٍ التحقق من الدفعة..."
   },
   en: {
-    heading: "Subscription activated",
-    body: "Your purchase completed successfully and the plan is now active on your account.",
+    subscription: {
+      heading: "Subscription activated",
+      body: "Your purchase completed successfully and the plan is now active on your account.",
+      failedHeading: "Payment not completed",
+      failedBody: "Your bank did not confirm the payment. Nothing was charged and the plan was not activated - you can try again from the billing page.",
+      backToBilling: "Back to billing"
+    },
+    campaign_topup: {
+      heading: "Balance topped up",
+      body: "Your top-up completed successfully and the new balance is now available for your campaigns.",
+      failedHeading: "Payment not completed",
+      failedBody: "Your bank did not confirm the payment. Nothing was charged and no balance was added - you can try again from the Balance & Top-up tab.",
+      backToBilling: "Back to dashboard"
+    },
     backToDashboard: "Back to dashboard",
     viewSubscription: "View subscription details",
-    confirming: "Confirming your payment...",
-    failedHeading: "Payment not completed",
-    failedBody: "Your bank did not confirm the payment. Nothing was charged and the plan was not activated - you can try again from the billing page.",
-    backToBilling: "Back to billing"
+    confirming: "Confirming your payment..."
   }
 } as const;
 
 type Lang = keyof typeof copy;
+type Kind = "subscription" | "campaign_topup";
+
+const confirmUrlByKind: Record<Kind, string> = {
+  subscription: "/api/billing/confirm-payment",
+  campaign_topup: "/api/campaigns/balance/confirm-payment"
+};
 
 /**
  * Cards needing out-of-band 3-D Secure fully navigate away and back here
  * instead of resolving inside MoyasarPayForm's on_completed, so this page
- * can be reached before /api/billing/confirm-payment ever ran. Never trust
+ * can be reached before the confirm-payment route ever ran. Never trust
  * that arrival alone as proof of payment (mirrors the "never trust the
  * caller" rule in lib/moyasar-webhook.ts) - if a moyasarPaymentId comes back
  * in the query string, re-run the same server-verified confirm before
- * showing anything as activated.
+ * showing anything as activated. `kind` (threaded through by MoyasarPayForm)
+ * picks which payment row and copy this checkout was for.
  */
 function BillingSuccessStatus({ lang }: { lang: Lang }) {
   const searchParams = useSearchParams();
   const paymentId = searchParams.get("paymentId");
   const moyasarPaymentId = searchParams.get("id");
+  const kind: Kind = searchParams.get("kind") === "campaign_topup" ? "campaign_topup" : "subscription";
   const [state, setState] = useState<"confirming" | "success" | "failed">(
     paymentId && moyasarPaymentId ? "confirming" : "success"
   );
   const text = copy[lang];
+  const kindText = text[kind];
 
   useEffect(() => {
     if (!paymentId || !moyasarPaymentId) return;
     let cancelled = false;
     (async () => {
       try {
-        const response = await fetch("/api/billing/confirm-payment", {
+        const response = await fetch(confirmUrlByKind[kind], {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ paymentId, moyasarPaymentId })
@@ -68,17 +95,17 @@ function BillingSuccessStatus({ lang }: { lang: Lang }) {
     return () => {
       cancelled = true;
     };
-  }, [paymentId, moyasarPaymentId]);
+  }, [paymentId, moyasarPaymentId, kind]);
 
   if (state === "confirming") return <p className="payment-note">{text.confirming}</p>;
 
   if (state === "failed") {
     return (
       <>
-        <h1>{text.failedHeading}</h1>
-        <p>{text.failedBody}</p>
+        <h1>{kindText.failedHeading}</h1>
+        <p>{kindText.failedBody}</p>
         <div className="test-actions">
-          <Link className="primary-link" href="/billing">{text.backToBilling}</Link>
+          <Link className="primary-link" href={kind === "campaign_topup" ? "/dashboard?view=campaigns&tab=balance" : "/billing"}>{kindText.backToBilling}</Link>
         </div>
       </>
     );
@@ -87,11 +114,11 @@ function BillingSuccessStatus({ lang }: { lang: Lang }) {
   return (
     <>
       <b className="success-payment">✓</b>
-      <h1>{text.heading}</h1>
-      <p>{text.body}</p>
+      <h1>{kindText.heading}</h1>
+      <p>{kindText.body}</p>
       <div className="test-actions">
-        <Link className="primary-link" href="/dashboard">{text.backToDashboard}</Link>
-        <Link href="/billing">{text.viewSubscription}</Link>
+        <Link className="primary-link" href={kind === "campaign_topup" ? "/dashboard?view=campaigns&tab=balance" : "/dashboard"}>{text.backToDashboard}</Link>
+        {kind === "subscription" ? <Link href="/billing">{text.viewSubscription}</Link> : null}
       </div>
     </>
   );
