@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     teamSize?: string;
     channels?: string[];
     website?: string;
+    termsAccepted?: boolean;
   } | null;
 
   const companyName = body?.companyName?.trim() || "";
@@ -38,6 +39,12 @@ export async function POST(request: NextRequest) {
 
   if (!companyName || !ownerName || !ownerEmail || !phone) {
     return jsonError("عبّي اسم النشاط والاسم والبريد الإلكتروني ورقم الجوال", 400);
+  }
+  // The checkbox on the signup form already requires this, but that's only
+  // a client-side gate - never trust it alone for something a consent
+  // record depends on, same rule payment amounts follow in lib/moyasar.ts.
+  if (!body?.termsAccepted) {
+    return jsonError("يجب الموافقة على شروط الاستخدام وسياسة الخصوصية", 400);
   }
   if (companyName.length > 120 || ownerName.length > 100 || ownerEmail.length > 254 || phone.length > 30) {
     return jsonError("بعض البيانات المدخلة أطول من الحد المسموح", 400);
