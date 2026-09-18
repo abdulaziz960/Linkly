@@ -24,8 +24,9 @@ export default function PrivacyPageEn() {
 
         <p>
           Linkly is a platform for managing customer conversations across multiple channels such as WhatsApp,
-          Instagram, Facebook Messenger, Telegram, and Google Maps reviews. This policy explains how we collect,
-          use, and protect data when you use the platform.
+          Instagram, Facebook Messenger, Telegram, email, X (Twitter), LinkedIn, Snapchat, YouTube, TikTok (pending
+          platform approval), and Google Maps reviews. This policy explains how we collect, use, and protect data
+          when you use the platform.
         </p>
 
         <h2>Data we collect</h2>
@@ -48,7 +49,10 @@ export default function PrivacyPageEn() {
           We use Meta Platform data solely to provide messaging and customer-service features on behalf of the
           customer who granted authorization. We do not sell Meta data, do not use it for advertising purposes
           unrelated to the service, and do not share it with third parties except where necessary to provide the
-          service or comply with regulations.
+          service or comply with regulations. The same principle applies to data from any other channel you
+          connect (X, LinkedIn, Snapchat, YouTube, TikTok, Telegram, or email): it is used solely to operate
+          messaging and engagement features on your behalf, and is never sold or used for advertising unrelated to
+          the service.
         </p>
 
         <h2>Data protection</h2>
