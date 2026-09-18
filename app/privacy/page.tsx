@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import CookieSettingsLink from "../CookieSettingsLink";
 import "../legal.css";
 
 export const metadata: Metadata = {
@@ -51,6 +52,13 @@ export default function PrivacyPage() {
           إعدادات الربط والموظفين والصلاحيات الخاصة بحسابه.
         </p>
 
+        <h2>الكوكيز والتحليلات</h2>
+        <p>
+          يستخدم موقعنا التسويقي كوكيز تحليلية (Google Analytics عبر Google Tag Manager) لفهم استخدام الموقع وتحسينه
+          فقط، ولا تُستخدم هذه الكوكيز لأي غرض إعلاني موجّه. لا تُحمَّل هذه الأدوات ولا تُخزَّن أي كوكيز تحليلية إلا بعد
+          موافقتك الصريحة عبر إشعار الكوكيز الذي يظهر عند أول زيارة، ويمكنك رفضها أو قبولها في أي وقت.
+        </p>
+
         <h2>الاحتفاظ بالبيانات وحذفها</h2>
         <p>
           نحتفظ بالبيانات طالما كان ذلك لازماً لتشغيل الخدمة أو حسب ما يتطلبه النظام. يمكن للعميل طلب حذف بياناته أو
@@ -65,6 +73,7 @@ export default function PrivacyPage() {
         <nav className="legal-links">
           <Link href="/terms">شروط الاستخدام</Link>
           <Link href="/data-deletion">حذف البيانات</Link>
+          <CookieSettingsLink label="إعدادات الكوكيز" />
           <Link href="/">الصفحة الرئيسية</Link>
           <Link href="/en/privacy">English</Link>
         </nav>

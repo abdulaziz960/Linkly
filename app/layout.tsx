@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import Script from "next/script";
 import type { ReactNode } from "react";
+import CookieConsent from "./CookieConsent";
 import "./globals.css";
-
-const gtmId = "GTM-5K5C9WRZ";
-const gtagId = "G-PRB5YHZPGY";
 
 const appFont = localFont({
   src: [
@@ -63,30 +60,17 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={`${appFont.variable} ${displayFont.variable}`}>
       <body>
-        <noscript>
-          <iframe
-            src={`https://www.googletagmanager.com/ns.html?id=${gtmId}`}
-            height="0"
-            width="0"
-            style={{ display: "none", visibility: "hidden" }}
-          />
-        </noscript>
         {children}
+        {/*
+          Google Tag Manager/gtag used to fire unconditionally here with no
+          consent step at all (a PDPL gap - see CookieConsent.tsx) - it now
+          only loads once a visitor explicitly accepts. The old unconditional
+          <noscript> GTM iframe is gone too: a JS-disabled visitor can never
+          see or answer the consent banner either, so it could only ever have
+          tracked without consent.
+        */}
+        <CookieConsent />
       </body>
-      <Script id="google-tag-manager" strategy="afterInteractive">
-        {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','${gtmId}');`}
-      </Script>
-      <Script id="google-tag" src={`https://www.googletagmanager.com/gtag/js?id=${gtagId}`} strategy="afterInteractive" />
-      <Script id="google-tag-config" strategy="afterInteractive">
-        {`window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', '${gtagId}');`}
-      </Script>
     </html>
   );
 }

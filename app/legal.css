@@ -75,13 +75,20 @@
   margin-top: 34px;
 }
 
-.legal-links a {
+.legal-links a,
+.legal-links-button {
   border: 1px solid #e2e8f0;
   border-radius: 999px;
   padding: 10px 16px;
   color: #334155;
   text-decoration: none;
   font-weight: 800;
+}
+
+.legal-links-button {
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
 }
 
 @media (max-width: 640px) {

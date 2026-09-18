@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import HtmlLangSync from "../../HtmlLangSync";
+import CookieSettingsLink from "../../CookieSettingsLink";
 import "../../legal.css";
 
 export const metadata: Metadata = {
@@ -56,6 +57,14 @@ export default function PrivacyPageEn() {
           account. Each customer retains control over their connection, employee, and permission settings.
         </p>
 
+        <h2>Cookies and analytics</h2>
+        <p>
+          Our marketing site uses analytics cookies (Google Analytics via Google Tag Manager) solely to understand
+          and improve site usage - never for targeted advertising. These tools are never loaded and no analytics
+          cookie is ever stored until you explicitly consent via the cookie notice shown on your first visit, and
+          you can accept or withdraw that consent at any time.
+        </p>
+
         <h2>Data retention and deletion</h2>
         <p>
           We retain data for as long as necessary to operate the service or as required by law. A customer may
@@ -71,6 +80,7 @@ export default function PrivacyPageEn() {
         <nav className="legal-links">
           <Link href="/en/terms">Terms of use</Link>
           <Link href="/en/data-deletion">Data deletion</Link>
+          <CookieSettingsLink label="Cookie settings" />
           <Link href="/en">Home</Link>
           <Link href="/privacy">العربية</Link>
         </nav>
