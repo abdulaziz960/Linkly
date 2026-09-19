@@ -39,6 +39,19 @@ describe("trusted proxy rate-limit identity", () => {
 
     expect(getClientIp(request)).toBe("203.0.113.10");
   });
+
+  it("trusts only the last hop the reverse proxy itself appended, not a client-forged prefix", async () => {
+    vi.stubEnv("TRUST_PROXY_HEADERS", "true");
+    const { getClientIp } = await import("../lib/rate-limit");
+    // Cloud Run (and any standard proxy) appends what it saw rather than
+    // replacing the header - a client can still send its own
+    // X-Forwarded-For with a forged IP prepended before that.
+    const request = new Request("http://localhost", {
+      headers: { "x-forwarded-for": "198.51.100.1, 203.0.113.10" }
+    });
+
+    expect(getClientIp(request)).toBe("203.0.113.10");
+  });
 });
 
 describe("Telegram webhook hardening", () => {
