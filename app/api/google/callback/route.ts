@@ -6,6 +6,7 @@ import { getGoogleRedirectUri } from "../../../../lib/google-business";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { safeEqual } from "../../../../lib/oauth-state";
 
 type GoogleTokenPayload = {
   access_token?: string;
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
   const savedState = request.cookies.get("audiencew_google_state")?.value;
   const redirectTo = new URL("/dashboard", getAppOrigin(request));
 
-  if (!code || !state || state !== savedState) {
+  if (!code || !state || !savedState || !safeEqual(state, savedState)) {
     redirectTo.searchParams.set("google", "invalid-state");
     return NextResponse.redirect(redirectTo);
   }

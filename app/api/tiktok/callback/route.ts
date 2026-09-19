@@ -6,6 +6,7 @@ import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
+import { safeEqual } from "../../../../lib/oauth-state";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
   const savedState = request.cookies.get("tiktok_oauth_state")?.value || "";
   const codeVerifier = request.cookies.get("tiktok_oauth_verifier")?.value || "";
 
-  if (!code || !state || !savedState || state !== savedState || !codeVerifier) {
+  if (!code || !state || !savedState || !safeEqual(state, savedState) || !codeVerifier) {
     return closePopup(origin, "تعذر التحقق من الطلب. أغلق النافذة وحاول من جديد.");
   }
 

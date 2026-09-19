@@ -6,6 +6,7 @@ import { getSnapchatRedirectUri, snapchatClientId, snapchatClientSecret, getMyAd
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { safeEqual } from "../../../../lib/oauth-state";
 
 export const runtime = "nodejs";
 
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
   redirectTo.searchParams.set("view", "settings");
   redirectTo.searchParams.set("channel", "snapchat");
 
-  if (!code || !state || state !== savedState) {
+  if (!code || !state || !savedState || !safeEqual(state, savedState)) {
     redirectTo.searchParams.set("snapchat", "invalid-state");
     return NextResponse.redirect(redirectTo);
   }

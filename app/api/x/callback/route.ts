@@ -7,6 +7,7 @@ import { encryptSecret } from "../../../../lib/secret-storage";
 import { getXPlatformCredentials } from "../../../../lib/x-platform";
 import { ensureXRealtimeDelivery } from "../../../../lib/x-activity";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { safeEqual } from "../../../../lib/oauth-state";
 
 export const runtime = "nodejs";
 
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
   const savedState = request.cookies.get("audiencew_x_state")?.value;
   const verifier = request.cookies.get("audiencew_x_verifier")?.value;
 
-  if (!code || !state || !savedState || !verifier || state !== savedState) {
+  if (!code || !state || !savedState || !verifier || !safeEqual(state, savedState)) {
     return dashboardRedirect(request, "invalid-callback");
   }
 
