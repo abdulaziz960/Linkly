@@ -39,6 +39,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // A member of more than one company picks which one to enter right after
+  // logging in, instead of silently landing in whichever workspace their
+  // account happened to be pointed at last time (they can always switch
+  // again later from inside the dashboard's profile menu).
+  const membershipCount = user.isPlatformAdmin === 1 ? 1 : await prisma.employee.count({ where: { userId: user.id } });
+  if (membershipCount > 1) {
+    const maxAge = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24;
+    const response = NextResponse.json({
+      user: { ...user, subscriptionExpired: false },
+      onboardingRequired: false,
+      redirectTo: "/choose-workspace"
+    });
+    response.cookies.set(authCookieName, createSessionToken(user.id, maxAge, user.sessionVersion), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge
+    });
+    return response;
+  }
+
   const subscriptionAccess = user.isPlatformAdmin === 1 ? { expired: false } : await getSubscriptionAccess(user.tenantId);
   const shouldOnboard = !subscriptionAccess.expired && user.isPlatformAdmin !== 1 && user.role === "مالك الحساب";
   const [connectedIntegration, connectedEmail] = shouldOnboard
