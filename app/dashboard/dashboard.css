@@ -141,6 +141,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   direction: ltr;
 }
 
+.dashboard-shell.lang-en .dashboard-top-links {
+  grid-column: 2;
+}
+
 .dashboard-shell button,
 .dashboard-shell input,
 .dashboard-shell textarea,
@@ -10077,6 +10081,13 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   margin-block-end: 32px;
 }
 .ai-settings-form label { display: grid; gap: 6px; }
+/* The checkbox label needs its box and text side by side, not stacked
+   like every other field label in this form. */
+.ai-settings-form .ai-settings-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .ai-settings-form input:not([type="checkbox"]), .ai-settings-form select, .ai-settings-form textarea {
   width: 100%; padding: 10px 12px; border: 1px solid #b9d9d5; border-radius: 10px;
   color: #143e3a; background: #fff; font: inherit;

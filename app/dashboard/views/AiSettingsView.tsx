@@ -90,7 +90,7 @@ export default function AiSettingsView() {
         )}
         <h3>{t("أو اربط مفتاحك الخاص (أي باقة)", "Or bring your own key (any plan)")}</h3>
         <form onSubmit={save} className="ai-settings-form">
-          <label><input type="checkbox" checked={settings.enabled} onChange={(event) => update({ enabled: event.target.checked })} />{t("تفعيل مساعد الموظف", "Enable Copilot")}</label>
+          <label className="ai-settings-checkbox"><input type="checkbox" checked={settings.enabled} onChange={(event) => update({ enabled: event.target.checked })} />{t("تفعيل مساعد الموظف", "Enable Copilot")}</label>
           <label>{t("المزود", "Provider")}<select value={settings.provider} onChange={(event) => { update({ provider: event.target.value as AiSettingsPublic["provider"], model: "", hasKey: false, inputRate: null, outputRate: null }); setApiKey(""); }}>{aiProviders.map((provider) => <option key={provider} value={provider}>{provider}</option>)}</select></label>
           <label>{t("معرّف الموديل", "Model ID")}<input required value={settings.model} maxLength={150} onChange={(event) => update({ model: event.target.value })} dir="ltr" /></label>
           <label>{t("مفتاح API", "API key")}<input type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={settings.hasKey ? t("محفوظ — اتركه فارغاً للاحتفاظ به", "Saved — leave blank to retain") : t("أدخل المفتاح", "Enter key")} /></label>
