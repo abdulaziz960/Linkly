@@ -16,9 +16,9 @@ export const MAX_CAMPAIGN_MEDIA_BYTES = 16 * 1024 * 1024;
  * The campaign scheduler UI sends a plain `datetime-local` value (e.g.
  * "2026-09-01T10:00", no timezone) representing the wall-clock time the
  * user picked in Riyadh. `new Date(value)` on a string with no timezone
- * designator parses it in the *runtime's* local timezone - UTC on Vercel -
- * silently shifting every schedule 3 hours later than intended. Saudi
- * Arabia doesn't observe DST, so a fixed +03:00 offset is always correct.
+ * designator parses it in the *runtime's* local timezone - UTC on this
+ * server - silently shifting every schedule 3 hours later than intended.
+ * Saudi Arabia doesn't observe DST, so a fixed +03:00 offset is always correct.
  */
 export function parseRiyadhDateTime(value: string): Date | null {
   const trimmed = value.trim();

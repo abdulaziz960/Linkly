@@ -19,7 +19,6 @@ prisma/.generated/
 app/generated/
 preview_pdf/
 *.php
-.vercel
 .env*
 !.env.example
 tsconfig.tsbuildinfo

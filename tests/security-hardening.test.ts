@@ -30,17 +30,14 @@ describe("trusted proxy rate-limit identity", () => {
     expect(getClientIp(request)).toBe("unknown");
   });
 
-  it("uses Vercel-controlled forwarding headers on Vercel", async () => {
-    vi.stubEnv("VERCEL", "1");
+  it("uses forwarded headers once the deployment opts in", async () => {
+    vi.stubEnv("TRUST_PROXY_HEADERS", "true");
     const { getClientIp } = await import("../lib/rate-limit");
     const request = new Request("http://localhost", {
-      headers: {
-        "x-vercel-forwarded-for": "198.51.100.20",
-        "x-forwarded-for": "203.0.113.10"
-      }
+      headers: { "x-forwarded-for": "203.0.113.10" }
     });
 
-    expect(getClientIp(request)).toBe("198.51.100.20");
+    expect(getClientIp(request)).toBe("203.0.113.10");
   });
 });
 
