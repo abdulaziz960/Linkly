@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getXPlatformCredentials } from "../../../../lib/x-platform";
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
 
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
+  if (!(await userHasViewPermission(user, "settings"))) return dashboardRedirect(request, "forbidden");
 
   const settings = await getIntegrationSettings("x", user.tenantId);
   const { clientId, clientSecret } = getXPlatformCredentials(settings);

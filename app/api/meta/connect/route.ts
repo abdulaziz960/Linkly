@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getIntegrationSettings, type IntegrationChannel } from "../../../../lib/database";
 import { createOAuthState } from "../../../../lib/oauth-state";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { popupCloseHtml } from "../../../../lib/popup-close";
 
 const techProviderMetaAppId = "1296230909161568";
 const techProviderMetaConfigId = "1428169365888624";
@@ -26,6 +28,12 @@ function getChannel(request: NextRequest): Extract<IntegrationChannel, "whatsapp
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
+  if (!(await userHasViewPermission(user, "settings"))) {
+    return new NextResponse(
+      popupCloseHtml(getAppOrigin(request), "لا تملك صلاحية الوصول لإعدادات القنوات.", { type: "audiencew:meta-connected" }, "/dashboard?view=settings"),
+      { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }
+    );
+  }
 
   const channel = getChannel(request);
   const settings = await getIntegrationSettings(channel, user.tenantId);

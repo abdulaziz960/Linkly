@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { syncMetaTemplates } from "../../../../lib/meta-templates";
@@ -164,6 +165,10 @@ export async function GET(request: NextRequest) {
   if (!user) {
     if (wantsJson) return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
     return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
+  }
+  if (!(await userHasViewPermission(user, "settings"))) {
+    if (wantsJson) return NextResponse.json({ ok: false, error: "لا تملك صلاحية الوصول لإعدادات القنوات" }, { status: 403 });
+    return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=forbidden&view=settings");
   }
 
   const settings = await getIntegrationSettings(channel, user.tenantId);

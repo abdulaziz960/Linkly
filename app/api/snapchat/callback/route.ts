@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getSnapchatRedirectUri, snapchatClientId, snapchatClientSecret, getMyAdAccountInfo } from "../../../../lib/snapchat";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
@@ -41,6 +42,10 @@ export async function GET(request: NextRequest) {
 
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
+  if (!(await userHasViewPermission(user, "settings"))) {
+    redirectTo.searchParams.set("snapchat", "forbidden");
+    return NextResponse.redirect(redirectTo);
+  }
 
   const clientId = snapchatClientId();
   const clientSecret = snapchatClientSecret();

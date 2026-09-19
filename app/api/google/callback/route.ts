@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getGoogleRedirectUri } from "../../../../lib/google-business";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
@@ -59,6 +60,10 @@ export async function GET(request: NextRequest) {
 
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
+  if (!(await userHasViewPermission(user, "settings"))) {
+    redirectTo.searchParams.set("google", "forbidden");
+    return NextResponse.redirect(redirectTo);
+  }
 
   const settings = await getIntegrationSettings("google_maps", user.tenantId);
   const redirectUri = getGoogleRedirectUri(request);
