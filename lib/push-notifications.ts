@@ -37,8 +37,13 @@ export async function saveSubscription(userId: string, tenantId: string, subscri
   });
 }
 
-export async function removeSubscription(endpoint: string) {
-  await prisma.pushSubscription.deleteMany({ where: { endpoint } });
+// userId is omitted for the internal dead-subscription cleanup in
+// notifyTenant (a delivery failure isn't tied to a request's caller), but
+// required from the user-facing unsubscribe route so one logged-in user
+// can't remove another user's subscription by guessing/observing its
+// endpoint URL.
+export async function removeSubscription(endpoint: string, userId?: string) {
+  await prisma.pushSubscription.deleteMany({ where: userId ? { endpoint, userId } : { endpoint } });
 }
 
 /**
