@@ -30,6 +30,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, outcome: payment.status === PAYMENT_STATUS.completed ? "completed" : "already_processed" });
   }
 
+  // A real Moyasar payment id must fund exactly one row - otherwise the same
+  // completed charge could be replayed against a fresh pending top-up row to
+  // credit the campaign balance repeatedly for free.
+  const alreadyUsedBy = await prisma.campaignPayment.findFirst({
+    where: { moyasarId: moyasarPaymentId, status: PAYMENT_STATUS.completed, id: { not: paymentId } }
+  });
+  if (alreadyUsedBy) {
+    console.error(`[moyasar:campaigns-confirm] payment id reuse attempt: moyasarPaymentId=${moyasarPaymentId} already applied to payment=${alreadyUsedBy.id}, rejected for payment=${paymentId}`);
+    await logAdminAction(
+      payment.tenantId,
+      await getTenantCompanyName(payment.tenantId),
+      `محاولة إعادة استخدام دفعة Moyasar ${moyasarPaymentId} (مستخدمة مسبقًا على الدفعة ${alreadyUsedBy.id}) لتأكيد دفعة شحن رسائل أخرى ${paymentId}. لم تتم إضافة أي رصيد.`,
+      "خطأ"
+    );
+    return NextResponse.json({ error: "هذه الدفعة مستخدمة مسبقًا" }, { status: 409 });
+  }
+
   const moyasarPayment = await fetchMoyasarPayment(moyasarPaymentId);
   if (!moyasarPayment) return NextResponse.json({ error: "تعذر التحقق من الدفعة، حاول مرة أخرى" }, { status: 502 });
 

@@ -73,3 +73,57 @@ describe("employee email conflicts", () => {
     expect(account?.name).toBe("Existing Account");
   });
 });
+
+describe("employee disable across a switched workspace", () => {
+  it("still locks the account out even if UserAccount.tenantId currently points at a different workspace", async () => {
+    const { prisma } = await import("../lib/prisma");
+    await prisma.employee.create({
+      data: {
+        id: "emp-multi-workspace-disable",
+        name: "Multi Workspace Employee",
+        role: "موظف دعم",
+        status: "متصل",
+        permissions: "محادثات فقط",
+        email: "multiws@email-conflict.example",
+        initial: "م",
+        tenantId: "tenant-email-conflict",
+        userId: "user-multi-workspace-disable"
+      }
+    });
+    await prisma.userAccount.create({
+      data: {
+        id: "user-multi-workspace-disable",
+        name: "Multi Workspace Employee",
+        email: "multiws@email-conflict.example",
+        passwordHash: "x",
+        role: "موظف دعم",
+        // Simulates the account currently being switched into a workspace
+        // OTHER than the one disabling it, per switch-workspace's mutable
+        // tenantId pointer.
+        tenantId: "tenant-other-workspace",
+        createdAt: new Date().toISOString()
+      }
+    });
+
+    const { PATCH } = await import("../app/api/employees/[id]/route");
+    const response = await PATCH(
+      new NextRequest("http://localhost/api/employees/emp-multi-workspace-disable", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Multi Workspace Employee",
+          email: "multiws@email-conflict.example",
+          role: "موظف دعم",
+          permissions: "محادثات فقط",
+          disabled: true
+        })
+      }),
+      { params: Promise.resolve({ id: "emp-multi-workspace-disable" }) }
+    );
+
+    expect(response.status).toBe(200);
+    const account = await prisma.userAccount.findUnique({ where: { email: "multiws@email-conflict.example" } });
+    expect(account?.disabled).toBe(1);
+    expect(account?.sessionVersion).toBeGreaterThan(0);
+  });
+});

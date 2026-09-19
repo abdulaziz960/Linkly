@@ -84,19 +84,33 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       // Keep the linked login account (matched by the employee's previous
       // email) in sync so role/name/email changes actually take effect on
-      // the next session refresh instead of silently drifting apart.
+      // the next session refresh instead of silently drifting apart. Scoped
+      // by tenantId since these are just the mirrored display fields for
+      // whichever workspace the account is currently switched into.
       await tx.userAccount.updateMany({
         where: { email: existingEmployee.email, tenantId: user.tenantId },
-        data: {
-          name,
-          email,
-          role,
-          ...(body.disabled !== undefined ? { disabled: body.disabled ? 1 : 0 } : {}),
-          // Disabling kills any session already open on this account right
-          // now, instead of waiting for it to expire or be refreshed.
-          ...(body.disabled ? { sessionVersion: { increment: 1 } } : {})
-        }
+        data: { name, email, role }
       });
+
+      // disabled/sessionVersion are account-wide lockout state (see the
+      // UserAccount.disabled comment), not per-workspace - a multi-workspace
+      // member disabled from Tenant A while their UserAccount.tenantId
+      // happens to point at Tenant B (a normal state after switch-workspace)
+      // must still be locked out everywhere. Scoped by email alone (unique
+      // on UserAccount) so it can never silently no-op depending on which
+      // workspace the account is currently switched into.
+      if (body.disabled !== undefined) {
+        const lockout = await tx.userAccount.updateMany({
+          where: { email: existingEmployee.email },
+          data: {
+            disabled: body.disabled ? 1 : 0,
+            // Disabling kills any session already open on this account right
+            // now, instead of waiting for it to expire or be refreshed.
+            ...(body.disabled ? { sessionVersion: { increment: 1 } } : {})
+          }
+        });
+        if (lockout.count !== 1) throw new Error("account-lookup-failed");
+      }
 
       return tx.employee.findFirstOrThrow({ where: { id, tenantId: user.tenantId } });
     });
