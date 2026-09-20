@@ -189,7 +189,14 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
             {loading ? <tr><td colSpan={7}>{t("جارٍ التحميل...", "Loading...")}</td></tr> : null}
             {!loading ? pagination.items.map((row) => {
               const bucket = engagementBucketFor(row);
-              const hasClickHistory = bucket === "clicked" && row.clicks.length > 1;
+              // >= 1, not > 1: clicks that happened before this log existed
+              // are never backfilled, so a recipient's total clickCount can
+              // be higher than clicks.length even right after they click
+              // again - showing the toggle as soon as there's ANY logged
+              // click (rather than waiting for a second one post-rollout)
+              // means the feature is visibly working on the very first
+              // click, not just the second.
+              const hasClickHistory = bucket === "clicked" && row.clicks.length >= 1;
               const isExpanded = hasClickHistory && expandedPhone === row.phone;
               return (
                 <Fragment key={row.phone}>
