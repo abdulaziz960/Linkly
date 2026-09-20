@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID, createHmac } from "crypto";
 import { prisma } from "./prisma";
 import { encryptSecret, decryptSecret } from "./secret-storage";
+import { isPubliclyRoutableUrl } from "./url-safety";
 
 export type WebhookEvent = "message.received" | "conversation.closed" | "lead.created";
 
@@ -96,13 +97,21 @@ export async function triggerWebhookEvent(tenantId: string, event: WebhookEvent,
     let success = false;
 
     try {
+      // Re-check on every delivery, not just at registration - the
+      // hostname's DNS record can change between registration and the
+      // event that triggers this (DNS rebinding), and skip following any
+      // redirect without re-validating its target the same way.
+      if (!(await isPubliclyRoutableUrl(webhook.url))) {
+        throw new Error("webhook URL no longer resolves to a publicly routable address");
+      }
       const response = await fetch(webhook.url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Linkly-Signature": signWebhookPayload(secret, body)
         },
-        body
+        body,
+        redirect: "manual"
       });
       httpStatus = response.status;
       success = response.ok;

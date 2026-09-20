@@ -90,7 +90,13 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ paymentId });
   }
-  if (process.env.NODE_ENV === "production" || process.env.MOYASAR_LIVE_MODE === "true") {
+  // Fail closed by default: a misconfigured non-production environment
+  // (e.g. a staging/preview deploy that simply forgot to set NODE_ENV or a
+  // Moyasar key) must not silently fall through into letting any logged-in
+  // user grant themselves a paid plan for free. This requires an explicit,
+  // separate opt-in on top of "doesn't look like production" instead of
+  // relying on the absence of production signals alone.
+  if (process.env.NODE_ENV === "production" || process.env.MOYASAR_LIVE_MODE === "true" || process.env.ENABLE_TEST_CHECKOUT !== "true") {
     return NextResponse.json({ error: "بوابة الدفع غير مهيأة حاليًا" }, { status: 503 });
   }
   // Local development without a Moyasar key: a simulated payment page that

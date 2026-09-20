@@ -12,6 +12,6 @@ export async function POST(request: Request) {
   const endpoint = typeof body?.endpoint === "string" ? body.endpoint : "";
   if (!endpoint) return jsonError("بيانات الاشتراك غير صالحة", 400);
 
-  await removeSubscription(endpoint);
+  await removeSubscription(endpoint, user.id);
   return jsonOk({ unsubscribed: true });
 }

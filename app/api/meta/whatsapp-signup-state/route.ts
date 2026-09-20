@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { createOAuthState } from "../../../../lib/oauth-state";
 
 // WhatsApp Embedded Signup runs entirely through the Facebook JS SDK's
@@ -13,6 +14,9 @@ import { createOAuthState } from "../../../../lib/oauth-state";
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
+  if (!(await userHasViewPermission(user, "settings"))) {
+    return NextResponse.json({ ok: false, error: "لا تملك صلاحية الوصول لإعدادات القنوات" }, { status: 403 });
+  }
 
   const oauthState = createOAuthState("meta", { channel: "whatsapp" });
   const response = NextResponse.json({ ok: true, state: oauthState.state });

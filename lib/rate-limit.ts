@@ -21,15 +21,19 @@ async function ensureRateLimitTable() {
 }
 
 export function getClientIp(request: Request): string {
-  // In Vercel, proxy headers are platform-controlled before the request reaches
-  // the function. For other reverse proxies, opt in only after the proxy strips
+  // Opt in only after the reverse proxy in front of this app strips
   // client-supplied forwarding headers and rewrites them itself.
-  const trustProxyHeaders = process.env.VERCEL === "1" || process.env.TRUST_PROXY_HEADERS === "true";
+  const trustProxyHeaders = process.env.TRUST_PROXY_HEADERS === "true";
   if (!trustProxyHeaders) return "unknown";
 
-  const vercelForwarded = request.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim();
-  if (vercelForwarded) return vercelForwarded;
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  // Cloud Run (and every standard reverse proxy) APPENDS the address it
+  // actually saw to any pre-existing X-Forwarded-For header rather than
+  // replacing it - so the trustworthy value is the LAST entry, not the
+  // first. A client is free to send its own X-Forwarded-For with a forged
+  // IP prepended; taking the first entry would trust that forged value
+  // outright and defeat the rate limit entirely.
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  const forwarded = forwardedFor?.split(",").pop()?.trim();
   return forwarded || request.headers.get("x-real-ip")?.trim() || "unknown";
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../i18n";
 import { formatDateTime } from "../../../lib/time";
 import { engagementBucketFor, type EngagementBucket } from "../../../lib/campaign-engagement";
@@ -21,6 +21,7 @@ type ReportRow = {
   readAt: string;
   clickedAt: string;
   clickCount: number;
+  clicks: string[];
   deliveryFailed: number;
 };
 
@@ -89,6 +90,7 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState("10");
   const [page, setPage] = useState(1);
+  const [expandedPhone, setExpandedPhone] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +99,7 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
     setEngagementFilter(null);
     setSearch("");
     setPage(1);
+    setExpandedPhone(null);
     fetch(`/api/campaigns/${campaignId}/report`)
       .then((response) => response.json().catch(() => null))
       .then((body) => {
@@ -186,21 +189,62 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
             {loading ? <tr><td colSpan={7}>{t("جارٍ التحميل...", "Loading...")}</td></tr> : null}
             {!loading ? pagination.items.map((row) => {
               const bucket = engagementBucketFor(row);
+              // >= 1, not > 1: clicks that happened before this log existed
+              // are never backfilled, so a recipient's total clickCount can
+              // be higher than clicks.length even right after they click
+              // again - showing the toggle as soon as there's ANY logged
+              // click (rather than waiting for a second one post-rollout)
+              // means the feature is visibly working on the very first
+              // click, not just the second.
+              const hasClickHistory = bucket === "clicked" && row.clicks.length >= 1;
+              const isExpanded = hasClickHistory && expandedPhone === row.phone;
               return (
-                <tr key={row.phone}>
-                  <td>{row.name || "-"}</td>
-                  <td dir="ltr">{row.phone}</td>
-                  <td>
-                    <span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span>
-                    {row.error ? <small className="campaign-report-error">{row.error}</small> : null}
-                  </td>
-                  <td>{engagementLabel(bucket, t)}</td>
-                  <td>{clickCountLabel(bucket, row.clickCount)}</td>
-                  <td><span className="campaign-date">◴ {formatDateTime(row.date)}</span></td>
-                  <td>
-                    <a className="btn soft" href={`/dashboard?view=inbox&phone=${encodeURIComponent(row.phone)}&name=${encodeURIComponent(row.name)}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a>
-                  </td>
-                </tr>
+                <Fragment key={row.phone}>
+                  <tr>
+                    <td>{row.name || "-"}</td>
+                    <td dir="ltr">{row.phone}</td>
+                    <td>
+                      <span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span>
+                      {row.error ? <small className="campaign-report-error">{row.error}</small> : null}
+                    </td>
+                    <td>{engagementLabel(bucket, t)}</td>
+                    <td>
+                      {clickCountLabel(bucket, row.clickCount)}
+                      {hasClickHistory ? (
+                        <button
+                          type="button"
+                          className="campaign-click-history-toggle"
+                          aria-expanded={isExpanded}
+                          aria-label={t("عرض أوقات كل نقرة", "Show every click's time")}
+                          onClick={() => setExpandedPhone((current) => (current === row.phone ? null : row.phone))}
+                        >
+                          {isExpanded ? "▲" : "▼"}
+                        </button>
+                      ) : null}
+                    </td>
+                    <td><span className="campaign-date">◴ {formatDateTime(row.date)}</span></td>
+                    <td>
+                      <a className="btn soft" href={`/dashboard?view=inbox&phone=${encodeURIComponent(row.phone)}&name=${encodeURIComponent(row.name)}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a>
+                    </td>
+                  </tr>
+                  {isExpanded ? (
+                    <tr className="campaign-click-history-row">
+                      <td colSpan={7}>
+                        <div className="campaign-click-history">
+                          <b>{t(`كل النقرات (${row.clicks.length})`, `Every click (${row.clicks.length})`)}</b>
+                          <ul>
+                            {row.clicks.map((clickedAt, index) => (
+                              <li key={`${clickedAt}-${index}`}>
+                                <span className="campaign-click-history-index">#{index + 1}</span>
+                                <span>◴ {formatDateTime(clickedAt)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               );
             }) : null}
             {!loading && !pagination.items.length ? (

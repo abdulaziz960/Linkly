@@ -305,6 +305,22 @@ model CampaignRecipient {
   @@map("campaign_recipients")
 }
 
+// One row per click on a recipient's tracking link - clickedAt/clickCount on
+// CampaignRecipient only ever kept the FIRST click time and a running total,
+// with no way to see every individual click's time. Written alongside that
+// update (see app/api/campaigns/t/[code]/route.ts) rather than replacing it,
+// so existing readers of clickedAt/clickCount are unaffected.
+model CampaignRecipientClick {
+  id          String @id
+  recipientId String @map("recipient_id")
+  tenantId    String @map("tenant_id")
+  clickedAt   String @map("clicked_at")
+
+  @@index([recipientId])
+  @@index([tenantId])
+  @@map("campaign_recipient_clicks")
+}
+
 model CampaignBalance {
   tenantId        String @id @map("tenant_id")
   balance         Int    @default(0)
@@ -354,6 +370,10 @@ model Segment {
   engagementBucket String @default("") @map("engagement_bucket")
   engagementDateFrom String @default("") @map("engagement_date_from")
   engagementDateTo String @default("") @map("engagement_date_to")
+  // Only meaningful (and only ever set) when engagementBucket = "clicked" -
+  // 0 means "no exact-count condition", any positive value requires a
+  // matching customer's CampaignRecipient.clickCount to equal it exactly.
+  engagementClickCount Int @default(0) @map("engagement_click_count")
   createdAt    String @map("created_at")
   updatedAt    String @map("updated_at")
 

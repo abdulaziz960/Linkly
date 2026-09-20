@@ -570,6 +570,44 @@ type CreateTenantInput = {
 };
 
 /**
+ * Resends a fresh 3-day activation link for a tenant whose owner account was
+ * never activated (the original link expired, or the first email never
+ * arrived) - reuses the SAME tenant/employee/subscription rows from the
+ * original signup instead of creating a duplicate. Mirrors what "forgot
+ * password" already does for this exact case (see
+ * app/api/auth/forgot-password/route.ts) so an abandoned first attempt at
+ * this email is never a permanent dead end.
+ */
+async function resendActivationForUnactivatedAccount(account: { email: string; name: string; tenantId: string }) {
+  const activationToken = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(activationToken).digest("hex");
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString();
+
+  await prisma.$transaction([
+    prisma.employeeInvite.deleteMany({ where: { email: account.email } }),
+    prisma.employeeInvite.create({
+      data: {
+        id: `invite-${randomUUID()}`,
+        email: account.email,
+        tokenHash,
+        expiresAt,
+        purpose: "employee_activation",
+        createdAt: new Date().toISOString()
+      }
+    })
+  ]);
+
+  const origin = process.env.NODE_ENV === "production"
+    ? "https://linklysa.io"
+    : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const activationUrl = `${origin.replace(/\/$/, "")}/activate?token=${activationToken}`;
+  const inviteDelivery = await sendActivationEmail({ to: account.email, name: account.name, activationUrl });
+
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId: account.tenantId } });
+  return { subscription, inviteDelivery };
+}
+
+/**
  * Real onboarding: creates an actual tenant, a real login account (via the
  * same activation-link flow used for inviting employees), and a
  * subscription record. This is the thing the old admin panel never did -
@@ -581,7 +619,10 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
   if (!isValidEmail(email)) throw new Error("صيغة البريد الإلكتروني غير صحيحة");
 
   const existingAccount = await prisma.userAccount.findUnique({ where: { email } });
-  if (existingAccount) throw new Error("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة");
+  if (existingAccount) {
+    if (existingAccount.passwordHash) throw new Error("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة");
+    return resendActivationForUnactivatedAccount(existingAccount);
+  }
 
   const tenantId = `tenant-${randomUUID()}`;
   const employeeId = `emp-${randomUUID()}`;

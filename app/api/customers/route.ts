@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return jsonError("غير مصرح", 401);
+  if (!(await userHasViewPermission(user, "contacts"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
   return jsonOk(await getCustomers(user.tenantId));
 }
 

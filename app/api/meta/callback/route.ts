@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { syncMetaTemplates } from "../../../../lib/meta-templates";
@@ -156,7 +157,19 @@ export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   const wantsJson = request.headers.get("accept")?.includes("application/json");
 
-  if (!stateValues && searchParams.has("code")) {
+  const wabaId = searchParams.get("waba_id") || searchParams.get("whatsapp_business_account_id") || "";
+  const phoneNumberId = searchParams.get("phone_number_id") || "";
+  const businessId = searchParams.get("business_id") || "";
+  const phoneNumber = searchParams.get("phone_number") || "";
+  const code = searchParams.get("code") || "";
+
+  // Any of these params (not just `code`) is enough to drive the WhatsApp
+  // branch below into overwriting the tenant's WABA/phone binding using its
+  // existing access token - so all of them, not only `code`, must be behind
+  // a verified CSRF state. Without this, a plain GET like
+  // ?channel=whatsapp&waba_id=X&phone_number_id=Y (no code, no state) would
+  // silently rebind a logged-in victim's WhatsApp number to an attacker's.
+  if (!stateValues && (code || wabaId || phoneNumberId || businessId)) {
     if (wantsJson) return NextResponse.json({ ok: false, error: "تعذر التحقق من طلب الربط" }, { status: 400 });
     return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=invalid-state&view=settings");
   }
@@ -165,13 +178,12 @@ export async function GET(request: NextRequest) {
     if (wantsJson) return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
     return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   }
+  if (!(await userHasViewPermission(user, "settings"))) {
+    if (wantsJson) return NextResponse.json({ ok: false, error: "لا تملك صلاحية الوصول لإعدادات القنوات" }, { status: 403 });
+    return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=forbidden&view=settings");
+  }
 
   const settings = await getIntegrationSettings(channel, user.tenantId);
-  const wabaId = searchParams.get("waba_id") || searchParams.get("whatsapp_business_account_id") || "";
-  const phoneNumberId = searchParams.get("phone_number_id") || "";
-  const businessId = searchParams.get("business_id") || "";
-  const phoneNumber = searchParams.get("phone_number") || "";
-  const code = searchParams.get("code") || "";
 
   if (channel === "instagram" && code) {
     // Direct Instagram login ("API setup with Instagram login") - a

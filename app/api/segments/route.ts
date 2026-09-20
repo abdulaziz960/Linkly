@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   if (!user) return jsonError("غير مصرح", 401);
   if (!(await userHasViewPermission(user, "segments"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
-  const body = (await request.json().catch(() => null)) as { name?: string; tagNames?: string[]; inactiveDays?: number; sourceCampaignId?: string; engagementBucket?: string; engagementDateFrom?: string; engagementDateTo?: string } | null;
+  const body = (await request.json().catch(() => null)) as { name?: string; tagNames?: string[]; inactiveDays?: number; sourceCampaignId?: string; engagementBucket?: string; engagementDateFrom?: string; engagementDateTo?: string; engagementClickCount?: number } | null;
   const name = body?.name?.trim();
   if (!name) return jsonError("اسم التقسيم مطلوب");
 
@@ -40,10 +40,10 @@ export async function POST(request: NextRequest) {
     if (tagNames.some((tagName) => !validTagNames.has(tagName))) return jsonError("أحد الوسوم المختارة غير موجود");
   }
 
-  const { sourceCampaignId, engagementBucket, engagementDateFrom, engagementDateTo, error: engagementError } = await resolveEngagementFields(user.tenantId, body);
+  const { sourceCampaignId, engagementBucket, engagementDateFrom, engagementDateTo, engagementClickCount, error: engagementError } = await resolveEngagementFields(user.tenantId, body);
   if (engagementError) return jsonError(engagementError);
 
-  const segment = await createSegment(user.tenantId, { name, tagNames, inactiveDays, sourceCampaignId, engagementBucket, engagementDateFrom, engagementDateTo });
+  const segment = await createSegment(user.tenantId, { name, tagNames, inactiveDays, sourceCampaignId, engagementBucket, engagementDateFrom, engagementDateTo, engagementClickCount });
   const recipientCount = (await resolveSegmentRecipients(user.tenantId, segment)).length;
 
   return jsonOk({ ...segment, recipientCount });

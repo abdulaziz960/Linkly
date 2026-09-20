@@ -25,11 +25,14 @@ export async function handleMarketingOptOutKeyword(input: { tenantId: string; co
   const isOptIn = !isOptOut && optInKeywords.has(normalized);
   if (!isOptOut && !isOptIn) return;
 
-  const conversation = await prisma.conversation.findUnique({ where: { id: input.conversationId }, select: { customerId: true } });
+  // tenantId is currently always server-derived (from the receiving WABA),
+  // never client input - scoping by it here anyway is defense-in-depth in
+  // case a future caller ever passes it through less trustworthy data.
+  const conversation = await prisma.conversation.findFirst({ where: { id: input.conversationId, tenantId: input.tenantId }, select: { customerId: true } });
   if (!conversation) return;
 
-  await prisma.customer.update({
-    where: { id: conversation.customerId },
+  await prisma.customer.updateMany({
+    where: { id: conversation.customerId, tenantId: input.tenantId },
     data: isOptOut
       ? { marketingOptOut: 1, marketingOptOutAt: new Date().toISOString() }
       : { marketingOptOut: 0, marketingOptOutAt: "" }

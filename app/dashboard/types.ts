@@ -184,6 +184,7 @@ export type Segment = {
   engagementBucket: "" | "notOpened" | "opened" | "clicked";
   engagementDateFrom: string;
   engagementDateTo: string;
+  engagementClickCount: number;
   recipientCount: number;
   createdAt: string;
   updatedAt: string;

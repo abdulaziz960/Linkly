@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getYoutubeRedirectUri, youtubeClientId, youtubeScope } from "../../../../lib/youtube";
 import { getAppOrigin } from "../../../../lib/app-url";
 
@@ -9,6 +10,9 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
+  if (!(await userHasViewPermission(user, "settings"))) {
+    return NextResponse.redirect(new URL("/dashboard?view=settings&channel=youtube&youtube=forbidden", getAppOrigin(request)));
+  }
 
   const clientId = youtubeClientId();
   if (!clientId) {

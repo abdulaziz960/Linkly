@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getXPlatformCredentials } from "../../../../lib/x-platform";
 import { ensureXRealtimeDelivery } from "../../../../lib/x-activity";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { safeEqual } from "../../../../lib/oauth-state";
 
 export const runtime = "nodejs";
 
@@ -38,12 +40,13 @@ export async function GET(request: NextRequest) {
   const savedState = request.cookies.get("audiencew_x_state")?.value;
   const verifier = request.cookies.get("audiencew_x_verifier")?.value;
 
-  if (!code || !state || !savedState || !verifier || state !== savedState) {
+  if (!code || !state || !savedState || !verifier || !safeEqual(state, savedState)) {
     return dashboardRedirect(request, "invalid-callback");
   }
 
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
+  if (!(await userHasViewPermission(user, "settings"))) return dashboardRedirect(request, "forbidden");
 
   const settings = await getIntegrationSettings("x", user.tenantId);
   const { clientId, clientSecret } = getXPlatformCredentials(settings);

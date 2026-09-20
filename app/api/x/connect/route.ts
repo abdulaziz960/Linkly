@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getXPlatformCredentials } from "../../../../lib/x-platform";
 import { getAppOrigin } from "../../../../lib/app-url";
 
@@ -15,6 +16,9 @@ export async function GET(request: NextRequest) {
   const appOrigin = getAppOrigin(request);
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", appOrigin));
+  if (!(await userHasViewPermission(user, "settings"))) {
+    return NextResponse.redirect(new URL("/dashboard?x=forbidden&view=settings", appOrigin));
+  }
 
   const settings = await getIntegrationSettings("x", user.tenantId);
   const { clientId, clientSecret } = getXPlatformCredentials(settings);

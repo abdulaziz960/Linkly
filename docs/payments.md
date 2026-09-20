@@ -100,7 +100,7 @@ caller forgets it. The same JSON is stored on the payment row as
 | `POST /api/campaigns/balance/charge` `{ messages }` | campaigns permission | Stages a `CampaignPayment` and returns `{ ok: true, data: { paymentId } }`. Price is computed server-side. |
 | `GET /billing/pay/campaign/[paymentId]` | campaigns permission | Same embedded checkout as `/billing/pay/[paymentId]`, for a staged `CampaignPayment`. |
 | `POST /api/campaigns/balance/confirm-payment` `{ paymentId, moyasarPaymentId }` | campaigns permission | Campaign-topup counterpart of `/api/billing/confirm-payment`. |
-| `GET /checkout/test?paymentId` + `POST /api/billing/confirm-test` | dev only | Simulated payment page when no Moyasar key is set. Refuses to run in production or when a key exists. Subscription only - campaign top-up has no dev simulator. |
+| `GET /checkout/test?paymentId` + `POST /api/billing/confirm-test` | dev only | Simulated payment page when no Moyasar key is set. Refuses to run in production, when a key exists, or unless `ENABLE_TEST_CHECKOUT=true` is explicitly set - a non-production environment that simply forgot to configure Moyasar does not get this for free. Subscription only - campaign top-up has no dev simulator. |
 
 ### Gateway callbacks
 
@@ -150,7 +150,7 @@ webhook or a double click can never double-renew or double-credit.
 | Moyasar webhooks and the cron reconciler | `applyVerifiedGatewayOutcome()`, which maps the verified invoice status and also records failures and refunds (`markPaymentOutcome`) |
 | Embedded checkout confirm routes (`/api/billing/confirm-payment`, `/api/campaigns/balance/confirm-payment`) | Also `applyVerifiedGatewayOutcome()`, but for a directly-fetched Moyasar **Payment** rather than an invoice - called by `MoyasarPayForm`'s `on_completed` and, for out-of-band 3-D Secure returns, by `/billing/success` |
 | Stripe test-mode return | `stripe-return` route, only for the session created for that payment and only when the amounts match |
-| Dev payment simulator | `confirm-test` route, disabled in production and whenever a Moyasar key is set |
+| Dev payment simulator | `confirm-test` route, disabled in production, whenever a Moyasar key is set, or unless `ENABLE_TEST_CHECKOUT=true` |
 
 Manual admin credits (`addManualCampaignBalance` in `lib/campaign-engine.ts`)
 are the one exception: they write a completed `manual` payment row and add
@@ -280,7 +280,9 @@ gcloud scheduler jobs create http linkly-campaigns-cron \
 
 Without `MOYASAR_SECRET_KEY`, checkout falls back to `/checkout/test`, a
 simulated page whose confirm button runs the exact same
-`applyConfirmedSubscriptionPayment` path with `gateway = test`. With a
+`applyConfirmedSubscriptionPayment` path with `gateway = test` - but only
+once `ENABLE_TEST_CHECKOUT=true` is also set in `.env`; otherwise checkout
+just returns "بوابة الدفع غير مهيأة حاليًا". With a
 `sk_test_…` key, real Moyasar sandbox invoices are created. Use Moyasar's
 test cards and expose your dev server through a tunnel set as `APP_URL`, so
 the webhook can reach you. Without a tunnel nothing activates the payment in

@@ -511,6 +511,11 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_date_to TEXT NOT NULL DEFAULT ''`
   );
+  // Segment targeting by an exact click count (migration
+  // 20260921090000_segment_engagement_click_count).
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_click_count INTEGER NOT NULL DEFAULT 0`
+  );
 
   // Workspace AI settings/usage tables - added directly here, not the
   // disabled legacy block, per the closed_at lesson above.
@@ -623,6 +628,20 @@ async function runRequiredProductionMigrations() {
   );
   await prisma.$executeRawUnsafe(
     `ALTER TABLE customers ADD COLUMN IF NOT EXISTS marketing_opt_out_at TEXT NOT NULL DEFAULT ''`
+  );
+  // Per-click log (migration 20260920120000_campaign_recipient_click_log) -
+  // same bridge reasoning as leads/push_subscriptions above.
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipient_clicks (
+    id TEXT PRIMARY KEY,
+    recipient_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    clicked_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS campaign_recipient_clicks_recipient_id_idx ON campaign_recipient_clicks(recipient_id)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS campaign_recipient_clicks_tenant_id_idx ON campaign_recipient_clicks(tenant_id)`
   );
 }
 
@@ -1453,6 +1472,14 @@ async function runSchemaMigrations() {
   await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_key ON push_subscriptions(endpoint)`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS push_subscriptions_tenant_id_idx ON push_subscriptions(tenant_id)`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx ON push_subscriptions(user_id)`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recipient_clicks (
+    id TEXT PRIMARY KEY,
+    recipient_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    clicked_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS campaign_recipient_clicks_recipient_id_idx ON campaign_recipient_clicks(recipient_id)`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS campaign_recipient_clicks_tenant_id_idx ON campaign_recipient_clicks(tenant_id)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_recurrences (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,
@@ -1483,6 +1510,9 @@ async function runSchemaMigrations() {
     if (!segmentColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE segments ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
+  }
+  if (!segmentColumns.some((column) => column.name === "engagement_click_count")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE segments ADD COLUMN engagement_click_count INTEGER NOT NULL DEFAULT 0`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_insights (
     id TEXT PRIMARY KEY,

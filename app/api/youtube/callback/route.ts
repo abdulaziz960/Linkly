@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getYoutubeRedirectUri, youtubeClientId, youtubeClientSecret, getMyChannelInfo } from "../../../../lib/youtube";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { safeEqual } from "../../../../lib/oauth-state";
 
 export const runtime = "nodejs";
 
@@ -34,13 +36,17 @@ export async function GET(request: NextRequest) {
   redirectTo.searchParams.set("view", "settings");
   redirectTo.searchParams.set("channel", "youtube");
 
-  if (!code || !state || state !== savedState) {
+  if (!code || !state || !savedState || !safeEqual(state, savedState)) {
     redirectTo.searchParams.set("youtube", "invalid-state");
     return NextResponse.redirect(redirectTo);
   }
 
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
+  if (!(await userHasViewPermission(user, "settings"))) {
+    redirectTo.searchParams.set("youtube", "forbidden");
+    return NextResponse.redirect(redirectTo);
+  }
 
   const clientId = youtubeClientId();
   const clientSecret = youtubeClientSecret();

@@ -9,6 +9,7 @@ import {
   type SupportAttachmentInput
 } from "../../../../lib/support";
 import { nextTicketNumber, recordSupportAuditLog } from "../../../../lib/support-server";
+import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -45,6 +46,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return jsonError("غير مصرح", 401);
+
+  // Each ticket can carry up to 5 attachments (~12MB of base64 each) stored
+  // straight in the DB - without a cap, one account could flood the shared
+  // support queue or run up real storage at no cost to themselves.
+  const rateLimit = await consumeRateLimit("support-ticket", requestIdentifier(request, user.id), 10, 60 * 60 * 1000);
+  if (!rateLimit.allowed) {
+    return jsonError("تم إرسال عدد كبير من التذاكر. حاول مرة أخرى بعد قليل", 429);
+  }
 
   const body = (await request.json()) as {
     subject?: string;

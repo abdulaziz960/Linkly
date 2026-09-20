@@ -101,7 +101,11 @@ export async function sendActivationEmail({ to, name, activationUrl, purpose = "
     return { sent: true, message: sentMessage };
   }
 
-  console.warn("Activation email was not sent because no working email provider is configured", { to, activationUrl });
+  // Never log activationUrl - it's a live, single-use bearer link (password
+  // reset/activation/invite acceptance). The API response already carries it
+  // back to the caller for the direct-link fallback; that's the only place
+  // it should travel.
+  console.warn("Activation email was not sent because no working email provider is configured", { to, purpose });
 
   return {
     sent: false,

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getGoogleRedirectUri } from "../../../../lib/google-business";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { safeEqual } from "../../../../lib/oauth-state";
 
 type GoogleTokenPayload = {
   access_token?: string;
@@ -52,13 +54,17 @@ export async function GET(request: NextRequest) {
   const savedState = request.cookies.get("audiencew_google_state")?.value;
   const redirectTo = new URL("/dashboard", getAppOrigin(request));
 
-  if (!code || !state || state !== savedState) {
+  if (!code || !state || !savedState || !safeEqual(state, savedState)) {
     redirectTo.searchParams.set("google", "invalid-state");
     return NextResponse.redirect(redirectTo);
   }
 
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
+  if (!(await userHasViewPermission(user, "settings"))) {
+    redirectTo.searchParams.set("google", "forbidden");
+    return NextResponse.redirect(redirectTo);
+  }
 
   const settings = await getIntegrationSettings("google_maps", user.tenantId);
   const redirectUri = getGoogleRedirectUri(request);

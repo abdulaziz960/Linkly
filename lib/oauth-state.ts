@@ -19,7 +19,7 @@ function sign(payload: string) {
   return createHmac("sha256", signingSecret()).update(payload).digest("base64url");
 }
 
-function safeEqual(actual: string, expected: string) {
+export function safeEqual(actual: string, expected: string) {
   const actualBuffer = Buffer.from(actual);
   const expectedBuffer = Buffer.from(expected);
   return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);

@@ -4,6 +4,7 @@ import { prisma } from "../../../../../lib/prisma";
 import { retrieveStripeCheckoutSession } from "../../../../../lib/stripe";
 import { applyConfirmedSubscriptionPayment, expectedHalalas, logAdminAction } from "../../../../../lib/subscriptions";
 import { getPaymentCallbackOrigin } from "../../../../../lib/app-url";
+import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,16 @@ const baseUrl = getPaymentCallbackOrigin;
  * a test-mode-only gateway.
  */
 export async function GET(request: NextRequest) {
+  // Only a platform admin's own browser should ever land here for real -
+  // Stripe's redirect carries the admin's existing session cookie along on
+  // this top-level navigation. Gating it the same way as every other
+  // admin/subscriptions route closes off an anonymous caller replaying a
+  // leaked session_id/paymentId pair to activate someone's subscription.
+  const admin = await requirePlatformAdmin();
+  if (!admin) {
+    return NextResponse.redirect(`${baseUrl()}/linkly-admin007`);
+  }
+
   const sessionId = request.nextUrl.searchParams.get("session_id");
   const paymentId = request.nextUrl.searchParams.get("paymentId");
 

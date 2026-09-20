@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
+import { safeEqual } from "../../../../lib/oauth-state";
 
 export const runtime = "nodejs";
 
@@ -24,7 +26,7 @@ export async function GET(request: NextRequest) {
   const savedState = request.cookies.get("tiktok_oauth_state")?.value || "";
   const codeVerifier = request.cookies.get("tiktok_oauth_verifier")?.value || "";
 
-  if (!code || !state || !savedState || state !== savedState || !codeVerifier) {
+  if (!code || !state || !savedState || !safeEqual(state, savedState) || !codeVerifier) {
     return closePopup(origin, "تعذر التحقق من الطلب. أغلق النافذة وحاول من جديد.");
   }
 
@@ -75,6 +77,9 @@ export async function GET(request: NextRequest) {
 
   const user = await getCurrentUser();
   if (!user) return closePopup(origin, "انتهت جلستك. سجّل الدخول من جديد وحاول الربط مرة أخرى.");
+  if (!(await userHasViewPermission(user, "settings"))) {
+    return closePopup(origin, "لا تملك صلاحية الوصول لإعدادات القنوات.");
+  }
 
   const settings = await getIntegrationSettings("tiktok", user.tenantId);
 
