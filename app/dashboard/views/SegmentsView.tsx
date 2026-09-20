@@ -18,11 +18,12 @@ type SegmentFormState = {
   engagementBucket: EngagementBucketOrEmpty;
   engagementDateFrom: string;
   engagementDateTo: string;
+  engagementClickCount: string;
 };
 
 const emptyForm: SegmentFormState = {
   name: "", tagNames: [], inactiveDays: "", sourceCampaignId: "",
-  engagementBucket: "", engagementDateFrom: "", engagementDateTo: ""
+  engagementBucket: "", engagementDateFrom: "", engagementDateTo: "", engagementClickCount: ""
 };
 
 // A segment can only target a campaign that has actually gone out - one
@@ -164,7 +165,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
     }));
   }
 
-  async function saveSegment(payload: { name: string; tagNames: string[]; inactiveDays: number; sourceCampaignId: string; engagementBucket: EngagementBucketOrEmpty; engagementDateFrom: string; engagementDateTo: string }, id?: string) {
+  async function saveSegment(payload: { name: string; tagNames: string[]; inactiveDays: number; sourceCampaignId: string; engagementBucket: EngagementBucketOrEmpty; engagementDateFrom: string; engagementDateTo: string; engagementClickCount: number }, id?: string) {
     const response = await fetch(id ? `/api/segments/${id}` : "/api/segments", {
       method: id ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
@@ -186,7 +187,8 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
       sourceCampaignId: form.sourceCampaignId,
       engagementBucket: form.engagementBucket,
       engagementDateFrom: form.engagementDateFrom,
-      engagementDateTo: form.engagementDateTo
+      engagementDateTo: form.engagementDateTo,
+      engagementClickCount: form.engagementBucket === "clicked" ? Number(form.engagementClickCount) || 0 : 0
     }, form.id);
 
     if (!result.ok) {
@@ -212,7 +214,8 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
       sourceCampaignId: "",
       engagementBucket: activeBucket,
       engagementDateFrom: overviewDateFrom,
-      engagementDateTo: overviewDateTo
+      engagementDateTo: overviewDateTo,
+      engagementClickCount: 0
     });
 
     if (!result.ok) {
@@ -253,7 +256,10 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
       const range = segment.engagementDateFrom || segment.engagementDateTo
         ? ` (${segment.engagementDateFrom || "…"} → ${segment.engagementDateTo || "…"})`
         : "";
-      parts.push(`${engagementBucketLabel(segment.engagementBucket)} - ${scope}${range}`);
+      const exactClicks = segment.engagementBucket === "clicked" && segment.engagementClickCount > 0
+        ? ` - ${t(`نقر ${segment.engagementClickCount} مرة بالضبط`, `clicked exactly ${segment.engagementClickCount}x`)}`
+        : "";
+      parts.push(`${engagementBucketLabel(segment.engagementBucket)} - ${scope}${range}${exactClicks}`);
     }
     return parts.length ? parts.join(" + ") : t("كل العملاء", "All customers");
   }
@@ -468,7 +474,8 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
                     ...current, engagementBucket: value as EngagementBucketOrEmpty,
                     sourceCampaignId: value ? current.sourceCampaignId : "",
                     engagementDateFrom: value ? current.engagementDateFrom : "",
-                    engagementDateTo: value ? current.engagementDateTo : ""
+                    engagementDateTo: value ? current.engagementDateTo : "",
+                    engagementClickCount: value === "clicked" ? current.engagementClickCount : ""
                   }))}
                   options={[
                     { value: "", label: t("بدون شرط", "No condition") },
@@ -502,6 +509,19 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
                   </label>
                   <small className="field-hint">{t("يقتصر هذا الشرط على العملاء المطابقين ضمن الحملة والفترة المحددتين (أو كل الحملات إذا تُركتا فارغتين).", "This condition only applies to matching customers within the chosen campaign and date range (or every campaign if left blank).")}</small>
                 </>
+              ) : null}
+              {form.engagementBucket === "clicked" ? (
+                <label>
+                  <span>{t("عدد مرات النقر بالضبط (اختياري)", "Exact number of clicks (optional)")}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.engagementClickCount}
+                    onChange={(event) => setForm((current) => ({ ...current, engagementClickCount: event.target.value }))}
+                    placeholder={t("بدون شرط", "No condition")}
+                  />
+                  <small className="field-hint">{t("مثال: 3 يعني عملاء ضغطوا الرابط 3 مرات بالضبط. اتركه فارغاً ليشمل كل من تفاعل بغض النظر عن عدد مرات النقر.", "Example: 3 means customers who clicked the link exactly 3 times. Leave it blank to include everyone who clicked, regardless of how many times.")}</small>
+                </label>
               ) : null}
               {error ? <p className="form-error">{error}</p> : null}
             </div>

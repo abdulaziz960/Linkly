@@ -511,6 +511,11 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_date_to TEXT NOT NULL DEFAULT ''`
   );
+  // Segment targeting by an exact click count (migration
+  // 20260921090000_segment_engagement_click_count).
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_click_count INTEGER NOT NULL DEFAULT 0`
+  );
 
   // Workspace AI settings/usage tables - added directly here, not the
   // disabled legacy block, per the closed_at lesson above.
@@ -1488,6 +1493,9 @@ async function runSchemaMigrations() {
     if (!segmentColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE segments ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
+  }
+  if (!segmentColumns.some((column) => column.name === "engagement_click_count")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE segments ADD COLUMN engagement_click_count INTEGER NOT NULL DEFAULT 0`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_insights (
     id TEXT PRIMARY KEY,

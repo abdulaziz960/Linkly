@@ -364,6 +364,10 @@ model Segment {
   engagementBucket String @default("") @map("engagement_bucket")
   engagementDateFrom String @default("") @map("engagement_date_from")
   engagementDateTo String @default("") @map("engagement_date_to")
+  // Only meaningful (and only ever set) when engagementBucket = "clicked" -
+  // 0 means "no exact-count condition", any positive value requires a
+  // matching customer's CampaignRecipient.clickCount to equal it exactly.
+  engagementClickCount Int @default(0) @map("engagement_click_count")
   createdAt    String @map("created_at")
   updatedAt    String @map("updated_at")
 

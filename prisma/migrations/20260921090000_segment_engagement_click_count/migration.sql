@@ -1,0 +1,1 @@
+ALTER TABLE segments ADD COLUMN IF NOT EXISTS engagement_click_count INTEGER NOT NULL DEFAULT 0;

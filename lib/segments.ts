@@ -16,6 +16,7 @@ export type SegmentCriteria = {
   engagementBucket: EngagementBucket | "";
   engagementDateFrom: string;
   engagementDateTo: string;
+  engagementClickCount: number;
 };
 
 export type SegmentRecord = {
@@ -27,6 +28,7 @@ export type SegmentRecord = {
   engagementBucket: EngagementBucket | "";
   engagementDateFrom: string;
   engagementDateTo: string;
+  engagementClickCount: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -40,7 +42,7 @@ function parseTagNames(value: string): string[] {
   }
 }
 
-type SegmentRow = { id: string; name: string; tagNames: string; inactiveDays: number; sourceCampaignId: string; engagementBucket: string; engagementDateFrom: string; engagementDateTo: string; createdAt: string; updatedAt: string };
+type SegmentRow = { id: string; name: string; tagNames: string; inactiveDays: number; sourceCampaignId: string; engagementBucket: string; engagementDateFrom: string; engagementDateTo: string; engagementClickCount: number; createdAt: string; updatedAt: string };
 
 function toSegmentRecord(row: SegmentRow): SegmentRecord {
   return {
@@ -52,6 +54,7 @@ function toSegmentRecord(row: SegmentRow): SegmentRecord {
     engagementBucket: row.engagementBucket === "notReceived" || row.engagementBucket === "notOpened" || row.engagementBucket === "opened" || row.engagementBucket === "clicked" ? row.engagementBucket : "",
     engagementDateFrom: row.engagementDateFrom,
     engagementDateTo: row.engagementDateTo,
+    engagementClickCount: row.engagementClickCount,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -70,42 +73,48 @@ export async function getSegmentById(tenantId: string, id: string): Promise<Segm
 const validEngagementBuckets = new Set(["notReceived", "notOpened", "opened", "clicked"]);
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
-type EngagementFieldsInput = { sourceCampaignId?: string; engagementBucket?: string; engagementDateFrom?: string; engagementDateTo?: string };
-type EngagementFieldsResult = { sourceCampaignId: string; engagementBucket: EngagementBucket | ""; engagementDateFrom: string; engagementDateTo: string; error?: string };
+type EngagementFieldsInput = { sourceCampaignId?: string; engagementBucket?: string; engagementDateFrom?: string; engagementDateTo?: string; engagementClickCount?: number | string };
+type EngagementFieldsResult = { sourceCampaignId: string; engagementBucket: EngagementBucket | ""; engagementDateFrom: string; engagementDateTo: string; engagementClickCount: number; error?: string };
 
 /**
  * engagementBucket is the trigger for the whole condition - empty clears
  * everything else too, since a leftover campaign/date with no bucket is
  * meaningless. When a bucket IS set, sourceCampaignId and the two dates are
  * each independently optional refinements (empty = unbounded on that side).
- * Confirms a given campaign actually belongs to this tenant, so a segment
- * can never be pointed at another tenant's campaign data.
+ * engagementClickCount only ever makes sense for the "clicked" bucket
+ * specifically - a recipient who never clicked has no click count worth
+ * matching exactly. Confirms a given campaign actually belongs to this
+ * tenant, so a segment can never be pointed at another tenant's campaign
+ * data.
  */
 export async function resolveEngagementFields(tenantId: string, body: EngagementFieldsInput | null): Promise<EngagementFieldsResult> {
-  const empty = { sourceCampaignId: "", engagementBucket: "" as const, engagementDateFrom: "", engagementDateTo: "" };
+  const empty = { sourceCampaignId: "", engagementBucket: "" as const, engagementDateFrom: "", engagementDateTo: "", engagementClickCount: 0 };
   const sourceCampaignId = body?.sourceCampaignId?.trim() || "";
   const engagementBucketRaw = body?.engagementBucket?.trim() || "";
   const engagementDateFrom = body?.engagementDateFrom?.trim() || "";
   const engagementDateTo = body?.engagementDateTo?.trim() || "";
+  const engagementClickCount = Number(body?.engagementClickCount) || 0;
 
   if (!engagementBucketRaw) {
-    if (sourceCampaignId || engagementDateFrom || engagementDateTo) return { ...empty, error: "اختر حالة التفاعل أولًا" };
+    if (sourceCampaignId || engagementDateFrom || engagementDateTo || engagementClickCount) return { ...empty, error: "اختر حالة التفاعل أولًا" };
     return empty;
   }
   if (!validEngagementBuckets.has(engagementBucketRaw)) return { ...empty, error: "حالة تفاعل غير صالحة" };
   if (engagementDateFrom && !isoDatePattern.test(engagementDateFrom)) return { ...empty, error: "تنسيق تاريخ البداية غير صالح" };
   if (engagementDateTo && !isoDatePattern.test(engagementDateTo)) return { ...empty, error: "تنسيق تاريخ النهاية غير صالح" };
   if (engagementDateFrom && engagementDateTo && engagementDateFrom > engagementDateTo) return { ...empty, error: "تاريخ البداية يجب أن يسبق تاريخ النهاية" };
+  if (engagementClickCount < 0 || !Number.isInteger(engagementClickCount)) return { ...empty, error: "عدد النقرات غير صالح" };
+  if (engagementClickCount > 0 && engagementBucketRaw !== "clicked") return { ...empty, error: "عدد النقرات يُستخدم فقط مع حالة \"تفاعل\"" };
 
   if (sourceCampaignId) {
     const campaign = await prisma.campaign.findFirst({ where: { id: sourceCampaignId, tenantId } });
     if (!campaign) return { ...empty, error: "الحملة المختارة غير موجودة" };
   }
 
-  return { sourceCampaignId, engagementBucket: engagementBucketRaw as EngagementBucket, engagementDateFrom, engagementDateTo };
+  return { sourceCampaignId, engagementBucket: engagementBucketRaw as EngagementBucket, engagementDateFrom, engagementDateTo, engagementClickCount };
 }
 
-type SegmentInput = { name: string; tagNames: string[]; inactiveDays: number; sourceCampaignId: string; engagementBucket: EngagementBucket | ""; engagementDateFrom: string; engagementDateTo: string };
+type SegmentInput = { name: string; tagNames: string[]; inactiveDays: number; sourceCampaignId: string; engagementBucket: EngagementBucket | ""; engagementDateFrom: string; engagementDateTo: string; engagementClickCount: number };
 
 export async function createSegment(tenantId: string, input: SegmentInput): Promise<SegmentRecord> {
   const now = new Date().toISOString();
@@ -120,6 +129,7 @@ export async function createSegment(tenantId: string, input: SegmentInput): Prom
       engagementBucket: input.engagementBucket,
       engagementDateFrom: input.engagementDateFrom,
       engagementDateTo: input.engagementDateTo,
+      engagementClickCount: input.engagementClickCount,
       createdAt: now,
       updatedAt: now
     }
@@ -140,6 +150,7 @@ export async function updateSegment(tenantId: string, id: string, input: Segment
       engagementBucket: input.engagementBucket,
       engagementDateFrom: input.engagementDateFrom,
       engagementDateTo: input.engagementDateTo,
+      engagementClickCount: input.engagementClickCount,
       updatedAt: new Date().toISOString()
     }
   });
@@ -211,6 +222,7 @@ async function resolveCampaignEngagementMatches(tenantId: string, criteria: Segm
   const matches = new Map<string, string>();
   for (const recipient of recipients) {
     if (engagementBucketFor(recipient) !== criteria.engagementBucket) continue;
+    if (criteria.engagementClickCount > 0 && recipient.clickCount !== criteria.engagementClickCount) continue;
     const phone = normalizeWhatsAppPhone(recipient.phone);
     if (phone && !matches.has(phone)) matches.set(phone, campaignNames.get(recipient.campaignId) || "");
   }
