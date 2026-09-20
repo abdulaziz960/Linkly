@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
 import { getTemplates, getIntegrationSettings } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
@@ -108,6 +109,7 @@ export async function POST(request: NextRequest) {
         headerText,
         headerMedia: headerMediaHandle,
         headerMediaDataUrl,
+        mediaToken: headerMediaDataUrl ? randomUUID() : "",
         footer,
         buttonType,
         buttonText,

@@ -181,6 +181,11 @@ model Template {
   headerText  String @default("") @map("header_text")
   headerMedia String @default("") @map("header_media")
   headerMediaDataUrl String @default("") @map("header_media_data_url")
+  // Public media-serving URL token (app/api/whatsapp/template-media/[id])
+  // uses this instead of the template's own id, which is predictable
+  // (tmpl-<tenantId>-<name>) and therefore not a safe bearer secret for an
+  // unauthenticated endpoint - see the pre-launch audit finding F-01.
+  mediaToken  String @default("") @map("media_token")
   footer      String @default("")
   buttonType  String @default("NONE") @map("button_type")
   buttonText  String @default("") @map("button_text")
@@ -191,6 +196,7 @@ model Template {
   lastUsed    String @map("last_used")
 
   @@unique([name, tenantId])
+  @@index([mediaToken])
   @@map("templates")
 }
 

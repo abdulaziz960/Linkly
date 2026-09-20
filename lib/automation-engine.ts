@@ -252,7 +252,7 @@ async function executeAction(action: StoredAction, tenantId: string, conversatio
         customerName: conversation.customer.name,
         author: AUTOMATION_AUTHOR,
         keepWindowExpired: Boolean(conversation.windowExpired),
-        templateId: template.id,
+        templateId: template.mediaToken || template.id,
         headerType: template.headerType,
         headerText: template.headerText,
         headerMediaDataUrl: template.headerMediaDataUrl

@@ -212,7 +212,7 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
   if (needsHeaderMedia && (campaignHasHeaderMedia || templateRecord.headerMediaDataUrl)) {
     const mediaUrl = campaignHasHeaderMedia
       ? `${baseUrl}/api/whatsapp/campaign-media/${campaignId}`
-      : `${baseUrl}/api/whatsapp/template-media/${templateRecord.id}`;
+      : `${baseUrl}/api/whatsapp/template-media/${templateRecord.mediaToken || templateRecord.id}`;
     const mediaKey = templateRecord.headerType.toLowerCase();
     components.push({ type: "header", parameters: [{ type: mediaKey, [mediaKey]: { link: mediaUrl } }] });
   } else if (needsHeaderMedia) {

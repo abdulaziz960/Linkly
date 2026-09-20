@@ -1300,10 +1300,27 @@ async function runSchemaMigrations() {
   }
   if (isPostgresDatabase) {
     await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD COLUMN IF NOT EXISTS header_media_data_url TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD COLUMN IF NOT EXISTS media_token TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS templates_media_token_idx ON templates(media_token)`);
   } else if (!templateColumns.some((column) => column.name === "header_media_data_url")) {
     // SQLite has no "ADD COLUMN IF NOT EXISTS" - guard with the same
     // PRAGMA table_info check used for the templates table above.
     await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD COLUMN header_media_data_url TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!isPostgresDatabase && !templateColumns.some((column) => column.name === "media_token")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE templates ADD COLUMN media_token TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS templates_media_token_idx ON templates(media_token)`);
+  }
+  // Backfill: any template that already has header media but no token yet
+  // (pre-existing rows from before this column existed) needs one now, or
+  // its public media URL (constructed from mediaToken) would be empty and
+  // break WhatsApp's fetch of an already-approved template's header image.
+  const templatesNeedingToken = await prisma.template.findMany({
+    where: { mediaToken: "", NOT: { headerMediaDataUrl: "" } },
+    select: { id: true }
+  });
+  for (const row of templatesNeedingToken) {
+    await prisma.template.update({ where: { id: row.id }, data: { mediaToken: randomUUID() } }).catch(() => {});
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS quick_replies (
     id TEXT PRIMARY KEY,
@@ -3054,6 +3071,14 @@ export async function verifyUserCredentials(email: string, password: string): Pr
   }
   const verification = verifyPassword(password, user.passwordHash);
   if (!verification.valid) return null;
+  if (verification.legacy) {
+    // Visibility for the pre-launch audit's F-02 finding: this row was
+    // still on the weak unsalted-SHA-256 path until this exact login. If
+    // this stops appearing in logs shortly after deploy, every reachable
+    // account has migrated; scripts/diagnose-legacy-password-hashes.mjs
+    // finds any that haven't logged in to force a reset instead of waiting.
+    console.error(`Legacy SHA-256 password hash upgraded to scrypt on login for user ${user.id}`);
+  }
   if (verification.needsRehash) {
     await prisma.userAccount.update({
       where: { id: user.id },

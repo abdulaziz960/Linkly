@@ -102,6 +102,9 @@ function buildHeaderComponent(input: {
   if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType)) {
     if (!input.headerMediaDataUrl || !input.templateId) return undefined;
     const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://linklysa.io").replace(/\/$/, "");
+    // input.templateId is passed as mediaToken||id by every caller - see
+    // pre-launch audit F-01 (the template's real id is predictable, so it
+    // isn't a safe bearer secret for this unauthenticated endpoint).
     const mediaUrl = `${baseUrl}/api/whatsapp/template-media/${input.templateId}`;
     const mediaKey = headerType.toLowerCase();
     return { type: "header", parameters: [{ type: mediaKey, [mediaKey]: { link: mediaUrl } }] };

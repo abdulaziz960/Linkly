@@ -24,27 +24,31 @@ export function hashPassword(password: string) {
 }
 
 export function verifyPassword(password: string, storedHash: string) {
-  if (!storedHash) return { valid: false, needsRehash: false };
+  if (!storedHash) return { valid: false, needsRehash: false, legacy: false };
 
   const [algorithm, salt, encodedKey] = storedHash.split("$");
   if (algorithm === SCRYPT_PREFIX && salt && encodedKey) {
     try {
       const expected = Buffer.from(encodedKey, "hex");
       const actual = scryptSync(password, salt, expected.length);
-      return { valid: safeEqual(actual, expected), needsRehash: false };
+      return { valid: safeEqual(actual, expected), needsRehash: false, legacy: false };
     } catch {
-      return { valid: false, needsRehash: false };
+      return { valid: false, needsRehash: false, legacy: false };
     }
   }
 
-  // Transitional compatibility for existing SHA-256 rows. A successful
-  // login immediately upgrades the row to scrypt.
+  // Transitional compatibility for existing unsalted SHA-256 rows (weak on
+  // its own - crackable via rainbow tables if the DB ever leaked). A
+  // successful login immediately upgrades the row to scrypt; `legacy: true`
+  // lets the caller log this so any row that never re-authenticates stays
+  // visible instead of silently lingering on the weaker hash. See
+  // pre-launch audit F-02 and scripts/diagnose-legacy-password-hashes.mjs.
   if (/^[a-f0-9]{64}$/i.test(storedHash)) {
     const legacy = createHash("sha256").update(password).digest();
     const expected = Buffer.from(storedHash, "hex");
     const valid = safeEqual(legacy, expected);
-    return { valid, needsRehash: valid };
+    return { valid, needsRehash: valid, legacy: valid };
   }
 
-  return { valid: false, needsRehash: false };
+  return { valid: false, needsRehash: false, legacy: false };
 }
