@@ -81,14 +81,18 @@ describe("template/campaign media routes never serve a disallowed content-type",
         status: "APPROVED",
         headerType: "IMAGE",
         headerMediaDataUrl: svgPayload,
+        mediaToken: "tmpl-media-allowlist-svg-token",
         syncedAt: "-",
         lastUsed: "-"
       }
     });
 
+    // Request by the real mediaToken (not the id - see pre-launch audit
+    // F-01) so this actually exercises the MIME-allowlist rejection below,
+    // rather than 404ing for the unrelated reason of a token mismatch.
     const { GET } = await import("../app/api/whatsapp/template-media/[id]/route");
-    const response = await GET(new NextRequest("http://localhost/api/whatsapp/template-media/tmpl-media-allowlist-svg"), {
-      params: Promise.resolve({ id: "tmpl-media-allowlist-svg" })
+    const response = await GET(new NextRequest("http://localhost/api/whatsapp/template-media/tmpl-media-allowlist-svg-token"), {
+      params: Promise.resolve({ id: "tmpl-media-allowlist-svg-token" })
     });
     expect(response.status).toBe(404);
   });
@@ -107,14 +111,17 @@ describe("template/campaign media routes never serve a disallowed content-type",
         status: "APPROVED",
         headerType: "IMAGE",
         headerMediaDataUrl: pngPayload,
+        mediaToken: "tmpl-media-allowlist-png-token",
         syncedAt: "-",
         lastUsed: "-"
       }
     });
 
+    // The route serves only by mediaToken, never the template's own
+    // (predictable) id - see pre-launch audit F-01.
     const { GET } = await import("../app/api/whatsapp/template-media/[id]/route");
-    const response = await GET(new NextRequest("http://localhost/api/whatsapp/template-media/tmpl-media-allowlist-png"), {
-      params: Promise.resolve({ id: "tmpl-media-allowlist-png" })
+    const response = await GET(new NextRequest("http://localhost/api/whatsapp/template-media/tmpl-media-allowlist-png-token"), {
+      params: Promise.resolve({ id: "tmpl-media-allowlist-png-token" })
     });
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("image/png");
