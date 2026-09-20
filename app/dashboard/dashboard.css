@@ -5178,6 +5178,70 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   font-size: 11px;
 }
 
+.campaign-click-history-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: 6px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.campaign-click-history-toggle:hover {
+  background: var(--surface-soft);
+  color: #0f766e;
+}
+
+.campaign-click-history-row td {
+  background: var(--surface-soft);
+  padding: 0 16px 14px !important;
+}
+
+.campaign-click-history {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.campaign-click-history b {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.campaign-click-history ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.campaign-click-history li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #123330;
+}
+
+.campaign-click-history-index {
+  font-weight: 900;
+  color: #0f766e;
+}
+
 .campaign-date {
   display: inline-flex;
   align-items: center;

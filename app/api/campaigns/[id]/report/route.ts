@@ -22,6 +22,20 @@ export async function GET(_request: Request, context: RouteContext) {
     take: 5000
   });
 
+  // Batched in one query rather than per-recipient, then grouped in memory -
+  // most recipients never clicked at all, so this is typically small even
+  // for a large campaign.
+  const clicks = await prisma.campaignRecipientClick.findMany({
+    where: { recipientId: { in: recipients.map((recipient) => recipient.id) } },
+    orderBy: { clickedAt: "asc" }
+  });
+  const clicksByRecipientId = new Map<string, string[]>();
+  for (const click of clicks) {
+    const list = clicksByRecipientId.get(click.recipientId);
+    if (list) list.push(click.clickedAt);
+    else clicksByRecipientId.set(click.recipientId, [click.clickedAt]);
+  }
+
   return jsonOk({
     linkTrackingEnabled: Boolean(campaign.linkTrackingEnabled),
     recipients: recipients.map((recipient) => ({
@@ -33,6 +47,9 @@ export async function GET(_request: Request, context: RouteContext) {
       readAt: recipient.readAt,
       clickedAt: recipient.clickedAt,
       clickCount: recipient.clickCount,
+      // Empty for a click that happened before this log existed, even if
+      // clickCount is > 0 for it - only ever backfilled going forward.
+      clicks: clicksByRecipientId.get(recipient.id) || [],
       deliveryFailed: recipient.deliveryFailed
     }))
   });

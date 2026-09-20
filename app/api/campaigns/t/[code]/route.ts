@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
 import { ensureSchema } from "../../../../../lib/database";
@@ -28,13 +29,27 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.redirect(fallbackUrl);
   }
 
-  await prisma.campaignRecipient.update({
-    where: { id: recipient.id },
-    data: {
-      clickedAt: recipient.clickedAt || new Date().toISOString(),
-      clickCount: { increment: 1 }
-    }
-  });
+  const clickedAt = new Date().toISOString();
+  await prisma.$transaction([
+    prisma.campaignRecipient.update({
+      where: { id: recipient.id },
+      data: {
+        clickedAt: recipient.clickedAt || clickedAt,
+        clickCount: { increment: 1 }
+      }
+    }),
+    // Individual click log, alongside the summary fields above - lets the
+    // campaign report show exactly when each click happened, not just the
+    // first click time and a running total.
+    prisma.campaignRecipientClick.create({
+      data: {
+        id: `click-${randomUUID()}`,
+        recipientId: recipient.id,
+        tenantId: recipient.tenantId,
+        clickedAt
+      }
+    })
+  ]);
 
   const campaign = await prisma.campaign.findUnique({ where: { id: recipient.campaignId } });
   const destination = campaign?.destinationUrl.trim();
