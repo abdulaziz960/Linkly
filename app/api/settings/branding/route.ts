@@ -24,7 +24,11 @@ export async function PATCH(request: NextRequest) {
   const logoDataUrl = body?.logoDataUrl?.trim() || "";
   const color = body?.color?.trim() || "";
 
-  if (logoDataUrl && !/^data:image\/(png|jpeg|jpg|webp|svg\+xml);base64,/.test(logoDataUrl)) {
+  // svg+xml intentionally excluded - an SVG can carry an embedded <script>,
+  // and while every current consumer only renders this via <img>/next/image
+  // (which never executes SVG scripts), that's not a guarantee worth
+  // depending on for a value accepted straight from the client.
+  if (logoDataUrl && !/^data:image\/(png|jpeg|jpg|webp);base64,/.test(logoDataUrl)) {
     return jsonError("صيغة الشعار غير صالحة");
   }
   if (logoDataUrl.length * 0.75 > MAX_BRAND_LOGO_BYTES) {
