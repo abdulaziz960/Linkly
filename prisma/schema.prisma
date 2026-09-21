@@ -771,6 +771,10 @@ model SubscriptionPayment {
   // payment is confirmed paid, so benefits never precede payment.
   planName          String @default("") @map("plan_name")
   planEmployeeLimit Int    @default(0) @map("plan_employee_limit")
+  // "شهري" or "سنوي" - which period this payment buys (see
+  // computeSubscriptionPeriod/priceForCycle in lib/subscriptions.ts and
+  // lib/billing-pricing.ts). Annual pays the full discounted year upfront.
+  billingCycle      String @default("شهري") @map("billing_cycle")
   // Payment ledger details (see docs/payments.md and CampaignPayment above).
   gateway          String @default("") @map("gateway")
   gatewayPaymentId String @default("") @map("gateway_payment_id")

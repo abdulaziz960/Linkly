@@ -151,6 +151,49 @@
 .billing-owner-notice-logout:hover {
   border-color: var(--brand);
 }
+.billing-cycle-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  max-width: 320px;
+  margin: 0 auto 28px;
+  padding: 4px;
+  background: #f1f1f4;
+  border-radius: 999px;
+}
+.billing-cycle-toggle button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 800;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.billing-cycle-toggle button.active {
+  background: #fff;
+  color: var(--dark);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+.billing-cycle-badge {
+  background: var(--brand);
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.plan-price-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 10px 0 0;
+}
 .plan-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

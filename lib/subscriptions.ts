@@ -6,9 +6,10 @@ import { isValidEmail } from "./validation";
 import { PAYMENT_STATUS, PAYMENT_GATEWAY, mapMoyasarInvoiceStatus, type PaymentKind } from "./payment-status";
 import { chargeSavedCard, buildPaymentMetadata, paymentDescription, summarizeMoyasarPayment, isAutoRenewEnabled, type GatewayPaymentDetails } from "./moyasar";
 import { encryptSecret, decryptSecret } from "./secret-storage";
+import { computeYearlyPrice, isBillingCycle, type BillingCycle } from "./billing-pricing";
 
-/** Length of one paid subscription period. Every plan bills monthly today. */
-export const SUBSCRIPTION_PERIOD_MONTHS = 1;
+/** Length of one paid subscription period, in months, per billing cycle. */
+export const SUBSCRIPTION_PERIOD_MONTHS: Record<BillingCycle, number> = { "شهري": 1, "سنوي": 12 };
 
 function addMonths(date: Date, months: number) {
   const next = new Date(date.getTime());
@@ -24,13 +25,20 @@ function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-/** Denominator days used for a prorated-upgrade credit - see computeProrationCredit. */
-const PRORATION_PERIOD_DAYS = 30;
+/**
+ * Denominator days used for a prorated-upgrade credit - see
+ * computeProrationCredit. The current plan's paid amount is spread evenly
+ * across its own billing cycle length, not always 30 - crediting a yearly
+ * payment's unused ~300 remaining days at a 30-day rate would wildly
+ * overcredit it.
+ */
+const PRORATION_PERIOD_DAYS: Record<BillingCycle, number> = { "شهري": 30, "سنوي": 365 };
 
 /**
  * Credit for the unused days of the CURRENT plan when the owner switches
- * plans mid-cycle, subtracted from the new plan's list price:
- *   credit = currentPlanAmount / 30 * remainingDays
+ * plans (or billing cycle) mid-cycle, subtracted from the new plan's list
+ * price:
+ *   credit = currentPlanAmount / cycleDays * remainingDays
  *   finalAmount = max(0, newPlanPrice - credit)
  * Only applies to an active ("نشط"), still-paid-up subscription changing to
  * a DIFFERENT plan - a trial converting, a suspended account reactivating,
@@ -43,6 +51,7 @@ export function computeProrationCredit(input: {
   currentPlan?: string;
   currentAmount?: number;
   currentRenewalAt?: string;
+  currentBillingCycle?: BillingCycle;
   newPlanName: string;
   newPlanPrice: number;
 }) {
@@ -59,8 +68,9 @@ export function computeProrationCredit(input: {
     return { creditAmount: 0, finalAmount: input.newPlanPrice, remainingDays: 0 };
   }
 
+  const cycleDays = PRORATION_PERIOD_DAYS[input.currentBillingCycle ?? "شهري"];
   const remainingDays = (currentPaidThrough.getTime() - input.now.getTime()) / 86_400_000;
-  const rawCredit = (input.currentAmount / PRORATION_PERIOD_DAYS) * remainingDays;
+  const rawCredit = (input.currentAmount / cycleDays) * remainingDays;
   const creditAmount = Math.round(Math.min(rawCredit, input.newPlanPrice) * 100) / 100;
   const finalAmount = Math.round((input.newPlanPrice - creditAmount) * 100) / 100;
   return { creditAmount, finalAmount, remainingDays: Math.round(remainingDays * 10) / 10 };
@@ -83,12 +93,13 @@ export function computeSubscriptionPeriod(input: {
   currentPlan?: string;
   currentRenewalAt?: string;
   stagedPlanName?: string;
+  billingCycle?: BillingCycle;
 }) {
   const currentPaidThrough = input.currentRenewalAt ? new Date(input.currentRenewalAt) : null;
   const samePlan = !input.stagedPlanName || input.stagedPlanName === input.currentPlan;
   const stillPaidUp = input.currentStatus === "نشط" && currentPaidThrough !== null && Number.isFinite(currentPaidThrough.getTime()) && currentPaidThrough.getTime() > input.now.getTime();
   const periodStart = samePlan && stillPaidUp && currentPaidThrough ? currentPaidThrough : input.now;
-  const periodEnd = addMonths(periodStart, SUBSCRIPTION_PERIOD_MONTHS);
+  const periodEnd = addMonths(periodStart, SUBSCRIPTION_PERIOD_MONTHS[input.billingCycle ?? "شهري"]);
   return { periodStart: isoDate(periodStart), periodEnd: isoDate(periodEnd), extendedFromCurrent: periodStart !== input.now };
 }
 
@@ -250,6 +261,8 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
   const payment = await prisma.subscriptionPayment.findUnique({ where: { id: paymentId } });
   if (!payment) return { activated: false };
 
+  const billingCycle: BillingCycle = isBillingCycle(payment.billingCycle) ? payment.billingCycle : "شهري";
+
   const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.subscription.findUnique({ where: { tenantId: payment.tenantId } });
     const nowDate = new Date();
@@ -259,7 +272,8 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
       currentStatus: existing?.status,
       currentPlan: existing?.plan,
       currentRenewalAt: existing?.renewalAt,
-      stagedPlanName: payment.planName
+      stagedPlanName: payment.planName,
+      billingCycle
     });
 
     const claimed = await tx.subscriptionPayment.updateMany({
@@ -289,7 +303,7 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
       update: {
         status: "نشط",
         amount: amountSar,
-        billingCycle: "شهري",
+        billingCycle,
         renewalAt: period.periodEnd,
         // Paying again is an unambiguous signal the owner wants to keep
         // going, even if they'd previously marked the subscription
@@ -341,7 +355,7 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
         status: "نشط",
         employeeLimit: payment.planName ? payment.planEmployeeLimit : 1,
         amount: amountSar,
-        billingCycle: "شهري",
+        billingCycle,
         renewalAt: period.periodEnd,
         createdAt: now,
         updatedAt: nowTimestamp(),
@@ -793,19 +807,22 @@ export async function attemptAutoRenewals(baseUrl: string) {
     // (caught below), so only one of them ever reaches chargeSavedCard -
     // the actual guard against double-charging the saved card.
     const paymentId = `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}`;
-    const amountHalalas = plan.monthlyPrice * 100;
+    const billingCycle: BillingCycle = isBillingCycle(subscription.billingCycle) ? subscription.billingCycle : "شهري";
+    const renewAmount = billingCycle === "سنوي" ? computeYearlyPrice(plan.monthlyPrice) : plan.monthlyPrice;
+    const amountHalalas = renewAmount * 100;
     try {
       await prisma.subscriptionPayment.create({
         data: {
           id: paymentId,
           tenantId: subscription.tenantId,
-          amount: plan.monthlyPrice,
+          amount: renewAmount,
           amountHalalas,
           status: PAYMENT_STATUS.pending,
           createdAt: now.toISOString(),
           planName: plan.name,
           planEmployeeLimit: plan.employeeLimit,
-          listPrice: plan.monthlyPrice,
+          listPrice: renewAmount,
+          billingCycle,
           gateway: PAYMENT_GATEWAY.moyasar,
           gatewayStatus: "initiated",
           initiatedBy: "system"
@@ -850,7 +867,7 @@ export async function attemptAutoRenewals(baseUrl: string) {
         await logAdminAction(
           subscription.tenantId,
           subscription.companyName,
-          `[auto-renew] تم تجديد الاشتراك تلقائيًا بقيمة ${plan.monthlyPrice} ر.س عبر البطاقة المحفوظة (••••${subscription.savedCardLast4}).`
+          `[auto-renew] تم تجديد الاشتراك تلقائيًا (${billingCycle}) بقيمة ${renewAmount} ر.س عبر البطاقة المحفوظة (••••${subscription.savedCardLast4}).`
         );
       }
       continue;

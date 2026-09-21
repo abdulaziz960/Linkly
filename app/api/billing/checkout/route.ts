@@ -7,6 +7,7 @@ import { getPaymentCallbackOrigin } from "../../../../lib/app-url";
 import { buildPaymentMetadata, isMoyasarConfigured } from "../../../../lib/moyasar";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../lib/payment-status";
 import { computeProrationCredit } from "../../../../lib/subscriptions";
+import { isBillingCycle, priceForCycle, type BillingCycle } from "../../../../lib/billing-pricing";
 
 export const runtime = "nodejs";
 
@@ -21,13 +22,15 @@ export async function POST(request: NextRequest) {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) return NextResponse.json({ error: "سجّل الدخول أولًا" }, { status: 401 });
   if (user.role !== "مالك الحساب") return NextResponse.json({ error: "إدارة الاشتراك متاحة لمالك الحساب" }, { status: 403 });
-  const { planId } = await request.json().catch(() => ({ planId: "" })) as { planId?: string };
+  const { planId, billingCycle: requestedBillingCycle } = await request.json().catch(() => ({ planId: "" })) as { planId?: string; billingCycle?: unknown };
+  const billingCycle: BillingCycle = isBillingCycle(requestedBillingCycle) ? requestedBillingCycle : "شهري";
   await ensureSchema();
   const plan = await prisma.plan.findFirst({ where: { id: planId, active: 1 } });
   if (!plan) return NextResponse.json({ error: "الباقة غير موجودة" }, { status: 404 });
   if (plan.monthlyPrice < 1) return NextResponse.json({ error: "سعر الباقة غير صالح" }, { status: 400 });
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
   const companyName = subscription?.companyName || user.name;
+  const listPrice = priceForCycle(plan.monthlyPrice, billingCycle);
 
   // A plan change (including a downgrade) takes effect immediately on
   // confirmation with no separate enforcement afterwards - without this
@@ -50,10 +53,11 @@ export async function POST(request: NextRequest) {
     currentPlan: subscription?.plan,
     currentAmount: subscription?.amount,
     currentRenewalAt: subscription?.renewalAt,
+    currentBillingCycle: isBillingCycle(subscription?.billingCycle) ? subscription?.billingCycle : "شهري",
     newPlanName: plan.name,
-    newPlanPrice: plan.monthlyPrice
+    newPlanPrice: listPrice
   });
-  const chargeAmount = proration.creditAmount > 0 ? proration.finalAmount : plan.monthlyPrice;
+  const chargeAmount = proration.creditAmount > 0 ? proration.finalAmount : listPrice;
   const amountHalalas = Math.round(chargeAmount * 100);
   const origin = getPaymentCallbackOrigin();
 
@@ -69,7 +73,7 @@ export async function POST(request: NextRequest) {
   });
 
   const activePending = await prisma.subscriptionPayment.findFirst({
-    where: { tenantId: user.tenantId, status: PAYMENT_STATUS.pending, planName: plan.name },
+    where: { tenantId: user.tenantId, status: PAYMENT_STATUS.pending, planName: plan.name, billingCycle },
     orderBy: { createdAt: "desc" }
   });
   if (activePending) {
@@ -89,7 +93,8 @@ export async function POST(request: NextRequest) {
     createdAt: new Date().toISOString(),
     planName: plan.name,
     planEmployeeLimit: plan.employeeLimit,
-    listPrice: plan.monthlyPrice,
+    listPrice,
+    billingCycle,
     prorationCreditAmount: proration.creditAmount,
     initiatedBy: "owner"
   };
