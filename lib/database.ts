@@ -743,6 +743,26 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS campaign_recipient_clicks_tenant_id_idx ON campaign_recipient_clicks(tenant_id)`
   );
+  // subscription_payments.list_price, .proration_credit_amount,
+  // .billing_cycle and .plan_message_quota were all wrongly added further
+  // down in runSchemaMigrations()'s general body, which is SKIPPED in
+  // production unless ENABLE_RUNTIME_SCHEMA_REPAIR=true (it isn't set) - so
+  // none of these columns ever actually reached production, breaking every
+  // prisma.subscriptionPayment query (dashboard, /api/templates,
+  // /api/cron/campaigns) with "column does not exist" (2026-09-21
+  // incident #2). Belongs here, in the bridge that always runs.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS list_price DOUBLE PRECISION NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS proration_credit_amount DOUBLE PRECISION NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS billing_cycle TEXT NOT NULL DEFAULT 'شهري'`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_message_quota INTEGER NOT NULL DEFAULT 0`
+  );
 }
 
 async function runSchemaMigrations() {
