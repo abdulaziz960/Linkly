@@ -32,7 +32,7 @@ const defaultMetaConfigId =
   "";
 const defaultGoogleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "";
 const defaultGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
-const isPostgresDatabase =
+export const isPostgresDatabase =
   process.env.DATABASE_URL?.startsWith("postgres://") || process.env.DATABASE_URL?.startsWith("postgresql://");
 const defaultLoginEmail = "test@audiencew.sa";
 const developmentDemoPassword = process.env.DEMO_LOGIN_PASSWORD?.trim() || "";
@@ -253,38 +253,64 @@ async function ensureSqlitePaymentLedgerColumns() {
  * once per database regardless of how many times ensureSchema() replays it.
  */
 async function applyPricingTierRestructure() {
-  const alreadyApplied = await prisma.plan.findUnique({ where: { name: "باقة الأفراد" } });
-  if (alreadyApplied) return;
+  // Never allowed to take ensureSchema() - and with it every route in the
+  // app, including login - down with it. Production's live `plans` table
+  // carries a `monthly_amount` NOT NULL column that predates this codebase's
+  // Prisma schema entirely (no migration here ever created it - external
+  // drift), which broke the raw prisma.plan.upsert() below and, because
+  // ensureSchema() rethrows and is retried on every single request, took the
+  // entire site down until this was caught (2026-09-21 incident). The
+  // targeted INSERT below works around that specific column; this catch is
+  // the backstop against the next piece of drift we don't know about yet.
+  try {
+    const alreadyApplied = await prisma.plan.findUnique({ where: { name: "باقة الأفراد" } });
+    if (alreadyApplied) return;
 
-  const now = new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
-    dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", numberingSystem: "latn", calendar: "gregory"
-  }).format(new Date());
+    const now = new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
+      dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", numberingSystem: "latn", calendar: "gregory"
+    }).format(new Date());
 
-  const newPlans = [
-    // AI Copilot (Linkly-managed) starts at the small-enterprises tier and
-    // up - aiDailyLimit/aiMonthlyLimit 0 means "not included" (see the Plan
-    // model comment); individuals/regular tenants can still bring their own
-    // API key regardless, per the same comment.
-    { id: "plan-individuals", name: "باقة الأفراد", monthlyPrice: 199, employeeLimit: 1, sortOrder: 1, allowedChannels: "whatsapp", aiDailyLimit: 0, aiMonthlyLimit: 0 },
-    { id: "plan-regular", name: "الباقة العادية", monthlyPrice: 279, employeeLimit: 3, sortOrder: 2, allowedChannels: "whatsapp,instagram", aiDailyLimit: 0, aiMonthlyLimit: 0 },
-    { id: "plan-small-org", name: "باقة المؤسسات الصغيرة", monthlyPrice: 615, employeeLimit: 6, sortOrder: 3, allowedChannels: "whatsapp,instagram", aiDailyLimit: 50, aiMonthlyLimit: 1000 },
-    { id: "plan-large-org", name: "باقة المؤسسات الكبيرة", monthlyPrice: 849, employeeLimit: 8, sortOrder: 4, allowedChannels: "whatsapp,instagram,tiktok", aiDailyLimit: 100, aiMonthlyLimit: 2000 },
-    { id: "plan-enterprise", name: "باقة الشركات", monthlyPrice: 1499, employeeLimit: 100, sortOrder: 5, allowedChannels: "*", aiDailyLimit: 300, aiMonthlyLimit: 6000 }
-  ];
-  for (const plan of newPlans) {
-    await prisma.plan.upsert({
-      where: { id: plan.id },
-      update: {},
-      create: { ...plan, active: 1, createdAt: now, updatedAt: now }
+    const newPlans = [
+      // AI Copilot (Linkly-managed) starts at the small-enterprises tier and
+      // up - aiDailyLimit/aiMonthlyLimit 0 means "not included" (see the Plan
+      // model comment); individuals/regular tenants can still bring their own
+      // API key regardless, per the same comment.
+      { id: "plan-individuals", name: "باقة الأفراد", monthlyPrice: 199, employeeLimit: 1, sortOrder: 1, allowedChannels: "whatsapp", aiDailyLimit: 0, aiMonthlyLimit: 0 },
+      { id: "plan-regular", name: "الباقة العادية", monthlyPrice: 279, employeeLimit: 3, sortOrder: 2, allowedChannels: "whatsapp,instagram", aiDailyLimit: 0, aiMonthlyLimit: 0 },
+      { id: "plan-small-org", name: "باقة المؤسسات الصغيرة", monthlyPrice: 615, employeeLimit: 6, sortOrder: 3, allowedChannels: "whatsapp,instagram", aiDailyLimit: 50, aiMonthlyLimit: 1000 },
+      { id: "plan-large-org", name: "باقة المؤسسات الكبيرة", monthlyPrice: 849, employeeLimit: 8, sortOrder: 4, allowedChannels: "whatsapp,instagram,tiktok", aiDailyLimit: 100, aiMonthlyLimit: 2000 },
+      { id: "plan-enterprise", name: "باقة الشركات", monthlyPrice: 1499, employeeLimit: 100, sortOrder: 5, allowedChannels: "*", aiDailyLimit: 300, aiMonthlyLimit: 6000 }
+    ];
+    for (const plan of newPlans) {
+      if (isPostgresDatabase) {
+        // Prisma's generated client has no idea monthly_amount exists, so
+        // prisma.plan.upsert() can't set it - raw SQL, setting it equal to
+        // monthly_price (the only sane value it could mean), is the only way
+        // to satisfy the NOT NULL constraint from here.
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO plans (id, name, monthly_price, monthly_amount, employee_limit, sort_order, active, ai_daily_limit, ai_monthly_limit, allowed_channels, created_at, updated_at)
+           VALUES ($1, $2, $3, $3, $4, $5, 1, $6, $7, $8, $9, $9)
+           ON CONFLICT (id) DO NOTHING`,
+          plan.id, plan.name, plan.monthlyPrice, plan.employeeLimit, plan.sortOrder, plan.aiDailyLimit, plan.aiMonthlyLimit, plan.allowedChannels, now
+        );
+      } else {
+        await prisma.plan.upsert({
+          where: { id: plan.id },
+          update: {},
+          create: { ...plan, active: 1, createdAt: now, updatedAt: now }
+        });
+      }
+    }
+
+    // Hidden from new signups/admin "add client" going forward; every existing
+    // subscriber on one of these keeps working exactly as before.
+    await prisma.plan.updateMany({
+      where: { name: { in: ["باقة البداية", "باقة النمو", "باقة الأعمال"] } },
+      data: { active: 0 }
     });
+  } catch (error) {
+    console.error("[applyPricingTierRestructure] failed - will retry on the next request, but must not block it", error);
   }
-
-  // Hidden from new signups/admin "add client" going forward; every existing
-  // subscriber on one of these keeps working exactly as before.
-  await prisma.plan.updateMany({
-    where: { name: { in: ["باقة البداية", "باقة النمو", "باقة الأعمال"] } },
-    data: { active: 0 }
-  });
 }
 
 async function runRequiredProductionMigrations() {

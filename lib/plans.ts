@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
-import { ensureSchema } from "./database";
+import { ensureSchema, isPostgresDatabase } from "./database";
 import { serializeAllowedChannels, type AllowedChannels } from "./channel-catalog";
 
 function nowTimestamp() {
@@ -48,17 +48,39 @@ export async function createPlan(input: CreatePlanInput) {
 
   const maxSortOrder = await prisma.plan.aggregate({ _max: { sortOrder: true } });
   const now = nowTimestamp();
+  const id = `plan-${randomUUID()}`;
+  const sortOrder = (maxSortOrder._max.sortOrder ?? 0) + 1;
+  const roundedPrice = Math.round(input.monthlyPrice);
+  const roundedEmployeeLimit = Math.round(input.employeeLimit);
+  const roundedAiDailyLimit = Math.round(aiDailyLimit);
+  const roundedAiMonthlyLimit = Math.round(aiMonthlyLimit);
+  const allowedChannels = serializeAllowedChannels(input.allowedChannels ?? "*");
+
+  if (isPostgresDatabase) {
+    // Production's live `plans` table carries a `monthly_amount` NOT NULL
+    // column outside our Prisma schema entirely (see applyPricingTierRestructure
+    // in lib/database.ts) - prisma.plan.create() below can't set a column it
+    // doesn't know exists, so raw SQL here too, mirroring it to monthly_price.
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO plans (id, name, monthly_price, monthly_amount, employee_limit, sort_order, active, ai_daily_limit, ai_monthly_limit, allowed_channels, created_at, updated_at)
+       VALUES ($1, $2, $3, $3, $4, $5, 1, $6, $7, $8, $9, $9)`,
+      id, name, roundedPrice, roundedEmployeeLimit, sortOrder, roundedAiDailyLimit, roundedAiMonthlyLimit, allowedChannels, now
+    );
+    const created = await prisma.plan.findUnique({ where: { id } });
+    if (!created) throw new Error("تعذر إنشاء الباقة");
+    return created;
+  }
 
   return prisma.plan.create({
     data: {
-      id: `plan-${randomUUID()}`,
+      id,
       name,
-      monthlyPrice: Math.round(input.monthlyPrice),
-      employeeLimit: Math.round(input.employeeLimit),
-      aiDailyLimit: Math.round(aiDailyLimit),
-      aiMonthlyLimit: Math.round(aiMonthlyLimit),
-      allowedChannels: serializeAllowedChannels(input.allowedChannels ?? "*"),
-      sortOrder: (maxSortOrder._max.sortOrder ?? 0) + 1,
+      monthlyPrice: roundedPrice,
+      employeeLimit: roundedEmployeeLimit,
+      aiDailyLimit: roundedAiDailyLimit,
+      aiMonthlyLimit: roundedAiMonthlyLimit,
+      allowedChannels,
+      sortOrder,
       active: 1,
       createdAt: now,
       updatedAt: now
