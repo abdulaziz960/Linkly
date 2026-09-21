@@ -46,24 +46,24 @@ export const planFeatures: Record<string, PlanFeatures> = {
     audience: { ar: "الأنسب لفريق يحتاج أتمتة وتقسيم جمهور ومساعد ذكاء اصطناعي.", en: "Best for a team that needs automation, audience segments, and an AI copilot." },
     featured: true,
     items: {
-      ar: ["فرق عمل متعددة", "أتمتة وقواعد تحويل متقدمة", "تقسيم جمهور واستهداف بالحملات", "مساعد ذكاء اصطناعي (AI Copilot)", "تقارير أداء وSLA"],
-      en: ["Multiple teams", "Advanced automation and routing rules", "Audience segments and campaign targeting", "AI Copilot", "Performance and SLA reports"]
+      ar: ["فرق عمل متعددة", "أتمتة وقواعد تحويل متقدمة", "تقسيم جمهور واستهداف بالحملات", "مساعد AI", "تقارير أداء وSLA"],
+      en: ["Multiple teams", "Advanced automation and routing rules", "Audience segments and campaign targeting", "AI Assistant", "Performance and SLA reports"]
     }
   },
   "باقة المؤسسات الكبيرة": {
     shortName: { ar: "المؤسسات الكبيرة", en: "Large Enterprises" },
     audience: { ar: "الأنسب لفرق متعددة تحتاج قنوات أكثر وواجهات تكامل.", en: "Best for multiple teams that need more channels and integrations." },
     items: {
-      ar: ["كل مزايا المؤسسات الصغيرة", "واجهة برمجة API وWebhooks للمطورين", "مساعد ذكاء اصطناعي بحد أعلى", "دعم أولوية"],
-      en: ["Everything in Small Enterprises", "Developer API and webhooks", "AI Copilot with a higher limit", "Priority support"]
+      ar: ["كل مزايا المؤسسات الصغيرة", "واجهة برمجة API وWebhooks للمطورين", "مساعد AI", "دعم أولوية"],
+      en: ["Everything in Small Enterprises", "Developer API and webhooks", "AI Assistant", "Priority support"]
     }
   },
   "باقة الشركات": {
     shortName: { ar: "الشركات", en: "Corporate" },
     audience: { ar: "الأنسب للشركات الكبيرة اللي تحتاج كل القنوات وحساب مخصص.", en: "Best for large companies that need every channel and a dedicated account." },
     items: {
-      ar: ["علامة تجارية مخصّصة (White-label)", "مساعد ذكاء اصطناعي بأعلى حد", "مدير حساب مخصص ودعم VIP فوري"],
-      en: ["Custom white-label branding", "AI Copilot with the highest limit", "Dedicated account manager and instant VIP support"]
+      ar: ["علامة تجارية مخصّصة (White-label)", "مساعد AI", "مدير حساب مخصص ودعم VIP فوري"],
+      en: ["Custom white-label branding", "AI Assistant", "Dedicated account manager and instant VIP support"]
     }
   }
 };
