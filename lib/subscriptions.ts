@@ -136,9 +136,21 @@ export async function getSubscriptions() {
   }));
 }
 
+/**
+ * Every caller of this (app/dashboard/page.tsx, app/billing/page.tsx, ...)
+ * ends up handing the result to a Client Component prop, which Next.js
+ * serializes into the page's payload - so savedCardToken, a live token
+ * capable of charging the card with no cardholder present, must never be
+ * part of what this returns. Callers that need the raw token (auto-renew
+ * charging, disabling it) read it via a direct prisma.subscription call
+ * instead, not this function.
+ */
 export async function getSubscriptionForTenant(tenantId: string) {
   await ensureSchema();
-  return prisma.subscription.findUnique({ where: { tenantId } });
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+  if (!subscription) return null;
+  const { savedCardToken: _savedCardToken, ...safeSubscription } = subscription;
+  return safeSubscription;
 }
 
 export async function getSubscriptionPayments() {
@@ -224,7 +236,7 @@ export async function getInvoiceForTenant(tenantId: string, invoiceId: string) {
  * is a no-op (returns activated: false) via a compare-and-swap update, so
  * a redelivered webhook or a double confirm click can't double-renew.
  */
-export async function applyConfirmedSubscriptionPayment(paymentId: string, details?: GatewayPaymentDetails): Promise<{ activated: boolean; periodStart?: string; periodEnd?: string }> {
+export async function applyConfirmedSubscriptionPayment(paymentId: string, details?: GatewayPaymentDetails, allowAutoRenewEnroll = false): Promise<{ activated: boolean; periodStart?: string; periodEnd?: string }> {
   const payment = await prisma.subscriptionPayment.findUnique({ where: { id: paymentId } });
   if (!payment) return { activated: false };
 
@@ -287,10 +299,15 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
                 : payment.planEmployeeLimit
             }
           : {}),
-        // Only present when the payer just opted in to "save my card" on
-        // this specific checkout - a normal payment without that opt-in
-        // must never touch an existing saved card either way.
-        ...(details?.cardToken
+        // allowAutoRenewEnroll must be true (only confirm-payment, with a
+        // real enableAutoRenew from the client, and attemptAutoRenewals,
+        // re-affirming an already-opted-in subscription, ever pass it) -
+        // details.cardToken alone is NOT consent: Moyasar's account may
+        // return a token on every card payment regardless of the "save my
+        // card" checkbox, and callers with no consent signal at all (the
+        // stale-payment reconciler) must never enroll a card just because
+        // one happened to come back on the gateway response.
+        ...(allowAutoRenewEnroll && details?.cardToken
           ? { autoRenewEnabled: 1, savedCardToken: details.cardToken, savedCardLast4: details.cardLast4 || "", savedCardBrand: details.cardBrand || "", autoRenewFailCount: 0 }
           : {})
       },
@@ -308,7 +325,7 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
         renewalAt: period.periodEnd,
         createdAt: now,
         updatedAt: nowTimestamp(),
-        ...(details?.cardToken
+        ...(allowAutoRenewEnroll && details?.cardToken
           ? { autoRenewEnabled: 1, savedCardToken: details.cardToken, savedCardLast4: details.cardLast4 || "", savedCardBrand: details.cardBrand || "" }
           : {})
       }
@@ -416,13 +433,19 @@ export async function applyVerifiedGatewayOutcome(
   kind: PaymentKind,
   paymentId: string,
   invoiceStatus: string,
-  details?: GatewayPaymentDetails
+  details?: GatewayPaymentDetails,
+  // Defaults to false: only a caller with a real, explicit consent signal
+  // (app/api/billing/confirm-payment, with the client's own enableAutoRenew)
+  // should ever pass true. The cron reconciler below has no such signal and
+  // must never enroll a card just because Moyasar's response happened to
+  // include a token.
+  allowAutoRenewEnroll = false
 ): Promise<{ outcome: "completed" | "failed" | "expired" | "refunded" | "pending"; changed: boolean }> {
   const mapped = mapMoyasarInvoiceStatus(invoiceStatus);
   if (!mapped) return { outcome: "pending", changed: false };
   if (mapped === "completed") {
     if (kind === "subscription") {
-      const { activated } = await applyConfirmedSubscriptionPayment(paymentId, details);
+      const { activated } = await applyConfirmedSubscriptionPayment(paymentId, details, allowAutoRenewEnroll);
       return { outcome: "completed", changed: activated };
     }
     const { credited } = await applyConfirmedCampaignPayment(paymentId, details);
@@ -753,7 +776,11 @@ export async function attemptAutoRenewals(baseUrl: string) {
     if (charge.ok && charge.payment.status === "paid") {
       const details = summarizeMoyasarPayment(charge.payment);
       await prisma.subscriptionPayment.update({ where: { id: paymentId }, data: { moyasarId: charge.payment.id } });
-      const { activated } = await applyConfirmedSubscriptionPayment(paymentId, details);
+      // true: this subscription was only selected by the dueSubscriptions
+      // query above because autoRenewEnabled=1 and savedCardToken is already
+      // set - consent already happened at enrollment, this just re-affirms
+      // it (and resets autoRenewFailCount) on a successful charge.
+      const { activated } = await applyConfirmedSubscriptionPayment(paymentId, details, true);
       if (activated) {
         charged += 1;
         await logAdminAction(

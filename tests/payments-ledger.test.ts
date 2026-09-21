@@ -456,6 +456,36 @@ describe("stale pending payment reconciliation", () => {
     expect(await prisma.subscription.findUnique({ where: { tenantId } })).toMatchObject({ status: "نشط", plan: "باقة النمو" });
   });
 
+  it("never enables auto-renew from a stale-payment sweep, even when Moyasar's response carries a card token", async () => {
+    // Regression test for a real bug: MoyasarPayForm requests tokenization
+    // on every subscription card payment regardless of the "save my card"
+    // checkbox, so a token can come back on the gateway response whether or
+    // not the payer actually opted in. The stale-payment reconciler has no
+    // way to know what the payer chose (unlike confirm-payment, which reads
+    // an explicit enableAutoRenew from the client) - it must never enroll a
+    // card just because Moyasar happened to include a token.
+    const { prisma } = await import("../lib/prisma");
+    const { ensureSchema } = await import("../lib/database");
+    const { reconcileStalePendingPayments } = await import("../lib/subscriptions");
+    await ensureSchema();
+
+    const tenantId = "tenant-reconcile-no-consent";
+    const now = new Date().toISOString();
+    const staleCreatedAt = new Date(Date.now() - 25 * 3_600_000).toISOString();
+    await prisma.userAccount.create({ data: { id: `user-${tenantId}`, name: "No Consent Owner", email: "noconsent@ledger.example", passwordHash: "x", role: "مالك الحساب", tenantId, createdAt: now } });
+    await prisma.subscriptionPayment.create({
+      data: { id: `pay-${tenantId}`, tenantId, amount: 499, amountHalalas: 49900, status: "قيد الانتظار", moyasarId: "pay_unchecked_box", paymentUrl: "", createdAt: staleCreatedAt, planName: "باقة النمو", planEmployeeLimit: 3 }
+    });
+
+    mockInvoiceMissPaymentHit({ id: "pay_unchecked_box", status: "paid", amount: 49900, currency: "SAR", source: { type: "creditcard", company: "visa", token: "tok_should_never_be_saved", number: "400000********4242", message: "APPROVED" } });
+
+    const result = await reconcileStalePendingPayments(24 * 3_600_000);
+    expect(result.reconciled).toBe(1);
+    const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+    expect(subscription?.autoRenewEnabled).toBe(0);
+    expect(subscription?.savedCardToken).toBe("");
+  });
+
   it("expires a stale row when neither the invoice nor the Payment endpoint knows it", async () => {
     const { prisma } = await import("../lib/prisma");
     const { ensureSchema } = await import("../lib/database");
