@@ -36,6 +36,7 @@ type SidebarTooltipState = {
 function DashboardNavIcon({ view }: { view: ViewKey }) {
   const paths: Partial<Record<ViewKey, ReactNode>> = {
     inbox: <><path d="M4 5h16v11H8l-4 3V5Z" /><path d="M8 9h8M8 12h5" /></>,
+    operations: <><circle cx="12" cy="12" r="9" /><path d="M8 12h2l1.5-4L13 16l1.5-4H16" /></>,
     contacts: <><circle cx="12" cy="8" r="3" /><path d="M5.5 19c.7-4 3-6 6.5-6s5.8 2 6.5 6" /></>,
     pipeline: <><rect x="3" y="4" width="5" height="16" rx="1" /><rect x="10" y="4" width="5" height="11" rx="1" /><rect x="17" y="4" width="4" height="7" rx="1" /></>,
     ai: <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z" />,
@@ -101,7 +102,7 @@ export default function DashboardSidebar({
     { label: "الحملات", labelEn: "Campaigns", keys: ["campaigns", "segments", "templates"] },
     { label: "الأتمتة", labelEn: "Automations", keys: ["automations"] },
     { label: "الذكاء الاصطناعي", labelEn: "AI", keys: ["ai", "bot", "knowledgeBase"] },
-    { label: "التحليلات", labelEn: "Analytics", keys: ["reports"] },
+    { label: "التحليلات", labelEn: "Analytics", keys: ["operations", "reports"] },
     { label: "التكاملات", labelEn: "Integrations", keys: ["integrations", "settings", "developers"] },
     { label: "الإعدادات", labelEn: "Settings", keys: ["teams", "employees", "workHours", "branding"] }
   ];

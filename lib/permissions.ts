@@ -2,6 +2,7 @@ import type { Employee, ViewKey } from "../app/dashboard/types";
 
 export const allViewKeys: ViewKey[] = [
   "inbox",
+  "operations",
   "contacts",
   "tags",
   "bot",
@@ -33,7 +34,7 @@ export const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "أتمتة", views: ["automations"] },
   { keyword: "حملات", views: ["campaigns", "segments", "pipeline"] },
   { keyword: "ساعات", views: ["workHours"] },
-  { keyword: "تقارير", views: ["reports"] },
+  { keyword: "تقارير", views: ["reports", "operations"] },
   { keyword: "فرق", views: ["teams"] },
   { keyword: "موظفين", views: ["employees"] },
   { keyword: "صلاحيات", views: ["employees"] },
