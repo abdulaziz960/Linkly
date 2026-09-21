@@ -1057,6 +1057,8 @@ async function runSchemaMigrations() {
     // only gets the new plan's benefits once payment actually confirms.
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_name TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_employee_limit INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS list_price DOUBLE PRECISION NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS proration_credit_amount DOUBLE PRECISION NOT NULL DEFAULT 0`);
     await ensurePostgresPaymentLedgerColumns();
     return;
   }
@@ -1862,7 +1864,9 @@ async function runSchemaMigrations() {
     created_at TEXT NOT NULL,
     completed_at TEXT NOT NULL DEFAULT '',
     plan_name TEXT NOT NULL DEFAULT '',
-    plan_employee_limit INTEGER NOT NULL DEFAULT 0
+    plan_employee_limit INTEGER NOT NULL DEFAULT 0,
+    list_price REAL NOT NULL DEFAULT 0,
+    proration_credit_amount REAL NOT NULL DEFAULT 0
   )`);
   const subscriptionPaymentColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(subscription_payments)`);
   if (!subscriptionPaymentColumns.some((column) => column.name === "amount_halalas")) {
@@ -1873,6 +1877,12 @@ async function runSchemaMigrations() {
   }
   if (!subscriptionPaymentColumns.some((column) => column.name === "plan_employee_limit")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN plan_employee_limit INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!subscriptionPaymentColumns.some((column) => column.name === "list_price")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN list_price REAL NOT NULL DEFAULT 0`);
+  }
+  if (!subscriptionPaymentColumns.some((column) => column.name === "proration_credit_amount")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN proration_credit_amount REAL NOT NULL DEFAULT 0`);
   }
   // subscriptions, subscription_payments and campaign_payments all exist by
   // this point - add the payment-ledger columns to each.

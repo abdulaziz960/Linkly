@@ -23,6 +23,48 @@ function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+/** Denominator days used for a prorated-upgrade credit - see computeProrationCredit. */
+const PRORATION_PERIOD_DAYS = 30;
+
+/**
+ * Credit for the unused days of the CURRENT plan when the owner switches
+ * plans mid-cycle, subtracted from the new plan's list price:
+ *   credit = currentPlanAmount / 30 * remainingDays
+ *   finalAmount = max(0, newPlanPrice - credit)
+ * Only applies to an active ("نشط"), still-paid-up subscription changing to
+ * a DIFFERENT plan - a trial converting, a suspended account reactivating,
+ * an overdue renewal, or a same-plan renewal all pay the full list price
+ * (see computeSubscriptionPeriod, which decides period length separately).
+ */
+export function computeProrationCredit(input: {
+  now: Date;
+  currentStatus?: string;
+  currentPlan?: string;
+  currentAmount?: number;
+  currentRenewalAt?: string;
+  newPlanName: string;
+  newPlanPrice: number;
+}) {
+  const currentPaidThrough = input.currentRenewalAt ? new Date(input.currentRenewalAt) : null;
+  // Only an upgrade (strictly higher list price) is prorated - a downgrade
+  // already takes effect immediately at the lower plan's full price with no
+  // credit, matching the pre-existing "plan change takes effect immediately"
+  // behavior for that case (see the downgrade employee-limit check in
+  // app/api/billing/checkout/route.ts, which runs regardless of proration).
+  const isUpgrade = Boolean(input.currentPlan) && input.currentPlan !== input.newPlanName && Boolean(input.currentAmount) && input.newPlanPrice > (input.currentAmount ?? 0);
+  const stillPaidUp = input.currentStatus === "نشط" && currentPaidThrough !== null && Number.isFinite(currentPaidThrough.getTime()) && currentPaidThrough.getTime() > input.now.getTime();
+
+  if (!isUpgrade || !stillPaidUp || !currentPaidThrough || !input.currentAmount) {
+    return { creditAmount: 0, finalAmount: input.newPlanPrice, remainingDays: 0 };
+  }
+
+  const remainingDays = (currentPaidThrough.getTime() - input.now.getTime()) / 86_400_000;
+  const rawCredit = (input.currentAmount / PRORATION_PERIOD_DAYS) * remainingDays;
+  const creditAmount = Math.round(Math.min(rawCredit, input.newPlanPrice) * 100) / 100;
+  const finalAmount = Math.round((input.newPlanPrice - creditAmount) * 100) / 100;
+  return { creditAmount, finalAmount, remainingDays: Math.round(remainingDays * 10) / 10 };
+}
+
 /**
  * Decides the period a confirmed subscription payment buys.
  *
@@ -30,8 +72,9 @@ function isoDate(date: Date) {
  *   up: the new period starts where the current one ends, so paying a week
  *   early never costs the customer that week.
  * - Anything else (trial converting, suspended account reactivating, an
- *   overdue renewal, or a plan change): the period starts now. A plan change
- *   takes effect immediately and is not prorated.
+ *   overdue renewal, or a plan change): the period starts now. The amount
+ *   charged for a plan change is prorated separately (computeProrationCredit)
+ *   even though the period itself always starts fresh from today.
  */
 export function computeSubscriptionPeriod(input: {
   now: Date;

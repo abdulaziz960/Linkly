@@ -763,6 +763,14 @@ model SubscriptionPayment {
   // paid-through date rather than from "today", so no paid days are lost.
   periodStart      String @default("") @map("period_start")
   periodEnd        String @default("") @map("period_end")
+  // Proration on an upgrade mid-cycle (see computeProrationCredit in
+  // lib/subscriptions.ts): listPrice is the new plan's full sticker price,
+  // prorationCreditAmount is the unused-days credit from the old plan
+  // subtracted from it - `amount` above is always the actual amount
+  // charged (listPrice - prorationCreditAmount), these two are kept only
+  // so the breakdown can still be shown/audited after the fact.
+  listPrice             Float @default(0) @map("list_price")
+  prorationCreditAmount Float @default(0) @map("proration_credit_amount")
 
   @@index([tenantId, status])
   @@index([moyasarId])

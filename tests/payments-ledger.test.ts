@@ -167,6 +167,66 @@ describe("subscription renewal period", () => {
   });
 });
 
+describe("upgrade proration", () => {
+  it("credits the unused days of the old plan against the new plan's price", async () => {
+    const { computeProrationCredit } = await import("../lib/subscriptions");
+    const now = new Date("2026-09-16T12:00:00Z");
+    // 100 SAR/30-day plan, 10 days already used -> 20 days remaining.
+    const renewalAt = new Date(now.getTime() + 20 * 86_400_000).toISOString();
+    const result = computeProrationCredit({
+      now,
+      currentStatus: "نشط",
+      currentPlan: "باقة البداية",
+      currentAmount: 100,
+      currentRenewalAt: renewalAt,
+      newPlanName: "باقة النمو",
+      newPlanPrice: 200
+    });
+    expect(result.creditAmount).toBe(66.67);
+    expect(result.finalAmount).toBe(133.33);
+  });
+
+  it("charges the full list price for a downgrade, a same-plan renewal, or an overdue/trial subscription", async () => {
+    const { computeProrationCredit } = await import("../lib/subscriptions");
+    const now = new Date("2026-09-16T12:00:00Z");
+    const renewalAt = new Date(now.getTime() + 20 * 86_400_000).toISOString();
+
+    // Downgrade: new plan price is lower, so it's not treated as an upgrade.
+    expect(computeProrationCredit({
+      now, currentStatus: "نشط", currentPlan: "باقة الأعمال", currentAmount: 500, currentRenewalAt: renewalAt, newPlanName: "باقة البداية", newPlanPrice: 100
+    })).toEqual({ creditAmount: 0, finalAmount: 100, remainingDays: 0 });
+
+    // Same plan (renewal, not a plan change).
+    expect(computeProrationCredit({
+      now, currentStatus: "نشط", currentPlan: "باقة النمو", currentAmount: 200, currentRenewalAt: renewalAt, newPlanName: "باقة النمو", newPlanPrice: 200
+    })).toEqual({ creditAmount: 0, finalAmount: 200, remainingDays: 0 });
+
+    // Overdue (renewalAt already in the past) - not "still paid up".
+    expect(computeProrationCredit({
+      now, currentStatus: "نشط", currentPlan: "باقة البداية", currentAmount: 100, currentRenewalAt: "2026-09-01", newPlanName: "باقة النمو", newPlanPrice: 200
+    })).toEqual({ creditAmount: 0, finalAmount: 200, remainingDays: 0 });
+
+    // Trial converting - never had a paid amount to credit.
+    expect(computeProrationCredit({
+      now, currentStatus: "تجربة", currentPlan: "باقة البداية", currentRenewalAt: renewalAt, newPlanName: "باقة النمو", newPlanPrice: 200
+    })).toEqual({ creditAmount: 0, finalAmount: 200, remainingDays: 0 });
+  });
+
+  it("never lets the credit exceed the new plan's price, even with an unusually long remaining period", async () => {
+    const { computeProrationCredit } = await import("../lib/subscriptions");
+    const now = new Date("2026-09-16T12:00:00Z");
+    // 40 days remaining (more than the 30-day denominator) on a plan whose
+    // price is close to the new one's - the raw formula would credit more
+    // than the new plan even costs.
+    const renewalAt = new Date(now.getTime() + 40 * 86_400_000).toISOString();
+    const result = computeProrationCredit({
+      now, currentStatus: "نشط", currentPlan: "باقة النمو", currentAmount: 190, currentRenewalAt: renewalAt, newPlanName: "باقة الأعمال", newPlanPrice: 195
+    });
+    expect(result.creditAmount).toBe(195);
+    expect(result.finalAmount).toBe(0);
+  });
+});
+
 describe("payment ledger writes", () => {
   it("records period, gateway details and the subscription's last payment on confirmation", async () => {
     const { prisma } = await import("../lib/prisma");

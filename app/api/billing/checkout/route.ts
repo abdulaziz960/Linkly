@@ -6,6 +6,7 @@ import { prisma } from "../../../../lib/prisma";
 import { getPaymentCallbackOrigin } from "../../../../lib/app-url";
 import { buildPaymentMetadata, isMoyasarConfigured } from "../../../../lib/moyasar";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../lib/payment-status";
+import { computeProrationCredit } from "../../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -43,7 +44,17 @@ export async function POST(request: NextRequest) {
       );
     }
   }
-  const amountHalalas = plan.monthlyPrice * 100;
+  const proration = computeProrationCredit({
+    now: new Date(),
+    currentStatus: subscription?.status,
+    currentPlan: subscription?.plan,
+    currentAmount: subscription?.amount,
+    currentRenewalAt: subscription?.renewalAt,
+    newPlanName: plan.name,
+    newPlanPrice: plan.monthlyPrice
+  });
+  const chargeAmount = proration.creditAmount > 0 ? proration.finalAmount : plan.monthlyPrice;
+  const amountHalalas = Math.round(chargeAmount * 100);
   const origin = getPaymentCallbackOrigin();
 
   // A pending payment older than this was almost certainly abandoned (closed
@@ -72,12 +83,14 @@ export async function POST(request: NextRequest) {
   const stagedRow = {
     id: paymentId,
     tenantId: user.tenantId,
-    amount: plan.monthlyPrice,
+    amount: chargeAmount,
     amountHalalas,
     status: PAYMENT_STATUS.pending,
     createdAt: new Date().toISOString(),
     planName: plan.name,
     planEmployeeLimit: plan.employeeLimit,
+    listPrice: plan.monthlyPrice,
+    prorationCreditAmount: proration.creditAmount,
     initiatedBy: "owner"
   };
 
