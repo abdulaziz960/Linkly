@@ -7,6 +7,7 @@ import { syncXTenant } from "../../../../lib/x-sync";
 import { reconcileStalePendingPayments, sendTrialEndingReminders } from "../../../../lib/subscriptions";
 import { sendLowBalanceAlerts } from "../../../../lib/campaign-balance-alerts";
 import { processDueConversationSummaries } from "../../../../lib/conversation-insights";
+import { isCronRequestAuthorized } from "../../../../lib/cron-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -14,13 +15,8 @@ const baseUrl = () => (process.env.NODE_ENV === "production"
   ? "https://linklysa.io"
   : process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
 
-function isAuthorized(request: NextRequest) {
-  const secret = process.env.CRON_SECRET?.trim();
-  return Boolean(secret && request.headers.get("authorization") === `Bearer ${secret}`);
-}
-
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!isCronRequestAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
