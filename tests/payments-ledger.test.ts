@@ -646,6 +646,73 @@ describe("subscription auto-renewal", () => {
     expect(subscription?.savedCardToken).toBe("");
   });
 
+  it("fails loudly instead of silently skipping when the subscription's plan is deactivated or renamed", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { attemptAutoRenewals } = await import("../lib/subscriptions");
+    const tenantId = "tenant-autorenew-missing-plan";
+    await seedAutoRenewSubscription(tenantId);
+    await prisma.subscription.update({ where: { tenantId }, data: { plan: "باقة محذوفة لا وجود لها" } });
+
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await attemptAutoRenewals("https://app.example");
+    expect(result).toEqual({ charged: 0, failed: 1 });
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+    expect(subscription?.autoRenewFailCount).toBe(1);
+    expect(subscription?.autoRenewEnabled).toBe(1);
+
+    // dueSubscriptions is a global (unscoped by tenant) query - this row
+    // would otherwise still be "due" with a permanently-missing plan and
+    // get reprocessed (incrementing failed again) by every later test's
+    // attemptAutoRenewals call in this file. See the identical cleanup a
+    // few tests up for the same reason.
+    await prisma.subscription.update({ where: { tenantId }, data: { autoRenewEnabled: 0 } });
+  });
+
+  it("never double-charges when a payment row for the same renewal period already exists (concurrent-run guard)", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { attemptAutoRenewals } = await import("../lib/subscriptions");
+    const tenantId = "tenant-autorenew-race";
+    await seedAutoRenewSubscription(tenantId);
+    const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+
+    // Simulates a concurrent/retried cron invocation that already claimed
+    // this exact renewal period by creating the deterministic payment row
+    // first - attemptAutoRenewals must recognize the id collision and skip
+    // this subscription rather than charging it a second time.
+    await prisma.subscriptionPayment.create({
+      data: {
+        id: `sub-pay-autorenew-${tenantId}-${subscription?.renewalAt}`,
+        tenantId,
+        amount: 199,
+        amountHalalas: 19900,
+        status: "قيد الانتظار",
+        createdAt: new Date().toISOString(),
+        planName: "باقة النمو الاختبارية",
+        planEmployeeLimit: 3,
+        gateway: "moyasar",
+        gatewayStatus: "initiated",
+        initiatedBy: "system"
+      }
+    });
+
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await attemptAutoRenewals("https://app.example");
+    expect(result).toEqual({ charged: 0, failed: 0 });
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    // Same cross-test pollution reason as the other cleanups in this
+    // describe block - this row is still "due" and would otherwise keep
+    // getting silently re-skipped (harmlessly, but needlessly) by every
+    // later test's attemptAutoRenewals call.
+    await prisma.subscription.update({ where: { tenantId }, data: { autoRenewEnabled: 0 } });
+  });
+
   it("skips a subscription whose renewalAt hasn't arrived yet", async () => {
     const { prisma } = await import("../lib/prisma");
     const { attemptAutoRenewals } = await import("../lib/subscriptions");

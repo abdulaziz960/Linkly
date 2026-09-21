@@ -4,7 +4,8 @@ import { ensureSchema } from "./database";
 import { sendActivationEmail } from "./email";
 import { isValidEmail } from "./validation";
 import { PAYMENT_STATUS, PAYMENT_GATEWAY, mapMoyasarInvoiceStatus, type PaymentKind } from "./payment-status";
-import { chargeSavedCard, buildPaymentMetadata, paymentDescription, summarizeMoyasarPayment, type GatewayPaymentDetails } from "./moyasar";
+import { chargeSavedCard, buildPaymentMetadata, paymentDescription, summarizeMoyasarPayment, isAutoRenewEnabled, type GatewayPaymentDetails } from "./moyasar";
+import { encryptSecret, decryptSecret } from "./secret-storage";
 
 /** Length of one paid subscription period. Every plan bills monthly today. */
 export const SUBSCRIPTION_PERIOD_MONTHS = 1;
@@ -307,8 +308,18 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
         // card" checkbox, and callers with no consent signal at all (the
         // stale-payment reconciler) must never enroll a card just because
         // one happened to come back on the gateway response.
-        ...(allowAutoRenewEnroll && details?.cardToken
-          ? { autoRenewEnabled: 1, savedCardToken: details.cardToken, savedCardLast4: details.cardLast4 || "", savedCardBrand: details.cardBrand || "", autoRenewFailCount: 0 }
+        ...(allowAutoRenewEnroll && isAutoRenewEnabled() && details?.cardToken
+          ? {
+              autoRenewEnabled: 1,
+              savedCardToken: encryptSecret(details.cardToken),
+              // A no-cardholder-present token charge (a renewal, not a fresh
+              // checkout) may not return last4/brand at all - keep whatever
+              // was already on file rather than blanking a still-valid
+              // saved card's displayed info with an empty string.
+              savedCardLast4: details.cardLast4 || existing?.savedCardLast4 || "",
+              savedCardBrand: details.cardBrand || existing?.savedCardBrand || "",
+              autoRenewFailCount: 0
+            }
           : {})
       },
       create: {
@@ -325,8 +336,8 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
         renewalAt: period.periodEnd,
         createdAt: now,
         updatedAt: nowTimestamp(),
-        ...(allowAutoRenewEnroll && details?.cardToken
-          ? { autoRenewEnabled: 1, savedCardToken: details.cardToken, savedCardLast4: details.cardLast4 || "", savedCardBrand: details.cardBrand || "" }
+        ...(allowAutoRenewEnroll && isAutoRenewEnabled() && details?.cardToken
+          ? { autoRenewEnabled: 1, savedCardToken: encryptSecret(details.cardToken), savedCardLast4: details.cardLast4 || "", savedCardBrand: details.cardBrand || "" }
           : {})
       }
     });
@@ -712,6 +723,10 @@ const AUTO_RENEW_MAX_FAILURES = 3;
  * for activation so the two paths can never drift apart.
  */
 export async function attemptAutoRenewals(baseUrl: string) {
+  // Emergency kill switch (AUTO_RENEW_DISABLED=1) - chargeSavedCard already
+  // refuses individually, but skip the whole due-subscriptions scan and
+  // pending-payment-row churn entirely while it's set.
+  if (!isAutoRenewEnabled()) return { charged: 0, failed: 0 };
   const { sendSubscriptionRenewalFailedEmail } = await import("./email");
   const { getTenantBranding } = await import("./tenant-branding");
   const now = new Date();
@@ -723,7 +738,13 @@ export async function attemptAutoRenewals(baseUrl: string) {
       savedCardToken: { not: "" },
       renewalAt: { lte: now.toISOString() },
       autoRenewFailCount: { lt: AUTO_RENEW_MAX_FAILURES }
-    }
+    },
+    // Capped like every other query in this cron route - an unbounded scan
+    // making one real external Moyasar call per row would let a growing
+    // auto-renew base starve the rest of the cron's unrelated work inside
+    // its fixed time budget. Any subscription left over is still "due" and
+    // gets picked up on the next run.
+    take: 50
   });
 
   let charged = 0;
@@ -731,26 +752,60 @@ export async function attemptAutoRenewals(baseUrl: string) {
 
   for (const subscription of dueSubscriptions) {
     const plan = await prisma.plan.findFirst({ where: { name: subscription.plan, active: 1 } });
-    if (!plan) continue;
+    if (!plan) {
+      // A deactivated/renamed plan must fail loudly like any other charge
+      // failure, not vanish silently - otherwise the subscription gets
+      // neither an auto-charge nor a manual-renewal reminder (which
+      // sendSubscriptionRenewalReminders skips for autoRenewEnabled
+      // subscriptions) ever again.
+      const failCount = subscription.autoRenewFailCount + 1;
+      const disableAutoRenew = failCount >= AUTO_RENEW_MAX_FAILURES;
+      await prisma.subscription.update({
+        where: { tenantId: subscription.tenantId },
+        data: {
+          autoRenewFailCount: failCount,
+          ...(disableAutoRenew ? { autoRenewEnabled: 0, savedCardToken: "", savedCardLast4: "", savedCardBrand: "" } : {})
+        }
+      });
+      failed += 1;
+      await logAdminAction(
+        subscription.tenantId,
+        subscription.companyName,
+        `[auto-renew] فشل التجديد التلقائي (محاولة ${failCount}/${AUTO_RENEW_MAX_FAILURES})${disableAutoRenew ? " - تم إيقاف التجديد التلقائي" : ""}: الباقة "${subscription.plan}" غير متاحة حاليًا.`,
+        "خطأ"
+      );
+      continue;
+    }
 
-    const paymentId = `sub-pay-autorenew-${randomUUID()}`;
+    // Deterministic id, not randomUUID(): two overlapping cron runs (a
+    // slow-response retry, an overlapping manual trigger) racing on the
+    // same due subscription both try to create this exact row. The
+    // database's own primary-key uniqueness makes the second create throw
+    // (caught below), so only one of them ever reaches chargeSavedCard -
+    // the actual guard against double-charging the saved card.
+    const paymentId = `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}`;
     const amountHalalas = plan.monthlyPrice * 100;
-    await prisma.subscriptionPayment.create({
-      data: {
-        id: paymentId,
-        tenantId: subscription.tenantId,
-        amount: plan.monthlyPrice,
-        amountHalalas,
-        status: PAYMENT_STATUS.pending,
-        createdAt: now.toISOString(),
-        planName: plan.name,
-        planEmployeeLimit: plan.employeeLimit,
-        listPrice: plan.monthlyPrice,
-        gateway: PAYMENT_GATEWAY.moyasar,
-        gatewayStatus: "initiated",
-        initiatedBy: "system"
-      }
-    });
+    try {
+      await prisma.subscriptionPayment.create({
+        data: {
+          id: paymentId,
+          tenantId: subscription.tenantId,
+          amount: plan.monthlyPrice,
+          amountHalalas,
+          status: PAYMENT_STATUS.pending,
+          createdAt: now.toISOString(),
+          planName: plan.name,
+          planEmployeeLimit: plan.employeeLimit,
+          listPrice: plan.monthlyPrice,
+          gateway: PAYMENT_GATEWAY.moyasar,
+          gatewayStatus: "initiated",
+          initiatedBy: "system"
+        }
+      });
+    } catch (error) {
+      if ((error as { code?: string })?.code === "P2002") continue; // already claimed by a concurrent run
+      throw error;
+    }
 
     const metadata = buildPaymentMetadata({
       kind: "subscription",
@@ -762,7 +817,7 @@ export async function attemptAutoRenewals(baseUrl: string) {
       gateway: PAYMENT_GATEWAY.moyasar
     });
     const charge = await chargeSavedCard({
-      token: subscription.savedCardToken,
+      token: decryptSecret(subscription.savedCardToken),
       amountHalalas,
       description: paymentDescription("subscription", { companyName: subscription.companyName, planName: plan.name }),
       metadata
