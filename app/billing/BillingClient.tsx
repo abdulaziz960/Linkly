@@ -1,13 +1,14 @@
 "use client";
 import { useState } from "react";
 import { ANNUAL_DISCOUNT_PERCENT, computeYearlyPrice, type BillingCycle } from "../../lib/billing-pricing";
-import { planFeatures, fallbackFeatureItems } from "../../lib/plan-features";
+import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
 
-type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number };
+type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number; allowedChannels: string; messageQuota: number };
 
 const copy = {
   ar: {
     recommended: "الأنسب لمعظم الفرق",
+    currentPlanBadge: "الباقة الحالية",
     monthlyTab: "شهري",
     yearlyTab: "سنوي",
     yearlySave: `وفر ${ANNUAL_DISCOUNT_PERCENT}٪`,
@@ -16,12 +17,13 @@ const copy = {
     billedYearly: (total: number) => `تُدفع دفعة واحدة بقيمة ${total} ر.س سنويًا`,
     preparingPayment: "جاري تجهيز الدفع...",
     renewPlan: "تجديد هذه الباقة",
-    choosePlan: "اختيار الباقة",
+    upgradePlan: "ترقية الباقة",
     genericError: "تعذر بدء الدفع",
     paymentNote: "🔒 الدفع الحقيقي يتم على صفحة Moyasar الآمنة. في وضع الاختبار تظهر محاكاة دفع ولن يُخصم أي مبلغ."
   },
   en: {
     recommended: "Best for most teams",
+    currentPlanBadge: "Current plan",
     monthlyTab: "Monthly",
     yearlyTab: "Yearly",
     yearlySave: `Save ${ANNUAL_DISCOUNT_PERCENT}%`,
@@ -30,7 +32,7 @@ const copy = {
     billedYearly: (total: number) => `Billed once as ${total} SAR / year`,
     preparingPayment: "Preparing payment...",
     renewPlan: "Renew this plan",
-    choosePlan: "Choose plan",
+    upgradePlan: "Upgrade plan",
     genericError: "Couldn't start the payment",
     paymentNote: "🔒 Real payments happen on Moyasar's secure page. In test mode a simulated payment is shown and nothing is charged."
   }
@@ -60,18 +62,18 @@ export default function BillingClient({ plans, currentPlan, lang = "ar", isTestM
       const yearly = computeYearlyPrice(plan.monthlyPrice);
       const displayedPrice = billingCycle === "سنوي" ? Math.round(yearly / 12) : plan.monthlyPrice;
       // Same feature list as the public pricing page (lib/plan-features.ts) -
-      // a custom/renamed plan an admin created falls back to a short generic
-      // list built from its live numbers instead of showing nothing.
-      const features = planFeatures[plan.name];
-      const items = features?.items[lang] ?? fallbackFeatureItems(plan.employeeLimit, lang);
-      const featured = Boolean(features?.featured);
+      // live numbers (users/channels/message quota) plus the static
+      // descriptive copy, with a generic fallback for a custom/renamed plan.
+      const items = getPlanDisplayItems(plan, lang);
+      const featured = Boolean(planFeatures[plan.name]?.featured);
+      const isCurrent = currentPlan === plan.name;
       return <article className={`plan-card ${featured ? "featured" : ""}`} key={plan.id}>
-        {featured ? <span className="recommended">{text.recommended}</span> : null}
+        {isCurrent ? <span className="current-badge">{text.currentPlanBadge}</span> : featured ? <span className="recommended">{text.recommended}</span> : null}
         <h2>{plan.name}</h2>
         <div className="plan-price"><b>{displayedPrice}</b><span>{text.perMonth}</span></div>
         {billingCycle === "سنوي" ? <p className="plan-price-note">{text.billedYearly(yearly)}</p> : null}
         <ul>{items.map((item) => <li key={item}>✓ {item}</li>)}</ul>
-        <button disabled={loading !== ""} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : currentPlan === plan.name ? text.renewPlan : text.choosePlan}</button>
+        <button disabled={loading !== ""} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : isCurrent ? text.renewPlan : text.upgradePlan}</button>
       </article>;
     })}</div>
     {error ? <p className="billing-error">{error}</p> : null}

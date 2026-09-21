@@ -9,7 +9,8 @@ import HtmlLangSync from "../HtmlLangSync";
 import WhatsAppCta from "../WhatsAppCta";
 import PricingPlanGrid from "../PricingPlanGrid";
 import s from "../page.module.css";
-import { planFeatures } from "../../lib/plan-features";
+import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
+import { getActivePlans } from "../../lib/plans";
 
 export const metadata: Metadata = {
   title: { absolute: "Linkly | One inbox for WhatsApp, Instagram and every channel — Saudi customer service platform" },
@@ -17,6 +18,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/en", languages: { "ar-SA": "/", en: "/en", "x-default": "/" } },
   openGraph: { title: "Linkly | Every customer conversation in one place", description: "A shared inbox, conversation routing, automation and reports for your team.", locale: "en_US", alternateLocale: "ar_SA", url: "/en", type: "website" }
 };
+
+// See app/page.tsx - same live-database pricing section; must be
+// force-dynamic, not ISR, or the build-time prerender attempt fails against
+// the Docker build's placeholder DATABASE_URL.
+export const dynamic = "force-dynamic";
 
 const features = [
   ["Shared inbox", "Save time instead of switching apps; every message and customer history lives in one place."],
@@ -37,27 +43,15 @@ const faqs = [
   ["How are WhatsApp fees calculated?", "Official WhatsApp message fees from Meta, if any, are separate from the Linkly subscription."],
   ["Is customer data safe?", "The platform uses user permissions, encryption for integration secrets, time-limited sessions, and activity logs to help track activity."]
 ] as const;
-// price/cta stay page-local; name/audience/items/featured come from
+// CTA text stays page-local; name/audience/items/featured come from
 // lib/plan-features.ts, the same source app/billing/BillingClient.tsx reads.
-const planPricing: Record<string, { price: string; cta: string }> = {
-  "باقة الأفراد": { price: "199", cta: "Start the trial" },
-  "الباقة العادية": { price: "279", cta: "Try the Regular plan" },
-  "باقة المؤسسات الصغيرة": { price: "615", cta: "Try the Small Enterprises plan" },
-  "باقة المؤسسات الكبيرة": { price: "849", cta: "Try the Large Enterprises plan" },
-  "باقة الشركات": { price: "1499", cta: "Contact us" }
+const planCta: Record<string, string> = {
+  "باقة الأفراد": "Start the trial",
+  "الباقة العادية": "Try the Regular plan",
+  "باقة المؤسسات الصغيرة": "Try the Small Enterprises plan",
+  "باقة المؤسسات الكبيرة": "Try the Large Enterprises plan",
+  "باقة الشركات": "Contact us"
 };
-const planOrder = ["باقة الأفراد", "الباقة العادية", "باقة المؤسسات الصغيرة", "باقة المؤسسات الكبيرة", "باقة الشركات"] as const;
-const plans = planOrder.map((name) => {
-  const features = planFeatures[name];
-  const pricing = planPricing[name];
-  return { name: features.shortName.en, price: pricing.price, audience: features.audience.en, cta: pricing.cta, featured: features.featured, items: features.items.en };
-});
-const jsonLd = { "@context": "https://schema.org", "@graph": [
-  { "@type": "Organization", name: "Linkly", alternateName: ["Linkly Saudi", "Linkly السعودية", "لنكلي"], url: "https://linklysa.io", logo: "https://linklysa.io/assets/linkly-logo.png", description: "Linkly is a Saudi customer communication and customer support platform that helps businesses manage WhatsApp conversations, shared team inboxes, customer support, tickets, live chat, automation, and digital customer communication from one centralized platform.", areaServed: "SA" },
-  { "@type": "WebSite", name: "Linkly", url: "https://linklysa.io", inLanguage: ["ar-SA", "en"] },
-  { "@type": "SoftwareApplication", name: "Linkly", applicationCategory: "BusinessApplication", operatingSystem: "Web", offers: { "@type": "AggregateOffer", lowPrice: "199", highPrice: "1499", priceCurrency: "SAR" } },
-  { "@type": "FAQPage", mainEntity: faqs.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }
-] };
 
 function Check() { return <span className={s.check} aria-hidden="true">✓</span>; }
 type Platform = "whatsapp" | "instagram" | "email" | "telegram" | "tiktok";
@@ -77,7 +71,29 @@ function Preview() {
   </div>;
 }
 
-export default function EnglishHomePage() { return <div className={s.page} dir="ltr" lang="en">
+export default async function EnglishHomePage() {
+  const dbPlans = await getActivePlans();
+  const plans = dbPlans.map((plan) => {
+    const features = planFeatures[plan.name];
+    return {
+      name: features?.shortName.en ?? plan.name,
+      price: String(plan.monthlyPrice),
+      audience: features?.audience.en ?? "A flexible plan that fits your team's needs.",
+      cta: planCta[plan.name] ?? "Start the trial",
+      featured: features?.featured,
+      items: getPlanDisplayItems(plan, "en")
+    };
+  });
+  const prices = dbPlans.map((plan) => plan.monthlyPrice).filter((price) => price > 0);
+  const lowPrice = prices.length ? String(Math.min(...prices)) : "199";
+  const highPrice = prices.length ? String(Math.max(...prices)) : "1499";
+  const jsonLd = { "@context": "https://schema.org", "@graph": [
+    { "@type": "Organization", name: "Linkly", alternateName: ["Linkly Saudi", "Linkly السعودية", "لنكلي"], url: "https://linklysa.io", logo: "https://linklysa.io/assets/linkly-logo.png", description: "Linkly is a Saudi customer communication and customer support platform that helps businesses manage WhatsApp conversations, shared team inboxes, customer support, tickets, live chat, automation, and digital customer communication from one centralized platform.", areaServed: "SA" },
+    { "@type": "WebSite", name: "Linkly", url: "https://linklysa.io", inLanguage: ["ar-SA", "en"] },
+    { "@type": "SoftwareApplication", name: "Linkly", applicationCategory: "BusinessApplication", operatingSystem: "Web", offers: { "@type": "AggregateOffer", lowPrice, highPrice, priceCurrency: "SAR" } },
+    { "@type": "FAQPage", mainEntity: faqs.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }
+  ] };
+  return <div className={s.page} dir="ltr" lang="en">
   <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
   <HtmlLangSync lang="en" dir="ltr" />
   <ScrollReveal />

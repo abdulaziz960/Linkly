@@ -9,7 +9,8 @@ import WhatsAppCta from "./WhatsAppCta";
 import PricingPlanGrid from "./PricingPlanGrid";
 import s from "./page.module.css";
 import { channelNames } from "./channel-names";
-import { planFeatures } from "../lib/plan-features";
+import { planFeatures, getPlanDisplayItems } from "../lib/plan-features";
+import { getActivePlans } from "../lib/plans";
 
 export const metadata: Metadata = {
   title: { absolute: "Linkly | صندوق موحّد لواتساب وإنستقرام والقنوات — منصة سعودية لخدمة العملاء" },
@@ -17,6 +18,15 @@ export const metadata: Metadata = {
   alternates: { canonical: "/", languages: { "ar-SA": "/", en: "/en", "x-default": "/" } },
   openGraph: { title: "Linkly | كل محادثات عملائك في مكان واحد", description: "صندوق وارد موحد، توزيع للمحادثات، أتمتة وتقارير لفريقك.", locale: "ar_SA", alternateLocale: "en_US", url: "/", type: "website" }
 };
+
+// The pricing section reads live Plan rows (price, employee limit, channels,
+// message quota) so an admin's edit shows up immediately - see
+// lib/plan-features.ts. Must be force-dynamic, not ISR/revalidate: the
+// Docker build's DATABASE_URL is a placeholder that contacts nothing (see
+// Dockerfile), so any attempt to prerender this page during `next build`
+// (which ISR does) fails the whole build - this skips that attempt
+// entirely and only ever queries the database on a real runtime request.
+export const dynamic = "force-dynamic";
 
 const features = [
   ["صندوق وارد موحد", "توفّر وقتك بدل التنقل بين تطبيقات؛ كل رسالة وسجل العميل في مكان واحد."],
@@ -37,29 +47,15 @@ const faqs = [
   ["كيف تُحتسب رسوم واتساب؟", "رسوم رسائل واتساب الرسمية من ميتا، إن وجدت، منفصلة عن اشتراك Linkly."],
   ["هل بيانات العملاء آمنة؟", "تستخدم المنصة صلاحيات مستخدمين، وتشفيرًا لأسرار التكاملات، وجلسات محددة المدة، وسجلات تشغيل للمساعدة في تتبع النشاط."]
 ] as const;
-// price/cta stay page-local (marketing copy, not part of what has to match
-// the live database) - name/audience/items/featured come from
-// lib/plan-features.ts, the same source app/billing/BillingClient.tsx reads,
-// so a customer sees the identical feature list before and after signup.
-const planPricing: Record<string, { price: string; cta: string }> = {
-  "باقة الأفراد": { price: "199", cta: "ابدأ التجربة" },
-  "الباقة العادية": { price: "279", cta: "جرّب الباقة العادية" },
-  "باقة المؤسسات الصغيرة": { price: "615", cta: "جرّب باقة المؤسسات الصغيرة" },
-  "باقة المؤسسات الكبيرة": { price: "849", cta: "جرّب باقة المؤسسات الكبيرة" },
-  "باقة الشركات": { price: "1499", cta: "تواصل معنا" }
+// CTA text stays page-local (marketing copy) - a plan name with no entry
+// here (a custom plan an admin created) falls back to a generic CTA.
+const planCta: Record<string, string> = {
+  "باقة الأفراد": "ابدأ التجربة",
+  "الباقة العادية": "جرّب الباقة العادية",
+  "باقة المؤسسات الصغيرة": "جرّب باقة المؤسسات الصغيرة",
+  "باقة المؤسسات الكبيرة": "جرّب باقة المؤسسات الكبيرة",
+  "باقة الشركات": "تواصل معنا"
 };
-const planOrder = ["باقة الأفراد", "الباقة العادية", "باقة المؤسسات الصغيرة", "باقة المؤسسات الكبيرة", "باقة الشركات"] as const;
-const plans = planOrder.map((name) => {
-  const features = planFeatures[name];
-  const pricing = planPricing[name];
-  return { name: features.shortName.ar, price: pricing.price, audience: features.audience.ar, cta: pricing.cta, featured: features.featured, items: features.items.ar };
-});
-const jsonLd = { "@context":"https://schema.org", "@graph":[
-  { "@type":"Organization", name:"Linkly", alternateName:["Linkly Saudi","Linkly السعودية","لنكلي"], url:"https://linklysa.io", logo:"https://linklysa.io/assets/linkly-logo.png", description:"لنكلي منصة سعودية لإدارة تواصل وخدمة العملاء، تساعد الشركات على إدارة محادثات واتساب، صندوق الوارد المشترك، الدعم الفني، التذاكر، المحادثة المباشرة والأتمتة من منصة مركزية واحدة.", areaServed:"SA" },
-  { "@type":"WebSite", name:"Linkly", url:"https://linklysa.io", inLanguage:["ar-SA","en"] },
-  { "@type":"SoftwareApplication", name:"Linkly", applicationCategory:"BusinessApplication", operatingSystem:"Web", offers:{"@type":"AggregateOffer",lowPrice:"199",highPrice:"1499",priceCurrency:"SAR"} },
-  { "@type":"FAQPage", mainEntity:faqs.map(([q,a])=>({"@type":"Question",name:q,acceptedAnswer:{"@type":"Answer",text:a}})) }
-]};
 
 function Check(){return <span className={s.check} aria-hidden="true">✓</span>}
 type Platform = "whatsapp" | "instagram" | "email" | "telegram" | "tiktok";
@@ -77,7 +73,29 @@ function Preview(){return <div className={s.preview} aria-label="معاينة ص
   <section className={s.chat}><header><div><b>وليد السبيعي</b><small>محادثة مفتوحة</small></div><span>فريق المبيعات</span></header><div><p className={s.bubble}>السلام عليكم، هل المنتج متوفر اليوم؟</p><div className={s.typingRow} aria-hidden="true"><span/><span/><span/></div><p className={`${s.bubble} ${s.reply}`}>وعليكم السلام، نعم متوفر. أرسل لك رابط الطلب الآن.</p><small>عميل مهتم　 متابعة اليوم</small></div><footer>اكتب ردك هنا… <b>↑</b></footer></section></div>
   </div>}
 
-export default function HomePage(){return <div className={s.page}>
+export default async function HomePage(){
+  const dbPlans = await getActivePlans();
+  const plans = dbPlans.map((plan) => {
+    const features = planFeatures[plan.name];
+    return {
+      name: features?.shortName.ar ?? plan.name,
+      price: String(plan.monthlyPrice),
+      audience: features?.audience.ar ?? "باقة مرنة تناسب احتياج فريقك.",
+      cta: planCta[plan.name] ?? "ابدأ التجربة",
+      featured: features?.featured,
+      items: getPlanDisplayItems(plan, "ar")
+    };
+  });
+  const prices = dbPlans.map((plan) => plan.monthlyPrice).filter((price) => price > 0);
+  const lowPrice = prices.length ? String(Math.min(...prices)) : "199";
+  const highPrice = prices.length ? String(Math.max(...prices)) : "1499";
+  const jsonLd = { "@context":"https://schema.org", "@graph":[
+    { "@type":"Organization", name:"Linkly", alternateName:["Linkly Saudi","Linkly السعودية","لنكلي"], url:"https://linklysa.io", logo:"https://linklysa.io/assets/linkly-logo.png", description:"لنكلي منصة سعودية لإدارة تواصل وخدمة العملاء، تساعد الشركات على إدارة محادثات واتساب، صندوق الوارد المشترك، الدعم الفني، التذاكر، المحادثة المباشرة والأتمتة من منصة مركزية واحدة.", areaServed:"SA" },
+    { "@type":"WebSite", name:"Linkly", url:"https://linklysa.io", inLanguage:["ar-SA","en"] },
+    { "@type":"SoftwareApplication", name:"Linkly", applicationCategory:"BusinessApplication", operatingSystem:"Web", offers:{"@type":"AggregateOffer",lowPrice,highPrice,priceCurrency:"SAR"} },
+    { "@type":"FAQPage", mainEntity:faqs.map(([q,a])=>({"@type":"Question",name:q,acceptedAnswer:{"@type":"Answer",text:a}})) }
+  ]};
+  return <div className={s.page}>
   <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd).replace(/</g,"\\u003c")}}/>
   <ScrollReveal />
   <MobileCtaVisibility />
