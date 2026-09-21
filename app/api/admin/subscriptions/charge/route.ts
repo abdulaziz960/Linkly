@@ -6,6 +6,7 @@ import { prisma } from "../../../../../lib/prisma";
 import { getPaymentCallbackOrigin } from "../../../../../lib/app-url";
 import { buildPaymentMetadata, createMoyasarInvoice, isMoyasarConfigured, paymentDescription } from "../../../../../lib/moyasar";
 import { createStripeCheckoutSession, isStripeConfigured } from "../../../../../lib/stripe";
+import { recordAdminAction } from "../../../../../lib/admin-audit";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../../lib/payment-status";
 
 export const runtime = "nodejs";
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
       await prisma.subscriptionPayment.create({
         data: { ...stagedRow, moyasarId: `stripe_test_${session.id}`, paymentUrl: session.url, gatewayStatus: "open" }
       });
+      await recordAdminAction(admin, "create-manual-invoice", { type: "tenant", id: tenantId }, JSON.stringify({ amount, gateway: "stripe" }));
 
       return NextResponse.json({ ok: true, paymentUrl: session.url });
     } catch (error) {
@@ -99,6 +101,7 @@ export async function POST(request: NextRequest) {
     await prisma.subscriptionPayment.create({
       data: { ...stagedRow, moyasarId: invoice.id, paymentUrl: invoice.url, gatewayStatus: invoice.status }
     });
+    await recordAdminAction(admin, "create-manual-invoice", { type: "tenant", id: tenantId }, JSON.stringify({ amount, gateway: "moyasar" }));
 
     return NextResponse.json({ ok: true, paymentUrl: invoice.url });
   } catch (error) {

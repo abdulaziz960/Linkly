@@ -446,6 +446,23 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS link_clicks_tenant_id_created_at_idx ON link_clicks (tenant_id, created_at)`
   );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS admin_action_logs (
+    id TEXT PRIMARY KEY,
+    admin_user_id TEXT NOT NULL,
+    admin_email TEXT NOT NULL,
+    admin_name TEXT NOT NULL DEFAULT '',
+    action TEXT NOT NULL,
+    target_type TEXT NOT NULL DEFAULT '',
+    target_id TEXT NOT NULL DEFAULT '',
+    details TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS admin_action_logs_admin_user_id_created_at_idx ON admin_action_logs (admin_user_id, created_at)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS admin_action_logs_target_type_target_id_idx ON admin_action_logs (target_type, target_id)`
+  );
 
   // Legacy column from before this table's tenant scoping was renamed
   // workspace_id -> tenant_id (same class of leftover as the subscriptions
@@ -1201,6 +1218,19 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE link_clicks ADD COLUMN button_id TEXT NOT NULL DEFAULT ''`);
   }
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS link_clicks_tenant_id_created_at_idx ON link_clicks (tenant_id, created_at)`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS admin_action_logs (
+    id TEXT PRIMARY KEY,
+    admin_user_id TEXT NOT NULL,
+    admin_email TEXT NOT NULL,
+    admin_name TEXT NOT NULL DEFAULT '',
+    action TEXT NOT NULL,
+    target_type TEXT NOT NULL DEFAULT '',
+    target_id TEXT NOT NULL DEFAULT '',
+    details TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS admin_action_logs_admin_user_id_created_at_idx ON admin_action_logs (admin_user_id, created_at)`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS admin_action_logs_target_type_target_id_idx ON admin_action_logs (target_type, target_id)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL,

@@ -18,7 +18,8 @@ const navItems = [
   { href: "/linkly-admin007/payments", labelAr: "المدفوعات", labelEn: "Payments" },
   { href: "/linkly-admin007/plans", labelAr: "الباقات", labelEn: "Plans" },
   { href: "/linkly-admin007/team", labelAr: "الفريق", labelEn: "Team" },
-  { href: "/linkly-admin007/logs", labelAr: "السجلات", labelEn: "Logs" }
+  { href: "/linkly-admin007/logs", labelAr: "السجلات", labelEn: "Logs" },
+  { href: "/linkly-admin007/admin-actions", labelAr: "إجراءات الأدمن", labelEn: "Admin actions" }
 ];
 
 export default function AdminSidebar({

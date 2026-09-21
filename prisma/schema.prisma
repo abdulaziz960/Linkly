@@ -856,6 +856,27 @@ model AdminLog {
   @@map("admin_logs")
 }
 
+// Who-did-what for the platform admin's OWN actions (suspend a tenant,
+// change a plan, issue a refund, ...) - distinct from AdminLog above, which
+// is tenant-scoped and has no admin-actor field at all. See
+// lib/admin-audit.ts's recordAdminAction, called from every mutating
+// app/api/admin/** route.
+model AdminActionLog {
+  id          String @id
+  adminUserId String @map("admin_user_id")
+  adminEmail  String @map("admin_email")
+  adminName   String @default("") @map("admin_name")
+  action      String
+  targetType  String @default("") @map("target_type")
+  targetId    String @default("") @map("target_id")
+  details     String @default("")
+  createdAt   String @map("created_at")
+
+  @@index([adminUserId, createdAt])
+  @@index([targetType, targetId])
+  @@map("admin_action_logs")
+}
+
 model RateLimit {
   key     String @id
   count   Int    @default(0)

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../lib/admin-auth";
 import { getPlatformTeam, invitePlatformAdmin } from "../../../../lib/platform-team";
+import { recordAdminAction } from "../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../_utils/json";
 import { getAppOrigin } from "../../../../lib/app-url";
 
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
       { name: body.name || "", email: body.email || "" },
       getAppOrigin(request)
     );
+    await recordAdminAction(admin, "invite-platform-admin", { type: "user", id: body.email || "" }, JSON.stringify({ name: body.name }));
     return jsonOk({ delivery });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر إضافة العضو", 400);

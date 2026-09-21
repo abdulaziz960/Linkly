@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../../../lib/admin-auth";
 import { addManualCampaignBalance } from "../../../../../../lib/campaign-engine";
 import { getSubscriptionForTenant, logAdminAction } from "../../../../../../lib/subscriptions";
+import { recordAdminAction } from "../../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     subscription.companyName,
     `إضافة رصيد يدوي للحملات: ${messages.toLocaleString("en-US")} رسالة${amount > 0 ? ` مقابل ${amount.toLocaleString("en-US")} ر.س` : ""} بواسطة ${admin.name}`
   );
+  await recordAdminAction(admin, "add-campaign-balance", { type: "tenant", id: tenantId }, JSON.stringify({ messages, amount }));
 
   return jsonOk({ ok: true });
 }

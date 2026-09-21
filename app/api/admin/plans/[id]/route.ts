@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
 import { updatePlan } from "../../../../../lib/plans";
+import { recordAdminAction } from "../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -20,6 +21,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     const plan = await updatePlan(id, body);
+    await recordAdminAction(admin, "update-plan", { type: "plan", id }, JSON.stringify(body));
     return jsonOk(plan);
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر تحديث الباقة", 400);

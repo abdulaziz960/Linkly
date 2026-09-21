@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
 import { updateSubscription } from "../../../../../lib/subscriptions";
+import { recordAdminAction } from "../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -25,6 +26,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     const subscription = await updateSubscription(tenantId, body, admin.name);
+    await recordAdminAction(admin, "update-client-subscription", { type: "tenant", id: tenantId }, JSON.stringify(body));
     return jsonOk(subscription);
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر تحديث الاشتراك", 404);
