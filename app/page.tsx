@@ -9,6 +9,7 @@ import WhatsAppCta from "./WhatsAppCta";
 import PricingPlanGrid from "./PricingPlanGrid";
 import s from "./page.module.css";
 import { channelNames } from "./channel-names";
+import { planFeatures } from "../lib/plan-features";
 
 export const metadata: Metadata = {
   title: { absolute: "Linkly | صندوق موحّد لواتساب وإنستقرام والقنوات — منصة سعودية لخدمة العملاء" },
@@ -36,13 +37,23 @@ const faqs = [
   ["كيف تُحتسب رسوم واتساب؟", "رسوم رسائل واتساب الرسمية من ميتا، إن وجدت، منفصلة عن اشتراك Linkly."],
   ["هل بيانات العملاء آمنة؟", "تستخدم المنصة صلاحيات مستخدمين، وتشفيرًا لأسرار التكاملات، وجلسات محددة المدة، وسجلات تشغيل للمساعدة في تتبع النشاط."]
 ] as const;
-const plans = [
-  { name:"الأفراد", price:"199", audience:"الأنسب لصاحب عمل يبدأ لحاله ويحتاج يرتب رسائل واتساب.", cta:"ابدأ التجربة", items:["مستخدم واحد","قناة واتساب","1000 رسالة تسويقية شهريًا","رد آلي بسيط وردود سريعة","حملات تسويقية أساسية","تقارير أساسية"] },
-  { name:"العادية", price:"279", audience:"الأنسب لصاحب عمل بدأ يكبر ويحتاج قناة ثانية وفريق صغير.", cta:"جرّب الباقة العادية", items:["حتى 3 مستخدمين","واتساب + انستقرام","3000 رسالة تسويقية شهريًا","توزيع محادثات تلقائي","وسوم وتقسيم جمهور بسيط","تقارير أساسية"] },
-  { name:"المؤسسات الصغيرة", price:"615", audience:"الأنسب لفريق يحتاج أتمتة وتقسيم جمهور ومساعد ذكاء اصطناعي.", cta:"جرّب باقة المؤسسات الصغيرة", featured:true, items:["حتى 6 مستخدمين","واتساب + انستقرام","5000 رسالة تسويقية شهريًا","فرق عمل متعددة","أتمتة وقواعد تحويل متقدمة","تقسيم جمهور واستهداف بالحملات","مساعد ذكاء اصطناعي (AI Copilot)","تقارير أداء وSLA"] },
-  { name:"المؤسسات الكبيرة", price:"849", audience:"الأنسب لفرق متعددة تحتاج قنوات أكثر وواجهات تكامل.", cta:"جرّب باقة المؤسسات الكبيرة", items:["حتى 8 مستخدمين","واتساب + انستقرام + تيك توك","7000 رسالة تسويقية شهريًا","كل مزايا المؤسسات الصغيرة","واجهة برمجة API وWebhooks للمطورين","مساعد ذكاء اصطناعي بحد أعلى","دعم أولوية"] },
-  { name:"الشركات", price:"1499", audience:"الأنسب للشركات الكبيرة اللي تحتاج كل القنوات وحساب مخصص.", cta:"تواصل معنا", items:["مستخدمين غير محدودين","كل القنوات المتاحة بالمنصة","رسائل تسويقية غير محدودة","علامة تجارية مخصّصة (White-label)","مساعد ذكاء اصطناعي بأعلى حد","مدير حساب مخصص ودعم VIP فوري"] }
-] as const;
+// price/cta stay page-local (marketing copy, not part of what has to match
+// the live database) - name/audience/items/featured come from
+// lib/plan-features.ts, the same source app/billing/BillingClient.tsx reads,
+// so a customer sees the identical feature list before and after signup.
+const planPricing: Record<string, { price: string; cta: string }> = {
+  "باقة الأفراد": { price: "199", cta: "ابدأ التجربة" },
+  "الباقة العادية": { price: "279", cta: "جرّب الباقة العادية" },
+  "باقة المؤسسات الصغيرة": { price: "615", cta: "جرّب باقة المؤسسات الصغيرة" },
+  "باقة المؤسسات الكبيرة": { price: "849", cta: "جرّب باقة المؤسسات الكبيرة" },
+  "باقة الشركات": { price: "1499", cta: "تواصل معنا" }
+};
+const planOrder = ["باقة الأفراد", "الباقة العادية", "باقة المؤسسات الصغيرة", "باقة المؤسسات الكبيرة", "باقة الشركات"] as const;
+const plans = planOrder.map((name) => {
+  const features = planFeatures[name];
+  const pricing = planPricing[name];
+  return { name: features.shortName.ar, price: pricing.price, audience: features.audience.ar, cta: pricing.cta, featured: features.featured, items: features.items.ar };
+});
 const jsonLd = { "@context":"https://schema.org", "@graph":[
   { "@type":"Organization", name:"Linkly", alternateName:["Linkly Saudi","Linkly السعودية","لنكلي"], url:"https://linklysa.io", logo:"https://linklysa.io/assets/linkly-logo.png", description:"لنكلي منصة سعودية لإدارة تواصل وخدمة العملاء، تساعد الشركات على إدارة محادثات واتساب، صندوق الوارد المشترك، الدعم الفني، التذاكر، المحادثة المباشرة والأتمتة من منصة مركزية واحدة.", areaServed:"SA" },
   { "@type":"WebSite", name:"Linkly", url:"https://linklysa.io", inLanguage:["ar-SA","en"] },

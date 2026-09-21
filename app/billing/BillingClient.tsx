@@ -1,24 +1,19 @@
 "use client";
 import { useState } from "react";
 import { ANNUAL_DISCOUNT_PERCENT, computeYearlyPrice, type BillingCycle } from "../../lib/billing-pricing";
-import { isUnlimitedMessageQuota, messageQuotaLabel } from "../../lib/message-quota";
+import { planFeatures, fallbackFeatureItems } from "../../lib/plan-features";
 
-type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number; messageQuota: number };
+type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number };
 
 const copy = {
   ar: {
-    recommended: "الأكثر اختيارًا",
+    recommended: "الأنسب لمعظم الفرق",
     monthlyTab: "شهري",
     yearlyTab: "سنوي",
     yearlySave: `وفر ${ANNUAL_DISCOUNT_PERCENT}٪`,
     perMonth: "ر.س / شهريًا",
     perYear: "ر.س / سنويًا",
     billedYearly: (total: number) => `تُدفع دفعة واحدة بقيمة ${total} ر.س سنويًا`,
-    upToUsers: (limit: number) => `✓ حتى ${limit} مستخدم`,
-    messageQuota: (quota: number) => isUnlimitedMessageQuota(quota) ? "✓ رسائل تسويقية غير محدودة" : `✓ ${messageQuotaLabel(quota, "ar")} رسالة تسويقية شهريًا`,
-    sharedInbox: "✓ صندوق وارد موحّد",
-    automation: "✓ أتمتة وتقارير",
-    support: "✓ دعم فني",
     preparingPayment: "جاري تجهيز الدفع...",
     renewPlan: "تجديد هذه الباقة",
     choosePlan: "اختيار الباقة",
@@ -26,18 +21,13 @@ const copy = {
     paymentNote: "🔒 الدفع الحقيقي يتم على صفحة Moyasar الآمنة. في وضع الاختبار تظهر محاكاة دفع ولن يُخصم أي مبلغ."
   },
   en: {
-    recommended: "Most popular",
+    recommended: "Best for most teams",
     monthlyTab: "Monthly",
     yearlyTab: "Yearly",
     yearlySave: `Save ${ANNUAL_DISCOUNT_PERCENT}%`,
     perMonth: "SAR / month",
     perYear: "SAR / year",
     billedYearly: (total: number) => `Billed once as ${total} SAR / year`,
-    upToUsers: (limit: number) => `✓ Up to ${limit} users`,
-    messageQuota: (quota: number) => isUnlimitedMessageQuota(quota) ? "✓ Unlimited marketing messages" : `✓ ${messageQuotaLabel(quota, "en")} marketing messages/month`,
-    sharedInbox: "✓ Shared inbox",
-    automation: "✓ Automation and reports",
-    support: "✓ Technical support",
     preparingPayment: "Preparing payment...",
     renewPlan: "Renew this plan",
     choosePlan: "Choose plan",
@@ -66,15 +56,21 @@ export default function BillingClient({ plans, currentPlan, lang = "ar", isTestM
       <button type="button" role="tab" aria-selected={billingCycle === "شهري"} className={billingCycle === "شهري" ? "active" : ""} onClick={() => setBillingCycle("شهري")}>{text.monthlyTab}</button>
       <button type="button" role="tab" aria-selected={billingCycle === "سنوي"} className={billingCycle === "سنوي" ? "active" : ""} onClick={() => setBillingCycle("سنوي")}>{text.yearlyTab}<span className="billing-cycle-badge">{text.yearlySave}</span></button>
     </div>
-    <div className="plan-grid">{plans.map((plan, index) => {
+    <div className="plan-grid">{plans.map((plan) => {
       const yearly = computeYearlyPrice(plan.monthlyPrice);
       const displayedPrice = billingCycle === "سنوي" ? Math.round(yearly / 12) : plan.monthlyPrice;
-      return <article className={`plan-card ${index === 1 ? "featured" : ""}`} key={plan.id}>
-        {index === 1 ? <span className="recommended">{text.recommended}</span> : null}
+      // Same feature list as the public pricing page (lib/plan-features.ts) -
+      // a custom/renamed plan an admin created falls back to a short generic
+      // list built from its live numbers instead of showing nothing.
+      const features = planFeatures[plan.name];
+      const items = features?.items[lang] ?? fallbackFeatureItems(plan.employeeLimit, lang);
+      const featured = Boolean(features?.featured);
+      return <article className={`plan-card ${featured ? "featured" : ""}`} key={plan.id}>
+        {featured ? <span className="recommended">{text.recommended}</span> : null}
         <h2>{plan.name}</h2>
         <div className="plan-price"><b>{displayedPrice}</b><span>{text.perMonth}</span></div>
         {billingCycle === "سنوي" ? <p className="plan-price-note">{text.billedYearly(yearly)}</p> : null}
-        <ul><li>{text.upToUsers(plan.employeeLimit)}</li><li>{text.messageQuota(plan.messageQuota)}</li><li>{text.sharedInbox}</li><li>{text.automation}</li><li>{text.support}</li></ul>
+        <ul>{items.map((item) => <li key={item}>✓ {item}</li>)}</ul>
         <button disabled={loading !== ""} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : currentPlan === plan.name ? text.renewPlan : text.choosePlan}</button>
       </article>;
     })}</div>

@@ -9,6 +9,7 @@ import HtmlLangSync from "../HtmlLangSync";
 import WhatsAppCta from "../WhatsAppCta";
 import PricingPlanGrid from "../PricingPlanGrid";
 import s from "../page.module.css";
+import { planFeatures } from "../../lib/plan-features";
 
 export const metadata: Metadata = {
   title: { absolute: "Linkly | One inbox for WhatsApp, Instagram and every channel — Saudi customer service platform" },
@@ -36,13 +37,21 @@ const faqs = [
   ["How are WhatsApp fees calculated?", "Official WhatsApp message fees from Meta, if any, are separate from the Linkly subscription."],
   ["Is customer data safe?", "The platform uses user permissions, encryption for integration secrets, time-limited sessions, and activity logs to help track activity."]
 ] as const;
-const plans = [
-  { name: "Individuals", price: "199", audience: "Best for a solo business owner who needs their WhatsApp messages organized.", cta: "Start the trial", items: ["1 user", "WhatsApp channel", "1,000 marketing messages/month", "Simple auto-reply and quick replies", "Basic marketing campaigns", "Basic reports"] },
-  { name: "Regular", price: "279", audience: "Best for a growing business that needs a second channel and a small team.", cta: "Try the Regular plan", items: ["Up to 3 users", "WhatsApp + Instagram", "3,000 marketing messages/month", "Automatic conversation routing", "Tags and basic audience segments", "Basic reports"] },
-  { name: "Small Enterprises", price: "615", audience: "Best for a team that needs automation, audience segments, and an AI copilot.", cta: "Try the Small Enterprises plan", featured: true, items: ["Up to 6 users", "WhatsApp + Instagram", "5,000 marketing messages/month", "Multiple teams", "Advanced automation and routing rules", "Audience segments and campaign targeting", "AI Copilot", "Performance and SLA reports"] },
-  { name: "Large Enterprises", price: "849", audience: "Best for multiple teams that need more channels and integrations.", cta: "Try the Large Enterprises plan", items: ["Up to 8 users", "WhatsApp + Instagram + TikTok", "7,000 marketing messages/month", "Everything in Small Enterprises", "Developer API and webhooks", "AI Copilot with a higher limit", "Priority support"] },
-  { name: "Corporate", price: "1499", audience: "Best for large companies that need every channel and a dedicated account.", cta: "Contact us", items: ["Unlimited users", "Every channel on the platform", "Unlimited marketing messages", "Custom white-label branding", "AI Copilot with the highest limit", "Dedicated account manager and instant VIP support"] }
-] as const;
+// price/cta stay page-local; name/audience/items/featured come from
+// lib/plan-features.ts, the same source app/billing/BillingClient.tsx reads.
+const planPricing: Record<string, { price: string; cta: string }> = {
+  "باقة الأفراد": { price: "199", cta: "Start the trial" },
+  "الباقة العادية": { price: "279", cta: "Try the Regular plan" },
+  "باقة المؤسسات الصغيرة": { price: "615", cta: "Try the Small Enterprises plan" },
+  "باقة المؤسسات الكبيرة": { price: "849", cta: "Try the Large Enterprises plan" },
+  "باقة الشركات": { price: "1499", cta: "Contact us" }
+};
+const planOrder = ["باقة الأفراد", "الباقة العادية", "باقة المؤسسات الصغيرة", "باقة المؤسسات الكبيرة", "باقة الشركات"] as const;
+const plans = planOrder.map((name) => {
+  const features = planFeatures[name];
+  const pricing = planPricing[name];
+  return { name: features.shortName.en, price: pricing.price, audience: features.audience.en, cta: pricing.cta, featured: features.featured, items: features.items.en };
+});
 const jsonLd = { "@context": "https://schema.org", "@graph": [
   { "@type": "Organization", name: "Linkly", alternateName: ["Linkly Saudi", "Linkly السعودية", "لنكلي"], url: "https://linklysa.io", logo: "https://linklysa.io/assets/linkly-logo.png", description: "Linkly is a Saudi customer communication and customer support platform that helps businesses manage WhatsApp conversations, shared team inboxes, customer support, tickets, live chat, automation, and digital customer communication from one centralized platform.", areaServed: "SA" },
   { "@type": "WebSite", name: "Linkly", url: "https://linklysa.io", inLanguage: ["ar-SA", "en"] },
