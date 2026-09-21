@@ -722,6 +722,13 @@ model Subscription {
   // An active subscription with renewalAt in the past is overdue (unpaid)
   // - see subscriptionPaymentState() in lib/payment-status.ts.
   renewalAt     String @default("") @map("renewal_at")
+  // Set by the owner cancelling from /billing. Since there is no
+  // auto-charge, cancelling doesn't change access (it still lapses
+  // naturally at renewalAt) - this just records the owner's intent so the
+  // UI can show "cancelled, access until <renewalAt>" instead of implying
+  // an auto-renewal that was never going to happen, and so renewal-
+  // reminder emails stop once the owner has already said they're done.
+  cancelledAt   String @default("") @map("cancelled_at")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 

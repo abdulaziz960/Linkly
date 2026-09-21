@@ -226,6 +226,10 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
         amount: amountSar,
         billingCycle: "شهري",
         renewalAt: period.periodEnd,
+        // Paying again is an unambiguous signal the owner wants to keep
+        // going, even if they'd previously marked the subscription
+        // cancelled (see app/api/billing/cancel).
+        cancelledAt: "",
         updatedAt: nowTimestamp(),
         // Plan/employeeLimit come from the staged plan whenever the payment
         // carries one (every self-serve checkout; admin invoices carry none
@@ -572,7 +576,7 @@ const renewalReminderStages: Array<{ id: string; withinDays: number }> = [
 export async function sendSubscriptionRenewalReminders(baseUrl: string) {
   const { sendSubscriptionRenewalEmail } = await import("./email");
   const { getTenantBranding } = await import("./tenant-branding");
-  const activeSubscriptions = await prisma.subscription.findMany({ where: { status: "نشط" } });
+  const activeSubscriptions = await prisma.subscription.findMany({ where: { status: "نشط", cancelledAt: "" } });
   const now = Date.now();
   let sent = 0;
 

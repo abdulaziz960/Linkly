@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useState } from "react";
 import BillingClient from "./BillingClient";
 import { useStoredLanguage } from "../useStoredLanguage";
 
 type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number };
-type Subscription = { plan: string; status: string; createdAt?: string; renewalAt?: string } | null;
+type Subscription = { plan: string; status: string; createdAt?: string; renewalAt?: string; cancelledAt?: string } | null;
 
 const copy = {
   ar: {
@@ -18,6 +19,12 @@ const copy = {
     startDate: "بداية الاشتراك",
     renewalDate: "موعد التجديد القادم",
     expiredDate: "انتهى بتاريخ",
+    cancelled: "ملغى",
+    cancelledNotice: (date: string) => `تم إلغاء الاشتراك. وصولك مستمر حتى ${date}، ولن نرسل لك تذكيرات تجديد بعدها.`,
+    cancelAction: "إلغاء الاشتراك",
+    resumeAction: "تراجع عن الإلغاء",
+    cancelConfirm: "سيبقى وصولك متاحًا حتى نهاية الفترة المدفوعة، ولن يتجدد الاشتراك تلقائيًا بعدها. متأكد؟",
+    actionError: "تعذر تنفيذ الطلب",
     blockedSuspended: "تم إيقاف حسابك من فريق Linkly. اختر باقة وأكمل الدفع لإعادة تفعيله، أو تواصل معنا إذا كان هذا خطأ.",
     blockedTrialEnded: "انتهت فترتك التجريبية. اختر باقة وأكمل الدفع لمتابعة استخدام حسابك.",
     blockedRenewalLapsed: "انتهت فترة اشتراكك المدفوعة ولم يتم التجديد. جدّد باقتك لمتابعة استخدام حسابك - بياناتك محفوظة بالكامل."
@@ -31,6 +38,12 @@ const copy = {
     startDate: "Subscription start",
     renewalDate: "Next renewal due",
     expiredDate: "Ended on",
+    cancelled: "Cancelled",
+    cancelledNotice: (date: string) => `Subscription cancelled. Access continues until ${date}, and you won't get renewal reminders after that.`,
+    cancelAction: "Cancel subscription",
+    resumeAction: "Undo cancellation",
+    cancelConfirm: "Access stays available until the end of the paid period, and it won't auto-renew after that. Are you sure?",
+    actionError: "Couldn't complete the request",
     blockedSuspended: "Your account has been suspended by the Linkly team. Choose a plan and complete payment to reactivate it, or contact us if this is a mistake.",
     blockedTrialEnded: "Your trial period has ended. Choose a plan and complete payment to keep using your account.",
     blockedRenewalLapsed: "Your paid subscription period has ended and was not renewed. Renew your plan to keep using your account - all your data is intact."
@@ -67,6 +80,9 @@ export default function BillingPageClient({
 }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
+  const [cancelledAt, setCancelledAt] = useState(subscription?.cancelledAt || "");
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const blockedReason = expired
     ? subscription?.status === "متوقف"
       ? text.blockedSuspended
@@ -74,6 +90,24 @@ export default function BillingPageClient({
         ? text.blockedRenewalLapsed
         : text.blockedTrialEnded
     : "";
+
+  async function toggleCancel(action: "cancel" | "resume") {
+    if (action === "cancel" && !window.confirm(text.cancelConfirm)) return;
+    setCancelLoading(true);
+    setCancelError("");
+    const response = await fetch("/api/billing/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action })
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string; subscription?: { cancelledAt?: string } };
+    setCancelLoading(false);
+    if (!response.ok) {
+      setCancelError(payload.error || text.actionError);
+      return;
+    }
+    setCancelledAt(payload.subscription?.cancelledAt || "");
+  }
 
   return (
     <main className="billing-page" dir={lang === "ar" ? "rtl" : "ltr"}>
@@ -92,13 +126,27 @@ export default function BillingPageClient({
         {blockedReason ? <div className="current-plan blocked">{blockedReason}</div> : null}
         {subscription ? (
           <div className="current-plan">
-            {text.currentPlan} <b>{subscription.plan}</b><em>{subscriptionStatusLabel(subscription.status, lang)}</em>
+            {text.currentPlan} <b>{subscription.plan}</b>
+            <em>{cancelledAt ? text.cancelled : subscriptionStatusLabel(subscription.status, lang)}</em>
             {subscription.createdAt ? <span className="current-plan-date">{text.startDate}: {formatDate(subscription.createdAt, lang)}</span> : null}
             {subscription.renewalAt ? (
               <span className="current-plan-date">
                 {expired ? text.expiredDate : text.renewalDate}: {formatDate(subscription.renewalAt, lang)}
               </span>
             ) : null}
+          </div>
+        ) : null}
+        {subscription?.status === "نشط" && !expired ? (
+          <div className="current-plan-cancel">
+            {cancelledAt ? (
+              <>
+                <p className="current-plan-cancel-notice">{text.cancelledNotice(formatDate(subscription.renewalAt, lang))}</p>
+                <button type="button" disabled={cancelLoading} onClick={() => toggleCancel("resume")}>{text.resumeAction}</button>
+              </>
+            ) : (
+              <button type="button" className="current-plan-cancel-link" disabled={cancelLoading} onClick={() => toggleCancel("cancel")}>{text.cancelAction}</button>
+            )}
+            {cancelError ? <p className="billing-error">{cancelError}</p> : null}
           </div>
         ) : null}
       </section>

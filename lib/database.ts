@@ -968,6 +968,7 @@ async function runSchemaMigrations() {
       amount INTEGER NOT NULL DEFAULT 0,
       billing_cycle TEXT NOT NULL DEFAULT 'شهري',
       renewal_at TEXT NOT NULL DEFAULT '',
+      cancelled_at TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
@@ -981,6 +982,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS amount INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS billing_cycle TEXT NOT NULL DEFAULT 'شهري'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS renewal_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS cancelled_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS created_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TEXT NOT NULL DEFAULT ''`);
     try {
@@ -1011,6 +1013,7 @@ async function runSchemaMigrations() {
         "amount",
         "billing_cycle",
         "renewal_at",
+        "cancelled_at",
         "created_at",
         "updated_at"
       ];
@@ -1840,9 +1843,14 @@ async function runSchemaMigrations() {
     amount INTEGER NOT NULL DEFAULT 0,
     billing_cycle TEXT NOT NULL DEFAULT 'شهري',
     renewal_at TEXT NOT NULL DEFAULT '',
+    cancelled_at TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
+  const subscriptionColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(subscriptions)`);
+  if (!subscriptionColumns.some((column) => column.name === "cancelled_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN cancelled_at TEXT NOT NULL DEFAULT ''`);
+  }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscription_payments (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,

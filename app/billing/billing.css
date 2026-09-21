@@ -95,6 +95,28 @@
   padding-inline-start: 9px;
   border-inline-start: 1px solid var(--line);
 }
+.current-plan-cancel {
+  margin-top: 10px;
+}
+.current-plan-cancel-link {
+  background: none;
+  border: none;
+  color: #6b7a77;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px;
+}
+.current-plan-cancel-notice {
+  max-width: 480px;
+  margin: 0 auto 8px;
+  color: #8a6d00;
+  background: #fff8e1;
+  border: 1px solid #f0dfa0;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+}
 .current-plan.blocked {
   display: flex;
   max-width: 520px;
