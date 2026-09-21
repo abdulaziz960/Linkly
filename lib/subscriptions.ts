@@ -557,6 +557,66 @@ export async function sendTrialEndingReminders(baseUrl: string) {
   return { sent };
 }
 
+const renewalReminderStages: Array<{ id: string; withinDays: number }> = [
+  { id: "3d", withinDays: 3 },
+  { id: "1d", withinDays: 1 }
+];
+
+/**
+ * Nudges paying (status "نشط") accounts toward renewing before renewalAt
+ * lapses. There is no auto-charge today - renewal is the owner returning to
+ * /billing themselves - so this is the only warning a paying customer gets
+ * before going overdue, mirroring sendTrialEndingReminders' stage/dedup
+ * pattern but for the paid-subscription case (pre-launch audit finding).
+ */
+export async function sendSubscriptionRenewalReminders(baseUrl: string) {
+  const { sendSubscriptionRenewalEmail } = await import("./email");
+  const { getTenantBranding } = await import("./tenant-branding");
+  const activeSubscriptions = await prisma.subscription.findMany({ where: { status: "نشط" } });
+  const now = Date.now();
+  let sent = 0;
+
+  for (const subscription of activeSubscriptions) {
+    const renewalTime = new Date(subscription.renewalAt).getTime();
+    const msLeft = renewalTime - now;
+    if (!Number.isFinite(msLeft) || msLeft <= 0) continue;
+    const daysLeft = msLeft / 86_400_000;
+    const stage = renewalReminderStages.find((candidate) => daysLeft <= candidate.withinDays);
+    if (!stage) continue;
+
+    const marker = `[renewal-reminder-${stage.id}:${subscription.tenantId}]`;
+    const alreadySent = await prisma.adminLog.findFirst({ where: { message: { contains: marker } } });
+    if (alreadySent) continue;
+
+    const owner = await prisma.userAccount.findFirst({
+      where: { tenantId: subscription.tenantId, role: "مالك الحساب" },
+      orderBy: { createdAt: "asc" }
+    });
+
+    let delivered = false;
+    if (owner?.email) {
+      const branding = await getTenantBranding(subscription.tenantId);
+      delivered = await sendSubscriptionRenewalEmail({
+        to: owner.email,
+        name: subscription.ownerName || owner.name,
+        daysLeft: Math.max(1, Math.round(daysLeft)),
+        renewalDate: isoDate(new Date(renewalTime)),
+        billingUrl: `${baseUrl}/billing`,
+        branding: { name: branding.name, color: branding.color }
+      });
+    }
+
+    await logAdminAction(
+      subscription.tenantId,
+      subscription.companyName,
+      `${marker} ${delivered ? "تم إرسال" : "تعذر إرسال"} تذكير بتجديد الاشتراك (${Math.max(1, Math.round(daysLeft))} يوم متبقٍ) ${owner?.email ? `إلى ${owner.email}` : "- لا يوجد بريد مالك حساب"}`
+    );
+    if (delivered) sent += 1;
+  }
+
+  return { sent };
+}
+
 type CreateTenantInput = {
   companyName: string;
   ownerName: string;

@@ -4,7 +4,7 @@ import { prisma } from "../../../../lib/prisma";
 import { processDueAutomations } from "../../../../lib/automation-engine";
 import { ensureSchema, getIntegrationSettings } from "../../../../lib/database";
 import { syncXTenant } from "../../../../lib/x-sync";
-import { reconcileStalePendingPayments, sendTrialEndingReminders } from "../../../../lib/subscriptions";
+import { reconcileStalePendingPayments, sendTrialEndingReminders, sendSubscriptionRenewalReminders } from "../../../../lib/subscriptions";
 import { sendLowBalanceAlerts } from "../../../../lib/campaign-balance-alerts";
 import { processDueConversationSummaries } from "../../../../lib/conversation-insights";
 import { isCronRequestAuthorized } from "../../../../lib/cron-auth";
@@ -80,10 +80,14 @@ export async function GET(request: NextRequest) {
 
   const paymentsReconciled = await reconcileStalePendingPayments();
   const trialReminders = await sendTrialEndingReminders(baseUrl());
+  const renewalReminders = await sendSubscriptionRenewalReminders(baseUrl()).catch((error) => {
+    console.error("Subscription renewal reminders failed", error);
+    return { sent: 0 };
+  });
   const lowBalanceAlerts = await sendLowBalanceAlerts(baseUrl()).catch((error) => {
     console.error("Low balance alerts failed", error);
     return { sent: 0 };
   });
 
-  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, trialReminders, lowBalanceAlerts });
+  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, trialReminders, renewalReminders, lowBalanceAlerts });
 }

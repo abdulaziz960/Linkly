@@ -76,6 +76,7 @@
 }
 .current-plan {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 9px;
   align-items: center;
   margin-top: 15px;
@@ -87,6 +88,12 @@
 .current-plan em {
   font-style: normal;
   color: #17833d;
+}
+.current-plan-date {
+  color: #6b7a77;
+  font-size: 13px;
+  padding-inline-start: 9px;
+  border-inline-start: 1px solid var(--line);
 }
 .current-plan.blocked {
   display: flex;

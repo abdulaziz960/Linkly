@@ -27,6 +27,22 @@ export async function POST(request: NextRequest) {
   if (plan.monthlyPrice < 1) return NextResponse.json({ error: "سعر الباقة غير صالح" }, { status: 400 });
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
   const companyName = subscription?.companyName || user.name;
+
+  // A plan change (including a downgrade) takes effect immediately on
+  // confirmation with no separate enforcement afterwards - without this
+  // check here, a tenant with more employees than the new plan allows
+  // would keep every existing employee active indefinitely, silently over
+  // the limit, since app/api/employees/route.ts only blocks *new* hires
+  // (pre-launch audit finding).
+  if (subscription && subscription.plan !== plan.name) {
+    const employeeCount = await prisma.employee.count({ where: { tenantId: user.tenantId } });
+    if (employeeCount > plan.employeeLimit) {
+      return NextResponse.json(
+        { error: `عدد الموظفين الحالي (${employeeCount}) أكبر من الحد المسموح في هذه الباقة (${plan.employeeLimit}). ألغِ بعض الموظفين قبل التبديل إليها.` },
+        { status: 400 }
+      );
+    }
+  }
   const amountHalalas = plan.monthlyPrice * 100;
   const origin = getPaymentCallbackOrigin();
 

@@ -7,7 +7,13 @@ import { getAppOrigin } from "../../../../lib/app-url";
 
 export const runtime = "nodejs";
 
-const genericMessage = "إذا كان البريد الإلكتروني مسجّلاً لدينا، أرسلنا رابط إعادة تعيين كلمة المرور إليه.";
+// Deliberately purpose-neutral: this same response covers both an
+// existing activated account (gets a password-reset link) and an
+// existing-but-never-activated account (gets a fresh activation link) -
+// saying "password reset" unconditionally was confusing for the second
+// case, but the wording can't reveal which one applies without also
+// leaking whether the account exists/is activated (pre-launch audit).
+const genericMessage = "إذا كان البريد الإلكتروني مسجّلاً لدينا، أرسلنا رابطاً لتسجيل الدخول إلى بريدك الإلكتروني.";
 
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as { email?: string };
