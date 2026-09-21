@@ -137,7 +137,7 @@ function getChannels(t: TFn): Array<{ id: SelectableChannelId; title: string; de
     { id: "gmail", title: t(channelNames.gmail.ar, channelNames.gmail.en), description: t("اربط جيميل مباشرة عبر التفويض الآمن", "Connect Gmail directly via OAuth"), active: true },
     { id: "zapier", title: "Zapier", description: t("استقبل العملاء المحتملين عبر Webhook", "Receive leads through a webhook"), active: true },
     { id: "google_maps", title: t(channelNames.google_maps.ar, channelNames.google_maps.en), description: t("اربط ملف نشاطك التجاري على جوجل", "Connect your Google Business Profile"), active: true },
-    { id: "tiktok", title: t(channelNames.tiktok.ar, channelNames.tiktok.en), description: t("بانتظار موافقة تيك توك على مراسلة الأعمال", "Waiting for TikTok's Business Messaging approval"), active: true },
+    { id: "tiktok", title: t(channelNames.tiktok.ar, channelNames.tiktok.en), description: t("ربط الحساب متاح؛ مراسلة الأعمال تتطلب صلاحية منفصلة", "Account linking is available; business messaging requires separate access"), active: true },
     { id: "sms", title: t(channelNames.sms.ar, channelNames.sms.en), description: t("أرسل واستقبل الرسائل النصية عبر يونيفونك", "Send and receive SMS messages via Unifonic"), active: true },
     { id: "youtube", title: t(channelNames.youtube.ar, channelNames.youtube.en), description: t("استقبل وردّ على تعليقات فيديوهاتك", "Receive and reply to your videos' comments"), active: true },
     { id: "linkedin", title: t(channelNames.linkedin.ar, channelNames.linkedin.en), description: t("استقبل وردّ على تعليقات منشورات صفحتك", "Receive and reply to your page's post comments"), active: true },

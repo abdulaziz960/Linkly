@@ -18,14 +18,14 @@ const channels = {
     { value: "instagram", label: "إنستغرام" },
     { value: "telegram", label: "تيليجرام" },
     { value: "email", label: "البريد الإلكتروني" },
-    { value: "tiktok", label: "تيك توك (بعد الاعتماد)" }
+    { value: "tiktok", label: "تيك توك (الربط متاح)" }
   ],
   en: [
     { value: "whatsapp", label: "WhatsApp" },
     { value: "instagram", label: "Instagram" },
     { value: "telegram", label: "Telegram" },
     { value: "email", label: "Email" },
-    { value: "tiktok", label: "TikTok (after approval)" }
+    { value: "tiktok", label: "TikTok (account linking available)" }
   ]
 };
 
