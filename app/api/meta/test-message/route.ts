@@ -3,6 +3,7 @@ import { getIntegrationSettings, getTemplates } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { SECRET_MASK } from "../../../../lib/secret-storage";
+import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -11,6 +12,15 @@ export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+
+    // This sends a real outbound WhatsApp message through Meta's API using
+    // the tenant's own credentials - without a cap, any authenticated
+    // employee could loop it to spam arbitrary numbers or burn through the
+    // tenant's paid messaging quota (pre-launch audit finding).
+    const rateLimit = await consumeRateLimit("meta-test-message", requestIdentifier(request, user.id), 10, 60 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return jsonError("محاولات كثيرة لإرسال رسالة اختبار. حاول مرة أخرى بعد قليل", 429);
+    }
 
     const settings = await getIntegrationSettings("whatsapp", user.tenantId);
     const body = (await request.json()) as {

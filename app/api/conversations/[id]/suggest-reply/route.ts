@@ -4,6 +4,7 @@ import { prisma } from "../../../../../lib/prisma";
 import { runWorkspaceAi } from "../../../../../lib/workspace-ai";
 import { aiOperations, type AiOperation } from "../../../../../lib/ai-types";
 import { getEmployeeForUser } from "../../../../../lib/permissions-server";
+import { consumeRateLimit, requestIdentifier } from "../../../../../lib/rate-limit";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -14,6 +15,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+
+  // Each call is an LLM request with real cost; without a cap an assigned
+  // employee could hammer this in a tight loop (pre-launch audit finding).
+  const rateLimit = await consumeRateLimit("suggest-reply", requestIdentifier(request, user.id), 20, 60 * 1000);
+  if (!rateLimit.allowed) {
+    return jsonError("محاولات كثيرة. حاول مرة أخرى بعد قليل", 429);
+  }
 
   const conversation = await prisma.conversation.findFirst({
     where: { id, tenantId: user.tenantId },
