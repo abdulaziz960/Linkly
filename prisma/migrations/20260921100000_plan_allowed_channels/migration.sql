@@ -1,0 +1,1 @@
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS allowed_channels TEXT NOT NULL DEFAULT '*';

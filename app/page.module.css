@@ -760,7 +760,10 @@
 }
 .planGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* auto-fit instead of a fixed 3 columns: with 5 tiers now, a hardcoded
+     3-column track left the last row's 2 cards sitting off-center against
+     an empty 3rd cell instead of wrapping to fill the row naturally. */
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 18px;
 }
 .planGrid > article {

@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
+import { serializeAllowedChannels, type AllowedChannels } from "./channel-catalog";
 
 function nowTimestamp() {
   return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
@@ -28,6 +29,7 @@ type CreatePlanInput = {
   employeeLimit: number;
   aiDailyLimit?: number;
   aiMonthlyLimit?: number;
+  allowedChannels?: AllowedChannels;
 };
 
 export async function createPlan(input: CreatePlanInput) {
@@ -55,6 +57,7 @@ export async function createPlan(input: CreatePlanInput) {
       employeeLimit: Math.round(input.employeeLimit),
       aiDailyLimit: Math.round(aiDailyLimit),
       aiMonthlyLimit: Math.round(aiMonthlyLimit),
+      allowedChannels: serializeAllowedChannels(input.allowedChannels ?? "*"),
       sortOrder: (maxSortOrder._max.sortOrder ?? 0) + 1,
       active: 1,
       createdAt: now,
@@ -69,6 +72,7 @@ type UpdatePlanInput = {
   active?: boolean;
   aiDailyLimit?: number;
   aiMonthlyLimit?: number;
+  allowedChannels?: AllowedChannels;
 };
 
 export async function updatePlan(id: string, input: UpdatePlanInput) {
@@ -96,6 +100,7 @@ export async function updatePlan(id: string, input: UpdatePlanInput) {
       employeeLimit: input.employeeLimit !== undefined ? Math.round(input.employeeLimit) : existing.employeeLimit,
       aiDailyLimit: input.aiDailyLimit !== undefined ? Math.round(input.aiDailyLimit) : existing.aiDailyLimit,
       aiMonthlyLimit: input.aiMonthlyLimit !== undefined ? Math.round(input.aiMonthlyLimit) : existing.aiMonthlyLimit,
+      allowedChannels: input.allowedChannels !== undefined ? serializeAllowedChannels(input.allowedChannels) : existing.allowedChannels,
       active: input.active !== undefined ? (input.active ? 1 : 0) : existing.active,
       updatedAt: nowTimestamp()
     }

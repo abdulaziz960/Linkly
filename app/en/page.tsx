@@ -29,21 +29,23 @@ const faqs = [
   ["Can I connect my existing WhatsApp number?", "It depends on the number's status and Meta's WhatsApp Cloud API requirements — we help you review the connection path."],
   ["Do I need a new WhatsApp number?", "Not always. We review your current number's status first, then decide the best path."],
   ["Do you support the WhatsApp Business API?", "Yes, the operational connection is built on Meta's official WhatsApp Cloud API."],
-  ["Is there an API?", "Webhooks and integration interfaces are available on the Business plan, depending on the integration scope needed."],
+  ["Is there an API?", "A developer API and webhooks are available from the Large Enterprises plan and up."],
   ["Can I cancel my subscription?", "Cancellation can be scheduled for the end of the current period from the billing screen."],
   ["Is there a setup fee?", "Setting up Meta accounts and the full connection is optional and costs SAR 500 one time."],
   ["How are WhatsApp fees calculated?", "Official WhatsApp message fees from Meta, if any, are separate from the Linkly subscription."],
   ["Is customer data safe?", "The platform uses user permissions, encryption for integration secrets, time-limited sessions, and activity logs to help track activity."]
 ] as const;
 const plans = [
-  { name: "Starter", price: "249", audience: "Best for a solo business owner who needs their messages organized.", cta: "Start the trial", items: ["1 user", "One inbox for all your messages", "Quick replies and tags", "Basic reports"] },
-  { name: "Growth", price: "499", audience: "Best for a small team that needs conversation routing and auto replies.", cta: "Try the Growth plan", featured: true, items: ["Up to 3 users", "Conversation routing", "Auto reply and routing rules", "Performance and SLA reports"] },
-  { name: "Business", price: "999", audience: "Best for multiple teams that need API integration and advanced reports.", cta: "Try the Business plan", items: ["Up to 10 users", "Multiple teams", "Webhooks and API", "Priority support"] }
+  { name: "Individuals", price: "199", audience: "Best for a solo business owner who needs their WhatsApp messages organized.", cta: "Start the trial", items: ["1 user", "WhatsApp channel", "Simple auto-reply and quick replies", "Basic marketing campaigns", "Basic reports"] },
+  { name: "Regular", price: "279", audience: "Best for a growing business that needs a second channel and a small team.", cta: "Try the Regular plan", items: ["Up to 3 users", "WhatsApp + Instagram", "Automatic conversation routing", "Tags and basic audience segments", "Basic reports"] },
+  { name: "Small Enterprises", price: "615", audience: "Best for a team that needs automation, audience segments, and an AI copilot.", cta: "Try the Small Enterprises plan", featured: true, items: ["Up to 6 users", "WhatsApp + Instagram", "Multiple teams", "Advanced automation and routing rules", "Audience segments and campaign targeting", "AI Copilot", "Performance and SLA reports"] },
+  { name: "Large Enterprises", price: "849", audience: "Best for multiple teams that need more channels and integrations.", cta: "Try the Large Enterprises plan", items: ["Up to 8 users", "WhatsApp + Instagram + TikTok", "Everything in Small Enterprises", "Developer API and webhooks", "AI Copilot with a higher limit", "Priority support"] },
+  { name: "Corporate", price: "1499", audience: "Best for large companies that need every channel and a dedicated account.", cta: "Contact us", items: ["Unlimited users", "Every channel on the platform", "Custom white-label branding", "AI Copilot with the highest limit", "Dedicated account manager and instant VIP support"] }
 ] as const;
 const jsonLd = { "@context": "https://schema.org", "@graph": [
   { "@type": "Organization", name: "Linkly", alternateName: ["Linkly Saudi", "Linkly السعودية", "لنكلي"], url: "https://linklysa.io", logo: "https://linklysa.io/assets/linkly-logo.png", description: "Linkly is a Saudi customer communication and customer support platform that helps businesses manage WhatsApp conversations, shared team inboxes, customer support, tickets, live chat, automation, and digital customer communication from one centralized platform.", areaServed: "SA" },
   { "@type": "WebSite", name: "Linkly", url: "https://linklysa.io", inLanguage: ["ar-SA", "en"] },
-  { "@type": "SoftwareApplication", name: "Linkly", applicationCategory: "BusinessApplication", operatingSystem: "Web", offers: { "@type": "AggregateOffer", lowPrice: "249", highPrice: "999", priceCurrency: "SAR" } },
+  { "@type": "SoftwareApplication", name: "Linkly", applicationCategory: "BusinessApplication", operatingSystem: "Web", offers: { "@type": "AggregateOffer", lowPrice: "199", highPrice: "1499", priceCurrency: "SAR" } },
   { "@type": "FAQPage", mainEntity: faqs.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }
 ] };
 

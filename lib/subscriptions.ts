@@ -103,9 +103,18 @@ function gatewayColumns(details?: GatewayPaymentDetails) {
 }
 
 export const planEmployeeLimits: Record<string, number> = {
+  // Original 3 tiers - kept for any legacy Subscription/SubscriptionPayment
+  // row still referencing them by name (see applyPricingTierRestructure()
+  // in lib/database.ts, which deactivates these without renaming them).
   "باقة البداية": 1,
   "باقة النمو": 3,
-  "باقة الأعمال": 10
+  "باقة الأعمال": 10,
+  // Current tiers.
+  "باقة الأفراد": 1,
+  "الباقة العادية": 3,
+  "باقة المؤسسات الصغيرة": 6,
+  "باقة المؤسسات الكبيرة": 8,
+  "باقة الشركات": 100
 };
 
 function nowTimestamp() {

@@ -241,6 +241,52 @@ async function ensureSqlitePaymentLedgerColumns() {
   }
 }
 
+/**
+ * One-time, idempotent introduction of the 2026 pricing tiers (by
+ * organization size) alongside per-plan channel restrictions. Deliberately
+ * additive, never a rename: the 3 original plans (باقة البداية/النمو/الأعمال)
+ * are only deactivated, not touched otherwise, so every existing
+ * subscriber's Subscription.plan string keeps resolving to a real, unchanged
+ * Plan row with its original price/limit/unrestricted channel access
+ * (allowedChannels defaults to "*"). Only brand-new signups/upgrades see the
+ * 5 new tiers. Guarded by checking for "باقة الأفراد" so this runs at most
+ * once per database regardless of how many times ensureSchema() replays it.
+ */
+async function applyPricingTierRestructure() {
+  const alreadyApplied = await prisma.plan.findUnique({ where: { name: "باقة الأفراد" } });
+  if (alreadyApplied) return;
+
+  const now = new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
+    dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", numberingSystem: "latn", calendar: "gregory"
+  }).format(new Date());
+
+  const newPlans = [
+    // AI Copilot (Linkly-managed) starts at the small-enterprises tier and
+    // up - aiDailyLimit/aiMonthlyLimit 0 means "not included" (see the Plan
+    // model comment); individuals/regular tenants can still bring their own
+    // API key regardless, per the same comment.
+    { id: "plan-individuals", name: "باقة الأفراد", monthlyPrice: 199, employeeLimit: 1, sortOrder: 1, allowedChannels: "whatsapp", aiDailyLimit: 0, aiMonthlyLimit: 0 },
+    { id: "plan-regular", name: "الباقة العادية", monthlyPrice: 279, employeeLimit: 3, sortOrder: 2, allowedChannels: "whatsapp,instagram", aiDailyLimit: 0, aiMonthlyLimit: 0 },
+    { id: "plan-small-org", name: "باقة المؤسسات الصغيرة", monthlyPrice: 615, employeeLimit: 6, sortOrder: 3, allowedChannels: "whatsapp,instagram", aiDailyLimit: 50, aiMonthlyLimit: 1000 },
+    { id: "plan-large-org", name: "باقة المؤسسات الكبيرة", monthlyPrice: 849, employeeLimit: 8, sortOrder: 4, allowedChannels: "whatsapp,instagram,tiktok", aiDailyLimit: 100, aiMonthlyLimit: 2000 },
+    { id: "plan-enterprise", name: "باقة الشركات", monthlyPrice: 1499, employeeLimit: 100, sortOrder: 5, allowedChannels: "*", aiDailyLimit: 300, aiMonthlyLimit: 6000 }
+  ];
+  for (const plan of newPlans) {
+    await prisma.plan.upsert({
+      where: { id: plan.id },
+      update: {},
+      create: { ...plan, active: 1, createdAt: now, updatedAt: now }
+    });
+  }
+
+  // Hidden from new signups/admin "add client" going forward; every existing
+  // subscriber on one of these keeps working exactly as before.
+  await prisma.plan.updateMany({
+    where: { name: { in: ["باقة البداية", "باقة النمو", "باقة الأعمال"] } },
+    data: { active: 0 }
+  });
+}
+
 async function runRequiredProductionMigrations() {
   if (!isPostgresDatabase) return;
 
@@ -512,6 +558,10 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE plans ADD COLUMN IF NOT EXISTS ai_monthly_limit INTEGER NOT NULL DEFAULT 0`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE plans ADD COLUMN IF NOT EXISTS allowed_channels TEXT NOT NULL DEFAULT '*'`
+  );
+  await applyPricingTierRestructure();
 
   // Segment targeting by a past campaign's engagement bucket - added
   // directly here, not the disabled legacy block, per the closed_at lesson
@@ -1878,6 +1928,10 @@ async function runSchemaMigrations() {
       await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN ${columnName} INTEGER NOT NULL DEFAULT 0`);
     }
   }
+  if (!planColumns.some((column) => column.name === "allowed_channels")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN allowed_channels TEXT NOT NULL DEFAULT '*'`);
+  }
+  await applyPricingTierRestructure();
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL UNIQUE,

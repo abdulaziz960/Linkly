@@ -1766,6 +1766,26 @@
   min-height: 0;
 }
 
+.admin-channel-picker {
+  display: grid;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.admin-channel-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--admin-surface-soft);
+}
+
+.admin-channel-picker-grid .admin-checkbox-label {
+  font-weight: 700;
+  font-size: 13px;
+}
+
 .admin-client-form input,
 .admin-client-form select {
   width: 100%;

@@ -5,6 +5,8 @@ import { getIntegrationSettings, type IntegrationChannel } from "../../../../lib
 import { createOAuthState } from "../../../../lib/oauth-state";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
+import { isChannelAllowedForTenant } from "../../../../lib/plan-channel-access";
+import { upgradeNeededMessage } from "../../../../lib/channel-catalog";
 
 const techProviderMetaAppId = "1296230909161568";
 const techProviderMetaConfigId = "1428169365888624";
@@ -36,6 +38,12 @@ export async function GET(request: NextRequest) {
   }
 
   const channel = getChannel(request);
+  if (!(await isChannelAllowedForTenant(user.tenantId, channel))) {
+    return new NextResponse(
+      popupCloseHtml(getAppOrigin(request), upgradeNeededMessage(channel), { type: "audiencew:meta-connected" }, "/dashboard?view=settings"),
+      { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }
+    );
+  }
   const settings = await getIntegrationSettings(channel, user.tenantId);
   const appId = channel === "instagram" ? techProviderInstagramAppId : techProviderMetaAppId;
   const configId = channel === "whatsapp" ? techProviderMetaConfigId : settings.configId.trim();

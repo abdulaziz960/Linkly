@@ -5,12 +5,16 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getGoogleRedirectUri, googleBusinessScope } from "../../../../lib/google-business";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { isChannelAllowedForTenant } from "../../../../lib/plan-channel-access";
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   if (!(await userHasViewPermission(user, "settings"))) {
     return NextResponse.redirect(new URL("/dashboard?google=forbidden", getAppOrigin(request)));
+  }
+  if (!(await isChannelAllowedForTenant(user.tenantId, "google_maps"))) {
+    return NextResponse.redirect(new URL("/dashboard?google=plan-upgrade-needed", getAppOrigin(request)));
   }
 
   const settings = await getIntegrationSettings("google_maps", user.tenantId);

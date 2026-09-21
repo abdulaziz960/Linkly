@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getSnapchatRedirectUri, snapchatClientId, snapchatScope } from "../../../../lib/snapchat";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { isChannelAllowedForTenant } from "../../../../lib/plan-channel-access";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,9 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   if (!(await userHasViewPermission(user, "settings"))) {
     return NextResponse.redirect(new URL("/dashboard?view=settings&channel=snapchat&snapchat=forbidden", getAppOrigin(request)));
+  }
+  if (!(await isChannelAllowedForTenant(user.tenantId, "snapchat"))) {
+    return NextResponse.redirect(new URL("/dashboard?view=settings&channel=snapchat&snapchat=plan-upgrade-needed", getAppOrigin(request)));
   }
 
   const clientId = snapchatClientId();

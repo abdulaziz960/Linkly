@@ -701,6 +701,11 @@ model Plan {
   // their own API key on any plan (see AiWorkspaceSetting), unaffected by this.
   aiDailyLimit   Int @default(0) @map("ai_daily_limit")
   aiMonthlyLimit Int @default(0) @map("ai_monthly_limit")
+  // Comma-separated channel keys this plan may connect (see
+  // lib/channel-catalog.ts for the canonical list), or "*" for every
+  // channel with no restriction - the default, so every plan that predates
+  // this column (and any row that never sets it) stays fully unrestricted.
+  allowedChannels String @default("*") @map("allowed_channels")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 

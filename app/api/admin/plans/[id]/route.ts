@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
 import { updatePlan } from "../../../../../lib/plans";
 import { recordAdminAction } from "../../../../../lib/admin-audit";
+import { sanitizeAllowedChannelsInput } from "../../../../../lib/channel-catalog";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -17,10 +18,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     active?: boolean;
     aiDailyLimit?: number;
     aiMonthlyLimit?: number;
+    allowedChannels?: unknown;
   };
 
   try {
-    const plan = await updatePlan(id, body);
+    const plan = await updatePlan(id, {
+      ...body,
+      // Omitted entirely (e.g. an unrelated "active" toggle) must leave the
+      // existing restriction untouched, not silently reset it to
+      // unrestricted - only sanitize when the field was actually sent.
+      allowedChannels: body.allowedChannels !== undefined ? sanitizeAllowedChannelsInput(body.allowedChannels) : undefined
+    });
     await recordAdminAction(admin, "update-plan", { type: "plan", id }, JSON.stringify(body));
     return jsonOk(plan);
   } catch (error) {

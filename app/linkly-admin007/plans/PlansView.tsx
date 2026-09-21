@@ -6,6 +6,51 @@ import type { FormEvent } from "react";
 import type { PlanRow } from "../types";
 import { formatNumber } from "../utils";
 import { useLanguage } from "../i18n";
+import { CHANNEL_CATALOG, parseAllowedChannels, type AllowedChannels } from "../../../lib/channel-catalog";
+
+function ChannelPicker({
+  value,
+  onChange,
+  t
+}: {
+  value: AllowedChannels;
+  onChange: (value: AllowedChannels) => void;
+  t: (ar: string, en: string) => string;
+}) {
+  const unrestricted = value === "*";
+  return (
+    <div className="admin-channel-picker">
+      <label className="admin-checkbox-label">
+        <input
+          type="checkbox"
+          checked={unrestricted}
+          onChange={(event) => onChange(event.target.checked ? "*" : [])}
+        />
+        {t("كل القنوات (بدون قيود)", "All channels (unrestricted)")}
+      </label>
+      {!unrestricted ? (
+        <div className="admin-channel-picker-grid">
+          {CHANNEL_CATALOG.map((channel) => {
+            const selected = Array.isArray(value) && value.includes(channel.key);
+            return (
+              <label key={channel.key} className="admin-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={(event) => {
+                    const current = Array.isArray(value) ? value : [];
+                    onChange(event.target.checked ? [...current, channel.key] : current.filter((key) => key !== channel.key));
+                  }}
+                />
+                {t(channel.labelAr, channel.labelEn)}
+              </label>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 type PlansViewProps = {
   plans: PlanRow[];
@@ -18,11 +63,13 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
   const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
   const [isPlanSaving, setIsPlanSaving] = useState(false);
   const [planFormError, setPlanFormError] = useState("");
+  const [createPlanChannels, setCreatePlanChannels] = useState<AllowedChannels>("*");
   const [editPlan, setEditPlan] = useState<PlanRow | null>(null);
   const [editPlanPrice, setEditPlanPrice] = useState("");
   const [editPlanLimit, setEditPlanLimit] = useState("");
   const [editPlanAiDailyLimit, setEditPlanAiDailyLimit] = useState("0");
   const [editPlanAiMonthlyLimit, setEditPlanAiMonthlyLimit] = useState("0");
+  const [editPlanChannels, setEditPlanChannels] = useState<AllowedChannels>("*");
   const [editPlanActive, setEditPlanActive] = useState(true);
   const [isEditPlanSaving, setIsEditPlanSaving] = useState(false);
   const [editPlanError, setEditPlanError] = useState("");
@@ -43,7 +90,8 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
       monthlyPrice: Number(formData.get("monthlyPrice") || 0),
       employeeLimit: Number(formData.get("employeeLimit") || 1),
       aiDailyLimit: Number(formData.get("aiDailyLimit") || 0),
-      aiMonthlyLimit: Number(formData.get("aiMonthlyLimit") || 0)
+      aiMonthlyLimit: Number(formData.get("aiMonthlyLimit") || 0),
+      allowedChannels: createPlanChannels
     };
 
     const response = await fetch("/api/admin/plans", {
@@ -70,6 +118,7 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
     setEditPlanLimit(String(plan.employeeLimit));
     setEditPlanAiDailyLimit(String(plan.aiDailyLimit));
     setEditPlanAiMonthlyLimit(String(plan.aiMonthlyLimit));
+    setEditPlanChannels(parseAllowedChannels(plan.allowedChannels));
     setEditPlanActive(plan.active === 1);
     setEditPlanError("");
   }
@@ -98,7 +147,7 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
     const response = await fetch(`/api/admin/plans/${editPlan.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ monthlyPrice, employeeLimit, aiDailyLimit, aiMonthlyLimit, active: editPlanActive })
+      body: JSON.stringify({ monthlyPrice, employeeLimit, aiDailyLimit, aiMonthlyLimit, allowedChannels: editPlanChannels, active: editPlanActive })
     });
     const result = (await response.json()) as { ok: boolean; error?: string };
 
@@ -158,7 +207,7 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
             <p>{t("الباقات المعروضة عند إضافة عميل جديد وسعرها الشهري وحد المستخدمين.", "The plans shown when adding a new client, their monthly price, and user limit.")}</p>
           </div>
           <div className="admin-card-actions">
-            <button type="button" onClick={() => { setIsAddPlanOpen(true); setPlanFormError(""); }}>
+            <button type="button" onClick={() => { setIsAddPlanOpen(true); setPlanFormError(""); setCreatePlanChannels("*"); }}>
               {t("إضافة باقة", "Add Plan")}
             </button>
           </div>
@@ -197,6 +246,15 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
                   <li>
                     <span>{t("المشتركون", "Subscribers")}</span>
                     <strong>{formatNumber(subscribers)}</strong>
+                  </li>
+                  <li>
+                    <span>{t("القنوات", "Channels")}</span>
+                    <strong>
+                      {(() => {
+                        const parsed = parseAllowedChannels(plan.allowedChannels || "*");
+                        return parsed === "*" ? t("بدون قيود", "Unrestricted") : formatNumber(parsed.length);
+                      })()}
+                    </strong>
                   </li>
                 </ul>
                 <div className="admin-plan-card-actions">
@@ -243,6 +301,10 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
               <label>
                 {t("حد مساعد AI الشهري", "AI Copilot monthly limit")}
                 <input name="aiMonthlyLimit" type="number" min="0" defaultValue="0" />
+              </label>
+              <label>
+                {t("القنوات المتاحة", "Available channels")}
+                <ChannelPicker value={createPlanChannels} onChange={setCreatePlanChannels} t={t} />
               </label>
 
               {planFormError ? <p className="admin-form-error">{planFormError}</p> : null}
@@ -312,6 +374,10 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
                   value={editPlanAiMonthlyLimit}
                   onChange={(event) => setEditPlanAiMonthlyLimit(event.target.value)}
                 />
+              </label>
+              <label>
+                {t("القنوات المتاحة", "Available channels")}
+                <ChannelPicker value={editPlanChannels} onChange={setEditPlanChannels} t={t} />
               </label>
               <label className="admin-checkbox-label">
                 <input
