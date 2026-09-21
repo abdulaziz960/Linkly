@@ -758,6 +758,49 @@
   text-align: center;
   margin-inline: auto;
 }
+.billingCycleToggle {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  max-width: 320px;
+  margin: 0 auto 28px;
+  padding: 4px;
+  background: #f1f1f4;
+  border-radius: 999px;
+}
+.billingCycleToggle button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 800;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.billingCycleToggle button.active {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+.billingCycleBadge {
+  background: var(--brand);
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.planPriceNote {
+  color: var(--muted);
+  font-size: 12px;
+  margin: -22px 0 22px;
+}
 .planGrid {
   display: grid;
   /* auto-fit instead of a fixed 3 columns: with 5 tiers now, a hardcoded

@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
-import { ensureSchema, isPostgresDatabase } from "./database";
+import { ensureSchema, isPostgresDatabase, insertPlanRowSelfHealing } from "./database";
 import { serializeAllowedChannels, type AllowedChannels } from "./channel-catalog";
 import { UNLIMITED_MESSAGE_QUOTA } from "./message-quota";
 
@@ -66,15 +66,25 @@ export async function createPlan(input: CreatePlanInput) {
   const allowedChannels = serializeAllowedChannels(input.allowedChannels ?? "*");
 
   if (isPostgresDatabase) {
-    // Production's live `plans` table carries a `monthly_amount` NOT NULL
-    // column outside our Prisma schema entirely (see applyPricingTierRestructure
-    // in lib/database.ts) - prisma.plan.create() below can't set a column it
-    // doesn't know exists, so raw SQL here too, mirroring it to monthly_price.
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO plans (id, name, monthly_price, monthly_amount, employee_limit, sort_order, active, ai_daily_limit, ai_monthly_limit, allowed_channels, message_quota, created_at, updated_at)
-       VALUES ($1, $2, $3, $3, $4, $5, 1, $6, $7, $8, $9, $10, $10)`,
-      id, name, roundedPrice, roundedEmployeeLimit, sortOrder, roundedAiDailyLimit, roundedAiMonthlyLimit, allowedChannels, roundedMessageQuota, now
-    );
+    // Production's live `plans` table carries legacy columns (monthly_amount,
+    // and others) outside our Prisma schema entirely - prisma.plan.create()
+    // below can't set columns it doesn't know exist, so this introspects the
+    // real table and fills in anything it's missing (see
+    // insertPlanRowSelfHealing in lib/database.ts for why).
+    await insertPlanRowSelfHealing({
+      id, name,
+      monthly_price: roundedPrice,
+      monthly_amount: roundedPrice,
+      employee_limit: roundedEmployeeLimit,
+      sort_order: sortOrder,
+      active: 1,
+      ai_daily_limit: roundedAiDailyLimit,
+      ai_monthly_limit: roundedAiMonthlyLimit,
+      allowed_channels: allowedChannels,
+      message_quota: roundedMessageQuota,
+      created_at: now,
+      updated_at: now
+    });
     const created = await prisma.plan.findUnique({ where: { id } });
     if (!created) throw new Error("تعذر إنشاء الباقة");
     return created;

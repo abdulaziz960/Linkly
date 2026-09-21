@@ -253,6 +253,51 @@ async function ensureSqlitePaymentLedgerColumns() {
  * 5 new tiers. Guarded by checking for "باقة الأفراد" so this runs at most
  * once per database regardless of how many times ensureSchema() replays it.
  */
+/** Best-effort placeholder for a legacy column we don't recognize, by its Postgres data type. */
+function placeholderForColumnType(dataType: string): unknown {
+  const type = dataType.toLowerCase();
+  if (type.includes("timestamp") || type === "date") return new Date().toISOString();
+  if (type.includes("bool")) return false;
+  if (type.includes("json")) return "{}";
+  if (type === "array") return [];
+  if (/int|numeric|double|real|decimal|serial/.test(type)) return 0;
+  return "";
+}
+
+/**
+ * Inserts a row into the live `plans` table without needing to know its
+ * full column list in advance. Production's real table carries legacy
+ * columns (monthly_amount, and others still unidentified - see the
+ * 2026-09-21 incident) that predate this codebase's Prisma schema and were
+ * never migrated here, each a landmine for a plain prisma.plan.create()/
+ * upsert(). This introspects the actual columns at insert time: known
+ * fields get their real value, and any OTHER column that's NOT NULL with
+ * no default gets a type-appropriate placeholder instead of blocking the
+ * whole insert - self-healing against drift we don't know about yet,
+ * rather than hardcoding one more column name every time we get paged.
+ */
+export async function insertPlanRowSelfHealing(known: Record<string, unknown>) {
+  const columns = await prisma.$queryRawUnsafe<Array<{ column_name: string; is_nullable: string; column_default: string | null; data_type: string }>>(
+    `SELECT column_name, is_nullable, column_default, data_type FROM information_schema.columns WHERE table_name = 'plans'`
+  );
+  const insertColumns: string[] = [];
+  const insertValues: unknown[] = [];
+  for (const column of columns) {
+    if (column.column_name in known) {
+      insertColumns.push(column.column_name);
+      insertValues.push(known[column.column_name]);
+    } else if (column.is_nullable === "NO" && column.column_default === null) {
+      insertColumns.push(column.column_name);
+      insertValues.push(placeholderForColumnType(column.data_type));
+    }
+  }
+  const placeholders = insertColumns.map((_, i) => `$${i + 1}`);
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO plans (${insertColumns.map((c) => `"${c}"`).join(", ")}) VALUES (${placeholders.join(", ")}) ON CONFLICT (id) DO NOTHING`,
+    ...insertValues
+  );
+}
+
 async function applyPricingTierRestructure() {
   // Never allowed to take ensureSchema() - and with it every route in the
   // app, including login - down with it. Production's live `plans` table
@@ -287,16 +332,21 @@ async function applyPricingTierRestructure() {
     ];
     for (const plan of newPlans) {
       if (isPostgresDatabase) {
-        // Prisma's generated client has no idea monthly_amount exists, so
-        // prisma.plan.upsert() can't set it - raw SQL, setting it equal to
-        // monthly_price (the only sane value it could mean), is the only way
-        // to satisfy the NOT NULL constraint from here.
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO plans (id, name, monthly_price, monthly_amount, employee_limit, sort_order, active, ai_daily_limit, ai_monthly_limit, allowed_channels, message_quota, created_at, updated_at)
-           VALUES ($1, $2, $3, $3, $4, $5, 1, $6, $7, $8, $9, $10, $10)
-           ON CONFLICT (id) DO NOTHING`,
-          plan.id, plan.name, plan.monthlyPrice, plan.employeeLimit, plan.sortOrder, plan.aiDailyLimit, plan.aiMonthlyLimit, plan.allowedChannels, plan.messageQuota, now
-        );
+        await insertPlanRowSelfHealing({
+          id: plan.id,
+          name: plan.name,
+          monthly_price: plan.monthlyPrice,
+          monthly_amount: plan.monthlyPrice,
+          employee_limit: plan.employeeLimit,
+          sort_order: plan.sortOrder,
+          active: 1,
+          ai_daily_limit: plan.aiDailyLimit,
+          ai_monthly_limit: plan.aiMonthlyLimit,
+          allowed_channels: plan.allowedChannels,
+          message_quota: plan.messageQuota,
+          created_at: now,
+          updated_at: now
+        });
       } else {
         await prisma.plan.upsert({
           where: { id: plan.id },
