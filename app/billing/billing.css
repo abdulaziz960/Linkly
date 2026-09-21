@@ -107,6 +107,16 @@
   cursor: pointer;
   padding: 4px;
 }
+.current-plan-autorenew-notice {
+  max-width: 480px;
+  margin: 0 auto 8px;
+  color: #106b65;
+  background: #eaf6f4;
+  border: 1px solid #bcd8d3;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+}
 .current-plan-cancel-notice {
   max-width: 480px;
   margin: 0 auto 8px;
@@ -267,6 +277,24 @@
 .test-checkout p {
   color: #4c635f;
   line-height: 1.8;
+}
+.save-card-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: start;
+  color: #4c635f;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 14px 0;
+  padding: 10px 14px;
+  background: #f6fbfa;
+  border: 1px solid #d8e8e5;
+  border-radius: 12px;
+}
+.save-card-option input {
+  margin-top: 3px;
+  flex-shrink: 0;
 }
 .proration-breakdown {
   text-align: start;

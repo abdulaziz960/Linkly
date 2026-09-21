@@ -59,6 +59,12 @@ export type GatewayPaymentDetails = {
   gatewayPaymentId?: string;
   paymentMethod?: string;
   failureReason?: string;
+  // Only present when the payer opted in to "save my card" and Moyasar's
+  // account actually supports tokenization - see chargeSavedCard below.
+  // Never store anything else about the card (full number, CVC, etc.).
+  cardToken?: string;
+  cardLast4?: string;
+  cardBrand?: string;
 };
 
 function moyasarSecretKey() {
@@ -274,6 +280,9 @@ export type MoyasarPaymentDetails = {
   sourceType: string;
   sourceCompany: string;
   message: string;
+  /** Present only when save_card was requested and the account supports it. */
+  cardToken?: string;
+  cardLast4?: string;
 };
 
 /**
@@ -298,7 +307,7 @@ export async function fetchMoyasarPayment(id: string): Promise<MoyasarPaymentDet
     amount?: number;
     currency?: string;
     metadata?: Record<string, unknown> | null;
-    source?: { type?: string; company?: string; message?: string | null };
+    source?: { type?: string; company?: string; message?: string | null; token?: string; number?: string };
   } | null;
   if (!payload?.id || !payload.status) return null;
 
@@ -306,6 +315,10 @@ export async function fetchMoyasarPayment(id: string): Promise<MoyasarPaymentDet
   for (const [key, value] of Object.entries(payload.metadata || {})) {
     if (value !== null && value !== undefined) metadata[key] = String(value);
   }
+
+  // A masked card number, e.g. "400000********0000" - last4 is whatever
+  // trailing digits survive the masking.
+  const cardLast4 = payload.source?.number?.match(/(\d{4})\D*$/)?.[1] || "";
 
   return {
     id: payload.id,
@@ -315,7 +328,9 @@ export async function fetchMoyasarPayment(id: string): Promise<MoyasarPaymentDet
     metadata,
     sourceType: payload.source?.type || "",
     sourceCompany: payload.source?.company || "",
-    message: payload.source?.message || ""
+    message: payload.source?.message || "",
+    cardToken: payload.source?.token || "",
+    cardLast4
   };
 }
 
@@ -326,7 +341,78 @@ export function summarizeMoyasarPayment(payment: MoyasarPaymentDetails): Gateway
     gatewayStatus: payment.status,
     gatewayPaymentId: payment.id,
     paymentMethod: [payment.sourceType, payment.sourceCompany].filter(Boolean).join("/"),
-    failureReason: payment.status === "paid" ? "" : (payment.message || "")
+    failureReason: payment.status === "paid" ? "" : (payment.message || ""),
+    cardToken: payment.cardToken || "",
+    cardLast4: payment.cardLast4 || "",
+    cardBrand: payment.sourceCompany || ""
+  };
+}
+
+/**
+ * Charges a previously-saved card token with no cardholder present
+ * (merchant-initiated transaction) - used only by the auto-renewal cron
+ * (lib/subscriptions.ts's attemptAutoRenewals). This is unverified against
+ * a live Moyasar account: if tokenization/MIT isn't actually enabled for
+ * this merchant, Moyasar will reject the request and this surfaces that
+ * error message directly (never silently pretend it worked) rather than
+ * guessing at a different API shape.
+ */
+export async function chargeSavedCard(input: { token: string; amountHalalas: number; description: string; metadata?: Record<string, string> }): Promise<{ ok: true; payment: MoyasarPaymentDetails } | { ok: false; error: string }> {
+  const secretKey = moyasarSecretKey();
+  if (!secretKey) return { ok: false, error: "MOYASAR_NOT_CONFIGURED" };
+
+  const response = await fetch("https://api.moyasar.com/v1/payments", {
+    method: "POST",
+    headers: {
+      Authorization: authorizationHeader(secretKey),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      amount: input.amountHalalas,
+      currency: "SAR",
+      description: input.description,
+      source: { type: "token", token: input.token, manual: false },
+      metadata: { platform: PAYMENT_PLATFORM_NAME, ...(input.metadata || {}) }
+    })
+  });
+
+  const payload = await response.json().catch(() => null) as {
+    id?: string;
+    status?: string;
+    amount?: number;
+    currency?: string;
+    metadata?: Record<string, unknown> | null;
+    source?: { type?: string; company?: string; message?: string | null; token?: string; number?: string };
+    message?: string;
+    errors?: Record<string, string[]>;
+  } | null;
+
+  if (!response.ok || !payload?.id || !payload.status) {
+    const errorDetail = payload?.errors ? JSON.stringify(payload.errors) : "";
+    console.error("Moyasar saved-card charge failed", { status: response.status, payload });
+    return { ok: false, error: payload?.message || errorDetail || "MOYASAR_CHARGE_FAILED" };
+  }
+
+  const metadata: Record<string, string> = {};
+  for (const [key, value] of Object.entries(payload.metadata || {})) {
+    if (value !== null && value !== undefined) metadata[key] = String(value);
+  }
+  const cardLast4 = payload.source?.number?.match(/(\d{4})\D*$/)?.[1] || "";
+
+  return {
+    ok: true,
+    payment: {
+      id: payload.id,
+      status: payload.status,
+      amount: Number(payload.amount) || 0,
+      currency: payload.currency || "SAR",
+      metadata,
+      sourceType: payload.source?.type || "",
+      sourceCompany: payload.source?.company || "",
+      message: payload.source?.message || "",
+      cardToken: payload.source?.token || input.token,
+      cardLast4
+    }
   };
 }
 

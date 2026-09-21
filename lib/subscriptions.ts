@@ -3,8 +3,8 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { sendActivationEmail } from "./email";
 import { isValidEmail } from "./validation";
-import { PAYMENT_STATUS, mapMoyasarInvoiceStatus, type PaymentKind } from "./payment-status";
-import type { GatewayPaymentDetails } from "./moyasar";
+import { PAYMENT_STATUS, PAYMENT_GATEWAY, mapMoyasarInvoiceStatus, type PaymentKind } from "./payment-status";
+import { chargeSavedCard, buildPaymentMetadata, paymentDescription, summarizeMoyasarPayment, type GatewayPaymentDetails } from "./moyasar";
 
 /** Length of one paid subscription period. Every plan bills monthly today. */
 export const SUBSCRIPTION_PERIOD_MONTHS = 1;
@@ -286,6 +286,12 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
                 ? Math.max(existing.employeeLimit, payment.planEmployeeLimit)
                 : payment.planEmployeeLimit
             }
+          : {}),
+        // Only present when the payer just opted in to "save my card" on
+        // this specific checkout - a normal payment without that opt-in
+        // must never touch an existing saved card either way.
+        ...(details?.cardToken
+          ? { autoRenewEnabled: 1, savedCardToken: details.cardToken, savedCardLast4: details.cardLast4 || "", savedCardBrand: details.cardBrand || "", autoRenewFailCount: 0 }
           : {})
       },
       create: {
@@ -301,7 +307,10 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
         billingCycle: "شهري",
         renewalAt: period.periodEnd,
         createdAt: now,
-        updatedAt: nowTimestamp()
+        updatedAt: nowTimestamp(),
+        ...(details?.cardToken
+          ? { autoRenewEnabled: 1, savedCardToken: details.cardToken, savedCardLast4: details.cardLast4 || "", savedCardBrand: details.cardBrand || "" }
+          : {})
       }
     });
     return period;
@@ -435,7 +444,7 @@ export async function applyVerifiedGatewayOutcome(
  * silently.
  */
 export async function reconcileStalePendingPayments(staleAfterMs = 24 * 60 * 60 * 1000) {
-  const { fetchMoyasarInvoice, fetchMoyasarPayment, summarizeMoyasarInvoice, summarizeMoyasarPayment } = await import("./moyasar");
+  const { fetchMoyasarInvoice, fetchMoyasarPayment, summarizeMoyasarInvoice } = await import("./moyasar");
   const cutoff = new Date(Date.now() - staleAfterMs).toISOString();
   let reconciled = 0;
   let expired = 0;
@@ -619,7 +628,10 @@ const renewalReminderStages: Array<{ id: string; withinDays: number }> = [
 export async function sendSubscriptionRenewalReminders(baseUrl: string) {
   const { sendSubscriptionRenewalEmail } = await import("./email");
   const { getTenantBranding } = await import("./tenant-branding");
-  const activeSubscriptions = await prisma.subscription.findMany({ where: { status: "نشط", cancelledAt: "" } });
+  // Auto-renew subscriptions get charged automatically instead (see
+  // attemptAutoRenewals) - a "please renew manually" nudge would be
+  // confusing noise for them.
+  const activeSubscriptions = await prisma.subscription.findMany({ where: { status: "نشط", cancelledAt: "", autoRenewEnabled: 0 } });
   const now = Date.now();
   let sent = 0;
 
@@ -662,6 +674,131 @@ export async function sendSubscriptionRenewalReminders(baseUrl: string) {
   }
 
   return { sent };
+}
+
+/** Consecutive failures before auto-renew disables itself and stops retrying a dead card. */
+const AUTO_RENEW_MAX_FAILURES = 3;
+
+/**
+ * Charges every due, opted-in subscription's saved card - the only place
+ * that actually happens automatically (everything else in this app is the
+ * owner manually returning to /billing). Runs off the same cron as the
+ * reminder emails. Each attempt stages a real SubscriptionPayment row
+ * first so it shows up in the normal payment history/invoices exactly like
+ * a self-serve checkout would, and reuses applyConfirmedSubscriptionPayment
+ * for activation so the two paths can never drift apart.
+ */
+export async function attemptAutoRenewals(baseUrl: string) {
+  const { sendSubscriptionRenewalFailedEmail } = await import("./email");
+  const { getTenantBranding } = await import("./tenant-branding");
+  const now = new Date();
+  const dueSubscriptions = await prisma.subscription.findMany({
+    where: {
+      status: "نشط",
+      cancelledAt: "",
+      autoRenewEnabled: 1,
+      savedCardToken: { not: "" },
+      renewalAt: { lte: now.toISOString() },
+      autoRenewFailCount: { lt: AUTO_RENEW_MAX_FAILURES }
+    }
+  });
+
+  let charged = 0;
+  let failed = 0;
+
+  for (const subscription of dueSubscriptions) {
+    const plan = await prisma.plan.findFirst({ where: { name: subscription.plan, active: 1 } });
+    if (!plan) continue;
+
+    const paymentId = `sub-pay-autorenew-${randomUUID()}`;
+    const amountHalalas = plan.monthlyPrice * 100;
+    await prisma.subscriptionPayment.create({
+      data: {
+        id: paymentId,
+        tenantId: subscription.tenantId,
+        amount: plan.monthlyPrice,
+        amountHalalas,
+        status: PAYMENT_STATUS.pending,
+        createdAt: now.toISOString(),
+        planName: plan.name,
+        planEmployeeLimit: plan.employeeLimit,
+        listPrice: plan.monthlyPrice,
+        gateway: PAYMENT_GATEWAY.moyasar,
+        gatewayStatus: "initiated",
+        initiatedBy: "system"
+      }
+    });
+
+    const metadata = buildPaymentMetadata({
+      kind: "subscription",
+      tenantId: subscription.tenantId,
+      paymentId,
+      initiatedBy: "system",
+      companyName: subscription.companyName,
+      planName: plan.name,
+      gateway: PAYMENT_GATEWAY.moyasar
+    });
+    const charge = await chargeSavedCard({
+      token: subscription.savedCardToken,
+      amountHalalas,
+      description: paymentDescription("subscription", { companyName: subscription.companyName, planName: plan.name }),
+      metadata
+    });
+
+    const owner = await prisma.userAccount.findFirst({
+      where: { tenantId: subscription.tenantId, role: "مالك الحساب" },
+      orderBy: { createdAt: "asc" }
+    });
+
+    if (charge.ok && charge.payment.status === "paid") {
+      const details = summarizeMoyasarPayment(charge.payment);
+      await prisma.subscriptionPayment.update({ where: { id: paymentId }, data: { moyasarId: charge.payment.id } });
+      const { activated } = await applyConfirmedSubscriptionPayment(paymentId, details);
+      if (activated) {
+        charged += 1;
+        await logAdminAction(
+          subscription.tenantId,
+          subscription.companyName,
+          `[auto-renew] تم تجديد الاشتراك تلقائيًا بقيمة ${plan.monthlyPrice} ر.س عبر البطاقة المحفوظة (••••${subscription.savedCardLast4}).`
+        );
+      }
+      continue;
+    }
+
+    // Declined, expired card, or the account doesn't actually support
+    // token charges - either way, never retry silently forever.
+    await markPaymentOutcome("subscription", paymentId, "failed", { gateway: PAYMENT_GATEWAY.moyasar, failureReason: charge.ok ? charge.payment.message || "" : charge.error });
+    const failCount = subscription.autoRenewFailCount + 1;
+    const disableAutoRenew = failCount >= AUTO_RENEW_MAX_FAILURES;
+    await prisma.subscription.update({
+      where: { tenantId: subscription.tenantId },
+      data: {
+        autoRenewFailCount: failCount,
+        ...(disableAutoRenew ? { autoRenewEnabled: 0, savedCardToken: "", savedCardLast4: "", savedCardBrand: "" } : {})
+      }
+    });
+    failed += 1;
+
+    if (owner?.email) {
+      const branding = await getTenantBranding(subscription.tenantId);
+      await sendSubscriptionRenewalFailedEmail({
+        to: owner.email,
+        name: subscription.ownerName || owner.name,
+        disabled: disableAutoRenew,
+        billingUrl: `${baseUrl}/billing`,
+        branding: { name: branding.name, color: branding.color }
+      }).catch((error) => console.error("Auto-renew failure email failed", error));
+    }
+
+    await logAdminAction(
+      subscription.tenantId,
+      subscription.companyName,
+      `[auto-renew] فشل التجديد التلقائي (محاولة ${failCount}/${AUTO_RENEW_MAX_FAILURES})${disableAutoRenew ? " - تم إيقاف التجديد التلقائي" : ""}: ${charge.ok ? charge.payment.message || "مرفوضة" : charge.error}`,
+      "خطأ"
+    );
+  }
+
+  return { charged, failed };
 }
 
 type CreateTenantInput = {

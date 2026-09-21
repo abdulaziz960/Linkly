@@ -4,7 +4,7 @@ import { prisma } from "../../../../lib/prisma";
 import { processDueAutomations } from "../../../../lib/automation-engine";
 import { ensureSchema, getIntegrationSettings } from "../../../../lib/database";
 import { syncXTenant } from "../../../../lib/x-sync";
-import { reconcileStalePendingPayments, sendTrialEndingReminders, sendSubscriptionRenewalReminders } from "../../../../lib/subscriptions";
+import { reconcileStalePendingPayments, sendTrialEndingReminders, sendSubscriptionRenewalReminders, attemptAutoRenewals } from "../../../../lib/subscriptions";
 import { sendLowBalanceAlerts } from "../../../../lib/campaign-balance-alerts";
 import { processDueConversationSummaries } from "../../../../lib/conversation-insights";
 import { isCronRequestAuthorized } from "../../../../lib/cron-auth";
@@ -79,6 +79,10 @@ export async function GET(request: NextRequest) {
   ), 0);
 
   const paymentsReconciled = await reconcileStalePendingPayments();
+  const autoRenewals = await attemptAutoRenewals(baseUrl()).catch((error) => {
+    console.error("Subscription auto-renewals failed", error);
+    return { charged: 0, failed: 0 };
+  });
   const trialReminders = await sendTrialEndingReminders(baseUrl());
   const renewalReminders = await sendSubscriptionRenewalReminders(baseUrl()).catch((error) => {
     console.error("Subscription renewal reminders failed", error);
@@ -89,5 +93,5 @@ export async function GET(request: NextRequest) {
     return { sent: 0 };
   });
 
-  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, trialReminders, renewalReminders, lowBalanceAlerts });
+  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts });
 }

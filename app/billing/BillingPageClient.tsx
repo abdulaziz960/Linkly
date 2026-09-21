@@ -7,7 +7,7 @@ import BillingClient from "./BillingClient";
 import { useStoredLanguage } from "../useStoredLanguage";
 
 type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number };
-type Subscription = { plan: string; status: string; createdAt?: string; renewalAt?: string; cancelledAt?: string } | null;
+type Subscription = { plan: string; status: string; createdAt?: string; renewalAt?: string; cancelledAt?: string; autoRenewEnabled?: number; savedCardLast4?: string; savedCardBrand?: string } | null;
 
 const copy = {
   ar: {
@@ -25,6 +25,9 @@ const copy = {
     resumeAction: "تراجع عن الإلغاء",
     cancelConfirm: "سيبقى وصولك متاحًا حتى نهاية الفترة المدفوعة، ولن يتجدد الاشتراك تلقائيًا بعدها. متأكد؟",
     actionError: "تعذر تنفيذ الطلب",
+    autoRenewOn: (card: string) => `التجديد التلقائي مفعّل${card ? ` - بطاقة تنتهي بـ ${card}` : ""}`,
+    autoRenewDisable: "إيقاف التجديد التلقائي",
+    autoRenewDisableConfirm: "سيتوقف الشحن التلقائي وسيتوجب عليك التجديد يدويًا كل شهر. متأكد؟",
     blockedSuspended: "تم إيقاف حسابك من فريق Linkly. اختر باقة وأكمل الدفع لإعادة تفعيله، أو تواصل معنا إذا كان هذا خطأ.",
     blockedTrialEnded: "انتهت فترتك التجريبية. اختر باقة وأكمل الدفع لمتابعة استخدام حسابك.",
     blockedRenewalLapsed: "انتهت فترة اشتراكك المدفوعة ولم يتم التجديد. جدّد باقتك لمتابعة استخدام حسابك - بياناتك محفوظة بالكامل."
@@ -44,6 +47,9 @@ const copy = {
     resumeAction: "Undo cancellation",
     cancelConfirm: "Access stays available until the end of the paid period, and it won't auto-renew after that. Are you sure?",
     actionError: "Couldn't complete the request",
+    autoRenewOn: (card: string) => `Auto-renew is on${card ? ` - card ending in ${card}` : ""}`,
+    autoRenewDisable: "Turn off auto-renew",
+    autoRenewDisableConfirm: "Automatic charging will stop and you'll need to renew manually each month. Are you sure?",
     blockedSuspended: "Your account has been suspended by the Linkly team. Choose a plan and complete payment to reactivate it, or contact us if this is a mistake.",
     blockedTrialEnded: "Your trial period has ended. Choose a plan and complete payment to keep using your account.",
     blockedRenewalLapsed: "Your paid subscription period has ended and was not renewed. Renew your plan to keep using your account - all your data is intact."
@@ -83,6 +89,9 @@ export default function BillingPageClient({
   const [cancelledAt, setCancelledAt] = useState(subscription?.cancelledAt || "");
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState("");
+  const [autoRenewEnabled, setAutoRenewEnabled] = useState(Boolean(subscription?.autoRenewEnabled));
+  const [autoRenewLoading, setAutoRenewLoading] = useState(false);
+  const [autoRenewError, setAutoRenewError] = useState("");
   const blockedReason = expired
     ? subscription?.status === "متوقف"
       ? text.blockedSuspended
@@ -107,6 +116,24 @@ export default function BillingPageClient({
       return;
     }
     setCancelledAt(payload.subscription?.cancelledAt || "");
+  }
+
+  async function disableAutoRenew() {
+    if (!window.confirm(text.autoRenewDisableConfirm)) return;
+    setAutoRenewLoading(true);
+    setAutoRenewError("");
+    const response = await fetch("/api/billing/auto-renew", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "disable" })
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    setAutoRenewLoading(false);
+    if (!response.ok) {
+      setAutoRenewError(payload.error || text.actionError);
+      return;
+    }
+    setAutoRenewEnabled(false);
   }
 
   return (
@@ -147,6 +174,13 @@ export default function BillingPageClient({
               <button type="button" className="current-plan-cancel-link" disabled={cancelLoading} onClick={() => toggleCancel("cancel")}>{text.cancelAction}</button>
             )}
             {cancelError ? <p className="billing-error">{cancelError}</p> : null}
+          </div>
+        ) : null}
+        {autoRenewEnabled && !cancelledAt ? (
+          <div className="current-plan-cancel">
+            <p className="current-plan-autorenew-notice">{text.autoRenewOn(subscription?.savedCardLast4 || "")}</p>
+            <button type="button" className="current-plan-cancel-link" disabled={autoRenewLoading} onClick={disableAutoRenew}>{text.autoRenewDisable}</button>
+            {autoRenewError ? <p className="billing-error">{autoRenewError}</p> : null}
           </div>
         ) : null}
       </section>

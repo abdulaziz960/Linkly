@@ -969,6 +969,11 @@ async function runSchemaMigrations() {
       billing_cycle TEXT NOT NULL DEFAULT 'شهري',
       renewal_at TEXT NOT NULL DEFAULT '',
       cancelled_at TEXT NOT NULL DEFAULT '',
+      auto_renew_enabled INTEGER NOT NULL DEFAULT 0,
+      saved_card_token TEXT NOT NULL DEFAULT '',
+      saved_card_last4 TEXT NOT NULL DEFAULT '',
+      saved_card_brand TEXT NOT NULL DEFAULT '',
+      auto_renew_fail_count INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
@@ -983,6 +988,11 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS billing_cycle TEXT NOT NULL DEFAULT 'شهري'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS renewal_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS cancelled_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS auto_renew_enabled INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS saved_card_token TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS saved_card_last4 TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS saved_card_brand TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS auto_renew_fail_count INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS created_at TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TEXT NOT NULL DEFAULT ''`);
     try {
@@ -1014,6 +1024,11 @@ async function runSchemaMigrations() {
         "billing_cycle",
         "renewal_at",
         "cancelled_at",
+        "auto_renew_enabled",
+        "saved_card_token",
+        "saved_card_last4",
+        "saved_card_brand",
+        "auto_renew_fail_count",
         "created_at",
         "updated_at"
       ];
@@ -1846,12 +1861,28 @@ async function runSchemaMigrations() {
     billing_cycle TEXT NOT NULL DEFAULT 'شهري',
     renewal_at TEXT NOT NULL DEFAULT '',
     cancelled_at TEXT NOT NULL DEFAULT '',
+    auto_renew_enabled INTEGER NOT NULL DEFAULT 0,
+    saved_card_token TEXT NOT NULL DEFAULT '',
+    saved_card_last4 TEXT NOT NULL DEFAULT '',
+    saved_card_brand TEXT NOT NULL DEFAULT '',
+    auto_renew_fail_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
   const subscriptionColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(subscriptions)`);
   if (!subscriptionColumns.some((column) => column.name === "cancelled_at")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN cancelled_at TEXT NOT NULL DEFAULT ''`);
+  }
+  for (const [columnName, ddl] of [
+    ["auto_renew_enabled", "INTEGER NOT NULL DEFAULT 0"],
+    ["saved_card_token", "TEXT NOT NULL DEFAULT ''"],
+    ["saved_card_last4", "TEXT NOT NULL DEFAULT ''"],
+    ["saved_card_brand", "TEXT NOT NULL DEFAULT ''"],
+    ["auto_renew_fail_count", "INTEGER NOT NULL DEFAULT 0"]
+  ]) {
+    if (!subscriptionColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE subscriptions ADD COLUMN ${columnName} ${ddl}`);
+    }
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscription_payments (
     id TEXT PRIMARY KEY,

@@ -147,6 +147,23 @@ export async function sendSubscriptionRenewalEmail({ to, name, daysLeft, renewal
   return sendEmail({ to, subject: `اشتراكك في ${branding.name} يقترب من التجديد`, text: content.text, html: content.html });
 }
 
+function subscriptionRenewalFailedEmailContent(name: string, disabled: boolean, billingUrl: string, branding: EmailBranding) {
+  const safeName = escapeHtml(name);
+  const safeUrl = escapeHtml(billingUrl);
+  const safeBrandName = escapeHtml(branding.name);
+  const body = disabled
+    ? "تعذّر شحن بطاقتك المحفوظة عدة مرات، فأوقفنا التجديد التلقائي على حسابك. جدّد يدويًا من صفحة الفوترة حتى لا ينقطع وصولك، ويمكنك تفعيل التجديد التلقائي من جديد ببطاقة أخرى."
+    : "تعذّر شحن بطاقتك المحفوظة لتجديد اشتراكك. سنحاول مرة أخرى، لكن يمكنك أيضًا التجديد يدويًا الآن أو تحديث بيانات بطاقتك.";
+  const text = `مرحباً ${name}\n\n${body}\n${billingUrl}`;
+  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:48px 24px 40px;background:#fff1f0;text-align:center"><table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto"><tr><td width="88" height="88" style="width:88px;height:88px;background:#b42318;border-radius:50%;text-align:center;vertical-align:middle;font-size:36px;line-height:88px;color:#ffffff;font-weight:800">&#9888;</td></tr></table></td></tr><tr><td style="padding:36px 32px 8px;text-align:center"><h1 style="margin:0 0 16px;font-size:24px;line-height:1.4;color:#123330;font-weight:800">تعذّر تجديد اشتراكك تلقائيًا</h1><p style="margin:0 0 28px;color:#5b7570;font-size:16px;line-height:1.9">${safeName ? `مرحباً ${safeName}،<br>` : ""}${body}</p><p style="margin:0 0 32px"><a href="${safeUrl}" style="display:inline-block;background:${branding.color};color:#fff;padding:16px 40px;border-radius:999px;text-decoration:none;font-size:16px;font-weight:800">الذهاب لصفحة الفوترة</a></p></td></tr><tr><td style="padding:20px 32px;background:#e1efed;text-align:center;color:#5b7570;font-size:12px">${safeBrandName} — منصة إدارة محادثات العملاء</td></tr></table></td></tr></table></body></html>`;
+  return { text, html };
+}
+
+export async function sendSubscriptionRenewalFailedEmail({ to, name, disabled, billingUrl, branding = DEFAULT_EMAIL_BRANDING }: { to: string; name: string; disabled: boolean; billingUrl: string; branding?: EmailBranding }): Promise<boolean> {
+  const content = subscriptionRenewalFailedEmailContent(name, disabled, billingUrl, branding);
+  return sendEmail({ to, subject: `تعذّر تجديد اشتراكك في ${branding.name} تلقائيًا`, text: content.text, html: content.html });
+}
+
 function lowBalanceEmailContent(name: string, remaining: number, percent: number, topUpUrl: string, branding: EmailBranding) {
   const safeName = escapeHtml(name);
   const safeUrl = escapeHtml(topUpUrl);

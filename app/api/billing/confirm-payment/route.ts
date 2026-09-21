@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) return NextResponse.json({ error: "سجّل الدخول أولًا" }, { status: 401 });
 
-  const { paymentId, moyasarPaymentId } = await request.json().catch(() => ({})) as { paymentId?: string; moyasarPaymentId?: string };
+  const { paymentId, moyasarPaymentId, enableAutoRenew } = await request.json().catch(() => ({})) as { paymentId?: string; moyasarPaymentId?: string; enableAutoRenew?: boolean };
   if (!paymentId || !moyasarPaymentId) return NextResponse.json({ error: "بيانات غير صالحة" }, { status: 400 });
 
   const payment = await prisma.subscriptionPayment.findFirst({ where: { id: paymentId, tenantId: user.tenantId } });
@@ -63,6 +63,15 @@ export async function POST(request: NextRequest) {
   await prisma.subscriptionPayment.update({ where: { id: paymentId }, data: { moyasarId: moyasarPaymentId } });
 
   const details = summarizeMoyasarPayment(moyasarPayment);
+  // Moyasar may return a card token here regardless of the checkbox (we ask
+  // it to attempt tokenization unconditionally - see MoyasarPayForm) - only
+  // an explicit enableAutoRenew from the client acts on it. Discarding it
+  // otherwise is the actual consent boundary, not the widget's own params.
+  if (!enableAutoRenew) {
+    details.cardToken = "";
+    details.cardLast4 = "";
+    details.cardBrand = "";
+  }
   const { outcome } = await applyVerifiedGatewayOutcome("subscription", paymentId, moyasarPayment.status, details);
 
   if (outcome === "completed") {

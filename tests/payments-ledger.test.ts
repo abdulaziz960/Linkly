@@ -512,3 +512,124 @@ describe("subscription access grace period", () => {
     vi.stubEnv("SUBSCRIPTION_GRACE_DAYS", "");
   });
 });
+
+describe("subscription auto-renewal", () => {
+  async function seedAutoRenewSubscription(tenantId: string, overrides: Partial<{ autoRenewFailCount: number; renewalAt: string }> = {}) {
+    const { prisma } = await import("../lib/prisma");
+    const { ensureSchema } = await import("../lib/database");
+    await ensureSchema();
+    await prisma.plan.upsert({
+      where: { id: "plan-autorenew-test" },
+      update: {},
+      create: { id: "plan-autorenew-test", name: "باقة النمو الاختبارية", monthlyPrice: 199, employeeLimit: 3, active: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+    });
+    const now = new Date().toISOString();
+    const overdue = overrides.renewalAt ?? new Date(Date.now() - 60_000).toISOString();
+    await prisma.subscription.create({
+      data: {
+        id: `sub-${tenantId}`,
+        tenantId,
+        companyName: "Auto Renew Co",
+        ownerName: "Owner",
+        ownerEmail: "owner@autorenew.example",
+        plan: "باقة النمو الاختبارية",
+        status: "نشط",
+        employeeLimit: 3,
+        amount: 199,
+        billingCycle: "شهري",
+        renewalAt: overdue,
+        createdAt: now,
+        updatedAt: now,
+        autoRenewEnabled: 1,
+        savedCardToken: "tok_test_123",
+        savedCardLast4: "4242",
+        savedCardBrand: "visa",
+        autoRenewFailCount: overrides.autoRenewFailCount ?? 0
+      }
+    });
+    await prisma.userAccount.create({
+      data: { id: `user-${tenantId}`, name: "Owner", email: `owner-${tenantId}@autorenew.example`, passwordHash: "x", role: "مالك الحساب", tenantId, createdAt: now }
+    });
+  }
+
+  it("charges the saved token and extends the subscription on success", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { attemptAutoRenewals } = await import("../lib/subscriptions");
+    const tenantId = "tenant-autorenew-success";
+    await seedAutoRenewSubscription(tenantId);
+
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      expect(String(url)).toContain("api.moyasar.com/v1/payments");
+      return new Response(JSON.stringify({ id: "pay_autorenew_1", status: "paid", amount: 19900, currency: "SAR", source: { type: "token", token: "tok_test_123", company: "visa" } }), { status: 200 });
+    }));
+
+    const result = await attemptAutoRenewals("https://app.example");
+    expect(result).toEqual({ charged: 1, failed: 0 });
+
+    const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+    expect(subscription?.autoRenewFailCount).toBe(0);
+    expect(subscription?.autoRenewEnabled).toBe(1);
+    expect(new Date(subscription?.renewalAt ?? "").getTime()).toBeGreaterThan(Date.now());
+
+    const payment = await prisma.subscriptionPayment.findFirst({ where: { tenantId, initiatedBy: "system" } });
+    expect(payment).toMatchObject({ status: "مكتمل", amount: 199, moyasarId: "pay_autorenew_1" });
+  });
+
+  it("increments the failure count without disabling auto-renew before the cap", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { attemptAutoRenewals } = await import("../lib/subscriptions");
+    const tenantId = "tenant-autorenew-fail-once";
+    await seedAutoRenewSubscription(tenantId);
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ id: "pay_declined", status: "failed", source: { message: "Card declined" } }), { status: 200 })));
+
+    const result = await attemptAutoRenewals("https://app.example");
+    expect(result).toEqual({ charged: 0, failed: 1 });
+
+    const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+    expect(subscription?.autoRenewFailCount).toBe(1);
+    expect(subscription?.autoRenewEnabled).toBe(1);
+    expect(subscription?.savedCardToken).toBe("tok_test_123");
+
+    // This tenant is still "due" (renewalAt didn't move on a failed charge)
+    // and under the fail cap, so it would otherwise keep getting reprocessed
+    // by every later test's attemptAutoRenewals call in this file - disable
+    // it now the same way the real cron eventually would, to keep the other
+    // tests' result totals exact to their own tenant.
+    await prisma.subscription.update({ where: { tenantId }, data: { autoRenewEnabled: 0 } });
+  });
+
+  it("disables auto-renew and clears the saved card once the failure cap is reached", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { attemptAutoRenewals } = await import("../lib/subscriptions");
+    const tenantId = "tenant-autorenew-cap";
+    await seedAutoRenewSubscription(tenantId, { autoRenewFailCount: 2 });
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ message: "invalid token" }), { status: 422 })));
+
+    const result = await attemptAutoRenewals("https://app.example");
+    expect(result).toEqual({ charged: 0, failed: 1 });
+
+    const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+    expect(subscription?.autoRenewFailCount).toBe(3);
+    expect(subscription?.autoRenewEnabled).toBe(0);
+    expect(subscription?.savedCardToken).toBe("");
+  });
+
+  it("skips a subscription whose renewalAt hasn't arrived yet", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { attemptAutoRenewals } = await import("../lib/subscriptions");
+    const tenantId = "tenant-autorenew-not-due";
+    await seedAutoRenewSubscription(tenantId, { renewalAt: new Date(Date.now() + 10 * 86_400_000).toISOString() });
+
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await attemptAutoRenewals("https://app.example");
+    expect(result).toEqual({ charged: 0, failed: 0 });
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+    expect(subscription?.autoRenewFailCount).toBe(0);
+  });
+});

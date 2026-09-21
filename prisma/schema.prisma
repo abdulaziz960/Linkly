@@ -729,6 +729,23 @@ model Subscription {
   // an auto-renewal that was never going to happen, and so renewal-
   // reminder emails stop once the owner has already said they're done.
   cancelledAt   String @default("") @map("cancelled_at")
+  // Real auto-renewal: an owner can opt in to saving their card (Moyasar
+  // tokenization) on /billing/pay. Nothing here is trusted client-side -
+  // savedCardToken only ever gets set server-side after confirm-payment
+  // verifies a real completed payment whose response included a token
+  // (see lib/moyasar.ts's chargeSavedCard/summarizeMoyasarPayment). If the
+  // Moyasar account doesn't actually support tokenization, the checkbox
+  // simply never produces a token and auto-renewal stays off - see
+  // sendSubscriptionRenewalReminders' plain-manual path for that case.
+  autoRenewEnabled  Int    @default(0) @map("auto_renew_enabled")
+  savedCardToken    String @default("") @map("saved_card_token")
+  savedCardLast4    String @default("") @map("saved_card_last4")
+  savedCardBrand    String @default("") @map("saved_card_brand")
+  // Consecutive failed auto-charge attempts (lib/subscriptions.ts's
+  // attemptAutoRenewals). Capped so a permanently-declined card doesn't
+  // retry forever unnoticed - past the cap, auto-renew disables itself and
+  // the owner is emailed to renew manually.
+  autoRenewFailCount Int   @default(0) @map("auto_renew_fail_count")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 
