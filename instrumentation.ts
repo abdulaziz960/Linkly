@@ -1,5 +1,4 @@
 import type { Instrumentation } from "next";
-import { randomUUID } from "crypto";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") await import("./sentry.server.config");
@@ -38,7 +37,7 @@ export const onRequestError: Instrumentation.onRequestError = async (error, requ
     const { prisma } = await import("./lib/prisma");
     await prisma.adminLog.create({
       data: {
-        id: `log-err-${randomUUID()}`,
+        id: `log-err-${globalThis.crypto.randomUUID()}`,
         at: new Date().toISOString(),
         clientId: "system",
         clientName: "النظام",
@@ -66,7 +65,7 @@ export const onRequestError: Instrumentation.onRequestError = async (error, requ
       if (!alreadyAlerted) {
         await prisma.adminLog.create({
           data: {
-            id: `log-alert-${randomUUID()}`,
+            id: `log-alert-${globalThis.crypto.randomUUID()}`,
             at: new Date().toISOString(),
             clientId: "system",
             clientName: "النظام",

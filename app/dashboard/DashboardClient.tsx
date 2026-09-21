@@ -567,6 +567,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   }, [loadDashboardData]);
 
   useEffect(() => {
+    if (activeView === "operations") return;
+
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible" && !loadDashboardDataInFlightRef.current) {
         void loadDashboardData();
@@ -583,7 +585,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
-  }, [loadDashboardData]);
+  }, [activeView, loadDashboardData]);
 
   useEffect(() => {
     if (xStatus !== "connected") return;
