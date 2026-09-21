@@ -43,7 +43,7 @@ export const planFeatures: Record<string, PlanFeatures> = {
   },
   "باقة المؤسسات الصغيرة": {
     shortName: { ar: "المؤسسات الصغيرة", en: "Small Enterprises" },
-    audience: { ar: "الأنسب لفريق يحتاج أتمتة وتقسيم جمهور ومساعد ذكاء اصطناعي.", en: "Best for a team that needs automation, audience segments, and an AI copilot." },
+    audience: { ar: "الأنسب لفريق يحتاج أتمتة وتقسيم جمهور ومساعد AI.", en: "Best for a team that needs automation, audience segments, and an AI Assistant." },
     featured: true,
     items: {
       ar: ["فرق عمل متعددة", "أتمتة وقواعد تحويل متقدمة", "تقسيم جمهور واستهداف بالحملات", "مساعد AI", "تقارير أداء وSLA"],
