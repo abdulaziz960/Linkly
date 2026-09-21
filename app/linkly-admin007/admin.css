@@ -1988,6 +1988,10 @@
 .admin-payment-filters input { min-height: 40px; border: 0; border-radius: 8px; padding: 0 10px; color: var(--admin-ink); background: var(--admin-surface); box-shadow: var(--admin-shadow-border); }
 .admin-payment-filters button { min-height: 40px; border: 0; border-radius: 8px; padding: 0 13px; color: var(--admin-ink); background: var(--admin-surface); box-shadow: var(--admin-shadow-border); font: inherit; font-weight: 800; cursor: pointer; }
 .admin-alert-buckets { padding: 14px 20px; display: flex; gap: 7px; flex-wrap: wrap; background: var(--admin-surface-soft); box-shadow: inset 0 -1px 0 var(--admin-line); }.admin-alert-buckets button { border: 0; border-radius: 999px; padding: 8px 12px; background: var(--admin-surface); color: var(--admin-ink); box-shadow: var(--admin-shadow-border); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }.admin-alert-buckets button.active { color: #fff; background: var(--admin-ink); }.admin-list-row div span + small { display: block; margin-top: 5px; color: var(--admin-muted); font-weight: 650; }.admin-alert-actions { display: flex; align-items: center; gap: 8px; }
+.admin-usage-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+.admin-usage-stats span { display: flex; flex-direction: column; align-items: center; min-width: 70px; }
+.admin-usage-stats b { font-size: 16px; }
+.admin-usage-stats small { color: var(--admin-muted); font-weight: 650; }
 @media(max-width:1100px){.admin-metrics-five{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-payment-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.admin-metrics-five,.admin-payment-filters{grid-template-columns:1fr}}
 

@@ -17,6 +17,12 @@ export type SubscriptionRow = {
   campaignBalance: number;
 };
 
+export type UsageRow = SubscriptionRow & {
+  messagesLast30d: number;
+  aiEventsLast30d: number;
+  aiCostLast30dSar: number;
+};
+
 export type PaymentRow = {
   id: string;
   tenantId: string;
