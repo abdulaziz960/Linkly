@@ -813,6 +813,22 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_message_quota INTEGER NOT NULL DEFAULT 0`
   );
+  // templates.header_media_data_url and .media_token (migration
+  // 20260921090000_template_media_token) have the exact same misplacement
+  // bug - added past this function's boundary, in the section skipped in
+  // production. Broke /api/templates and /api/templates/sync-meta with
+  // "column does not exist" (surfaced as "Meta connection timed out" in
+  // the UI, since the WhatsApp Templates page's fetch failure has no more
+  // specific error message).
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE templates ADD COLUMN IF NOT EXISTS header_media_data_url TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE templates ADD COLUMN IF NOT EXISTS media_token TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS templates_media_token_idx ON templates(media_token)`
+  );
 }
 
 async function runSchemaMigrations() {
