@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import type { Conversation, Employee } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
+import { sanitizeCsvCell } from "../../../lib/csv-export";
 
 type EmployeeFormState = {
   id?: string;
@@ -432,7 +433,7 @@ export default function EmployeesView({
 
 function downloadCsv(fileName: string, header: Array<string | number>, rows: Array<Array<string | number>>) {
   const csv = [header, ...rows]
-    .map((row) => row.map(escapeCsvCell).join(","))
+    .map((row) => row.map(sanitizeCsvCell).join(","))
     .join("\n");
   const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -441,9 +442,4 @@ function downloadCsv(fileName: string, header: Array<string | number>, rows: Arr
   link.download = fileName;
   link.click();
   URL.revokeObjectURL(url);
-}
-
-function escapeCsvCell(value: string | number) {
-  const text = String(value).replaceAll('"', '""');
-  return `"${text}"`;
 }

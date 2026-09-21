@@ -7,6 +7,7 @@ import type { SubscriptionRow } from "../types";
 import { formatNumber, parseTimestamp } from "../utils";
 import CustomSelect from "../../components/CustomSelect";
 import { useLanguage } from "../i18n";
+import { sanitizeCsvCell } from "../../../lib/csv-export";
 
 type LogsViewProps = { subscriptions: SubscriptionRow[]; logs: AdminLog[]; initialFilters: Record<string, string | undefined> };
 type LevelFilter = AdminLog["level"] | "الكل";
@@ -39,7 +40,7 @@ function enrich(log: AdminLog): EnrichedLog {
 }
 function relativeTime(timestamp: number, t: (ar: string, en: string) => string) { if (!timestamp) return t("وقت غير محدد", "Unknown time"); const mins = Math.floor(Math.max(0, Date.now() - timestamp) / 60000); if (mins < 1) return t("الآن", "Just now"); if (mins < 60) return t(`منذ ${formatNumber(mins)} دقيقة`, `${mins}m ago`); const hours = Math.floor(mins / 60); if (hours < 24) return t(`منذ ${formatNumber(hours)} ساعة`, `${hours}h ago`); const days = Math.floor(hours / 24); return t(`منذ ${formatNumber(days)} يوم`, `${days}d ago`); }
 function fullDate(timestamp: number, fallback: string, locale: string) { const latinLocale=locale==="ar-SA"?"ar-SA-u-nu-latn":locale;return timestamp ? new Intl.DateTimeFormat(latinLocale, { dateStyle: "medium", timeStyle: "short" }).format(timestamp) : fallback.replace(/[٠-٩]/g,(digit)=>String("٠١٢٣٤٥٦٧٨٩".indexOf(digit))); }
-function csvCell(value: unknown) { return `"${String(value ?? "").replace(/"/g, '""')}"`; }
+function csvCell(value: unknown) { return sanitizeCsvCell(String(value ?? "")); }
 function downloadBlob(content: BlobPart, type: string, name: string) { const url = URL.createObjectURL(new Blob([content], { type })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = name; anchor.click(); URL.revokeObjectURL(url); }
 
 export default function LogsView({ subscriptions, logs, initialFilters }: LogsViewProps) {

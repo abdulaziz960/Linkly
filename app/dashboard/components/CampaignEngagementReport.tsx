@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../i18n";
 import { formatDateTime } from "../../../lib/time";
 import { engagementBucketFor, type EngagementBucket } from "../../../lib/campaign-engagement";
+import { sanitizeCsvCell } from "../../../lib/csv-export";
 import CustomSelect from "../../components/CustomSelect";
 
 const pageSizeOptions = [
@@ -71,11 +72,6 @@ function Pagination({ currentPage, totalPages, onPageChange }: { currentPage: nu
   );
 }
 
-function escapeCsvCell(value: string | number) {
-  const text = String(value).replaceAll('"', '""');
-  return `"${text}"`;
-}
-
 /**
  * Per-campaign recipient engagement breakdown (tiles + searchable/paginated
  * table with a send-message action) - shared between the campaign report
@@ -137,7 +133,7 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
       const bucket = engagementBucketFor(row);
       return [row.name, row.phone, row.status, engagementLabel(bucket, t), clickCountLabel(bucket, row.clickCount), formatDateTime(row.date)];
     });
-    const csv = [header, ...csvRows].map((row) => row.map(escapeCsvCell).join(",")).join("\n");
+    const csv = [header, ...csvRows].map((row) => row.map(sanitizeCsvCell).join(",")).join("\n");
     const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

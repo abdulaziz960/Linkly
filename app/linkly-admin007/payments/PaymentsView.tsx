@@ -5,6 +5,7 @@ import type { PaymentRow, SubscriptionRow } from "../types";
 import { formatNumber, statusClass } from "../utils";
 import CustomSelect from "../../components/CustomSelect";
 import { useLanguage } from "../i18n";
+import { sanitizeCsvCell } from "../../../lib/csv-export";
 
 type PaymentsViewProps = {
   subscriptions: SubscriptionRow[];
@@ -136,7 +137,7 @@ export default function PaymentsView({ subscriptions, payments, initialStatus = 
     return sorted;
   }, [payments, selectedPaymentClient, statusFilter, sourceFilter, searchQuery, sortBy, fromDate, toDate, minAmount, maxAmount]);
 
-  function exportCsv() { const rows = [["التاريخ", "العميل", "النوع", "المبلغ", "الحالة", "مرجع Moyasar"], ...visiblePayments.map((p) => [p.completedAt || p.createdAt, p.companyName, p.source, p.amount, p.status, p.moyasarId])]; const content = `\uFEFF${rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\r\n")}`; downloadPaymentFile(content, "text/csv;charset=utf-8", `audiencew-payments-${new Date().toISOString().slice(0, 10)}.csv`); }
+  function exportCsv() { const rows = [["التاريخ", "العميل", "النوع", "المبلغ", "الحالة", "مرجع Moyasar"], ...visiblePayments.map((p) => [p.completedAt || p.createdAt, p.companyName, p.source, p.amount, p.status, p.moyasarId])]; const content = `\uFEFF${rows.map((row) => row.map(sanitizeCsvCell).join(",")).join("\r\n")}`; downloadPaymentFile(content, "text/csv;charset=utf-8", `audiencew-payments-${new Date().toISOString().slice(0, 10)}.csv`); }
   async function exportExcel() { const ExcelJS = await import("exceljs"); const book = new ExcelJS.Workbook(); const sheet = book.addWorksheet("المدفوعات", { views: [{ rightToLeft: true }] }); sheet.columns = [{ header: "التاريخ", key: "date", width: 22 }, { header: "العميل", key: "client", width: 24 }, { header: "النوع", key: "source", width: 22 }, { header: "المبلغ", key: "amount", width: 14 }, { header: "الحالة", key: "status", width: 16 }, { header: "مرجع Moyasar", key: "reference", width: 28 }]; visiblePayments.forEach((p) => sheet.addRow({ date: p.completedAt || p.createdAt, client: p.companyName, source: p.source, amount: p.amount, status: p.status, reference: p.moyasarId })); sheet.getRow(1).font = { bold: true }; const buffer = await book.xlsx.writeBuffer(); downloadPaymentFile(buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", `audiencew-payments-${new Date().toISOString().slice(0, 10)}.xlsx`); }
 
   return (

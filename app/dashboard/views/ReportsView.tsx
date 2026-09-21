@@ -6,6 +6,7 @@ import CustomSelect from "../../components/CustomSelect";
 import { statusLabel } from "../utils/conversation";
 import { useLanguage } from "../i18n";
 import { channelNames } from "../../channel-names";
+import { buildCsv } from "../../../lib/csv-export";
 
 type Period = "today" | "yesterday" | "7d" | "30d" | "month" | "lastMonth" | "custom";
 type Granularity = "daily" | "weekly" | "monthly";
@@ -58,7 +59,7 @@ function formatDuration(value:number|null,t:(ar:string,en:string)=>string){ if(v
 function percent(part:number,total:number){ return total?Math.round(part/total*100):null; }
 function matchesReportFilters(conversation:Conversation,filters:Filters,teamMembers:Map<string,Set<string|undefined>>){if(filters.channel!=="all"&&conversation.channel!==filters.channel)return false;if(filters.employee!=="all"&&conversation.assignee!==filters.employee)return false;if(filters.status!=="all"&&conversation.status!==filters.status)return false;if(filters.tag!=="all"&&!conversation.tags.includes(filters.tag))return false;if(filters.team!=="all"&&!teamMembers.get(filters.team)?.has(conversation.assignee))return false;if(filters.hours==="outside"&&!conversation.windowExpired)return false;if(filters.hours==="inside"&&conversation.windowExpired)return false;const inboundCount=conversation.messages.filter((message)=>message.direction==="in").length;if(filters.customerType==="new"&&inboundCount>1)return false;if(filters.customerType==="known"&&inboundCount<=1)return false;return true;}
 function downloadBlob(content:BlobPart,type:string,name:string){const url=URL.createObjectURL(new Blob([content],{type}));const anchor=document.createElement("a");anchor.href=url;anchor.download=name;anchor.click();URL.revokeObjectURL(url);}
-function downloadCsv(name:string,headers:string[],rows:Array<Array<string|number>>){const cell=(value:string|number)=>`"${String(value).replace(/"/g,'""')}"`;downloadBlob(`\uFEFF${[headers,...rows].map((row)=>row.map(cell).join(",")).join("\r\n")}`,"text/csv;charset=utf-8",name);}
+function downloadCsv(name:string,headers:string[],rows:Array<Array<string|number>>){downloadBlob(`\uFEFF${buildCsv(headers,rows)}`,"text/csv;charset=utf-8",name);}
 
 export default function ReportsView({ conversations, employees, teams, workSchedules, onOpenConversation }: ReportsProps) {
   const { t, language } = useLanguage(); const [now,setNow]=useState(()=>new Date());
