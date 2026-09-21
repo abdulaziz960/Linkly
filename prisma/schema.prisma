@@ -706,6 +706,14 @@ model Plan {
   // channel with no restriction - the default, so every plan that predates
   // this column (and any row that never sets it) stays fully unrestricted.
   allowedChannels String @default("*") @map("allowed_channels")
+  // Marketing (campaign) messages credited to a tenant's CampaignBalance
+  // each time a subscription payment on this plan is confirmed (see
+  // applyConfirmedSubscriptionPayment in lib/subscriptions.ts) - scaled by
+  // 12 for an annual payment, since that buys a full year upfront. -1 means
+  // unlimited (see UNLIMITED_MESSAGE_QUOTA in lib/message-quota.ts); the
+  // credited amount then uses a large-but-finite practical constant instead
+  // of literally -1, which would break the balance's spend gate.
+  messageQuota Int @default(0) @map("message_quota")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 
@@ -771,6 +779,10 @@ model SubscriptionPayment {
   // payment is confirmed paid, so benefits never precede payment.
   planName          String @default("") @map("plan_name")
   planEmployeeLimit Int    @default(0) @map("plan_employee_limit")
+  // Captured from Plan.messageQuota at checkout time, same as
+  // planEmployeeLimit above - the amount actually credited to
+  // CampaignBalance on confirmation (see applyConfirmedSubscriptionPayment).
+  planMessageQuota  Int    @default(0) @map("plan_message_quota")
   // "شهري" or "سنوي" - which period this payment buys (see
   // computeSubscriptionPeriod/priceForCycle in lib/subscriptions.ts and
   // lib/billing-pricing.ts). Annual pays the full discounted year upfront.

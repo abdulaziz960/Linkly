@@ -19,6 +19,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     aiDailyLimit?: number;
     aiMonthlyLimit?: number;
     allowedChannels?: unknown;
+    messageQuota?: number;
   };
 
   try {

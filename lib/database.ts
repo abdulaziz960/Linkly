@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { ensureAiSchema } from "./ai-schema";
+import { UNLIMITED_MESSAGE_QUOTA } from "./message-quota";
 import { emailIntegrationId, findTenantEmailIntegration } from "./email-integration-lookup";
 import { createHash, randomUUID } from "crypto";
 import { getPasswordValidationError, hashPassword, verifyPassword } from "./passwords";
@@ -274,12 +275,15 @@ async function applyPricingTierRestructure() {
       // AI Copilot (Linkly-managed) starts at the small-enterprises tier and
       // up - aiDailyLimit/aiMonthlyLimit 0 means "not included" (see the Plan
       // model comment); individuals/regular tenants can still bring their own
-      // API key regardless, per the same comment.
-      { id: "plan-individuals", name: "باقة الأفراد", monthlyPrice: 199, employeeLimit: 1, sortOrder: 1, allowedChannels: "whatsapp", aiDailyLimit: 0, aiMonthlyLimit: 0 },
-      { id: "plan-regular", name: "الباقة العادية", monthlyPrice: 279, employeeLimit: 3, sortOrder: 2, allowedChannels: "whatsapp,instagram", aiDailyLimit: 0, aiMonthlyLimit: 0 },
-      { id: "plan-small-org", name: "باقة المؤسسات الصغيرة", monthlyPrice: 615, employeeLimit: 6, sortOrder: 3, allowedChannels: "whatsapp,instagram", aiDailyLimit: 50, aiMonthlyLimit: 1000 },
-      { id: "plan-large-org", name: "باقة المؤسسات الكبيرة", monthlyPrice: 849, employeeLimit: 8, sortOrder: 4, allowedChannels: "whatsapp,instagram,tiktok", aiDailyLimit: 100, aiMonthlyLimit: 2000 },
-      { id: "plan-enterprise", name: "باقة الشركات", monthlyPrice: 1499, employeeLimit: 100, sortOrder: 5, allowedChannels: "*", aiDailyLimit: 300, aiMonthlyLimit: 6000 }
+      // API key regardless, per the same comment. messageQuota is marketing
+      // campaign messages credited per billing period (see
+      // applyConfirmedSubscriptionPayment in lib/subscriptions.ts);
+      // UNLIMITED_MESSAGE_QUOTA (-1) on the enterprise tier.
+      { id: "plan-individuals", name: "باقة الأفراد", monthlyPrice: 199, employeeLimit: 1, sortOrder: 1, allowedChannels: "whatsapp", aiDailyLimit: 0, aiMonthlyLimit: 0, messageQuota: 1000 },
+      { id: "plan-regular", name: "الباقة العادية", monthlyPrice: 279, employeeLimit: 3, sortOrder: 2, allowedChannels: "whatsapp,instagram", aiDailyLimit: 0, aiMonthlyLimit: 0, messageQuota: 3000 },
+      { id: "plan-small-org", name: "باقة المؤسسات الصغيرة", monthlyPrice: 615, employeeLimit: 6, sortOrder: 3, allowedChannels: "whatsapp,instagram", aiDailyLimit: 50, aiMonthlyLimit: 1000, messageQuota: 5000 },
+      { id: "plan-large-org", name: "باقة المؤسسات الكبيرة", monthlyPrice: 849, employeeLimit: 8, sortOrder: 4, allowedChannels: "whatsapp,instagram,tiktok", aiDailyLimit: 100, aiMonthlyLimit: 2000, messageQuota: 7000 },
+      { id: "plan-enterprise", name: "باقة الشركات", monthlyPrice: 1499, employeeLimit: 100, sortOrder: 5, allowedChannels: "*", aiDailyLimit: 300, aiMonthlyLimit: 6000, messageQuota: UNLIMITED_MESSAGE_QUOTA }
     ];
     for (const plan of newPlans) {
       if (isPostgresDatabase) {
@@ -288,10 +292,10 @@ async function applyPricingTierRestructure() {
         // monthly_price (the only sane value it could mean), is the only way
         // to satisfy the NOT NULL constraint from here.
         await prisma.$executeRawUnsafe(
-          `INSERT INTO plans (id, name, monthly_price, monthly_amount, employee_limit, sort_order, active, ai_daily_limit, ai_monthly_limit, allowed_channels, created_at, updated_at)
-           VALUES ($1, $2, $3, $3, $4, $5, 1, $6, $7, $8, $9, $9)
+          `INSERT INTO plans (id, name, monthly_price, monthly_amount, employee_limit, sort_order, active, ai_daily_limit, ai_monthly_limit, allowed_channels, message_quota, created_at, updated_at)
+           VALUES ($1, $2, $3, $3, $4, $5, 1, $6, $7, $8, $9, $10, $10)
            ON CONFLICT (id) DO NOTHING`,
-          plan.id, plan.name, plan.monthlyPrice, plan.employeeLimit, plan.sortOrder, plan.aiDailyLimit, plan.aiMonthlyLimit, plan.allowedChannels, now
+          plan.id, plan.name, plan.monthlyPrice, plan.employeeLimit, plan.sortOrder, plan.aiDailyLimit, plan.aiMonthlyLimit, plan.allowedChannels, plan.messageQuota, now
         );
       } else {
         await prisma.plan.upsert({
@@ -586,6 +590,9 @@ async function runRequiredProductionMigrations() {
   );
   await prisma.$executeRawUnsafe(
     `ALTER TABLE plans ADD COLUMN IF NOT EXISTS allowed_channels TEXT NOT NULL DEFAULT '*'`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE plans ADD COLUMN IF NOT EXISTS message_quota INTEGER NOT NULL DEFAULT 0`
   );
   await applyPricingTierRestructure();
 
@@ -1168,6 +1175,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS list_price DOUBLE PRECISION NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS proration_credit_amount DOUBLE PRECISION NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS billing_cycle TEXT NOT NULL DEFAULT 'شهري'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_message_quota INTEGER NOT NULL DEFAULT 0`);
     await ensurePostgresPaymentLedgerColumns();
     return;
   }
@@ -1958,6 +1966,9 @@ async function runSchemaMigrations() {
   if (!planColumns.some((column) => column.name === "allowed_channels")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN allowed_channels TEXT NOT NULL DEFAULT '*'`);
   }
+  if (!planColumns.some((column) => column.name === "message_quota")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN message_quota INTEGER NOT NULL DEFAULT 0`);
+  }
   await applyPricingTierRestructure();
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
     id TEXT PRIMARY KEY,
@@ -2009,7 +2020,8 @@ async function runSchemaMigrations() {
     plan_employee_limit INTEGER NOT NULL DEFAULT 0,
     list_price REAL NOT NULL DEFAULT 0,
     proration_credit_amount REAL NOT NULL DEFAULT 0,
-    billing_cycle TEXT NOT NULL DEFAULT 'شهري'
+    billing_cycle TEXT NOT NULL DEFAULT 'شهري',
+    plan_message_quota INTEGER NOT NULL DEFAULT 0
   )`);
   const subscriptionPaymentColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(subscription_payments)`);
   if (!subscriptionPaymentColumns.some((column) => column.name === "amount_halalas")) {
@@ -2029,6 +2041,9 @@ async function runSchemaMigrations() {
   }
   if (!subscriptionPaymentColumns.some((column) => column.name === "billing_cycle")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN billing_cycle TEXT NOT NULL DEFAULT 'شهري'`);
+  }
+  if (!subscriptionPaymentColumns.some((column) => column.name === "plan_message_quota")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN plan_message_quota INTEGER NOT NULL DEFAULT 0`);
   }
   // subscriptions, subscription_payments and campaign_payments all exist by
   // this point - add the payment-ledger columns to each.

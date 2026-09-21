@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import { ANNUAL_DISCOUNT_PERCENT, computeYearlyPrice, type BillingCycle } from "../../lib/billing-pricing";
+import { isUnlimitedMessageQuota, messageQuotaLabel } from "../../lib/message-quota";
 
-type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number };
+type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number; messageQuota: number };
 
 const copy = {
   ar: {
@@ -14,6 +15,7 @@ const copy = {
     perYear: "ر.س / سنويًا",
     billedYearly: (total: number) => `تُدفع دفعة واحدة بقيمة ${total} ر.س سنويًا`,
     upToUsers: (limit: number) => `✓ حتى ${limit} مستخدم`,
+    messageQuota: (quota: number) => isUnlimitedMessageQuota(quota) ? "✓ رسائل تسويقية غير محدودة" : `✓ ${messageQuotaLabel(quota, "ar")} رسالة تسويقية شهريًا`,
     sharedInbox: "✓ صندوق وارد موحّد",
     automation: "✓ أتمتة وتقارير",
     support: "✓ دعم فني",
@@ -32,6 +34,7 @@ const copy = {
     perYear: "SAR / year",
     billedYearly: (total: number) => `Billed once as ${total} SAR / year`,
     upToUsers: (limit: number) => `✓ Up to ${limit} users`,
+    messageQuota: (quota: number) => isUnlimitedMessageQuota(quota) ? "✓ Unlimited marketing messages" : `✓ ${messageQuotaLabel(quota, "en")} marketing messages/month`,
     sharedInbox: "✓ Shared inbox",
     automation: "✓ Automation and reports",
     support: "✓ Technical support",
@@ -71,7 +74,7 @@ export default function BillingClient({ plans, currentPlan, lang = "ar", isTestM
         <h2>{plan.name}</h2>
         <div className="plan-price"><b>{displayedPrice}</b><span>{text.perMonth}</span></div>
         {billingCycle === "سنوي" ? <p className="plan-price-note">{text.billedYearly(yearly)}</p> : null}
-        <ul><li>{text.upToUsers(plan.employeeLimit)}</li><li>{text.sharedInbox}</li><li>{text.automation}</li><li>{text.support}</li></ul>
+        <ul><li>{text.upToUsers(plan.employeeLimit)}</li><li>{text.messageQuota(plan.messageQuota)}</li><li>{text.sharedInbox}</li><li>{text.automation}</li><li>{text.support}</li></ul>
         <button disabled={loading !== ""} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : currentPlan === plan.name ? text.renewPlan : text.choosePlan}</button>
       </article>;
     })}</div>

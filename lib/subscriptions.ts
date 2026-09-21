@@ -7,6 +7,7 @@ import { PAYMENT_STATUS, PAYMENT_GATEWAY, mapMoyasarInvoiceStatus, type PaymentK
 import { chargeSavedCard, buildPaymentMetadata, paymentDescription, summarizeMoyasarPayment, isAutoRenewEnabled, type GatewayPaymentDetails } from "./moyasar";
 import { encryptSecret, decryptSecret } from "./secret-storage";
 import { computeYearlyPrice, isBillingCycle, type BillingCycle } from "./billing-pricing";
+import { isUnlimitedMessageQuota, UNLIMITED_MESSAGE_CREDIT } from "./message-quota";
 
 /** Length of one paid subscription period, in months, per billing cycle. */
 export const SUBSCRIPTION_PERIOD_MONTHS: Record<BillingCycle, number> = { "شهري": 1, "سنوي": 12 };
@@ -364,6 +365,25 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
           : {})
       }
     });
+
+    // Marketing message allowance included with the plan - credited every
+    // time a subscription payment on it confirms (initial signup, renewal,
+    // or a plan change), scaled by 12 for an annual payment since that buys
+    // a full year upfront. Admin-issued invoices carry no planName and
+    // don't touch this - only a real plan payment does.
+    if (payment.planName) {
+      const creditMessages = isUnlimitedMessageQuota(payment.planMessageQuota)
+        ? UNLIMITED_MESSAGE_CREDIT
+        : payment.planMessageQuota * (billingCycle === "سنوي" ? 12 : 1);
+      if (creditMessages > 0) {
+        await tx.campaignBalance.upsert({
+          where: { tenantId: payment.tenantId },
+          update: { balance: { increment: creditMessages }, lastTopUpAmount: creditMessages, updatedAt: now },
+          create: { tenantId: payment.tenantId, balance: creditMessages, lastTopUpAmount: creditMessages, updatedAt: now }
+        });
+      }
+    }
+
     return period;
   });
 
@@ -821,6 +841,7 @@ export async function attemptAutoRenewals(baseUrl: string) {
           createdAt: now.toISOString(),
           planName: plan.name,
           planEmployeeLimit: plan.employeeLimit,
+          planMessageQuota: plan.messageQuota,
           listPrice: renewAmount,
           billingCycle,
           gateway: PAYMENT_GATEWAY.moyasar,

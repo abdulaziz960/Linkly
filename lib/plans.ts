@@ -2,6 +2,11 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema, isPostgresDatabase } from "./database";
 import { serializeAllowedChannels, type AllowedChannels } from "./channel-catalog";
+import { UNLIMITED_MESSAGE_QUOTA } from "./message-quota";
+
+function isValidMessageQuota(value: number) {
+  return Number.isFinite(value) && (value === UNLIMITED_MESSAGE_QUOTA || value >= 0);
+}
 
 function nowTimestamp() {
   return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
@@ -30,6 +35,7 @@ type CreatePlanInput = {
   aiDailyLimit?: number;
   aiMonthlyLimit?: number;
   allowedChannels?: AllowedChannels;
+  messageQuota?: number;
 };
 
 export async function createPlan(input: CreatePlanInput) {
@@ -42,6 +48,8 @@ export async function createPlan(input: CreatePlanInput) {
   const aiMonthlyLimit = input.aiMonthlyLimit ?? 0;
   if (!Number.isFinite(aiDailyLimit) || aiDailyLimit < 0) throw new Error("الحد اليومي للذكاء الاصطناعي غير صحيح");
   if (!Number.isFinite(aiMonthlyLimit) || aiMonthlyLimit < 0) throw new Error("الحد الشهري للذكاء الاصطناعي غير صحيح");
+  const messageQuota = input.messageQuota ?? 0;
+  if (!isValidMessageQuota(messageQuota)) throw new Error("حصة الرسائل التسويقية غير صحيحة");
 
   const existing = await prisma.plan.findUnique({ where: { name } });
   if (existing) throw new Error("يوجد باقة بنفس الاسم بالفعل");
@@ -54,6 +62,7 @@ export async function createPlan(input: CreatePlanInput) {
   const roundedEmployeeLimit = Math.round(input.employeeLimit);
   const roundedAiDailyLimit = Math.round(aiDailyLimit);
   const roundedAiMonthlyLimit = Math.round(aiMonthlyLimit);
+  const roundedMessageQuota = Math.round(messageQuota);
   const allowedChannels = serializeAllowedChannels(input.allowedChannels ?? "*");
 
   if (isPostgresDatabase) {
@@ -62,9 +71,9 @@ export async function createPlan(input: CreatePlanInput) {
     // in lib/database.ts) - prisma.plan.create() below can't set a column it
     // doesn't know exists, so raw SQL here too, mirroring it to monthly_price.
     await prisma.$executeRawUnsafe(
-      `INSERT INTO plans (id, name, monthly_price, monthly_amount, employee_limit, sort_order, active, ai_daily_limit, ai_monthly_limit, allowed_channels, created_at, updated_at)
-       VALUES ($1, $2, $3, $3, $4, $5, 1, $6, $7, $8, $9, $9)`,
-      id, name, roundedPrice, roundedEmployeeLimit, sortOrder, roundedAiDailyLimit, roundedAiMonthlyLimit, allowedChannels, now
+      `INSERT INTO plans (id, name, monthly_price, monthly_amount, employee_limit, sort_order, active, ai_daily_limit, ai_monthly_limit, allowed_channels, message_quota, created_at, updated_at)
+       VALUES ($1, $2, $3, $3, $4, $5, 1, $6, $7, $8, $9, $10, $10)`,
+      id, name, roundedPrice, roundedEmployeeLimit, sortOrder, roundedAiDailyLimit, roundedAiMonthlyLimit, allowedChannels, roundedMessageQuota, now
     );
     const created = await prisma.plan.findUnique({ where: { id } });
     if (!created) throw new Error("تعذر إنشاء الباقة");
@@ -80,6 +89,7 @@ export async function createPlan(input: CreatePlanInput) {
       aiDailyLimit: roundedAiDailyLimit,
       aiMonthlyLimit: roundedAiMonthlyLimit,
       allowedChannels,
+      messageQuota: roundedMessageQuota,
       sortOrder,
       active: 1,
       createdAt: now,
@@ -95,6 +105,7 @@ type UpdatePlanInput = {
   aiDailyLimit?: number;
   aiMonthlyLimit?: number;
   allowedChannels?: AllowedChannels;
+  messageQuota?: number;
 };
 
 export async function updatePlan(id: string, input: UpdatePlanInput) {
@@ -114,6 +125,9 @@ export async function updatePlan(id: string, input: UpdatePlanInput) {
   if (input.aiMonthlyLimit !== undefined && (!Number.isFinite(input.aiMonthlyLimit) || input.aiMonthlyLimit < 0)) {
     throw new Error("الحد الشهري للذكاء الاصطناعي غير صحيح");
   }
+  if (input.messageQuota !== undefined && !isValidMessageQuota(input.messageQuota)) {
+    throw new Error("حصة الرسائل التسويقية غير صحيحة");
+  }
 
   return prisma.plan.update({
     where: { id },
@@ -123,6 +137,7 @@ export async function updatePlan(id: string, input: UpdatePlanInput) {
       aiDailyLimit: input.aiDailyLimit !== undefined ? Math.round(input.aiDailyLimit) : existing.aiDailyLimit,
       aiMonthlyLimit: input.aiMonthlyLimit !== undefined ? Math.round(input.aiMonthlyLimit) : existing.aiMonthlyLimit,
       allowedChannels: input.allowedChannels !== undefined ? serializeAllowedChannels(input.allowedChannels) : existing.allowedChannels,
+      messageQuota: input.messageQuota !== undefined ? Math.round(input.messageQuota) : existing.messageQuota,
       active: input.active !== undefined ? (input.active ? 1 : 0) : existing.active,
       updatedAt: nowTimestamp()
     }

@@ -6,7 +6,7 @@ import { useState } from "react";
 import BillingClient from "./BillingClient";
 import { useStoredLanguage } from "../useStoredLanguage";
 
-type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number };
+type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number; messageQuota: number };
 type Subscription = { plan: string; status: string; createdAt?: string; renewalAt?: string; cancelledAt?: string; autoRenewEnabled?: number; savedCardLast4?: string; savedCardBrand?: string } | null;
 
 const copy = {

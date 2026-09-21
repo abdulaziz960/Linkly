@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
     createdAt: new Date().toISOString(),
     planName: plan.name,
     planEmployeeLimit: plan.employeeLimit,
+    planMessageQuota: plan.messageQuota,
     listPrice,
     billingCycle,
     prorationCreditAmount: proration.creditAmount,
