@@ -2644,6 +2644,17 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   grid-column: auto;
 }
 
+.profile-detail-panel .password-change-block {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-detail-panel .password-change-block .btn.soft {
+  align-self: flex-start;
+}
+
 .profile-detail-panel .danger-zone-confirm {
   display: flex;
   flex-direction: column;
