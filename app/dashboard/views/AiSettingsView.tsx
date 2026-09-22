@@ -34,10 +34,8 @@ export default function AiSettingsView() {
     } catch (error) { setFeedback(error instanceof Error ? error.message : t("تعذر الحفظ", "Couldn't save")); }
     finally { setSaving(false); }
   }
-  // The managed toggle has its own save path (no key/model fields to fill)
-  // - it always submits apiKey:"" so the server leaves the row's own key
-  // empty, which is exactly what tells runWorkspaceAi to use the
-  // Linkly-managed key and this tenant's plan limits instead of BYOK.
+  // Explicitly switching to managed mode clears BYOK on the server; a
+  // normal blank-key save must continue to retain the existing key.
   async function saveManaged(enabled: boolean) {
     if (!settings) return;
     setManagedSaving(true); setFeedback("");
@@ -46,7 +44,7 @@ export default function AiSettingsView() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          provider: "gemini", model: settings.model || "gemini-2.5-flash", enabled,
+          provider: "gemini", model: "gemini-3.1-flash-lite", enabled, useManaged: true,
           prompt: settings.prompt, dailyLimit: settings.managedDailyLimit, monthlyLimit: settings.managedMonthlyLimit,
           inputRate: settings.inputRate, outputRate: settings.outputRate, apiKey: ""
         })
@@ -66,15 +64,17 @@ export default function AiSettingsView() {
         {settings.managedAvailable ? (
           <div className="ai-managed-panel">
             <div>
-              <h3>{t("مساعد AI مُدار من Linkly", "Linkly-managed AI Copilot")}</h3>
+              <h3>{settings.managedLocal ? t("مساعد محلي — دون رسوم API", "Local Copilot — no API fees") : t("مساعد Linkly — Gemini Flash-Lite", "Linkly Copilot — Gemini Flash-Lite")}</h3>
+              {!settings.managedLocal ? <p>{t("اقتراحات للمراجعة فقط، دون إرسال تلقائي. يستخدم آخر 6 رسائل بسياق مختصر؛ التلخيص ليس لكامل المحادثة. يخضع لحصة باقتك وحد استخدام شهري مشترك للمنصة، دون انتقال تلقائي لنموذج أغلى.", "Review-only suggestions, never sent automatically. Uses abbreviated context from the last 6 messages; summaries do not cover the entire conversation. Subject to plan quotas and a shared platform monthly allowance, with no automatic switch to a pricier model.")}</p> : null}
               <p>{t(`مشمول ضمن باقتك الحالية - بدون حاجة لمفتاح API خاص بك. الحد: ${settings.managedDailyLimit} يوميًا / ${settings.managedMonthlyLimit} شهريًا.`, `Included with your current plan - no API key of your own needed. Limit: ${settings.managedDailyLimit}/day, ${settings.managedMonthlyLimit}/month.`)}</p>
-              {!settings.managedReady ? <p className="ai-managed-warning">{t("قيد التفعيل من جهتنا حاليًا - بيصير متاحًا قريبًا.", "Being connected on our side right now - will be available shortly.")}</p> : null}
+              {settings.managedLocal ? <p>{t("يعمل عبر Ollama على خادم خاص. موارد التشغيل لها تكلفة؛ لا يوجد انتقال تلقائي لمزود مدفوع. الاقتراح للمراجعة ولا يُرسل تلقائياً، ولا يشغّل ردود البوت الآلية.", "Runs through Ollama on a private server. Hosting resources still have a cost; no automatic paid fallback. Suggestions require review and do not power automatic bot replies.")}</p> : null}
+              {!settings.managedReady ? <p className="ai-managed-warning">{t("لم تكتمل إعدادات خادم المساعد بعد. يلزم إعداد المزود من إدارة المنصة.", "The assistant server is not configured yet. Contact the platform administrator.")}</p> : <p>{t("إعداد الاتصال محفوظ؛ توفر الخادم والنموذج يُتحقق منه عند طلب الاقتراح.", "Connection configured; server and model availability is checked when a suggestion is requested.")}</p>}
             </div>
             <label className="check-row">
               <input
                 type="checkbox"
                 checked={!settings.hasKey && settings.enabled}
-                disabled={managedSaving}
+                disabled={managedSaving || settings.hasKey || (!settings.managedReady && !settings.enabled)}
                 onChange={(event) => saveManaged(event.target.checked)}
               />
               {t("تفعيل", "Enable")}
@@ -88,7 +88,8 @@ export default function AiSettingsView() {
             </div>
           </div>
         )}
-        <h3>{t("أو اربط مفتاحك الخاص (أي باقة)", "Or bring your own key (any plan)")}</h3>
+        {settings.managedAvailable && settings.hasKey ? <button type="button" className="btn secondary" disabled={managedSaving || !settings.managedReady} onClick={() => { if (window.confirm(t("سيُحذف مفتاح المزود المحفوظ وتنتقل إلى المساعد المُدار. متابعة؟", "Remove your saved provider key and switch to managed AI?"))) void saveManaged(true); }}>{t("إزالة المفتاح والانتقال للمساعد المُدار", "Remove key and switch to managed AI")}</button> : null}
+        <h3>{t("أو اربط مفتاحك الخاص (قد تُفرض رسوم من المزود)", "Or bring your own key (provider charges may apply)")}</h3>
         <form onSubmit={save} className="ai-settings-form">
           <label className="ai-settings-checkbox"><input type="checkbox" checked={settings.enabled} onChange={(event) => update({ enabled: event.target.checked })} />{t("تفعيل مساعد الموظف", "Enable Copilot")}</label>
           <label>{t("المزود", "Provider")}<select value={settings.provider} onChange={(event) => { update({ provider: event.target.value as AiSettingsPublic["provider"], model: "", hasKey: false, inputRate: null, outputRate: null }); setApiKey(""); }}>{aiProviders.map((provider) => <option key={provider} value={provider}>{provider}</option>)}</select></label>
@@ -101,7 +102,7 @@ export default function AiSettingsView() {
           <p>{t(`الاستخدام اليومي: ${data.dailyUsed} · الشهري: ${data.monthlyUsed}. الحدود بتوقيت UTC وتشمل المحاولات الفاشلة.`, `Used today: ${data.dailyUsed} · This month: ${data.monthlyUsed}. UTC periods; failed attempts count.`)}</p>
           <label>{t("سعر مليون توكن إدخال (USD، اختياري)", "Input price per million tokens (USD, optional)")}<input type="number" min={0} max={100000} step="any" value={settings.inputRate ?? ""} onChange={(event) => update({ inputRate: event.target.value === "" ? null : Number(event.target.value) })} /></label>
           <label>{t("سعر مليون توكن إخراج (USD، اختياري)", "Output price per million tokens (USD, optional)")}<input type="number" min={0} max={100000} step="any" value={settings.outputRate ?? ""} onChange={(event) => update({ outputRate: event.target.value === "" ? null : Number(event.target.value) })} /></label>
-          <p>{t("التكلفة تقديرية حسب الأسعار المدخلة واستهلاك المزود؛ تظهر «غير متاح» عند غيابها.", "Cost is estimated from your rates and provider usage; unavailable when either is missing.")}</p>
+          <p>{t("التكلفة تقديرية حسب الأسعار المدخلة واستهلاك المزود؛ تظهر «غير متاح» عند غيابها. في Ollama المحلي، الصفر يعني رسوم API فقط ولا يشمل الخادم.", "Cost is estimated from your rates and provider usage; unavailable when either is missing. For local Ollama, zero means API fees only and excludes hosting.")}</p>
           <button className="btn primary" disabled={saving} type="submit">{saving ? t("جارٍ الحفظ…", "Saving…") : t("حفظ إعدادات AI", "Save AI settings")}</button>
         </form>
         <h3>{t("آخر 50 طلباً", "Latest 50 requests")}</h3>

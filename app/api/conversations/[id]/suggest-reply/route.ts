@@ -46,6 +46,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   });
 
   const result = await runWorkspaceAi(user.tenantId, user.id, conversation.id, {
+    source: "copilot",
     messages: messages.reverse().map((message) => ({ direction: message.direction as "in" | "out" | "note", text: message.text })),
     customerName: conversation.customer.name,
     language: body?.language === "en" ? "en" : "ar",

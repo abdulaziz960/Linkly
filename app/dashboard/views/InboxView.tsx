@@ -692,8 +692,28 @@ export default function InboxView({
         setAiFeedback(t("تم بلوغ حد استخدام AI. راجع مالك الحساب.", "AI usage limit reached. Contact your workspace owner."));
         return;
       }
-      if (result?.data?.reason === "not_configured") {
-        setAiFeedback(t("لم يتم ربط مزود الذكاء الاصطناعي بعد.", "An AI provider hasn't been connected yet."));
+      if (["not_configured", "managed_not_ready", "key_unavailable"].includes(result?.data?.reason || "")) {
+        setAiFeedback(t("إعداد اتصال مساعد AI غير مكتمل. راجع مالك الحساب أو إدارة المنصة.", "AI connection setup is incomplete. Contact your owner or platform administrator."));
+        return;
+      }
+      if (result?.data?.reason === "budget_limit") {
+        setAiFeedback(t("تم بلوغ حد ميزانية المساعد المُدار لهذا الشهر. لم يُرسل أي رد؛ راجع إدارة المنصة.", "Managed AI has reached its monthly budget allowance. No reply was sent; contact the platform administrator."));
+        return;
+      }
+      if (result?.data?.reason === "draft_too_long") {
+        setAiFeedback(t("المسودة تتجاوز حد المساعد الاقتصادي. اختصرها أو قسّمها قبل طلب المساعدة.", "The draft exceeds the economy assistant limit. Shorten or split it before requesting help."));
+        return;
+      }
+      if (result?.data?.reason === "disabled") {
+        setAiFeedback(t("مساعد AI معطّل. يمكن لمالك الحساب تفعيله من إعدادات AI.", "AI is disabled. Your owner can enable it in AI settings."));
+        return;
+      }
+      if (result?.data?.reason === "plan_upgrade_required") {
+        setAiFeedback(t("المساعد المُدار غير مشمول في باقة الحساب الحالية. راجع مالك الحساب.", "Managed AI is not included in your current plan. Contact your owner."));
+        return;
+      }
+      if (result?.data?.reason === "provider_unavailable") {
+        setAiFeedback(t("خادم المساعد مشغول أو غير متاح. لم يُرسل أي رد للعميل؛ حاول لاحقاً.", "The AI server is busy or unavailable. No reply was sent to the customer; try again later."));
         return;
       }
       if (response.ok && result?.ok && result.data?.suggestion) {

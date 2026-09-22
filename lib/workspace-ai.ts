@@ -2,8 +2,9 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { decryptSecret } from "./secret-storage";
-import { defaultAiConnection, generateAiText, type AiConnection, type AiContext } from "./ai-provider";
+import { defaultAiConnection, generateAiText, isAiConnectionConfigured, type AiConnection, type AiContext } from "./ai-provider";
 import type { AiProvider, AiSettingsPublic } from "./ai-types";
+import { ECONOMY_INPUT_USD, ECONOMY_MODEL, ECONOMY_OUTPUT_USD, MANAGED_BUDGET_TENANT, managedMonthlyRequestCap } from "./ai-economy";
 
 // A tenant's *current* plan, looked up fresh every call rather than cached -
 // an upgrade/downgrade must take effect on the very next message, not wait
@@ -20,10 +21,12 @@ export async function getPublicAiSettings(tenantId: string): Promise<AiSettingsP
   await ensureSchema();
   const row = await prisma.aiWorkspaceSetting.findUnique({ where: { tenantId } });
   const planLimits = await getTenantPlanAiLimits(tenantId);
-  const managedKeyConfigured = Boolean(defaultAiConnection().apiKey);
+  const managedConnection = defaultAiConnection();
+  const managedKeyConfigured = isAiConnectionConfigured(managedConnection);
   const shared = {
     managedAvailable: Boolean(planLimits),
     managedReady: Boolean(planLimits) && managedKeyConfigured,
+    managedLocal: managedConnection.provider === "ollama",
     managedDailyLimit: planLimits?.dailyLimit ?? 0,
     managedMonthlyLimit: planLimits?.monthlyLimit ?? 0
   };
@@ -31,7 +34,7 @@ export async function getPublicAiSettings(tenantId: string): Promise<AiSettingsP
     provider: row.provider as AiProvider, model: row.model, enabled: row.enabled === 1, hasKey: Boolean(row.apiKey),
     prompt: row.prompt, dailyLimit: row.dailyLimit, monthlyLimit: row.monthlyLimit, inputRate: row.inputRate, outputRate: row.outputRate,
     ...shared
-  } : { provider: "gemini", model: defaultAiConnection().model, enabled: false, hasKey: false, prompt: "", dailyLimit: 100, monthlyLimit: 1000, inputRate: null, outputRate: null, ...shared };
+  } : { provider: "gemini", model: ECONOMY_MODEL, enabled: false, hasKey: false, prompt: "", dailyLimit: 100, monthlyLimit: 1000, inputRate: null, outputRate: null, ...shared };
 }
 
 export async function runWorkspaceAi(tenantId: string, userId: string, conversationId: string, context: AiContext) {
@@ -56,7 +59,9 @@ export async function runWorkspaceAi(tenantId: string, userId: string, conversat
     const planLimits = await getTenantPlanAiLimits(tenantId);
     if (!planLimits) return { suggestion: null, reason: "plan_upgrade_required" };
     connection = defaultAiConnection();
-    if (!connection.apiKey) return { suggestion: null, reason: "managed_not_ready" };
+    if (!isAiConnectionConfigured(connection)) return { suggestion: null, reason: "managed_not_ready" };
+    if (context.source !== "copilot") return { suggestion: null, reason: "employee_only" };
+    if (connection.economy && Buffer.byteLength(context.draft || "", "utf8") > 4000) return { suggestion: null, reason: "draft_too_long" };
     limits = [planLimits.dailyLimit, planLimits.monthlyLimit];
   }
 
@@ -65,6 +70,12 @@ export async function runWorkspaceAi(tenantId: string, userId: string, conversat
   const eventId = randomUUID();
   try {
     await prisma.$transaction(async (tx) => {
+      if (connection.economy) {
+        const id = `managed-budget:${periods[1]}`;
+        await tx.aiUsageBucket.upsert({ where: { id }, update: {}, create: { id, tenantId: MANAGED_BUDGET_TENANT, period: periods[1] } });
+        const reservation = await tx.aiUsageBucket.updateMany({ where: { id, count: { lt: managedMonthlyRequestCap() } }, data: { count: { increment: 1 } } });
+        if (!reservation.count) throw new Error("ai-budget");
+      }
       for (let index = 0; index < periods.length; index++) {
         const id = `${tenantId}:${periods[index]}`;
         await tx.aiUsageBucket.upsert({ where: { id }, update: {}, create: { id, tenantId, period: periods[index] } });
@@ -78,11 +89,14 @@ export async function runWorkspaceAi(tenantId: string, userId: string, conversat
     });
   } catch (error) {
     if (error instanceof Error && error.message === "ai-limit") return { suggestion: null, reason: "usage_limit" };
+    if (error instanceof Error && error.message === "ai-budget") return { suggestion: null, reason: "budget_limit" };
     throw error;
   }
   const result = await generateAiText(connection, { ...context, prompt: setting?.prompt || "" });
-  const cost = result && result.inputTokens !== null && result.outputTokens !== null && setting?.inputRate != null && setting.outputRate != null
-    ? (result.inputTokens * setting.inputRate + result.outputTokens * setting.outputRate) / 1000000 : null;
+  const inputRate = connection.economy ? ECONOMY_INPUT_USD : setting.inputRate;
+  const outputRate = connection.economy ? ECONOMY_OUTPUT_USD : setting.outputRate;
+  const cost = result && connection.provider === "ollama" ? 0 : result && result.inputTokens !== null && result.outputTokens !== null && inputRate != null && outputRate != null
+    ? (result.inputTokens * inputRate + result.outputTokens * outputRate) / 1000000 : null;
   await prisma.aiUsageEvent.update({ where: { id: eventId }, data: {
     status: result ? "succeeded" : "failed", inputTokens: result?.inputTokens, outputTokens: result?.outputTokens, estimatedCost: cost
   } });
