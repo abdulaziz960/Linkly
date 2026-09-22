@@ -3,7 +3,6 @@ import { randomUUID } from "crypto";
 import { getCurrentUser } from "../../../../lib/auth";
 import { ensureSchema } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
-import { getPaymentCallbackOrigin } from "../../../../lib/app-url";
 import { buildPaymentMetadata, isMoyasarConfigured } from "../../../../lib/moyasar";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../lib/payment-status";
 import { computeProrationCredit } from "../../../../lib/subscriptions";
@@ -59,7 +58,6 @@ export async function POST(request: NextRequest) {
   });
   const chargeAmount = proration.creditAmount > 0 ? proration.finalAmount : listPrice;
   const amountHalalas = Math.round(chargeAmount * 100);
-  const origin = getPaymentCallbackOrigin();
 
   // A pending payment older than this was almost certainly abandoned (closed
   // tab, back button, Moyasar sandbox test run) rather than still in
@@ -125,37 +123,5 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ paymentId });
   }
-  // Fail closed by default: a misconfigured non-production environment
-  // (e.g. a staging/preview deploy that simply forgot to set NODE_ENV or a
-  // Moyasar key) must not silently fall through into letting any logged-in
-  // user grant themselves a paid plan for free. This requires an explicit,
-  // separate opt-in on top of "doesn't look like production" instead of
-  // relying on the absence of production signals alone.
-  if (process.env.NODE_ENV === "production" || process.env.MOYASAR_LIVE_MODE === "true" || process.env.ENABLE_TEST_CHECKOUT !== "true") {
-    return NextResponse.json({ error: "بوابة الدفع غير مهيأة حاليًا" }, { status: 503 });
-  }
-  // Local development without a Moyasar key: a simulated payment page that
-  // still goes through the exact same activation code path.
-  const paymentUrl = `${origin}/checkout/test?paymentId=${encodeURIComponent(paymentId)}`;
-  const metadata = buildPaymentMetadata({
-    kind: "subscription",
-    tenantId: user.tenantId,
-    paymentId,
-    initiatedBy: "owner",
-    companyName,
-    planId: plan.id,
-    planName: plan.name,
-    gateway: PAYMENT_GATEWAY.test
-  });
-  await prisma.subscriptionPayment.create({
-    data: {
-      ...stagedRow,
-      moyasarId: `test_${paymentId}`,
-      paymentUrl,
-      gateway: PAYMENT_GATEWAY.test,
-      gatewayStatus: "initiated",
-      metadataJson: JSON.stringify(metadata)
-    }
-  });
-  return NextResponse.json({ paymentUrl });
+  return NextResponse.json({ error: "بوابة الدفع غير مهيأة حاليًا" }, { status: 503 });
 }
