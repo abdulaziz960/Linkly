@@ -2248,6 +2248,25 @@ export async function ensureSchema() {
 async function seedDatabase() {
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
+    // Keep only the plan catalog bootstrap in production. Demo tenant rows
+    // must not reappear after a production-data reset or on a cold start.
+    const existingPlanCount = await tx.plan.count();
+    if (existingPlanCount === 0) {
+      const nowLabel = "اليوم";
+      const defaultPlans = [
+        { id: "plan-starter", name: "باقة البداية", monthlyPrice: 249, employeeLimit: 1, sortOrder: 1 },
+        { id: "plan-growth", name: "باقة النمو", monthlyPrice: 499, employeeLimit: 3, sortOrder: 2 },
+        { id: "plan-business", name: "باقة الأعمال", monthlyPrice: 999, employeeLimit: 10, sortOrder: 3 }
+      ];
+      for (const plan of defaultPlans) {
+        await tx.plan.create({
+          data: { ...plan, active: 1, createdAt: nowLabel, updatedAt: nowLabel }
+        });
+      }
+    }
+
+    if (process.env.NODE_ENV === "production") return;
+
     // tenant-demo gets a default email integration only if it has none.
     // This used to upsert a fixed `primary-email` row, which re-created a
     // second tenant-demo row whenever `primary-email` had been removed or
@@ -2490,24 +2509,6 @@ async function seedDatabase() {
           createdAt: "اليوم"
         }
       });
-    }
-
-    // One-time seed: only runs while the plans table is empty, so admin
-    // edits made afterward (price/limit/active changes) are never clobbered
-    // by this re-running on a later cold start.
-    const existingPlanCount = await tx.plan.count();
-    if (existingPlanCount === 0) {
-      const nowLabel = "اليوم";
-      const defaultPlans = [
-        { id: "plan-starter", name: "باقة البداية", monthlyPrice: 249, employeeLimit: 1, sortOrder: 1 },
-        { id: "plan-growth", name: "باقة النمو", monthlyPrice: 499, employeeLimit: 3, sortOrder: 2 },
-        { id: "plan-business", name: "باقة الأعمال", monthlyPrice: 999, employeeLimit: 10, sortOrder: 3 }
-      ];
-      for (const plan of defaultPlans) {
-        await tx.plan.create({
-          data: { ...plan, active: 1, createdAt: nowLabel, updatedAt: nowLabel }
-        });
-      }
     }
 
     // Synthetic records used by the browser E2E suite must never be allowed
