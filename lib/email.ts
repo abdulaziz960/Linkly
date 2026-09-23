@@ -42,7 +42,7 @@ function activationEmailContent(name: string, activationUrl: string, purpose: "a
  * required - callers get back whether it actually sent so they can decide
  * what to do (activation falls back to a direct link; reminders just skip).
  */
-async function sendEmail({ to, subject, text, html }: { to: string; subject: string; text: string; html: string }): Promise<boolean> {
+async function sendEmail({ to, subject, text, html, idempotencyKey }: { to: string; subject: string; text: string; html: string; idempotencyKey?: string }): Promise<boolean> {
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const resendFrom = process.env.RESEND_FROM_EMAIL?.trim() || "Linkly <noreply@linklysa.io>";
 
@@ -50,7 +50,8 @@ async function sendEmail({ to, subject, text, html }: { to: string; subject: str
     try {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}`, ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}) },
+        signal: AbortSignal.timeout(10000),
         body: JSON.stringify({ from: resendFrom, to, subject, text, html })
       });
       const payload = await response.json().catch(() => null) as { id?: string; message?: string } | null;
@@ -68,6 +69,7 @@ async function sendEmail({ to, subject, text, html }: { to: string; subject: str
     try {
       const response = await fetch(googleScriptUrl, {
         method: "POST",
+        signal: AbortSignal.timeout(10000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ secret: googleScriptSecret, to, subject, text, html, htmlBody: html })
       });
@@ -80,6 +82,13 @@ async function sendEmail({ to, subject, text, html }: { to: string; subject: str
   }
 
   return false;
+}
+
+/** Called only for a newly committed self-service signup, never activation resends. */
+export async function sendTrialSignupNotification(input: { tenantId: string; companyName: string; ownerName: string; ownerEmail: string }): Promise<boolean> {
+  const text = `تسجيل تجربة جديد في Linkly\nالنشاط: ${input.companyName}\nالاسم: ${input.ownerName}\nالبريد: ${input.ownerEmail}\nالحساب بانتظار تأكيد البريد الإلكتروني.`;
+  const html = `<!doctype html><html lang="ar" dir="rtl"><body dir="rtl" style="direction:rtl;text-align:right;margin:0;padding:24px;background:#eaf3f1;color:#123330;font-family:Tahoma,Arial,sans-serif"><table dir="rtl" role="presentation" width="100%" cellpadding="20" style="direction:rtl;text-align:right;max-width:560px;background:#ffffff;border:1px solid #d8e8e5;border-radius:16px"><tr><td><h1 style="color:#178a82;font-size:24px">تسجيل تجربة جديد في Linkly</h1><p>النشاط: ${escapeHtml(input.companyName)}</p><p>الاسم: ${escapeHtml(input.ownerName)}</p><p>البريد: <span dir="ltr" style="direction:ltr;unicode-bidi:embed">${escapeHtml(input.ownerEmail)}</span></p><p>الحساب بانتظار تأكيد البريد الإلكتروني.</p></td></tr></table></body></html>`;
+  return sendEmail({ to: "xcoode25@gmail.com", subject: "تسجيل تجربة جديد في Linkly", text, html, idempotencyKey: `trial-signup/${input.tenantId}` });
 }
 
 export async function sendActivationEmail({ to, name, activationUrl, purpose = "activation", workspaceName }: SendActivationEmailInput): Promise<EmailDeliveryResult> {

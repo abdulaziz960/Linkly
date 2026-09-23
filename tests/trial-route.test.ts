@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createTenantWithSubscription = vi.fn();
+const sendTrialSignupNotification = vi.fn();
+vi.mock("../lib/email", () => ({ sendTrialSignupNotification: (...args: unknown[]) => sendTrialSignupNotification(...args) }));
 
 vi.mock("../lib/rate-limit", () => ({
   consumeRateLimit: vi.fn(async () => ({ allowed: true })),
@@ -36,7 +38,8 @@ const validBody = {
 describe("POST /api/trial", () => {
   beforeEach(() => {
     createTenantWithSubscription.mockReset();
-    createTenantWithSubscription.mockResolvedValue({ inviteDelivery: { sent: true, activationUrl: "", message: "" } });
+    sendTrialSignupNotification.mockReset().mockResolvedValue(true);
+    createTenantWithSubscription.mockResolvedValue({ created: true, subscription: { tenantId: "tenant-new" }, inviteDelivery: { sent: true, activationUrl: "", message: "" } });
   });
 
   it("refuses to create a trial account without accepting the terms", async () => {
@@ -55,5 +58,26 @@ describe("POST /api/trial", () => {
     const response = await POST(request({ ...validBody, termsAccepted: true }));
     expect(response.status).toBe(200);
     expect(createTenantWithSubscription).toHaveBeenCalledTimes(1);
+    expect(sendTrialSignupNotification).toHaveBeenCalledWith({ tenantId: "tenant-new", companyName: validBody.companyName, ownerName: validBody.ownerName, ownerEmail: validBody.ownerEmail });
+  });
+
+  it("does not notify again when resending activation for an existing signup", async () => {
+    createTenantWithSubscription.mockResolvedValue({ created: false, subscription: { tenantId: "tenant-old" }, inviteDelivery: { sent: true } });
+    expect((await POST(request({ ...validBody, termsAccepted: true }))).status).toBe(200);
+    expect(sendTrialSignupNotification).not.toHaveBeenCalled();
+  });
+
+  it("preserves successful signup when the notification provider fails", async () => {
+    sendTrialSignupNotification.mockRejectedValue(new Error("provider unavailable"));
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect((await POST(request({ ...validBody, termsAccepted: true }))).status).toBe(200);
+    } finally { warning.mockRestore(); }
+  });
+
+  it("does not notify on a rejected signup", async () => {
+    createTenantWithSubscription.mockRejectedValue(new Error("duplicate"));
+    expect((await POST(request({ ...validBody, termsAccepted: true }))).status).toBe(400);
+    expect(sendTrialSignupNotification).not.toHaveBeenCalled();
   });
 });

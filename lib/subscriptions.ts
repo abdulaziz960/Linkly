@@ -977,7 +977,7 @@ async function resendActivationForUnactivatedAccount(account: { email: string; n
   const inviteDelivery = await sendActivationEmail({ to: account.email, name: account.name, activationUrl });
 
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: account.tenantId } });
-  return { subscription, inviteDelivery };
+  return { subscription, inviteDelivery, created: false };
 }
 
 /**
@@ -1082,7 +1082,7 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
   const inviteDelivery = await sendActivationEmail({ to: email, name: input.ownerName, activationUrl });
 
   const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
-  return { subscription, inviteDelivery };
+  return { subscription, inviteDelivery, created: true };
 }
 
 type UpdateSubscriptionInput = {
