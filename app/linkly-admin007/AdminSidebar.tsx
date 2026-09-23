@@ -7,7 +7,6 @@ import { useEffect, useRef, useState } from "react";
 import type { AdminUser } from "./types";
 import NotificationBell from "./NotificationBell";
 import { useLanguage } from "./i18n";
-import type { Language } from "./i18n";
 
 const navItems = [
   { href: "/linkly-admin007", labelAr: "نظرة عامة", labelEn: "Overview" },
@@ -23,15 +22,7 @@ const navItems = [
   { href: "/linkly-admin007/admin-actions", labelAr: "إجراءات الأدمن", labelEn: "Admin actions" }
 ];
 
-export default function AdminSidebar({
-  user,
-  language,
-  onChangeLanguage
-}: {
-  user: AdminUser;
-  language: Language;
-  onChangeLanguage: (language: Language) => void;
-}) {
+export default function AdminSidebar({ user }: { user: AdminUser }) {
   const pathname = usePathname();
   const { t } = useLanguage();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -91,15 +82,6 @@ export default function AdminSidebar({
           <strong>Linkly</strong>
         </div>
         <NotificationBell />
-      </div>
-
-      <div className="admin-lang-toggle" role="group" aria-label={t("اللغة", "Language")}>
-        <button type="button" aria-pressed={language === "ar"} className={language === "ar" ? "active" : ""} onClick={() => onChangeLanguage("ar")}>
-          العربية
-        </button>
-        <button type="button" aria-pressed={language === "en"} className={language === "en" ? "active" : ""} onClick={() => onChangeLanguage("en")}>
-          English
-        </button>
       </div>
 
       <button type="button" className="admin-mobile-nav-toggle" aria-controls="admin-primary-nav" aria-expanded={navOpen} onClick={() => setNavOpen((open) => !open)}>
