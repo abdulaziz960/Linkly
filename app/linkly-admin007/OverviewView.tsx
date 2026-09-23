@@ -23,7 +23,7 @@ type OverviewViewProps = {
   logs: AdminLog[];
 };
 
-const DONUT_COLORS = ["#171717", "#6b7280", "#a3a3a3", "#d4d4d4", "#e5e5e5"];
+const DONUT_COLORS = ["#178a82", "#39b9aa", "#d9a442", "#789e98", "#c4dbd6"];
 
 export default function OverviewView({ subscriptions, payments, plansCount, teamCount, logs }: OverviewViewProps) {
   const { t } = useLanguage();
@@ -68,7 +68,7 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
   const monthlyRevenue = subscriptions.reduce((sum, s) => {
     if (s.status !== "نشط") return sum;
     const extra = Math.max(0, s.employeeCount - s.employeeLimit) * EXTRA_USER_PRICE;
-    return sum + s.amount + extra;
+    return sum + (s.billingCycle === "سنوي" ? s.amount / 12 : s.amount) + extra;
   }, 0);
   const totalConversations = subscriptions.reduce((sum, s) => sum + s.conversationCount, 0);
   const renewalAlertsCount = subscriptions.filter((s) => getRenewalAlert(s) !== null).length;
@@ -113,19 +113,28 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
     { href: "/linkly-admin007/team", label: t("الفريق", "Team"), count: teamCount, hint: t("أعضاء فريق المنصة", "Platform team members") },
     { href: "/linkly-admin007/logs", label: t("السجلات", "Logs"), count: logs.length, hint: t("سجل حركة كل الحسابات", "Activity log for all accounts") }
   ];
+  const hasUrgentActions = overdueRenewals + pendingPayments.length > 0;
+  const money = (value: number) => `${formatNumber(value)} ${t("ر.س", "SAR")}`;
 
   return (
     <>
-      <section className="admin-action-center">
-        <div className="admin-action-title"><div><span>{t("الأولوية الآن", "Priority now")}</span><h2>{t("يتطلب إجراء الآن", "Needs action now")}</h2></div><strong>{formatNumber(overdueRenewals + pendingPayments.length)}</strong></div>
-        <div className="admin-action-grid">
-          <Link href="/linkly-admin007/alerts?status=overdue" className="admin-action-item is-danger"><span>!</span><div><strong>{formatNumber(overdueRenewals)} {t("تجديدات متأخرة", "overdue renewals")}</strong><small>{t("تحتاج تواصلاً أو تعليقاً مدروساً", "Need outreach or considered suspension")}</small></div><b>←</b></Link>
-          <Link href="/linkly-admin007/payments?status=pending" className="admin-action-item is-warn"><span>◷</span><div><strong>{formatNumber(pendingPayments.length)} {t("دفعات بانتظار الإكمال", "pending payments")}</strong><small>{formatNumber(outstandingRevenue)} {t("ر.س مستحقة", "SAR outstanding")}</small></div><b>←</b></Link>
-          <Link href="/linkly-admin007/clients?usage=inactive" className="admin-action-item"><span>○</span><div><strong>{formatNumber(inactiveUsage)} {t("عملاء دون استخدام", "clients without usage")}</strong><small>{t("لم تسجل لهم محادثات", "No conversations recorded")}</small></div><b>←</b></Link>
-        </div>
+      <section className="admin-overview-actions" aria-label={t("إجراءات سريعة", "Quick actions")}>
+        <strong>{t("ابدأ من هنا", "Get started")}</strong>
+        <div><Link href="/linkly-admin007/clients?new=1">＋ {t("إضافة عميل", "Add client")}</Link><Link href="/linkly-admin007/payments">{t("عرض المدفوعات", "View payments")}</Link><Link href="/linkly-admin007/plans?new=1">{t("إنشاء باقة", "Create plan")}</Link><Link href="/linkly-admin007/team?invite=1">{t("دعوة عضو فريق", "Invite team member")}</Link></div>
       </section>
 
-      <section className="admin-dashboard-period" aria-label={t("النطاق الزمني للوحة", "Dashboard date range")}>
+      {subscriptions.length === 0 ? <section className="admin-overview-empty"><div aria-hidden="true">✦</div><h2>{t("ابدأ بإضافة أول عميل", "Add your first client")}</h2><p>{t("بعد إضافة العميل وضبط الباقات، ستظهر مؤشرات الأداء والتجديدات هنا تلقائياً.", "Add a client and configure plans to see performance and renewals here.")}</p><div><Link href="/linkly-admin007/clients?new=1">{t("إضافة أول عميل", "Add first client")}</Link><Link href="/linkly-admin007/plans">{t("ضبط الباقات", "Configure plans")}</Link></div></section> : null}
+
+      <section className={`admin-action-center${hasUrgentActions ? " has-actions" : " is-clear"}`}>
+        <div className="admin-action-title"><div><span>{t("الأولوية الآن", "Priority now")}</span><h2>{hasUrgentActions ? t("يتطلب إجراء الآن", "Needs action now") : t("كل شيء تحت السيطرة", "All clear")}</h2></div>{hasUrgentActions ? <strong>{formatNumber(overdueRenewals + pendingPayments.length)}</strong> : <span className="admin-all-clear-icon" aria-hidden="true">✓</span>}</div>
+        {hasUrgentActions ? <div className="admin-action-grid">
+          {overdueRenewals > 0 ? <Link href="/linkly-admin007/alerts?status=overdue" className="admin-action-item is-danger"><span>!</span><div><strong>{formatNumber(overdueRenewals)} {t("تجديدات متأخرة", "overdue renewals")}</strong><small>{t("عرض التجديدات", "View renewals")}</small></div><b>←</b></Link> : null}
+          {pendingPayments.length > 0 ? <Link href="/linkly-admin007/payments?status=pending" className="admin-action-item is-warn"><span>◷</span><div><strong>{formatNumber(pendingPayments.length)} {t("دفعات بانتظار الإكمال", "pending payments")}</strong><small>{money(outstandingRevenue)} · {t("عرض المدفوعات", "View payments")}</small></div><b>←</b></Link> : null}
+        </div> : <p>{t("لا توجد إجراءات عاجلة حالياً.", "No urgent actions right now.")}</p>}
+        {inactiveUsage > 0 && subscriptions.length > 0 ? <Link className="admin-action-subtle-link" href="/linkly-admin007/clients?usage=inactive">{formatNumber(inactiveUsage)} {t("عملاء دون محادثات — عرض العملاء", "clients without conversations — view clients")} ←</Link> : null}
+      </section>
+
+      {payments.length > 0 ? <section className="admin-dashboard-period" aria-label={t("النطاق الزمني للوحة", "Dashboard date range")}>
         <div><strong>{t("نطاق العرض", "View range")}</strong><small>{t("ينطبق على الإيراد المحصّل — حالات العملاء والاشتراكات مؤشرات آنية دائماً", "Applies to collected revenue — client/subscription status is always shown live")}</small></div>
         <div>
           <div>{[["today", t("اليوم", "Today")], ["7d", t("آخر 7 أيام", "Last 7 days")], ["month", t("هذا الشهر", "This month")], ["custom", t("نطاق مخصص", "Custom range")]].map(([value, label]) => <button key={value} type="button" className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{label}</button>)}</div>
@@ -133,15 +142,16 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
             <div className="admin-dashboard-period-custom">
               <label><span>{t("من تاريخ", "From")}</span><input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} /></label>
               <label><span>{t("إلى تاريخ", "To")}</span><input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} /></label>
+              {(customFrom || customTo) ? <button type="button" onClick={() => { setCustomFrom(""); setCustomTo(""); }} aria-label={t("مسح النطاق", "Clear date range")}>{t("مسح النطاق", "Clear range")}</button> : null}
             </div>
           ) : null}
         </div>
-      </section>
+      </section> : null}
 
-      <section className="admin-section">
+      {subscriptions.length > 0 ? <section className="admin-section">
         <div className="admin-metrics">
           <Link href="/linkly-admin007/clients" className="admin-metric-link">
-            <span>{t("إجمالي العملاء", "Total clients")}</span>
+            <span>{t("العملاء", "Clients")}</span>
             <strong><AnimatedNumber value={subscriptions.length} /></strong>
             <small>{formatNumber(activeClients)} {t("نشط", "active")} · {formatNumber(trialClients)} {t("تجربة", "trial")} <em>{t("عرض التفاصيل ←", "View details →")}</em></small>
           </Link>
@@ -150,10 +160,10 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
             <strong><AnimatedNumber value={activeClients} /></strong>
             <small>{formatNumber(subscriptions.length - activeClients)} {t("غير نشطة — حالة مختلفة عن انتظار الدفع", "inactive — separate from pending payments")}</small>
           </Link>
-          <Link href="/linkly-admin007/payments?status=completed" className="admin-metric-link">
-            <span>{t("MRR المتوقع", "Projected MRR")}</span>
-            <strong><AnimatedNumber value={monthlyRevenue} /></strong>
-            <small>{t("ر.س شهرياً", "SAR monthly")} · ARR {formatNumber(annualRecurringRevenue)}</small>
+          <Link href="/linkly-admin007/clients?status=نشط" className="admin-metric-link">
+            <span title={t("مجموع قيمة الاشتراكات النشطة بعد تحويل السنوية إلى قيمة شهرية، مع رسوم المستخدمين الإضافيين. تقدير تعاقدي وليس مبلغاً محصّلاً.", "Active subscription values normalized monthly, plus extra user fees. This is projected, not collected revenue.")}>{t("MRR المتوقع ⓘ", "Projected MRR ⓘ")}</span>
+            <strong>{money(monthlyRevenue)}</strong>
+            <small>{t("تقدير شهري من الاشتراكات النشطة، وليس تحصيلاً مؤكداً", "Monthly estimate from active subscriptions, not confirmed collection")}</small>
           </Link>
           <Link href="/linkly-admin007/clients?sort=usage" className="admin-metric-link">
             <span>{t("محادثات تحت الإدارة", "Conversations under management")}</span>
@@ -161,24 +171,24 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
             <small>{t("متوسط", "Average")} {formatNumber(averageConversations)} {t("لكل عميل", "per client")}</small>
           </Link>
         </div>
-      </section>
+      </section> : null}
 
-      <section className="admin-revenue-strip">
+      {subscriptions.length > 0 || payments.length > 0 ? <section className="admin-revenue-strip" aria-label={t("ملخص الإيرادات؛ المحصّل فقط يتبع النطاق الزمني", "Revenue summary; only collected revenue uses the date range")}>
         <div className="is-confirmed"><span>{t("المحصل", "Collected")}<em>{t("إيراد مؤكد", "Confirmed")}</em></span><strong>{formatNumber(collectedRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
-        <div className="is-pending"><span>{t("المستحق", "Outstanding")}<em>{t("معلّق تحت التحصيل", "Pending collection")}</em></span><strong>{formatNumber(outstandingRevenue)} <small>{t("ر.س", "SAR")}</small></strong>{pendingPayments.length ? <small className="admin-revenue-note">{t(`${formatNumber(pendingPayments.length)} دفعة لم تُؤكَّد بعد — غير محتسبة ضمن MRR/ARR`, `${formatNumber(pendingPayments.length)} payment(s) not yet confirmed — excluded from MRR/ARR`)}</small> : null}</div>
-        <div className="is-confirmed"><span>MRR<em>{t("إيراد مؤكد", "Confirmed")}</em></span><strong>{formatNumber(monthlyRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
-        <div className="is-confirmed"><span>ARR<em>{t("إيراد مؤكد", "Confirmed")}</em></span><strong>{formatNumber(annualRecurringRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
-      </section>
+        <div className="is-pending"><span>{t("المستحق", "Outstanding")}<em>{t("معلّق تحت التحصيل", "Pending collection")}</em></span><strong>{formatNumber(outstandingRevenue)} <small>{t("ر.س", "SAR")}</small></strong>{pendingPayments.length ? <small className="admin-revenue-note">{t(`${formatNumber(pendingPayments.length)} دفعة لم تُؤكَّد بعد — غير محتسبة ضمن المحصّل`, `${formatNumber(pendingPayments.length)} payment(s) not yet confirmed — excluded from collected revenue`)}</small> : null}</div>
+        <div><span>ARR <em>{t("تقدير سنوي", "Annual projection")}</em></span><strong>{money(annualRecurringRevenue)}</strong></div>
+      </section> : null}
 
-      <section className="admin-overview-grid">
+      {subscriptions.length > 0 ? <section className="admin-overview-grid">
         <article className="admin-card admin-donut-card">
-          <div className="admin-donut" style={{ background: donutBackground }}>
+          {subscriptions.length ? <div className="admin-donut" style={{ background: donutBackground }}>
             <div className="admin-donut-hole">
               <strong><AnimatedNumber value={subscriptions.length} /></strong>
               <span>{t("إجمالي", "Total")}</span>
             </div>
-          </div>
+          </div> : null}
           <div className="admin-donut-legend">
+            <h2>{t("توزيع الحالات", "Status distribution")}</h2>
             {donutStops.map((stop) => (
               <div className="admin-donut-legend-row" key={stop.status}>
                 <span className="admin-donut-dot" style={{ background: stop.color }} />
@@ -186,7 +196,7 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
                 <strong>{formatNumber(stop.count)}</strong>
               </div>
             ))}
-            {!donutStops.length ? <p className="admin-empty-state">{t("لا يوجد عملاء بعد لعرض توزيع الحالات.", "No clients yet to show a status breakdown.")}</p> : null}
+            {!donutStops.length ? <p className="admin-empty-state">{t("سيظهر توزيع الحالات بعد إضافة أول عميل.", "Status breakdown appears after adding your first client.")}</p> : null}
           </div>
         </article>
 
@@ -210,22 +220,23 @@ export default function OverviewView({ subscriptions, payments, plansCount, team
                 </div>
               </div>
             ))}
-            {!planEntries.length ? <p className="admin-empty-state">{t("لا يوجد عملاء بعد لعرض توزيع الباقات.", "No clients yet to show a plan breakdown.")}</p> : null}
+            {!planEntries.length ? <p className="admin-empty-state">{t("سيظهر توزيع الباقات بعد اشتراك أول عميل.", "Plan breakdown appears after the first subscription.")}</p> : null}
           </div>
         </article>
-      </section>
+      </section> : null}
 
-      <div className="admin-quick-links">
+      <section className="admin-overview-shortcuts"><h2>{t("اختصارات سريعة", "Quick shortcuts")}</h2><div className="admin-quick-links">
         {quickLinks.map((link) => (
           <Link key={link.href} href={link.href} className="admin-quick-link-card">
             <div className="admin-quick-link-head">
               <span>{link.label}</span>
             </div>
-            <strong><AnimatedNumber value={link.count} /></strong>
+            <strong>{link.count > 0 ? <AnimatedNumber value={link.count} /> : <span aria-hidden="true">←</span>}</strong>
             <small>{link.hint}</small>
           </Link>
         ))}
-      </div>
+      </div></section>
+      <section className="admin-overview-activity admin-card"><div><h2>{t("آخر النشاطات", "Recent activity")}</h2><Link href="/linkly-admin007/logs">{t("عرض السجلات", "View logs")}</Link></div>{logs.length ? <ul>{logs.slice(0, 4).map((log) => <li key={log.id}><span>{log.message}</span><small>{log.at}</small></li>)}</ul> : <p className="admin-empty-state">{t("لا توجد نشاطات مسجلة بعد.", "No recorded activity yet.")}</p>}</section>
     </>
   );
 }

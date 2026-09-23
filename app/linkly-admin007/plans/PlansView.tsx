@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { PlanRow } from "../types";
 import { formatNumber } from "../utils";
@@ -62,6 +62,9 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
   const router = useRouter();
   const { t } = useLanguage();
   const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new") === "1") setIsAddPlanOpen(true);
+  }, []);
   const [isPlanSaving, setIsPlanSaving] = useState(false);
   const [planFormError, setPlanFormError] = useState("");
   const [createPlanChannels, setCreatePlanChannels] = useState<AllowedChannels>("*");
