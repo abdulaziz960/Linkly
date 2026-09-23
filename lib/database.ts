@@ -2245,6 +2245,10 @@ export async function ensureSchema() {
   await schemaPromise;
 }
 
+function isProductionRuntime() {
+  return process.env.NODE_ENV === "production";
+}
+
 async function seedDatabase() {
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
@@ -2265,7 +2269,9 @@ async function seedDatabase() {
       }
     }
 
-    if (process.env.NODE_ENV === "production") return;
+    // Use a function boundary so the build-time TypeScript checker does not
+    // narrow NODE_ENV for the legacy local/demo seed branches below.
+    if (isProductionRuntime()) return;
 
     // tenant-demo gets a default email integration only if it has none.
     // This used to upsert a fixed `primary-email` row, which re-created a
