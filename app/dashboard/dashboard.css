@@ -9471,8 +9471,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   .automation-recipe-grid { grid-template-columns: 1fr; }
   .automation-recipe-card { min-height: 126px; }
 
-  .automation-toolbar { align-items: stretch; }
-  .automation-filters { width: 100%; }
+  .automation-toolbar { flex-direction: column; align-items: stretch; }
+  .automation-filters { width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr); }
+  .automation-filters > * { min-width: 0; max-width: 100%; }
+  .automation-filters input { width: 100%; box-sizing: border-box; }
   .automation-rule-top { grid-template-columns: 42px minmax(0, 1fr); }
   .automation-switch { grid-column: 1 / -1; width: fit-content; }
   .automation-flow-summary { grid-template-columns: 1fr; }
