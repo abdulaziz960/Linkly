@@ -24,6 +24,21 @@ test("Switch pricing to yearly billing from the URL", async ({ page }) => {
   await expect(pricing).not.toContainText("/ month");
 });
 
+test("Proceed from pricing to sign up with the selected plan and billing cycle", async ({ page }) => {
+  await page.goto("/en?billing=yearly#pricing");
+  await page.locator("#pricing article").first().getByRole("link").click();
+  await expect(page).toHaveURL(/\/signup\?plan=browser-plan&billing=yearly/);
+  const selection = page.getByTestId("signup-selected-plan");
+  await expect(selection).toBeVisible();
+  await expect(selection).toContainText("باقة اختبار المتصفح");
+  await expect(selection).toContainText("Yearly billing after the trial");
+  await page.getByRole("button", { name: "العربية" }).click();
+  await expect(selection).toContainText("دفع سنوي بعد التجربة");
+
+  await page.goto("/signup?plan=does-not-exist&billing=yearly");
+  await expect(page.getByTestId("signup-selected-plan")).toHaveCount(0);
+});
+
 test("Account billing shows the same yearly price and cycle", async ({ page }) => {
   await page.goto("/login");
   await page.locator('input[name="email"]').fill("owner@browser.test");

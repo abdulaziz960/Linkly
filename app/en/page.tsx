@@ -76,6 +76,7 @@ export default async function EnglishHomePage() {
   const plans = dbPlans.map((plan) => {
     const features = planFeatures[plan.name];
     return {
+      id: plan.id,
       name: features?.shortName.en ?? plan.name,
       price: String(plan.monthlyPrice),
       audience: features?.audience.en ?? "A flexible plan that fits your team's needs.",

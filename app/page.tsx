@@ -78,6 +78,7 @@ export default async function HomePage(){
   const plans = dbPlans.map((plan) => {
     const features = planFeatures[plan.name];
     return {
+      id: plan.id,
       name: features?.shortName.ar ?? plan.name,
       price: String(plan.monthlyPrice),
       audience: features?.audience.ar ?? "باقة مرنة تناسب احتياج فريقك.",

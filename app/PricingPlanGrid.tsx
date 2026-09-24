@@ -6,6 +6,7 @@ import { useBillingCycle } from "./useBillingCycle";
 import s from "./page.module.css";
 
 type Plan = {
+  id: string;
   name: string;
   price: string;
   audience: string;
@@ -66,7 +67,7 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
         <div className={s.price}><b>{displayedPrice}</b><span>{text.currency}<br />{billingCycle === "سنوي" ? text.perYearSuffix : text.perMonthSuffix}</span></div>
         {billingCycle === "سنوي" ? <p className={s.planPriceNote}>{text.billedYearly(yearly)}</p> : null}
         <ul>{p.items.map((i) => <li key={i}><Check />{i}</li>)}</ul>
-        <Link className={featured ? s.primaryLarge : s.planButton} href="/signup">{p.cta}</Link>
+        <Link className={featured ? s.primaryLarge : s.planButton} href={`/signup?plan=${encodeURIComponent(p.id)}${billingCycle === "سنوي" ? "&billing=yearly" : ""}`}>{p.cta}</Link>
       </article>;
     })}</div>
   </>;
