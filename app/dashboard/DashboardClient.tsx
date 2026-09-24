@@ -195,6 +195,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const [profileOpen, setProfileOpen] = useState(false);
   const [language, setLanguage] = useState<"ar" | "en">("ar");
   const t = (ar: string, en: string) => (language === "en" ? en : ar);
@@ -1338,8 +1339,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       {menuOpen ? (
         <div
           className="dashboard-menu-backdrop"
-          onClick={() => setMenuOpen(false)}
-          onTouchMove={() => setMenuOpen(false)}
+          onClick={closeMenu}
           aria-hidden="true"
         />
       ) : null}
@@ -1356,13 +1356,17 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         planName={subscription?.plan || ""}
         branding={branding}
         language={language}
+        mobileOpen={menuOpen}
+        canManageBilling={initialUser.role === "مالك الحساب"}
+        onClose={closeMenu}
+        onOpenProfile={openProfile}
         selectedChannel={selectedChannel}
         onChangeView={handleViewChange}
         onChangeChannel={handleChannelChange}
       />
 
       <main className="dashboard-main">
-        <MobileTopbar title={language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]} onToggleMenu={() => setMenuOpen((value) => !value)} />
+        <MobileTopbar title={language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]} language={language} menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((value) => !value)} onOpenProfile={openProfile} />
 
         {activeView === "inbox" ? (
           <InboxView

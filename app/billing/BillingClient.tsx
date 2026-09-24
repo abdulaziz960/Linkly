@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { ANNUAL_DISCOUNT_PERCENT, computeYearlyPrice, type BillingCycle } from "../../lib/billing-pricing";
+import { ANNUAL_DISCOUNT_PERCENT, computeYearlyPrice } from "../../lib/billing-pricing";
 import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
+import { useBillingCycle } from "../useBillingCycle";
 
 type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number; allowedChannels: string; messageQuota: number };
 
@@ -41,7 +42,7 @@ const copy = {
 export default function BillingClient({ plans, currentPlan, lang = "ar", isTestMode }: { plans: Plan[]; currentPlan: string; lang?: "ar" | "en"; isTestMode: boolean }) {
   const text = copy[lang];
   const [loading, setLoading] = useState(""); const [error, setError] = useState("");
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>("شهري");
+  const { billingCycle, chooseBillingCycle } = useBillingCycle();
   async function checkout(planId: string) {
     setLoading(planId); setError("");
     const response = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId, billingCycle }) });
@@ -55,12 +56,12 @@ export default function BillingClient({ plans, currentPlan, lang = "ar", isTestM
   }
   return <section>
     <div className="billing-cycle-toggle" role="tablist">
-      <button type="button" role="tab" aria-selected={billingCycle === "شهري"} className={billingCycle === "شهري" ? "active" : ""} onClick={() => setBillingCycle("شهري")}>{text.monthlyTab}</button>
-      <button type="button" role="tab" aria-selected={billingCycle === "سنوي"} className={billingCycle === "سنوي" ? "active" : ""} onClick={() => setBillingCycle("سنوي")}>{text.yearlyTab}<span className="billing-cycle-badge">{text.yearlySave}</span></button>
+      <button type="button" role="tab" aria-selected={billingCycle === "شهري"} className={billingCycle === "شهري" ? "active" : ""} onClick={() => chooseBillingCycle("شهري")}>{text.monthlyTab}</button>
+      <button type="button" role="tab" aria-selected={billingCycle === "سنوي"} className={billingCycle === "سنوي" ? "active" : ""} onClick={() => chooseBillingCycle("سنوي")}>{text.yearlyTab}<span className="billing-cycle-badge">{text.yearlySave}</span></button>
     </div>
     <div className="plan-grid">{plans.map((plan) => {
       const yearly = computeYearlyPrice(plan.monthlyPrice);
-      const displayedPrice = billingCycle === "سنوي" ? Math.round(yearly / 12) : plan.monthlyPrice;
+      const displayedPrice = billingCycle === "سنوي" ? yearly : plan.monthlyPrice;
       // Same feature list as the public pricing page (lib/plan-features.ts) -
       // live numbers (users/channels/message quota) plus the static
       // descriptive copy, with a generic fallback for a custom/renamed plan.
@@ -70,7 +71,7 @@ export default function BillingClient({ plans, currentPlan, lang = "ar", isTestM
       return <article className={`plan-card ${featured ? "featured" : ""}`} key={plan.id}>
         {isCurrent ? <span className="current-badge">{text.currentPlanBadge}</span> : featured ? <span className="recommended">{text.recommended}</span> : null}
         <h2>{plan.name}</h2>
-        <div className="plan-price"><b>{displayedPrice}</b><span>{text.perMonth}</span></div>
+        <div className="plan-price"><b>{displayedPrice}</b><span>{billingCycle === "سنوي" ? text.perYear : text.perMonth}</span></div>
         {billingCycle === "سنوي" ? <p className="plan-price-note">{text.billedYearly(yearly)}</p> : null}
         <ul>{items.map((item) => <li key={item}>✓ {item}</li>)}</ul>
         <button disabled={loading !== ""} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : isCurrent ? text.renewPlan : text.upgradePlan}</button>

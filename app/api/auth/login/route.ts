@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authCookieName, createSessionToken, getSubscriptionAccess } from "../../../../lib/auth";
 import { recordUserLogin, verifyUserCredentials } from "../../../../lib/database";
-import { consumeRateLimit, getClientIp, requestIdentifier } from "../../../../lib/rate-limit";
+import { clearRateLimit, consumeRateLimit, getClientIp, requestIdentifier } from "../../../../lib/rate-limit";
 import { prisma } from "../../../../lib/prisma";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 
@@ -11,7 +11,8 @@ export async function POST(request: NextRequest) {
   const password = typeof body.password === "string" ? body.password : "";
   const remember = Boolean(body.remember);
 
-  const rateLimit = await consumeRateLimit("login", requestIdentifier(request, email), 8, 15 * 60 * 1000);
+  const loginIdentifier = requestIdentifier(request, email);
+  const rateLimit = await consumeRateLimit("login", loginIdentifier, 8, 15 * 60 * 1000);
   if (!rateLimit.allowed) {
     return NextResponse.json(
       { message: "محاولات كثيرة. حاول مرة أخرى بعد قليل" },
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
   if (user.disabled) {
     return NextResponse.json({ message: "تم تعطيل هذا الحساب. تواصل مع مسؤول حسابكم لإعادة تفعيله." }, { status: 403 });
   }
+  await clearRateLimit("login", loginIdentifier);
   const clientIp = getClientIp(request);
   await recordUserLogin(user.id, clientIp);
 

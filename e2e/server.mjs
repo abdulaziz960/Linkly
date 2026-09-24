@@ -34,6 +34,12 @@ await prisma.userAccount.create({ data: {
   id: "browser-owner", name: "Browser Owner", email: "owner@browser.test", passwordHash,
   role: "مالك الحساب", tenantId: "browser-workspace", createdAt: new Date().toISOString()
 } });
+await prisma.plan.create({ data: {
+  id: "browser-plan", name: "باقة اختبار المتصفح", monthlyPrice: 199,
+  employeeLimit: 3, sortOrder: 1, active: 1,
+  allowedChannels: "whatsapp", messageQuota: 1000,
+  createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+} });
 await prisma.integrationSetting.create({ data: {
   id: "browser-whatsapp", tenantId: "browser-workspace", provider: "whatsapp_cloud", status: "connected",
   businessName: "Browser Workspace", wabaName: "Browser", phoneNumber: "966555000000", phoneNumberId: "browser-number-id",

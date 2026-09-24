@@ -217,15 +217,15 @@ export default function ContactsView({
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث باسم العميل، الرقم، أو الوسم...", "Search by customer name, number, or tag...")} />
             <button className="btn soft" type="button" onClick={() => setSearch("")}>{t("مسح", "Clear")}</button>
           </div>
-          <table>
+          <table className="mobile-card-table">
             <thead><tr><th>{t("الاسم", "Name")}</th><th>{contactIdLabel}</th><th>{t("الوسوم", "Tags")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
             <tbody>
               {filteredCustomers.map((customer) => (
                 <tr key={customer.id}>
-                  <td><b>{customer.name}</b></td>
-                  <td dir="ltr">{customer.phone}</td>
-                  <td>{customer.tags.length ? customer.tags.join(t("، ", ", ")) : "-"}</td>
-                  <td className="row-actions">
+                  <td data-label={t("الاسم", "Name")}><b>{customer.name}</b></td>
+                  <td data-label={contactIdLabel} dir="ltr">{customer.phone}</td>
+                  <td data-label={t("الوسوم", "Tags")}>{customer.tags.length ? customer.tags.join(t("، ", ", ")) : "-"}</td>
+                  <td data-label={t("إجراء", "Action")} className="row-actions">
                     <button className="btn soft" type="button" onClick={() => onOpenConversation(customer.id)}>{t("إرسال رسالة", "Send Message")}</button>
                     <button className="btn soft" type="button" onClick={() => openEditForm(customer)}>{t("تعديل", "Edit")}</button>
                     <button className="btn soft" type="button" onClick={() => openMergeForm(customer)} disabled={customers.length < 2}>{t("دمج", "Merge")}</button>

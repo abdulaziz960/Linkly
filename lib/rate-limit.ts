@@ -73,3 +73,10 @@ export async function consumeRateLimit(namespace: string, identifier: string, li
     return { allowed: true, remaining: Math.max(0, limit - (current?.count || 0)), retryAfterSeconds: Math.ceil((currentReset - now) / 1000) };
   });
 }
+
+/** A successful authentication is not a failed-login attempt. Keep the
+ *  protection for repeated bad credentials without locking out legitimate
+ *  users who sign in on several devices or test sessions. */
+export async function clearRateLimit(namespace: string, identifier: string) {
+  await prisma.rateLimit.deleteMany({ where: { key: rateLimitKey(namespace, identifier) } });
+}

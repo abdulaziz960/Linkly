@@ -226,6 +226,8 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
   const [dragPoint, setDragPoint] = useState<{ x: number; y: number } | null>(null);
   const [draggedLibraryId, setDraggedLibraryId] = useState<string | null>(null);
   const [libraryFilter, setLibraryFilter] = useState<"all" | "step" | "flow">("all");
+  const [mobilePanel, setMobilePanel] = useState<"library" | "canvas">("library");
+  const [zoom, setZoom] = useState(1);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -362,6 +364,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
     const nextNodes = [...nodes, ...additions];
     setNodes(nextNodes);
     await persistNodes(nextNodes, nodes);
+    setMobilePanel("canvas");
   }
 
   function startLibraryDrag(event: DragEvent<HTMLElement>, item: ReadyStep) {
@@ -408,7 +411,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
   // deleting a step can never leave a dangling reference behind.
   function pruneLinksTo(list: BotNode[], removedId: string): BotNode[] {
     return list.map((node) => {
-      if (node.content.kind === "message" && node.content.next === removedId) {
+      if ((node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply") && node.content.next === removedId) {
         return { ...node, content: { ...node.content, next: null } };
       }
       if (node.content.kind === "list") {
@@ -450,6 +453,14 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
     await persistNodes(nextNodes);
   }
 
+  async function moveNode(id: string, deltaX: number, deltaY: number) {
+    const nextNodes = nodes.map((node) => node.id === id
+      ? { ...node, x: Math.max(0, node.x + deltaX), y: Math.max(0, node.y + deltaY) }
+      : node);
+    setNodes(nextNodes);
+    await persistNodes(nextNodes, nodes);
+  }
+
   function handleNodePointerDown(event: ReactPointerEvent<HTMLDivElement>, node: BotNode) {
     if (event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -467,8 +478,8 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
   function handleNodePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const deltaX = event.clientX - drag.startClientX;
-    const deltaY = event.clientY - drag.startClientY;
+    const deltaX = (event.clientX - drag.startClientX) / zoom;
+    const deltaY = (event.clientY - drag.startClientY) / zoom;
     if (!drag.moved && Math.hypot(deltaX, deltaY) < DRAG_CLICK_THRESHOLD) return;
     drag.moved = true;
     const nextX = Math.max(0, drag.origX + deltaX);
@@ -499,8 +510,8 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
     const rect = surfaceRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
     return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
+      x: (clientX - rect.left) / zoom,
+      y: (clientY - rect.top) / zoom
     };
   }
 
@@ -582,10 +593,12 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
       <div className="page-hero">
         <div>
           <h1>{t("الرد الآلي", "Auto Reply")}</h1>
-          <p>{t(
+          <p className="bot-desktop-intro">{t(
             'أنشئ روبوت محادثة يرحب بالعميل من أول رسالة، يعرض له الخيارات المناسبة، يرسل ردوداً جاهزة، ويحوّل المحادثة للفريق الصحيح عند الحاجة. اسحب أي خطوة لتحريكها، أو اضغط عليها لتعديلها. لربط خطوة بخطوة ثانية، اسحب من النقطة الصغيرة يمين الخطوة (أو يمين كل خيار بقائمة) لأي خطوة ثانية تبي تنتقل لها — بدون كتابة أي أسماء.',
             'Create a chatbot that welcomes the customer from the first message, shows them the right options, sends ready-made replies, and transfers the conversation to the right team when needed. Drag any step to move it, or click it to edit it. To link one step to another, drag from the small dot on the right of the step (or on the right of each list option) to any other step - no typing names.'
           )}</p>
+          <p className="bot-mobile-intro">{t("أنشئ خطوات الرد الآلي واختر القناة، ثم راجع مسار المحادثة في المخطط.", "Create auto-reply steps, choose a channel, then review the conversation flow.")}</p>
+          <details className="bot-mobile-help"><summary>{t("عرض التعليمات", "Show instructions")}</summary><p>{t("يمكنك إضافة الخطوات من المكتبة، وتعديلها أو ربطها بخطوة أخرى من قائمة الخطوات دون سحبها.", "Add steps from the library, then edit or connect them without dragging.")}</p></details>
         </div>
         <div className="bot-hero-actions">
           <label className="bot-toggle">
@@ -594,6 +607,11 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
           </label>
           <button className="btn soft" type="button" onClick={openAddModal}>＋ {t("خطوة مخصصة", "Custom step")}</button>
         </div>
+      </div>
+
+      <div className="bot-mobile-sections" role="tablist" aria-label={t("أقسام الرد الآلي", "Auto-reply sections")}>
+        <button type="button" role="tab" aria-selected={mobilePanel === "library"} onClick={() => setMobilePanel("library")}>{t("مكتبة الخطوات", "Step library")}</button>
+        <button type="button" role="tab" aria-selected={mobilePanel === "canvas"} onClick={() => setMobilePanel("canvas")}>{t("المخطط", "Diagram")}</button>
       </div>
 
       <div className="bot-channel-tabs">
@@ -611,7 +629,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
 
       {feedback ? <p className={`bot-feedback ${feedback.type}`} role="status">{feedback.message}</p> : null}
 
-      <div className="bot-workspace">
+      <div className="bot-workspace" data-mobile-panel={mobilePanel}>
         <aside className="bot-step-library">
           <div className="bot-library-head">
             <div>
@@ -659,8 +677,8 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
         onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
         onDrop={(event) => void handleLibraryDrop(event)}
       >
-        <div className="bot-toolbar" dir="auto"><b>{t(`مخطط الرد الآلي (${channelLabel})`, `Auto reply flow (${channelLabel})`)}</b><span>{t('اسحب من النقطة يمين أي خطوة لخطوة ثانية عشان تربطهم', 'Drag from the dot on the right of a step to another step to link them')}</span></div>
-        <div className="bot-flow-surface" ref={surfaceRef} style={{ width: canvasSize.width, height: canvasSize.height }}>
+        <div className="bot-toolbar" dir="auto"><b>{t(`مخطط الرد الآلي (${channelLabel})`, `Auto reply flow (${channelLabel})`)}</b><span>{t('اسحب من النقطة يمين أي خطوة لخطوة ثانية عشان تربطهم', 'Drag from the dot on the right of a step to another step to link them')}</span><div className="bot-zoom-controls"><button type="button" aria-label={t("تصغير المخطط", "Zoom out") } onClick={() => setZoom((value) => Math.max(0.6, Math.round((value - 0.2) * 10) / 10))}>−</button><button type="button" aria-label={t("تكبير المخطط", "Zoom in") } onClick={() => setZoom((value) => Math.min(1.4, Math.round((value + 0.2) * 10) / 10))}>＋</button><button type="button" aria-label={t("إعادة تمركز المخطط", "Reset diagram position") } onClick={() => { setZoom(1); canvasRef.current?.scrollTo({ left: 0, top: 0 }); }}>⌖</button></div></div>
+        <div className="bot-flow-surface" ref={surfaceRef} style={{ width: canvasSize.width, height: canvasSize.height, zoom }}>
           <svg className="bot-flow-edges" width={canvasSize.width} height={canvasSize.height}>
             <defs>
               <marker id="botArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -744,6 +762,10 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
           ) : null}
         </div>
       </div>
+      <div className="bot-mobile-node-list">
+        <h2>{t("الخطوات الحالية", "Current steps")}</h2>
+        {nodes.length ? nodes.map((node) => <button key={node.id} type="button" onClick={() => openEditModal(node)}><span>{node.title}</span><span>{t("تعديل وربط ونقل", "Edit, connect and move")}</span></button>) : <p>{t("لا توجد خطوات بعد. اختر خطوة من المكتبة للبدء.", "No steps yet. Choose one from the library to begin.")}</p>}
+      </div>
       </div>
 
       {builderOpen ? (
@@ -754,7 +776,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
               <h2>{editingNodeId ? t(`تعديل خطوة — ${channelLabel}`, `Edit step — ${channelLabel}`) : t(`إضافة خطوة — ${channelLabel}`, `Add step — ${channelLabel}`)}</h2>
             </header>
             <div className="account-modal-body">
-              <form className="form-grid" onSubmit={submitNode}>
+              <form id="bot-step-form" className="form-grid" onSubmit={submitNode}>
                 <div className="split-fields">
                   <label>
                     <span>{t("نوع الخطوة", "Step type")}</span>
@@ -811,6 +833,16 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
 
                 {draftContent.kind === "aiReply" ? (
                   <small className="field-hint">{t("يرد على العميل بالذكاء الاصطناعي حسب إعدادات \"مساعد AI\" (الأسلوب والصلاحيات والحدود اليومية)، بدون أي مراجعة بشرية قبل الإرسال. اربط خطوة تالية (مثل تحويل لموظف) تُستخدم فقط إذا تعذر على الذكاء الاصطناعي الرد (معطّل أو تجاوز الحد).", "Replies to the customer with AI per the \"AI Copilot\" settings (style, key, daily limits) - no human review before sending. Link a next step (e.g. transfer to an employee) used only when the AI can't answer (disabled or over its limit).")}</small>
+                ) : null}
+
+                {(draftContent.kind === "message" || draftContent.kind === "knowledgeBase" || draftContent.kind === "aiReply") ? (
+                  <label>
+                    <span>{t("ربط بخطوة", "Connect to step")}</span>
+                    <select value={draftContent.next || ""} onChange={(event) => setDraftContent({ ...draftContent, next: event.target.value || null })}>
+                      <option value="">{t("بدون ربط", "No connection")}</option>
+                      {nodes.filter((node) => node.id !== editingNodeId).map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}
+                    </select>
+                  </label>
                 ) : null}
 
                 {draftContent.kind === "team" ? (
@@ -870,6 +902,10 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                               }}
                               placeholder={t(`الخيار ${index + 1}`, `Option ${index + 1}`)}
                             />
+                            <select aria-label={t(`ربط الخيار ${index + 1} بخطوة`, `Connect option ${index + 1} to step`)} value={option.next || ""} onChange={(event) => setDraftContent({ ...draftContent, options: draftContent.options.map((item) => item.id === option.id ? { ...item, next: event.target.value || null } : item) })}>
+                              <option value="">{t("بدون ربط", "No connection")}</option>
+                              {nodes.filter((node) => node.id !== editingNodeId).map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}
+                            </select>
                             <button
                               type="button"
                               className="icon-btn"
@@ -888,10 +924,18 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                           ＋ {t("إضافة خيار", "Add option")}
                         </button>
                       </div>
-                      <small className="field-hint">{t("بعد الحفظ، اسحب من النقطة يمين كل خيار بالمخطط للخطوة اللي يتفرّع لها.", "After saving, drag from the dot next to each option on the diagram to the step it should branch to.")}</small>
+                      <small className="field-hint">{t("اختر الخطوة التالية لكل خيار، أو اربطها بالسحب من المخطط.", "Choose the next step for each option, or connect it by dragging on the diagram.")}</small>
                     </label>
                   </>
                 ) : null}
+
+                {editingNodeId ? <div className="bot-move-controls" role="group" aria-label={t("نقل الخطوة", "Move step")}>
+                  <span>{t("نقل الخطوة", "Move step")}</span>
+                  <button type="button" onClick={() => void moveNode(editingNodeId, -80, 0)} disabled={saving} aria-label={t("نقل لليسار", "Move left")}>←</button>
+                  <button type="button" onClick={() => void moveNode(editingNodeId, 80, 0)} disabled={saving} aria-label={t("نقل لليمين", "Move right")}>→</button>
+                  <button type="button" onClick={() => void moveNode(editingNodeId, 0, -80)} disabled={saving} aria-label={t("نقل لأعلى", "Move up")}>↑</button>
+                  <button type="button" onClick={() => void moveNode(editingNodeId, 0, 80)} disabled={saving} aria-label={t("نقل لأسفل", "Move down")}>↓</button>
+                </div> : null}
 
                 <div className="split-fields">
                   <button className="btn primary" type="submit" disabled={saving}>
@@ -907,6 +951,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
             </div>
             <footer className="modal-foot">
               <button className="btn soft" type="button" onClick={() => setBuilderOpen(false)}>{t("إغلاق", "Close")}</button>
+              <button className="btn primary bot-mobile-save" type="submit" form="bot-step-form" disabled={saving}>{editingNodeId ? t("حفظ التعديل", "Save changes") : t("إضافة خطوة", "Add step")}</button>
             </footer>
           </div>
         </div>

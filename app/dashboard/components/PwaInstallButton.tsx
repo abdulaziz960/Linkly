@@ -34,7 +34,7 @@ function isStandalone(): boolean {
  * once both are already done, and entirely on a browser with no Push API
  * support at all.
  */
-export default function PwaInstallButton() {
+export default function PwaInstallButton({ showLabel = false }: { showLabel?: boolean }) {
   const { t } = useLanguage();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
@@ -132,6 +132,7 @@ export default function PwaInstallButton() {
           <rect x="5" y="2" width="14" height="20" rx="2.5" />
           <path d="M9 18h6M12 6v7m0 0-3-3m3 3 3-3" />
         </svg>
+        {showLabel ? <span>{label}</span> : null}
       </button>
 
       {showIosHelp ? (

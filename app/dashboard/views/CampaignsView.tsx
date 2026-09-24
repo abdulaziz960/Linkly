@@ -527,17 +527,17 @@ export default function CampaignsView({
               <label className="entries">{t("عرض", "Show")} <CustomSelect className="page-size" value={campaignPageSize} onChange={(value) => { setCampaignPageSize(value); setCampaignPage(1); }} options={pageSizeOptions} /></label>
             </div>
             <div className="table-wrap">
-              <table>
+              <table className="mobile-card-table">
                 <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("الإرسال", "Sending")}</th><th>{t("التقدم", "Progress")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th></tr></thead>
                 <tbody>
                   {campaignPagination.items.map((campaign) => (
                     <tr key={campaign.id}>
-                      <td><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <Image src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" width={42} height={42} unoptimized onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : campaign.name.trim().charAt(0) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}</span></div></td>
-                      <td><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small></td>
-                      <td><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
-                      <td><span className={campaign.status === "ملغاة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
-                      <td><span className="campaign-date">◴ {campaign.updatedAt}</span></td>
-                      <td className="row-actions campaign-row-actions">
+                      <td data-label={t("الحملة", "Campaign")}><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <Image src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" width={42} height={42} unoptimized onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : campaign.name.trim().charAt(0) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}</span></div></td>
+                      <td data-label={t("الإرسال", "Sending")}><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small></td>
+                      <td data-label={t("التقدم", "Progress")}><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
+                      <td data-label={t("الحالة", "Status")}><span className={campaign.status === "ملغاة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
+                      <td data-label={t("آخر تحديث", "Last update")}><span className="campaign-date">◴ {campaign.updatedAt}</span></td>
+                      <td data-label={t("الإجراءات", "Actions")} className="row-actions campaign-row-actions">
                         <button className="campaign-report" type="button" onClick={() => openReport(campaign)}>{t("التقرير", "Report")}</button>
                         {campaign.status === "مجدولة" && campaign.total > 0 ? <button className="btn primary" type="button" onClick={() => sendCampaignNow(campaign)}>{t("إرسال الآن", "Send now")}</button> : null}
                         {campaign.status === "قيد الإرسال" || campaign.status === "مجدولة" ? <button className="btn soft" type="button" onClick={() => stopCampaign(campaign)}>{t("إيقاف", "Stop")}</button> : null}
