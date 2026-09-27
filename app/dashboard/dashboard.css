@@ -115,12 +115,13 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
    partial dark coverage for free, but haven't been individually audited. */
 
 .dashboard-shell {
-  /* The trial countdown and the WhatsApp-billing banner can both be
-     visible at once (an account mid-trial can also have a payment issue) -
-     stack their heights instead of the max() the two individually-sticky
-     banners otherwise share with the top-links bar (which never coexists
-     with either of them). */
-  --top-banners-h: calc(max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)) + var(--whatsapp-payment-banner-h, 0px));
+  /* The trial-countdown banner, the WhatsApp-billing banner, and the
+     quick-links pill are all nested inside .dashboard-top-banners now and
+     stack vertically in normal flex flow (never overlapping) - their
+     heights must be summed, not max()'d, or this row is sized shorter than
+     what's actually rendered and the overflow visually sinks into
+     .dashboard-main below it. */
+  --top-banners-h: calc(var(--trial-banner-h, 0px) + var(--top-links-h, 0px) + var(--whatsapp-payment-banner-h, 0px));
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
