@@ -586,6 +586,50 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS admin_action_logs_admin_user_id_created_at_idx ON admin_action_logs (admin_user_id, created_at)`
   );
+  // Developer API/webhooks tables (feat: f2b8f2b) never reached this
+  // production bridge - the runtime-repair section further down that
+  // otherwise creates them is skipped entirely in production, so
+  // /api/developer/keys and /api/developer/webhooks 500ed with
+  // "table does not exist" on every real request.
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS api_keys (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    key_hash TEXT NOT NULL UNIQUE,
+    key_prefix TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    last_used_at TEXT NOT NULL DEFAULT ''
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS api_keys_tenant_id_idx ON api_keys (tenant_id)`
+  );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhooks (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    secret TEXT NOT NULL,
+    events TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS webhooks_tenant_id_idx ON webhooks (tenant_id)`
+  );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    id TEXT PRIMARY KEY,
+    webhook_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    event TEXT NOT NULL,
+    http_status INTEGER NOT NULL DEFAULT 0,
+    success INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS webhook_deliveries_webhook_id_created_at_idx ON webhook_deliveries (webhook_id, created_at)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS webhook_deliveries_tenant_id_idx ON webhook_deliveries (tenant_id)`
+  );
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS admin_action_logs_target_type_target_id_idx ON admin_action_logs (target_type, target_id)`
   );
