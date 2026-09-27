@@ -84,6 +84,7 @@ const emptySettings: IntegrationSettings = {
   snapchatRefreshToken: "",
   snapchatTokenExpiresAt: "",
   snapchatLeadsSyncedAt: "",
+  whatsappPaymentIssueAt: "",
   webhookUrl: "/api/meta/webhook",
   updatedAt: "-"
 };

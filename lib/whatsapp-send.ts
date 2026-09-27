@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
 import { formatMessageTime } from "./time";
+import { recordWhatsAppSendOutcome, whatsappSendErrorCode } from "./whatsapp-billing";
 
 type SendWhatsAppTextInput = {
   tenantId?: string;
@@ -235,14 +236,23 @@ export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInp
   }
   const payload = await response.json().catch(() => null) as {
     messages?: Array<{ id?: string }>;
-    error?: { message?: string; error_user_msg?: string };
+    error?: { message?: string; error_user_msg?: string; code?: number };
   } | null;
 
   if (!response.ok || !payload?.messages?.[0]?.id) {
     const error = payload?.error?.error_user_msg || payload?.error?.message || "تعذر إرسال قالب WhatsApp";
     console.error("WhatsApp template send failed", { status: response.status, error, templateName });
     await persistWhatsAppTemplateResult(input, { deliveryStatus: "failed", deliveryError: error });
+    await recordWhatsAppSendOutcome({
+      tenantId: settings.tenantId,
+      ok: false,
+      hadIssueFlag: Boolean(settings.whatsappPaymentIssueAt),
+      errorCode: whatsappSendErrorCode(payload)
+    });
     return { ok: false as const, error, status: response.status || 502 };
+  }
+  if (settings.whatsappPaymentIssueAt) {
+    await recordWhatsAppSendOutcome({ tenantId: settings.tenantId, ok: true, hadIssueFlag: true });
   }
 
   const message = await persistWhatsAppTemplateResult(input, {
@@ -334,7 +344,17 @@ export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
         data: { lastMessage: text, lastActivityAt: now.toISOString() }
       });
     });
+    await recordWhatsAppSendOutcome({
+      tenantId: settings.tenantId,
+      ok: false,
+      hadIssueFlag: Boolean(settings.whatsappPaymentIssueAt),
+      errorCode: whatsappSendErrorCode(payload)
+    });
     return { ok: false, error };
+  }
+
+  if (settings.whatsappPaymentIssueAt) {
+    await recordWhatsAppSendOutcome({ tenantId: settings.tenantId, ok: true, hadIssueFlag: true });
   }
 
   const now = new Date();
@@ -433,7 +453,16 @@ export async function sendWhatsAppInteractiveMessage(input: SendWhatsAppInteract
 
   if (!response.ok) {
     console.error("WhatsApp interactive send failed", payload?.error || payload);
+    await recordWhatsAppSendOutcome({
+      tenantId: settings.tenantId,
+      ok: false,
+      hadIssueFlag: Boolean(settings.whatsappPaymentIssueAt),
+      errorCode: whatsappSendErrorCode(payload)
+    });
     return { ok: false, error: payload?.error?.message || "WHATSAPP_SEND_FAILED" };
+  }
+  if (settings.whatsappPaymentIssueAt) {
+    await recordWhatsAppSendOutcome({ tenantId: settings.tenantId, ok: true, hadIssueFlag: true });
   }
 
   const now = new Date();

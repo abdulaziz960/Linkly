@@ -115,10 +115,16 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
    partial dark coverage for free, but haven't been individually audited. */
 
 .dashboard-shell {
+  /* The trial countdown and the WhatsApp-billing banner can both be
+     visible at once (an account mid-trial can also have a payment issue) -
+     stack their heights instead of the max() the two individually-sticky
+     banners otherwise share with the top-links bar (which never coexists
+     with either of them). */
+  --top-banners-h: calc(max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)) + var(--whatsapp-payment-banner-h, 0px));
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
-  grid-template-rows: minmax(0, max(var(--trial-banner-h, 0px), var(--top-links-h, 0px))) minmax(0, calc(100vh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)) - 8px));
+  grid-template-rows: minmax(0, var(--top-banners-h)) minmax(0, calc(100vh - var(--top-banners-h) - 8px));
   background: var(--bg);
   color: var(--ink);
   direction: ltr;
@@ -139,10 +145,6 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .dashboard-shell.lang-en .dashboard-main {
   grid-column: 2;
   direction: ltr;
-}
-
-.dashboard-shell.lang-en .dashboard-top-links {
-  grid-column: 2;
 }
 
 .dashboard-shell button,
@@ -258,7 +260,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   grid-row: 2;
   direction: rtl;
   position: sticky;
-  top: var(--trial-banner-h, 0px);
+  top: var(--top-banners-h, 0px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -8070,13 +8072,12 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .dashboard-top-links {
-  grid-column: 1;
-  grid-row: 1;
+  /* Nested inside .dashboard-top-banners now (stacked in normal flex-column
+     flow after the trial/WhatsApp banners) instead of sharing their grid
+     cell as an independently-positioned sibling - the old grid/sticky
+     placement let this bar's z-index cover a full-width banner underneath
+     it whenever this pill grew wide enough (e.g. on narrow viewports). */
   align-self: start;
-  justify-self: start;
-  position: sticky;
-  top: 0;
-  z-index: 6;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -8428,7 +8429,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .dashboard-main {
-  height: calc(100dvh - 8px - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)));
+  height: calc(100dvh - 8px - var(--top-banners-h, 0px));
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid #b8d5cf;
@@ -8897,12 +8898,12 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 @media (max-width: 1180px) {
 .dashboard-shell {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, max(var(--trial-banner-h, 0px), var(--top-links-h, 0px))) minmax(0, calc(100vh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px))));
+    grid-template-rows: minmax(0, var(--top-banners-h, 0px)) minmax(0, calc(100vh - var(--top-banners-h, 0px)));
     padding: 0;
   }
 
   .dashboard-main {
-    height: calc(100dvh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)));
+    height: calc(100dvh - var(--top-banners-h, 0px));
     border: 0;
     border-radius: 0;
   }
@@ -8931,7 +8932,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 
 @media (max-width: 720px) {
   .dashboard-main {
-    height: calc(100dvh - max(var(--trial-banner-h, 0px), var(--top-links-h, 0px)));
+    height: calc(100dvh - var(--top-banners-h, 0px));
     min-height: 0;
   }
 
@@ -9791,7 +9792,14 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .user-detail-grid dd{margin:4px 0 0;font-weight:850}
 @media(max-width:900px){.user-detail-grid{grid-template-columns:1fr}}
 @media(max-width:680px){.user-management-head{flex-direction:column;align-items:stretch}.user-management-actions{flex-direction:column;align-items:stretch}.user-search{min-width:0}}
-.trial-countdown-banner{grid-column:1 / -1;grid-row:1;align-self:start;position:sticky;top:0;z-index:5;display:flex;align-items:flex-start;justify-content:center;padding:8px 12px;background:transparent;direction:rtl;overflow-x:auto}
+/* Wraps the trial-countdown and WhatsApp-payment banners so both can be
+   visible at once, stacked in normal flow - each banner keeps its own
+   grid-row:1 placement below (harmless once nested in this flex parent,
+   since grid-placement properties are inert on a non-grid-item child), so
+   this wrapper is the only thing actually positioned against the shell's
+   grid row. */
+.dashboard-top-banners{grid-column:1 / -1;grid-row:1;align-self:start;position:sticky;top:0;z-index:5;display:flex;flex-direction:column}
+.trial-countdown-banner{display:flex;align-items:flex-start;justify-content:center;padding:8px 12px;background:transparent;direction:rtl;overflow-x:auto}
 .dashboard-shell.lang-en .trial-countdown-banner{direction:ltr}
 .trial-countdown-pill{display:inline-flex;align-items:center;gap:9px;flex-shrink:0;max-width:100%;padding:6px 8px 6px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--brand-200);box-shadow:0 6px 18px rgba(15,23,42,.08);white-space:nowrap}
 .trial-countdown-icon{display:inline-flex;flex-shrink:0;font-size:13px;line-height:1}
@@ -9806,6 +9814,14 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .trial-countdown-banner.expired .trial-countdown-text{color:var(--danger)}
 .trial-countdown-banner.expired .trial-countdown-cta{background:var(--danger)}
 .trial-countdown-banner.expired .trial-countdown-cta:hover{background:#991b1b}
+.whatsapp-payment-banner{display:flex;align-items:flex-start;justify-content:center;padding:8px 12px;background:transparent;direction:rtl;overflow-x:auto}
+.dashboard-shell.lang-en .whatsapp-payment-banner{direction:ltr}
+.whatsapp-payment-pill{display:inline-flex;align-items:center;gap:9px;max-width:100%;padding:6px 8px 6px 14px;border-radius:999px;background:#fef2f2;border:1px solid #fecaca;box-shadow:0 6px 18px rgba(15,23,42,.08)}
+.whatsapp-payment-icon{display:inline-flex;flex-shrink:0;font-size:13px;line-height:1;color:var(--danger)}
+.whatsapp-payment-text{color:var(--danger);font-size:12px;font-weight:750}
+.whatsapp-payment-cta{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;padding:5px 12px;border-radius:999px;background:var(--danger);color:#fff !important;font-size:12px;font-weight:850;white-space:nowrap;text-decoration:none !important;transition:background .15s ease}
+.whatsapp-payment-cta:hover{background:#991b1b}
+@media(max-width:680px){.whatsapp-payment-pill{padding:5px 6px 5px 10px;gap:6px}.whatsapp-payment-text{font-size:11px;white-space:normal}.whatsapp-payment-cta{padding:5px 10px}}
 @media(max-width:680px){.trial-countdown-pill{padding:5px 6px 5px 10px;gap:6px}.trial-countdown-text{font-size:11px}.trial-countdown-segment small{display:none}.trial-countdown-cta{padding:5px 10px}}
 
 .pipeline-view {

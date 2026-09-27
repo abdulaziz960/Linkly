@@ -511,6 +511,9 @@ model IntegrationSetting {
   snapchatRefreshToken String @default("") @map("snapchat_refresh_token")
   snapchatTokenExpiresAt String @default("") @map("snapchat_token_expires_at")
   snapchatLeadsSyncedAt String @default("") @map("snapchat_leads_synced_at")
+  // Set when Meta rejects a WhatsApp send with error code 131042 (payment
+  // method issue) - shown as a dashboard banner until a send succeeds again.
+  whatsappPaymentIssueAt String @default("") @map("whatsapp_payment_issue_at")
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 

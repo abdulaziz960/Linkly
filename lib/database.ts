@@ -574,6 +574,9 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS snapchat_leads_synced_at TEXT NOT NULL DEFAULT ''`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS whatsapp_payment_issue_at TEXT NOT NULL DEFAULT ''`
+  );
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS leads (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,
@@ -1610,7 +1613,8 @@ async function runSchemaMigrations() {
     `ALTER TABLE integration_settings ADD COLUMN snapchat_org_name TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN snapchat_refresh_token TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN snapchat_token_expires_at TEXT NOT NULL DEFAULT ''`,
-    `ALTER TABLE integration_settings ADD COLUMN snapchat_leads_synced_at TEXT NOT NULL DEFAULT ''`
+    `ALTER TABLE integration_settings ADD COLUMN snapchat_leads_synced_at TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN whatsapp_payment_issue_at TEXT NOT NULL DEFAULT ''`
   ]) {
     try {
       await prisma.$executeRawUnsafe(statement);
@@ -2877,6 +2881,7 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     snapchatRefreshToken: readStoredSecret(settings.snapchatRefreshToken),
     snapchatTokenExpiresAt: settings.snapchatTokenExpiresAt,
     snapchatLeadsSyncedAt: settings.snapchatLeadsSyncedAt,
+    whatsappPaymentIssueAt: settings.whatsappPaymentIssueAt,
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };

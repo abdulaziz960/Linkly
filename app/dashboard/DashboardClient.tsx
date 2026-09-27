@@ -37,6 +37,7 @@ import { formatDateTime } from "../../lib/time";
 import { playNewMessageChime } from "./notification-sound";
 import { requestNotificationPermissionOnce, showNewMessageNotification } from "./notification-browser";
 import TrialCountdownBanner from "./TrialCountdownBanner";
+import WhatsAppPaymentBanner from "./WhatsAppPaymentBanner";
 
 type DashboardSubscription = {
   companyName: string;
@@ -218,6 +219,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
+  const [whatsappPaymentIssue, setWhatsappPaymentIssue] = useState(false);
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
   const [facebookStatus, setFacebookStatus] = useState<IntegrationSettings["status"]>("pending");
   const [telegramStatus, setTelegramStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -374,6 +376,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       .then((response) => response.json())
       .then((settings: IntegrationSettings) => setEmailStatus(settings.status))
       .catch(() => setEmailStatus("pending"));
+    fetch("/api/whatsapp/payment-status")
+      .then((response) => response.json())
+      .then((data: { hasIssue?: boolean }) => setWhatsappPaymentIssue(Boolean(data.hasIssue)))
+      .catch(() => setWhatsappPaymentIssue(false));
   }, []);
   const activeConversation =
     channelFilteredConversations.find((conversation) => conversation.id === activeConversationId) ??
@@ -1246,7 +1252,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   return (
     <LanguageProvider language={language}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
-      {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
+      <div className="dashboard-top-banners">
+        {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
+        <WhatsAppPaymentBanner visible={whatsappPaymentIssue} language={language} />
       <div className="dashboard-top-links" ref={topLinksRef}>
         <PwaInstallButton />
         <button
@@ -1299,6 +1307,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             </svg>
           </Link>
         ) : null}
+      </div>
       </div>
       {menuOpen ? (
         <div
