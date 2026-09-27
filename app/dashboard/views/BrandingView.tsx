@@ -98,8 +98,8 @@ export default function BrandingView({ onRefreshData }: { onRefreshData: () => P
                 <span>{t("الشعار", "Logo")}</span>
                 <div className="file-picker">
                   <button type="button" onClick={() => document.getElementById("brand-logo-input")?.click()}>{t("تصفح", "Browse")}</button>
-                  <span>{t("PNG أو JPG أو SVG، بحد أقصى 500 كيلوبايت", "PNG, JPG, or SVG, up to 500KB")}</span>
-                  <input id="brand-logo-input" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={handleLogoChange} />
+                  <span>{t("PNG أو JPG، بحد أقصى 500 كيلوبايت", "PNG or JPG, up to 500KB")}</span>
+                  <input id="brand-logo-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoChange} />
                 </div>
                 {form.logoDataUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element

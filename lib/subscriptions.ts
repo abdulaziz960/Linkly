@@ -3,11 +3,14 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { sendActivationEmail } from "./email";
 import { isValidEmail } from "./validation";
-import { PAYMENT_STATUS, mapMoyasarInvoiceStatus, type PaymentKind } from "./payment-status";
-import type { GatewayPaymentDetails } from "./moyasar";
+import { PAYMENT_STATUS, PAYMENT_GATEWAY, mapMoyasarInvoiceStatus, type PaymentKind } from "./payment-status";
+import { chargeSavedCard, buildPaymentMetadata, paymentDescription, summarizeMoyasarPayment, isAutoRenewEnabled, type GatewayPaymentDetails } from "./moyasar";
+import { encryptSecret, decryptSecret } from "./secret-storage";
+import { computeYearlyPrice, isBillingCycle, type BillingCycle } from "./billing-pricing";
+import { isUnlimitedMessageQuota, UNLIMITED_MESSAGE_CREDIT } from "./message-quota";
 
-/** Length of one paid subscription period. Every plan bills monthly today. */
-export const SUBSCRIPTION_PERIOD_MONTHS = 1;
+/** Length of one paid subscription period, in months, per billing cycle. */
+export const SUBSCRIPTION_PERIOD_MONTHS: Record<BillingCycle, number> = { "شهري": 1, "سنوي": 12 };
 
 function addMonths(date: Date, months: number) {
   const next = new Date(date.getTime());
@@ -24,14 +27,66 @@ function isoDate(date: Date) {
 }
 
 /**
+ * Denominator days used for a prorated-upgrade credit - see
+ * computeProrationCredit. The current plan's paid amount is spread evenly
+ * across its own billing cycle length, not always 30 - crediting a yearly
+ * payment's unused ~300 remaining days at a 30-day rate would wildly
+ * overcredit it.
+ */
+const PRORATION_PERIOD_DAYS: Record<BillingCycle, number> = { "شهري": 30, "سنوي": 365 };
+
+/**
+ * Credit for the unused days of the CURRENT plan when the owner switches
+ * plans (or billing cycle) mid-cycle, subtracted from the new plan's list
+ * price:
+ *   credit = currentPlanAmount / cycleDays * remainingDays
+ *   finalAmount = max(0, newPlanPrice - credit)
+ * Only applies to an active ("نشط"), still-paid-up subscription changing to
+ * a DIFFERENT plan - a trial converting, a suspended account reactivating,
+ * an overdue renewal, or a same-plan renewal all pay the full list price
+ * (see computeSubscriptionPeriod, which decides period length separately).
+ */
+export function computeProrationCredit(input: {
+  now: Date;
+  currentStatus?: string;
+  currentPlan?: string;
+  currentAmount?: number;
+  currentRenewalAt?: string;
+  currentBillingCycle?: BillingCycle;
+  newPlanName: string;
+  newPlanPrice: number;
+}) {
+  const currentPaidThrough = input.currentRenewalAt ? new Date(input.currentRenewalAt) : null;
+  // Only an upgrade (strictly higher list price) is prorated - a downgrade
+  // already takes effect immediately at the lower plan's full price with no
+  // credit, matching the pre-existing "plan change takes effect immediately"
+  // behavior for that case (see the downgrade employee-limit check in
+  // app/api/billing/checkout/route.ts, which runs regardless of proration).
+  const isUpgrade = Boolean(input.currentPlan) && input.currentPlan !== input.newPlanName && Boolean(input.currentAmount) && input.newPlanPrice > (input.currentAmount ?? 0);
+  const stillPaidUp = input.currentStatus === "نشط" && currentPaidThrough !== null && Number.isFinite(currentPaidThrough.getTime()) && currentPaidThrough.getTime() > input.now.getTime();
+
+  if (!isUpgrade || !stillPaidUp || !currentPaidThrough || !input.currentAmount) {
+    return { creditAmount: 0, finalAmount: input.newPlanPrice, remainingDays: 0 };
+  }
+
+  const cycleDays = PRORATION_PERIOD_DAYS[input.currentBillingCycle ?? "شهري"];
+  const remainingDays = (currentPaidThrough.getTime() - input.now.getTime()) / 86_400_000;
+  const rawCredit = (input.currentAmount / cycleDays) * remainingDays;
+  const creditAmount = Math.round(Math.min(rawCredit, input.newPlanPrice) * 100) / 100;
+  const finalAmount = Math.round((input.newPlanPrice - creditAmount) * 100) / 100;
+  return { creditAmount, finalAmount, remainingDays: Math.round(remainingDays * 10) / 10 };
+}
+
+/**
  * Decides the period a confirmed subscription payment buys.
  *
  * - Renewal of the SAME plan on an active subscription that is still paid
  *   up: the new period starts where the current one ends, so paying a week
  *   early never costs the customer that week.
  * - Anything else (trial converting, suspended account reactivating, an
- *   overdue renewal, or a plan change): the period starts now. A plan change
- *   takes effect immediately and is not prorated.
+ *   overdue renewal, or a plan change): the period starts now. The amount
+ *   charged for a plan change is prorated separately (computeProrationCredit)
+ *   even though the period itself always starts fresh from today.
  */
 export function computeSubscriptionPeriod(input: {
   now: Date;
@@ -39,12 +94,13 @@ export function computeSubscriptionPeriod(input: {
   currentPlan?: string;
   currentRenewalAt?: string;
   stagedPlanName?: string;
+  billingCycle?: BillingCycle;
 }) {
   const currentPaidThrough = input.currentRenewalAt ? new Date(input.currentRenewalAt) : null;
   const samePlan = !input.stagedPlanName || input.stagedPlanName === input.currentPlan;
   const stillPaidUp = input.currentStatus === "نشط" && currentPaidThrough !== null && Number.isFinite(currentPaidThrough.getTime()) && currentPaidThrough.getTime() > input.now.getTime();
   const periodStart = samePlan && stillPaidUp && currentPaidThrough ? currentPaidThrough : input.now;
-  const periodEnd = addMonths(periodStart, SUBSCRIPTION_PERIOD_MONTHS);
+  const periodEnd = addMonths(periodStart, SUBSCRIPTION_PERIOD_MONTHS[input.billingCycle ?? "شهري"]);
   return { periodStart: isoDate(periodStart), periodEnd: isoDate(periodEnd), extendedFromCurrent: periodStart !== input.now };
 }
 
@@ -59,9 +115,18 @@ function gatewayColumns(details?: GatewayPaymentDetails) {
 }
 
 export const planEmployeeLimits: Record<string, number> = {
+  // Original 3 tiers - kept for any legacy Subscription/SubscriptionPayment
+  // row still referencing them by name (see applyPricingTierRestructure()
+  // in lib/database.ts, which deactivates these without renaming them).
   "باقة البداية": 1,
   "باقة النمو": 3,
-  "باقة الأعمال": 10
+  "باقة الأعمال": 10,
+  // Current tiers.
+  "باقة الأفراد": 1,
+  "الباقة العادية": 3,
+  "باقة المؤسسات الصغيرة": 6,
+  "باقة المؤسسات الكبيرة": 8,
+  "باقة الشركات": 100
 };
 
 function nowTimestamp() {
@@ -93,9 +158,21 @@ export async function getSubscriptions() {
   }));
 }
 
+/**
+ * Every caller of this (app/dashboard/page.tsx, app/billing/page.tsx, ...)
+ * ends up handing the result to a Client Component prop, which Next.js
+ * serializes into the page's payload - so savedCardToken, a live token
+ * capable of charging the card with no cardholder present, must never be
+ * part of what this returns. Callers that need the raw token (auto-renew
+ * charging, disabling it) read it via a direct prisma.subscription call
+ * instead, not this function.
+ */
 export async function getSubscriptionForTenant(tenantId: string) {
   await ensureSchema();
-  return prisma.subscription.findUnique({ where: { tenantId } });
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
+  if (!subscription) return null;
+  const { savedCardToken: _savedCardToken, ...safeSubscription } = subscription;
+  return safeSubscription;
 }
 
 export async function getSubscriptionPayments() {
@@ -181,9 +258,11 @@ export async function getInvoiceForTenant(tenantId: string, invoiceId: string) {
  * is a no-op (returns activated: false) via a compare-and-swap update, so
  * a redelivered webhook or a double confirm click can't double-renew.
  */
-export async function applyConfirmedSubscriptionPayment(paymentId: string, details?: GatewayPaymentDetails): Promise<{ activated: boolean; periodStart?: string; periodEnd?: string }> {
+export async function applyConfirmedSubscriptionPayment(paymentId: string, details?: GatewayPaymentDetails, allowAutoRenewEnroll = false): Promise<{ activated: boolean; periodStart?: string; periodEnd?: string }> {
   const payment = await prisma.subscriptionPayment.findUnique({ where: { id: paymentId } });
   if (!payment) return { activated: false };
+
+  const billingCycle: BillingCycle = isBillingCycle(payment.billingCycle) ? payment.billingCycle : "شهري";
 
   const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.subscription.findUnique({ where: { tenantId: payment.tenantId } });
@@ -194,7 +273,8 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
       currentStatus: existing?.status,
       currentPlan: existing?.plan,
       currentRenewalAt: existing?.renewalAt,
-      stagedPlanName: payment.planName
+      stagedPlanName: payment.planName,
+      billingCycle
     });
 
     const claimed = await tx.subscriptionPayment.updateMany({
@@ -224,8 +304,12 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
       update: {
         status: "نشط",
         amount: amountSar,
-        billingCycle: "شهري",
+        billingCycle,
         renewalAt: period.periodEnd,
+        // Paying again is an unambiguous signal the owner wants to keep
+        // going, even if they'd previously marked the subscription
+        // cancelled (see app/api/billing/cancel).
+        cancelledAt: "",
         updatedAt: nowTimestamp(),
         // Plan/employeeLimit come from the staged plan whenever the payment
         // carries one (every self-serve checkout; admin invoices carry none
@@ -239,6 +323,27 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
                 ? Math.max(existing.employeeLimit, payment.planEmployeeLimit)
                 : payment.planEmployeeLimit
             }
+          : {}),
+        // allowAutoRenewEnroll must be true (only confirm-payment, with a
+        // real enableAutoRenew from the client, and attemptAutoRenewals,
+        // re-affirming an already-opted-in subscription, ever pass it) -
+        // details.cardToken alone is NOT consent: Moyasar's account may
+        // return a token on every card payment regardless of the "save my
+        // card" checkbox, and callers with no consent signal at all (the
+        // stale-payment reconciler) must never enroll a card just because
+        // one happened to come back on the gateway response.
+        ...(allowAutoRenewEnroll && isAutoRenewEnabled() && details?.cardToken
+          ? {
+              autoRenewEnabled: 1,
+              savedCardToken: encryptSecret(details.cardToken),
+              // A no-cardholder-present token charge (a renewal, not a fresh
+              // checkout) may not return last4/brand at all - keep whatever
+              // was already on file rather than blanking a still-valid
+              // saved card's displayed info with an empty string.
+              savedCardLast4: details.cardLast4 || existing?.savedCardLast4 || "",
+              savedCardBrand: details.cardBrand || existing?.savedCardBrand || "",
+              autoRenewFailCount: 0
+            }
           : {})
       },
       create: {
@@ -251,12 +356,34 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
         status: "نشط",
         employeeLimit: payment.planName ? payment.planEmployeeLimit : 1,
         amount: amountSar,
-        billingCycle: "شهري",
+        billingCycle,
         renewalAt: period.periodEnd,
         createdAt: now,
-        updatedAt: nowTimestamp()
+        updatedAt: nowTimestamp(),
+        ...(allowAutoRenewEnroll && isAutoRenewEnabled() && details?.cardToken
+          ? { autoRenewEnabled: 1, savedCardToken: encryptSecret(details.cardToken), savedCardLast4: details.cardLast4 || "", savedCardBrand: details.cardBrand || "" }
+          : {})
       }
     });
+
+    // Marketing message allowance included with the plan - credited every
+    // time a subscription payment on it confirms (initial signup, renewal,
+    // or a plan change), scaled by 12 for an annual payment since that buys
+    // a full year upfront. Admin-issued invoices carry no planName and
+    // don't touch this - only a real plan payment does.
+    if (payment.planName) {
+      const creditMessages = isUnlimitedMessageQuota(payment.planMessageQuota)
+        ? UNLIMITED_MESSAGE_CREDIT
+        : payment.planMessageQuota * (billingCycle === "سنوي" ? 12 : 1);
+      if (creditMessages > 0) {
+        await tx.campaignBalance.upsert({
+          where: { tenantId: payment.tenantId },
+          update: { balance: { increment: creditMessages }, lastTopUpAmount: creditMessages, updatedAt: now },
+          create: { tenantId: payment.tenantId, balance: creditMessages, lastTopUpAmount: creditMessages, updatedAt: now }
+        });
+      }
+    }
+
     return period;
   });
 
@@ -360,13 +487,19 @@ export async function applyVerifiedGatewayOutcome(
   kind: PaymentKind,
   paymentId: string,
   invoiceStatus: string,
-  details?: GatewayPaymentDetails
+  details?: GatewayPaymentDetails,
+  // Defaults to false: only a caller with a real, explicit consent signal
+  // (app/api/billing/confirm-payment, with the client's own enableAutoRenew)
+  // should ever pass true. The cron reconciler below has no such signal and
+  // must never enroll a card just because Moyasar's response happened to
+  // include a token.
+  allowAutoRenewEnroll = false
 ): Promise<{ outcome: "completed" | "failed" | "expired" | "refunded" | "pending"; changed: boolean }> {
   const mapped = mapMoyasarInvoiceStatus(invoiceStatus);
   if (!mapped) return { outcome: "pending", changed: false };
   if (mapped === "completed") {
     if (kind === "subscription") {
-      const { activated } = await applyConfirmedSubscriptionPayment(paymentId, details);
+      const { activated } = await applyConfirmedSubscriptionPayment(paymentId, details, allowAutoRenewEnroll);
       return { outcome: "completed", changed: activated };
     }
     const { credited } = await applyConfirmedCampaignPayment(paymentId, details);
@@ -388,7 +521,7 @@ export async function applyVerifiedGatewayOutcome(
  * silently.
  */
 export async function reconcileStalePendingPayments(staleAfterMs = 24 * 60 * 60 * 1000) {
-  const { fetchMoyasarInvoice, fetchMoyasarPayment, summarizeMoyasarInvoice, summarizeMoyasarPayment } = await import("./moyasar");
+  const { fetchMoyasarInvoice, fetchMoyasarPayment, summarizeMoyasarInvoice } = await import("./moyasar");
   const cutoff = new Date(Date.now() - staleAfterMs).toISOString();
   let reconciled = 0;
   let expired = 0;
@@ -557,6 +690,246 @@ export async function sendTrialEndingReminders(baseUrl: string) {
   return { sent };
 }
 
+const renewalReminderStages: Array<{ id: string; withinDays: number }> = [
+  { id: "3d", withinDays: 3 },
+  { id: "1d", withinDays: 1 }
+];
+
+/**
+ * Nudges paying (status "نشط") accounts toward renewing before renewalAt
+ * lapses. There is no auto-charge today - renewal is the owner returning to
+ * /billing themselves - so this is the only warning a paying customer gets
+ * before going overdue, mirroring sendTrialEndingReminders' stage/dedup
+ * pattern but for the paid-subscription case (pre-launch audit finding).
+ */
+export async function sendSubscriptionRenewalReminders(baseUrl: string) {
+  const { sendSubscriptionRenewalEmail } = await import("./email");
+  const { getTenantBranding } = await import("./tenant-branding");
+  // Auto-renew subscriptions get charged automatically instead (see
+  // attemptAutoRenewals) - a "please renew manually" nudge would be
+  // confusing noise for them.
+  const activeSubscriptions = await prisma.subscription.findMany({ where: { status: "نشط", cancelledAt: "", autoRenewEnabled: 0 } });
+  const now = Date.now();
+  let sent = 0;
+
+  for (const subscription of activeSubscriptions) {
+    const renewalTime = new Date(subscription.renewalAt).getTime();
+    const msLeft = renewalTime - now;
+    if (!Number.isFinite(msLeft) || msLeft <= 0) continue;
+    const daysLeft = msLeft / 86_400_000;
+    const stage = renewalReminderStages.find((candidate) => daysLeft <= candidate.withinDays);
+    if (!stage) continue;
+
+    const marker = `[renewal-reminder-${stage.id}:${subscription.tenantId}]`;
+    const alreadySent = await prisma.adminLog.findFirst({ where: { message: { contains: marker } } });
+    if (alreadySent) continue;
+
+    const owner = await prisma.userAccount.findFirst({
+      where: { tenantId: subscription.tenantId, role: "مالك الحساب" },
+      orderBy: { createdAt: "asc" }
+    });
+
+    let delivered = false;
+    if (owner?.email) {
+      const branding = await getTenantBranding(subscription.tenantId);
+      delivered = await sendSubscriptionRenewalEmail({
+        to: owner.email,
+        name: subscription.ownerName || owner.name,
+        daysLeft: Math.max(1, Math.round(daysLeft)),
+        renewalDate: isoDate(new Date(renewalTime)),
+        billingUrl: `${baseUrl}/billing`,
+        branding: { name: branding.name, color: branding.color }
+      });
+    }
+
+    await logAdminAction(
+      subscription.tenantId,
+      subscription.companyName,
+      `${marker} ${delivered ? "تم إرسال" : "تعذر إرسال"} تذكير بتجديد الاشتراك (${Math.max(1, Math.round(daysLeft))} يوم متبقٍ) ${owner?.email ? `إلى ${owner.email}` : "- لا يوجد بريد مالك حساب"}`
+    );
+    if (delivered) sent += 1;
+  }
+
+  return { sent };
+}
+
+/** Consecutive failures before auto-renew disables itself and stops retrying a dead card. */
+const AUTO_RENEW_MAX_FAILURES = 3;
+
+/**
+ * Charges every due, opted-in subscription's saved card - the only place
+ * that actually happens automatically (everything else in this app is the
+ * owner manually returning to /billing). Runs off the same cron as the
+ * reminder emails. Each attempt stages a real SubscriptionPayment row
+ * first so it shows up in the normal payment history/invoices exactly like
+ * a self-serve checkout would, and reuses applyConfirmedSubscriptionPayment
+ * for activation so the two paths can never drift apart.
+ */
+export async function attemptAutoRenewals(baseUrl: string) {
+  // Emergency kill switch (AUTO_RENEW_DISABLED=1) - chargeSavedCard already
+  // refuses individually, but skip the whole due-subscriptions scan and
+  // pending-payment-row churn entirely while it's set.
+  if (!isAutoRenewEnabled()) return { charged: 0, failed: 0 };
+  const { sendSubscriptionRenewalFailedEmail } = await import("./email");
+  const { getTenantBranding } = await import("./tenant-branding");
+  const now = new Date();
+  const dueSubscriptions = await prisma.subscription.findMany({
+    where: {
+      status: "نشط",
+      cancelledAt: "",
+      autoRenewEnabled: 1,
+      savedCardToken: { not: "" },
+      renewalAt: { lte: now.toISOString() },
+      autoRenewFailCount: { lt: AUTO_RENEW_MAX_FAILURES }
+    },
+    // Capped like every other query in this cron route - an unbounded scan
+    // making one real external Moyasar call per row would let a growing
+    // auto-renew base starve the rest of the cron's unrelated work inside
+    // its fixed time budget. Any subscription left over is still "due" and
+    // gets picked up on the next run.
+    take: 50
+  });
+
+  let charged = 0;
+  let failed = 0;
+
+  for (const subscription of dueSubscriptions) {
+    const plan = await prisma.plan.findFirst({ where: { name: subscription.plan, active: 1 } });
+    if (!plan) {
+      // A deactivated/renamed plan must fail loudly like any other charge
+      // failure, not vanish silently - otherwise the subscription gets
+      // neither an auto-charge nor a manual-renewal reminder (which
+      // sendSubscriptionRenewalReminders skips for autoRenewEnabled
+      // subscriptions) ever again.
+      const failCount = subscription.autoRenewFailCount + 1;
+      const disableAutoRenew = failCount >= AUTO_RENEW_MAX_FAILURES;
+      await prisma.subscription.update({
+        where: { tenantId: subscription.tenantId },
+        data: {
+          autoRenewFailCount: failCount,
+          ...(disableAutoRenew ? { autoRenewEnabled: 0, savedCardToken: "", savedCardLast4: "", savedCardBrand: "" } : {})
+        }
+      });
+      failed += 1;
+      await logAdminAction(
+        subscription.tenantId,
+        subscription.companyName,
+        `[auto-renew] فشل التجديد التلقائي (محاولة ${failCount}/${AUTO_RENEW_MAX_FAILURES})${disableAutoRenew ? " - تم إيقاف التجديد التلقائي" : ""}: الباقة "${subscription.plan}" غير متاحة حاليًا.`,
+        "خطأ"
+      );
+      continue;
+    }
+
+    // Deterministic id, not randomUUID(): two overlapping cron runs (a
+    // slow-response retry, an overlapping manual trigger) racing on the
+    // same due subscription both try to create this exact row. The
+    // database's own primary-key uniqueness makes the second create throw
+    // (caught below), so only one of them ever reaches chargeSavedCard -
+    // the actual guard against double-charging the saved card.
+    const paymentId = `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}`;
+    const billingCycle: BillingCycle = isBillingCycle(subscription.billingCycle) ? subscription.billingCycle : "شهري";
+    const renewAmount = billingCycle === "سنوي" ? computeYearlyPrice(plan.monthlyPrice) : plan.monthlyPrice;
+    const amountHalalas = renewAmount * 100;
+    try {
+      await prisma.subscriptionPayment.create({
+        data: {
+          id: paymentId,
+          tenantId: subscription.tenantId,
+          amount: renewAmount,
+          amountHalalas,
+          status: PAYMENT_STATUS.pending,
+          createdAt: now.toISOString(),
+          planName: plan.name,
+          planEmployeeLimit: plan.employeeLimit,
+          planMessageQuota: plan.messageQuota,
+          listPrice: renewAmount,
+          billingCycle,
+          gateway: PAYMENT_GATEWAY.moyasar,
+          gatewayStatus: "initiated",
+          initiatedBy: "system"
+        }
+      });
+    } catch (error) {
+      if ((error as { code?: string })?.code === "P2002") continue; // already claimed by a concurrent run
+      throw error;
+    }
+
+    const metadata = buildPaymentMetadata({
+      kind: "subscription",
+      tenantId: subscription.tenantId,
+      paymentId,
+      initiatedBy: "system",
+      companyName: subscription.companyName,
+      planName: plan.name,
+      gateway: PAYMENT_GATEWAY.moyasar
+    });
+    const charge = await chargeSavedCard({
+      token: decryptSecret(subscription.savedCardToken),
+      amountHalalas,
+      description: paymentDescription("subscription", { companyName: subscription.companyName, planName: plan.name }),
+      metadata
+    });
+
+    const owner = await prisma.userAccount.findFirst({
+      where: { tenantId: subscription.tenantId, role: "مالك الحساب" },
+      orderBy: { createdAt: "asc" }
+    });
+
+    if (charge.ok && charge.payment.status === "paid") {
+      const details = summarizeMoyasarPayment(charge.payment);
+      await prisma.subscriptionPayment.update({ where: { id: paymentId }, data: { moyasarId: charge.payment.id } });
+      // true: this subscription was only selected by the dueSubscriptions
+      // query above because autoRenewEnabled=1 and savedCardToken is already
+      // set - consent already happened at enrollment, this just re-affirms
+      // it (and resets autoRenewFailCount) on a successful charge.
+      const { activated } = await applyConfirmedSubscriptionPayment(paymentId, details, true);
+      if (activated) {
+        charged += 1;
+        await logAdminAction(
+          subscription.tenantId,
+          subscription.companyName,
+          `[auto-renew] تم تجديد الاشتراك تلقائيًا (${billingCycle}) بقيمة ${renewAmount} ر.س عبر البطاقة المحفوظة (••••${subscription.savedCardLast4}).`
+        );
+      }
+      continue;
+    }
+
+    // Declined, expired card, or the account doesn't actually support
+    // token charges - either way, never retry silently forever.
+    await markPaymentOutcome("subscription", paymentId, "failed", { gateway: PAYMENT_GATEWAY.moyasar, failureReason: charge.ok ? charge.payment.message || "" : charge.error });
+    const failCount = subscription.autoRenewFailCount + 1;
+    const disableAutoRenew = failCount >= AUTO_RENEW_MAX_FAILURES;
+    await prisma.subscription.update({
+      where: { tenantId: subscription.tenantId },
+      data: {
+        autoRenewFailCount: failCount,
+        ...(disableAutoRenew ? { autoRenewEnabled: 0, savedCardToken: "", savedCardLast4: "", savedCardBrand: "" } : {})
+      }
+    });
+    failed += 1;
+
+    if (owner?.email) {
+      const branding = await getTenantBranding(subscription.tenantId);
+      await sendSubscriptionRenewalFailedEmail({
+        to: owner.email,
+        name: subscription.ownerName || owner.name,
+        disabled: disableAutoRenew,
+        billingUrl: `${baseUrl}/billing`,
+        branding: { name: branding.name, color: branding.color }
+      }).catch((error) => console.error("Auto-renew failure email failed", error));
+    }
+
+    await logAdminAction(
+      subscription.tenantId,
+      subscription.companyName,
+      `[auto-renew] فشل التجديد التلقائي (محاولة ${failCount}/${AUTO_RENEW_MAX_FAILURES})${disableAutoRenew ? " - تم إيقاف التجديد التلقائي" : ""}: ${charge.ok ? charge.payment.message || "مرفوضة" : charge.error}`,
+      "خطأ"
+    );
+  }
+
+  return { charged, failed };
+}
+
 type CreateTenantInput = {
   companyName: string;
   ownerName: string;
@@ -570,6 +943,44 @@ type CreateTenantInput = {
 };
 
 /**
+ * Resends a fresh 3-day activation link for a tenant whose owner account was
+ * never activated (the original link expired, or the first email never
+ * arrived) - reuses the SAME tenant/employee/subscription rows from the
+ * original signup instead of creating a duplicate. Mirrors what "forgot
+ * password" already does for this exact case (see
+ * app/api/auth/forgot-password/route.ts) so an abandoned first attempt at
+ * this email is never a permanent dead end.
+ */
+async function resendActivationForUnactivatedAccount(account: { email: string; name: string; tenantId: string }) {
+  const activationToken = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(activationToken).digest("hex");
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString();
+
+  await prisma.$transaction([
+    prisma.employeeInvite.deleteMany({ where: { email: account.email } }),
+    prisma.employeeInvite.create({
+      data: {
+        id: `invite-${randomUUID()}`,
+        email: account.email,
+        tokenHash,
+        expiresAt,
+        purpose: "employee_activation",
+        createdAt: new Date().toISOString()
+      }
+    })
+  ]);
+
+  const origin = process.env.NODE_ENV === "production"
+    ? "https://linklysa.io"
+    : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const activationUrl = `${origin.replace(/\/$/, "")}/activate?token=${activationToken}`;
+  const inviteDelivery = await sendActivationEmail({ to: account.email, name: account.name, activationUrl });
+
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId: account.tenantId } });
+  return { subscription, inviteDelivery, created: false };
+}
+
+/**
  * Real onboarding: creates an actual tenant, a real login account (via the
  * same activation-link flow used for inviting employees), and a
  * subscription record. This is the thing the old admin panel never did -
@@ -581,7 +992,10 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
   if (!isValidEmail(email)) throw new Error("صيغة البريد الإلكتروني غير صحيحة");
 
   const existingAccount = await prisma.userAccount.findUnique({ where: { email } });
-  if (existingAccount) throw new Error("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة");
+  if (existingAccount) {
+    if (existingAccount.passwordHash) throw new Error("هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر على المنصة");
+    return resendActivationForUnactivatedAccount(existingAccount);
+  }
 
   const tenantId = `tenant-${randomUUID()}`;
   const employeeId = `emp-${randomUUID()}`;
@@ -668,7 +1082,7 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
   const inviteDelivery = await sendActivationEmail({ to: email, name: input.ownerName, activationUrl });
 
   const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
-  return { subscription, inviteDelivery };
+  return { subscription, inviteDelivery, created: true };
 }
 
 type UpdateSubscriptionInput = {

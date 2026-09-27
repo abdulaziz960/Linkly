@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { createOAuthState } from "../../../../lib/oauth-state";
+import { isChannelAllowedForTenant } from "../../../../lib/plan-channel-access";
+import { upgradeNeededMessage } from "../../../../lib/channel-catalog";
 
 // WhatsApp Embedded Signup runs entirely through the Facebook JS SDK's
 // FB.login() popup and never navigates the browser through
@@ -16,6 +18,9 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
   if (!(await userHasViewPermission(user, "settings"))) {
     return NextResponse.json({ ok: false, error: "لا تملك صلاحية الوصول لإعدادات القنوات" }, { status: 403 });
+  }
+  if (!(await isChannelAllowedForTenant(user.tenantId, "whatsapp"))) {
+    return NextResponse.json({ ok: false, error: upgradeNeededMessage("whatsapp") }, { status: 403 });
   }
 
   const oauthState = createOAuthState("meta", { channel: "whatsapp" });

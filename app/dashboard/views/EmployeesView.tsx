@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import type { Conversation, Employee } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
+import { sanitizeCsvCell } from "../../../lib/csv-export";
 
 type EmployeeFormState = {
   id?: string;
@@ -287,7 +288,7 @@ export default function EmployeesView({
           </a>
         ) : null}
         <div className="panel-body table-wrap">
-          <table>
+          <table className="mobile-card-table">
             <thead>
               <tr>
                 <th>{t("الموظف", "Employee")}</th>
@@ -303,12 +304,12 @@ export default function EmployeesView({
                 const rating = employeeOverallRating(employee, conversations);
                 return (
                 <tr key={employee.id}>
-                  <td>
+                  <td data-label={t("الموظف", "Employee")}>
                     <b>{employee.name}</b>
                     <span className="table-subtitle">{employee.email}</span>
                   </td>
-                  <td>{employeeRoleLabel(employee.role, t)}</td>
-                  <td>
+                  <td data-label={t("الدور", "Role")}>{employeeRoleLabel(employee.role, t)}</td>
+                  <td data-label={t("الحالة", "Status")}>
                     {employee.disabled ? (
                       <span className="state danger">{t("معطّل", "Disabled")}</span>
                     ) : employee.pendingActivation ? (
@@ -322,9 +323,9 @@ export default function EmployeesView({
                       <span className={employee.status === "متصل" ? "state online" : employee.status === "مشغول" ? "state busy" : "state offline"}>{employeeStatusLabel(employee.status, t)}</span>
                     )}
                   </td>
-                  <td><span className="permissions-cell" title={employee.permissions}>{employee.permissions}</span></td>
-                  <td>{rating ? <span className="employee-rating">⭐ {rating.average} <small>({rating.count})</small></span> : <span className="table-subtitle">{t("غير متاح", "N/A")}</span>}</td>
-                  <td className="row-actions">
+                  <td data-label={t("الصلاحيات", "Permissions")}><span className="permissions-cell" title={employee.permissions}>{employee.permissions}</span></td>
+                  <td data-label={t("التقييم", "Rating")}>{rating ? <span className="employee-rating">⭐ {rating.average} <small>({rating.count})</small></span> : <span className="table-subtitle">{t("غير متاح", "N/A")}</span>}</td>
+                  <td data-label={t("إجراء", "Action")} className="row-actions">
                     <button className="btn soft" type="button" onClick={() => openEditForm(employee)}>{t("تعديل", "Edit")}</button>
                     {employee.role !== "مالك الحساب" ? (
                       <button
@@ -432,7 +433,7 @@ export default function EmployeesView({
 
 function downloadCsv(fileName: string, header: Array<string | number>, rows: Array<Array<string | number>>) {
   const csv = [header, ...rows]
-    .map((row) => row.map(escapeCsvCell).join(","))
+    .map((row) => row.map(sanitizeCsvCell).join(","))
     .join("\n");
   const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -441,9 +442,4 @@ function downloadCsv(fileName: string, header: Array<string | number>, rows: Arr
   link.download = fileName;
   link.click();
   URL.revokeObjectURL(url);
-}
-
-function escapeCsvCell(value: string | number) {
-  const text = String(value).replaceAll('"', '""');
-  return `"${text}"`;
 }

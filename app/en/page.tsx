@@ -7,7 +7,10 @@ import ScrollReveal from "../ScrollReveal";
 import MobileCtaVisibility from "../MobileCtaVisibility";
 import HtmlLangSync from "../HtmlLangSync";
 import WhatsAppCta from "../WhatsAppCta";
+import PricingPlanGrid from "../PricingPlanGrid";
 import s from "../page.module.css";
+import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
+import { getActivePlans } from "../../lib/plans";
 
 export const metadata: Metadata = {
   title: { absolute: "Linkly | One inbox for WhatsApp, Instagram and every channel — Saudi customer service platform" },
@@ -15,6 +18,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/en", languages: { "ar-SA": "/", en: "/en", "x-default": "/" } },
   openGraph: { title: "Linkly | Every customer conversation in one place", description: "A shared inbox, conversation routing, automation and reports for your team.", locale: "en_US", alternateLocale: "ar_SA", url: "/en", type: "website" }
 };
+
+// See app/page.tsx - same live-database pricing section; must be
+// force-dynamic, not ISR, or the build-time prerender attempt fails against
+// the Docker build's placeholder DATABASE_URL.
+export const dynamic = "force-dynamic";
 
 const features = [
   ["Shared inbox", "Save time instead of switching apps; every message and customer history lives in one place."],
@@ -29,23 +37,21 @@ const faqs = [
   ["Can I connect my existing WhatsApp number?", "It depends on the number's status and Meta's WhatsApp Cloud API requirements — we help you review the connection path."],
   ["Do I need a new WhatsApp number?", "Not always. We review your current number's status first, then decide the best path."],
   ["Do you support the WhatsApp Business API?", "Yes, the operational connection is built on Meta's official WhatsApp Cloud API."],
-  ["Is there an API?", "Webhooks and integration interfaces are available on the Business plan, depending on the integration scope needed."],
+  ["Is there an API?", "A developer API and webhooks are available from the Large Enterprises plan and up."],
   ["Can I cancel my subscription?", "Cancellation can be scheduled for the end of the current period from the billing screen."],
   ["Is there a setup fee?", "Setting up Meta accounts and the full connection is optional and costs SAR 500 one time."],
   ["How are WhatsApp fees calculated?", "Official WhatsApp message fees from Meta, if any, are separate from the Linkly subscription."],
   ["Is customer data safe?", "The platform uses user permissions, encryption for integration secrets, time-limited sessions, and activity logs to help track activity."]
 ] as const;
-const plans = [
-  { name: "Starter", price: "249", audience: "Best for a solo business owner who needs their messages organized.", cta: "Start the trial", items: ["1 user", "One inbox for all your messages", "Quick replies and tags", "Basic reports"] },
-  { name: "Growth", price: "499", audience: "Best for a small team that needs conversation routing and auto replies.", cta: "Try the Growth plan", featured: true, items: ["Up to 3 users", "Conversation routing", "Auto reply and routing rules", "Performance and SLA reports"] },
-  { name: "Business", price: "999", audience: "Best for multiple teams that need API integration and advanced reports.", cta: "Try the Business plan", items: ["Up to 10 users", "Multiple teams", "Webhooks and API", "Priority support"] }
-] as const;
-const jsonLd = { "@context": "https://schema.org", "@graph": [
-  { "@type": "Organization", name: "Linkly", alternateName: ["Linkly Saudi", "Linkly السعودية", "لنكلي"], url: "https://linklysa.io", logo: "https://linklysa.io/assets/linkly-logo.png", description: "Linkly is a Saudi customer communication and customer support platform that helps businesses manage WhatsApp conversations, shared team inboxes, customer support, tickets, live chat, automation, and digital customer communication from one centralized platform.", areaServed: "SA" },
-  { "@type": "WebSite", name: "Linkly", url: "https://linklysa.io", inLanguage: ["ar-SA", "en"] },
-  { "@type": "SoftwareApplication", name: "Linkly", applicationCategory: "BusinessApplication", operatingSystem: "Web", offers: { "@type": "AggregateOffer", lowPrice: "249", highPrice: "999", priceCurrency: "SAR" } },
-  { "@type": "FAQPage", mainEntity: faqs.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }
-] };
+// CTA text stays page-local; name/audience/items/featured come from
+// lib/plan-features.ts, the same source app/billing/BillingClient.tsx reads.
+const planCta: Record<string, string> = {
+  "باقة الأفراد": "Start the trial",
+  "الباقة العادية": "Try the Regular plan",
+  "باقة المؤسسات الصغيرة": "Try the Small Enterprises plan",
+  "باقة المؤسسات الكبيرة": "Try the Large Enterprises plan",
+  "باقة الشركات": "Contact us"
+};
 
 function Check() { return <span className={s.check} aria-hidden="true">✓</span>; }
 type Platform = "whatsapp" | "instagram" | "email" | "telegram" | "tiktok";
@@ -65,23 +71,46 @@ function Preview() {
   </div>;
 }
 
-export default function EnglishHomePage() { return <div className={s.page} dir="ltr" lang="en">
+export default async function EnglishHomePage() {
+  const dbPlans = await getActivePlans();
+  const plans = dbPlans.map((plan) => {
+    const features = planFeatures[plan.name];
+    return {
+      id: plan.id,
+      name: features?.shortName.en ?? plan.name,
+      price: String(plan.monthlyPrice),
+      audience: features?.audience.en ?? "A flexible plan that fits your team's needs.",
+      cta: planCta[plan.name] ?? "Start the trial",
+      featured: features?.featured,
+      items: getPlanDisplayItems(plan, "en")
+    };
+  });
+  const prices = dbPlans.map((plan) => plan.monthlyPrice).filter((price) => price > 0);
+  const lowPrice = prices.length ? String(Math.min(...prices)) : "199";
+  const highPrice = prices.length ? String(Math.max(...prices)) : "1499";
+  const jsonLd = { "@context": "https://schema.org", "@graph": [
+    { "@type": "Organization", name: "Linkly", alternateName: ["Linkly Saudi", "Linkly السعودية", "لنكلي"], url: "https://linklysa.io", logo: "https://linklysa.io/assets/linkly-logo.png", description: "Linkly is a Saudi customer communication and customer support platform that helps businesses manage WhatsApp conversations, shared team inboxes, customer support, tickets, live chat, automation, and digital customer communication from one centralized platform.", areaServed: "SA" },
+    { "@type": "WebSite", name: "Linkly", url: "https://linklysa.io", inLanguage: ["ar-SA", "en"] },
+    { "@type": "SoftwareApplication", name: "Linkly", applicationCategory: "BusinessApplication", operatingSystem: "Web", offers: { "@type": "AggregateOffer", lowPrice, highPrice, priceCurrency: "SAR" } },
+    { "@type": "FAQPage", mainEntity: faqs.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }
+  ] };
+  return <div className={s.page} dir="ltr" lang="en">
   <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
   <HtmlLangSync lang="en" dir="ltr" />
   <ScrollReveal />
   <MobileCtaVisibility />
   <LandingNav lang="en" />
   <main>
-    <section className={s.hero}><span className={s.heroAurora} aria-hidden="true"/><div><span className={s.eyebrow}>One workspace for your whole team</span><h1>Reply faster to customers <strong>and never lose a conversation</strong></h1><p>WhatsApp, Instagram, email and Telegram — your team replies, routes and follows up from one inbox, with TikTok readiness once messaging access is approved.</p><div className={s.actions}><Link className={s.primaryLarge} href="/signup" data-primary-cta="true">Start your free trial</Link><WhatsAppCta pageId="home-en" linkId="hero-whatsapp" message="Hi, I'd like to learn more about Linkly" className={s.whatsappCta}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.69.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35Zm-5.42 7.4h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26C2.16 6.44 6.6 2 12.05 2c2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.89-9.88 9.89ZM20.46 3.49A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89a11.82 11.82 0 0 0-3.48-8.42Z"/></svg>Chat on WhatsApp</WhatsAppCta></div><a className={s.secondary} href="#product">See how it works ←</a><small className={s.micro}><Check /> 3 days free <Check /> No card required <Check /> We set up your channels for you</small><div className={s.heroMetrics}><div><b>4</b><span>Channels available, TikTok coming soon</span></div><div><b>1</b><span>Inbox for the whole team</span></div><div><b>∞</b><span>Clear context for every conversation</span></div></div></div><Preview /></section>
+    <section className={s.hero}><span className={s.heroAurora} aria-hidden="true"/><div><span className={s.eyebrow}>One workspace for your whole team</span><h1>Reply faster to customers <strong>and never lose a conversation</strong></h1><p>WhatsApp, Instagram, email and Telegram — your team replies, routes and follows up from one inbox, and you can connect your TikTok account now.</p><div className={s.actions}><Link className={s.primaryLarge} href="/signup" data-primary-cta="true">Start your free trial</Link><WhatsAppCta pageId="home-en" linkId="hero-whatsapp" message="Hi, I'd like to learn more about Linkly" className={s.whatsappCta}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.69.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35Zm-5.42 7.4h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26C2.16 6.44 6.6 2 12.05 2c2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.89-9.88 9.89ZM20.46 3.49A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89a11.82 11.82 0 0 0-3.48-8.42Z"/></svg>Chat on WhatsApp</WhatsAppCta></div><a className={s.secondary} href="#product">See how it works ←</a><small className={s.micro}><Check /> 3 days free <Check /> No card required <Check /> We set up your channels for you</small><div className={s.heroMetrics}><div><b>4</b><span>Conversation channels, plus TikTok account linking</span></div><div><b>1</b><span>Inbox for the whole team</span></div><div><b>∞</b><span>Clear context for every conversation</span></div></div></div><Preview /></section>
     <section className={s.trust}><b>Built for support and sales teams</b><span><Check /> Faster replies</span><span><Check /> A clear owner</span><span><Check /> Follow-up that doesn't slip</span><span><Check /> Team permissions</span></section>
     <section className={`${s.section} ${s.problem}`}><Intro kicker="THE PROBLEM" title="Multiple channels. Dozens of conversations. One team trying to keep up." copy="Switching between apps and phones slows down replies, hides who owns what, and makes follow-up depend on memory."/><div className={`${s.problemVisual} ${s.revealFade}`}><div className={s.channelMarks}><i className={s.floatIcon} title="WhatsApp"><PlatformLogo platform="whatsapp" /></i><i className={s.floatIcon} title="Instagram"><PlatformLogo platform="instagram" /></i><i className={s.floatIcon} title="Email"><PlatformLogo platform="email" /></i><i className={s.floatIcon} title="Telegram"><PlatformLogo platform="telegram" /></i><i className={s.floatIcon} title="TikTok"><PlatformLogo platform="tiktok" /></i></div><span>←</span><article><Image src={logo} alt="" width={64} height={35} /><div><b>One inbox</b><p>Full context, clear routing, and follow-up from one place.</p></div></article></div></section>
     <section className={`${s.section} ${s.product}`} id="product"><Intro kicker="THE PRODUCT" title="One interface showing exactly what your team needs right now" copy="From the first message to close, the conversation, customer, owner and next step all stay in the same context."/><div className={s.productGrid}><div className={s.numberList}>{[["01", "The full conversation is right there", "Messages, channel, tags and status without switching screens."], ["02", "The owner is always known", "Assign the conversation to an employee or team and track the work."], ["03", "The next step is clear", "Move it into sales follow-up, support, or escalation."]].map((x, i) => <article key={x[0]} className={s.reveal} style={{ transitionDelay: `${i * 80}ms` }}><span>{x[0]}</span><div><h3>{x[1]}</h3><p>{x[2]}</p></div></article>)}</div><Preview /></div></section>
-    <section className={`${s.section} ${s.channels}`}><Intro kicker="CHANNELS" title="Every channel on its own terms. One place to manage them." copy="Turn on the channels your business needs, and let the team work from a single inbox."/><div className={s.channelsGrid}>{[["whatsapp", "WhatsApp", "Customer conversations, templates and attachments via the Cloud API."], ["instagram", "Instagram", "Receive messages, keep customer context, and reply from the same space."], ["email", "Email", "Connect Gmail to send and receive."], ["telegram", "Telegram", "Connect the bot, receive messages, and route them securely."], ["tiktok", "TikTok", "Ready to set up once your business gets TikTok Business Messaging approval."]].map((x, i) => <article key={x[1]} className={s.reveal} style={{ transitionDelay: `${i * 70}ms` }}>{x[0] === "tiktok" ? <span className={s.channelsGridBadge}>Coming soon</span> : null}<i><PlatformLogo platform={x[0] as Platform} /></i><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div></section>
+    <section className={`${s.section} ${s.channels}`}><Intro kicker="CHANNELS" title="Every channel on its own terms. One place to manage them." copy="Turn on the channels your business needs, and let the team work from a single inbox."/><div className={s.channelsGrid}>{[["whatsapp", "WhatsApp", "Customer conversations, templates and attachments via the Cloud API."], ["instagram", "Instagram", "Receive messages, keep customer context, and reply from the same space."], ["email", "Email", "Connect Gmail to send and receive."], ["telegram", "Telegram", "Connect the bot, receive messages, and route them securely."], ["tiktok", "TikTok", "Connect your TikTok account now. Business messaging requires separate TikTok access."]].map((x, i) => <article key={x[1]} className={s.reveal} style={{ transitionDelay: `${i * 70}ms` }}>{x[0] === "tiktok" ? <span className={s.channelsGridBadge}>Linking available</span> : null}<i><PlatformLogo platform={x[0] as Platform} /></i><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div></section>
     <section className={`${s.section} ${s.features}`} id="features"><Intro kicker="FEATURES" title="Everything your team needs to manage conversations clearly" copy="Practical tools built around the daily workflow, not a long list of theoretical features."/><div className={s.featureGrid}>{features.map(([title, copy], i) => <article key={title} className={s.reveal} style={{ transitionDelay: `${i * 60}ms` }}><span>0{i + 1}</span><h3>{title}</h3><p>{copy}</p></article>)}</div><div className={s.inlineCta}><p><b>Ready to bring your team's conversations together?</b><span>Start with a free account, then set up your channels step by step.</span></p><Link className={s.primary} href="/signup" data-primary-cta="true">Start your free trial</Link></div></section>
     <section className={`${s.section} ${s.how}`} id="how"><Intro kicker="HOW IT WORKS" title="Get started in four steps" copy="A clear path from creating your account to your team's first managed conversation."/><ol>{[["1", "Create your account", "Start the trial and complete your business details."], ["2", "Connect your channels", "Set up the channels available for your business."], ["3", "Add your team", "Define employees, teams and permissions."], ["4", "Start replying", "Route conversations and track performance."]].map((x, i) => <li key={x[0]} className={s.reveal} style={{ transitionDelay: `${i * 80}ms` }}><span>{x[0]}</span><div><h3>{x[1]}</h3><p>{x[2]}</p></div></li>)}</ol></section>
     <section className={`${s.section} ${s.useCases}`}><Intro kicker="USE CASES" title="From the first inquiry to a served customer" /><div>{[["↗", "Sales", "A customer comes in from WhatsApp or Instagram, gets assigned to a sales rep, and their next step is saved.", "Lead ← Assign ← Follow up"], ["◎", "Customer service", "An inquiry or complaint lands in the inbox and moves to the right team with full context.", "Message ← Team ← Resolve"], ["⌁", "Operations & follow-up", "Rules, quick replies and business hours cut delays and keep the experience consistent.", "Rule ← Action ← Measure"]].map((x, i) => <article key={x[1]} className={s.reveal} style={{ transitionDelay: `${i * 80}ms` }}><i>{x[0]}</i><h3>{x[1]}</h3><p>{x[2]}</p><small dir="ltr">{x[3]}</small></article>)}</div></section>
     <section className={`${s.section} ${s.security}`}><Intro kicker="SECURITY & TRUST" title="Your customers' data deserves business-grade protection" copy="Protection is a core part of the product, from signing in to connecting your channels."/><div>{[["01", "Encrypted secrets", "Your channel connection data is protected and encrypted, and never shown in full in the interface."], ["02", "Permissions and activity logs", "Every employee gets their own permissions, and you get a log of every important action on your account."], ["03", "Message source verification", "We confirm every message genuinely comes from the official channel before accepting it."], ["04", "Secure login sessions", "Time-limited sessions, and passwords are always stored with strong encryption."]].map((x, i) => <article key={x[0]} className={s.reveal} style={{ transitionDelay: `${i * 70}ms` }}><span>{x[0]}</span><div><h3>{x[1]}</h3><p>{x[2]}</p></div></article>)}</div></section>
-    <section className={`${s.section} ${s.pricing}`} id="pricing"><Intro kicker="PRICING" title="A clear plan for every stage of your team's growth" copy="Start with the free trial first, then choose the capacity and tools that fit how you work."/><div className={s.planGrid}>{plans.map((p, pi) => { const featured = "featured" in p && p.featured; return <article className={`${featured ? s.featured : ""} ${s.revealFade}`} key={p.name} style={{ transitionDelay: `${pi * 90}ms` }}>{featured ? <span className={s.popular}>Most popular</span> : null}<h3>{p.name}</h3><p className={s.planAudience}>{p.audience}</p><div className={s.price}><b>{p.price}</b><span>SAR<br />/ month</span></div><ul>{p.items.map(i => <li key={i}><Check />{i}</li>)}</ul><Link className={featured ? s.primaryLarge : s.planButton} href="/signup">{p.cta}</Link></article>; })}</div>
+    <section className={`${s.section} ${s.pricing}`} id="pricing"><Intro kicker="PRICING" title="A clear plan for every stage of your team's growth" copy="Start with the free trial first, then choose the capacity and tools that fit how you work."/><PricingPlanGrid plans={plans} lang="en"/>
       <div className={`${s.metaSetup} ${s.revealFade}`}><span className={s.metaSetupGlow} aria-hidden="true"/><div className={s.metaSetupBadge}><b>500</b><span>SAR<br/>one time</span></div><div className={s.metaSetupBody}><h2>Don't have a Facebook account or Meta Business Manager?</h2><p>We set up the account and connect WhatsApp Business for you, end to end — an optional add-on. <Link className={s.metaSetupLink} href="/en/contact">See details<span aria-hidden="true">←</span></Link></p><p className={s.metaSetupNote}>The service fee is paid once and doesn't include Meta fees or any third-party provider fees, if any.</p></div></div>
       <p className={s.whatsappNote}><b>WhatsApp fees:</b> Official message fees from Meta, if any, are separate from the Linkly subscription.</p>
     </section>

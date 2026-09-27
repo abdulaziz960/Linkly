@@ -59,6 +59,12 @@ export type GatewayPaymentDetails = {
   gatewayPaymentId?: string;
   paymentMethod?: string;
   failureReason?: string;
+  // Only present when the payer opted in to "save my card" and Moyasar's
+  // account actually supports tokenization - see chargeSavedCard below.
+  // Never store anything else about the card (full number, CVC, etc.).
+  cardToken?: string;
+  cardLast4?: string;
+  cardBrand?: string;
 };
 
 function moyasarSecretKey() {
@@ -79,6 +85,19 @@ export function isMoyasarConfigured() {
 // but still simulates every payment against Moyasar's sandbox.
 export function isMoyasarLiveMode() {
   return moyasarSecretKey().startsWith("sk_live_");
+}
+
+// Emergency kill switch: chargeSavedCard's merchant-initiated-transaction
+// path is unverified against a live Moyasar account (see its docstring) -
+// this lets it be turned off instantly via an env var, without a deploy, if
+// this merchant account's actual tokenization/MIT behavior turns out to
+// differ from what was assumed. Defaults to enabled (no behavior change)
+// since the feature is already live; set AUTO_RENEW_DISABLED=1 to kill it.
+// Checked server-side in chargeSavedCard and attemptAutoRenewals - the
+// "save my card" checkbox itself stays visible either way, but silently
+// stops enrolling anyone while this is set.
+export function isAutoRenewEnabled() {
+  return process.env.AUTO_RENEW_DISABLED?.trim() !== "1";
 }
 
 type PaymentMetadataInput = {
@@ -274,7 +293,52 @@ export type MoyasarPaymentDetails = {
   sourceType: string;
   sourceCompany: string;
   message: string;
+  /** Present only when save_card was requested and the account supports it. */
+  cardToken?: string;
+  cardLast4?: string;
 };
+
+/** Raw shape shared by every Moyasar Payment API response (fetch or charge). */
+type RawMoyasarPaymentPayload = {
+  id?: string;
+  status?: string;
+  amount?: number;
+  currency?: string;
+  metadata?: Record<string, unknown> | null;
+  source?: { type?: string; company?: string; message?: string | null; token?: string; number?: string };
+};
+
+/**
+ * Parses a raw Moyasar Payment API response into our own MoyasarPaymentDetails
+ * shape. Shared by fetchMoyasarPayment and chargeSavedCard so a future change
+ * to how a payment payload is read (a new card-brand field, a different
+ * source shape) only has to be made once.
+ */
+function parseMoyasarPaymentPayload(payload: RawMoyasarPaymentPayload | null): MoyasarPaymentDetails | null {
+  if (!payload?.id || !payload.status) return null;
+
+  const metadata: Record<string, string> = {};
+  for (const [key, value] of Object.entries(payload.metadata || {})) {
+    if (value !== null && value !== undefined) metadata[key] = String(value);
+  }
+
+  // A masked card number, e.g. "400000********0000" - last4 is whatever
+  // trailing digits survive the masking.
+  const cardLast4 = payload.source?.number?.match(/(\d{4})\D*$/)?.[1] || "";
+
+  return {
+    id: payload.id,
+    status: payload.status,
+    amount: Number(payload.amount) || 0,
+    currency: payload.currency || "SAR",
+    metadata,
+    sourceType: payload.source?.type || "",
+    sourceCompany: payload.source?.company || "",
+    message: payload.source?.message || "",
+    cardToken: payload.source?.token || "",
+    cardLast4
+  };
+}
 
 /**
  * Fetches a Payment object's current status directly from Moyasar. Used by
@@ -292,31 +356,8 @@ export async function fetchMoyasarPayment(id: string): Promise<MoyasarPaymentDet
   });
   if (!response.ok) return null;
 
-  const payload = await response.json().catch(() => null) as {
-    id?: string;
-    status?: string;
-    amount?: number;
-    currency?: string;
-    metadata?: Record<string, unknown> | null;
-    source?: { type?: string; company?: string; message?: string | null };
-  } | null;
-  if (!payload?.id || !payload.status) return null;
-
-  const metadata: Record<string, string> = {};
-  for (const [key, value] of Object.entries(payload.metadata || {})) {
-    if (value !== null && value !== undefined) metadata[key] = String(value);
-  }
-
-  return {
-    id: payload.id,
-    status: payload.status,
-    amount: Number(payload.amount) || 0,
-    currency: payload.currency || "SAR",
-    metadata,
-    sourceType: payload.source?.type || "",
-    sourceCompany: payload.source?.company || "",
-    message: payload.source?.message || ""
-  };
+  const payload = await response.json().catch(() => null) as RawMoyasarPaymentPayload | null;
+  return parseMoyasarPaymentPayload(payload);
 }
 
 /** Flattens a verified Payment object into the columns we store on our own payment row. */
@@ -326,7 +367,61 @@ export function summarizeMoyasarPayment(payment: MoyasarPaymentDetails): Gateway
     gatewayStatus: payment.status,
     gatewayPaymentId: payment.id,
     paymentMethod: [payment.sourceType, payment.sourceCompany].filter(Boolean).join("/"),
-    failureReason: payment.status === "paid" ? "" : (payment.message || "")
+    failureReason: payment.status === "paid" ? "" : (payment.message || ""),
+    cardToken: payment.cardToken || "",
+    cardLast4: payment.cardLast4 || "",
+    cardBrand: payment.sourceCompany || ""
+  };
+}
+
+/**
+ * Charges a previously-saved card token with no cardholder present
+ * (merchant-initiated transaction) - used only by the auto-renewal cron
+ * (lib/subscriptions.ts's attemptAutoRenewals). This is unverified against
+ * a live Moyasar account: if tokenization/MIT isn't actually enabled for
+ * this merchant, Moyasar will reject the request and this surfaces that
+ * error message directly (never silently pretend it worked) rather than
+ * guessing at a different API shape.
+ */
+export async function chargeSavedCard(input: { token: string; amountHalalas: number; description: string; metadata?: Record<string, string> }): Promise<{ ok: true; payment: MoyasarPaymentDetails } | { ok: false; error: string }> {
+  if (!isAutoRenewEnabled()) return { ok: false, error: "AUTO_RENEW_DISABLED" };
+  const secretKey = moyasarSecretKey();
+  if (!secretKey) return { ok: false, error: "MOYASAR_NOT_CONFIGURED" };
+
+  const response = await fetch("https://api.moyasar.com/v1/payments", {
+    method: "POST",
+    headers: {
+      Authorization: authorizationHeader(secretKey),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      amount: input.amountHalalas,
+      currency: "SAR",
+      description: input.description,
+      source: { type: "token", token: input.token, manual: false },
+      metadata: { platform: PAYMENT_PLATFORM_NAME, ...(input.metadata || {}) }
+    })
+  });
+
+  const payload = await response.json().catch(() => null) as (RawMoyasarPaymentPayload & {
+    message?: string;
+    errors?: Record<string, string[]>;
+  }) | null;
+
+  if (!response.ok || !payload?.id || !payload.status) {
+    const errorDetail = payload?.errors ? JSON.stringify(payload.errors) : "";
+    console.error("Moyasar saved-card charge failed", { status: response.status, payload });
+    return { ok: false, error: payload?.message || errorDetail || "MOYASAR_CHARGE_FAILED" };
+  }
+
+  const parsed = parseMoyasarPaymentPayload(payload);
+  if (!parsed) return { ok: false, error: "MOYASAR_CHARGE_FAILED" };
+
+  return {
+    ok: true,
+    // A token charge's response doesn't always echo the token back - fall
+    // back to the one we charged with, since we already know it's valid.
+    payment: { ...parsed, cardToken: parsed.cardToken || input.token }
   };
 }
 

@@ -11,6 +11,10 @@ test("WhatsApp CTA → signed inbound webhook → Inbox → AI draft → Pipelin
     await route.fulfill({ contentType: "text/html", body: "<p>WhatsApp test handoff</p>" });
   });
   await page.goto("/?utm_source=google&utm_medium=cpc&utm_campaign=browser-journey");
+  const cookieNotice = page.getByRole("dialog", { name: "إشعار الكوكيز" });
+  await expect(cookieNotice).toBeVisible();
+  await cookieNotice.getByRole("button", { name: "رفض", exact: true }).click();
+  await expect(cookieNotice).toBeHidden();
   const recorded = page.waitForResponse((response) => response.url().includes("/api/attribution/click") && response.request().method() === "POST");
   await page.getByRole("link", { name: "راسلنا واتساب" }).click();
   expect((await recorded).ok()).toBeTruthy();

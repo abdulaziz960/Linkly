@@ -21,7 +21,8 @@ const copy = {
     mismatch: "كلمتا السر غير متطابقتين",
     genericError: "تعذر تفعيل الحساب",
     submitting: "جاري التفعيل...",
-    submit: "تفعيل الحساب"
+    submit: "تفعيل الحساب",
+    requestNewLink: "اطلب رابطاً جديداً"
   },
   en: {
     newPassword: "New password",
@@ -30,7 +31,8 @@ const copy = {
     mismatch: "Passwords don't match",
     genericError: "Couldn't activate the account",
     submitting: "Activating...",
-    submit: "Activate account"
+    submit: "Activate account",
+    requestNewLink: "Request a new link"
   }
 } as const;
 
@@ -42,12 +44,14 @@ export default function ActivateForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setErrorCode("");
 
     if (password !== confirmPassword) {
       setError(text.mismatch);
@@ -60,13 +64,14 @@ export default function ActivateForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token, password })
     });
-    const payload = (await response.json().catch(() => ({}))) as { message?: string };
+    const payload = (await response.json().catch(() => ({}))) as { message?: string; code?: string };
     setLoading(false);
 
     if (!response.ok) {
       // The backend only returns Arabic error messages today, so an
       // English-language activation still shows an Arabic error string here.
       setError(payload.message || text.genericError);
+      setErrorCode(payload.code || "");
       return;
     }
 
@@ -115,7 +120,17 @@ export default function ActivateForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
         </div>
       </label>
 
-      {error ? <p className="login-error">{error}</p> : null}
+      {error ? (
+        <p className="login-error">
+          {error}
+          {errorCode === "expired" ? (
+            <>
+              {" "}
+              <a href="/forgot-password">{text.requestNewLink}</a>
+            </>
+          ) : null}
+        </p>
+      ) : null}
 
       <button className="login-submit" type="submit" disabled={loading || !token}>
         {loading ? text.submitting : text.submit}

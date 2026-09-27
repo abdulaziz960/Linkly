@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../lib/admin-auth";
 import { getPlans, createPlan } from "../../../../lib/plans";
+import { recordAdminAction } from "../../../../lib/admin-audit";
+import { sanitizeAllowedChannelsInput } from "../../../../lib/channel-catalog";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -22,6 +24,8 @@ export async function POST(request: NextRequest) {
     employeeLimit?: number;
     aiDailyLimit?: number;
     aiMonthlyLimit?: number;
+    allowedChannels?: unknown;
+    messageQuota?: number;
   };
 
   try {
@@ -30,8 +34,11 @@ export async function POST(request: NextRequest) {
       monthlyPrice: Number(body.monthlyPrice ?? 0),
       employeeLimit: Number(body.employeeLimit ?? 1),
       aiDailyLimit: Number(body.aiDailyLimit ?? 0),
-      aiMonthlyLimit: Number(body.aiMonthlyLimit ?? 0)
+      aiMonthlyLimit: Number(body.aiMonthlyLimit ?? 0),
+      allowedChannels: sanitizeAllowedChannelsInput(body.allowedChannels),
+      messageQuota: Number(body.messageQuota ?? 0)
     });
+    await recordAdminAction(admin, "create-plan", { type: "plan", id: plan.id }, JSON.stringify({ name: body.name, monthlyPrice: body.monthlyPrice }));
     return jsonOk(plan);
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر إنشاء الباقة", 400);

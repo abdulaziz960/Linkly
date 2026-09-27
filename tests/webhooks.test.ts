@@ -23,10 +23,12 @@ afterAll(async () => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("triggerWebhookEvent", () => {
   it("only calls webhooks subscribed to the fired event", async () => {
+    const testTenantId = `${tenantId}-subscriptions`;
     const { createWebhook, triggerWebhookEvent } = await import("../lib/webhooks");
     const { ensureSchema } = await import("../lib/database");
     await ensureSchema();
@@ -37,24 +39,25 @@ describe("triggerWebhookEvent", () => {
       return new Response("ok", { status: 200 });
     }));
 
-    await createWebhook(tenantId, { url: "https://example.com/message-hook", events: ["message.received"] });
-    await createWebhook(tenantId, { url: "https://example.com/close-hook", events: ["conversation.closed"] });
+    await createWebhook(testTenantId, { url: "https://example.com/message-hook", events: ["message.received"] });
+    await createWebhook(testTenantId, { url: "https://example.com/close-hook", events: ["conversation.closed"] });
 
-    await triggerWebhookEvent(tenantId, "message.received", { conversationId: "conv-1" });
+    await triggerWebhookEvent(testTenantId, "message.received", { conversationId: "conv-1" });
 
     expect(calls).toEqual(["https://example.com/message-hook"]);
   });
 
   it("writes a WebhookDelivery row per attempt, recording httpStatus and success", async () => {
+    const testTenantId = `${tenantId}-delivery-log`;
     const { createWebhook, triggerWebhookEvent, listWebhookDeliveries } = await import("../lib/webhooks");
     const { prisma } = await import("../lib/prisma");
 
     vi.stubGlobal("fetch", vi.fn(async () => new Response("ok", { status: 200 })));
 
-    const webhook = await createWebhook(tenantId, { url: "https://example.com/delivery-log-hook", events: ["conversation.closed"] });
-    await triggerWebhookEvent(tenantId, "conversation.closed", { conversationId: "conv-2" });
+    const webhook = await createWebhook(testTenantId, { url: "https://example.com/delivery-log-hook", events: ["conversation.closed"] });
+    await triggerWebhookEvent(testTenantId, "conversation.closed", { conversationId: "conv-2" });
 
-    const deliveries = await listWebhookDeliveries(tenantId, webhook.id);
+    const deliveries = await listWebhookDeliveries(testTenantId, webhook.id);
     expect(deliveries).toHaveLength(1);
     expect(deliveries[0].httpStatus).toBe(200);
     expect(deliveries[0].success).toBe(1);
@@ -62,19 +65,21 @@ describe("triggerWebhookEvent", () => {
   });
 
   it("logs a failed delivery when the receiving endpoint errors, without throwing", async () => {
+    const testTenantId = `${tenantId}-failed-delivery`;
     const { createWebhook, triggerWebhookEvent, listWebhookDeliveries } = await import("../lib/webhooks");
 
     vi.stubGlobal("fetch", vi.fn(async () => new Response("error", { status: 500 })));
 
-    const webhook = await createWebhook(tenantId, { url: "https://example.com/failing-hook", events: ["message.received"] });
-    await expect(triggerWebhookEvent(tenantId, "message.received", { conversationId: "conv-3" })).resolves.toBeUndefined();
+    const webhook = await createWebhook(testTenantId, { url: "https://example.com/failing-hook", events: ["message.received"] });
+    await expect(triggerWebhookEvent(testTenantId, "message.received", { conversationId: "conv-3" })).resolves.toBeUndefined();
 
-    const deliveries = await listWebhookDeliveries(tenantId, webhook.id);
+    const deliveries = await listWebhookDeliveries(testTenantId, webhook.id);
     expect(deliveries[0].httpStatus).toBe(500);
     expect(deliveries[0].success).toBe(0);
   });
 
   it("signs the payload with an HMAC the docs' verification snippet can validate", async () => {
+    const testTenantId = `${tenantId}-signature`;
     const { createWebhook, triggerWebhookEvent } = await import("../lib/webhooks");
 
     let capturedBody = "";
@@ -85,14 +90,15 @@ describe("triggerWebhookEvent", () => {
       return new Response("ok", { status: 200 });
     }));
 
-    const webhook = await createWebhook(tenantId, { url: "https://example.com/signed-hook", events: ["message.received"] });
-    await triggerWebhookEvent(tenantId, "message.received", { conversationId: "conv-4" });
+    const webhook = await createWebhook(testTenantId, { url: "https://example.com/signed-hook", events: ["message.received"] });
+    await triggerWebhookEvent(testTenantId, "message.received", { conversationId: "conv-4" });
 
     const expected = `sha256=${createHmac("sha256", webhook.secret).update(capturedBody).digest("hex")}`;
     expect(capturedSignature).toBe(expected);
   });
 
   it("delivers lead.created with the lead's fields and a valid signature", async () => {
+    const testTenantId = `${tenantId}-lead-created`;
     const { createWebhook, triggerWebhookEvent } = await import("../lib/webhooks");
 
     let capturedBody = "";
@@ -103,8 +109,8 @@ describe("triggerWebhookEvent", () => {
       return new Response("ok", { status: 200 });
     }));
 
-    const webhook = await createWebhook(tenantId, { url: "https://example.com/lead-hook", events: ["lead.created"] });
-    await triggerWebhookEvent(tenantId, "lead.created", { id: "lead-1", source: "snapchat", name: "عميل محتمل" });
+    const webhook = await createWebhook(testTenantId, { url: "https://example.com/lead-hook", events: ["lead.created"] });
+    await triggerWebhookEvent(testTenantId, "lead.created", { id: "lead-1", source: "snapchat", name: "عميل محتمل" });
 
     const parsed = JSON.parse(capturedBody);
     expect(parsed.event).toBe("lead.created");

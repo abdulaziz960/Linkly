@@ -4,6 +4,7 @@ import { requirePlatformAdmin } from "../../../../../../lib/admin-auth";
 import { prisma } from "../../../../../../lib/prisma";
 import { isSupportPriority, isSupportStatus } from "../../../../../../lib/support";
 import { recordSupportAuditLog } from "../../../../../../lib/support-server";
+import { recordAdminAction } from "../../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -93,6 +94,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     ticketId: ticket.id,
     ticketLabel: `${ticket.ticketNumber} — ${ticket.subject}`
   }).catch(() => {});
+  await recordAdminAction(admin, "update-support-ticket", { type: "support-ticket", id: ticket.id }, systemMessages.join("، "));
 
   return jsonOk(updated);
 }

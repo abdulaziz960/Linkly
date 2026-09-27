@@ -42,7 +42,7 @@ function activationEmailContent(name: string, activationUrl: string, purpose: "a
  * required - callers get back whether it actually sent so they can decide
  * what to do (activation falls back to a direct link; reminders just skip).
  */
-async function sendEmail({ to, subject, text, html }: { to: string; subject: string; text: string; html: string }): Promise<boolean> {
+async function sendEmail({ to, subject, text, html, idempotencyKey }: { to: string; subject: string; text: string; html: string; idempotencyKey?: string }): Promise<boolean> {
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const resendFrom = process.env.RESEND_FROM_EMAIL?.trim() || "Linkly <noreply@linklysa.io>";
 
@@ -50,7 +50,8 @@ async function sendEmail({ to, subject, text, html }: { to: string; subject: str
     try {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}`, ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}) },
+        signal: AbortSignal.timeout(10000),
         body: JSON.stringify({ from: resendFrom, to, subject, text, html })
       });
       const payload = await response.json().catch(() => null) as { id?: string; message?: string } | null;
@@ -68,6 +69,7 @@ async function sendEmail({ to, subject, text, html }: { to: string; subject: str
     try {
       const response = await fetch(googleScriptUrl, {
         method: "POST",
+        signal: AbortSignal.timeout(10000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ secret: googleScriptSecret, to, subject, text, html, htmlBody: html })
       });
@@ -80,6 +82,13 @@ async function sendEmail({ to, subject, text, html }: { to: string; subject: str
   }
 
   return false;
+}
+
+/** Called only for a newly committed self-service signup, never activation resends. */
+export async function sendTrialSignupNotification(input: { tenantId: string; companyName: string; ownerName: string; ownerEmail: string }): Promise<boolean> {
+  const text = `تسجيل تجربة جديد في Linkly\nالنشاط: ${input.companyName}\nالاسم: ${input.ownerName}\nالبريد: ${input.ownerEmail}\nالحساب بانتظار تأكيد البريد الإلكتروني.`;
+  const html = `<!doctype html><html lang="ar" dir="rtl"><body dir="rtl" style="direction:rtl;text-align:right;margin:0;padding:24px;background:#eaf3f1;color:#123330;font-family:Tahoma,Arial,sans-serif"><table dir="rtl" role="presentation" width="100%" cellpadding="20" style="direction:rtl;text-align:right;max-width:560px;background:#ffffff;border:1px solid #d8e8e5;border-radius:16px"><tr><td><h1 style="color:#178a82;font-size:24px">تسجيل تجربة جديد في Linkly</h1><p>النشاط: ${escapeHtml(input.companyName)}</p><p>الاسم: ${escapeHtml(input.ownerName)}</p><p>البريد: <span dir="ltr" style="direction:ltr;unicode-bidi:embed">${escapeHtml(input.ownerEmail)}</span></p><p>الحساب بانتظار تأكيد البريد الإلكتروني.</p></td></tr></table></body></html>`;
+  return sendEmail({ to: "xcoode25@gmail.com", subject: "تسجيل تجربة جديد في Linkly", text, html, idempotencyKey: `trial-signup/${input.tenantId}` });
 }
 
 export async function sendActivationEmail({ to, name, activationUrl, purpose = "activation", workspaceName }: SendActivationEmailInput): Promise<EmailDeliveryResult> {
@@ -130,6 +139,38 @@ function trialEndingEmailContent(name: string, hoursLeft: number, billingUrl: st
 export async function sendTrialEndingEmail({ to, name, hoursLeft, billingUrl, branding = DEFAULT_EMAIL_BRANDING }: { to: string; name: string; hoursLeft: number; billingUrl: string; branding?: EmailBranding }): Promise<boolean> {
   const content = trialEndingEmailContent(name, hoursLeft, billingUrl, branding);
   return sendEmail({ to, subject: `تجربتك المجانية في ${branding.name} توشك على الانتهاء`, text: content.text, html: content.html });
+}
+
+function subscriptionRenewalEmailContent(name: string, daysLeft: number, renewalDate: string, billingUrl: string, branding: EmailBranding) {
+  const safeName = escapeHtml(name);
+  const safeUrl = escapeHtml(billingUrl);
+  const safeBrandName = escapeHtml(branding.name);
+  const timeLabel = daysLeft <= 1 ? "غداً" : `${daysLeft} أيام`;
+  const text = `مرحباً ${name}\n\nاشتراكك في ${branding.name} ينتهي خلال ${timeLabel} (بتاريخ ${renewalDate}). جدّد الآن حتى لا ينقطع الوصول لمحادثاتك وفريقك.\n${billingUrl}`;
+  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:48px 24px 40px;background:#e1efed;text-align:center"><table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto"><tr><td width="88" height="88" style="width:88px;height:88px;background:${branding.color};border-radius:50%;text-align:center;vertical-align:middle;font-size:36px;line-height:88px;color:#ffffff;font-weight:800">&#9203;</td></tr></table></td></tr><tr><td style="padding:36px 32px 8px;text-align:center"><h1 style="margin:0 0 16px;font-size:24px;line-height:1.4;color:#123330;font-weight:800">اشتراكك ينتهي خلال ${timeLabel}</h1><p style="margin:0 0 28px;color:#5b7570;font-size:16px;line-height:1.9">${safeName ? `مرحباً ${safeName}،<br>` : ""}اشتراكك ينتهي بتاريخ ${renewalDate}. جدّد الآن حتى لا ينقطع وصولك لمحادثاتك وفريقك وإعداداتك.</p><p style="margin:0 0 32px"><a href="${safeUrl}" style="display:inline-block;background:${branding.color};color:#fff;padding:16px 40px;border-radius:999px;text-decoration:none;font-size:16px;font-weight:800">تجديد الاشتراك</a></p></td></tr><tr><td style="padding:20px 32px;background:#e1efed;text-align:center;color:#5b7570;font-size:12px">${safeBrandName} — منصة إدارة محادثات العملاء</td></tr></table></td></tr></table></body></html>`;
+  return { text, html };
+}
+
+export async function sendSubscriptionRenewalEmail({ to, name, daysLeft, renewalDate, billingUrl, branding = DEFAULT_EMAIL_BRANDING }: { to: string; name: string; daysLeft: number; renewalDate: string; billingUrl: string; branding?: EmailBranding }): Promise<boolean> {
+  const content = subscriptionRenewalEmailContent(name, daysLeft, renewalDate, billingUrl, branding);
+  return sendEmail({ to, subject: `اشتراكك في ${branding.name} يقترب من التجديد`, text: content.text, html: content.html });
+}
+
+function subscriptionRenewalFailedEmailContent(name: string, disabled: boolean, billingUrl: string, branding: EmailBranding) {
+  const safeName = escapeHtml(name);
+  const safeUrl = escapeHtml(billingUrl);
+  const safeBrandName = escapeHtml(branding.name);
+  const body = disabled
+    ? "تعذّر شحن بطاقتك المحفوظة عدة مرات، فأوقفنا التجديد التلقائي على حسابك. جدّد يدويًا من صفحة الفوترة حتى لا ينقطع وصولك، ويمكنك تفعيل التجديد التلقائي من جديد ببطاقة أخرى."
+    : "تعذّر شحن بطاقتك المحفوظة لتجديد اشتراكك. سنحاول مرة أخرى، لكن يمكنك أيضًا التجديد يدويًا الآن أو تحديث بيانات بطاقتك.";
+  const text = `مرحباً ${name}\n\n${body}\n${billingUrl}`;
+  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:48px 24px 40px;background:#fff1f0;text-align:center"><table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto"><tr><td width="88" height="88" style="width:88px;height:88px;background:#b42318;border-radius:50%;text-align:center;vertical-align:middle;font-size:36px;line-height:88px;color:#ffffff;font-weight:800">&#9888;</td></tr></table></td></tr><tr><td style="padding:36px 32px 8px;text-align:center"><h1 style="margin:0 0 16px;font-size:24px;line-height:1.4;color:#123330;font-weight:800">تعذّر تجديد اشتراكك تلقائيًا</h1><p style="margin:0 0 28px;color:#5b7570;font-size:16px;line-height:1.9">${safeName ? `مرحباً ${safeName}،<br>` : ""}${body}</p><p style="margin:0 0 32px"><a href="${safeUrl}" style="display:inline-block;background:${branding.color};color:#fff;padding:16px 40px;border-radius:999px;text-decoration:none;font-size:16px;font-weight:800">الذهاب لصفحة الفوترة</a></p></td></tr><tr><td style="padding:20px 32px;background:#e1efed;text-align:center;color:#5b7570;font-size:12px">${safeBrandName} — منصة إدارة محادثات العملاء</td></tr></table></td></tr></table></body></html>`;
+  return { text, html };
+}
+
+export async function sendSubscriptionRenewalFailedEmail({ to, name, disabled, billingUrl, branding = DEFAULT_EMAIL_BRANDING }: { to: string; name: string; disabled: boolean; billingUrl: string; branding?: EmailBranding }): Promise<boolean> {
+  const content = subscriptionRenewalFailedEmailContent(name, disabled, billingUrl, branding);
+  return sendEmail({ to, subject: `تعذّر تجديد اشتراكك في ${branding.name} تلقائيًا`, text: content.text, html: content.html });
 }
 
 function lowBalanceEmailContent(name: string, remaining: number, percent: number, topUpUrl: string, branding: EmailBranding) {

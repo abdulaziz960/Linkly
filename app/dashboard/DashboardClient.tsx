@@ -196,6 +196,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const [profileOpen, setProfileOpen] = useState(false);
   const [language, setLanguage] = useState<"ar" | "en">("ar");
   const t = (ar: string, en: string) => (language === "en" ? en : ar);
@@ -218,6 +219,13 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [passwordFormOpen, setPasswordFormOpen] = useState(false);
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
   const [whatsappPaymentIssue, setWhatsappPaymentIssue] = useState(false);
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -573,6 +581,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   }, [loadDashboardData]);
 
   useEffect(() => {
+    if (activeView === "operations") return;
+
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible" && !loadDashboardDataInFlightRef.current) {
         void loadDashboardData();
@@ -589,7 +599,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
-  }, [loadDashboardData]);
+  }, [activeView, loadDashboardData]);
 
   useEffect(() => {
     if (xStatus !== "connected") return;
@@ -1224,6 +1234,32 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     }
   }
 
+  async function handleChangePassword() {
+    setPasswordError("");
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordError(t("كلمتا السر الجديدتان غير متطابقتين", "The new passwords don't match"));
+      return;
+    }
+    setPasswordSaving(true);
+    try {
+      const response = await fetch("/api/account/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: currentPasswordInput, newPassword: newPasswordInput })
+      });
+      if (!response.ok) throw new Error(await readApiError(response, language));
+      setPasswordSuccess(true);
+      setPasswordFormOpen(false);
+      setCurrentPasswordInput("");
+      setNewPasswordInput("");
+      setConfirmPasswordInput("");
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : t("تعذر تغيير كلمة السر", "Could not change the password"));
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
   async function handleDeleteAccount() {
     setDeleting(true);
     setDeleteError("");
@@ -1312,8 +1348,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       {menuOpen ? (
         <div
           className="dashboard-menu-backdrop"
-          onClick={() => setMenuOpen(false)}
-          onTouchMove={() => setMenuOpen(false)}
+          onClick={closeMenu}
           aria-hidden="true"
         />
       ) : null}
@@ -1330,13 +1365,17 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         planName={subscription?.plan || ""}
         branding={branding}
         language={language}
+        mobileOpen={menuOpen}
+        canManageBilling={initialUser.role === "مالك الحساب"}
+        onClose={closeMenu}
+        onOpenProfile={openProfile}
         selectedChannel={selectedChannel}
         onChangeView={handleViewChange}
         onChangeChannel={handleChannelChange}
       />
 
       <main className="dashboard-main">
-        <MobileTopbar title={language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]} onToggleMenu={() => setMenuOpen((value) => !value)} />
+        <MobileTopbar title={language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]} language={language} menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((value) => !value)} onOpenProfile={openProfile} />
 
         {activeView === "inbox" ? (
           <InboxView
@@ -1578,6 +1617,52 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
               ) : (
                 <div className="profile-detail-panel">
                   <div><span>{t("تسجيل الدخول", "Sign-in")}</span><b>{t("البريد الإلكتروني وكلمة المرور", "Email and password")}</b></div>
+                  <div className="password-change-block">
+                    {!passwordFormOpen ? (
+                      <button
+                        className="btn soft"
+                        type="button"
+                        onClick={() => {
+                          setPasswordFormOpen(true);
+                          setPasswordError("");
+                          setPasswordSuccess(false);
+                          setCurrentPasswordInput("");
+                          setNewPasswordInput("");
+                          setConfirmPasswordInput("");
+                        }}
+                      >
+                        {t("تغيير كلمة السر", "Change password")}
+                      </button>
+                    ) : (
+                      <div className="danger-zone-confirm">
+                        <label>
+                          {t("كلمة السر الحالية", "Current password")}
+                          <input type="password" autoComplete="current-password" value={currentPasswordInput} onChange={(event) => setCurrentPasswordInput(event.target.value)} disabled={passwordSaving} />
+                        </label>
+                        <label>
+                          {t("كلمة السر الجديدة", "New password")}
+                          <input type="password" autoComplete="new-password" value={newPasswordInput} onChange={(event) => setNewPasswordInput(event.target.value)} disabled={passwordSaving} />
+                        </label>
+                        <label>
+                          {t("تأكيد كلمة السر الجديدة", "Confirm new password")}
+                          <input type="password" autoComplete="new-password" value={confirmPasswordInput} onChange={(event) => setConfirmPasswordInput(event.target.value)} disabled={passwordSaving} />
+                        </label>
+                        {passwordError ? <p className="form-error">{passwordError}</p> : null}
+                        <div className="danger-zone-actions">
+                          <button className="btn soft" type="button" disabled={passwordSaving} onClick={() => setPasswordFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
+                          <button
+                            className="btn primary"
+                            type="button"
+                            disabled={passwordSaving || !currentPasswordInput || !newPasswordInput || !confirmPasswordInput}
+                            onClick={() => void handleChangePassword()}
+                          >
+                            {passwordSaving ? t("جارٍ الحفظ...", "Saving...") : t("حفظ كلمة السر الجديدة", "Save new password")}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {passwordSuccess ? <p className="profile-save-feedback success" role="status">{t("تم تغيير كلمة السر بنجاح", "Password changed successfully")}</p> : null}
+                  </div>
                   <div><span>{t("التحقق الثنائي", "Two-factor authentication")}</span><b>{t("غير متاح حاليًا", "Not available yet")}</b></div>
                   <div><span>{t("آخر دخول", "Last sign-in")}</span><b>{initialUser.lastLoginAt ? formatDateTime(initialUser.lastLoginAt) : t("لا توجد بيانات بعد", "No data yet")}</b></div>
                   <div><span>{t("الصلاحيات", "Permissions")}</span><b>{initialUser.role}</b></div>

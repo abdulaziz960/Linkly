@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
+import Link from "next/link";
+import PwaInstallButton from "./PwaInstallButton";
 import { getChannelName } from "../../channel-names";
 import type { ConversationChannel, ConversationChannelFilter, ViewKey } from "../types";
 import { navItems, navItemLabelsEn } from "../data/navigation";
@@ -22,6 +24,10 @@ type DashboardSidebarProps = {
   branding: { name: string; logoDataUrl: string };
   selectedChannel: ConversationChannelFilter;
   language?: "ar" | "en";
+  mobileOpen: boolean;
+  canManageBilling: boolean;
+  onClose: () => void;
+  onOpenProfile: () => void;
   onChangeView: (view: ViewKey) => void;
   onChangeChannel: (channel: ConversationChannel) => void;
 };
@@ -36,6 +42,7 @@ type SidebarTooltipState = {
 function DashboardNavIcon({ view }: { view: ViewKey }) {
   const paths: Partial<Record<ViewKey, ReactNode>> = {
     inbox: <><path d="M4 5h16v11H8l-4 3V5Z" /><path d="M8 9h8M8 12h5" /></>,
+    operations: <><circle cx="12" cy="12" r="9" /><path d="M8 12h2l1.5-4L13 16l1.5-4H16" /></>,
     contacts: <><circle cx="12" cy="8" r="3" /><path d="M5.5 19c.7-4 3-6 6.5-6s5.8 2 6.5 6" /></>,
     pipeline: <><rect x="3" y="4" width="5" height="16" rx="1" /><rect x="10" y="4" width="5" height="11" rx="1" /><rect x="17" y="4" width="4" height="7" rx="1" /></>,
     ai: <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z" />,
@@ -74,13 +81,51 @@ export default function DashboardSidebar({
   branding,
   selectedChannel,
   language = "ar",
+  mobileOpen,
+  canManageBilling,
+  onClose,
+  onOpenProfile,
   onChangeView,
   onChangeChannel
 }: DashboardSidebarProps) {
   const [navigationSearchOpen, setNavigationSearchOpen] = useState(false);
   const [navigationSearch, setNavigationSearch] = useState("");
   const [sidebarTooltip, setSidebarTooltip] = useState<SidebarTooltipState | null>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const isEnglish = language === "en";
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+      if (event.key !== "Tab") return;
+      const controls = [...(drawerRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])]
+        .filter((element) => element.getClientRects().length > 0);
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [mobileOpen, onClose]);
   const showSidebarTooltip = (
     event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>,
     label: string
@@ -101,7 +146,7 @@ export default function DashboardSidebar({
     { label: "الحملات", labelEn: "Campaigns", keys: ["campaigns", "segments", "templates"] },
     { label: "الأتمتة", labelEn: "Automations", keys: ["automations"] },
     { label: "الذكاء الاصطناعي", labelEn: "AI", keys: ["ai", "bot", "knowledgeBase"] },
-    { label: "التحليلات", labelEn: "Analytics", keys: ["reports"] },
+    { label: "التحليلات", labelEn: "Analytics", keys: ["operations", "reports"] },
     { label: "التكاملات", labelEn: "Integrations", keys: ["integrations", "settings", "developers"] },
     { label: "الإعدادات", labelEn: "Settings", keys: ["teams", "employees", "workHours", "branding"] }
   ];
@@ -118,7 +163,11 @@ export default function DashboardSidebar({
   const visibleLinkedChannels = linkedChannels.filter((channel) => channel.connected);
 
   return (
-    <aside className="dashboard-sidebar">
+    <aside id="dashboard-mobile-drawer" className="dashboard-sidebar" ref={drawerRef} role={mobileOpen ? "dialog" : undefined} aria-modal={mobileOpen ? "true" : undefined} aria-label={mobileOpen ? (isEnglish ? "Dashboard menu" : "قائمة لوحة التحكم") : undefined}>
+      <div className="dashboard-drawer-head">
+        <strong>{isEnglish ? "Menu" : "القائمة"}</strong>
+        <button ref={closeRef} type="button" aria-label={isEnglish ? "Close menu" : "إغلاق القائمة"} onClick={onClose}>×</button>
+      </div>
       <div className="sidebar-brand" aria-label={branding.name}>
         <Image src={branding.logoDataUrl} alt={branding.name} width={46} height={25} priority unoptimized={branding.logoDataUrl.startsWith("data:")} />
       </div>
@@ -175,12 +224,20 @@ export default function DashboardSidebar({
               aria-label={isEnglish ? navItemLabelsEn[item.key] : item.label}
             >
               <DashboardNavIcon view={item.key} />
+              <span className="dashboard-nav-label">{isEnglish ? navItemLabelsEn[item.key] : item.label}</span>
             </button>
             ))}
           </div>
           );
         })}
       </nav>
+      <div className="dashboard-mobile-extras">
+        <button type="button" onClick={() => { onClose(); onOpenProfile(); }}>{isEnglish ? "Profile" : "الملف الشخصي"}</button>
+        <Link href="/dashboard/support" onClick={onClose}>{isEnglish ? "Support" : "الدعم الفني"}</Link>
+        <Link href="/dashboard/development" onClick={onClose}>{isEnglish ? "Development" : "تطوير المنصة"}</Link>
+        {canManageBilling ? <Link href="/billing" onClick={onClose}>{isEnglish ? "Plans and billing" : "الباقات والاشتراك"}</Link> : null}
+        <PwaInstallButton showLabel />
+      </div>
       {sidebarTooltip && typeof document !== "undefined"
         ? createPortal(
           <span

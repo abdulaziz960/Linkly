@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../../../lib/admin-auth";
 import { prisma } from "../../../../../../lib/prisma";
 import { isDevelopmentStatus } from "../../../../../../lib/development";
+import { recordAdminAction } from "../../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -34,6 +35,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       updatedAt: now
     }
   });
+  await recordAdminAction(admin, "update-development-request", { type: "feature-request", id }, JSON.stringify({ status: body.status }));
 
   return jsonOk(updated);
 }

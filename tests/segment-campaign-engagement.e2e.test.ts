@@ -62,7 +62,7 @@ describe("Segment targeting by a past campaign's engagement", () => {
       ]
     });
 
-    const baseCriteria = { tagNames: [], inactiveDays: 0, engagementDateFrom: "", engagementDateTo: "" };
+    const baseCriteria = { tagNames: [], inactiveDays: 0, engagementDateFrom: "", engagementDateTo: "", engagementClickCount: 0 };
 
     const clicked = await resolveSegmentRecipients(tenantId, { ...baseCriteria, sourceCampaignId: campaign.id, engagementBucket: "clicked" });
     expect(clicked.map((recipient) => recipient.phone)).toEqual(["966500000011"]);
@@ -119,6 +119,9 @@ describe("Segment targeting by a past campaign's engagement", () => {
     expect(overview.rows.notReceived.map((row) => row.phone)).toEqual(["966500000015"]);
     // Each row names the campaign that produced its engagement.
     expect(overview.rows.clicked[0].campaignName).toBe("حملة الاختبار");
+    // clickCount defaults to 0 (never backfilled for a click predating the
+    // counter), which is exactly what the row carries here.
+    expect(overview.rows.clicked[0].clickCount).toBe(0);
 
     // A date range that includes this campaign's send date still finds them...
     const inRange = await getCrossCampaignEngagement(tenantId, "2026-09-12", "2026-09-12");
@@ -127,5 +130,72 @@ describe("Segment targeting by a past campaign's engagement", () => {
     // ...but a range that excludes it yields nothing.
     const outOfRange = await getCrossCampaignEngagement(tenantId, "2026-01-01", "2026-01-02");
     expect(outOfRange.counts).toEqual({ notReceived: 0, notOpened: 0, opened: 0, clicked: 0 });
+  });
+});
+
+describe("Segment targeting by an exact click count", () => {
+  const clickCountTenantId = "tenant-segment-click-count";
+
+  it("only matches recipients whose clickCount equals the exact number given", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { resolveSegmentRecipients, resolveEngagementFields, getSegmentRecipientDetails } = await import("../lib/segments");
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        id: "camp-click-count-segment", tenantId: clickCountTenantId, name: "حملة عدد النقرات", channel: "whatsapp",
+        templateName: "t", language: "ar", sent: 2, total: 2, progress: "100%", status: "الحملة أنجزت",
+        updatedAt: new Date().toLocaleString("en-US")
+      }
+    });
+    await prisma.customer.createMany({
+      data: [
+        { id: "cust-clicked-once", name: "عميل ضغط مرة", phone: "966500000021", initial: "ع", tenantId: clickCountTenantId },
+        { id: "cust-clicked-thrice", name: "عميل ضغط ثلاث مرات", phone: "966500000022", initial: "ع", tenantId: clickCountTenantId }
+      ]
+    });
+    await prisma.campaignRecipient.createMany({
+      data: [
+        { id: "cr-click-1", campaignId: campaign.id, tenantId: clickCountTenantId, phone: "966500000021", name: "عميل ضغط مرة", status: "تم الإرسال", sentAt: "2026-09-12T09:00:00.000Z", clickedAt: "2026-09-12T10:00:00.000Z", clickCount: 1, createdAt: new Date().toISOString() },
+        { id: "cr-click-3", campaignId: campaign.id, tenantId: clickCountTenantId, phone: "966500000022", name: "عميل ضغط ثلاث مرات", status: "تم الإرسال", sentAt: "2026-09-12T09:00:00.000Z", clickedAt: "2026-09-12T10:00:00.000Z", clickCount: 3, createdAt: new Date().toISOString() }
+      ]
+    });
+
+    // Rejected: a click-count condition without the "clicked" bucket makes
+    // no sense (opened/notOpened/notReceived recipients have no meaningful
+    // click count to match).
+    const wrongBucket = await resolveEngagementFields(clickCountTenantId, { engagementBucket: "opened", engagementClickCount: 1 });
+    expect(wrongBucket.error).toBeTruthy();
+
+    const noBucket = await resolveEngagementFields(clickCountTenantId, { engagementBucket: "", engagementClickCount: 1 });
+    expect(noBucket.error).toBeTruthy();
+
+    // Accepted alongside "clicked".
+    const resolved = await resolveEngagementFields(clickCountTenantId, { engagementBucket: "clicked", engagementClickCount: 1 });
+    expect(resolved.error).toBeUndefined();
+    expect(resolved.engagementClickCount).toBe(1);
+
+    const baseCriteria = { tagNames: [], inactiveDays: 0, sourceCampaignId: campaign.id, engagementBucket: "clicked" as const, engagementDateFrom: "", engagementDateTo: "" };
+
+    const exactlyOnce = await resolveSegmentRecipients(clickCountTenantId, { ...baseCriteria, engagementClickCount: 1 });
+    expect(exactlyOnce.map((recipient) => recipient.phone)).toEqual(["966500000021"]);
+
+    const exactlyThrice = await resolveSegmentRecipients(clickCountTenantId, { ...baseCriteria, engagementClickCount: 3 });
+    expect(exactlyThrice.map((recipient) => recipient.phone)).toEqual(["966500000022"]);
+
+    // No count condition (0) means every "clicked" recipient, regardless of
+    // how many times.
+    const anyClicker = await resolveSegmentRecipients(clickCountTenantId, { ...baseCriteria, engagementClickCount: 0 });
+    expect(anyClicker.map((recipient) => recipient.phone).sort()).toEqual(["966500000021", "966500000022"]);
+
+    // A count with no matching recipient returns nothing, not everyone.
+    const noMatch = await resolveSegmentRecipients(clickCountTenantId, { ...baseCriteria, engagementClickCount: 7 });
+    expect(noMatch).toEqual([]);
+
+    // The detail view (Segments page) carries each recipient's actual
+    // clickCount, not just their phone/name - this is what the "Clicks"
+    // column on the page renders.
+    const details = await getSegmentRecipientDetails(clickCountTenantId, { ...baseCriteria, engagementClickCount: 0 });
+    expect(details.find((row) => row.phone === "966500000021")?.clickCount).toBe(1);
+    expect(details.find((row) => row.phone === "966500000022")?.clickCount).toBe(3);
   });
 });

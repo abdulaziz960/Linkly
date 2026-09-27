@@ -1,0 +1,1 @@
+ALTER TABLE "subscriptions" ADD COLUMN IF NOT EXISTS "cancelled_at" TEXT NOT NULL DEFAULT '';

@@ -1045,7 +1045,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         author: user.name,
         contextMessageId: getWhatsAppContextMessageId(replyToMessage?.id),
         keepWindowExpired: isReplyWindowExpired || Boolean(body.forceWindowExpired),
-        templateId: approvedTemplate.id,
+        templateId: approvedTemplate.mediaToken || approvedTemplate.id,
         headerType: approvedTemplate.headerType,
         headerText: approvedTemplate.headerText,
         headerMediaDataUrl: approvedTemplate.headerMediaDataUrl

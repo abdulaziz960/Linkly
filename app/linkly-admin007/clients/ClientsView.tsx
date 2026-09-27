@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import type { PlanRow, SubscriptionRow } from "../types";
 import { EXTRA_USER_PRICE, formatNumber, getRenewalAlert, statusClass } from "../utils";
@@ -15,6 +15,7 @@ type ClientsViewProps = {
 };
 
 type TFunc = (ar: string, en: string) => string;
+type ClientDraft = { company: string; owner: string; ownerEmail: string; plan: string; status: string; renewal: string; amount: number; billingCycle: string };
 
 const STATUS_FILTERS = ["الكل", "نشط", "تجربة", "متوقف"];
 
@@ -50,6 +51,12 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
   const [statusFilter, setStatusFilter] = useState("الكل");
   const [sortBy, setSortBy] = useState<SortKey>("recent");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [reviewClient, setReviewClient] = useState<ClientDraft | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState(plans.find((plan) => plan.active === 1)?.name || "باقة النمو");
+  const [newClientAmount, setNewClientAmount] = useState(String(plans.find((plan) => plan.active === 1)?.monthlyPrice ?? 0));
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new") === "1") setIsAddOpen(true);
+  }, []);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [inviteNotice, setInviteNotice] = useState("");
@@ -256,46 +263,63 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
     setChargeUrl(result.paymentUrl);
   }
 
-  async function handleCreateClient(event: FormEvent<HTMLFormElement>) {
+  function handleCreateClient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsSaving(true);
     setFormError("");
-    setInviteNotice("");
-    setActivationUrl("");
 
     const formData = new FormData(event.currentTarget);
-    const payload = {
-      company: String(formData.get("company") || ""),
-      owner: String(formData.get("owner") || ""),
-      ownerEmail: String(formData.get("ownerEmail") || ""),
+    const payload: ClientDraft = {
+      company: String(formData.get("company") || "").trim(),
+      owner: String(formData.get("owner") || "").trim(),
+      ownerEmail: String(formData.get("ownerEmail") || "").trim().toLowerCase(),
       plan: String(formData.get("plan") || ""),
       status: String(formData.get("status") || ""),
       renewal: String(formData.get("renewal") || ""),
       amount: Number(formData.get("amount") || 0),
       billingCycle: String(formData.get("billingCycle") || "")
     };
-
-    const response = await fetch("/api/admin/clients", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const result = (await response.json()) as {
-      ok: boolean;
-      error?: string;
-      data?: { inviteDelivery?: { message?: string; activationUrl?: string } };
-    };
-
-    setIsSaving(false);
-
-    if (!response.ok || !result.ok) {
-      setFormError(result.error || t("تعذر حفظ العميل", "Could not save the client"));
+    if (subscriptions.some((client) => client.ownerEmail.toLowerCase() === payload.ownerEmail)) {
+      setFormError(t("هذا البريد مرتبط بعميل موجود. افتح حسابه بدلاً من إنشاء حساب مكرر.", "This email already belongs to a client. Open that account instead of creating a duplicate."));
       return;
     }
+    if (!Number.isFinite(payload.amount) || payload.amount < 0) {
+      setFormError(t("أدخل سعراً صحيحاً لا يقل عن صفر.", "Enter a valid non-negative amount."));
+      return;
+    }
+    setReviewClient(payload);
+  }
 
-    setInviteNotice(result.data?.inviteDelivery?.message || t("تم إنشاء الحساب.", "Account created."));
-    setActivationUrl(result.data?.inviteDelivery?.activationUrl || "");
-    router.refresh();
+  async function confirmCreateClient() {
+    if (!reviewClient || isSaving) return;
+    setIsSaving(true);
+    setFormError("");
+    setInviteNotice("");
+    setActivationUrl("");
+
+    try {
+      const response = await fetch("/api/admin/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewClient)
+      });
+      const result = (await response.json()) as {
+        ok: boolean;
+        error?: string;
+        data?: { inviteDelivery?: { message?: string; activationUrl?: string } };
+      };
+      if (!response.ok || !result.ok) {
+        setFormError(result.error || t("تعذر حفظ العميل", "Could not save the client"));
+        return;
+      }
+      setReviewClient(null);
+      setInviteNotice(result.data?.inviteDelivery?.message || t("تم إنشاء الحساب.", "Account created."));
+      setActivationUrl(result.data?.inviteDelivery?.activationUrl || "");
+      router.refresh();
+    } catch {
+      setFormError(t("تعذر تأكيد النتيجة. تحقق من قائمة العملاء قبل إعادة المحاولة لتجنب التكرار.", "Could not confirm the result. Check the client list before retrying to avoid duplicates."));
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   const activeCount = subscriptions.filter((s) => s.status === "نشط").length;
@@ -521,7 +545,7 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                   )}
                 </p>
               </div>
-              <button type="button" onClick={() => { setIsAddOpen(false); setInviteNotice(""); setActivationUrl(""); }} aria-label={t("إغلاق", "Close")}>
+              <button type="button" onClick={() => { setIsAddOpen(false); setReviewClient(null); setInviteNotice(""); setActivationUrl(""); }} aria-label={t("إغلاق", "Close")}>
                 ×
               </button>
             </div>
@@ -541,7 +565,8 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                 </div>
               </div>
             ) : (
-              <form className="admin-client-form" onSubmit={handleCreateClient}>
+              <>
+              <form className="admin-client-form" onSubmit={handleCreateClient} style={{ display: reviewClient ? "none" : undefined }}>
                 <label>
                   {t("اسم الشركة/العميل", "Company / Client Name")}
                   <input name="company" placeholder={t("مثال: متجر الرياض", "e.g. Riyadh Store")} required />
@@ -558,7 +583,8 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                   {t("الباقة", "Plan")}
                   <CustomSelect
                     name="plan"
-                    defaultValue={plans.find((p) => p.active === 1)?.name || "باقة النمو"}
+                    value={selectedPlan}
+                    onChange={(value) => { setSelectedPlan(value); setNewClientAmount(String(plans.find((plan) => plan.name === value)?.monthlyPrice ?? 0)); }}
                     options={
                       plans.length
                         ? plans.filter((p) => p.active === 1).map((p) => ({ value: p.name, label: `${p.name} (${formatNumber(p.monthlyPrice)} ${t("ر.س", "SAR")})` }))
@@ -584,7 +610,8 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                 </label>
                 <label>
                   {t("قيمة الباقة الشهرية", "Monthly Plan Amount")}
-                  <input name="amount" type="number" min="0" defaultValue="0" />
+                  <input name="amount" type="number" min="0" step="0.01" value={newClientAmount} onChange={(event) => setNewClientAmount(event.target.value)} required />
+                  <small>{t("تُعبّأ من سعر الباقة، ويمكن تعديلها لهذا العميل.", "Filled from the plan price; you may adjust it for this client.")}</small>
                 </label>
                 <label>
                   {t("دورة الفوترة", "Billing Cycle")}
@@ -606,10 +633,26 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
                     {t("إلغاء", "Cancel")}
                   </button>
                   <button type="submit" disabled={isSaving}>
-                    {isSaving ? t("جاري الحفظ...", "Saving...") : t("إنشاء الحساب", "Create Account")}
+                    {t("مراجعة البيانات", "Review details")}
                   </button>
                 </div>
               </form>
+              {reviewClient ? <div className="admin-client-review">
+                <h3>{t("راجع قبل إنشاء الحساب وإرسال رابط التفعيل", "Review before creating the account and sending activation")}</h3>
+                <dl>
+                  <div><dt>{t("العميل", "Client")}</dt><dd>{reviewClient.company}</dd></div>
+                  <div><dt>{t("صاحب الحساب", "Owner")}</dt><dd>{reviewClient.owner}</dd></div>
+                  <div><dt>{t("البريد", "Email")}</dt><dd dir="ltr">{reviewClient.ownerEmail}</dd></div>
+                  <div><dt>{t("الباقة", "Plan")}</dt><dd>{reviewClient.plan}</dd></div>
+                  <div><dt>{t("الحالة", "Status")}</dt><dd>{reviewClient.status}</dd></div>
+                  <div><dt>{t("السعر", "Price")}</dt><dd>{formatNumber(reviewClient.amount)} {t("ر.س", "SAR")}</dd></div>
+                  <div><dt>{t("الفوترة", "Billing")}</dt><dd>{reviewClient.billingCycle}</dd></div>
+                  <div><dt>{t("التجديد", "Renewal")}</dt><dd>{reviewClient.renewal || t("بعد 3 أيام افتراضياً", "Defaults to 3 days")}</dd></div>
+                </dl>
+                {formError ? <p className="admin-form-error" role="alert">{formError}</p> : null}
+                <div className="admin-form-actions"><button type="button" onClick={() => setReviewClient(null)} disabled={isSaving}>{t("تعديل البيانات", "Edit details")}</button><button type="button" className="admin-primary-button" onClick={confirmCreateClient} disabled={isSaving}>{isSaving ? t("جارٍ الإنشاء…", "Creating…") : t("تأكيد وإنشاء الحساب", "Confirm and create account")}</button></div>
+              </div> : null}
+              </>
             )}
           </div>
         </div>

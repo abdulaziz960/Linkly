@@ -2,6 +2,7 @@ import type { NavItem, ViewKey } from "../types";
 
 export const navItems: NavItem[] = [
   { key: "inbox", label: "المحادثات" },
+  { key: "operations", label: "مركز العمليات" },
   { key: "contacts", label: "العملاء" },
   { key: "tags", label: "الوسوم" },
   { key: "bot", label: "الرد الآلي" },
@@ -27,6 +28,7 @@ export const navItems: NavItem[] = [
 // limited-scope rollout) - the rest of the dashboard's UI text stays Arabic.
 export const navItemLabelsEn: Record<ViewKey, string> = {
   inbox: "Conversations",
+  operations: "Operations Center",
   contacts: "Customers",
   tags: "Tags",
   bot: "Auto-reply",
@@ -50,6 +52,7 @@ export const navItemLabelsEn: Record<ViewKey, string> = {
 
 export const viewTitles: Record<ViewKey, string> = {
   inbox: "المحادثات",
+  operations: "مركز العمليات",
   contacts: "العملاء",
   tags: "الوسوم",
   bot: "الرد الآلي",

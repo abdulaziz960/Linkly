@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../lib/admin-auth";
 import { createTenantWithSubscription, getSubscriptions } from "../../../../lib/subscriptions";
+import { recordAdminAction } from "../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
       adminName: admin.name
     });
 
+    await recordAdminAction(admin, "create-client", { type: "tenant", id: subscription?.tenantId || "" }, JSON.stringify({ company, plan, status, amount }));
     return jsonOk({ subscription, inviteDelivery });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر إنشاء العميل", 409);

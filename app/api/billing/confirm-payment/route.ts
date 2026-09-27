@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) return NextResponse.json({ error: "سجّل الدخول أولًا" }, { status: 401 });
 
-  const { paymentId, moyasarPaymentId } = await request.json().catch(() => ({})) as { paymentId?: string; moyasarPaymentId?: string };
+  const { paymentId, moyasarPaymentId, enableAutoRenew } = await request.json().catch(() => ({})) as { paymentId?: string; moyasarPaymentId?: string; enableAutoRenew?: boolean };
   if (!paymentId || !moyasarPaymentId) return NextResponse.json({ error: "بيانات غير صالحة" }, { status: 400 });
 
   const payment = await prisma.subscriptionPayment.findFirst({ where: { id: paymentId, tenantId: user.tenantId } });
@@ -63,7 +63,12 @@ export async function POST(request: NextRequest) {
   await prisma.subscriptionPayment.update({ where: { id: paymentId }, data: { moyasarId: moyasarPaymentId } });
 
   const details = summarizeMoyasarPayment(moyasarPayment);
-  const { outcome } = await applyVerifiedGatewayOutcome("subscription", paymentId, moyasarPayment.status, details);
+  // Moyasar may return a card token here regardless of the checkbox (we ask
+  // it to attempt tokenization unconditionally - see MoyasarPayForm) - the
+  // explicit enableAutoRenew flag below is what actually decides whether
+  // applyConfirmedSubscriptionPayment is allowed to act on it (see its
+  // allowAutoRenewEnroll parameter), not the presence of a token by itself.
+  const { outcome } = await applyVerifiedGatewayOutcome("subscription", paymentId, moyasarPayment.status, details, Boolean(enableAutoRenew));
 
   if (outcome === "completed") {
     const companyName = await getTenantCompanyName(payment.tenantId);

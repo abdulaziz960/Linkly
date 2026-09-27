@@ -5,7 +5,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 const testDbPath = join(process.cwd(), "tests", ".tmp-marketing-optout.db");
 const tenantId = "tenant-optout-keyword";
 
-const sendWhatsAppTextMessage = vi.fn(async (..._args: unknown[]) => ({ ok: true }));
+const sendWhatsAppTextMessage = vi.fn(async (...args: unknown[]) => {
+  void args;
+  return { ok: true };
+});
 vi.mock("../lib/whatsapp-send", () => ({
   sendWhatsAppTextMessage: (...args: unknown[]) => sendWhatsAppTextMessage(...args)
 }));

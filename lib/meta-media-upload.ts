@@ -9,6 +9,22 @@ const techProviderMetaAppId = "1296230909161568";
 
 type MetaError = { message?: string; code?: number; error_subcode?: number };
 
+// Same allowlist app/api/campaigns/route.ts already enforces on campaign
+// header media - anything else (in particular image/svg+xml or text/html)
+// must never be accepted here. This upload result is persisted verbatim as
+// Template.headerMediaDataUrl and later served back from Linkly's own
+// origin at app/api/whatsapp/template-media/[id] with the stored MIME type
+// as the response Content-Type - an unrestricted type there is a stored-XSS
+// vector (an "image" that a browser actually renders as HTML/SVG and
+// executes).
+const ALLOWED_MEDIA_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "video/mp4",
+  "video/3gpp",
+  "application/pdf"
+]);
+
 function formatMetaError(error: MetaError | undefined, fallback: string) {
   if (!error?.message) return fallback;
   const codePart = error.code !== undefined ? ` (code ${error.code}${error.error_subcode ? `/${error.error_subcode}` : ""})` : "";
@@ -24,7 +40,8 @@ export async function uploadMetaMedia(accessToken: string, dataUrl: string): Pro
   const match = /^data:([a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
   if (!match) return { ok: false, error: "صيغة الملف غير صالحة" };
 
-  const mimeType = match[1];
+  const mimeType = match[1].toLowerCase();
+  if (!ALLOWED_MEDIA_MIME_TYPES.has(mimeType)) return { ok: false, error: "صيغة الملف غير مدعومة" };
   const buffer = Buffer.from(match[2], "base64");
 
   const sessionResponse = await fetch(

@@ -43,13 +43,20 @@ export async function POST(request: Request) {
     where: { tokenHash: hashToken(token) }
   });
 
+  // code: "expired" lets the client offer an inline "send me a new link"
+  // action (via /forgot-password, which already resends the right kind of
+  // link for either purpose) instead of a dead-end error (pre-launch
+  // audit finding). The message itself stays deliberately generic - it
+  // still doesn't distinguish "never existed" from "expired" from
+  // "already used", so it reveals nothing about the token beyond "it no
+  // longer works".
   if (!invite || new Date(invite.expiresAt).getTime() < Date.now()) {
-    return NextResponse.json({ message: "رابط التفعيل منتهي أو غير صالح" }, { status: 400 });
+    return NextResponse.json({ message: "رابط التفعيل منتهي أو غير صالح", code: "expired" }, { status: 400 });
   }
 
   const existingAccount = await prisma.userAccount.findUnique({ where: { email: invite.email } });
   if (!existingAccount) {
-    return NextResponse.json({ message: "رابط التفعيل منتهي أو غير صالح" }, { status: 400 });
+    return NextResponse.json({ message: "رابط التفعيل منتهي أو غير صالح", code: "expired" }, { status: 400 });
   }
 
   // A token can only be consumed for the account state its purpose implies:
@@ -60,7 +67,7 @@ export async function POST(request: Request) {
   const isResetPurpose = invite.purpose === "password_reset";
   const accountAlreadyActivated = Boolean(existingAccount.passwordHash);
   if (isResetPurpose !== accountAlreadyActivated) {
-    return NextResponse.json({ message: "رابط التفعيل منتهي أو غير صالح" }, { status: 400 });
+    return NextResponse.json({ message: "رابط التفعيل منتهي أو غير صالح", code: "expired" }, { status: 400 });
   }
 
   const user = await prisma.userAccount.update({

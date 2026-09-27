@@ -30,6 +30,7 @@ export async function PUT(request: NextRequest) {
   if (user.role !== "مالك الحساب") return jsonError("إعدادات المزود متاحة لمالك الحساب", 403);
   const body = await request.json().catch(() => null);
   if (!body || !aiProviders.includes(body.provider) || typeof body.model !== "string" || !/^[A-Za-z0-9._:/-]{1,150}$/.test(body.model)
+    || (body.useManaged !== undefined && typeof body.useManaged !== "boolean")
     || typeof body.enabled !== "boolean" || typeof body.prompt !== "string" || body.prompt.length > 4000
     || !Number.isInteger(body.dailyLimit) || body.dailyLimit < 0 || body.dailyLimit > 100000
     || !Number.isInteger(body.monthlyLimit) || body.monthlyLimit < 0 || body.monthlyLimit > 1000000
@@ -50,7 +51,7 @@ export async function PUT(request: NextRequest) {
     // key", which only actually works if this tenant's plan includes it.
     // Silently filling in the platform's own key here would let any tenant
     // use managed AI regardless of plan.
-    const apiKey = body.apiKey?.trim() ? encryptSecret(body.apiKey.trim())
+    const apiKey = body.useManaged === true ? "" : body.apiKey?.trim() ? encryptSecret(body.apiKey.trim())
       : existing && existing.provider === body.provider ? existing.apiKey
       : "";
     const data = { provider: body.provider, model: body.model, enabled: body.enabled ? 1 : 0,
@@ -61,7 +62,7 @@ export async function PUT(request: NextRequest) {
       clientName: user.name, source: "AI settings", level: "معلومة",
       message: JSON.stringify({ actorId: user.id, action: "ai.settings.updated", before: existing ? {
         provider: existing.provider, model: existing.model, enabled: existing.enabled, dailyLimit: existing.dailyLimit, monthlyLimit: existing.monthlyLimit
-      } : null, after: { provider: data.provider, model: data.model, enabled: data.enabled, dailyLimit: data.dailyLimit, monthlyLimit: data.monthlyLimit }, keyChanged: Boolean(body.apiKey?.trim()) })
+      } : null, after: { provider: data.provider, model: data.model, enabled: data.enabled, dailyLimit: data.dailyLimit, monthlyLimit: data.monthlyLimit }, keyChanged: Boolean(body.apiKey?.trim()) || Boolean(body.useManaged && existing?.apiKey) })
     } });
   });
   return jsonOk(await getPublicAiSettings(user.tenantId));

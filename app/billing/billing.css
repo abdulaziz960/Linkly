@@ -76,6 +76,7 @@
 }
 .current-plan {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 9px;
   align-items: center;
   margin-top: 15px;
@@ -87,6 +88,44 @@
 .current-plan em {
   font-style: normal;
   color: #17833d;
+}
+.current-plan-date {
+  color: #6b7a77;
+  font-size: 13px;
+  padding-inline-start: 9px;
+  border-inline-start: 1px solid var(--line);
+}
+.current-plan-cancel {
+  margin-top: 10px;
+}
+.current-plan-cancel-link {
+  background: none;
+  border: none;
+  color: #6b7a77;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px;
+}
+.current-plan-autorenew-notice {
+  max-width: 480px;
+  margin: 0 auto 8px;
+  color: #106b65;
+  background: #eaf6f4;
+  border: 1px solid #bcd8d3;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+.current-plan-cancel-notice {
+  max-width: 480px;
+  margin: 0 auto 8px;
+  color: #8a6d00;
+  background: #fff8e1;
+  border: 1px solid #f0dfa0;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
 }
 .current-plan.blocked {
   display: flex;
@@ -111,6 +150,49 @@
 }
 .billing-owner-notice-logout:hover {
   border-color: var(--brand);
+}
+.billing-cycle-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  max-width: 320px;
+  margin: 0 auto 28px;
+  padding: 4px;
+  background: #f1f1f4;
+  border-radius: 999px;
+}
+.billing-cycle-toggle button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 800;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.billing-cycle-toggle button.active {
+  background: #fff;
+  color: var(--dark);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+.billing-cycle-badge {
+  background: var(--brand);
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.plan-price-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 10px 0 0;
 }
 .plan-grid {
   display: grid;
@@ -138,6 +220,16 @@
   top: -15px;
   right: 20px;
   background: var(--brand);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.current-badge {
+  position: absolute;
+  top: -15px;
+  right: 20px;
+  background: var(--dark);
   color: #fff;
   border-radius: 999px;
   padding: 6px 12px;
@@ -238,6 +330,53 @@
 .test-checkout p {
   color: #4c635f;
   line-height: 1.8;
+}
+.save-card-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: start;
+  color: #4c635f;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 14px 0;
+  padding: 10px 14px;
+  background: #f6fbfa;
+  border: 1px solid #d8e8e5;
+  border-radius: 12px;
+}
+.save-card-option input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.proration-breakdown {
+  text-align: start;
+}
+.proration-breakdown dl {
+  margin: 12px 0 0;
+  border: 1px solid #d8e8e5;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.proration-breakdown dl > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid #eaf3f1;
+}
+.proration-breakdown dl > div:last-child {
+  border-bottom: none;
+}
+.proration-breakdown dt {
+  color: #4c635f;
+}
+.proration-breakdown dd {
+  margin: 0;
+  font-weight: 700;
+}
+.proration-breakdown .proration-final {
+  background: #f6fbfa;
+  font-weight: 800;
 }
 .test-actions {
   display: grid;

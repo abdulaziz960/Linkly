@@ -165,6 +165,25 @@ describe("Campaign link-click tracking end-to-end", () => {
     expect(recipientAfterSecondClick.clickCount).toBe(2);
     expect(recipientAfterSecondClick.clickedAt).toBe(firstClickedAt);
 
+    // Every individual click is logged (not just the first-click summary),
+    // and the campaign report surfaces that per-recipient click history.
+    const clickLog = await prisma.campaignRecipientClick.findMany({ where: { recipientId: recipientAfterSecondClick.id } });
+    expect(clickLog).toHaveLength(2);
+
+    vi.doMock("../lib/auth", () => ({
+      getCurrentUser: vi.fn(async () => ({ id: "user-report", name: "Owner", role: "مالك الحساب", tenantId }))
+    }));
+    vi.doMock("../lib/permissions-server", () => ({ userHasViewPermission: vi.fn(async () => true) }));
+    const { GET: campaignReport } = await import("../app/api/campaigns/[id]/report/route");
+    const reportResponse = await campaignReport(new NextRequest(`http://localhost/api/campaigns/${campaignId}/report`), {
+      params: Promise.resolve({ id: campaignId })
+    });
+    const reportBody = await reportResponse.json() as { data?: { recipients?: Array<{ phone: string; clicks?: string[] }> } };
+    const reportedRecipient = reportBody.data?.recipients?.find((row) => row.phone === recipientPhone);
+    expect(reportedRecipient?.clicks).toHaveLength(2);
+    vi.doUnmock("../lib/auth");
+    vi.doUnmock("../lib/permissions-server");
+
     // An unrelated/invalid code must never 500 or leak another tenant's data.
     const invalidCodeResponse = await trackingRedirect(
       new NextRequest("http://localhost/api/campaigns/t/does-not-exist"),

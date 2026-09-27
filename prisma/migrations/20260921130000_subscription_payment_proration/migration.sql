@@ -1,0 +1,2 @@
+ALTER TABLE "subscription_payments" ADD COLUMN IF NOT EXISTS "list_price" DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE "subscription_payments" ADD COLUMN IF NOT EXISTS "proration_credit_amount" DOUBLE PRECISION NOT NULL DEFAULT 0;

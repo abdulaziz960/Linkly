@@ -34,7 +34,18 @@ export default async function BillingPayPage({ params }: { params: Promise<{ pay
       <section>
         <Image src="/assets/linkly-logo.png" alt="" width={88} height={49} />
         <h1>إتمام الدفع</h1>
-        <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س</p>
+        {payment.prorationCreditAmount > 0 ? (
+          <div className="proration-breakdown">
+            <p>{description}</p>
+            <dl>
+              <div><dt>سعر الباقة</dt><dd>{payment.listPrice.toLocaleString("en-US")} ر.س</dd></div>
+              <div><dt>خصم الأيام المتبقية من باقتك الحالية</dt><dd>-{payment.prorationCreditAmount.toLocaleString("en-US")} ر.س</dd></div>
+              <div className="proration-final"><dt>المبلغ المطلوب</dt><dd>{payment.amount.toLocaleString("en-US")} ر.س</dd></div>
+            </dl>
+          </div>
+        ) : (
+          <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س</p>
+        )}
         {publishableKey ? (
           <MoyasarPayForm
             paymentId={payment.id}

@@ -80,10 +80,21 @@ function BillingSuccessStatus({ lang }: { lang: Lang }) {
     let cancelled = false;
     (async () => {
       try {
+        // Only meaningful for kind "subscription" - see MoyasarPayForm's
+        // save-card checkbox, whose value doesn't survive a full 3-D-Secure
+        // redirect any other way. Best-effort: absent/blocked storage just
+        // means auto-renew doesn't activate, same as leaving it unchecked.
+        let enableAutoRenew = false;
+        try {
+          enableAutoRenew = localStorage.getItem(`linkly:enableAutoRenew:${paymentId}`) === "1";
+          localStorage.removeItem(`linkly:enableAutoRenew:${paymentId}`);
+        } catch {
+          // ignore
+        }
         const response = await fetch(confirmUrlByKind[kind], {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentId, moyasarPaymentId })
+          body: JSON.stringify({ paymentId, moyasarPaymentId, enableAutoRenew })
         });
         const payload = await response.json().catch(() => ({})) as { outcome?: string };
         if (cancelled) return;

@@ -14,13 +14,13 @@ describe("password storage", () => {
     const second = hashPassword("Strong-password-123");
     expect(first).toMatch(/^scrypt\$/);
     expect(first).not.toBe(second);
-    expect(verifyPassword("Strong-password-123", first)).toEqual({ valid: true, needsRehash: false });
+    expect(verifyPassword("Strong-password-123", first)).toEqual({ valid: true, needsRehash: false, legacy: false });
     expect(verifyPassword("wrong", first).valid).toBe(false);
   });
 
   it("accepts a legacy SHA-256 hash once and marks it for migration", () => {
     const legacy = createHash("sha256").update("Old-password-123").digest("hex");
-    expect(verifyPassword("Old-password-123", legacy)).toEqual({ valid: true, needsRehash: true });
+    expect(verifyPassword("Old-password-123", legacy)).toEqual({ valid: true, needsRehash: true, legacy: true });
     expect(verifyPassword("wrong", legacy).valid).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../../../lib/auth";
 import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { sendActivationEmail } from "../../../../../lib/email";
 import { prisma } from "../../../../../lib/prisma";
+import { consumeRateLimit, requestIdentifier } from "../../../../../lib/rate-limit";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -26,6 +27,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const account = await prisma.userAccount.findUnique({ where: { email: employee.email } });
   if (!account || account.passwordHash) {
     return jsonError("هذا الموظف فعّل حسابه بالفعل", 409);
+  }
+
+  // Keyed by the target employee's own email (not the caller) so repeated
+  // resends against the SAME inbox are capped regardless of who triggers
+  // them - otherwise anyone with employees-management access could spam a
+  // coworker with unlimited activation emails at no cost.
+  const rateLimit = await consumeRateLimit("resend-invite", requestIdentifier(request, employee.email), 3, 60 * 60 * 1000);
+  if (!rateLimit.allowed) {
+    return jsonError("محاولات كثيرة لإعادة إرسال الدعوة. حاول مرة أخرى بعد قليل", 429);
   }
 
   const activationToken = randomBytes(32).toString("hex");

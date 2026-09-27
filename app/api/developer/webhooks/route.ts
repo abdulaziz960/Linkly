@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { ensureSchema } from "../../../../lib/database";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { createWebhook, listWebhooks, isValidWebhookEvent } from "../../../../lib/webhooks";
+import { isPubliclyRoutableUrl } from "../../../../lib/url-safety";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -28,10 +29,8 @@ export async function POST(request: NextRequest) {
   const events = Array.isArray(body?.events) ? body.events.filter(isValidWebhookEvent) : [];
 
   if (!url) return jsonError("رابط الـ Webhook مطلوب");
-  try {
-    if (!["http:", "https:"].includes(new URL(url).protocol)) throw new Error("invalid protocol");
-  } catch {
-    return jsonError("رابط الـ Webhook غير صحيح");
+  if (!(await isPubliclyRoutableUrl(url))) {
+    return jsonError("رابط الـ Webhook غير صحيح أو يشير إلى عنوان غير مسموح به");
   }
   if (!events.length) return jsonError("اختر حدثاً واحداً على الأقل");
 

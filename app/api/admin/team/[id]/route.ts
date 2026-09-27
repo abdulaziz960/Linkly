@@ -1,5 +1,6 @@
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
 import { revokePlatformAdmin } from "../../../../../lib/platform-team";
+import { recordAdminAction } from "../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -12,6 +13,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   try {
     await revokePlatformAdmin(id, admin.id);
+    await recordAdminAction(admin, "revoke-platform-admin", { type: "user", id });
     return jsonOk({ id });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر إزالة الصلاحية", 400);

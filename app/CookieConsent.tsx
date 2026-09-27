@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Script from "next/script";
@@ -18,13 +18,33 @@ const copy = {
     text: "نستخدم ملفات تعريف الارتباط (الكوكيز) لتحسين تجربتك على موقعنا وتحليل الاستخدام. بمتابعتك تصفح الموقع أو الضغط على \"قبول\"، أنت توافق على استخدامنا لها.",
     learnMore: "سياسة الخصوصية",
     reject: "رفض",
-    accept: "قبول"
+    accept: "قبول",
+    settingsTitle: "إعدادات الكوكيز",
+    essential: "الكوكيز الضرورية",
+    essentialDescription: "لازمة لتشغيل الموقع وحفظ تفضيلاتك، ولا يمكن تعطيلها هنا.",
+    analytics: "كوكيز التحليلات",
+    analyticsDescription: "تساعدنا على فهم استخدام الموقع. لا تُحمّل أدوات التحليل إلا بعد موافقتك.",
+    currentChoice: "اختيارك الحالي",
+    undecided: "لم تحدد بعد",
+    accepted: "مفعّلة",
+    rejected: "معطّلة",
+    close: "إغلاق"
   },
   en: {
     text: "We use cookies to improve your experience on our site and analyze usage. By continuing to browse or clicking \"Accept\", you agree to our use of cookies.",
     learnMore: "Privacy Policy",
     reject: "Reject",
-    accept: "Accept"
+    accept: "Accept",
+    settingsTitle: "Cookie settings",
+    essential: "Essential cookies",
+    essentialDescription: "Needed to run the site and remember your preferences. They cannot be disabled here.",
+    analytics: "Analytics cookies",
+    analyticsDescription: "Help us understand site usage. Analytics tools load only after you opt in.",
+    currentChoice: "Current choice",
+    undecided: "Not set yet",
+    accepted: "Enabled",
+    rejected: "Disabled",
+    close: "Close"
   }
 } as const;
 
@@ -41,6 +61,8 @@ export default function CookieConsent() {
   const text = copy[lang];
   const [consent, setConsent] = useState<Consent>(null);
   const [decided, setDecided] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     try {
@@ -54,20 +76,35 @@ export default function CookieConsent() {
       // every visit rather than tracking without ever asking.
     }
 
-    const reopen = () => setDecided(false);
+    const reopen = () => setSettingsOpen(true);
     window.addEventListener(REOPEN_COOKIE_BANNER_EVENT, reopen);
     return () => window.removeEventListener(REOPEN_COOKIE_BANNER_EVENT, reopen);
   }, []);
 
+  useEffect(() => {
+    if (!settingsOpen) return;
+    closeButtonRef.current?.focus();
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSettingsOpen(false);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [settingsOpen]);
+
   function choose(value: "accepted" | "rejected") {
+    const shouldReload = consent === "accepted" && value === "rejected";
     setConsent(value);
     setDecided(true);
+    setSettingsOpen(false);
     try {
       window.localStorage.setItem(CONSENT_STORAGE_KEY, value);
     } catch {
       // Best-effort persistence only - the in-memory choice still applies
       // for the rest of this page view either way.
     }
+    // Removing a Script element cannot unload a previously loaded analytics
+    // runtime. Reload with the rejected preference to stop future tracking.
+    if (shouldReload) window.location.reload();
   }
 
   return (
@@ -90,7 +127,7 @@ gtag('config', '${GTAG_ID}');`}
           </Script>
         </>
       ) : null}
-      {!decided ? (
+      {!decided && !settingsOpen ? (
         <div
           role="dialog"
           aria-label={lang === "ar" ? "إشعار الكوكيز" : "Cookie notice"}
@@ -98,7 +135,8 @@ gtag('config', '${GTAG_ID}');`}
           style={{
             position: "fixed",
             insetInline: 16,
-            bottom: 16,
+            top: pathname?.includes("/privacy") ? 16 : undefined,
+            bottom: pathname?.includes("/privacy") ? undefined : 16,
             zIndex: 9999,
             display: "flex",
             flexWrap: "wrap",
@@ -124,6 +162,13 @@ gtag('config', '${GTAG_ID}');`}
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
             <button
               type="button"
+              onClick={() => setSettingsOpen(true)}
+              style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "inherit", fontWeight: 700, cursor: "pointer" }}
+            >
+              {text.settingsTitle}
+            </button>
+            <button
+              type="button"
               onClick={() => choose("rejected")}
               style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "inherit", fontWeight: 700, cursor: "pointer" }}
             >
@@ -137,6 +182,39 @@ gtag('config', '${GTAG_ID}');`}
               {text.accept}
             </button>
           </div>
+        </div>
+      ) : null}
+      {settingsOpen ? (
+        <div
+          role="presentation"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}
+          style={{ position: "fixed", inset: 0, zIndex: 10000, display: "grid", placeItems: "center", padding: 16, background: "rgba(7, 31, 30, .62)" }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label={text.settingsTitle}
+            dir={lang === "ar" ? "rtl" : "ltr"}
+            style={{ width: "min(100%, 480px)", maxHeight: "calc(100dvh - 32px)", overflowY: "auto", padding: 24, borderRadius: 18, background: "#fff", color: "#153f3c", boxShadow: "0 24px 64px rgba(0,0,0,.25)" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <h2 style={{ margin: 0, fontSize: 22 }}>{text.settingsTitle}</h2>
+              <button ref={closeButtonRef} type="button" aria-label={text.close} onClick={() => setSettingsOpen(false)} style={{ width: 44, height: 44, border: "1px solid #b8d3d0", borderRadius: 10, background: "#f4faf9", color: "#153f3c", fontSize: 24, cursor: "pointer" }}>×</button>
+            </div>
+            <div style={{ marginTop: 18, padding: 14, border: "1px solid #d5e7e4", borderRadius: 12 }}>
+              <strong>{text.essential}</strong>
+              <p style={{ margin: "6px 0 0", lineHeight: 1.6 }}>{text.essentialDescription}</p>
+            </div>
+            <div style={{ marginTop: 10, padding: 14, border: "1px solid #d5e7e4", borderRadius: 12 }}>
+              <strong>{text.analytics}</strong>
+              <p style={{ margin: "6px 0 0", lineHeight: 1.6 }}>{text.analyticsDescription}</p>
+              <p style={{ margin: "10px 0 0", fontWeight: 700 }}>{text.currentChoice}: {consent === "accepted" ? text.accepted : consent === "rejected" ? text.rejected : text.undecided}</p>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 20 }}>
+              <button type="button" onClick={() => choose("rejected")} style={{ flex: "1 1 150px", minHeight: 44, border: "1px solid #178a82", borderRadius: 10, background: "#fff", color: "#106b65", fontWeight: 800, cursor: "pointer" }}>{text.reject}</button>
+              <button type="button" onClick={() => choose("accepted")} style={{ flex: "1 1 150px", minHeight: 44, border: 0, borderRadius: 10, background: "#178a82", color: "#fff", fontWeight: 800, cursor: "pointer" }}>{text.accept}</button>
+            </div>
+          </section>
         </div>
       ) : null}
     </>

@@ -6,8 +6,11 @@ import LandingNav from "./LandingNav";
 import ScrollReveal from "./ScrollReveal";
 import MobileCtaVisibility from "./MobileCtaVisibility";
 import WhatsAppCta from "./WhatsAppCta";
+import PricingPlanGrid from "./PricingPlanGrid";
 import s from "./page.module.css";
 import { channelNames } from "./channel-names";
+import { planFeatures, getPlanDisplayItems } from "../lib/plan-features";
+import { getActivePlans } from "../lib/plans";
 
 export const metadata: Metadata = {
   title: { absolute: "Linkly | صندوق موحّد لواتساب وإنستقرام والقنوات — منصة سعودية لخدمة العملاء" },
@@ -15,6 +18,15 @@ export const metadata: Metadata = {
   alternates: { canonical: "/", languages: { "ar-SA": "/", en: "/en", "x-default": "/" } },
   openGraph: { title: "Linkly | كل محادثات عملائك في مكان واحد", description: "صندوق وارد موحد، توزيع للمحادثات، أتمتة وتقارير لفريقك.", locale: "ar_SA", alternateLocale: "en_US", url: "/", type: "website" }
 };
+
+// The pricing section reads live Plan rows (price, employee limit, channels,
+// message quota) so an admin's edit shows up immediately - see
+// lib/plan-features.ts. Must be force-dynamic, not ISR/revalidate: the
+// Docker build's DATABASE_URL is a placeholder that contacts nothing (see
+// Dockerfile), so any attempt to prerender this page during `next build`
+// (which ISR does) fails the whole build - this skips that attempt
+// entirely and only ever queries the database on a real runtime request.
+export const dynamic = "force-dynamic";
 
 const features = [
   ["صندوق وارد موحد", "توفّر وقتك بدل التنقل بين تطبيقات؛ كل رسالة وسجل العميل في مكان واحد."],
@@ -29,23 +41,21 @@ const faqs = [
   ["هل أقدر أربط رقم واتساب الحالي؟", "يعتمد على حالة الرقم ومتطلبات واجهة واتساب السحابية لدى ميتا، ونساعدك في مراجعة مسار الربط."],
   ["هل أحتاج رقم واتساب جديد؟", "ليس دائمًا. نراجع وضع رقمك الحالي أولًا ثم نحدد أفضل مسار."],
   ["هل تدعمون واجهة واتساب للأعمال؟", "نعم، الربط التشغيلي مبني على واجهة واتساب السحابية الرسمية."],
-  ["هل توجد واجهة برمجة؟", "تتوفر روابط استقبال وواجهات تكامل ضمن باقة التوسع وفق نطاق التكامل المطلوب."],
+  ["هل توجد واجهة برمجة؟", "تتوفر واجهة برمجة API وWebhooks للمطورين ضمن باقة المؤسسات الكبيرة فأعلى."],
   ["هل أقدر ألغي الاشتراك؟", "يمكن جدولة الإلغاء لنهاية الفترة الحالية من شاشة الفوترة."],
   ["هل يوجد رسم تجهيز؟", "خدمة تجهيز حسابات ميتا والربط الكامل اختيارية وتكلف 500 ريال مرة واحدة."],
   ["كيف تُحتسب رسوم واتساب؟", "رسوم رسائل واتساب الرسمية من ميتا، إن وجدت، منفصلة عن اشتراك Linkly."],
   ["هل بيانات العملاء آمنة؟", "تستخدم المنصة صلاحيات مستخدمين، وتشفيرًا لأسرار التكاملات، وجلسات محددة المدة، وسجلات تشغيل للمساعدة في تتبع النشاط."]
 ] as const;
-const plans = [
-  { name:"البداية", price:"249", audience:"الأنسب لصاحب عمل يبدأ لحاله ويحتاج يرتب رسائله.", cta:"ابدأ التجربة", items:["مستخدم واحد","صندوق وارد واحد لكل رسائلك","ردود سريعة ووسوم","تقارير أساسية"] },
-  { name:"النمو", price:"499", audience:"الأنسب لفريق صغير يحتاج توزيع محادثات وردود آلية.", cta:"جرّب باقة النمو", featured:true, items:["حتى 3 مستخدمين","توزيع المحادثات","رد آلي وقواعد تحويل","تقارير أداء وSLA"] },
-  { name:"الأعمال", price:"999", audience:"الأنسب لفرق متعددة تحتاج واجهات تكامل وتقارير متقدمة.", cta:"جرّب باقة الأعمال", items:["حتى 10 مستخدمين","فرق متعددة","روابط استقبال وواجهات تكامل","دعم أولوية"] }
-] as const;
-const jsonLd = { "@context":"https://schema.org", "@graph":[
-  { "@type":"Organization", name:"Linkly", alternateName:["Linkly Saudi","Linkly السعودية","لنكلي"], url:"https://linklysa.io", logo:"https://linklysa.io/assets/linkly-logo.png", description:"لنكلي منصة سعودية لإدارة تواصل وخدمة العملاء، تساعد الشركات على إدارة محادثات واتساب، صندوق الوارد المشترك، الدعم الفني، التذاكر، المحادثة المباشرة والأتمتة من منصة مركزية واحدة.", areaServed:"SA" },
-  { "@type":"WebSite", name:"Linkly", url:"https://linklysa.io", inLanguage:["ar-SA","en"] },
-  { "@type":"SoftwareApplication", name:"Linkly", applicationCategory:"BusinessApplication", operatingSystem:"Web", offers:{"@type":"AggregateOffer",lowPrice:"249",highPrice:"999",priceCurrency:"SAR"} },
-  { "@type":"FAQPage", mainEntity:faqs.map(([q,a])=>({"@type":"Question",name:q,acceptedAnswer:{"@type":"Answer",text:a}})) }
-]};
+// CTA text stays page-local (marketing copy) - a plan name with no entry
+// here (a custom plan an admin created) falls back to a generic CTA.
+const planCta: Record<string, string> = {
+  "باقة الأفراد": "ابدأ التجربة",
+  "الباقة العادية": "جرّب الباقة العادية",
+  "باقة المؤسسات الصغيرة": "جرّب باقة المؤسسات الصغيرة",
+  "باقة المؤسسات الكبيرة": "جرّب باقة المؤسسات الكبيرة",
+  "باقة الشركات": "تواصل معنا"
+};
 
 function Check(){return <span className={s.check} aria-hidden="true">✓</span>}
 type Platform = "whatsapp" | "instagram" | "email" | "telegram" | "tiktok";
@@ -63,22 +73,45 @@ function Preview(){return <div className={s.preview} aria-label="معاينة ص
   <section className={s.chat}><header><div><b>وليد السبيعي</b><small>محادثة مفتوحة</small></div><span>فريق المبيعات</span></header><div><p className={s.bubble}>السلام عليكم، هل المنتج متوفر اليوم؟</p><div className={s.typingRow} aria-hidden="true"><span/><span/><span/></div><p className={`${s.bubble} ${s.reply}`}>وعليكم السلام، نعم متوفر. أرسل لك رابط الطلب الآن.</p><small>عميل مهتم　 متابعة اليوم</small></div><footer>اكتب ردك هنا… <b>↑</b></footer></section></div>
   </div>}
 
-export default function HomePage(){return <div className={s.page}>
+export default async function HomePage(){
+  const dbPlans = await getActivePlans();
+  const plans = dbPlans.map((plan) => {
+    const features = planFeatures[plan.name];
+    return {
+      id: plan.id,
+      name: features?.shortName.ar ?? plan.name,
+      price: String(plan.monthlyPrice),
+      audience: features?.audience.ar ?? "باقة مرنة تناسب احتياج فريقك.",
+      cta: planCta[plan.name] ?? "ابدأ التجربة",
+      featured: features?.featured,
+      items: getPlanDisplayItems(plan, "ar")
+    };
+  });
+  const prices = dbPlans.map((plan) => plan.monthlyPrice).filter((price) => price > 0);
+  const lowPrice = prices.length ? String(Math.min(...prices)) : "199";
+  const highPrice = prices.length ? String(Math.max(...prices)) : "1499";
+  const jsonLd = { "@context":"https://schema.org", "@graph":[
+    { "@type":"Organization", name:"Linkly", alternateName:["Linkly Saudi","Linkly السعودية","لنكلي"], url:"https://linklysa.io", logo:"https://linklysa.io/assets/linkly-logo.png", description:"لنكلي منصة سعودية لإدارة تواصل وخدمة العملاء، تساعد الشركات على إدارة محادثات واتساب، صندوق الوارد المشترك، الدعم الفني، التذاكر، المحادثة المباشرة والأتمتة من منصة مركزية واحدة.", areaServed:"SA" },
+    { "@type":"WebSite", name:"Linkly", url:"https://linklysa.io", inLanguage:["ar-SA","en"] },
+    { "@type":"SoftwareApplication", name:"Linkly", applicationCategory:"BusinessApplication", operatingSystem:"Web", offers:{"@type":"AggregateOffer",lowPrice,highPrice,priceCurrency:"SAR"} },
+    { "@type":"FAQPage", mainEntity:faqs.map(([q,a])=>({"@type":"Question",name:q,acceptedAnswer:{"@type":"Answer",text:a}})) }
+  ]};
+  return <div className={s.page}>
   <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd).replace(/</g,"\\u003c")}}/>
   <ScrollReveal />
   <MobileCtaVisibility />
   <LandingNav />
   <main>
-    <section className={s.hero}><span className={s.heroAurora} aria-hidden="true"/><div><span className={s.eyebrow}>منصة واحدة لكل فريقك</span><h1>رد أسرع على عملائك <strong>ولا تضيع ولا محادثة</strong></h1><p>واتساب، إنستغرام، البريد وتيليجرام — فريقك يرد ويوزّع ويتابع من صندوق وارد واحد، مع جاهزية تيك توك بعد اعتماد صلاحية المراسلة.</p><div className={s.actions}><Link className={s.primaryLarge} href="/signup" data-primary-cta="true">ابدأ تجربتك مجانًا</Link><WhatsAppCta pageId="home" linkId="hero-whatsapp" message="مرحباً، أبغى أعرف أكثر عن Linkly" className={s.whatsappCta}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.69.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35Zm-5.42 7.4h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26C2.16 6.44 6.6 2 12.05 2c2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.89-9.88 9.89ZM20.46 3.49A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89a11.82 11.82 0 0 0-3.48-8.42Z"/></svg>راسلنا واتساب</WhatsAppCta></div><a className={s.secondary} href="#product">شاهد كيف يعمل ←</a><small className={s.micro}><Check/> 3 أيام مجانًا <Check/> بدون بطاقة دفع <Check/> نجهّز لك القنوات</small><div className={s.heroMetrics}><div><b>4</b><span>قنوات متاحة، وتيك توك قريبًا</span></div><div><b>1</b><span>صندوق وارد لكل الفريق</span></div><div><b>∞</b><span>سياق واضح لكل محادثة</span></div></div></div><Preview/></section>
+    <section className={s.hero}><span className={s.heroAurora} aria-hidden="true"/><div><span className={s.eyebrow}>منصة واحدة لكل فريقك</span><h1>رد أسرع على عملائك <strong>ولا تضيع ولا محادثة</strong></h1><p>واتساب، إنستغرام، البريد وتيليجرام — فريقك يرد ويوزّع ويتابع من صندوق وارد واحد، ويمكنك ربط حساب تيك توك الآن.</p><div className={s.actions}><Link className={s.primaryLarge} href="/signup" data-primary-cta="true">ابدأ تجربتك مجانًا</Link><WhatsAppCta pageId="home" linkId="hero-whatsapp" message="مرحباً، أبغى أعرف أكثر عن Linkly" className={s.whatsappCta}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.69.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35Zm-5.42 7.4h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26C2.16 6.44 6.6 2 12.05 2c2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.89-9.88 9.89ZM20.46 3.49A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89a11.82 11.82 0 0 0-3.48-8.42Z"/></svg>راسلنا واتساب</WhatsAppCta></div><a className={s.secondary} href="#product">شاهد كيف يعمل ←</a><small className={s.micro}><Check/> 3 أيام مجانًا <Check/> بدون بطاقة دفع <Check/> نجهّز لك القنوات</small><div className={s.heroMetrics}><div><b>4</b><span>قنوات للمحادثات، وربط تيك توك متاح</span></div><div><b>1</b><span>صندوق وارد لكل الفريق</span></div><div><b>∞</b><span>سياق واضح لكل محادثة</span></div></div></div><Preview/></section>
     <section className={s.trust}><b>مصممة لفرق خدمة العملاء والمبيعات</b><span><Check/> رد أسرع</span><span><Check/> مسؤول واضح</span><span><Check/> متابعة لا تضيع</span><span><Check/> صلاحيات للفريق</span></section>
     <section className={`${s.section} ${s.problem}`}><Intro kicker="المشكلة" title="قنوات متعددة. عشرات المحادثات. فريق واحد يحاول يلحق عليها." copy="التنقل بين التطبيقات والجوالات يبطئ الرد ويخفي المسؤول ويجعل متابعة العميل تعتمد على الذاكرة."/><div className={`${s.problemVisual} ${s.revealFade}`}><div className={s.channelMarks}><i className={s.floatIcon} title={channelNames.whatsapp.ar}><PlatformLogo platform="whatsapp"/></i><i className={s.floatIcon} title={channelNames.instagram.ar}><PlatformLogo platform="instagram"/></i><i className={s.floatIcon} title={channelNames.email.ar}><PlatformLogo platform="email"/></i><i className={s.floatIcon} title={channelNames.telegram.ar}><PlatformLogo platform="telegram"/></i><i className={s.floatIcon} title={channelNames.tiktok.ar}><PlatformLogo platform="tiktok"/></i></div><span>←</span><article><Image src={logo} alt="" width={64} height={35}/><div><b>صندوق وارد واحد</b><p>سياق كامل، توزيع واضح، ومتابعة من مكان واحد.</p></div></article></div></section>
     <section className={`${s.section} ${s.product}`} id="product"><Intro kicker="المنتج" title="واجهة واحدة ترى فيها ما يحتاجه الفريق الآن" copy="من أول رسالة إلى الإغلاق، تبقى المحادثة والعميل والمسؤول والخطوة التالية في نفس السياق."/><div className={s.productGrid}><div className={s.numberList}>{[["01","المحادثة أمامك كاملة","الرسائل والقناة والوسوم والحالة دون تنقل."],["02","المسؤول معروف","اسند المحادثة لموظف أو فريق وتابع العمل."],["03","الخطوة التالية واضحة","حوّلها إلى متابعة مبيعات أو دعم أو تصعيد."]].map((x,i)=><article key={x[0]} className={s.reveal} style={{transitionDelay:`${i*80}ms`}}><span>{x[0]}</span><div><h3>{x[1]}</h3><p>{x[2]}</p></div></article>)}</div></div></section>
-    <section className={`${s.section} ${s.channels}`}><Intro kicker="القنوات" title="كل قناة بطبيعتها. إدارة واحدة لفريقك." copy="فعّل القنوات التي يحتاجها نشاطك، واجعل الفريق يعمل من صندوق وارد واحد."/><div className={s.channelsGrid}>{[["whatsapp",channelNames.whatsapp.ar,"محادثات العملاء والقوالب والمرفقات عبر واجهة واتساب السحابية."],["instagram",channelNames.instagram.ar,"استقبل الرسائل وتابع سياق العميل ورد من نفس المساحة."],["email",channelNames.email.ar,"اربط جيميل للإرسال والاستلام."],["telegram",channelNames.telegram.ar,"اربط البوت واستقبل الرسائل ووزّعها بأمان."],["tiktok",channelNames.tiktok.ar,"جاهز للإعداد بعد حصول النشاط على اعتماد مراسلة تيك توك للأعمال."]].map((x,i)=><article key={x[1]} className={s.reveal} style={{transitionDelay:`${i*70}ms`}}>{x[0]==="tiktok"?<span className={s.channelsGridBadge}>قريبًا</span>:null}<i><PlatformLogo platform={x[0] as Platform}/></i><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div></section>
+    <section className={`${s.section} ${s.channels}`}><Intro kicker="القنوات" title="كل قناة بطبيعتها. إدارة واحدة لفريقك." copy="فعّل القنوات التي يحتاجها نشاطك، واجعل الفريق يعمل من صندوق وارد واحد."/><div className={s.channelsGrid}>{[["whatsapp",channelNames.whatsapp.ar,"محادثات العملاء والقوالب والمرفقات عبر واجهة واتساب السحابية."],["instagram",channelNames.instagram.ar,"استقبل الرسائل وتابع سياق العميل ورد من نفس المساحة."],["email",channelNames.email.ar,"اربط جيميل للإرسال والاستلام."],["telegram",channelNames.telegram.ar,"اربط البوت واستقبل الرسائل ووزّعها بأمان."],["tiktok",channelNames.tiktok.ar,"اربط حساب تيك توك الآن. مراسلة الأعمال تتطلب صلاحية منفصلة من تيك توك."]].map((x,i)=><article key={x[1]} className={s.reveal} style={{transitionDelay:`${i*70}ms`}}>{x[0]==="tiktok"?<span className={s.channelsGridBadge}>الربط متاح</span>:null}<i><PlatformLogo platform={x[0] as Platform}/></i><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div></section>
     <section className={`${s.section} ${s.features}`} id="features"><Intro kicker="المميزات" title="كل ما يحتاجه فريقك لإدارة المحادثة بوضوح" copy="أدوات عملية مبنية حول سير العمل اليومي، لا قائمة طويلة من المزايا النظرية."/><div className={s.featureGrid}>{features.map(([t,c],i)=><article key={t} className={s.reveal} style={{transitionDelay:`${i*60}ms`}}><span>0{i+1}</span><h3>{t}</h3><p>{c}</p></article>)}</div><div className={s.inlineCta}><p><b>جاهز تجمع محادثات فريقك؟</b><span>ابدأ بحساب مجاني ثم جهّز قنواتك خطوة بخطوة.</span></p><Link className={s.primary} href="/signup" data-primary-cta="true">ابدأ تجربتك مجانًا</Link></div></section>
     <section className={`${s.section} ${s.how}`} id="how"><Intro kicker="طريقة العمل" title="ابدأ خلال أربع خطوات" copy="مسار واضح من إنشاء الحساب إلى أول محادثة يديرها فريقك."/><ol>{[["1","أنشئ حسابك","ابدأ التجربة وأكمل بيانات نشاطك."],["2","اربط قنواتك","جهّز القنوات المتاحة لنشاطك."],["3","أضف فريقك","حدد الموظفين والفرق والصلاحيات."],["4","ابدأ الرد","وزّع المحادثات وتابع الأداء."]].map((x,i)=><li key={x[0]} className={s.reveal} style={{transitionDelay:`${i*80}ms`}}><span>{x[0]}</span><div><h3>{x[1]}</h3><p>{x[2]}</p></div></li>)}</ol></section>
     <section className={`${s.section} ${s.useCases}`}><Intro kicker="حالات الاستخدام" title="من أول استفسار إلى عميل تمت خدمته"/><div>{[["↗","المبيعات","عميل يأتي من واتساب أو إنستقرام، يُسند لموظف مبيعات وتُحفظ خطوته التالية.","Lead ← تعيين ← متابعة"],["◎","خدمة العملاء","استفسار أو شكوى تدخل للصندوق وتنتقل للفريق الصحيح مع كامل السياق.","رسالة ← فريق ← حل"],["⌁","التشغيل والمتابعة","القواعد والردود السريعة وساعات العمل تقلل التأخير وتحافظ على تجربة ثابتة.","قاعدة ← إجراء ← قياس"]].map((x,i)=><article key={x[1]} className={s.reveal} style={{transitionDelay:`${i*80}ms`}}><i>{x[0]}</i><h3>{x[1]}</h3><p>{x[2]}</p><small dir="rtl">{x[3]}</small></article>)}</div></section>
     <section className={`${s.section} ${s.security}`}><Intro kicker="الأمان والثقة" title="بيانات عملائك تستحق حماية على مستوى أعمالك" copy="الحماية جزء أساسي من المنتج، من تسجيل الدخول إلى ربط قنواتك."/><div>{[["01","تشفير الأسرار","بيانات ربط قنواتك محمية ومشفّرة، وما تظهر كاملة لأي أحد بالواجهة."],["02","صلاحيات وسجلات تشغيل","لكل موظف صلاحياته، ولك سجل بكل نشاط مهم يصير بحسابك."],["03","تحقق من مصدر الرسائل","نتأكد إن كل رسالة قادمة فعليًا من القناة الرسمية قبل ما نقبلها."],["04","جلسات دخول آمنة","جلسات محددة المدة، وكلمات المرور محفوظة بتشفير قوي دايمًا."]].map((x,i)=><article key={x[0]} className={s.reveal} style={{transitionDelay:`${i*70}ms`}}><span>{x[0]}</span><div><h3>{x[1]}</h3><p>{x[2]}</p></div></article>)}</div></section>
-    <section className={`${s.section} ${s.pricing}`} id="pricing"><Intro kicker="الأسعار" title="باقة واضحة لكل مرحلة من نمو فريقك" copy="ابدأ بالتجربة أولًا، ثم اختر السعة والأدوات المناسبة لطريقة عملك."/><div className={s.planGrid}>{plans.map((p,pi)=>{const featured="featured" in p&&p.featured;return <article className={`${featured?s.featured:""} ${s.revealFade}`} key={p.name} style={{transitionDelay:`${pi*90}ms`}}>{featured?<span className={s.popular}>الأنسب لمعظم الفرق</span>:null}<h3>{p.name}</h3><p className={s.planAudience}>{p.audience}</p><div className={s.price}><b>{p.price}</b><span>ريال<br/>/ الشهر</span></div><ul>{p.items.map(i=><li key={i}><Check/>{i}</li>)}</ul><Link className={featured?s.primaryLarge:s.planButton} href="/signup">{p.cta}</Link></article>})}</div>
+    <section className={`${s.section} ${s.pricing}`} id="pricing"><Intro kicker="الأسعار" title="باقة واضحة لكل مرحلة من نمو فريقك" copy="ابدأ بالتجربة أولًا، ثم اختر السعة والأدوات المناسبة لطريقة عملك."/><PricingPlanGrid plans={plans} lang="ar"/>
       <div className={`${s.metaSetup} ${s.revealFade}`}><span className={s.metaSetupGlow} aria-hidden="true"/><div className={s.metaSetupBadge}><b>500</b><span>ريال<br/>مرة واحدة</span></div><div className={s.metaSetupBody}><h2>ما عندك حساب فيسبوك أو ميتا للأعمال؟</h2><p>نجهز لك الحساب وربط واتساب للأعمال بالكامل — إضافة اختيارية. <Link className={s.metaSetupLink} href="/contact">اعرف التفاصيل<span aria-hidden="true">←</span></Link></p><p className={s.metaSetupNote}>رسوم الخدمة تدفع مرة واحدة ولا تشمل رسوم ميتا أو أي رسوم طرف ثالث إن وجدت.</p></div></div>
       <p className={s.whatsappNote}><b>رسوم واتساب:</b> رسوم الرسائل الرسمية من ميتا، إن وجدت، منفصلة عن اشتراك Linkly.</p>
     </section>

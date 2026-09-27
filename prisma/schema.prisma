@@ -181,6 +181,11 @@ model Template {
   headerText  String @default("") @map("header_text")
   headerMedia String @default("") @map("header_media")
   headerMediaDataUrl String @default("") @map("header_media_data_url")
+  // Public media-serving URL token (app/api/whatsapp/template-media/[id])
+  // uses this instead of the template's own id, which is predictable
+  // (tmpl-<tenantId>-<name>) and therefore not a safe bearer secret for an
+  // unauthenticated endpoint - see the pre-launch audit finding F-01.
+  mediaToken  String @default("") @map("media_token")
   footer      String @default("")
   buttonType  String @default("NONE") @map("button_type")
   buttonText  String @default("") @map("button_text")
@@ -191,6 +196,7 @@ model Template {
   lastUsed    String @map("last_used")
 
   @@unique([name, tenantId])
+  @@index([mediaToken])
   @@map("templates")
 }
 
@@ -299,6 +305,22 @@ model CampaignRecipient {
   @@map("campaign_recipients")
 }
 
+// One row per click on a recipient's tracking link - clickedAt/clickCount on
+// CampaignRecipient only ever kept the FIRST click time and a running total,
+// with no way to see every individual click's time. Written alongside that
+// update (see app/api/campaigns/t/[code]/route.ts) rather than replacing it,
+// so existing readers of clickedAt/clickCount are unaffected.
+model CampaignRecipientClick {
+  id          String @id
+  recipientId String @map("recipient_id")
+  tenantId    String @map("tenant_id")
+  clickedAt   String @map("clicked_at")
+
+  @@index([recipientId])
+  @@index([tenantId])
+  @@map("campaign_recipient_clicks")
+}
+
 model CampaignBalance {
   tenantId        String @id @map("tenant_id")
   balance         Int    @default(0)
@@ -348,6 +370,10 @@ model Segment {
   engagementBucket String @default("") @map("engagement_bucket")
   engagementDateFrom String @default("") @map("engagement_date_from")
   engagementDateTo String @default("") @map("engagement_date_to")
+  // Only meaningful (and only ever set) when engagementBucket = "clicked" -
+  // 0 means "no exact-count condition", any positive value requires a
+  // matching customer's CampaignRecipient.clickCount to equal it exactly.
+  engagementClickCount Int @default(0) @map("engagement_click_count")
   createdAt    String @map("created_at")
   updatedAt    String @map("updated_at")
 
@@ -678,6 +704,19 @@ model Plan {
   // their own API key on any plan (see AiWorkspaceSetting), unaffected by this.
   aiDailyLimit   Int @default(0) @map("ai_daily_limit")
   aiMonthlyLimit Int @default(0) @map("ai_monthly_limit")
+  // Comma-separated channel keys this plan may connect (see
+  // lib/channel-catalog.ts for the canonical list), or "*" for every
+  // channel with no restriction - the default, so every plan that predates
+  // this column (and any row that never sets it) stays fully unrestricted.
+  allowedChannels String @default("*") @map("allowed_channels")
+  // Marketing (campaign) messages credited to a tenant's CampaignBalance
+  // each time a subscription payment on this plan is confirmed (see
+  // applyConfirmedSubscriptionPayment in lib/subscriptions.ts) - scaled by
+  // 12 for an annual payment, since that buys a full year upfront. -1 means
+  // unlimited (see UNLIMITED_MESSAGE_QUOTA in lib/message-quota.ts); the
+  // credited amount then uses a large-but-finite practical constant instead
+  // of literally -1, which would break the balance's spend gate.
+  messageQuota Int @default(0) @map("message_quota")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 
@@ -699,6 +738,30 @@ model Subscription {
   // An active subscription with renewalAt in the past is overdue (unpaid)
   // - see subscriptionPaymentState() in lib/payment-status.ts.
   renewalAt     String @default("") @map("renewal_at")
+  // Set by the owner cancelling from /billing. Since there is no
+  // auto-charge, cancelling doesn't change access (it still lapses
+  // naturally at renewalAt) - this just records the owner's intent so the
+  // UI can show "cancelled, access until <renewalAt>" instead of implying
+  // an auto-renewal that was never going to happen, and so renewal-
+  // reminder emails stop once the owner has already said they're done.
+  cancelledAt   String @default("") @map("cancelled_at")
+  // Real auto-renewal: an owner can opt in to saving their card (Moyasar
+  // tokenization) on /billing/pay. Nothing here is trusted client-side -
+  // savedCardToken only ever gets set server-side after confirm-payment
+  // verifies a real completed payment whose response included a token
+  // (see lib/moyasar.ts's chargeSavedCard/summarizeMoyasarPayment). If the
+  // Moyasar account doesn't actually support tokenization, the checkbox
+  // simply never produces a token and auto-renewal stays off - see
+  // sendSubscriptionRenewalReminders' plain-manual path for that case.
+  autoRenewEnabled  Int    @default(0) @map("auto_renew_enabled")
+  savedCardToken    String @default("") @map("saved_card_token")
+  savedCardLast4    String @default("") @map("saved_card_last4")
+  savedCardBrand    String @default("") @map("saved_card_brand")
+  // Consecutive failed auto-charge attempts (lib/subscriptions.ts's
+  // attemptAutoRenewals). Capped so a permanently-declined card doesn't
+  // retry forever unnoticed - past the cap, auto-renew disables itself and
+  // the owner is emailed to renew manually.
+  autoRenewFailCount Int   @default(0) @map("auto_renew_fail_count")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 
@@ -719,6 +782,14 @@ model SubscriptionPayment {
   // payment is confirmed paid, so benefits never precede payment.
   planName          String @default("") @map("plan_name")
   planEmployeeLimit Int    @default(0) @map("plan_employee_limit")
+  // Captured from Plan.messageQuota at checkout time, same as
+  // planEmployeeLimit above - the amount actually credited to
+  // CampaignBalance on confirmation (see applyConfirmedSubscriptionPayment).
+  planMessageQuota  Int    @default(0) @map("plan_message_quota")
+  // "شهري" or "سنوي" - which period this payment buys (see
+  // computeSubscriptionPeriod/priceForCycle in lib/subscriptions.ts and
+  // lib/billing-pricing.ts). Annual pays the full discounted year upfront.
+  billingCycle      String @default("شهري") @map("billing_cycle")
   // Payment ledger details (see docs/payments.md and CampaignPayment above).
   gateway          String @default("") @map("gateway")
   gatewayPaymentId String @default("") @map("gateway_payment_id")
@@ -733,6 +804,14 @@ model SubscriptionPayment {
   // paid-through date rather than from "today", so no paid days are lost.
   periodStart      String @default("") @map("period_start")
   periodEnd        String @default("") @map("period_end")
+  // Proration on an upgrade mid-cycle (see computeProrationCredit in
+  // lib/subscriptions.ts): listPrice is the new plan's full sticker price,
+  // prorationCreditAmount is the unused-days credit from the old plan
+  // subtracted from it - `amount` above is always the actual amount
+  // charged (listPrice - prorationCreditAmount), these two are kept only
+  // so the breakdown can still be shown/audited after the fact.
+  listPrice             Float @default(0) @map("list_price")
+  prorationCreditAmount Float @default(0) @map("proration_credit_amount")
 
   @@index([tenantId, status])
   @@index([moyasarId])
@@ -799,6 +878,27 @@ model AdminLog {
   message    String
 
   @@map("admin_logs")
+}
+
+// Who-did-what for the platform admin's OWN actions (suspend a tenant,
+// change a plan, issue a refund, ...) - distinct from AdminLog above, which
+// is tenant-scoped and has no admin-actor field at all. See
+// lib/admin-audit.ts's recordAdminAction, called from every mutating
+// app/api/admin/** route.
+model AdminActionLog {
+  id          String @id
+  adminUserId String @map("admin_user_id")
+  adminEmail  String @map("admin_email")
+  adminName   String @default("") @map("admin_name")
+  action      String
+  targetType  String @default("") @map("target_type")
+  targetId    String @default("") @map("target_id")
+  details     String @default("")
+  createdAt   String @map("created_at")
+
+  @@index([adminUserId, createdAt])
+  @@index([targetType, targetId])
+  @@map("admin_action_logs")
 }
 
 model RateLimit {
