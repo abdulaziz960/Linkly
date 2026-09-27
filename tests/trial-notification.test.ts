@@ -11,7 +11,7 @@ describe("trial signup email", () => {
     expect(await sendTrialSignupNotification({ tenantId: "tenant-1", companyName: "<script>bad</script>", ownerName: "A & B", ownerEmail: "owner@example.com" })).toBe(true);
     const options = fetchMock.mock.calls[0][1];
     const body = JSON.parse(options.body);
-    expect(body.to).toBe("xcoode25@gmail.com");
+    expect(body.to).toBe("info@linklysa.io");
     expect(body.html).toContain('lang="ar" dir="rtl"');
     expect(body.html).toContain('body dir="rtl"');
     expect(body.html).toContain("&lt;script&gt;");

@@ -24,10 +24,18 @@ export async function POST(request: NextRequest) {
   const { planId, billingCycle: requestedBillingCycle } = await request.json().catch(() => ({ planId: "" })) as { planId?: string; billingCycle?: unknown };
   const billingCycle: BillingCycle = isBillingCycle(requestedBillingCycle) ? requestedBillingCycle : "شهري";
   await ensureSchema();
-  const plan = await prisma.plan.findFirst({ where: { id: planId, active: 1 } });
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
+  // Renewing the tenant's own current plan must keep working even after
+  // that plan is deactivated for new signups - a pricing redesign leaves
+  // existing subscribers on their old plan rather than force-migrating
+  // them (see 8b67709), so a suspended tenant on a retired plan still
+  // needs to be able to pay to reopen with the exact plan they're on.
+  // Only an actual plan CHANGE has to come from the currently active list.
+  const plan = await prisma.plan.findFirst({
+    where: subscription ? { id: planId, OR: [{ active: 1 }, { name: subscription.plan }] } : { id: planId, active: 1 }
+  });
   if (!plan) return NextResponse.json({ error: "الباقة غير موجودة" }, { status: 404 });
   if (plan.monthlyPrice < 1) return NextResponse.json({ error: "سعر الباقة غير صالح" }, { status: 400 });
-  const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
   const companyName = subscription?.companyName || user.name;
   const listPrice = priceForCycle(plan.monthlyPrice, billingCycle);
 

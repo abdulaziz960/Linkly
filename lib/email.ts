@@ -88,7 +88,7 @@ async function sendEmail({ to, subject, text, html, idempotencyKey }: { to: stri
 export async function sendTrialSignupNotification(input: { tenantId: string; companyName: string; ownerName: string; ownerEmail: string }): Promise<boolean> {
   const text = `تسجيل تجربة جديد في Linkly\nالنشاط: ${input.companyName}\nالاسم: ${input.ownerName}\nالبريد: ${input.ownerEmail}\nالحساب بانتظار تأكيد البريد الإلكتروني.`;
   const html = `<!doctype html><html lang="ar" dir="rtl"><body dir="rtl" style="direction:rtl;text-align:right;margin:0;padding:24px;background:#eaf3f1;color:#123330;font-family:Tahoma,Arial,sans-serif"><table dir="rtl" role="presentation" width="100%" cellpadding="20" style="direction:rtl;text-align:right;max-width:560px;background:#ffffff;border:1px solid #d8e8e5;border-radius:16px"><tr><td><h1 style="color:#178a82;font-size:24px">تسجيل تجربة جديد في Linkly</h1><p>النشاط: ${escapeHtml(input.companyName)}</p><p>الاسم: ${escapeHtml(input.ownerName)}</p><p>البريد: <span dir="ltr" style="direction:ltr;unicode-bidi:embed">${escapeHtml(input.ownerEmail)}</span></p><p>الحساب بانتظار تأكيد البريد الإلكتروني.</p></td></tr></table></body></html>`;
-  return sendEmail({ to: "xcoode25@gmail.com", subject: "تسجيل تجربة جديد في Linkly", text, html, idempotencyKey: `trial-signup/${input.tenantId}` });
+  return sendEmail({ to: "info@linklysa.io", subject: "تسجيل تجربة جديد في Linkly", text, html, idempotencyKey: `trial-signup/${input.tenantId}` });
 }
 
 export async function sendActivationEmail({ to, name, activationUrl, purpose = "activation", workspaceName }: SendActivationEmailInput): Promise<EmailDeliveryResult> {

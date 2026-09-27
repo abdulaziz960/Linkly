@@ -28,6 +28,18 @@ export async function getActivePlans() {
   return prisma.plan.findMany({ where: { active: 1 }, orderBy: { sortOrder: "asc" } });
 }
 
+/**
+ * Looks up a plan by its exact name regardless of active status - a
+ * suspended tenant renewing the exact plan they're already on must be able
+ * to, even if that plan was since deactivated for new signups (a pricing
+ * redesign leaves existing subscribers on their old plan, see 8b67709).
+ */
+export async function getPlanByName(name: string) {
+  await ensureSchema();
+  if (!name) return null;
+  return prisma.plan.findFirst({ where: { name } });
+}
+
 type CreatePlanInput = {
   name: string;
   monthlyPrice: number;
