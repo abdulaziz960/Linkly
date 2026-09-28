@@ -204,24 +204,8 @@ function adminNotificationContent(heading: string, rows: [string, string][], bod
   return { text, html };
 }
 
-/**
- * Internal-only "someone signed up" ping to the team inbox - separate from
- * sendActivationEmail, which goes to the new owner. Best-effort: a failure
- * here must never block account creation, so callers should not await this
- * for control flow, only fire it.
- */
-export async function sendNewSignupAdminNotification({ companyName, ownerName, ownerEmail, plan }: { companyName: string; ownerName: string; ownerEmail: string; plan: string }): Promise<boolean> {
-  const content = adminNotificationContent("تسجيل جديد في Linkly", [
-    ["الشركة", companyName],
-    ["المالك", ownerName],
-    ["البريد الإلكتروني", ownerEmail],
-    ["الباقة", plan]
-  ]);
-  return sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `تسجيل جديد: ${companyName}`, text: content.text, html: content.html });
-}
-
 /** Internal-only "new support ticket" ping to the team inbox. Best-effort - never blocks ticket creation. */
-export async function sendNewSupportTicketAdminNotification({ ticketNumber, subject, categoryLabel, priorityLabel, companyName, submitterName, submitterEmail, description }: { ticketNumber: string; subject: string; categoryLabel: string; priorityLabel: string; companyName: string; submitterName: string; submitterEmail: string; description: string }): Promise<boolean> {
+export async function sendNewSupportTicketAdminNotification({ ticketId, ticketNumber, subject, categoryLabel, priorityLabel, companyName, submitterName, submitterEmail, description }: { ticketId: string; ticketNumber: string; subject: string; categoryLabel: string; priorityLabel: string; companyName: string; submitterName: string; submitterEmail: string; description: string }): Promise<boolean> {
   const content = adminNotificationContent(`تذكرة دعم جديدة: ${ticketNumber}`, [
     ["الشركة", companyName || "—"],
     ["مقدّم الطلب", submitterName],
@@ -230,16 +214,16 @@ export async function sendNewSupportTicketAdminNotification({ ticketNumber, subj
     ["الأولوية", priorityLabel],
     ["الموضوع", subject]
   ], description);
-  return sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `تذكرة دعم جديدة ${ticketNumber}: ${subject}`, text: content.text, html: content.html });
+  return sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `تذكرة دعم جديدة ${ticketNumber}: ${subject}`, text: content.text, html: content.html, idempotencyKey: `support-ticket/${ticketId}` });
 }
 
 /** Internal-only "new development suggestion" ping to the team inbox. Best-effort - never blocks submission. */
-export async function sendNewDevelopmentRequestAdminNotification({ title, companyName, submitterName, submitterEmail, description }: { title: string; companyName: string; submitterName: string; submitterEmail: string; description: string }): Promise<boolean> {
+export async function sendNewDevelopmentRequestAdminNotification({ requestId, title, companyName, submitterName, submitterEmail, description }: { requestId: string; title: string; companyName: string; submitterName: string; submitterEmail: string; description: string }): Promise<boolean> {
   const content = adminNotificationContent("اقتراح تطوير جديد في Linkly", [
     ["الشركة", companyName || "—"],
     ["مقدّم الاقتراح", submitterName],
     ["البريد الإلكتروني", submitterEmail],
     ["العنوان", title]
   ], description);
-  return sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `اقتراح تطوير جديد: ${title}`, text: content.text, html: content.html });
+  return sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `اقتراح تطوير جديد: ${title}`, text: content.text, html: content.html, idempotencyKey: `development-request/${requestId}` });
 }

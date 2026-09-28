@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
-import { sendActivationEmail, sendNewSignupAdminNotification } from "./email";
+import { sendActivationEmail } from "./email";
 import { isValidEmail } from "./validation";
 import { PAYMENT_STATUS, PAYMENT_GATEWAY, mapMoyasarInvoiceStatus, type PaymentKind } from "./payment-status";
 import { chargeSavedCard, buildPaymentMetadata, paymentDescription, summarizeMoyasarPayment, isAutoRenewEnabled, type GatewayPaymentDetails } from "./moyasar";
@@ -1080,12 +1080,6 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
     : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const activationUrl = `${origin.replace(/\/$/, "")}/activate?token=${activationToken}`;
   const inviteDelivery = await sendActivationEmail({ to: email, name: input.ownerName, activationUrl });
-
-  // Best-effort team ping - never let a notification failure affect the
-  // signup response the new owner is waiting on.
-  sendNewSignupAdminNotification({ companyName: input.companyName, ownerName: input.ownerName, ownerEmail: email, plan: input.plan }).catch((error) => {
-    console.error("New signup admin notification failed", error);
-  });
 
   const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
   return { subscription, inviteDelivery, created: true };

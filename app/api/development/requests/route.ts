@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
   });
 
   sendNewDevelopmentRequestAdminNotification({
+    requestId: created.id,
     title,
     companyName: created.companyName,
     submitterName: user.name,

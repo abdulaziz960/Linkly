@@ -6029,6 +6029,21 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   font-size: 15px;
 }
 
+/*
+ * This row's <select> (next-step link) inherits `width: 100%` from the
+ * shared `.form-grid select` rule, which - with no flex-basis of its own -
+ * made it claim the row's entire width and squeeze the label input (which
+ * only has flex:1/flex-basis:0%) down to almost nothing. Give it a fixed,
+ * content-appropriate width instead so the label input gets its fair share.
+ */
+.bot-option-editor-row select {
+  flex: 0 0 auto;
+  width: 150px;
+  min-width: 150px;
+  padding: 12px 10px;
+  font-size: 14px;
+}
+
 .bot-builder-modal {
   width: min(980px, 100%);
 }

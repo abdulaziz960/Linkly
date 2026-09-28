@@ -25,8 +25,7 @@ vi.mock("../lib/permissions-server", () => ({
 }));
 
 const sendActivationEmail = vi.fn(async () => ({ sent: true, message: "sent" }));
-const sendNewSignupAdminNotification = vi.fn(async () => true);
-vi.mock("../lib/email", () => ({ sendActivationEmail, sendNewSignupAdminNotification }));
+vi.mock("../lib/email", () => ({ sendActivationEmail }));
 
 beforeAll(async () => {
   if (existsSync(testDbPath)) unlinkSync(testDbPath);

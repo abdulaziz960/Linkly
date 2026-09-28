@@ -157,6 +157,7 @@ export async function POST(request: NextRequest) {
   }).catch(() => {});
 
   sendNewSupportTicketAdminNotification({
+    ticketId: ticket.id,
     ticketNumber: ticket.ticketNumber,
     subject,
     categoryLabel: categoryLabel(category, "ar"),
