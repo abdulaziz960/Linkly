@@ -6023,6 +6023,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 
 .bot-option-editor-row input {
   flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 15px;
 }
 
 .bot-builder-modal {
