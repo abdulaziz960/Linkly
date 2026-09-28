@@ -7,6 +7,7 @@ import { syncXTenant } from "../../../../lib/x-sync";
 import { reconcileStalePendingPayments, sendTrialEndingReminders, sendSubscriptionRenewalReminders, attemptAutoRenewals } from "../../../../lib/subscriptions";
 import { sendLowBalanceAlerts } from "../../../../lib/campaign-balance-alerts";
 import { processDueConversationSummaries } from "../../../../lib/conversation-insights";
+import { sendReengagementReminders } from "../../../../lib/reengagement";
 import { isCronRequestAuthorized } from "../../../../lib/cron-auth";
 
 export const runtime = "nodejs";
@@ -92,6 +93,10 @@ export async function GET(request: NextRequest) {
     console.error("Low balance alerts failed", error);
     return { sent: 0 };
   });
+  const reengagementReminders = await sendReengagementReminders().catch((error) => {
+    console.error("Reengagement reminders failed", error);
+    return { sent: 0 };
+  });
 
-  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts });
+  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders });
 }

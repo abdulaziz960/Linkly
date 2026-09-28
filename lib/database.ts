@@ -488,6 +488,24 @@ async function runRequiredProductionMigrations() {
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_token_expires_at TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS reengagement_sent_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_visit_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS visit_count INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS reengagement_enabled INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS reengagement_days INTEGER NOT NULL DEFAULT 30`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS reengagement_template_name TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_comments_synced_at TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
@@ -1350,6 +1368,15 @@ async function runSchemaMigrations() {
   if (!customerColumns.some((column) => column.name === "marketing_opt_out_at")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN marketing_opt_out_at TEXT NOT NULL DEFAULT ''`);
   }
+  if (!customerColumns.some((column) => column.name === "reengagement_sent_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN reengagement_sent_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!customerColumns.some((column) => column.name === "last_visit_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN last_visit_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!customerColumns.some((column) => column.name === "visit_count")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0`);
+  }
   const conversationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(conversations)`);
   if (!conversationColumns.some((column) => column.name === "tenant_id")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
@@ -1830,10 +1857,16 @@ async function runSchemaMigrations() {
     updated_at TEXT NOT NULL
   )`);
   const tenantPreferenceColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(tenant_preferences)`);
-  for (const columnName of ["brand_name", "brand_logo_data_url", "brand_color"]) {
+  for (const columnName of ["brand_name", "brand_logo_data_url", "brand_color", "reengagement_template_name"]) {
     if (!tenantPreferenceColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
+  }
+  if (!tenantPreferenceColumns.some((column) => column.name === "reengagement_enabled")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN reengagement_enabled INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!tenantPreferenceColumns.some((column) => column.name === "reengagement_days")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN reengagement_days INTEGER NOT NULL DEFAULT 30`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
     id TEXT PRIMARY KEY,

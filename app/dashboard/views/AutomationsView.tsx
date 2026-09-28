@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { AutomationRule, Employee, MessageTemplate, Tag, Team } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
@@ -189,6 +189,59 @@ export default function AutomationsView({
   const [simRunning, setSimRunning] = useState(false);
   const [simError, setSimError] = useState("");
   const [simResults, setSimResults] = useState<SimulationMatch[] | null>(null);
+
+  const [reengagementLoaded, setReengagementLoaded] = useState(false);
+  const [reengagementEnabled, setReengagementEnabled] = useState(false);
+  const [reengagementDays, setReengagementDays] = useState(30);
+  const [reengagementTemplateName, setReengagementTemplateName] = useState("");
+  const [reengagementSaving, setReengagementSaving] = useState(false);
+  const [reengagementFeedback, setReengagementFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const approvedTemplateOptions = useMemo(() => templates.filter((template) => template.status === "معتمد").map((template) => ({ value: template.name, label: template.name })), [templates]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/settings/preferences")
+      .then((response) => response.json())
+      .then((payload) => {
+        if (cancelled || !payload?.ok) return;
+        setReengagementEnabled(Boolean(payload.data?.reengagementEnabled));
+        setReengagementDays(payload.data?.reengagementDays || 30);
+        setReengagementTemplateName(payload.data?.reengagementTemplateName || "");
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setReengagementLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function saveReengagement(next: { enabled: boolean; days: number; templateName: string }) {
+    setReengagementSaving(true);
+    setReengagementFeedback(null);
+    try {
+      const response = await fetch("/api/settings/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reengagementEnabled: next.enabled,
+          reengagementDays: next.days,
+          reengagementTemplateName: next.templateName
+        })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر حفظ إعداد تذكير الانقطاع.", "Could not save the re-engagement reminder setting."));
+      setReengagementEnabled(next.enabled);
+      setReengagementDays(next.days);
+      setReengagementTemplateName(next.templateName);
+      setReengagementFeedback({ type: "success", message: t("تم حفظ إعداد تذكير الانقطاع.", "Re-engagement reminder setting saved.") });
+    } catch (error) {
+      setReengagementFeedback({ type: "error", message: error instanceof Error ? error.message : t("تعذر حفظ إعداد تذكير الانقطاع.", "Could not save the re-engagement reminder setting.") });
+    } finally {
+      setReengagementSaving(false);
+    }
+  }
 
   const presets = useMemo<AutomationPreset[]>(() => {
     const firstTeam = teams[0]?.name || "اختر فريق";
@@ -481,6 +534,49 @@ export default function AutomationsView({
         <article><span>⚡</span><div><b>{automationRules.length}</b><small>{t("إجمالي القواعد", "Total rules")}</small></div></article>
         <article><span>✓</span><div><b>{enabledCount}</b><small>{t("قواعد تعمل الآن", "Rules running now")}</small></div></article>
         <article><span>↗</span><div><b>{totalActions}</b><small>{t("إجراءات تلقائية", "Automated actions")}</small></div></article>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head">
+          <h2>{t("تذكير العملاء غير النشطين", "Inactive customer reminder")}</h2>
+        </div>
+        <div className="panel-body">
+          <p>{t("أرسل تلقائيًا رسالة (مثل \"افتقدناك\") لأي عميل مضى على آخر زيارة مسجّلة له (عبر ربط منصة الحجوزات) عدد الأيام المحدد أدناه - وليس آخر رسالة واتساب.", "Automatically send a message (like \"we've missed you\") to any customer whose last recorded visit (via your reservation platform integration) is older than the number of days set below - not their last WhatsApp message.")}</p>
+          {reengagementFeedback ? <p className={`automation-feedback ${reengagementFeedback.type}`} role="status">{reengagementFeedback.message}</p> : null}
+          <label className="automation-switch">
+            <input
+              type="checkbox"
+              checked={reengagementEnabled}
+              disabled={!reengagementLoaded || reengagementSaving}
+              aria-label={reengagementEnabled ? t("إيقاف تذكير الانقطاع", "Disable the re-engagement reminder") : t("تشغيل تذكير الانقطاع", "Enable the re-engagement reminder")}
+              onChange={(event) => saveReengagement({ enabled: event.target.checked, days: reengagementDays, templateName: reengagementTemplateName })}
+            />
+            <span>{reengagementEnabled ? t("مفعّل", "Enabled") : t("متوقف", "Disabled")}</span>
+          </label>
+          <label>
+            <span>{t("عدد أيام الانقطاع قبل التذكير", "Days of inactivity before reminding")}</span>
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={reengagementDays}
+              disabled={!reengagementLoaded || reengagementSaving}
+              onChange={(event) => setReengagementDays(Math.max(1, Math.min(365, Number(event.target.value) || 1)))}
+              onBlur={() => saveReengagement({ enabled: reengagementEnabled, days: reengagementDays, templateName: reengagementTemplateName })}
+            />
+          </label>
+          <label>
+            <span>{t("قالب واتساب المُرسل", "WhatsApp template to send")}</span>
+            <CustomSelect
+              value={reengagementTemplateName}
+              onChange={(value) => saveReengagement({ enabled: reengagementEnabled, days: reengagementDays, templateName: value })}
+              options={approvedTemplateOptions}
+              placeholder={t("اختر قالبًا معتمدًا", "Select an approved template")}
+              disabled={!reengagementLoaded || reengagementSaving || !approvedTemplateOptions.length}
+            />
+            {!approvedTemplateOptions.length ? <small>{t("لا توجد قوالب واتساب معتمدة بعد - أنشئ قالبًا من صفحة القوالب أولًا.", "No approved WhatsApp templates yet - create one from the Templates page first.")}</small> : null}
+          </label>
+        </div>
       </div>
 
       <section className="automation-recipes" aria-labelledby="automation-recipes-title">

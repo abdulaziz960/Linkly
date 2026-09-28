@@ -27,6 +27,15 @@ model Customer {
   // affects one-to-one replies from the inbox.
   marketingOptOut   Int    @default(0) @map("marketing_opt_out")
   marketingOptOutAt String @default("") @map("marketing_opt_out_at")
+  // Real-world visit tracking (e.g. Foodics/Reeqo reservation webhooks via
+  // POST /api/v1/conversations) - distinct from WhatsApp conversation
+  // activity, which only reflects messaging, not an actual restaurant visit.
+  lastVisitAt String @default("") @map("last_visit_at")
+  visitCount  Int    @default(0) @map("visit_count")
+  // Last time an inactivity re-engagement reminder was sent - lib/reengagement.ts.
+  // Compared against lastVisitAt so a reminder fires once per "went quiet"
+  // period instead of every cron tick.
+  reengagementSentAt String @default("") @map("reengagement_sent_at")
   conversations Conversation[]
 
   @@index([tenantId])
@@ -824,6 +833,12 @@ model TenantPreference {
   brandName            String @default("") @map("brand_name")
   brandLogoDataUrl     String @default("") @map("brand_logo_data_url")
   brandColor           String @default("") @map("brand_color")
+  // Inactivity re-engagement reminder (lib/reengagement.ts) - sends
+  // reengagementTemplateName to any WhatsApp customer whose most recent
+  // conversation activity is older than reengagementDays.
+  reengagementEnabled      Int    @default(0) @map("reengagement_enabled")
+  reengagementDays         Int    @default(30) @map("reengagement_days")
+  reengagementTemplateName String @default("") @map("reengagement_template_name")
   updatedAt            String @map("updated_at")
 
   @@map("tenant_preferences")
