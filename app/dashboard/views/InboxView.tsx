@@ -19,7 +19,7 @@ import { statusLabel } from "../utils/conversation";
 import { ChannelIcon } from "./SettingsView";
 import { isDeletedMessageText, useLanguage } from "../i18n";
 import { getChannelName } from "../../channel-names";
-import type { AiOperation } from "../../../lib/ai-types";
+import { aiOperations, type AiOperation } from "../../../lib/ai-types";
 
 type InboxViewProps = {
   activeConversation: Conversation;
@@ -330,6 +330,20 @@ export default function InboxView({
   const [aiFeedbackConversationId, setAiFeedbackConversationId] = useState("");
   const aiRequest = useRef<AbortController | null>(null);
   useEffect(() => () => { aiRequest.current?.abort(); }, [activeConversation.id]);
+  const aiOperationLabels: Record<AiOperation, { ar: string; en: string }> = {
+    reply: { ar: "اقتراح رد", en: "Suggest reply" },
+    rewrite: { ar: "إعادة صياغة المسودة", en: "Rewrite draft" },
+    correct: { ar: "تصحيح المسودة", en: "Correct draft" },
+    translate: { ar: "ترجمة المسودة للإنجليزية", en: "Translate draft to Arabic" },
+    summarize: { ar: "تلخيص المحادثة", en: "Summarize conversation" },
+    sentiment: { ar: "تحليل المشاعر", en: "Analyze sentiment" },
+    next_step: { ar: "الخطوة التالية", en: "Next step" }
+  };
+  const aiOperationOptions = useMemo(
+    () => aiOperations.map((operation) => ({ value: operation, label: t(aiOperationLabels[operation].ar, aiOperationLabels[operation].en) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [language]
+  );
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [emojiCategoryId, setEmojiCategoryId] = useState("recent");
   const [emojiSearch, setEmojiSearch] = useState("");
@@ -1492,15 +1506,13 @@ export default function InboxView({
                   >
                     {isAiSuggesting ? <span className="ai-suggest-spinner" aria-hidden="true" /> : <span aria-hidden="true">✨</span>}
                   </button>
-                  <select aria-label={t("أداة مساعد AI", "AI Copilot tool")} value={aiOperation} onChange={(event) => setAiOperation(event.target.value as AiOperation)} disabled={isAiSuggesting}>
-                    <option value="reply">{t("اقتراح رد", "Suggest reply")}</option>
-                    <option value="rewrite">{t("إعادة صياغة المسودة", "Rewrite draft")}</option>
-                    <option value="correct">{t("تصحيح المسودة", "Correct draft")}</option>
-                    <option value="translate">{t("ترجمة المسودة للإنجليزية", "Translate draft to Arabic")}</option>
-                    <option value="summarize">{t("تلخيص المحادثة", "Summarize conversation")}</option>
-                    <option value="sentiment">{t("تحليل المشاعر", "Analyze sentiment")}</option>
-                    <option value="next_step">{t("الخطوة التالية", "Next step")}</option>
-                  </select>
+                  <CustomSelect
+                    className="ai-tool-select"
+                    value={aiOperation}
+                    onChange={(value) => setAiOperation(value as AiOperation)}
+                    disabled={isAiSuggesting}
+                    options={aiOperationOptions}
+                  />
                   {aiFeedback && aiFeedbackConversationId === activeConversation.id ? <p role="status" style={{ whiteSpace: "pre-wrap" }}>{aiFeedback}</p> : null}
                   <div className="quick-reply-picker-wrap composer-message-wrap">
                     {shouldShowQuickReplySuggestions ? (
