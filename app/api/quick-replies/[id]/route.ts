@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -32,6 +33,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         usage: body.usage ?? existing.usage
       }
     });
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم تعديل الرد الجاهز "${existing.shortcut}" بواسطة ${user.name}.`, "معلومة", "الردود الجاهزة");
     return jsonOk(await prisma.quickReply.findFirst({ where: { id, tenantId: user.tenantId } }));
   } catch {
     return jsonError("تعذر تحديث الرد", 404);
@@ -53,6 +55,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       return jsonOk({ id, dismissed: true });
     }
     await prisma.quickReply.deleteMany({ where: { id, tenantId: user.tenantId } });
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم حذف الرد الجاهز "${existing.shortcut}" بواسطة ${user.name}.`, "تنبيه", "الردود الجاهزة");
     return jsonOk({ id });
   } catch {
     return jsonError("تعذر حذف الرد", 404);

@@ -4,6 +4,7 @@ import { getQuickReplies } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { prisma } from "../../../lib/prisma";
+import { logAdminAction, getTenantCompanyName } from "../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
@@ -34,6 +35,8 @@ export async function POST(request: NextRequest) {
       usage: body.usage ?? 0
     }
   });
+
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم إنشاء رد جاهز "${reply.shortcut}" بواسطة ${user.name}.`, "معلومة", "الردود الجاهزة");
 
   return jsonOk(reply);
 }

@@ -5,6 +5,7 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { deleteMetaTemplate, editMetaTemplate, isMetaWhatsAppConfigured } from "../../../../lib/meta-templates";
 import { uploadMetaMedia } from "../../../../lib/meta-media-upload";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = {
@@ -118,6 +119,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     });
 
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم تعديل قالب واتساب "${templateName}" بواسطة ${user.name}.`, "معلومة", "القوالب");
+
     return jsonOk(template);
   } catch {
     return jsonError("تعذر تحديث القالب", 404);
@@ -145,6 +148,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   try {
     await prisma.template.delete({ where: { name_tenantId: { name: templateName, tenantId: user.tenantId } } });
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم حذف قالب واتساب "${templateName}" بواسطة ${user.name}.`, "تنبيه", "القوالب");
     return jsonOk({ name: templateName });
   } catch {
     return jsonError("تعذر حذف القالب", 404);

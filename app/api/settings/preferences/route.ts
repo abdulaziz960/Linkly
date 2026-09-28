@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { ensureSchema } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -77,6 +78,10 @@ export async function PATCH(request: NextRequest) {
       updatedAt: new Date().toISOString()
     }
   });
+
+  if (Object.keys(data).length) {
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم تعديل إعدادات مساحة العمل بواسطة ${user.name}.`, "معلومة", "الإعدادات");
+  }
 
   return jsonOk({
     leadsPipelineEnabled: preference.leadsPipelineEnabled !== 0,

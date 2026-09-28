@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "../../../../lib/prisma";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = {
@@ -40,6 +41,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     });
     const tag = await prisma.tag.findFirst({ where: { id, tenantId: user.tenantId } });
 
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم تعديل الوسم "${existingTag.name}" إلى "${name}" بواسطة ${user.name}.`, "معلومة", "الوسوم");
+
     return jsonOk(tag);
   } catch {
     return jsonError("تعذر تحديث الوسم. تأكد أن الاسم غير مكرر.", 404);
@@ -61,6 +64,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       prisma.conversationTag.deleteMany({ where: { tagName: tag.name, conversation: { tenantId: user.tenantId } } }),
       prisma.tag.deleteMany({ where: { id, tenantId: user.tenantId } })
     ]);
+
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم حذف الوسم "${tag.name}" بواسطة ${user.name}.`, "تنبيه", "الوسوم");
 
     return jsonOk({ id });
   } catch {
