@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { fetchMoyasarPayment, summarizeMoyasarPayment } from "../../../../lib/moyasar";
-import { applyVerifiedGatewayOutcome, expectedHalalas, getTenantCompanyName, invoiceAmountMatches, logAdminAction } from "../../../../lib/subscriptions";
+import { applyVerifiedGatewayOutcome, expectedHalalas, getTenantCompanyName, invoiceAmountMatches, logAdminAction, subscriptionPaymentLogMessage } from "../../../../lib/subscriptions";
 import { PAYMENT_STATUS } from "../../../../lib/payment-status";
 
 export const runtime = "nodejs";
@@ -68,12 +68,12 @@ export async function POST(request: NextRequest) {
   // explicit enableAutoRenew flag below is what actually decides whether
   // applyConfirmedSubscriptionPayment is allowed to act on it (see its
   // allowAutoRenewEnroll parameter), not the presence of a token by itself.
-  const { outcome } = await applyVerifiedGatewayOutcome("subscription", paymentId, moyasarPayment.status, details, Boolean(enableAutoRenew));
+  const { outcome, previousPlan, newPlan } = await applyVerifiedGatewayOutcome("subscription", paymentId, moyasarPayment.status, details, Boolean(enableAutoRenew));
 
   if (outcome === "completed") {
     const companyName = await getTenantCompanyName(payment.tenantId);
     const method = details.paymentMethod ? ` (${details.paymentMethod})` : "";
-    await logAdminAction(payment.tenantId, companyName, `تم استلام دفعة اشتراك بقيمة ${payment.amount} ر.س عبر Moyasar${method}، وتم تجديد الاشتراك.`);
+    await logAdminAction(payment.tenantId, companyName, subscriptionPaymentLogMessage(payment.amount, method, previousPlan, newPlan));
   }
 
   return NextResponse.json({ ok: true, outcome });
