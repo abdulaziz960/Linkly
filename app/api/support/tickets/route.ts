@@ -151,7 +151,8 @@ export async function POST(request: NextRequest) {
   await recordSupportAuditLog({
     actorName: user.name,
     action: "تذكرة دعم جديدة",
-    ticketId: ticket.id,
+    tenantId: ticket.tenantId,
+    companyName: ticket.companyName,
     ticketLabel: `${ticket.ticketNumber} — ${subject}`,
     level: priority === "urgent" ? "خطأ" : "معلومة"
   }).catch(() => {});
