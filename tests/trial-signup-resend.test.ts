@@ -5,7 +5,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 const testDbPath = join(process.cwd(), "tests", ".tmp-trial-signup-resend.db");
 
 const sendActivationEmail = vi.fn(async () => ({ sent: true, message: "sent" }));
-vi.mock("../lib/email", () => ({ sendActivationEmail }));
+const sendNewSignupAdminNotification = vi.fn(async () => true);
+vi.mock("../lib/email", () => ({ sendActivationEmail, sendNewSignupAdminNotification }));
 
 beforeAll(async () => {
   if (existsSync(testDbPath)) unlinkSync(testDbPath);
@@ -26,6 +27,7 @@ afterAll(async () => {
 
 afterEach(() => {
   sendActivationEmail.mockClear();
+  sendNewSignupAdminNotification.mockClear();
 });
 
 const signupInput = {
