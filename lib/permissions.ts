@@ -24,6 +24,8 @@ export const allViewKeys: ViewKey[] = [
   "branding"
 ];
 
+const employeeViewKeys = allViewKeys.filter((view) => view !== "operations");
+
 export const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "محادثات", views: ["inbox"] },
   { keyword: "عملاء", views: ["contacts"] },
@@ -34,7 +36,7 @@ export const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "أتمتة", views: ["automations"] },
   { keyword: "حملات", views: ["campaigns", "segments", "pipeline"] },
   { keyword: "ساعات", views: ["workHours"] },
-  { keyword: "تقارير", views: ["reports", "operations"] },
+  { keyword: "تقارير", views: ["reports"] },
   { keyword: "فرق", views: ["teams"] },
   { keyword: "موظفين", views: ["employees"] },
   { keyword: "صلاحيات", views: ["employees"] },
@@ -42,7 +44,8 @@ export const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
 ];
 
 export function computeAllowedViews(role: string, permissions: string): ViewKey[] {
-  if (role === "مالك الحساب" || permissions === "الكل") return allViewKeys;
+  if (role === "مالك الحساب") return allViewKeys;
+  if (permissions === "الكل") return employeeViewKeys;
 
   const views = new Set<ViewKey>();
   permissionViewMap.forEach((permission) => {
@@ -66,7 +69,7 @@ export function computeAllowedViews(role: string, permissions: string): ViewKey[
  */
 export function isOwnerEquivalentGrant(role: string, permissions: string): boolean {
   if (role === "مالك الحساب") return true;
-  return computeAllowedViews(role, permissions).length === allViewKeys.length;
+  return computeAllowedViews(role, permissions).length === employeeViewKeys.length;
 }
 
 /**

@@ -317,6 +317,7 @@ export type IntegrationSettings = {
   snapchatRefreshToken: string;
   snapchatTokenExpiresAt: string;
   snapchatLeadsSyncedAt: string;
+  whatsappPaymentIssueAt: string;
   webhookUrl: string;
   updatedAt: string;
 };

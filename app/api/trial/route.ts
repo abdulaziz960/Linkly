@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { sendTrialSignupNotification } from "../../../lib/email";
 import { createTenantWithSubscription } from "../../../lib/subscriptions";
 import { getActivePlans } from "../../../lib/plans";
 import { jsonError, jsonOk } from "../_utils/json";
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
   ].filter(Boolean);
 
   try {
-    const { inviteDelivery } = await createTenantWithSubscription({
+    const { inviteDelivery, subscription, created } = await createTenantWithSubscription({
       companyName,
       ownerName,
       ownerEmail,
@@ -77,6 +78,16 @@ export async function POST(request: NextRequest) {
       renewalAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
       adminName: `تسجيل ذاتي من صفحة الهبوط${signupDetails.length ? ` (${signupDetails.join(" · ")})` : ""}`
     });
+
+    if (created && subscription) {
+      // A notification failure must not turn a committed signup into an error.
+      try {
+        const sent = await sendTrialSignupNotification({ tenantId: subscription.tenantId, companyName, ownerName, ownerEmail: ownerEmail.toLowerCase() });
+        if (!sent) console.warn("Trial signup notification delivery failed", { tenantId: subscription.tenantId });
+      } catch {
+        console.warn("Trial signup notification delivery failed", { tenantId: subscription.tenantId });
+      }
+    }
 
     return jsonOk({
       activationUrl: process.env.NODE_ENV !== "production" ? inviteDelivery.activationUrl : undefined,

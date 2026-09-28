@@ -7,6 +7,7 @@ import { statusLabel } from "../utils/conversation";
 import { useLanguage } from "../i18n";
 import { channelNames } from "../../channel-names";
 import { buildCsv } from "../../../lib/csv-export";
+import { ACTIVE_WAIT_MAX_DAYS, SLA_MINUTES } from "../../../lib/operations-metrics";
 
 type Period = "today" | "yesterday" | "7d" | "30d" | "month" | "lastMonth" | "custom";
 type Granularity = "daily" | "weekly" | "monthly";
@@ -16,8 +17,6 @@ type ReportsProps = { conversations: Conversation[]; employees: Employee[]; team
 type AiInsightItem = { conversationId: string; customerName: string; channel: string; closedAt: string; intent: string; satisfactionLevel: string; summary: string };
 type AiInsightsData = { items: AiInsightItem[]; breakdown: { total: number; byIntent: Record<string, number>; bySatisfaction: Record<string, number> } };
 
-const SLA_MINUTES = 15;
-const ACTIVE_WAIT_MAX_DAYS = 30;
 const CHANNEL_LABELS: Record<ConversationChannel, [string, string]> = {
   whatsapp: [channelNames.whatsapp.ar, channelNames.whatsapp.en],
   instagram: [channelNames.instagram.ar, channelNames.instagram.en],

@@ -25,6 +25,37 @@ function put(body: object) { return new NextRequest("http://localhost/api/ai/set
 const context = { messages: [{ direction: "in" as const, text: "Hello" }], customerName: "Customer", language: "en" as const };
 
 describe("workspace AI controls", () => {
+  it("shares the managed budget across tenants and retains failed-attempt reservations", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { runWorkspaceAi } = await import("../lib/workspace-ai");
+    vi.stubEnv("AI_MANAGED_PROVIDER", "gemini");
+    vi.stubEnv("GEMINI_MODEL", "gemini-3.1-flash-lite");
+    vi.stubEnv("GEMINI_API_KEY", "synthetic-test-key");
+    vi.stubEnv("AI_MANAGED_BUDGET_SAR", "0.025");
+    const now = new Date().toISOString();
+    const fetchMock = vi.fn(async () => new Response("", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await prisma.plan.create({ data: { id: "budget-plan", name: "budget-plan", aiDailyLimit: 10, aiMonthlyLimit: 10, createdAt: now, updatedAt: now } });
+      for (const tenantId of ["budget-a", "budget-b"]) {
+        await prisma.subscription.create({ data: { id: `${tenantId}-sub`, tenantId, companyName: "Test", ownerName: "Owner", ownerEmail: `${tenantId}@example.test`, plan: "budget-plan", createdAt: now, updatedAt: now } });
+        await prisma.aiWorkspaceSetting.create({ data: { tenantId, provider: "gemini", model: "gemini-3.1-flash-lite", enabled: 1, apiKey: "", updatedAt: now } });
+      }
+      const copilot = { ...context, source: "copilot" as const };
+      expect(await runWorkspaceAi("budget-a", "owner", "test", { ...copilot, draft: "a".repeat(4001) })).toMatchObject({ reason: "draft_too_long" });
+      expect(await runWorkspaceAi("budget-a", "owner", "test", context)).toMatchObject({ reason: "employee_only" });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(await runWorkspaceAi("budget-a", "owner", "test", copilot)).toMatchObject({ reason: "provider_unavailable" });
+      expect(await runWorkspaceAi("budget-b", "owner", "test", copilot)).toMatchObject({ reason: "budget_limit" });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(await prisma.aiUsageBucket.count({ where: { tenantId: "budget-b" } })).toBe(0);
+      expect(await prisma.aiUsageEvent.findFirst({ where: { tenantId: "budget-a" } })).toMatchObject({ status: "failed" });
+    } finally {
+      vi.stubEnv("AI_MANAGED_PROVIDER", "");
+      vi.stubEnv("GEMINI_API_KEY", "");
+      vi.stubEnv("AI_MANAGED_BUDGET_SAR", "50");
+    }
+  });
   it("encrypts keys and never returns them or writes them to audit logs", async () => {
     const { PUT, GET } = await import("../app/api/ai/settings/route");
     const { prisma } = await import("../lib/prisma");
@@ -84,5 +115,41 @@ describe("workspace AI controls", () => {
     const { POST } = await import("../app/api/conversations/[id]/suggest-reply/route");
     expect((await POST(new NextRequest("http://localhost/api/conversations/ai-private/suggest-reply", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "ai-private" }) })).status).toBe(404);
     session.role = "مالك الحساب";
+  });
+  it("switches an existing key explicitly to local managed Copilot, preserving plan quotas and zero API cost", async () => {
+    const { PUT, GET } = await import("../app/api/ai/settings/route");
+    const { runWorkspaceAi } = await import("../lib/workspace-ai");
+    const { prisma } = await import("../lib/prisma");
+    const priorTenant = session.tenantId;
+    session.tenantId = "ai-local-workspace";
+    vi.stubEnv("AI_MANAGED_PROVIDER", "ollama");
+    vi.stubEnv("OLLAMA_BASE_URL", "http://127.0.0.1:11434");
+    vi.stubEnv("OLLAMA_MODEL", "local-test-model");
+    const now = new Date().toISOString();
+    try {
+      await PUT(put({ ...settings, apiKey: "old-paid-key" }));
+      await PUT(put({ ...settings, useManaged: true, apiKey: "" }));
+      expect((await prisma.aiWorkspaceSetting.findUniqueOrThrow({ where: { tenantId: session.tenantId } })).apiKey).toBe("");
+      const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ done: true, message: { content: "Local draft" }, prompt_eval_count: 10, eval_count: 5 })));
+      vi.stubGlobal("fetch", fetchMock);
+      expect(await runWorkspaceAi(session.tenantId, session.id, "conversation", { ...context, source: "copilot" })).toMatchObject({ reason: "plan_upgrade_required" });
+      expect(fetchMock).not.toHaveBeenCalled();
+      await prisma.plan.create({ data: { id: "ai-local-plan", name: "ai-local-plan", aiDailyLimit: 2, aiMonthlyLimit: 1, createdAt: now, updatedAt: now } });
+      await prisma.subscription.create({ data: { id: "ai-local-sub", tenantId: session.tenantId, companyName: "Local", ownerName: "Owner", ownerEmail: "local@ai.test", plan: "ai-local-plan", createdAt: now, updatedAt: now } });
+      const publicBody = await (await GET()).json();
+      expect(publicBody.data.settings).toMatchObject({ managedLocal: true, managedReady: true, hasKey: false });
+      expect(JSON.stringify(publicBody)).not.toContain("127.0.0.1");
+      expect(await runWorkspaceAi(session.tenantId, session.id, "conversation", context)).toMatchObject({ reason: "employee_only" });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(await runWorkspaceAi(session.tenantId, session.id, "conversation", { ...context, source: "copilot" })).toEqual({ suggestion: "Local draft" });
+      expect(await runWorkspaceAi(session.tenantId, session.id, "conversation", { ...context, source: "copilot" })).toMatchObject({ reason: "usage_limit" });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(await prisma.aiUsageEvent.findFirstOrThrow({ where: { tenantId: session.tenantId } })).toMatchObject({ provider: "ollama", estimatedCost: 0, status: "succeeded" });
+    } finally {
+      session.tenantId = priorTenant;
+      vi.stubEnv("AI_MANAGED_PROVIDER", "");
+      vi.stubEnv("OLLAMA_BASE_URL", "");
+      vi.stubEnv("OLLAMA_MODEL", "");
+    }
   });
 });

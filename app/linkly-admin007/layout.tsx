@@ -20,7 +20,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   }
 
   return (
-    <main className="admin-shell" dir="rtl">
+    <main className="admin-shell" dir="rtl" lang="ar">
       <AdminShell user={user}>{children}</AdminShell>
     </main>
   );

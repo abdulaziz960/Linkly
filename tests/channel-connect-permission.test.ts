@@ -14,6 +14,13 @@ vi.mock("../lib/database", () => ({
   getIntegrationSettings: vi.fn(async () => ({ id: "settings-1", appId: "", configId: "", businessName: "" }))
 }));
 
+// Out of scope for this file (it only tests employee-permission gating) -
+// always allow, so the plan/channel-restriction check added separately
+// never interferes here.
+vi.mock("../lib/plan-channel-access", () => ({
+  isChannelAllowedForTenant: vi.fn(async () => true)
+}));
+
 afterEach(() => {
   userHasViewPermission.mockReset();
   userHasViewPermission.mockResolvedValue(false);

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Conversation } from "../types";
 import { useLanguage } from "../i18n";
+import { ACTIVE_WAIT_MAX_DAYS, countMessagesToday, getWaitingConversations, SLA_MINUTES } from "../../../lib/operations-metrics";
 
 type OperationsProps = {
   conversations: Conversation[];
@@ -10,7 +11,6 @@ type OperationsProps = {
   onRefreshData: () => Promise<void>;
 };
 
-const SLA_MINUTES = 15;
 // A live "right now" screen, distinct from Reports (which is entirely
 // date-range/historical - no auto-refresh, no unified landing view, per
 // the pre-launch audit's operations-gap finding). The tick only
@@ -19,11 +19,6 @@ const SLA_MINUTES = 15;
 // data (11 endpoints) and would be wasteful to poll automatically; a
 // manual button covers pulling fresh data.
 const TICK_MS = 15_000;
-
-function messageTime(value?: string) {
-  const time = value ? Date.parse(value) : NaN;
-  return Number.isFinite(time) ? time : 0;
-}
 
 function formatDuration(minutes: number, t: (ar: string, en: string) => string) {
   if (minutes < 1) return t("أقل من دقيقة", "< 1 min");
@@ -45,32 +40,20 @@ export default function OperationsView({ conversations, onOpenConversation, onRe
   }, []);
 
   const open = useMemo(() => conversations.filter((c) => c.status !== "closed"), [conversations]);
-
-  const waiting = useMemo(() => open
-    .flatMap((conversation) => {
-      const last = conversation.messages.at(-1);
-      if (!last || last.direction !== "in") return [];
-      const at = messageTime(last.createdAt);
-      if (!at) return [];
-      const minutes = (now - at) / 60000;
-      if (minutes < 0) return [];
-      return [{ conversation, minutes }];
-    })
-    .sort((a, b) => b.minutes - a.minutes), [open, now]);
+  const waiting = useMemo(() => getWaitingConversations(conversations, now), [conversations, now]);
 
   const breaching = waiting.filter((row) => row.minutes > SLA_MINUTES);
   const unassigned = open.filter((c) => c.status === "unassigned" || c.assignee === "بدون موظف");
-  const messagesToday = useMemo(() => {
-    const dayStart = new Date();
-    dayStart.setHours(0, 0, 0, 0);
-    const startMs = dayStart.getTime();
-    return conversations.reduce((sum, c) => sum + c.messages.filter((m) => messageTime(m.createdAt) >= startMs).length, 0);
-  }, [conversations]);
+  const messagesToday = useMemo(() => countMessagesToday(conversations, now), [conversations, now]);
 
   async function refreshNow() {
     setRefreshing(true);
-    await onRefreshData().catch(() => {});
-    setRefreshing(false);
+    try {
+      await onRefreshData();
+      setNow(Date.now());
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   return (
@@ -91,7 +74,7 @@ export default function OperationsView({ conversations, onOpenConversation, onRe
         <div className={`report-metric ${waiting.length ? "warn" : "good"}`}>
           <strong>{waiting.length}</strong>
           <span>{t("بانتظار رد الآن", "Waiting for a reply right now")}</span>
-          <em>{t("محادثات مفتوحة آخر رسالة فيها من العميل", "Open conversations whose last message is from the customer")}</em>
+          <em>{t(`محادثات مفتوحة آخر رسالة فيها من العميل خلال آخر ${ACTIVE_WAIT_MAX_DAYS} يوماً`, `Open conversations whose last message is from the customer within the last ${ACTIVE_WAIT_MAX_DAYS} days`)}</em>
         </div>
         <div className={`report-metric ${breaching.length ? "danger" : "good"}`}>
           <strong>{breaching.length}</strong>

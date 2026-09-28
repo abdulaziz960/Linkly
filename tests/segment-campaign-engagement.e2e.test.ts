@@ -119,6 +119,9 @@ describe("Segment targeting by a past campaign's engagement", () => {
     expect(overview.rows.notReceived.map((row) => row.phone)).toEqual(["966500000015"]);
     // Each row names the campaign that produced its engagement.
     expect(overview.rows.clicked[0].campaignName).toBe("حملة الاختبار");
+    // clickCount defaults to 0 (never backfilled for a click predating the
+    // counter), which is exactly what the row carries here.
+    expect(overview.rows.clicked[0].clickCount).toBe(0);
 
     // A date range that includes this campaign's send date still finds them...
     const inRange = await getCrossCampaignEngagement(tenantId, "2026-09-12", "2026-09-12");
@@ -135,7 +138,7 @@ describe("Segment targeting by an exact click count", () => {
 
   it("only matches recipients whose clickCount equals the exact number given", async () => {
     const { prisma } = await import("../lib/prisma");
-    const { resolveSegmentRecipients, resolveEngagementFields } = await import("../lib/segments");
+    const { resolveSegmentRecipients, resolveEngagementFields, getSegmentRecipientDetails } = await import("../lib/segments");
 
     const campaign = await prisma.campaign.create({
       data: {
@@ -187,5 +190,12 @@ describe("Segment targeting by an exact click count", () => {
     // A count with no matching recipient returns nothing, not everyone.
     const noMatch = await resolveSegmentRecipients(clickCountTenantId, { ...baseCriteria, engagementClickCount: 7 });
     expect(noMatch).toEqual([]);
+
+    // The detail view (Segments page) carries each recipient's actual
+    // clickCount, not just their phone/name - this is what the "Clicks"
+    // column on the page renders.
+    const details = await getSegmentRecipientDetails(clickCountTenantId, { ...baseCriteria, engagementClickCount: 0 });
+    expect(details.find((row) => row.phone === "966500000021")?.clickCount).toBe(1);
+    expect(details.find((row) => row.phone === "966500000022")?.clickCount).toBe(3);
   });
 });

@@ -79,8 +79,15 @@ export async function revokeApiKey(tenantId: string, id: string): Promise<boolea
  * customerId === conversationId convention for a brand-new customer).
  * runInboundMessageAutomations already fires the "message.received" webhook
  * event, so no separate trigger call is needed here.
+ *
+ * recordVisit marks this call as a real-world visit (e.g. a Foodics/Reeqo
+ * reservation webhook), bumping Customer.visitCount and lastVisitAt -
+ * distinct from lastActivityAt on the conversation, which only reflects
+ * WhatsApp messaging and isn't a reliable "did they actually visit" signal.
+ * lib/reengagement.ts's inactivity reminder reads lastVisitAt, not
+ * conversation activity.
  */
-export async function openApiConversation(tenantId: string, input: { customerPhone: string; customerName?: string; text: string }): Promise<{ conversationId: string }> {
+export async function openApiConversation(tenantId: string, input: { customerPhone: string; customerName?: string; text: string; recordVisit?: boolean; visitAt?: string }): Promise<{ conversationId: string }> {
   const phone = input.customerPhone.trim();
   const text = input.text.trim();
   if (!phone) throw new Error("Missing customer phone");
@@ -88,12 +95,23 @@ export async function openApiConversation(tenantId: string, input: { customerPho
 
   const name = input.customerName?.trim() || phone;
   const createdAt = new Date().toISOString();
+  const visitAt = input.recordVisit ? (input.visitAt?.trim() || createdAt) : "";
 
   const conversationId = await prisma.$transaction(async (tx) => {
     let customer = await tx.customer.findFirst({ where: { tenantId, phone } });
     if (!customer) {
       const id = `c-${randomUUID()}`;
-      customer = await tx.customer.create({ data: { id, tenantId, name, phone, initial: name.slice(0, 1) } });
+      customer = await tx.customer.create({
+        data: {
+          id, tenantId, name, phone, initial: name.slice(0, 1),
+          ...(visitAt ? { lastVisitAt: visitAt, visitCount: 1 } : {})
+        }
+      });
+    } else if (visitAt) {
+      customer = await tx.customer.update({
+        where: { id: customer.id },
+        data: { lastVisitAt: visitAt, visitCount: { increment: 1 } }
+      });
     }
 
     let conversation = await tx.conversation.findFirst({ where: { tenantId, customerId: customer.id }, orderBy: { lastActivityAt: "desc" } });

@@ -126,4 +126,19 @@ describe("production schema compatibility", () => {
     expect(source).toContain("subscription_payments ADD COLUMN IF NOT EXISTS amount_halalas");
     expect(source).toContain("campaign_payments ADD COLUMN IF NOT EXISTS amount_halalas");
   });
+
+  it("creates the developer API/webhooks tables before the broad runtime-repair guard returns", () => {
+    // Regression check for a real production 500: these tables were only
+    // ever created in the runtime-repair section the production guard
+    // above skips entirely, so /api/developer/keys and
+    // /api/developer/webhooks 500ed with "table does not exist" in prod.
+    const source = readFileSync(new URL("../lib/database.ts", import.meta.url), "utf8");
+    const functionStart = source.indexOf("async function runRequiredProductionMigrations()");
+    const functionBody = source.slice(functionStart, source.indexOf("\nasync function", functionStart + 1));
+
+    expect(functionStart).toBeGreaterThan(-1);
+    expect(functionBody).toContain("CREATE TABLE IF NOT EXISTS api_keys");
+    expect(functionBody).toContain("CREATE TABLE IF NOT EXISTS webhooks");
+    expect(functionBody).toContain("CREATE TABLE IF NOT EXISTS webhook_deliveries");
+  });
 });

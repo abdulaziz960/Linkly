@@ -39,6 +39,12 @@ describe("employee privilege escalation prevention", () => {
     const views = computeAllowedViews("موظف دعم", "محادثات");
     expect(views).toEqual(["inbox"]);
   });
+
+  it("keeps the cross-employee operations center owner-only", () => {
+    expect(computeAllowedViews("مالك الحساب", "")).toContain("operations");
+    expect(computeAllowedViews("موظف دعم", "تقارير")).toEqual(["reports"]);
+    expect(computeAllowedViews("موظف دعم", "الكل")).not.toContain("operations");
+  });
 });
 
 describe("subscription payment gating (no benefits before payment)", () => {

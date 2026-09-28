@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     return withCors(NextResponse.json({ ok: false, error: "Too many requests" }, { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }));
   }
 
-  const body = (await request.json().catch(() => null)) as { customerPhone?: string; customerName?: string; text?: string } | null;
+  const body = (await request.json().catch(() => null)) as { customerPhone?: string; customerName?: string; text?: string; visit?: boolean; visitAt?: string } | null;
   const customerPhone = body?.customerPhone?.trim() || "";
   const text = body?.text?.trim().slice(0, 4000) || "";
 
@@ -29,12 +29,18 @@ export async function POST(request: NextRequest) {
   if (!isValidSaudiPhone(customerPhone)) {
     return withCors(NextResponse.json({ ok: false, error: "customerPhone must be a valid Saudi mobile number" }, { status: 400 }));
   }
+  const visitAt = body?.visitAt?.trim() || "";
+  if (visitAt && Number.isNaN(Date.parse(visitAt))) {
+    return withCors(NextResponse.json({ ok: false, error: "visitAt must be a valid ISO date" }, { status: 400 }));
+  }
 
   try {
     const { conversationId } = await openApiConversation(auth.tenantId, {
       customerPhone,
       customerName: body?.customerName?.trim().slice(0, 100),
-      text
+      text,
+      recordVisit: Boolean(body?.visit),
+      visitAt: visitAt ? new Date(visitAt).toISOString() : undefined
     });
     return withCors(NextResponse.json({ ok: true, data: { conversationId } }));
   } catch (error) {

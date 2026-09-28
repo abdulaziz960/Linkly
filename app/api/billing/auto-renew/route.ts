@@ -20,6 +20,9 @@ export async function POST(request: NextRequest) {
   if (action !== "disable") return NextResponse.json({ error: "إجراء غير معروف" }, { status: 400 });
 
   await ensureSchema();
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
+  if (!subscription) return NextResponse.json({ error: "الاشتراك غير موجود" }, { status: 404 });
+
   const updated = await prisma.subscription.update({
     where: { tenantId: user.tenantId },
     data: { autoRenewEnabled: 0, savedCardToken: "", savedCardLast4: "", savedCardBrand: "", autoRenewFailCount: 0, updatedAt: new Date().toISOString() }

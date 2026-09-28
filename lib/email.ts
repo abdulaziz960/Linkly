@@ -42,7 +42,7 @@ function activationEmailContent(name: string, activationUrl: string, purpose: "a
  * required - callers get back whether it actually sent so they can decide
  * what to do (activation falls back to a direct link; reminders just skip).
  */
-async function sendEmail({ to, subject, text, html }: { to: string; subject: string; text: string; html: string }): Promise<boolean> {
+async function sendEmail({ to, subject, text, html, idempotencyKey }: { to: string; subject: string; text: string; html: string; idempotencyKey?: string }): Promise<boolean> {
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const resendFrom = process.env.RESEND_FROM_EMAIL?.trim() || "Linkly <noreply@linklysa.io>";
 
@@ -50,7 +50,8 @@ async function sendEmail({ to, subject, text, html }: { to: string; subject: str
     try {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}`, ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}) },
+        signal: AbortSignal.timeout(10000),
         body: JSON.stringify({ from: resendFrom, to, subject, text, html })
       });
       const payload = await response.json().catch(() => null) as { id?: string; message?: string } | null;
@@ -68,6 +69,7 @@ async function sendEmail({ to, subject, text, html }: { to: string; subject: str
     try {
       const response = await fetch(googleScriptUrl, {
         method: "POST",
+        signal: AbortSignal.timeout(10000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ secret: googleScriptSecret, to, subject, text, html, htmlBody: html })
       });
@@ -80,6 +82,13 @@ async function sendEmail({ to, subject, text, html }: { to: string; subject: str
   }
 
   return false;
+}
+
+/** Called only for a newly committed self-service signup, never activation resends. */
+export async function sendTrialSignupNotification(input: { tenantId: string; companyName: string; ownerName: string; ownerEmail: string }): Promise<boolean> {
+  const text = `تسجيل تجربة جديد في Linkly\nالنشاط: ${input.companyName}\nالاسم: ${input.ownerName}\nالبريد: ${input.ownerEmail}\nالحساب بانتظار تأكيد البريد الإلكتروني.`;
+  const html = `<!doctype html><html lang="ar" dir="rtl"><body dir="rtl" style="direction:rtl;text-align:right;margin:0;padding:24px;background:#eaf3f1;color:#123330;font-family:Tahoma,Arial,sans-serif"><table dir="rtl" role="presentation" width="100%" cellpadding="20" style="direction:rtl;text-align:right;max-width:560px;background:#ffffff;border:1px solid #d8e8e5;border-radius:16px"><tr><td><h1 style="color:#178a82;font-size:24px">تسجيل تجربة جديد في Linkly</h1><p>النشاط: ${escapeHtml(input.companyName)}</p><p>الاسم: ${escapeHtml(input.ownerName)}</p><p>البريد: <span dir="ltr" style="direction:ltr;unicode-bidi:embed">${escapeHtml(input.ownerEmail)}</span></p><p>الحساب بانتظار تأكيد البريد الإلكتروني.</p></td></tr></table></body></html>`;
+  return sendEmail({ to: "info@linklysa.io", subject: "تسجيل تجربة جديد في Linkly", text, html, idempotencyKey: `trial-signup/${input.tenantId}` });
 }
 
 export async function sendActivationEmail({ to, name, activationUrl, purpose = "activation", workspaceName }: SendActivationEmailInput): Promise<EmailDeliveryResult> {
@@ -177,4 +186,44 @@ function lowBalanceEmailContent(name: string, remaining: number, percent: number
 export async function sendLowBalanceEmail({ to, name, remaining, percent, topUpUrl, branding = DEFAULT_EMAIL_BRANDING }: { to: string; name: string; remaining: number; percent: number; topUpUrl: string; branding?: EmailBranding }): Promise<boolean> {
   const content = lowBalanceEmailContent(name, remaining, percent, topUpUrl, branding);
   return sendEmail({ to, subject: `رصيد رسائل حملاتك في ${branding.name} عند ${percent}%`, text: content.text, html: content.html });
+}
+
+const ADMIN_NOTIFICATION_EMAIL = "info@linklysa.io";
+
+/** Shared "info@" team-inbox ping layout: a heading, a label/value table, and an optional free-text body (ticket/suggestion description). */
+function adminNotificationContent(heading: string, rows: [string, string][], body?: string) {
+  const textRows = rows.map(([label, value]) => `${label}: ${value}`).join("\n");
+  const text = body ? `${heading}\n\n${textRows}\n\n${body}` : `${heading}\n\n${textRows}`;
+  const rowsHtml = rows
+    .map(([label, value]) => `<tr><td style="color:#5b7570;padding:4px 12px 4px 0;vertical-align:top;white-space:nowrap">${escapeHtml(label)}</td><td style="font-weight:700">${escapeHtml(value)}</td></tr>`)
+    .join("");
+  const bodyHtml = body
+    ? `<p style="margin:20px 0 0;padding-top:16px;border-top:1px solid #e1efed;color:#123330;font-size:14px;line-height:1.8;white-space:pre-wrap">${escapeHtml(body)}</p>`
+    : "";
+  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:32px"><h1 style="margin:0 0 20px;font-size:22px;color:#123330;font-weight:800">${escapeHtml(heading)}</h1><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-size:15px;color:#123330;line-height:2">${rowsHtml}</table>${bodyHtml}</td></tr></table></td></tr></table></body></html>`;
+  return { text, html };
+}
+
+/** Internal-only "new support ticket" ping to the team inbox. Best-effort - never blocks ticket creation. */
+export async function sendNewSupportTicketAdminNotification({ ticketId, ticketNumber, subject, categoryLabel, priorityLabel, companyName, submitterName, submitterEmail, description }: { ticketId: string; ticketNumber: string; subject: string; categoryLabel: string; priorityLabel: string; companyName: string; submitterName: string; submitterEmail: string; description: string }): Promise<boolean> {
+  const content = adminNotificationContent(`تذكرة دعم جديدة: ${ticketNumber}`, [
+    ["الشركة", companyName || "—"],
+    ["مقدّم الطلب", submitterName],
+    ["البريد الإلكتروني", submitterEmail],
+    ["التصنيف", categoryLabel],
+    ["الأولوية", priorityLabel],
+    ["الموضوع", subject]
+  ], description);
+  return sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `تذكرة دعم جديدة ${ticketNumber}: ${subject}`, text: content.text, html: content.html, idempotencyKey: `support-ticket/${ticketId}` });
+}
+
+/** Internal-only "new development suggestion" ping to the team inbox. Best-effort - never blocks submission. */
+export async function sendNewDevelopmentRequestAdminNotification({ requestId, title, companyName, submitterName, submitterEmail, description }: { requestId: string; title: string; companyName: string; submitterName: string; submitterEmail: string; description: string }): Promise<boolean> {
+  const content = adminNotificationContent("اقتراح تطوير جديد في Linkly", [
+    ["الشركة", companyName || "—"],
+    ["مقدّم الاقتراح", submitterName],
+    ["البريد الإلكتروني", submitterEmail],
+    ["العنوان", title]
+  ], description);
+  return sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `اقتراح تطوير جديد: ${title}`, text: content.text, html: content.html, idempotencyKey: `development-request/${requestId}` });
 }

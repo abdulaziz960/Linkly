@@ -55,6 +55,10 @@ export type PlanRow = {
   employeeLimit: number;
   aiDailyLimit: number;
   aiMonthlyLimit: number;
+  // "*" (unrestricted) or a comma-separated list of channel keys - see lib/channel-catalog.ts.
+  allowedChannels: string;
+  // Marketing messages credited to CampaignBalance per subscription payment on this plan - see lib/message-quota.ts.
+  messageQuota: number;
   sortOrder: number;
   active: number;
   createdAt: string;

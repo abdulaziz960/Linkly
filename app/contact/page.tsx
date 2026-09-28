@@ -20,7 +20,7 @@ export default function ContactPage() {
         <p>للمبيعات أو الدعم الفني راسل فريق Linkly، وسنرد عليك خلال ساعات العمل.</p>
 
         <h2>البريد الإلكتروني</h2>
-        <p><a href="mailto:hello@audience.sa">hello@audience.sa</a></p>
+        <p><a href="mailto:info@linklysa.io">info@linklysa.io</a></p>
 
         <h2>ساعات العمل</h2>
         <p>الأحد إلى الخميس، من 9 صباحًا إلى 6 مساءً بتوقيت الرياض.</p>

@@ -64,15 +64,11 @@ export async function POST(request: NextRequest) {
 
   const details = summarizeMoyasarPayment(moyasarPayment);
   // Moyasar may return a card token here regardless of the checkbox (we ask
-  // it to attempt tokenization unconditionally - see MoyasarPayForm) - only
-  // an explicit enableAutoRenew from the client acts on it. Discarding it
-  // otherwise is the actual consent boundary, not the widget's own params.
-  if (!enableAutoRenew) {
-    details.cardToken = "";
-    details.cardLast4 = "";
-    details.cardBrand = "";
-  }
-  const { outcome } = await applyVerifiedGatewayOutcome("subscription", paymentId, moyasarPayment.status, details);
+  // it to attempt tokenization unconditionally - see MoyasarPayForm) - the
+  // explicit enableAutoRenew flag below is what actually decides whether
+  // applyConfirmedSubscriptionPayment is allowed to act on it (see its
+  // allowAutoRenewEnroll parameter), not the presence of a token by itself.
+  const { outcome } = await applyVerifiedGatewayOutcome("subscription", paymentId, moyasarPayment.status, details, Boolean(enableAutoRenew));
 
   if (outcome === "completed") {
     const companyName = await getTenantCompanyName(payment.tenantId);

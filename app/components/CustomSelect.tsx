@@ -50,14 +50,23 @@ export default function CustomSelect({ value, onChange, defaultValue, name, opti
       if (event.key === "Escape") close();
     }
 
+    // Capture-phase scroll fires for scrolling inside the list itself too
+    // (it's independently scrollable via max-height/overflow-y) - only
+    // close for a scroll outside the list, i.e. the page/modal scrolling
+    // underneath and leaving the fixed-positioned list visually detached.
+    function handleScroll(event: Event) {
+      if (listRef.current?.contains(event.target as Node)) return;
+      close();
+    }
+
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleKey);
-    window.addEventListener("scroll", close, true);
+    window.addEventListener("scroll", handleScroll, true);
     window.addEventListener("resize", close);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKey);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", handleScroll, true);
       window.removeEventListener("resize", close);
     };
   }, [open]);

@@ -18,6 +18,10 @@ const copy = {
     stepLabel: "الخطوة 1 من 3",
     cardTitle: "أنشئ مساحة العمل",
     cardCopy: "لن يتم خصم أي مبلغ أثناء التجربة.",
+    selectedPlan: "الباقة التي اخترتها",
+    billingMonthly: "دفع شهري بعد التجربة",
+    billingYearly: "دفع سنوي بعد التجربة",
+    planNote: "هذا اختيار مبدئي للتجربة. تُختار الباقة عند الاشتراك، ولا تُفعّل إلا بعد إتمام الدفع.",
     haveAccount: "لديك حساب؟",
     login: "تسجيل الدخول"
   },
@@ -33,12 +37,16 @@ const copy = {
     stepLabel: "Step 1 of 3",
     cardTitle: "Create your workspace",
     cardCopy: "You won't be charged anything during the trial.",
+    selectedPlan: "Your selected plan",
+    billingMonthly: "Monthly billing after the trial",
+    billingYearly: "Yearly billing after the trial",
+    planNote: "This is your trial preference. You choose the paid plan when subscribing; it activates only after payment.",
     haveAccount: "Already have an account?",
     login: "Sign in"
   }
 } as const;
 
-export default function SignupPageClient() {
+export default function SignupPageClient({ selectedPlan, selectedBilling }: { selectedPlan: { id: string; name: string } | null; selectedBilling: "monthly" | "yearly" }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
 
@@ -61,6 +69,12 @@ export default function SignupPageClient() {
       </section>
       <section className="journey-card">
         <div><span>{text.stepLabel}</span><h2>{text.cardTitle}</h2><p>{text.cardCopy}</p></div>
+        {selectedPlan ? <div className="signup-selected-plan" data-testid="signup-selected-plan">
+          <span>{text.selectedPlan}</span>
+          <strong>{selectedPlan.name}</strong>
+          <small>{selectedBilling === "yearly" ? text.billingYearly : text.billingMonthly}</small>
+          <p>{text.planNote}</p>
+        </div> : null}
         <SignupForm lang={lang} />
         <small>{text.haveAccount} <Link href="/login">{text.login}</Link></small>
       </section>

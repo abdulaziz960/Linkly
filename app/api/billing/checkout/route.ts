@@ -3,10 +3,10 @@ import { randomUUID } from "crypto";
 import { getCurrentUser } from "../../../../lib/auth";
 import { ensureSchema } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
-import { getPaymentCallbackOrigin } from "../../../../lib/app-url";
 import { buildPaymentMetadata, isMoyasarConfigured } from "../../../../lib/moyasar";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../lib/payment-status";
 import { computeProrationCredit } from "../../../../lib/subscriptions";
+import { isBillingCycle, priceForCycle, type BillingCycle } from "../../../../lib/billing-pricing";
 
 export const runtime = "nodejs";
 
@@ -21,13 +21,23 @@ export async function POST(request: NextRequest) {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) return NextResponse.json({ error: "سجّل الدخول أولًا" }, { status: 401 });
   if (user.role !== "مالك الحساب") return NextResponse.json({ error: "إدارة الاشتراك متاحة لمالك الحساب" }, { status: 403 });
-  const { planId } = await request.json().catch(() => ({ planId: "" })) as { planId?: string };
+  const { planId, billingCycle: requestedBillingCycle } = await request.json().catch(() => ({ planId: "" })) as { planId?: string; billingCycle?: unknown };
+  const billingCycle: BillingCycle = isBillingCycle(requestedBillingCycle) ? requestedBillingCycle : "شهري";
   await ensureSchema();
-  const plan = await prisma.plan.findFirst({ where: { id: planId, active: 1 } });
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
+  // Renewing the tenant's own current plan must keep working even after
+  // that plan is deactivated for new signups - a pricing redesign leaves
+  // existing subscribers on their old plan rather than force-migrating
+  // them (see 8b67709), so a suspended tenant on a retired plan still
+  // needs to be able to pay to reopen with the exact plan they're on.
+  // Only an actual plan CHANGE has to come from the currently active list.
+  const plan = await prisma.plan.findFirst({
+    where: subscription ? { id: planId, OR: [{ active: 1 }, { name: subscription.plan }] } : { id: planId, active: 1 }
+  });
   if (!plan) return NextResponse.json({ error: "الباقة غير موجودة" }, { status: 404 });
   if (plan.monthlyPrice < 1) return NextResponse.json({ error: "سعر الباقة غير صالح" }, { status: 400 });
-  const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
   const companyName = subscription?.companyName || user.name;
+  const listPrice = priceForCycle(plan.monthlyPrice, billingCycle);
 
   // A plan change (including a downgrade) takes effect immediately on
   // confirmation with no separate enforcement afterwards - without this
@@ -50,12 +60,12 @@ export async function POST(request: NextRequest) {
     currentPlan: subscription?.plan,
     currentAmount: subscription?.amount,
     currentRenewalAt: subscription?.renewalAt,
+    currentBillingCycle: isBillingCycle(subscription?.billingCycle) ? subscription?.billingCycle : "شهري",
     newPlanName: plan.name,
-    newPlanPrice: plan.monthlyPrice
+    newPlanPrice: listPrice
   });
-  const chargeAmount = proration.creditAmount > 0 ? proration.finalAmount : plan.monthlyPrice;
+  const chargeAmount = proration.creditAmount > 0 ? proration.finalAmount : listPrice;
   const amountHalalas = Math.round(chargeAmount * 100);
-  const origin = getPaymentCallbackOrigin();
 
   // A pending payment older than this was almost certainly abandoned (closed
   // tab, back button, Moyasar sandbox test run) rather than still in
@@ -69,7 +79,7 @@ export async function POST(request: NextRequest) {
   });
 
   const activePending = await prisma.subscriptionPayment.findFirst({
-    where: { tenantId: user.tenantId, status: PAYMENT_STATUS.pending, planName: plan.name },
+    where: { tenantId: user.tenantId, status: PAYMENT_STATUS.pending, planName: plan.name, billingCycle },
     orderBy: { createdAt: "desc" }
   });
   if (activePending) {
@@ -89,7 +99,9 @@ export async function POST(request: NextRequest) {
     createdAt: new Date().toISOString(),
     planName: plan.name,
     planEmployeeLimit: plan.employeeLimit,
-    listPrice: plan.monthlyPrice,
+    planMessageQuota: plan.messageQuota,
+    listPrice,
+    billingCycle,
     prorationCreditAmount: proration.creditAmount,
     initiatedBy: "owner"
   };
@@ -119,37 +131,5 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ paymentId });
   }
-  // Fail closed by default: a misconfigured non-production environment
-  // (e.g. a staging/preview deploy that simply forgot to set NODE_ENV or a
-  // Moyasar key) must not silently fall through into letting any logged-in
-  // user grant themselves a paid plan for free. This requires an explicit,
-  // separate opt-in on top of "doesn't look like production" instead of
-  // relying on the absence of production signals alone.
-  if (process.env.NODE_ENV === "production" || process.env.MOYASAR_LIVE_MODE === "true" || process.env.ENABLE_TEST_CHECKOUT !== "true") {
-    return NextResponse.json({ error: "بوابة الدفع غير مهيأة حاليًا" }, { status: 503 });
-  }
-  // Local development without a Moyasar key: a simulated payment page that
-  // still goes through the exact same activation code path.
-  const paymentUrl = `${origin}/checkout/test?paymentId=${encodeURIComponent(paymentId)}`;
-  const metadata = buildPaymentMetadata({
-    kind: "subscription",
-    tenantId: user.tenantId,
-    paymentId,
-    initiatedBy: "owner",
-    companyName,
-    planId: plan.id,
-    planName: plan.name,
-    gateway: PAYMENT_GATEWAY.test
-  });
-  await prisma.subscriptionPayment.create({
-    data: {
-      ...stagedRow,
-      moyasarId: `test_${paymentId}`,
-      paymentUrl,
-      gateway: PAYMENT_GATEWAY.test,
-      gatewayStatus: "initiated",
-      metadataJson: JSON.stringify(metadata)
-    }
-  });
-  return NextResponse.json({ paymentUrl });
+  return NextResponse.json({ error: "بوابة الدفع غير مهيأة حاليًا" }, { status: 503 });
 }

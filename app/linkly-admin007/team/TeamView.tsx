@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import type { TeamRow } from "../types";
@@ -17,6 +17,9 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [isTeamInviteOpen, setIsTeamInviteOpen] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("invite") === "1") setIsTeamInviteOpen(true);
+  }, []);
   const [isTeamSaving, setIsTeamSaving] = useState(false);
   const [teamFormError, setTeamFormError] = useState("");
   const [teamInviteNotice, setTeamInviteNotice] = useState("");
@@ -93,16 +96,16 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
             <strong>{formatNumber(team.length)}</strong>
             <small>{t("يملكون صلاحية الوصول للوحة", "Have access to the dashboard")}</small>
           </article>
-          <article>
+          {team.length > 1 ? <article>
             <span>{t("أقدم عضو", "Oldest member")}</span>
             <strong>{oldestMember ? oldestMember.name : "—"}</strong>
             <small>{oldestMember ? oldestMember.createdAt : t("لا يوجد بعد", "None yet")}</small>
-          </article>
-          <article>
+          </article> : null}
+          {team.length > 1 ? <article>
             <span>{t("أحدث عضو", "Newest member")}</span>
             <strong>{newestMember ? newestMember.name : "—"}</strong>
             <small>{newestMember ? newestMember.createdAt : t("لا يوجد بعد", "None yet")}</small>
-          </article>
+          </article> : null}
           <article>
             <span>{t("حسابك", "Your account")}</span>
             <strong>{team.find((m) => m.id === currentUserId)?.name || "—"}</strong>

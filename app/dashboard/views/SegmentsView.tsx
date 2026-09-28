@@ -30,9 +30,18 @@ const emptyForm: SegmentFormState = {
 // still scheduled or cancelled has no CampaignRecipient engagement data yet.
 const launchedCampaignStatuses = new Set(["قيد الإرسال", "الحملة أنجزت"]);
 
-type OverviewRow = { name: string; phone: string; campaignName: string };
+type OverviewRow = { name: string; phone: string; campaignName: string; clickCount: number };
 type Overview = { counts: Record<EngagementBucket, number>; rows: Record<EngagementBucket, OverviewRow[]> };
-type SegmentRecipientDetail = { name: string; phone: string; campaignName: string };
+type SegmentRecipientDetail = { name: string; phone: string; campaignName: string; clickCount: number };
+
+// clickCount is 0 for a recipient who clicked before this counter existed
+// (the column defaults to 0 and old clicks are never backfilled), and is
+// meaningless outside the "clicked" bucket - "-" is clearer there than a
+// misleading "0", matching CampaignEngagementReport's same convention.
+function clickCountLabel(bucket: EngagementBucket, clickCount: number) {
+  if (bucket !== "clicked" || clickCount <= 0) return "-";
+  return clickCount.toLocaleString("en-US");
+}
 
 function downloadBlob(content: BlobPart, type: string, name: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -273,7 +282,8 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
     sheet.columns = [
       { header: t("الاسم", "Name"), key: "name", width: 28 },
       { header: t("رقم الهاتف", "Phone number"), key: "phone", width: 20 },
-      { header: t("من أي حملة", "From which campaign"), key: "campaignName", width: 28 }
+      { header: t("من أي حملة", "From which campaign"), key: "campaignName", width: 28 },
+      ...(activeBucket === "clicked" ? [{ header: t("مرات النقر", "Clicks"), key: "clickCount", width: 14 }] : [])
     ];
     rows.forEach((row) => sheet.addRow(row));
     sheet.getRow(1).font = { bold: true };
@@ -326,17 +336,18 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
                   </div>
                   <div className="table-wrap">
                     <table>
-                      <thead><tr><th>{t("الاسم", "Name")}</th><th>{t("رقم الهاتف", "Phone number")}</th><th>{t("من أي حملة", "From which campaign")}</th><th className="segments-print-hide">{t("إجراء", "Action")}</th></tr></thead>
+                      <thead><tr><th>{t("الاسم", "Name")}</th><th>{t("رقم الهاتف", "Phone number")}</th><th>{t("من أي حملة", "From which campaign")}</th>{activeBucket === "clicked" ? <th>{t("مرات النقر", "Clicks")}</th> : null}<th className="segments-print-hide">{t("إجراء", "Action")}</th></tr></thead>
                       <tbody>
                         {overview.rows[activeBucket].map((row) => (
                           <tr key={row.phone}>
                             <td>{row.name || "-"}</td>
                             <td dir="ltr">{row.phone}</td>
                             <td>{row.campaignName || t("حملة محذوفة", "Deleted campaign")}</td>
+                            {activeBucket === "clicked" ? <td>{clickCountLabel(activeBucket, row.clickCount)}</td> : null}
                             <td className="segments-print-hide"><a className="btn soft" href={`/dashboard?view=inbox&phone=${encodeURIComponent(row.phone)}&name=${encodeURIComponent(row.name)}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a></td>
                           </tr>
                         ))}
-                        {!overview.rows[activeBucket].length ? <tr><td colSpan={4}>{t("لا يوجد عملاء بهذه الحالة.", "No customers in this state.")}</td></tr> : null}
+                        {!overview.rows[activeBucket].length ? <tr><td colSpan={activeBucket === "clicked" ? 5 : 4}>{t("لا يوجد عملاء بهذه الحالة.", "No customers in this state.")}</td></tr> : null}
                       </tbody>
                     </table>
                   </div>
@@ -402,17 +413,18 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
                         {segmentDetailsLoading ? <p className="muted-copy">{t("جارٍ التحميل...", "Loading...")}</p> : (
                           <div className="table-wrap">
                             <table>
-                              <thead><tr><th>{t("الاسم", "Name")}</th><th>{t("رقم الهاتف", "Phone number")}</th><th>{t("من أي حملة", "From which campaign")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
+                              <thead><tr><th>{t("الاسم", "Name")}</th><th>{t("رقم الهاتف", "Phone number")}</th><th>{t("من أي حملة", "From which campaign")}</th>{segment.engagementBucket === "clicked" ? <th>{t("مرات النقر", "Clicks")}</th> : null}<th>{t("إجراء", "Action")}</th></tr></thead>
                               <tbody>
                                 {segmentDetails.map((row) => (
                                   <tr key={row.phone}>
                                     <td>{row.name || "-"}</td>
                                     <td dir="ltr">{row.phone}</td>
                                     <td>{row.campaignName || "-"}</td>
+                                    {segment.engagementBucket === "clicked" ? <td>{clickCountLabel(segment.engagementBucket, row.clickCount)}</td> : null}
                                     <td><a className="btn soft" href={`/dashboard?view=inbox&phone=${encodeURIComponent(row.phone)}&name=${encodeURIComponent(row.name)}`} target="_blank" rel="noopener noreferrer">{t("إرسال رسالة", "Send message")}</a></td>
                                   </tr>
                                 ))}
-                                {!segmentDetails.length ? <tr><td colSpan={4}>{t("لا يوجد عملاء مطابقون حاليًا.", "No matching customers right now.")}</td></tr> : null}
+                                {!segmentDetails.length ? <tr><td colSpan={segment.engagementBucket === "clicked" ? 5 : 4}>{t("لا يوجد عملاء مطابقون حاليًا.", "No matching customers right now.")}</td></tr> : null}
                               </tbody>
                             </table>
                           </div>
