@@ -15,6 +15,8 @@ type Props = {
   amountHalalas: number;
   description: string;
   publishableKey: string;
+  /** Text for the customer's card statement - already sanitized by paymentStatementDescriptor(). */
+  statementDescriptor: string;
   /** Which payment row this confirms against - see /billing/success. Defaults to "subscription". */
   kind?: "subscription" | "campaign_topup";
   /** Server route that verifies the completed payment and applies its outcome. */
@@ -33,7 +35,7 @@ const MOYASAR_CSS_URL = "https://cdn.moyasar.com/mpf/1.16.0/moyasar.css";
  * (app/billing/pay/[paymentId]) and the campaign top-up checkout
  * (app/billing/pay/campaign/[paymentId]) via the kind/confirmUrl props.
  */
-export default function MoyasarPayForm({ paymentId, amountHalalas, description, publishableKey, kind = "subscription", confirmUrl = "/api/billing/confirm-payment" }: Props) {
+export default function MoyasarPayForm({ paymentId, amountHalalas, description, publishableKey, statementDescriptor, kind = "subscription", confirmUrl = "/api/billing/confirm-payment" }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState("");
@@ -78,6 +80,9 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
       // every checkbox change below and read back on /billing/success.
       callback_url: `${window.location.origin}/billing/success?paymentId=${encodeURIComponent(paymentId)}&kind=${kind}`,
       methods: ["creditcard"],
+      // Moyasar.js throws on a descriptor it considers malformed, so it is
+      // only passed when it matches the widget's own rule.
+      ...(/^[A-Za-z0-9 -]{1,64}$/.test(statementDescriptor) ? { statement_descriptor: statementDescriptor } : {}),
       // Attempting tokenization is harmless even when the account doesn't
       // support it (Moyasar just returns no token) - the actual opt-in
       // that decides whether we ACT on a returned token lives in the

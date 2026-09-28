@@ -4,7 +4,7 @@ import { getCurrentUser } from "../../../../../lib/auth";
 import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { prisma } from "../../../../../lib/prisma";
 import { expectedHalalas } from "../../../../../lib/subscriptions";
-import { paymentDescription } from "../../../../../lib/moyasar";
+import { paymentDescription, paymentStatementDescriptor } from "../../../../../lib/moyasar";
 import { PAYMENT_STATUS } from "../../../../../lib/payment-status";
 import MoyasarPayForm from "../../[paymentId]/MoyasarPayForm";
 import "../../../billing.css";
@@ -44,6 +44,7 @@ export default async function CampaignPayPage({ params }: { params: Promise<{ pa
             amountHalalas={expectedHalalas(payment)}
             description={description}
             publishableKey={publishableKey}
+            statementDescriptor={paymentStatementDescriptor()}
             kind="campaign_topup"
             confirmUrl="/api/campaigns/balance/confirm-payment"
           />
