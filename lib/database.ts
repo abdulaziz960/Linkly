@@ -449,6 +449,9 @@ async function runRequiredProductionMigrations() {
     `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS rating_at TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS escalated_for_message_id TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_mentions_rate_limited_until TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
@@ -1137,6 +1140,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE quick_replies ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS off_hours_notified_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS escalated_for_message_id TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS is_platform_admin INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0`);
@@ -1440,6 +1444,9 @@ async function runSchemaMigrations() {
   }
   if (!conversationColumns.some((column) => column.name === "attr_utm_content")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_utm_content TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "escalated_for_message_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN escalated_for_message_id TEXT NOT NULL DEFAULT ''`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS link_clicks (
     id TEXT PRIMARY KEY,

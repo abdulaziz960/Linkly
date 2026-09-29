@@ -1155,7 +1155,7 @@ export default function InboxView({
           <div className="chat-panel">
             <div className="messages" ref={messagesContainerRef}>
               {activeConversation.messages.map((item) => (
-                item.source?.type === "system_assignment" ? (
+                item.source?.type === "system_assignment" || item.source?.type === "system_escalation" ? (
                   <div className="message-system-line" key={item.id}>
                     <span>{item.text}</span>
                   </div>

@@ -40,3 +40,30 @@ export async function logAssignmentMessage(params: {
     console.error("Failed to log assignment system message", error);
   });
 }
+
+/**
+ * Records a visible, in-thread note when a conversation is auto-escalated
+ * for going unanswered too long (see lib/response-sla.ts). Same "note" +
+ * sourceType pattern as logAssignmentMessage, rendered as a system line.
+ */
+export async function logEscalationMessage(params: { conversationId: string; notifiedNames: string[] }) {
+  const text = params.notifiedNames.length
+    ? `تم تصعيد هذه المحادثة تلقائيًا لعدم الرد خلال 30 دقيقة، وتم إشعار ${params.notifiedNames.join(" و")}.`
+    : `تم تصعيد هذه المحادثة تلقائيًا لعدم الرد خلال 30 دقيقة.`;
+
+  const now = new Date();
+  await prisma.message.create({
+    data: {
+      id: `sys-escalate-${randomUUID()}`,
+      conversationId: params.conversationId,
+      direction: "note",
+      text,
+      time: formatMessageTime(now),
+      createdAt: now.toISOString(),
+      author: "",
+      sourceType: "system_escalation"
+    }
+  }).catch((error) => {
+    console.error("Failed to log escalation system message", error);
+  });
+}

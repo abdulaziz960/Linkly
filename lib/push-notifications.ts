@@ -61,6 +61,28 @@ export async function notifyTenant(tenantId: string, payload: { title: string; b
   const subscriptions = await prisma.pushSubscription.findMany({ where: { tenantId } });
   if (!subscriptions.length) return;
 
+  await deliverToSubscriptions(subscriptions, payload);
+}
+
+/**
+ * Same delivery as notifyTenant, but targeted at specific accounts
+ * (UserAccount.id) rather than every device on the tenant - for alerts
+ * that only concern particular people, like an unanswered-conversation
+ * escalation going to a team's supervisor and the tenant owner.
+ */
+export async function notifyUsers(userIds: string[], payload: { title: string; body: string; url: string }): Promise<void> {
+  const ids = [...new Set(userIds.filter(Boolean))];
+  if (!ids.length || !ensureConfigured()) return;
+  const subscriptions = await prisma.pushSubscription.findMany({ where: { userId: { in: ids } } });
+  if (!subscriptions.length) return;
+
+  await deliverToSubscriptions(subscriptions, payload);
+}
+
+async function deliverToSubscriptions(
+  subscriptions: Array<{ endpoint: string; p256dh: string; auth: string }>,
+  payload: { title: string; body: string; url: string }
+): Promise<void> {
   const body = JSON.stringify(payload);
 
   await Promise.allSettled(subscriptions.map(async (subscription) => {
