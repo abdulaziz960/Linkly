@@ -245,7 +245,27 @@ and merely flags them as overdue in the admin panel.
 | `APP_URL` / `NEXT_PUBLIC_APP_URL` | Cloud Run env | Public origin used for Moyasar `callback_url`, `success_url` and `back_url` (`getPaymentCallbackOrigin` in `lib/app-url.ts`). Never taken from the incoming request. If unset: `https://linklysa.io` in production, `http://localhost:3000` in development. Set it explicitly for any other domain. |
 | `CRON_SECRET` | Secret Manager (already present) | Bearer token for `/api/cron/campaigns`. |
 | `SUBSCRIPTION_GRACE_DAYS` | optional | See access control above. |
+| `MOYASAR_STATEMENT_DESCRIPTOR` | optional, Cloud Run env | Text for the charge on the customer's card statement. Defaults to `Linkly`. Letters, digits, spaces and hyphens only, at most 22 characters. See "Statement descriptor" below. |
 | `STRIPE_SECRET_KEY` | optional | Test-mode alternate gateway for admin invoices only. |
+
+### Statement descriptor
+
+Every card payment carries a statement descriptor, so the charge reads as
+Linkly on the customer's statement. `paymentStatementDescriptor()` in
+`lib/moyasar.ts` produces it. Without one, Moyasar uses the merchant
+account's default, which is `athar.link`.
+
+| Payment path | Descriptor sent |
+| --- | --- |
+| Card form at `/billing/pay/...` (subscriptions and campaign top-ups) | yes, `statement_descriptor` in `Moyasar.init` |
+| Saved-card auto-renewal (`chargeSavedCard`) | yes, `source.statement_descriptor` |
+| Admin-created hosted invoice (`createMoyasarInvoice`) | no, Moyasar's invoice API has no such field; the account default applies |
+
+Moyasar's form throws on a descriptor outside `/^[\w\s\d\-~]{1,64}$/`
+(a dot is enough), which would break checkout. The value is therefore
+sanitized on the server and checked again before it is passed to the form.
+Moyasar describes the field as extra information sent to the issuer; the
+issuing bank decides what it finally displays.
 
 ### Moyasar dashboard
 
