@@ -102,10 +102,19 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
           if (payload.outcome !== "completed" && payload.outcome !== "already_processed") {
             throw new Error("لم تتم الموافقة على الدفعة من جهة البنك. تحقق من بيانات البطاقة أو استخدم بطاقة أخرى.");
           }
-          router.push(`/billing/success?kind=${kind}`);
+          router.push("/dashboard?view=inbox");
         } catch (err) {
           setConfirming(false);
           setError(err instanceof Error ? err.message : "تعذر تأكيد الدفعة");
+          // Never leave the visitor stuck on the payment form regardless of
+          // outcome - give them a moment to read why it failed, then send
+          // them back same as a success. The campaign top-up instance of
+          // this form runs inside a window.open("_blank","noopener") popup
+          // (see CampaignsView.tsx), which severed window.opener - this
+          // navigates that popup tab itself, matching how this app's other
+          // popup flows (Meta/Google/etc. OAuth callbacks) already redirect
+          // the popup rather than trying to reach back into a nulled opener.
+          window.setTimeout(() => router.push("/dashboard?view=inbox"), 2500);
         }
       }
     });
