@@ -23,7 +23,7 @@ import { aiOperations, type AiOperation } from "../../../lib/ai-types";
 
 type InboxViewProps = {
   activeConversation: Conversation;
-  assignedOnly: boolean;
+  tabsMode: "owner" | "supervisor" | "employee";
   assigneeOptions: string[];
   canChangeAssignee: boolean;
   canDeleteConversation: boolean;
@@ -271,7 +271,7 @@ function formatEmailContent(text: string) {
 
 export default function InboxView({
   activeConversation,
-  assignedOnly,
+  tabsMode,
   assigneeOptions,
   canChangeAssignee,
   canDeleteConversation,
@@ -866,18 +866,16 @@ export default function InboxView({
           </div>
         </div>
         <div className="conversation-tabs" role="tablist" aria-label={t("حالات المحادثات", "Conversation states")}>
-          {!assignedOnly ? (
+          {tabsMode !== "employee" ? (
             <FilterButton active={filter === "all"} count={counts.all} label={t("الكل", "All")} onClick={() => onChangeFilter("all")} />
           ) : null}
-          {!assignedOnly ? (
-            <FilterButton
-              active={filter === "mine"}
-              count={counts.mine}
-              label={t("محادثاتي", "Mine")}
-              onClick={() => onChangeFilter("mine")}
-            />
-          ) : null}
-          {!assignedOnly ? (
+          <FilterButton
+            active={filter === "mine"}
+            count={counts.mine}
+            label={t("محادثاتي", "Mine")}
+            onClick={() => onChangeFilter("mine")}
+          />
+          {tabsMode === "owner" ? (
             <FilterButton
               active={filter === "unassigned"}
               count={counts.unassigned}
@@ -885,7 +883,7 @@ export default function InboxView({
               onClick={() => onChangeFilter("unassigned")}
             />
           ) : null}
-          {!assignedOnly ? (
+          {tabsMode === "owner" ? (
             <button
               type="button"
               className={`conversation-tabs-toggle ${moreTabsOpen ? "open" : ""}`}
@@ -896,7 +894,7 @@ export default function InboxView({
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
             </button>
           ) : null}
-          {assignedOnly || moreTabsOpen || filter === "assigned" ? (
+          {tabsMode === "owner" && (moreTabsOpen || filter === "assigned") ? (
             <FilterButton
               active={filter === "assigned"}
               count={counts.assigned}
@@ -904,7 +902,7 @@ export default function InboxView({
               onClick={() => onChangeFilter("assigned")}
             />
           ) : null}
-          {assignedOnly || moreTabsOpen || filter === "unread" ? (
+          {tabsMode !== "owner" || moreTabsOpen || filter === "unread" ? (
             <FilterButton
               active={filter === "unread"}
               count={counts.unread}
@@ -912,7 +910,7 @@ export default function InboxView({
               onClick={() => onChangeFilter("unread")}
             />
           ) : null}
-          {assignedOnly || moreTabsOpen || filter === "closed" ? (
+          {tabsMode === "supervisor" || (tabsMode === "owner" && (moreTabsOpen || filter === "closed")) ? (
             <FilterButton
               active={filter === "closed"}
               count={counts.closed}
@@ -1000,7 +998,7 @@ export default function InboxView({
                   <ChannelIcon id={conversation.channel || "whatsapp"} />
                   <span>{getChannelLabel(conversation, language)}</span>
                 </em>
-                {!assignedOnly && conversation.assignee && conversation.assignee !== "بدون موظف" ? (
+                {tabsMode !== "employee" && conversation.assignee && conversation.assignee !== "بدون موظف" ? (
                   <span className="conversation-assignee-inline">{conversation.assignee}</span>
                 ) : null}
                 <span className="conversation-card-title"><b>{conversation.customer}</b></span>
@@ -1102,7 +1100,7 @@ export default function InboxView({
             <p>{t("اختر محادثة من القائمة لعرض الرسائل وبيانات العميل وإجراءات الإسناد.", "Select a conversation to view messages, customer details, and assignment actions.")}</p>
             <div className="conversation-empty-actions">
               <button type="button" onClick={() => searchInputRef.current?.focus()}>{t("البحث عن عميل", "Find a customer")}</button>
-              {!assignedOnly ? <button type="button" onClick={() => onChangeFilter("unassigned")}>{t("عرض غير المسندة", "View unassigned")}</button> : null}
+              {tabsMode === "owner" ? <button type="button" onClick={() => onChangeFilter("unassigned")}>{t("عرض غير المسندة", "View unassigned")}</button> : null}
               <button type="button" onClick={() => onChangeFilter("unread")}>{t("عرض غير المقروءة", "View unread")}</button>
             </div>
           </div>

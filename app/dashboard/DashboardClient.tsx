@@ -186,7 +186,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>([]);
   const [branding, setBranding] = useState({ name: "Linkly", logoDataUrl: "/assets/linkly-logo.png", color: "#178a82" });
   const [activeConversationId, setActiveConversationId] = useState("");
-  const [filter, setFilter] = useState<ConversationFilter>("all");
+  const [filter, setFilter] = useState<ConversationFilter>(() =>
+    initialUser.role === "مالك الحساب" || initialUser.role === "مشرف" ? "all" : "mine"
+  );
   const [selectedChannel, setSelectedChannel] = useState<ConversationChannelFilter>("all");
   const [conversationSearch, setConversationSearch] = useState("");
   const deferredConversationSearch = useDeferredValue(conversationSearch);
@@ -284,6 +286,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       : employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase());
   const currentEmployee = matchedEmployee ?? fallbackEmployee;
   const canViewAllConversations = canSeeAllConversations(initialUser, currentEmployee);
+  const inboxTabsMode: "owner" | "supervisor" | "employee" = canViewAllConversations
+    ? "owner"
+    : currentEmployee.role === "مشرف"
+      ? "supervisor"
+      : "employee";
   const approvedTemplates = useMemo(() => templates.filter(isApprovedTemplate), [templates]);
   const filteredInvoices = useMemo(() => {
     if (!invoiceFromDate && !invoiceToDate) return invoices;
@@ -1380,7 +1387,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             composerMode={composerMode}
             counts={counts}
             filter={filter}
-            assignedOnly={false}
+            tabsMode={inboxTabsMode}
             message={message}
             quickReplies={quickReplies}
             search={conversationSearch}
