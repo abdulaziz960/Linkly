@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { verifyPassword } from "../../../../lib/passwords";
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
 import { employeeLimitReachedMessage, getEmployeeLimitForTenant } from "../../../../lib/employee-limits";
+import { logAdminAction } from "../../../../lib/subscriptions";
 import { prisma } from "../../../../lib/prisma";
 
 export const runtime = "nodejs";
@@ -79,6 +80,14 @@ export async function POST(request: Request) {
     await tx.employeeInvite.deleteMany({ where: { email: invite.email, purpose: "cross_tenant_membership" } });
     return created;
   });
+
+  await logAdminAction(
+    invite.inviteTenantId,
+    subscription?.companyName || "",
+    `تمت إضافة الموظف "${account.name}" (${invite.email}) عبر قبول دعوة انضمام لشركة أخرى.`,
+    "معلومة",
+    "الموظفون"
+  );
 
   return NextResponse.json({ employee, companyName: subscription?.companyName || "" });
 }

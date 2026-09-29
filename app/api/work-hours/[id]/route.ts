@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -34,6 +35,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         holidays: body.holidays
       }
     });
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم تعديل جدول ساعات عمل فريق "${existing.team}" بواسطة ${user.name}.`, "معلومة", "ساعات العمل");
     return jsonOk(await prisma.workSchedule.findFirst({ where: { id, tenantId: user.tenantId } }));
   } catch {
     return jsonError("تعذر تحديث جدول العمل", 404);
@@ -51,6 +53,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   try {
     await prisma.workSchedule.deleteMany({ where: { id, tenantId: user.tenantId } });
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم حذف جدول ساعات عمل فريق "${existing.team}" بواسطة ${user.name}.`, "تنبيه", "ساعات العمل");
     return jsonOk({ id });
   } catch {
     return jsonError("تعذر حذف جدول العمل", 404);

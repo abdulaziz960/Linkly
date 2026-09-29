@@ -3,6 +3,8 @@ import { getCurrentUser } from "../../../../../lib/auth";
 import { ensureSchema } from "../../../../../lib/database";
 import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { revokeApiKey } from "../../../../../lib/developer-api";
+import { logAdminAction, getTenantCompanyName } from "../../../../../lib/subscriptions";
+import { prisma } from "../../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -16,8 +18,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   if (!(await userHasViewPermission(user, "developers"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   await ensureSchema();
+  const existing = await prisma.apiKey.findFirst({ where: { id, tenantId: user.tenantId }, select: { name: true } });
   const revoked = await revokeApiKey(user.tenantId, id);
   if (!revoked) return jsonError("المفتاح غير موجود", 404);
+
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم إلغاء مفتاح API "${existing?.name || id}" بواسطة ${user.name}.`, "تنبيه", "المطورون");
 
   return jsonOk({ id });
 }

@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { ensureSchema } from "../../../../lib/database";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { generateApiKey, listApiKeys } from "../../../../lib/developer-api";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -27,5 +28,6 @@ export async function POST(request: NextRequest) {
   const name = body?.name?.trim() || "مفتاح API";
 
   const { id, rawKey } = await generateApiKey(user.tenantId, name);
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم إنشاء مفتاح API "${name}" بواسطة ${user.name}.`, "تنبيه", "المطورون");
   return jsonOk({ id, rawKey });
 }

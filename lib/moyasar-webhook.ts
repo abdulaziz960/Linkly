@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { fetchMoyasarInvoice, summarizeMoyasarInvoice, verifyMoyasarWebhookSecret } from "./moyasar";
 import type { PaymentKind } from "./payment-status";
-import { applyVerifiedGatewayOutcome, expectedHalalas, getTenantCompanyName, invoiceAmountMatches, logAdminAction } from "./subscriptions";
+import { applyVerifiedGatewayOutcome, expectedHalalas, getTenantCompanyName, invoiceAmountMatches, logAdminAction, subscriptionPaymentLogMessage } from "./subscriptions";
 
 /**
  * Both notification shapes Moyasar can send to the same URL:
@@ -81,7 +81,7 @@ export async function processMoyasarInvoiceWebhook(kind: PaymentKind, body: Moya
   }
 
   const details = summarizeMoyasarInvoice(invoice);
-  const { outcome, changed } = await applyVerifiedGatewayOutcome(kind, payment.id, invoice.status, details);
+  const { outcome, changed, previousPlan, newPlan } = await applyVerifiedGatewayOutcome(kind, payment.id, invoice.status, details);
 
   if (outcome === "pending") {
     console.error(`${tag} skipped - invoice ${invoiceId} still ${invoice.status}`);
@@ -98,7 +98,7 @@ export async function processMoyasarInvoiceWebhook(kind: PaymentKind, body: Moya
       payment.tenantId,
       companyName,
       kind === "subscription"
-        ? `تم استلام دفعة اشتراك بقيمة ${payment.amount} ر.س عبر Moyasar${method}، وتم تجديد الاشتراك.`
+        ? subscriptionPaymentLogMessage(payment.amount, method, previousPlan, newPlan)
         : `تم استلام دفعة شحن رسائل بقيمة ${payment.amount} ر.س عبر Moyasar${method}، وتمت إضافة ${"messages" in payment ? payment.messages.toLocaleString("en-US") : ""} رسالة إلى الرصيد.`
     );
   } else if (outcome === "failed") {

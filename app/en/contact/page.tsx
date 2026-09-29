@@ -22,7 +22,7 @@ export default function ContactPageEn() {
         <p>For sales or technical support, reach out to the Linkly team — we'll reply during business hours.</p>
 
         <h2>Email</h2>
-        <p><a href="mailto:hello@audience.sa">hello@audience.sa</a></p>
+        <p><a href="mailto:info@linklysa.io">info@linklysa.io</a></p>
 
         <h2>Business hours</h2>
         <p>Sunday to Thursday, 9 AM to 6 PM Riyadh time.</p>

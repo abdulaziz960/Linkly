@@ -7,6 +7,8 @@ import { encryptSecret, integrationSecretFields, maskIntegrationSecrets, SECRET_
 import { getAppOrigin } from "../../../../lib/app-url";
 import { isValidChannelKey, upgradeNeededMessage } from "../../../../lib/channel-catalog";
 import { isChannelAllowedForTenant } from "../../../../lib/plan-channel-access";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
+import { channelNames, type ChannelNameKey } from "../../../channel-names";
 
 const allowedFields = [
   "provider",
@@ -550,6 +552,17 @@ export async function PATCH(request: NextRequest) {
   });
   const settings = await prisma.integrationSetting.findFirst({ where: { id: integrationId, tenantId: user.tenantId } });
   if (!settings) return NextResponse.json({ error: "تعذر تحديث إعدادات الربط" }, { status: 404 });
+
+  const channelLabel = channelNames[channel as ChannelNameKey]?.ar || channel;
+  await logAdminAction(
+    user.tenantId,
+    await getTenantCompanyName(user.tenantId),
+    body.reset === true
+      ? `تم فصل قناة "${channelLabel}" بواسطة ${user.name}.`
+      : `تم حفظ بيانات ربط قناة "${channelLabel}" بواسطة ${user.name}.`,
+    "معلومة",
+    "التكاملات"
+  );
 
   if (
     !body.reset &&

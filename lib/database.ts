@@ -488,6 +488,24 @@ async function runRequiredProductionMigrations() {
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_token_expires_at TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS reengagement_sent_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_visit_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS visit_count INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS reengagement_enabled INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS reengagement_days INTEGER NOT NULL DEFAULT 30`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS reengagement_template_name TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_comments_synced_at TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
@@ -1350,6 +1368,15 @@ async function runSchemaMigrations() {
   if (!customerColumns.some((column) => column.name === "marketing_opt_out_at")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN marketing_opt_out_at TEXT NOT NULL DEFAULT ''`);
   }
+  if (!customerColumns.some((column) => column.name === "reengagement_sent_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN reengagement_sent_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!customerColumns.some((column) => column.name === "last_visit_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN last_visit_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!customerColumns.some((column) => column.name === "visit_count")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0`);
+  }
   const conversationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(conversations)`);
   if (!conversationColumns.some((column) => column.name === "tenant_id")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
@@ -1830,10 +1857,16 @@ async function runSchemaMigrations() {
     updated_at TEXT NOT NULL
   )`);
   const tenantPreferenceColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(tenant_preferences)`);
-  for (const columnName of ["brand_name", "brand_logo_data_url", "brand_color"]) {
+  for (const columnName of ["brand_name", "brand_logo_data_url", "brand_color", "reengagement_template_name"]) {
     if (!tenantPreferenceColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
+  }
+  if (!tenantPreferenceColumns.some((column) => column.name === "reengagement_enabled")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN reengagement_enabled INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!tenantPreferenceColumns.some((column) => column.name === "reengagement_days")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN reengagement_days INTEGER NOT NULL DEFAULT 30`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
     id TEXT PRIMARY KEY,
@@ -3307,104 +3340,35 @@ export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Pro
   };
 }
 
+// Note: no caller anywhere in the codebase reaches these two (legacy admin
+// panel leftovers) - kept working rather than deleted, and fixed for the
+// same unquoted-alias bug as getAdminLogs (see its comment) on the chance
+// they're ever wired back up.
 export async function getProviderClients(): Promise<ProviderClient[]> {
   await ensureSeeded();
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      company: string;
-      owner: string;
-      plan: string;
-      status: ProviderClient["status"];
-      subscriptionStatus: ProviderClient["subscriptionStatus"];
-      renewal: string;
-      phone: string;
-      wabaId: string;
-      conversations: number;
-      employees: number;
-      lastActivity: string;
-      createdAt: string;
-    }>
-  >(
-    `SELECT
-      id,
-      company,
-      owner,
-      plan,
-      status,
-      subscription_status AS subscriptionStatus,
-      renewal,
-      phone,
-      waba_id AS wabaId,
-      conversations,
-      employees,
-      last_activity AS lastActivity,
-      created_at AS createdAt
-    FROM provider_clients
-    ORDER BY created_at DESC`
-  );
-
-  return rows;
+  const rows = await prisma.providerClient.findMany({ orderBy: { createdAt: "desc" } });
+  return rows as ProviderClient[];
 }
 
 export async function getProviderSubscriptions(): Promise<ProviderSubscription[]> {
   await ensureSeeded();
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      clientId: string;
-      clientName: string;
-      plan: string;
-      status: ProviderSubscription["status"];
-      amount: number;
-      renewal: string;
-      billingCycle: string;
-      paymentMethod: string;
-    }>
-  >(
-    `SELECT
-      id,
-      client_id AS clientId,
-      client_name AS clientName,
-      plan,
-      status,
-      amount,
-      renewal,
-      billing_cycle AS billingCycle,
-      payment_method AS paymentMethod
-    FROM provider_subscriptions
-    ORDER BY renewal ASC`
-  );
-
-  return rows;
+  const rows = await prisma.providerSubscription.findMany({ orderBy: { renewal: "asc" } });
+  return rows as ProviderSubscription[];
 }
 
 export async function getAdminLogs(): Promise<AdminLog[]> {
   await ensureSeeded();
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      at: string;
-      clientId: string;
-      clientName: string;
-      source: string;
-      level: AdminLog["level"];
-      message: string;
-    }>
-  >(
-    `SELECT
-      id,
-      at,
-      client_id AS clientId,
-      client_name AS clientName,
-      source,
-      level,
-      message
-    FROM admin_logs
-    ORDER BY id ASC`
-  );
-
-  return rows;
+  // Was a raw SQL query with unquoted camelCase aliases (e.g. `client_id AS
+  // clientId`) - PostgreSQL folds unquoted identifiers to lowercase, so the
+  // result rows actually came back keyed `clientid`, not `clientId`. Every
+  // row's `clientId` field was silently undefined in production (SQLite,
+  // used in dev/tests, does not fold identifier case the same way, so this
+  // never reproduced locally) - the Logs page's per-client filter compared
+  // that undefined against a real tenant id and could never match, no
+  // matter which client was selected. Prisma's typed client sidesteps the
+  // whole class of bug: it maps DB columns to camelCase fields itself.
+  const rows = await prisma.adminLog.findMany({ orderBy: { id: "asc" } });
+  return rows as AdminLog[];
 }
 
 export async function getUserAccountById(id: string): Promise<UserAccount | null> {

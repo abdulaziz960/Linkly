@@ -258,7 +258,7 @@ export async function getInvoiceForTenant(tenantId: string, invoiceId: string) {
  * is a no-op (returns activated: false) via a compare-and-swap update, so
  * a redelivered webhook or a double confirm click can't double-renew.
  */
-export async function applyConfirmedSubscriptionPayment(paymentId: string, details?: GatewayPaymentDetails, allowAutoRenewEnroll = false): Promise<{ activated: boolean; periodStart?: string; periodEnd?: string }> {
+export async function applyConfirmedSubscriptionPayment(paymentId: string, details?: GatewayPaymentDetails, allowAutoRenewEnroll = false): Promise<{ activated: boolean; periodStart?: string; periodEnd?: string; previousPlan?: string; newPlan?: string }> {
   const payment = await prisma.subscriptionPayment.findUnique({ where: { id: paymentId } });
   if (!payment) return { activated: false };
 
@@ -384,11 +384,11 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
       }
     }
 
-    return period;
+    return { ...period, previousPlan: existing?.plan || "" };
   });
 
   if (!result) return { activated: false };
-  return { activated: true, periodStart: result.periodStart, periodEnd: result.periodEnd };
+  return { activated: true, periodStart: result.periodStart, periodEnd: result.periodEnd, previousPlan: result.previousPlan, newPlan: payment.planName };
 }
 
 /**
@@ -494,13 +494,13 @@ export async function applyVerifiedGatewayOutcome(
   // must never enroll a card just because Moyasar's response happened to
   // include a token.
   allowAutoRenewEnroll = false
-): Promise<{ outcome: "completed" | "failed" | "expired" | "refunded" | "pending"; changed: boolean }> {
+): Promise<{ outcome: "completed" | "failed" | "expired" | "refunded" | "pending"; changed: boolean; previousPlan?: string; newPlan?: string }> {
   const mapped = mapMoyasarInvoiceStatus(invoiceStatus);
   if (!mapped) return { outcome: "pending", changed: false };
   if (mapped === "completed") {
     if (kind === "subscription") {
-      const { activated } = await applyConfirmedSubscriptionPayment(paymentId, details, allowAutoRenewEnroll);
-      return { outcome: "completed", changed: activated };
+      const { activated, previousPlan, newPlan } = await applyConfirmedSubscriptionPayment(paymentId, details, allowAutoRenewEnroll);
+      return { outcome: "completed", changed: activated, previousPlan, newPlan };
     }
     const { credited } = await applyConfirmedCampaignPayment(paymentId, details);
     return { outcome: "completed", changed: credited };
@@ -607,6 +607,15 @@ export function expectedHalalas(payment: { amount: number; amountHalalas: number
 export function invoiceAmountMatches(invoiceAmountHalalas: number, payment: { amount: number; amountHalalas: number }) {
   if (!Number.isFinite(invoiceAmountHalalas) || invoiceAmountHalalas <= 0) return false;
   return invoiceAmountHalalas === expectedHalalas(payment);
+}
+
+/** Shared wording for a completed subscription payment - distinguishes a plan change (upgrade/downgrade) from a same-plan renewal, used by both the client-confirmed checkout path and the Moyasar webhook. */
+export function subscriptionPaymentLogMessage(amount: number, method: string, previousPlan?: string, newPlan?: string) {
+  const base = `تم استلام دفعة اشتراك بقيمة ${amount} ر.س عبر Moyasar${method}`;
+  if (previousPlan && newPlan && previousPlan !== newPlan) {
+    return `${base}، وتمت ترقية الباقة من "${previousPlan}" إلى "${newPlan}".`;
+  }
+  return `${base}، وتم تجديد الاشتراك.`;
 }
 
 export async function logAdminAction(tenantId: string, clientName: string, message: string, level: "معلومة" | "تنبيه" | "خطأ" = "معلومة", source = "لوحة الأدمن") {

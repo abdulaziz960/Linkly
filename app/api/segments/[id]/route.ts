@@ -3,6 +3,7 @@ import { prisma } from "../../../../lib/prisma";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { deleteSegment, resolveEngagementFields, resolveSegmentRecipients, updateSegment } from "../../../../lib/segments";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -36,6 +37,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!segment) return jsonError("التقسيم غير موجود", 404);
 
   const recipientCount = (await resolveSegmentRecipients(user.tenantId, segment)).length;
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم تعديل تقسيم عملاء "${segment.name}" بواسطة ${user.name}.`, "معلومة", "تقسيم العملاء");
   return jsonOk({ ...segment, recipientCount });
 }
 
@@ -45,8 +47,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   if (!(await userHasViewPermission(user, "segments"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
   const { id } = await context.params;
+  const existing = await prisma.segment.findFirst({ where: { id, tenantId: user.tenantId }, select: { name: true } });
   const deleted = await deleteSegment(user.tenantId, id);
   if (!deleted) return jsonError("التقسيم غير موجود", 404);
+
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم حذف تقسيم عملاء "${existing?.name || id}" بواسطة ${user.name}.`, "تنبيه", "تقسيم العملاء");
 
   return jsonOk({ id });
 }

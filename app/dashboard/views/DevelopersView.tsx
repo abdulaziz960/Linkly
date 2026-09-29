@@ -244,6 +244,11 @@ export default function DevelopersView() {
   -H "Authorization: Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H "Content-Type: application/json" \\
   -d '{"customerPhone":"0501234567","customerName":"عميل","text":"طلبك #1234 تم استلامه"}'`}</pre>
+          <p>{t("أضف \"visit\": true (واختياريًا \"visitAt\" بتاريخ ISO) لتسجيلها كزيارة فعلية - يُستخدم في حساب عدد الزيارات وتذكير الانقطاع بلوحة الأتمتة، بدلاً من الاعتماد على نشاط المحادثة.", "Add \"visit\": true (and optionally \"visitAt\" as an ISO date) to record it as a real visit - used for the visit count and the inactivity reminder in the Automations view, instead of relying on conversation activity.")}</p>
+          <pre className="code-block">{`curl -X POST https://linklysa.io/api/v1/conversations \\
+  -H "Authorization: Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx" \\
+  -H "Content-Type: application/json" \\
+  -d '{"customerPhone":"0501234567","customerName":"عميل","text":"حجز جديد","visit":true}'`}</pre>
 
           <h3>{t("إرسال رسالة واتساب (POST /api/v1/messages)", "Send a WhatsApp message (POST /api/v1/messages)")}</h3>
           <pre className="code-block">{`curl -X POST https://linklysa.io/api/v1/messages \\

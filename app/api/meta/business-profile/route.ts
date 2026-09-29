@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { uploadMetaMedia } from "../../../../lib/meta-media-upload";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -92,6 +93,8 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       return jsonError(formatMetaError(payload?.error, "تعذر حفظ الملف التجاري في Meta"), response.status);
     }
+
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم تعديل الملف التجاري لواتساب بواسطة ${user.name}.`, "معلومة", "التكاملات");
 
     return jsonOk({ message: "تم حفظ الملف التجاري بنجاح" });
   } catch (error) {

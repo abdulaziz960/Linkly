@@ -61,7 +61,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
   await recordSupportAuditLog({
     actorName: admin.name,
     action: isInternal ? "ملاحظة داخلية على تذكرة دعم" : "رد فريق الدعم على تذكرة",
-    ticketId: ticket.id,
+    tenantId: ticket.tenantId,
+    companyName: ticket.companyName,
     ticketLabel: `${ticket.ticketNumber} — ${ticket.subject}`
   }).catch(() => {});
 

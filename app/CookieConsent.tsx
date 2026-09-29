@@ -13,6 +13,31 @@ const GTAG_ID = "G-PRB5YHZPGY";
 
 type Consent = "accepted" | "rejected" | null;
 
+/** Cookie name patterns set by GTM/GA once loaded (_ga, _ga_<container-id>, _gid, _gat, _gcl_au, _gcl_aw). */
+const ANALYTICS_COOKIE_PATTERNS = [/^_ga$/, /^_ga_/, /^_gid$/, /^_gat/, /^_gcl_/];
+
+/**
+ * Deletes any GA/GTM cookies already set from an earlier "accepted" session.
+ * Rejecting only stops the scripts from loading again - it doesn't undo
+ * cookies Google's script already wrote, so we clear those explicitly.
+ */
+function clearAnalyticsCookies() {
+  if (typeof document === "undefined") return;
+  const hostname = window.location.hostname;
+  const domainParts = hostname.split(".");
+  const domains = [undefined, hostname];
+  if (domainParts.length > 1) {
+    domains.push(`.${domainParts.slice(-2).join(".")}`);
+  }
+  document.cookie.split(";").forEach((entry) => {
+    const name = entry.split("=")[0]?.trim();
+    if (!name || !ANALYTICS_COOKIE_PATTERNS.some((pattern) => pattern.test(name))) return;
+    domains.forEach((domain) => {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/${domain ? `; domain=${domain}` : ""}`;
+    });
+  });
+}
+
 const copy = {
   ar: {
     text: "نستخدم ملفات تعريف الارتباط (الكوكيز) لتحسين تجربتك على موقعنا وتحليل الاستخدام. بمتابعتك تصفح الموقع أو الضغط على \"قبول\"، أنت توافق على استخدامنا لها.",
@@ -70,6 +95,7 @@ export default function CookieConsent() {
       if (stored === "accepted" || stored === "rejected") {
         setConsent(stored);
         setDecided(true);
+        if (stored === "rejected") clearAnalyticsCookies();
       }
     } catch {
       // Private mode/blocked storage - fall through to showing the banner
@@ -96,6 +122,7 @@ export default function CookieConsent() {
     setConsent(value);
     setDecided(true);
     setSettingsOpen(false);
+    if (value === "rejected") clearAnalyticsCookies();
     try {
       window.localStorage.setItem(CONSENT_STORAGE_KEY, value);
     } catch {

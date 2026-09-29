@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -65,6 +66,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         enabled: typeof body.enabled === "boolean" ? (body.enabled ? 1 : 0) : undefined
       }
     });
+
+    const isToggleOnly = typeof body.enabled === "boolean" && Object.keys(body).length === 1;
+    const message = isToggleOnly
+      ? `${body.enabled ? "تم تفعيل" : "تم إيقاف"} قاعدة الأتمتة "${existing.name}" بواسطة ${user.name}.`
+      : `تم تعديل قاعدة الأتمتة "${existing.name}" بواسطة ${user.name}.`;
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), message, "معلومة", "الأتمتة");
+
     return jsonOk(await prisma.automationRule.findFirst({ where: { id, tenantId: user.tenantId } }));
   } catch {
     return jsonError("تعذر تحديث الأتمتة", 404);
@@ -82,6 +90,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     if (!existing) return jsonError("تعذر حذف الأتمتة", 404);
 
     await prisma.automationRule.deleteMany({ where: { id, tenantId: user.tenantId } });
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم حذف قاعدة الأتمتة "${existing.name}" بواسطة ${user.name}.`, "تنبيه", "الأتمتة");
     return jsonOk({ id });
   } catch {
     return jsonError("تعذر حذف الأتمتة", 404);

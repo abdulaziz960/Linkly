@@ -3299,12 +3299,31 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 
 .composer {
   display: grid;
-  grid-template-columns: auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-columns: repeat(6, auto) minmax(0, 1fr) auto;
   align-items: end;
   gap: 10px;
   padding: 12px;
   border-top: 1px solid var(--line);
   background: var(--surface);
+}
+
+.composer > p[role="status"] {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.custom-select.ai-tool-select {
+  width: auto;
+  min-width: 168px;
+}
+
+.custom-select.ai-tool-select .custom-select-trigger {
+  min-height: 58px;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: var(--surface-soft);
 }
 
 .emoji-picker-wrap,
@@ -6023,6 +6042,25 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 
 .bot-option-editor-row input {
   flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 15px;
+}
+
+/*
+ * This row's <select> (next-step link) inherits `width: 100%` from the
+ * shared `.form-grid select` rule, which - with no flex-basis of its own -
+ * made it claim the row's entire width and squeeze the label input (which
+ * only has flex:1/flex-basis:0%) down to almost nothing. Give it a fixed,
+ * content-appropriate width instead so the label input gets its fair share.
+ */
+.bot-option-editor-row select {
+  flex: 0 0 auto;
+  width: 150px;
+  min-width: 150px;
+  padding: 12px 10px;
+  font-size: 14px;
 }
 
 .bot-builder-modal {
@@ -8756,13 +8794,29 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .composer {
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
   margin: 8px 14px 14px;
   padding: 8px;
   border: 1px solid #b3d2cc;
   border-radius: 15px;
   background: #f6fbfa;
+}
+
+.composer > p[role="status"] {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+}
+
+.custom-select.ai-tool-select {
+  flex: 0 0 auto;
+  min-width: 140px;
+}
+
+.custom-select.ai-tool-select .custom-select-trigger {
+  min-height: 40px;
+  padding: 8px 12px;
 }
 
 .composer textarea {

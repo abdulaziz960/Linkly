@@ -5,6 +5,7 @@ import { runAutomations } from "../../../../lib/automation-engine";
 import { requestRatingIfNeeded } from "../../../../lib/conversation-rating";
 import { enqueueConversationSummary } from "../../../../lib/conversation-insights";
 import { triggerWebhookEvent } from "../../../../lib/webhooks";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 import { pipelineStages } from "../../../dashboard/types";
 
@@ -37,13 +38,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   try {
+    let previousAssignee = "";
+    let customerName = "";
     const conversation = await prisma.$transaction(async (tx) => {
       const existing = await tx.conversation.findFirst({
         where: { id, tenantId: user.tenantId },
-        select: { id: true }
+        select: { id: true, assignee: true, customer: { select: { name: true } } }
       });
 
       if (!existing) throw new Error("not-found");
+      previousAssignee = existing.assignee;
+      customerName = existing.customer.name;
 
       if (body.tags) {
         await tx.conversationTag.deleteMany({ where: { conversationId: id, conversation: { tenantId: user.tenantId } } });
@@ -73,6 +78,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       });
       return tx.conversation.findFirstOrThrow({ where: { id, tenantId: user.tenantId } });
     });
+
+    if (body.assignee !== undefined && body.assignee !== previousAssignee) {
+      await logAdminAction(
+        user.tenantId,
+        await getTenantCompanyName(user.tenantId),
+        `تم إسناد محادثة "${customerName}" إلى ${body.assignee || "بدون موظف"} بواسطة ${user.name}.`,
+        "معلومة",
+        "المحادثات"
+      );
+    }
 
     if (body.status === "closed") {
       await runAutomations("تم إغلاق الرسالة", { conversationId: id, tenantId: user.tenantId }).catch((error) => {
@@ -105,18 +120,22 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   }
 
   try {
+    let customerName = "";
     await prisma.$transaction(async (tx) => {
       const existing = await tx.conversation.findFirst({
         where: { id, tenantId: user.tenantId },
-        select: { id: true }
+        select: { id: true, customer: { select: { name: true } } }
       });
 
       if (!existing) throw new Error("not-found");
+      customerName = existing.customer.name;
 
       await tx.conversationTag.deleteMany({ where: { conversationId: id, conversation: { tenantId: user.tenantId } } });
       await tx.message.deleteMany({ where: { conversationId: id, conversation: { tenantId: user.tenantId } } });
       await tx.conversation.deleteMany({ where: { id, tenantId: user.tenantId } });
     });
+
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم حذف محادثة "${customerName}" بواسطة ${user.name}.`, "تنبيه", "المحادثات");
 
     return jsonOk({ id });
   } catch {

@@ -187,3 +187,43 @@ export async function sendLowBalanceEmail({ to, name, remaining, percent, topUpU
   const content = lowBalanceEmailContent(name, remaining, percent, topUpUrl, branding);
   return sendEmail({ to, subject: `رصيد رسائل حملاتك في ${branding.name} عند ${percent}%`, text: content.text, html: content.html });
 }
+
+const ADMIN_NOTIFICATION_EMAIL = "info@linklysa.io";
+
+/** Shared "info@" team-inbox ping layout: a heading, a label/value table, and an optional free-text body (ticket/suggestion description). */
+function adminNotificationContent(heading: string, rows: [string, string][], body?: string) {
+  const textRows = rows.map(([label, value]) => `${label}: ${value}`).join("\n");
+  const text = body ? `${heading}\n\n${textRows}\n\n${body}` : `${heading}\n\n${textRows}`;
+  const rowsHtml = rows
+    .map(([label, value]) => `<tr><td style="color:#5b7570;padding:4px 12px 4px 0;vertical-align:top;white-space:nowrap">${escapeHtml(label)}</td><td style="font-weight:700">${escapeHtml(value)}</td></tr>`)
+    .join("");
+  const bodyHtml = body
+    ? `<p style="margin:20px 0 0;padding-top:16px;border-top:1px solid #e1efed;color:#123330;font-size:14px;line-height:1.8;white-space:pre-wrap">${escapeHtml(body)}</p>`
+    : "";
+  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:32px"><h1 style="margin:0 0 20px;font-size:22px;color:#123330;font-weight:800">${escapeHtml(heading)}</h1><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-size:15px;color:#123330;line-height:2">${rowsHtml}</table>${bodyHtml}</td></tr></table></td></tr></table></body></html>`;
+  return { text, html };
+}
+
+/** Internal-only "new support ticket" ping to the team inbox. Best-effort - never blocks ticket creation. */
+export async function sendNewSupportTicketAdminNotification({ ticketId, ticketNumber, subject, categoryLabel, priorityLabel, companyName, submitterName, submitterEmail, description }: { ticketId: string; ticketNumber: string; subject: string; categoryLabel: string; priorityLabel: string; companyName: string; submitterName: string; submitterEmail: string; description: string }): Promise<boolean> {
+  const content = adminNotificationContent(`تذكرة دعم جديدة: ${ticketNumber}`, [
+    ["الشركة", companyName || "—"],
+    ["مقدّم الطلب", submitterName],
+    ["البريد الإلكتروني", submitterEmail],
+    ["التصنيف", categoryLabel],
+    ["الأولوية", priorityLabel],
+    ["الموضوع", subject]
+  ], description);
+  return sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `تذكرة دعم جديدة ${ticketNumber}: ${subject}`, text: content.text, html: content.html, idempotencyKey: `support-ticket/${ticketId}` });
+}
+
+/** Internal-only "new development suggestion" ping to the team inbox. Best-effort - never blocks submission. */
+export async function sendNewDevelopmentRequestAdminNotification({ requestId, title, companyName, submitterName, submitterEmail, description }: { requestId: string; title: string; companyName: string; submitterName: string; submitterEmail: string; description: string }): Promise<boolean> {
+  const content = adminNotificationContent("اقتراح تطوير جديد في Linkly", [
+    ["الشركة", companyName || "—"],
+    ["مقدّم الاقتراح", submitterName],
+    ["البريد الإلكتروني", submitterEmail],
+    ["العنوان", title]
+  ], description);
+  return sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `اقتراح تطوير جديد: ${title}`, text: content.text, html: content.html, idempotencyKey: `development-request/${requestId}` });
+}

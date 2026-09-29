@@ -8,6 +8,7 @@ import { getXPlatformCredentials } from "../../../../lib/x-platform";
 import { ensureXRealtimeDelivery } from "../../../../lib/x-activity";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { safeEqual } from "../../../../lib/oauth-state";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -115,6 +116,8 @@ export async function GET(request: NextRequest) {
       }).format(new Date())
     }
   });
+
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة إكس (X) بواسطة ${user.name}.`, "معلومة", "التكاملات");
 
   let connectionStatus = "connected";
   try {

@@ -93,6 +93,8 @@ export default function DashboardSidebar({
   const [sidebarTooltip, setSidebarTooltip] = useState<SidebarTooltipState | null>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const searchPopoverRef = useRef<HTMLDivElement>(null);
   const isEnglish = language === "en";
   useEffect(() => {
     if (!mobileOpen) return;
@@ -126,6 +128,27 @@ export default function DashboardSidebar({
       previousFocus?.focus();
     };
   }, [mobileOpen, onClose]);
+  useEffect(() => {
+    if (!navigationSearchOpen) return;
+    function close() {
+      setNavigationSearchOpen(false);
+      setNavigationSearch("");
+    }
+    function handleClickOutside(event: globalThis.MouseEvent) {
+      if (searchTriggerRef.current?.contains(event.target as Node)) return;
+      if (searchPopoverRef.current?.contains(event.target as Node)) return;
+      close();
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") close();
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [navigationSearchOpen]);
   const showSidebarTooltip = (
     event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>,
     label: string
@@ -177,6 +200,7 @@ export default function DashboardSidebar({
       </div>
       <nav className="dashboard-nav">
         <button
+          ref={searchTriggerRef}
           className="sidebar-search-trigger"
           type="button"
           aria-label={isEnglish ? "Search navigation" : "البحث في القائمة"}
@@ -191,7 +215,7 @@ export default function DashboardSidebar({
         </button>
         {navigationSearchOpen && typeof document !== "undefined"
           ? createPortal(
-            <div className={`sidebar-search-popover${isEnglish ? " lang-en" : ""}`}>
+            <div ref={searchPopoverRef} className={`sidebar-search-popover${isEnglish ? " lang-en" : ""}`}>
               <label><span>{isEnglish ? "Go to" : "انتقل إلى"}</span><input autoFocus value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} placeholder={isEnglish ? "Search sections..." : "ابحث عن قسم..."} /></label>
               <div>
                 {visibleNavItems.filter((item) => `${item.label} ${navItemLabelsEn[item.key]}`.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((item) => (

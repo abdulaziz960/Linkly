@@ -7,6 +7,7 @@ import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { safeEqual } from "../../../../lib/oauth-state";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -106,6 +107,10 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error("Snapchat callback: failed to read ad account info", error);
+  }
+
+  if (status === "connected") {
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة سناب شات بواسطة ${user.name}.`, "معلومة", "التكاملات");
   }
 
   redirectTo.searchParams.set("snapchat", status);
