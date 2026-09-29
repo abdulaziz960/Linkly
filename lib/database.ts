@@ -3414,30 +3414,17 @@ export async function getProviderSubscriptions(): Promise<ProviderSubscription[]
 
 export async function getAdminLogs(): Promise<AdminLog[]> {
   await ensureSeeded();
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      at: string;
-      clientId: string;
-      clientName: string;
-      source: string;
-      level: AdminLog["level"];
-      message: string;
-    }>
-  >(
-    `SELECT
-      id,
-      at,
-      client_id AS clientId,
-      client_name AS clientName,
-      source,
-      level,
-      message
-    FROM admin_logs
-    ORDER BY id ASC`
-  );
-
-  return rows;
+  // Was a raw SQL query with unquoted camelCase aliases (e.g. `client_id AS
+  // clientId`) - PostgreSQL folds unquoted identifiers to lowercase, so the
+  // result rows actually came back keyed `clientid`, not `clientId`. Every
+  // row's `clientId` field was silently undefined in production (SQLite,
+  // used in dev/tests, does not fold identifier case the same way, so this
+  // never reproduced locally) - the Logs page's per-client filter compared
+  // that undefined against a real tenant id and could never match, no
+  // matter which client was selected. Prisma's typed client sidesteps the
+  // whole class of bug: it maps DB columns to camelCase fields itself.
+  const rows = await prisma.adminLog.findMany({ orderBy: { id: "asc" } });
+  return rows as AdminLog[];
 }
 
 export async function getUserAccountById(id: string): Promise<UserAccount | null> {
