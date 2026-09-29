@@ -148,15 +148,15 @@ export default function WorkHoursView({
         <div className="panel-head"><h2>{t("ساعات العمل", "Work Hours")}</h2><span /><button className="btn primary" type="button" onClick={() => openForm()}>{t("إضافة جدول", "Add schedule")}</button></div>
         <div className="panel-body table-wrap">
           <p className="muted-copy">{t('عند وجود جدول "نشط"، يرسل النظام تلقائيًا رد "خارج أوقات الدوام" لأول رسالة تصل من عميل خارج الأوقات المحددة (مرة واحدة يوميًا لكل محادثة). بدون أي جدول نشط، لا يوجد أي قيد على الاستقبال.', 'When there is an "active" schedule, the system automatically sends an "outside working hours" reply to the first message that arrives from a customer outside the set hours (once a day per conversation). Without any active schedule, there is no restriction on receiving messages.')}</p>
-          <table>
+          <table className="mobile-card-table">
             <thead><tr><th>{t("الفريق", "Team")}</th><th>{t("أيام العمل", "Working days")}</th><th>{t("بداية الدوام", "Start time")}</th><th>{t("نهاية الدوام", "End time")}</th><th>{t("الحالة", "Status")}</th><th>{t("العطل الرسمية", "Public holidays")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
             <tbody>
               {workSchedules.map((schedule) => (
                 <tr key={schedule.id}>
-                  <td>{schedule.team}</td><td>{formatDaysDisplay(schedule.days, t)}</td><td>{schedule.start}</td><td>{schedule.end}</td>
-                  <td><span className={schedule.status === "نشط" ? "state ok" : "state muted"}>{schedule.status === "نشط" ? t("نشط", "Active") : t("متوقف", "Stopped")}</span></td>
-                  <td><span className={schedule.holidays === "مفعلة" ? "state ok" : "state muted"}>{schedule.holidays === "مفعلة" ? t("مفعلة", "Enabled") : t("غير مفعلة", "Disabled")}</span></td>
-                  <td className="row-actions"><button className="btn soft" type="button" onClick={() => openForm(schedule)}>{t("تعديل", "Edit")}</button><button className="btn danger" type="button" onClick={() => deleteSchedule(schedule)}>{t("حذف", "Delete")}</button></td>
+                  <td>{schedule.team}</td><td data-label={t("أيام العمل", "Working days")}>{formatDaysDisplay(schedule.days, t)}</td><td data-label={t("بداية الدوام", "Start time")}>{schedule.start}</td><td data-label={t("نهاية الدوام", "End time")}>{schedule.end}</td>
+                  <td data-label={t("الحالة", "Status")}><span className={schedule.status === "نشط" ? "state ok" : "state muted"}>{schedule.status === "نشط" ? t("نشط", "Active") : t("متوقف", "Stopped")}</span></td>
+                  <td data-label={t("العطل الرسمية", "Public holidays")}><span className={schedule.holidays === "مفعلة" ? "state ok" : "state muted"}>{schedule.holidays === "مفعلة" ? t("مفعلة", "Enabled") : t("غير مفعلة", "Disabled")}</span></td>
+                  <td className="row-actions" data-label={t("إجراء", "Action")}><button className="btn soft" type="button" onClick={() => openForm(schedule)}>{t("تعديل", "Edit")}</button><button className="btn danger" type="button" onClick={() => deleteSchedule(schedule)}>{t("حذف", "Delete")}</button></td>
                 </tr>
               ))}
             </tbody>

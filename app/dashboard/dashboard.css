@@ -3932,9 +3932,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .status-with-action {
-  display: grid;
-  gap: 4px;
-  justify-items: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .link-action {
@@ -10163,6 +10164,19 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   font-weight: 700;
 }
 
+.pipeline-card-stage {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.pipeline-card-stage .custom-select-trigger {
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+
 .pipeline-card-tags {
   display: flex;
   flex-wrap: wrap;
@@ -10412,7 +10426,12 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
     padding: 12px;
     visibility: hidden;
     transition: transform .2s ease, visibility .2s ease;
-    overflow-y: auto;
+    /* The aside itself no longer scrolls as one unit - .dashboard-nav is
+       the sole scroll region below, so .dashboard-mobile-extras stays
+       pinned at the bottom instead of being able to overlap/clip against
+       nav content. */
+    overflow-x: hidden;
+    overflow-y: hidden;
     overscroll-behavior: contain;
   }
 
@@ -10444,7 +10463,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   }
 
   .dashboard-nav {
-    overflow: visible;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .dashboard-nav-cluster {
@@ -10453,6 +10475,11 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 
   .dashboard-nav-group-label {
     display: block;
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
     padding: 7px 12px 3px;
     color: #9ecbc5;
     font-size: 12px;
@@ -10480,6 +10507,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 
   .dashboard-mobile-extras {
     display: grid;
+    flex: 0 0 auto;
     gap: 4px;
     padding-top: 12px;
     border-top: 1px solid rgba(255,255,255,.15);
@@ -10836,6 +10864,25 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   .table-wrap .mobile-card-table td.row-actions > button {
     min-height: 44px;
     flex: 1 1 115px;
+  }
+
+  /* TeamsView's user-management-table has a selection checkbox as its
+     first column instead of the row's title - give the checkbox cell a
+     plain compact treatment and promote the name cell (.card-title-cell)
+     to the bold "card header" role instead. */
+  .table-wrap .user-management-table.mobile-card-table td:first-child {
+    display: block;
+    font-size: 13px;
+    padding-bottom: 4px;
+  }
+
+  .table-wrap .user-management-table.mobile-card-table td.card-title-cell {
+    display: block;
+    font-size: 15px;
+  }
+
+  .table-wrap .user-management-table.mobile-card-table td.card-title-cell::before {
+    content: none;
   }
 
   .table-wrap .mobile-card-table td[colspan] {

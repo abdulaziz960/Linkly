@@ -13,6 +13,7 @@ type CustomSelectProps = {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  ariaLabel?: string;
 };
 
 /**
@@ -21,7 +22,7 @@ type CustomSelectProps = {
  * Pass value+onChange for controlled use, or defaultValue+name to behave
  * like a native field inside a form submitted via FormData.
  */
-export default function CustomSelect({ value, onChange, defaultValue, name, options, disabled, placeholder, className }: CustomSelectProps) {
+export default function CustomSelect({ value, onChange, defaultValue, name, options, disabled, placeholder, className, ariaLabel }: CustomSelectProps) {
   const isControlled = value !== undefined;
   const [internalValue, setInternalValue] = useState(defaultValue ?? options[0]?.value ?? "");
   const currentValue = isControlled ? value : internalValue;
@@ -95,6 +96,7 @@ export default function CustomSelect({ value, onChange, defaultValue, name, opti
         className={`custom-select-trigger${open ? " open" : ""}`}
         onClick={toggleOpen}
         disabled={disabled}
+        aria-label={ariaLabel}
       >
         <span>{selected?.label || placeholder || ""}</span>
       </button>
