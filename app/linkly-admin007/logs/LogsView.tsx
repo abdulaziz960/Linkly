@@ -30,9 +30,16 @@ function levelIcon(level: LevelFilter): "info" | "warning" | "error" | "all" { r
 function extract(patterns: RegExp[], text: string, fallback = "") { for (const pattern of patterns) { const match = text.match(pattern); if (match?.[1]) return match[1].trim(); } return fallback; }
 function enrich(log: AdminLog): EnrichedLog {
   const text = log.message || ""; const source = log.source || "النظام";
-  const actor = extract([/(?:بواسطة|نفّذ بواسطة|المنفذ|المستخدم)[:：]?\s*([^،|]+)/i, /(?:by|actor|user)[:：]?\s*([^,|]+)/i], text, source.includes("@") ? source : "النظام");
-  const before = extract([/(?:من|القيمة السابقة|قبل)[:：]?\s*["']?([^،|→]+)["']?/i, /(?:from|before)[:：]?\s*["']?([^,|→]+)["']?/i], text);
-  const after = extract([/(?:إلى|القيمة الجديدة|بعد)[:：]?\s*["']?([^،|]+)["']?/i, /(?:to|after)[:：]?\s*["']?([^,|]+)["']?/i], text);
+  // The English fallback patterns need \b word boundaries - without them
+  // "to"/"by"/etc. match as a bare substring anywhere in the text, which
+  // false-positives constantly on the Latin text every log carries (emails,
+  // domains, IPs): "motorshussin.com" contains "to", so the naive pattern
+  // grabbed everything after it as a bogus "after" value. \b works here
+  // because Latin letters are \w in JS regex - it deliberately isn't used
+  // on the Arabic patterns above, where \b doesn't apply the same way.
+  const actor = extract([/(?:بواسطة|نفّذ بواسطة|المنفذ|المستخدم)[:：]?\s*([^،|]+)/i, /\b(?:by|actor|user)\b[:：]?\s*([^,|]+)/i], text, source.includes("@") ? source : "النظام");
+  const before = extract([/(?:من|القيمة السابقة|قبل)[:：]?\s*["']?([^،|→]+)["']?/i, /\b(?:from|before)\b[:：]?\s*["']?([^,|→]+)["']?/i], text);
+  const after = extract([/(?:إلى|القيمة الجديدة|بعد)[:：]?\s*["']?([^،|]+)["']?/i, /\b(?:to|after)\b[:：]?\s*["']?([^,|]+)["']?/i], text);
   const ip = extract([/(?:IP|عنوان IP)[:：]?\s*([\da-f:.]+)/i], text); const device = extract([/(?:الجهاز|device)[:：]?\s*([^،|]+)/i], text);
   const haystack = `${source} ${text}`.toLowerCase();
   const eventType = /crm|عميل محتمل|lead/.test(haystack) ? "CRM" : /دفع|فاتورة|اشتراك|payment|billing/.test(haystack) ? "الفوترة" : /دخول|تسجيل|صلاحية|login|auth/.test(haystack) ? "الأمان" : /إعداد|ربط|integration|setting/.test(haystack) ? "الإعدادات" : /حملة|campaign/.test(haystack) ? "الحملات" : "تشغيل";
