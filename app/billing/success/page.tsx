@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import "../billing.css";
 import { useStoredLanguage } from "../../useStoredLanguage";
 
@@ -11,18 +11,15 @@ const copy = {
       heading: "تم تفعيل الاشتراك",
       body: "اكتملت رحلة الشراء بنجاح وأصبحت الباقة نشطة على حسابك.",
       failedHeading: "تعذر إتمام الدفع",
-      failedBody: "لم يتم تأكيد الدفعة بعد بنك البطاقة. لم يُخصم أي مبلغ وتفعّل الاشتراك، يمكنك إعادة المحاولة من صفحة الاشتراك.",
-      backToBilling: "العودة إلى صفحة الاشتراك"
+      failedBody: "لم يتم تأكيد الدفعة بعد بنك البطاقة. لم يُخصم أي مبلغ وما تفعّل الاشتراك."
     },
     campaign_topup: {
       heading: "تمت إضافة الرصيد",
       body: "اكتملت عملية الشحن بنجاح وأصبح الرصيد الجديد متاحًا لحملاتك.",
       failedHeading: "تعذر إتمام الدفع",
-      failedBody: "لم يتم تأكيد الدفعة بعد بنك البطاقة. لم يُخصم أي مبلغ ولم يُضَف أي رصيد، يمكنك إعادة المحاولة من تبويب الرصيد والشحن.",
-      backToBilling: "العودة إلى لوحة العميل"
+      failedBody: "لم يتم تأكيد الدفعة بعد بنك البطاقة. لم يُخصم أي مبلغ ولم يُضَف أي رصيد."
     },
-    backToDashboard: "العودة إلى لوحة العميل",
-    viewSubscription: "عرض تفاصيل الاشتراك",
+    backToDashboard: "العودة إلى المحادثات",
     confirming: "جارٍ التحقق من الدفعة..."
   },
   en: {
@@ -30,18 +27,15 @@ const copy = {
       heading: "Subscription activated",
       body: "Your purchase completed successfully and the plan is now active on your account.",
       failedHeading: "Payment not completed",
-      failedBody: "Your bank did not confirm the payment. Nothing was charged and the plan was not activated - you can try again from the billing page.",
-      backToBilling: "Back to billing"
+      failedBody: "Your bank did not confirm the payment. Nothing was charged and the plan was not activated."
     },
     campaign_topup: {
       heading: "Balance topped up",
       body: "Your top-up completed successfully and the new balance is now available for your campaigns.",
       failedHeading: "Payment not completed",
-      failedBody: "Your bank did not confirm the payment. Nothing was charged and no balance was added - you can try again from the Balance & Top-up tab.",
-      backToBilling: "Back to dashboard"
+      failedBody: "Your bank did not confirm the payment. Nothing was charged and no balance was added."
     },
-    backToDashboard: "Back to dashboard",
-    viewSubscription: "View subscription details",
+    backToDashboard: "Back to conversations",
     confirming: "Confirming your payment..."
   }
 } as const;
@@ -65,6 +59,7 @@ const confirmUrlByKind: Record<Kind, string> = {
  * picks which payment row and copy this checkout was for.
  */
 function BillingSuccessStatus({ lang }: { lang: Lang }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const paymentId = searchParams.get("paymentId");
   const moyasarPaymentId = searchParams.get("id");
@@ -108,6 +103,15 @@ function BillingSuccessStatus({ lang }: { lang: Lang }) {
     };
   }, [paymentId, moyasarPaymentId, kind]);
 
+  // Never leave the visitor stuck on this page either outcome, same as the
+  // embedded checkout (MoyasarPayForm) - give them time to read the result,
+  // then send them back to the conversations view automatically.
+  useEffect(() => {
+    if (state !== "success" && state !== "failed") return;
+    const timer = window.setTimeout(() => router.push("/dashboard?view=inbox"), state === "failed" ? 2500 : 1500);
+    return () => window.clearTimeout(timer);
+  }, [state, router]);
+
   if (state === "confirming") return <p className="payment-note">{text.confirming}</p>;
 
   if (state === "failed") {
@@ -116,7 +120,7 @@ function BillingSuccessStatus({ lang }: { lang: Lang }) {
         <h1>{kindText.failedHeading}</h1>
         <p>{kindText.failedBody}</p>
         <div className="test-actions">
-          <Link className="primary-link" href={kind === "campaign_topup" ? "/dashboard?view=campaigns&tab=balance" : "/billing"}>{kindText.backToBilling}</Link>
+          <Link className="primary-link" href="/dashboard?view=inbox">{text.backToDashboard}</Link>
         </div>
       </>
     );
@@ -128,8 +132,7 @@ function BillingSuccessStatus({ lang }: { lang: Lang }) {
       <h1>{kindText.heading}</h1>
       <p>{kindText.body}</p>
       <div className="test-actions">
-        <Link className="primary-link" href={kind === "campaign_topup" ? "/dashboard?view=campaigns&tab=balance" : "/dashboard"}>{text.backToDashboard}</Link>
-        {kind === "subscription" ? <Link href="/billing">{text.viewSubscription}</Link> : null}
+        <Link className="primary-link" href="/dashboard?view=inbox">{text.backToDashboard}</Link>
       </div>
     </>
   );

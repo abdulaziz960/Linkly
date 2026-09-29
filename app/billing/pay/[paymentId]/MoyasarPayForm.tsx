@@ -15,6 +15,8 @@ type Props = {
   amountHalalas: number;
   description: string;
   publishableKey: string;
+  /** Text for the customer's card statement - already sanitized by paymentStatementDescriptor(). */
+  statementDescriptor: string;
   /** Which payment row this confirms against - see /billing/success. Defaults to "subscription". */
   kind?: "subscription" | "campaign_topup";
   /** Server route that verifies the completed payment and applies its outcome. */
@@ -33,7 +35,7 @@ const MOYASAR_CSS_URL = "https://cdn.moyasar.com/mpf/1.16.0/moyasar.css";
  * (app/billing/pay/[paymentId]) and the campaign top-up checkout
  * (app/billing/pay/campaign/[paymentId]) via the kind/confirmUrl props.
  */
-export default function MoyasarPayForm({ paymentId, amountHalalas, description, publishableKey, kind = "subscription", confirmUrl = "/api/billing/confirm-payment" }: Props) {
+export default function MoyasarPayForm({ paymentId, amountHalalas, description, publishableKey, statementDescriptor, kind = "subscription", confirmUrl = "/api/billing/confirm-payment" }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState("");
@@ -78,6 +80,9 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
       // every checkbox change below and read back on /billing/success.
       callback_url: `${window.location.origin}/billing/success?paymentId=${encodeURIComponent(paymentId)}&kind=${kind}`,
       methods: ["creditcard"],
+      // Moyasar.js throws on a descriptor it considers malformed, so it is
+      // only passed when it matches the widget's own rule.
+      ...(/^[A-Za-z0-9 -]{1,64}$/.test(statementDescriptor) ? { statement_descriptor: statementDescriptor } : {}),
       // Attempting tokenization is harmless even when the account doesn't
       // support it (Moyasar just returns no token) - the actual opt-in
       // that decides whether we ACT on a returned token lives in the
@@ -102,10 +107,19 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
           if (payload.outcome !== "completed" && payload.outcome !== "already_processed") {
             throw new Error("لم تتم الموافقة على الدفعة من جهة البنك. تحقق من بيانات البطاقة أو استخدم بطاقة أخرى.");
           }
-          router.push(`/billing/success?kind=${kind}`);
+          router.push("/dashboard?view=inbox");
         } catch (err) {
           setConfirming(false);
           setError(err instanceof Error ? err.message : "تعذر تأكيد الدفعة");
+          // Never leave the visitor stuck on the payment form regardless of
+          // outcome - give them a moment to read why it failed, then send
+          // them back same as a success. The campaign top-up instance of
+          // this form runs inside a window.open("_blank","noopener") popup
+          // (see CampaignsView.tsx), which severed window.opener - this
+          // navigates that popup tab itself, matching how this app's other
+          // popup flows (Meta/Google/etc. OAuth callbacks) already redirect
+          // the popup rather than trying to reach back into a nulled opener.
+          window.setTimeout(() => router.push("/dashboard?view=inbox"), 2500);
         }
       }
     });

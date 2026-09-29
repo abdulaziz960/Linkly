@@ -12,6 +12,30 @@ import type { PaymentKind } from "./payment-status";
 export const PAYMENT_PLATFORM_NAME = "Linkly";
 export const PAYMENT_PLATFORM_DOMAIN = "linklysa.io";
 
+/** Longest descriptor sent. Card networks truncate merchant text around this length. */
+export const STATEMENT_DESCRIPTOR_MAX_LENGTH = 22;
+
+/**
+ * Text sent to the card issuer with every card payment, so the charge on
+ * the customer's statement reads as Linkly. Without it Moyasar falls back to
+ * the merchant account's own default, which is another product's domain.
+ *
+ * Defaults to the platform name; MOYASAR_STATEMENT_DESCRIPTOR overrides it
+ * at runtime (a Cloud Run env var, no rebuild). Only ASCII letters, digits,
+ * spaces and hyphens are kept: Moyasar's card form rejects anything outside
+ * /^[\w\s\d\-~]{1,64}$/ - dots included - by throwing, which would break
+ * checkout, so an unusable value can never reach it.
+ */
+export function paymentStatementDescriptor() {
+  const clean = (value: string) => value
+    .replace(/[^A-Za-z0-9 -]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, STATEMENT_DESCRIPTOR_MAX_LENGTH)
+    .trim();
+  return clean(process.env.MOYASAR_STATEMENT_DESCRIPTOR || "") || clean(PAYMENT_PLATFORM_NAME);
+}
+
 type CreateInvoiceInput = {
   amount: number; // SAR
   amountHalalas?: number;
@@ -398,7 +422,7 @@ export async function chargeSavedCard(input: { token: string; amountHalalas: num
       amount: input.amountHalalas,
       currency: "SAR",
       description: input.description,
-      source: { type: "token", token: input.token, manual: false },
+      source: { type: "token", token: input.token, manual: false, statement_descriptor: paymentStatementDescriptor() },
       metadata: { platform: PAYMENT_PLATFORM_NAME, ...(input.metadata || {}) }
     })
   });

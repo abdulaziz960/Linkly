@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { expectedHalalas } from "../../../../lib/subscriptions";
 import { PAYMENT_STATUS } from "../../../../lib/payment-status";
+import { paymentStatementDescriptor } from "../../../../lib/moyasar";
 import MoyasarPayForm from "./MoyasarPayForm";
 import "../../billing.css";
 
@@ -52,6 +53,7 @@ export default async function BillingPayPage({ params }: { params: Promise<{ pay
             amountHalalas={expectedHalalas(payment)}
             description={description}
             publishableKey={publishableKey}
+            statementDescriptor={paymentStatementDescriptor()}
           />
         ) : (
           <p className="billing-error" role="alert">بوابة الدفع غير مهيأة حاليًا. تواصل مع الدعم الفني.</p>
