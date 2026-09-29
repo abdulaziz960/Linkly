@@ -8262,6 +8262,70 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   flex-shrink: 0;
   color: inherit;
 }
+.pwa-coachmark {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 12px 16px 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-selected);
+  border: 1px solid var(--brand-200);
+}
+.pwa-coachmark-icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--brand-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pwa-coachmark-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--brand-700);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pwa-coachmark-copy {
+  flex: 1;
+  min-width: 0;
+}
+.pwa-coachmark-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.pwa-coachmark-body {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.pwa-coachmark-steps {
+  margin: 6px 0 0;
+  padding-inline-start: 18px;
+  font-size: 12.5px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pwa-coachmark-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pwa-coachmark-actions .btn.primary {
+  padding: 6px 14px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
 .dashboard-top-links .is-profile {
   font: inherit;
   cursor: pointer;

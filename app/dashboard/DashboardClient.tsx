@@ -7,6 +7,7 @@ import Link from "next/link";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import PwaInstallButton from "./components/PwaInstallButton";
+import PwaInstallCoachmark from "./components/PwaInstallCoachmark";
 import { navItemLabelsEn, viewTitles } from "./data/navigation";
 import { DELETED_MESSAGE_TEXT, LanguageProvider } from "./i18n";
 import type {
@@ -1374,6 +1375,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
       <main className="dashboard-main">
         <MobileTopbar title={language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]} language={language} menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((value) => !value)} onOpenProfile={openProfile} />
+        <PwaInstallCoachmark />
 
         {activeView === "inbox" ? (
           <InboxView
