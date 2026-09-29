@@ -936,6 +936,11 @@
 .log-metric > strong { margin-top: 0; }
 .log-metric-icon, .log-level-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: var(--log-accent, #64748b); background: color-mix(in srgb, var(--log-accent, #64748b) 12%, transparent); grid-row: 1 / span 2; }
 .log-metric-icon svg, .log-level-icon svg, .logs-actions svg, .logs-search svg, .logs-reset svg, .log-expand svg, .admin-pill svg, .logs-empty svg { width: 19px; height: 19px; }
+/* Bigger relative to its box than the shared 19px default above (same
+   selector specificity, later in the cascade so it wins for this one) -
+   less empty space around it makes any residual visual imbalance much
+   less noticeable than at the smaller size. */
+.log-metric-icon svg { width: 24px; height: 24px; }
 .log-level-all { --log-accent: #475569; }.log-level-info { --log-accent: var(--admin-info); }.log-level-warning { --log-accent: var(--admin-warn); }.log-level-error { --log-accent: var(--admin-danger); }
 .logs-card { overflow: visible; }
 .logs-card-head { position: relative; }
