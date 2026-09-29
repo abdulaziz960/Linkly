@@ -372,7 +372,19 @@ export default function EmployeesView({
                   <span>{t("الدور", "Role")}</span>
                   <CustomSelect
                     value={form.role}
-                    onChange={(value) => setForm((current) => ({ ...current, role: value as Employee["role"] }))}
+                    onChange={(value) => setForm((current) => {
+                      // A supervisor with the default "conversations only"
+                      // permission set can't see their own Customers/Employees
+                      // tabs at all (permissions, not role, drive sidebar
+                      // access - see lib/permissions.ts) - picking "مشرف" adds
+                      // those two so the role isn't silently useless until
+                      // someone remembers to tick the boxes by hand. Merges
+                      // into whatever's already checked rather than replacing it.
+                      const permissions = value === "مشرف"
+                        ? Array.from(new Set([...current.permissions, "العملاء", "الموظفين"]))
+                        : current.permissions;
+                      return { ...current, role: value as Employee["role"], permissions };
+                    })}
                     options={[
                       { value: "مالك الحساب", label: t("مالك الحساب", "Account Owner") },
                       { value: "مشرف", label: t("مشرف", "Supervisor") },
