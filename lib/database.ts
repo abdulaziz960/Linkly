@@ -2806,10 +2806,11 @@ export async function getCustomers(tenantId = "tenant-demo"): Promise<Customer[]
   });
 }
 
-export async function getConversations(tenantId = "tenant-demo", assigneeName?: string): Promise<Conversation[]> {
+export async function getConversations(tenantId = "tenant-demo", assigneeName?: string | string[]): Promise<Conversation[]> {
   await ensureSeeded();
+  const assigneeFilter = Array.isArray(assigneeName) ? { in: assigneeName } : assigneeName;
   const conversations = await prisma.conversation.findMany({
-    where: assigneeName ? { tenantId, assignee: assigneeName } : { tenantId },
+    where: assigneeFilter ? { tenantId, assignee: assigneeFilter } : { tenantId },
     orderBy: {
       lastActivityAt: "desc"
     },
