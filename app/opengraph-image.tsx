@@ -39,8 +39,8 @@ export default async function OpenGraphImage() {
               <div style={{ display: "flex" }}>في صندوق واحد</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", fontSize: 32, color: "#4c635f", fontWeight: 500, direction: "rtl" }}>
-              <div style={{ display: "flex" }}>واتساب، إنستغرام، تيليجرام والبريد</div>
-              <div style={{ display: "flex" }}>لفريقك من مكان واحد</div>
+              <div style={{ display: "flex" }}>منصة لإدارة محادثات العملاء</div>
+              <div style={{ display: "flex" }}>وتشغيل فرق الخدمة والمبيعات من مكان واحد</div>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "rtl" }}>
