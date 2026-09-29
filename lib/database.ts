@@ -3340,76 +3340,20 @@ export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Pro
   };
 }
 
+// Note: no caller anywhere in the codebase reaches these two (legacy admin
+// panel leftovers) - kept working rather than deleted, and fixed for the
+// same unquoted-alias bug as getAdminLogs (see its comment) on the chance
+// they're ever wired back up.
 export async function getProviderClients(): Promise<ProviderClient[]> {
   await ensureSeeded();
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      company: string;
-      owner: string;
-      plan: string;
-      status: ProviderClient["status"];
-      subscriptionStatus: ProviderClient["subscriptionStatus"];
-      renewal: string;
-      phone: string;
-      wabaId: string;
-      conversations: number;
-      employees: number;
-      lastActivity: string;
-      createdAt: string;
-    }>
-  >(
-    `SELECT
-      id,
-      company,
-      owner,
-      plan,
-      status,
-      subscription_status AS subscriptionStatus,
-      renewal,
-      phone,
-      waba_id AS wabaId,
-      conversations,
-      employees,
-      last_activity AS lastActivity,
-      created_at AS createdAt
-    FROM provider_clients
-    ORDER BY created_at DESC`
-  );
-
-  return rows;
+  const rows = await prisma.providerClient.findMany({ orderBy: { createdAt: "desc" } });
+  return rows as ProviderClient[];
 }
 
 export async function getProviderSubscriptions(): Promise<ProviderSubscription[]> {
   await ensureSeeded();
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      clientId: string;
-      clientName: string;
-      plan: string;
-      status: ProviderSubscription["status"];
-      amount: number;
-      renewal: string;
-      billingCycle: string;
-      paymentMethod: string;
-    }>
-  >(
-    `SELECT
-      id,
-      client_id AS clientId,
-      client_name AS clientName,
-      plan,
-      status,
-      amount,
-      renewal,
-      billing_cycle AS billingCycle,
-      payment_method AS paymentMethod
-    FROM provider_subscriptions
-    ORDER BY renewal ASC`
-  );
-
-  return rows;
+  const rows = await prisma.providerSubscription.findMany({ orderBy: { renewal: "asc" } });
+  return rows as ProviderSubscription[];
 }
 
 export async function getAdminLogs(): Promise<AdminLog[]> {
