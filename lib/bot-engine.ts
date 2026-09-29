@@ -10,6 +10,7 @@ import { sendWebsiteTextMessage } from "./website-send";
 import { pickTeamAssignee } from "./automation-engine";
 import { findBestKbMatch } from "./knowledge-base";
 import { runWorkspaceAi } from "./workspace-ai";
+import { logAssignmentMessage } from "./conversation-system-messages";
 
 export type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x" | "website";
 
@@ -423,6 +424,7 @@ async function executeFrom(
         where: { id: ctx.conversationId },
         data: { status: assignee ? "assigned" : "unassigned", assignee: assignee || teamName || "بدون موظف", botWaitingNodeId: "" }
       });
+      await logAssignmentMessage({ conversationId: ctx.conversationId, tenantId: ctx.tenantId, assignee: assignee || teamName, assignedBy: "" });
       return;
     }
 
@@ -435,6 +437,7 @@ async function executeFrom(
         where: { id: ctx.conversationId },
         data: { status: employee ? "assigned" : "unassigned", assignee: employee?.name || "بدون موظف", botWaitingNodeId: "" }
       });
+      await logAssignmentMessage({ conversationId: ctx.conversationId, tenantId: ctx.tenantId, assignee: employee?.name || "", assignedBy: "" });
       return;
     }
 

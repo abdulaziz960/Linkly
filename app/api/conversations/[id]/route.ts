@@ -6,6 +6,7 @@ import { requestRatingIfNeeded } from "../../../../lib/conversation-rating";
 import { enqueueConversationSummary } from "../../../../lib/conversation-insights";
 import { triggerWebhookEvent } from "../../../../lib/webhooks";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
+import { logAssignmentMessage } from "../../../../lib/conversation-system-messages";
 import { jsonError, jsonOk } from "../../_utils/json";
 import { pipelineStages } from "../../../dashboard/types";
 
@@ -87,6 +88,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         "معلومة",
         "المحادثات"
       );
+      await logAssignmentMessage({
+        conversationId: id,
+        tenantId: user.tenantId,
+        assignee: body.assignee || "",
+        assignedBy: user.name
+      });
     }
 
     if (body.status === "closed") {
