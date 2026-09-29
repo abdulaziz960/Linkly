@@ -298,34 +298,12 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     () => filteredInvoices.filter((invoice) => invoice.status === "مكتمل").reduce((sum, invoice) => sum + invoice.amount, 0),
     [filteredInvoices]
   );
-  // A supervisor sees every conversation assigned to a member of any team
-  // they lead, not just their own - mirrors getVisibleAssigneeNames on the
-  // server (app/api/conversations/route.ts), which is what actually decides
-  // which conversations even reach this client in the first place; this is
-  // just the matching client-side filter over that already-scoped list.
-  const visibleAssigneeNames = useMemo(() => {
-    const names = new Set<string>([currentEmployee.name]);
-    if (currentEmployee.role === "مشرف") {
-      const employeeNameById = new Map(employees.map((employee) => [employee.id, employee.name]));
-      for (const team of teams) {
-        if (team.lead !== currentEmployee.name) continue;
-        for (const memberId of team.memberIds) {
-          const memberName = employeeNameById.get(memberId);
-          if (memberName) names.add(memberName);
-        }
-      }
-    }
-    return names;
-  }, [currentEmployee.name, currentEmployee.role, employees, teams]);
-  const scopedConversations = useMemo(() => {
-    if (canViewAllConversations) return conversations;
-
-    return conversations.filter(
-      (conversation) =>
-        visibleAssigneeNames.has(conversation.assignee) &&
-        (conversation.status === "assigned" || conversation.status === "closed")
-    );
-  }, [canViewAllConversations, conversations, visibleAssigneeNames]);
+  // The server (app/api/conversations/route.ts -> getVisibleAssigneeNames)
+  // already scopes conversations to what this user may see - including a
+  // supervisor's team, via a "teams" view permission most supervisors don't
+  // hold, so this list is trusted as-is rather than re-filtered client-side
+  // against /api/teams (which 403s for them and would wrongly narrow it).
+  const scopedConversations = conversations;
   const scopedCustomers = useMemo<Customer[]>(() => {
     if (canViewAllConversations) return customers;
 
@@ -742,12 +720,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       setActiveView(allowedViews[0] ?? "inbox");
     }
   }, [activeView, allowedViews]);
-
-  useEffect(() => {
-    if (!canViewAllConversations && filter !== "assigned" && filter !== "closed" && filter !== "unread") {
-      setFilter("assigned");
-    }
-  }, [canViewAllConversations, filter]);
 
   useEffect(() => {
     if (activeConversationId && !channelFilteredConversations.some((conversation) => conversation.id === activeConversationId)) {
@@ -1408,7 +1380,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             composerMode={composerMode}
             counts={counts}
             filter={filter}
-            assignedOnly={!canViewAllConversations}
+            assignedOnly={false}
             message={message}
             quickReplies={quickReplies}
             search={conversationSearch}
