@@ -35,12 +35,12 @@ export default async function OpenGraphImage() {
               nothing auto-wraps and word order is exactly what we typed. */}
           <div style={{ display: "flex", flexDirection: "column", gap: 22, alignItems: "flex-end", direction: "rtl" }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", fontSize: 64, lineHeight: 1.25, fontWeight: 900, direction: "rtl" }}>
-              <div style={{ display: "flex" }}>صندوق واحد</div>
-              <div style={{ display: "flex" }}>لكل محادثات عملائك</div>
+              <div style={{ display: "flex" }}>كل محادثات عملائك</div>
+              <div style={{ display: "flex" }}>في صندوق واحد</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", fontSize: 32, color: "#4c635f", fontWeight: 500, direction: "rtl" }}>
-              <div style={{ display: "flex" }}>واتساب وإنستغرام وتيليجرام والبريد</div>
-              <div style={{ display: "flex" }}>في مكان واحد لفريقك</div>
+              <div style={{ display: "flex" }}>واتساب، إنستغرام، تيليجرام والبريد</div>
+              <div style={{ display: "flex" }}>لفريقك من مكان واحد</div>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "rtl" }}>
