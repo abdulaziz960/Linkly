@@ -8,6 +8,7 @@ import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import PwaInstallButton from "./components/PwaInstallButton";
 import PwaInstallCoachmark from "./components/PwaInstallCoachmark";
+import PwaInstallPopup from "./components/PwaInstallPopup";
 import NotificationBell from "./components/NotificationBell";
 import { navItemLabelsEn, viewTitles } from "./data/navigation";
 import { DELETED_MESSAGE_TEXT, LanguageProvider } from "./i18n";
@@ -1411,6 +1412,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           onOpenNotification={inboxTabsMode !== "employee" ? handleOpenNotification : undefined}
         />
         <PwaInstallCoachmark />
+        <PwaInstallPopup />
 
         {activeView === "inbox" ? (
           <InboxView
