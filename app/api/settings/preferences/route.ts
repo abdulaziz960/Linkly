@@ -19,7 +19,9 @@ export async function GET() {
     leadsPipelineEnabled: preference?.leadsPipelineEnabled !== 0,
     reengagementEnabled: preference?.reengagementEnabled === 1,
     reengagementDays: preference?.reengagementDays || 30,
-    reengagementTemplateName: preference?.reengagementTemplateName || ""
+    reengagementTemplateName: preference?.reengagementTemplateName || "",
+    offHoursAutoReplyEnabled: preference?.offHoursAutoReplyEnabled === 1,
+    offHoursAutoReplyMessage: preference?.offHoursAutoReplyMessage || ""
   });
 }
 
@@ -33,6 +35,8 @@ export async function PATCH(request: NextRequest) {
     reengagementEnabled?: unknown;
     reengagementDays?: unknown;
     reengagementTemplateName?: unknown;
+    offHoursAutoReplyEnabled?: unknown;
+    offHoursAutoReplyMessage?: unknown;
   } | null;
   if (!body) return jsonError("طلب غير صالح", 400);
 
@@ -44,6 +48,8 @@ export async function PATCH(request: NextRequest) {
     reengagementEnabled?: number;
     reengagementDays?: number;
     reengagementTemplateName?: string;
+    offHoursAutoReplyEnabled?: number;
+    offHoursAutoReplyMessage?: string;
   } = {};
 
   if (body.leadsPipelineEnabled !== undefined) {
@@ -64,6 +70,14 @@ export async function PATCH(request: NextRequest) {
     if (typeof body.reengagementTemplateName !== "string") return jsonError("اسم قالب التذكير غير صالح", 400);
     data.reengagementTemplateName = body.reengagementTemplateName.trim();
   }
+  if (body.offHoursAutoReplyEnabled !== undefined) {
+    if (typeof body.offHoursAutoReplyEnabled !== "boolean") return jsonError("قيمة تفعيل الرد خارج أوقات العمل غير صالحة", 400);
+    data.offHoursAutoReplyEnabled = body.offHoursAutoReplyEnabled ? 1 : 0;
+  }
+  if (body.offHoursAutoReplyMessage !== undefined) {
+    if (typeof body.offHoursAutoReplyMessage !== "string") return jsonError("رسالة الرد خارج أوقات العمل غير صالحة", 400);
+    data.offHoursAutoReplyMessage = body.offHoursAutoReplyMessage.trim();
+  }
 
   const preference = await prisma.tenantPreference.upsert({
     where: { tenantId: user.tenantId },
@@ -74,6 +88,8 @@ export async function PATCH(request: NextRequest) {
       reengagementEnabled: 0,
       reengagementDays: 30,
       reengagementTemplateName: "",
+      offHoursAutoReplyEnabled: 0,
+      offHoursAutoReplyMessage: "",
       ...data,
       updatedAt: new Date().toISOString()
     }
@@ -87,6 +103,8 @@ export async function PATCH(request: NextRequest) {
     leadsPipelineEnabled: preference.leadsPipelineEnabled !== 0,
     reengagementEnabled: preference.reengagementEnabled === 1,
     reengagementDays: preference.reengagementDays,
-    reengagementTemplateName: preference.reengagementTemplateName
+    reengagementTemplateName: preference.reengagementTemplateName,
+    offHoursAutoReplyEnabled: preference.offHoursAutoReplyEnabled === 1,
+    offHoursAutoReplyMessage: preference.offHoursAutoReplyMessage
   });
 }

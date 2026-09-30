@@ -104,13 +104,6 @@ const readySteps: ReadyStep[] = [
     nodes: [{ key: "transfer", type: "تحويل لفريق", title: "تحويل للدعم", content: { kind: "team", teamName: "__DEFAULT_TEAM__" } }]
   },
   {
-    id: "working-hours",
-    icon: "◷",
-    title: "خارج أوقات العمل",
-    description: "يطمئن العميل أن الفريق سيرد في أقرب وقت.",
-    nodes: [{ key: "hours", type: "إرسال رسالة", title: "خارج أوقات العمل", content: { kind: "message", text: "شكرًا لتواصلك. نحن الآن خارج أوقات العمل، وتم استلام رسالتك وسنرد عليك في أقرب وقت." } }]
-  },
-  {
     id: "close",
     icon: "✓",
     title: "إنهاء المحادثة",
@@ -129,17 +122,6 @@ const readySteps: ReadyStep[] = [
       { key: "pricing", type: "إرسال رسالة", title: "الخدمات والأسعار", content: { kind: "message", text: "يسعدنا توضيح الخدمات والأسعار المناسبة لك. اكتب الخدمة المطلوبة وسيتواصل معك الفريق بالتفاصيل." } },
       { key: "order", type: "إرسال رسالة", title: "متابعة طلب", content: { kind: "message", text: "أرسل رقم الطلب أو رقم الجوال المسجل، وسيقوم الفريق بمتابعته معك." } },
       { key: "transfer", type: "تحويل لفريق", title: "تحويل للدعم", content: { kind: "team", teamName: "__DEFAULT_TEAM__" } }
-    ]
-  },
-  {
-    id: "after-hours-flow",
-    icon: "☾",
-    title: "مسار خارج الدوام",
-    description: "إشعار بالاستلام ثم تحويل الطلب للفريق للمتابعة.",
-    kind: "flow",
-    nodes: [
-      { key: "hours", type: "إرسال رسالة", title: "خارج أوقات العمل", content: { kind: "message", text: "شكرًا لتواصلك. نحن الآن خارج أوقات العمل، وتم استلام رسالتك وسنرد عليك في أقرب وقت.", nextKey: "transfer" } },
-      { key: "transfer", type: "تحويل لفريق", title: "متابعة الفريق", content: { kind: "team", teamName: "__DEFAULT_TEAM__" } }
     ]
   }
 ];

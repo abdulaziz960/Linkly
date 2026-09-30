@@ -897,6 +897,15 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS templates_media_token_idx ON templates(media_token)`
   );
+  // Off-hours auto-reply toggle (lib/work-hours.ts checkOffHoursAutoReply) -
+  // replaces the old magic-name AutomationRule lookup, which had no UI path
+  // to create the row it depended on and so was permanently unreachable.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS off_hours_auto_reply_enabled INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS off_hours_auto_reply_message TEXT NOT NULL DEFAULT ''`
+  );
 }
 
 async function runSchemaMigrations() {
@@ -1864,7 +1873,7 @@ async function runSchemaMigrations() {
     updated_at TEXT NOT NULL
   )`);
   const tenantPreferenceColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(tenant_preferences)`);
-  for (const columnName of ["brand_name", "brand_logo_data_url", "brand_color", "reengagement_template_name"]) {
+  for (const columnName of ["brand_name", "brand_logo_data_url", "brand_color", "reengagement_template_name", "off_hours_auto_reply_message"]) {
     if (!tenantPreferenceColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
@@ -1874,6 +1883,9 @@ async function runSchemaMigrations() {
   }
   if (!tenantPreferenceColumns.some((column) => column.name === "reengagement_days")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN reengagement_days INTEGER NOT NULL DEFAULT 30`);
+  }
+  if (!tenantPreferenceColumns.some((column) => column.name === "off_hours_auto_reply_enabled")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN off_hours_auto_reply_enabled INTEGER NOT NULL DEFAULT 0`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
     id TEXT PRIMARY KEY,

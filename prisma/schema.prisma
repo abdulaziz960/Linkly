@@ -840,6 +840,12 @@ model TenantPreference {
   reengagementEnabled      Int    @default(0) @map("reengagement_enabled")
   reengagementDays         Int    @default(30) @map("reengagement_days")
   reengagementTemplateName String @default("") @map("reengagement_template_name")
+  // Off-hours auto-reply (lib/work-hours.ts checkOffHoursAutoReply) - sends
+  // offHoursAutoReplyMessage (or the built-in default when blank) to the
+  // first inbound message from a customer outside the tenant's active work
+  // hours schedule.
+  offHoursAutoReplyEnabled Int    @default(0) @map("off_hours_auto_reply_enabled")
+  offHoursAutoReplyMessage String @default("") @map("off_hours_auto_reply_message")
   updatedAt            String @map("updated_at")
 
   @@map("tenant_preferences")
