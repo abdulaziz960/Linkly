@@ -60,6 +60,7 @@ export type Message = {
 
 export type Conversation = {
   id: string;
+  customerId: string;
   channel: ConversationChannel;
   customer: string;
   phone: string;

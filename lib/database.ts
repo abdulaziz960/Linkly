@@ -2889,6 +2889,7 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
 
     return {
       id: conversation.id,
+      customerId: conversation.customerId,
       channel: (conversation.channel || "whatsapp") as Conversation["channel"],
       customer: conversation.customer.name,
       phone: conversation.customer.phone,

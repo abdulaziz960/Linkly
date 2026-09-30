@@ -95,6 +95,7 @@ function isApprovedTemplate(template: MessageTemplate) {
 
 const emptyConversation: Conversation = {
   id: "",
+  customerId: "",
   channel: "whatsapp",
   customer: "لا توجد محادثة",
   phone: "",
@@ -316,7 +317,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const scopedCustomers = useMemo<Customer[]>(() => {
     if (canViewAllConversations) return customers;
 
-    const allowedCustomerIds = new Set(scopedConversations.map((conversation) => conversation.id));
+    const allowedCustomerIds = new Set(scopedConversations.map((conversation) => conversation.customerId));
     return customers.filter((customer) => allowedCustomerIds.has(customer.id));
   }, [canViewAllConversations, customers, scopedConversations]);
   const channelFilteredConversations = useMemo(() => {
