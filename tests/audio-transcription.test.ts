@@ -118,3 +118,62 @@ describe("POST /api/conversations/[id]/messages/[messageId]/transcribe", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("automatic transcription on inbound WhatsApp voice notes", () => {
+  it("auto-transcribes a new inbound voice note when the tenant has AI enabled, skips outbound audio, and never re-transcribes a duplicate webhook delivery", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { PUT } = await import("../app/api/ai/settings/route");
+    session.tenantId = "transcribe-auto-tenant";
+    await PUT(new NextRequest("http://localhost/api/ai/settings", {
+      method: "PUT",
+      body: JSON.stringify({ provider: "gemini", model: "gemini-test-model", enabled: true, prompt: "", dailyLimit: 10, monthlyLimit: 100, inputRate: 1, outputRate: 2, apiKey: "gemini-byok-key" })
+    }));
+
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: "تفريغ تلقائي للرسالة" }] } }],
+      usageMetadata: { promptTokenCount: 40, candidatesTokenCount: 6 }
+    })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { storeWhatsAppMessage } = await import("../lib/whatsapp-inbox");
+    const audioDataUrl = `data:audio/mpeg;base64,${audioInput.base64}`;
+    const inbound = await storeWhatsAppMessage({
+      tenantId: session.tenantId,
+      phone: "966500000099",
+      name: "عميل تفريغ تلقائي",
+      direction: "in",
+      messageId: "auto-transcribe-inbound-1",
+      text: "رسالة صوتية",
+      attachment: { type: "audio", url: audioDataUrl, name: "voice.mp3", mimeType: "audio/mpeg" }
+    });
+
+    const storedInbound = await prisma.message.findUniqueOrThrow({ where: { id: inbound.message.id } });
+    expect(storedInbound.transcript).toBe("تفريغ تلقائي للرسالة");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const outbound = await storeWhatsAppMessage({
+      tenantId: session.tenantId,
+      phone: "966500000099",
+      direction: "out",
+      messageId: "auto-transcribe-outbound-1",
+      text: "رد الموظف",
+      attachment: { type: "audio", url: audioDataUrl, name: "reply.mp3", mimeType: "audio/mpeg" }
+    });
+    const storedOutbound = await prisma.message.findUniqueOrThrow({ where: { id: outbound.message.id } });
+    expect(storedOutbound.transcript).toBe("");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Meta retries webhook delivery on a slow response - the same message id
+    // arriving twice must not spend a second transcription call.
+    await storeWhatsAppMessage({
+      tenantId: session.tenantId,
+      phone: "966500000099",
+      name: "عميل تفريغ تلقائي",
+      direction: "in",
+      messageId: "auto-transcribe-inbound-1",
+      text: "رسالة صوتية",
+      attachment: { type: "audio", url: audioDataUrl, name: "voice.mp3", mimeType: "audio/mpeg" }
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
