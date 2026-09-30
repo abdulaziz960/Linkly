@@ -38,7 +38,14 @@ export function usePwaInstall() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    // iOS Safari never exposes window.PushManager until the app is actually
+    // installed (Add to Home Screen) - that's the one browser where install
+    // has to happen BEFORE push becomes available, not after. Gating on
+    // PushManager here would hide the install prompt from the exact people
+    // who need to see it, so iOS is considered "supported" on service-worker
+    // alone; every other browser still requires real PushManager support.
+    if (!isIos() && !("PushManager" in window)) return;
     setSupported(true);
     setInstalled(isStandalone());
 

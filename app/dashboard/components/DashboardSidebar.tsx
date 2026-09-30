@@ -256,11 +256,11 @@ export default function DashboardSidebar({
         })}
       </nav>
       <div className="dashboard-mobile-extras">
+        <PwaInstallButton showLabel />
         <button type="button" onClick={() => { onClose(); onOpenProfile(); }}>{isEnglish ? "Profile" : "الملف الشخصي"}</button>
         <Link href="/dashboard/support" onClick={onClose}>{isEnglish ? "Support" : "الدعم الفني"}</Link>
         <Link href="/dashboard/development" onClick={onClose}>{isEnglish ? "Development" : "تطوير المنصة"}</Link>
         {canManageBilling ? <Link href="/billing" onClick={onClose}>{isEnglish ? "Plans and billing" : "الباقات والاشتراك"}</Link> : null}
-        <PwaInstallButton showLabel />
       </div>
       {sidebarTooltip && typeof document !== "undefined"
         ? createPortal(
