@@ -71,6 +71,9 @@ export type UserAccount = {
   disabled: number;
   lastLoginAt: string;
   lastLoginIp: string;
+  failedLoginAttempts: number;
+  lockedAt: string;
+  twoFactorEnabled: number;
   createdAt: string;
 };
 
@@ -909,6 +912,28 @@ async function runRequiredProductionMigrations() {
   // Voice-note transcription (lib/workspace-ai.ts runWorkspaceTranscription).
   await prisma.$executeRawUnsafe(
     `ALTER TABLE messages ADD COLUMN IF NOT EXISTS transcript TEXT NOT NULL DEFAULT ''`
+  );
+  // Failed-login lockout + optional email 2FA (app/api/auth/login/route.ts,
+  // lib/two-factor.ts).
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS locked_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS two_factor_enabled INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS two_factor_codes (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    code_hash TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS two_factor_codes_user_id_idx ON two_factor_codes(user_id)`
   );
 }
 
@@ -2069,6 +2094,26 @@ async function runSchemaMigrations() {
   if (!userAccountColumns.some((column) => column.name === "disabled")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0`);
   }
+  if (!userAccountColumns.some((column) => column.name === "failed_login_attempts")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!userAccountColumns.some((column) => column.name === "locked_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN locked_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!userAccountColumns.some((column) => column.name === "two_factor_enabled")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN two_factor_enabled INTEGER NOT NULL DEFAULT 0`);
+  }
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS two_factor_codes (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    code_hash TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS two_factor_codes_user_id_idx ON two_factor_codes(user_id)`
+  );
   // One-time backfill: every Employee row historically has a matching
   // UserAccount created alongside it (same email), so this recovers the
   // membership link with no ambiguity for rows that predate the column.
@@ -3437,9 +3482,55 @@ export async function verifyUserCredentials(email: string, password: string): Pr
     });
   }
 
+  // A correct password clears the brute-force counter - a legitimate user
+  // who mistyped their password a few times isn't penalized once they get
+  // it right. Cheap no-op check to avoid a write on the common all-clear case.
+  if (user.failedLoginAttempts > 0 || user.lockedAt) {
+    await prisma.userAccount.update({
+      where: { id: user.id },
+      data: { failedLoginAttempts: 0, lockedAt: "" }
+    });
+  }
+
   const { passwordHash: _passwordHash, ...safeUser } = user;
   void _passwordHash;
   return safeUser;
+}
+
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+export const PASSWORD_RESET_NUDGE_ATTEMPT = 3;
+
+/**
+ * Brute-force lockout bookkeeping for a wrong-password attempt
+ * (app/api/auth/login/route.ts). Returns `attempts: null` for an email with
+ * no matching account, so the caller's behavior (and response text) stays
+ * identical whether or not the account exists - no new enumeration surface.
+ * An already-locked account keeps reporting `locked: true` on every further
+ * attempt without incrementing further; an admin-disabled (not self-locked)
+ * account reports `locked: false` so the route falls back to the generic
+ * wrong-password message, preserving the existing behavior of never
+ * revealing an admin-disable via a wrong password.
+ */
+export async function recordFailedLoginAttempt(email: string): Promise<{ locked: boolean; attempts: number | null }> {
+  await ensureSeeded();
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await prisma.userAccount.findUnique({
+    where: { email: normalizedEmail },
+    select: { id: true, disabled: true, lockedAt: true, failedLoginAttempts: true }
+  });
+  if (!user) return { locked: false, attempts: null };
+  if (user.disabled) return { locked: Boolean(user.lockedAt), attempts: null };
+
+  const attempts = user.failedLoginAttempts + 1;
+  const shouldLock = attempts >= MAX_FAILED_LOGIN_ATTEMPTS;
+  await prisma.userAccount.update({
+    where: { id: user.id },
+    data: {
+      failedLoginAttempts: attempts,
+      ...(shouldLock ? { disabled: 1, lockedAt: new Date().toISOString() } : {})
+    }
+  });
+  return { locked: shouldLock, attempts };
 }
 
 export async function recordUserLogin(userId: string, ip: string) {

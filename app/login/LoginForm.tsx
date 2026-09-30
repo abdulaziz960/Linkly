@@ -11,7 +11,15 @@ const copy = {
     forgot: "نسيت كلمة المرور؟",
     submit: "تسجيل الدخول",
     submitting: "جاري الدخول...",
-    genericError: "تعذر تسجيل الدخول"
+    genericError: "تعذر تسجيل الدخول",
+    twoFactorTitle: "التحقق بخطوتين",
+    twoFactorBody: "أرسلنا رمزاً مكوناً من 6 أرقام إلى بريدك الإلكتروني.",
+    codeLabel: "الرمز",
+    verify: "تأكيد",
+    verifying: "جاري التأكيد...",
+    resend: "لم يصلك الرمز؟ إعادة الإرسال",
+    resending: "جاري الإرسال...",
+    back: "رجوع"
   },
   en: {
     email: "Email",
@@ -20,7 +28,15 @@ const copy = {
     forgot: "Forgot password?",
     submit: "Sign in",
     submitting: "Signing in...",
-    genericError: "Couldn't sign in"
+    genericError: "Couldn't sign in",
+    twoFactorTitle: "Two-factor authentication",
+    twoFactorBody: "We sent a 6-digit code to your email.",
+    codeLabel: "Code",
+    verify: "Verify",
+    verifying: "Verifying...",
+    resend: "Didn't get the code? Resend",
+    resending: "Sending...",
+    back: "Back"
   }
 };
 
@@ -37,6 +53,15 @@ const EyeOffIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.86 19.86 0 0 1 5.06-5.94M9.9 4.24A10.6 10.6 0 0 1 12 4c7 0 11 8 11 8a19.86 19.86 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><path d="M1 1l22 22" /></svg>
 );
 
+function completeLogin(router: ReturnType<typeof useRouter>, data: { redirectTo?: string; onboardingRequired?: boolean }) {
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem("audiencew:dashboard-active-view", data.onboardingRequired ? "settings" : "inbox");
+    window.localStorage.removeItem("audiencew:dashboard-active-channel");
+  }
+  router.push(data.redirectTo || "/dashboard?view=inbox");
+  router.refresh();
+}
+
 export default function LoginForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
   const router = useRouter();
   const text = copy[lang];
@@ -46,6 +71,11 @@ export default function LoginForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [step, setStep] = useState<"credentials" | "2fa">("credentials");
+  const [pendingToken, setPendingToken] = useState("");
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,13 +100,91 @@ export default function LoginForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
       return;
     }
 
-    const data = await response.json().catch(() => ({})) as { redirectTo?: string; onboardingRequired?: boolean };
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("audiencew:dashboard-active-view", data.onboardingRequired ? "settings" : "inbox");
-      window.localStorage.removeItem("audiencew:dashboard-active-channel");
+    const data = await response.json().catch(() => ({})) as {
+      redirectTo?: string;
+      onboardingRequired?: boolean;
+      twoFactorRequired?: boolean;
+      pendingToken?: string;
+    };
+    if (data.twoFactorRequired && data.pendingToken) {
+      setPendingToken(data.pendingToken);
+      setCode("");
+      setStep("2fa");
+      return;
     }
-    router.push(data.redirectTo || "/dashboard?view=inbox");
-    router.refresh();
+    completeLogin(router, data);
+  }
+
+  async function handleVerify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setVerifying(true);
+
+    const response = await fetch("/api/auth/2fa/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pendingToken, code })
+    });
+
+    setVerifying(false);
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setError(data.message || text.genericError);
+      return;
+    }
+
+    const data = await response.json().catch(() => ({}));
+    completeLogin(router, data);
+  }
+
+  async function handleResend() {
+    setError("");
+    setResending(true);
+    const response = await fetch("/api/auth/2fa/resend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pendingToken })
+    });
+    setResending(false);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setError(data.message || text.genericError);
+    }
+  }
+
+  if (step === "2fa") {
+    return (
+      <form className="login-form" onSubmit={handleVerify}>
+        <p>{text.twoFactorBody}</p>
+        <label>
+          {text.codeLabel}
+          <div className="login-field">
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={code}
+              onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
+              required
+              autoFocus
+            />
+          </div>
+        </label>
+
+        <div className="login-options">
+          <button type="button" className="login-text-link" onClick={() => { setStep("credentials"); setError(""); }}>{text.back}</button>
+          <button type="button" className="login-text-link" onClick={handleResend} disabled={resending}>{resending ? text.resending : text.resend}</button>
+        </div>
+
+        {error ? <p className="login-error" role="alert">{error}</p> : null}
+
+        <button className="login-submit" type="submit" disabled={verifying || code.length !== 6}>
+          {verifying ? text.verifying : text.verify}
+        </button>
+      </form>
+    );
   }
 
   return (

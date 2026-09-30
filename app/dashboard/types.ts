@@ -282,6 +282,7 @@ export type DashboardUser = {
   tenantId: string;
   profileLogo?: string;
   lastLoginAt?: string;
+  twoFactorEnabled?: number;
 };
 
 export type IntegrationSettings = {

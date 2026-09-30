@@ -600,10 +600,23 @@ model UserAccount {
   sessionVersion  Int    @default(0) @map("session_version")
   // Blocks login/session refresh entirely while every row for this account
   // stays intact - the account-level equivalent of a tenant's "متوقف"
-  // subscription status. Set/cleared via PATCH /api/employees/[id].
+  // subscription status. Set/cleared via PATCH /api/employees/[id], or
+  // automatically by the failed-login lockout below (see lockedAt).
   disabled        Int    @default(0)
   lastLoginAt     String @default("") @map("last_login_at")
   lastLoginIp     String @default("") @map("last_login_ip")
+  // Brute-force lockout (app/api/auth/login/route.ts): counts consecutive
+  // wrong passwords, reset on a successful login. At 5, disabled is set to 1
+  // and lockedAt records when - distinguishing an auto-lock from an
+  // admin-set disable (lockedAt empty), so messaging and the self-service
+  // unlock-via-password-reset flow (app/api/auth/activate/route.ts) know
+  // which case they're looking at.
+  failedLoginAttempts Int    @default(0) @map("failed_login_attempts")
+  lockedAt            String @default("") @map("locked_at")
+  // Optional per-account email 2FA (app/api/account/two-factor/route.ts) -
+  // when set, login pauses at a pending-token step until a code emailed to
+  // this address is verified (see TwoFactorCode below).
+  twoFactorEnabled    Int    @default(0) @map("two_factor_enabled")
   createdAt       String @map("created_at")
 
   @@index([tenantId])
@@ -652,6 +665,18 @@ model EmployeeInvite {
   permissions    String @default("")
 
   @@map("employee_invites")
+}
+
+model TwoFactorCode {
+  id        String @id
+  userId    String @map("user_id")
+  codeHash  String @map("code_hash")
+  expiresAt String @map("expires_at")
+  attempts  Int    @default(0)
+  createdAt String @map("created_at")
+
+  @@index([userId])
+  @@map("two_factor_codes")
 }
 
 model EmailIntegration {

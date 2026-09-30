@@ -70,9 +70,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "رابط التفعيل منتهي أو غير صالح", code: "expired" }, { status: 400 });
   }
 
+  // Resetting the password proves control of the same inbox the account's
+  // failed-login lockout messaging points to for recovery - so a reset also
+  // clears a self-inflicted lock (lockedAt set). An admin-set disable
+  // (lockedAt empty) is a different, unrelated decision by that tenant's
+  // owner/Linkly support and must not be silently undone by a password reset.
+  const isSelfLocked = Boolean(existingAccount.disabled) && Boolean(existingAccount.lockedAt);
   const user = await prisma.userAccount.update({
     where: { email: invite.email },
-    data: { passwordHash: hashPassword(password), sessionVersion: { increment: 1 } }
+    data: {
+      passwordHash: hashPassword(password),
+      sessionVersion: { increment: 1 },
+      ...(isSelfLocked ? { disabled: 0, failedLoginAttempts: 0, lockedAt: "" } : {})
+    }
   });
 
   await prisma.employeeInvite.deleteMany({ where: { email: invite.email } });

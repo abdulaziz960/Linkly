@@ -232,6 +232,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(Boolean(initialUser.twoFactorEnabled));
+  const [twoFactorSaving, setTwoFactorSaving] = useState(false);
+  const [twoFactorError, setTwoFactorError] = useState("");
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
   const [whatsappPaymentIssue, setWhatsappPaymentIssue] = useState(false);
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -1286,6 +1289,24 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     }
   }
 
+  async function handleToggleTwoFactor(enabled: boolean) {
+    setTwoFactorError("");
+    setTwoFactorSaving(true);
+    try {
+      const response = await fetch("/api/account/two-factor", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled })
+      });
+      if (!response.ok) throw new Error(await readApiError(response, language));
+      setTwoFactorEnabled(enabled);
+    } catch (error) {
+      setTwoFactorError(error instanceof Error ? error.message : t("تعذر تحديث إعداد التحقق بخطوتين", "Could not update the two-factor setting"));
+    } finally {
+      setTwoFactorSaving(false);
+    }
+  }
+
   async function handleDeleteAccount() {
     setDeleting(true);
     setDeleteError("");
@@ -1700,10 +1721,22 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     )}
                     {passwordSuccess ? <p className="profile-save-feedback success" role="status">{t("تم تغيير كلمة السر بنجاح", "Password changed successfully")}</p> : null}
                   </div>
-                  <div><span>{t("التحقق الثنائي", "Two-factor authentication")}</span><b>{t("غير متاح حاليًا", "Not available yet")}</b></div>
+                  <div className="password-change-block">
+                    <div><span>{t("التحقق بخطوتين", "Two-factor authentication")}</span><b>{t("رمز يُرسل إلى بريدك الإلكتروني عند كل تسجيل دخول", "A code emailed to you on every sign-in")}</b></div>
+                    <label className="automation-switch">
+                      <input
+                        type="checkbox"
+                        checked={twoFactorEnabled}
+                        disabled={twoFactorSaving}
+                        aria-label={twoFactorEnabled ? t("إيقاف التحقق بخطوتين", "Disable two-factor authentication") : t("تفعيل التحقق بخطوتين", "Enable two-factor authentication")}
+                        onChange={(event) => handleToggleTwoFactor(event.target.checked)}
+                      />
+                      <span>{twoFactorEnabled ? t("مفعّل", "Enabled") : t("متوقف", "Disabled")}</span>
+                    </label>
+                    {twoFactorError ? <p className="form-error">{twoFactorError}</p> : null}
+                  </div>
                   <div><span>{t("آخر دخول", "Last sign-in")}</span><b>{initialUser.lastLoginAt ? formatDateTime(initialUser.lastLoginAt) : t("لا توجد بيانات بعد", "No data yet")}</b></div>
                   <div><span>{t("الصلاحيات", "Permissions")}</span><b>{initialUser.role}</b></div>
-                  <p className="muted-copy">{t("التحقق الثنائي وإدارة الجلسات النشطة قيد التطوير وستُضاف قريبًا.", "Two-factor authentication and active-session management are in development and will be added soon.")}</p>
                   {initialUser.role === "مالك الحساب" ? (
                     <div className="danger-zone">
                       <b>{t("منطقة الخطر", "Danger zone")}</b>
