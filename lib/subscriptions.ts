@@ -5,6 +5,7 @@ import { sendActivationEmail } from "./email";
 import { isValidEmail } from "./validation";
 import { PAYMENT_STATUS, PAYMENT_GATEWAY, mapMoyasarInvoiceStatus, type PaymentKind } from "./payment-status";
 import { chargeSavedCard, buildPaymentMetadata, paymentDescription, summarizeMoyasarPayment, isAutoRenewEnabled, type GatewayPaymentDetails } from "./moyasar";
+import { confirmPromoCodeUsage, releasePromoCodeUsage } from "./promo-codes";
 import { encryptSecret, decryptSecret } from "./secret-storage";
 
 /** Length of one paid subscription period. Every plan bills monthly today. */
@@ -341,6 +342,7 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
           : {})
       }
     });
+    await confirmPromoCodeUsage(tx, payment.id, `sub-${payment.tenantId}`);
     return period;
   });
 
@@ -428,6 +430,10 @@ export async function markPaymentOutcome(
         "تنبيه"
       );
     }
+  }
+
+  if (changed && kind === "subscription" && (outcome === "failed" || outcome === "expired")) {
+    await releasePromoCodeUsage(paymentId, outcome);
   }
 
   return { changed };

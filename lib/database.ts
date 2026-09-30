@@ -185,7 +185,8 @@ const paymentLedgerColumns: Record<"subscription_payments" | "campaign_payments"
     "initiated_by",
     "metadata_json",
     "period_start",
-    "period_end"
+    "period_end",
+    "promo_code"
   ],
   campaign_payments: [
     "gateway",
@@ -1091,7 +1092,49 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_employee_limit INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS list_price DOUBLE PRECISION NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS proration_credit_amount DOUBLE PRECISION NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS discount_amount DOUBLE PRECISION NOT NULL DEFAULT 0`);
     await ensurePostgresPaymentLedgerColumns();
+
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS discount_codes (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      code TEXT NOT NULL UNIQUE,
+      discount_type TEXT NOT NULL,
+      discount_value DOUBLE PRECISION NOT NULL,
+      max_discount_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+      minimum_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+      applicable_plan_ids TEXT NOT NULL DEFAULT '[]',
+      new_users_only INTEGER NOT NULL DEFAULT 0,
+      first_subscription_only INTEGER NOT NULL DEFAULT 0,
+      usage_limit INTEGER NOT NULL DEFAULT -1,
+      usage_limit_per_user INTEGER NOT NULL DEFAULT 1,
+      used_count INTEGER NOT NULL DEFAULT 0,
+      starts_at TEXT NOT NULL DEFAULT '',
+      expires_at TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS discount_code_usages (
+      id TEXT PRIMARY KEY,
+      discount_code_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL,
+      user_id TEXT NOT NULL DEFAULT '',
+      user_name TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      plan_id TEXT NOT NULL DEFAULT '',
+      plan_name TEXT NOT NULL DEFAULT '',
+      payment_id TEXT NOT NULL UNIQUE,
+      subscription_id TEXT NOT NULL DEFAULT '',
+      original_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+      discount_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+      final_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+      payment_status TEXT NOT NULL DEFAULT 'pending',
+      used_at TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS discount_code_usages_code_tenant_idx ON discount_code_usages (discount_code_id, tenant_id)`);
     return;
   }
 
@@ -1945,9 +1988,52 @@ async function runSchemaMigrations() {
   if (!subscriptionPaymentColumns.some((column) => column.name === "proration_credit_amount")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN proration_credit_amount REAL NOT NULL DEFAULT 0`);
   }
+  if (!subscriptionPaymentColumns.some((column) => column.name === "discount_amount")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0`);
+  }
   // subscriptions, subscription_payments and campaign_payments all exist by
   // this point - add the payment-ledger columns to each.
   await ensureSqlitePaymentLedgerColumns();
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS discount_codes (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE,
+    discount_type TEXT NOT NULL,
+    discount_value REAL NOT NULL,
+    max_discount_amount REAL NOT NULL DEFAULT 0,
+    minimum_amount REAL NOT NULL DEFAULT 0,
+    applicable_plan_ids TEXT NOT NULL DEFAULT '[]',
+    new_users_only INTEGER NOT NULL DEFAULT 0,
+    first_subscription_only INTEGER NOT NULL DEFAULT 0,
+    usage_limit INTEGER NOT NULL DEFAULT -1,
+    usage_limit_per_user INTEGER NOT NULL DEFAULT 1,
+    used_count INTEGER NOT NULL DEFAULT 0,
+    starts_at TEXT NOT NULL DEFAULT '',
+    expires_at TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS discount_code_usages (
+    id TEXT PRIMARY KEY,
+    discount_code_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    user_id TEXT NOT NULL DEFAULT '',
+    user_name TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    plan_id TEXT NOT NULL DEFAULT '',
+    plan_name TEXT NOT NULL DEFAULT '',
+    payment_id TEXT NOT NULL UNIQUE,
+    subscription_id TEXT NOT NULL DEFAULT '',
+    original_amount REAL NOT NULL DEFAULT 0,
+    discount_amount REAL NOT NULL DEFAULT 0,
+    final_amount REAL NOT NULL DEFAULT 0,
+    payment_status TEXT NOT NULL DEFAULT 'pending',
+    used_at TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS discount_code_usages_code_tenant_idx ON discount_code_usages (discount_code_id, tenant_id)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS bot_settings (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL UNIQUE,

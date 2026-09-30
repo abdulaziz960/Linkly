@@ -788,10 +788,68 @@ model SubscriptionPayment {
   // so the breakdown can still be shown/audited after the fact.
   listPrice             Float @default(0) @map("list_price")
   prorationCreditAmount Float @default(0) @map("proration_credit_amount")
+  promoCode      String @default("") @map("promo_code")
+  discountAmount Float  @default(0) @map("discount_amount")
 
   @@index([tenantId, status])
   @@index([moyasarId])
   @@map("subscription_payments")
+}
+
+model DiscountCode {
+  id   String @id
+  name String
+  code String @unique
+
+  discountType  String @map("discount_type")
+  discountValue Float  @map("discount_value")
+  maxDiscountAmount Float @default(0) @map("max_discount_amount")
+  minimumAmount Float @default(0) @map("minimum_amount")
+
+  applicablePlanIds String @default("[]") @map("applicable_plan_ids")
+
+  newUsersOnly          Int @default(0) @map("new_users_only")
+  firstSubscriptionOnly Int @default(0) @map("first_subscription_only")
+
+  usageLimit        Int @default(-1) @map("usage_limit")
+  usageLimitPerUser Int @default(1) @map("usage_limit_per_user")
+  usedCount Int @default(0) @map("used_count")
+
+  startsAt  String @default("") @map("starts_at")
+  expiresAt String @default("") @map("expires_at")
+
+  active Int @default(1)
+
+  createdBy String @default("") @map("created_by")
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+
+  @@map("discount_codes")
+}
+
+model DiscountCodeUsage {
+  id             String @id
+  discountCodeId String @map("discount_code_id")
+  tenantId       String @map("tenant_id")
+  userId         String @default("") @map("user_id")
+  userName       String @default("") @map("user_name")
+  email          String @default("") @map("email")
+  planId         String @default("") @map("plan_id")
+  planName       String @default("") @map("plan_name")
+  paymentId      String @unique @map("payment_id")
+  subscriptionId String @default("") @map("subscription_id")
+
+  originalAmount Float @default(0) @map("original_amount")
+  discountAmount Float @default(0) @map("discount_amount")
+  finalAmount    Float @default(0) @map("final_amount")
+
+  paymentStatus String @default("pending") @map("payment_status")
+
+  usedAt    String @default("") @map("used_at")
+  createdAt String @map("created_at")
+
+  @@index([discountCodeId, tenantId])
+  @@map("discount_code_usages")
 }
 
 model TenantPreference {

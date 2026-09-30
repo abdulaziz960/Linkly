@@ -61,6 +61,47 @@ export type PlanRow = {
   updatedAt: string;
 };
 
+export type DiscountCodeRow = {
+  id: string;
+  name: string;
+  code: string;
+  discountType: string;
+  discountValue: number;
+  maxDiscountAmount: number;
+  minimumAmount: number;
+  applicablePlanIds: string;
+  newUsersOnly: number;
+  firstSubscriptionOnly: number;
+  usageLimit: number;
+  usageLimitPerUser: number;
+  usedCount: number;
+  startsAt: string;
+  expiresAt: string;
+  active: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DiscountCodeUsageRow = {
+  id: string;
+  discountCodeId: string;
+  tenantId: string;
+  userId: string;
+  userName: string;
+  email: string;
+  planId: string;
+  planName: string;
+  paymentId: string;
+  subscriptionId: string;
+  originalAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+  paymentStatus: string;
+  usedAt: string;
+  createdAt: string;
+};
+
 export type TeamRow = {
   id: string;
   name: string;

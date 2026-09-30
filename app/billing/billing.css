@@ -360,3 +360,34 @@
     padding: 28px;
   }
 }
+
+.promo-code-toggle {
+  background: none;
+  border: 1px dashed #bcd8d3;
+  color: #106b65;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  margin: 10px 0;
+}
+.promo-code-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+  padding: 12px 14px;
+  background: #f6fbfa;
+  border: 1px solid #d8e8e5;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.promo-code-box input {
+  padding: 8px 10px;
+  border: 1px solid #d8e8e5;
+  border-radius: 8px;
+}
+.promo-code-applied {
+  color: #106b65;
+  font-weight: 700;
+}
