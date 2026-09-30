@@ -1400,7 +1400,15 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       />
 
       <main className="dashboard-main">
-        <MobileTopbar title={language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]} language={language} menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((value) => !value)} onOpenProfile={openProfile} />
+        <MobileTopbar
+          title={language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]}
+          language={language}
+          menuOpen={menuOpen}
+          onToggleMenu={() => setMenuOpen((value) => !value)}
+          onOpenProfile={openProfile}
+          notifications={inboxTabsMode !== "employee" ? notifications : undefined}
+          onOpenNotification={inboxTabsMode !== "employee" ? handleOpenNotification : undefined}
+        />
         <PwaInstallCoachmark />
 
         {activeView === "inbox" ? (

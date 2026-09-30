@@ -11040,14 +11040,19 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   margin: 0;
   padding: 6px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
 }
 
-.notification-bell-panel li button {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+.notification-bell-panel .notification-bell-item {
+  width: 100% !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
   gap: 2px;
   padding: 10px 12px;
   border: 0;
@@ -11055,28 +11060,38 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   background: transparent;
   text-align: right;
   cursor: pointer;
+  overflow: visible !important;
+  white-space: normal !important;
 }
 
-.notification-bell-panel li button:hover,
-.notification-bell-panel li button:focus-visible {
+.notification-bell-panel .notification-bell-item:hover,
+.notification-bell-panel .notification-bell-item:focus-visible {
   background: var(--surface-hover);
 }
 
-.notification-bell-panel li b {
+.notification-bell-panel .notification-bell-name {
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: none !important;
+  overflow: visible !important;
+  white-space: normal !important;
   font-size: 13.5px;
   color: var(--ink);
 }
 
-.notification-bell-text {
+.notification-bell-panel .notification-bell-text {
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: none !important;
   font-size: 12.5px;
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
+  white-space: nowrap !important;
 }
 
-.notification-bell-panel li small {
+.notification-bell-panel .notification-bell-time {
+  flex: none !important;
   font-size: 11px;
   color: var(--muted);
 }
@@ -11087,6 +11102,24 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   text-align: center;
   font-size: 13px;
   color: var(--muted);
+}
+
+@media (max-width: 1180px) {
+  /* Anchoring the panel off the bell (which sits mid-row in the mobile
+     topbar) risks pushing a 340px-wide panel past either screen edge on a
+     phone - pin it to the viewport with equal side margins instead. */
+  .notification-bell-panel {
+    position: fixed;
+    top: 64px;
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-width: none;
+  }
+
+  .mobile-topbar .sidebar-billing-link.is-notifications {
+    color: var(--text-secondary);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

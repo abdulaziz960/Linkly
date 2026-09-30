@@ -88,15 +88,16 @@ export default function NotificationBell({ notifications, onOpenNotification }: 
                 <li key={item.id}>
                   <button
                     type="button"
+                    className="notification-bell-item"
                     aria-label={`${item.customer} — ${item.text}`}
                     onClick={() => {
                       setOpen(false);
                       onOpenNotification(item.conversationId);
                     }}
                   >
-                    <b>{item.customer}</b>
+                    <b className="notification-bell-name">{item.customer}</b>
                     <span className="notification-bell-text">{item.text}</span>
-                    <small>{formatDateTime(item.createdAt)}</small>
+                    <small className="notification-bell-time">{formatDateTime(item.createdAt)}</small>
                   </button>
                 </li>
               ))}
