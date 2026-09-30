@@ -765,7 +765,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       unassigned: channelFilteredConversations.filter((conversation) => conversation.status === "unassigned").length,
       closed: channelFilteredConversations.filter((conversation) => conversation.status === "closed").length,
       mine: channelFilteredConversations.filter((conversation) => conversation.assignee === initialUser.name).length,
-      unread: channelFilteredConversations.filter((conversation) => (conversation.unread || 0) > 0).length
+      unread: channelFilteredConversations.filter((conversation) => (conversation.unread || 0) > 0).length,
+      escalated: channelFilteredConversations.filter((conversation) => conversation.isEscalated).length
     };
   }, [channelFilteredConversations, initialUser.name]);
 
@@ -776,6 +777,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       const matchesFilter = filter === "all"
         || (filter === "mine" ? conversation.assignee === initialUser.name
           : filter === "unread" ? (conversation.unread || 0) > 0
+          : filter === "escalated" ? Boolean(conversation.isEscalated)
           : conversation.status === filter);
       const matchesSearch = query
         ? [conversation.customer, conversation.phone, conversation.lastMessage, conversation.assignee, ...conversation.tags]

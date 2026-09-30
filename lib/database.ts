@@ -2904,7 +2904,10 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       attrUtmSource: conversation.attrUtmSource || undefined,
       attrUtmMedium: conversation.attrUtmMedium || undefined,
       attrUtmCampaign: conversation.attrUtmCampaign || undefined,
-      attrUtmContent: conversation.attrUtmContent || undefined
+      attrUtmContent: conversation.attrUtmContent || undefined,
+      isEscalated: (Boolean(conversation.escalatedForMessageId)
+        && messages.at(-1)?.id === conversation.escalatedForMessageId
+        && messages.at(-1)?.direction === "in") || undefined
     };
   });
 }

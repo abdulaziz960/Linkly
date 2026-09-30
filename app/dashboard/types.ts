@@ -22,7 +22,7 @@ export type ViewKey =
   | "branding";
 
 export type ConversationStatus = "assigned" | "unassigned" | "closed";
-export type ConversationFilter = "all" | ConversationStatus | "mine" | "unread";
+export type ConversationFilter = "all" | ConversationStatus | "mine" | "unread" | "escalated";
 export type ConversationChannel = "whatsapp" | "instagram" | "x" | "facebook" | "google_maps" | "website" | "telegram" | "email" | "tiktok" | "sms" | "youtube" | "linkedin" | "snapchat";
 export type ConversationChannelFilter = "all" | ConversationChannel;
 export type ChatPanel = "chat" | "profile";
@@ -88,6 +88,11 @@ export type Conversation = {
   attrUtmMedium?: string;
   attrUtmCampaign?: string;
   attrUtmContent?: string;
+  // True only while the conversation's last message is still the exact
+  // inbound message that triggered an SLA escalation (lib/response-sla.ts) -
+  // an employee reply flips the last message to outbound, which clears this
+  // automatically without needing a separate "resolved" write.
+  isEscalated?: boolean;
 };
 
 export const pipelineStages = ["جديد", "مهتم", "مؤهل", "عرض سعر", "تم الحجز", "فاز", "خسر"] as const;

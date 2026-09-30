@@ -869,6 +869,15 @@ export default function InboxView({
           {tabsMode !== "employee" ? (
             <FilterButton active={filter === "all"} count={counts.all} label={t("الكل", "All")} onClick={() => onChangeFilter("all")} />
           ) : null}
+          {tabsMode !== "employee" ? (
+            <FilterButton
+              active={filter === "escalated"}
+              count={counts.escalated}
+              label={t("تصعيد", "Escalated")}
+              onClick={() => onChangeFilter("escalated")}
+              tone="danger"
+            />
+          ) : null}
           <FilterButton
             active={filter === "mine"}
             count={counts.mine}
