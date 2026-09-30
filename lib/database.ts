@@ -2905,9 +2905,16 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       attrUtmMedium: conversation.attrUtmMedium || undefined,
       attrUtmCampaign: conversation.attrUtmCampaign || undefined,
       attrUtmContent: conversation.attrUtmContent || undefined,
-      isEscalated: (Boolean(conversation.escalatedForMessageId)
-        && messages.at(-1)?.id === conversation.escalatedForMessageId
-        && messages.at(-1)?.direction === "in") || undefined
+      // Excludes "note" rows (escalation/assignment system messages) - the
+      // escalation note itself is appended right after escalating, so it
+      // would otherwise immediately become messages.at(-1) and break this
+      // check the instant a conversation gets escalated.
+      isEscalated: (() => {
+        const lastRealMessage = [...messages].reverse().find((message) => message.direction === "in" || message.direction === "out");
+        return (Boolean(conversation.escalatedForMessageId)
+          && lastRealMessage?.id === conversation.escalatedForMessageId
+          && lastRealMessage?.direction === "in") || undefined;
+      })()
     };
   });
 }

@@ -99,8 +99,12 @@ export async function escalateUnansweredConversations() {
     });
 
     for (const conversation of candidates) {
+      // Excludes "note" rows (assignment/escalation system messages) - one
+      // landing after the customer's message would otherwise become the
+      // "last message" and permanently block escalation for a genuinely
+      // still-unanswered conversation, since its direction is never "in".
       const lastMessage = await prisma.message.findFirst({
-        where: { conversationId: conversation.id },
+        where: { conversationId: conversation.id, direction: { in: ["in", "out"] } },
         orderBy: { createdAt: "desc" }
       });
       if (!lastMessage || lastMessage.direction !== "in") continue;

@@ -72,6 +72,41 @@ describe("escalateUnansweredConversations", () => {
     expect(messages[0].text).toContain("تم تصعيد هذه المحادثة تلقائيًا لعدم الرد خلال 30 دقيقة");
   });
 
+  it("still reports isEscalated true after escalating, even though the escalation note itself is now the newest message", async () => {
+    const { getConversations } = await import("../lib/database");
+    const { escalateUnansweredConversations } = await import("../lib/response-sla");
+    await seedConversation({ id: "conv-sla-still-flagged", assignee: "بدون موظف", lastDirection: "in" });
+
+    await escalateUnansweredConversations();
+
+    const conversations = await getConversations(tenantId);
+    const conversation = conversations.find((item) => item.id === "conv-sla-still-flagged");
+    expect(conversation?.isEscalated).toBe(true);
+  });
+
+  it("still escalates when a system note (e.g. an assignment note) landed after the customer's unanswered message", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { escalateUnansweredConversations } = await import("../lib/response-sla");
+    await seedConversation({ id: "conv-sla-note-after", assignee: "بدون موظف", lastDirection: "in" });
+    await prisma.message.create({
+      data: {
+        id: "note-after-inbound",
+        conversationId: "conv-sla-note-after",
+        direction: "note",
+        text: "تم إسناد هذه المحادثة إلى موظف تلقائيًا بواسطة النظام.",
+        time: "00:05",
+        createdAt: new Date(Date.now() - 39 * 60000).toISOString(),
+        sourceType: "system_assignment"
+      }
+    });
+
+    const result = await escalateUnansweredConversations();
+    expect(result.escalated).toBeGreaterThanOrEqual(1);
+
+    const conversation = await prisma.conversation.findUnique({ where: { id: "conv-sla-note-after" } });
+    expect(conversation?.escalatedForMessageId).toBe("msg-conv-sla-note-after");
+  });
+
   it("does not escalate a conversation the agent already replied to (last message is outbound)", async () => {
     const { prisma } = await import("../lib/prisma");
     const { escalateUnansweredConversations } = await import("../lib/response-sla");
