@@ -866,9 +866,12 @@ export default function InboxView({
           </div>
         </div>
         <div className="conversation-tabs" role="tablist" aria-label={t("حالات المحادثات", "Conversation states")}>
-          {tabsMode !== "employee" ? (
-            <FilterButton active={filter === "all"} count={counts.all} label={t("الكل", "All")} onClick={() => onChangeFilter("all")} />
-          ) : null}
+          <FilterButton
+            active={filter === "mine"}
+            count={counts.mine}
+            label={t("محادثاتي", "Mine")}
+            onClick={() => onChangeFilter("mine")}
+          />
           {tabsMode !== "employee" ? (
             <FilterButton
               active={filter === "escalated"}
@@ -878,18 +881,21 @@ export default function InboxView({
               tone="danger"
             />
           ) : null}
+          {tabsMode !== "employee" ? (
+            <FilterButton active={filter === "all"} count={counts.all} label={t("الكل", "All")} onClick={() => onChangeFilter("all")} />
+          ) : null}
           <FilterButton
-            active={filter === "mine"}
-            count={counts.mine}
-            label={t("محادثاتي", "Mine")}
-            onClick={() => onChangeFilter("mine")}
+            active={filter === "unread"}
+            count={counts.unread}
+            label={t("غير مقروء", "Unread")}
+            onClick={() => onChangeFilter("unread")}
           />
-          {tabsMode === "owner" ? (
+          {tabsMode === "supervisor" ? (
             <FilterButton
-              active={filter === "unassigned"}
-              count={counts.unassigned}
-              label={t("غير مسندة", "Unassigned")}
-              onClick={() => onChangeFilter("unassigned")}
+              active={filter === "closed"}
+              count={counts.closed}
+              label={t("مغلقة", "Closed")}
+              onClick={() => onChangeFilter("closed")}
             />
           ) : null}
           {tabsMode === "owner" ? (
@@ -903,6 +909,14 @@ export default function InboxView({
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
             </button>
           ) : null}
+          {tabsMode === "owner" && (moreTabsOpen || filter === "unassigned") ? (
+            <FilterButton
+              active={filter === "unassigned"}
+              count={counts.unassigned}
+              label={t("غير مسندة", "Unassigned")}
+              onClick={() => onChangeFilter("unassigned")}
+            />
+          ) : null}
           {tabsMode === "owner" && (moreTabsOpen || filter === "assigned") ? (
             <FilterButton
               active={filter === "assigned"}
@@ -911,15 +925,7 @@ export default function InboxView({
               onClick={() => onChangeFilter("assigned")}
             />
           ) : null}
-          {tabsMode !== "owner" || moreTabsOpen || filter === "unread" ? (
-            <FilterButton
-              active={filter === "unread"}
-              count={counts.unread}
-              label={t("غير مقروء", "Unread")}
-              onClick={() => onChangeFilter("unread")}
-            />
-          ) : null}
-          {tabsMode === "supervisor" || (tabsMode === "owner" && (moreTabsOpen || filter === "closed")) ? (
+          {tabsMode === "owner" && (moreTabsOpen || filter === "closed") ? (
             <FilterButton
               active={filter === "closed"}
               count={counts.closed}

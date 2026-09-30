@@ -8,6 +8,7 @@ import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import PwaInstallButton from "./components/PwaInstallButton";
 import PwaInstallCoachmark from "./components/PwaInstallCoachmark";
+import NotificationBell from "./components/NotificationBell";
 import { navItemLabelsEn, viewTitles } from "./data/navigation";
 import { DELETED_MESSAGE_TEXT, LanguageProvider } from "./i18n";
 import type {
@@ -770,6 +771,23 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     };
   }, [channelFilteredConversations, initialUser.name]);
 
+  // Notification center feed (see conversation with the user) - reuses the
+  // in-thread system_escalation notes already written for every escalation
+  // instead of a separate notifications table; conversations here are
+  // already server-scoped to what this user may see, same as the tabs above.
+  const notifications = useMemo(() => {
+    if (inboxTabsMode === "employee") return [];
+    const items: { id: string; conversationId: string; customer: string; text: string; createdAt: string }[] = [];
+    for (const conversation of conversations) {
+      for (const message of conversation.messages) {
+        if (message.source?.type === "system_escalation" && message.createdAt) {
+          items.push({ id: message.id, conversationId: conversation.id, customer: conversation.customer, text: message.text, createdAt: message.createdAt });
+        }
+      }
+    }
+    return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 20);
+  }, [conversations, inboxTabsMode]);
+
   const visibleConversations = useMemo(() => {
     const query = deferredConversationSearch.trim().toLowerCase();
 
@@ -799,6 +817,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
       return nextConversations;
     });
+  }
+
+  function handleOpenNotification(conversationId: string) {
+    handleViewChange("inbox");
+    handleOpenConversation(conversationId);
   }
 
   function handleViewChange(view: ViewKey) {
@@ -1294,6 +1317,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         <WhatsAppPaymentBanner visible={whatsappPaymentIssue} language={language} />
       <div className="dashboard-top-links" ref={topLinksRef}>
         <PwaInstallButton />
+        {inboxTabsMode !== "employee" ? <NotificationBell notifications={notifications} onOpenNotification={handleOpenNotification} /> : null}
         <button
           type="button"
           className="sidebar-billing-link is-profile"
