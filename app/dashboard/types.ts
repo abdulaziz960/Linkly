@@ -56,6 +56,7 @@ export type Message = {
   };
   deliveryStatus?: "sent" | "delivered" | "read" | "failed";
   deliveryError?: string;
+  transcript?: string;
 };
 
 export type Conversation = {

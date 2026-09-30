@@ -906,6 +906,10 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS off_hours_auto_reply_message TEXT NOT NULL DEFAULT ''`
   );
+  // Voice-note transcription (lib/workspace-ai.ts runWorkspaceTranscription).
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE messages ADD COLUMN IF NOT EXISTS transcript TEXT NOT NULL DEFAULT ''`
+  );
 }
 
 async function runSchemaMigrations() {
@@ -1521,7 +1525,7 @@ async function runSchemaMigrations() {
   if (!messageColumns.some((column) => column.name === "author")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN author TEXT NOT NULL DEFAULT ''`);
   }
-  for (const columnName of ["attachment_type", "attachment_url", "attachment_name", "attachment_mime", "meta_media_id", "source_type", "source_id", "source_url", "source_label", "reply_to_message_id", "reply_to_text", "reply_to_author", "delivery_status", "delivery_error"]) {
+  for (const columnName of ["attachment_type", "attachment_url", "attachment_name", "attachment_mime", "meta_media_id", "source_type", "source_id", "source_url", "source_label", "reply_to_message_id", "reply_to_text", "reply_to_author", "delivery_status", "delivery_error", "transcript"]) {
     if (!messageColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE messages ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
@@ -2875,7 +2879,8 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
         author: message.replyToAuthor || undefined
       } : undefined,
       deliveryStatus: (message.deliveryStatus || undefined) as Message["deliveryStatus"],
-      deliveryError: message.deliveryError || undefined
+      deliveryError: message.deliveryError || undefined,
+      transcript: message.transcript || undefined
     }));
     const lastCustomerMessage = conversation.messages
       .filter((message) => message.direction === "in" && message.createdAt)

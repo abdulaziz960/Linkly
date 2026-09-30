@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { decryptSecret } from "./secret-storage";
-import { defaultAiConnection, generateAiText, isAiConnectionConfigured, type AiConnection, type AiContext } from "./ai-provider";
+import { defaultAiConnection, generateAiText, isAiConnectionConfigured, transcribeAudio, NO_SPEECH_MARKER, type AiConnection, type AiContext, type AudioTranscriptionInput } from "./ai-provider";
 import type { AiProvider, AiSettingsPublic } from "./ai-types";
 import { ECONOMY_INPUT_USD, ECONOMY_MODEL, ECONOMY_OUTPUT_USD, MANAGED_BUDGET_TENANT, managedMonthlyRequestCap } from "./ai-economy";
 
@@ -101,4 +101,72 @@ export async function runWorkspaceAi(tenantId: string, userId: string, conversat
     status: result ? "succeeded" : "failed", inputTokens: result?.inputTokens, outputTokens: result?.outputTokens, estimatedCost: cost
   } });
   return { suggestion: result?.text || null, ...(result ? {} : { reason: "provider_unavailable" }) };
+}
+
+/**
+ * Same tenant/plan/BYOK resolution and usage-bucket bookkeeping as
+ * runWorkspaceAi above, but for transcribing a voice-message attachment
+ * instead of drafting a reply - kept separate because the underlying call
+ * (transcribeAudio) takes raw audio bytes, not a message transcript, and
+ * only Gemini supports it (see ai-provider.ts).
+ */
+export async function runWorkspaceTranscription(tenantId: string, userId: string, conversationId: string, input: AudioTranscriptionInput) {
+  await ensureSchema();
+  const setting = await prisma.aiWorkspaceSetting.findUnique({ where: { tenantId } });
+  if (!setting || setting.enabled !== 1) return { transcript: null, reason: "disabled" };
+
+  let connection: AiConnection;
+  let limits: [number, number];
+  if (setting.apiKey) {
+    try { connection = { provider: setting.provider as AiProvider, model: setting.model, apiKey: decryptSecret(setting.apiKey) }; }
+    catch { return { transcript: null, reason: "key_unavailable" }; }
+    limits = [setting.dailyLimit, setting.monthlyLimit];
+  } else {
+    const planLimits = await getTenantPlanAiLimits(tenantId);
+    if (!planLimits) return { transcript: null, reason: "plan_upgrade_required" };
+    connection = defaultAiConnection();
+    if (!isAiConnectionConfigured(connection)) return { transcript: null, reason: "managed_not_ready" };
+    limits = [planLimits.dailyLimit, planLimits.monthlyLimit];
+  }
+  if (connection.provider !== "gemini") return { transcript: null, reason: "provider_unsupported" };
+
+  const now = new Date().toISOString();
+  const periods = [now.slice(0, 10), now.slice(0, 7)];
+  const eventId = randomUUID();
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (connection.economy) {
+        const id = `managed-budget:${periods[1]}`;
+        await tx.aiUsageBucket.upsert({ where: { id }, update: {}, create: { id, tenantId: MANAGED_BUDGET_TENANT, period: periods[1] } });
+        const reservation = await tx.aiUsageBucket.updateMany({ where: { id, count: { lt: managedMonthlyRequestCap() } }, data: { count: { increment: 1 } } });
+        if (!reservation.count) throw new Error("ai-budget");
+      }
+      for (let index = 0; index < periods.length; index++) {
+        const id = `${tenantId}:${periods[index]}`;
+        await tx.aiUsageBucket.upsert({ where: { id }, update: {}, create: { id, tenantId, period: periods[index] } });
+        const reserved = await tx.aiUsageBucket.updateMany({ where: { id, count: { lt: limits[index] } }, data: { count: { increment: 1 } } });
+        if (!reserved.count) throw new Error("ai-limit");
+      }
+      await tx.aiUsageEvent.create({ data: {
+        id: eventId, tenantId, userId, conversationId, provider: connection.provider, model: connection.model,
+        operation: "transcribe", status: "pending", createdAt: now
+      } });
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "ai-limit") return { transcript: null, reason: "usage_limit" };
+    if (error instanceof Error && error.message === "ai-budget") return { transcript: null, reason: "budget_limit" };
+    throw error;
+  }
+  const result = await transcribeAudio(connection, input);
+  const inputRate = connection.economy ? ECONOMY_INPUT_USD : setting.inputRate;
+  const outputRate = connection.economy ? ECONOMY_OUTPUT_USD : setting.outputRate;
+  const cost = result && result.inputTokens !== null && result.outputTokens !== null && inputRate != null && outputRate != null
+    ? (result.inputTokens * inputRate + result.outputTokens * outputRate) / 1000000 : null;
+  await prisma.aiUsageEvent.update({ where: { id: eventId }, data: {
+    status: result ? "succeeded" : "failed", inputTokens: result?.inputTokens, outputTokens: result?.outputTokens, estimatedCost: cost
+  } });
+
+  if (!result) return { transcript: null, reason: "provider_unavailable" };
+  if (result.text === NO_SPEECH_MARKER) return { transcript: null, reason: "no_speech" };
+  return { transcript: result.text };
 }
