@@ -226,7 +226,7 @@ export default function WorkHoursView({
             />
             <span>{offHoursEnabled ? t("مفعّل", "Enabled") : t("متوقف", "Disabled")}</span>
           </label>
-          <label>
+          <label className="off-hours-message-field">
             <span>{t("نص الرسالة", "Message text")}</span>
             <textarea
               rows={3}

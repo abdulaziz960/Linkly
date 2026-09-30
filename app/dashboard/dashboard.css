@@ -3763,6 +3763,28 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   padding: 18px;
 }
 
+.off-hours-message-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 520px;
+}
+
+.off-hours-message-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  direction: rtl;
+  text-align: right;
+  resize: vertical;
+}
+
 .table-wrap {
   overflow: auto;
 }
