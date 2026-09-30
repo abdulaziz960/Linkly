@@ -10765,6 +10765,21 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
     scroll-padding-bottom: 90px;
   }
 
+  /* Short, one-off notices like the iOS install steps don't need the
+     full-screen bottom-sheet treatment every other (long, form-heavy)
+     modal gets on mobile - keep this one a small centered popup instead. */
+  .ios-install-backdrop {
+    padding: 24px;
+    align-items: center;
+  }
+
+  .ios-install-modal {
+    width: min(360px, 100%);
+    height: auto;
+    max-height: calc(100dvh - 48px);
+    border-radius: 22px;
+  }
+
   .modal-foot {
     position: sticky;
     bottom: 0;

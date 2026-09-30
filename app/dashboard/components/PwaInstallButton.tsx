@@ -52,18 +52,18 @@ export default function PwaInstallButton({ showLabel = false }: { showLabel?: bo
 
       {showIosHelp && typeof document !== "undefined"
         ? createPortal(
-          <div className="modal-backdrop" role="presentation" onClick={() => setShowIosHelp(false)}>
-            <div className="account-modal" role="dialog" aria-modal="true" aria-label={t("تثبيت التطبيق", "Install the app")} onClick={(event) => event.stopPropagation()}>
+          <div className="modal-backdrop ios-install-backdrop" role="presentation" onClick={() => setShowIosHelp(false)}>
+            <div className="account-modal ios-install-modal" role="dialog" aria-modal="true" aria-label={t("تثبيت التطبيق", "Install the app")} onClick={(event) => event.stopPropagation()}>
               <header className="modal-head">
                 <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setShowIosHelp(false)}>×</button>
                 <h2>{t("ثبّت Linkly على آيفون", "Install Linkly on iPhone")}</h2>
               </header>
               <div className="account-modal-body">
-                <p>{t("آبل ما تسمح بالتثبيت التلقائي من المتصفح - اتبع هذه الخطوات مرة وحدة:", "Apple doesn't allow automatic installation from the browser - follow these steps once:")}</p>
+                <p>{t("لتثبيت التطبيق واستقبال الإشعارات - اتبع هذه الخطوات:", "To install the app and receive notifications - follow these steps:")}</p>
                 <ol>
                   <li>{t("اضغط على أيقونة المشاركة ⬆️ بأسفل سفاري", "Tap the Share icon ⬆️ at the bottom of Safari")}</li>
                   <li>{t("اختر \"إضافة إلى الشاشة الرئيسية\"", "Choose \"Add to Home Screen\"")}</li>
-                  <li>{t("افتح Linkly من الأيقونة الجديدة، وارجع تضغط هذا الزر لتفعيل الإشعارات", "Open Linkly from the new icon, then come back and tap this button again to enable notifications")}</li>
+                  <li>{t("ادخل التطبيق بعد تثبيته، سيظهر لك زر تفعيل الإشعارات - اضغط عليه وستصلك إشعارات المحادثات في مركز الإشعارات", "Open the app after installing it - you'll see a button to enable notifications. Tap it and you'll receive conversation alerts in Notification Center")}</li>
                 </ol>
               </div>
               <footer className="modal-foot"><button className="btn primary" type="button" onClick={() => setShowIosHelp(false)}>{t("فهمت", "Got it")}</button></footer>
