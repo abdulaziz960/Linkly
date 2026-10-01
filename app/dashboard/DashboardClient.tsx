@@ -287,10 +287,15 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     email: initialUser.email,
     initial: getNameInitial(initialUser.name)
   };
-  const matchedEmployee =
-    initialUser.role === "مالك الحساب"
-      ? employees.find((employee) => employee.id === "emp-owner")
-      : employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase());
+  // Every tenant owner has a matching Employee row created alongside their
+  // UserAccount (same dual-write pattern used everywhere else in this
+  // codebase) - match by email like every other role, instead of the
+  // literal id "emp-owner", which only ever existed for the seeded demo
+  // tenant. Looking it up by that literal id silently failed for every
+  // real tenant, so an owner's status change from the profile modal only
+  // ever updated local state/localStorage and never reached the database -
+  // the Employees/Teams page kept showing the stale, DB-backed status.
+  const matchedEmployee = employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase());
   const currentEmployee = matchedEmployee ?? fallbackEmployee;
   const canViewAllConversations = canSeeAllConversations(initialUser, currentEmployee);
   const inboxTabsMode: "owner" | "supervisor" | "employee" = canViewAllConversations

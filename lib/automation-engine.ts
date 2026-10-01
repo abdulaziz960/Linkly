@@ -99,16 +99,31 @@ function evaluateCondition(
  * "تلقائي بالتساوي" means assignments should spread across the team, so we
  * pick whichever member currently has the fewest open conversations rather
  * than always handing everything to the team lead.
+ *
+ * Both routing modes additionally prefer a member whose status is "متصل"
+ * (online) over one who's "مشغول"/"غير متصل" (busy/offline) - a new
+ * conversation shouldn't land on someone who's stepped away while a
+ * teammate is actually online. Falls back to every member (including an
+ * offline lead) when nobody on the team is online, so a conversation is
+ * never left unassigned just because the whole team is away.
  */
 export async function pickTeamAssignee(
-  team: { lead: string; routing: string; members: Array<{ employee: { name: string } }> } | null,
+  team: { lead: string; routing: string; members: Array<{ employee: { name: string; status: string } }> } | null,
   tenantId: string
 ): Promise<string> {
   if (!team) return "";
 
-  const memberNames = Array.from(new Set(team.members.map((member) => member.employee.name).filter(Boolean)));
+  const allMembers = team.members.filter((member) => member.employee.name);
+  const onlineMembers = allMembers.filter((member) => member.employee.status === "متصل");
+  const eligibleMembers = onlineMembers.length ? onlineMembers : allMembers;
+  const memberNames = Array.from(new Set(eligibleMembers.map((member) => member.employee.name)));
+
   if (team.routing !== "تلقائي بالتساوي" || !memberNames.length) {
-    return team.lead?.trim() || "";
+    const lead = team.lead?.trim() || "";
+    const leadIsEligible = !lead || !onlineMembers.length || onlineMembers.some((member) => member.employee.name === lead);
+    // The designated lead is busy/offline but a teammate is online - route
+    // to that online teammate instead of queuing on someone away.
+    return leadIsEligible ? lead : (memberNames[0] || lead);
   }
 
   const counts = await prisma.conversation.groupBy({
