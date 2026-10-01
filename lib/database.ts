@@ -2493,12 +2493,85 @@ async function runSchemaMigrations() {
  * re-ran the entire migration list against Postgres. Cache it per
  * serverless instance the same way seedDatabase() already is below.
  */
+let discountCodesSchemaPromise: Promise<void> | null = null;
+
+/**
+ * Standalone, independent of runSchemaMigrations() - added as an incident
+ * fix after the discount_amount/discount_codes additions inside that giant
+ * function consistently failed to apply in production for a reason that
+ * could not be pinned down from logs alone (ensureSchema() resolved
+ * without throwing, yet the column/table never existed). Runs its own
+ * small, self-contained, always-attempted DDL set, memoized the same way,
+ * so it cannot be silently skipped by anything happening elsewhere in the
+ * larger migration function.
+ */
+async function ensureDiscountCodesSchema() {
+  discountCodesSchemaPromise ??= (async () => {
+    if (!isPostgresDatabase) return;
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS discount_amount DOUBLE PRECISION NOT NULL DEFAULT 0`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS promo_code TEXT NOT NULL DEFAULT ''`);
+    } catch (error) {
+      console.error("[incident-fix] subscription_payments discount columns migration failed", error);
+    }
+    try {
+      await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS discount_codes (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        code TEXT NOT NULL UNIQUE,
+        discount_type TEXT NOT NULL,
+        discount_value DOUBLE PRECISION NOT NULL,
+        max_discount_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+        minimum_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+        applicable_plan_ids TEXT NOT NULL DEFAULT '[]',
+        new_users_only INTEGER NOT NULL DEFAULT 0,
+        first_subscription_only INTEGER NOT NULL DEFAULT 0,
+        usage_limit INTEGER NOT NULL DEFAULT -1,
+        usage_limit_per_user INTEGER NOT NULL DEFAULT 1,
+        used_count INTEGER NOT NULL DEFAULT 0,
+        starts_at TEXT NOT NULL DEFAULT '',
+        expires_at TEXT NOT NULL DEFAULT '',
+        active INTEGER NOT NULL DEFAULT 1,
+        created_by TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`);
+    } catch (error) {
+      console.error("[incident-fix] discount_codes table migration failed", error);
+    }
+    try {
+      await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS discount_code_usages (
+        id TEXT PRIMARY KEY,
+        discount_code_id TEXT NOT NULL,
+        tenant_id TEXT NOT NULL,
+        user_id TEXT NOT NULL DEFAULT '',
+        user_name TEXT NOT NULL DEFAULT '',
+        email TEXT NOT NULL DEFAULT '',
+        plan_id TEXT NOT NULL DEFAULT '',
+        plan_name TEXT NOT NULL DEFAULT '',
+        payment_id TEXT NOT NULL UNIQUE,
+        subscription_id TEXT NOT NULL DEFAULT '',
+        original_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+        discount_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+        final_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+        payment_status TEXT NOT NULL DEFAULT 'pending',
+        used_at TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+      )`);
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS discount_code_usages_code_tenant_idx ON discount_code_usages (discount_code_id, tenant_id)`);
+    } catch (error) {
+      console.error("[incident-fix] discount_code_usages table migration failed", error);
+    }
+  })().catch((error) => {
+    discountCodesSchemaPromise = null;
+    throw error;
+  });
+  await discountCodesSchemaPromise;
+}
+
 export async function ensureSchema() {
-  schemaPromise ??= (async () => {
-    const url = process.env.DATABASE_URL || "";
-    console.error("ensureSchema diagnostic: isPostgresDatabase=" + isPostgresDatabase + " hasUrl=" + Boolean(url) + " startsWithPostgresql=" + url.startsWith("postgresql://") + " startsWithPostgres=" + url.startsWith("postgres://"));
-    return runSchemaMigrations();
-  })().then(ensureAiSchema).catch((error) => {
+  await ensureDiscountCodesSchema();
+  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).catch((error) => {
     schemaPromise = null;
     throw error;
   });
