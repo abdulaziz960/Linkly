@@ -553,7 +553,7 @@ export default function AutomationsView({
             />
             <span>{reengagementEnabled ? t("مفعّل", "Enabled") : t("متوقف", "Disabled")}</span>
           </label>
-          <label>
+          <label className="reengagement-field">
             <span>{t("عدد أيام الانقطاع قبل التذكير", "Days of inactivity before reminding")}</span>
             <input
               type="number"
@@ -565,7 +565,7 @@ export default function AutomationsView({
               onBlur={() => saveReengagement({ enabled: reengagementEnabled, days: reengagementDays, templateName: reengagementTemplateName })}
             />
           </label>
-          <label>
+          <label className="reengagement-field">
             <span>{t("قالب واتساب المُرسل", "WhatsApp template to send")}</span>
             <CustomSelect
               value={reengagementTemplateName}

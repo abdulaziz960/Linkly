@@ -4279,6 +4279,28 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .automation-switch input { width: 17px; height: 17px; accent-color: #249154; }
 .automation-rule-card.enabled .automation-switch { border-color: #99d5ad; background: #eef9f2; color: #17613a; }
 
+.reengagement-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 14px;
+}
+
+.reengagement-field input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.reengagement-field small { color: var(--muted); }
+
 .automation-flow-summary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1.25fr) 24px minmax(0, 1.25fr);
