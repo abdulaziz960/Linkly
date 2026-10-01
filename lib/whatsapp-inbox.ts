@@ -217,6 +217,36 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
     if (ratingRecorded) {
       await sendRatingThanks(result.conversationId);
     }
+    if (input.direction === "in" && result.isNew && input.attachment?.type === "audio") {
+      await autoTranscribeVoiceMessage(tenantId, result.conversationId, result.message.id, input.attachment.url);
+    }
     return result;
   });
+}
+
+/**
+ * Best-effort: transcribes a newly-arrived WhatsApp voice note immediately,
+ * so the employee sees the text without pressing the manual "Transcribe to
+ * text" button (app/dashboard/views/InboxView.tsx). Reuses the same
+ * enable/plan/usage-limit gating as every other AI Copilot feature
+ * (runWorkspaceTranscription) - a tenant with AI disabled simply gets no
+ * auto-transcript, same as before this existed, and can still transcribe on
+ * demand via the button.
+ */
+async function autoTranscribeVoiceMessage(tenantId: string, conversationId: string, messageId: string, dataUrl: string) {
+  const match = dataUrl.match(/^data:([^,]+);base64,(.+)$/);
+  if (!match) return;
+  try {
+    const { runWorkspaceTranscription } = await import("./workspace-ai");
+    const result = await runWorkspaceTranscription(tenantId, "system", conversationId, {
+      base64: match[2],
+      mimeType: match[1].replace(/\s+/g, "").split(";")[0],
+      language: "ar"
+    });
+    if (result.transcript) {
+      await prisma.message.update({ where: { id: messageId }, data: { transcript: result.transcript } });
+    }
+  } catch (error) {
+    console.error(`Auto-transcription failed for message ${messageId}`, error);
+  }
 }

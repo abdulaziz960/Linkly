@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authCookieName, createSessionToken, getSubscriptionAccess } from "../../../../lib/auth";
-import { recordUserLogin, verifyUserCredentials } from "../../../../lib/database";
-import { clearRateLimit, consumeRateLimit, getClientIp, requestIdentifier } from "../../../../lib/rate-limit";
-import { prisma } from "../../../../lib/prisma";
-import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
+import { createTwoFactorPendingToken, finalizeLogin } from "../../../../lib/auth";
+import { PASSWORD_RESET_NUDGE_ATTEMPT, recordFailedLoginAttempt, verifyUserCredentials } from "../../../../lib/database";
+import { sendPasswordResetEmailIfRegistered } from "../../../../lib/password-reset";
+import { issueTwoFactorCode } from "../../../../lib/two-factor";
+import { clearRateLimit, consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
+import { getAppOrigin } from "../../../../lib/app-url";
+
+export const runtime = "nodejs";
+
+const LOCKOUT_MESSAGE = "تم إيقاف حسابك بسبب تكرار محاولات الدخول الخاطئة. أعد تعيين كلمة السر عبر رابط \"نسيت كلمة السر\" لإعادة تفعيله، أو تواصل مع الدعم إذا تعذر ذلك.";
+const ADMIN_DISABLED_MESSAGE = "تم تعطيل هذا الحساب. تواصل مع مسؤول حسابكم لإعادة تفعيله.";
+const RESET_NUDGE_MESSAGE = "بيانات الدخول غير صحيحة. تم إرسال رابط لإعادة تعيين كلمة السر إلى بريدك الإلكتروني إن كان مسجلاً لدينا.";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
@@ -22,88 +29,32 @@ export async function POST(request: NextRequest) {
 
   const user = await verifyUserCredentials(email, password);
   if (!user) {
+    const failure = await recordFailedLoginAttempt(email);
+    if (failure.locked) {
+      return NextResponse.json({ message: LOCKOUT_MESSAGE }, { status: 403 });
+    }
+    if (failure.attempts === PASSWORD_RESET_NUDGE_ATTEMPT) {
+      await sendPasswordResetEmailIfRegistered(email, getAppOrigin(request), request);
+      return NextResponse.json({ message: RESET_NUDGE_MESSAGE }, { status: 401 });
+    }
     return NextResponse.json({ message: "بيانات الدخول غير صحيحة" }, { status: 401 });
   }
   if (user.disabled) {
-    return NextResponse.json({ message: "تم تعطيل هذا الحساب. تواصل مع مسؤول حسابكم لإعادة تفعيله." }, { status: 403 });
+    return NextResponse.json({ message: user.lockedAt ? LOCKOUT_MESSAGE : ADMIN_DISABLED_MESSAGE }, { status: 403 });
   }
   await clearRateLimit("login", loginIdentifier);
-  const clientIp = getClientIp(request);
-  await recordUserLogin(user.id, clientIp);
 
-  if (user.isPlatformAdmin !== 1) {
-    await logAdminAction(
-      user.tenantId,
-      await getTenantCompanyName(user.tenantId),
-      `تسجيل دخول ناجح بواسطة ${user.name} (${user.email}) — IP: ${clientIp}`,
-      "معلومة",
-      "تسجيل الدخول"
-    );
+  if (user.twoFactorEnabled) {
+    const issued = await issueTwoFactorCode(user.id, user.email, user.name);
+    return NextResponse.json({
+      twoFactorRequired: true,
+      pendingToken: createTwoFactorPendingToken(user.id, remember, user.sessionVersion),
+      // Only present when no mail provider is configured - lets 2FA be
+      // tested end-to-end without a real mail provider, same as forgot-
+      // password's activationUrl fallback.
+      code: process.env.NODE_ENV !== "production" ? issued.code : undefined
+    });
   }
 
-  // A member of more than one company picks which one to enter right after
-  // logging in, instead of silently landing in whichever workspace their
-  // account happened to be pointed at last time (they can always switch
-  // again later from inside the dashboard's profile menu).
-  const membershipCount = user.isPlatformAdmin === 1 ? 1 : await prisma.employee.count({ where: { userId: user.id } });
-  if (membershipCount > 1) {
-    const maxAge = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24;
-    const response = NextResponse.json({
-      user: { ...user, subscriptionExpired: false },
-      onboardingRequired: false,
-      redirectTo: "/choose-workspace"
-    });
-    response.cookies.set(authCookieName, createSessionToken(user.id, maxAge, user.sessionVersion), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge
-    });
-    return response;
-  }
-
-  const subscriptionAccess = user.isPlatformAdmin === 1 ? { expired: false } : await getSubscriptionAccess(user.tenantId);
-  const shouldOnboard = !subscriptionAccess.expired && user.isPlatformAdmin !== 1 && user.role === "مالك الحساب";
-  const [connectedIntegration, connectedEmail] = shouldOnboard
-    ? await Promise.all([
-      prisma.integrationSetting.findFirst({
-        where: {
-          status: "connected",
-          tenantId: user.tenantId
-        },
-        select: { id: true }
-      }),
-      prisma.emailIntegration.findFirst({
-        where: {
-          tenantId: user.tenantId,
-          status: "connected"
-        },
-        select: { id: true }
-      })
-    ])
-    : [null, null];
-  const onboardingRequired = shouldOnboard && !connectedIntegration && !connectedEmail;
-
-  const maxAge = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24;
-  const response = NextResponse.json({
-    user: { ...user, subscriptionExpired: subscriptionAccess.expired },
-    onboardingRequired,
-    redirectTo: user.isPlatformAdmin === 1
-      ? "/linkly-admin007"
-      : subscriptionAccess.expired
-        ? "/billing?expired=1"
-        : onboardingRequired
-          ? "/dashboard?view=settings&onboarding=1"
-          : "/dashboard?view=inbox"
-  });
-  response.cookies.set(authCookieName, createSessionToken(user.id, maxAge, user.sessionVersion), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge
-  });
-
-  return response;
+  return finalizeLogin(user, remember, request);
 }

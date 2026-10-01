@@ -56,10 +56,12 @@ export type Message = {
   };
   deliveryStatus?: "sent" | "delivered" | "read" | "failed";
   deliveryError?: string;
+  transcript?: string;
 };
 
 export type Conversation = {
   id: string;
+  customerId: string;
   channel: ConversationChannel;
   customer: string;
   phone: string;
@@ -280,6 +282,7 @@ export type DashboardUser = {
   tenantId: string;
   profileLogo?: string;
   lastLoginAt?: string;
+  twoFactorEnabled?: number;
 };
 
 export type IntegrationSettings = {

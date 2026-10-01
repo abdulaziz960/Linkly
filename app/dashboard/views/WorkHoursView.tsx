@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Team, WorkSchedule } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
@@ -142,6 +142,51 @@ export default function WorkHoursView({
     setForm((current) => ({ ...current, start, end }));
   }
 
+  const [offHoursLoaded, setOffHoursLoaded] = useState(false);
+  const [offHoursEnabled, setOffHoursEnabled] = useState(false);
+  const [offHoursMessage, setOffHoursMessage] = useState("");
+  const [offHoursSaving, setOffHoursSaving] = useState(false);
+  const [offHoursFeedback, setOffHoursFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/settings/preferences")
+      .then((response) => response.json())
+      .then((payload) => {
+        if (cancelled || !payload?.ok) return;
+        setOffHoursEnabled(Boolean(payload.data?.offHoursAutoReplyEnabled));
+        setOffHoursMessage(payload.data?.offHoursAutoReplyMessage || "");
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setOffHoursLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function saveOffHours(next: { enabled: boolean; message: string }) {
+    setOffHoursSaving(true);
+    setOffHoursFeedback(null);
+    try {
+      const response = await fetch("/api/settings/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ offHoursAutoReplyEnabled: next.enabled, offHoursAutoReplyMessage: next.message })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر حفظ إعداد الرد خارج أوقات العمل.", "Could not save the off-hours auto-reply setting."));
+      setOffHoursEnabled(next.enabled);
+      setOffHoursMessage(next.message);
+      setOffHoursFeedback({ type: "success", message: t("تم حفظ إعداد الرد خارج أوقات العمل.", "Off-hours auto-reply setting saved.") });
+    } catch (error) {
+      setOffHoursFeedback({ type: "error", message: error instanceof Error ? error.message : t("تعذر حفظ إعداد الرد خارج أوقات العمل.", "Could not save the off-hours auto-reply setting.") });
+    } finally {
+      setOffHoursSaving(false);
+    }
+  }
+
   return (
     <section className="page-stack">
       <div className="panel">
@@ -161,6 +206,37 @@ export default function WorkHoursView({
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head">
+          <h2>{t("الرد التلقائي خارج أوقات العمل", "Off-hours auto-reply")}</h2>
+        </div>
+        <div className="panel-body">
+          <p>{t("عند التفعيل، يرسل النظام رسالتك أدناه تلقائيًا لأول رسالة تصل من عميل خارج جدول العمل النشط أعلاه (مرة واحدة يوميًا لكل محادثة). اتركها فارغة لاستخدام الرسالة الافتراضية.", "When enabled, the system automatically sends your message below to the first message that arrives from a customer outside the active schedule above (once a day per conversation). Leave it blank to use the default message.")}</p>
+          {offHoursFeedback ? <p className={`automation-feedback ${offHoursFeedback.type}`} role="status">{offHoursFeedback.message}</p> : null}
+          <label className="automation-switch">
+            <input
+              type="checkbox"
+              checked={offHoursEnabled}
+              disabled={!offHoursLoaded || offHoursSaving}
+              aria-label={offHoursEnabled ? t("إيقاف الرد خارج أوقات العمل", "Disable the off-hours auto-reply") : t("تشغيل الرد خارج أوقات العمل", "Enable the off-hours auto-reply")}
+              onChange={(event) => saveOffHours({ enabled: event.target.checked, message: offHoursMessage })}
+            />
+            <span>{offHoursEnabled ? t("مفعّل", "Enabled") : t("متوقف", "Disabled")}</span>
+          </label>
+          <label className="off-hours-message-field">
+            <span>{t("نص الرسالة", "Message text")}</span>
+            <textarea
+              rows={3}
+              value={offHoursMessage}
+              disabled={!offHoursLoaded || offHoursSaving}
+              placeholder={t("شكرًا لتواصلك معنا. فريقنا غير متوفر حاليًا خارج أوقات الدوام الرسمية، وسنرد على رسالتك في أقرب وقت ضمن ساعات العمل.", "Thanks for reaching out. Our team is currently unavailable outside official working hours, and we'll reply to your message as soon as possible during work hours.")}
+              onChange={(event) => setOffHoursMessage(event.target.value)}
+              onBlur={() => saveOffHours({ enabled: offHoursEnabled, message: offHoursMessage })}
+            />
+          </label>
         </div>
       </div>
 

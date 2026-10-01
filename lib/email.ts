@@ -123,6 +123,25 @@ export async function sendActivationEmail({ to, name, activationUrl, purpose = "
   };
 }
 
+function twoFactorCodeEmailContent(name: string, code: string) {
+  const safeName = escapeHtml(name);
+  const safeCode = escapeHtml(code);
+  const text = `مرحباً ${name}\n\nرمز تسجيل الدخول الخاص بك في Linkly هو: ${code}\n\nصالح لمدة 10 دقائق. إذا لم تطلب تسجيل الدخول، تجاهل هذه الرسالة.`;
+  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:40px 32px 8px;text-align:center"><h1 style="margin:0 0 16px;font-size:24px;line-height:1.4;color:#123330;font-weight:800">رمز تسجيل الدخول</h1><p style="margin:0 0 28px;color:#5b7570;font-size:16px;line-height:1.9">${safeName ? `مرحباً ${safeName}،<br>` : ""}استخدم الرمز التالي لإكمال تسجيل الدخول إلى Linkly.</p><p style="margin:0 0 28px;direction:ltr;font-size:36px;font-weight:800;letter-spacing:8px;color:#178a82;background:#eaf3f1;border-radius:14px;padding:18px 12px">${safeCode}</p></td></tr><tr><td style="padding:0 32px 36px;text-align:center;color:#8ba39d;font-size:13px;line-height:1.7">صالح لمدة 10 دقائق.<br>إذا لم تطلب تسجيل الدخول، تجاهل هذه الرسالة ولن يتغير شيء.</td></tr><tr><td style="padding:20px 32px;background:#e1efed;text-align:center;color:#5b7570;font-size:12px">Linkly — منصة إدارة محادثات العملاء</td></tr></table></td></tr></table></body></html>`;
+  return { text, html };
+}
+
+/**
+ * Login 2FA one-time code (lib/two-factor.ts issueTwoFactorCode). Unlike
+ * sendActivationEmail, this has no direct-link fallback - if no mail
+ * provider is configured, 2FA-enabled login is effectively unusable, same
+ * tradeoff as any code-based 2FA without a working delivery channel.
+ */
+export async function sendTwoFactorCodeEmail({ to, name, code }: { to: string; name: string; code: string }): Promise<boolean> {
+  const content = twoFactorCodeEmailContent(name, code);
+  return sendEmail({ to, subject: "رمز تسجيل الدخول في Linkly", text: content.text, html: content.html });
+}
+
 type EmailBranding = { name: string; color: string };
 const DEFAULT_EMAIL_BRANDING: EmailBranding = { name: "Linkly", color: "#178a82" };
 

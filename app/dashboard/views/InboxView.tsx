@@ -328,6 +328,9 @@ export default function InboxView({
   const [aiOperation, setAiOperation] = useState<AiOperation>("reply");
   const [aiFeedback, setAiFeedback] = useState("");
   const [aiFeedbackConversationId, setAiFeedbackConversationId] = useState("");
+  const [transcribingMessageId, setTranscribingMessageId] = useState("");
+  const [transcripts, setTranscripts] = useState<Record<string, string>>({});
+  const [transcribeErrors, setTranscribeErrors] = useState<Record<string, string>>({});
   const aiRequest = useRef<AbortController | null>(null);
   useEffect(() => () => { aiRequest.current?.abort(); }, [activeConversation.id]);
   const aiOperationLabels: Record<AiOperation, { ar: string; en: string }> = {
@@ -337,10 +340,13 @@ export default function InboxView({
     translate: { ar: "ترجمة المسودة للإنجليزية", en: "Translate draft to Arabic" },
     summarize: { ar: "تلخيص المحادثة", en: "Summarize conversation" },
     sentiment: { ar: "تحليل المشاعر", en: "Analyze sentiment" },
-    next_step: { ar: "الخطوة التالية", en: "Next step" }
+    next_step: { ar: "الخطوة التالية", en: "Next step" },
+    // Not a composer drafting operation - triggered per audio message via
+    // its own "Transcribe to text" button, not this dropdown.
+    transcribe: { ar: "", en: "" }
   };
   const aiOperationOptions = useMemo(
-    () => aiOperations.map((operation) => ({ value: operation, label: t(aiOperationLabels[operation].ar, aiOperationLabels[operation].en) })),
+    () => aiOperations.filter((operation) => operation !== "transcribe").map((operation) => ({ value: operation, label: t(aiOperationLabels[operation].ar, aiOperationLabels[operation].en) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [language]
   );
@@ -740,6 +746,29 @@ export default function InboxView({
       if (!controller.signal.aborted) setAiFeedback(t("تعذر توليد اقتراح الآن، حاول مرة أخرى.", "Couldn't generate a suggestion right now, try again."));
     } finally {
       setIsAiSuggesting(false);
+    }
+  }
+
+  async function handleTranscribeAudio(messageId: string) {
+    if (!activeConversation.id || transcribingMessageId) return;
+    setTranscribingMessageId(messageId);
+    setTranscribeErrors((current) => ({ ...current, [messageId]: "" }));
+    try {
+      const response = await fetch(`/api/conversations/${activeConversation.id}/messages/${messageId}/transcribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language })
+      });
+      const result = await response.json().catch(() => null) as { ok?: boolean; data?: { transcript: string }; error?: string } | null;
+      if (response.ok && result?.ok && result.data?.transcript) {
+        setTranscripts((current) => ({ ...current, [messageId]: result.data!.transcript }));
+      } else {
+        setTranscribeErrors((current) => ({ ...current, [messageId]: result?.error || t("تعذر تفريغ الرسالة الصوتية", "Couldn't transcribe the voice message") }));
+      }
+    } catch {
+      setTranscribeErrors((current) => ({ ...current, [messageId]: t("تعذر تفريغ الرسالة الصوتية، حاول مرة أخرى", "Couldn't transcribe the voice message, try again") }));
+    } finally {
+      setTranscribingMessageId("");
     }
   }
 
@@ -1245,6 +1274,19 @@ export default function InboxView({
                         <a className="message-attachment-link" href={item.attachment.url} download={item.attachment.name}>
                           {t("فتح الصوت", "Open audio")}
                         </a>
+                        {item.transcript || transcripts[item.id] ? (
+                          <p className="message-attachment-transcript">{item.transcript || transcripts[item.id]}</p>
+                        ) : (
+                          <button
+                            type="button"
+                            className="message-attachment-transcribe-btn"
+                            disabled={transcribingMessageId === item.id}
+                            onClick={() => handleTranscribeAudio(item.id)}
+                          >
+                            {transcribingMessageId === item.id ? t("جاري تفريغ الصوت...", "Transcribing...") : t("تفريغ الصوت إلى نص", "Transcribe to text")}
+                          </button>
+                        )}
+                        {transcribeErrors[item.id] ? <small className="message-attachment-transcribe-error">{transcribeErrors[item.id]}</small> : null}
                       </>
                     )
                   ) : null}

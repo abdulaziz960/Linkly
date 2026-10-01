@@ -257,6 +257,21 @@
   text-decoration: none;
 }
 
+.login-text-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #a8431f;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.login-text-link:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .login-submit {
   display: inline-flex;
   align-items: center;

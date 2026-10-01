@@ -7,6 +7,7 @@ const now = new Date("2026-09-21T12:00:00+03:00").getTime();
 function conversation(overrides: Partial<Conversation> & { messages?: Message[] } = {}): Conversation {
   return {
     id: "conversation-1",
+    customerId: "customer-1",
     channel: "whatsapp",
     customer: "عميل",
     phone: "0500000000",

@@ -106,7 +106,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             disabled: body.disabled ? 1 : 0,
             // Disabling kills any session already open on this account right
             // now, instead of waiting for it to expire or be refreshed.
-            ...(body.disabled ? { sessionVersion: { increment: 1 } } : {})
+            ...(body.disabled ? { sessionVersion: { increment: 1 } } : {}),
+            // Re-enabling also clears the failed-login lockout counter, so an
+            // owner manually re-enabling an employee doesn't leave them one
+            // wrong password away from being auto-locked again immediately.
+            ...(body.disabled === false ? { failedLoginAttempts: 0, lockedAt: "" } : {})
           }
         });
         if (lockout.count !== 1) throw new Error("account-lookup-failed");

@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, randomBytes, randomUUID } from "crypto";
-import { prisma } from "../../../../lib/prisma";
-import { sendActivationEmail } from "../../../../lib/email";
-import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
+import { sendPasswordResetEmailIfRegistered } from "../../../../lib/password-reset";
 import { getAppOrigin } from "../../../../lib/app-url";
 
 export const runtime = "nodejs";
@@ -23,55 +20,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "البريد الإلكتروني مطلوب" }, { status: 400 });
   }
 
-  const rateLimit = await consumeRateLimit("password-reset", requestIdentifier(request, email), 3, 60 * 60 * 1000);
-  if (!rateLimit.allowed) {
-    return NextResponse.json({ ok: true, message: genericMessage }, { headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } });
-  }
-
-  const user = await prisma.userAccount.findUnique({ where: { email } });
-
-  // Always return the same response whether the account exists or not, so
-  // this endpoint can't be used to enumerate registered email addresses.
-  if (!user) {
-    return NextResponse.json({ ok: true, message: genericMessage });
-  }
-
-  const resetToken = randomBytes(32).toString("hex");
-  const tokenHash = createHash("sha256").update(resetToken).digest("hex");
-  const now = new Date();
-  const accountAlreadyActivated = Boolean(user.passwordHash);
-  const purpose = accountAlreadyActivated ? "password_reset" : "employee_activation";
-  const lifetimeMs = accountAlreadyActivated ? 1000 * 60 * 60 : 1000 * 60 * 60 * 24 * 3;
-  const expiresAt = new Date(now.getTime() + lifetimeMs).toISOString();
-
-  await prisma.$transaction([
-    prisma.employeeInvite.deleteMany({ where: { email } }),
-    prisma.employeeInvite.create({
-      data: {
-        id: `reset-${randomUUID()}`,
-        email,
-        tokenHash,
-        expiresAt,
-        createdAt: now.toISOString(),
-        purpose
-      }
-    })
-  ]);
-
-  const origin = getAppOrigin(request);
-  const activationUrl = `${origin}/activate?token=${resetToken}`;
-  const delivery = await sendActivationEmail({
-    to: email,
-    name: user.name,
-    activationUrl,
-    purpose: accountAlreadyActivated ? "password_reset" : "activation"
-  });
+  // Always returns the same response whether the account exists, is rate
+  // limited, or the email failed to send - this endpoint can't be used to
+  // enumerate registered email addresses.
+  const result = await sendPasswordResetEmailIfRegistered(email, getAppOrigin(request), request);
 
   return NextResponse.json({
     ok: true,
     message: genericMessage,
     // Only present when no mail provider is configured - lets the reset
     // still work end-to-end without a real mail provider.
-    activationUrl: process.env.NODE_ENV !== "production" && !delivery.sent ? delivery.activationUrl : undefined
+    activationUrl: process.env.NODE_ENV !== "production" ? result?.activationUrl : undefined
   });
 }

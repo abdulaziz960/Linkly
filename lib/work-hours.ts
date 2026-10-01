@@ -126,26 +126,19 @@ async function sendOffHoursText(channel: string, tenantId: string, conversationI
 /**
  * Sends at most one automatic "we're closed" reply per conversation per day
  * when a customer message arrives outside every active work schedule for
- * the tenant - but only for a tenant that has explicitly opted in via an
- * enabled "الرد خارج ساعات العمل" automation rule. No-ops silently for
- * channels we can't reply on (Google Maps, TikTok) or tenants that haven't
+ * the tenant - but only for a tenant that has explicitly opted in via the
+ * "الرد التلقائي خارج أوقات العمل" toggle on the Work Hours page
+ * (TenantPreference.offHoursAutoReplyEnabled). No-ops silently for channels
+ * we can't reply on (Google Maps, TikTok) or tenants that haven't
  * configured any schedule.
  */
 export async function checkOffHoursAutoReply(conversationId: string, tenantId: string) {
   try {
-    // AutomationRule.id is a global primary key, not scoped per tenant, so
-    // the literal id "auto-business-hours" can only ever belong to one
-    // tenant across the whole database - looking it up by {tenantId, id}
-    // silently matched nothing (and so always defaulted to "enabled") for
-    // every other tenant, with no way to turn it off. Match on name
-    // instead (safe to share per tenant), and require an explicit enabled
-    // row to actually send - opt-in, not opt-out, since no tenant has ever
-    // had a real chance to configure this.
-    const configuredRule = await prisma.automationRule.findFirst({
-      where: { tenantId, name: "الرد خارج ساعات العمل" },
-      select: { enabled: true }
+    const preference = await prisma.tenantPreference.findUnique({
+      where: { tenantId },
+      select: { offHoursAutoReplyEnabled: true, offHoursAutoReplyMessage: true }
     });
-    if (configuredRule?.enabled !== 1) return;
+    if (preference?.offHoursAutoReplyEnabled !== 1) return;
 
     const hasActiveSchedule = await prisma.workSchedule.count({ where: { tenantId, status: "نشط" } });
     if (!hasActiveSchedule) return;
@@ -157,7 +150,8 @@ export async function checkOffHoursAutoReply(conversationId: string, tenantId: s
     const todayKey = todayKeyInRiyadh();
     if (conversation.offHoursNotifiedAt === todayKey) return;
 
-    const result = await sendOffHoursText(conversation.channel, tenantId, conversationId, conversation.customer.phone, DEFAULT_OFF_HOURS_MESSAGE);
+    const message = preference.offHoursAutoReplyMessage?.trim() || DEFAULT_OFF_HOURS_MESSAGE;
+    const result = await sendOffHoursText(conversation.channel, tenantId, conversationId, conversation.customer.phone, message);
     if (!result || result.ok === false) return;
 
     await prisma.conversation.update({ where: { id: conversationId }, data: { offHoursNotifiedAt: todayKey } });
