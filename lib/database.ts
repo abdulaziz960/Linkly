@@ -936,6 +936,10 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS two_factor_codes_user_id_idx ON two_factor_codes(user_id)`
   );
+  // Configurable escalation threshold (lib/response-sla.ts).
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS escalation_minutes INTEGER NOT NULL DEFAULT 30`
+  );
 }
 
 async function runSchemaMigrations() {
@@ -1979,6 +1983,9 @@ async function runSchemaMigrations() {
   }
   if (!tenantPreferenceColumns.some((column) => column.name === "off_hours_auto_reply_enabled")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN off_hours_auto_reply_enabled INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!tenantPreferenceColumns.some((column) => column.name === "escalation_minutes")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN escalation_minutes INTEGER NOT NULL DEFAULT 30`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
     id TEXT PRIMARY KEY,

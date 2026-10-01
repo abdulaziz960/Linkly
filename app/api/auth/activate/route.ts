@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
-import { authCookieName, createSessionToken } from "../../../../lib/auth";
+import { authCookieName, createSessionToken, SESSION_MAX_AGE_SECONDS } from "../../../../lib/auth";
 import { hashPassword } from "../../../../lib/database";
 import { getPasswordValidationError } from "../../../../lib/passwords";
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
@@ -90,12 +90,12 @@ export async function POST(request: Request) {
   const { passwordHash: _passwordHash, ...safeUser } = user;
   void _passwordHash;
   const response = NextResponse.json({ user: safeUser });
-  response.cookies.set(authCookieName, createSessionToken(user.id, 60 * 60 * 24, user.sessionVersion), {
+  response.cookies.set(authCookieName, createSessionToken(user.id, SESSION_MAX_AGE_SECONDS, user.sessionVersion), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24
+    maxAge: SESSION_MAX_AGE_SECONDS
   });
 
   return response;

@@ -170,4 +170,48 @@ describe("escalateUnansweredConversations", () => {
     expect(targets).toEqual(expect.arrayContaining(["user-sla-owner", "user-sla-lead"]));
     expect(targets).toHaveLength(2);
   });
+
+  it("honors a tenant's custom escalation threshold (shorter than the 30-minute default)", async () => {
+    const customTenantId = "tenant-response-sla-short";
+    const { prisma } = await import("../lib/prisma");
+    await prisma.tenantPreference.create({
+      data: { tenantId: customTenantId, escalationMinutes: 10, updatedAt: new Date().toISOString() }
+    });
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60000).toISOString();
+    await seedConversation({ id: "conv-sla-custom-short", assignee: "بدون موظف", lastDirection: "in", lastActivityAt: fifteenMinutesAgo });
+    // Seeded via seedConversation() with the default tenantId constant -
+    // re-point this one row at the custom tenant for this test only.
+    await prisma.conversation.update({ where: { id: "conv-sla-custom-short" }, data: { tenantId: customTenantId } });
+    await prisma.customer.update({ where: { id: "cust-conv-sla-custom-short" }, data: { tenantId: customTenantId } });
+
+    const { escalateUnansweredConversations } = await import("../lib/response-sla");
+    await escalateUnansweredConversations();
+
+    const conversation = await prisma.conversation.findUnique({ where: { id: "conv-sla-custom-short" } });
+    // 15 minutes overdue already exceeds this tenant's 10-minute threshold,
+    // even though it's well under the 30-minute default other tenants use.
+    expect(conversation?.escalatedForMessageId).toBe("msg-conv-sla-custom-short");
+
+    const messages = await prisma.message.findMany({ where: { conversationId: "conv-sla-custom-short", sourceType: "system_escalation" } });
+    expect(messages[0].text).toContain("تم تصعيد هذه المحادثة تلقائيًا لعدم الرد خلال 10 دقيقة");
+  });
+
+  it("honors a tenant's custom escalation threshold (longer than the 30-minute default)", async () => {
+    const customTenantId = "tenant-response-sla-long";
+    const { prisma } = await import("../lib/prisma");
+    await prisma.tenantPreference.create({
+      data: { tenantId: customTenantId, escalationMinutes: 90, updatedAt: new Date().toISOString() }
+    });
+    await seedConversation({ id: "conv-sla-custom-long", assignee: "بدون موظف", lastDirection: "in" });
+    // seedConversation()'s OLD_ENOUGH is 40 minutes ago - past the 30-minute
+    // default, but still well under this tenant's configured 90 minutes.
+    await prisma.conversation.update({ where: { id: "conv-sla-custom-long" }, data: { tenantId: customTenantId } });
+    await prisma.customer.update({ where: { id: "cust-conv-sla-custom-long" }, data: { tenantId: customTenantId } });
+
+    const { escalateUnansweredConversations } = await import("../lib/response-sla");
+    await escalateUnansweredConversations();
+
+    const conversation = await prisma.conversation.findUnique({ where: { id: "conv-sla-custom-long" } });
+    expect(conversation?.escalatedForMessageId).toBe("");
+  });
 });

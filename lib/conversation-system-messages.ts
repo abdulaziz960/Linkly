@@ -46,10 +46,10 @@ export async function logAssignmentMessage(params: {
  * for going unanswered too long (see lib/response-sla.ts). Same "note" +
  * sourceType pattern as logAssignmentMessage, rendered as a system line.
  */
-export async function logEscalationMessage(params: { conversationId: string; notifiedNames: string[] }) {
+export async function logEscalationMessage(params: { conversationId: string; notifiedNames: string[]; minutes: number }) {
   const text = params.notifiedNames.length
-    ? `تم تصعيد هذه المحادثة تلقائيًا لعدم الرد خلال 30 دقيقة، وتم إشعار ${params.notifiedNames.join(" و")}.`
-    : `تم تصعيد هذه المحادثة تلقائيًا لعدم الرد خلال 30 دقيقة.`;
+    ? `تم تصعيد هذه المحادثة تلقائيًا لعدم الرد خلال ${params.minutes} دقيقة، وتم إشعار ${params.notifiedNames.join(" و")}.`
+    : `تم تصعيد هذه المحادثة تلقائيًا لعدم الرد خلال ${params.minutes} دقيقة.`;
 
   const now = new Date();
   await prisma.message.create({

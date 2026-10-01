@@ -8,6 +8,17 @@ import { getTenantCompanyName, logAdminAction } from "./subscriptions";
 
 export const authCookieName = "audiencew_session";
 
+// How long a session cookie stays valid before the user has to log in
+// again. Unchecked "remember me" covers a full work shift (12h) without
+// forcing a re-login mid-day, but still expires overnight rather than
+// staying open indefinitely on a shared/public device. Checked "remember
+// me" keeps the existing 30-day convenience window. Both are absolute
+// lifetimes from login, not idle timeouts - re-authenticating resets the
+// clock (see finalizeLogin in this file and every createSessionToken call
+// below), but inactivity alone doesn't shorten it.
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
+export const REMEMBERED_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+
 const ephemeralDevelopmentSecret = randomBytes(32).toString("hex");
 
 function getAuthSecret() {
@@ -23,7 +34,7 @@ function signPayload(payload: string) {
   return createHmac("sha256", getAuthSecret()).update(payload).digest("hex");
 }
 
-export function createSessionToken(userId: string, maxAgeSeconds = 60 * 60 * 24, sessionVersion = 0) {
+export function createSessionToken(userId: string, maxAgeSeconds = SESSION_MAX_AGE_SECONDS, sessionVersion = 0) {
   const issuedAt = Date.now();
   const expiresAt = issuedAt + maxAgeSeconds * 1000;
   const payload = `${userId}.${issuedAt}.${expiresAt}.${sessionVersion}`;
@@ -186,7 +197,7 @@ export async function finalizeLogin(user: Omit<UserAccount, "passwordHash">, rem
   // again later from inside the dashboard's profile menu).
   const membershipCount = user.isPlatformAdmin === 1 ? 1 : await prisma.employee.count({ where: { userId: user.id } });
   if (membershipCount > 1) {
-    const maxAge = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24;
+    const maxAge = remember ? REMEMBERED_SESSION_MAX_AGE_SECONDS : SESSION_MAX_AGE_SECONDS;
     const response = NextResponse.json({
       user: { ...user, subscriptionExpired: false },
       onboardingRequired: false,
@@ -224,7 +235,7 @@ export async function finalizeLogin(user: Omit<UserAccount, "passwordHash">, rem
     : [null, null];
   const onboardingRequired = shouldOnboard && !connectedIntegration && !connectedEmail;
 
-  const maxAge = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24;
+  const maxAge = remember ? REMEMBERED_SESSION_MAX_AGE_SECONDS : SESSION_MAX_AGE_SECONDS;
   const response = NextResponse.json({
     user: { ...user, subscriptionExpired: subscriptionAccess.expired },
     onboardingRequired,

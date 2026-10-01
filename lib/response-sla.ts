@@ -4,7 +4,14 @@ import { isWithinWorkHours } from "./work-hours";
 import { logEscalationMessage } from "./conversation-system-messages";
 import { notifyUsers } from "./push-notifications";
 
-const ESCALATION_MINUTES = 30;
+const DEFAULT_ESCALATION_MINUTES = 30;
+// The coarse, cheap "which tenants have anything overdue at all" filter
+// below has to use the shortest possible per-tenant threshold a tenant
+// could configure - otherwise a tenant with a shorter-than-default
+// escalationMinutes could have overdue conversations that this filter
+// silently never surfaces.
+export const MIN_ESCALATION_MINUTES = 1;
+export const MAX_ESCALATION_MINUTES = 1440;
 const MAX_CONVERSATIONS_PER_TENANT = 100;
 
 /**
@@ -38,12 +45,12 @@ export async function findEscalationTargets(tenantId: string, assignee: string):
   return [...targets];
 }
 
-async function escalateConversation(conversation: { id: string; tenantId: string; assignee: string; customer: { name: string; phone: string } }, lastMessageId: string) {
+async function escalateConversation(conversation: { id: string; tenantId: string; assignee: string; customer: { name: string; phone: string } }, lastMessageId: string, minutes: number) {
   const targetUserIds = await findEscalationTargets(conversation.tenantId, conversation.assignee);
 
   await notifyUsers(targetUserIds, {
     title: `تصعيد: ${conversation.customer.name}`,
-    body: "لم يتم الرد على العميل خلال 30 دقيقة",
+    body: `لم يتم الرد على العميل خلال ${minutes} دقيقة`,
     url: conversation.customer.phone
       ? `/dashboard?view=inbox&phone=${encodeURIComponent(conversation.customer.phone)}&name=${encodeURIComponent(conversation.customer.name)}`
       : "/dashboard?view=inbox"
@@ -52,7 +59,7 @@ async function escalateConversation(conversation: { id: string; tenantId: string
   const notifiedNames: string[] = [];
   if (targetUserIds.length) notifiedNames.push("المشرف والإدارة");
 
-  await logEscalationMessage({ conversationId: conversation.id, notifiedNames });
+  await logEscalationMessage({ conversationId: conversation.id, notifiedNames, minutes });
 
   await prisma.conversation.update({
     where: { id: conversation.id },
@@ -61,23 +68,28 @@ async function escalateConversation(conversation: { id: string; tenantId: string
 }
 
 /**
- * Escalates conversations that have gone ESCALATION_MINUTES without a reply
- * during the tenant's configured work hours (lib/work-hours.ts) - customer
- * service policy: "لو خدمة العملاء ما ردوا على العميل خلال 30 دقيقة تصعد
- * المحادثة للمشرف تبع الفريق والإدارة". Runs off the existing campaigns cron
- * tick, same batching pattern as sendReengagementReminders
- * (lib/reengagement.ts). Dedup is per unanswered message: escalatedForMessageId
- * only matches the customer's current last message, so once an agent replies
- * (last message becomes outbound) a later unanswered gap escalates again.
+ * Escalates conversations that have gone the tenant's configured number of
+ * minutes (TenantPreference.escalationMinutes, default 30 - settable from
+ * the Automations view) without a reply during the tenant's configured work
+ * hours (lib/work-hours.ts) - customer service policy: "لو خدمة العملاء ما
+ * ردوا على العميل خلال X دقيقة تصعد المحادثة للمشرف تبع الفريق والإدارة".
+ * Runs off the existing campaigns cron tick, same batching pattern as
+ * sendReengagementReminders (lib/reengagement.ts). Dedup is per unanswered
+ * message: escalatedForMessageId only matches the customer's current last
+ * message, so once an agent replies (last message becomes outbound) a later
+ * unanswered gap escalates again.
  */
 export async function escalateUnansweredConversations() {
   await ensureSchema();
 
-  const cutoff = new Date(Date.now() - ESCALATION_MINUTES * 60000).toISOString();
+  // Coarse net using the shortest possible configured threshold (see
+  // MIN_ESCALATION_MINUTES) - the per-tenant threshold actually enforced
+  // below in the loop.
+  const broadestCutoff = new Date(Date.now() - MIN_ESCALATION_MINUTES * 60000).toISOString();
 
   const tenantRows = await prisma.conversation.findMany({
     distinct: ["tenantId"],
-    where: { status: { not: "closed" }, lastActivityAt: { not: "", lte: cutoff } },
+    where: { status: { not: "closed" }, lastActivityAt: { not: "", lte: broadestCutoff } },
     select: { tenantId: true },
     take: 50
   });
@@ -86,6 +98,12 @@ export async function escalateUnansweredConversations() {
 
   for (const { tenantId } of tenantRows) {
     if (!(await isWithinWorkHours(tenantId))) continue;
+
+    const preference = await prisma.tenantPreference.findUnique({ where: { tenantId }, select: { escalationMinutes: true } });
+    const minutes = preference?.escalationMinutes && preference.escalationMinutes >= MIN_ESCALATION_MINUTES && preference.escalationMinutes <= MAX_ESCALATION_MINUTES
+      ? preference.escalationMinutes
+      : DEFAULT_ESCALATION_MINUTES;
+    const cutoff = new Date(Date.now() - minutes * 60000).toISOString();
 
     // Whether a conversation was already escalated for its current last
     // message is decided per-row below (escalatedForMessageId vs the
@@ -110,7 +128,7 @@ export async function escalateUnansweredConversations() {
       if (!lastMessage || lastMessage.direction !== "in") continue;
       if (conversation.escalatedForMessageId === lastMessage.id) continue;
 
-      await escalateConversation(conversation, lastMessage.id);
+      await escalateConversation(conversation, lastMessage.id, minutes);
       escalated += 1;
     }
   }

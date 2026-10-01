@@ -15,7 +15,8 @@ const getTenantCompanyName = vi.fn(async (..._args: unknown[]) => "Acme");
 vi.mock("../lib/auth", () => ({
   authCookieName: "audiencew_session",
   getCurrentUser: (...args: unknown[]) => getCurrentUser(...args),
-  createSessionToken: (...args: unknown[]) => createSessionToken(...args)
+  createSessionToken: (...args: unknown[]) => createSessionToken(...args),
+  SESSION_MAX_AGE_SECONDS: 60 * 60 * 12
 }));
 
 vi.mock("../lib/database", () => ({
@@ -117,7 +118,7 @@ describe("POST /api/account/password", () => {
       where: { id: "user-1" },
       data: { passwordHash: "hashed:NewPassword1", sessionVersion: { increment: 1 } }
     });
-    expect(createSessionToken).toHaveBeenCalledWith("user-1", 60 * 60 * 24, 4);
+    expect(createSessionToken).toHaveBeenCalledWith("user-1", 60 * 60 * 12, 4);
     expect(logAdminAction).toHaveBeenCalledWith("tenant-1", "Acme", expect.stringContaining("Owner"), "معلومة", "الأمان");
     const cookie = response.headers.get("set-cookie") || "";
     expect(cookie).toContain("audiencew_session=signed-token");

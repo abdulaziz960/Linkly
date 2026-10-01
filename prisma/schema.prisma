@@ -932,6 +932,9 @@ model TenantPreference {
   // hours schedule.
   offHoursAutoReplyEnabled Int    @default(0) @map("off_hours_auto_reply_enabled")
   offHoursAutoReplyMessage String @default("") @map("off_hours_auto_reply_message")
+  // How many minutes an unanswered conversation waits before auto-escalating
+  // to the team lead/owner (lib/response-sla.ts escalateUnansweredConversations).
+  escalationMinutes Int @default(30) @map("escalation_minutes")
   updatedAt            String @map("updated_at")
 
   @@map("tenant_preferences")

@@ -4,6 +4,7 @@ import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { ensureSchema } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
+import { MIN_ESCALATION_MINUTES, MAX_ESCALATION_MINUTES } from "../../../../lib/response-sla";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -21,7 +22,8 @@ export async function GET() {
     reengagementDays: preference?.reengagementDays || 30,
     reengagementTemplateName: preference?.reengagementTemplateName || "",
     offHoursAutoReplyEnabled: preference?.offHoursAutoReplyEnabled === 1,
-    offHoursAutoReplyMessage: preference?.offHoursAutoReplyMessage || ""
+    offHoursAutoReplyMessage: preference?.offHoursAutoReplyMessage || "",
+    escalationMinutes: preference?.escalationMinutes || 30
   });
 }
 
@@ -37,6 +39,7 @@ export async function PATCH(request: NextRequest) {
     reengagementTemplateName?: unknown;
     offHoursAutoReplyEnabled?: unknown;
     offHoursAutoReplyMessage?: unknown;
+    escalationMinutes?: unknown;
   } | null;
   if (!body) return jsonError("طلب غير صالح", 400);
 
@@ -50,6 +53,7 @@ export async function PATCH(request: NextRequest) {
     reengagementTemplateName?: string;
     offHoursAutoReplyEnabled?: number;
     offHoursAutoReplyMessage?: string;
+    escalationMinutes?: number;
   } = {};
 
   if (body.leadsPipelineEnabled !== undefined) {
@@ -78,6 +82,12 @@ export async function PATCH(request: NextRequest) {
     if (typeof body.offHoursAutoReplyMessage !== "string") return jsonError("رسالة الرد خارج أوقات العمل غير صالحة", 400);
     data.offHoursAutoReplyMessage = body.offHoursAutoReplyMessage.trim();
   }
+  if (body.escalationMinutes !== undefined) {
+    if (typeof body.escalationMinutes !== "number" || !Number.isInteger(body.escalationMinutes) || body.escalationMinutes < MIN_ESCALATION_MINUTES || body.escalationMinutes > MAX_ESCALATION_MINUTES) {
+      return jsonError(`عدد دقائق التصعيد يجب أن يكون بين ${MIN_ESCALATION_MINUTES} و${MAX_ESCALATION_MINUTES}`, 400);
+    }
+    data.escalationMinutes = body.escalationMinutes;
+  }
 
   const preference = await prisma.tenantPreference.upsert({
     where: { tenantId: user.tenantId },
@@ -90,6 +100,7 @@ export async function PATCH(request: NextRequest) {
       reengagementTemplateName: "",
       offHoursAutoReplyEnabled: 0,
       offHoursAutoReplyMessage: "",
+      escalationMinutes: 30,
       ...data,
       updatedAt: new Date().toISOString()
     }
@@ -105,6 +116,7 @@ export async function PATCH(request: NextRequest) {
     reengagementDays: preference.reengagementDays,
     reengagementTemplateName: preference.reengagementTemplateName,
     offHoursAutoReplyEnabled: preference.offHoursAutoReplyEnabled === 1,
-    offHoursAutoReplyMessage: preference.offHoursAutoReplyMessage
+    offHoursAutoReplyMessage: preference.offHoursAutoReplyMessage,
+    escalationMinutes: preference.escalationMinutes
   });
 }

@@ -1,0 +1,1 @@
+ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS escalation_minutes INTEGER NOT NULL DEFAULT 30;

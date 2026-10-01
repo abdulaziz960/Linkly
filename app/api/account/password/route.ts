@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authCookieName, createSessionToken, getCurrentUser } from "../../../../lib/auth";
+import { authCookieName, createSessionToken, getCurrentUser, SESSION_MAX_AGE_SECONDS } from "../../../../lib/auth";
 import { getUserAccountById, hashPassword } from "../../../../lib/database";
 import { getPasswordValidationError, verifyPassword } from "../../../../lib/passwords";
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
@@ -56,12 +56,12 @@ export async function POST(request: NextRequest) {
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(authCookieName, createSessionToken(updated.id, 60 * 60 * 24, updated.sessionVersion), {
+  response.cookies.set(authCookieName, createSessionToken(updated.id, SESSION_MAX_AGE_SECONDS, updated.sessionVersion), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24
+    maxAge: SESSION_MAX_AGE_SECONDS
   });
   return response;
 }

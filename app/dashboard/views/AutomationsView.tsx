@@ -198,6 +198,11 @@ export default function AutomationsView({
   const [reengagementFeedback, setReengagementFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const approvedTemplateOptions = useMemo(() => templates.filter((template) => template.status === "معتمد").map((template) => ({ value: template.name, label: template.name })), [templates]);
 
+  const [escalationLoaded, setEscalationLoaded] = useState(false);
+  const [escalationMinutes, setEscalationMinutes] = useState(30);
+  const [escalationSaving, setEscalationSaving] = useState(false);
+  const [escalationFeedback, setEscalationFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     fetch("/api/settings/preferences")
@@ -207,15 +212,39 @@ export default function AutomationsView({
         setReengagementEnabled(Boolean(payload.data?.reengagementEnabled));
         setReengagementDays(payload.data?.reengagementDays || 30);
         setReengagementTemplateName(payload.data?.reengagementTemplateName || "");
+        setEscalationMinutes(payload.data?.escalationMinutes || 30);
       })
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) setReengagementLoaded(true);
+        if (!cancelled) {
+          setReengagementLoaded(true);
+          setEscalationLoaded(true);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  async function saveEscalationMinutes(nextMinutes: number) {
+    setEscalationSaving(true);
+    setEscalationFeedback(null);
+    try {
+      const response = await fetch("/api/settings/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ escalationMinutes: nextMinutes })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر حفظ مدة التصعيد.", "Could not save the escalation threshold."));
+      setEscalationMinutes(nextMinutes);
+      setEscalationFeedback({ type: "success", message: t("تم حفظ مدة التصعيد.", "Escalation threshold saved.") });
+    } catch (error) {
+      setEscalationFeedback({ type: "error", message: error instanceof Error ? error.message : t("تعذر حفظ مدة التصعيد.", "Could not save the escalation threshold.") });
+    } finally {
+      setEscalationSaving(false);
+    }
+  }
 
   async function saveReengagement(next: { enabled: boolean; days: number; templateName: string }) {
     setReengagementSaving(true);
@@ -575,6 +604,28 @@ export default function AutomationsView({
               disabled={!reengagementLoaded || reengagementSaving || !approvedTemplateOptions.length}
             />
             {!approvedTemplateOptions.length ? <small>{t("لا توجد قوالب واتساب معتمدة بعد - أنشئ قالبًا من صفحة القوالب أولًا.", "No approved WhatsApp templates yet - create one from the Templates page first.")}</small> : null}
+          </label>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head">
+          <h2>{t("تصعيد المحادثات غير المجاب عليها", "Escalating unanswered conversations")}</h2>
+        </div>
+        <div className="panel-body">
+          <p>{t("إذا مرّت هذه المدة بدون رد من الموظف على آخر رسالة من العميل (خلال أوقات العمل)، تُصعَّد المحادثة تلقائيًا لمشرف الفريق ومالك الحساب.", "If this many minutes pass with no employee reply to the customer's last message (during work hours), the conversation auto-escalates to the team lead and the account owner.")}</p>
+          {escalationFeedback ? <p className={`automation-feedback ${escalationFeedback.type}`} role="status">{escalationFeedback.message}</p> : null}
+          <label className="reengagement-field">
+            <span>{t("مدة الانتظار قبل التصعيد (بالدقائق)", "Wait time before escalating (minutes)")}</span>
+            <input
+              type="number"
+              min={1}
+              max={1440}
+              value={escalationMinutes}
+              disabled={!escalationLoaded || escalationSaving}
+              onChange={(event) => setEscalationMinutes(Math.max(1, Math.min(1440, Number(event.target.value) || 1)))}
+              onBlur={() => saveEscalationMinutes(escalationMinutes)}
+            />
           </label>
         </div>
       </div>
