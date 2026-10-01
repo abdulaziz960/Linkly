@@ -1379,6 +1379,10 @@ async function runSchemaMigrations() {
     // - log the real Postgres error right where it happened instead.
     try {
       await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS discount_amount DOUBLE PRECISION NOT NULL DEFAULT 0`);
+      const verifyColumn = await prisma.$queryRawUnsafe<Array<{ column_name: string; table_schema: string }>>(
+        `SELECT column_name, table_schema FROM information_schema.columns WHERE table_name = 'subscription_payments' AND column_name = 'discount_amount'`
+      );
+      console.error("discount_amount migration diagnostic: ALTER ran without throwing, verify query returned", JSON.stringify(verifyColumn));
     } catch (error) {
       console.error("subscription_payments.discount_amount column migration failed", error);
     }
