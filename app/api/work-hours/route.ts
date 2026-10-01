@@ -4,6 +4,7 @@ import { getWorkSchedules } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { prisma } from "../../../lib/prisma";
+import { logAdminAction, getTenantCompanyName } from "../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
@@ -35,5 +36,6 @@ export async function POST(request: NextRequest) {
       holidays: body.holidays || "غير مفعلة"
     }
   });
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم إنشاء جدول ساعات عمل لفريق "${schedule.team}" بواسطة ${user.name}.`, "معلومة", "ساعات العمل");
   return jsonOk(schedule);
 }

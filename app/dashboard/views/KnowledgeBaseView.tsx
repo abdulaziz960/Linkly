@@ -114,14 +114,14 @@ export default function KnowledgeBaseView() {
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث في الأسئلة والأجوبة...", "Search questions and answers...")} />
             <button className="btn soft" type="button" onClick={() => setSearch("")}>{t("مسح", "Clear")}</button>
           </div>
-          <table>
+          <table className="mobile-card-table">
             <thead><tr><th>{t("السؤال", "Question")}</th><th>{t("الإجابة", "Answer")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
             <tbody>
               {filteredEntries.map((entry) => (
                 <tr key={entry.id}>
                   <td>{entry.question || <em className="muted-copy">{t("[نص/مستند]", "[Text/document]")}</em>}</td>
-                  <td className="truncate-cell">{entry.answer}</td>
-                  <td className="row-actions">
+                  <td className="truncate-cell" data-label={t("الإجابة", "Answer")}>{entry.answer}</td>
+                  <td className="row-actions" data-label={t("إجراء", "Action")}>
                     <button className="btn soft" type="button" onClick={() => openEditForm(entry)}>{t("تعديل", "Edit")}</button>
                     <button className="btn danger" type="button" onClick={() => deleteEntry(entry)}>{t("حذف", "Delete")}</button>
                   </td>

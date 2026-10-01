@@ -27,6 +27,15 @@ model Customer {
   // affects one-to-one replies from the inbox.
   marketingOptOut   Int    @default(0) @map("marketing_opt_out")
   marketingOptOutAt String @default("") @map("marketing_opt_out_at")
+  // Real-world visit tracking (e.g. Foodics/Reeqo reservation webhooks via
+  // POST /api/v1/conversations) - distinct from WhatsApp conversation
+  // activity, which only reflects messaging, not an actual restaurant visit.
+  lastVisitAt String @default("") @map("last_visit_at")
+  visitCount  Int    @default(0) @map("visit_count")
+  // Last time an inactivity re-engagement reminder was sent - lib/reengagement.ts.
+  // Compared against lastVisitAt so a reminder fires once per "went quiet"
+  // period instead of every cron tick.
+  reengagementSentAt String @default("") @map("reengagement_sent_at")
   conversations Conversation[]
 
   @@index([tenantId])
@@ -48,6 +57,7 @@ model Conversation {
   botRanAt      String            @default("") @map("bot_ran_at")
   botWaitingNodeId String         @default("") @map("bot_waiting_node_title")
   offHoursNotifiedAt String       @default("") @map("off_hours_notified_at")
+  escalatedForMessageId String   @default("") @map("escalated_for_message_id")
   rating            Int           @default(0)
   ratingEmployee    String        @default("") @map("rating_employee")
   ratingRequestedAt String        @default("") @map("rating_requested_at")
@@ -537,6 +547,9 @@ model IntegrationSetting {
   snapchatRefreshToken String @default("") @map("snapchat_refresh_token")
   snapchatTokenExpiresAt String @default("") @map("snapchat_token_expires_at")
   snapchatLeadsSyncedAt String @default("") @map("snapchat_leads_synced_at")
+  // Set when Meta rejects a WhatsApp send with error code 131042 (payment
+  // method issue) - shown as a dashboard banner until a send succeeds again.
+  whatsappPaymentIssueAt String @default("") @map("whatsapp_payment_issue_at")
   webhookUrl    String @map("webhook_url")
   updatedAt     String @map("updated_at")
 
@@ -701,6 +714,19 @@ model Plan {
   // their own API key on any plan (see AiWorkspaceSetting), unaffected by this.
   aiDailyLimit   Int @default(0) @map("ai_daily_limit")
   aiMonthlyLimit Int @default(0) @map("ai_monthly_limit")
+  // Comma-separated channel keys this plan may connect (see
+  // lib/channel-catalog.ts for the canonical list), or "*" for every
+  // channel with no restriction - the default, so every plan that predates
+  // this column (and any row that never sets it) stays fully unrestricted.
+  allowedChannels String @default("*") @map("allowed_channels")
+  // Marketing (campaign) messages credited to a tenant's CampaignBalance
+  // each time a subscription payment on this plan is confirmed (see
+  // applyConfirmedSubscriptionPayment in lib/subscriptions.ts) - scaled by
+  // 12 for an annual payment, since that buys a full year upfront. -1 means
+  // unlimited (see UNLIMITED_MESSAGE_QUOTA in lib/message-quota.ts); the
+  // credited amount then uses a large-but-finite practical constant instead
+  // of literally -1, which would break the balance's spend gate.
+  messageQuota Int @default(0) @map("message_quota")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 
@@ -766,6 +792,14 @@ model SubscriptionPayment {
   // payment is confirmed paid, so benefits never precede payment.
   planName          String @default("") @map("plan_name")
   planEmployeeLimit Int    @default(0) @map("plan_employee_limit")
+  // Captured from Plan.messageQuota at checkout time, same as
+  // planEmployeeLimit above - the amount actually credited to
+  // CampaignBalance on confirmation (see applyConfirmedSubscriptionPayment).
+  planMessageQuota  Int    @default(0) @map("plan_message_quota")
+  // "شهري" or "سنوي" - which period this payment buys (see
+  // computeSubscriptionPeriod/priceForCycle in lib/subscriptions.ts and
+  // lib/billing-pricing.ts). Annual pays the full discounted year upfront.
+  billingCycle      String @default("شهري") @map("billing_cycle")
   // Payment ledger details (see docs/payments.md and CampaignPayment above).
   gateway          String @default("") @map("gateway")
   gatewayPaymentId String @default("") @map("gateway_payment_id")
@@ -858,6 +892,12 @@ model TenantPreference {
   brandName            String @default("") @map("brand_name")
   brandLogoDataUrl     String @default("") @map("brand_logo_data_url")
   brandColor           String @default("") @map("brand_color")
+  // Inactivity re-engagement reminder (lib/reengagement.ts) - sends
+  // reengagementTemplateName to any WhatsApp customer whose most recent
+  // conversation activity is older than reengagementDays.
+  reengagementEnabled      Int    @default(0) @map("reengagement_enabled")
+  reengagementDays         Int    @default(30) @map("reengagement_days")
+  reengagementTemplateName String @default("") @map("reengagement_template_name")
   updatedAt            String @map("updated_at")
 
   @@map("tenant_preferences")

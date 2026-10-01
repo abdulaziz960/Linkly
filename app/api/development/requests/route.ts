@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
 import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
+import { sendNewDevelopmentRequestAdminNotification } from "../../../../lib/email";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -50,6 +51,17 @@ export async function POST(request: NextRequest) {
       createdAt: now,
       updatedAt: now
     }
+  });
+
+  sendNewDevelopmentRequestAdminNotification({
+    requestId: created.id,
+    title,
+    companyName: created.companyName,
+    submitterName: user.name,
+    submitterEmail: user.email,
+    description
+  }).catch((error) => {
+    console.error("New development request admin notification failed", error);
   });
 
   return jsonOk(created);

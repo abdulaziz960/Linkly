@@ -7,6 +7,8 @@ import Link from "next/link";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import PwaInstallButton from "./components/PwaInstallButton";
+import PwaInstallCoachmark from "./components/PwaInstallCoachmark";
+import NotificationBell from "./components/NotificationBell";
 import { navItemLabelsEn, viewTitles } from "./data/navigation";
 import { DELETED_MESSAGE_TEXT, LanguageProvider } from "./i18n";
 import type {
@@ -37,6 +39,7 @@ import { formatDateTime } from "../../lib/time";
 import { playNewMessageChime } from "./notification-sound";
 import { requestNotificationPermissionOnce, showNewMessageNotification } from "./notification-browser";
 import TrialCountdownBanner from "./TrialCountdownBanner";
+import WhatsAppPaymentBanner from "./WhatsAppPaymentBanner";
 
 type DashboardSubscription = {
   companyName: string;
@@ -185,7 +188,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>([]);
   const [branding, setBranding] = useState({ name: "Linkly", logoDataUrl: "/assets/linkly-logo.png", color: "#178a82" });
   const [activeConversationId, setActiveConversationId] = useState("");
-  const [filter, setFilter] = useState<ConversationFilter>("all");
+  const [filter, setFilter] = useState<ConversationFilter>(() =>
+    initialUser.role === "مالك الحساب" || initialUser.role === "مشرف" ? "all" : "mine"
+  );
   const [selectedChannel, setSelectedChannel] = useState<ConversationChannelFilter>("all");
   const [conversationSearch, setConversationSearch] = useState("");
   const deferredConversationSearch = useDeferredValue(conversationSearch);
@@ -195,6 +200,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const [profileOpen, setProfileOpen] = useState(false);
   const [language, setLanguage] = useState<"ar" | "en">("ar");
   const t = (ar: string, en: string) => (language === "en" ? en : ar);
@@ -217,7 +223,15 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [passwordFormOpen, setPasswordFormOpen] = useState(false);
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
+  const [whatsappPaymentIssue, setWhatsappPaymentIssue] = useState(false);
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
   const [facebookStatus, setFacebookStatus] = useState<IntegrationSettings["status"]>("pending");
   const [telegramStatus, setTelegramStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -274,6 +288,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       : employees.find((employee) => employee.email.toLowerCase() === initialUser.email.toLowerCase());
   const currentEmployee = matchedEmployee ?? fallbackEmployee;
   const canViewAllConversations = canSeeAllConversations(initialUser, currentEmployee);
+  const inboxTabsMode: "owner" | "supervisor" | "employee" = canViewAllConversations
+    ? "owner"
+    : currentEmployee.role === "مشرف"
+      ? "supervisor"
+      : "employee";
   const approvedTemplates = useMemo(() => templates.filter(isApprovedTemplate), [templates]);
   const filteredInvoices = useMemo(() => {
     if (!invoiceFromDate && !invoiceToDate) return invoices;
@@ -288,15 +307,12 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     () => filteredInvoices.filter((invoice) => invoice.status === "مكتمل").reduce((sum, invoice) => sum + invoice.amount, 0),
     [filteredInvoices]
   );
-  const scopedConversations = useMemo(() => {
-    if (canViewAllConversations) return conversations;
-
-    return conversations.filter(
-      (conversation) =>
-        conversation.assignee === currentEmployee.name &&
-        (conversation.status === "assigned" || conversation.status === "closed")
-    );
-  }, [canViewAllConversations, conversations, currentEmployee.name]);
+  // The server (app/api/conversations/route.ts -> getVisibleAssigneeNames)
+  // already scopes conversations to what this user may see - including a
+  // supervisor's team, via a "teams" view permission most supervisors don't
+  // hold, so this list is trusted as-is rather than re-filtered client-side
+  // against /api/teams (which 403s for them and would wrongly narrow it).
+  const scopedConversations = conversations;
   const scopedCustomers = useMemo<Customer[]>(() => {
     if (canViewAllConversations) return customers;
 
@@ -374,6 +390,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       .then((response) => response.json())
       .then((settings: IntegrationSettings) => setEmailStatus(settings.status))
       .catch(() => setEmailStatus("pending"));
+    fetch("/api/whatsapp/payment-status")
+      .then((response) => response.json())
+      .then((data: { hasIssue?: boolean }) => setWhatsappPaymentIssue(Boolean(data.hasIssue)))
+      .catch(() => setWhatsappPaymentIssue(false));
   }, []);
   const activeConversation =
     channelFilteredConversations.find((conversation) => conversation.id === activeConversationId) ??
@@ -711,12 +731,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   }, [activeView, allowedViews]);
 
   useEffect(() => {
-    if (!canViewAllConversations && filter !== "assigned" && filter !== "closed" && filter !== "unread") {
-      setFilter("assigned");
-    }
-  }, [canViewAllConversations, filter]);
-
-  useEffect(() => {
     if (activeConversationId && !channelFilteredConversations.some((conversation) => conversation.id === activeConversationId)) {
       setActiveConversationId("");
     }
@@ -752,9 +766,27 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       unassigned: channelFilteredConversations.filter((conversation) => conversation.status === "unassigned").length,
       closed: channelFilteredConversations.filter((conversation) => conversation.status === "closed").length,
       mine: channelFilteredConversations.filter((conversation) => conversation.assignee === initialUser.name).length,
-      unread: channelFilteredConversations.filter((conversation) => (conversation.unread || 0) > 0).length
+      unread: channelFilteredConversations.filter((conversation) => (conversation.unread || 0) > 0).length,
+      escalated: channelFilteredConversations.filter((conversation) => conversation.isEscalated).length
     };
   }, [channelFilteredConversations, initialUser.name]);
+
+  // Notification center feed (see conversation with the user) - reuses the
+  // in-thread system_escalation notes already written for every escalation
+  // instead of a separate notifications table; conversations here are
+  // already server-scoped to what this user may see, same as the tabs above.
+  const notifications = useMemo(() => {
+    if (inboxTabsMode === "employee") return [];
+    const items: { id: string; conversationId: string; customer: string; text: string; createdAt: string }[] = [];
+    for (const conversation of conversations) {
+      for (const message of conversation.messages) {
+        if (message.source?.type === "system_escalation" && message.createdAt) {
+          items.push({ id: message.id, conversationId: conversation.id, customer: conversation.customer, text: message.text, createdAt: message.createdAt });
+        }
+      }
+    }
+    return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 20);
+  }, [conversations, inboxTabsMode]);
 
   const visibleConversations = useMemo(() => {
     const query = deferredConversationSearch.trim().toLowerCase();
@@ -763,6 +795,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       const matchesFilter = filter === "all"
         || (filter === "mine" ? conversation.assignee === initialUser.name
           : filter === "unread" ? (conversation.unread || 0) > 0
+          : filter === "escalated" ? Boolean(conversation.isEscalated)
           : conversation.status === filter);
       const matchesSearch = query
         ? [conversation.customer, conversation.phone, conversation.lastMessage, conversation.assignee, ...conversation.tags]
@@ -784,6 +817,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
       return nextConversations;
     });
+  }
+
+  function handleOpenNotification(conversationId: string) {
+    handleViewChange("inbox");
+    handleOpenConversation(conversationId);
   }
 
   function handleViewChange(view: ViewKey) {
@@ -1220,6 +1258,32 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     }
   }
 
+  async function handleChangePassword() {
+    setPasswordError("");
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordError(t("كلمتا السر الجديدتان غير متطابقتين", "The new passwords don't match"));
+      return;
+    }
+    setPasswordSaving(true);
+    try {
+      const response = await fetch("/api/account/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: currentPasswordInput, newPassword: newPasswordInput })
+      });
+      if (!response.ok) throw new Error(await readApiError(response, language));
+      setPasswordSuccess(true);
+      setPasswordFormOpen(false);
+      setCurrentPasswordInput("");
+      setNewPasswordInput("");
+      setConfirmPasswordInput("");
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : t("تعذر تغيير كلمة السر", "Could not change the password"));
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
   async function handleDeleteAccount() {
     setDeleting(true);
     setDeleteError("");
@@ -1248,9 +1312,12 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   return (
     <LanguageProvider language={language}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
-      {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
+      <div className="dashboard-top-banners">
+        {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
+        <WhatsAppPaymentBanner visible={whatsappPaymentIssue} language={language} />
       <div className="dashboard-top-links" ref={topLinksRef}>
         <PwaInstallButton />
+        {inboxTabsMode !== "employee" ? <NotificationBell notifications={notifications} onOpenNotification={handleOpenNotification} /> : null}
         <button
           type="button"
           className="sidebar-billing-link is-profile"
@@ -1302,11 +1369,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           </Link>
         ) : null}
       </div>
+      </div>
       {menuOpen ? (
         <div
           className="dashboard-menu-backdrop"
-          onClick={() => setMenuOpen(false)}
-          onTouchMove={() => setMenuOpen(false)}
+          onClick={closeMenu}
           aria-hidden="true"
         />
       ) : null}
@@ -1323,13 +1390,26 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         planName={subscription?.plan || ""}
         branding={branding}
         language={language}
+        mobileOpen={menuOpen}
+        canManageBilling={initialUser.role === "مالك الحساب"}
+        onClose={closeMenu}
+        onOpenProfile={openProfile}
         selectedChannel={selectedChannel}
         onChangeView={handleViewChange}
         onChangeChannel={handleChannelChange}
       />
 
       <main className="dashboard-main">
-        <MobileTopbar title={language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]} onToggleMenu={() => setMenuOpen((value) => !value)} />
+        <MobileTopbar
+          title={language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]}
+          language={language}
+          menuOpen={menuOpen}
+          onToggleMenu={() => setMenuOpen((value) => !value)}
+          onOpenProfile={openProfile}
+          notifications={inboxTabsMode !== "employee" ? notifications : undefined}
+          onOpenNotification={inboxTabsMode !== "employee" ? handleOpenNotification : undefined}
+        />
+        <PwaInstallCoachmark />
 
         {activeView === "inbox" ? (
           <InboxView
@@ -1343,7 +1423,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             composerMode={composerMode}
             counts={counts}
             filter={filter}
-            assignedOnly={!canViewAllConversations}
+            tabsMode={inboxTabsMode}
             message={message}
             quickReplies={quickReplies}
             search={conversationSearch}
@@ -1571,6 +1651,52 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
               ) : (
                 <div className="profile-detail-panel">
                   <div><span>{t("تسجيل الدخول", "Sign-in")}</span><b>{t("البريد الإلكتروني وكلمة المرور", "Email and password")}</b></div>
+                  <div className="password-change-block">
+                    {!passwordFormOpen ? (
+                      <button
+                        className="btn soft"
+                        type="button"
+                        onClick={() => {
+                          setPasswordFormOpen(true);
+                          setPasswordError("");
+                          setPasswordSuccess(false);
+                          setCurrentPasswordInput("");
+                          setNewPasswordInput("");
+                          setConfirmPasswordInput("");
+                        }}
+                      >
+                        {t("تغيير كلمة السر", "Change password")}
+                      </button>
+                    ) : (
+                      <div className="danger-zone-confirm">
+                        <label>
+                          {t("كلمة السر الحالية", "Current password")}
+                          <input type="password" autoComplete="current-password" value={currentPasswordInput} onChange={(event) => setCurrentPasswordInput(event.target.value)} disabled={passwordSaving} />
+                        </label>
+                        <label>
+                          {t("كلمة السر الجديدة", "New password")}
+                          <input type="password" autoComplete="new-password" value={newPasswordInput} onChange={(event) => setNewPasswordInput(event.target.value)} disabled={passwordSaving} />
+                        </label>
+                        <label>
+                          {t("تأكيد كلمة السر الجديدة", "Confirm new password")}
+                          <input type="password" autoComplete="new-password" value={confirmPasswordInput} onChange={(event) => setConfirmPasswordInput(event.target.value)} disabled={passwordSaving} />
+                        </label>
+                        {passwordError ? <p className="form-error">{passwordError}</p> : null}
+                        <div className="danger-zone-actions">
+                          <button className="btn soft" type="button" disabled={passwordSaving} onClick={() => setPasswordFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
+                          <button
+                            className="btn primary"
+                            type="button"
+                            disabled={passwordSaving || !currentPasswordInput || !newPasswordInput || !confirmPasswordInput}
+                            onClick={() => void handleChangePassword()}
+                          >
+                            {passwordSaving ? t("جارٍ الحفظ...", "Saving...") : t("حفظ كلمة السر الجديدة", "Save new password")}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {passwordSuccess ? <p className="profile-save-feedback success" role="status">{t("تم تغيير كلمة السر بنجاح", "Password changed successfully")}</p> : null}
+                  </div>
                   <div><span>{t("التحقق الثنائي", "Two-factor authentication")}</span><b>{t("غير متاح حاليًا", "Not available yet")}</b></div>
                   <div><span>{t("آخر دخول", "Last sign-in")}</span><b>{initialUser.lastLoginAt ? formatDateTime(initialUser.lastLoginAt) : t("لا توجد بيانات بعد", "No data yet")}</b></div>
                   <div><span>{t("الصلاحيات", "Permissions")}</span><b>{initialUser.role}</b></div>

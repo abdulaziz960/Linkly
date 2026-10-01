@@ -4,6 +4,7 @@ import { ensureSchema } from "../../../../lib/database";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { createWebhook, listWebhooks, isValidWebhookEvent } from "../../../../lib/webhooks";
 import { isPubliclyRoutableUrl } from "../../../../lib/url-safety";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -35,5 +36,6 @@ export async function POST(request: NextRequest) {
   if (!events.length) return jsonError("اختر حدثاً واحداً على الأقل");
 
   const webhook = await createWebhook(user.tenantId, { url, events });
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم إنشاء webhook على "${url}" بواسطة ${user.name}.`, "معلومة", "المطورون");
   return jsonOk(webhook);
 }

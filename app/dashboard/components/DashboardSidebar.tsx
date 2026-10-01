@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
+import Link from "next/link";
+import PwaInstallButton from "./PwaInstallButton";
 import { getChannelName } from "../../channel-names";
 import type { ConversationChannel, ConversationChannelFilter, ViewKey } from "../types";
 import { navItems, navItemLabelsEn } from "../data/navigation";
@@ -22,6 +24,10 @@ type DashboardSidebarProps = {
   branding: { name: string; logoDataUrl: string };
   selectedChannel: ConversationChannelFilter;
   language?: "ar" | "en";
+  mobileOpen: boolean;
+  canManageBilling: boolean;
+  onClose: () => void;
+  onOpenProfile: () => void;
   onChangeView: (view: ViewKey) => void;
   onChangeChannel: (channel: ConversationChannel) => void;
 };
@@ -75,13 +81,74 @@ export default function DashboardSidebar({
   branding,
   selectedChannel,
   language = "ar",
+  mobileOpen,
+  canManageBilling,
+  onClose,
+  onOpenProfile,
   onChangeView,
   onChangeChannel
 }: DashboardSidebarProps) {
   const [navigationSearchOpen, setNavigationSearchOpen] = useState(false);
   const [navigationSearch, setNavigationSearch] = useState("");
   const [sidebarTooltip, setSidebarTooltip] = useState<SidebarTooltipState | null>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const searchPopoverRef = useRef<HTMLDivElement>(null);
   const isEnglish = language === "en";
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+      if (event.key !== "Tab") return;
+      const controls = [...(drawerRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])]
+        .filter((element) => element.getClientRects().length > 0);
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [mobileOpen, onClose]);
+  useEffect(() => {
+    if (!navigationSearchOpen) return;
+    function close() {
+      setNavigationSearchOpen(false);
+      setNavigationSearch("");
+    }
+    function handleClickOutside(event: globalThis.MouseEvent) {
+      if (searchTriggerRef.current?.contains(event.target as Node)) return;
+      if (searchPopoverRef.current?.contains(event.target as Node)) return;
+      close();
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") close();
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [navigationSearchOpen]);
   const showSidebarTooltip = (
     event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>,
     label: string
@@ -119,7 +186,11 @@ export default function DashboardSidebar({
   const visibleLinkedChannels = linkedChannels.filter((channel) => channel.connected);
 
   return (
-    <aside className="dashboard-sidebar">
+    <aside id="dashboard-mobile-drawer" className="dashboard-sidebar" ref={drawerRef} role={mobileOpen ? "dialog" : undefined} aria-modal={mobileOpen ? "true" : undefined} aria-label={mobileOpen ? (isEnglish ? "Dashboard menu" : "قائمة لوحة التحكم") : undefined}>
+      <div className="dashboard-drawer-head">
+        <strong>{isEnglish ? "Menu" : "القائمة"}</strong>
+        <button ref={closeRef} type="button" aria-label={isEnglish ? "Close menu" : "إغلاق القائمة"} onClick={onClose}>×</button>
+      </div>
       <div className="sidebar-brand" aria-label={branding.name}>
         <Image src={branding.logoDataUrl} alt={branding.name} width={46} height={25} priority unoptimized={branding.logoDataUrl.startsWith("data:")} />
       </div>
@@ -129,6 +200,7 @@ export default function DashboardSidebar({
       </div>
       <nav className="dashboard-nav">
         <button
+          ref={searchTriggerRef}
           className="sidebar-search-trigger"
           type="button"
           aria-label={isEnglish ? "Search navigation" : "البحث في القائمة"}
@@ -143,7 +215,7 @@ export default function DashboardSidebar({
         </button>
         {navigationSearchOpen && typeof document !== "undefined"
           ? createPortal(
-            <div className={`sidebar-search-popover${isEnglish ? " lang-en" : ""}`}>
+            <div ref={searchPopoverRef} className={`sidebar-search-popover${isEnglish ? " lang-en" : ""}`}>
               <label><span>{isEnglish ? "Go to" : "انتقل إلى"}</span><input autoFocus value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} placeholder={isEnglish ? "Search sections..." : "ابحث عن قسم..."} /></label>
               <div>
                 {visibleNavItems.filter((item) => `${item.label} ${navItemLabelsEn[item.key]}`.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((item) => (
@@ -176,12 +248,20 @@ export default function DashboardSidebar({
               aria-label={isEnglish ? navItemLabelsEn[item.key] : item.label}
             >
               <DashboardNavIcon view={item.key} />
+              <span className="dashboard-nav-label">{isEnglish ? navItemLabelsEn[item.key] : item.label}</span>
             </button>
             ))}
           </div>
           );
         })}
       </nav>
+      <div className="dashboard-mobile-extras">
+        <PwaInstallButton showLabel />
+        <button type="button" onClick={() => { onClose(); onOpenProfile(); }}>{isEnglish ? "Profile" : "الملف الشخصي"}</button>
+        <Link href="/dashboard/support" onClick={onClose}>{isEnglish ? "Support" : "الدعم الفني"}</Link>
+        <Link href="/dashboard/development" onClick={onClose}>{isEnglish ? "Development" : "تطوير المنصة"}</Link>
+        {canManageBilling ? <Link href="/billing" onClick={onClose}>{isEnglish ? "Plans and billing" : "الباقات والاشتراك"}</Link> : null}
+      </div>
       {sidebarTooltip && typeof document !== "undefined"
         ? createPortal(
           <span

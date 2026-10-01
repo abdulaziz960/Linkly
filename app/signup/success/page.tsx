@@ -3,7 +3,7 @@ import "../signup.css";
 
 const copy = {
   ar: {
-    kicker: "تم إنشاء التجربة",
+    kicker: "الخطوة 2 من 3 — تم إنشاء التجربة",
     titleFailed: "مساحتك جاهزة، لكن تعذر إرسال البريد",
     titleSent: "راجع بريدك لتفعيل الحساب",
     fallbackEmail: "بريدك الإلكتروني",
@@ -15,7 +15,7 @@ const copy = {
     goToLogin: "الانتقال لتسجيل الدخول"
   },
   en: {
-    kicker: "Trial created",
+    kicker: "Step 2 of 3 — trial created",
     titleFailed: "Your workspace is ready, but we couldn't send the email",
     titleSent: "Check your email to activate your account",
     fallbackEmail: "your email",

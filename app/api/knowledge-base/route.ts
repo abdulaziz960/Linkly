@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { createKbEntry, listKbEntries } from "../../../lib/knowledge-base";
+import { logAdminAction, getTenantCompanyName } from "../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
@@ -24,5 +25,6 @@ export async function POST(request: NextRequest) {
   if (!answer) return jsonError("محتوى الإجابة مطلوب");
 
   const entry = await createKbEntry(user.tenantId, { question: body?.question?.trim() || "", answer });
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم إضافة مدخل قاعدة معرفة "${entry.question || answer.slice(0, 40)}" بواسطة ${user.name}.`, "معلومة", "قاعدة المعرفة");
   return jsonOk(entry);
 }

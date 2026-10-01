@@ -1,6 +1,12 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
-import { ensureSchema } from "./database";
+import { ensureSchema, isPostgresDatabase, insertPlanRowSelfHealing } from "./database";
+import { serializeAllowedChannels, type AllowedChannels } from "./channel-catalog";
+import { UNLIMITED_MESSAGE_QUOTA } from "./message-quota";
+
+function isValidMessageQuota(value: number) {
+  return Number.isFinite(value) && (value === UNLIMITED_MESSAGE_QUOTA || value >= 0);
+}
 
 function nowTimestamp() {
   return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
@@ -22,12 +28,26 @@ export async function getActivePlans() {
   return prisma.plan.findMany({ where: { active: 1 }, orderBy: { sortOrder: "asc" } });
 }
 
+/**
+ * Looks up a plan by its exact name regardless of active status - a
+ * suspended tenant renewing the exact plan they're already on must be able
+ * to, even if that plan was since deactivated for new signups (a pricing
+ * redesign leaves existing subscribers on their old plan, see 8b67709).
+ */
+export async function getPlanByName(name: string) {
+  await ensureSchema();
+  if (!name) return null;
+  return prisma.plan.findFirst({ where: { name } });
+}
+
 type CreatePlanInput = {
   name: string;
   monthlyPrice: number;
   employeeLimit: number;
   aiDailyLimit?: number;
   aiMonthlyLimit?: number;
+  allowedChannels?: AllowedChannels;
+  messageQuota?: number;
 };
 
 export async function createPlan(input: CreatePlanInput) {
@@ -40,22 +60,59 @@ export async function createPlan(input: CreatePlanInput) {
   const aiMonthlyLimit = input.aiMonthlyLimit ?? 0;
   if (!Number.isFinite(aiDailyLimit) || aiDailyLimit < 0) throw new Error("الحد اليومي للذكاء الاصطناعي غير صحيح");
   if (!Number.isFinite(aiMonthlyLimit) || aiMonthlyLimit < 0) throw new Error("الحد الشهري للذكاء الاصطناعي غير صحيح");
+  const messageQuota = input.messageQuota ?? 0;
+  if (!isValidMessageQuota(messageQuota)) throw new Error("حصة الرسائل التسويقية غير صحيحة");
 
   const existing = await prisma.plan.findUnique({ where: { name } });
   if (existing) throw new Error("يوجد باقة بنفس الاسم بالفعل");
 
   const maxSortOrder = await prisma.plan.aggregate({ _max: { sortOrder: true } });
   const now = nowTimestamp();
+  const id = `plan-${randomUUID()}`;
+  const sortOrder = (maxSortOrder._max.sortOrder ?? 0) + 1;
+  const roundedPrice = Math.round(input.monthlyPrice);
+  const roundedEmployeeLimit = Math.round(input.employeeLimit);
+  const roundedAiDailyLimit = Math.round(aiDailyLimit);
+  const roundedAiMonthlyLimit = Math.round(aiMonthlyLimit);
+  const roundedMessageQuota = Math.round(messageQuota);
+  const allowedChannels = serializeAllowedChannels(input.allowedChannels ?? "*");
+
+  if (isPostgresDatabase) {
+    // Production's live `plans` table carries legacy columns (monthly_amount,
+    // and others) outside our Prisma schema entirely - prisma.plan.create()
+    // below can't set columns it doesn't know exist, so this introspects the
+    // real table and fills in anything it's missing (see
+    // insertPlanRowSelfHealing in lib/database.ts for why).
+    await insertPlanRowSelfHealing({
+      id, name,
+      monthly_price: roundedPrice,
+      monthly_amount: roundedPrice,
+      employee_limit: roundedEmployeeLimit,
+      sort_order: sortOrder,
+      active: 1,
+      ai_daily_limit: roundedAiDailyLimit,
+      ai_monthly_limit: roundedAiMonthlyLimit,
+      allowed_channels: allowedChannels,
+      message_quota: roundedMessageQuota,
+      created_at: now,
+      updated_at: now
+    });
+    const created = await prisma.plan.findUnique({ where: { id } });
+    if (!created) throw new Error("تعذر إنشاء الباقة");
+    return created;
+  }
 
   return prisma.plan.create({
     data: {
-      id: `plan-${randomUUID()}`,
+      id,
       name,
-      monthlyPrice: Math.round(input.monthlyPrice),
-      employeeLimit: Math.round(input.employeeLimit),
-      aiDailyLimit: Math.round(aiDailyLimit),
-      aiMonthlyLimit: Math.round(aiMonthlyLimit),
-      sortOrder: (maxSortOrder._max.sortOrder ?? 0) + 1,
+      monthlyPrice: roundedPrice,
+      employeeLimit: roundedEmployeeLimit,
+      aiDailyLimit: roundedAiDailyLimit,
+      aiMonthlyLimit: roundedAiMonthlyLimit,
+      allowedChannels,
+      messageQuota: roundedMessageQuota,
+      sortOrder,
       active: 1,
       createdAt: now,
       updatedAt: now
@@ -69,6 +126,8 @@ type UpdatePlanInput = {
   active?: boolean;
   aiDailyLimit?: number;
   aiMonthlyLimit?: number;
+  allowedChannels?: AllowedChannels;
+  messageQuota?: number;
 };
 
 export async function updatePlan(id: string, input: UpdatePlanInput) {
@@ -88,6 +147,9 @@ export async function updatePlan(id: string, input: UpdatePlanInput) {
   if (input.aiMonthlyLimit !== undefined && (!Number.isFinite(input.aiMonthlyLimit) || input.aiMonthlyLimit < 0)) {
     throw new Error("الحد الشهري للذكاء الاصطناعي غير صحيح");
   }
+  if (input.messageQuota !== undefined && !isValidMessageQuota(input.messageQuota)) {
+    throw new Error("حصة الرسائل التسويقية غير صحيحة");
+  }
 
   return prisma.plan.update({
     where: { id },
@@ -96,6 +158,8 @@ export async function updatePlan(id: string, input: UpdatePlanInput) {
       employeeLimit: input.employeeLimit !== undefined ? Math.round(input.employeeLimit) : existing.employeeLimit,
       aiDailyLimit: input.aiDailyLimit !== undefined ? Math.round(input.aiDailyLimit) : existing.aiDailyLimit,
       aiMonthlyLimit: input.aiMonthlyLimit !== undefined ? Math.round(input.aiMonthlyLimit) : existing.aiMonthlyLimit,
+      allowedChannels: input.allowedChannels !== undefined ? serializeAllowedChannels(input.allowedChannels) : existing.allowedChannels,
+      messageQuota: input.messageQuota !== undefined ? Math.round(input.messageQuota) : existing.messageQuota,
       active: input.active !== undefined ? (input.active ? 1 : 0) : existing.active,
       updatedAt: nowTimestamp()
     }

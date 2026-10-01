@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { ensureAiSchema } from "./ai-schema";
+import { UNLIMITED_MESSAGE_QUOTA } from "./message-quota";
 import { emailIntegrationId, findTenantEmailIntegration } from "./email-integration-lookup";
 import { createHash, randomUUID } from "crypto";
 import { getPasswordValidationError, hashPassword, verifyPassword } from "./passwords";
@@ -32,7 +33,7 @@ const defaultMetaConfigId =
   "";
 const defaultGoogleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "";
 const defaultGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
-const isPostgresDatabase =
+export const isPostgresDatabase =
   process.env.DATABASE_URL?.startsWith("postgres://") || process.env.DATABASE_URL?.startsWith("postgresql://");
 const defaultLoginEmail = "test@audiencew.sa";
 const developmentDemoPassword = process.env.DEMO_LOGIN_PASSWORD?.trim() || "";
@@ -242,6 +243,131 @@ async function ensureSqlitePaymentLedgerColumns() {
   }
 }
 
+/**
+ * One-time, idempotent introduction of the 2026 pricing tiers (by
+ * organization size) alongside per-plan channel restrictions. Deliberately
+ * additive, never a rename: the 3 original plans (باقة البداية/النمو/الأعمال)
+ * are only deactivated, not touched otherwise, so every existing
+ * subscriber's Subscription.plan string keeps resolving to a real, unchanged
+ * Plan row with its original price/limit/unrestricted channel access
+ * (allowedChannels defaults to "*"). Only brand-new signups/upgrades see the
+ * 5 new tiers. Guarded by checking for "باقة الأفراد" so this runs at most
+ * once per database regardless of how many times ensureSchema() replays it.
+ */
+/** Best-effort placeholder for a legacy column we don't recognize, by its Postgres data type. */
+function placeholderForColumnType(dataType: string): unknown {
+  const type = dataType.toLowerCase();
+  if (type.includes("timestamp") || type === "date") return new Date().toISOString();
+  if (type.includes("bool")) return false;
+  if (type.includes("json")) return "{}";
+  if (type === "array") return [];
+  if (/int|numeric|double|real|decimal|serial/.test(type)) return 0;
+  return "";
+}
+
+/**
+ * Inserts a row into the live `plans` table without needing to know its
+ * full column list in advance. Production's real table carries legacy
+ * columns (monthly_amount, and others still unidentified - see the
+ * 2026-09-21 incident) that predate this codebase's Prisma schema and were
+ * never migrated here, each a landmine for a plain prisma.plan.create()/
+ * upsert(). This introspects the actual columns at insert time: known
+ * fields get their real value, and any OTHER column that's NOT NULL with
+ * no default gets a type-appropriate placeholder instead of blocking the
+ * whole insert - self-healing against drift we don't know about yet,
+ * rather than hardcoding one more column name every time we get paged.
+ */
+export async function insertPlanRowSelfHealing(known: Record<string, unknown>) {
+  const columns = await prisma.$queryRawUnsafe<Array<{ column_name: string; is_nullable: string; column_default: string | null; data_type: string }>>(
+    `SELECT column_name, is_nullable, column_default, data_type FROM information_schema.columns WHERE table_name = 'plans'`
+  );
+  const insertColumns: string[] = [];
+  const insertValues: unknown[] = [];
+  for (const column of columns) {
+    if (column.column_name in known) {
+      insertColumns.push(column.column_name);
+      insertValues.push(known[column.column_name]);
+    } else if (column.is_nullable === "NO" && column.column_default === null) {
+      insertColumns.push(column.column_name);
+      insertValues.push(placeholderForColumnType(column.data_type));
+    }
+  }
+  const placeholders = insertColumns.map((_, i) => `$${i + 1}`);
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO plans (${insertColumns.map((c) => `"${c}"`).join(", ")}) VALUES (${placeholders.join(", ")}) ON CONFLICT (id) DO NOTHING`,
+    ...insertValues
+  );
+}
+
+async function applyPricingTierRestructure() {
+  // Never allowed to take ensureSchema() - and with it every route in the
+  // app, including login - down with it. Production's live `plans` table
+  // carries a `monthly_amount` NOT NULL column that predates this codebase's
+  // Prisma schema entirely (no migration here ever created it - external
+  // drift), which broke the raw prisma.plan.upsert() below and, because
+  // ensureSchema() rethrows and is retried on every single request, took the
+  // entire site down until this was caught (2026-09-21 incident). The
+  // targeted INSERT below works around that specific column; this catch is
+  // the backstop against the next piece of drift we don't know about yet.
+  try {
+    const alreadyApplied = await prisma.plan.findUnique({ where: { name: "باقة الأفراد" } });
+    if (alreadyApplied) return;
+
+    const now = new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
+      dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", numberingSystem: "latn", calendar: "gregory"
+    }).format(new Date());
+
+    const newPlans = [
+      // AI Copilot (Linkly-managed) starts at the small-enterprises tier and
+      // up - aiDailyLimit/aiMonthlyLimit 0 means "not included" (see the Plan
+      // model comment); individuals/regular tenants can still bring their own
+      // API key regardless, per the same comment. messageQuota is marketing
+      // campaign messages credited per billing period (see
+      // applyConfirmedSubscriptionPayment in lib/subscriptions.ts);
+      // UNLIMITED_MESSAGE_QUOTA (-1) on the enterprise tier.
+      { id: "plan-individuals", name: "باقة الأفراد", monthlyPrice: 199, employeeLimit: 1, sortOrder: 1, allowedChannels: "whatsapp", aiDailyLimit: 0, aiMonthlyLimit: 0, messageQuota: 1000 },
+      { id: "plan-regular", name: "الباقة العادية", monthlyPrice: 279, employeeLimit: 3, sortOrder: 2, allowedChannels: "whatsapp,instagram", aiDailyLimit: 0, aiMonthlyLimit: 0, messageQuota: 3000 },
+      { id: "plan-small-org", name: "باقة المؤسسات الصغيرة", monthlyPrice: 615, employeeLimit: 6, sortOrder: 3, allowedChannels: "whatsapp,instagram", aiDailyLimit: 50, aiMonthlyLimit: 1000, messageQuota: 5000 },
+      { id: "plan-large-org", name: "باقة المؤسسات الكبيرة", monthlyPrice: 849, employeeLimit: 8, sortOrder: 4, allowedChannels: "whatsapp,instagram,tiktok", aiDailyLimit: 100, aiMonthlyLimit: 2000, messageQuota: 7000 },
+      { id: "plan-enterprise", name: "باقة الشركات", monthlyPrice: 1499, employeeLimit: 100, sortOrder: 5, allowedChannels: "*", aiDailyLimit: 300, aiMonthlyLimit: 6000, messageQuota: UNLIMITED_MESSAGE_QUOTA }
+    ];
+    for (const plan of newPlans) {
+      if (isPostgresDatabase) {
+        await insertPlanRowSelfHealing({
+          id: plan.id,
+          name: plan.name,
+          monthly_price: plan.monthlyPrice,
+          monthly_amount: plan.monthlyPrice,
+          employee_limit: plan.employeeLimit,
+          sort_order: plan.sortOrder,
+          active: 1,
+          ai_daily_limit: plan.aiDailyLimit,
+          ai_monthly_limit: plan.aiMonthlyLimit,
+          allowed_channels: plan.allowedChannels,
+          message_quota: plan.messageQuota,
+          created_at: now,
+          updated_at: now
+        });
+      } else {
+        await prisma.plan.upsert({
+          where: { id: plan.id },
+          update: {},
+          create: { ...plan, active: 1, createdAt: now, updatedAt: now }
+        });
+      }
+    }
+
+    // Hidden from new signups/admin "add client" going forward; every existing
+    // subscriber on one of these keeps working exactly as before.
+    await prisma.plan.updateMany({
+      where: { name: { in: ["باقة البداية", "باقة النمو", "باقة الأعمال"] } },
+      data: { active: 0 }
+    });
+  } catch (error) {
+    console.error("[applyPricingTierRestructure] failed - will retry on the next request, but must not block it", error);
+  }
+}
+
 async function runRequiredProductionMigrations() {
   if (!isPostgresDatabase) return;
 
@@ -324,6 +450,9 @@ async function runRequiredProductionMigrations() {
     `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS rating_at TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
+    `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS escalated_for_message_id TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS x_mentions_rate_limited_until TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
@@ -361,6 +490,24 @@ async function runRequiredProductionMigrations() {
   );
   await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_token_expires_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS reengagement_sent_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_visit_at TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE customers ADD COLUMN IF NOT EXISTS visit_count INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS reengagement_enabled INTEGER NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS reengagement_days INTEGER NOT NULL DEFAULT 30`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE tenant_preferences ADD COLUMN IF NOT EXISTS reengagement_template_name TEXT NOT NULL DEFAULT ''`
   );
   await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS linkedin_comments_synced_at TEXT NOT NULL DEFAULT ''`
@@ -461,6 +608,50 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS admin_action_logs_admin_user_id_created_at_idx ON admin_action_logs (admin_user_id, created_at)`
   );
+  // Developer API/webhooks tables (feat: f2b8f2b) never reached this
+  // production bridge - the runtime-repair section further down that
+  // otherwise creates them is skipped entirely in production, so
+  // /api/developer/keys and /api/developer/webhooks 500ed with
+  // "table does not exist" on every real request.
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS api_keys (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    key_hash TEXT NOT NULL UNIQUE,
+    key_prefix TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    last_used_at TEXT NOT NULL DEFAULT ''
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS api_keys_tenant_id_idx ON api_keys (tenant_id)`
+  );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhooks (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    secret TEXT NOT NULL,
+    events TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS webhooks_tenant_id_idx ON webhooks (tenant_id)`
+  );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    id TEXT PRIMARY KEY,
+    webhook_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    event TEXT NOT NULL,
+    http_status INTEGER NOT NULL DEFAULT 0,
+    success INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS webhook_deliveries_webhook_id_created_at_idx ON webhook_deliveries (webhook_id, created_at)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS webhook_deliveries_tenant_id_idx ON webhook_deliveries (tenant_id)`
+  );
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS admin_action_logs_target_type_target_id_idx ON admin_action_logs (target_type, target_id)`
   );
@@ -513,6 +704,13 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE plans ADD COLUMN IF NOT EXISTS ai_monthly_limit INTEGER NOT NULL DEFAULT 0`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE plans ADD COLUMN IF NOT EXISTS allowed_channels TEXT NOT NULL DEFAULT '*'`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE plans ADD COLUMN IF NOT EXISTS message_quota INTEGER NOT NULL DEFAULT 0`
+  );
+  await applyPricingTierRestructure();
 
   // Segment targeting by a past campaign's engagement bucket - added
   // directly here, not the disabled legacy block, per the closed_at lesson
@@ -597,6 +795,9 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS snapchat_leads_synced_at TEXT NOT NULL DEFAULT ''`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS whatsapp_payment_issue_at TEXT NOT NULL DEFAULT ''`
+  );
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS leads (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,
@@ -660,6 +861,42 @@ async function runRequiredProductionMigrations() {
   );
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS campaign_recipient_clicks_tenant_id_idx ON campaign_recipient_clicks(tenant_id)`
+  );
+  // subscription_payments.list_price, .proration_credit_amount,
+  // .billing_cycle and .plan_message_quota were all wrongly added further
+  // down in runSchemaMigrations()'s general body, which is SKIPPED in
+  // production unless ENABLE_RUNTIME_SCHEMA_REPAIR=true (it isn't set) - so
+  // none of these columns ever actually reached production, breaking every
+  // prisma.subscriptionPayment query (dashboard, /api/templates,
+  // /api/cron/campaigns) with "column does not exist" (2026-09-21
+  // incident #2). Belongs here, in the bridge that always runs.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS list_price DOUBLE PRECISION NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS proration_credit_amount DOUBLE PRECISION NOT NULL DEFAULT 0`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS billing_cycle TEXT NOT NULL DEFAULT 'شهري'`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_message_quota INTEGER NOT NULL DEFAULT 0`
+  );
+  // templates.header_media_data_url and .media_token (migration
+  // 20260921090000_template_media_token) have the exact same misplacement
+  // bug - added past this function's boundary, in the section skipped in
+  // production. Broke /api/templates and /api/templates/sync-meta with
+  // "column does not exist" (surfaced as "Meta connection timed out" in
+  // the UI, since the WhatsApp Templates page's fetch failure has no more
+  // specific error message).
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE templates ADD COLUMN IF NOT EXISTS header_media_data_url TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE templates ADD COLUMN IF NOT EXISTS media_token TEXT NOT NULL DEFAULT ''`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS templates_media_token_idx ON templates(media_token)`
   );
 }
 
@@ -904,6 +1141,7 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE quick_replies ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS off_hours_notified_at TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS escalated_for_message_id TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS is_platform_admin INTEGER NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE user_accounts ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0`);
@@ -1093,6 +1331,8 @@ async function runSchemaMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS list_price DOUBLE PRECISION NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS proration_credit_amount DOUBLE PRECISION NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS discount_amount DOUBLE PRECISION NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS billing_cycle TEXT NOT NULL DEFAULT 'شهري'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS plan_message_quota INTEGER NOT NULL DEFAULT 0`);
     await ensurePostgresPaymentLedgerColumns();
 
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS discount_codes (
@@ -1175,6 +1415,15 @@ async function runSchemaMigrations() {
   if (!customerColumns.some((column) => column.name === "marketing_opt_out_at")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN marketing_opt_out_at TEXT NOT NULL DEFAULT ''`);
   }
+  if (!customerColumns.some((column) => column.name === "reengagement_sent_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN reengagement_sent_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!customerColumns.some((column) => column.name === "last_visit_at")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN last_visit_at TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!customerColumns.some((column) => column.name === "visit_count")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE customers ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0`);
+  }
   const conversationColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(conversations)`);
   if (!conversationColumns.some((column) => column.name === "tenant_id")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-demo'`);
@@ -1238,6 +1487,9 @@ async function runSchemaMigrations() {
   }
   if (!conversationColumns.some((column) => column.name === "attr_utm_content")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN attr_utm_content TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!conversationColumns.some((column) => column.name === "escalated_for_message_id")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE conversations ADD COLUMN escalated_for_message_id TEXT NOT NULL DEFAULT ''`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS link_clicks (
     id TEXT PRIMARY KEY,
@@ -1655,10 +1907,16 @@ async function runSchemaMigrations() {
     updated_at TEXT NOT NULL
   )`);
   const tenantPreferenceColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(tenant_preferences)`);
-  for (const columnName of ["brand_name", "brand_logo_data_url", "brand_color"]) {
+  for (const columnName of ["brand_name", "brand_logo_data_url", "brand_color", "reengagement_template_name"]) {
     if (!tenantPreferenceColumns.some((column) => column.name === columnName)) {
       await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
     }
+  }
+  if (!tenantPreferenceColumns.some((column) => column.name === "reengagement_enabled")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN reengagement_enabled INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!tenantPreferenceColumns.some((column) => column.name === "reengagement_days")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE tenant_preferences ADD COLUMN reengagement_days INTEGER NOT NULL DEFAULT 30`);
   }
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_payments (
     id TEXT PRIMARY KEY,
@@ -1750,7 +2008,8 @@ async function runSchemaMigrations() {
     `ALTER TABLE integration_settings ADD COLUMN snapchat_org_name TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN snapchat_refresh_token TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE integration_settings ADD COLUMN snapchat_token_expires_at TEXT NOT NULL DEFAULT ''`,
-    `ALTER TABLE integration_settings ADD COLUMN snapchat_leads_synced_at TEXT NOT NULL DEFAULT ''`
+    `ALTER TABLE integration_settings ADD COLUMN snapchat_leads_synced_at TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE integration_settings ADD COLUMN whatsapp_payment_issue_at TEXT NOT NULL DEFAULT ''`
   ]) {
     try {
       await prisma.$executeRawUnsafe(statement);
@@ -1921,6 +2180,13 @@ async function runSchemaMigrations() {
       await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN ${columnName} INTEGER NOT NULL DEFAULT 0`);
     }
   }
+  if (!planColumns.some((column) => column.name === "allowed_channels")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN allowed_channels TEXT NOT NULL DEFAULT '*'`);
+  }
+  if (!planColumns.some((column) => column.name === "message_quota")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN message_quota INTEGER NOT NULL DEFAULT 0`);
+  }
+  await applyPricingTierRestructure();
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL UNIQUE,
@@ -1970,7 +2236,9 @@ async function runSchemaMigrations() {
     plan_name TEXT NOT NULL DEFAULT '',
     plan_employee_limit INTEGER NOT NULL DEFAULT 0,
     list_price REAL NOT NULL DEFAULT 0,
-    proration_credit_amount REAL NOT NULL DEFAULT 0
+    proration_credit_amount REAL NOT NULL DEFAULT 0,
+    billing_cycle TEXT NOT NULL DEFAULT 'شهري',
+    plan_message_quota INTEGER NOT NULL DEFAULT 0
   )`);
   const subscriptionPaymentColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(subscription_payments)`);
   if (!subscriptionPaymentColumns.some((column) => column.name === "amount_halalas")) {
@@ -1990,6 +2258,12 @@ async function runSchemaMigrations() {
   }
   if (!subscriptionPaymentColumns.some((column) => column.name === "discount_amount")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0`);
+  }
+  if (!subscriptionPaymentColumns.some((column) => column.name === "billing_cycle")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN billing_cycle TEXT NOT NULL DEFAULT 'شهري'`);
+  }
+  if (!subscriptionPaymentColumns.some((column) => column.name === "plan_message_quota")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE subscription_payments ADD COLUMN plan_message_quota INTEGER NOT NULL DEFAULT 0`);
   }
   // subscriptions, subscription_payments and campaign_payments all exist by
   // this point - add the payment-ledger columns to each.
@@ -2145,9 +2419,34 @@ export async function ensureSchema() {
   await schemaPromise;
 }
 
+function isProductionRuntime() {
+  return process.env.NODE_ENV === "production";
+}
+
 async function seedDatabase() {
   await ensureSchema();
   await prisma.$transaction(async (tx) => {
+    // Keep only the plan catalog bootstrap in production. Demo tenant rows
+    // must not reappear after a production-data reset or on a cold start.
+    const existingPlanCount = await tx.plan.count();
+    if (existingPlanCount === 0) {
+      const nowLabel = "اليوم";
+      const defaultPlans = [
+        { id: "plan-starter", name: "باقة البداية", monthlyPrice: 249, employeeLimit: 1, sortOrder: 1 },
+        { id: "plan-growth", name: "باقة النمو", monthlyPrice: 499, employeeLimit: 3, sortOrder: 2 },
+        { id: "plan-business", name: "باقة الأعمال", monthlyPrice: 999, employeeLimit: 10, sortOrder: 3 }
+      ];
+      for (const plan of defaultPlans) {
+        await tx.plan.create({
+          data: { ...plan, active: 1, createdAt: nowLabel, updatedAt: nowLabel }
+        });
+      }
+    }
+
+    // Use a function boundary so the build-time TypeScript checker does not
+    // narrow NODE_ENV for the legacy local/demo seed branches below.
+    if (isProductionRuntime()) return;
+
     // tenant-demo gets a default email integration only if it has none.
     // This used to upsert a fixed `primary-email` row, which re-created a
     // second tenant-demo row whenever `primary-email` had been removed or
@@ -2392,24 +2691,6 @@ async function seedDatabase() {
       });
     }
 
-    // One-time seed: only runs while the plans table is empty, so admin
-    // edits made afterward (price/limit/active changes) are never clobbered
-    // by this re-running on a later cold start.
-    const existingPlanCount = await tx.plan.count();
-    if (existingPlanCount === 0) {
-      const nowLabel = "اليوم";
-      const defaultPlans = [
-        { id: "plan-starter", name: "باقة البداية", monthlyPrice: 249, employeeLimit: 1, sortOrder: 1 },
-        { id: "plan-growth", name: "باقة النمو", monthlyPrice: 499, employeeLimit: 3, sortOrder: 2 },
-        { id: "plan-business", name: "باقة الأعمال", monthlyPrice: 999, employeeLimit: 10, sortOrder: 3 }
-      ];
-      for (const plan of defaultPlans) {
-        await tx.plan.create({
-          data: { ...plan, active: 1, createdAt: nowLabel, updatedAt: nowLabel }
-        });
-      }
-    }
-
     // Synthetic records used by the browser E2E suite must never be allowed
     // to block production authentication. Some long-lived production
     // databases still contain legacy workspace-scoped rows that can conflict
@@ -2618,10 +2899,11 @@ export async function getCustomers(tenantId = "tenant-demo"): Promise<Customer[]
   });
 }
 
-export async function getConversations(tenantId = "tenant-demo", assigneeName?: string): Promise<Conversation[]> {
+export async function getConversations(tenantId = "tenant-demo", assigneeName?: string | string[]): Promise<Conversation[]> {
   await ensureSeeded();
+  const assigneeFilter = Array.isArray(assigneeName) ? { in: assigneeName } : assigneeName;
   const conversations = await prisma.conversation.findMany({
-    where: assigneeName ? { tenantId, assignee: assigneeName } : { tenantId },
+    where: assigneeFilter ? { tenantId, assignee: assigneeFilter } : { tenantId },
     orderBy: {
       lastActivityAt: "desc"
     },
@@ -2708,7 +2990,17 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       attrUtmSource: conversation.attrUtmSource || undefined,
       attrUtmMedium: conversation.attrUtmMedium || undefined,
       attrUtmCampaign: conversation.attrUtmCampaign || undefined,
-      attrUtmContent: conversation.attrUtmContent || undefined
+      attrUtmContent: conversation.attrUtmContent || undefined,
+      // Excludes "note" rows (escalation/assignment system messages) - the
+      // escalation note itself is appended right after escalating, so it
+      // would otherwise immediately become messages.at(-1) and break this
+      // check the instant a conversation gets escalated.
+      isEscalated: (() => {
+        const lastRealMessage = [...messages].reverse().find((message) => message.direction === "in" || message.direction === "out");
+        return (Boolean(conversation.escalatedForMessageId)
+          && lastRealMessage?.id === conversation.escalatedForMessageId
+          && lastRealMessage?.direction === "in") || undefined;
+      })()
     };
   });
 }
@@ -3089,6 +3381,7 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
     snapchatRefreshToken: readStoredSecret(settings.snapchatRefreshToken),
     snapchatTokenExpiresAt: settings.snapchatTokenExpiresAt,
     snapchatLeadsSyncedAt: settings.snapchatLeadsSyncedAt,
+    whatsappPaymentIssueAt: settings.whatsappPaymentIssueAt,
     webhookUrl: settings.webhookUrl,
     updatedAt: settings.updatedAt
   };
@@ -3151,104 +3444,35 @@ export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Pro
   };
 }
 
+// Note: no caller anywhere in the codebase reaches these two (legacy admin
+// panel leftovers) - kept working rather than deleted, and fixed for the
+// same unquoted-alias bug as getAdminLogs (see its comment) on the chance
+// they're ever wired back up.
 export async function getProviderClients(): Promise<ProviderClient[]> {
   await ensureSeeded();
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      company: string;
-      owner: string;
-      plan: string;
-      status: ProviderClient["status"];
-      subscriptionStatus: ProviderClient["subscriptionStatus"];
-      renewal: string;
-      phone: string;
-      wabaId: string;
-      conversations: number;
-      employees: number;
-      lastActivity: string;
-      createdAt: string;
-    }>
-  >(
-    `SELECT
-      id,
-      company,
-      owner,
-      plan,
-      status,
-      subscription_status AS subscriptionStatus,
-      renewal,
-      phone,
-      waba_id AS wabaId,
-      conversations,
-      employees,
-      last_activity AS lastActivity,
-      created_at AS createdAt
-    FROM provider_clients
-    ORDER BY created_at DESC`
-  );
-
-  return rows;
+  const rows = await prisma.providerClient.findMany({ orderBy: { createdAt: "desc" } });
+  return rows as ProviderClient[];
 }
 
 export async function getProviderSubscriptions(): Promise<ProviderSubscription[]> {
   await ensureSeeded();
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      clientId: string;
-      clientName: string;
-      plan: string;
-      status: ProviderSubscription["status"];
-      amount: number;
-      renewal: string;
-      billingCycle: string;
-      paymentMethod: string;
-    }>
-  >(
-    `SELECT
-      id,
-      client_id AS clientId,
-      client_name AS clientName,
-      plan,
-      status,
-      amount,
-      renewal,
-      billing_cycle AS billingCycle,
-      payment_method AS paymentMethod
-    FROM provider_subscriptions
-    ORDER BY renewal ASC`
-  );
-
-  return rows;
+  const rows = await prisma.providerSubscription.findMany({ orderBy: { renewal: "asc" } });
+  return rows as ProviderSubscription[];
 }
 
 export async function getAdminLogs(): Promise<AdminLog[]> {
   await ensureSeeded();
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      at: string;
-      clientId: string;
-      clientName: string;
-      source: string;
-      level: AdminLog["level"];
-      message: string;
-    }>
-  >(
-    `SELECT
-      id,
-      at,
-      client_id AS clientId,
-      client_name AS clientName,
-      source,
-      level,
-      message
-    FROM admin_logs
-    ORDER BY id ASC`
-  );
-
-  return rows;
+  // Was a raw SQL query with unquoted camelCase aliases (e.g. `client_id AS
+  // clientId`) - PostgreSQL folds unquoted identifiers to lowercase, so the
+  // result rows actually came back keyed `clientid`, not `clientId`. Every
+  // row's `clientId` field was silently undefined in production (SQLite,
+  // used in dev/tests, does not fold identifier case the same way, so this
+  // never reproduced locally) - the Logs page's per-client filter compared
+  // that undefined against a real tenant id and could never match, no
+  // matter which client was selected. Prisma's typed client sidesteps the
+  // whole class of bug: it maps DB columns to camelCase fields itself.
+  const rows = await prisma.adminLog.findMany({ orderBy: { id: "asc" } });
+  return rows as AdminLog[];
 }
 
 export async function getUserAccountById(id: string): Promise<UserAccount | null> {

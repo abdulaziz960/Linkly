@@ -107,13 +107,13 @@ export default function TagsView({
               <button className="btn soft" type="button" onClick={() => setSearch("")}>{t("مسح", "Clear")}</button>
             </div>
           ) : null}
-          <table>
+          <table className="mobile-card-table">
             <thead><tr><th>{t("الوسم", "Tag")}</th><th>{t("اللون", "Color")}</th><th>{t("الوصف", "Description")}</th><th>{t("الاستخدام", "Usage")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
             <tbody>
               {filteredTags.map((tag) => (
                 <tr key={tag.id}>
                   <td><b>{tag.name}</b></td>
-                  <td>
+                  <td data-label={t("اللون", "Color")}>
                     <span
                       className="tag-color-swatch"
                       role="img"
@@ -121,9 +121,9 @@ export default function TagsView({
                       style={{ background: tag.color }}
                     />
                   </td>
-                  <td>{tag.description}</td>
-                  <td>{getTagUsage(tag.name)} {t("محادثة", "conversation(s)")}</td>
-                  <td className="row-actions">
+                  <td data-label={t("الوصف", "Description")}>{tag.description}</td>
+                  <td data-label={t("الاستخدام", "Usage")}>{getTagUsage(tag.name)} {t("محادثة", "conversation(s)")}</td>
+                  <td className="row-actions" data-label={t("إجراء", "Action")}>
                     <button className="btn soft" type="button" onClick={() => setSelectedTag(tag)}>{t("عرض", "View")}</button>
                     <button className="btn soft" type="button" onClick={() => openEditForm(tag)}>{t("تعديل", "Edit")}</button>
                     <button className="btn danger" type="button" onClick={() => deleteTag(tag)}>{t("حذف", "Delete")}</button>

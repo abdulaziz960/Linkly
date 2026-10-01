@@ -9,7 +9,9 @@ import {
   type SupportAttachmentInput
 } from "../../../../lib/support";
 import { nextTicketNumber, recordSupportAuditLog } from "../../../../lib/support-server";
+import { categoryLabel, priorityLabel } from "../../../../lib/support-labels";
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
+import { sendNewSupportTicketAdminNotification } from "../../../../lib/email";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -149,10 +151,25 @@ export async function POST(request: NextRequest) {
   await recordSupportAuditLog({
     actorName: user.name,
     action: "تذكرة دعم جديدة",
-    ticketId: ticket.id,
+    tenantId: ticket.tenantId,
+    companyName: ticket.companyName,
     ticketLabel: `${ticket.ticketNumber} — ${subject}`,
     level: priority === "urgent" ? "خطأ" : "معلومة"
   }).catch(() => {});
+
+  sendNewSupportTicketAdminNotification({
+    ticketId: ticket.id,
+    ticketNumber: ticket.ticketNumber,
+    subject,
+    categoryLabel: categoryLabel(category, "ar"),
+    priorityLabel: priorityLabel(priority, "ar"),
+    companyName: ticket.companyName,
+    submitterName: user.name,
+    submitterEmail: user.email,
+    description
+  }).catch((error) => {
+    console.error("New support ticket admin notification failed", error);
+  });
 
   return jsonOk(ticket);
 }

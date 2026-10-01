@@ -17,7 +17,9 @@ vi.mock("../lib/permissions-server", () => ({
 }));
 
 vi.mock("../lib/email", () => ({
-  sendActivationEmail: vi.fn(async () => ({ sent: true, message: "sent" }))
+  sendActivationEmail: vi.fn(async () => ({ sent: true, message: "sent" })),
+  sendNewSupportTicketAdminNotification: vi.fn(async () => true),
+  sendNewDevelopmentRequestAdminNotification: vi.fn(async () => true)
 }));
 
 beforeAll(async () => {

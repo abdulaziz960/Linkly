@@ -315,7 +315,7 @@ export default function TeamsView({
 
         {activeTab === "users" ? (
           <div className="panel-body table-wrap">
-            <table className="user-management-table">
+            <table className="user-management-table mobile-card-table">
               <thead>
                 <tr>
                   <th className="user-check-col"><input type="checkbox" checked={allSelected} onChange={toggleSelectAll} aria-label={t("تحديد الكل", "Select all")} /></th>
@@ -335,17 +335,17 @@ export default function TeamsView({
                     <>
                       <tr key={employee.id} className={isExpanded ? "is-expanded" : ""}>
                         <td className="user-check-col"><input type="checkbox" checked={selectedIds.has(employee.id)} onChange={() => toggleSelect(employee.id)} aria-label={employee.name} /></td>
-                        <td>
+                        <td className="card-title-cell">
                           <div className="user-cell">
                             <span className="avatar small">{employee.initial}</span>
                             <b>{employee.name}</b>
                           </div>
                         </td>
-                        <td><span className={employee.status === "متصل" ? "state online" : employee.status === "مشغول" ? "state busy" : "state offline"}>{employeeStatusLabel(employee.status, t)}</span></td>
-                        <td>{employee.email}</td>
-                        <td>{employeeRoleLabel(employee.role, t)}</td>
-                        <td>{employeeTeams.length ? employeeTeams.join("، ") : "-"}</td>
-                        <td className="user-actions-col">
+                        <td data-label={t("الحالة", "Online Status")}><span className={employee.status === "متصل" ? "state online" : employee.status === "مشغول" ? "state busy" : "state offline"}>{employeeStatusLabel(employee.status, t)}</span></td>
+                        <td data-label={t("البريد الإلكتروني", "Email")}>{employee.email}</td>
+                        <td data-label={t("الدور", "Role")}>{employeeRoleLabel(employee.role, t)}</td>
+                        <td data-label={t("الفرق", "Teams")}>{employeeTeams.length ? employeeTeams.join("، ") : "-"}</td>
+                        <td className="user-actions-col" data-label={t("إجراء", "Actions")}>
                           <button
                             className="icon-btn user-expand-btn"
                             type="button"
@@ -391,16 +391,16 @@ export default function TeamsView({
         ) : (
           <div className="panel-body table-wrap">
             <p className="muted-copy">{t("استخدم الفرق لتنظيم الموظفين حسب مهامهم مثل الدعم، المبيعات، الشحن، والفواتير، وتحديد آلية توزيع المحادثات لكل فريق.", "Use teams to organize employees by function, such as support, sales, shipping, and billing, and to set the conversation routing method for each team.")}</p>
-            <table>
+            <table className="mobile-card-table">
               <thead><tr><th>{t("الفريق", "Team")}</th><th>{t("المشرف", "Lead")}</th><th>{t("الأعضاء", "Members")}</th><th>{t("التوزيع", "Routing")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
               <tbody>
                 {teams.map((team) => (
                   <tr key={team.id}>
                     <td><b>{team.name}</b></td>
-                    <td>{team.lead || "-"}</td>
-                    <td>{team.memberIds.length}</td>
-                    <td>{routingLabel(team.routing, t)}</td>
-                    <td className="row-actions">
+                    <td data-label={t("المشرف", "Lead")}>{team.lead || "-"}</td>
+                    <td data-label={t("الأعضاء", "Members")}>{team.memberIds.length}</td>
+                    <td data-label={t("التوزيع", "Routing")}>{routingLabel(team.routing, t)}</td>
+                    <td className="row-actions" data-label={t("إجراء", "Action")}>
                       <button className="btn soft" type="button" onClick={() => setMembersOpen(team)}>{t("عرض", "View")}</button>
                       <button className="btn soft" type="button" onClick={() => openEditTeamForm(team)}>{t("تعديل", "Edit")}</button>
                       <button className="btn danger" type="button" onClick={() => deleteTeam(team)}>{t("حذف", "Delete")}</button>

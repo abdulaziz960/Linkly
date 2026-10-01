@@ -207,7 +207,7 @@ function sentAtRangeWhere(dateFrom: string, dateTo: string) {
  * phone can only appear more than once here when sourceCampaignId is empty
  * and it matched the bucket in more than one campaign).
  */
-async function resolveCampaignEngagementMatches(tenantId: string, criteria: SegmentCriteria): Promise<Map<string, string> | null> {
+async function resolveCampaignEngagementMatches(tenantId: string, criteria: SegmentCriteria): Promise<Map<string, { campaignName: string; clickCount: number }> | null> {
   if (!criteria.engagementBucket) return null;
   const recipients = await prisma.campaignRecipient.findMany({
     where: {
@@ -219,17 +219,17 @@ async function resolveCampaignEngagementMatches(tenantId: string, criteria: Segm
   const campaignIds = Array.from(new Set(recipients.map((recipient) => recipient.campaignId)));
   const campaignNames = new Map((await prisma.campaign.findMany({ where: { id: { in: campaignIds } }, select: { id: true, name: true } })).map((campaign) => [campaign.id, campaign.name]));
 
-  const matches = new Map<string, string>();
+  const matches = new Map<string, { campaignName: string; clickCount: number }>();
   for (const recipient of recipients) {
     if (engagementBucketFor(recipient) !== criteria.engagementBucket) continue;
     if (criteria.engagementClickCount > 0 && recipient.clickCount !== criteria.engagementClickCount) continue;
     const phone = normalizeWhatsAppPhone(recipient.phone);
-    if (phone && !matches.has(phone)) matches.set(phone, campaignNames.get(recipient.campaignId) || "");
+    if (phone && !matches.has(phone)) matches.set(phone, { campaignName: campaignNames.get(recipient.campaignId) || "", clickCount: recipient.clickCount });
   }
   return matches;
 }
 
-export type CrossCampaignEngagementRow = { name: string; phone: string; campaignName: string };
+export type CrossCampaignEngagementRow = { name: string; phone: string; campaignName: string; clickCount: number };
 export type CrossCampaignEngagementResult = {
   counts: Record<EngagementBucket, number>;
   rows: Record<EngagementBucket, CrossCampaignEngagementRow[]>;
@@ -250,7 +250,7 @@ export async function getCrossCampaignEngagement(tenantId: string, dateFrom: str
   const campaignNames = new Map((await prisma.campaign.findMany({ where: { tenantId }, select: { id: true, name: true } })).map((campaign) => [campaign.id, campaign.name]));
 
   const bucketRank: Record<EngagementBucket, number> = { clicked: 4, opened: 3, notOpened: 2, notReceived: 1 };
-  const bestByPhone = new Map<string, { bucket: EngagementBucket; name: string; campaignName: string }>();
+  const bestByPhone = new Map<string, { bucket: EngagementBucket; name: string; campaignName: string; clickCount: number }>();
   for (const recipient of recipients) {
     const bucket = engagementBucketFor(recipient);
     if (!bucket) continue;
@@ -258,15 +258,15 @@ export async function getCrossCampaignEngagement(tenantId: string, dateFrom: str
     if (!phone) continue;
     const existing = bestByPhone.get(phone);
     if (!existing || bucketRank[bucket] > bucketRank[existing.bucket]) {
-      bestByPhone.set(phone, { bucket, name: recipient.name, campaignName: campaignNames.get(recipient.campaignId) || "" });
+      bestByPhone.set(phone, { bucket, name: recipient.name, campaignName: campaignNames.get(recipient.campaignId) || "", clickCount: recipient.clickCount });
     }
   }
 
   const counts: Record<EngagementBucket, number> = { notReceived: 0, notOpened: 0, opened: 0, clicked: 0 };
   const rows: Record<EngagementBucket, CrossCampaignEngagementRow[]> = { notReceived: [], notOpened: [], opened: [], clicked: [] };
-  for (const [phone, { bucket, name, campaignName }] of bestByPhone) {
+  for (const [phone, { bucket, name, campaignName, clickCount }] of bestByPhone) {
     counts[bucket] += 1;
-    rows[bucket].push({ name, phone, campaignName });
+    rows[bucket].push({ name, phone, campaignName, clickCount });
   }
   return { counts, rows };
 }
@@ -276,7 +276,7 @@ export async function resolveSegmentRecipients(tenantId: string, criteria: Segme
   return details.map((row) => ({ phone: row.phone, name: row.name }));
 }
 
-export type SegmentRecipientDetail = { name: string; phone: string; campaignName: string };
+export type SegmentRecipientDetail = { name: string; phone: string; campaignName: string; clickCount: number };
 
 /** Same matching as resolveSegmentRecipients, plus which campaign (if any) produced each row's engagement match - "" for a segment with no campaign-engagement condition, or a phone matched only by tags/inactivity. */
 export async function getSegmentRecipientDetails(tenantId: string, criteria: SegmentCriteria): Promise<SegmentRecipientDetail[]> {
@@ -302,7 +302,8 @@ export async function getSegmentRecipientDetails(tenantId: string, criteria: Seg
     if (!phone || seen.has(phone)) continue;
     if (engagementMatches && !engagementMatches.has(phone)) continue;
     seen.add(phone);
-    recipients.push({ phone, name: customer.name, campaignName: engagementMatches?.get(phone) || "" });
+    const engagementMatch = engagementMatches?.get(phone);
+    recipients.push({ phone, name: customer.name, campaignName: engagementMatch?.campaignName || "", clickCount: engagementMatch?.clickCount ?? 0 });
   }
 
   return recipients;

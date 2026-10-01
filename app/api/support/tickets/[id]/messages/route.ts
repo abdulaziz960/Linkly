@@ -67,7 +67,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
   await recordSupportAuditLog({
     actorName: user.name,
     action: "رد العميل على تذكرة دعم",
-    ticketId: ticket.id,
+    tenantId: ticket.tenantId,
+    companyName: ticket.companyName,
     ticketLabel: `${ticket.ticketNumber} — ${ticket.subject}`
   }).catch(() => {});
 

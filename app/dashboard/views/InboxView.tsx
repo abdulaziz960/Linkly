@@ -19,11 +19,11 @@ import { statusLabel } from "../utils/conversation";
 import { ChannelIcon } from "./SettingsView";
 import { isDeletedMessageText, useLanguage } from "../i18n";
 import { getChannelName } from "../../channel-names";
-import type { AiOperation } from "../../../lib/ai-types";
+import { aiOperations, type AiOperation } from "../../../lib/ai-types";
 
 type InboxViewProps = {
   activeConversation: Conversation;
-  assignedOnly: boolean;
+  tabsMode: "owner" | "supervisor" | "employee";
   assigneeOptions: string[];
   canChangeAssignee: boolean;
   canDeleteConversation: boolean;
@@ -271,7 +271,7 @@ function formatEmailContent(text: string) {
 
 export default function InboxView({
   activeConversation,
-  assignedOnly,
+  tabsMode,
   assigneeOptions,
   canChangeAssignee,
   canDeleteConversation,
@@ -330,6 +330,20 @@ export default function InboxView({
   const [aiFeedbackConversationId, setAiFeedbackConversationId] = useState("");
   const aiRequest = useRef<AbortController | null>(null);
   useEffect(() => () => { aiRequest.current?.abort(); }, [activeConversation.id]);
+  const aiOperationLabels: Record<AiOperation, { ar: string; en: string }> = {
+    reply: { ar: "اقتراح رد", en: "Suggest reply" },
+    rewrite: { ar: "إعادة صياغة المسودة", en: "Rewrite draft" },
+    correct: { ar: "تصحيح المسودة", en: "Correct draft" },
+    translate: { ar: "ترجمة المسودة للإنجليزية", en: "Translate draft to Arabic" },
+    summarize: { ar: "تلخيص المحادثة", en: "Summarize conversation" },
+    sentiment: { ar: "تحليل المشاعر", en: "Analyze sentiment" },
+    next_step: { ar: "الخطوة التالية", en: "Next step" }
+  };
+  const aiOperationOptions = useMemo(
+    () => aiOperations.map((operation) => ({ value: operation, label: t(aiOperationLabels[operation].ar, aiOperationLabels[operation].en) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [language]
+  );
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [emojiCategoryId, setEmojiCategoryId] = useState("recent");
   const [emojiSearch, setEmojiSearch] = useState("");
@@ -692,8 +706,28 @@ export default function InboxView({
         setAiFeedback(t("تم بلوغ حد استخدام AI. راجع مالك الحساب.", "AI usage limit reached. Contact your workspace owner."));
         return;
       }
-      if (result?.data?.reason === "not_configured") {
-        setAiFeedback(t("لم يتم ربط مزود الذكاء الاصطناعي بعد.", "An AI provider hasn't been connected yet."));
+      if (["not_configured", "managed_not_ready", "key_unavailable"].includes(result?.data?.reason || "")) {
+        setAiFeedback(t("إعداد اتصال مساعد AI غير مكتمل. راجع مالك الحساب أو إدارة المنصة.", "AI connection setup is incomplete. Contact your owner or platform administrator."));
+        return;
+      }
+      if (result?.data?.reason === "budget_limit") {
+        setAiFeedback(t("تم بلوغ حد ميزانية المساعد المُدار لهذا الشهر. لم يُرسل أي رد؛ راجع إدارة المنصة.", "Managed AI has reached its monthly budget allowance. No reply was sent; contact the platform administrator."));
+        return;
+      }
+      if (result?.data?.reason === "draft_too_long") {
+        setAiFeedback(t("المسودة تتجاوز حد المساعد الاقتصادي. اختصرها أو قسّمها قبل طلب المساعدة.", "The draft exceeds the economy assistant limit. Shorten or split it before requesting help."));
+        return;
+      }
+      if (result?.data?.reason === "disabled") {
+        setAiFeedback(t("مساعد AI معطّل. يمكن لمالك الحساب تفعيله من إعدادات AI.", "AI is disabled. Your owner can enable it in AI settings."));
+        return;
+      }
+      if (result?.data?.reason === "plan_upgrade_required") {
+        setAiFeedback(t("المساعد المُدار غير مشمول في باقة الحساب الحالية. راجع مالك الحساب.", "Managed AI is not included in your current plan. Contact your owner."));
+        return;
+      }
+      if (result?.data?.reason === "provider_unavailable") {
+        setAiFeedback(t("خادم المساعد مشغول أو غير متاح. لم يُرسل أي رد للعميل؛ حاول لاحقاً.", "The AI server is busy or unavailable. No reply was sent to the customer; try again later."));
         return;
       }
       if (response.ok && result?.ok && result.data?.suggestion) {
@@ -832,26 +866,39 @@ export default function InboxView({
           </div>
         </div>
         <div className="conversation-tabs" role="tablist" aria-label={t("حالات المحادثات", "Conversation states")}>
-          {!assignedOnly ? (
+          <FilterButton
+            active={filter === "mine"}
+            count={counts.mine}
+            label={t("محادثاتي", "Mine")}
+            onClick={() => onChangeFilter("mine")}
+          />
+          {tabsMode !== "employee" ? (
+            <FilterButton
+              active={filter === "escalated"}
+              count={counts.escalated}
+              label={t("تصعيد", "Escalated")}
+              onClick={() => onChangeFilter("escalated")}
+              tone="danger"
+            />
+          ) : null}
+          {tabsMode !== "employee" ? (
             <FilterButton active={filter === "all"} count={counts.all} label={t("الكل", "All")} onClick={() => onChangeFilter("all")} />
           ) : null}
-          {!assignedOnly ? (
+          <FilterButton
+            active={filter === "unread"}
+            count={counts.unread}
+            label={t("غير مقروء", "Unread")}
+            onClick={() => onChangeFilter("unread")}
+          />
+          {tabsMode === "supervisor" ? (
             <FilterButton
-              active={filter === "mine"}
-              count={counts.mine}
-              label={t("محادثاتي", "Mine")}
-              onClick={() => onChangeFilter("mine")}
+              active={filter === "closed"}
+              count={counts.closed}
+              label={t("مغلقة", "Closed")}
+              onClick={() => onChangeFilter("closed")}
             />
           ) : null}
-          {!assignedOnly ? (
-            <FilterButton
-              active={filter === "unassigned"}
-              count={counts.unassigned}
-              label={t("غير مسندة", "Unassigned")}
-              onClick={() => onChangeFilter("unassigned")}
-            />
-          ) : null}
-          {!assignedOnly ? (
+          {tabsMode === "owner" ? (
             <button
               type="button"
               className={`conversation-tabs-toggle ${moreTabsOpen ? "open" : ""}`}
@@ -862,7 +909,15 @@ export default function InboxView({
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
             </button>
           ) : null}
-          {assignedOnly || moreTabsOpen || filter === "assigned" ? (
+          {tabsMode === "owner" && (moreTabsOpen || filter === "unassigned") ? (
+            <FilterButton
+              active={filter === "unassigned"}
+              count={counts.unassigned}
+              label={t("غير مسندة", "Unassigned")}
+              onClick={() => onChangeFilter("unassigned")}
+            />
+          ) : null}
+          {tabsMode === "owner" && (moreTabsOpen || filter === "assigned") ? (
             <FilterButton
               active={filter === "assigned"}
               count={counts.assigned}
@@ -870,15 +925,7 @@ export default function InboxView({
               onClick={() => onChangeFilter("assigned")}
             />
           ) : null}
-          {assignedOnly || moreTabsOpen || filter === "unread" ? (
-            <FilterButton
-              active={filter === "unread"}
-              count={counts.unread}
-              label={t("غير مقروء", "Unread")}
-              onClick={() => onChangeFilter("unread")}
-            />
-          ) : null}
-          {assignedOnly || moreTabsOpen || filter === "closed" ? (
+          {tabsMode === "owner" && (moreTabsOpen || filter === "closed") ? (
             <FilterButton
               active={filter === "closed"}
               count={counts.closed}
@@ -966,7 +1013,7 @@ export default function InboxView({
                   <ChannelIcon id={conversation.channel || "whatsapp"} />
                   <span>{getChannelLabel(conversation, language)}</span>
                 </em>
-                {!assignedOnly && conversation.assignee && conversation.assignee !== "بدون موظف" ? (
+                {tabsMode !== "employee" && conversation.assignee && conversation.assignee !== "بدون موظف" ? (
                   <span className="conversation-assignee-inline">{conversation.assignee}</span>
                 ) : null}
                 <span className="conversation-card-title"><b>{conversation.customer}</b></span>
@@ -1068,7 +1115,7 @@ export default function InboxView({
             <p>{t("اختر محادثة من القائمة لعرض الرسائل وبيانات العميل وإجراءات الإسناد.", "Select a conversation to view messages, customer details, and assignment actions.")}</p>
             <div className="conversation-empty-actions">
               <button type="button" onClick={() => searchInputRef.current?.focus()}>{t("البحث عن عميل", "Find a customer")}</button>
-              {!assignedOnly ? <button type="button" onClick={() => onChangeFilter("unassigned")}>{t("عرض غير المسندة", "View unassigned")}</button> : null}
+              {tabsMode === "owner" ? <button type="button" onClick={() => onChangeFilter("unassigned")}>{t("عرض غير المسندة", "View unassigned")}</button> : null}
               <button type="button" onClick={() => onChangeFilter("unread")}>{t("عرض غير المقروءة", "View unread")}</button>
             </div>
           </div>
@@ -1123,6 +1170,11 @@ export default function InboxView({
           <div className="chat-panel">
             <div className="messages" ref={messagesContainerRef}>
               {activeConversation.messages.map((item) => (
+                item.source?.type === "system_assignment" || item.source?.type === "system_escalation" ? (
+                  <div className="message-system-line" key={item.id}>
+                    <span>{item.text}</span>
+                  </div>
+                ) : (
                 <div
                   className={`message-bubble ${item.direction} channel-${activeConversation.channel || "whatsapp"}`}
                   key={item.id}
@@ -1263,6 +1315,7 @@ export default function InboxView({
                     </small>
                   ) : null}
                 </div>
+                )
               ))}
             </div>
             {contextMessage ? (
@@ -1492,15 +1545,13 @@ export default function InboxView({
                   >
                     {isAiSuggesting ? <span className="ai-suggest-spinner" aria-hidden="true" /> : <span aria-hidden="true">✨</span>}
                   </button>
-                  <select aria-label={t("أداة مساعد AI", "AI Copilot tool")} value={aiOperation} onChange={(event) => setAiOperation(event.target.value as AiOperation)} disabled={isAiSuggesting}>
-                    <option value="reply">{t("اقتراح رد", "Suggest reply")}</option>
-                    <option value="rewrite">{t("إعادة صياغة المسودة", "Rewrite draft")}</option>
-                    <option value="correct">{t("تصحيح المسودة", "Correct draft")}</option>
-                    <option value="translate">{t("ترجمة المسودة للإنجليزية", "Translate draft to Arabic")}</option>
-                    <option value="summarize">{t("تلخيص المحادثة", "Summarize conversation")}</option>
-                    <option value="sentiment">{t("تحليل المشاعر", "Analyze sentiment")}</option>
-                    <option value="next_step">{t("الخطوة التالية", "Next step")}</option>
-                  </select>
+                  <CustomSelect
+                    className="ai-tool-select"
+                    value={aiOperation}
+                    onChange={(value) => setAiOperation(value as AiOperation)}
+                    disabled={isAiSuggesting}
+                    options={aiOperationOptions}
+                  />
                   {aiFeedback && aiFeedbackConversationId === activeConversation.id ? <p role="status" style={{ whiteSpace: "pre-wrap" }}>{aiFeedback}</p> : null}
                   <div className="quick-reply-picker-wrap composer-message-wrap">
                     {shouldShowQuickReplySuggestions ? (

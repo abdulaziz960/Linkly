@@ -10,6 +10,7 @@ import { sendWebsiteTextMessage } from "./website-send";
 import { sendEmailMessage } from "./email-channel";
 import { sendUnifonicSms } from "./sms-send";
 import { checkOffHoursAutoReply } from "./work-hours";
+import { logAssignmentMessage } from "./conversation-system-messages";
 import { triggerWebhookEvent } from "./webhooks";
 import { notifyTenant } from "./push-notifications";
 
@@ -211,6 +212,7 @@ async function executeAction(action: StoredAction, tenantId: string, conversatio
   if (action.type === "إسناد إلى موظف") {
     if (isUnsetPlaceholder(action.target)) return;
     await prisma.conversation.update({ where: { id: conversationId }, data: { assignee: action.target, status: "assigned" } });
+    await logAssignmentMessage({ conversationId, tenantId, assignee: action.target, assignedBy: "" });
     return;
   }
 
@@ -225,6 +227,7 @@ async function executeAction(action: StoredAction, tenantId: string, conversatio
       where: { id: conversationId },
       data: { assignee: assignee || action.target, status: "assigned" }
     });
+    await logAssignmentMessage({ conversationId, tenantId, assignee: assignee || action.target, assignedBy: "" });
     return;
   }
 

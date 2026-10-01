@@ -242,20 +242,20 @@ export default function TemplatesView({
           <p className="form-error">{t("اربط قناة واتساب من الإعدادات أولاً حتى تظهر القوالب.", "Connect a WhatsApp channel from Settings first for templates to show up.")}</p>
         ) : (
           <div className="panel-body table-wrap">
-            <table>
+            <table className="mobile-card-table">
               <thead><tr><th>{t("القالب", "Template")}</th><th>{t("الفئة", "Category")}</th><th>{t("اللغة", "Language")}</th><th>{t("الحالة من Meta", "Meta status")}</th><th>{t("آخر مزامنة", "Last sync")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
               <tbody>
                 {templates.map((template) => (
                   <tr key={template.name}>
-                    <td>
+                    <td data-label={t("القالب", "Template")}>
                       <b>{template.name}</b>
                       <span className="table-subtitle" title={template.message}>{template.message}</span>
                     </td>
-                    <td>{template.category || (template.type === "تسويق" ? "MARKETING" : "UTILITY")}</td>
-                    <td>{template.language}</td>
-                    <td><span className={template.status === "معتمد" ? "state ok" : template.status === "مرفوض" ? "state off" : "state warn"}>{templateStatusLabel(template.status || "", t)}</span></td>
-                    <td>{template.syncedAt || "-"}</td>
-                    <td className="row-actions">
+                    <td data-label={t("الفئة", "Category")}>{template.category || (template.type === "تسويق" ? "MARKETING" : "UTILITY")}</td>
+                    <td data-label={t("اللغة", "Language")}>{template.language}</td>
+                    <td data-label={t("الحالة من Meta", "Meta status")}><span className={template.status === "معتمد" ? "state ok" : template.status === "مرفوض" ? "state off" : "state warn"}>{templateStatusLabel(template.status || "", t)}</span></td>
+                    <td data-label={t("آخر مزامنة", "Last sync")}>{template.syncedAt || "-"}</td>
+                    <td className="row-actions" data-label={t("إجراء", "Action")}>
                       <button className="btn soft" type="button" onClick={() => openEditForm(template)}>{t("عرض", "View")}</button>
                       <button className="btn danger" type="button" onClick={() => deleteTemplate(template)}>{t("حذف", "Delete")}</button>
                     </td>

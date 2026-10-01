@@ -5,6 +5,10 @@ import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 import { encryptSecret, integrationSecretFields, maskIntegrationSecrets, SECRET_MASK } from "../../../../lib/secret-storage";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { isValidChannelKey, upgradeNeededMessage } from "../../../../lib/channel-catalog";
+import { isChannelAllowedForTenant } from "../../../../lib/plan-channel-access";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
+import { channelNames, type ChannelNameKey } from "../../../channel-names";
 
 const allowedFields = [
   "provider",
@@ -473,6 +477,15 @@ export async function PATCH(request: NextRequest) {
   const existingSettings = await getIntegrationSettings(channel, user.tenantId);
   const body = await request.json();
   const allowBlankOverwrite = body.reset === true || body.allowBlankOverwrite === true;
+
+  // Disconnecting (reset) must always be allowed regardless of plan, and
+  // "website" (the built-in chat widget) is never plan-gated. Every other
+  // channel configured through this generic manual-save endpoint (telegram,
+  // sms, and the manual-paste alternative to OAuth for the rest) is subject
+  // to the same per-plan restriction as the dedicated OAuth connect routes.
+  if (body.reset !== true && isValidChannelKey(channel) && !(await isChannelAllowedForTenant(user.tenantId, channel))) {
+    return NextResponse.json({ message: upgradeNeededMessage(channel) }, { status: 403 });
+  }
   const data: Partial<Record<IntegrationField, string>> = {};
 
   for (const field of allowedFields) {
@@ -539,6 +552,17 @@ export async function PATCH(request: NextRequest) {
   });
   const settings = await prisma.integrationSetting.findFirst({ where: { id: integrationId, tenantId: user.tenantId } });
   if (!settings) return NextResponse.json({ error: "تعذر تحديث إعدادات الربط" }, { status: 404 });
+
+  const channelLabel = channelNames[channel as ChannelNameKey]?.ar || channel;
+  await logAdminAction(
+    user.tenantId,
+    await getTenantCompanyName(user.tenantId),
+    body.reset === true
+      ? `تم فصل قناة "${channelLabel}" بواسطة ${user.name}.`
+      : `تم حفظ بيانات ربط قناة "${channelLabel}" بواسطة ${user.name}.`,
+    "معلومة",
+    "التكاملات"
+  );
 
   if (
     !body.reset &&

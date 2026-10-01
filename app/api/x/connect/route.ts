@@ -5,6 +5,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getXPlatformCredentials } from "../../../../lib/x-platform";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { isChannelAllowedForTenant } from "../../../../lib/plan-channel-access";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,9 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.redirect(new URL("/login", appOrigin));
   if (!(await userHasViewPermission(user, "settings"))) {
     return NextResponse.redirect(new URL("/dashboard?x=forbidden&view=settings", appOrigin));
+  }
+  if (!(await isChannelAllowedForTenant(user.tenantId, "x"))) {
+    return NextResponse.redirect(new URL("/dashboard?x=plan-upgrade-needed&view=settings", appOrigin));
   }
 
   const settings = await getIntegrationSettings("x", user.tenantId);

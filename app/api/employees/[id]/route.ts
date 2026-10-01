@@ -125,6 +125,22 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       );
     }
 
+    const fieldChanges = [
+      name !== existingEmployee.name ? `الاسم إلى "${name}"` : null,
+      email !== existingEmployee.email ? `البريد إلى "${email}"` : null,
+      role !== existingEmployee.role ? `الدور إلى "${role}"` : null,
+      (body.permissions || "محادثات فقط") !== existingEmployee.permissions ? "الصلاحيات" : null
+    ].filter((change): change is string => Boolean(change));
+    if (fieldChanges.length) {
+      await logAdminAction(
+        user.tenantId,
+        await getTenantCompanyName(user.tenantId),
+        `تم تعديل بيانات الموظف "${employee.name}" (${fieldChanges.join("، ")}) بواسطة ${user.name}.`,
+        "معلومة",
+        "الموظفون"
+      );
+    }
+
     return jsonOk(employee);
   } catch {
     return jsonError("تعذر تحديث الموظف", 404);

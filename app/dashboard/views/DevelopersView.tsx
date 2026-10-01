@@ -138,16 +138,16 @@ export default function DevelopersView() {
               <div style={{ marginTop: 8 }}><button className="btn soft" type="button" onClick={() => { navigator.clipboard?.writeText(revealedKey); }}>{t("نسخ", "Copy")}</button> <button className="btn soft" type="button" onClick={() => setRevealedKey("")}>{t("إخفاء", "Dismiss")}</button></div>
             </div>
           ) : null}
-          <table>
+          <table className="mobile-card-table">
             <thead><tr><th>{t("الاسم", "Name")}</th><th>{t("المفتاح", "Key")}</th><th>{t("أُنشئ", "Created")}</th><th>{t("آخر استخدام", "Last used")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
             <tbody>
               {apiKeys.map((key) => (
                 <tr key={key.id}>
                   <td>{key.name}</td>
-                  <td><code>{key.keyPrefix}…</code></td>
-                  <td>{key.createdAt}</td>
-                  <td>{key.lastUsedAt || t("لم يُستخدم بعد", "Never used")}</td>
-                  <td className="row-actions"><button className="btn danger" type="button" onClick={() => revokeKey(key.id)}>{t("إلغاء", "Revoke")}</button></td>
+                  <td data-label={t("المفتاح", "Key")}><code>{key.keyPrefix}…</code></td>
+                  <td data-label={t("أُنشئ", "Created")}>{key.createdAt}</td>
+                  <td data-label={t("آخر استخدام", "Last used")}>{key.lastUsedAt || t("لم يُستخدم بعد", "Never used")}</td>
+                  <td className="row-actions" data-label={t("إجراء", "Action")}><button className="btn danger" type="button" onClick={() => revokeKey(key.id)}>{t("إلغاء", "Revoke")}</button></td>
                 </tr>
               ))}
               {!apiKeys.length ? <tr><td colSpan={5}>{loading ? t("جاري التحميل...", "Loading...") : t("لا توجد مفاتيح بعد.", "No keys yet.")}</td></tr> : null}
@@ -188,16 +188,16 @@ export default function DevelopersView() {
               <div style={{ marginTop: 8 }}><button className="btn soft" type="button" onClick={() => { navigator.clipboard?.writeText(revealedSecret); }}>{t("نسخ", "Copy")}</button> <button className="btn soft" type="button" onClick={() => setRevealedSecret("")}>{t("إخفاء", "Dismiss")}</button></div>
             </div>
           ) : null}
-          <table>
+          <table className="mobile-card-table">
             <thead><tr><th>{t("الرابط", "URL")}</th><th>{t("الأحداث", "Events")}</th><th>{t("الحالة", "Status")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
             <tbody>
               {webhooks.map((webhook) => (
                 <Fragment key={webhook.id}>
                   <tr>
                     <td className="truncate-cell">{webhook.url}</td>
-                    <td>{webhook.events.map((event) => EVENT_OPTIONS.find((option) => option.value === event)).map((option) => option ? t(option.ar, option.en) : "").join("، ")}</td>
-                    <td>{webhook.active ? t("مفعّل", "Active") : t("موقوف", "Paused")}</td>
-                    <td className="row-actions">
+                    <td data-label={t("الأحداث", "Events")}>{webhook.events.map((event) => EVENT_OPTIONS.find((option) => option.value === event)).map((option) => option ? t(option.ar, option.en) : "").join("، ")}</td>
+                    <td data-label={t("الحالة", "Status")}>{webhook.active ? t("مفعّل", "Active") : t("موقوف", "Paused")}</td>
+                    <td className="row-actions" data-label={t("إجراء", "Action")}>
                       <button className="btn soft" type="button" onClick={() => toggleDeliveries(webhook.id)}>{t("السجل", "Log")}</button>
                       <button className="btn soft" type="button" onClick={() => toggleWebhookActive(webhook)}>{webhook.active ? t("إيقاف", "Pause") : t("تفعيل", "Resume")}</button>
                       <button className="btn danger" type="button" onClick={() => deleteWebhook(webhook)}>{t("حذف", "Delete")}</button>
@@ -244,6 +244,11 @@ export default function DevelopersView() {
   -H "Authorization: Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H "Content-Type: application/json" \\
   -d '{"customerPhone":"0501234567","customerName":"عميل","text":"طلبك #1234 تم استلامه"}'`}</pre>
+          <p>{t("أضف \"visit\": true (واختياريًا \"visitAt\" بتاريخ ISO) لتسجيلها كزيارة فعلية - يُستخدم في حساب عدد الزيارات وتذكير الانقطاع بلوحة الأتمتة، بدلاً من الاعتماد على نشاط المحادثة.", "Add \"visit\": true (and optionally \"visitAt\" as an ISO date) to record it as a real visit - used for the visit count and the inactivity reminder in the Automations view, instead of relying on conversation activity.")}</p>
+          <pre className="code-block">{`curl -X POST https://linklysa.io/api/v1/conversations \\
+  -H "Authorization: Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx" \\
+  -H "Content-Type: application/json" \\
+  -d '{"customerPhone":"0501234567","customerName":"عميل","text":"حجز جديد","visit":true}'`}</pre>
 
           <h3>{t("إرسال رسالة واتساب (POST /api/v1/messages)", "Send a WhatsApp message (POST /api/v1/messages)")}</h3>
           <pre className="code-block">{`curl -X POST https://linklysa.io/api/v1/messages \\

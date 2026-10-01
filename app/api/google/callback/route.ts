@@ -7,6 +7,7 @@ import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { safeEqual } from "../../../../lib/oauth-state";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 
 type GoogleTokenPayload = {
   access_token?: string;
@@ -141,6 +142,10 @@ export async function GET(request: NextRequest) {
       updatedAt: updatedAt()
     }
   });
+
+  if (status === "connected") {
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة خرائط جوجل بواسطة ${user.name}.`, "معلومة", "التكاملات");
+  }
 
   redirectTo.searchParams.set("google", status === "connected" ? "connected" : "needs-location");
   return NextResponse.redirect(redirectTo);

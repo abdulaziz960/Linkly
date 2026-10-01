@@ -7,9 +7,11 @@ import { PAYMENT_STATUS, PAYMENT_GATEWAY, mapMoyasarInvoiceStatus, type PaymentK
 import { chargeSavedCard, buildPaymentMetadata, paymentDescription, summarizeMoyasarPayment, isAutoRenewEnabled, type GatewayPaymentDetails } from "./moyasar";
 import { confirmPromoCodeUsage, releasePromoCodeUsage } from "./promo-codes";
 import { encryptSecret, decryptSecret } from "./secret-storage";
+import { computeYearlyPrice, isBillingCycle, type BillingCycle } from "./billing-pricing";
+import { isUnlimitedMessageQuota, UNLIMITED_MESSAGE_CREDIT } from "./message-quota";
 
-/** Length of one paid subscription period. Every plan bills monthly today. */
-export const SUBSCRIPTION_PERIOD_MONTHS = 1;
+/** Length of one paid subscription period, in months, per billing cycle. */
+export const SUBSCRIPTION_PERIOD_MONTHS: Record<BillingCycle, number> = { "شهري": 1, "سنوي": 12 };
 
 function addMonths(date: Date, months: number) {
   const next = new Date(date.getTime());
@@ -25,13 +27,20 @@ function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-/** Denominator days used for a prorated-upgrade credit - see computeProrationCredit. */
-const PRORATION_PERIOD_DAYS = 30;
+/**
+ * Denominator days used for a prorated-upgrade credit - see
+ * computeProrationCredit. The current plan's paid amount is spread evenly
+ * across its own billing cycle length, not always 30 - crediting a yearly
+ * payment's unused ~300 remaining days at a 30-day rate would wildly
+ * overcredit it.
+ */
+const PRORATION_PERIOD_DAYS: Record<BillingCycle, number> = { "شهري": 30, "سنوي": 365 };
 
 /**
  * Credit for the unused days of the CURRENT plan when the owner switches
- * plans mid-cycle, subtracted from the new plan's list price:
- *   credit = currentPlanAmount / 30 * remainingDays
+ * plans (or billing cycle) mid-cycle, subtracted from the new plan's list
+ * price:
+ *   credit = currentPlanAmount / cycleDays * remainingDays
  *   finalAmount = max(0, newPlanPrice - credit)
  * Only applies to an active ("نشط"), still-paid-up subscription changing to
  * a DIFFERENT plan - a trial converting, a suspended account reactivating,
@@ -44,6 +53,7 @@ export function computeProrationCredit(input: {
   currentPlan?: string;
   currentAmount?: number;
   currentRenewalAt?: string;
+  currentBillingCycle?: BillingCycle;
   newPlanName: string;
   newPlanPrice: number;
 }) {
@@ -60,8 +70,9 @@ export function computeProrationCredit(input: {
     return { creditAmount: 0, finalAmount: input.newPlanPrice, remainingDays: 0 };
   }
 
+  const cycleDays = PRORATION_PERIOD_DAYS[input.currentBillingCycle ?? "شهري"];
   const remainingDays = (currentPaidThrough.getTime() - input.now.getTime()) / 86_400_000;
-  const rawCredit = (input.currentAmount / PRORATION_PERIOD_DAYS) * remainingDays;
+  const rawCredit = (input.currentAmount / cycleDays) * remainingDays;
   const creditAmount = Math.round(Math.min(rawCredit, input.newPlanPrice) * 100) / 100;
   const finalAmount = Math.round((input.newPlanPrice - creditAmount) * 100) / 100;
   return { creditAmount, finalAmount, remainingDays: Math.round(remainingDays * 10) / 10 };
@@ -84,12 +95,13 @@ export function computeSubscriptionPeriod(input: {
   currentPlan?: string;
   currentRenewalAt?: string;
   stagedPlanName?: string;
+  billingCycle?: BillingCycle;
 }) {
   const currentPaidThrough = input.currentRenewalAt ? new Date(input.currentRenewalAt) : null;
   const samePlan = !input.stagedPlanName || input.stagedPlanName === input.currentPlan;
   const stillPaidUp = input.currentStatus === "نشط" && currentPaidThrough !== null && Number.isFinite(currentPaidThrough.getTime()) && currentPaidThrough.getTime() > input.now.getTime();
   const periodStart = samePlan && stillPaidUp && currentPaidThrough ? currentPaidThrough : input.now;
-  const periodEnd = addMonths(periodStart, SUBSCRIPTION_PERIOD_MONTHS);
+  const periodEnd = addMonths(periodStart, SUBSCRIPTION_PERIOD_MONTHS[input.billingCycle ?? "شهري"]);
   return { periodStart: isoDate(periodStart), periodEnd: isoDate(periodEnd), extendedFromCurrent: periodStart !== input.now };
 }
 
@@ -104,9 +116,18 @@ function gatewayColumns(details?: GatewayPaymentDetails) {
 }
 
 export const planEmployeeLimits: Record<string, number> = {
+  // Original 3 tiers - kept for any legacy Subscription/SubscriptionPayment
+  // row still referencing them by name (see applyPricingTierRestructure()
+  // in lib/database.ts, which deactivates these without renaming them).
   "باقة البداية": 1,
   "باقة النمو": 3,
-  "باقة الأعمال": 10
+  "باقة الأعمال": 10,
+  // Current tiers.
+  "باقة الأفراد": 1,
+  "الباقة العادية": 3,
+  "باقة المؤسسات الصغيرة": 6,
+  "باقة المؤسسات الكبيرة": 8,
+  "باقة الشركات": 100
 };
 
 function nowTimestamp() {
@@ -238,9 +259,11 @@ export async function getInvoiceForTenant(tenantId: string, invoiceId: string) {
  * is a no-op (returns activated: false) via a compare-and-swap update, so
  * a redelivered webhook or a double confirm click can't double-renew.
  */
-export async function applyConfirmedSubscriptionPayment(paymentId: string, details?: GatewayPaymentDetails, allowAutoRenewEnroll = false): Promise<{ activated: boolean; periodStart?: string; periodEnd?: string }> {
+export async function applyConfirmedSubscriptionPayment(paymentId: string, details?: GatewayPaymentDetails, allowAutoRenewEnroll = false): Promise<{ activated: boolean; periodStart?: string; periodEnd?: string; previousPlan?: string; newPlan?: string }> {
   const payment = await prisma.subscriptionPayment.findUnique({ where: { id: paymentId } });
   if (!payment) return { activated: false };
+
+  const billingCycle: BillingCycle = isBillingCycle(payment.billingCycle) ? payment.billingCycle : "شهري";
 
   const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.subscription.findUnique({ where: { tenantId: payment.tenantId } });
@@ -251,7 +274,8 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
       currentStatus: existing?.status,
       currentPlan: existing?.plan,
       currentRenewalAt: existing?.renewalAt,
-      stagedPlanName: payment.planName
+      stagedPlanName: payment.planName,
+      billingCycle
     });
 
     const claimed = await tx.subscriptionPayment.updateMany({
@@ -281,7 +305,7 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
       update: {
         status: "نشط",
         amount: amountSar,
-        billingCycle: "شهري",
+        billingCycle,
         renewalAt: period.periodEnd,
         // Paying again is an unambiguous signal the owner wants to keep
         // going, even if they'd previously marked the subscription
@@ -333,7 +357,7 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
         status: "نشط",
         employeeLimit: payment.planName ? payment.planEmployeeLimit : 1,
         amount: amountSar,
-        billingCycle: "شهري",
+        billingCycle,
         renewalAt: period.periodEnd,
         createdAt: now,
         updatedAt: nowTimestamp(),
@@ -342,12 +366,31 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
           : {})
       }
     });
+
+    // Marketing message allowance included with the plan - credited every
+    // time a subscription payment on it confirms (initial signup, renewal,
+    // or a plan change), scaled by 12 for an annual payment since that buys
+    // a full year upfront. Admin-issued invoices carry no planName and
+    // don't touch this - only a real plan payment does.
+    if (payment.planName) {
+      const creditMessages = isUnlimitedMessageQuota(payment.planMessageQuota)
+        ? UNLIMITED_MESSAGE_CREDIT
+        : payment.planMessageQuota * (billingCycle === "سنوي" ? 12 : 1);
+      if (creditMessages > 0) {
+        await tx.campaignBalance.upsert({
+          where: { tenantId: payment.tenantId },
+          update: { balance: { increment: creditMessages }, lastTopUpAmount: creditMessages, updatedAt: now },
+          create: { tenantId: payment.tenantId, balance: creditMessages, lastTopUpAmount: creditMessages, updatedAt: now }
+        });
+      }
+    }
+
     await confirmPromoCodeUsage(tx, payment.id, `sub-${payment.tenantId}`);
-    return period;
+    return { ...period, previousPlan: existing?.plan || "" };
   });
 
   if (!result) return { activated: false };
-  return { activated: true, periodStart: result.periodStart, periodEnd: result.periodEnd };
+  return { activated: true, periodStart: result.periodStart, periodEnd: result.periodEnd, previousPlan: result.previousPlan, newPlan: payment.planName };
 }
 
 /**
@@ -457,13 +500,13 @@ export async function applyVerifiedGatewayOutcome(
   // must never enroll a card just because Moyasar's response happened to
   // include a token.
   allowAutoRenewEnroll = false
-): Promise<{ outcome: "completed" | "failed" | "expired" | "refunded" | "pending"; changed: boolean }> {
+): Promise<{ outcome: "completed" | "failed" | "expired" | "refunded" | "pending"; changed: boolean; previousPlan?: string; newPlan?: string }> {
   const mapped = mapMoyasarInvoiceStatus(invoiceStatus);
   if (!mapped) return { outcome: "pending", changed: false };
   if (mapped === "completed") {
     if (kind === "subscription") {
-      const { activated } = await applyConfirmedSubscriptionPayment(paymentId, details, allowAutoRenewEnroll);
-      return { outcome: "completed", changed: activated };
+      const { activated, previousPlan, newPlan } = await applyConfirmedSubscriptionPayment(paymentId, details, allowAutoRenewEnroll);
+      return { outcome: "completed", changed: activated, previousPlan, newPlan };
     }
     const { credited } = await applyConfirmedCampaignPayment(paymentId, details);
     return { outcome: "completed", changed: credited };
@@ -570,6 +613,15 @@ export function expectedHalalas(payment: { amount: number; amountHalalas: number
 export function invoiceAmountMatches(invoiceAmountHalalas: number, payment: { amount: number; amountHalalas: number }) {
   if (!Number.isFinite(invoiceAmountHalalas) || invoiceAmountHalalas <= 0) return false;
   return invoiceAmountHalalas === expectedHalalas(payment);
+}
+
+/** Shared wording for a completed subscription payment - distinguishes a plan change (upgrade/downgrade) from a same-plan renewal, used by both the client-confirmed checkout path and the Moyasar webhook. */
+export function subscriptionPaymentLogMessage(amount: number, method: string, previousPlan?: string, newPlan?: string) {
+  const base = `تم استلام دفعة اشتراك بقيمة ${amount} ر.س عبر Moyasar${method}`;
+  if (previousPlan && newPlan && previousPlan !== newPlan) {
+    return `${base}، وتمت ترقية الباقة من "${previousPlan}" إلى "${newPlan}".`;
+  }
+  return `${base}، وتم تجديد الاشتراك.`;
 }
 
 export async function logAdminAction(tenantId: string, clientName: string, message: string, level: "معلومة" | "تنبيه" | "خطأ" = "معلومة", source = "لوحة الأدمن") {
@@ -790,19 +842,23 @@ export async function attemptAutoRenewals(baseUrl: string) {
     // (caught below), so only one of them ever reaches chargeSavedCard -
     // the actual guard against double-charging the saved card.
     const paymentId = `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}`;
-    const amountHalalas = plan.monthlyPrice * 100;
+    const billingCycle: BillingCycle = isBillingCycle(subscription.billingCycle) ? subscription.billingCycle : "شهري";
+    const renewAmount = billingCycle === "سنوي" ? computeYearlyPrice(plan.monthlyPrice) : plan.monthlyPrice;
+    const amountHalalas = renewAmount * 100;
     try {
       await prisma.subscriptionPayment.create({
         data: {
           id: paymentId,
           tenantId: subscription.tenantId,
-          amount: plan.monthlyPrice,
+          amount: renewAmount,
           amountHalalas,
           status: PAYMENT_STATUS.pending,
           createdAt: now.toISOString(),
           planName: plan.name,
           planEmployeeLimit: plan.employeeLimit,
-          listPrice: plan.monthlyPrice,
+          planMessageQuota: plan.messageQuota,
+          listPrice: renewAmount,
+          billingCycle,
           gateway: PAYMENT_GATEWAY.moyasar,
           gatewayStatus: "initiated",
           initiatedBy: "system"
@@ -847,7 +903,7 @@ export async function attemptAutoRenewals(baseUrl: string) {
         await logAdminAction(
           subscription.tenantId,
           subscription.companyName,
-          `[auto-renew] تم تجديد الاشتراك تلقائيًا بقيمة ${plan.monthlyPrice} ر.س عبر البطاقة المحفوظة (••••${subscription.savedCardLast4}).`
+          `[auto-renew] تم تجديد الاشتراك تلقائيًا (${billingCycle}) بقيمة ${renewAmount} ر.س عبر البطاقة المحفوظة (••••${subscription.savedCardLast4}).`
         );
       }
       continue;
@@ -936,7 +992,7 @@ async function resendActivationForUnactivatedAccount(account: { email: string; n
   const inviteDelivery = await sendActivationEmail({ to: account.email, name: account.name, activationUrl });
 
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: account.tenantId } });
-  return { subscription, inviteDelivery };
+  return { subscription, inviteDelivery, created: false };
 }
 
 /**
@@ -1041,7 +1097,7 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
   const inviteDelivery = await sendActivationEmail({ to: email, name: input.ownerName, activationUrl });
 
   const subscription = await prisma.subscription.findUnique({ where: { tenantId } });
-  return { subscription, inviteDelivery };
+  return { subscription, inviteDelivery, created: true };
 }
 
 type UpdateSubscriptionInput = {

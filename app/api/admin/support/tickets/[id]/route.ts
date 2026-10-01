@@ -91,7 +91,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   await recordSupportAuditLog({
     actorName: admin.name,
     action: `تحديث تذكرة دعم: ${systemMessages.join("، ")}`,
-    ticketId: ticket.id,
+    tenantId: ticket.tenantId,
+    companyName: ticket.companyName,
     ticketLabel: `${ticket.ticketNumber} — ${ticket.subject}`
   }).catch(() => {});
   await recordAdminAction(admin, "update-support-ticket", { type: "support-ticket", id: ticket.id }, systemMessages.join("، "));

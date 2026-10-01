@@ -11,7 +11,7 @@ export default async function AdminActionsPage() {
         eyebrow={["الأمان", "Security"]}
         title={["إجراءات الأدمن", "Admin actions"]}
         description={[
-          "سجل من نفّذ كل إجراء حسّاس على المنصة - مين علّق حساب، مين غيّر باقة، مين أصدر فاتورة أو استرداد.",
+          "سجل المسؤول الذي نفّذ كل إجراء حساس على المنصة، مع تفاصيل التغييرات والفواتير والاستردادات.",
           "A record of who performed every sensitive platform action - who suspended an account, who changed a plan, who issued an invoice or refund."
         ]}
       />

@@ -3,6 +3,7 @@ import { prisma } from "../../../lib/prisma";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
 import { createSegment, getSegments, resolveEngagementFields, resolveSegmentRecipients } from "../../../lib/segments";
+import { logAdminAction, getTenantCompanyName } from "../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../_utils/json";
 
 export const runtime = "nodejs";
@@ -45,6 +46,8 @@ export async function POST(request: NextRequest) {
 
   const segment = await createSegment(user.tenantId, { name, tagNames, inactiveDays, sourceCampaignId, engagementBucket, engagementDateFrom, engagementDateTo, engagementClickCount });
   const recipientCount = (await resolveSegmentRecipients(user.tenantId, segment)).length;
+
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم إنشاء تقسيم عملاء "${segment.name}" بواسطة ${user.name}.`, "معلومة", "تقسيم العملاء");
 
   return jsonOk({ ...segment, recipientCount });
 }

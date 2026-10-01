@@ -71,7 +71,7 @@ export default function AlertsView({ subscriptions, initialStatus = "all" }: { s
             <h2>{t("تنبيهات التجديد", "Renewal Alerts")}</h2>
             <p>
               {t(
-                `اشتراكات نشطة تحتاج متابعة: تجديد قريب خلال ${formatNumber(RENEWAL_SOON_DAYS)} أيام أو متأخرة عن موعدها.`,
+                `اشتراكات نشطة تحتاج متابعة: تجديد قريب خلال ${formatNumber(RENEWAL_SOON_DAYS)} يومًا أو متأخرة عن موعدها.`,
                 `Active subscriptions that need follow-up: renewal due within ${formatNumber(RENEWAL_SOON_DAYS)} days or already overdue.`
               )}
             </p>

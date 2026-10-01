@@ -8,6 +8,7 @@ import { syncMetaTemplates } from "../../../../lib/meta-templates";
 import { verifyOAuthState } from "../../../../lib/oauth-state";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 
 const techProviderMetaAppId = "1296230909161568";
 // Must match techProviderInstagramAppId in app/api/meta/connect/route.ts -
@@ -262,6 +263,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة إنستغرام بواسطة ${user.name}.`, "معلومة", "التكاملات");
+
     const response = closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=instagram-callback&view=settings");
     response.cookies.delete("audiencew_meta_state");
     return response;
@@ -338,6 +341,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة ${channel === "meta_leads" ? "نماذج العملاء المحتملين (Meta Leads)" : "فيسبوك"} بواسطة ${user.name}.`, "معلومة", "التكاملات");
+
     const redirectView = channel === "meta_leads" ? "integrations" : "settings";
     const response = closePopupAndRedirect(getAppOrigin(request), `/dashboard?meta=facebook-callback&view=${redirectView}`);
     response.cookies.delete("audiencew_meta_state");
@@ -392,6 +397,10 @@ export async function GET(request: NextRequest) {
       // Meta's built-in "hello_world" sample every account gets by default)
       // so a freshly connected tenant has a usable template immediately.
       await syncMetaTemplates(user.tenantId, effectiveWabaId, accessToken).catch(() => null);
+    }
+
+    if (effectiveWabaId && effectivePhoneNumberId && accessToken) {
+      await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة واتساب بواسطة ${user.name}.`, "معلومة", "التكاملات");
     }
 
     if (wantsJson) {

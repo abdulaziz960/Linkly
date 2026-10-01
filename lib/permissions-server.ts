@@ -9,6 +9,31 @@ export async function getEmployeeForUser(user: SessionUser) {
   return prisma.employee.findFirst({ where: { email: user.email, tenantId: user.tenantId } });
 }
 
+/**
+ * Which conversation assignees a user is allowed to see. `undefined` means
+ * full tenant-wide visibility (the account owner only). A supervisor
+ * additionally sees every conversation assigned to a member of any team
+ * they lead - not just their own - since "مشرف" only ever meant "sees my
+ * own conversations" before, same as a regular employee.
+ */
+export async function getVisibleAssigneeNames(user: SessionUser, employee?: { name: string } | null): Promise<string[] | undefined> {
+  if (user.role === "مالك الحساب") return undefined;
+
+  const ownName = employee?.name || "__no_matching_employee__";
+  if (user.role !== "مشرف" || !employee) return [ownName];
+
+  const ledTeams = await prisma.team.findMany({
+    where: { tenantId: user.tenantId, lead: employee.name },
+    include: { members: { include: { employee: true } } }
+  });
+
+  const names = new Set<string>([ownName]);
+  for (const team of ledTeams) {
+    for (const member of team.members) names.add(member.employee.name);
+  }
+  return [...names];
+}
+
 export async function userHasViewPermission(user: SessionUser, view: ViewKey): Promise<boolean> {
   if (user.role === "مالك الحساب") return true;
 

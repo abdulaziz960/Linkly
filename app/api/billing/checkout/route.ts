@@ -3,32 +3,29 @@ import { randomUUID } from "crypto";
 import { getCurrentUser } from "../../../../lib/auth";
 import { ensureSchema } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
-import { getPaymentCallbackOrigin } from "../../../../lib/app-url";
 import { buildPaymentMetadata, isMoyasarConfigured } from "../../../../lib/moyasar";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../lib/payment-status";
 import { computeProrationCredit } from "../../../../lib/subscriptions";
+import { isBillingCycle, priceForCycle, type BillingCycle } from "../../../../lib/billing-pricing";
 import { reservePromoCodeUsage, releasePromoCodeUsage, promoCodeErrorMessage, type PromoCodeErrorCode } from "../../../../lib/promo-codes";
 
 export const runtime = "nodejs";
 
-/**
- * Self-serve checkout: the tenant owner picks a plan on /billing and is
- * sent to our own embedded card form at /billing/pay/[paymentId] (Moyasar.js,
- * our design). Only a SubscriptionPayment row is staged here; the live
- * Subscription is not created or modified until /api/billing/confirm-payment
- * verifies a paid Moyasar Payment directly with our secret key.
- */
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) return NextResponse.json({ error: "سجّل الدخول أولًا" }, { status: 401 });
   if (user.role !== "مالك الحساب") return NextResponse.json({ error: "إدارة الاشتراك متاحة لمالك الحساب" }, { status: 403 });
-  const { planId, promoCode } = await request.json().catch(() => ({ planId: "" })) as { planId?: string; promoCode?: string };
+  const { planId, billingCycle: requestedBillingCycle, promoCode } = await request.json().catch(() => ({ planId: "" })) as { planId?: string; billingCycle?: unknown; promoCode?: string };
+  const billingCycle: BillingCycle = isBillingCycle(requestedBillingCycle) ? requestedBillingCycle : "شهري";
   await ensureSchema();
-  const plan = await prisma.plan.findFirst({ where: { id: planId, active: 1 } });
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
+  const plan = await prisma.plan.findFirst({
+    where: subscription ? { id: planId, OR: [{ active: 1 }, { name: subscription.plan }] } : { id: planId, active: 1 }
+  });
   if (!plan) return NextResponse.json({ error: "الباقة غير موجودة" }, { status: 404 });
   if (plan.monthlyPrice < 1) return NextResponse.json({ error: "سعر الباقة غير صالح" }, { status: 400 });
-  const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
   const companyName = subscription?.companyName || user.name;
+  const listPrice = priceForCycle(plan.monthlyPrice, billingCycle);
 
   if (subscription && subscription.plan !== plan.name) {
     const employeeCount = await prisma.employee.count({ where: { tenantId: user.tenantId } });
@@ -45,11 +42,11 @@ export async function POST(request: NextRequest) {
     currentPlan: subscription?.plan,
     currentAmount: subscription?.amount,
     currentRenewalAt: subscription?.renewalAt,
+    currentBillingCycle: isBillingCycle(subscription?.billingCycle) ? subscription?.billingCycle : "شهري",
     newPlanName: plan.name,
-    newPlanPrice: plan.monthlyPrice
+    newPlanPrice: listPrice
   });
-  const chargeAmount = proration.creditAmount > 0 ? proration.finalAmount : plan.monthlyPrice;
-  const origin = getPaymentCallbackOrigin();
+  const chargeAmount = proration.creditAmount > 0 ? proration.finalAmount : listPrice;
 
   const pendingStaleAfterMs = 60 * 60 * 1000;
   const staleCutoff = new Date(Date.now() - pendingStaleAfterMs).toISOString();
@@ -66,7 +63,7 @@ export async function POST(request: NextRequest) {
   }
 
   const activePending = await prisma.subscriptionPayment.findFirst({
-    where: { tenantId: user.tenantId, status: PAYMENT_STATUS.pending, planName: plan.name },
+    where: { tenantId: user.tenantId, status: PAYMENT_STATUS.pending, planName: plan.name, billingCycle },
     orderBy: { createdAt: "desc" }
   });
   if (activePending && !promoCode) {
@@ -122,7 +119,9 @@ export async function POST(request: NextRequest) {
     createdAt: new Date().toISOString(),
     planName: plan.name,
     planEmployeeLimit: plan.employeeLimit,
-    listPrice: plan.monthlyPrice,
+    planMessageQuota: plan.messageQuota,
+    listPrice,
+    billingCycle,
     prorationCreditAmount: proration.creditAmount,
     promoCode: normalizedPromoCode,
     discountAmount: discountAmountSar,
@@ -150,30 +149,6 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ paymentId });
   }
-  if (process.env.NODE_ENV === "production" || process.env.MOYASAR_LIVE_MODE === "true" || process.env.ENABLE_TEST_CHECKOUT !== "true") {
-    await releasePromoCodeUsage(paymentId, "failed");
-    return NextResponse.json({ error: "بوابة الدفع غير مهيأة حاليًا" }, { status: 503 });
-  }
-  const paymentUrl = `${origin}/checkout/test?paymentId=${encodeURIComponent(paymentId)}`;
-  const metadata = buildPaymentMetadata({
-    kind: "subscription",
-    tenantId: user.tenantId,
-    paymentId,
-    initiatedBy: "owner",
-    companyName,
-    planId: plan.id,
-    planName: plan.name,
-    gateway: PAYMENT_GATEWAY.test
-  });
-  await prisma.subscriptionPayment.create({
-    data: {
-      ...stagedRow,
-      moyasarId: `test_${paymentId}`,
-      paymentUrl,
-      gateway: PAYMENT_GATEWAY.test,
-      gatewayStatus: "initiated",
-      metadataJson: JSON.stringify(metadata)
-    }
-  });
-  return NextResponse.json({ paymentUrl });
+  await releasePromoCodeUsage(paymentId, "failed");
+  return NextResponse.json({ error: "بوابة الدفع غير مهيأة حاليًا" }, { status: 503 });
 }

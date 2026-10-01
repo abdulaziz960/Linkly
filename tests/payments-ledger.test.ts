@@ -84,6 +84,67 @@ describe("payment request metadata", () => {
   });
 });
 
+describe("statement descriptor", () => {
+  // The rule Moyasar.js 1.16.0 enforces; it throws (breaking checkout) on anything else.
+  const MOYASAR_FORM_RULE = /^[\w\s\d\-~]{1,64}$/;
+
+  afterEach(() => {
+    vi.stubEnv("MOYASAR_STATEMENT_DESCRIPTOR", "");
+  });
+
+  it("defaults to the platform name", async () => {
+    const { paymentStatementDescriptor } = await import("../lib/moyasar");
+    vi.stubEnv("MOYASAR_STATEMENT_DESCRIPTOR", "");
+    expect(paymentStatementDescriptor()).toBe("Linkly");
+  });
+
+  it("always yields a value Moyasar's form accepts, whatever is configured", async () => {
+    const { paymentStatementDescriptor, STATEMENT_DESCRIPTOR_MAX_LENGTH } = await import("../lib/moyasar");
+    const cases: Array<[string, string]> = [
+      ["Linkly SA", "Linkly SA"],
+      ["linklysa.io", "linklysa io"],
+      ["  Linkly   -  Audience  ", "Linkly - Audience"],
+      ["لينكلي", "Linkly"],
+      ["...", "Linkly"],
+      ["Linkly <script>", "Linkly script"],
+      ["A very long descriptor that goes on and on", "A very long descriptor"]
+    ];
+    for (const [configured, expected] of cases) {
+      vi.stubEnv("MOYASAR_STATEMENT_DESCRIPTOR", configured);
+      const value = paymentStatementDescriptor();
+      expect(value).toBe(expected);
+      expect(value).toMatch(MOYASAR_FORM_RULE);
+      expect(value).toMatch(/^[A-Za-z0-9 -]{1,64}$/);
+      expect(value.length).toBeLessThanOrEqual(STATEMENT_DESCRIPTOR_MAX_LENGTH);
+    }
+  });
+
+  it("is sent with saved-card charges, inside source", async () => {
+    const { chargeSavedCard } = await import("../lib/moyasar");
+    vi.stubEnv("AUTO_RENEW_DISABLED", "");
+    let sentBody: { source?: Record<string, unknown>; metadata?: Record<string, string> } | null = null;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+      sentBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ id: "pay_tok", status: "paid", amount: 49900, currency: "SAR", source: { type: "creditcard", company: "mada", message: "APPROVED" } }), { status: 201 });
+    }));
+    const result = await chargeSavedCard({ token: "token_abc", amountHalalas: 49900, description: "renewal" });
+    expect(result.ok).toBe(true);
+    expect(sentBody).not.toBeNull();
+    expect((sentBody as unknown as { source: Record<string, unknown> }).source).toMatchObject({ type: "token", token: "token_abc", statement_descriptor: "Linkly" });
+  });
+
+  it("is not added to hosted invoices, whose API has no such field", async () => {
+    const { createMoyasarInvoice } = await import("../lib/moyasar");
+    let sentBody: Record<string, unknown> | null = null;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+      sentBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ id: "inv_2", status: "initiated", url: "https://pay.example/inv_2" }), { status: 201 });
+    }));
+    await createMoyasarInvoice({ amount: 10, description: "x", callbackUrl: "https://app.example/cb" });
+    expect(JSON.stringify(sentBody)).not.toContain("statement_descriptor");
+  });
+});
+
 describe("Moyasar status mapping and invoice summary", () => {
   it("maps gateway invoice statuses onto our ledger outcomes", async () => {
     const { mapMoyasarInvoiceStatus } = await import("../lib/payment-status");

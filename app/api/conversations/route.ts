@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { getConversations } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
-import { getEmployeeForUser } from "../../../lib/permissions-server";
-import { canSeeAllConversations } from "../../../lib/permissions";
+import { getEmployeeForUser, getVisibleAssigneeNames } from "../../../lib/permissions-server";
 import { prisma } from "../../../lib/prisma";
 import { normalizeWhatsAppPhone } from "../../../lib/whatsapp-inbox";
 import { processDueAutomations } from "../../../lib/automation-engine";
@@ -11,16 +10,12 @@ import { jsonError, jsonOk } from "../_utils/json";
 export const runtime = "nodejs";
 
 /**
- * Anyone without full conversation visibility only ever sees conversations
- * assigned to them - mirrors lib/permissions.ts canSeeAllConversations,
- * used client-side for the same scoping. If we can't resolve their
- * employee record, fail closed (an unmatched sentinel) rather than
- * accidentally returning everyone's conversations.
+ * Mirrors lib/permissions.ts canSeeAllConversations / DashboardClient's
+ * client-side scoping, plus a supervisor's team - see getVisibleAssigneeNames.
  */
 async function assigneeScopeFor(user: { role: string; email: string; tenantId: string }) {
   const employee = await getEmployeeForUser(user);
-  if (canSeeAllConversations(user.role, employee ?? undefined)) return undefined;
-  return employee?.name || "__no_matching_employee__";
+  return getVisibleAssigneeNames(user, employee);
 }
 
 export async function GET() {
@@ -29,8 +24,8 @@ export async function GET() {
   processDueAutomations(user.tenantId).catch((error) => {
     console.error("Automation queue processing failed", error);
   });
-  const assigneeName = await assigneeScopeFor(user);
-  return jsonOk(await getConversations(user.tenantId, assigneeName));
+  const assigneeNames = await assigneeScopeFor(user);
+  return jsonOk(await getConversations(user.tenantId, assigneeNames));
 }
 
 export async function POST(request: NextRequest) {

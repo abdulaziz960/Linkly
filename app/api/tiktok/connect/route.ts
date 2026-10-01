@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { isChannelAllowedForTenant } from "../../../../lib/plan-channel-access";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,9 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   if (!(await userHasViewPermission(user, "settings"))) {
     return NextResponse.redirect(new URL("/dashboard?view=settings&channel=tiktok&tiktok=forbidden", getAppOrigin(request)));
+  }
+  if (!(await isChannelAllowedForTenant(user.tenantId, "tiktok"))) {
+    return NextResponse.redirect(new URL("/dashboard?view=settings&channel=tiktok&tiktok=plan-upgrade-needed", getAppOrigin(request)));
   }
 
   const clientKey = process.env.TIKTOK_CLIENT_KEY || "";

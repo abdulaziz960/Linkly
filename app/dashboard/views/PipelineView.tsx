@@ -6,6 +6,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import type { AutomationRule, Conversation, MessageTemplate, PipelineStage } from "../types";
 import { pipelineStages, pipelineStagesWithDealValue } from "../types";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type PipelineViewProps = {
   conversations: Conversation[];
@@ -76,14 +77,16 @@ function CardBody({
         <span>{conversation.assignee}</span>
         <span>{conversation.attrUtmSource || t("مباشر", "Direct")}</span>
       </div>
-      {onMove ? <label className="pipeline-card-meta">
-        {t("المرحلة", "Stage")}
-        <select aria-label={t("مرحلة الصفقة", "Deal stage")} value={conversation.pipelineStage || "جديد"}
-          onPointerDown={(event) => event.stopPropagation()}
-          onChange={(event) => onMove(conversation.id, event.target.value as PipelineStage)}>
-          {pipelineStages.map((stage) => <option key={stage} value={stage}>{stageLabel(stage, t)}</option>)}
-        </select>
-      </label> : null}
+      {onMove ? <div className="pipeline-card-meta pipeline-card-stage" onPointerDown={(event) => event.stopPropagation()}>
+        <span>{t("المرحلة", "Stage")}</span>
+        <CustomSelect
+          className="pipeline-stage-select"
+          ariaLabel={t("مرحلة الصفقة", "Deal stage")}
+          value={conversation.pipelineStage || "جديد"}
+          onChange={(value) => onMove(conversation.id, value as PipelineStage)}
+          options={pipelineStages.map((stage) => ({ value: stage, label: stageLabel(stage, t) }))}
+        />
+      </div> : null}
       {conversation.tags?.length ? (
         <div className="pipeline-card-tags">
           {conversation.tags.map((tag) => <span key={tag}>{tag}</span>)}

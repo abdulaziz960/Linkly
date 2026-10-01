@@ -7,6 +7,7 @@ import { encryptSecret } from "../../../../lib/secret-storage";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
 import { safeEqual } from "../../../../lib/oauth-state";
+import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -100,6 +101,8 @@ export async function GET(request: NextRequest) {
       }).format(new Date())
     }
   });
+
+  await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة تيك توك بواسطة ${user.name}.`, "معلومة", "التكاملات");
 
   const response = closePopup(origin, "تم تسجيل الدخول. سيتم إغلاق النافذة...");
   response.cookies.delete("tiktok_oauth_state");

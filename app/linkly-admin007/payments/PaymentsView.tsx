@@ -166,7 +166,7 @@ export default function PaymentsView({ subscriptions, payments, initialStatus = 
             <h2>{t("المدفوعات", "Payments")} ({formatNumber(visiblePayments.length)} {t("من", "of")} {formatNumber(payments.length)})</h2>
             <p>{t("سجل كل طلبات الدفع عبر Moyasar لكل عميل - اشتراكات وشحن رصيد رسائل الحملات معًا - بحالتها الفعلية.", "A log of every payment request via Moyasar for each client - subscriptions and campaign message top-ups together - with their actual status.")}</p>
           </div>
-          <div className="admin-card-actions"><button type="button" onClick={exportCsv}>CSV</button><button type="button" onClick={exportExcel}>Excel</button></div>
+          <div className="admin-card-actions"><button type="button" onClick={exportCsv} disabled={visiblePayments.length === 0}>CSV</button><button type="button" onClick={exportExcel} disabled={visiblePayments.length === 0}>Excel</button></div>
         </div>
         <div className="admin-payment-filters"><label><span>{t("من تاريخ", "From")}</span><input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></label><label><span>{t("إلى تاريخ", "To")}</span><input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></label><label><span>{t("أقل مبلغ", "Min amount")}</span><input type="number" min="0" value={minAmount} onChange={(e) => setMinAmount(e.target.value)} /></label><label><span>{t("أعلى مبلغ", "Max amount")}</span><input type="number" min="0" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} /></label><button type="button" onClick={() => { setFromDate(""); setToDate(""); setMinAmount(""); setMaxAmount(""); setSelectedPaymentClient("all"); setStatusFilter("الكل"); setSourceFilter("الكل"); setSearchQuery(""); }}>{t("إعادة تعيين", "Reset")}</button></div>
 
@@ -225,11 +225,6 @@ export default function PaymentsView({ subscriptions, payments, initialStatus = 
                 <th>{t("النوع", "Type")}</th>
                 <th></th>
               </tr>
-              <tr className="admin-table-summary-row">
-                <th>{t("الإجمالي", "Total")}</th>
-                <th>{formatNumber(visiblePayments.reduce((sum, p) => sum + p.amount, 0))} {t("ر.س", "SAR")}</th>
-                <th colSpan={4}>{formatNumber(visiblePayments.length)} {t("عملية", "payments")}</th>
-              </tr>
             </thead>
             <tbody>
               {visiblePayments.map((payment) => {
@@ -276,6 +271,11 @@ export default function PaymentsView({ subscriptions, payments, initialStatus = 
                 );
               })}
             </tbody>
+            {visiblePayments.length > 0 ? <tfoot><tr className="admin-table-summary-row">
+              <th scope="row">{t("الإجمالي", "Total")}</th>
+              <td>{formatNumber(visiblePayments.reduce((sum, p) => sum + p.amount, 0))} {t("ر.س", "SAR")}</td>
+              <td colSpan={4}>{formatNumber(visiblePayments.length)} {t("عملية", "payments")}</td>
+            </tr></tfoot> : null}
           </table>
         </div>
         {payments.length === 0 ? (

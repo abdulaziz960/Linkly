@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema, getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
+import { recordWhatsAppSendOutcome, whatsappSendErrorCode } from "./whatsapp-billing";
 import type { Prisma } from "@prisma/client";
 
 export type ParsedRecipient = { phone: string; name: string };
@@ -282,9 +283,20 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
       }
     })
   });
-  const payload = await response.json().catch(() => null) as { messages?: Array<{ id?: string }>; error?: { message?: string } } | null;
+  const payload = await response.json().catch(() => null) as { messages?: Array<{ id?: string }>; error?: { message?: string; code?: number } } | null;
 
-  if (!response.ok) return { ok: false as const, error: payload?.error?.message || "تعذر الإرسال عبر واتساب" };
+  if (!response.ok) {
+    await recordWhatsAppSendOutcome({
+      tenantId: settings.tenantId,
+      ok: false,
+      hadIssueFlag: Boolean(settings.whatsappPaymentIssueAt),
+      errorCode: whatsappSendErrorCode(payload)
+    });
+    return { ok: false as const, error: payload?.error?.message || "تعذر الإرسال عبر واتساب" };
+  }
+  if (settings.whatsappPaymentIssueAt) {
+    await recordWhatsAppSendOutcome({ tenantId: settings.tenantId, ok: true, hadIssueFlag: true });
+  }
   return { ok: true as const, messageId: payload?.messages?.[0]?.id || "" };
 }
 
