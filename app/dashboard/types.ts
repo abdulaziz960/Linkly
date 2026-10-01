@@ -76,6 +76,11 @@ export type Conversation = {
   lastMessageTime?: string;
   firstMessageAt?: string;
   lastMessageAt?: string;
+  // Direction of the last real (non-note) message - "out" covers both an
+  // employee's reply and a bot auto-reply, used to prefix the inbox list
+  // preview (e.g. "أنت: ...") so it's visually distinguishable from the
+  // customer's own last message.
+  lastMessageDirection?: "in" | "out";
   tags: string[];
   messages: Message[];
   rating?: number;

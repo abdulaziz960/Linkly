@@ -84,6 +84,19 @@ describe("escalateUnansweredConversations", () => {
     expect(conversation?.isEscalated).toBe(true);
   });
 
+  it("keeps the inbox list's displayed time/direction on the customer's own unanswered message, not the escalation note that lands right after it", async () => {
+    const { getConversations } = await import("../lib/database");
+    const { escalateUnansweredConversations } = await import("../lib/response-sla");
+    await seedConversation({ id: "conv-sla-preview-time", assignee: "بدون موظف", lastDirection: "in" });
+
+    await escalateUnansweredConversations();
+
+    const conversations = await getConversations(tenantId);
+    const conversation = conversations.find((item) => item.id === "conv-sla-preview-time");
+    expect(conversation?.lastMessageAt).toBe(OLD_ENOUGH);
+    expect(conversation?.lastMessageDirection).toBe("in");
+  });
+
   it("still escalates when a system note (e.g. an assignment note) landed after the customer's unanswered message", async () => {
     const { prisma } = await import("../lib/prisma");
     const { escalateUnansweredConversations } = await import("../lib/response-sla");

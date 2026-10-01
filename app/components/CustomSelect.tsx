@@ -28,7 +28,7 @@ export default function CustomSelect({ value, onChange, defaultValue, name, opti
   const currentValue = isControlled ? value : internalValue;
 
   const [open, setOpen] = useState(false);
-  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [rect, setRect] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -76,7 +76,17 @@ export default function CustomSelect({ value, onChange, defaultValue, name, opti
     if (disabled) return;
     if (!open && buttonRef.current) {
       const box = buttonRef.current.getBoundingClientRect();
-      setRect({ top: box.bottom + 4, left: box.left, width: box.width });
+      // Flip the list above the trigger when there isn't enough room below
+      // for even a short list (estimated against the list's own max-height)
+      // - otherwise a trigger near the bottom of the screen (e.g. the
+      // composer toolbar) opens a menu that's immediately clipped by the
+      // viewport edge, appearing to not open at all.
+      const estimatedListHeight = Math.min(260, options.length * 40 + 12);
+      const spaceBelow = window.innerHeight - box.bottom;
+      const opensUpward = spaceBelow < estimatedListHeight && box.top > spaceBelow;
+      setRect(opensUpward
+        ? { bottom: window.innerHeight - box.top + 4, left: box.left, width: box.width }
+        : { top: box.bottom + 4, left: box.left, width: box.width });
     }
     setOpen((current) => !current);
   }
@@ -101,7 +111,7 @@ export default function CustomSelect({ value, onChange, defaultValue, name, opti
         <span>{selected?.label || placeholder || ""}</span>
       </button>
       {open && rect ? (
-        <div ref={listRef} className="custom-select-list" role="listbox" style={{ top: rect.top, left: rect.left, width: rect.width }}>
+        <div ref={listRef} className="custom-select-list" role="listbox" style={{ top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width }}>
           {options.map((option) => (
             <button
               type="button"

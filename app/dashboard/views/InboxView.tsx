@@ -1010,6 +1010,10 @@ export default function InboxView({
           {pagedConversations.map((conversation) => {
             const priority = getConversationPriority(conversation);
             const safePreview = isDeletedMessageText(conversation.lastMessage) ? t("تم حذف هذه الرسالة", "This message was deleted") : getSafeConversationPreview(conversation.lastMessage, t);
+            // Distinguishes an employee/bot reply from the customer's own
+            // message in the list preview, matching the convention of
+            // showing "You: ..." for the side that sent the last message.
+            const previewWithDirection = conversation.lastMessageDirection === "out" ? `${t("أنت", "You")}: ${safePreview}` : safePreview;
             const timeSource = conversation.lastMessageAt || conversation.lastActivityAt;
             const exactDate = timeSource ? new Date(timeSource) : null;
             const exactTime = exactDate && !Number.isNaN(exactDate.getTime()) ? new Intl.DateTimeFormat(language === "en" ? "en-US" : "ar-SA-u-nu-latn", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", numberingSystem: "latn", calendar: "gregory" }).format(exactDate) : "";
@@ -1046,7 +1050,7 @@ export default function InboxView({
                   <span className="conversation-assignee-inline">{conversation.assignee}</span>
                 ) : null}
                 <span className="conversation-card-title"><b>{conversation.customer}</b></span>
-                <small title={safePreview}>{safePreview}</small>
+                <small title={previewWithDirection}>{previewWithDirection}</small>
                 <span className="conversation-card-foot"><em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : priority === "high" ? t("مرتفعة", "High") : t("عادية", "Normal")}</em></span>
               </span>
               <span className="conversation-meta">

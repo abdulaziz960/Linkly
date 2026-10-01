@@ -3120,6 +3120,12 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       (Number.isNaN(lastCustomerMessageAt)
         ? Boolean(conversation.windowExpired)
         : now - lastCustomerMessageAt >= dayInMs);
+    // Excludes "note" rows (escalation/assignment system messages) - a note
+    // is appended right after escalating/assigning, so without this filter
+    // it would instantly become messages.at(-1) and both freeze the list's
+    // displayed time at the note's timestamp and misreport the escalation
+    // check below the moment either happens.
+    const lastRealMessage = [...messages].reverse().find((message) => message.direction === "in" || message.direction === "out");
 
     return {
       id: conversation.id,
@@ -3135,9 +3141,10 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       windowExpired: isWhatsAppWindowExpired || undefined,
       lastActivityAt: conversation.lastActivityAt || undefined,
       firstMessageTime: messages[0]?.time,
-      lastMessageTime: messages.at(-1)?.time,
+      lastMessageTime: lastRealMessage?.time ?? messages.at(-1)?.time,
       firstMessageAt: messages.find((message) => message.createdAt)?.createdAt,
-      lastMessageAt: messages.findLast((message) => message.createdAt)?.createdAt || conversation.lastActivityAt || undefined,
+      lastMessageAt: lastRealMessage?.createdAt || conversation.lastActivityAt || undefined,
+      lastMessageDirection: lastRealMessage?.direction as Conversation["lastMessageDirection"],
       tags: conversation.tags.map((tag) => tag.tagName),
       messages,
       rating: conversation.rating || undefined,
@@ -3152,16 +3159,9 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       attrUtmMedium: conversation.attrUtmMedium || undefined,
       attrUtmCampaign: conversation.attrUtmCampaign || undefined,
       attrUtmContent: conversation.attrUtmContent || undefined,
-      // Excludes "note" rows (escalation/assignment system messages) - the
-      // escalation note itself is appended right after escalating, so it
-      // would otherwise immediately become messages.at(-1) and break this
-      // check the instant a conversation gets escalated.
-      isEscalated: (() => {
-        const lastRealMessage = [...messages].reverse().find((message) => message.direction === "in" || message.direction === "out");
-        return (Boolean(conversation.escalatedForMessageId)
-          && lastRealMessage?.id === conversation.escalatedForMessageId
-          && lastRealMessage?.direction === "in") || undefined;
-      })()
+      isEscalated: (Boolean(conversation.escalatedForMessageId)
+        && lastRealMessage?.id === conversation.escalatedForMessageId
+        && lastRealMessage?.direction === "in") || undefined
     };
   });
 }
