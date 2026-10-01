@@ -2494,7 +2494,11 @@ async function runSchemaMigrations() {
  * serverless instance the same way seedDatabase() already is below.
  */
 export async function ensureSchema() {
-  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).catch((error) => {
+  schemaPromise ??= (async () => {
+    const url = process.env.DATABASE_URL || "";
+    console.error("ensureSchema diagnostic: isPostgresDatabase=" + isPostgresDatabase + " hasUrl=" + Boolean(url) + " startsWithPostgresql=" + url.startsWith("postgresql://") + " startsWithPostgres=" + url.startsWith("postgres://"));
+    return runSchemaMigrations();
+  })().then(ensureAiSchema).catch((error) => {
     schemaPromise = null;
     throw error;
   });
