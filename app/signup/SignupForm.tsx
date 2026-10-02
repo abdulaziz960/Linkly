@@ -76,7 +76,7 @@ const copy = {
   }
 };
 
-export default function SignupForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
+export default function SignupForm({ lang = "ar", planId }: { lang?: "ar" | "en"; planId?: string }) {
   const router = useRouter();
   const text = copy[lang];
   const channelOptions = channels[lang];
@@ -91,7 +91,7 @@ export default function SignupForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
     setLoading(true); setError("");
     const form = new FormData(event.currentTarget);
     const response = await fetch("/api/trial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-      companyName: form.get("companyName"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), teamSize: form.get("teamSize"), channels: selected, website: form.get("website"), termsAccepted
+      companyName: form.get("companyName"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), teamSize: form.get("teamSize"), channels: selected, website: form.get("website"), termsAccepted, planId
     }) });
     const payload = await response.json().catch(() => ({})) as {
       error?: string;

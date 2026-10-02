@@ -38,8 +38,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     shortName: { ar: "العادية", en: "Regular" },
     audience: { ar: "الأنسب لصاحب عمل بدأ يكبر ويحتاج قناة ثانية وفريق صغير.", en: "Best for a growing business that needs a second channel and a small team." },
     items: {
-      ar: ["توزيع محادثات تلقائي", "وسوم وتقسيم جمهور بسيط", "تقارير أساسية"],
-      en: ["Automatic conversation routing", "Tags and basic audience segments", "Basic reports"]
+      ar: ["توزيع محادثات تلقائي", "حملات وقوالب وتقسيم جمهور بسيط", "كتالوج منتجات وأقرب فرع", "تقارير أساسية"],
+      en: ["Automatic conversation routing", "Campaigns, templates and basic audience segments", "Product catalog and nearest branch", "Basic reports"]
     }
   },
   "باقة المؤسسات الصغيرة": {
@@ -47,8 +47,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     audience: { ar: "الأنسب لفريق يحتاج أتمتة وتقسيم جمهور ومساعد AI.", en: "Best for a team that needs automation, audience segments, and an AI Assistant." },
     featured: true,
     items: {
-      ar: ["فرق عمل متعددة", "أتمتة وقواعد تحويل متقدمة", "تقسيم جمهور واستهداف بالحملات", "مساعد AI", "تقارير أداء وSLA"],
-      en: ["Multiple teams", "Advanced automation and routing rules", "Audience segments and campaign targeting", "AI Assistant", "Performance and SLA reports"]
+      ar: ["فرق عمل متعددة", "أتمتة وقواعد تحويل متقدمة", "تقسيم جمهور واستهداف بالحملات", "مساعد AI وقاعدة المعرفة", "مركز العمليات وتقارير أداء وSLA"],
+      en: ["Multiple teams", "Advanced automation and routing rules", "Audience segments and campaign targeting", "AI Assistant and Knowledge Base", "Operations center, performance and SLA reports"]
     }
   },
   "باقة المؤسسات الكبيرة": {

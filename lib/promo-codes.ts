@@ -35,7 +35,8 @@ export type PromoCodeErrorCode =
   | "ALREADY_USED"
   | "EXISTING_CUSTOMER"
   | "WRONG_PLAN"
-  | "BELOW_MINIMUM";
+  | "BELOW_MINIMUM"
+  | "NOT_FOR_TOPUP";
 
 const errorMessages: Record<PromoCodeErrorCode, { ar: string; en: string }> = {
   INVALID_CODE: { ar: "هذا الكود غير صالح.", en: "This promo code is invalid." },
@@ -46,7 +47,8 @@ const errorMessages: Record<PromoCodeErrorCode, { ar: string; en: string }> = {
   ALREADY_USED: { ar: "تم استخدام هذا الكود مسبقا.", en: "This promo code has already been used." },
   EXISTING_CUSTOMER: { ar: "هذا الكود متاح للعملاء الجدد فقط.", en: "This promo code is available for new customers only." },
   WRONG_PLAN: { ar: "هذا الكود غير متاح للباقة المختارة.", en: "This promo code is not available for the selected plan." },
-  BELOW_MINIMUM: { ar: "قيمة الاشتراك اقل من الحد الادنى المطلوب لهذا الكود.", en: "The subscription amount is below this codes minimum." }
+  BELOW_MINIMUM: { ar: "قيمة الاشتراك اقل من الحد الادنى المطلوب لهذا الكود.", en: "The subscription amount is below this codes minimum." },
+  NOT_FOR_TOPUP: { ar: "هذا الكود خاص بالاشتراكات ولا ينطبق على شحن رصيد الحملات.", en: "This promo code is for subscriptions and doesn't apply to campaign balance top-ups." }
 };
 
 export function promoCodeErrorMessage(code: PromoCodeErrorCode, lang: "ar" | "en" = "ar") {
@@ -59,6 +61,8 @@ type ValidateInput = {
   planId: string;
   planName: string;
   amountSar: number;
+  /** What is being paid for - a campaign top-up only accepts general codes (see validatePromoCode). */
+  target?: "subscription" | "campaign_topup";
 };
 
 type ValidateResult =
@@ -78,7 +82,7 @@ export function computeDiscountAmount(discountCode: { discountType: string; disc
   return Math.max(0, Math.min(capped, amountSar));
 }
 
-export async function validatePromoCode({ code, tenantId, planId, planName, amountSar }: ValidateInput): Promise<ValidateResult> {
+export async function validatePromoCode({ code, tenantId, planId, planName, amountSar, target = "subscription" }: ValidateInput): Promise<ValidateResult> {
   void planName;
   const normalized = normalizePromoCode(code);
   if (!normalized) return { ok: false, errorCode: "INVALID_CODE" };
@@ -96,11 +100,16 @@ export async function validatePromoCode({ code, tenantId, planId, planName, amou
   }
 
   const applicablePlanIds = parseApplicablePlanIds(discountCode.applicablePlanIds);
-  if (applicablePlanIds.length > 0 && !applicablePlanIds.includes(planId)) {
+  // A top-up has no plan, so a code tied to specific plans, or meant for
+  // new customers / a first subscription, is a subscription code and never applies to it.
+  if (target === "campaign_topup" && (applicablePlanIds.length > 0 || discountCode.newUsersOnly === 1 || discountCode.firstSubscriptionOnly === 1)) {
+    return { ok: false, errorCode: "NOT_FOR_TOPUP" };
+  }
+  if (target === "subscription" && applicablePlanIds.length > 0 && !applicablePlanIds.includes(planId)) {
     return { ok: false, errorCode: "WRONG_PLAN" };
   }
 
-  if (discountCode.newUsersOnly === 1 || discountCode.firstSubscriptionOnly === 1) {
+  if (target === "subscription" && (discountCode.newUsersOnly === 1 || discountCode.firstSubscriptionOnly === 1)) {
     const everPaid = await hasEverHadSuccessfulPaidSubscription(tenantId);
     if (everPaid) return { ok: false, errorCode: "EXISTING_CUSTOMER" };
   }
@@ -322,4 +331,102 @@ export function computeDiscountCodeStatus(discountCode: { active: number; starts
   if (discountCode.expiresAt && new Date(discountCode.expiresAt) < now) return "expired";
   if (discountCode.usageLimit !== -1 && discountCode.usedCount >= discountCode.usageLimit) return "usage_limit_reached";
   return "active";
+}
+
+/** Frees whatever code is currently reserved on a payment (usage count back, reservation row removed) so another can be applied. */
+async function clearPromoReservation(tx: Prisma.TransactionClient, paymentId: string) {
+  const usage = await tx.discountCodeUsage.findFirst({ where: { paymentId, paymentStatus: "pending" } });
+  if (!usage) return;
+  await tx.discountCode.updateMany({ where: { id: usage.discountCodeId, usedCount: { gt: 0 } }, data: { usedCount: { decrement: 1 }, updatedAt: nowTimestamp() } });
+  await tx.discountCodeUsage.delete({ where: { id: usage.id } });
+}
+
+type PayPromoUser = { id: string; name: string; email: string; tenantId: string };
+export type PayPromoResult = { ok: true; amount: number; discountAmount: number; code: string } | { ok: false; error: string; status: number };
+
+/**
+ * Payment-page promo box for a pending SUBSCRIPTION payment: applies (or,
+ * with code === "", removes) a code by re-pricing that same payment row, so
+ * the card form simply re-renders with the new amount. The base price is
+ * always recovered from the row itself (amount + any discount already on
+ * it), never taken from the client.
+ */
+export async function setSubscriptionPaymentPromo(user: PayPromoUser, paymentId: string, code: string): Promise<PayPromoResult> {
+  await ensureSchema();
+  const payment = await prisma.subscriptionPayment.findFirst({ where: { id: paymentId, tenantId: user.tenantId } });
+  if (!payment || payment.status !== PAYMENT_STATUS.pending) return { ok: false, error: "عملية الدفع غير موجودة أو انتهت", status: 404 };
+
+  const base = Math.round((payment.amount + payment.discountAmount) * 100) / 100;
+  const plan = await prisma.plan.findFirst({ where: { name: payment.planName } });
+  const normalized = normalizePromoCode(code);
+  let failure: PromoCodeErrorCode | null = null;
+  let applied = { amount: base, discountAmount: 0, code: "" };
+
+  await prisma.$transaction(async (tx) => {
+    await clearPromoReservation(tx, payment.id);
+    if (normalized) {
+      const reservation = await reservePromoCodeUsage(tx, {
+        code: normalized, tenantId: user.tenantId, planId: plan?.id ?? "", planName: payment.planName, amountSar: base,
+        paymentId: payment.id, userId: user.id, userName: user.name, email: user.email, target: "subscription"
+      });
+      if (!reservation.ok) {
+        failure = reservation.errorCode;
+        throw new Error("PROMO_REJECTED");
+      }
+      applied = { amount: reservation.finalAmount, discountAmount: reservation.discountAmount, code: normalized };
+    }
+    await tx.subscriptionPayment.update({
+      where: { id: payment.id },
+      data: { amount: applied.amount, amountHalalas: Math.round(applied.amount * 100), promoCode: applied.code, discountAmount: applied.discountAmount }
+    });
+  }).catch((error) => {
+    if (!(error instanceof Error && error.message === "PROMO_REJECTED")) throw error;
+  });
+
+  if (failure) return { ok: false, error: promoCodeErrorMessage(failure, "ar"), status: 400 };
+  return { ok: true, ...applied };
+}
+
+/** Same as setSubscriptionPaymentPromo, for a pending campaign-balance top-up (general codes only). */
+export async function setCampaignPaymentPromo(user: PayPromoUser, paymentId: string, code: string, baseAmountSar: number): Promise<PayPromoResult> {
+  await ensureSchema();
+  const payment = await prisma.campaignPayment.findFirst({ where: { id: paymentId, tenantId: user.tenantId } });
+  if (!payment || payment.status !== PAYMENT_STATUS.pending) return { ok: false, error: "عملية الدفع غير موجودة أو انتهت", status: 404 };
+
+  const normalized = normalizePromoCode(code);
+  let failure: PromoCodeErrorCode | null = null;
+  let applied = { amount: baseAmountSar, discountAmount: 0, code: "" };
+
+  await prisma.$transaction(async (tx) => {
+    await clearPromoReservation(tx, payment.id);
+    if (normalized) {
+      const reservation = await reservePromoCodeUsage(tx, {
+        code: normalized, tenantId: user.tenantId, planId: "", planName: "شحن رصيد الحملات", amountSar: baseAmountSar,
+        paymentId: payment.id, userId: user.id, userName: user.name, email: user.email, target: "campaign_topup"
+      });
+      if (!reservation.ok) {
+        failure = reservation.errorCode;
+        throw new Error("PROMO_REJECTED");
+      }
+      applied = { amount: reservation.finalAmount, discountAmount: reservation.discountAmount, code: normalized };
+    }
+    await tx.campaignPayment.update({
+      where: { id: payment.id },
+      data: { amount: applied.amount, amountHalalas: Math.round(applied.amount * 100) }
+    });
+  }).catch((error) => {
+    if (!(error instanceof Error && error.message === "PROMO_REJECTED")) throw error;
+  });
+
+  if (failure) return { ok: false, error: promoCodeErrorMessage(failure, "ar"), status: 400 };
+  return { ok: true, ...applied };
+}
+
+/** The code currently reserved on a payment, for display on the payment page. */
+export async function getPaymentPromoSummary(paymentId: string) {
+  await ensureSchema();
+  const usage = await prisma.discountCodeUsage.findFirst({ where: { paymentId, paymentStatus: "pending" } });
+  if (!usage) return null;
+  const code = await prisma.discountCode.findUnique({ where: { id: usage.discountCodeId }, select: { code: true } });
+  return { code: code?.code ?? "", originalAmount: usage.originalAmount, discountAmount: usage.discountAmount, finalAmount: usage.finalAmount };
 }

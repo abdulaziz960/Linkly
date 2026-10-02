@@ -21,7 +21,7 @@ const copy = {
     selectedPlan: "الباقة التي اخترتها",
     billingMonthly: "دفع شهري بعد التجربة",
     billingYearly: "دفع سنوي بعد التجربة",
-    planNote: "هذا اختيار مبدئي للتجربة. تُختار الباقة عند الاشتراك، ولا تُفعّل إلا بعد إتمام الدفع.",
+    planNote: "ستجرّب هذه الباقة بمزاياها فقط خلال الفترة التجريبية، ويمكنك تجربة باقة أخرى من داخل لوحة التحكم. لا تُفعّل الباقة المدفوعة إلا بعد إتمام الدفع.",
     haveAccount: "لديك حساب؟",
     login: "تسجيل الدخول"
   },
@@ -40,7 +40,7 @@ const copy = {
     selectedPlan: "Your selected plan",
     billingMonthly: "Monthly billing after the trial",
     billingYearly: "Yearly billing after the trial",
-    planNote: "This is your trial preference. You choose the paid plan when subscribing; it activates only after payment.",
+    planNote: "You'll try this plan with its own features during the trial, and can try another plan from inside the dashboard. A paid plan only activates after payment.",
     haveAccount: "Already have an account?",
     login: "Sign in"
   }
@@ -75,7 +75,7 @@ export default function SignupPageClient({ selectedPlan, selectedBilling }: { se
           <small>{selectedBilling === "yearly" ? text.billingYearly : text.billingMonthly}</small>
           <p>{text.planNote}</p>
         </div> : null}
-        <SignupForm lang={lang} />
+        <SignupForm lang={lang} planId={selectedPlan?.id} />
         <small>{text.haveAccount} <Link href="/login">{text.login}</Link></small>
       </section>
     </main>

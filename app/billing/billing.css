@@ -521,3 +521,12 @@
   color: #106b65;
   font-weight: 700;
 }
+
+.pay-promo { margin: 14px 0; padding: 14px; border: 1px dashed #cbd5e1; border-radius: 14px; background: #f8fafc; text-align: start; }
+.pay-promo form > div { display: flex; gap: 8px; margin-top: 6px; }
+.pay-promo input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; }
+.pay-promo button { padding: 10px 16px; border: 0; border-radius: 10px; background: #0f766e; color: #fff; font-weight: 800; cursor: pointer; }
+.pay-promo button:disabled { opacity: 0.6; cursor: default; }
+.pay-promo-applied button { margin-top: 8px; background: transparent; color: #b91c1c; padding: 4px 0; }
+.pay-promo dl { margin: 8px 0 0; display: grid; gap: 4px; }
+.pay-promo dl div { display: flex; justify-content: space-between; }

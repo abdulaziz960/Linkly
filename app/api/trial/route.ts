@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { sendTrialSignupNotification } from "../../../lib/email";
 import { createTenantWithSubscription } from "../../../lib/subscriptions";
 import { getActivePlans } from "../../../lib/plans";
+import { pickTrialPlan } from "../../../lib/trial-plan";
 import { jsonError, jsonOk } from "../_utils/json";
 import { consumeRateLimit, requestIdentifier } from "../../../lib/rate-limit";
 import { isValidEmail, isValidSaudiPhone, isValidDisplayName } from "../../../lib/validation";
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
     channels?: string[];
     website?: string;
     termsAccepted?: boolean;
+    planId?: string;
   } | null;
 
   const companyName = body?.companyName?.trim() || "";
@@ -58,7 +60,8 @@ export async function POST(request: NextRequest) {
   if (channels.some((channel) => !allowedChannels.has(channel))) return jsonError("إحدى القنوات المختارة غير صالحة", 400);
 
   const plans = await getActivePlans();
-  const starterPlan = plans.find((p) => p.name.includes("البداية")) || plans[0];
+  // The plan the visitor chose on the pricing page is the one they trial (enterprise excluded).
+  const starterPlan = pickTrialPlan(plans, typeof body?.planId === "string" ? body.planId : undefined);
 
   const signupDetails = [
     phone ? `جوال: ${phone}` : null,

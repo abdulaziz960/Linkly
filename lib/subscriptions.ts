@@ -425,6 +425,8 @@ export async function applyConfirmedCampaignPayment(paymentId: string, details?:
       update: { balance: { increment: payment.messages }, lastTopUpAmount: payment.messages, updatedAt: now },
       create: { tenantId: payment.tenantId, balance: payment.messages, lastTopUpAmount: payment.messages, updatedAt: now }
     });
+    // A promo code used on this top-up becomes a completed use.
+    await confirmPromoCodeUsage(tx, payment.id, "");
     return true;
   });
 
@@ -477,7 +479,7 @@ export async function markPaymentOutcome(
     }
   }
 
-  if (changed && kind === "subscription" && (outcome === "failed" || outcome === "expired")) {
+  if (changed && (outcome === "failed" || outcome === "expired")) {
     await releasePromoCodeUsage(paymentId, outcome);
   }
 

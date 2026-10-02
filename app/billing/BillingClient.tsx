@@ -63,43 +63,14 @@ export default function BillingClient({ plans, currentPlan, lang = "ar", isTestM
   const text = copy[lang];
   const [loading, setLoading] = useState(""); const [error, setError] = useState("");
   const { billingCycle, chooseBillingCycle } = useBillingCycle();
-  const [promoInput, setPromoInput] = useState("");
-  const [promoTargetPlanId, setPromoTargetPlanId] = useState("");
-  const [promoApplying, setPromoApplying] = useState(false);
-  const [promoError, setPromoError] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<{ code: string; planId: string; subtotal: number; discountAmount: number; finalAmount: number } | null>(null);
-
-  async function applyPromoCode(planId: string) {
-    if (!promoInput.trim()) return;
-    setPromoApplying(true);
-    setPromoError("");
-    const response = await fetch("/api/billing/promo-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planId, code: promoInput })
-    });
-    const payload = await response.json().catch(() => ({})) as { code?: string; subtotal?: number; discountAmount?: number; finalAmount?: number; error?: string };
-    setPromoApplying(false);
-    if (!response.ok || payload.discountAmount === undefined) {
-      setPromoError(payload.error || text.genericError);
-      setAppliedPromo(null);
-      return;
-    }
-    setAppliedPromo({ code: payload.code || promoInput.toUpperCase(), planId, subtotal: payload.subtotal || 0, discountAmount: payload.discountAmount, finalAmount: payload.finalAmount || 0 });
-  }
-
-  function removePromoCode() {
-    setAppliedPromo(null);
-    setPromoInput("");
-    setPromoError("");
-  }
+  // Discount codes are entered on the payment page itself (app/billing/pay), not here.
 
   async function checkout(planId: string) {
     setLoading(planId); setError("");
     const response = await fetch("/api/billing/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planId, billingCycle, promoCode: appliedPromo && appliedPromo.planId === planId ? appliedPromo.code : undefined })
+      body: JSON.stringify({ planId, billingCycle })
     });
     const payload = await response.json().catch(() => ({})) as { paymentId?: string; paymentUrl?: string; error?: string };
     if (!response.ok || (!payload.paymentId && !payload.paymentUrl)) { setLoading(""); setError(payload.error || text.genericError); return; }
@@ -123,38 +94,6 @@ export default function BillingClient({ plans, currentPlan, lang = "ar", isTestM
         <div className="plan-price"><b>{displayedPrice}</b><span>{billingCycle === "سنوي" ? text.perYear : text.perMonth}</span></div>
         {billingCycle === "سنوي" ? <p className="plan-price-note">{text.billedYearly(yearly)}</p> : null}
         <ul>{items.map((item) => <li key={item}>✓ {item}</li>)}</ul>
-
-        {promoTargetPlanId === plan.id ? (
-          <div className="promo-code-box">
-            {appliedPromo && appliedPromo.planId === plan.id ? (
-              <>
-                <p className="promo-code-applied">{text.promoAppliedPrefix}: {appliedPromo.code} ✓</p>
-                <p>{text.subtotal}: {appliedPromo.subtotal} {text.sar}</p>
-                <p>{text.discount}: -{appliedPromo.discountAmount} {text.sar}</p>
-                <p><b>{text.total}: {appliedPromo.finalAmount} {text.sar}</b></p>
-                <button type="button" onClick={removePromoCode}>{text.promoRemove}</button>
-              </>
-            ) : (
-              <>
-                <input
-                  type="text"
-                  value={promoInput}
-                  onChange={(event) => setPromoInput(event.target.value)}
-                  placeholder={text.promoPlaceholder}
-                  dir="ltr"
-                />
-                <button type="button" disabled={promoApplying} onClick={() => applyPromoCode(plan.id)}>
-                  {promoApplying ? text.promoApplying : text.promoApply}
-                </button>
-                {promoError ? <p className="billing-error">{promoError}</p> : null}
-              </>
-            )}
-          </div>
-        ) : (
-          <button type="button" className="promo-code-toggle" onClick={() => setPromoTargetPlanId(plan.id)}>
-            {text.promoLabel}
-          </button>
-        )}
 
         <button disabled={loading !== ""} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : isCurrent ? text.renewPlan : text.upgradePlan}</button>
       </article>;

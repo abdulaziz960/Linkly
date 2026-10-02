@@ -7,6 +7,11 @@ import type { ViewKey } from "../app/dashboard/types";
  * fail-open rule as lib/plan-channel-access.ts) - a data inconsistency must
  * never lock a paying customer out.
  */
+export async function getTenantTrialState(tenantId: string): Promise<boolean> {
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId }, select: { status: true } });
+  return subscription?.status === "تجربة";
+}
+
 export async function getTenantPlanName(tenantId: string): Promise<string | null> {
   const subscription = await prisma.subscription.findUnique({ where: { tenantId }, select: { plan: true } });
   return subscription?.plan ?? null;
@@ -19,5 +24,5 @@ export async function isViewLockedForTenant(tenantId: string, view: ViewKey): Pr
 export async function getPlanAccessForTenant(tenantId: string): Promise<PlanAccessData> {
   const planName = await getTenantPlanName(tenantId);
   const plan = planName ? await prisma.plan.findUnique({ where: { name: planName }, select: { allowedChannels: true } }) : null;
-  return buildPlanAccess(planName, plan?.allowedChannels);
+  return buildPlanAccess(planName, plan?.allowedChannels, await getTenantTrialState(tenantId));
 }

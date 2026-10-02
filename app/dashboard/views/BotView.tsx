@@ -3,7 +3,7 @@
 import { DragEvent, FormEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../i18n";
 import { usePlanAccess } from "../plan-access-context";
-import { SMALL_ORG_PLAN, REGULAR_PLAN } from "../../../lib/plan-access";
+import { upgradeTargetForBotStep, REGULAR_PLAN } from "../../../lib/plan-access";
 import CustomSelect from "../../components/CustomSelect";
 import type { Employee, Team } from "../types";
 import { channelNames } from "../../channel-names";
@@ -204,7 +204,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
   const { t } = useLanguage();
   const { access, requestUpgrade } = usePlanAccess();
   const isStepTypeLocked = (type: string) => access.botNodeTypes !== "*" && !access.botNodeTypes.includes(type);
-  const stepTypeUpgradePlan = (type: string) => (type === "رد AI تلقائي" || type === "رد من قاعدة المعرفة" ? SMALL_ORG_PLAN : REGULAR_PLAN);
+  const stepTypeUpgradePlan = (type: string) => upgradeTargetForBotStep(type);
   const [channel, setChannel] = useState<BotChannel>("whatsapp");
   const [builderOpen, setBuilderOpen] = useState(false);
   const [nodes, setNodes] = useState<BotNode[]>([]);

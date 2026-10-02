@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { isTrialEligiblePlan } from "../../lib/trial-plan";
 import type { ReactNode } from "react";
 import { useLanguage } from "./i18n";
 import type { PlanAccessData } from "../../lib/plan-access";
@@ -21,7 +22,7 @@ type PlanAccessContextValue = {
   promptForChannel: (channel: ChannelKey, label: string) => void;
 };
 
-const OPEN_ACCESS: PlanAccessData = { planName: "", lockedViews: [], allowedChannels: "*", botNodeTypes: "*", botMaxSteps: null, basicReports: false };
+const OPEN_ACCESS: PlanAccessData = { planName: "", lockedViews: [], allowedChannels: "*", botNodeTypes: "*", botMaxSteps: null, basicReports: false, isTrial: false };
 
 const PlanAccessContext = createContext<PlanAccessContextValue>({
   access: OPEN_ACCESS,
@@ -39,6 +40,27 @@ export function usePlanAccess() {
 export function PlanAccessProvider({ access, children }: { access: PlanAccessData; children: ReactNode }) {
   const { t } = useLanguage();
   const [prompt, setPrompt] = useState<UpgradePrompt | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState("");
+
+  // During the free trial the owner can simply try the plan that has the feature.
+  async function tryPlan(planName: string) {
+    setSwitching(true);
+    setSwitchError("");
+    try {
+      const response = await fetch("/api/trial/switch-plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: planName }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) {
+        setSwitchError(result?.error || t("تعذر تفعيل التجربة", "Could not start the trial"));
+        setSwitching(false);
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setSwitchError(t("تعذر تفعيل التجربة", "Could not start the trial"));
+      setSwitching(false);
+    }
+  }
 
   const requestUpgrade = useCallback((next: UpgradePrompt) => setPrompt(next), []);
 
@@ -75,12 +97,19 @@ export function PlanAccessProvider({ access, children }: { access: PlanAccessDat
               <p>
                 {t("هذه الميزة متاحة بدءًا من ", "This feature is available from ")}
                 <b>{prompt.targetPlan}</b>
-                {t(". رقِّ باقتك للاستمتاع بالمزايا.", ". Upgrade your plan to enjoy it.")}
+                {access.isTrial ? t(". أنت في الفترة التجريبية، فيمكنك تجربتها الآن مجانًا.", ". You're on the free trial, so you can try it now for free.") : t(". رقِّ باقتك للاستمتاع بالمزايا.", ". Upgrade your plan to enjoy it.")}
               </p>
+              {switchError ? <p className="form-error">{switchError}</p> : null}
             </div>
             <footer className="modal-foot">
               <button className="btn soft" type="button" onClick={() => setPrompt(null)}>{t("لاحقًا", "Not now")}</button>
-              <Link className="btn primary" href="/billing">{t("ترقية الباقة", "Upgrade plan")}</Link>
+              {access.isTrial && isTrialEligiblePlan(prompt.targetPlan) ? (
+                <button className="btn primary" type="button" disabled={switching} onClick={() => void tryPlan(prompt.targetPlan)}>
+                  {switching ? t("جارٍ التفعيل...", "Switching...") : t(`جرّب ${prompt.targetPlan} الآن`, `Try ${prompt.targetPlan} now`)}
+                </button>
+              ) : (
+                <Link className="btn primary" href="/billing">{t("ترقية الباقة", "Upgrade plan")}</Link>
+              )}
             </footer>
           </div>
         </div>

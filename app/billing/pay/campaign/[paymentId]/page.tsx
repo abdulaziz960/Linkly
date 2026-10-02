@@ -7,6 +7,8 @@ import { expectedHalalas } from "../../../../../lib/subscriptions";
 import { paymentDescription, paymentStatementDescriptor } from "../../../../../lib/moyasar";
 import { PAYMENT_STATUS } from "../../../../../lib/payment-status";
 import MoyasarPayForm from "../../[paymentId]/MoyasarPayForm";
+import PayPromoBox from "../../PayPromoBox";
+import { getPaymentPromoSummary } from "../../../../../lib/promo-codes";
 import "../../../billing.css";
 
 export const metadata = { title: { absolute: "إتمام الدفع | Linkly" } };
@@ -31,6 +33,7 @@ export default async function CampaignPayPage({ params }: { params: Promise<{ pa
 
   const publishableKey = process.env.NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY || "";
   const description = paymentDescription("campaign_topup", { messages: payment.messages });
+  const promo = await getPaymentPromoSummary(payment.id);
 
   return (
     <main className="test-checkout">
@@ -38,8 +41,17 @@ export default async function CampaignPayPage({ params }: { params: Promise<{ pa
         <Image src="/assets/linkly-logo.png" alt="" width={88} height={49} />
         <h1>إتمام الدفع</h1>
         <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س</p>
+        <PayPromoBox
+          endpoint="/api/campaigns/balance/promo"
+          paymentId={payment.id}
+          appliedCode={promo?.code ?? ""}
+          subtotal={promo?.originalAmount ?? payment.amount}
+          discountAmount={promo?.discountAmount ?? 0}
+          total={payment.amount}
+        />
         {publishableKey ? (
           <MoyasarPayForm
+            key={payment.amountHalalas}
             paymentId={payment.id}
             amountHalalas={expectedHalalas(payment)}
             description={description}

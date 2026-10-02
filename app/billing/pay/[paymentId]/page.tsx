@@ -6,6 +6,7 @@ import { expectedHalalas } from "../../../../lib/subscriptions";
 import { PAYMENT_STATUS } from "../../../../lib/payment-status";
 import { paymentStatementDescriptor } from "../../../../lib/moyasar";
 import MoyasarPayForm from "./MoyasarPayForm";
+import PayPromoBox from "../PayPromoBox";
 import "../../billing.css";
 
 export const metadata = { title: { absolute: "إتمام الدفع | Linkly" } };
@@ -47,8 +48,17 @@ export default async function BillingPayPage({ params }: { params: Promise<{ pay
         ) : (
           <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س</p>
         )}
+        <PayPromoBox
+          endpoint="/api/billing/pay-promo"
+          paymentId={payment.id}
+          appliedCode={payment.promoCode}
+          subtotal={Math.round((payment.amount + payment.discountAmount) * 100) / 100}
+          discountAmount={payment.discountAmount}
+          total={payment.amount}
+        />
         {publishableKey ? (
           <MoyasarPayForm
+            key={payment.amountHalalas}
             paymentId={payment.id}
             amountHalalas={expectedHalalas(payment)}
             description={description}
