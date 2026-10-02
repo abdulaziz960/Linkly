@@ -12,6 +12,7 @@
     "test:browser": "playwright test",
     "admin:create": "node scripts/create-super-admin.mjs",
     "postinstall": "node scripts/prisma-generate.mjs",
+    "dev:account": "node --env-file-if-exists=.env.local scripts/create-dev-account.mjs",
     "db:push": "node scripts/prisma-db-push.mjs",
     "db:migrate:deploy": "node --env-file-if-exists=.env.db scripts/with-postgres-client.mjs scripts/prisma-migrate-deploy.mjs",
     "db:proxy": "sh scripts/db-proxy.sh",

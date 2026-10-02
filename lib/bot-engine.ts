@@ -8,7 +8,8 @@ import { sendFacebookTextMessage } from "./facebook-send";
 import { sendXTextMessage } from "./x-send";
 import { sendWebsiteTextMessage } from "./website-send";
 import { pickTeamAssignee } from "./automation-engine";
-import { findBestKbMatch } from "./knowledge-base";
+import { findBestKbMatch, findKbContext } from "./knowledge-base";
+import { AI_NO_ANSWER } from "./ai-provider";
 import { runWorkspaceAi } from "./workspace-ai";
 import { logAssignmentMessage } from "./conversation-system-messages";
 import { handleCatalogReply, sendCatalogMenu, type CatalogCtx } from "./catalog-bot";
@@ -383,14 +384,26 @@ async function getAiReplyText(tenantId: string, conversationId: string): Promise
     take: 50
   });
 
+  // Customer-facing and sent without review, so it may only answer from the
+  // tenant's own knowledge base. No relevant entry means no model call at
+  // all: returning null hands the chat on (the node's `next`) to a person
+  // instead of letting the model guess a price or policy.
+  const recentCustomerText = messages.filter((message) => message.direction === "in").slice(0, 2).map((message) => message.text).join("\n");
+  const knowledge = await findKbContext(tenantId, recentCustomerText);
+  if (!knowledge.length) return null;
+
   const result = await runWorkspaceAi(tenantId, AI_REPLY_BOT_USER_ID, conversationId, {
     messages: messages.reverse().map((message) => ({ direction: message.direction as "in" | "out" | "note", text: message.text })),
     customerName: conversation.customer.name,
     language: "ar",
-    operation: "reply"
+    operation: "reply",
+    knowledge,
+    knowledgeOnly: true
   });
 
-  return result.suggestion?.trim() || null;
+  const text = result.suggestion?.trim();
+  if (!text || text.includes(AI_NO_ANSWER)) return null;
+  return text;
 }
 
 function branchContext(channel: BotChannel, ctx: { tenantId: string; conversationId: string; recipientId: string }): BranchCtx {

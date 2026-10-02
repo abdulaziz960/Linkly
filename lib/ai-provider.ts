@@ -7,7 +7,14 @@ export type AiContext = {
   messages: SuggestReplyMessage[]; customerName: string; language: "ar" | "en";
   operation?: AiOperation; draft?: string; prompt?: string;
   source?: "copilot";
+  // Approved business facts (the tenant's knowledge base) relevant to this chat.
+  knowledge?: Array<{ question: string; answer: string }>;
+  // Customer-facing auto-reply: answer ONLY from `knowledge`, else say NO_ANSWER.
+  knowledgeOnly?: boolean;
 };
+
+/** Sentinel the model returns when the knowledge base cannot answer; callers hand the chat to a person. */
+export const AI_NO_ANSWER = "NO_ANSWER";
 export type AiConnection = { provider: AiProvider | "ollama"; model: string; apiKey: string; economy?: boolean };
 export type AiResult = { text: string; inputTokens: number | null; outputTokens: number | null };
 
@@ -42,6 +49,20 @@ export function defaultAiConnection(): AiConnection {
   return { provider: "gemini", model: process.env.GEMINI_MODEL?.trim() || ECONOMY_MODEL, apiKey: process.env.GEMINI_API_KEY?.trim() || "", economy: true };
 }
 
+function knowledgeSection(context: AiContext) {
+  if (!context.knowledge?.length) return "";
+  const entries = context.knowledge
+    .map((entry, index) => `${index + 1}. ${entry.question ? `Q: ${clipUtf8(entry.question, 300)}\nA: ` : ""}${clipUtf8(entry.answer, 700)}`)
+    .join("\n");
+  return [
+    "Approved business knowledge (the only trusted source of facts about this business):",
+    entries,
+    context.knowledgeOnly
+      ? `Answer ONLY using the approved knowledge above. If it does not clearly answer the customer's latest message, reply with exactly ${AI_NO_ANSWER} and nothing else.`
+      : "Prefer these facts when they are relevant. Never state a price, policy or availability that is not in them or in the conversation."
+  ].join("\n");
+}
+
 function instruction(context: AiContext) {
   const tasks: Record<AiOperation, string> = {
     reply: "Draft one concise customer support reply to the latest customer message.",
@@ -58,7 +79,8 @@ function instruction(context: AiContext) {
     "Do not invent prices, policies, availability, or completed actions. If facts are missing, ask for clarification.",
     `Output language: ${context.language === "en" ? "English" : "Arabic"}.`,
     tasks[context.operation || "reply"],
-    context.prompt ? `Workspace writing guidance: ${context.prompt.slice(0, 4000)}` : ""
+    context.prompt ? `Workspace writing guidance: ${context.prompt.slice(0, 4000)}` : "",
+    knowledgeSection(context)
   ].filter(Boolean).join("\n");
 }
 
