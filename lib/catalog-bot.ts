@@ -44,6 +44,17 @@ const ID_BACK = "cat_back";
 const ID_AGENT = "cat_agent";
 const CARDS_PER_PAGE = 5;
 
+/**
+ * WhatsApp message images must be JPEG or PNG - a WebP link (very common on
+ * merchant sites) is accepted by the API and then silently fails to deliver.
+ * Anything not clearly JPEG/PNG goes through our converting route.
+ */
+function whatsappImageUrl(product: CatalogProduct): string | undefined {
+  if (!product.imageUrl) return undefined;
+  if (/\.(jpe?g|png)(\?|#|$)/i.test(product.imageUrl)) return product.imageUrl;
+  return `${getAppOrigin()}/api/catalog/image/${encodeURIComponent(product.id)}`;
+}
+
 function productLine(product: CatalogProduct) {
   return `${product.name} - ${formatPrice(product.price, product.currency)}`;
 }
@@ -88,7 +99,7 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
       bodyText: caption,
       buttons: [{ id: `${ID_PRODUCT}${product.id}`, title: "عرض التفاصيل" }],
       displayText: caption,
-      headerImageUrl: product.imageUrl || undefined,
+      headerImageUrl: whatsappImageUrl(product),
       author: AUTHOR
     });
     // A bad image link makes Meta reject the header - retry as a text-only card.
@@ -139,7 +150,7 @@ async function showProduct(ctx: CatalogCtx, product: CatalogProduct) {
   }
 
   const common = { tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, author: AUTHOR };
-  const image = product.imageUrl || undefined;
+  const image = whatsappImageUrl(product);
   const nav = [{ id: ID_BACK, title: "كل المنتجات" }, { id: ID_AGENT, title: "التحدث مع موظف" }];
 
   // Payment on -> buy button. Payment off -> open the product page on the
