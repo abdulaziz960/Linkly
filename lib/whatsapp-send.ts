@@ -698,3 +698,52 @@ export function sendWhatsAppImageByUrl(input: {
     message: { type: "image", image: { link: input.imageUrl, caption: input.caption.slice(0, 1024) } }
   });
 }
+
+/** A native "Send location" prompt - one tap and the customer shares where they are. */
+export function sendWhatsAppLocationRequest(input: {
+  tenantId?: string;
+  conversationId: string;
+  to: string;
+  bodyText: string;
+  author?: string;
+}) {
+  return sendWhatsAppCustomMessage({
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+    to: input.to,
+    displayText: input.bodyText,
+    author: input.author,
+    message: {
+      type: "interactive",
+      interactive: {
+        type: "location_request_message",
+        body: { text: input.bodyText.slice(0, 1024) },
+        action: { name: "send_location" }
+      }
+    }
+  });
+}
+
+/** A map pin the customer can tap to open directions. */
+export function sendWhatsAppLocation(input: {
+  tenantId?: string;
+  conversationId: string;
+  to: string;
+  latitude: number;
+  longitude: number;
+  name: string;
+  address: string;
+  author?: string;
+}) {
+  return sendWhatsAppCustomMessage({
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+    to: input.to,
+    displayText: `📍 ${input.name}`,
+    author: input.author,
+    message: {
+      type: "location",
+      location: { latitude: input.latitude, longitude: input.longitude, name: input.name.slice(0, 100), address: input.address.slice(0, 200) }
+    }
+  });
+}

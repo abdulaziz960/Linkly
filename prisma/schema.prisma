@@ -1226,3 +1226,21 @@ model CatalogOrder {
   @@index([paymentId])
   @@map("catalog_orders")
 }
+
+model Branch {
+  id           String @id
+  tenantId     String @map("tenant_id")
+  name         String
+  address      String @default("")
+  phone        String @default("")
+  latitude     Float
+  longitude    Float
+  workingHours String @default("") @map("working_hours")
+  mapUrl       String @default("") @map("map_url")
+  active       Int    @default(1)
+  createdAt    String @map("created_at")
+  updatedAt    String @map("updated_at")
+
+  @@index([tenantId, active])
+  @@map("branches")
+}

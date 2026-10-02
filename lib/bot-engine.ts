@@ -12,6 +12,7 @@ import { findBestKbMatch } from "./knowledge-base";
 import { runWorkspaceAi } from "./workspace-ai";
 import { logAssignmentMessage } from "./conversation-system-messages";
 import { handleCatalogReply, sendCatalogMenu, type CatalogCtx } from "./catalog-bot";
+import { handleBranchReply, startBranchStep, type BranchCtx, type Coordinates } from "./branch-bot";
 
 export type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x" | "website";
 
@@ -43,7 +44,12 @@ export type BotNodeContent =
   // "waiting" here while the customer browses; `next` is where a customer
   // who taps "التحدث مع موظف" (or finds no products) is sent, e.g. a team
   // node - with no connection they're simply put back in the agents' queue.
-  | { kind: "catalog"; text: string; next: string | null };
+  | { kind: "catalog"; text: string; next: string | null }
+  // Asks the customer to share their location and replies with the nearest
+  // of the tenant's branches (lib/branch-bot.ts). `text` is the request
+  // message; `next` runs after the customer got their branch (or when the
+  // tenant has no branches yet).
+  | { kind: "branch"; text: string; next: string | null };
 
 export type BotNodeInput = {
   id?: string;
@@ -72,6 +78,7 @@ const CLOSE_NODE_TYPE = "إغلاق المحادثة";
 const KNOWLEDGE_BASE_NODE_TYPE = "رد من قاعدة المعرفة";
 const AI_REPLY_NODE_TYPE = "رد AI تلقائي";
 const CATALOG_NODE_TYPE = "عرض الكتالوج";
+const BRANCH_NODE_TYPE = "أقرب فرع";
 
 function settingsId(tenantId: string, channel: BotChannel) {
   return `bot-settings-${tenantId}-${channel}`;
@@ -173,7 +180,7 @@ export async function getBotNodes(tenantId = "tenant-demo", channel: BotChannel 
 }
 
 function remapNodeLinks(content: BotNodeContent, idMap: Map<string, string>): BotNodeContent {
-  if (content.kind === "message" || content.kind === "knowledgeBase" || content.kind === "aiReply" || content.kind === "catalog") {
+  if (content.kind === "message" || content.kind === "knowledgeBase" || content.kind === "aiReply" || content.kind === "catalog" || content.kind === "branch") {
     return { ...content, next: content.next ? idMap.get(content.next) || content.next : null };
   }
   if (content.kind === "list") {
@@ -386,6 +393,16 @@ async function getAiReplyText(tenantId: string, conversationId: string): Promise
   return result.suggestion?.trim() || null;
 }
 
+function branchContext(channel: BotChannel, ctx: { tenantId: string; conversationId: string; recipientId: string }): BranchCtx {
+  return {
+    channel,
+    tenantId: ctx.tenantId,
+    conversationId: ctx.conversationId,
+    recipientId: ctx.recipientId,
+    sendText: (text) => sendBotText(channel, { tenantId: ctx.tenantId, conversationId: ctx.conversationId, recipientId: ctx.recipientId, text })
+  };
+}
+
 function catalogContext(channel: BotChannel, ctx: { tenantId: string; conversationId: string; recipientId: string }): CatalogCtx {
   return {
     channel,
@@ -403,7 +420,7 @@ async function executeFrom(
   channel: BotChannel,
   nodes: BotNode[],
   startId: string,
-  ctx: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string; replyId?: string }
+  ctx: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string; replyId?: string; location?: Coordinates }
 ) {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   let currentId: string | null = startId;
@@ -479,6 +496,16 @@ async function executeFrom(
       continue;
     }
 
+    if (node.type === BRANCH_NODE_TYPE && node.content.kind === "branch") {
+      const state = await startBranchStep(branchContext(channel, ctx), node.content.text, ctx.location);
+      if (state === "waiting") {
+        await prisma.conversation.update({ where: { id: ctx.conversationId }, data: { botWaitingNodeId: node.id } });
+        return;
+      }
+      currentId = node.content.next;
+      continue;
+    }
+
     if (node.type === AI_REPLY_NODE_TYPE && node.content.kind === "aiReply") {
       const suggestion = await getAiReplyText(ctx.tenantId, ctx.conversationId);
       if (suggestion) {
@@ -520,7 +547,7 @@ async function executeFrom(
 
 export async function runChannelBot(
   channel: BotChannel,
-  input: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string; replyId?: string }
+  input: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string; replyId?: string; location?: Coordinates }
 ) {
   const tenantId = input.tenantId || "tenant-demo";
   const settings = await getBotSettings(tenantId, channel);
@@ -532,7 +559,7 @@ export async function runChannelBot(
   const nodes = await getBotNodes(tenantId, channel);
   if (!nodes.length) return;
 
-  const ctx = { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, incomingText: input.incomingText, replyId: input.replyId };
+  const ctx = { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, incomingText: input.incomingText, replyId: input.replyId, location: input.location };
 
   if (!conversation.botRanAt) {
     // Claim the "start the flow" step atomically: only the invocation whose
@@ -564,6 +591,17 @@ export async function runChannelBot(
       });
       if (claimed.count === 0) return;
       await executeFrom(channel, nodes, waitingId, ctx);
+      return;
+    }
+
+    if (waitingNode.content.kind === "branch") {
+      const claimed = await prisma.conversation.updateMany({
+        where: { id: input.conversationId, botWaitingNodeId: waitingId },
+        data: { botWaitingNodeId: "" }
+      });
+      if (claimed.count === 0) return;
+      await handleBranchReply(branchContext(channel, ctx), input.location);
+      if (waitingNode.content.next) await executeFrom(channel, nodes, waitingNode.content.next, ctx);
       return;
     }
 
@@ -599,8 +637,8 @@ export async function runChannelBot(
   }
 }
 
-export async function runWhatsAppBot(input: { tenantId: string; conversationId: string; phone: string; incomingText?: string; replyId?: string }) {
-  return runChannelBot("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, incomingText: input.incomingText, replyId: input.replyId });
+export async function runWhatsAppBot(input: { tenantId: string; conversationId: string; phone: string; incomingText?: string; replyId?: string; location?: Coordinates }) {
+  return runChannelBot("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, incomingText: input.incomingText, replyId: input.replyId, location: input.location });
 }
 
 export async function runTelegramBot(input: { tenantId: string; conversationId: string; chatId: string; incomingText?: string }) {

@@ -22,7 +22,8 @@ export const navItems: NavItem[] = [
   { key: "integrations", label: "التكاملات" },
   { key: "developers", label: "المطورون" },
   { key: "branding", label: "العلامة التجارية" },
-  { key: "catalog", label: "الكتالوج" }
+  { key: "catalog", label: "الكتالوج" },
+  { key: "branches", label: "الفروع" }
 ];
 
 // English labels currently cover the sidebar navigation only (a partial,
@@ -49,7 +50,8 @@ export const navItemLabelsEn: Record<ViewKey, string> = {
   integrations: "Integrations",
   developers: "Developers",
   branding: "Branding",
-  catalog: "Catalog"
+  catalog: "Catalog",
+  branches: "Branches"
 };
 
 export const viewTitles: Record<ViewKey, string> = {
@@ -74,5 +76,6 @@ export const viewTitles: Record<ViewKey, string> = {
   integrations: "التكاملات",
   developers: "المطورون",
   branding: "العلامة التجارية",
-  catalog: "الكتالوج"
+  catalog: "الكتالوج",
+  branches: "الفروع"
 };

@@ -16,7 +16,8 @@ type BotNodeContent =
   | { kind: "close"; text: string }
   | { kind: "knowledgeBase"; noMatchText: string; next: string | null }
   | { kind: "aiReply"; next: string | null }
-  | { kind: "catalog"; text: string; next: string | null };
+  | { kind: "catalog"; text: string; next: string | null }
+  | { kind: "branch"; text: string; next: string | null };
 
 type BotNode = {
   id: string;
@@ -49,7 +50,7 @@ type ReadyStep = {
   kind?: "flow" | "step";
 };
 
-const nodeTypes = ["إرسال رسالة", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "رد من قاعدة المعرفة", "رد AI تلقائي", "عرض الكتالوج", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
+const nodeTypes = ["إرسال رسالة", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "رد من قاعدة المعرفة", "رد AI تلقائي", "عرض الكتالوج", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
 const LIST_NODE_TYPES = new Set(["إرسال قائمة قصيرة", "إرسال قائمة طويلة"]);
 const TERMINAL_NODE_TYPES = new Set(["تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"]);
 
@@ -60,6 +61,7 @@ const nodeTypeLabelsEn: Record<string, string> = {
   "رد من قاعدة المعرفة": "Knowledge Base reply",
   "رد AI تلقائي": "Automatic AI reply",
   "عرض الكتالوج": "Show the catalog",
+  "أقرب فرع": "Nearest branch",
   "تحويل لفريق": "Transfer to a team",
   "تحويل لموظف": "Transfer to an employee",
   "إغلاق المحادثة": "Close the conversation"
@@ -158,6 +160,7 @@ function emptyContentFor(type: string): BotNodeContent {
   if (type === "رد من قاعدة المعرفة") return { kind: "knowledgeBase", noMatchText: "", next: null };
   if (type === "رد AI تلقائي") return { kind: "aiReply", next: null };
   if (type === "عرض الكتالوج") return { kind: "catalog", text: "", next: null };
+  if (type === "أقرب فرع") return { kind: "branch", text: "", next: null };
   return { kind: "message", text: "", next: null };
 }
 
@@ -170,7 +173,7 @@ const START_POSITION = { x: 24, y: 160 };
 const DRAG_CLICK_THRESHOLD = 5;
 
 function outgoingLinks(node: BotNode): Array<{ from: string; to: string }> {
-  if ((node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog") && node.content.next) return [{ from: node.id, to: node.content.next }];
+  if ((node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch") && node.content.next) return [{ from: node.id, to: node.content.next }];
   if (node.content.kind === "list") {
     return node.content.options.filter((option) => option.next).map((option) => ({ from: `${node.id}:${option.id}`, to: option.next as string }));
   }
@@ -181,7 +184,7 @@ function outgoingLinks(node: BotNode): Array<{ from: string; to: string }> {
 // which node/option it belongs to - shared by both the dot rendering and the
 // hit-testing that resolves a drag-to-connect drop.
 function connectorAnchors(node: BotNode): Array<{ key: string; optionId: string | null; x: number; y: number }> {
-  if (node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog") {
+  if (node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch") {
     return [{ key: node.id, optionId: null, x: node.x + NODE_WIDTH, y: node.y + 28 }];
   }
   if (node.content.kind === "list") {
@@ -396,7 +399,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
   // deleting a step can never leave a dangling reference behind.
   function pruneLinksTo(list: BotNode[], removedId: string): BotNode[] {
     return list.map((node) => {
-      if ((node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog") && node.content.next === removedId) {
+      if ((node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch") && node.content.next === removedId) {
         return { ...node, content: { ...node.content, next: null } };
       }
       if (node.content.kind === "list") {
@@ -535,7 +538,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
       if (source.optionId && node.content.kind === "list") {
         return { ...node, content: { ...node.content, options: node.content.options.map((option) => (option.id === source.optionId ? { ...option, next: targetNode.id } : option)) } };
       }
-      if (!source.optionId && (node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog")) {
+      if (!source.optionId && (node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch")) {
         return { ...node, content: { ...node.content, next: targetNode.id } };
       }
       return node;
@@ -712,9 +715,10 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
               {node.content.kind === "team" ? <small>{node.content.teamName || t("لم يُحدد فريق", "No team chosen")}</small> : null}
               {node.content.kind === "employee" ? <small>{node.content.employeeName || t("لم يُحدد موظف", "No employee chosen")}</small> : null}
               {node.content.kind === "knowledgeBase" ? <small>{t("يرد من قاعدة المعرفة حسب رسالة العميل", "Replies from the Knowledge Base based on the customer's message")}</small> : null}
+              {node.content.kind === "branch" ? <small>{node.content.text || t("يطلب موقع العميل ويرسل له أقرب فرع", "Asks for the customer's location and sends the nearest branch")}</small> : null}
               {node.content.kind === "catalog" ? <small>{node.content.text || t("يعرض منتجات الكتالوج ويتيح الشراء من الواتساب", "Shows the catalog products and lets customers buy in chat")}</small> : null}
               {node.content.kind === "aiReply" ? <small>{t("يرد تلقائيًا بالذكاء الاصطناعي على كل رسالة، بدون مراجعة موظف", "Automatically replies with AI to every message, no agent review needed")}</small> : null}
-              {node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" ? (
+              {node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch" ? (
                 <button
                   className={`bot-connector ${node.content.next ? "linked" : ""}`}
                   type="button"
@@ -817,6 +821,19 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                   </label>
                 ) : null}
 
+                {draftContent.kind === "branch" ? (
+                  <label>
+                    <span>{t("رسالة طلب الموقع (اختياري)", "Location request message (optional)")}</span>
+                    <textarea
+                      value={draftContent.text}
+                      onChange={(event) => setDraftContent({ kind: "branch", next: draftContent.next, text: event.target.value })}
+                      placeholder={t("مثال: لنرسل لك أقرب فرع، شاركنا موقعك الحالي", "Example: To send you the nearest branch, please share your location")}
+                      rows={3}
+                    />
+                    <small className="field-hint">{t("يرسل للعميل زر «مشاركة الموقع» على واتساب، وعند مشاركته يرد بأقرب فرع (الاسم والعنوان والمسافة والخريطة). أضف فروعك من صفحة «الفروع». القنوات الأخرى تحصل على قائمة بكل الفروع.", "Sends the customer WhatsApp's \"share location\" button, then replies with the nearest branch (name, address, distance, map). Add branches on the \"Branches\" page. Other channels get a list of all branches.")}</small>
+                  </label>
+                ) : null}
+
                 {draftContent.kind === "catalog" ? (
                   <label>
                     <span>{t("رسالة تمهيدية (اختياري)", "Intro message (optional)")}</span>
@@ -834,7 +851,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                   <small className="field-hint">{t("يرد على العميل بالذكاء الاصطناعي حسب إعدادات \"مساعد AI\" (الأسلوب والصلاحيات والحدود اليومية)، بدون أي مراجعة بشرية قبل الإرسال. اربط خطوة تالية (مثل تحويل لموظف) تُستخدم فقط إذا تعذر على الذكاء الاصطناعي الرد (معطّل أو تجاوز الحد).", "Replies to the customer with AI per the \"AI Copilot\" settings (style, key, daily limits) - no human review before sending. Link a next step (e.g. transfer to an employee) used only when the AI can't answer (disabled or over its limit).")}</small>
                 ) : null}
 
-                {(draftContent.kind === "message" || draftContent.kind === "knowledgeBase" || draftContent.kind === "aiReply" || draftContent.kind === "catalog") ? (
+                {(draftContent.kind === "message" || draftContent.kind === "knowledgeBase" || draftContent.kind === "aiReply" || draftContent.kind === "catalog" || draftContent.kind === "branch") ? (
                   <label>
                     <span>{t("ربط بخطوة", "Connect to step")}</span>
                     <select value={draftContent.next || ""} onChange={(event) => setDraftContent({ ...draftContent, next: event.target.value || null })}>

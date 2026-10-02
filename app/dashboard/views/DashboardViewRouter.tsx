@@ -30,6 +30,7 @@ import ReportsView from "./ReportsView";
 import SegmentsView from "./SegmentsView";
 import SettingsView from "./SettingsView";
 import TagsView from "./TagsView";
+import BranchesView from "./BranchesView";
 import TeamsView from "./TeamsView";
 import TemplatesView from "./TemplatesView";
 import WorkHoursView from "./WorkHoursView";
@@ -102,6 +103,7 @@ export default function DashboardViewRouter({
   if (view === "integrations") return <IntegrationsView />;
   if (view === "developers") return <DevelopersView />;
   if (view === "catalog") return <CatalogView />;
+  if (view === "branches") return <BranchesView />;
   if (view === "branding") return <BrandingView onRefreshData={onRefreshData} />;
   return null;
 }

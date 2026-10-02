@@ -24,6 +24,7 @@ export const permissionOptions = [
   "الحملات",
   "التقارير",
   "المنتجات",
+  "الفروع",
   "الفرق",
   "الموظفين",
   "الإعدادات والربط"
@@ -39,6 +40,7 @@ export function permissionLabel(permission: string, t: (ar: string, en: string) 
     "الحملات": t("الحملات", "Campaigns"),
     "التقارير": t("التقارير", "Reports"),
     "المنتجات": t("المنتجات", "Products"),
+    "الفروع": t("الفروع", "Branches"),
     "الفرق": t("الفرق", "Teams"),
     "الموظفين": t("الموظفين", "Employees"),
     "الإعدادات والربط": t("الإعدادات والربط", "Settings & Integrations")

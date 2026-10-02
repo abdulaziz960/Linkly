@@ -48,6 +48,7 @@ function DashboardNavIcon({ view }: { view: ViewKey }) {
     ai: <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z" />,
     knowledgeBase: <><path d="M12 5v15M3 4h5l4 2 4-2h5v15h-5l-4 2-4-2H3z" /></>,
     developers: <><path d="m8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16" /></>,
+    branches: <><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21Z" /><circle cx="12" cy="9.5" r="2.5" /></>,
     catalog: <><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Z" /><path d="m3 7.5 9 4.5 9-4.5M12 12v9" /></>,
     branding: <><circle cx="12" cy="12" r="8" /><path d="m8 16 4-9 4 9m-6-3h4" /></>,
     tags: <path d="m4 12 8-8h7v7l-8 8-7-7Zm11-4h.01" />,
@@ -172,7 +173,7 @@ export default function DashboardSidebar({
     { label: "الذكاء الاصطناعي", labelEn: "AI", keys: ["ai", "bot", "knowledgeBase"] },
     { label: "التحليلات", labelEn: "Analytics", keys: ["operations", "reports"] },
     { label: "التكاملات", labelEn: "Integrations", keys: ["integrations", "settings", "developers"] },
-    { label: "الإعدادات", labelEn: "Settings", keys: ["teams", "employees", "workHours", "branding"] }
+    { label: "الإعدادات", labelEn: "Settings", keys: ["teams", "employees", "workHours", "branches", "branding"] }
   ];
   const connected = integrationStatus === "connected";
   const linkedChannels: Array<{ key: ConversationChannel; label: string; connected: boolean }> = [

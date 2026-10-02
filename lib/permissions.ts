@@ -22,7 +22,8 @@ export const allViewKeys: ViewKey[] = [
   "integrations",
   "developers",
   "branding",
-  "catalog"
+  "catalog",
+  "branches"
 ];
 
 const employeeViewKeys = allViewKeys.filter((view) => view !== "operations");
@@ -34,6 +35,7 @@ export const permissionViewMap: Array<{ keyword: string; views: ViewKey[] }> = [
   { keyword: "قوالب", views: ["templates"] },
   { keyword: "ردود", views: ["quickReplies"] },
   { keyword: "منتجات", views: ["catalog"] },
+  { keyword: "فروع", views: ["branches"] },
   { keyword: "رد آلي", views: ["bot", "knowledgeBase", "ai"] },
   { keyword: "أتمتة", views: ["automations"] },
   { keyword: "حملات", views: ["campaigns", "segments", "pipeline"] },

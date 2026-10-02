@@ -95,6 +95,10 @@ function getMessageText(message: Record<string, any>) {
   if (message.audio) return "رسالة صوتية واردة";
   if (message.video) return "فيديو وارد";
   if (message.sticker) return "ملصق وارد";
+  if (message.location && Number.isFinite(Number(message.location.latitude)) && Number.isFinite(Number(message.location.longitude))) {
+    const { latitude, longitude, name } = message.location;
+    return `📍 ${name ? `${name} - ` : "موقع مشارك - "}https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+  }
   return "رسالة واردة من WhatsApp";
 }
 
@@ -499,7 +503,11 @@ export async function POST(request: NextRequest) {
             // The id of the tapped list row / button - lets the catalog step
             // know exactly which product was chosen (the title alone is
             // truncated and can be ambiguous).
-            replyId: message.interactive?.list_reply?.id || message.interactive?.button_reply?.id || undefined
+            replyId: message.interactive?.list_reply?.id || message.interactive?.button_reply?.id || undefined,
+            // A shared WhatsApp location - drives the bot's nearest-branch step.
+            location: message.location && Number.isFinite(Number(message.location.latitude)) && Number.isFinite(Number(message.location.longitude))
+              ? { latitude: Number(message.location.latitude), longitude: Number(message.location.longitude) }
+              : undefined
           });
         }
 
