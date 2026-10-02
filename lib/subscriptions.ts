@@ -1,3 +1,4 @@
+import { isViewLockedForPlan } from "./plan-access";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
@@ -372,7 +373,8 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
     // or a plan change), scaled by 12 for an annual payment since that buys
     // a full year upfront. Admin-issued invoices carry no planName and
     // don't touch this - only a real plan payment does.
-    if (payment.planName) {
+    // A plan with no campaigns section (the individuals plan) carries no marketing balance.
+    if (payment.planName && !isViewLockedForPlan(payment.planName, "campaigns")) {
       const creditMessages = isUnlimitedMessageQuota(payment.planMessageQuota)
         ? UNLIMITED_MESSAGE_CREDIT
         : payment.planMessageQuota * (billingCycle === "سنوي" ? 12 : 1);

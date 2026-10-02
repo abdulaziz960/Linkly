@@ -10,6 +10,7 @@ import { processDueConversationSummaries } from "../../../../lib/conversation-in
 import { sendReengagementReminders } from "../../../../lib/reengagement";
 import { escalateUnansweredConversations } from "../../../../lib/response-sla";
 import { syncDueProductFeeds } from "../../../../lib/product-feed";
+import { provisionOpenerTemplates } from "../../../../lib/opener-template";
 import { isCronRequestAuthorized } from "../../../../lib/cron-auth";
 
 export const runtime = "nodejs";
@@ -109,5 +110,10 @@ export async function GET(request: NextRequest) {
     return { synced: 0, failed: 0 };
   });
 
-  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds });
+  const openerTemplates = await provisionOpenerTemplates().catch((error) => {
+    console.error("Opener template provisioning failed", error);
+    return null;
+  });
+
+  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, openerTemplates });
 }

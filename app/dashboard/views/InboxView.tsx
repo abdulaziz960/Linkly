@@ -370,9 +370,12 @@ export default function InboxView({
   const [listLimit, setListLimit] = useState(60);
   const [savedView, setSavedView] = useState<SavedInboxView | null>(null);
   const [filterReferenceTime, setFilterReferenceTime] = useState(() => Date.now());
-  const reopenTemplates = templates.filter(
-    (template) => template.status === "معتمد"
-  );
+  // The built-in "open the chat" greeting (lib/opener-template.ts) is offered first and under a friendly name.
+  const reopenTemplates = templates
+    .filter((template) => template.status === "معتمد")
+    .sort((a, b) => Number(b.name === "linkly_open_chat") - Number(a.name === "linkly_open_chat"));
+  const openerPending = templates.some((template) => template.name === "linkly_open_chat" && template.status !== "معتمد");
+  const reopenTemplateLabel = (name: string) => (name === "linkly_open_chat" ? t("رسالة ترحيب لفتح المحادثة", "Welcome message to open the chat") : name);
   const normalizeReplyKey = (value: string) => value
     .toLocaleLowerCase(language === "ar" ? "ar" : "en")
     .replace(/^\//, "")
@@ -1406,8 +1409,8 @@ export default function InboxView({
                     onChange={onChangeSelectedTemplate}
                     options={
                       reopenTemplates.length
-                        ? reopenTemplates.map((template) => ({ value: template.name, label: template.name }))
-                        : [{ value: "", label: t("لا توجد قوالب تسويقية معتمدة", "No approved marketing templates") }]
+                        ? reopenTemplates.map((template) => ({ value: template.name, label: reopenTemplateLabel(template.name) }))
+                        : [{ value: "", label: openerPending ? t("رسالة فتح المحادثة قيد مراجعة واتساب", "The chat-opening message is under WhatsApp review") : t("لا توجد قوالب تسويقية معتمدة", "No approved marketing templates") }]
                     }
                   />
                   <button

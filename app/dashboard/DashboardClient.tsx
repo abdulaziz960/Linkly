@@ -1632,7 +1632,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     <div><span>{t("الباقة الحالية", "Current plan")}</span><b>{subscription?.plan || t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
                     <div><span>{t("حالة الاشتراك", "Subscription status")}</span><b>{subscription?.status || t("—", "—")}</b></div>
                     <div><span>{t("تجديد الاشتراك", "Renewal")}</span><b>{subscription?.billingCycle || t("—", "—")}{subscription?.renewalAt ? ` · ${formatDateTime(subscription.renewalAt)}` : ""}</b></div>
-                    <div><span>{t("رصيد الحملات", "Campaign balance")}</span><b>{t(`${campaignBalance.toLocaleString("ar")} رسالة متاحة`, `${campaignBalance.toLocaleString("en-US")} messages available`)}</b></div>
+                    {!planAccess.lockedViews.includes("campaigns") ? <div><span>{t("رصيد الحملات", "Campaign balance")}</span><b>{t(`${campaignBalance.toLocaleString("ar")} رسالة متاحة`, `${campaignBalance.toLocaleString("en-US")} messages available`)}</b></div> : null}
                   </div>
                   <div className="invoice-list">
                     <h3>{t("الفواتير", "Invoices")}</h3>
