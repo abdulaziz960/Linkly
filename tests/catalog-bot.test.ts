@@ -51,22 +51,22 @@ function ctx() {
 }
 
 describe("catalog bot cards (WhatsApp)", () => {
-  it("sends image cards (5 per page) with a show-more button, then pages on request", async () => {
-    await seed(7, true);
+  it("sends image cards (10 per page) with a show-more button, then pages on request", async () => {
+    await seed(12, true);
     const { sendCatalogMenu, handleCatalogReply } = await import("../lib/catalog-bot");
     const { ctx: c, texts } = ctx();
 
     sent.length = 0;
     await sendCatalogMenu(c, "تفضل");
     const cards = sent.filter((m) => m.kind === "buttons" && (m.input.buttons as Array<{ id: string }>)[0].id.startsWith("prod_"));
-    expect(cards).toHaveLength(5);
+    expect(cards).toHaveLength(10);
     expect(cards.every((m) => m.input.headerImageUrl === "https://example.com/a.jpg")).toBe(true);
     expect(texts[0]).toBe("تفضل");
     const footer = sent.at(-1)!.input.buttons as Array<{ id: string }>;
-    expect(footer.map((b) => b.id)).toContain("cat_more_5");
+    expect(footer.map((b) => b.id)).toContain("cat_more_10");
 
     sent.length = 0;
-    await handleCatalogReply(c, { id: "cat_more_5", text: "" }, "تفضل");
+    await handleCatalogReply(c, { id: "cat_more_10", text: "" }, "تفضل");
     expect(sent.filter((m) => (m.input.buttons as Array<{ id: string }>)[0].id.startsWith("prod_"))).toHaveLength(2);
     expect((sent.at(-1)!.input.buttons as Array<{ id: string }>).some((b) => b.id.startsWith("cat_more_"))).toBe(false);
   });

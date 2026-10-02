@@ -42,7 +42,7 @@ const ID_MORE = "cat_more_";
 const ID_ORDER = ID_BUY; // "اطلب الآن" reuses the buy flow (staff follow-up when payment is off)
 const ID_BACK = "cat_back";
 const ID_AGENT = "cat_agent";
-const CARDS_PER_PAGE = 5;
+const CARDS_PER_PAGE = 10;
 
 /**
  * WhatsApp message images must be JPEG or PNG - a WebP link (very common on
