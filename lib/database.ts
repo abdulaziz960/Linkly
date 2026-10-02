@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { ensureAiSchema } from "./ai-schema";
+import { ensureCatalogSchema } from "./catalog-schema";
 import { UNLIMITED_MESSAGE_QUOTA } from "./message-quota";
 import { emailIntegrationId, findTenantEmailIntegration } from "./email-integration-lookup";
 import { createHash, randomUUID } from "crypto";
@@ -2578,7 +2579,7 @@ async function ensureDiscountCodesSchema() {
 
 export async function ensureSchema() {
   await ensureDiscountCodesSchema();
-  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).catch((error) => {
+  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).catch((error) => {
     schemaPromise = null;
     throw error;
   });

@@ -1152,3 +1152,77 @@ model AiUsageEvent {
   @@index([tenantId, createdAt])
   @@map("ai_usage_events")
 }
+
+// Product catalog (lib/catalog.ts). A product is created by hand in the
+// dashboard (source "manual"), pushed by a merchant's own website through
+// POST /api/v1/products (source "api"), or pulled from a product feed URL
+// (source "feed", lib/product-feed.ts). externalId is the merchant
+// system's own id for it, used to update the same row on the next sync.
+// stock -1 means "not tracked" (always available).
+model Product {
+  id          String @id
+  tenantId    String @map("tenant_id")
+  externalId  String @default("") @map("external_id")
+  source      String @default("manual")
+  name        String
+  description String @default("")
+  price       Float  @default(0)
+  currency    String @default("SAR")
+  imageUrl    String @default("") @map("image_url")
+  productUrl  String @default("") @map("product_url")
+  category    String @default("")
+  sku         String @default("")
+  stock       Int    @default(-1)
+  active      Int    @default(1)
+  createdAt   String @map("created_at")
+  updatedAt   String @map("updated_at")
+
+  @@index([tenantId, active])
+  @@index([tenantId, externalId])
+  @@map("products")
+}
+
+// One row per tenant: whether the in-chat "buy now" flow takes payment
+// (through the MERCHANT'S OWN gateway account - gatewaySecretKey is their
+// Moyasar secret key, encrypted, never returned to the browser), and the
+// optional product feed URL that is re-synced on a schedule.
+model CatalogSetting {
+  tenantId            String @id @map("tenant_id")
+  paymentEnabled      Int    @default(0) @map("payment_enabled")
+  gatewayProvider     String @default("moyasar") @map("gateway_provider")
+  gatewaySecretKey    String @default("") @map("gateway_secret_key")
+  feedUrl             String @default("") @map("feed_url")
+  feedIntervalMinutes Int    @default(360) @map("feed_interval_minutes")
+  feedLastSyncedAt    String @default("") @map("feed_last_synced_at")
+  feedLastStatus      String @default("") @map("feed_last_status")
+  feedLastMessage     String @default("") @map("feed_last_message")
+  updatedAt           String @map("updated_at")
+
+  @@map("catalog_settings")
+}
+
+// A customer's purchase request from the chat. status: new (no online
+// payment configured - an employee follows up), awaiting_payment,
+// paid, cancelled, fulfilled.
+model CatalogOrder {
+  id             String @id
+  tenantId       String @map("tenant_id")
+  conversationId String @default("") @map("conversation_id")
+  customerName   String @default("") @map("customer_name")
+  customerPhone  String @default("") @map("customer_phone")
+  productId      String @map("product_id")
+  productName    String @map("product_name")
+  unitPrice      Float  @map("unit_price")
+  quantity       Int    @default(1)
+  total          Float
+  currency       String @default("SAR")
+  status         String @default("new")
+  paymentId      String @default("") @map("payment_id")
+  paymentUrl     String @default("") @map("payment_url")
+  createdAt      String @map("created_at")
+  updatedAt      String @map("updated_at")
+
+  @@index([tenantId, createdAt])
+  @@index([paymentId])
+  @@map("catalog_orders")
+}

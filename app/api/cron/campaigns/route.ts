@@ -9,6 +9,7 @@ import { sendLowBalanceAlerts } from "../../../../lib/campaign-balance-alerts";
 import { processDueConversationSummaries } from "../../../../lib/conversation-insights";
 import { sendReengagementReminders } from "../../../../lib/reengagement";
 import { escalateUnansweredConversations } from "../../../../lib/response-sla";
+import { syncDueProductFeeds } from "../../../../lib/product-feed";
 import { isCronRequestAuthorized } from "../../../../lib/cron-auth";
 
 export const runtime = "nodejs";
@@ -103,5 +104,10 @@ export async function GET(request: NextRequest) {
     return { escalated: 0 };
   });
 
-  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations });
+  const productFeeds = await syncDueProductFeeds().catch((error) => {
+    console.error("Product feed sync failed", error);
+    return { synced: 0, failed: 0 };
+  });
+
+  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds });
 }

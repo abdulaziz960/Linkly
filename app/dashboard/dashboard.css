@@ -11210,3 +11210,50 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 @media (prefers-reduced-motion: reduce) {
   .dashboard-sidebar { transition: none; }
 }
+
+/* Catalog view */
+.catalog-search {
+  width: 100%;
+  max-width: 360px;
+  box-sizing: border-box;
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.catalog-product-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.catalog-thumb {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--surface-soft);
+}
+
+.catalog-thumb-empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.form-grid textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}

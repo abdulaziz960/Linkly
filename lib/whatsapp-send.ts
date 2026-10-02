@@ -494,3 +494,169 @@ export async function sendWhatsAppInteractiveMessage(input: SendWhatsAppInteract
 
   return { ok: true };
 }
+
+type SendWhatsAppCustomInput = {
+  tenantId?: string;
+  conversationId: string;
+  to: string;
+  /** Everything after `to` in the Graph API body, e.g. { type: "interactive", interactive: {...} }. */
+  message: Record<string, unknown>;
+  /** What the thread shows for this outbound message. */
+  displayText: string;
+  author?: string;
+  attachment?: { type: "image"; url: string; name: string; mimeType: string };
+};
+
+/**
+ * Generic outbound send for message shapes the plain helpers above don't
+ * cover (product list rows with ids/descriptions, reply buttons with ids,
+ * an image by public URL). Same send/outcome-tracking/persist behaviour as
+ * sendWhatsAppInteractiveMessage, and like it never throws.
+ */
+async function sendWhatsAppCustomMessage(input: SendWhatsAppCustomInput) {
+  const settings = await getIntegrationSettings("whatsapp", input.tenantId);
+  const phoneNumberId = settings.phoneNumberId?.trim();
+  const accessToken = settings.accessToken?.trim();
+  const to = normalizeWhatsAppPhone(input.to);
+  if (!phoneNumberId || !accessToken || !to) return { ok: false, skipped: true };
+
+  let response: Response;
+  try {
+    response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, ...input.message })
+    });
+  } catch (error) {
+    console.error("WhatsApp custom send network failure", error);
+    return { ok: false, error: error instanceof Error ? error.message : "WHATSAPP_NETWORK_FAILURE" };
+  }
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    console.error("WhatsApp custom send failed", payload?.error || payload);
+    await recordWhatsAppSendOutcome({
+      tenantId: settings.tenantId,
+      ok: false,
+      hadIssueFlag: Boolean(settings.whatsappPaymentIssueAt),
+      errorCode: whatsappSendErrorCode(payload)
+    });
+    return { ok: false, error: payload?.error?.message || "WHATSAPP_SEND_FAILED" };
+  }
+  if (settings.whatsappPaymentIssueAt) {
+    await recordWhatsAppSendOutcome({ tenantId: settings.tenantId, ok: true, hadIssueFlag: true });
+  }
+
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.message.create({
+      data: {
+        id: payload?.messages?.[0]?.id ? `wa-out-${payload.messages[0].id}` : `wa-out-local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        conversationId: input.conversationId,
+        direction: "out",
+        text: input.displayText,
+        time: formatMessageTime(now),
+        createdAt: now.toISOString(),
+        author: input.author || "Linkly",
+        deliveryStatus: "sent",
+        ...(input.attachment
+          ? { attachmentType: input.attachment.type, attachmentUrl: input.attachment.url, attachmentName: input.attachment.name, attachmentMime: input.attachment.mimeType }
+          : {})
+      }
+    });
+    await tx.conversation.update({
+      where: { id: input.conversationId },
+      data: { lastMessage: input.displayText, lastActivityAt: now.toISOString() }
+    });
+  });
+
+  return { ok: true };
+}
+
+export type WhatsAppListRow = { id: string; title: string; description?: string };
+
+/** A native WhatsApp list picker whose rows carry OUR ids (so a tap comes back as a product, not just a title). */
+export function sendWhatsAppRowList(input: {
+  tenantId?: string;
+  conversationId: string;
+  to: string;
+  bodyText: string;
+  buttonLabel: string;
+  rows: WhatsAppListRow[];
+  displayText: string;
+  author?: string;
+}) {
+  return sendWhatsAppCustomMessage({
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+    to: input.to,
+    displayText: input.displayText,
+    author: input.author,
+    message: {
+      type: "interactive",
+      interactive: {
+        type: "list",
+        body: { text: input.bodyText.slice(0, 1024) },
+        action: {
+          button: input.buttonLabel.slice(0, 20),
+          sections: [{
+            rows: input.rows.slice(0, 10).map((row) => ({
+              id: row.id.slice(0, 200),
+              title: row.title.slice(0, 24),
+              ...(row.description ? { description: row.description.slice(0, 72) } : {})
+            }))
+          }]
+        }
+      }
+    }
+  });
+}
+
+/** Up to 3 tappable reply buttons with our own ids. */
+export function sendWhatsAppIdButtons(input: {
+  tenantId?: string;
+  conversationId: string;
+  to: string;
+  bodyText: string;
+  buttons: Array<{ id: string; title: string }>;
+  displayText: string;
+  author?: string;
+}) {
+  return sendWhatsAppCustomMessage({
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+    to: input.to,
+    displayText: input.displayText,
+    author: input.author,
+    message: {
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: input.bodyText.slice(0, 1024) },
+        action: {
+          buttons: input.buttons.slice(0, 3).map((button) => ({ type: "reply", reply: { id: button.id.slice(0, 256), title: button.title.slice(0, 20) } }))
+        }
+      }
+    }
+  });
+}
+
+/** An image by public https URL (Meta fetches it), with a caption. */
+export function sendWhatsAppImageByUrl(input: {
+  tenantId?: string;
+  conversationId: string;
+  to: string;
+  imageUrl: string;
+  caption: string;
+  author?: string;
+}) {
+  return sendWhatsAppCustomMessage({
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+    to: input.to,
+    displayText: input.caption,
+    author: input.author,
+    attachment: { type: "image", url: input.imageUrl, name: "product.jpg", mimeType: "image/jpeg" },
+    message: { type: "image", image: { link: input.imageUrl, caption: input.caption.slice(0, 1024) } }
+  });
+}

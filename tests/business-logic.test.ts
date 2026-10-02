@@ -26,7 +26,7 @@ describe("employee privilege escalation prevention", () => {
     // A permissions string that happens to enumerate every individual
     // keyword must still be caught, since computeAllowedViews would
     // otherwise resolve it to every view without the literal "الكل" flag.
-    const everyKeyword = "محادثات عملاء وسوم قوالب ردود رد آلي أتمتة حملات ساعات تقارير فرق موظفين صلاحيات ربط";
+    const everyKeyword = "محادثات عملاء وسوم قوالب ردود رد آلي أتمتة حملات ساعات تقارير فرق موظفين صلاحيات ربط منتجات";
     expect(isOwnerEquivalentGrant("موظف دعم", everyKeyword)).toBe(true);
   });
 

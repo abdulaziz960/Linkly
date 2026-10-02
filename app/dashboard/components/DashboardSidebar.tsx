@@ -48,6 +48,7 @@ function DashboardNavIcon({ view }: { view: ViewKey }) {
     ai: <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z" />,
     knowledgeBase: <><path d="M12 5v15M3 4h5l4 2 4-2h5v15h-5l-4 2-4-2H3z" /></>,
     developers: <><path d="m8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16" /></>,
+    catalog: <><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Z" /><path d="m3 7.5 9 4.5 9-4.5M12 12v9" /></>,
     branding: <><circle cx="12" cy="12" r="8" /><path d="m8 16 4-9 4 9m-6-3h4" /></>,
     tags: <path d="m4 12 8-8h7v7l-8 8-7-7Zm11-4h.01" />,
     bot: <><rect x="5" y="7" width="14" height="11" rx="3" /><path d="M12 3v4M9 12h.01M15 12h.01M9 15h6" /></>,
@@ -165,7 +166,7 @@ export default function DashboardSidebar({
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "صندوق الوارد", labelEn: "Inbox", keys: ["inbox", "quickReplies"] },
     { label: "جهات الاتصال", labelEn: "Contacts", keys: ["contacts", "tags"] },
-    { label: "المبيعات", labelEn: "Pipeline", keys: ["pipeline"] },
+    { label: "المبيعات", labelEn: "Sales", keys: ["pipeline", "catalog"] },
     { label: "الحملات", labelEn: "Campaigns", keys: ["campaigns", "segments", "templates"] },
     { label: "الأتمتة", labelEn: "Automations", keys: ["automations"] },
     { label: "الذكاء الاصطناعي", labelEn: "AI", keys: ["ai", "bot", "knowledgeBase"] },

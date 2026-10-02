@@ -11,6 +11,7 @@ import { pickTeamAssignee } from "./automation-engine";
 import { findBestKbMatch } from "./knowledge-base";
 import { runWorkspaceAi } from "./workspace-ai";
 import { logAssignmentMessage } from "./conversation-system-messages";
+import { handleCatalogReply, sendCatalogMenu, type CatalogCtx } from "./catalog-bot";
 
 export type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x" | "website";
 
@@ -36,7 +37,13 @@ export type BotNodeContent =
   // A successful answer keeps the conversation "waiting" at this same node
   // (see runChannelBot) so every further customer message gets answered by
   // AI too, instead of running once and going silent.
-  | { kind: "aiReply"; next: string | null };
+  | { kind: "aiReply"; next: string | null }
+  // Shows the tenant's product catalog and walks the customer through
+  // choosing and buying (lib/catalog-bot.ts). Like a list step it stays
+  // "waiting" here while the customer browses; `next` is where a customer
+  // who taps "التحدث مع موظف" (or finds no products) is sent, e.g. a team
+  // node - with no connection they're simply put back in the agents' queue.
+  | { kind: "catalog"; text: string; next: string | null };
 
 export type BotNodeInput = {
   id?: string;
@@ -64,6 +71,7 @@ const EMPLOYEE_NODE_TYPE = "تحويل لموظف";
 const CLOSE_NODE_TYPE = "إغلاق المحادثة";
 const KNOWLEDGE_BASE_NODE_TYPE = "رد من قاعدة المعرفة";
 const AI_REPLY_NODE_TYPE = "رد AI تلقائي";
+const CATALOG_NODE_TYPE = "عرض الكتالوج";
 
 function settingsId(tenantId: string, channel: BotChannel) {
   return `bot-settings-${tenantId}-${channel}`;
@@ -165,7 +173,7 @@ export async function getBotNodes(tenantId = "tenant-demo", channel: BotChannel 
 }
 
 function remapNodeLinks(content: BotNodeContent, idMap: Map<string, string>): BotNodeContent {
-  if (content.kind === "message" || content.kind === "knowledgeBase" || content.kind === "aiReply") {
+  if (content.kind === "message" || content.kind === "knowledgeBase" || content.kind === "aiReply" || content.kind === "catalog") {
     return { ...content, next: content.next ? idMap.get(content.next) || content.next : null };
   }
   if (content.kind === "list") {
@@ -378,6 +386,16 @@ async function getAiReplyText(tenantId: string, conversationId: string): Promise
   return result.suggestion?.trim() || null;
 }
 
+function catalogContext(channel: BotChannel, ctx: { tenantId: string; conversationId: string; recipientId: string }): CatalogCtx {
+  return {
+    channel,
+    tenantId: ctx.tenantId,
+    conversationId: ctx.conversationId,
+    recipientId: ctx.recipientId,
+    sendText: (text) => sendBotText(channel, { tenantId: ctx.tenantId, conversationId: ctx.conversationId, recipientId: ctx.recipientId, text })
+  };
+}
+
 // Runs a single step, then follows its explicit "next" connection (drawn on
 // the canvas) rather than falling through array order - a step with no
 // outgoing connection simply stops there instead of guessing.
@@ -385,7 +403,7 @@ async function executeFrom(
   channel: BotChannel,
   nodes: BotNode[],
   startId: string,
-  ctx: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string }
+  ctx: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string; replyId?: string }
 ) {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   let currentId: string | null = startId;
@@ -448,6 +466,19 @@ async function executeFrom(
       continue;
     }
 
+    if (node.type === CATALOG_NODE_TYPE && node.content.kind === "catalog") {
+      const shown = await sendCatalogMenu(catalogContext(channel, ctx), node.content.text);
+      if (shown) {
+        await prisma.conversation.update({
+          where: { id: ctx.conversationId },
+          data: { botWaitingNodeId: node.id }
+        });
+        return;
+      }
+      currentId = node.content.next;
+      continue;
+    }
+
     if (node.type === AI_REPLY_NODE_TYPE && node.content.kind === "aiReply") {
       const suggestion = await getAiReplyText(ctx.tenantId, ctx.conversationId);
       if (suggestion) {
@@ -489,7 +520,7 @@ async function executeFrom(
 
 export async function runChannelBot(
   channel: BotChannel,
-  input: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string }
+  input: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string; replyId?: string }
 ) {
   const tenantId = input.tenantId || "tenant-demo";
   const settings = await getBotSettings(tenantId, channel);
@@ -501,7 +532,7 @@ export async function runChannelBot(
   const nodes = await getBotNodes(tenantId, channel);
   if (!nodes.length) return;
 
-  const ctx = { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, incomingText: input.incomingText };
+  const ctx = { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, incomingText: input.incomingText, replyId: input.replyId };
 
   if (!conversation.botRanAt) {
     // Claim the "start the flow" step atomically: only the invocation whose
@@ -536,6 +567,24 @@ export async function runChannelBot(
       return;
     }
 
+    if (waitingNode.content.kind === "catalog") {
+      const outcome = await handleCatalogReply(catalogContext(channel, ctx), { id: input.replyId, text: input.incomingText || "" }, waitingNode.content.text);
+      if (outcome !== "agent") return;
+
+      const claimedHandoff = await prisma.conversation.updateMany({
+        where: { id: input.conversationId, botWaitingNodeId: waitingId },
+        data: { botWaitingNodeId: "" }
+      });
+      if (claimedHandoff.count === 0) return;
+      if (waitingNode.content.next) {
+        await executeFrom(channel, nodes, waitingNode.content.next, ctx);
+        return;
+      }
+      await prisma.conversation.updateMany({ where: { id: input.conversationId, status: "closed" }, data: { status: "unassigned", assignee: "بدون موظف" } });
+      await sendBotText(channel, { ...ctx, text: "تم تحويلك لأحد موظفينا، سيتواصل معك قريبًا." });
+      return;
+    }
+
     const targetId = matchListReply(waitingNode, input.incomingText || "");
     if (!targetId) return;
 
@@ -550,8 +599,8 @@ export async function runChannelBot(
   }
 }
 
-export async function runWhatsAppBot(input: { tenantId: string; conversationId: string; phone: string; incomingText?: string }) {
-  return runChannelBot("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, incomingText: input.incomingText });
+export async function runWhatsAppBot(input: { tenantId: string; conversationId: string; phone: string; incomingText?: string; replyId?: string }) {
+  return runChannelBot("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, incomingText: input.incomingText, replyId: input.replyId });
 }
 
 export async function runTelegramBot(input: { tenantId: string; conversationId: string; chatId: string; incomingText?: string }) {

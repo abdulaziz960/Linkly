@@ -18,6 +18,7 @@ import BotView from "./BotView";
 import BrandingView from "./BrandingView";
 import CampaignsView from "./CampaignsView";
 import ContactsView from "./ContactsView";
+import CatalogView from "./CatalogView";
 import DevelopersView from "./DevelopersView";
 import EmployeesView from "./EmployeesView";
 import IntegrationsView from "./IntegrationsView";
@@ -100,6 +101,7 @@ export default function DashboardViewRouter({
   if (view === "settings") return <SettingsView onIntegrationChange={onIntegrationChange} />;
   if (view === "integrations") return <IntegrationsView />;
   if (view === "developers") return <DevelopersView />;
+  if (view === "catalog") return <CatalogView />;
   if (view === "branding") return <BrandingView onRefreshData={onRefreshData} />;
   return null;
 }

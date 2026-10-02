@@ -19,7 +19,8 @@ export type ViewKey =
   | "settings"
   | "integrations"
   | "developers"
-  | "branding";
+  | "branding"
+  | "catalog";
 
 export type ConversationStatus = "assigned" | "unassigned" | "closed";
 export type ConversationFilter = "all" | ConversationStatus | "mine" | "unread" | "escalated";

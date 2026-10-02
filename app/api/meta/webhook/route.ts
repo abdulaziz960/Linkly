@@ -495,7 +495,11 @@ export async function POST(request: NextRequest) {
             tenantId: whatsappAccount.tenantId,
             conversationId: stored.conversationId,
             phone: message.from,
-            incomingText: text
+            incomingText: text,
+            // The id of the tapped list row / button - lets the catalog step
+            // know exactly which product was chosen (the title alone is
+            // truncated and can be ambiguous).
+            replyId: message.interactive?.list_reply?.id || message.interactive?.button_reply?.id || undefined
           });
         }
 
