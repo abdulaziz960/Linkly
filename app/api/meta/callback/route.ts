@@ -9,6 +9,7 @@ import { verifyOAuthState } from "../../../../lib/oauth-state";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
+import { ensureOpenerTemplate } from "../../../../lib/opener-template";
 
 const techProviderMetaAppId = "1296230909161568";
 // Must match techProviderInstagramAppId in app/api/meta/connect/route.ts -
@@ -400,6 +401,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (effectiveWabaId && effectivePhoneNumberId && accessToken) {
+      // Right after connecting, submit the built-in "open the chat" welcome
+      // template to Meta for this workspace (lib/opener-template.ts). Best
+      // effort: the cron tick retries if this fails, so it never blocks the connection.
+      await ensureOpenerTemplate(user.tenantId).catch((error) => console.error("Opener template provisioning failed after connect", error));
       await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة واتساب بواسطة ${user.name}.`, "معلومة", "التكاملات");
     }
 
