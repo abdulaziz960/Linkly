@@ -11,6 +11,7 @@ import PricingPlanGrid from "../PricingPlanGrid";
 import s from "../page.module.css";
 import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
 import { getActivePlans } from "../../lib/plans";
+import { faqsEn } from "../../lib/faq";
 
 export const metadata: Metadata = {
   title: { absolute: "Linkly | One inbox for WhatsApp, Instagram and every channel — Saudi customer service platform" },
@@ -32,17 +33,7 @@ const features = [
   ["Replies and automation", "Your team replies faster without retyping the same answer, and complex cases route automatically."],
   ["Operational reports", "See where delays and opportunities are with real numbers, not guesswork."]
 ] as const;
-const faqs = [
-  ["Can I use more than one employee?", "Yes. Add employees and set their roles, teams and permissions from one dashboard."],
-  ["Can I connect my existing WhatsApp number?", "It depends on the number's status and Meta's WhatsApp Cloud API requirements — we help you review the connection path."],
-  ["Do I need a new WhatsApp number?", "Not always. We review your current number's status first, then decide the best path."],
-  ["Do you support the WhatsApp Business API?", "Yes, the operational connection is built on Meta's official WhatsApp Cloud API."],
-  ["Is there an API?", "A developer API and webhooks are available from the Large Enterprises plan and up."],
-  ["Can I cancel my subscription?", "Cancellation can be scheduled for the end of the current period from the billing screen."],
-  ["Is there a setup fee?", "Setting up Meta accounts and the full connection is optional and costs SAR 500 one time."],
-  ["How are WhatsApp fees calculated?", "Official WhatsApp message fees from Meta, if any, are separate from the Linkly subscription."],
-  ["Is customer data safe?", "The platform uses user permissions, encryption for integration secrets, time-limited sessions, and activity logs to help track activity."]
-] as const;
+const faqs = faqsEn;
 // CTA text stays page-local; name/audience/items/featured come from
 // lib/plan-features.ts, the same source app/billing/BillingClient.tsx reads.
 const planCta: Record<string, string> = {
