@@ -272,9 +272,9 @@ export default function PaymentsView({ subscriptions, payments, initialStatus = 
               })}
             </tbody>
             {visiblePayments.length > 0 ? <tfoot><tr className="admin-table-summary-row">
-              <th scope="row">{t("الإجمالي", "Total")}</th>
-              <td>{formatNumber(visiblePayments.reduce((sum, p) => sum + p.amount, 0))} {t("ر.س", "SAR")}</td>
-              <td colSpan={4}>{formatNumber(visiblePayments.length)} {t("عملية", "payments")}</td>
+              <th scope="row">{t("إجمالي المدفوع", "Total paid")}</th>
+              <td>{formatNumber(visiblePayments.filter((p) => p.status === "مكتمل").reduce((sum, p) => sum + p.amount, 0))} {t("ر.س", "SAR")}</td>
+              <td colSpan={4}>{formatNumber(visiblePayments.filter((p) => p.status === "مكتمل").length)} {t("ناجحة من", "successful of")} {formatNumber(visiblePayments.length)} {t("عملية", "payments")}</td>
             </tr></tfoot> : null}
           </table>
         </div>
