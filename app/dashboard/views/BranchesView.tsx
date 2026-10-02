@@ -107,41 +107,66 @@ export default function BranchesView() {
     await load();
   }
 
+  const mapHref = (branch: Branch) => branch.mapUrl || `https://www.google.com/maps/search/?api=1&query=${branch.latitude},${branch.longitude}`;
+
   return (
-    <section className="view-stack">
+    <section className="page-stack">
       <div className="panel">
         <div className="panel-head">
           <h2>{t("الفروع", "Branches")}</h2>
-          <button className="primary-btn" type="button" onClick={openNew}>{t("إضافة فرع", "Add branch")}</button>
+          <span />
+          <button className="btn primary" type="button" onClick={openNew}>{t("+ إضافة فرع", "+ Add branch")}</button>
         </div>
         <div className="panel-body">
-          <p>{t("أضف فروعك ومواقعها. عند إضافة خطوة «أقرب فرع» في الرد الآلي، يطلب البوت من العميل مشاركة موقعه على واتساب ثم يرسل له أقرب فرع (الاسم والعنوان والمسافة ورابط الخريطة).", "Add your branches and their locations. With the \"Nearest branch\" auto-reply step, the bot asks the customer to share their WhatsApp location and replies with the closest branch (name, address, distance and map link).")}</p>
-          {loading ? <p>{t("جارٍ التحميل...", "Loading...")}</p> : branches.length === 0 ? (
-            <p>{t("لا توجد فروع بعد.", "No branches yet.")}</p>
+          <div className="branch-intro">
+            <span className="branch-intro-icon" aria-hidden="true">📍</span>
+            <p>{t("أضف فروعك ومواقعها. عند إضافة خطوة «أقرب فرع» في الرد الآلي، يطلب البوت من العميل مشاركة موقعه على واتساب ثم يرسل له أقرب فرع: الاسم والعنوان والمسافة ورابط الخريطة.", "Add your branches and their locations. With the \"Nearest branch\" auto-reply step, the bot asks the customer to share their WhatsApp location and replies with the closest branch: name, address, distance and map link.")}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head">
+          <h2>{t("قائمة الفروع", "Branch list")} ({branches.length})</h2>
+        </div>
+        <div className="panel-body table-wrap">
+          {loading ? <p className="muted-copy">{t("جارٍ التحميل...", "Loading...")}</p> : branches.length === 0 ? (
+            <div className="branch-empty">
+              <span aria-hidden="true">📍</span>
+              <b>{t("لا توجد فروع بعد", "No branches yet")}</b>
+              <p>{t("أضف أول فرع بلصق رابط موقعه من خرائط Google.", "Add your first branch by pasting its Google Maps link.")}</p>
+              <button className="btn primary" type="button" onClick={openNew}>{t("+ إضافة فرع", "+ Add branch")}</button>
+            </div>
           ) : (
-            <table className="data-table">
+            <table className="mobile-card-table">
               <thead>
                 <tr>
                   <th>{t("الفرع", "Branch")}</th>
                   <th>{t("العنوان", "Address")}</th>
                   <th>{t("الدوام", "Hours")}</th>
                   <th>{t("الحالة", "Status")}</th>
-                  <th>{t("إجراء", "Actions")}</th>
+                  <th>{t("إجراء", "Action")}</th>
                 </tr>
               </thead>
               <tbody>
                 {branches.map((branch) => (
                   <tr key={branch.id}>
-                    <td data-label={t("الفرع", "Branch")}><b>{branch.name}</b><br /><small>{branch.phone}</small></td>
-                    <td data-label={t("العنوان", "Address")}>{branch.address || "-"}<br /><small><a href={branch.mapUrl || `https://www.google.com/maps/search/?api=1&query=${branch.latitude},${branch.longitude}`} target="_blank" rel="noreferrer">{t("عرض على الخريطة", "View on map")}</a></small></td>
+                    <td>
+                      <span className="branch-cell">
+                        <span className="branch-pin" aria-hidden="true">📍</span>
+                        <span><b>{branch.name}</b>{branch.phone ? <small dir="ltr">{branch.phone}</small> : null}</span>
+                      </span>
+                    </td>
+                    <td data-label={t("العنوان", "Address")}>
+                      <span className="branch-address">{branch.address || "-"}</span>
+                      <a className="branch-map-link" href={mapHref(branch)} target="_blank" rel="noreferrer">{t("عرض على الخريطة ↗", "View on map ↗")}</a>
+                    </td>
                     <td data-label={t("الدوام", "Hours")}>{branch.workingHours || "-"}</td>
-                    <td data-label={t("الحالة", "Status")}>{branch.active ? t("ظاهر", "Active") : t("مخفي", "Hidden")}</td>
-                    <td data-label={t("إجراء", "Actions")}>
-                      <div className="row-actions">
-                        <button className="ghost-btn" type="button" onClick={() => openEdit(branch)}>{t("تعديل", "Edit")}</button>
-                        <button className="ghost-btn" type="button" onClick={() => toggle(branch)}>{branch.active ? t("إخفاء", "Hide") : t("إظهار", "Show")}</button>
-                        <button className="ghost-btn danger" type="button" onClick={() => remove(branch)}>{t("حذف", "Delete")}</button>
-                      </div>
+                    <td data-label={t("الحالة", "Status")}><span className={branch.active ? "state ok" : "state muted"}>{branch.active ? t("ظاهر", "Visible") : t("مخفي", "Hidden")}</span></td>
+                    <td className="row-actions" data-label={t("إجراء", "Action")}>
+                      <button className="btn soft" type="button" onClick={() => openEdit(branch)}>{t("تعديل", "Edit")}</button>
+                      <button className="btn soft" type="button" onClick={() => toggle(branch)}>{branch.active ? t("إخفاء", "Hide") : t("إظهار", "Show")}</button>
+                      <button className="btn danger" type="button" onClick={() => remove(branch)}>{t("حذف", "Delete")}</button>
                     </td>
                   </tr>
                 ))}
@@ -173,14 +198,14 @@ export default function BranchesView() {
                   <label><span>{t("خط الطول", "Longitude")}</span><input value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} dir="ltr" inputMode="decimal" /></label>
                 </div>
               ) : (
-                <button className="ghost-btn" type="button" onClick={() => setShowCoords(true)}>{t("أو أدخل الإحداثيات يدويًا", "Or enter coordinates manually")}</button>
+                <button className="btn soft" type="button" onClick={() => setShowCoords(true)}>{t("أو أدخل الإحداثيات يدويًا", "Or enter coordinates manually")}</button>
               )}
-              <label className="checkbox-row"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /><span>{t("الفرع ظاهر للعملاء", "Visible to customers")}</span></label>
-              {formError ? <p className="form-error" role="alert">{formError}</p> : null}
+              <label className="automation-switch"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /><span>{form.active ? t("ظاهر للعملاء", "Visible to customers") : t("مخفي عن العملاء", "Hidden from customers")}</span></label>
+              {formError ? <p className="form-error">{formError}</p> : null}
             </div>
             <footer className="modal-foot">
-              <button className="ghost-btn" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
-              <button className="primary-btn" type="submit" disabled={saving}>{saving ? t("جارٍ الحفظ...", "Saving...") : t("حفظ", "Save")}</button>
+              <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
+              <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جارٍ الحفظ...", "Saving...") : t("حفظ", "Save")}</button>
             </footer>
           </form>
         </div>
