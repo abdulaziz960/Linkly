@@ -16,6 +16,7 @@
 
 import { parseAllowedChannels, channelLabel } from "./channel-catalog";
 import { isUnlimitedMessageQuota, messageQuotaLabel } from "./message-quota";
+import { isViewLockedForPlan } from "./plan-access";
 
 export type PlanFeatures = {
   shortName: { ar: string; en: string };
@@ -29,8 +30,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     shortName: { ar: "الأفراد", en: "Individuals" },
     audience: { ar: "الأنسب لصاحب عمل يبدأ لحاله ويحتاج يرتب رسائل واتساب.", en: "Best for a solo business owner who needs their WhatsApp messages organized." },
     items: {
-      ar: ["رد آلي بسيط وردود سريعة", "حملات تسويقية أساسية", "تقارير أساسية"],
-      en: ["Simple auto-reply and quick replies", "Basic marketing campaigns", "Basic reports"]
+      ar: ["رد آلي بسيط جدًا", "وسوم وردود سريعة", "تقرير أساسي"],
+      en: ["Very simple auto-reply", "Tags and quick replies", "Basic report"]
     }
   },
   "الباقة العادية": {
@@ -71,7 +72,7 @@ export const planFeatures: Record<string, PlanFeatures> = {
 export type PlanNumbers = { employeeLimit: number; allowedChannels: string; messageQuota: number };
 
 /** The three numeric bullets (users, channels, message quota), always built fresh from the live Plan row. */
-export function buildPlanDynamicItems(plan: PlanNumbers, lang: "ar" | "en"): string[] {
+export function buildPlanDynamicItems(plan: PlanNumbers, lang: "ar" | "en", options: { skipQuota?: boolean } = {}): string[] {
   const usersLine = lang === "ar" ? `حتى ${plan.employeeLimit} مستخدم` : `Up to ${plan.employeeLimit} users`;
 
   const parsedChannels = parseAllowedChannels(plan.allowedChannels);
@@ -83,7 +84,8 @@ export function buildPlanDynamicItems(plan: PlanNumbers, lang: "ar" | "en"): str
     ? (lang === "ar" ? "رسائل تسويقية غير محدودة" : "Unlimited marketing messages")
     : lang === "ar" ? `${messageQuotaLabel(plan.messageQuota, "ar")} رسالة تسويقية شهريًا` : `${messageQuotaLabel(plan.messageQuota, "en")} marketing messages/month`;
 
-  return [usersLine, channelsLine, messageQuotaLine];
+  // A plan that has no campaigns section has no marketing messages to promise.
+  return options.skipQuota ? [usersLine, channelsLine] : [usersLine, channelsLine, messageQuotaLine];
 }
 
 function fallbackTailItems(lang: "ar" | "en"): string[] {
@@ -92,7 +94,7 @@ function fallbackTailItems(lang: "ar" | "en"): string[] {
 
 /** Full bullet list for a plan card: live numbers first, then the static descriptive copy (or a generic fallback for an unrecognized plan name). */
 export function getPlanDisplayItems(plan: PlanNumbers & { name: string }, lang: "ar" | "en"): string[] {
-  const dynamic = buildPlanDynamicItems(plan, lang);
+  const dynamic = buildPlanDynamicItems(plan, lang, { skipQuota: isViewLockedForPlan(plan.name, "campaigns") });
   const tail = planFeatures[plan.name]?.items[lang] ?? fallbackTailItems(lang);
   return [...dynamic, ...tail];
 }

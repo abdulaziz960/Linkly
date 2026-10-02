@@ -12,6 +12,8 @@ import PwaInstallPopup from "./components/PwaInstallPopup";
 import NotificationBell from "./components/NotificationBell";
 import { navItemLabelsEn, viewTitles } from "./data/navigation";
 import { DELETED_MESSAGE_TEXT, LanguageProvider } from "./i18n";
+import { PlanAccessProvider } from "./plan-access-context";
+import type { PlanAccessData } from "../../lib/plan-access";
 import type {
   AutomationRule,
   Campaign,
@@ -65,6 +67,7 @@ type DashboardClientProps = {
   subscription: DashboardSubscription;
   invoices: DashboardInvoice[];
   campaignBalance: number;
+  planAccess: PlanAccessData;
 };
 
 function getNameInitial(name: string) {
@@ -170,7 +173,7 @@ async function fetchQuickRepliesWithSuggestions() {
   return fetchData<QuickReply[]>("/api/quick-replies");
 }
 
-export default function DashboardClient({ initialUser, subscription, invoices, campaignBalance }: DashboardClientProps) {
+export default function DashboardClient({ initialUser, subscription, invoices, campaignBalance, planAccess }: DashboardClientProps) {
   const router = useRouter();
   const restoredNavigationRef = useRef(false);
   const loadDashboardDataSeqRef = useRef(0);
@@ -418,7 +421,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   };
   const currentProfileStatus = currentEmployee?.status ?? "متصل";
   const accountInitial = getNameInitial(initialUser.name);
-  const allowedViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
+  const roleViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
+  // The plan caps every role: sections it doesn't include stay visible in the
+  // sidebar (locked, opening an upgrade prompt) but can never be the active view.
+  const allowedViews = useMemo(() => roleViews.filter((view) => !planAccess.lockedViews.includes(view)), [roleViews, planAccess.lockedViews]);
+  const lockedViewsForUser = useMemo(() => roleViews.filter((view) => planAccess.lockedViews.includes(view)), [roleViews, planAccess.lockedViews]);
   const canReopenConversations = canViewAllConversations || currentEmployee.role === "مشرف";
   const canDeleteConversations = initialUser.role === "مالك الحساب" || initialUser.role === "مشرف";
 
@@ -1339,6 +1346,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
   return (
     <LanguageProvider language={language}>
+    <PlanAccessProvider access={planAccess}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       <div className="dashboard-top-banners">
         {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
@@ -1408,6 +1416,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       <DashboardSidebar
         activeView={activeView}
         allowedViews={allowedViews}
+        lockedViews={lockedViewsForUser}
         integrationStatus={integrationStatus}
         instagramStatus={instagramStatus}
         facebookStatus={facebookStatus}
@@ -1802,6 +1811,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         </div>
       ) : null}
     </div>
+    </PlanAccessProvider>
     </LanguageProvider>
   );
 }

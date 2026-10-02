@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { getBotNodes, saveBotNodes, botChannels, type BotChannel, type BotNodeInput } from "../../../../lib/bot-engine";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
+import { getTenantPlanName } from "../../../../lib/plan-access-server";
+import { validateBotNodesForPlan } from "../../../../lib/plan-access";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -26,6 +28,8 @@ export async function PUT(request: NextRequest) {
   const channel = getChannel(request);
   const body = (await request.json()) as { nodes?: BotNodeInput[] };
   const nodes = Array.isArray(body.nodes) ? body.nodes : [];
+  const planCheck = validateBotNodesForPlan(await getTenantPlanName(user.tenantId), nodes, await getBotNodes(user.tenantId, channel));
+  if (!planCheck.ok) return jsonError(planCheck.error, 403);
   await saveBotNodes(user.tenantId, channel, nodes);
   return jsonOk(await getBotNodes(user.tenantId, channel));
 }

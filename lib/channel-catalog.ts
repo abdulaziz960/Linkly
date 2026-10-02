@@ -63,5 +63,5 @@ export function sanitizeAllowedChannelsInput(value: unknown): AllowedChannels {
 }
 
 export function upgradeNeededMessage(channel: ChannelKey): string {
-  return `قناة ${channelLabel(channel)} غير متاحة بباقتك الحالية. رقّي باقتك من صفحة الفوترة لتفعيلها.`;
+  return `باقتك لا تدعم الربط مع المنصة: قناة ${channelLabel(channel)} غير متاحة بباقتك الحالية. رقّي باقتك من صفحة الفوترة للاستمتاع بالمزايا.`;
 }

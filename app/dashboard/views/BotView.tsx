@@ -2,6 +2,8 @@
 
 import { DragEvent, FormEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../i18n";
+import { usePlanAccess } from "../plan-access-context";
+import { SMALL_ORG_PLAN, REGULAR_PLAN } from "../../../lib/plan-access";
 import CustomSelect from "../../components/CustomSelect";
 import type { Employee, Team } from "../types";
 import { channelNames } from "../../channel-names";
@@ -200,6 +202,9 @@ function connectorAnchors(node: BotNode): Array<{ key: string; optionId: string 
 
 export default function BotView({ teams, employees }: { teams: Team[]; employees: Employee[] }) {
   const { t } = useLanguage();
+  const { access, requestUpgrade } = usePlanAccess();
+  const isStepTypeLocked = (type: string) => access.botNodeTypes !== "*" && !access.botNodeTypes.includes(type);
+  const stepTypeUpgradePlan = (type: string) => (type === "رد AI تلقائي" || type === "رد من قاعدة المعرفة" ? SMALL_ORG_PLAN : REGULAR_PLAN);
   const [channel, setChannel] = useState<BotChannel>("whatsapp");
   const [builderOpen, setBuilderOpen] = useState(false);
   const [nodes, setNodes] = useState<BotNode[]>([]);
@@ -372,6 +377,14 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
   }
 
   function openAddModal() {
+    if (access.botMaxSteps !== null && nodes.length >= access.botMaxSteps) {
+      requestUpgrade({
+        title: t("الرد الآلي في باقتك بسيط", "Auto-reply is basic on your plan"),
+        description: t(`باقتك الحالية تدعم حتى ${access.botMaxSteps} خطوات في الرد الآلي.`, `Your current plan supports up to ${access.botMaxSteps} auto-reply steps.`),
+        targetPlan: REGULAR_PLAN
+      });
+      return;
+    }
     setEditingNodeId(null);
     setNodeType(nodeTypes[0]);
     setNodeTitle("");
@@ -388,6 +401,14 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
   }
 
   function changeNodeType(nextType: string) {
+    if (isStepTypeLocked(nextType) && nextType !== nodes.find((node) => node.id === editingNodeId)?.type) {
+      requestUpgrade({
+        title: t("هذه الخطوة غير متاحة في باقتك", "This step isn't in your plan"),
+        description: t(`خطوة «${nodeTypeLabel(nextType, t)}» غير متاحة في باقتك الحالية.`, `The "${nodeTypeLabel(nextType, t)}" step isn't included in your current plan.`),
+        targetPlan: stepTypeUpgradePlan(nextType)
+      });
+      return;
+    }
     setNodeType(nextType);
     // Only reset the draft when switching to a genuinely different shape -
     // flipping between the two list types should keep the options typed so far.
@@ -773,7 +794,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                     <CustomSelect
                       value={nodeType}
                       onChange={changeNodeType}
-                      options={nodeTypes.map((type) => ({ value: type, label: nodeTypeLabel(type, t) }))}
+                      options={nodeTypes.map((type) => ({ value: type, label: `${isStepTypeLocked(type) ? "🔒 " : ""}${nodeTypeLabel(type, t)}` }))}
                     />
                   </label>
                   <label>

@@ -3,6 +3,8 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { IntegrationSettings } from "../types";
 import { useLanguage } from "../i18n";
+import { usePlanAccess } from "../plan-access-context";
+import { isValidChannelKey, type ChannelKey } from "../../../lib/channel-catalog";
 import { channelNames } from "../../channel-names";
 
 type MetaSignupData = {
@@ -311,6 +313,12 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
 
 export default function SettingsView({ onIntegrationChange }: SettingsViewProps) {
   const { t } = useLanguage();
+  const { isChannelLocked, promptForChannel } = usePlanAccess();
+  // A channel the tenant's plan doesn't include: shown locked, opens the upgrade popup.
+  const planLockedChannel = (id: ChannelId): ChannelKey | null => {
+    const key = apiChannel(id);
+    return isValidChannelKey(key) && isChannelLocked(key) ? key : null;
+  };
   const channels = useMemo(() => getChannels(t), [t]);
   const wizardSteps = useMemo(() => getWizardSteps(t), [t]);
   const [settings, setSettings] = useState<IntegrationSettings>(emptySettings);
@@ -1262,11 +1270,16 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           <div className="channel-grid">
             {channels.map((channel) => (
               <button
-                className={`channel-card ${channel.id === selectedChannel ? "selected" : ""} ${channel.active ? "" : "disabled"}`}
+                className={`channel-card ${channel.id === selectedChannel ? "selected" : ""} ${channel.active ? "" : "disabled"} ${planLockedChannel(channel.id) ? "plan-locked" : ""}`}
                 key={channel.id}
                 type="button"
                 disabled={!channel.active}
                 onClick={() => {
+                  const lockedKey = planLockedChannel(channel.id);
+                  if (lockedKey) {
+                    promptForChannel(lockedKey, channel.title);
+                    return;
+                  }
                   if (channel.id === "whatsapp" || channel.id === "instagram" || channel.id === "facebook" || channel.id === "telegram" || channel.id === "x" || channel.id === "google_maps" || channel.id === "gmail" || channel.id === "website" || channel.id === "tiktok" || channel.id === "sms" || channel.id === "youtube" || channel.id === "linkedin") {
                     setSelectedChannel(channel.id);
                     // Step 2 doesn't exist for any channel - go straight to
@@ -1615,6 +1628,22 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         <div className="channels-overview-grid">
           <div className="channel-connect-grid">
             {channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id)).map((channel) => {
+              const lockedKey = planLockedChannel(channel.id);
+              if (lockedKey) {
+                return (
+                  <div className="channel-connect-card locked plan-locked" key={channel.id}>
+                    <span className="channel-icon-soon-wrap">
+                      <span className={`channel-icon channel-icon-${channel.id}`}>
+                        <ChannelIcon id={channel.id} />
+                      </span>
+                      <span className="channel-icon-soon-lock" aria-hidden="true">🔒</span>
+                    </span>
+                    <b>{channel.title}</b>
+                    <small>{t("باقتك لا تدعم الربط مع المنصة", "Your plan doesn't support this platform")}</small>
+                    <button type="button" onClick={() => promptForChannel(lockedKey, channel.title)}>{t("ترقية الباقة", "Upgrade plan")}</button>
+                  </div>
+                );
+              }
               const connected = isChannelConnected(channel.id);
               const handle = connected ? channelHandle(channel.id) : undefined;
               return (

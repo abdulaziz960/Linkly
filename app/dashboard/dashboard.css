@@ -11286,3 +11286,14 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .branch-empty { display: grid; justify-items: center; gap: 6px; padding: 34px 16px; text-align: center; border: 1px dashed var(--line); border-radius: 16px; background: #fbfaf9; }
 .branch-empty > span { font-size: 34px; }
 .branch-empty p { margin: 0 0 8px; color: var(--muted); }
+
+.upgrade-modal { width: min(440px, calc(100vw - 24px)); }
+.upgrade-modal-body { display: grid; justify-items: center; gap: 6px; text-align: center; line-height: 1.9; }
+.upgrade-modal-body p { margin: 0; }
+.upgrade-modal-lock { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 4px; border-radius: 16px; background: #fff7ed; font-size: 26px; }
+.upgrade-modal .modal-foot .btn { display: inline-flex; align-items: center; text-decoration: none; }
+.dashboard-nav button.plan-locked { opacity: 0.62; position: relative; }
+.dashboard-nav button.plan-locked::after { content: "🔒"; margin-inline-start: auto; font-size: 11px; }
+.channel-connect-card.plan-locked button { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+.plan-locked-note { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px dashed #fed7aa; border-radius: 12px; background: #fff7ed; color: #9a3412; font-weight: 800; }
+.plan-locked-note button { margin-inline-start: auto; }

@@ -9,10 +9,13 @@ import { getChannelName } from "../../channel-names";
 import type { ConversationChannel, ConversationChannelFilter, ViewKey } from "../types";
 import { navItems, navItemLabelsEn } from "../data/navigation";
 import { ChannelIcon } from "../views/SettingsView";
+import { usePlanAccess } from "../plan-access-context";
 
 type DashboardSidebarProps = {
   activeView: ViewKey;
   allowedViews: ViewKey[];
+  /** Sections the user's role allows but the plan doesn't - shown locked. */
+  lockedViews?: ViewKey[];
   integrationStatus: "connected" | "not_connected" | "pending";
   instagramStatus: "connected" | "not_connected" | "pending";
   facebookStatus: "connected" | "not_connected" | "pending";
@@ -72,6 +75,7 @@ function DashboardNavIcon({ view }: { view: ViewKey }) {
 export default function DashboardSidebar({
   activeView,
   allowedViews,
+  lockedViews = [],
   integrationStatus,
   instagramStatus,
   facebookStatus,
@@ -90,6 +94,7 @@ export default function DashboardSidebar({
   onChangeView,
   onChangeChannel
 }: DashboardSidebarProps) {
+  const { promptForView } = usePlanAccess();
   const [navigationSearchOpen, setNavigationSearchOpen] = useState(false);
   const [navigationSearch, setNavigationSearch] = useState("");
   const [sidebarTooltip, setSidebarTooltip] = useState<SidebarTooltipState | null>(null);
@@ -163,7 +168,7 @@ export default function DashboardSidebar({
       : { label, top, right: window.innerWidth - bounds.left + 12 });
   };
   const hideSidebarTooltip = () => setSidebarTooltip(null);
-  const visibleNavItems = navItems.filter((item) => allowedViews.includes(item.key));
+  const visibleNavItems = navItems.filter((item) => allowedViews.includes(item.key) || lockedViews.includes(item.key));
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "صندوق الوارد", labelEn: "Inbox", keys: ["inbox", "quickReplies"] },
     { label: "جهات الاتصال", labelEn: "Contacts", keys: ["contacts", "tags"] },
@@ -221,7 +226,7 @@ export default function DashboardSidebar({
               <label><span>{isEnglish ? "Go to" : "انتقل إلى"}</span><input autoFocus value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} placeholder={isEnglish ? "Search sections..." : "ابحث عن قسم..."} /></label>
               <div>
                 {visibleNavItems.filter((item) => `${item.label} ${navItemLabelsEn[item.key]}`.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((item) => (
-                  <button key={item.key} type="button" onClick={() => { onChangeView(item.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{isEnglish ? navItemLabelsEn[item.key] : item.label}</span></button>
+                  <button key={item.key} type="button" onClick={() => { if (lockedViews.includes(item.key)) { promptForView(item.key, isEnglish ? navItemLabelsEn[item.key] : item.label); } else { onChangeView(item.key); } setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{isEnglish ? navItemLabelsEn[item.key] : item.label}</span></button>
                 ))}
                 {visibleLinkedChannels.filter((channel) => channel.label.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((channel) => (
                   <button key={channel.key} type="button" onClick={() => { onChangeChannel(channel.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><span className={`nav-channel-dot ${channel.key}`} aria-hidden="true"><ChannelIcon id={channel.key} /></span><span>{channel.label}</span></button>
@@ -240,9 +245,13 @@ export default function DashboardSidebar({
             {groupItems.map((item) => (
             <button
               key={item.key}
-              className={activeView === item.key && (item.key !== "inbox" || selectedChannel === "all") ? "active" : ""}
+              className={`${activeView === item.key && (item.key !== "inbox" || selectedChannel === "all") ? "active" : ""}${lockedViews.includes(item.key) ? " plan-locked" : ""}`}
               type="button"
-              onClick={() => { hideSidebarTooltip(); onChangeView(item.key); }}
+              onClick={() => {
+                hideSidebarTooltip();
+                if (lockedViews.includes(item.key)) { promptForView(item.key, isEnglish ? navItemLabelsEn[item.key] : item.label); return; }
+                onChangeView(item.key);
+              }}
               onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? navItemLabelsEn[item.key] : item.label)}
               onMouseLeave={hideSidebarTooltip}
               onFocus={(event) => showSidebarTooltip(event, isEnglish ? navItemLabelsEn[item.key] : item.label)}

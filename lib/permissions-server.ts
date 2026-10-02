@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { computeAllowedViews } from "./permissions";
 import { getCurrentUser } from "./auth";
 import type { ViewKey } from "../app/dashboard/types";
+import { isViewLockedForTenant } from "./plan-access-server";
 
 type SessionUser = { email: string; tenantId: string; role: string };
 
@@ -35,6 +36,8 @@ export async function getVisibleAssigneeNames(user: SessionUser, employee?: { na
 }
 
 export async function userHasViewPermission(user: SessionUser, view: ViewKey): Promise<boolean> {
+  // The plan caps every role, the account owner included.
+  if (await isViewLockedForTenant(user.tenantId, view)) return false;
   if (user.role === "مالك الحساب") return true;
 
   const employee = await getEmployeeForUser(user);
