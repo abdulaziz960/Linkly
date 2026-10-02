@@ -612,7 +612,11 @@ export function sendWhatsAppRowList(input: {
   });
 }
 
-/** Up to 3 tappable reply buttons with our own ids. */
+function imageHeader(url?: string) {
+  return url ? { header: { type: "image", image: { link: url } } } : {};
+}
+
+/** Up to 3 tappable reply buttons with our own ids; optional image header (a product "card"). */
 export function sendWhatsAppIdButtons(input: {
   tenantId?: string;
   conversationId: string;
@@ -620,6 +624,7 @@ export function sendWhatsAppIdButtons(input: {
   bodyText: string;
   buttons: Array<{ id: string; title: string }>;
   displayText: string;
+  headerImageUrl?: string;
   author?: string;
 }) {
   return sendWhatsAppCustomMessage({
@@ -628,14 +633,47 @@ export function sendWhatsAppIdButtons(input: {
     to: input.to,
     displayText: input.displayText,
     author: input.author,
+    ...(input.headerImageUrl ? { attachment: { type: "image" as const, url: input.headerImageUrl, name: "product.jpg", mimeType: "image/jpeg" } } : {}),
     message: {
       type: "interactive",
       interactive: {
         type: "button",
+        ...imageHeader(input.headerImageUrl),
         body: { text: input.bodyText.slice(0, 1024) },
         action: {
           buttons: input.buttons.slice(0, 3).map((button) => ({ type: "reply", reply: { id: button.id.slice(0, 256), title: button.title.slice(0, 20) } }))
         }
+      }
+    }
+  });
+}
+
+/** One button that opens a URL (WhatsApp allows a single URL button per message); optional image header. */
+export function sendWhatsAppCtaUrl(input: {
+  tenantId?: string;
+  conversationId: string;
+  to: string;
+  bodyText: string;
+  buttonLabel: string;
+  url: string;
+  displayText: string;
+  headerImageUrl?: string;
+  author?: string;
+}) {
+  return sendWhatsAppCustomMessage({
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+    to: input.to,
+    displayText: input.displayText,
+    author: input.author,
+    ...(input.headerImageUrl ? { attachment: { type: "image" as const, url: input.headerImageUrl, name: "product.jpg", mimeType: "image/jpeg" } } : {}),
+    message: {
+      type: "interactive",
+      interactive: {
+        type: "cta_url",
+        ...imageHeader(input.headerImageUrl),
+        body: { text: input.bodyText.slice(0, 1024) },
+        action: { name: "cta_url", parameters: { display_text: input.buttonLabel.slice(0, 20), url: input.url } }
       }
     }
   });

@@ -11,7 +11,7 @@ import {
 } from "./catalog";
 import { createMerchantInvoice } from "./catalog-payments";
 import { formatMessageTime } from "./time";
-import { sendWhatsAppIdButtons, sendWhatsAppImageByUrl, sendWhatsAppRowList } from "./whatsapp-send";
+import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons } from "./whatsapp-send";
 
 /**
  * The in-chat shopping flow behind the bot's "عرض الكتالوج" step: browse the
@@ -38,8 +38,11 @@ export const CATALOG_DEFAULT_INTRO = "أهلًا بك 👋 تصفّح منتجا
 
 const ID_PRODUCT = "prod_";
 const ID_BUY = "buy_";
+const ID_MORE = "cat_more_";
+const ID_ORDER = ID_BUY; // "اطلب الآن" reuses the buy flow (staff follow-up when payment is off)
 const ID_BACK = "cat_back";
 const ID_AGENT = "cat_agent";
+const CARDS_PER_PAGE = 5;
 
 function productLine(product: CatalogProduct) {
   return `${product.name} - ${formatPrice(product.price, product.currency)}`;
@@ -52,74 +55,109 @@ function productDetails(product: CatalogProduct) {
   return parts.join("\n");
 }
 
-export async function sendCatalogMenu(ctx: CatalogCtx, intro: string): Promise<boolean> {
-  const products = await listBotProducts(ctx.tenantId, 10);
+export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0): Promise<boolean> {
   const body = intro.trim() || CATALOG_DEFAULT_INTRO;
+  // One extra row tells us whether a "show more" button is needed.
+  const fetched = await listBotProducts(ctx.tenantId, offset + CARDS_PER_PAGE + 1);
+  const products = fetched.slice(offset, offset + CARDS_PER_PAGE);
+  const hasMore = fetched.length > offset + CARDS_PER_PAGE;
 
   if (!products.length) {
     await ctx.sendText("لا توجد منتجات متاحة حاليًا. سيتواصل معك أحد موظفينا قريبًا.");
     return false;
   }
 
-  const displayText = `${body}\n${products.map((product, index) => `${index + 1}. ${productLine(product)}`).join("\n")}`;
+  const textList = () => `${body}\n${products.map((product, index) => `${offset + index + 1}. ${productLine(product)}`).join("\n")}`;
 
-  if (ctx.channel === "whatsapp") {
-    const result = await sendWhatsAppRowList({
+  if (ctx.channel !== "whatsapp") {
+    await ctx.sendText(textList());
+    return true;
+  }
+
+  // WhatsApp: each product is a card - image on top, name and price, and a
+  // "details" button. (Meta's native catalog messages need a Meta Commerce
+  // catalog; image-header button messages work on any Cloud API number.)
+  if (offset === 0) await ctx.sendText(body);
+  let sentCards = 0;
+  for (const product of products) {
+    const caption = `*${product.name}*\n${formatPrice(product.price, product.currency)}`;
+    const card = await sendWhatsAppIdButtons({
       tenantId: ctx.tenantId,
       conversationId: ctx.conversationId,
       to: ctx.recipientId,
-      bodyText: body,
-      buttonLabel: "عرض المنتجات",
-      rows: products.map((product) => ({
-        id: `${ID_PRODUCT}${product.id}`,
-        title: product.name,
-        description: formatPrice(product.price, product.currency) + (product.category ? ` · ${product.category}` : "")
-      })),
-      displayText,
+      bodyText: caption,
+      buttons: [{ id: `${ID_PRODUCT}${product.id}`, title: "عرض التفاصيل" }],
+      displayText: caption,
+      headerImageUrl: product.imageUrl || undefined,
       author: AUTHOR
     });
-    if (result.ok) return true;
+    // A bad image link makes Meta reject the header - retry as a text-only card.
+    if (!card.ok && product.imageUrl) {
+      const plain = await sendWhatsAppIdButtons({
+        tenantId: ctx.tenantId,
+        conversationId: ctx.conversationId,
+        to: ctx.recipientId,
+        bodyText: caption,
+        buttons: [{ id: `${ID_PRODUCT}${product.id}`, title: "عرض التفاصيل" }],
+        displayText: caption,
+        author: AUTHOR
+      });
+      if (plain.ok) sentCards += 1;
+    } else if (card.ok) {
+      sentCards += 1;
+    }
   }
 
-  await ctx.sendText(displayText);
+  if (sentCards === 0) {
+    await ctx.sendText(textList());
+    return true;
+  }
+
+  await sendWhatsAppIdButtons({
+    tenantId: ctx.tenantId,
+    conversationId: ctx.conversationId,
+    to: ctx.recipientId,
+    bodyText: hasMore ? "هل تريد رؤية المزيد من المنتجات؟" : "هل تحتاج مساعدة؟",
+    buttons: [
+      ...(hasMore ? [{ id: `${ID_MORE}${offset + CARDS_PER_PAGE}`, title: "عرض المزيد" }] : []),
+      { id: ID_AGENT, title: "التحدث مع موظف" }
+    ],
+    displayText: hasMore ? "هل تريد رؤية المزيد من المنتجات؟" : "هل تحتاج مساعدة؟",
+    author: AUTHOR
+  });
   return true;
 }
 
 async function showProduct(ctx: CatalogCtx, product: CatalogProduct) {
   const details = productDetails(product);
+  const paymentOn = Boolean(await getMerchantGatewayKey(ctx.tenantId));
 
   if (ctx.channel !== "whatsapp") {
-    await ctx.sendText(`${details}\n\nللشراء اكتب: شراء ${product.name}`);
+    const tail = paymentOn ? `\n\nللشراء اكتب: شراء ${product.name}` : product.productUrl ? `\n\nصفحة المنتج: ${product.productUrl}` : `\n\nلطلب المنتج اكتب: شراء ${product.name}`;
+    await ctx.sendText(`${details}${tail}`);
     return;
   }
 
-  let sentImage = false;
-  if (product.imageUrl) {
-    const image = await sendWhatsAppImageByUrl({
-      tenantId: ctx.tenantId,
-      conversationId: ctx.conversationId,
-      to: ctx.recipientId,
-      imageUrl: product.imageUrl,
-      caption: details,
-      author: AUTHOR
-    });
-    sentImage = Boolean(image.ok);
+  const common = { tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, author: AUTHOR };
+  const image = product.imageUrl || undefined;
+  const nav = [{ id: ID_BACK, title: "كل المنتجات" }, { id: ID_AGENT, title: "التحدث مع موظف" }];
+
+  // Payment on -> buy button. Payment off -> open the product page on the
+  // merchant's site (or, with no page, a plain "order" request for staff).
+  if (!paymentOn && product.productUrl) {
+    let sent = await sendWhatsAppCtaUrl({ ...common, bodyText: details, buttonLabel: "فتح صفحة المنتج", url: product.productUrl, displayText: details, headerImageUrl: image });
+    if (!sent.ok && image) sent = await sendWhatsAppCtaUrl({ ...common, bodyText: details, buttonLabel: "فتح صفحة المنتج", url: product.productUrl, displayText: details });
+    if (!sent.ok) {
+      await ctx.sendText(`${details}\n\nصفحة المنتج: ${product.productUrl}`);
+    }
+    await sendWhatsAppIdButtons({ ...common, bodyText: "ماذا تريد أن تفعل؟", buttons: nav, displayText: "ماذا تريد أن تفعل؟" });
+    return;
   }
 
-  const buttons = await sendWhatsAppIdButtons({
-    tenantId: ctx.tenantId,
-    conversationId: ctx.conversationId,
-    to: ctx.recipientId,
-    bodyText: sentImage ? "هل تريد شراء هذا المنتج؟" : details,
-    buttons: [
-      { id: `${ID_BUY}${product.id}`, title: "🛒 اشترِ الآن" },
-      { id: ID_BACK, title: "كل المنتجات" },
-      { id: ID_AGENT, title: "التحدث مع موظف" }
-    ],
-    displayText: sentImage ? "هل تريد شراء هذا المنتج؟" : details,
-    author: AUTHOR
-  });
-  if (!buttons.ok && !sentImage) await ctx.sendText(details);
+  const buttons = [{ id: `${ID_ORDER}${product.id}`, title: paymentOn ? "🛒 اشترِ الآن" : "اطلب الآن" }, ...nav];
+  let sent = await sendWhatsAppIdButtons({ ...common, bodyText: details, buttons, displayText: details, headerImageUrl: image });
+  if (!sent.ok && image) sent = await sendWhatsAppIdButtons({ ...common, bodyText: details, buttons, displayText: details });
+  if (!sent.ok) await ctx.sendText(details);
 }
 
 async function reopenForStaff(conversationId: string) {
@@ -215,6 +253,10 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   const id = reply.id || "";
 
   if (id === ID_AGENT) return "agent";
+  if (id.startsWith(ID_MORE)) {
+    await sendCatalogMenu(ctx, intro, Math.max(0, Number(id.slice(ID_MORE.length)) || 0));
+    return "handled";
+  }
   if (id === ID_BACK) {
     await sendCatalogMenu(ctx, intro);
     return "handled";
