@@ -84,3 +84,26 @@ export async function findBestKbMatch(tenantId: string, incomingText: string): P
 
   return bestScore >= KB_MATCH_THRESHOLD ? best : null;
 }
+
+/** Looser than KB_MATCH_THRESHOLD: these entries are only shown to the model as candidate facts, and the model (not this score) decides whether they answer the question. */
+export const KB_CONTEXT_THRESHOLD = 0.2;
+
+/**
+ * Top-N KB entries most similar to `text`, for grounding an AI reply.
+ * Unlike findBestKbMatch this does not decide the answer - it only narrows
+ * hundreds of entries to the few worth putting in the prompt.
+ */
+export async function findKbContext(tenantId: string, text: string, limit = 4): Promise<Array<{ question: string; answer: string }>> {
+  const query = text.trim();
+  if (!query) return [];
+  const entries = await prisma.knowledgeBaseEntry.findMany({ where: { tenantId }, take: 500 });
+  return entries
+    .map((entry) => ({
+      entry,
+      score: entry.question ? Math.max(textSimilarity(query, entry.question), textSimilarity(query, entry.answer)) : textSimilarity(query, entry.answer)
+    }))
+    .filter(({ score }) => score >= KB_CONTEXT_THRESHOLD)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ entry }) => ({ question: entry.question, answer: entry.answer }));
+}

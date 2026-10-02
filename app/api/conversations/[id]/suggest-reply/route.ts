@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { prisma } from "../../../../../lib/prisma";
 import { runWorkspaceAi } from "../../../../../lib/workspace-ai";
+import { findKbContext } from "../../../../../lib/knowledge-base";
 import { aiOperations, type AiOperation } from "../../../../../lib/ai-types";
 import { getEmployeeForUser } from "../../../../../lib/permissions-server";
 import { consumeRateLimit, requestIdentifier } from "../../../../../lib/rate-limit";
@@ -45,12 +46,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
     take: 50
   });
 
+  // Ground suggested replies in the tenant's own knowledge base. `messages`
+  // is newest-first here, so the first inbound ones are the latest questions.
+  const operation = body?.operation || "reply";
+  const knowledge = operation === "reply" || operation === "next_step"
+    ? await findKbContext(user.tenantId, messages.filter((message) => message.direction === "in").slice(0, 2).map((message) => message.text).join("\n"))
+    : [];
+
   const result = await runWorkspaceAi(user.tenantId, user.id, conversation.id, {
     source: "copilot",
     messages: messages.reverse().map((message) => ({ direction: message.direction as "in" | "out" | "note", text: message.text })),
     customerName: conversation.customer.name,
     language: body?.language === "en" ? "en" : "ar",
-    operation: body?.operation || "reply", draft: body?.draft
+    operation, draft: body?.draft, knowledge
   });
 
   return jsonOk(result);
