@@ -11257,3 +11257,18 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   font: inherit;
   resize: vertical;
 }
+
+.catalog-guide { width: min(860px, calc(100vw - 24px)); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.catalog-guide-body { overflow-y: auto; display: grid; gap: 14px; text-align: start; }
+.catalog-guide-body h3 { margin: 6px 0 0; font-size: 15px; }
+.catalog-guide-body ol, .catalog-guide-body ul { margin: 0; padding-inline-start: 22px; display: grid; gap: 6px; line-height: 1.8; }
+.catalog-guide-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.catalog-guide-tabs button { padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-weight: 800; cursor: pointer; }
+.catalog-guide-tabs button.active { background: #0f766e; border-color: #0f766e; color: #fff; }
+.catalog-code { position: relative; }
+.catalog-code > button { position: absolute; top: 8px; inset-inline-end: 8px; z-index: 1; padding: 4px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 12px; font-weight: 800; cursor: pointer; }
+.catalog-guide .code-block { overflow-x: auto; text-align: left; white-space: pre; margin: 0; }
+.catalog-guide-table { width: 100%; border-collapse: collapse; }
+.catalog-guide-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.catalog-guide-table td:first-child { white-space: nowrap; }
+.catalog-code .code-block { padding-top: 40px; }

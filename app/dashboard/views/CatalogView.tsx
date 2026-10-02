@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../i18n";
+import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
 import CustomSelect from "../../components/CustomSelect";
 
 type Product = {
@@ -90,6 +91,7 @@ export default function CatalogView() {
   const [feedInterval, setFeedInterval] = useState(360);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const load = useCallback(async () => {
     const [productsResult, ordersResult, settingsResult] = await Promise.all([
@@ -376,6 +378,7 @@ export default function CatalogView() {
             <div className="panel-head"><h2>{t("موقع مبرمج خصيصًا؟ اربطه عبر API", "Custom-built website? Connect via API")}</h2></div>
             <div className="panel-body">
               <p>{t("أنشئ مفتاح API من صفحة \"المطورون\"، ثم أرسل منتجات موقعك إلى لنكلي كلما تغيّرت (حتى 100 منتج في الطلب الواحد). إعادة إرسال نفس externalId تحدّث المنتج بدل تكراره.", "Create an API key on the Developers page, then push your website's products to Linkly whenever they change (up to 100 per request). Re-sending the same externalId updates the product instead of duplicating it.")}</p>
+              <button className="primary-btn" type="button" onClick={() => setGuideOpen(true)}>{t("دليل الربط للمبرمج (PHP, Node, Python…)", "Developer guide (PHP, Node, Python…)")}</button>
               <pre className="code-block">{`curl -X POST https://linklysa.io/api/v1/products \\
   -H "Authorization: Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H "Content-Type: application/json" \\
@@ -386,6 +389,8 @@ export default function CatalogView() {
           </div>
         </>
       ) : null}
+
+      {guideOpen ? <CatalogIntegrationGuide onClose={() => setGuideOpen(false)} /> : null}
 
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
