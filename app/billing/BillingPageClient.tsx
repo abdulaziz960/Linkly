@@ -7,7 +7,7 @@ import BillingClient from "./BillingClient";
 import { useStoredLanguage } from "../useStoredLanguage";
 
 type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number; allowedChannels: string; messageQuota: number };
-type Subscription = { plan: string; status: string; createdAt?: string; renewalAt?: string; cancelledAt?: string; autoRenewEnabled?: number; savedCardLast4?: string; savedCardBrand?: string } | null;
+type Subscription = { plan: string; status: string; billingCycle?: string; createdAt?: string; renewalAt?: string; cancelledAt?: string; autoRenewEnabled?: number; savedCardLast4?: string; savedCardBrand?: string } | null;
 
 const copy = {
   ar: {
@@ -184,7 +184,7 @@ export default function BillingPageClient({
           </div>
         ) : null}
       </section>
-      <BillingClient plans={plans} currentPlan={subscription?.plan || ""} lang={lang} isTestMode={isTestMode} />
+      <BillingClient plans={plans} currentPlan={subscription?.plan || ""} currentSubscription={subscription} lang={lang} isTestMode={isTestMode} />
     </main>
   );
 }

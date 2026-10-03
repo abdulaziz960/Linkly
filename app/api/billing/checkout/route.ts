@@ -6,7 +6,7 @@ import { prisma } from "../../../../lib/prisma";
 import { buildPaymentMetadata, isMoyasarConfigured } from "../../../../lib/moyasar";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../lib/payment-status";
 import { computeProrationCredit } from "../../../../lib/subscriptions";
-import { isBillingCycle, priceForCycle, type BillingCycle } from "../../../../lib/billing-pricing";
+import { isBillingCycle, isSamePlanRenewalTooEarly, priceForCycle, RENEWAL_WINDOW_DAYS, type BillingCycle } from "../../../../lib/billing-pricing";
 import { reservePromoCodeUsage, releasePromoCodeUsage, promoCodeErrorMessage, type PromoCodeErrorCode } from "../../../../lib/promo-codes";
 
 export const runtime = "nodejs";
@@ -24,6 +24,16 @@ export async function POST(request: NextRequest) {
   });
   if (!plan) return NextResponse.json({ error: "الباقة غير موجودة" }, { status: 404 });
   if (plan.monthlyPrice < 1) return NextResponse.json({ error: "سعر الباقة غير صالح" }, { status: 400 });
+  // Same plan, same cycle, still paid up for more than the renewal window:
+  // a second payment would only stack on the first. Renewal opens shortly
+  // before the period ends (or once it lapses); a different plan or cycle
+  // is unaffected.
+  if (isSamePlanRenewalTooEarly(subscription, plan.name, billingCycle)) {
+    return NextResponse.json(
+      { error: `باقتك الحالية (${plan.name}) سارية حتى ${subscription?.renewalAt}. يمكنك تجديدها قبل انتهائها بـ ${RENEWAL_WINDOW_DAYS} أيام، أو اختر باقة أعلى للترقية.` },
+      { status: 409 }
+    );
+  }
   const companyName = subscription?.companyName || user.name;
   const listPrice = priceForCycle(plan.monthlyPrice, billingCycle);
 

@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { expectedHalalas } from "../../../../lib/subscriptions";
 import { PAYMENT_STATUS } from "../../../../lib/payment-status";
+import { isBillingCycle, isSamePlanRenewalTooEarly } from "../../../../lib/billing-pricing";
 import { paymentStatementDescriptor } from "../../../../lib/moyasar";
 import MoyasarPayForm from "./MoyasarPayForm";
 import PayPromoBox from "../PayPromoBox";
@@ -27,6 +28,10 @@ export default async function BillingPayPage({ params }: { params: Promise<{ pay
   if (!payment) redirect("/billing");
   if (payment.status === PAYMENT_STATUS.completed) redirect("/billing/success");
   if (payment.status !== PAYMENT_STATUS.pending) redirect("/billing");
+  // A pending row staged before the plan was paid for (or opened from an old
+  // link) must not stack a second payment on a plan that is still paid up.
+  const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
+  if (isBillingCycle(payment.billingCycle) && isSamePlanRenewalTooEarly(subscription, payment.planName, payment.billingCycle)) redirect("/billing");
 
   const publishableKey = process.env.NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY || "";
   const description = `اشتراك Linkly${payment.planName ? ` (${payment.planName})` : ""}`;

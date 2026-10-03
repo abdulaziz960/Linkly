@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ANNUAL_DISCOUNT_PERCENT, computeYearlyPrice } from "../../lib/billing-pricing";
+import { ANNUAL_DISCOUNT_PERCENT, computeYearlyPrice, isSamePlanRenewalTooEarly } from "../../lib/billing-pricing";
 import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
 import { useBillingCycle } from "../useBillingCycle";
 
@@ -18,6 +18,7 @@ const copy = {
     billedYearly: (total: number) => `تُدفع دفعة واحدة بقيمة ${total} ر.س سنويًا`,
     preparingPayment: "جاري تجهيز الدفع...",
     renewPlan: "تجديد هذه الباقة",
+    activeUntil: (date: string) => `باقتك سارية حتى ${date}`,
     upgradePlan: "ترقية الباقة",
     genericError: "تعذر بدء الدفع",
     paymentNote: "🔒 الدفع الحقيقي يتم على صفحة Moyasar الآمنة. في وضع الاختبار تظهر محاكاة دفع ولن يُخصم أي مبلغ.",
@@ -43,6 +44,7 @@ const copy = {
     billedYearly: (total: number) => `Billed once as ${total} SAR / year`,
     preparingPayment: "Preparing payment...",
     renewPlan: "Renew this plan",
+    activeUntil: (date: string) => `Your plan is active until ${date}`,
     upgradePlan: "Upgrade plan",
     genericError: "Could not start the payment",
     paymentNote: "🔒 Real payments happen on Moyasar's secure page. In test mode a simulated payment is shown and nothing is charged.",
@@ -59,7 +61,7 @@ const copy = {
   }
 } as const;
 
-export default function BillingClient({ plans, currentPlan, lang = "ar", isTestMode }: { plans: Plan[]; currentPlan: string; lang?: "ar" | "en"; isTestMode: boolean }) {
+export default function BillingClient({ plans, currentPlan, currentSubscription = null, lang = "ar", isTestMode }: { plans: Plan[]; currentPlan: string; currentSubscription?: { plan?: string; status?: string; renewalAt?: string; billingCycle?: string } | null; lang?: "ar" | "en"; isTestMode: boolean }) {
   const text = copy[lang];
   const [loading, setLoading] = useState(""); const [error, setError] = useState("");
   const { billingCycle, chooseBillingCycle } = useBillingCycle();
@@ -88,6 +90,7 @@ export default function BillingClient({ plans, currentPlan, lang = "ar", isTestM
       const items = getPlanDisplayItems(plan, lang);
       const featured = Boolean(planFeatures[plan.name]?.featured);
       const isCurrent = currentPlan === plan.name;
+      const renewalTooEarly = isCurrent && isSamePlanRenewalTooEarly(currentSubscription, plan.name, billingCycle);
       return <article className={`plan-card ${featured ? "featured" : ""}`} key={plan.id}>
         {isCurrent ? <span className="current-badge">{text.currentPlanBadge}</span> : featured ? <span className="recommended">{text.recommended}</span> : null}
         <h2>{plan.name}</h2>
@@ -95,7 +98,7 @@ export default function BillingClient({ plans, currentPlan, lang = "ar", isTestM
         {billingCycle === "سنوي" ? <p className="plan-price-note">{text.billedYearly(yearly)}</p> : null}
         <ul>{items.map((item) => <li key={item}>✓ {item}</li>)}</ul>
 
-        <button disabled={loading !== ""} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : isCurrent ? text.renewPlan : text.upgradePlan}</button>
+        <button disabled={loading !== "" || renewalTooEarly} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : renewalTooEarly ? text.activeUntil(currentSubscription?.renewalAt || "") : isCurrent ? text.renewPlan : text.upgradePlan}</button>
       </article>;
     })}</div>
     {error ? <p className="billing-error">{error}</p> : null}
