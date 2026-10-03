@@ -10,7 +10,7 @@ import WhatsAppCta from "../WhatsAppCta";
 import PricingPlanGrid from "../PricingPlanGrid";
 import s from "../page.module.css";
 import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
-import { getActivePlans } from "../../lib/plans";
+import { getActivePlansForLanding } from "../../lib/plans";
 import { faqsEn } from "../../lib/faq";
 
 export const metadata: Metadata = {
@@ -63,7 +63,7 @@ function Preview() {
 }
 
 export default async function EnglishHomePage() {
-  const dbPlans = await getActivePlans();
+  const dbPlans = await getActivePlansForLanding();
   const plans = dbPlans.map((plan) => {
     const features = planFeatures[plan.name];
     return {
@@ -108,7 +108,7 @@ export default async function EnglishHomePage() {
     <section className={`${s.section} ${s.faq}`} id="faq"><Intro kicker="FAQ" title="Clear answers before you start" /><div>{faqs.map(([q, a], i) => <details key={q} open={i < 2}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
     <section className={`${s.finalCta} ${s.revealFade}`}><div><span>START TODAY</span><h2>Let your team focus on the customer, not on switching between apps.</h2><p>Try Linkly free for 3 days.</p></div><div><Link href="/signup" data-primary-cta="true">Start your free trial</Link><small>No card required</small></div></section>
   </main>
-  <footer className={s.footer}><div><section><Link className={s.brand} href="/en"><Image src={logo} alt="" width={56} height={31} /><span>Linkly</span></Link><p>A platform for managing customer conversations and running support and sales teams from one place.</p></section><nav><b>Product</b><a href="#features">Features</a><a href="#how">How it works</a><a href="#pricing">Pricing</a></nav><nav><b>Company</b><Link href="/en/privacy">Privacy</Link><Link href="/en/terms">Terms of use</Link><Link href="/en/data-deletion">Data deletion</Link><Link href="/en/contact">Contact us</Link></nav></div><small>All rights reserved to Al-Jumhoor Custom Advertising Company.　 Linkly © 2026</small></footer>
+  <footer className={s.footer}><div><section><Link className={s.brand} href="/en"><Image src={logo} alt="" width={56} height={31} /><span>Linkly</span></Link><p>A platform for managing customer conversations and running support and sales teams from one place.</p></section><nav><b>Product</b><a href="#features">Features</a><a href="#how">How it works</a><a href="#pricing">Pricing</a><Link href="/en/faq">FAQ</Link><Link href="/en/blog">Blog</Link></nav><nav><b>Company</b><Link href="/en/privacy">Privacy</Link><Link href="/en/terms">Terms of use</Link><Link href="/en/data-deletion">Data deletion</Link><Link href="/en/contact">Contact us</Link></nav></div><small>All rights reserved to Al-Jumhoor Custom Advertising Company.　 Linkly © 2026</small></footer>
   <Link className={s.mobileCta} href="/signup">Start your free trial</Link>
 </div>; }
 
