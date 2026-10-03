@@ -93,6 +93,33 @@ describe("catalog CRUD, upsert and tenant isolation", () => {
   });
 });
 
+describe("bulk delete", () => {
+  it("deletes a selection or everything, only inside the workspace", async () => {
+    const { ensureSchema } = await import("../lib/database");
+    const { createProduct, cleanProductInput, deleteProducts, deleteAllProducts, listProducts } = await import("../lib/catalog");
+    await ensureSchema();
+    const make = async (tenant: string, name: string) => {
+      const r = cleanProductInput({ name, price: 10 });
+      if (!r.ok) throw new Error(r.error);
+      return createProduct(tenant, r.data);
+    };
+    const a = await make("tenant-bulk", "A");
+    const b = await make("tenant-bulk", "B");
+    await make("tenant-bulk", "C");
+    const foreign = await make("tenant-bulk-other", "X");
+
+    // Another workspace's id in the selection is ignored.
+    expect(await deleteProducts("tenant-bulk", [a.id, b.id, foreign.id, "missing"])).toBe(2);
+    expect((await listProducts("tenant-bulk")).items.map((p) => p.name)).toEqual(["C"]);
+    expect((await listProducts("tenant-bulk-other")).items).toHaveLength(1);
+    expect(await deleteProducts("tenant-bulk", [])).toBe(0);
+
+    expect(await deleteAllProducts("tenant-bulk")).toBe(1);
+    expect((await listProducts("tenant-bulk")).items).toHaveLength(0);
+    expect((await listProducts("tenant-bulk-other")).items).toHaveLength(1);
+  });
+});
+
 describe("settings + payment safety", () => {
   it("never enables payment without a key, and never exposes the key", async () => {
     const { saveCatalogSettings, getPublicCatalogSettings, getMerchantGatewayKey } = await import("../lib/catalog");

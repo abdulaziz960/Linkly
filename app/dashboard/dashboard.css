@@ -11297,3 +11297,8 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .channel-connect-card.plan-locked button { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
 .plan-locked-note { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px dashed #fed7aa; border-radius: 12px; background: #fff7ed; color: #9a3412; font-weight: 800; }
 .plan-locked-note button { margin-inline-start: auto; }
+
+.catalog-bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fbfaf9; }
+.catalog-bulk-check { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; cursor: pointer; }
+.catalog-bulk-count { margin-inline-end: auto; color: var(--muted); font-weight: 700; }
+.catalog-product-cell input[type="checkbox"] { flex: none; width: 16px; height: 16px; }

@@ -289,6 +289,22 @@ export async function deleteProduct(tenantId: string, idOrExternalId: string): P
   return true;
 }
 
+/** Deletes the given products (tenant-scoped; ids that aren't this tenant's are ignored). Returns how many were removed. */
+export async function deleteProducts(tenantId: string, ids: string[]): Promise<number> {
+  await ensureSchema();
+  const unique = Array.from(new Set(ids.filter((id) => typeof id === "string" && id)));
+  if (!unique.length) return 0;
+  const result = await prisma.product.deleteMany({ where: { tenantId, id: { in: unique } } });
+  return result.count;
+}
+
+/** Deletes every product of the workspace. Past orders keep their own copy of the product name/price. */
+export async function deleteAllProducts(tenantId: string): Promise<number> {
+  await ensureSchema();
+  const result = await prisma.product.deleteMany({ where: { tenantId } });
+  return result.count;
+}
+
 /**
  * Creates or updates the product with this externalId (tenant-scoped).
  * Used by the public API and the feed sync so re-sending the same product

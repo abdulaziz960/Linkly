@@ -78,6 +78,7 @@ export default function CatalogView() {
   const { t } = useLanguage();
   const [tab, setTab] = useState<"products" | "orders" | "settings">("products");
   const [products, setProducts] = useState<Product[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -172,6 +173,47 @@ export default function CatalogView() {
     await load();
   }
 
+  const allFilteredSelected = filteredProducts.length > 0 && filteredProducts.every((product) => selected.has(product.id));
+
+  function toggleSelected(id: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllFiltered() {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (allFilteredSelected) filteredProducts.forEach((product) => next.delete(product.id));
+      else filteredProducts.forEach((product) => next.add(product.id));
+      return next;
+    });
+  }
+
+  async function bulkDelete(all: boolean) {
+    const count = all ? products.length : selected.size;
+    if (!count) return;
+    const message = all
+      ? t(`سيتم حذف كل المنتجات (${count}) نهائيًا. هل أنت متأكد؟ (المنتجات المرتبطة بملف موقعك ستعود في المزامنة القادمة ما لم تزل رابط الملف)`, `All ${count} products will be permanently deleted. Are you sure? (Products from your website feed come back on the next sync unless you remove the feed URL)`)
+      : t(`حذف ${count} منتج محدد نهائيًا؟`, `Permanently delete ${count} selected products?`);
+    if (!window.confirm(message)) return;
+    const result = await api<{ deleted: number }>("/api/catalog/products", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(all ? { all: true } : { ids: Array.from(selected) })
+    });
+    if (!result.ok) {
+      setNotice({ type: "error", message: result.error || t("تعذر الحذف", "Could not delete") });
+      return;
+    }
+    setSelected(new Set());
+    setNotice({ type: "success", message: t(`تم حذف ${result.data?.deleted ?? count} منتج.`, `${result.data?.deleted ?? count} products deleted.`) });
+    await load();
+  }
+
   async function removeProduct(product: Product) {
     if (!window.confirm(t(`حذف المنتج "${product.name}"؟`, `Delete "${product.name}"?`))) return;
     await api(`/api/catalog/products/${product.id}`, { method: "DELETE" });
@@ -249,6 +291,15 @@ export default function CatalogView() {
           <div className="panel-body table-wrap">
             <p className="muted-copy">{t("تظهر المنتجات النشطة للعملاء عبر خطوة \"عرض الكتالوج\" في الرد الآلي. يمكنك إضافتها يدويًا، أو مزامنتها تلقائيًا من موقعك (تبويب الدفع والمزامنة).", "Active products are shown to customers through the \"Show catalog\" step of the auto-reply. Add them by hand, or sync them automatically from your website (Payment & sync tab).")}</p>
             <input className="catalog-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث بالاسم أو التصنيف أو الرمز", "Search by name, category or SKU")} />
+            {notice ? <p className={`automation-feedback ${notice.type}`} role="status">{notice.message}</p> : null}
+            {products.length > 0 ? (
+              <div className="catalog-bulk-bar">
+                <label className="catalog-bulk-check"><input type="checkbox" checked={allFilteredSelected} onChange={toggleAllFiltered} /><span>{t("تحديد الكل", "Select all")}</span></label>
+                <span className="catalog-bulk-count">{selected.size > 0 ? t(`${selected.size} محدد`, `${selected.size} selected`) : t(`${products.length} منتج`, `${products.length} products`)}</span>
+                <button className="btn danger" type="button" disabled={selected.size === 0} onClick={() => void bulkDelete(false)}>{t("حذف المحدد", "Delete selected")}</button>
+                <button className="btn soft" type="button" onClick={() => void bulkDelete(true)}>{t("حذف كل المنتجات", "Delete all products")}</button>
+              </div>
+            ) : null}
             <table className="mobile-card-table">
               <thead><tr><th>{t("المنتج", "Product")}</th><th>{t("السعر", "Price")}</th><th>{t("التصنيف", "Category")}</th><th>{t("المخزون", "Stock")}</th><th>{t("المصدر", "Source")}</th><th>{t("الحالة", "Status")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
               <tbody>
@@ -256,6 +307,7 @@ export default function CatalogView() {
                   <tr key={product.id}>
                     <td>
                       <span className="catalog-product-cell">
+                        <input type="checkbox" aria-label={t("تحديد المنتج", "Select product")} checked={selected.has(product.id)} onChange={() => toggleSelected(product.id)} />
                         {product.imageUrl ? <img src={product.imageUrl} alt="" width={40} height={40} className="catalog-thumb" /> : <span className="catalog-thumb catalog-thumb-empty" aria-hidden="true">▣</span>}
                         <b>{product.name}</b>
                       </span>
