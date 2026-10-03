@@ -10,7 +10,7 @@ import PricingPlanGrid from "./PricingPlanGrid";
 import s from "./page.module.css";
 import { channelNames } from "./channel-names";
 import { planFeatures, getPlanDisplayItems } from "../lib/plan-features";
-import { getActivePlans } from "../lib/plans";
+import { getActivePlansForLanding } from "../lib/plans";
 import { faqsAr } from "../lib/faq";
 
 export const metadata: Metadata = {
@@ -65,7 +65,7 @@ function Preview(){return <div className={s.preview} aria-label="معاينة ص
   </div>}
 
 export default async function HomePage(){
-  const dbPlans = await getActivePlans();
+  const dbPlans = await getActivePlansForLanding();
   const plans = dbPlans.map((plan) => {
     const features = planFeatures[plan.name];
     return {
@@ -109,7 +109,7 @@ export default async function HomePage(){
     <section className={`${s.section} ${s.faq}`} id="faq"><Intro kicker="الأسئلة الشائعة" title="إجابات واضحة قبل أن تبدأ"/><div>{faqs.map(([q,a],i)=><details key={q} open={i<2}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
     <section className={`${s.finalCta} ${s.revealFade}`}><div><span>ابدأ اليوم</span><h2>خل فريقك يركز على العميل، مو على التنقل بين التطبيقات.</h2><p>ابدأ تجربة Linkly مجانًا لمدة 3 أيام.</p></div><div><Link href="/signup" data-primary-cta="true">ابدأ تجربتك مجانًا</Link><small>بدون بطاقة دفع</small></div></section>
   </main>
-  <footer className={s.footer}><div><section><Link className={s.brand} href="/"><Image src={logo} alt="" width={56} height={31}/><span>Linkly</span></Link><p>منصة لإدارة محادثات العملاء وتشغيل فرق الخدمة والمبيعات من مكان واحد.</p></section><nav><b>المنتج</b><a href="#features">المميزات</a><a href="#how">طريقة العمل</a><a href="#pricing">الأسعار</a></nav><nav><b>الشركة</b><Link href="/privacy">الخصوصية</Link><Link href="/terms">شروط الاستخدام</Link><Link href="/data-deletion">حذف البيانات</Link><Link href="/contact">تواصل معنا</Link></nav></div><small>جميع الحقوق محفوظة لشركة الجمهور المخصص للدعاية والإعلان.　 Linkly © 2026</small></footer>
+  <footer className={s.footer}><div><section><Link className={s.brand} href="/"><Image src={logo} alt="" width={56} height={31}/><span>Linkly</span></Link><p>منصة لإدارة محادثات العملاء وتشغيل فرق الخدمة والمبيعات من مكان واحد.</p></section><nav><b>المنتج</b><a href="#features">المميزات</a><a href="#how">طريقة العمل</a><a href="#pricing">الأسعار</a><Link href="/faq">الأسئلة الشائعة</Link><Link href="/blog">المدونة</Link></nav><nav><b>الشركة</b><Link href="/privacy">الخصوصية</Link><Link href="/terms">شروط الاستخدام</Link><Link href="/data-deletion">حذف البيانات</Link><Link href="/contact">تواصل معنا</Link></nav></div><small>جميع الحقوق محفوظة لشركة الجمهور المخصص للدعاية والإعلان.　 Linkly © 2026</small></footer>
   <Link className={s.mobileCta} href="/signup">ابدأ تجربتك مجانًا</Link>
   </div>}
 

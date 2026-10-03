@@ -50,6 +50,13 @@ const nextConfig: NextConfig = {
         ]
       },
       {
+        // Brand images/icons keep their file names, so no immutable caching -
+        // a day fresh plus a week of stale-while-revalidate avoids re-fetching
+        // them on every page view without risking a logo change going unseen.
+        source: "/:dir(assets|icons)/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }]
+      },
+      {
         // These popups navigate through a third-party origin (TikTok/Meta)
         // and back, which severs window.opener under same-origin-allow-popups
         // once the browser treats the popup as cross-origin-isolated from its

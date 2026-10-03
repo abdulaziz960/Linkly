@@ -23,6 +23,22 @@ export async function getPlans() {
   return prisma.plan.findMany({ orderBy: { sortOrder: "asc" } });
 }
 
+const LANDING_PLANS_TTL_MS = 60_000;
+let landingPlansCache: { at: number; plans: Awaited<ReturnType<typeof getActivePlans>> } | null = null;
+
+/**
+ * Active plans for the public landing pages. Those pages must stay
+ * force-dynamic (they can't prerender at build time without a database), so
+ * a short per-instance cache keeps every anonymous visit from hitting the
+ * database while a price change still reaches the page within a minute.
+ */
+export async function getActivePlansForLanding() {
+  if (landingPlansCache && Date.now() - landingPlansCache.at < LANDING_PLANS_TTL_MS) return landingPlansCache.plans;
+  const plans = await getActivePlans();
+  landingPlansCache = { at: Date.now(), plans };
+  return plans;
+}
+
 export async function getActivePlans() {
   await ensureSchema();
   return prisma.plan.findMany({ where: { active: 1 }, orderBy: { sortOrder: "asc" } });
