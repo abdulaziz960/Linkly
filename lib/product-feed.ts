@@ -1,3 +1,4 @@
+import { PlanLimitError } from "./plan-access-server";
 import { createHash } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
@@ -232,9 +233,15 @@ export async function importFeedRecords(tenantId: string, records: RawRecord[], 
     const mapped = mapFeedRecord(record);
     if ("error" in mapped) { result.skipped += 1; continue; }
     const product = { ...mapped, externalId: mapped.externalId || fallbackExternalId(mapped) };
-    const { created } = await upsertProductByExternalId(tenantId, source, product);
-    seen.add(product.externalId);
-    if (created) result.created += 1; else result.updated += 1;
+    try {
+      const { created } = await upsertProductByExternalId(tenantId, source, product);
+      seen.add(product.externalId);
+      if (created) result.created += 1; else result.updated += 1;
+    } catch (error) {
+      // Past the plan's product cap: existing products keep updating, new ones are skipped.
+      if (!(error instanceof PlanLimitError)) throw error;
+      result.skipped += 1;
+    }
   }
   return { ...result, seen };
 }

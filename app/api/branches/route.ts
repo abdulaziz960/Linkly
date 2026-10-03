@@ -1,3 +1,4 @@
+import { assertWithinPlanLimit, PlanLimitError } from "../../../lib/plan-access-server";
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
@@ -26,6 +27,12 @@ export async function POST(request: NextRequest) {
   const cleaned = cleanBranchInput(await withResolvedCoordinates(body));
   if (!cleaned.ok) return jsonError(cleaned.error, 400);
 
+  try {
+    await assertWithinPlanLimit(user.tenantId, "branches");
+  } catch (error) {
+    if (error instanceof PlanLimitError) return jsonError(error.message, 403);
+    throw error;
+  }
   const branch = await createBranch(user.tenantId, cleaned.data);
   if (!branch) return jsonError("وصلت للحد الأقصى من الفروع", 400);
   await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تمت إضافة الفرع "${branch.name}" بواسطة ${user.name}.`, "معلومة", "الفروع");

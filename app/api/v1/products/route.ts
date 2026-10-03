@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiRequest } from "../../../../lib/developer-api";
 import { cleanProductInput, listProducts, upsertProductByExternalId, type ProductInput } from "../../../../lib/catalog";
+import { PlanLimitError } from "../../../../lib/plan-access-server";
 import { consumeRateLimit } from "../../../../lib/rate-limit";
 import { withCors } from "../../_utils/cors";
 
@@ -67,8 +68,13 @@ export async function POST(request: NextRequest) {
       errors.push({ index, error: "externalId is required" });
       continue;
     }
-    const { product, created: wasCreated } = await upsertProductByExternalId(tenantId, "api", cleaned.data);
-    (wasCreated ? created : updated).push(product.id);
+    try {
+      const { product, created: wasCreated } = await upsertProductByExternalId(tenantId, "api", cleaned.data);
+      (wasCreated ? created : updated).push(product.id);
+    } catch (error) {
+      if (!(error instanceof PlanLimitError)) throw error;
+      errors.push({ index, error: error.message });
+    }
   }
 
   const status = errors.length && !created.length && !updated.length ? 400 : 200;

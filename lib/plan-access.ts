@@ -12,6 +12,8 @@ import { allViewKeys } from "./permissions";
 import { channelLabel, parseAllowedChannels, type AllowedChannels, type ChannelKey } from "./channel-catalog";
 import type { ViewKey } from "../app/dashboard/types";
 
+export type PlanLimitKind = "teams" | "products" | "branches" | "kbEntries";
+
 export type PlanRestriction = {
   /** Dashboard sections this plan may open - everything else is locked. */
   views: ViewKey[];
@@ -23,6 +25,14 @@ export type PlanRestriction = {
   basicReports: boolean;
   /** Unanswered-conversation escalation (SLA alerts to the owner/team lead). */
   escalation: boolean;
+  /** Caps on how many of a thing the workspace may have (null = unlimited). */
+  limits: Record<PlanLimitKind, number | null>;
+  /** Campaigns that repeat on a schedule. */
+  recurringCampaigns: boolean;
+  /** Segments built from a past campaign's engagement (basic segments use tags only). */
+  advancedSegments: boolean;
+  /** Excel export in reports. */
+  reportsExcel: boolean;
 };
 
 export const INDIVIDUALS_PLAN = "باقة الأفراد";
@@ -35,12 +45,12 @@ export const ENTERPRISE_PLAN = "باقة الشركات";
 export const PLAN_ORDER = [INDIVIDUALS_PLAN, REGULAR_PLAN, SMALL_ORG_PLAN, LARGE_ORG_PLAN, ENTERPRISE_PLAN];
 
 const INDIVIDUALS_VIEWS: ViewKey[] = ["inbox", "contacts", "tags", "quickReplies", "bot", "reports", "settings", "employees"];
-const REGULAR_VIEWS: ViewKey[] = [...INDIVIDUALS_VIEWS, "teams", "workHours", "templates", "campaigns", "segments", "pipeline", "catalog", "branches"];
-const SMALL_ORG_VIEWS: ViewKey[] = [...REGULAR_VIEWS, "automations", "ai", "knowledgeBase", "operations"];
-const LARGE_ORG_VIEWS: ViewKey[] = [...SMALL_ORG_VIEWS, "developers", "integrations"];
+const REGULAR_VIEWS: ViewKey[] = [...INDIVIDUALS_VIEWS, "teams", "workHours", "templates", "campaigns", "segments", "pipeline"];
+const SMALL_ORG_VIEWS: ViewKey[] = [...REGULAR_VIEWS, "automations", "ai", "knowledgeBase", "operations", "branches"];
+const LARGE_ORG_VIEWS: ViewKey[] = [...SMALL_ORG_VIEWS, "developers", "integrations", "catalog"];
 
-// What the plan's AI-free bot may use. The AI and Knowledge Base steps arrive with the AI assistant (small enterprises).
-const BOT_STEPS_WITHOUT_AI = ["إرسال رسالة", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "عرض الكتالوج", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
+// What the AI-free bot may use. AI and Knowledge Base steps arrive with the AI assistant (small enterprises); the catalog step with the catalog (large).
+const BOT_STEPS_BASIC = ["إرسال رسالة", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
 
 // Only the plans listed here are limited, each to exactly its own features.
 // Enterprise (and any unknown/custom plan) is fully open. Channels are
@@ -55,28 +65,45 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     botMaxSteps: 6,
     basicReports: true,
     // A single-user plan has nobody to escalate to.
-    escalation: false
+    escalation: false,
+    limits: { teams: 0, products: 0, branches: 0, kbEntries: 0 },
+    recurringCampaigns: false,
+    advancedSegments: false,
+    reportsExcel: false
   },
   [REGULAR_PLAN]: {
     views: REGULAR_VIEWS,
-    botNodeTypes: BOT_STEPS_WITHOUT_AI,
-    botMaxSteps: null,
+    botNodeTypes: BOT_STEPS_BASIC,
+    botMaxSteps: 15,
     basicReports: true,
-    escalation: true
+    // Fixed 30-minute escalation: the settings live in Automations, which this plan doesn't have.
+    escalation: true,
+    limits: { teams: 2, products: 0, branches: 0, kbEntries: 0 },
+    recurringCampaigns: false,
+    advancedSegments: false,
+    reportsExcel: false
   },
   [SMALL_ORG_PLAN]: {
     views: SMALL_ORG_VIEWS,
     botNodeTypes: "*",
     botMaxSteps: null,
     basicReports: false,
-    escalation: true
+    escalation: true,
+    limits: { teams: null, products: 0, branches: 20, kbEntries: 50 },
+    recurringCampaigns: true,
+    advancedSegments: true,
+    reportsExcel: false
   },
   [LARGE_ORG_PLAN]: {
     views: LARGE_ORG_VIEWS,
     botNodeTypes: "*",
     botMaxSteps: null,
     basicReports: false,
-    escalation: true
+    escalation: true,
+    limits: { teams: null, products: 300, branches: 100, kbEntries: 200 },
+    recurringCampaigns: true,
+    advancedSegments: true,
+    reportsExcel: true
   }
 };
 
@@ -121,6 +148,37 @@ export function isEscalationAllowedForPlan(planName: string | null | undefined):
   return getPlanRestriction(planName)?.escalation ?? true;
 }
 
+/** A plan's cap on a thing (teams, products, ...). null = unlimited. */
+export function planLimit(planName: string | null | undefined, kind: PlanLimitKind): number | null {
+  return getPlanRestriction(planName)?.limits[kind] ?? null;
+}
+
+const LIMIT_LABELS: Record<PlanLimitKind, string> = { teams: "الفرق", products: "المنتجات", branches: "الفروع", kbEntries: "مدخلات قاعدة المعرفة" };
+
+/** The cheapest plan that allows more than `limit` of this thing. */
+export function upgradeTargetForLimit(kind: PlanLimitKind, current: number): string {
+  const plan = PLAN_ORDER.find((name) => {
+    const restriction = RESTRICTED_PLANS[name];
+    if (!restriction) return true;
+    const cap = restriction.limits[kind];
+    return cap === null || cap > current;
+  });
+  return plan ?? ENTERPRISE_PLAN;
+}
+
+export function limitReachedMessage(kind: PlanLimitKind, limit: number): string {
+  if (limit === 0) return `${LIMIT_LABELS[kind]} غير متاحة في باقتك الحالية. رقِّ باقتك للاستمتاع بالمزايا.`;
+  return `وصلت للحد الأقصى من ${LIMIT_LABELS[kind]} في باقتك الحالية (${limit}). رقِّ باقتك (من ${upgradeTargetForLimit(kind, limit)}) لإضافة المزيد.`;
+}
+
+export function isRecurringCampaignAllowed(planName: string | null | undefined): boolean {
+  return getPlanRestriction(planName)?.recurringCampaigns ?? true;
+}
+
+export function isAdvancedSegmentAllowed(planName: string | null | undefined): boolean {
+  return getPlanRestriction(planName)?.advancedSegments ?? true;
+}
+
 export function isViewLockedForPlan(planName: string | null | undefined, view: ViewKey): boolean {
   const restriction = getPlanRestriction(planName);
   return restriction ? !restriction.views.includes(view) : false;
@@ -142,6 +200,7 @@ export type PlanAccessData = {
   botNodeTypes: string[] | "*";
   botMaxSteps: number | null;
   basicReports: boolean;
+  reportsExcel: boolean;
   /** Still on the free trial - the upgrade popup then offers to try the plan instead of paying. */
   isTrial: boolean;
 };
@@ -155,6 +214,7 @@ export function buildPlanAccess(planName: string | null | undefined, allowedChan
     botNodeTypes: restriction ? restriction.botNodeTypes : "*",
     botMaxSteps: restriction ? restriction.botMaxSteps : null,
     basicReports: restriction?.basicReports ?? false,
+    reportsExcel: restriction?.reportsExcel ?? true,
     isTrial
   };
 }

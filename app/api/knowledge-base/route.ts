@@ -1,3 +1,4 @@
+import { assertWithinPlanLimit, PlanLimitError } from "../../../lib/plan-access-server";
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../lib/auth";
 import { userHasViewPermission } from "../../../lib/permissions-server";
@@ -23,6 +24,12 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { question?: string; answer?: string } | null;
   const answer = body?.answer?.trim();
   if (!answer) return jsonError("محتوى الإجابة مطلوب");
+  try {
+    await assertWithinPlanLimit(user.tenantId, "kbEntries");
+  } catch (error) {
+    if (error instanceof PlanLimitError) return jsonError(error.message, 403);
+    throw error;
+  }
 
   const entry = await createKbEntry(user.tenantId, { question: body?.question?.trim() || "", answer });
   await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم إضافة مدخل قاعدة معرفة "${entry.question || answer.slice(0, 40)}" بواسطة ${user.name}.`, "معلومة", "قاعدة المعرفة");

@@ -1,3 +1,4 @@
+import { assertWithinPlanLimit } from "./plan-access-server";
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
@@ -226,6 +227,8 @@ export async function getProduct(tenantId: string, id: string): Promise<CatalogP
 
 export async function createProduct(tenantId: string, data: CleanProductInput, source: ProductSource = "manual"): Promise<CatalogProduct> {
   await ensureSchema();
+  // Throws PlanLimitError when the plan's product cap is reached (manual, API and feed creation all pass through here).
+  await assertWithinPlanLimit(tenantId, "products");
   const now = new Date().toISOString();
   const row = await prisma.product.create({
     data: {

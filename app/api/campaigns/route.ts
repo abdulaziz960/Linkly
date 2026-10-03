@@ -1,3 +1,5 @@
+import { getTenantPlanName } from "../../../lib/plan-access-server";
+import { isRecurringCampaignAllowed } from "../../../lib/plan-access";
 import { NextRequest } from "next/server";
 import { getCampaigns } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
@@ -143,6 +145,10 @@ export async function POST(request: NextRequest) {
 
   const scheduledDate = scheduled ? parseRiyadhDateTime(scheduledAt) : null;
   const isScheduledFuture = Boolean(scheduledDate && scheduledDate.getTime() > Date.now());
+
+  if (recurring && !isRecurringCampaignAllowed(await getTenantPlanName(user.tenantId))) {
+    return jsonError("الحملات المتكررة غير متاحة في باقتك الحالية. رقِّ باقتك (من باقة المؤسسات الصغيرة) للاستمتاع بالمزايا.", 403);
+  }
 
   let campaignId: string;
   if (recurring) {

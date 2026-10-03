@@ -30,16 +30,16 @@ export const planFeatures: Record<string, PlanFeatures> = {
     shortName: { ar: "الأفراد", en: "Individuals" },
     audience: { ar: "الأنسب لصاحب عمل يبدأ لحاله ويحتاج يرتب رسائل واتساب.", en: "Best for a solo business owner who needs their WhatsApp messages organized." },
     items: {
-      ar: ["رد آلي بسيط جدًا", "وسوم وردود سريعة", "تقرير أساسي"],
-      en: ["Very simple auto-reply", "Tags and quick replies", "Basic report"]
+      ar: ["رد آلي بسيط جدًا (حتى 6 خطوات)", "وسوم وردود سريعة", "رسالة ترحيب لفتح المحادثة بعد 24 ساعة", "تقرير أساسي"],
+      en: ["Very simple auto-reply (up to 6 steps)", "Tags and quick replies", "Welcome message to re-open a chat after 24h", "Basic report"]
     }
   },
   "الباقة العادية": {
     shortName: { ar: "العادية", en: "Regular" },
     audience: { ar: "الأنسب لصاحب عمل بدأ يكبر ويحتاج قناة ثانية وفريق صغير.", en: "Best for a growing business that needs a second channel and a small team." },
     items: {
-      ar: ["توزيع محادثات تلقائي", "حملات وقوالب وتقسيم جمهور بسيط", "كتالوج منتجات وأقرب فرع", "تقارير أساسية"],
-      en: ["Automatic conversation routing", "Campaigns, templates and basic audience segments", "Product catalog and nearest branch", "Basic reports"]
+      ar: ["كل مزايا الأفراد", "رد آلي حتى 15 خطوة وساعات عمل", "فريقان وتوزيع محادثات تلقائي", "قوالب وحملات وتقسيم جمهور بالوسوم", "كانبان المبيعات وتصعيد المحادثات (30 دقيقة)", "تقارير أساسية"],
+      en: ["Everything in Individuals", "Auto-reply up to 15 steps and work hours", "2 teams and automatic routing", "Templates, campaigns and tag-based segments", "Sales pipeline and escalation (30 min)", "Basic reports"]
     }
   },
   "باقة المؤسسات الصغيرة": {
@@ -47,24 +47,24 @@ export const planFeatures: Record<string, PlanFeatures> = {
     audience: { ar: "الأنسب لفريق يحتاج أتمتة وتقسيم جمهور ومساعد AI.", en: "Best for a team that needs automation, audience segments, and an AI Assistant." },
     featured: true,
     items: {
-      ar: ["فرق عمل متعددة", "أتمتة وقواعد تحويل متقدمة", "تقسيم جمهور واستهداف بالحملات", "مساعد AI وقاعدة المعرفة", "مركز العمليات وتقارير أداء وSLA"],
-      en: ["Multiple teams", "Advanced automation and routing rules", "Audience segments and campaign targeting", "AI Assistant and Knowledge Base", "Operations center, performance and SLA reports"]
+      ar: ["كل مزايا العادية", "فرق متعددة وأتمتة وقواعد تحويل", "مساعد AI (50 طلبًا يوميًا) وقاعدة معرفة (50 مدخلًا)", "حملات متكررة وتقسيم جمهور بتفاعل الحملات", "الفروع وإرسال أقرب فرع (حتى 20)", "تصعيد بمدة قابلة للتعديل ومركز عمليات", "تقارير أداء وSLA"],
+      en: ["Everything in Regular", "Multiple teams, automation and routing rules", "AI assistant (50 requests/day) and knowledge base (50 entries)", "Recurring campaigns and campaign-engagement segments", "Branches and nearest-branch reply (up to 20)", "Adjustable escalation and operations center", "Performance and SLA reports"]
     }
   },
   "باقة المؤسسات الكبيرة": {
     shortName: { ar: "المؤسسات الكبيرة", en: "Large Enterprises" },
     audience: { ar: "الأنسب لفرق متعددة تحتاج قنوات أكثر وواجهات تكامل.", en: "Best for multiple teams that need more channels and integrations." },
     items: {
-      ar: ["كل مزايا المؤسسات الصغيرة", "واجهة برمجة API وWebhooks للمطورين", "مساعد AI", "دعم أولوية"],
-      en: ["Everything in Small Enterprises", "Developer API and webhooks", "AI Assistant", "Priority support"]
+      ar: ["كل مزايا المؤسسات الصغيرة", "كتالوج المنتجات والشراء من واتساب (حتى 300 منتج)", "مساعد AI (100 طلب يوميًا) وقاعدة معرفة (200 مدخل)", "فروع حتى 100", "واجهة API وWebhooks وتكاملات", "تصدير Excel ودعم أولوية"],
+      en: ["Everything in Small Enterprises", "Product catalog and buying on WhatsApp (up to 300 products)", "AI assistant (100 requests/day) and knowledge base (200 entries)", "Up to 100 branches", "Developer API, webhooks and integrations", "Excel export and priority support"]
     }
   },
   "باقة الشركات": {
     shortName: { ar: "الشركات", en: "Corporate" },
     audience: { ar: "الأنسب للشركات الكبيرة اللي تحتاج كل القنوات وحساب مخصص.", en: "Best for large companies that need every channel and a dedicated account." },
     items: {
-      ar: ["علامة تجارية مخصّصة (White-label)", "مساعد AI", "مدير حساب مخصص ودعم VIP فوري"],
-      en: ["Custom white-label branding", "AI Assistant", "Dedicated account manager and instant VIP support"]
+      ar: ["كل مزايا المؤسسات الكبيرة بدون حدود", "كتالوج وفروع وقاعدة معرفة غير محدودة", "مساعد AI (300 طلب يوميًا)", "علامة تجارية مخصّصة (White-label)", "مدير حساب مخصص ودعم VIP فوري"],
+      en: ["Everything in Large Enterprises, unlimited", "Unlimited catalog, branches and knowledge base", "AI assistant (300 requests/day)", "Custom white-label branding", "Dedicated account manager and instant VIP support"]
     }
   }
 };

@@ -22,7 +22,7 @@ type PlanAccessContextValue = {
   promptForChannel: (channel: ChannelKey, label: string) => void;
 };
 
-const OPEN_ACCESS: PlanAccessData = { planName: "", lockedViews: [], allowedChannels: "*", botNodeTypes: "*", botMaxSteps: null, basicReports: false, isTrial: false };
+const OPEN_ACCESS: PlanAccessData = { planName: "", lockedViews: [], allowedChannels: "*", botNodeTypes: "*", botMaxSteps: null, basicReports: false, reportsExcel: true, isTrial: false };
 
 const PlanAccessContext = createContext<PlanAccessContextValue>({
   access: OPEN_ACCESS,

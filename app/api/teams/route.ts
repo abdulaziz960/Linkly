@@ -1,3 +1,4 @@
+import { assertWithinPlanLimit, PlanLimitError } from "../../../lib/plan-access-server";
 import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
 import { getTeams } from "../../../lib/database";
@@ -32,6 +33,12 @@ export async function POST(request: NextRequest) {
   const memberIds = (body.memberIds || []).filter((memberId) => memberId?.trim());
 
   if (!name) return jsonError("اسم الفريق مطلوب");
+  try {
+    await assertWithinPlanLimit(user.tenantId, "teams");
+  } catch (error) {
+    if (error instanceof PlanLimitError) return jsonError(error.message, 403);
+    throw error;
+  }
   if (!memberIds.length) return jsonError("اختر عضوًا واحدًا على الأقل قبل إنشاء الفريق");
 
   const team = await prisma.team.create({

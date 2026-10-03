@@ -1,3 +1,5 @@
+import { getTenantPlanName } from "../../../lib/plan-access-server";
+import { isAdvancedSegmentAllowed } from "../../../lib/plan-access";
 import { NextRequest } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUser } from "../../../lib/auth";
@@ -41,6 +43,9 @@ export async function POST(request: NextRequest) {
     if (tagNames.some((tagName) => !validTagNames.has(tagName))) return jsonError("أحد الوسوم المختارة غير موجود");
   }
 
+  if ((body?.sourceCampaignId || body?.engagementBucket) && !isAdvancedSegmentAllowed(await getTenantPlanName(user.tenantId))) {
+    return jsonError("التقسيم بحسب تفاعل الحملات غير متاح في باقتك الحالية. رقِّ باقتك (من باقة المؤسسات الصغيرة) للاستمتاع بالمزايا.", 403);
+  }
   const { sourceCampaignId, engagementBucket, engagementDateFrom, engagementDateTo, engagementClickCount, error: engagementError } = await resolveEngagementFields(user.tenantId, body);
   if (engagementError) return jsonError(engagementError);
 

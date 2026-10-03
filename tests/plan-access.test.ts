@@ -54,13 +54,14 @@ describe("plan access: individuals plan", () => {
       for (const view of RESTRICTED_PLANS[tiers[i - 1]].views) expect(RESTRICTED_PLANS[tiers[i]].views).toContain(view);
       expect(RESTRICTED_PLANS[tiers[i]].views.length).toBeGreaterThan(RESTRICTED_PLANS[tiers[i - 1]].views.length);
     }
-    // Regular: campaigns/templates/teams yes; AI, automations, API no.
-    for (const view of ["campaigns", "templates", "teams", "catalog", "branches"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(false);
-    for (const view of ["ai", "knowledgeBase", "automations", "operations", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(true);
-    // Small enterprises add AI + automations but not the developer API.
-    for (const view of ["ai", "knowledgeBase", "automations", "operations"] as const) expect(isViewLockedForPlan("باقة المؤسسات الصغيرة", view)).toBe(false);
-    for (const view of ["developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("باقة المؤسسات الصغيرة", view)).toBe(true);
-    // Large enterprises add the API; only white-label branding stays enterprise.
+    // Regular: campaigns/templates/teams yes; AI, automations, branches, catalog, API no.
+    for (const view of ["campaigns", "templates", "teams", "workHours", "pipeline"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(false);
+    for (const view of ["ai", "knowledgeBase", "automations", "operations", "branches", "catalog", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(true);
+    // Small enterprises add AI, automations and branches but not the catalog or the developer API.
+    for (const view of ["ai", "knowledgeBase", "automations", "operations", "branches"] as const) expect(isViewLockedForPlan("باقة المؤسسات الصغيرة", view)).toBe(false);
+    for (const view of ["catalog", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("باقة المؤسسات الصغيرة", view)).toBe(true);
+    // Large enterprises add the catalog and the API; only white-label branding stays enterprise.
+    expect(isViewLockedForPlan("باقة المؤسسات الكبيرة", "catalog")).toBe(false);
     expect(isViewLockedForPlan("باقة المؤسسات الكبيرة", "developers")).toBe(false);
     expect(isViewLockedForPlan("باقة المؤسسات الكبيرة", "branding")).toBe(true);
     expect(isViewLockedForPlan("باقة الشركات", "branding")).toBe(false);
@@ -95,7 +96,7 @@ describe("plan access: individuals plan", () => {
     expect(regular.lockedViews).toContain("ai");
     expect(regular.lockedViews).not.toContain("campaigns");
     expect(regular.botNodeTypes).not.toContain("رد AI تلقائي");
-    expect(regular.botMaxSteps).toBeNull();
+    expect(regular.botMaxSteps).toBe(15);
     expect(regular.isTrial).toBe(false);
   });
 
@@ -113,9 +114,12 @@ describe("plan access: individuals plan", () => {
     expect(validateBotNodesForPlan(plan, [{ id: "a", type: "رد AI تلقائي" }, { id: "b", type: "إرسال رسالة" }], existing).ok).toBe(true);
     expect(validateBotNodesForPlan(plan, [...existing, { type: "أقرب فرع" }], existing).ok).toBe(false);
     // The regular plan's bot may use the catalog but not AI; small enterprises may use AI; no step cap on regular.
-    expect(validateBotNodesForPlan("الباقة العادية", [{ type: "عرض الكتالوج" }], []).ok).toBe(true);
+    expect(validateBotNodesForPlan("الباقة العادية", [{ type: "أقرب فرع" }, { type: "إرسال قائمة طويلة" }], []).ok).toBe(true);
+    expect(validateBotNodesForPlan("الباقة العادية", [{ type: "عرض الكتالوج" }], []).ok).toBe(false);
     expect(validateBotNodesForPlan("الباقة العادية", [{ type: "رد AI تلقائي" }], []).ok).toBe(false);
-    expect(validateBotNodesForPlan("الباقة العادية", Array.from({ length: 12 }, () => ({ type: "إرسال رسالة" })), []).ok).toBe(true);
+    expect(validateBotNodesForPlan("الباقة العادية", Array.from({ length: 15 }, () => ({ type: "إرسال رسالة" })), []).ok).toBe(true);
+    expect(validateBotNodesForPlan("الباقة العادية", Array.from({ length: 16 }, () => ({ type: "إرسال رسالة" })), []).ok).toBe(false);
+    expect(validateBotNodesForPlan("باقة المؤسسات الكبيرة", [{ type: "عرض الكتالوج" }], []).ok).toBe(true);
     expect(validateBotNodesForPlan("باقة المؤسسات الصغيرة", [{ type: "رد AI تلقائي" }], []).ok).toBe(true);
     expect(validateBotNodesForPlan("باقة الشركات", [{ type: "رد AI تلقائي" }], []).ok).toBe(true);
   });
@@ -134,7 +138,7 @@ describe("plan access: individuals plan", () => {
     const items = getPlanDisplayItems({ name: "باقة الأفراد", employeeLimit: 1, allowedChannels: "whatsapp", messageQuota: 1000 }, "ar");
     expect(items.join(" ")).not.toContain("رسالة تسويقية");
     expect(items.join(" ")).not.toContain("حملات");
-    expect(items).toContain("رد آلي بسيط جدًا");
+    expect(items).toContain("رد آلي بسيط جدًا (حتى 6 خطوات)");
     expect(items).toContain("تقرير أساسي");
 
     // Other plans still advertise their message quota.

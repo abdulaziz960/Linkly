@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { buildPlanAccess, isViewLockedForPlan, type PlanAccessData } from "./plan-access";
+import { buildPlanAccess, isViewLockedForPlan, limitReachedMessage, planLimit, type PlanAccessData, type PlanLimitKind } from "./plan-access";
 import type { ViewKey } from "../app/dashboard/types";
 
 /**
@@ -25,4 +25,20 @@ export async function getPlanAccessForTenant(tenantId: string): Promise<PlanAcce
   const planName = await getTenantPlanName(tenantId);
   const plan = planName ? await prisma.plan.findUnique({ where: { name: planName }, select: { allowedChannels: true } }) : null;
   return buildPlanAccess(planName, plan?.allowedChannels, await getTenantTrialState(tenantId));
+}
+
+export class PlanLimitError extends Error {}
+
+async function countFor(tenantId: string, kind: PlanLimitKind): Promise<number> {
+  if (kind === "teams") return prisma.team.count({ where: { tenantId } });
+  if (kind === "branches") return prisma.branch.count({ where: { tenantId } });
+  if (kind === "products") return prisma.product.count({ where: { tenantId } });
+  return prisma.knowledgeBaseEntry.count({ where: { tenantId } });
+}
+
+/** Throws PlanLimitError (with a customer-facing message) when adding `adding` more would go past the plan's cap. */
+export async function assertWithinPlanLimit(tenantId: string, kind: PlanLimitKind, adding = 1): Promise<void> {
+  const limit = planLimit(await getTenantPlanName(tenantId), kind);
+  if (limit === null) return;
+  if ((await countFor(tenantId, kind)) + adding > limit) throw new PlanLimitError(limitReachedMessage(kind, limit));
 }

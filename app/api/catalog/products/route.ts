@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { cleanProductInput, createProduct, deleteAllProducts, deleteProducts, listProductsForDashboard, type ProductInput } from "../../../../lib/catalog";
+import { PlanLimitError } from "../../../../lib/plan-access-server";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -24,7 +25,13 @@ export async function POST(request: NextRequest) {
   const cleaned = cleanProductInput(body);
   if (!cleaned.ok) return jsonError(cleaned.error, 400);
 
-  const product = await createProduct(user.tenantId, { ...cleaned.data, externalId: "" }, "manual");
+  let product;
+  try {
+    product = await createProduct(user.tenantId, { ...cleaned.data, externalId: "" }, "manual");
+  } catch (error) {
+    if (error instanceof PlanLimitError) return jsonError(error.message, 403);
+    throw error;
+  }
   await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تمت إضافة المنتج "${product.name}" بواسطة ${user.name}.`, "معلومة", "الكتالوج");
   return jsonOk(product);
 }
