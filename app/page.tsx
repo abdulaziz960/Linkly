@@ -80,7 +80,7 @@ export default async function HomePage(){
   });
   const prices = dbPlans.map((plan) => plan.monthlyPrice).filter((price) => price > 0);
   const lowPrice = prices.length ? String(Math.min(...prices)) : "199";
-  const highPrice = prices.length ? String(Math.max(...prices)) : "1499";
+  const highPrice = prices.length ? String(Math.max(...prices)) : "1599";
   const jsonLd = { "@context":"https://schema.org", "@graph":[
     { "@type":"Organization", name:"Linkly", alternateName:["Linkly Saudi","Linkly السعودية","لنكلي"], url:"https://linklysa.io", logo:"https://linklysa.io/assets/linkly-logo.png", description:"لنكلي منصة سعودية لإدارة تواصل وخدمة العملاء، تساعد الشركات على إدارة محادثات واتساب، صندوق الوارد المشترك، الدعم الفني، التذاكر، المحادثة المباشرة والأتمتة من منصة مركزية واحدة.", areaServed:"SA" },
     { "@type":"WebSite", name:"Linkly", url:"https://linklysa.io", inLanguage:["ar-SA","en"] },

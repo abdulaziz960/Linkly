@@ -32,7 +32,7 @@ describe("2026 pricing tier restructure", () => {
     expect(newTiers).toHaveLength(5);
     expect(newTiers.every((plan) => plan.active === 1)).toBe(true);
     expect(newTiers.map((plan) => plan.employeeLimit)).toEqual([1, 3, 6, 8, 100]);
-    expect(newTiers.map((plan) => plan.monthlyPrice)).toEqual([199, 279, 615, 849, 1499]);
+    expect(newTiers.map((plan) => plan.monthlyPrice)).toEqual([199, 349, 599, 899, 1599]);
     expect(newTiers.map((plan) => plan.allowedChannels)).toEqual([
       "whatsapp",
       "whatsapp,instagram",
@@ -165,5 +165,28 @@ describe("channel connect route enforcement", () => {
     vi.doUnmock("../lib/auth");
     vi.doUnmock("../lib/permissions-server");
     vi.resetModules();
+  });
+});
+
+describe("2026-10 price update on an existing database", () => {
+  it("moves default-priced plans to the new prices, but never overwrites a price set by hand", async () => {
+    const { ensureSchema } = await import("../lib/database");
+    const { prisma } = await import("../lib/prisma");
+    const { ensurePlanPrices } = await import("../lib/plan-prices");
+    await ensureSchema();
+
+    // An existing database still on the old prices, with one price edited by an admin.
+    await prisma.plan.update({ where: { id: "plan-regular" }, data: { monthlyPrice: 279 } });
+    await prisma.plan.update({ where: { id: "plan-small-org" }, data: { monthlyPrice: 615 } });
+    await prisma.plan.update({ where: { id: "plan-large-org" }, data: { monthlyPrice: 880 } });
+    await ensurePlanPrices();
+    await ensurePlanPrices();
+
+    const prices = Object.fromEntries((await prisma.plan.findMany()).map((plan) => [plan.id, plan.monthlyPrice]));
+    expect(prices["plan-individuals"]).toBe(199);
+    expect(prices["plan-regular"]).toBe(349);
+    expect(prices["plan-small-org"]).toBe(599);
+    expect(prices["plan-large-org"]).toBe(880);
+    expect(prices["plan-enterprise"]).toBe(1599);
   });
 });
