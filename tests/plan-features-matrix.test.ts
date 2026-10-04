@@ -134,3 +134,26 @@ describe("branch caps per plan", () => {
     await expect(assertWithinPlanLimit("tenant-branch-cap", "branches")).rejects.toBeInstanceOf(PlanLimitError);
   });
 });
+
+describe("upgrade popup blurbs", () => {
+  it("every section a plan can lock, and every channel in the catalog, has a note explaining it", async () => {
+    const { VIEW_BLURBS, CHANNEL_BLURBS, BOT_STEP_BLURBS } = await import("../lib/feature-blurbs");
+    const { lockedViewsForPlan, RESTRICTED_PLANS } = await import("../lib/plan-access");
+    const { CHANNEL_CATALOG } = await import("../lib/channel-catalog");
+    const lockable = new Set(Object.keys(RESTRICTED_PLANS).flatMap((plan) => lockedViewsForPlan(plan)));
+    // These sections are always reachable to anyone who can see them; the rest need a blurb.
+    for (const view of lockable) {
+      if (["inbox", "contacts", "tags", "quickReplies", "bot", "settings", "employees"].includes(view)) continue;
+      expect(VIEW_BLURBS[view], `blurb for ${view}`).toBeDefined();
+    }
+    for (const { key } of CHANNEL_CATALOG) {
+      if (key === "whatsapp") continue;
+      expect(CHANNEL_BLURBS[key], `blurb for channel ${key}`).toBeDefined();
+    }
+    for (const type of ["رد AI تلقائي", "رد من قاعدة المعرفة", "عرض الكتالوج", "أقرب فرع", "إرسال قائمة طويلة", "تحويل لفريق"]) {
+      const blurb = BOT_STEP_BLURBS[type];
+      expect(blurb.ar.points.length).toBeGreaterThan(0);
+      expect(blurb.en.text.length).toBeGreaterThan(10);
+    }
+  });
+});

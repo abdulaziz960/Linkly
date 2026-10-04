@@ -11302,3 +11302,15 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .catalog-bulk-check { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; cursor: pointer; }
 .catalog-bulk-count { margin-inline-end: auto; color: var(--muted); font-weight: 700; }
 .catalog-product-cell input[type="checkbox"] { flex: none; width: 16px; height: 16px; }
+
+.upgrade-blurb { width: 100%; margin-top: 8px; padding: 12px 14px; border-radius: 12px; background: #f1faf8; border: 1px solid #cdeae4; text-align: start; }
+.upgrade-blurb b { color: #0f766e; font-size: 13px; }
+.upgrade-blurb p { margin: 4px 0 6px; color: #234; }
+.upgrade-blurb ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 2px; color: #3b4a46; font-size: 14px; }
+
+/* Upgrade popup: close icon pinned to the physical left, a single primary action in the footer. */
+.upgrade-modal .modal-head { position: relative; }
+.upgrade-modal .modal-head h2 { padding-inline: 56px; }
+.upgrade-modal .modal-head .icon-btn-close { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); }
+.upgrade-modal .modal-foot { justify-content: center; }
+.upgrade-modal .modal-foot .btn { min-width: 180px; justify-content: center; }

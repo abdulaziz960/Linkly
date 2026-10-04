@@ -3,6 +3,7 @@
 import { DragEvent, FormEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../i18n";
 import { usePlanAccess } from "../plan-access-context";
+import { BOT_STEP_BLURBS } from "../../../lib/feature-blurbs";
 import { upgradeTargetForBotStep, REGULAR_PLAN } from "../../../lib/plan-access";
 import CustomSelect from "../../components/CustomSelect";
 import type { Employee, Team } from "../types";
@@ -405,7 +406,8 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
       requestUpgrade({
         title: t("هذه الخطوة غير متاحة في باقتك", "This step isn't in your plan"),
         description: t(`خطوة «${nodeTypeLabel(nextType, t)}» غير متاحة في باقتك الحالية.`, `The "${nodeTypeLabel(nextType, t)}" step isn't included in your current plan.`),
-        targetPlan: stepTypeUpgradePlan(nextType)
+        targetPlan: stepTypeUpgradePlan(nextType),
+        blurb: BOT_STEP_BLURBS[nextType]
       });
       return;
     }

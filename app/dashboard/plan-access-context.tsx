@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { isTrialEligiblePlan } from "../../lib/trial-plan";
+import { CHANNEL_BLURBS, VIEW_BLURBS, type FeatureBlurb } from "../../lib/feature-blurbs";
 import type { ReactNode } from "react";
 import { useLanguage } from "./i18n";
 import type { PlanAccessData } from "../../lib/plan-access";
@@ -10,7 +11,7 @@ import { upgradeTargetForView, upgradeTargetForChannel } from "../../lib/plan-ac
 import type { ChannelKey } from "../../lib/channel-catalog";
 import type { ViewKey } from "./types";
 
-type UpgradePrompt = { title: string; description: string; targetPlan: string };
+type UpgradePrompt = { title: string; description: string; targetPlan: string; /** What the locked feature is, so the customer can judge whether it is worth upgrading for. */ blurb?: FeatureBlurb };
 
 type PlanAccessContextValue = {
   access: PlanAccessData;
@@ -38,7 +39,7 @@ export function usePlanAccess() {
 }
 
 export function PlanAccessProvider({ access, children }: { access: PlanAccessData; children: ReactNode }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [prompt, setPrompt] = useState<UpgradePrompt | null>(null);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
@@ -72,12 +73,14 @@ export function PlanAccessProvider({ access, children }: { access: PlanAccessDat
     promptForView: (view, label) => setPrompt({
       title: t("هذه الميزة غير متاحة في باقتك", "This feature isn't in your plan"),
       description: t(`«${label}» غير متاحة في باقتك الحالية.`, `"${label}" isn't included in your current plan.`),
-      targetPlan: upgradeTargetForView(view)
+      targetPlan: upgradeTargetForView(view),
+      blurb: VIEW_BLURBS[view]
     }),
     promptForChannel: (channel, label) => setPrompt({
       title: t("باقتك لا تدعم الربط مع المنصة", "Your plan doesn't support connecting this platform"),
       description: t(`الربط مع ${label} غير متاح في باقتك الحالية.`, `Connecting ${label} isn't included in your current plan.`),
-      targetPlan: upgradeTargetForChannel(channel)
+      targetPlan: upgradeTargetForChannel(channel),
+      blurb: CHANNEL_BLURBS[channel]
     })
   }), [access, requestUpgrade, t]);
 
@@ -94,6 +97,13 @@ export function PlanAccessProvider({ access, children }: { access: PlanAccessDat
             <div className="account-modal-body upgrade-modal-body">
               <span className="upgrade-modal-lock" aria-hidden="true">🔒</span>
               <p>{prompt.description}</p>
+              {prompt.blurb ? (
+                <div className="upgrade-blurb">
+                  <b>{t("ما هذه الميزة؟", "What is this feature?")}</b>
+                  <p>{prompt.blurb[language].text}</p>
+                  <ul>{prompt.blurb[language].points.map((point) => <li key={point}>{point}</li>)}</ul>
+                </div>
+              ) : null}
               <p>
                 {t("هذه الميزة متاحة بدءًا من ", "This feature is available from ")}
                 <b>{prompt.targetPlan}</b>
@@ -102,7 +112,6 @@ export function PlanAccessProvider({ access, children }: { access: PlanAccessDat
               {switchError ? <p className="form-error">{switchError}</p> : null}
             </div>
             <footer className="modal-foot">
-              <button className="btn soft" type="button" onClick={() => setPrompt(null)}>{t("لاحقًا", "Not now")}</button>
               {access.isTrial && isTrialEligiblePlan(prompt.targetPlan) ? (
                 <button className="btn primary" type="button" disabled={switching} onClick={() => void tryPlan(prompt.targetPlan)}>
                   {switching ? t("جارٍ التفعيل...", "Switching...") : t(`جرّب ${prompt.targetPlan} الآن`, `Try ${prompt.targetPlan} now`)}
