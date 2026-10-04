@@ -468,7 +468,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const messageTime = formatMessageTime(now);
 
     if (conversation.channel === "tiktok") {
-      return jsonError("إرسال رسائل TikTok غير مفعل بعد - بانتظار موافقة TikTok على صلاحية Business Messaging لحسابك.", 400);
+      return jsonError("الرد على رسائل TikTok غير متاح حاليًا لهذا الحساب.", 400);
     }
 
     if (conversation.channel === "sms") {

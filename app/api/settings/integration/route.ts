@@ -292,7 +292,7 @@ async function verifyTikTokConnection(
   // access before any live call can be verified here - see lib/tiktok-inbox.ts.
   return {
     status: "pending",
-    message: "تم حفظ بيانات TikTok. الإرسال والاستقبال الفعلي بينتظر تفعيل صلاحية Business Messaging من TikTok.",
+    message: "تم حفظ بيانات TikTok.",
     missingFields: [],
     verifiedName: settings.businessName || "TikTok"
   };

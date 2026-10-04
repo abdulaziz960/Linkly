@@ -18,7 +18,7 @@ const channels = {
     { value: "instagram", label: "إنستغرام" },
     { value: "telegram", label: "تيليجرام" },
     { value: "email", label: "البريد الإلكتروني" },
-    { value: "tiktok", label: "تيك توك (الربط متاح)" }
+    { value: "tiktok", label: "تيك توك" }
   ],
   en: [
     { value: "whatsapp", label: "WhatsApp" },
