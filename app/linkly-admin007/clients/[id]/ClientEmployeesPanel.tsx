@@ -4,8 +4,10 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import type { Employee } from "@prisma/client";
 import { useRouter } from "next/navigation";
-import CustomSelect from "../../../components/CustomSelect";
-import { useLanguage } from "../../i18n";
+import { Badge, Button, EmptyState, Section } from "../../ds/primitives";
+import { Dialog } from "../../ds/Dialog";
+import { useToast } from "../../ds/Toast";
+import Icon from "../../ds/Icon";
 import {
   permissionOptions,
   permissionLabel,
@@ -28,6 +30,7 @@ type EditDraft = {
 };
 
 const ROLE_OPTIONS = ["مالك الحساب", "مشرف", "موظف دعم"];
+const ar = (value: string) => value;
 
 /**
  * Lets Linkly staff fix a client's employee role/permissions directly from
@@ -35,21 +38,20 @@ const ROLE_OPTIONS = ["مالك الحساب", "مشرف", "موظف دعم"];
  * and edit it themselves, since there's no "log in as client" capability.
  */
 export default function ClientEmployeesPanel({ tenantId, employees }: Props) {
-  const { t } = useLanguage();
   const router = useRouter();
+  const toast = useToast();
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   function openEditor(employee: Employee) {
     setError("");
-    setDraft({
-      id: employee.id,
-      name: employee.name,
-      email: employee.email,
-      role: employee.role,
-      permissions: parsePermissions(employee.permissions)
-    });
+    setDraft({ id: employee.id, name: employee.name, email: employee.email, role: employee.role, permissions: parsePermissions(employee.permissions) });
+  }
+
+  function closeEditor() {
+    if (saving) return;
+    setDraft(null);
   }
 
   function togglePermission(permission: string) {
@@ -60,7 +62,7 @@ export default function ClientEmployeesPanel({ tenantId, employees }: Props) {
     });
   }
 
-  async function handleSave(event: FormEvent<HTMLFormElement>) {
+  async function handleSave(event: FormEvent) {
     event.preventDefault();
     if (!draft) return;
     setSaving(true);
@@ -69,19 +71,15 @@ export default function ClientEmployeesPanel({ tenantId, employees }: Props) {
       const response = await fetch(`/api/admin/clients/${tenantId}/employees/${draft.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: draft.name,
-          email: draft.email,
-          role: draft.role,
-          permissions: formatPermissions(draft.permissions)
-        })
+        body: JSON.stringify({ name: draft.name, email: draft.email, role: draft.role, permissions: formatPermissions(draft.permissions) })
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر حفظ التعديل", "Could not save the change"));
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || "تعذر حفظ التعديل");
       setDraft(null);
+      toast("success", "تم حفظ بيانات الموظف");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("تعذر حفظ التعديل", "Could not save the change"));
+      setError(err instanceof Error ? err.message : "تعذر حفظ التعديل");
     } finally {
       setSaving(false);
     }
@@ -89,93 +87,62 @@ export default function ClientEmployeesPanel({ tenantId, employees }: Props) {
 
   return (
     <>
-      <section className="admin-card">
-        <div className="admin-card-head">
-          <div>
-            <h2>{t("الموظفون", "Employees")}</h2>
-            <p>{t("عدّل دور أو صلاحيات أي موظف بحساب هذا العميل مباشرة.", "Edit any employee's role or permissions on this client's account directly.")}</p>
-          </div>
+      <Section title="الموظفون" description="عدّل دور أو صلاحيات أي موظف بحساب هذا العميل مباشرة.">
+        <div className="ds-card ds-card-pad">
+          {employees.length === 0 ? (
+            <EmptyState icon="users" title="لا يوجد موظفون مسجّلون" description="سيظهر موظفو العميل هنا بعد إضافتهم." />
+          ) : (
+            <ul className="ds-feed">
+              {employees.map((employee) => (
+                <li key={employee.id}>
+                  <Badge tone="neutral" dot={false}>{employeeRoleLabel(employee.role, ar)}</Badge>
+                  <div className="ds-feed-body">
+                    <strong>{employee.name}</strong>
+                    <span><bdi dir="ltr">{employee.email}</bdi> · {employee.permissions || "بدون صلاحيات إضافية"}</span>
+                  </div>
+                  <Button variant="outline" icon="edit" onClick={() => openEditor(employee)}>تعديل</Button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        <div className="admin-profile-feed">
-          {employees.map((employee) => (
-            <div key={employee.id}>
-              <span className="admin-pill">{employeeRoleLabel(employee.role, t)}</span>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                <div>
-                  <strong>{employee.name}</strong>
-                  <small><span dir="ltr">{employee.email}</span> · {employee.permissions || t("بدون صلاحيات إضافية", "No additional permissions")}</small>
-                </div>
-                <button type="button" className="admin-secondary-button" onClick={() => openEditor(employee)}>
-                  {t("تعديل", "Edit")}
-                </button>
-              </div>
+      </Section>
+
+      <Dialog
+        open={Boolean(draft)}
+        onClose={closeEditor}
+        size="lg"
+        title="تعديل الموظف"
+        description="يعدّل بيانات الموظف مباشرة على نفس الحساب بدل تسجيل الدخول كالعميل."
+        footer={<><Button variant="outline" onClick={closeEditor}>إلغاء</Button><Button variant="primary" type="submit" form="employee-edit-form" loading={saving}>حفظ</Button></>}
+      >
+        {draft ? (
+          <form id="employee-edit-form" onSubmit={handleSave} style={{ display: "grid", gap: 14 }}>
+            <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              <label className="ds-field">الاسم<input data-autofocus className="ds-input" required value={draft.name} onChange={(event) => setDraft((current) => current && { ...current, name: event.target.value })} /></label>
+              <label className="ds-field">البريد الإلكتروني<input className="ds-input" type="email" dir="ltr" required value={draft.email} onChange={(event) => setDraft((current) => current && { ...current, email: event.target.value })} /></label>
+              <label className="ds-field">
+                الدور
+                <select className="ds-select" value={draft.role} onChange={(event) => setDraft((current) => current && { ...current, role: event.target.value })}>
+                  {ROLE_OPTIONS.map((role) => <option key={role} value={role}>{employeeRoleLabel(role, ar)}</option>)}
+                </select>
+              </label>
             </div>
-          ))}
-          {!employees.length && <p className="admin-empty-state">{t("لا يوجد موظفون مسجّلون.", "No employees registered.")}</p>}
-        </div>
-      </section>
-
-      {draft ? (
-        <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="edit-employee-title">
-          <div className="admin-modal-card admin-user-limit-modal">
-            <div className="admin-modal-head">
-              <div>
-                <h2 id="edit-employee-title">{t("تعديل الموظف", "Edit Employee")}</h2>
-                <p>{t("يعدّل بيانات الموظف مباشرة بنفس الحساب - يحل محل تسجيل الدخول كالعميل.", "Edits the employee directly on this account - a stand-in for logging in as the client.")}</p>
+            <fieldset className="ds-fieldset">
+              <legend>الصلاحيات</legend>
+              <div className="ds-check-grid">
+                {permissionOptions.map((permission) => (
+                  <label key={permission} className="ds-check" data-on={draft.permissions.includes(permission) || undefined}>
+                    <input type="checkbox" checked={draft.permissions.includes(permission)} onChange={() => togglePermission(permission)} />
+                    <span>{permissionLabel(permission, ar)}</span>
+                  </label>
+                ))}
               </div>
-              <button type="button" onClick={() => setDraft(null)} aria-label={t("إغلاق", "Close")}>
-                ×
-              </button>
-            </div>
-
-            <form className="admin-client-form" onSubmit={handleSave}>
-              <label>
-                {t("الاسم", "Name")}
-                <input value={draft.name} onChange={(event) => setDraft((current) => current && { ...current, name: event.target.value })} required />
-              </label>
-              <label>
-                {t("البريد الإلكتروني", "Email")}
-                <input type="email" dir="ltr" value={draft.email} onChange={(event) => setDraft((current) => current && { ...current, email: event.target.value })} required />
-              </label>
-              <label>
-                {t("الدور", "Role")}
-                <CustomSelect
-                  value={draft.role}
-                  onChange={(value) => setDraft((current) => current && { ...current, role: value })}
-                  options={ROLE_OPTIONS.map((role) => ({ value: role, label: employeeRoleLabel(role, t) }))}
-                />
-              </label>
-
-              <div className="admin-channel-picker" style={{ gridColumn: "1 / -1" }}>
-                <b>{t("الصلاحيات", "Permissions")}</b>
-                <div className="admin-channel-picker-grid">
-                  {permissionOptions.map((permission) => (
-                    <label key={permission} className="admin-checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={draft.permissions.includes(permission)}
-                        onChange={() => togglePermission(permission)}
-                      />
-                      {permissionLabel(permission, t)}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {error ? <p className="admin-form-error">{error}</p> : null}
-
-              <div className="admin-form-actions">
-                <button type="button" onClick={() => setDraft(null)}>
-                  {t("إلغاء", "Cancel")}
-                </button>
-                <button type="submit" disabled={saving}>
-                  {saving ? t("جاري الحفظ...", "Saving...") : t("حفظ", "Save")}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+            </fieldset>
+            {error ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />{error}</p> : null}
+          </form>
+        ) : null}
+      </Dialog>
     </>
   );
 }

@@ -1688,3 +1688,105 @@ a.ds-stat:hover {
     min-width: 0;
   }
 }
+
+/* ---------- Client profile: hero, grants ---------- */
+.ds-profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ds-profile-hero > .ds-avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+}
+.ds-profile-hero-main {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.ds-profile-hero-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ds-profile-hero-title h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.ds-profile-hero-main p {
+  margin: 4px 0 0;
+  color: var(--ds-text-muted);
+  font-size: 14px;
+}
+.ds-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ds-fieldset legend {
+  padding: 0;
+  font-size: 14.5px;
+  font-weight: 800;
+}
+.ds-fieldset-hint {
+  margin: 4px 0 10px;
+  color: var(--ds-text-muted);
+  font-size: 12.5px;
+}
+.ds-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+.ds-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-surface);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+.ds-check:hover {
+  border-color: var(--ds-text-faint);
+}
+.ds-check[data-on] {
+  border-color: var(--ds-brand);
+  background: var(--ds-surface-sunken);
+}
+.ds-check input,
+.ds-check-inline input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--ds-brand);
+}
+.ds-num-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+.ds-num-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-sm);
+}
+.ds-num-row[data-on] {
+  border-color: var(--ds-brand);
+}
+.ds-check-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
