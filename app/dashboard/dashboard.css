@@ -11287,7 +11287,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .branch-empty > span { font-size: 34px; }
 .branch-empty p { margin: 0 0 8px; color: var(--muted); }
 
-.upgrade-modal { width: min(440px, calc(100vw - 24px)); }
+.upgrade-modal { width: min(480px, calc(100vw - 24px)); }
 .upgrade-modal-body { display: grid; justify-items: center; gap: 6px; text-align: center; line-height: 1.9; }
 .upgrade-modal-body p { margin: 0; }
 .upgrade-modal-lock { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 4px; border-radius: 16px; background: #fff7ed; font-size: 26px; }
@@ -11310,7 +11310,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 
 /* Upgrade popup: close icon pinned to the physical left. */
 .upgrade-modal .modal-head { position: relative; }
-.upgrade-modal .modal-head h2 { padding-inline: 56px; }
+.upgrade-modal .modal-head h2 { padding: 0 10px 0 60px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(16px, 4.4vw, 20px); }
 .upgrade-modal .modal-head .icon-btn-close { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); }
 /* Upgrade on the right, "Later" on the left - in both languages. */
 .upgrade-modal .modal-foot { direction: rtl; justify-content: flex-start; gap: 10px; }
