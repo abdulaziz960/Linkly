@@ -123,3 +123,13 @@ describe("ai usage summary", () => {
     expect(summarizeAiUsage([]).successRate).toBeNull();
   });
 });
+
+import { matchTagLabel } from "../lib/ai-classify";
+describe("ai classify", () => {
+  it("only returns existing tags", () => {
+    expect(matchTagLabel(' "شكوى". ', ["شكوى", "استفسار"])).toBe("شكوى");
+    expect(matchTagLabel("NONE", ["شكوى"])).toBeNull();
+    expect(matchTagLabel("اختراع", ["شكوى"])).toBeNull();
+    expect(matchTagLabel(null, ["شكوى"])).toBeNull();
+  });
+});
