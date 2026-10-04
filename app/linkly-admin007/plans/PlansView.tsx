@@ -8,6 +8,7 @@ import { formatNumber } from "../utils";
 import { useLanguage } from "../i18n";
 import { CHANNEL_CATALOG, parseAllowedChannels, type AllowedChannels } from "../../../lib/channel-catalog";
 import { UNLIMITED_MESSAGE_QUOTA } from "../../../lib/message-quota";
+import { useQueryFlag } from "../ds/useQueryFlag";
 
 function ChannelPicker({
   value,
@@ -62,6 +63,7 @@ export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
   const router = useRouter();
   const { t } = useLanguage();
   const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
+  useQueryFlag("new", () => setIsAddPlanOpen(true));
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("new") === "1") setIsAddPlanOpen(true);
   }, []);

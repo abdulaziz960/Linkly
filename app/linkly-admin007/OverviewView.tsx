@@ -1,242 +1,269 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type { PaymentRow, SubscriptionRow } from "./types";
 import type { AdminLog } from "../../lib/database";
-import { EXTRA_USER_PRICE, formatNumber, getRenewalAlert, parseTimestamp } from "./utils";
-import AnimatedNumber from "./AnimatedNumber";
-import { useLanguage } from "./i18n";
+import type { ActionLogRow, ActivityView } from "./activity";
+import { relativeTime } from "./activity";
+import { buildOverview, percentChange, resolveRange, type RangeKey, type UrgentTicket } from "./overview-data";
+import { formatNumber, parseTimestamp } from "./utils";
+import Icon from "./ds/Icon";
+import { Drawer } from "./ds/Dialog";
+import { Badge, Button, EmptyState, Section, Segmented, Skeleton, StatCard, type Tone } from "./ds/primitives";
+import { BarChart, BarList, CHART_COLORS, Donut, LineChart } from "./ds/charts";
 
-function statusLabel(status: string, t: (ar: string, en: string) => string) {
-  if (status === "نشط") return t("نشط", "Active");
-  if (status === "تجربة") return t("تجربة", "Trial");
-  if (status === "متوقف") return t("متوقف", "Stopped");
-  return status;
-}
-
-type OverviewViewProps = {
+type Props = {
   subscriptions: SubscriptionRow[];
   payments: PaymentRow[];
-  plansCount: number;
-  teamCount: number;
   logs: AdminLog[];
+  actions: ActionLogRow[];
+  urgentTickets: UrgentTicket[];
+  generatedAt: number;
 };
 
-const DONUT_COLORS = ["#178a82", "#39b9aa", "#d9a442", "#789e98", "#c4dbd6"];
+const RANGES: { value: RangeKey; label: string }[] = [
+  { value: "today", label: "اليوم" },
+  { value: "7d", label: "7 أيام" },
+  { value: "30d", label: "30 يومًا" },
+  { value: "month", label: "هذا الشهر" },
+  { value: "custom", label: "مخصص" }
+];
 
-export default function OverviewView({ subscriptions, payments, plansCount, teamCount, logs }: OverviewViewProps) {
-  const { t } = useLanguage();
+const LEVEL_BADGE: Record<string, { label: string; tone: Tone }> = {
+  high: { label: "عاجل", tone: "danger" },
+  medium: { label: "متوسط", tone: "warning" },
+  low: { label: "للمتابعة", tone: "info" }
+};
+
+const money = (value: number) => `${formatNumber(value)} ر.س`;
+const SLICE_COLORS = ["var(--ds-chart-1)", "var(--ds-chart-2)", "var(--ds-chart-3)", "var(--ds-chart-4)", "var(--ds-chart-5)"];
+const PRIORITY_PREVIEW = 6;
+
+function formatUpdated(ms: number) {
+  return new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh" }).format(ms);
+}
+
+function formatDue(value: string) {
+  const time = parseTimestamp(value) || (value ? new Date(`${value}T00:00:00`).getTime() : 0);
+  if (!time) return "";
+  return new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", { dateStyle: "medium", timeZone: "Asia/Riyadh" }).format(time);
+}
+
+export default function OverviewView({ subscriptions, payments, logs, actions, urgentTickets, generatedAt }: Props) {
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
   const [mounted, setMounted] = useState(false);
-  const [period, setPeriod] = useState("month");
+  const [rangeKey, setRangeKey] = useState<RangeKey>("30d");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const [showAllPriorities, setShowAllPriorities] = useState(false);
+  const [selected, setSelected] = useState<ActivityView | null>(null);
+
+  // Everything below depends on the clock and time zone of the viewer, so it is
+  // computed after mount to keep the server and client markup identical.
   useEffect(() => setMounted(true), []);
 
-  // Only metrics that represent something that *happened at a point in
-  // time* (a payment was collected) can meaningfully respect a date range.
-  // Status snapshots - active/trial clients, overdue
-  // renewals, MRR/ARR, outstanding payments still awaiting completion -
-  // describe the account's state right now, not an event within a window,
-  // so they stay unfiltered on purpose (filtering "outstanding payments" by
-  // "today" would hide a payment stuck since last week - exactly the thing
-  // that still needs attention).
-  const periodRange = (() => {
-    const now = new Date().getTime();
-    const dayStart = new Date();
-    dayStart.setHours(0, 0, 0, 0);
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
-    if (period === "today") return { from: dayStart.getTime(), to: Infinity };
-    if (period === "7d") return { from: now - 7 * 86400000, to: Infinity };
-    if (period === "custom") {
-      return {
-        from: customFrom ? new Date(`${customFrom}T00:00:00`).getTime() : 0,
-        to: customTo ? new Date(`${customTo}T23:59:59`).getTime() : Infinity
-      };
-    }
-    return { from: monthStart.getTime(), to: Infinity };
-  })();
-  const inPeriod = (value: string) => {
-    const ts = parseTimestamp(value);
-    return ts >= periodRange.from && ts <= periodRange.to;
-  };
+  const range = useMemo(() => resolveRange(rangeKey, generatedAt, { from: customFrom, to: customTo }), [rangeKey, customFrom, customTo, generatedAt]);
+  const overview = useMemo(
+    () => (mounted ? buildOverview({ subscriptions, payments, logs, actions, urgentTickets, now: generatedAt }, range) : null),
+    [mounted, subscriptions, payments, logs, actions, urgentTickets, generatedAt, range]
+  );
 
-  const activeClients = subscriptions.filter((s) => s.status === "نشط").length;
-  const trialClients = subscriptions.filter((s) => s.status === "تجربة").length;
-  const monthlyRevenue = subscriptions.reduce((sum, s) => {
-    if (s.status !== "نشط") return sum;
-    const extra = Math.max(0, s.employeeCount - s.employeeLimit) * EXTRA_USER_PRICE;
-    return sum + (s.billingCycle === "سنوي" ? s.amount / 12 : s.amount) + extra;
-  }, 0);
-  const totalConversations = subscriptions.reduce((sum, s) => sum + s.conversationCount, 0);
-  const renewalAlertsCount = subscriptions.filter((s) => getRenewalAlert(s) !== null).length;
-  const overdueRenewals = subscriptions.filter((s) => getRenewalAlert(s)?.tier === "overdue").length;
-  const pendingPayments = payments.filter((payment) => payment.status === "قيد الانتظار");
-  const collectedRevenue = payments.filter((payment) => payment.status === "مكتمل" && inPeriod(payment.completedAt || payment.createdAt)).reduce((sum, payment) => sum + payment.amount, 0);
-  const outstandingRevenue = pendingPayments.reduce((sum, payment) => sum + payment.amount, 0);
-  const annualRecurringRevenue = monthlyRevenue * 12;
-  const averageConversations = subscriptions.length ? Math.round(totalConversations / subscriptions.length) : 0;
-  const inactiveUsage = subscriptions.filter((subscription) => subscription.conversationCount === 0).length;
+  const customInvalid = rangeKey === "custom" && Boolean(customFrom && customTo && customFrom > customTo);
 
-  const statusCounts = new Map<string, number>();
-  for (const s of subscriptions) {
-    statusCounts.set(s.status, (statusCounts.get(s.status) || 0) + 1);
+  if (!overview) {
+    return (
+      <div aria-busy="true" aria-label="جارٍ تحميل النظرة العامة">
+        <div className="ds-stat-grid">
+          {Array.from({ length: 10 }, (_, index) => (
+            <div className="ds-stat" key={index}><Skeleton width="55%" height={13} /><Skeleton width="40%" height={28} /><Skeleton width="80%" height={12} /></div>
+          ))}
+        </div>
+      </div>
+    );
   }
-  const statusEntries = Array.from(statusCounts.entries()).sort((a, b) => b[1] - a[1]);
 
-  let cursor = 0;
-  const donutStops = statusEntries.map(([status, count], index) => {
-    const color = DONUT_COLORS[index % DONUT_COLORS.length];
-    const from = subscriptions.length ? (cursor / subscriptions.length) * 100 : 0;
-    cursor += count;
-    const to = subscriptions.length ? (cursor / subscriptions.length) * 100 : 0;
-    return { status, count, color, from, to };
-  });
-  const donutBackground = subscriptions.length
-    ? `conic-gradient(${donutStops.map((stop) => `${stop.color} ${stop.from}% ${stop.to}%`).join(", ")})`
-    : "var(--admin-surface-soft)";
-
-  const planCounts = new Map<string, number>();
-  for (const s of subscriptions) {
-    planCounts.set(s.plan, (planCounts.get(s.plan) || 0) + 1);
-  }
-  const planEntries = Array.from(planCounts.entries()).sort((a, b) => b[1] - a[1]);
-  const maxPlanCount = Math.max(1, ...planEntries.map(([, count]) => count));
-
-  const quickLinks = [
-    { href: "/linkly-admin007/clients", label: t("العملاء", "Clients"), count: subscriptions.length, hint: t("إدارة كل حسابات العملاء", "Manage all client accounts") },
-    { href: "/linkly-admin007/alerts", label: t("تنبيهات التجديد", "Renewal alerts"), count: renewalAlertsCount, hint: t("اشتراكات تحتاج متابعة", "Subscriptions needing follow-up") },
-    { href: "/linkly-admin007/payments", label: t("المدفوعات", "Payments"), count: payments.length, hint: t("سجل مدفوعات Moyasar", "Moyasar payment log") },
-    { href: "/linkly-admin007/plans", label: t("الباقات", "Plans"), count: plansCount, hint: t("أسعار الباقات وحدودها", "Plan pricing and limits") },
-    { href: "/linkly-admin007/team", label: t("الفريق", "Team"), count: teamCount, hint: t("أعضاء فريق المنصة", "Platform team members") },
-    { href: "/linkly-admin007/logs", label: t("السجلات", "Logs"), count: logs.length, hint: t("سجل حركة كل الحسابات", "Activity log for all accounts") }
-  ];
-  const hasUrgentActions = overdueRenewals + pendingPayments.length > 0;
-  const money = (value: number) => `${formatNumber(value)} ${t("ر.س", "SAR")}`;
+  const { kpis } = overview;
+  const priorities = showAllPriorities ? overview.priorities : overview.priorities.slice(0, PRIORITY_PREVIEW);
+  const newClientsDelta = percentChange(kpis.newClients, kpis.newClientsPrev);
+  const collectedDelta = percentChange(kpis.collected, kpis.collectedPrev);
+  const noPayments = payments.length === 0;
 
   return (
     <>
-      <section className="admin-overview-actions" aria-label={t("إجراءات سريعة", "Quick actions")}>
-        <strong>{t("ابدأ من هنا", "Get started")}</strong>
-        <div><Link href="/linkly-admin007/clients?new=1">＋ {t("إضافة عميل", "Add client")}</Link><Link href="/linkly-admin007/payments">{t("عرض المدفوعات", "View payments")}</Link><Link href="/linkly-admin007/plans?new=1">{t("إنشاء باقة", "Create plan")}</Link><Link href="/linkly-admin007/team?invite=1">{t("دعوة عضو فريق", "Invite team member")}</Link></div>
-      </section>
-
-      {subscriptions.length === 0 ? <section className="admin-overview-empty"><div aria-hidden="true">✦</div><h2>{t("ابدأ بإضافة أول عميل", "Add your first client")}</h2><p>{t("بعد إضافة العميل وضبط الباقات، ستظهر مؤشرات الأداء والتجديدات هنا تلقائياً.", "Add a client and configure plans to see performance and renewals here.")}</p><div><Link href="/linkly-admin007/clients?new=1">{t("إضافة أول عميل", "Add first client")}</Link><Link href="/linkly-admin007/plans">{t("ضبط الباقات", "Configure plans")}</Link></div></section> : null}
-
-      <section className={`admin-action-center${hasUrgentActions ? " has-actions" : " is-clear"}`}>
-        <div className="admin-action-title"><div><span>{t("الأولوية الآن", "Priority now")}</span><h2>{hasUrgentActions ? t("يتطلب إجراء الآن", "Needs action now") : t("كل شيء تحت السيطرة", "All clear")}</h2></div>{hasUrgentActions ? <strong>{formatNumber(overdueRenewals + pendingPayments.length)}</strong> : <span className="admin-all-clear-icon" aria-hidden="true">✓</span>}</div>
-        {hasUrgentActions ? <div className="admin-action-grid">
-          {overdueRenewals > 0 ? <Link href="/linkly-admin007/alerts?status=overdue" className="admin-action-item is-danger"><span>!</span><div><strong>{formatNumber(overdueRenewals)} {t("تجديدات متأخرة", "overdue renewals")}</strong><small>{t("عرض التجديدات", "View renewals")}</small></div><b>←</b></Link> : null}
-          {pendingPayments.length > 0 ? <Link href="/linkly-admin007/payments?status=pending" className="admin-action-item is-warn"><span>◷</span><div><strong>{formatNumber(pendingPayments.length)} {t("دفعات بانتظار الإكمال", "pending payments")}</strong><small>{money(outstandingRevenue)} · {t("عرض المدفوعات", "View payments")}</small></div><b>←</b></Link> : null}
-        </div> : <p>{t("لا توجد إجراءات عاجلة حالياً.", "No urgent actions right now.")}</p>}
-        {inactiveUsage > 0 && subscriptions.length > 0 ? <Link className="admin-action-subtle-link" href="/linkly-admin007/clients?usage=inactive">{formatNumber(inactiveUsage)} {t("عملاء دون محادثات — عرض العملاء", "clients without conversations — view clients")} ←</Link> : null}
-      </section>
-
-      {payments.length > 0 ? <section className="admin-dashboard-period" aria-label={t("النطاق الزمني للوحة", "Dashboard date range")}>
-        <div><strong>{t("نطاق العرض", "View range")}</strong><small>{t("ينطبق على الإيراد المحصّل — حالات العملاء والاشتراكات مؤشرات آنية دائماً", "Applies to collected revenue — client/subscription status is always shown live")}</small></div>
-        <div>
-          <div>{[["today", t("اليوم", "Today")], ["7d", t("آخر 7 أيام", "Last 7 days")], ["month", t("هذا الشهر", "This month")], ["custom", t("نطاق مخصص", "Custom range")]].map(([value, label]) => <button key={value} type="button" className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{label}</button>)}</div>
-          {period === "custom" ? (
-            <div className="admin-dashboard-period-custom">
-              <label><span>{t("من تاريخ", "From")}</span><input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} /></label>
-              <label><span>{t("إلى تاريخ", "To")}</span><input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} /></label>
-              {(customFrom || customTo) ? <button type="button" onClick={() => { setCustomFrom(""); setCustomTo(""); }} aria-label={t("مسح النطاق", "Clear date range")}>{t("مسح النطاق", "Clear range")}</button> : null}
-            </div>
-          ) : null}
-        </div>
-      </section> : null}
-
-      {subscriptions.length > 0 ? <section className="admin-section">
-        <div className="admin-metrics">
-          <Link href="/linkly-admin007/clients" className="admin-metric-link">
-            <span>{t("العملاء", "Clients")}</span>
-            <strong><AnimatedNumber value={subscriptions.length} /></strong>
-            <small>{formatNumber(activeClients)} {t("نشط", "active")} · {formatNumber(trialClients)} {t("تجربة", "trial")} <em>{t("عرض التفاصيل ←", "View details →")}</em></small>
-          </Link>
-          <Link href="/linkly-admin007/clients?status=نشط" className="admin-metric-link">
-            <span>{t("اشتراكات نشطة", "Active subscriptions")}</span>
-            <strong><AnimatedNumber value={activeClients} /></strong>
-            <small>{formatNumber(subscriptions.length - activeClients)} {t("غير نشطة — حالة مختلفة عن انتظار الدفع", "inactive — separate from pending payments")}</small>
-          </Link>
-          <Link href="/linkly-admin007/clients?status=نشط" className="admin-metric-link">
-            <span title={t("مجموع قيمة الاشتراكات النشطة بعد تحويل السنوية إلى قيمة شهرية، مع رسوم المستخدمين الإضافيين. تقدير تعاقدي وليس مبلغاً محصّلاً.", "Active subscription values normalized monthly, plus extra user fees. This is projected, not collected revenue.")}>{t("MRR المتوقع ⓘ", "Projected MRR ⓘ")}</span>
-            <strong>{money(monthlyRevenue)}</strong>
-            <small>{t("تقدير شهري من الاشتراكات النشطة، وليس تحصيلاً مؤكداً", "Monthly estimate from active subscriptions, not confirmed collection")}</small>
-          </Link>
-          <Link href="/linkly-admin007/clients?sort=usage" className="admin-metric-link">
-            <span>{t("محادثات تحت الإدارة", "Conversations under management")}</span>
-            <strong><AnimatedNumber value={totalConversations} /></strong>
-            <small>{t("متوسط", "Average")} {formatNumber(averageConversations)} {t("لكل عميل", "per client")}</small>
-          </Link>
-        </div>
-      </section> : null}
-
-      {subscriptions.length > 0 || payments.length > 0 ? <section className="admin-revenue-strip" aria-label={t("ملخص الإيرادات؛ المحصّل فقط يتبع النطاق الزمني", "Revenue summary; only collected revenue uses the date range")}>
-        <div className="is-confirmed"><span>{t("المحصل", "Collected")}<em>{t("إيراد مؤكد", "Confirmed")}</em></span><strong>{formatNumber(collectedRevenue)} <small>{t("ر.س", "SAR")}</small></strong></div>
-        <div className="is-pending"><span>{t("المستحق", "Outstanding")}<em>{t("معلّق تحت التحصيل", "Pending collection")}</em></span><strong>{formatNumber(outstandingRevenue)} <small>{t("ر.س", "SAR")}</small></strong>{pendingPayments.length ? <small className="admin-revenue-note">{t(`${formatNumber(pendingPayments.length)} دفعة لم تُؤكَّد بعد — غير محتسبة ضمن المحصّل`, `${formatNumber(pendingPayments.length)} payment(s) not yet confirmed — excluded from collected revenue`)}</small> : null}</div>
-        <div><span>ARR <em>{t("تقدير سنوي", "Annual projection")}</em></span><strong>{money(annualRecurringRevenue)}</strong></div>
-      </section> : null}
-
-      {subscriptions.length > 0 ? <section className="admin-overview-grid">
-        <article className="admin-card admin-donut-card">
-          {subscriptions.length ? <div className="admin-donut" style={{ background: donutBackground }}>
-            <div className="admin-donut-hole">
-              <strong><AnimatedNumber value={subscriptions.length} /></strong>
-              <span>{t("إجمالي", "Total")}</span>
-            </div>
-          </div> : null}
-          <div className="admin-donut-legend">
-            <h2>{t("توزيع الحالات", "Status distribution")}</h2>
-            {donutStops.map((stop) => (
-              <div className="admin-donut-legend-row" key={stop.status}>
-                <span className="admin-donut-dot" style={{ background: stop.color }} />
-                <span>{statusLabel(stop.status, t)}</span>
-                <strong>{formatNumber(stop.count)}</strong>
+      {/* 1. Executive summary: range + freshness */}
+      <div className="ds-card ds-card-pad" style={{ display: "grid", gap: 12 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, justifyContent: "space-between" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+            <Segmented label="النطاق الزمني" value={rangeKey} onChange={setRangeKey} options={RANGES} />
+            {rangeKey === "custom" ? (
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                <label className="ds-field" style={{ gridAutoFlow: "column", alignItems: "center", gap: 6 }}>من<input className="ds-input" type="date" value={customFrom} max={customTo || undefined} onChange={(event) => setCustomFrom(event.target.value)} style={{ minHeight: 36 }} /></label>
+                <label className="ds-field" style={{ gridAutoFlow: "column", alignItems: "center", gap: 6 }}>إلى<input className="ds-input" type="date" value={customTo} min={customFrom || undefined} onChange={(event) => setCustomTo(event.target.value)} style={{ minHeight: 36 }} /></label>
               </div>
-            ))}
-            {!donutStops.length ? <p className="admin-empty-state">{t("سيظهر توزيع الحالات بعد إضافة أول عميل.", "Status breakdown appears after adding your first client.")}</p> : null}
+            ) : null}
           </div>
-        </article>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--ds-text-muted)", fontSize: 13 }}>
+            <span>آخر تحديث للبيانات: <b style={{ color: "var(--ds-text)" }}>{formatUpdated(generatedAt)}</b></span>
+            <Button variant="outline" icon="refresh" loading={refreshing} onClick={() => startRefresh(() => router.refresh())}>تحديث</Button>
+          </div>
+        </div>
+        {customInvalid ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />تاريخ البداية يجب أن يسبق تاريخ النهاية.</p> : null}
+        <p className="ds-note" style={{ margin: 0 }}>
+          <Icon name="info" size={16} />
+          <span>النطاق الزمني ({range.label}) يؤثر على <b>الإيراد المحصل</b> و<b>العملاء الجدد</b> فقط. أما بقية المؤشرات (العملاء، الاشتراكات، MRR، المستحقات) فهي حالة لحظية للحسابات.</span>
+        </p>
+      </div>
 
-        <article className="admin-card">
-          <div className="admin-plan-card-head">
-            <h2>{t("توزيع الباقات", "Plan distribution")}</h2>
-            <p>{t("عدد العملاء على كل باقة.", "Number of clients on each plan.")}</p>
-          </div>
-          <div className="admin-bars">
-            {planEntries.map(([plan, count]) => (
-              <div className="admin-bar-row" key={plan}>
-                <div className="admin-bar-label">
-                  <span>{plan}</span>
-                  <strong>{formatNumber(count)}</strong>
-                </div>
-                <div className="admin-bar-track">
-                  <div
-                    className="admin-bar-fill"
-                    style={{ width: mounted ? `${(count / maxPlanCount) * 100}%` : "0%" }}
-                  />
-                </div>
+      {/* 2. Priority actions */}
+      <Section id="priorities" title="الإجراءات ذات الأولوية" description={overview.priorities.length ? `${overview.priorities.length} بند يحتاج متابعة، مرتّبة حسب الأهمية.` : undefined}>
+        {overview.priorities.length === 0 ? (
+          <div className="ds-all-clear"><Icon name="checkCircle" size={22} />لا توجد إجراءات عاجلة الآن. التجديدات والمدفوعات والدعم كلها تحت السيطرة.</div>
+        ) : (
+          <div className="ds-card">
+            <ul className="ds-priority-list">
+              {priorities.map((item) => {
+                const level = LEVEL_BADGE[item.level];
+                const due = formatDue(item.due);
+                return (
+                  <li key={item.id} className="ds-priority" data-level={item.level}>
+                    <span className="ds-priority-icon"><Icon name={item.icon} size={19} /></span>
+                    <div className="ds-priority-body">
+                      <strong>{item.title} <Badge tone={level.tone}>{level.label}</Badge></strong>
+                      <span>{item.description}</span>
+                      <div className="ds-priority-meta">
+                        <span>العميل: <b style={{ color: "var(--ds-text)" }}>{item.clientName || "—"}</b></span>
+                        {due ? <span>{item.id.startsWith("overdue") || item.id.startsWith("renew") ? "تاريخ الاستحقاق" : "التاريخ"}: {due}</span> : null}
+                      </div>
+                    </div>
+                    <Link href={item.href} className="ds-btn" data-variant="outline">{item.actionLabel}</Link>
+                  </li>
+                );
+              })}
+            </ul>
+            {overview.priorities.length > PRIORITY_PREVIEW ? (
+              <div style={{ padding: 12, borderTop: "1px solid var(--ds-border)", textAlign: "center" }}>
+                <Button variant="ghost" onClick={() => setShowAllPriorities((value) => !value)}>{showAllPriorities ? "عرض أقل" : `عرض كل البنود (${overview.priorities.length})`}</Button>
               </div>
-            ))}
-            {!planEntries.length ? <p className="admin-empty-state">{t("سيظهر توزيع الباقات بعد اشتراك أول عميل.", "Plan breakdown appears after the first subscription.")}</p> : null}
+            ) : null}
           </div>
-        </article>
-      </section> : null}
+        )}
+      </Section>
 
-      <section className="admin-overview-shortcuts"><h2>{t("اختصارات سريعة", "Quick shortcuts")}</h2><div className="admin-quick-links">
-        {quickLinks.map((link) => (
-          <Link key={link.href} href={link.href} className="admin-quick-link-card">
-            <div className="admin-quick-link-head">
-              <span>{link.label}</span>
+      {/* 3. KPI cards */}
+      <Section id="kpis" title="المؤشرات الرئيسية">
+        <div className="ds-stat-grid">
+          <StatCard icon="users" label="إجمالي العملاء" value={formatNumber(kpis.totalClients)} href="/linkly-admin007/clients" delta={newClientsDelta === null ? null : { value: newClientsDelta, goodWhen: "up" }} hint={`${formatNumber(kpis.newClients)} عميل جديد (${range.label}) · العدد الكلي لحظي`} />
+          <StatCard icon="checkCircle" tone="success" label="العملاء النشطون" value={formatNumber(kpis.activeClients)} href="/linkly-admin007/clients" hint="حسابات حالة اشتراكها «نشط» الآن" />
+          <StatCard icon="clock" tone="info" label="في الفترة التجريبية" value={formatNumber(kpis.trialClients)} href="/linkly-admin007/clients" hint="حسابات تجريبية لم تتحول لاشتراك مدفوع بعد" />
+          <StatCard icon="receipt" label="الاشتراكات النشطة" value={formatNumber(kpis.paidSubscriptions)} href="/linkly-admin007/clients" hint="اشتراكات نشطة بمبلغ أعلى من صفر (مدفوعة)" />
+          <StatCard icon="trendUp" label="MRR المتوقع" value={money(kpis.mrr)} help={{ term: "MRR المتوقع", definition: "الإيراد الشهري المتكرر: مجموع قيمة الاشتراكات النشطة محسوبة شهريًا (السنوي يُقسَّم على 12) شاملًا المستخدمين الإضافيين، قبل الخصومات. تقدير وليس إيرادًا محصّلًا." }} href="/linkly-admin007/clients" hint="تقدير شهري من الاشتراكات النشطة، وليس مبلغًا محصّلًا" />
+          <StatCard icon="chart" label="ARR المتوقع" value={money(kpis.arr)} help={{ term: "ARR المتوقع", definition: "الإيراد السنوي المتكرر = MRR × 12. رقم استرشادي لحجم الأعمال السنوي ولا يعني أنه تم تحصيله." }} hint="MRR × 12 · تقدير سنوي وليس إيرادًا محصّلًا" />
+          <StatCard icon="wallet" tone="success" label="الإيراد المحصّل" value={money(kpis.collected)} href="/linkly-admin007/payments" delta={collectedDelta === null ? null : { value: collectedDelta, goodWhen: "up" }} hint={noPayments ? "لا توجد مدفوعات مسجّلة بعد" : `مدفوعات مكتملة فعليًا خلال ${range.label}`} />
+          <StatCard icon="alert" tone={kpis.outstanding > 0 ? "warning" : "neutral"} label="المبالغ المستحقة" value={money(kpis.outstanding)} href="/linkly-admin007/payments" hint={kpis.outstandingCount ? `${formatNumber(kpis.outstandingCount)} دفعة قيد الانتظار ولم تُحصَّل بعد` : "لا توجد دفعات معلّقة"} />
+          <StatCard icon="message" label="المحادثات تحت الإدارة" value={formatNumber(kpis.conversations)} href="/linkly-admin007/usage" hint="مجموع محادثات كل العملاء حاليًا" />
+          <StatCard icon="calendar" tone={kpis.overdueRenewals ? "danger" : "neutral"} label="التجديدات القادمة" value={formatNumber(kpis.upcomingRenewals)} href="/linkly-admin007/alerts" hint={`خلال 30 يومًا بقيمة ${money(kpis.upcomingRenewalsAmount)}${kpis.overdueRenewals ? ` · ${formatNumber(kpis.overdueRenewals)} متأخر` : ""}`} />
+        </div>
+      </Section>
+
+      {/* 4. Charts */}
+      <Section id="charts" title="التحليلات" description="الرسوم تعرض آخر 12 شهرًا بغضّ النظر عن النطاق الزمني أعلاه.">
+        <div className="ds-grid-main">
+          <div className="ds-card ds-card-pad">
+            <div className="ds-card-head"><div><h3>نمو العملاء</h3><p>إجمالي الحسابات بنهاية كل شهر</p></div></div>
+            <LineChart labels={overview.growth.labels} series={[{ name: "العملاء", color: CHART_COLORS[0], values: overview.growth.values }]} format={(value) => formatNumber(Math.round(value))} caption="نمو عدد العملاء خلال آخر 12 شهرًا" empty={<EmptyState icon="users" title="لا توجد بيانات كافية" description="سيظهر نمو العملاء هنا بعد تسجيل عملاء." />} />
+          </div>
+          <div className="ds-card ds-card-pad">
+            <div className="ds-card-head"><div><h3>توزيع حالات العملاء</h3><p>عدد الحسابات حسب حالة الاشتراك</p></div></div>
+            <Donut caption="توزيع العملاء حسب حالة الاشتراك" centerLabel="عميل" slices={overview.statusSlices.map((slice, index) => ({ ...slice, color: SLICE_COLORS[index % SLICE_COLORS.length] }))} format={(value) => formatNumber(value)} />
+            {overview.statusSlices.length === 0 ? <EmptyState icon="users" title="لا يوجد عملاء بعد" /> : null}
+          </div>
+        </div>
+
+        <div className="ds-grid-main" style={{ marginTop: 16 }}>
+          <div className="ds-card ds-card-pad">
+            <div className="ds-card-head"><div><h3>الإيرادات المحصّلة والمتوقعة</h3><p>المحصّل = مدفوعات مكتملة · المتوقع = تقدير من الاشتراكات النشطة</p></div></div>
+            <LineChart
+              labels={overview.revenue.labels}
+              series={[
+                { name: "محصّل", color: CHART_COLORS[0], values: overview.revenue.collected },
+                { name: "متوقع", color: CHART_COLORS[1], values: overview.revenue.expected, dashed: true }
+              ]}
+              format={(value) => formatNumber(Math.round(value))}
+              caption="الإيرادات المحصّلة والمتوقعة بالريال"
+              empty={<EmptyState icon="wallet" title="لا توجد إيرادات بعد" description="ستظهر المدفوعات المكتملة والمتوقعة هنا." />}
+            />
+            <div style={{ display: "flex", gap: 18, marginTop: 10, color: "var(--ds-text-muted)", fontSize: 13 }}>
+              <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}><i style={{ width: 14, height: 3, background: CHART_COLORS[0], borderRadius: 2 }} />محصّل</span>
+              <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}><i style={{ width: 14, height: 0, borderTop: `3px dashed ${CHART_COLORS[1]}` }} />متوقع</span>
             </div>
-            <strong>{link.count > 0 ? <AnimatedNumber value={link.count} /> : <span aria-hidden="true">←</span>}</strong>
-            <small>{link.hint}</small>
-          </Link>
-        ))}
-      </div></section>
-      <section className="admin-overview-activity admin-card"><div><h2>{t("آخر النشاطات", "Recent activity")}</h2><Link href="/linkly-admin007/logs">{t("عرض السجلات", "View logs")}</Link></div>{logs.length ? <ul>{logs.slice(0, 4).map((log) => <li key={log.id}><span>{log.message}</span><small>{log.at}</small></li>)}</ul> : <p className="admin-empty-state">{t("لا توجد نشاطات مسجلة بعد.", "No recorded activity yet.")}</p>}</section>
+          </div>
+          <div className="ds-card ds-card-pad">
+            <div className="ds-card-head"><div><h3>العملاء حسب الباقة</h3><p>عدد الحسابات على كل باقة</p></div></div>
+            <Donut caption="توزيع العملاء حسب الباقة" centerLabel="عميل" slices={overview.planSlices.map((slice, index) => ({ ...slice, color: SLICE_COLORS[index % SLICE_COLORS.length] }))} format={(value) => formatNumber(value)} />
+            {overview.planSlices.length === 0 ? <EmptyState icon="layers" title="لا توجد اشتراكات بعد" /> : null}
+          </div>
+        </div>
+
+        <div className="ds-grid-2" style={{ marginTop: 16 }}>
+          <div className="ds-card ds-card-pad">
+            <div className="ds-card-head"><div><h3>التجديدات خلال الأشهر القادمة</h3><p>قيمة الاشتراكات حسب تاريخ تجديدها المسجّل (ر.س)</p></div></div>
+            <BarChart labels={overview.renewalsByMonth.labels} values={overview.renewalsByMonth.values} format={(value) => formatNumber(Math.round(value))} caption="قيمة التجديدات القادمة بالريال" empty={<EmptyState icon="calendar" title="لا توجد تجديدات قادمة" description="ستظهر هنا عند وجود اشتراكات نشطة بتواريخ تجديد." />} />
+          </div>
+          <div className="ds-card ds-card-pad">
+            <div className="ds-card-head"><div><h3>الاستخدام حسب العميل</h3><p>أعلى 6 عملاء من حيث عدد المحادثات</p></div><Link href="/linkly-admin007/usage" className="ds-btn" data-variant="ghost">كل الاستخدام</Link></div>
+            <BarList rows={overview.usageTop} format={(value) => `${formatNumber(value)} محادثة`} empty={<EmptyState icon="message" title="لا توجد محادثات بعد" description="سيظهر الاستخدام عندما يبدأ العملاء باستقبال محادثات." />} />
+          </div>
+        </div>
+      </Section>
+
+      {/* 5. Recent activity */}
+      <Section id="activity" title="آخر الأنشطة والتغييرات الحساسة" actions={<Link href="/linkly-admin007/admin-actions" className="ds-btn" data-variant="outline">سجل التدقيق الكامل</Link>}>
+        <div className="ds-card ds-card-pad">
+          {overview.activity.length === 0 ? (
+            <EmptyState icon="scroll" title="لا توجد أنشطة مسجّلة بعد" description="ستظهر هنا تغييرات فريق الإدارة (الباقات، الاشتراكات، أكواد الخصم، الفريق…)." />
+          ) : (
+            <ul className="ds-feed">
+              {overview.activity.map((item) => {
+                const when = parseTimestamp(item.at);
+                return (
+                  <li key={item.id}>
+                    <span className="ds-avatar" aria-hidden="true">{item.actorInitial}</span>
+                    <div className="ds-feed-body">
+                      <strong>{item.title}</strong>
+                      <span>{relativeTime(when, generatedAt)}{item.target ? ` · ${item.target}` : ""}</span>
+                    </div>
+                    <Button variant="ghost" onClick={() => setSelected(item)}>عرض التفاصيل</Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </Section>
+
+      <Drawer open={Boolean(selected)} onClose={() => setSelected(null)} title={selected?.title ?? ""} description={selected ? `${relativeTime(parseTimestamp(selected.at), generatedAt)} · ${formatDue(selected.at)}` : undefined}>
+        {selected ? (
+          <>
+            {selected.details.length ? (
+              <div className="ds-diff">
+                <div className="ds-diff-h">الحقل</div>
+                <div className="ds-diff-h" style={{ gridColumn: "span 2" }}>القيمة المسجّلة</div>
+                {selected.details.flatMap((detail) => [
+                  <div key={`${detail.label}-l`} style={{ fontWeight: 700 }}>{detail.label}</div>,
+                  <div key={`${detail.label}-v`} className="ds-diff-new" style={{ gridColumn: "span 2" }}>{detail.value}</div>
+                ])}
+              </div>
+            ) : (
+              <EmptyState icon="info" title="لا توجد تفاصيل إضافية" description="لم يسجّل هذا الإجراء بيانات تفصيلية." />
+            )}
+            <p className="ds-note"><Icon name="info" size={16} /><span>تُعرض القيم الجديدة وقت تنفيذ العملية. القيم السابقة غير محفوظة في سجل التدقيق حاليًا. لا تُعرض مفاتيح أو أسرار في هذا السجل.</span></p>
+            <p style={{ margin: 0, color: "var(--ds-text-faint)", fontSize: 12 }}>رمز العملية: <span dir="ltr">{selected.technicalId}</span></p>
+          </>
+        ) : null}
+      </Drawer>
     </>
   );
 }
