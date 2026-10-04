@@ -119,6 +119,7 @@ export function PlanAccessProvider({ access, children }: { access: PlanAccessDat
               ) : (
                 <Link className="btn primary" href="/billing">{t("ترقية الباقة", "Upgrade plan")}</Link>
               )}
+              <button className="btn soft" type="button" onClick={() => setPrompt(null)}>{t("لاحقًا", "Not now")}</button>
             </footer>
           </div>
         </div>
