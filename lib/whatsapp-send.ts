@@ -3,7 +3,7 @@ import { prisma } from "./prisma";
 import { getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
 import { formatMessageTime } from "./time";
-import { recordWhatsAppSendOutcome, whatsappSendErrorCode } from "./whatsapp-billing";
+import { friendlyWhatsAppError, recordWhatsAppSendOutcome, whatsappSendErrorCode } from "./whatsapp-billing";
 
 type SendWhatsAppTextInput = {
   tenantId?: string;
@@ -245,7 +245,7 @@ export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInp
   } | null;
 
   if (!response.ok || !payload?.messages?.[0]?.id) {
-    const error = payload?.error?.error_user_msg || payload?.error?.message || "تعذر إرسال قالب WhatsApp";
+    const error = friendlyWhatsAppError(payload, "تعذر إرسال قالب WhatsApp");
     console.error("WhatsApp template send failed", { status: response.status, error, templateName });
     await persistWhatsAppTemplateResult(input, { deliveryStatus: "failed", deliveryError: error });
     await recordWhatsAppSendOutcome({
@@ -328,7 +328,7 @@ export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const error = payload?.error?.error_user_msg || payload?.error?.message || "WHATSAPP_SEND_FAILED";
+    const error = friendlyWhatsAppError(payload, "WHATSAPP_SEND_FAILED");
     console.error("WhatsApp text send failed", payload?.error || payload);
     const now = new Date();
     await prisma.$transaction(async (tx) => {
@@ -466,7 +466,7 @@ export async function sendWhatsAppInteractiveMessage(input: SendWhatsAppInteract
       hadIssueFlag: Boolean(settings.whatsappPaymentIssueAt),
       errorCode: whatsappSendErrorCode(payload)
     });
-    return { ok: false, error: payload?.error?.message || "WHATSAPP_SEND_FAILED" };
+    return { ok: false, error: friendlyWhatsAppError(payload, "WHATSAPP_SEND_FAILED") };
   }
   if (settings.whatsappPaymentIssueAt) {
     await recordWhatsAppSendOutcome({ tenantId: settings.tenantId, ok: true, hadIssueFlag: true });
@@ -546,7 +546,7 @@ async function sendWhatsAppCustomMessage(input: SendWhatsAppCustomInput) {
       hadIssueFlag: Boolean(settings.whatsappPaymentIssueAt),
       errorCode: whatsappSendErrorCode(payload)
     });
-    return { ok: false, error: payload?.error?.message || "WHATSAPP_SEND_FAILED" };
+    return { ok: false, error: friendlyWhatsAppError(payload, "WHATSAPP_SEND_FAILED") };
   }
   if (settings.whatsappPaymentIssueAt) {
     await recordWhatsAppSendOutcome({ tenantId: settings.tenantId, ok: true, hadIssueFlag: true });

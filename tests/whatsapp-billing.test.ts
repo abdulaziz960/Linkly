@@ -84,3 +84,14 @@ describe("recordWhatsAppSendOutcome", () => {
     expect(stillEmpty?.whatsappPaymentIssueAt).toBe("");
   });
 });
+
+describe("friendlyWhatsAppError", () => {
+  it("explains the common Meta send failures in Arabic and keeps Meta's text for the rest", async () => {
+    const { friendlyWhatsAppError } = await import("../lib/whatsapp-billing");
+    expect(friendlyWhatsAppError({ error: { code: 200, message: "(#200) You do not have the necessary permission" } }, "x")).toContain("أعد ربط قناة واتساب");
+    expect(friendlyWhatsAppError({ error: { code: 190, message: "Error validating access token" } }, "x")).toContain("انتهت صلاحية ربط واتساب");
+    expect(friendlyWhatsAppError({ error: { code: 999, message: "Something else", error_user_msg: "رسالة المستخدم" } }, "x")).toBe("رسالة المستخدم");
+    expect(friendlyWhatsAppError({ error: { code: 999, message: "Something else" } }, "x")).toBe("Something else");
+    expect(friendlyWhatsAppError(null, "fallback")).toBe("fallback");
+  });
+});

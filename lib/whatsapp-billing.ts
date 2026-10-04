@@ -8,6 +8,25 @@ import { prisma } from "./prisma";
 // can only detect and surface THAT there's a payment problem, not how much.
 const PAYMENT_ISSUE_ERROR_CODE = 131042;
 
+/**
+ * Meta's raw error text ("(#200) You do not have the necessary permission...")
+ * is English and says nothing about what to do. The common send failures get a
+ * short Arabic explanation with the fix; anything else keeps Meta's own text.
+ */
+export function friendlyWhatsAppError(payload: unknown, fallback: string): string {
+  const error = (payload as { error?: { code?: number; error_user_msg?: string; message?: string } } | null | undefined)?.error;
+  switch (error?.code) {
+    case 200:
+      return "صلاحيات ربط واتساب لهذا الحساب ناقصة (Meta رفضت الإرسال). أعد ربط قناة واتساب من «الإعدادات والربط» ووافق على كل الصلاحيات المطلوبة أثناء الربط.";
+    case 190:
+      return "انتهت صلاحية ربط واتساب أو أُلغيت. أعد ربط القناة من «الإعدادات والربط».";
+    case 131030:
+      return "هذا الرقم غير مسموح له باستقبال الرسائل حاليًا (حساب واتساب في وضع التجربة). أضفه كرقم تجريبي في Meta أو فعّل الحساب.";
+    default:
+      return error?.error_user_msg || error?.message || fallback;
+  }
+}
+
 export function whatsappSendErrorCode(payload: unknown): number | undefined {
   const code = (payload as { error?: { code?: number } } | null | undefined)?.error?.code;
   return typeof code === "number" ? code : undefined;

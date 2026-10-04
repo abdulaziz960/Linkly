@@ -1,3 +1,4 @@
+import { friendlyWhatsAppError } from "../../../../../lib/whatsapp-billing";
 import { outboundSignal, OUTBOUND_MEDIA_TIMEOUT_MS } from "../../../../../lib/outbound-timeout";
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
@@ -163,7 +164,7 @@ async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, a
   const payload = await response.json().catch(() => null);
 
   if (!response.ok || !payload?.id) {
-    throw new Error(payload?.error?.message || "MEDIA_UPLOAD_FAILED");
+    throw new Error(friendlyWhatsAppError(payload, "MEDIA_UPLOAD_FAILED"));
   }
 
   return {
@@ -1118,7 +1119,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         attachmentType: attachment?.type,
         attachmentMime: uploadedMedia?.mimeType
       });
-      return jsonError(metaResponse?.error?.message || "تعذر إرسال الرسالة عبر WhatsApp", response.status);
+      return jsonError(friendlyWhatsAppError(metaResponse, "تعذر إرسال الرسالة عبر WhatsApp"), response.status);
     }
 
     const message = await prisma.$transaction(async (tx) => {
