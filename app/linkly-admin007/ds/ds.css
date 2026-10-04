@@ -1836,3 +1836,133 @@ a.ds-stat:hover {
   overflow-wrap: anywhere;
   text-align: start;
 }
+
+/* ---------- Switch + plan cards ---------- */
+.ds-switch {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ds-border-strong);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.ds-switch > span {
+  position: absolute;
+  inset-block-start: 3px;
+  inset-inline-start: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease;
+}
+.ds-switch[aria-checked="true"] {
+  background: var(--ds-brand);
+}
+.ds-switch[aria-checked="true"] > span {
+  transform: translateX(-18px);
+}
+[dir="ltr"] .ds-switch[aria-checked="true"] > span {
+  transform: translateX(18px);
+}
+.ds-switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ds-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.ds-plan {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 18px;
+}
+.ds-plan[data-inactive] {
+  opacity: 0.72;
+}
+.ds-plan-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ds-plan-top strong {
+  font-size: 16px;
+}
+.ds-plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.ds-plan-price strong {
+  font-size: 28px;
+  line-height: 1;
+}
+.ds-plan-price span {
+  color: var(--ds-text-muted);
+  font-size: 13px;
+}
+.ds-plan-facts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+}
+.ds-plan-facts li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ds-plan-facts span {
+  color: var(--ds-text-muted);
+}
+
+/* ---------- Suggestion cards (development) ---------- */
+.ds-dev-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+.ds-dev-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.ds-dev-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ds-dev-card-head strong {
+  font-size: 15.5px;
+  line-height: 1.5;
+}
+.ds-dev-description {
+  margin: 0;
+  color: var(--ds-text);
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ds-dev-by {
+  margin: 0;
+  color: var(--ds-text-muted);
+  font-size: 12.5px;
+}
+.ds-dev-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

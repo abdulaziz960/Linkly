@@ -3,76 +3,85 @@
 import { useMemo, useState } from "react";
 import type { UsageRow } from "../types";
 import { formatNumber } from "../utils";
-import { useLanguage } from "../i18n";
-
-type SortKey = "messages" | "aiCost" | "aiEvents" | "conversations";
+import { EmptyState, Segmented, StatCard } from "../ds/primitives";
+import Icon from "../ds/Icon";
+import { SORT_OPTIONS, costShare, filterUsage, sortUsage, usageTotals, type UsageSort } from "./usage-data";
 
 export default function UsageView({ rows }: { rows: UsageRow[] }) {
-  const { t } = useLanguage();
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("aiCost");
+  const [sort, setSort] = useState<UsageSort>("aiCost");
 
-  const totals = useMemo(() => ({
-    messages: rows.reduce((sum, row) => sum + row.messagesLast30d, 0),
-    aiEvents: rows.reduce((sum, row) => sum + row.aiEventsLast30d, 0),
-    aiCost: Math.round(rows.reduce((sum, row) => sum + row.aiCostLast30dSar, 0) * 100) / 100
-  }), [rows]);
-
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const filtered = needle ? rows.filter((row) => row.companyName.toLowerCase().includes(needle) || row.ownerEmail.toLowerCase().includes(needle)) : rows;
-    const sorted = [...filtered];
-    if (sortKey === "messages") sorted.sort((a, b) => b.messagesLast30d - a.messagesLast30d);
-    else if (sortKey === "aiEvents") sorted.sort((a, b) => b.aiEventsLast30d - a.aiEventsLast30d);
-    else if (sortKey === "conversations") sorted.sort((a, b) => b.conversationCount - a.conversationCount);
-    else sorted.sort((a, b) => b.aiCostLast30dSar - a.aiCostLast30dSar);
-    return sorted;
-  }, [rows, query, sortKey]);
+  const totals = useMemo(() => usageTotals(rows), [rows]);
+  const visible = useMemo(() => sortUsage(filterUsage(rows, query), sort), [rows, query, sort]);
+  const maxCost = useMemo(() => Math.max(0, ...rows.map((row) => row.aiCostLast30dSar)), [rows]);
 
   return (
     <>
-      <section className="admin-section" aria-label={t("ملخص الاستخدام", "Usage summary")}>
-        <div className="admin-metrics">
-          <div className="log-metric log-level-all"><span>{t("رسائل آخر 30 يوم", "Messages, last 30 days")}</span><strong>{formatNumber(totals.messages)}</strong></div>
-          <div className="log-metric log-level-info"><span>{t("طلبات AI آخر 30 يوم", "AI requests, last 30 days")}</span><strong>{formatNumber(totals.aiEvents)}</strong></div>
-          <div className="log-metric log-level-warning"><span>{t("تكلفة AI التقديرية (ر.س)", "Estimated AI cost (SAR)")}</span><strong>{formatNumber(totals.aiCost)}</strong></div>
-        </div>
-      </section>
-      <section className="admin-card">
-        <div className="admin-card-head">
+      <div className="ds-stat-grid">
+        <StatCard label="رسائل آخر 30 يومًا" value={formatNumber(totals.messages)} hint={`عبر ${formatNumber(totals.clients)} عميل`} icon="message" />
+        <StatCard label="طلبات AI آخر 30 يومًا" value={formatNumber(totals.aiEvents)} hint={`${formatNumber(totals.activeAiClients)} عميل استخدم المساعد`} icon="zap" tone="info" />
+        <StatCard label="تكلفة AI التقديرية" value={`${formatNumber(totals.aiCost)} ر.س`} hint="لآخر 30 يومًا" icon="wallet" tone={totals.aiCost > 0 ? "warning" : "neutral"} />
+        <StatCard label="متوسط تكلفة الطلب" value={`${formatNumber(totals.costPerRequest)} ر.س`} hint="تكلفة AI ÷ عدد الطلبات" icon="chart" />
+      </div>
+
+      <section className="ds-section" aria-labelledby="usage-heading">
+        <header className="ds-section-head">
           <div>
-            <h2>{t("الاستخدام لكل عميل", "Usage per client")}</h2>
-            <p>{t(`${formatNumber(visible.length)} من ${formatNumber(rows.length)} عميل`, `${visible.length} of ${rows.length} clients`)}</p>
+            <h2 id="usage-heading">الاستخدام لكل عميل</h2>
+            <p>{formatNumber(visible.length)} من {formatNumber(rows.length)} عميل</p>
           </div>
-        </div>
-        <div className="logs-filters">
-          <label className="logs-search">
-            <span className="sr-only">{t("بحث", "Search")}</span>
-            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("ابحث باسم الشركة أو البريد…", "Search by company or email…")} />
-          </label>
-          <div className="admin-alert-buckets">
-            {([["aiCost", t("الأعلى تكلفة", "Highest cost")], ["messages", t("الأكثر رسائل", "Most messages")], ["aiEvents", t("الأكثر استخدام AI", "Most AI usage")], ["conversations", t("الأكثر محادثات", "Most conversations")]] as [SortKey, string][]).map(([value, label]) => (
-              <button key={value} type="button" className={sortKey === value ? "active" : ""} onClick={() => setSortKey(value)}>{label}</button>
-            ))}
+        </header>
+
+        <div className="ds-toolbar">
+          <div className="ds-search">
+            <Icon name="search" size={17} />
+            <input className="ds-input" type="search" placeholder="ابحث باسم الشركة أو البريد…" aria-label="بحث في الاستخدام" value={query} onChange={(event) => setQuery(event.target.value)} />
           </div>
+          <Segmented label="الترتيب" value={sort} onChange={setSort} options={SORT_OPTIONS} />
         </div>
-        <div className="admin-list">
-          {visible.map((row) => (
-            <div className="admin-list-row" key={row.tenantId}>
-              <div>
-                <strong>{row.companyName}</strong>
-                <span>{row.plan} · {row.employeeCount} {t("موظف", "employees")} · {formatNumber(row.conversationCount)} {t("محادثة", "conversations")}</span>
-                <small>{t("رصيد رسائل الحملات:", "Campaign message balance:")} {formatNumber(row.campaignBalance)}</small>
-              </div>
-              <div className="admin-usage-stats">
-                <span><b>{formatNumber(row.messagesLast30d)}</b><small>{t("رسالة/30 يوم", "msgs/30d")}</small></span>
-                <span><b>{formatNumber(row.aiEventsLast30d)}</b><small>{t("طلب AI/30 يوم", "AI reqs/30d")}</small></span>
-                <span><b>{formatNumber(row.aiCostLast30dSar)}</b><small>{t("ر.س تكلفة AI", "SAR AI cost")}</small></span>
-              </div>
-            </div>
-          ))}
-          {!visible.length ? <p className="admin-empty-state">{t("لا توجد نتائج مطابقة.", "No matching results.")}</p> : null}
-        </div>
+
+        {rows.length === 0 ? (
+          <EmptyState icon="chart" title="لا توجد بيانات استخدام" description="ستظهر هنا إحصاءات كل عميل عند بدء الاستخدام." />
+        ) : visible.length === 0 ? (
+          <EmptyState icon="search" title="لا توجد نتائج مطابقة" description="جرّب تغيير كلمات البحث." />
+        ) : (
+          <div className="ds-table-wrap">
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th scope="col">العميل</th>
+                  <th scope="col">رسائل / 30 يومًا</th>
+                  <th scope="col">طلبات AI / 30 يومًا</th>
+                  <th scope="col">تكلفة AI (ر.س)</th>
+                  <th scope="col">المحادثات</th>
+                  <th scope="col">رصيد الحملات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((row) => (
+                  <tr key={row.tenantId}>
+                    <td data-cell="main">
+                      <div className="ds-cell-stack">
+                        <strong>{row.companyName}</strong>
+                        <small>{row.plan} · {formatNumber(row.employeeCount)} موظف</small>
+                      </div>
+                    </td>
+                    <td data-label="رسائل / 30 يومًا"><strong>{formatNumber(row.messagesLast30d)}</strong></td>
+                    <td data-label="طلبات AI / 30 يومًا"><strong>{formatNumber(row.aiEventsLast30d)}</strong></td>
+                    <td data-label="تكلفة AI (ر.س)">
+                      <div className="ds-cell-stack" style={{ minWidth: 110 }}>
+                        <strong>{formatNumber(row.aiCostLast30dSar)}</strong>
+                        {row.aiCostLast30dSar > 0 ? <span className="ds-meter" aria-hidden="true"><i style={{ width: `${costShare(row, maxCost)}%` }} /></span> : null}
+                      </div>
+                    </td>
+                    <td data-label="المحادثات">{formatNumber(row.conversationCount)}</td>
+                    <td data-label="رصيد الحملات">{formatNumber(row.campaignBalance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </>
   );

@@ -1,41 +1,35 @@
 "use client";
 
+import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
 import type { PlanRow } from "../types";
 import { formatNumber } from "../utils";
-import { useLanguage } from "../i18n";
+import { Badge, Button, EmptyState, Section, StatCard, Switch } from "../ds/primitives";
+import { Dialog, useConfirm } from "../ds/Dialog";
+import { useToast } from "../ds/Toast";
+import Icon from "../ds/Icon";
+import { useQueryFlag } from "../ds/useQueryFlag";
 import { CHANNEL_CATALOG, parseAllowedChannels, type AllowedChannels } from "../../../lib/channel-catalog";
 import { UNLIMITED_MESSAGE_QUOTA } from "../../../lib/message-quota";
-import { useQueryFlag } from "../ds/useQueryFlag";
+import { EMPTY_PLAN_DRAFT, draftFromPlan, planPayload, planStats, validatePlanDraft, type PlanDraft } from "./plans-data";
 
-function ChannelPicker({
-  value,
-  onChange,
-  t
-}: {
-  value: AllowedChannels;
-  onChange: (value: AllowedChannels) => void;
-  t: (ar: string, en: string) => string;
-}) {
+type Props = { plans: PlanRow[]; subscriberCounts: Record<string, number> };
+
+function ChannelPicker({ value, onChange }: { value: AllowedChannels; onChange: (value: AllowedChannels) => void }) {
   const unrestricted = value === "*";
   return (
-    <div className="admin-channel-picker">
-      <label className="admin-checkbox-label">
-        <input
-          type="checkbox"
-          checked={unrestricted}
-          onChange={(event) => onChange(event.target.checked ? "*" : [])}
-        />
-        {t("كل القنوات (بدون قيود)", "All channels (unrestricted)")}
+    <fieldset className="ds-fieldset">
+      <legend>القنوات المتاحة</legend>
+      <label className="ds-check" data-on={unrestricted || undefined} style={{ marginTop: 8 }}>
+        <input type="checkbox" checked={unrestricted} onChange={(event) => onChange(event.target.checked ? "*" : [])} />
+        <span>كل القنوات (بدون قيود)</span>
       </label>
       {!unrestricted ? (
-        <div className="admin-channel-picker-grid">
+        <div className="ds-check-grid" style={{ marginTop: 8 }}>
           {CHANNEL_CATALOG.map((channel) => {
             const selected = Array.isArray(value) && value.includes(channel.key);
             return (
-              <label key={channel.key} className="admin-checkbox-label">
+              <label key={channel.key} className="ds-check" data-on={selected || undefined}>
                 <input
                   type="checkbox"
                   checked={selected}
@@ -44,412 +38,189 @@ function ChannelPicker({
                     onChange(event.target.checked ? [...current, channel.key] : current.filter((key) => key !== channel.key));
                   }}
                 />
-                {t(channel.labelAr, channel.labelEn)}
+                <span>{channel.labelAr}</span>
               </label>
             );
           })}
         </div>
       ) : null}
-    </div>
+    </fieldset>
   );
 }
 
-type PlansViewProps = {
-  plans: PlanRow[];
-  subscriberCounts: Record<string, number>;
-};
-
-export default function PlansView({ plans, subscriberCounts }: PlansViewProps) {
+export default function PlansView({ plans, subscriberCounts }: Props) {
   const router = useRouter();
-  const { t } = useLanguage();
-  const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
-  useQueryFlag("new", () => setIsAddPlanOpen(true));
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("new") === "1") setIsAddPlanOpen(true);
-  }, []);
-  const [isPlanSaving, setIsPlanSaving] = useState(false);
-  const [planFormError, setPlanFormError] = useState("");
-  const [createPlanChannels, setCreatePlanChannels] = useState<AllowedChannels>("*");
-  const [createPlanMessageUnlimited, setCreatePlanMessageUnlimited] = useState(false);
-  const [editPlan, setEditPlan] = useState<PlanRow | null>(null);
-  const [editPlanPrice, setEditPlanPrice] = useState("");
-  const [editPlanLimit, setEditPlanLimit] = useState("");
-  const [editPlanAiDailyLimit, setEditPlanAiDailyLimit] = useState("0");
-  const [editPlanAiMonthlyLimit, setEditPlanAiMonthlyLimit] = useState("0");
-  const [editPlanMessageQuota, setEditPlanMessageQuota] = useState("0");
-  const [editPlanMessageUnlimited, setEditPlanMessageUnlimited] = useState(false);
-  const [editPlanChannels, setEditPlanChannels] = useState<AllowedChannels>("*");
-  const [editPlanActive, setEditPlanActive] = useState(true);
-  const [isEditPlanSaving, setIsEditPlanSaving] = useState(false);
-  const [editPlanError, setEditPlanError] = useState("");
+  const confirm = useConfirm();
+  const toast = useToast();
+  const [dialog, setDialog] = useState<{ mode: "create" } | { mode: "edit"; plan: PlanRow } | null>(null);
+  const [draft, setDraft] = useState<PlanDraft>(EMPTY_PLAN_DRAFT);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [togglingId, setTogglingId] = useState("");
 
-  const activeCount = plans.filter((p) => p.active === 1).length;
-  const totalSubscribers = plans.reduce((sum, p) => sum + (subscriberCounts[p.name] || 0), 0);
-  const averagePrice = plans.length ? Math.round(plans.reduce((sum, p) => sum + p.monthlyPrice, 0) / plans.length) : 0;
+  const stats = useMemo(() => planStats(plans, subscriberCounts), [plans, subscriberCounts]);
 
-  async function handleCreatePlan(event: FormEvent<HTMLFormElement>) {
+  function openCreate() {
+    setDraft(EMPTY_PLAN_DRAFT);
+    setError("");
+    setDialog({ mode: "create" });
+  }
+  useQueryFlag("new", openCreate);
+
+  function openEdit(plan: PlanRow) {
+    setDraft(draftFromPlan(plan));
+    setError("");
+    setDialog({ mode: "edit", plan });
+  }
+
+  function closeDialog() {
+    if (saving) return;
+    setDialog(null);
+  }
+
+  function setField<K extends keyof PlanDraft>(key: K, value: PlanDraft[K]) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    setIsPlanSaving(true);
-    setPlanFormError("");
-
-    const formData = new FormData(event.currentTarget);
-    const payload = {
-      name: String(formData.get("name") || ""),
-      monthlyPrice: Number(formData.get("monthlyPrice") || 0),
-      employeeLimit: Number(formData.get("employeeLimit") || 1),
-      aiDailyLimit: Number(formData.get("aiDailyLimit") || 0),
-      aiMonthlyLimit: Number(formData.get("aiMonthlyLimit") || 0),
-      allowedChannels: createPlanChannels,
-      messageQuota: createPlanMessageUnlimited ? UNLIMITED_MESSAGE_QUOTA : Number(formData.get("messageQuota") || 0)
-    };
-
-    const response = await fetch("/api/admin/plans", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const result = (await response.json()) as { ok: boolean; error?: string };
-
-    setIsPlanSaving(false);
-
-    if (!response.ok || !result.ok) {
-      setPlanFormError(result.error || t("تعذر إنشاء الباقة", "Failed to create plan"));
-      return;
+    if (!dialog) return;
+    const problem = validatePlanDraft(draft, dialog.mode);
+    if (problem) return setError(problem);
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch(dialog.mode === "create" ? "/api/admin/plans" : `/api/admin/plans/${dialog.plan.id}`, {
+        method: dialog.mode === "create" ? "POST" : "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(planPayload(draft, dialog.mode))
+      });
+      const result = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) {
+        setError(result.error || (dialog.mode === "create" ? "تعذر إنشاء الباقة" : "تعذر تحديث الباقة"));
+        return;
+      }
+      setDialog(null);
+      toast("success", dialog.mode === "create" ? "تم إنشاء الباقة" : "تم تحديث الباقة");
+      router.refresh();
+    } catch {
+      setError("تعذر الاتصال بالخادم. حاول مرة أخرى.");
+    } finally {
+      setSaving(false);
     }
-
-    setIsAddPlanOpen(false);
-    router.refresh();
   }
 
-  function openEditPlan(plan: PlanRow) {
-    setEditPlan(plan);
-    setEditPlanPrice(String(plan.monthlyPrice));
-    setEditPlanLimit(String(plan.employeeLimit));
-    setEditPlanAiDailyLimit(String(plan.aiDailyLimit));
-    setEditPlanAiMonthlyLimit(String(plan.aiMonthlyLimit));
-    setEditPlanMessageQuota(plan.messageQuota === UNLIMITED_MESSAGE_QUOTA ? "0" : String(plan.messageQuota));
-    setEditPlanMessageUnlimited(plan.messageQuota === UNLIMITED_MESSAGE_QUOTA);
-    setEditPlanChannels(parseAllowedChannels(plan.allowedChannels));
-    setEditPlanActive(plan.active === 1);
-    setEditPlanError("");
-  }
-
-  async function handleUpdatePlan(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!editPlan) return;
-
-    const monthlyPrice = Number(editPlanPrice);
-    const employeeLimit = Number(editPlanLimit);
-    const aiDailyLimit = Number(editPlanAiDailyLimit);
-    const aiMonthlyLimit = Number(editPlanAiMonthlyLimit);
-    const messageQuota = editPlanMessageUnlimited ? UNLIMITED_MESSAGE_QUOTA : Number(editPlanMessageQuota);
-    if (
-      !Number.isFinite(monthlyPrice) || monthlyPrice < 0 ||
-      !Number.isFinite(employeeLimit) || employeeLimit < 1 ||
-      !Number.isFinite(aiDailyLimit) || aiDailyLimit < 0 ||
-      !Number.isFinite(aiMonthlyLimit) || aiMonthlyLimit < 0 ||
-      !Number.isFinite(messageQuota) || (messageQuota < 0 && messageQuota !== UNLIMITED_MESSAGE_QUOTA)
-    ) {
-      setEditPlanError(t("تحقق من السعر وحد المستخدمين وحدود الذكاء الاصطناعي وحصة الرسائل", "Check the price, user limit, AI limits, and message quota"));
-      return;
+  async function toggleActive(plan: PlanRow) {
+    const disabling = plan.active === 1;
+    if (disabling) {
+      const ok = await confirm({
+        title: `تعطيل «${plan.name}»؟`,
+        description: "لن تظهر هذه الباقة للعملاء الجدد ولا في إضافة العملاء. المشتركون الحاليون فيها لا يتأثرون.",
+        confirmLabel: "تعطيل الباقة",
+        tone: "danger"
+      });
+      if (!ok) return;
     }
-
-    setIsEditPlanSaving(true);
-    setEditPlanError("");
-
-    const response = await fetch(`/api/admin/plans/${editPlan.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ monthlyPrice, employeeLimit, aiDailyLimit, aiMonthlyLimit, allowedChannels: editPlanChannels, messageQuota, active: editPlanActive })
-    });
-    const result = (await response.json()) as { ok: boolean; error?: string };
-
-    setIsEditPlanSaving(false);
-
-    if (!response.ok || !result.ok) {
-      setEditPlanError(result.error || t("تعذر تحديث الباقة", "Failed to update plan"));
-      return;
-    }
-
-    setEditPlan(null);
-    router.refresh();
-  }
-
-  async function handleToggleActive(plan: PlanRow) {
     setTogglingId(plan.id);
-    const response = await fetch(`/api/admin/plans/${plan.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: plan.active !== 1 })
-    });
-    setTogglingId("");
-    if (response.ok) router.refresh();
+    try {
+      const response = await fetch(`/api/admin/plans/${plan.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active: !disabling }) });
+      const result = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) return toast("error", "تعذر تحديث الباقة", result.error);
+      toast("success", disabling ? "تم تعطيل الباقة" : "تم تفعيل الباقة");
+      router.refresh();
+    } finally {
+      setTogglingId("");
+    }
   }
+
+  const isEdit = dialog?.mode === "edit";
 
   return (
     <>
-      <section className="admin-section">
-        <div className="admin-metrics">
-          <article>
-            <span>{t("إجمالي الباقات", "Total plans")}</span>
-            <strong>{formatNumber(plans.length)}</strong>
-            <small>{t(`${formatNumber(activeCount)} مفعّلة`, `${formatNumber(activeCount)} active`)}</small>
-          </article>
-          <article>
-            <span>{t("مشتركون", "Subscribers")}</span>
-            <strong>{formatNumber(totalSubscribers)}</strong>
-            <small>{t("عميل موزّع على كل الباقات", "Clients spread across all plans")}</small>
-          </article>
-          <article>
-            <span>{t("متوسط السعر الشهري", "Average monthly price")}</span>
-            <strong>{formatNumber(averagePrice)}</strong>
-            <small>{t("ريال عبر كل الباقات", "SAR across all plans")}</small>
-          </article>
-          <article>
-            <span>{t("باقات معطّلة", "Disabled plans")}</span>
-            <strong>{formatNumber(plans.length - activeCount)}</strong>
-            <small>{t("لا تظهر عند إضافة عميل جديد", "Not shown when adding a new client")}</small>
-          </article>
-        </div>
-      </section>
+      <div className="ds-stat-grid">
+        <StatCard label="إجمالي الباقات" value={formatNumber(stats.total)} hint={`${formatNumber(stats.active)} مفعّلة`} icon="layers" />
+        <StatCard label="المشتركون" value={formatNumber(stats.subscribers)} hint="عميل موزّع على كل الباقات" icon="users" tone="success" />
+        <StatCard label="متوسط السعر الشهري" value={`${formatNumber(stats.averagePrice)} ر.س`} hint="عبر كل الباقات" icon="receipt" />
+        <StatCard label="باقات معطّلة" value={formatNumber(stats.disabled)} hint="لا تظهر عند إضافة عميل جديد" icon="shield" tone={stats.disabled ? "warning" : "neutral"} />
+      </div>
 
-      <section className="admin-card">
-        <div className="admin-card-head">
-          <div>
-            <h2>{t("الباقات", "Plans")}</h2>
-            <p>{t("الباقات المعروضة عند إضافة عميل جديد وسعرها الشهري وحد المستخدمين.", "The plans shown when adding a new client, their monthly price, and user limit.")}</p>
+      <Section title="الباقات" description="الباقات المعروضة للعملاء، وسعرها الشهري وحدودها." actions={<Button variant="primary" icon="plus" onClick={openCreate}>إضافة باقة</Button>}>
+        {plans.length === 0 ? (
+          <EmptyState icon="layers" title="لا توجد باقات بعد" description="أنشئ أول باقة ليتمكن العملاء من الاشتراك." action={<Button variant="primary" icon="plus" onClick={openCreate}>إضافة باقة</Button>} />
+        ) : (
+          <div className="ds-plan-grid">
+            {plans.map((plan) => {
+              const subscribers = subscriberCounts[plan.name] || 0;
+              const channels = parseAllowedChannels(plan.allowedChannels || "*");
+              return (
+                <article key={plan.id} className="ds-card ds-plan" data-inactive={plan.active !== 1 || undefined}>
+                  <div className="ds-plan-top">
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <strong>{plan.name}</strong>
+                      {plan.active !== 1 ? <Badge tone="neutral">معطّلة</Badge> : null}
+                    </div>
+                    <Switch checked={plan.active === 1} disabled={togglingId === plan.id} label={`تفعيل باقة ${plan.name}`} onChange={() => void toggleActive(plan)} />
+                  </div>
+                  <div className="ds-plan-price"><strong>{formatNumber(plan.monthlyPrice)}</strong><span>ر.س / شهريًا</span></div>
+                  <ul className="ds-plan-facts">
+                    <li><span>حد المستخدمين</span><strong>{formatNumber(plan.employeeLimit)}</strong></li>
+                    <li><span>مساعد AI</span><strong>{plan.aiDailyLimit > 0 ? `${formatNumber(plan.aiDailyLimit)} يوميًا` : "غير متاح"}</strong></li>
+                    <li><span>المشتركون</span><strong>{formatNumber(subscribers)}</strong></li>
+                    <li><span>القنوات</span><strong>{channels === "*" ? "بدون قيود" : formatNumber(channels.length)}</strong></li>
+                    <li><span>رسائل تسويقية</span><strong>{plan.messageQuota === UNLIMITED_MESSAGE_QUOTA ? "غير محدود" : formatNumber(plan.messageQuota)}</strong></li>
+                  </ul>
+                  <Button variant="outline" icon="edit" onClick={() => openEdit(plan)}>تعديل الباقة</Button>
+                </article>
+              );
+            })}
           </div>
-          <div className="admin-card-actions">
-            <button type="button" onClick={() => { setIsAddPlanOpen(true); setPlanFormError(""); setCreatePlanChannels("*"); }}>
-              {t("إضافة باقة", "Add Plan")}
-            </button>
-          </div>
-        </div>
+        )}
+      </Section>
 
-        <div className="admin-plan-cards">
-          {plans.map((plan) => {
-            const subscribers = subscriberCounts[plan.name] || 0;
-            return (
-              <article className={`admin-plan-card ${plan.active !== 1 ? "is-inactive" : ""}`} key={plan.id}>
-                <div className="admin-plan-card-top">
-                  <strong>{plan.name}</strong>
-                  <label className="admin-switch">
-                    <input
-                      type="checkbox"
-                      checked={plan.active === 1}
-                      disabled={togglingId === plan.id}
-                      onChange={() => handleToggleActive(plan)}
-                    />
-                    <span />
-                  </label>
-                </div>
-                <div className="admin-plan-price">
-                  <strong>{formatNumber(plan.monthlyPrice)}</strong>
-                  <span>{t("ر.س / شهريًا", "SAR / month")}</span>
-                </div>
-                <ul className="admin-plan-facts">
-                  <li>
-                    <span>{t("حد المستخدمين", "User limit")}</span>
-                    <strong>{formatNumber(plan.employeeLimit)}</strong>
-                  </li>
-                  <li>
-                    <span>{t("مساعد AI", "AI Copilot")}</span>
-                    <strong>{plan.aiDailyLimit > 0 ? t(`${formatNumber(plan.aiDailyLimit)} يوميًا`, `${formatNumber(plan.aiDailyLimit)}/day`) : t("غير متاح", "Not included")}</strong>
-                  </li>
-                  <li>
-                    <span>{t("المشتركون", "Subscribers")}</span>
-                    <strong>{formatNumber(subscribers)}</strong>
-                  </li>
-                  <li>
-                    <span>{t("القنوات", "Channels")}</span>
-                    <strong>
-                      {(() => {
-                        const parsed = parseAllowedChannels(plan.allowedChannels || "*");
-                        return parsed === "*" ? t("بدون قيود", "Unrestricted") : formatNumber(parsed.length);
-                      })()}
-                    </strong>
-                  </li>
-                  <li>
-                    <span>{t("رسائل تسويقية", "Marketing messages")}</span>
-                    <strong>{plan.messageQuota === UNLIMITED_MESSAGE_QUOTA ? t("غير محدود", "Unlimited") : formatNumber(plan.messageQuota)}</strong>
-                  </li>
-                </ul>
-                <div className="admin-plan-card-actions">
-                  <button type="button" onClick={() => openEditPlan(plan)}>
-                    {t("تعديل الباقة", "Edit Plan")}
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-        {plans.length === 0 ? <p className="admin-empty-state">{t("لا توجد باقات بعد.", "No plans yet.")}</p> : null}
-      </section>
-
-      {isAddPlanOpen ? (
-        <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="add-plan-title">
-          <div className="admin-modal-card admin-user-limit-modal">
-            <div className="admin-modal-head">
-              <div>
-                <h2 id="add-plan-title">{t("إضافة باقة جديدة", "Add a New Plan")}</h2>
-              </div>
-              <button type="button" onClick={() => setIsAddPlanOpen(false)} aria-label={t("إغلاق", "Close")}>
-                ×
-              </button>
+      <Dialog
+        open={Boolean(dialog)}
+        onClose={closeDialog}
+        size="lg"
+        title={isEdit ? "تعديل الباقة" : "إضافة باقة جديدة"}
+        description={isEdit ? "التغييرات تسري على العملاء المشتركين في هذه الباقة وعلى الاشتراكات الجديدة." : undefined}
+        footer={<><Button variant="outline" onClick={closeDialog}>إلغاء</Button><Button variant="primary" type="submit" form="plan-form" loading={saving}>{isEdit ? "حفظ" : "إنشاء الباقة"}</Button></>}
+      >
+        {dialog ? (
+          <form id="plan-form" onSubmit={submit} style={{ display: "grid", gap: 16 }}>
+            <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              <label className="ds-field">
+                اسم الباقة
+                <input data-autofocus={!isEdit || undefined} className="ds-input" required readOnly={isEdit} placeholder="مثال: باقة الأعمال" value={draft.name} onChange={(event) => setField("name", event.target.value)} />
+              </label>
+              <label className="ds-field">السعر الشهري (ر.س)<input data-autofocus={isEdit || undefined} className="ds-input" type="number" min="0" required value={draft.monthlyPrice} onChange={(event) => setField("monthlyPrice", event.target.value)} /></label>
+              <label className="ds-field">حد المستخدمين<input className="ds-input" type="number" min="1" required value={draft.employeeLimit} onChange={(event) => setField("employeeLimit", event.target.value)} /></label>
+              <label className="ds-field">
+                حد مساعد AI اليومي
+                <input className="ds-input" type="number" min="0" value={draft.aiDailyLimit} onChange={(event) => setField("aiDailyLimit", event.target.value)} />
+                <small>0 = غير متاح في هذه الباقة</small>
+              </label>
+              <label className="ds-field">حد مساعد AI الشهري<input className="ds-input" type="number" min="0" value={draft.aiMonthlyLimit} onChange={(event) => setField("aiMonthlyLimit", event.target.value)} /></label>
+              <label className="ds-field">
+                حصة الرسائل التسويقية
+                <input className="ds-input" type="number" min="0" disabled={draft.messageUnlimited} value={draft.messageQuota} onChange={(event) => setField("messageQuota", event.target.value)} />
+                <small>تُضاف إلى رصيد الحملات مع كل دفعة</small>
+              </label>
             </div>
-
-            <form className="admin-client-form" onSubmit={handleCreatePlan}>
-              <label>
-                {t("اسم الباقة", "Plan name")}
-                <input name="name" placeholder={t("مثال: باقة الأعمال", "Example: Business Plan")} required />
+            <label className="ds-check-inline">
+              <input type="checkbox" checked={draft.messageUnlimited} onChange={(event) => setField("messageUnlimited", event.target.checked)} />
+              رسائل غير محدودة
+            </label>
+            <ChannelPicker value={draft.channels} onChange={(channels) => setField("channels", channels)} />
+            {isEdit ? (
+              <label className="ds-check-inline">
+                <input type="checkbox" checked={draft.active} onChange={(event) => setField("active", event.target.checked)} />
+                مفعّلة (تظهر للعملاء الجدد)
               </label>
-              <label>
-                {t("السعر الشهري (ر.س)", "Monthly price (SAR)")}
-                <input name="monthlyPrice" type="number" min="0" defaultValue="0" required />
-              </label>
-              <label>
-                {t("حد المستخدمين", "User limit")}
-                <input name="employeeLimit" type="number" min="1" defaultValue="1" required />
-              </label>
-              <label>
-                {t("حد مساعد AI اليومي (0 = غير متاح بهذي الباقة)", "AI Copilot daily limit (0 = not included in this plan)")}
-                <input name="aiDailyLimit" type="number" min="0" defaultValue="0" />
-              </label>
-              <label>
-                {t("حد مساعد AI الشهري", "AI Copilot monthly limit")}
-                <input name="aiMonthlyLimit" type="number" min="0" defaultValue="0" />
-              </label>
-              <label>
-                {t("حصة الرسائل التسويقية (تُضاف لرصيد الحملات مع كل دفعة)", "Marketing message quota (credited to campaign balance with each payment)")}
-                <input name="messageQuota" type="number" min="0" defaultValue="0" disabled={createPlanMessageUnlimited} />
-              </label>
-              <label className="admin-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={createPlanMessageUnlimited}
-                  onChange={(event) => setCreatePlanMessageUnlimited(event.target.checked)}
-                />
-                {t("رسائل غير محدودة", "Unlimited messages")}
-              </label>
-              <label>
-                {t("القنوات المتاحة", "Available channels")}
-                <ChannelPicker value={createPlanChannels} onChange={setCreatePlanChannels} t={t} />
-              </label>
-
-              {planFormError ? <p className="admin-form-error">{planFormError}</p> : null}
-
-              <div className="admin-form-actions">
-                <button type="button" onClick={() => setIsAddPlanOpen(false)}>
-                  {t("إلغاء", "Cancel")}
-                </button>
-                <button type="submit" disabled={isPlanSaving}>
-                  {isPlanSaving ? t("جاري الحفظ...", "Saving...") : t("إنشاء الباقة", "Create Plan")}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
-
-      {editPlan ? (
-        <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="edit-plan-title">
-          <div className="admin-modal-card admin-user-limit-modal">
-            <div className="admin-modal-head">
-              <div>
-                <h2 id="edit-plan-title">{t("تعديل الباقة", "Edit Plan")}</h2>
-              </div>
-              <button type="button" onClick={() => setEditPlan(null)} aria-label={t("إغلاق", "Close")}>
-                ×
-              </button>
-            </div>
-
-            <form className="admin-client-form" onSubmit={handleUpdatePlan}>
-              <label>
-                {t("الباقة", "Plan")}
-                <input value={editPlan.name} readOnly />
-              </label>
-              <label>
-                {t("السعر الشهري (ر.س)", "Monthly price (SAR)")}
-                <input
-                  type="number"
-                  min="0"
-                  value={editPlanPrice}
-                  onChange={(event) => setEditPlanPrice(event.target.value)}
-                />
-              </label>
-              <label>
-                {t("حد المستخدمين", "User limit")}
-                <input
-                  type="number"
-                  min="1"
-                  value={editPlanLimit}
-                  onChange={(event) => setEditPlanLimit(event.target.value)}
-                />
-              </label>
-              <label>
-                {t("حد مساعد AI اليومي (0 = غير متاح بهذي الباقة)", "AI Copilot daily limit (0 = not included in this plan)")}
-                <input
-                  type="number"
-                  min="0"
-                  value={editPlanAiDailyLimit}
-                  onChange={(event) => setEditPlanAiDailyLimit(event.target.value)}
-                />
-              </label>
-              <label>
-                {t("حد مساعد AI الشهري", "AI Copilot monthly limit")}
-                <input
-                  type="number"
-                  min="0"
-                  value={editPlanAiMonthlyLimit}
-                  onChange={(event) => setEditPlanAiMonthlyLimit(event.target.value)}
-                />
-              </label>
-              <label>
-                {t("حصة الرسائل التسويقية (تُضاف لرصيد الحملات مع كل دفعة)", "Marketing message quota (credited to campaign balance with each payment)")}
-                <input
-                  type="number"
-                  min="0"
-                  value={editPlanMessageQuota}
-                  onChange={(event) => setEditPlanMessageQuota(event.target.value)}
-                  disabled={editPlanMessageUnlimited}
-                />
-              </label>
-              <label className="admin-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={editPlanMessageUnlimited}
-                  onChange={(event) => setEditPlanMessageUnlimited(event.target.checked)}
-                />
-                {t("رسائل غير محدودة", "Unlimited messages")}
-              </label>
-              <label>
-                {t("القنوات المتاحة", "Available channels")}
-                <ChannelPicker value={editPlanChannels} onChange={setEditPlanChannels} t={t} />
-              </label>
-              <label className="admin-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={editPlanActive}
-                  onChange={(event) => setEditPlanActive(event.target.checked)}
-                />
-                {t("مفعّلة (تظهر عند إضافة عميل جديد)", "Active (shown when adding a new client)")}
-              </label>
-
-              {editPlanError ? <p className="admin-form-error">{editPlanError}</p> : null}
-
-              <div className="admin-form-actions">
-                <button type="button" onClick={() => setEditPlan(null)}>
-                  {t("إلغاء", "Cancel")}
-                </button>
-                <button type="submit" disabled={isEditPlanSaving}>
-                  {isEditPlanSaving ? t("جاري الحفظ...", "Saving...") : t("حفظ", "Save")}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+            ) : null}
+            {error ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />{error}</p> : null}
+          </form>
+        ) : null}
+      </Dialog>
     </>
   );
 }
