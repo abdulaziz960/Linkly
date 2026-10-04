@@ -369,6 +369,18 @@ export async function GET(request: NextRequest) {
       await subscribeWhatsAppBusinessAccount(effectiveWabaId, accessToken);
     }
 
+    // Diagnostic trail for "(#200) no permission to send" reports: which business accounts this
+    // token is actually authorised on, next to the one the signup reported. No secrets are logged.
+    if (accessToken && appSecret) {
+      void fetch(`https://graph.facebook.com/v22.0/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(`${appId}|${appSecret}`)}`, { signal: AbortSignal.timeout(8000) })
+        .then((response) => response.json())
+        .then((payload: { data?: { is_valid?: boolean; scopes?: string[]; granular_scopes?: Array<{ scope?: string; target_ids?: string[] }> } }) => {
+          const targets = payload.data?.granular_scopes?.find((scope) => scope.scope === "whatsapp_business_messaging")?.target_ids ?? [];
+          console.warn("WhatsApp connect token check", { tenantId: user.tenantId, reportedWabaId: effectiveWabaId, reportedPhoneNumberId: effectivePhoneNumberId, valid: payload.data?.is_valid, scopes: payload.data?.scopes, messagingTargets: targets, reportedWabaCovered: targets.includes(effectiveWabaId) });
+        })
+        .catch(() => undefined);
+    }
+
     if (accessToken && effectivePhoneNumberId) {
       await registerWhatsAppPhoneNumber(effectivePhoneNumberId, accessToken);
     }
