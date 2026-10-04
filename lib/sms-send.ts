@@ -1,3 +1,5 @@
+import { outboundSignal } from "./outbound-timeout";
+
 /**
  * Outbound SMS via Unifonic's REST API.
  * Endpoint and parameter names confirmed against Unifonic's published API
@@ -14,6 +16,7 @@ type SendSmsInput = {
 export async function sendUnifonicSms({ appSid, senderId, to, text }: SendSmsInput) {
   const response = await fetch("https://el.cloud.unifonic.com/rest/SMS/messages", {
     method: "POST",
+    signal: outboundSignal(),
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       AppSid: appSid,

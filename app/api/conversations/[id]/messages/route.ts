@@ -1,3 +1,4 @@
+import { outboundSignal, OUTBOUND_MEDIA_TIMEOUT_MS } from "../../../../../lib/outbound-timeout";
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { convertAudioToMp3 } from "../../../../../lib/audio-conversion";
@@ -153,6 +154,7 @@ async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, a
 
   const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/media`, {
     method: "POST",
+    signal: outboundSignal(OUTBOUND_MEDIA_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${accessToken}`
     },
@@ -205,6 +207,7 @@ async function sendInstagramTextMessage(instagramAccountId: string, accessToken:
 
   const send = (includeReplyTo: boolean) => fetch(`https://graph.instagram.com/v22.0/${instagramAccountId}/messages`, {
     method: "POST",
+    signal: outboundSignal(),
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json"
@@ -244,6 +247,7 @@ async function sendInstagramCommentReply(commentId: string, accessToken: string,
   const cleanCommentId = commentId.replace(/^ig-/, "").trim();
   const response = await fetch(`https://graph.instagram.com/v22.0/${cleanCommentId}/replies`, {
     method: "POST",
+    signal: outboundSignal(),
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json"
@@ -269,6 +273,7 @@ async function sendInstagramCommentReply(commentId: string, accessToken: string,
 async function sendFacebookTextMessage(pageAccessToken: string, recipientId: string, text: string) {
   const response = await fetch("https://graph.facebook.com/v22.0/me/messages", {
     method: "POST",
+    signal: outboundSignal(),
     headers: {
       Authorization: `Bearer ${pageAccessToken}`,
       "Content-Type": "application/json"
@@ -300,6 +305,7 @@ async function sendTelegramTextMessage(botToken: string, chatId: string, text: s
   const replyTo = getTelegramReplyMessageId(replyToMessageId);
   const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
+    signal: outboundSignal(),
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
@@ -1095,6 +1101,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST",
+      signal: outboundSignal(),
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json"

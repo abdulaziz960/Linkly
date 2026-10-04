@@ -1,3 +1,4 @@
+import { outboundSignal } from "./outbound-timeout";
 import { prisma } from "./prisma";
 import { getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
@@ -209,6 +210,7 @@ export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInp
   try {
     response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST",
+      signal: outboundSignal(),
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json"
@@ -280,6 +282,7 @@ export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
   try {
     response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST",
+      signal: outboundSignal(),
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json"
@@ -440,6 +443,7 @@ export async function sendWhatsAppInteractiveMessage(input: SendWhatsAppInteract
 
   const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
     method: "POST",
+    signal: outboundSignal(),
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json"
@@ -524,6 +528,7 @@ async function sendWhatsAppCustomMessage(input: SendWhatsAppCustomInput) {
   try {
     response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST",
+      signal: outboundSignal(),
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, ...input.message })
     });
