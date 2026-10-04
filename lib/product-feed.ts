@@ -223,10 +223,10 @@ function fallbackExternalId(product: CleanProductInput): string {
   return `h-${createHash("sha1").update(`${product.name}|${product.productUrl}`).digest("hex").slice(0, 24)}`;
 }
 
-export type FeedSyncResult = { created: number; updated: number; skipped: number; deactivated: number; total: number };
+export type FeedSyncResult = { created: number; updated: number; skipped: number; deactivated: number; total: number; blockedByPlan?: number };
 
 export async function importFeedRecords(tenantId: string, records: RawRecord[], source: "feed" | "api" = "feed"): Promise<FeedSyncResult & { seen: Set<string> }> {
-  const result = { created: 0, updated: 0, skipped: 0, deactivated: 0, total: Math.min(records.length, MAX_PRODUCTS_PER_SYNC) };
+  const result = { created: 0, updated: 0, skipped: 0, deactivated: 0, blockedByPlan: 0, total: Math.min(records.length, MAX_PRODUCTS_PER_SYNC) };
   const seen = new Set<string>();
 
   for (const record of records.slice(0, MAX_PRODUCTS_PER_SYNC)) {
@@ -241,6 +241,7 @@ export async function importFeedRecords(tenantId: string, records: RawRecord[], 
       // Past the plan's product cap: existing products keep updating, new ones are skipped.
       if (!(error instanceof PlanLimitError)) throw error;
       result.skipped += 1;
+      result.blockedByPlan += 1;
     }
   }
   return { ...result, seen };
@@ -281,7 +282,7 @@ export async function syncProductFeed(tenantId: string): Promise<FeedSyncResult>
       data: {
         feedLastSyncedAt: now(),
         feedLastStatus: "ok",
-        feedLastMessage: `تمت المزامنة: ${result.created} جديد، ${result.updated} محدّث، ${result.skipped} متجاهل، ${deactivated} مخفي`
+        feedLastMessage: `تمت المزامنة: ${result.created} جديد، ${result.updated} محدّث، ${result.skipped} متجاهل، ${deactivated} مخفي${result.blockedByPlan ? ` — لم تُضَف ${result.blockedByPlan} منتجًا لأن باقتك لا تتيح المزيد (أو الكتالوج غير متاح فيها). رقِّ الباقة أو تواصل معنا.` : ""}`
       }
     });
     return result;
