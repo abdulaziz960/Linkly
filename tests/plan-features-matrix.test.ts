@@ -57,7 +57,7 @@ describe("the comparison table matches what is enforced", () => {
     expect(liveCell("ai", individuals)).toBe(false);
     // The regular plan has the AI assistant, but only with the customer's own key.
     expect(liveCell("ai", regular)).toMatchObject({ ar: "بربط مفتاحك الخاص" });
-    expect(JSON.stringify(liveCell("ai", small))).toContain("50");
+    expect(liveCell("ai", small)).toMatchObject({ ar: "50 طلب يوميًا", en: "50 requests/day" });
     expect(liveCell("campaigns", individuals)).toBe(false);
     expect(liveCell("campaigns", small)).not.toBe(false);
     const { channelCell } = await import("../lib/plan-comparison");

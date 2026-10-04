@@ -97,7 +97,7 @@ export function channelCell(channel: ChannelKey, plan: ComparisonPlan): boolean 
 export function liveCell(kind: NonNullable<ComparisonRow["live"]>, plan: ComparisonPlan): ComparisonCell {
   if (kind === "users") return { ar: `${plan.employeeLimit} مستخدم`, en: `${plan.employeeLimit} users` };
   if (kind === "ai") {
-    if (plan.aiDailyLimit > 0) return { ar: `مُدار من لنكلي (${plan.aiDailyLimit} طلب يوميًا) أو بمفتاحك`, en: `Managed by Linkly (${plan.aiDailyLimit} requests/day) or your own key` };
+    if (plan.aiDailyLimit > 0) return { ar: `${plan.aiDailyLimit} طلب يوميًا`, en: `${plan.aiDailyLimit} requests/day` };
     // No managed allowance, but the section is open: the customer connects their own API key.
     return isViewLockedForPlan(plan.name, "ai") ? false : { ar: "بربط مفتاحك الخاص", en: "With your own API key" };
   }

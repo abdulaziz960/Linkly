@@ -47,8 +47,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     audience: { ar: "الأنسب لفريق يحتاج أتمتة وتقسيم جمهور ومساعد AI.", en: "Best for a team that needs automation, audience segments, and an AI Assistant." },
     featured: true,
     items: {
-      ar: ["كل مزايا العادية", "فرق متعددة وأتمتة وقواعد تحويل", "مساعد AI مُدار من لنكلي (50 طلبًا يوميًا) وقاعدة معرفة (50 مدخلًا)", "حملات متكررة وتقسيم جمهور بتفاعل الحملات", "فروع حتى 7", "تصعيد بمدة قابلة للتعديل ومركز عمليات", "تقارير أداء وSLA"],
-      en: ["Everything in Regular", "Multiple teams, automation and routing rules", "Linkly-managed AI assistant (50 requests/day) and knowledge base (50 entries)", "Recurring campaigns and campaign-engagement segments", "Up to 7 branches", "Adjustable escalation and operations center", "Performance and SLA reports"]
+      ar: ["كل مزايا العادية", "فرق متعددة وأتمتة وقواعد تحويل", "مساعد AI (50 طلبًا يوميًا) وقاعدة معرفة (50 مدخلًا)", "حملات متكررة وتقسيم جمهور بتفاعل الحملات", "فروع حتى 7", "تصعيد بمدة قابلة للتعديل ومركز عمليات", "تقارير أداء وSLA"],
+      en: ["Everything in Regular", "Multiple teams, automation and routing rules", "AI assistant (50 requests/day) and knowledge base (50 entries)", "Recurring campaigns and campaign-engagement segments", "Up to 7 branches", "Adjustable escalation and operations center", "Performance and SLA reports"]
     }
   },
   "باقة المؤسسات الكبيرة": {
