@@ -65,7 +65,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   { ar: "حملات متكررة بجدولة", en: "Scheduled recurring campaigns", cells: [no, no, yes, yes, yes] },
   { ar: "تقسيم العملاء", en: "Customer segments", view: "segments", cells: [no, note("بالوسوم", "By tags"), note("متقدم (تفاعل الحملات)", "Advanced (campaign engagement)"), note("متقدم", "Advanced"), note("متقدم", "Advanced")] },
   { ar: "كانبان المبيعات", en: "Sales pipeline", view: "pipeline", cells: [no, yes, yes, yes, yes] },
-  { ar: "الفروع وإرسال أقرب فرع", en: "Branches and nearest-branch reply", view: "branches", cells: [no, note("حتى 3 فروع", "Up to 3 branches"), note("حتى 7 فروع", "Up to 7 branches"), note("حتى 15 فرعًا", "Up to 15 branches"), note("غير محدود", "Unlimited")] },
+  { ar: "إرسال أقرب فرع للعميل حسب موقعه", en: "Send the customer their nearest branch", view: "branches", cells: [no, note("حتى 3 فروع", "Up to 3 branches"), note("حتى 7 فروع", "Up to 7 branches"), note("حتى 15 فرعًا", "Up to 15 branches"), note("غير محدود", "Unlimited")] },
   { ar: "كتالوج المنتجات والشراء من واتساب", en: "Product catalog and buying on WhatsApp", view: "catalog", cells: [no, no, no, note("حتى 300 منتج", "Up to 300 products"), note("غير محدود", "Unlimited")] },
 
   { ar: "للمطورين والمؤسسات", en: "Developers and enterprise", heading: true },
