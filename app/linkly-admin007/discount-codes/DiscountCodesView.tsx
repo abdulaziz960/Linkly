@@ -1,464 +1,308 @@
 "use client";
 
-import Link from "next/link";
+import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import type { FormEvent } from "react";
 import type { DiscountCodeRow, PlanRow } from "../types";
 import { formatNumber } from "../utils";
-import { useLanguage } from "../i18n";
-import CustomSelect from "../../components/CustomSelect";
+import { Badge, Button, EmptyState, LinkButton, Section, Segmented, StatCard } from "../ds/primitives";
+import { Dialog, useConfirm } from "../ds/Dialog";
+import { useToast } from "../ds/Toast";
+import ActionMenu from "../ds/ActionMenu";
+import Icon from "../ds/Icon";
 import { useQueryFlag } from "../ds/useQueryFlag";
+import {
+  EMPTY_CODE_DRAFT,
+  SORT_OPTIONS,
+  STATUS_FILTERS,
+  STATUS_LABEL,
+  STATUS_TONE,
+  codePayload,
+  codeStats,
+  computeStatus,
+  discountLabel,
+  draftFromCode,
+  filterCodes,
+  planNames,
+  sortCodes,
+  validateCodeDraft,
+  type CodeDraft,
+  type CodeSort,
+  type CodeStatusFilter
+} from "./codes-data";
 
-type DiscountCodesViewProps = {
-  discountCodes: DiscountCodeRow[];
-  plans: PlanRow[];
-};
+type Props = { discountCodes: DiscountCodeRow[]; plans: PlanRow[] };
 
-type StatusFilter = "الكل" | "نشط" | "مجدول" | "منتهي" | "معطل";
-type SortKey = "created" | "usage" | "expiry";
-
-function computeStatus(code: DiscountCodeRow): "active" | "scheduled" | "expired" | "usage_limit_reached" | "inactive" {
-  if (code.active !== 1) return "inactive";
-  const now = new Date();
-  if (code.startsAt && new Date(code.startsAt) > now) return "scheduled";
-  if (code.expiresAt && new Date(code.expiresAt) < now) return "expired";
-  if (code.usageLimit !== -1 && code.usedCount >= code.usageLimit) return "usage_limit_reached";
-  return "active";
-}
-
-function statusLabel(status: string, t: (ar: string, en: string) => string) {
-  switch (status) {
-    case "active":
-      return t("نشط", "Active");
-    case "scheduled":
-      return t("مجدول", "Scheduled");
-    case "expired":
-      return t("منتهي", "Expired");
-    case "usage_limit_reached":
-      return t("اكتمل الاستخدام", "Usage limit reached");
-    default:
-      return t("معطل", "Inactive");
-  }
-}
-
-function statusPillClass(status: string) {
-  switch (status) {
-    case "active":
-      return "is-good";
-    case "scheduled":
-      return "is-warn";
-    case "expired":
-    case "usage_limit_reached":
-      return "is-danger";
-    default:
-      return "is-warn";
-  }
-}
-
-function planNames(applicablePlanIds: string, plans: PlanRow[], t: (ar: string, en: string) => string) {
-  let ids: string[] = [];
-  try {
-    const parsed = JSON.parse(applicablePlanIds);
-    if (Array.isArray(parsed)) ids = parsed;
-  } catch {
-    ids = [];
-  }
-  if (ids.length === 0) return t("كل الباقات", "All plans");
-  const names = ids.map((id) => plans.find((plan) => plan.id === id)?.name || id);
-  return names.join("، ");
-}
-
-const STATUS_FILTERS: StatusFilter[] = ["الكل", "نشط", "مجدول", "منتهي", "معطل"];
-
-export default function DiscountCodesView({ discountCodes, plans }: DiscountCodesViewProps) {
+export default function DiscountCodesView({ discountCodes, plans }: Props) {
   const router = useRouter();
-  const { t } = useLanguage();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("الكل");
-  const [sortBy, setSortBy] = useState<SortKey>("created");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  useQueryFlag("new", () => setIsCreateOpen(true));
-  const [editCode, setEditCode] = useState<DiscountCodeRow | null>(null);
+  const confirm = useConfirm();
+  const toast = useToast();
+  const [now] = useState(() => Date.now());
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<CodeStatusFilter>("الكل");
+  const [sort, setSort] = useState<CodeSort>("created");
+  const [dialog, setDialog] = useState<{ mode: "create" } | { mode: "edit"; code: DiscountCodeRow } | null>(null);
+  const [draft, setDraft] = useState<CodeDraft>(EMPTY_CODE_DRAFT);
   const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
-  const [togglingId, setTogglingId] = useState("");
+  const [error, setError] = useState("");
 
-  const activeCount = discountCodes.filter((c) => computeStatus(c) === "active").length;
-  const totalRedemptions = discountCodes.reduce((sum, c) => sum + c.usedCount, 0);
-
-  const visibleCodes = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    let rows = discountCodes.filter((code) => {
-      if (query && !code.code.toLowerCase().includes(query) && !code.name.toLowerCase().includes(query)) return false;
-      if (statusFilter === "الكل") return true;
-      const status = computeStatus(code);
-      if (statusFilter === "نشط") return status === "active";
-      if (statusFilter === "مجدول") return status === "scheduled";
-      if (statusFilter === "منتهي") return status === "expired" || status === "usage_limit_reached";
-      if (statusFilter === "معطل") return status === "inactive";
-      return true;
-    });
-    rows = [...rows].sort((a, b) => {
-      if (sortBy === "usage") return b.usedCount - a.usedCount;
-      if (sortBy === "expiry") return (a.expiresAt || "9999").localeCompare(b.expiresAt || "9999");
-      return b.createdAt.localeCompare(a.createdAt);
-    });
-    return rows;
-  }, [discountCodes, searchQuery, statusFilter, sortBy]);
-
-  async function handleToggleActive(code: DiscountCodeRow) {
-    setTogglingId(code.id);
-    const response = await fetch(`/api/admin/discount-codes/${code.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: code.active !== 1 })
-    });
-    setTogglingId("");
-    if (response.ok) router.refresh();
-  }
-
-  async function handleDelete(code: DiscountCodeRow) {
-    if (!window.confirm(t("تأكيد حذف كود الخصم؟", "Delete this discount code?"))) return;
-    const response = await fetch(`/api/admin/discount-codes/${code.id}`, { method: "DELETE" });
-    const result = (await response.json()) as { ok: boolean; error?: string };
-    if (!response.ok || !result.ok) {
-      window.alert(result.error || t("تعذر حذف كود الخصم", "Failed to delete discount code"));
-      return;
-    }
-    router.refresh();
-  }
-
-  type FormState = {
-    name: string;
-    code: string;
-    discountType: "percentage" | "fixed";
-    discountValue: string;
-    maxDiscountAmount: string;
-    minimumAmount: string;
-    applyToAllPlans: boolean;
-    selectedPlanIds: string[];
-    newUsersOnly: boolean;
-    firstSubscriptionOnly: boolean;
-    usageLimit: string;
-    usageLimitPerUser: string;
-    startsAt: string;
-    expiresAt: string;
-  };
-
-  const emptyForm: FormState = {
-    name: "",
-    code: "",
-    discountType: "percentage",
-    discountValue: "",
-    maxDiscountAmount: "",
-    minimumAmount: "",
-    applyToAllPlans: true,
-    selectedPlanIds: [],
-    newUsersOnly: true,
-    firstSubscriptionOnly: true,
-    usageLimit: "",
-    usageLimitPerUser: "1",
-    startsAt: "",
-    expiresAt: ""
-  };
-
-  const [form, setForm] = useState<FormState>(emptyForm);
-
-  function parsePlanIds(json: string): string[] {
-    try {
-      const parsed = JSON.parse(json);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
+  const stats = useMemo(() => codeStats(discountCodes, now), [discountCodes, now]);
+  const visible = useMemo(() => sortCodes(filterCodes(discountCodes, status, query, now), sort), [discountCodes, status, query, sort, now]);
+  const isEdit = dialog?.mode === "edit";
 
   function openCreate() {
-    setForm(emptyForm);
-    setFormError("");
-    setIsCreateOpen(true);
+    setDraft(EMPTY_CODE_DRAFT);
+    setError("");
+    setDialog({ mode: "create" });
   }
+  useQueryFlag("new", openCreate);
 
   function openEdit(code: DiscountCodeRow) {
-    const planIds = parsePlanIds(code.applicablePlanIds);
-    setForm({
-      name: code.name,
-      code: code.code,
-      discountType: code.discountType === "fixed" ? "fixed" : "percentage",
-      discountValue: String(code.discountValue),
-      maxDiscountAmount: code.maxDiscountAmount ? String(code.maxDiscountAmount) : "",
-      minimumAmount: code.minimumAmount ? String(code.minimumAmount) : "",
-      applyToAllPlans: planIds.length === 0,
-      selectedPlanIds: planIds,
-      newUsersOnly: code.newUsersOnly === 1,
-      firstSubscriptionOnly: code.firstSubscriptionOnly === 1,
-      usageLimit: code.usageLimit === -1 ? "" : String(code.usageLimit),
-      usageLimitPerUser: String(code.usageLimitPerUser),
-      startsAt: code.startsAt ? code.startsAt.slice(0, 10) : "",
-      expiresAt: code.expiresAt ? code.expiresAt.slice(0, 10) : ""
-    });
-    setFormError("");
-    setEditCode(code);
+    setDraft(draftFromCode(code));
+    setError("");
+    setDialog({ mode: "edit", code });
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function closeDialog() {
+    if (saving) return;
+    setDialog(null);
+  }
+
+  function setField<K extends keyof CodeDraft>(key: K, value: CodeDraft[K]) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function togglePlan(id: string) {
+    setDraft((current) => ({ ...current, selectedPlanIds: current.selectedPlanIds.includes(id) ? current.selectedPlanIds.filter((planId) => planId !== id) : [...current.selectedPlanIds, id] }));
+  }
+
+  async function submit(event: FormEvent) {
     event.preventDefault();
+    if (!dialog) return;
+    const problem = validateCodeDraft(draft);
+    if (problem) return setError(problem);
     setSaving(true);
-    setFormError("");
-
-    const payload = {
-      name: form.name,
-      code: form.code,
-      discountType: form.discountType,
-      discountValue: Number(form.discountValue || 0),
-      maxDiscountAmount: Number(form.maxDiscountAmount || 0),
-      minimumAmount: Number(form.minimumAmount || 0),
-      applicablePlanIds: form.applyToAllPlans ? [] : form.selectedPlanIds,
-      newUsersOnly: form.newUsersOnly,
-      firstSubscriptionOnly: form.firstSubscriptionOnly,
-      usageLimit: form.usageLimit === "" ? -1 : Number(form.usageLimit),
-      usageLimitPerUser: Number(form.usageLimitPerUser || 1),
-      startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : "",
-      expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : ""
-    };
-
-    const url = editCode ? `/api/admin/discount-codes/${editCode.id}` : "/api/admin/discount-codes";
-    const method = editCode ? "PATCH" : "POST";
-    const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    const result = (await response.json()) as { ok: boolean; error?: string };
-
-    setSaving(false);
-    if (!response.ok || !result.ok) {
-      setFormError(result.error || t("تعذر حفظ كود الخصم", "Failed to save discount code"));
-      return;
+    setError("");
+    try {
+      const response = await fetch(dialog.mode === "edit" ? `/api/admin/discount-codes/${dialog.code.id}` : "/api/admin/discount-codes", {
+        method: dialog.mode === "edit" ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(codePayload(draft))
+      });
+      const result = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) return setError(result.error || "تعذر حفظ كود الخصم");
+      setDialog(null);
+      toast("success", dialog.mode === "edit" ? "تم تحديث كود الخصم" : "تم إنشاء كود الخصم");
+      router.refresh();
+    } catch {
+      setError("تعذر الاتصال بالخادم. حاول مرة أخرى.");
+    } finally {
+      setSaving(false);
     }
-
-    setIsCreateOpen(false);
-    setEditCode(null);
-    router.refresh();
   }
 
-  function togglePlanId(id: string) {
-    setForm((prev) => ({
-      ...prev,
-      selectedPlanIds: prev.selectedPlanIds.includes(id) ? prev.selectedPlanIds.filter((p) => p !== id) : [...prev.selectedPlanIds, id]
-    }));
+  async function toggleActive(code: DiscountCodeRow) {
+    const disabling = code.active === 1;
+    try {
+      const response = await fetch(`/api/admin/discount-codes/${code.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active: !disabling }) });
+      const result = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) return toast("error", "تعذر تحديث الكود", result.error);
+      toast("success", disabling ? "تم تعطيل الكود" : "تم تفعيل الكود");
+      router.refresh();
+    } catch {
+      toast("error", "تعذر الاتصال بالخادم");
+    }
   }
 
-  const modalOpen = isCreateOpen || editCode !== null;
+  async function remove(code: DiscountCodeRow) {
+    const ok = await confirm({
+      title: `حذف الكود ${code.code}؟`,
+      description: code.usedCount > 0 ? "هذا الكود استُخدم من قبل ولا يمكن حذفه. عطّله بدلًا من ذلك." : "سيُحذف الكود نهائيًا ولا يمكن التراجع.",
+      confirmLabel: "حذف الكود",
+      tone: "danger"
+    });
+    if (!ok) return;
+    try {
+      const response = await fetch(`/api/admin/discount-codes/${code.id}`, { method: "DELETE" });
+      const result = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) return toast("error", "تعذر حذف كود الخصم", result.error);
+      toast("success", "تم حذف الكود");
+      router.refresh();
+    } catch {
+      toast("error", "تعذر الاتصال بالخادم");
+    }
+  }
+
+  async function copyCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast("success", "تم نسخ الكود", code);
+    } catch {
+      toast("error", "تعذر النسخ");
+    }
+  }
 
   return (
     <>
-      <section className="admin-section">
-        <div className="admin-metrics">
-          <article>
-            <span>{t("إجمالي الأكواد", "Total codes")}</span>
-            <strong>{formatNumber(discountCodes.length)}</strong>
-            <small>{t(`${formatNumber(activeCount)} نشطة`, `${formatNumber(activeCount)} active`)}</small>
-          </article>
-          <article>
-            <span>{t("إجمالي الاستخدامات", "Total redemptions")}</span>
-            <strong>{formatNumber(totalRedemptions)}</strong>
-            <small>{t("عبر كل الأكواد", "Across all codes")}</small>
-          </article>
-        </div>
-      </section>
+      <div className="ds-stat-grid">
+        <StatCard label="إجمالي الأكواد" value={formatNumber(stats.total)} hint={`${formatNumber(stats.active)} نشطة حاليًا`} icon="ticket" />
+        <StatCard label="إجمالي الاستخدامات" value={formatNumber(stats.redemptions)} hint="عبر كل الأكواد" icon="checkCircle" tone="success" />
+      </div>
 
-      <section className="admin-card">
-        <div className="admin-card-head">
-          <div>
-            <h2>{t("أكواد الخصم", "Discount Codes")}</h2>
-            <p>{t("أكواد خصم تُستخدم عند إنشاء أول اشتراك مدفوع.", "Discount codes redeemed on a first paid subscription.")}</p>
+      <Section
+        title="أكواد الخصم"
+        description="أكواد تُدخل في صفحة الدفع، ويمكن حصرها بباقات أو بالمستخدمين الجدد وأول اشتراك."
+        actions={<Button variant="primary" icon="plus" onClick={openCreate}>إنشاء كود خصم</Button>}
+      >
+        <div className="ds-toolbar">
+          <div className="ds-search">
+            <Icon name="search" size={17} />
+            <input className="ds-input" type="search" placeholder="ابحث بالكود أو الاسم…" aria-label="بحث في أكواد الخصم" value={query} onChange={(event) => setQuery(event.target.value)} />
           </div>
-          <div className="admin-card-actions">
-            <button type="button" onClick={openCreate}>
-              {t("إنشاء كود خصم", "Create Discount Code")}
-            </button>
+          <Segmented label="تصفية حسب الحالة" value={status} onChange={setStatus} options={STATUS_FILTERS.map((value) => ({ value, label: `${value} (${formatNumber(stats.counts[value])})` }))} />
+          <div className="ds-toolbar-end">
+            <select className="ds-select" aria-label="ترتيب الأكواد" value={sort} onChange={(event) => setSort(event.target.value as CodeSort)}>
+              {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>ترتيب: {option.label}</option>)}
+            </select>
           </div>
         </div>
 
-        <div className="admin-toolbar">
-          <input
-            type="search"
-            className="admin-search-input"
-            placeholder={t("ابحث بالكود أو الاسم...", "Search by code or name...")}
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-          <div className="admin-filter-chips">
-            {STATUS_FILTERS.map((status) => (
-              <button
-                key={status}
-                type="button"
-                className={`admin-filter-chip ${statusFilter === status ? "active" : ""}`}
-                onClick={() => setStatusFilter(status)}
-              >
-                {status === "الكل" ? t("الكل", "All") : status === "نشط" ? t("نشط", "Active") : status === "مجدول" ? t("مجدول", "Scheduled") : status === "منتهي" ? t("منتهي", "Expired") : t("معطل", "Inactive")}
-              </button>
-            ))}
+        {discountCodes.length === 0 ? (
+          <EmptyState icon="ticket" title="لا توجد أكواد خصم بعد" description="أنشئ كودًا ليستخدمه عملاؤك في صفحة الدفع." action={<Button variant="primary" icon="plus" onClick={openCreate}>إنشاء كود خصم</Button>} />
+        ) : visible.length === 0 ? (
+          <EmptyState icon="search" title="لا توجد أكواد مطابقة" description="جرّب تغيير البحث أو التصفية." action={<Button variant="outline" onClick={() => { setQuery(""); setStatus("الكل"); }}>إزالة التصفية</Button>} />
+        ) : (
+          <div className="ds-table-wrap">
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th scope="col">الكود</th>
+                  <th scope="col">الخصم</th>
+                  <th scope="col">الباقات</th>
+                  <th scope="col">الاستخدام</th>
+                  <th scope="col">الانتهاء</th>
+                  <th scope="col">الحالة</th>
+                  <th scope="col"><span className="ds-sr-only">إجراءات</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((code) => {
+                  const codeStatus = computeStatus(code, now);
+                  const label = discountLabel(code, formatNumber);
+                  const used = code.usageLimit === -1 ? null : Math.min(100, Math.round((code.usedCount / Math.max(code.usageLimit, 1)) * 100));
+                  return (
+                    <tr key={code.id}>
+                      <td data-cell="main">
+                        <div className="ds-cell-stack">
+                          <strong dir="ltr" style={{ textAlign: "start", letterSpacing: "0.04em" }}>{code.code}</strong>
+                          <small>{code.name}</small>
+                          <span style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                            {code.newUsersOnly === 1 ? <Badge tone="info" dot={false}>جدد فقط</Badge> : null}
+                            {code.firstSubscriptionOnly === 1 ? <Badge tone="neutral" dot={false}>أول اشتراك</Badge> : null}
+                          </span>
+                        </div>
+                      </td>
+                      <td data-label="الخصم">
+                        <div className="ds-cell-stack"><strong>{label.main}</strong>{label.note ? <small>{label.note}</small> : null}</div>
+                      </td>
+                      <td data-label="الباقات"><small style={{ color: "var(--ds-text-muted)" }}>{planNames(code.applicablePlanIds, plans)}</small></td>
+                      <td data-label="الاستخدام">
+                        <div className="ds-cell-stack">
+                          <strong>{formatNumber(code.usedCount)} / {code.usageLimit === -1 ? "بلا حد" : formatNumber(code.usageLimit)}</strong>
+                          {used !== null ? <span className="ds-meter" aria-hidden="true"><i style={{ width: `${used}%` }} /></span> : null}
+                        </div>
+                      </td>
+                      <td data-label="الانتهاء">{code.expiresAt ? code.expiresAt.slice(0, 10) : "بلا انتهاء"}</td>
+                      <td data-label="الحالة"><Badge tone={STATUS_TONE[codeStatus]}>{STATUS_LABEL[codeStatus]}</Badge></td>
+                      <td>
+                        <div className="ds-cell-actions">
+                          <LinkButton href={`/linkly-admin007/discount-codes/${code.id}`} variant="outline">الاستخدامات</LinkButton>
+                          <ActionMenu
+                            label={`المزيد من الإجراءات للكود ${code.code}`}
+                            items={[
+                              { key: "edit", label: "تعديل", icon: "edit", onSelect: () => openEdit(code) },
+                              { key: "copy", label: "نسخ الكود", icon: "ticket", onSelect: () => void copyCode(code.code) },
+                              { key: "toggle", label: code.active === 1 ? "تعطيل" : "تفعيل", icon: code.active === 1 ? "shield" : "checkCircle", onSelect: () => void toggleActive(code) },
+                              { key: "delete", label: "حذف", icon: "trash", tone: "danger", onSelect: () => void remove(code) }
+                            ]}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="ds-table-foot">يُعرض {formatNumber(visible.length)} من {formatNumber(discountCodes.length)} كود.</div>
           </div>
-          <CustomSelect
-            value={sortBy}
-            onChange={(value) => setSortBy(value as SortKey)}
-            options={[
-              { value: "created", label: `${t("ترتيب", "Sort")}: ${t("تاريخ الإنشاء", "Created date")}` },
-              { value: "usage", label: `${t("ترتيب", "Sort")}: ${t("الاستخدام", "Usage")}` },
-              { value: "expiry", label: `${t("ترتيب", "Sort")}: ${t("تاريخ الانتهاء", "Expiry date")}` }
-            ]}
-          />
-        </div>
+        )}
+      </Section>
 
-        <div className="admin-table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>{t("الكود", "Code")}</th>
-                <th>{t("الاسم", "Name")}</th>
-                <th>{t("النوع والقيمة", "Type and value")}</th>
-                <th>{t("الباقات", "Plans")}</th>
-                <th>{t("جدد فقط", "New users")}</th>
-                <th>{t("الاستخدام", "Usage")}</th>
-                <th>{t("الانتهاء", "Expiry")}</th>
-                <th>{t("الحالة", "Status")}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleCodes.map((code) => {
-                const status = computeStatus(code);
-                return (
-                  <tr key={code.id}>
-                    <td dir="ltr"><b>{code.code}</b></td>
-                    <td>{code.name}</td>
-                    <td>{code.discountType === "percentage" ? `${formatNumber(code.discountValue)}%` : `${formatNumber(code.discountValue)} ${t("ر.س", "SAR")}`}</td>
-                    <td>{planNames(code.applicablePlanIds, plans, t)}</td>
-                    <td>{code.newUsersOnly === 1 ? t("نعم", "Yes") : t("لا", "No")}</td>
-                    <td>{formatNumber(code.usedCount)}{code.usageLimit !== -1 ? ` / ${formatNumber(code.usageLimit)}` : ` / ${t("بلا حد", "Unlimited")}`}</td>
-                    <td>{code.expiresAt ? code.expiresAt.slice(0, 10) : t("بلا انتهاء", "No expiry")}</td>
-                    <td><span className={`admin-pill ${statusPillClass(status)}`}>{statusLabel(status, t)}</span></td>
-                    <td>
-                      <div className="admin-card-actions">
-                        <button type="button" onClick={() => openEdit(code)}>{t("تعديل", "Edit")}</button>
-                        <button type="button" disabled={togglingId === code.id} onClick={() => handleToggleActive(code)}>
-                          {code.active === 1 ? t("تعطيل", "Deactivate") : t("تفعيل", "Activate")}
-                        </button>
-                        <Link href={`/linkly-admin007/discount-codes/${code.id}`}>{t("عرض الاستخدامات", "View Usage")}</Link>
-                        <button type="button" onClick={() => handleDelete(code)}>{t("حذف", "Delete")}</button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {visibleCodes.length === 0 ? <p className="admin-empty-state">{t("لا توجد أكواد خصم مطابقة.", "No matching discount codes.")}</p> : null}
-      </section>
-
-      {modalOpen ? (
-        <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="discount-code-modal-title">
-          <div className="admin-modal-card admin-user-limit-modal">
-            <div className="admin-modal-head">
-              <div>
-                <h2 id="discount-code-modal-title">{editCode ? t("تعديل كود الخصم", "Edit Discount Code") : t("إنشاء كود خصم جديد", "Create a New Discount Code")}</h2>
-              </div>
-              <button type="button" onClick={() => { setIsCreateOpen(false); setEditCode(null); }} aria-label={t("إغلاق", "Close")}>
-                ×
-              </button>
+      <Dialog
+        open={Boolean(dialog)}
+        onClose={closeDialog}
+        size="lg"
+        title={isEdit ? "تعديل كود الخصم" : "إنشاء كود خصم جديد"}
+        footer={<><Button variant="outline" onClick={closeDialog}>إلغاء</Button><Button variant="primary" type="submit" form="code-form" loading={saving}>{isEdit ? "حفظ" : "إنشاء الكود"}</Button></>}
+      >
+        {dialog ? (
+          <form id="code-form" onSubmit={submit} style={{ display: "grid", gap: 16 }}>
+            <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              <label className="ds-field">اسم الكود<input data-autofocus className="ds-input" required placeholder="مثال: ترحيب بالمستخدمين الجدد" value={draft.name} onChange={(event) => setField("name", event.target.value)} /></label>
+              <label className="ds-field">كود الخصم<input className="ds-input" dir="ltr" required disabled={isEdit} placeholder="WELCOME20" value={draft.code} onChange={(event) => setField("code", event.target.value.toUpperCase())} /></label>
+              <label className="ds-field">
+                نوع الخصم
+                <select className="ds-select" value={draft.discountType} onChange={(event) => setField("discountType", event.target.value === "fixed" ? "fixed" : "percentage")}>
+                  <option value="percentage">نسبة مئوية</option>
+                  <option value="fixed">مبلغ ثابت</option>
+                </select>
+              </label>
+              <label className="ds-field">{draft.discountType === "percentage" ? "قيمة الخصم (٪)" : "قيمة الخصم (ر.س)"}<input className="ds-input" type="number" min="0" max={draft.discountType === "percentage" ? 100 : undefined} required value={draft.discountValue} onChange={(event) => setField("discountValue", event.target.value)} /></label>
+              {draft.discountType === "percentage" ? (
+                <label className="ds-field">الحد الأقصى للخصم (ر.س، اختياري)<input className="ds-input" type="number" min="0" value={draft.maxDiscountAmount} onChange={(event) => setField("maxDiscountAmount", event.target.value)} /></label>
+              ) : null}
+              <label className="ds-field">الحد الأدنى لقيمة الاشتراك (ر.س، اختياري)<input className="ds-input" type="number" min="0" value={draft.minimumAmount} onChange={(event) => setField("minimumAmount", event.target.value)} /></label>
+              <label className="ds-field">الحد الأقصى للاستخدام<input className="ds-input" type="number" min="0" placeholder="بلا حد" value={draft.usageLimit} onChange={(event) => setField("usageLimit", event.target.value)} /><small>اتركه فارغًا لعدم التحديد</small></label>
+              <label className="ds-field">حد الاستخدام لكل عميل<input className="ds-input" type="number" min="1" value={draft.usageLimitPerUser} onChange={(event) => setField("usageLimitPerUser", event.target.value)} /></label>
+              <label className="ds-field">تاريخ البداية (اختياري)<input className="ds-input" type="date" value={draft.startsAt} onChange={(event) => setField("startsAt", event.target.value)} /></label>
+              <label className="ds-field">تاريخ الانتهاء (اختياري)<input className="ds-input" type="date" min={draft.startsAt || undefined} value={draft.expiresAt} onChange={(event) => setField("expiresAt", event.target.value)} /></label>
             </div>
 
-            <form className="admin-client-form" onSubmit={handleSubmit}>
-              <label>
-                {t("اسم الكود", "Discount name")}
-                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t("مثال: ترحيب بالمستخدمين الجدد", "Example: Welcome New Users")} required />
+            <fieldset className="ds-fieldset">
+              <legend>الباقات المشمولة</legend>
+              <label className="ds-check" data-on={draft.applyToAllPlans || undefined} style={{ marginTop: 8 }}>
+                <input type="checkbox" checked={draft.applyToAllPlans} onChange={(event) => setField("applyToAllPlans", event.target.checked)} />
+                <span>ينطبق على كل الباقات</span>
               </label>
-              <label>
-                {t("كود الخصم", "Discount code")}
-                <input dir="ltr" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="WELCOME20" required disabled={editCode !== null} />
-              </label>
-              <label>
-                {t("نوع الخصم", "Discount type")}
-                <CustomSelect
-                  value={form.discountType}
-                  onChange={(value) => setForm({ ...form, discountType: value as "percentage" | "fixed" })}
-                  options={[
-                    { value: "percentage", label: t("نسبة مئوية", "Percentage") },
-                    { value: "fixed", label: t("مبلغ ثابت", "Fixed amount") }
-                  ]}
-                />
-              </label>
-              <label>
-                {form.discountType === "percentage" ? t("قيمة الخصم (%)", "Discount value (%)") : t("قيمة الخصم (ر.س)", "Discount value (SAR)")}
-                <input type="number" min="0" max={form.discountType === "percentage" ? "100" : undefined} value={form.discountValue} onChange={(e) => setForm({ ...form, discountValue: e.target.value })} required />
-              </label>
-              {form.discountType === "percentage" ? (
-                <label>
-                  {t("الحد الأقصى للخصم (ر.س، اختياري)", "Maximum discount amount (SAR, optional)")}
-                  <input type="number" min="0" value={form.maxDiscountAmount} onChange={(e) => setForm({ ...form, maxDiscountAmount: e.target.value })} />
-                </label>
-              ) : null}
-              <label>
-                {t("الحد الأدنى لقيمة الاشتراك (ر.س، اختياري)", "Minimum subscription amount (SAR, optional)")}
-                <input type="number" min="0" value={form.minimumAmount} onChange={(e) => setForm({ ...form, minimumAmount: e.target.value })} />
-              </label>
-
-              <label className="admin-checkbox-label">
-                <input type="checkbox" checked={form.applyToAllPlans} onChange={(e) => setForm({ ...form, applyToAllPlans: e.target.checked })} />
-                {t("ينطبق على كل الباقات", "Apply to all plans")}
-              </label>
-              {!form.applyToAllPlans ? (
-                <div className="admin-checkbox-group">
+              {!draft.applyToAllPlans ? (
+                <div className="ds-check-grid" style={{ marginTop: 8 }}>
                   {plans.map((plan) => (
-                    <label className="admin-checkbox-label" key={plan.id}>
-                      <input type="checkbox" checked={form.selectedPlanIds.includes(plan.id)} onChange={() => togglePlanId(plan.id)} />
-                      {plan.name}
+                    <label key={plan.id} className="ds-check" data-on={draft.selectedPlanIds.includes(plan.id) || undefined}>
+                      <input type="checkbox" checked={draft.selectedPlanIds.includes(plan.id)} onChange={() => togglePlan(plan.id)} />
+                      <span>{plan.name}</span>
                     </label>
                   ))}
                 </div>
               ) : null}
+            </fieldset>
 
-              <label className="admin-checkbox-label">
-                <input type="checkbox" checked={form.newUsersOnly} onChange={(e) => setForm({ ...form, newUsersOnly: e.target.checked, firstSubscriptionOnly: e.target.checked ? true : form.firstSubscriptionOnly })} />
-                {t("للمستخدمين الجدد فقط", "New users only")}
-              </label>
-              <label className="admin-checkbox-label">
-                <input type="checkbox" checked={form.firstSubscriptionOnly} onChange={(e) => setForm({ ...form, firstSubscriptionOnly: e.target.checked })} />
-                {t("لأول اشتراك مدفوع فقط", "First paid subscription only")}
-              </label>
-
-              <label>
-                {t("الحد الأقصى للاستخدام (اتركه فارغًا لعدم التحديد)", "Total usage limit (leave empty for unlimited)")}
-                <input type="number" min="0" value={form.usageLimit} onChange={(e) => setForm({ ...form, usageLimit: e.target.value })} placeholder={t("بلا حد", "Unlimited")} />
-              </label>
-              <label>
-                {t("الحد الأقصى للاستخدام لكل عميل", "Usage limit per user")}
-                <input type="number" min="1" value={form.usageLimitPerUser} onChange={(e) => setForm({ ...form, usageLimitPerUser: e.target.value })} />
-              </label>
-
-              <label>
-                {t("تاريخ البداية (اختياري)", "Start date (optional)")}
-                <input type="date" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} />
-              </label>
-              <label>
-                {t("تاريخ الانتهاء (اختياري)", "Expiry date (optional)")}
-                <input type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
-              </label>
-
-              {formError ? <p className="admin-form-error">{formError}</p> : null}
-
-              <div className="admin-form-actions">
-                <button type="button" onClick={() => { setIsCreateOpen(false); setEditCode(null); }}>
-                  {t("إلغاء", "Cancel")}
-                </button>
-                <button type="submit" disabled={saving}>
-                  {saving ? t("جاري الحفظ...", "Saving...") : editCode ? t("حفظ", "Save") : t("إنشاء الكود", "Create Code")}
-                </button>
+            <fieldset className="ds-fieldset">
+              <legend>شروط الاستحقاق</legend>
+              <div className="ds-check-grid" style={{ marginTop: 8 }}>
+                <label className="ds-check" data-on={draft.newUsersOnly || undefined}>
+                  <input type="checkbox" checked={draft.newUsersOnly} onChange={(event) => setDraft((current) => ({ ...current, newUsersOnly: event.target.checked, firstSubscriptionOnly: event.target.checked ? true : current.firstSubscriptionOnly }))} />
+                  <span>للمستخدمين الجدد فقط</span>
+                </label>
+                <label className="ds-check" data-on={draft.firstSubscriptionOnly || undefined}>
+                  <input type="checkbox" checked={draft.firstSubscriptionOnly} onChange={(event) => setField("firstSubscriptionOnly", event.target.checked)} />
+                  <span>لأول اشتراك مدفوع فقط</span>
+                </label>
               </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+            </fieldset>
+
+            {error ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />{error}</p> : null}
+          </form>
+        ) : null}
+      </Dialog>
     </>
   );
 }
