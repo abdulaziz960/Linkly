@@ -2477,3 +2477,6 @@
 .admin-grants-actions { display: flex; align-items: center; gap: 12px; padding: 12px 20px 18px; }
 .admin-grants-actions button { padding: 9px 18px; border: 0; border-radius: 8px; background: #0f766e; color: #fff; font-weight: 800; cursor: pointer; }
 .admin-grants-actions button:disabled { opacity: 0.6; }
+
+.admin-grants-title { display: flex; flex-direction: column; gap: 2px; margin: 14px 20px 8px; font-size: 14px; }
+.admin-grants-title small { color: var(--admin-muted, #64748b); font-weight: 600; }

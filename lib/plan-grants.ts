@@ -1,35 +1,46 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
-import { allViewKeys } from "./permissions";
-import { grantablePagesForPlan } from "./plan-access";
+import { encodeGrantKeys, grantableForPlan, NO_GRANTS, parseGrantKeys, type Grants } from "./plan-access";
 import type { ViewKey } from "../app/dashboard/types";
 
-/** The pages the platform team unlocked for this workspace beyond its plan. */
-export async function listTenantGrants(tenantId: string): Promise<ViewKey[]> {
+/** Everything the platform team unlocked for this workspace beyond its plan. */
+export async function getTenantGrants(tenantId: string): Promise<Grants> {
   await ensureSchema();
   const rows = await prisma.tenantFeatureGrant.findMany({ where: { tenantId }, select: { viewKey: true } });
-  return rows.map((row) => row.viewKey).filter((key): key is ViewKey => (allViewKeys as string[]).includes(key));
+  return rows.length ? parseGrantKeys(rows.map((row) => row.viewKey)) : NO_GRANTS;
+}
+
+/** The unlocked pages only (kept for callers that only care about pages). */
+export async function listTenantGrants(tenantId: string): Promise<ViewKey[]> {
+  return (await getTenantGrants(tenantId)).views;
 }
 
 /**
- * Replaces a workspace's unlocked pages with `views`. Only pages the plan
- * actually locks can be granted (anything else is already open, or invalid),
- * so a grant never outlives its purpose silently: if the workspace later moves
- * to a plan that includes the page, the stored grant simply has no effect.
+ * Replaces a workspace's grants with `requested`. Only things the plan does
+ * NOT already include can be granted (anything else is already open, or
+ * invalid), so a grant never outlives its purpose silently: if the workspace
+ * later moves to a plan that includes it, the stored grant simply has no effect.
  */
-export async function setTenantGrants(tenantId: string, views: string[], grantedBy: string, planName: string | null): Promise<ViewKey[]> {
+export async function setTenantGrants(tenantId: string, requested: string[], grantedBy: string, planName: string | null, allowedChannelsRaw: string | null = null): Promise<Grants> {
   await ensureSchema();
-  const allowed = new Set<string>(grantablePagesForPlan(planName));
-  const wanted = Array.from(new Set(views)).filter((view): view is ViewKey => allowed.has(view));
+  const grantable = grantableForPlan(planName, allowedChannelsRaw);
+  const asked = parseGrantKeys(requested);
+  const wanted: Grants = {
+    views: asked.views.filter((view) => grantable.views.includes(view)),
+    features: asked.features.filter((feature) => grantable.features.includes(feature)),
+    channels: asked.channels.filter((channel) => grantable.channels.includes(channel)),
+    limits: asked.limits.filter((kind) => grantable.limits.includes(kind))
+  };
+  const keys = Array.from(new Set(encodeGrantKeys(wanted)));
   const now = new Date().toISOString();
   await prisma.$transaction([
-    prisma.tenantFeatureGrant.deleteMany({ where: { tenantId, viewKey: { notIn: wanted } } }),
-    ...wanted.map((view) => prisma.tenantFeatureGrant.upsert({
-      where: { tenantId_viewKey: { tenantId, viewKey: view } },
+    prisma.tenantFeatureGrant.deleteMany({ where: { tenantId, viewKey: { notIn: keys } } }),
+    ...keys.map((key) => prisma.tenantFeatureGrant.upsert({
+      where: { tenantId_viewKey: { tenantId, viewKey: key } },
       update: {},
-      create: { id: `grant-${randomUUID()}`, tenantId, viewKey: view, grantedBy, createdAt: now }
+      create: { id: `grant-${randomUUID()}`, tenantId, viewKey: key, grantedBy, createdAt: now }
     }))
   ]);
-  return wanted;
+  return parseGrantKeys(keys);
 }

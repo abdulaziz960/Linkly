@@ -4,6 +4,7 @@ import { isWithinWorkHours } from "./work-hours";
 import { logEscalationMessage } from "./conversation-system-messages";
 import { notifyUsers } from "./push-notifications";
 import { getTenantPlanName } from "./plan-access-server";
+import { getTenantGrants } from "./plan-grants";
 import { isEscalationAllowedForPlan } from "./plan-access";
 
 const DEFAULT_ESCALATION_MINUTES = 30;
@@ -100,7 +101,7 @@ export async function escalateUnansweredConversations() {
 
   for (const { tenantId } of tenantRows) {
     // Plans without escalation (e.g. the single-user individuals plan) never raise SLA alerts.
-    if (!isEscalationAllowedForPlan(await getTenantPlanName(tenantId))) continue;
+    if (!isEscalationAllowedForPlan(await getTenantPlanName(tenantId), await getTenantGrants(tenantId))) continue;
     if (!(await isWithinWorkHours(tenantId))) continue;
 
     const preference = await prisma.tenantPreference.findUnique({ where: { tenantId }, select: { escalationMinutes: true } });

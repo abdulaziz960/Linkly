@@ -9,7 +9,7 @@
 // affects the others - add an entry here to restrict another tier later.
 
 import { allViewKeys } from "./permissions";
-import { channelLabel, parseAllowedChannels, type AllowedChannels, type ChannelKey } from "./channel-catalog";
+import { CHANNEL_CATALOG, channelLabel, isValidChannelKey, parseAllowedChannels, type AllowedChannels, type ChannelKey } from "./channel-catalog";
 import type { ViewKey } from "../app/dashboard/types";
 
 export type PlanLimitKind = "teams" | "products" | "branches" | "kbEntries";
@@ -162,8 +162,8 @@ export function lockedViewsForPlan(planName: string | null | undefined): ViewKey
   return allViewKeys.filter((view) => !restriction.views.includes(view));
 }
 
-export function isEscalationAllowedForPlan(planName: string | null | undefined): boolean {
-  return getPlanRestriction(planName)?.escalation ?? true;
+export function isEscalationAllowedForPlan(planName: string | null | undefined, grants: Grants = NO_GRANTS): boolean {
+  return grants.features.includes("escalation") || (getPlanRestriction(planName)?.escalation ?? true);
 }
 
 // When the platform team unlocks a page for one workspace, the caps and the bot steps tied to that page open too -
@@ -177,15 +177,80 @@ export const GRANT_BOT_STEPS: Partial<Record<ViewKey, string[]>> = {
   teams: ["تحويل لفريق"]
 };
 
+// ---- Per-workspace grants (set by the platform team in the admin panel) ----
+// A grant lifts one thing for ONE workspace without changing its plan: a page, a feature
+// switch, a channel, or an "unlimited" for a capped thing. Stored as strings: a page key as-is,
+// the rest prefixed ("feature:", "channel:", "limit:").
+
+export const GRANT_FEATURES = ["recurringCampaigns", "advancedSegments", "fullReports", "reportsExcel", "escalation", "unlimitedBot"] as const;
+export type GrantFeature = typeof GRANT_FEATURES[number];
+
+export const GRANT_FEATURE_LABELS: Record<GrantFeature, { ar: string; en: string }> = {
+  recurringCampaigns: { ar: "حملات متكررة بجدولة", en: "Recurring campaigns" },
+  advancedSegments: { ar: "تقسيم العملاء بتفاعل الحملات", en: "Campaign-engagement segments" },
+  fullReports: { ar: "التقارير الكاملة (موظفون وفرق وSLA)", en: "Full reports" },
+  reportsExcel: { ar: "تصدير التقارير إلى Excel", en: "Excel report export" },
+  escalation: { ar: "تصعيد المحادثات المتأخرة", en: "Escalation of late conversations" },
+  unlimitedBot: { ar: "رد آلي بلا حد خطوات وبكل أنواع الخطوات", en: "Unlimited bot steps and all step types" }
+};
+
+export const LIMIT_KIND_LABELS: Record<PlanLimitKind, string> = { teams: "عدد الفرق", products: "عدد المنتجات", branches: "عدد الفروع", kbEntries: "مدخلات قاعدة المعرفة" };
+
+export type Grants = { views: ViewKey[]; features: GrantFeature[]; channels: ChannelKey[]; limits: PlanLimitKind[] };
+export const NO_GRANTS: Grants = { views: [], features: [], channels: [], limits: [] };
+
+export function parseGrantKeys(keys: string[]): Grants {
+  const grants: Grants = { views: [], features: [], channels: [], limits: [] };
+  for (const key of keys) {
+    if (key.startsWith("feature:")) {
+      const name = key.slice(8);
+      if ((GRANT_FEATURES as readonly string[]).includes(name)) grants.features.push(name as GrantFeature);
+    } else if (key.startsWith("channel:")) {
+      const name = key.slice(8);
+      if (isValidChannelKey(name)) grants.channels.push(name);
+    } else if (key.startsWith("limit:")) {
+      const name = key.slice(6);
+      if (name in LIMIT_KIND_LABELS) grants.limits.push(name as PlanLimitKind);
+    } else if ((allViewKeys as string[]).includes(key)) {
+      grants.views.push(key as ViewKey);
+    }
+  }
+  return grants;
+}
+
+export function encodeGrantKeys(grants: Grants): string[] {
+  return [...grants.views, ...grants.features.map((f) => `feature:${f}`), ...grants.channels.map((c) => `channel:${c}`), ...grants.limits.map((l) => `limit:${l}`)];
+}
+
+/** What an admin may unlock for a workspace on this plan: only what the plan doesn't already include. */
+export function grantableForPlan(planName: string | null | undefined, allowedChannelsRaw: string | null | undefined): Grants {
+  const restriction = getPlanRestriction(planName);
+  const channels = allowedChannelsRaw ? parseAllowedChannels(allowedChannelsRaw) : ("*" as const);
+  const features: GrantFeature[] = !restriction ? [] : GRANT_FEATURES.filter((feature) => {
+    if (feature === "recurringCampaigns") return !restriction.recurringCampaigns;
+    if (feature === "advancedSegments") return !restriction.advancedSegments;
+    if (feature === "fullReports") return restriction.basicReports;
+    if (feature === "reportsExcel") return !restriction.reportsExcel;
+    if (feature === "escalation") return !restriction.escalation;
+    return restriction.botNodeTypes !== "*" || restriction.botMaxSteps !== null;
+  });
+  return {
+    views: lockedViewsForPlan(planName),
+    features,
+    channels: channels === "*" ? [] : CHANNEL_CATALOG.map((entry) => entry.key).filter((key) => !channels.includes(key)),
+    limits: restriction ? (Object.keys(restriction.limits) as PlanLimitKind[]).filter((kind) => restriction.limits[kind] !== null) : []
+  };
+}
+
 /** The pages an admin may unlock for a workspace on this plan: the ones its plan locks. */
 export function grantablePagesForPlan(planName: string | null | undefined): ViewKey[] {
   return lockedViewsForPlan(planName);
 }
 
 /** A plan's cap on a thing (teams, products, ...). null = unlimited. */
-export function planLimit(planName: string | null | undefined, kind: PlanLimitKind, grantedViews: ViewKey[] = []): number | null {
-  // An unlocked page lifts its own cap.
-  if (grantedViews.some((view) => GRANT_LIMIT_KIND[view] === kind)) return null;
+export function planLimit(planName: string | null | undefined, kind: PlanLimitKind, grants: Grants = NO_GRANTS): number | null {
+  // An unlocked page, or an explicit "unlimited", lifts the cap.
+  if (grants.limits.includes(kind) || grants.views.some((view) => GRANT_LIMIT_KIND[view] === kind)) return null;
   return getPlanRestriction(planName)?.limits[kind] ?? null;
 }
 
@@ -207,12 +272,12 @@ export function limitReachedMessage(kind: PlanLimitKind, limit: number): string 
   return `وصلت للحد الأقصى من ${LIMIT_LABELS[kind]} في باقتك الحالية (${limit}). رقِّ باقتك (من ${upgradeTargetForLimit(kind, limit)}) لإضافة المزيد.`;
 }
 
-export function isRecurringCampaignAllowed(planName: string | null | undefined): boolean {
-  return getPlanRestriction(planName)?.recurringCampaigns ?? true;
+export function isRecurringCampaignAllowed(planName: string | null | undefined, grants: Grants = NO_GRANTS): boolean {
+  return grants.features.includes("recurringCampaigns") || (getPlanRestriction(planName)?.recurringCampaigns ?? true);
 }
 
-export function isAdvancedSegmentAllowed(planName: string | null | undefined): boolean {
-  return getPlanRestriction(planName)?.advancedSegments ?? true;
+export function isAdvancedSegmentAllowed(planName: string | null | undefined, grants: Grants = NO_GRANTS): boolean {
+  return grants.features.includes("advancedSegments") || (getPlanRestriction(planName)?.advancedSegments ?? true);
 }
 
 export function isViewLockedForPlan(planName: string | null | undefined, view: ViewKey): boolean {
@@ -241,17 +306,20 @@ export type PlanAccessData = {
   isTrial: boolean;
 };
 
-export function buildPlanAccess(planName: string | null | undefined, allowedChannelsRaw: string | null | undefined, isTrial = false, grantedViews: ViewKey[] = []): PlanAccessData {
+export function buildPlanAccess(planName: string | null | undefined, allowedChannelsRaw: string | null | undefined, isTrial = false, grants: Grants = NO_GRANTS): PlanAccessData {
   const restriction = getPlanRestriction(planName);
-  const extraSteps = grantedViews.flatMap((view) => GRANT_BOT_STEPS[view] ?? []);
+  const extraSteps = grants.views.flatMap((view) => GRANT_BOT_STEPS[view] ?? []);
+  const baseChannels = allowedChannelsRaw ? parseAllowedChannels(allowedChannelsRaw) : "*";
+  const allowedChannels = baseChannels === "*" ? "*" : Array.from(new Set([...baseChannels, ...grants.channels]));
+  const unlimitedBot = grants.features.includes("unlimitedBot");
   return {
     planName: planName ?? "",
-    lockedViews: lockedViewsForPlan(planName).filter((view) => !grantedViews.includes(view)),
-    allowedChannels: allowedChannelsRaw ? parseAllowedChannels(allowedChannelsRaw) : "*",
-    botNodeTypes: restriction ? (restriction.botNodeTypes === "*" ? "*" : [...restriction.botNodeTypes, ...extraSteps]) : "*",
-    botMaxSteps: restriction ? restriction.botMaxSteps : null,
-    basicReports: restriction?.basicReports ?? false,
-    reportsExcel: restriction?.reportsExcel ?? true,
+    lockedViews: lockedViewsForPlan(planName).filter((view) => !grants.views.includes(view)),
+    allowedChannels,
+    botNodeTypes: restriction && !unlimitedBot ? (restriction.botNodeTypes === "*" ? "*" : [...restriction.botNodeTypes, ...extraSteps]) : "*",
+    botMaxSteps: restriction && !unlimitedBot ? restriction.botMaxSteps : null,
+    basicReports: (restriction?.basicReports ?? false) && !grants.features.includes("fullReports"),
+    reportsExcel: (restriction?.reportsExcel ?? true) || grants.features.includes("reportsExcel"),
     isTrial
   };
 }
@@ -265,11 +333,11 @@ export function validateBotNodesForPlan(
   planName: string | null | undefined,
   nodes: Array<{ id?: string; type: string }>,
   existing: Array<{ id: string; type: string }>,
-  grantedViews: ViewKey[] = []
+  grants: Grants = NO_GRANTS
 ): { ok: true } | { ok: false; error: string } {
   const restriction = getPlanRestriction(planName);
-  if (!restriction) return { ok: true };
-  const allowedTypes = restriction.botNodeTypes === "*" ? "*" : [...restriction.botNodeTypes, ...grantedViews.flatMap((view) => GRANT_BOT_STEPS[view] ?? [])];
+  if (!restriction || grants.features.includes("unlimitedBot")) return { ok: true };
+  const allowedTypes = restriction.botNodeTypes === "*" ? "*" : [...restriction.botNodeTypes, ...grants.views.flatMap((view) => GRANT_BOT_STEPS[view] ?? [])];
 
   const existingTypeById = new Map(existing.map((node) => [node.id, node.type]));
   for (const node of nodes) {

@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { getTenantGrants } from "./plan-grants";
 import { parseAllowedChannels, type AllowedChannels, type ChannelKey } from "./channel-catalog";
 
 /**
@@ -12,7 +13,11 @@ export async function getAllowedChannelsForTenant(tenantId: string): Promise<All
   if (!subscription) return "*";
   const plan = await prisma.plan.findUnique({ where: { name: subscription.plan }, select: { allowedChannels: true } });
   if (!plan) return "*";
-  return parseAllowedChannels(plan.allowedChannels);
+  const base = parseAllowedChannels(plan.allowedChannels);
+  if (base === "*") return base;
+  // Channels the platform team unlocked for this workspace beyond its plan.
+  const { channels } = await getTenantGrants(tenantId);
+  return channels.length ? Array.from(new Set([...base, ...channels])) : base;
 }
 
 export async function isChannelAllowedForTenant(tenantId: string, channel: ChannelKey): Promise<boolean> {
