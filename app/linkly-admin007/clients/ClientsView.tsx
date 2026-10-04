@@ -8,6 +8,7 @@ import { Badge, Button, EmptyState, LinkButton, Section, Segmented, StatCard, ty
 import { Dialog, useConfirm } from "../ds/Dialog";
 import { useToast } from "../ds/Toast";
 import ActionMenu from "../ds/ActionMenu";
+import ChargeDialog from "./ChargeDialog";
 import Icon from "../ds/Icon";
 import { useQueryFlag } from "../ds/useQueryFlag";
 import { SORT_OPTIONS, STATUS_FILTERS, clientCounts, filterClients, invoiceBreakdown, sortClients, type ClientSort, type ClientStatusFilter } from "./clients-data";
@@ -71,9 +72,6 @@ export default function ClientsView({ subscriptions, plans }: Props) {
   const [planValue, setPlanValue] = useState("");
   const [balanceMessages, setBalanceMessages] = useState("");
   const [balanceAmount, setBalanceAmount] = useState("");
-  const [chargeAmount, setChargeAmount] = useState("");
-  const [chargeGateway, setChargeGateway] = useState<"moyasar" | "stripe">("moyasar");
-  const [chargeUrl, setChargeUrl] = useState("");
 
   const counts = useMemo(() => clientCounts(subscriptions), [subscriptions]);
   const visible = useMemo(() => sortClients(filterClients(subscriptions, { query, status, followUpOnly }), sort), [subscriptions, query, status, followUpOnly, sort]);
@@ -98,13 +96,10 @@ export default function ClientsView({ subscriptions, plans }: Props) {
 
   function openEditor(kind: "limit" | "plan" | "balance" | "charge", client: SubscriptionRow) {
     setError("");
-    setChargeUrl("");
     setLimitValue(String(client.employeeLimit));
     setPlanValue(client.plan);
     setBalanceMessages("");
     setBalanceAmount("");
-    setChargeAmount(String(client.amount || 499));
-    setChargeGateway("moyasar");
     setModal({ kind, client });
   }
 
@@ -149,19 +144,6 @@ export default function ClientsView({ subscriptions, plans }: Props) {
     setBusy(true);
     setError("");
     await finish(await call(`/api/admin/clients/${modal.client.tenantId}/campaign-balance`, "POST", { messages, amount }), "تعذر إضافة الرصيد", "تمت إضافة الرصيد");
-  }
-
-  async function submitCharge(event: FormEvent) {
-    event.preventDefault();
-    if (modal?.kind !== "charge") return;
-    const amount = Number(chargeAmount);
-    if (!Number.isFinite(amount) || amount < 1) return setError("اكتب قيمة فاتورة صحيحة (1 ر.س على الأقل).");
-    setBusy(true);
-    setError("");
-    const result = await call<{ paymentUrl?: string }>("/api/admin/subscriptions/charge", "POST", { tenantId: modal.client.tenantId, amount, gateway: chargeGateway });
-    setBusy(false);
-    if (!result.ok || !result.data?.paymentUrl) return setError(result.error || "تعذر إنشاء رابط الدفع");
-    setChargeUrl(result.data.paymentUrl);
   }
 
   async function copyLink(url: string) {
@@ -512,40 +494,7 @@ export default function ClientsView({ subscriptions, plans }: Props) {
         ) : null}
       </Dialog>
 
-      {/* ---- Charge / renew ---- */}
-      <Dialog
-        open={modal?.kind === "charge"}
-        onClose={closeModal}
-        title="شحن / تجديد الاشتراك"
-        description="ينشئ رابط دفع حقيقيًا لإرساله للعميل. عند الدفع يتفعّل الاشتراك تلقائيًا."
-        footer={chargeUrl ? <Button variant="primary" onClick={closeModal}>تم</Button> : <><Button variant="outline" onClick={closeModal}>إلغاء</Button><Button variant="primary" type="submit" form="client-charge-form" loading={busy}>إنشاء رابط الدفع</Button></>}
-      >
-        {modal?.kind === "charge" ? (
-          chargeUrl ? (
-            <div style={{ display: "grid", gap: 10 }}>
-              <p style={{ margin: 0 }}>تم إنشاء رابط الدفع. أرسله للعميل ليكمل الدفع:</p>
-              <input className="ds-input" readOnly dir="ltr" value={chargeUrl} aria-label="رابط الدفع" onFocus={(event) => event.currentTarget.select()} />
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <Button variant="outline" icon="external" onClick={() => window.open(chargeUrl, "_blank", "noreferrer")}>فتح رابط الدفع</Button>
-                <Button variant="outline" onClick={() => copyLink(chargeUrl)}>نسخ الرابط</Button>
-              </div>
-            </div>
-          ) : (
-            <form id="client-charge-form" onSubmit={submitCharge} style={{ display: "grid", gap: 14 }}>
-              <label className="ds-field">العميل<input className="ds-input" readOnly value={modal.client.companyName} /></label>
-              <label className="ds-field">
-                بوابة الدفع
-                <select className="ds-select" value={chargeGateway} onChange={(event) => setChargeGateway(event.target.value as "moyasar" | "stripe")}>
-                  <option value="moyasar">Moyasar</option>
-                  <option value="stripe">Stripe (وضع اختبار)</option>
-                </select>
-              </label>
-              <label className="ds-field">قيمة الفاتورة (ر.س)<input data-autofocus className="ds-input" type="number" min="1" value={chargeAmount} onChange={(event) => setChargeAmount(event.target.value)} /></label>
-              {error ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />{error}</p> : null}
-            </form>
-          )
-        ) : null}
-      </Dialog>
+      <ChargeDialog client={modal?.kind === "charge" ? modal.client : null} onClose={() => setModal(null)} />
     </>
   );
 }

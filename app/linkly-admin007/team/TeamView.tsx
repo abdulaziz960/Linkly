@@ -1,226 +1,191 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { FormEvent } from "react";
 import type { TeamRow } from "../types";
 import { formatNumber } from "../utils";
-import { useLanguage } from "../i18n";
+import { Badge, Button, EmptyState, Section, StatCard } from "../ds/primitives";
+import { Dialog, useConfirm } from "../ds/Dialog";
+import { useToast } from "../ds/Toast";
+import Icon from "../ds/Icon";
 import { useQueryFlag } from "../ds/useQueryFlag";
+import { filterTeam, teamExtremes, validateInvite } from "./team-data";
 
-type TeamViewProps = {
-  team: TeamRow[];
-  currentUserId: string;
-};
+type Props = { team: TeamRow[]; currentUserId: string };
 
-export default function TeamView({ team, currentUserId }: TeamViewProps) {
+export default function TeamView({ team, currentUserId }: Props) {
   const router = useRouter();
-  const { t } = useLanguage();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isTeamInviteOpen, setIsTeamInviteOpen] = useState(false);
-  useQueryFlag("invite", () => setIsTeamInviteOpen(true));
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("invite") === "1") setIsTeamInviteOpen(true);
-  }, []);
-  const [isTeamSaving, setIsTeamSaving] = useState(false);
-  const [teamFormError, setTeamFormError] = useState("");
-  const [teamInviteNotice, setTeamInviteNotice] = useState("");
-  const [teamActivationUrl, setTeamActivationUrl] = useState("");
+  const confirm = useConfirm();
+  const toast = useToast();
+  const [query, setQuery] = useState("");
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [activationUrl, setActivationUrl] = useState("");
   const [revokingId, setRevokingId] = useState("");
 
-  const oldestMember = team.length ? [...team].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] : null;
-  const newestMember = team.length ? [...team].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] : null;
+  const visible = useMemo(() => filterTeam(team, query), [team, query]);
+  const { oldest, newest } = useMemo(() => teamExtremes(team), [team]);
+  const me = team.find((member) => member.id === currentUserId);
 
-  const visibleTeam = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return team;
-    return team.filter((member) => member.name.toLowerCase().includes(query) || member.email.toLowerCase().includes(query));
-  }, [team, searchQuery]);
+  function openInvite() {
+    setName("");
+    setEmail("");
+    setError("");
+    setNotice("");
+    setActivationUrl("");
+    setInviteOpen(true);
+  }
+  useQueryFlag("invite", openInvite);
 
-  async function handleInviteTeamMember(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setIsTeamSaving(true);
-    setTeamFormError("");
-    setTeamInviteNotice("");
-    setTeamActivationUrl("");
-
-    const formData = new FormData(event.currentTarget);
-    const payload = {
-      name: String(formData.get("name") || ""),
-      email: String(formData.get("email") || "")
-    };
-
-    const response = await fetch("/api/admin/team", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const result = (await response.json()) as {
-      ok: boolean;
-      error?: string;
-      data?: { delivery?: { message?: string; activationUrl?: string } };
-    };
-
-    setIsTeamSaving(false);
-
-    if (!response.ok || !result.ok) {
-      setTeamFormError(result.error || t("تعذر إضافة العضو", "Failed to add member"));
-      return;
-    }
-
-    setTeamInviteNotice(result.data?.delivery?.message || t("تم إنشاء الحساب.", "Account created."));
-    setTeamActivationUrl(result.data?.delivery?.activationUrl || "");
-    router.refresh();
+  function closeInvite() {
+    if (!saving) setInviteOpen(false);
   }
 
-  async function handleRevokeTeamMember(memberId: string) {
-    if (!window.confirm(t("هل تريد إزالة صلاحية الأدمن عن هذا العضو؟", "Remove admin access from this member?"))) return;
-
-    setRevokingId(memberId);
-    const response = await fetch(`/api/admin/team/${memberId}`, { method: "DELETE" });
-    const result = (await response.json()) as { ok: boolean; error?: string };
-    setRevokingId("");
-
-    if (!response.ok || !result.ok) {
-      window.alert(result.error || t("تعذر إزالة الصلاحية", "Failed to remove access"));
-      return;
+  async function invite(event: FormEvent) {
+    event.preventDefault();
+    const problem = validateInvite(name, email, team);
+    if (problem) return setError(problem);
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/team", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim(), email: email.trim() }) });
+      const result = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; data?: { delivery?: { message?: string; activationUrl?: string } } };
+      if (!response.ok || !result.ok) return setError(result.error || "تعذر إضافة العضو");
+      setNotice(result.data?.delivery?.message || "تم إنشاء الحساب.");
+      setActivationUrl(result.data?.delivery?.activationUrl || "");
+      toast("success", "تمت إضافة العضو");
+      router.refresh();
+    } catch {
+      setError("تعذر الاتصال بالخادم. حاول مرة أخرى.");
+    } finally {
+      setSaving(false);
     }
+  }
 
-    router.refresh();
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(activationUrl);
+      toast("success", "تم نسخ رابط التفعيل");
+    } catch {
+      toast("error", "تعذر النسخ", "انسخ الرابط يدويًا من الحقل.");
+    }
+  }
+
+  async function revoke(member: TeamRow) {
+    const ok = await confirm({
+      title: `إزالة صلاحية «${member.name}»؟`,
+      description: "سيفقد العضو الوصول إلى لوحة الأدمن فورًا. لا يُحذف حسابه.",
+      confirmLabel: "إزالة الصلاحية",
+      tone: "danger"
+    });
+    if (!ok) return;
+    setRevokingId(member.id);
+    try {
+      const response = await fetch(`/api/admin/team/${member.id}`, { method: "DELETE" });
+      const result = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) return toast("error", "تعذر إزالة الصلاحية", result.error);
+      toast("success", "تمت إزالة الصلاحية");
+      router.refresh();
+    } catch {
+      toast("error", "تعذر الاتصال بالخادم");
+    } finally {
+      setRevokingId("");
+    }
   }
 
   return (
     <>
-      <section className="admin-section">
-        <div className="admin-metrics">
-          <article>
-            <span>{t("إجمالي الأعضاء", "Total members")}</span>
-            <strong>{formatNumber(team.length)}</strong>
-            <small>{t("يملكون صلاحية الوصول للوحة", "Have access to the dashboard")}</small>
-          </article>
-          {team.length > 1 ? <article>
-            <span>{t("أقدم عضو", "Oldest member")}</span>
-            <strong>{oldestMember ? oldestMember.name : "—"}</strong>
-            <small>{oldestMember ? oldestMember.createdAt : t("لا يوجد بعد", "None yet")}</small>
-          </article> : null}
-          {team.length > 1 ? <article>
-            <span>{t("أحدث عضو", "Newest member")}</span>
-            <strong>{newestMember ? newestMember.name : "—"}</strong>
-            <small>{newestMember ? newestMember.createdAt : t("لا يوجد بعد", "None yet")}</small>
-          </article> : null}
-          <article>
-            <span>{t("حسابك", "Your account")}</span>
-            <strong>{team.find((m) => m.id === currentUserId)?.name || "—"}</strong>
-            <small>{t("أنت مسجّل دخول بهذا الحساب", "You are signed in with this account")}</small>
-          </article>
-        </div>
-      </section>
+      <div className="ds-stat-grid">
+        <StatCard label="إجمالي الأعضاء" value={formatNumber(team.length)} hint="يملكون صلاحية الوصول للوحة" icon="shield" />
+        {oldest ? <StatCard label="أقدم عضو" value={oldest.name} hint={oldest.createdAt} icon="user" /> : null}
+        {newest ? <StatCard label="أحدث عضو" value={newest.name} hint={newest.createdAt} icon="user" /> : null}
+        <StatCard label="حسابك" value={me?.name || "—"} hint="أنت مسجّل دخول بهذا الحساب" icon="checkCircle" tone="success" />
+      </div>
 
-      <section className="admin-card">
-        <div className="admin-card-head">
-          <div>
-            <h2>{t(`فريق المنصة (${formatNumber(visibleTeam.length)} من ${formatNumber(team.length)})`, `Platform Team (${formatNumber(visibleTeam.length)} of ${formatNumber(team.length)})`)}</h2>
-            <p>{t("الأعضاء الذين يملكون صلاحية الوصول لهذه اللوحة.", "Members who have access to this dashboard.")}</p>
-          </div>
-          <div className="admin-card-actions">
-            <button type="button" onClick={() => { setIsTeamInviteOpen(true); setTeamFormError(""); setTeamInviteNotice(""); setTeamActivationUrl(""); }}>
-              {t("إضافة عضو", "Add Member")}
-            </button>
+      <Section
+        title={`فريق المنصة (${formatNumber(visible.length)} من ${formatNumber(team.length)})`}
+        description="الأعضاء الذين يملكون صلاحية الوصول لهذه اللوحة."
+        actions={<Button variant="primary" icon="plus" onClick={openInvite}>إضافة عضو</Button>}
+      >
+        <div className="ds-toolbar">
+          <div className="ds-search">
+            <Icon name="search" size={17} />
+            <input className="ds-input" type="search" placeholder="ابحث بالاسم أو البريد الإلكتروني…" aria-label="بحث في الفريق" value={query} onChange={(event) => setQuery(event.target.value)} />
           </div>
         </div>
 
-        <div className="admin-toolbar">
-          <input
-            type="search"
-            className="admin-search-input"
-            placeholder={t("ابحث بالاسم أو البريد الإلكتروني...", "Search by name or email...")}
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-        </div>
-
-        <div className="admin-team-cards">
-          {visibleTeam.map((member) => {
-            const isSelf = member.id === currentUserId;
-            return (
-              <article className="admin-team-card" key={member.id}>
-                <div className="admin-team-avatar">{member.name.slice(0, 1) || t("ع", "M")}</div>
-                <div className="admin-team-info">
-                  <strong>{member.name}</strong>
-                  <span dir="ltr">{member.email}</span>
-                  <small>{t(`عضو منذ ${member.createdAt}`, `Member since ${member.createdAt}`)}</small>
-                </div>
-                {isSelf ? (
-                  <span className="admin-pill is-warn">{t("أنت", "You")}</span>
-                ) : (
-                  <button type="button" disabled={revokingId === member.id} onClick={() => handleRevokeTeamMember(member.id)}>
-                    {revokingId === member.id ? t("جاري الإزالة...", "Removing...") : t("إزالة الصلاحية", "Revoke access")}
-                  </button>
-                )}
-              </article>
-            );
-          })}
-        </div>
         {team.length === 0 ? (
-          <p className="admin-empty-state">{t("لا يوجد أعضاء بعد.", "No members yet.")}</p>
-        ) : visibleTeam.length === 0 ? (
-          <p className="admin-empty-state">{t("لا توجد نتائج مطابقة للبحث.", "No results match your search.")}</p>
-        ) : null}
-      </section>
-
-      {isTeamInviteOpen ? (
-        <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="team-invite-title">
-          <div className="admin-modal-card">
-            <div className="admin-modal-head">
-              <div>
-                <h2 id="team-invite-title">{t("إضافة عضو لفريق المنصة", "Add a Platform Team Member")}</h2>
-                <p>{t("ينشئ هذا حساب دخول حقيقي بصلاحية أدمن ويرسل رابط تفعيل على بريده.", "This creates a real admin login account and sends an activation link to their email.")}</p>
-              </div>
-              <button type="button" onClick={() => { setIsTeamInviteOpen(false); setTeamInviteNotice(""); setTeamActivationUrl(""); }} aria-label={t("إغلاق", "Close")}>
-                ×
-              </button>
-            </div>
-
-            {teamInviteNotice ? (
-              <div className="admin-invite-result">
-                <p>{teamInviteNotice}</p>
-                {teamActivationUrl ? (
-                  <a className="activation-link" href={teamActivationUrl} target="_blank" rel="noreferrer">
-                    {t("فتح رابط التفعيل", "Open activation link")}
-                  </a>
-                ) : null}
-                <div className="admin-form-actions">
-                  <button type="button" onClick={() => { setIsTeamInviteOpen(false); setTeamInviteNotice(""); setTeamActivationUrl(""); }}>
-                    {t("تم", "Done")}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <form className="admin-client-form" onSubmit={handleInviteTeamMember}>
-                <label>
-                  {t("الاسم", "Name")}
-                  <input name="name" placeholder={t("اسم العضو", "Member name")} required />
-                </label>
-                <label>
-                  {t("البريد الإلكتروني", "Email")}
-                  <input name="email" type="email" dir="ltr" placeholder="admin@example.com" required />
-                </label>
-
-                {teamFormError ? <p className="admin-form-error">{teamFormError}</p> : null}
-
-                <div className="admin-form-actions">
-                  <button type="button" onClick={() => setIsTeamInviteOpen(false)}>
-                    {t("إلغاء", "Cancel")}
-                  </button>
-                  <button type="submit" disabled={isTeamSaving}>
-                    {isTeamSaving ? t("جاري الحفظ...", "Saving...") : t("إضافة", "Add")}
-                  </button>
-                </div>
-              </form>
-            )}
+          <EmptyState icon="shield" title="لا يوجد أعضاء بعد" description="أضف أول عضو ليحصل على صلاحية الوصول." action={<Button variant="primary" icon="plus" onClick={openInvite}>إضافة عضو</Button>} />
+        ) : visible.length === 0 ? (
+          <EmptyState icon="search" title="لا توجد نتائج مطابقة" description="جرّب تغيير كلمات البحث." />
+        ) : (
+          <div className="ds-table-wrap">
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th scope="col">العضو</th>
+                  <th scope="col">عضو منذ</th>
+                  <th scope="col"><span className="ds-sr-only">إجراءات</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((member) => {
+                  const isSelf = member.id === currentUserId;
+                  return (
+                    <tr key={member.id}>
+                      <td data-cell="main">
+                        <div className="ds-cell-main">
+                          <span className="ds-avatar" aria-hidden="true">{member.name.slice(0, 1) || "ع"}</span>
+                          <div><strong>{member.name}</strong><span><bdi dir="ltr">{member.email}</bdi></span></div>
+                        </div>
+                      </td>
+                      <td data-label="عضو منذ">{member.createdAt}</td>
+                      <td>
+                        <div className="ds-cell-actions">
+                          {isSelf ? <Badge tone="info">أنت</Badge> : <Button variant="outline" loading={revokingId === member.id} onClick={() => void revoke(member)}>إزالة الصلاحية</Button>}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </div>
-      ) : null}
+        )}
+      </Section>
+
+      <Dialog
+        open={inviteOpen}
+        onClose={closeInvite}
+        title={notice ? "تمت إضافة العضو" : "إضافة عضو لفريق المنصة"}
+        description={notice ? undefined : "ينشئ حساب دخول حقيقيًا بصلاحية أدمن ويرسل رابط تفعيل إلى بريده."}
+        footer={notice ? <Button variant="primary" onClick={closeInvite}>تم</Button> : <><Button variant="outline" onClick={closeInvite}>إلغاء</Button><Button variant="primary" type="submit" form="team-invite-form" loading={saving}>إضافة</Button></>}
+      >
+        {notice ? (
+          <div style={{ display: "grid", gap: 10 }}>
+            <p style={{ margin: 0 }}>{notice}</p>
+            {activationUrl ? (
+              <>
+                <input className="ds-input" readOnly dir="ltr" value={activationUrl} aria-label="رابط التفعيل" onFocus={(event) => event.currentTarget.select()} />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <Button variant="outline" icon="external" onClick={() => window.open(activationUrl, "_blank", "noreferrer")}>فتح رابط التفعيل</Button>
+                  <Button variant="outline" onClick={() => void copyLink()}>نسخ الرابط</Button>
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : (
+          <form id="team-invite-form" onSubmit={invite} style={{ display: "grid", gap: 14 }}>
+            <label className="ds-field">الاسم<input data-autofocus className="ds-input" required placeholder="اسم العضو" value={name} onChange={(event) => setName(event.target.value)} /></label>
+            <label className="ds-field">البريد الإلكتروني<input className="ds-input" type="email" dir="ltr" required placeholder="admin@example.com" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+            {error ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />{error}</p> : null}
+          </form>
+        )}
+      </Dialog>
     </>
   );
 }

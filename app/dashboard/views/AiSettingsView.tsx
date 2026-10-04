@@ -2,10 +2,11 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { aiProviders, type AiSettingsPublic } from "../../../lib/ai-types";
+import type { AiUsageSummary } from "../../../lib/ai-usage-summary";
 import { useLanguage } from "../i18n";
 
 type Usage = { id: string; createdAt: string; provider: string; model: string; operation: string; status: string; inputTokens: number | null; outputTokens: number | null; estimatedCost: number | null };
-type Payload = { settings: AiSettingsPublic; dailyUsed: number; monthlyUsed: number; events: Usage[] };
+type Payload = { settings: AiSettingsPublic; dailyUsed: number; monthlyUsed: number; events: Usage[]; summary?: AiUsageSummary };
 
 export default function AiSettingsView() {
   const { t } = useLanguage();
@@ -105,6 +106,17 @@ export default function AiSettingsView() {
           <p>{t("التكلفة تقديرية حسب الأسعار المدخلة واستهلاك المزود؛ تظهر «غير متاح» عند غيابها. في Ollama المحلي، الصفر يعني رسوم API فقط ولا يشمل الخادم.", "Cost is estimated from your rates and provider usage; unavailable when either is missing. For local Ollama, zero means API fees only and excludes hosting.")}</p>
           <button className="btn primary" disabled={saving} type="submit">{saving ? t("جارٍ الحفظ…", "Saving…") : t("حفظ إعدادات AI", "Save AI settings")}</button>
         </form>
+        {data.summary ? <>
+          <h3>{t("جودة واستخدام AI — آخر 30 يوماً", "AI quality and usage — last 30 days")}</h3>
+          <div className="table-wrap"><table className="report-table"><tbody>
+            <tr><th>{t("إجمالي الطلبات", "Total requests")}</th><td>{data.summary.total}</td></tr>
+            <tr><th>{t("نسبة النجاح", "Success rate")}</th><td>{data.summary.successRate === null ? t("غير متاح", "N/A") : `${data.summary.successRate}% (${data.summary.succeeded} / ${data.summary.succeeded + data.summary.failed})`}</td></tr>
+            <tr><th>{t("الرد الآلي للعملاء", "Customer auto-replies")}</th><td>{data.summary.autoReply}</td></tr>
+            <tr><th>{t("مساعد الموظفين", "Employee copilot")}</th><td>{data.summary.employee}</td></tr>
+            <tr><th>{t("التكلفة التقديرية USD", "Estimated cost USD")}</th><td>{data.summary.costUsd.toFixed(4)}{data.summary.costUnknown ? t(` (+${data.summary.costUnknown} طلب بلا تقدير)`, ` (+${data.summary.costUnknown} unpriced)`) : ""}</td></tr>
+            {data.summary.byOperation.map((item) => <tr key={item.operation}><th>{item.operation}</th><td>{item.count}</td></tr>)}
+          </tbody></table></div>
+        </> : null}
         <h3>{t("آخر 50 طلباً", "Latest 50 requests")}</h3>
         <div className="table-wrap"><table className="report-table"><thead><tr>{[t("الوقت", "Time"), t("المزود", "Provider"), t("العملية", "Operation"), t("الحالة", "Status"), t("التكلفة التقديرية USD", "Estimated cost USD")].map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{data.events.map((entry) => <tr key={entry.id}><td>{entry.createdAt}</td><td>{entry.provider} / {entry.model}</td><td>{entry.operation}</td><td>{entry.status}</td><td>{entry.estimatedCost === null ? t("غير متاح", "N/A") : entry.estimatedCost.toFixed(6)}</td></tr>)}</tbody></table>{!data.events.length ? <p>{t("لا طلبات بعد. افتح محادثة وجرّب مساعد AI.", "No requests yet. Open a conversation and try Copilot.")}</p> : null}</div>
       </>}

@@ -2,73 +2,121 @@
 
 import { useMemo, useState } from "react";
 import type { AdminActionLog } from "@prisma/client";
-import CustomSelect from "../../components/CustomSelect";
-import { useLanguage } from "../i18n";
 import { formatNumber } from "../utils";
+import { Badge, Button, EmptyState, Section } from "../ds/primitives";
+import { Drawer } from "../ds/Dialog";
+import Icon from "../ds/Icon";
+import { TARGET_LABEL, actionLabel, actionTone, filterActions, formatActionDate, paginate, parseDetails } from "./actions-data";
 
-function formatDate(value: string, lang: "ar" | "en") {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(lang === "ar" ? "ar-SA-u-nu-latn" : "en-US", { dateStyle: "medium", timeStyle: "short" }).format(date);
-}
+const PAGE_SIZE = 25;
 
 export default function AdminActionsView({ actions }: { actions: AdminActionLog[] }) {
-  const { t, language } = useLanguage();
   const [admin, setAdmin] = useState("all");
   const [action, setAction] = useState("all");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<AdminActionLog | null>(null);
 
   const admins = useMemo(() => Array.from(new Set(actions.map((row) => row.adminEmail))).sort(), [actions]);
   const actionTypes = useMemo(() => Array.from(new Set(actions.map((row) => row.action))).sort(), [actions]);
+  const filtered = useMemo(() => filterActions(actions, { admin, action, query }), [actions, admin, action, query]);
+  const paged = useMemo(() => paginate(filtered, page, PAGE_SIZE), [filtered, page]);
+  const hasFilters = admin !== "all" || action !== "all" || Boolean(query.trim());
 
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return actions.filter((row) => {
-      if (admin !== "all" && row.adminEmail !== admin) return false;
-      if (action !== "all" && row.action !== action) return false;
-      if (!needle) return true;
-      return [row.adminEmail, row.adminName, row.action, row.targetType, row.targetId, row.details].some((value) => value.toLowerCase().includes(needle));
-    });
-  }, [actions, admin, action, query]);
+  function reset() {
+    setAdmin("all");
+    setAction("all");
+    setQuery("");
+    setPage(1);
+  }
 
   return (
-    <section className="admin-card">
-      <div className="admin-card-head">
-        <div>
-          <h2>{t("إجراءات الأدمن", "Admin actions")}</h2>
-          <p>{t(`${formatNumber(visible.length)} من ${formatNumber(actions.length)} إجراء`, `${visible.length} of ${actions.length} actions`)}</p>
-        </div>
-      </div>
-      <div className="logs-filters">
-        <label className="logs-search">
-          <span className="sr-only">{t("بحث", "Search")}</span>
-          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("ابحث بالبريد، الإجراء أو الهدف…", "Search by email, action, or target…")} />
-        </label>
-        <div className="logs-filter-grid">
-          <label>
-            <span>{t("الأدمن", "Admin")}</span>
-            <CustomSelect value={admin} onChange={setAdmin} options={[{ value: "all", label: t("الكل", "All") }, ...admins.map((email) => ({ value: email, label: email }))]} />
-          </label>
-          <label>
-            <span>{t("نوع الإجراء", "Action type")}</span>
-            <CustomSelect value={action} onChange={setAction} options={[{ value: "all", label: t("الكل", "All") }, ...actionTypes.map((item) => ({ value: item, label: item }))]} />
-          </label>
-        </div>
-      </div>
-      <div className="admin-list">
-        {visible.map((row) => (
-          <div className="admin-list-row" key={row.id}>
-            <div>
-              <strong>{row.action}</strong>
-              <span>{row.adminName ? `${row.adminName} · ${row.adminEmail}` : row.adminEmail}</span>
-              {row.targetType ? <small>{row.targetType}: {row.targetId}</small> : null}
-              {row.details ? <small>{row.details}</small> : null}
-            </div>
-            <span className="admin-pill">{formatDate(row.createdAt, language === "ar" ? "ar" : "en")}</span>
+    <>
+      <Section title="سجل تدقيق الأدمن" description={`${formatNumber(filtered.length)} من ${formatNumber(actions.length)} إجراء. يسجّل من نفّذ كل إجراء حساس على المنصة.`}>
+        <div className="ds-toolbar">
+          <div className="ds-search">
+            <Icon name="search" size={17} />
+            <input className="ds-input" type="search" placeholder="ابحث بالبريد أو الإجراء أو الهدف…" aria-label="بحث في الإجراءات" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} />
           </div>
-        ))}
-        {!visible.length ? <p className="admin-empty-state">{t("لا توجد إجراءات مطابقة.", "No matching actions.")}</p> : null}
-      </div>
-    </section>
+          <select className="ds-select" aria-label="الأدمن" value={admin} onChange={(event) => { setAdmin(event.target.value); setPage(1); }}>
+            <option value="all">كل الأدمن</option>
+            {admins.map((email) => <option key={email} value={email}>{email}</option>)}
+          </select>
+          <select className="ds-select" aria-label="نوع الإجراء" value={action} onChange={(event) => { setAction(event.target.value); setPage(1); }}>
+            <option value="all">كل الإجراءات</option>
+            {actionTypes.map((item) => <option key={item} value={item}>{actionLabel(item)}</option>)}
+          </select>
+          {hasFilters ? <div className="ds-toolbar-end"><Button variant="ghost" onClick={reset}>مسح التصفية</Button></div> : null}
+        </div>
+
+        {actions.length === 0 ? (
+          <EmptyState icon="receipt" title="لا توجد إجراءات مسجّلة" description="ستظهر هنا إجراءات فريق الإدارة الحساسة عند تنفيذها." />
+        ) : filtered.length === 0 ? (
+          <EmptyState icon="search" title="لا توجد إجراءات مطابقة" description="جرّب تغيير البحث أو مسح التصفية." action={<Button variant="outline" onClick={reset}>مسح التصفية</Button>} />
+        ) : (
+          <div className="ds-table-wrap">
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th scope="col">الإجراء</th>
+                  <th scope="col">المنفّذ</th>
+                  <th scope="col">الهدف</th>
+                  <th scope="col">الوقت</th>
+                  <th scope="col"><span className="ds-sr-only">التفاصيل</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {paged.rows.map((row) => (
+                  <tr key={row.id}>
+                    <td data-cell="main"><Badge tone={actionTone(row.action)}>{actionLabel(row.action)}</Badge></td>
+                    <td data-label="المنفّذ">
+                      <div className="ds-cell-stack"><strong>{row.adminName || row.adminEmail}</strong>{row.adminName ? <small><bdi dir="ltr">{row.adminEmail}</bdi></small> : null}</div>
+                    </td>
+                    <td data-label="الهدف">
+                      {row.targetType ? <div className="ds-cell-stack"><strong>{TARGET_LABEL[row.targetType] ?? row.targetType}</strong><small><bdi dir="ltr">{row.targetId}</bdi></small></div> : "—"}
+                    </td>
+                    <td data-label="الوقت">{formatActionDate(row.createdAt)}</td>
+                    <td>
+                      <div className="ds-cell-actions">
+                        <Button variant="ghost" icon="info" onClick={() => setSelected(row)} aria-label={`تفاصيل إجراء ${actionLabel(row.action)}`}>التفاصيل</Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="ds-table-foot ds-table-foot-split">
+              <span>يُعرض {formatNumber(paged.rows.length)} من {formatNumber(filtered.length)}</span>
+              {paged.pageCount > 1 ? (
+                <nav className="ds-pager" aria-label="ترقيم الصفحات">
+                  <Button variant="outline" disabled={paged.page === 1} onClick={() => setPage(paged.page - 1)}>السابق</Button>
+                  <span>صفحة {formatNumber(paged.page)} من {formatNumber(paged.pageCount)}</span>
+                  <Button variant="outline" disabled={paged.page === paged.pageCount} onClick={() => setPage(paged.page + 1)}>التالي</Button>
+                </nav>
+              ) : null}
+            </div>
+          </div>
+        )}
+      </Section>
+
+      <Drawer
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        title={selected ? actionLabel(selected.action) : ""}
+        description={selected ? formatActionDate(selected.createdAt) : undefined}
+        footer={<Button variant="outline" onClick={() => setSelected(null)}>إغلاق</Button>}
+      >
+        {selected ? (
+          <dl className="ds-detail-list">
+            <div><dt>المنفّذ</dt><dd>{selected.adminName || "—"}</dd></div>
+            <div><dt>البريد</dt><dd dir="ltr">{selected.adminEmail}</dd></div>
+            <div><dt>الإجراء</dt><dd dir="ltr">{selected.action}</dd></div>
+            {selected.targetType ? <div><dt>نوع الهدف</dt><dd>{TARGET_LABEL[selected.targetType] ?? selected.targetType}</dd></div> : null}
+            {selected.targetId ? <div><dt>معرّف الهدف</dt><dd dir="ltr">{selected.targetId}</dd></div> : null}
+            {parseDetails(selected.details).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}
+          </dl>
+        ) : null}
+      </Drawer>
+    </>
   );
 }

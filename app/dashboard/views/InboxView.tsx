@@ -335,11 +335,21 @@ export default function InboxView({
   const [transcribeErrors, setTranscribeErrors] = useState<Record<string, string>>({});
   const aiRequest = useRef<AbortController | null>(null);
   useEffect(() => () => { aiRequest.current?.abort(); }, [activeConversation.id]);
+  // Opt-in (per browser): draft a reply into the empty composer when the customer spoke last.
+  // Each AI request spends the workspace's AI quota, so this stays off until an employee switches it on.
+  const [autoDraft, setAutoDraft] = useState(false);
+  const autoDraftTried = useRef(new Set<string>());
+  useEffect(() => { try { setAutoDraft(localStorage.getItem("linkly-ai-autodraft") === "1"); } catch { /* storage unavailable */ } }, []);
+  function toggleAutoDraft(on: boolean) {
+    setAutoDraft(on);
+    try { localStorage.setItem("linkly-ai-autodraft", on ? "1" : "0"); } catch { /* storage unavailable */ }
+  }
   const aiOperationLabels: Record<AiOperation, { ar: string; en: string }> = {
     reply: { ar: "اقتراح رد", en: "Suggest reply" },
     rewrite: { ar: "إعادة صياغة المسودة", en: "Rewrite draft" },
     correct: { ar: "تصحيح المسودة", en: "Correct draft" },
     translate: { ar: "ترجمة المسودة للإنجليزية", en: "Translate draft to Arabic" },
+    classify: { ar: "تصنيف المحادثة", en: "Classify conversation" },
     summarize: { ar: "تلخيص المحادثة", en: "Summarize conversation" },
     sentiment: { ar: "تحليل المشاعر", en: "Analyze sentiment" },
     next_step: { ar: "الخطوة التالية", en: "Next step" },
@@ -348,7 +358,7 @@ export default function InboxView({
     transcribe: { ar: "", en: "" }
   };
   const aiOperationOptions = useMemo(
-    () => aiOperations.filter((operation) => operation !== "transcribe").map((operation) => ({ value: operation, label: t(aiOperationLabels[operation].ar, aiOperationLabels[operation].en) })),
+    () => aiOperations.filter((operation) => operation !== "transcribe" && operation !== "classify").map((operation) => ({ value: operation, label: t(aiOperationLabels[operation].ar, aiOperationLabels[operation].en) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [language]
   );
@@ -753,6 +763,20 @@ export default function InboxView({
       setIsAiSuggesting(false);
     }
   }
+
+  const lastMessage = activeConversation.messages?.[activeConversation.messages.length - 1];
+  const autoDraftKey = hasActiveConversation && lastMessage?.direction === "in" ? `${activeConversation.id}:${lastMessage.id}` : "";
+  useEffect(() => {
+    if (!autoDraft || !autoDraftKey || aiOperation !== "reply" || isComposerDisabled || message.trim()) return;
+    if (autoDraftTried.current.has(autoDraftKey)) return;
+    autoDraftTried.current.add(autoDraftKey);
+    void handleSuggestReply();
+    if (!activeConversation.tags?.length) {
+      const conversationId = activeConversation.id;
+      fetch(`/api/conversations/${conversationId}/classify`, { method: "POST" }).catch(() => undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDraft, autoDraftKey]);
 
   async function handleTranscribeAudio(messageId: string) {
     if (!activeConversation.id || transcribingMessageId) return;
@@ -1603,6 +1627,10 @@ export default function InboxView({
                     disabled={isAiSuggesting}
                     options={aiOperationOptions}
                   />
+                  <label className="ai-autodraft-toggle" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }} title={t("يكتب مسودة رد تلقائيًا عند وصول رسالة جديدة من العميل، ويستهلك من رصيد AI", "Drafts a reply automatically when the customer writes; uses AI quota")}>
+                    <input type="checkbox" checked={autoDraft} onChange={(event) => toggleAutoDraft(event.target.checked)} />
+                    {t("مسودة تلقائية", "Auto-draft")}
+                  </label>
                   {aiFeedback && aiFeedbackConversationId === activeConversation.id ? <p role="status" style={{ whiteSpace: "pre-wrap" }}>{aiFeedback}</p> : null}
                   <div className="quick-reply-picker-wrap composer-message-wrap">
                     {shouldShowQuickReplySuggestions ? (
