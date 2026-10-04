@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { useLanguage } from "../i18n";
-import { statusLabel, priorityLabel, statusBadgeClass, priorityBadgeClass } from "../../../lib/support-labels";
-import { SUPPORT_STATUSES, SUPPORT_PRIORITIES } from "../../../lib/support";
+import { SUPPORT_PRIORITIES, SUPPORT_STATUSES } from "../../../lib/support";
+import { Badge, Button, EmptyState } from "../ds/primitives";
+import { useToast } from "../ds/Toast";
+import Icon from "../ds/Icon";
+import { ADMIN_STATUS_LABEL, MAIN_FILTERS, OTHER_FILTERS, PRIORITY_LABEL, PRIORITY_TONE, STATUS_TONE, applyClientFilter, buildListQuery, formatTicketTime, type FilterKey } from "./support-data";
 
 type Ticket = {
   id: string;
@@ -35,20 +37,13 @@ type Message = {
 };
 
 type TicketDetail = Ticket & { messages: Message[]; createdAt: string; relatedUrl: string };
-
-type FilterKey = "all" | "unassigned" | "assigned_to_me" | "new" | "open" | "in_progress" | "waiting" | "urgent" | "resolved" | "closed";
-
-function formatDateTime(iso: string, lang: "ar" | "en") {
-  if (!iso) return "";
-  return new Date(iso).toLocaleString(lang === "ar" ? "ar-SA" : "en-US", { dateStyle: "medium", timeStyle: "short" });
-}
+type Counts = { byStatus: Record<string, number>; urgent: number; unassigned: number; assignedToMe: number };
 
 export default function SupportInboxView({ adminId, adminName }: { adminId: string; adminName: string }) {
-  const { language, t } = useLanguage();
+  const toast = useToast();
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [counts, setCounts] = useState<{ byStatus: Record<string, number>; urgent: number; unassigned: number; assignedToMe: number }>({
-    byStatus: {}, urgent: 0, unassigned: 0, assignedToMe: 0
-  });
+  const [loaded, setLoaded] = useState(false);
+  const [counts, setCounts] = useState<Counts>({ byStatus: {}, urgent: 0, unassigned: 0, assignedToMe: 0 });
   const [filter, setFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -59,31 +54,28 @@ export default function SupportInboxView({ adminId, adminName }: { adminId: stri
   const threadEndRef = useRef<HTMLDivElement>(null);
 
   const loadList = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (filter === "unassigned") params.set("assignedAgentId", "unassigned");
-    if (filter === "assigned_to_me") params.set("assignedAgentId", adminId);
-    if (filter === "new") params.set("status", "new");
-    if (filter === "open") params.set("status", "open");
-    if (filter === "in_progress") params.set("status", "in_progress");
-    if (filter === "resolved") params.set("status", "resolved");
-    if (filter === "closed") params.set("status", "closed");
-    if (search.trim()) params.set("search", search.trim());
-
-    const response = await fetch(`/api/admin/support/tickets?${params.toString()}`);
-    const json = await response.json();
-    if (json.ok) {
-      let list: Ticket[] = json.data.tickets;
-      if (filter === "waiting") list = list.filter((tk) => tk.status === "waiting_customer" || tk.status === "waiting_support");
-      if (filter === "urgent") list = list.filter((tk) => tk.priority === "urgent" && tk.status !== "resolved" && tk.status !== "closed");
-      setTickets(list);
-      setCounts(json.data.counts);
+    try {
+      const response = await fetch(`/api/admin/support/tickets?${buildListQuery(filter, search, adminId)}`);
+      const json = await response.json();
+      if (json.ok) {
+        setTickets(applyClientFilter(filter, json.data.tickets as Ticket[]));
+        setCounts(json.data.counts);
+      }
+    } catch {
+      // Polling runs every 20s; a transient failure just keeps the last list.
+    } finally {
+      setLoaded(true);
     }
   }, [filter, search, adminId]);
 
   const loadDetail = useCallback(async (id: string) => {
-    const response = await fetch(`/api/admin/support/tickets/${id}`);
-    const json = await response.json();
-    if (json.ok) setDetail(json.data);
+    try {
+      const response = await fetch(`/api/admin/support/tickets/${id}`);
+      const json = await response.json();
+      if (json.ok) setDetail(json.data);
+    } catch {
+      // Keep showing the last loaded conversation.
+    }
   }, []);
 
   useEffect(() => {
@@ -107,156 +99,153 @@ export default function SupportInboxView({ adminId, adminName }: { adminId: stri
     threadEndRef.current?.scrollIntoView({ block: "end" });
   }, [detail?.messages.length]);
 
-  const filters: Array<{ key: FilterKey; label: [string, string]; count?: number }> = useMemo(() => [
-    { key: "all", label: ["كل المحادثات", "All conversations"] },
-    { key: "unassigned", label: ["غير معيّنة", "Unassigned"], count: counts.unassigned },
-    { key: "assigned_to_me", label: ["معيّنة لي", "Assigned to me"], count: counts.assignedToMe },
-    { key: "new", label: ["جديدة", "New"], count: counts.byStatus.new },
-    { key: "open", label: ["مفتوحة", "Open"], count: counts.byStatus.open },
-    { key: "in_progress", label: ["قيد المعالجة", "In progress"], count: counts.byStatus.in_progress },
-    { key: "waiting", label: ["بانتظار العميل", "Waiting for customer"] },
-    { key: "urgent", label: ["عاجلة", "Urgent"], count: counts.urgent }
-  ], [counts]);
+  const countFor = useMemo<Partial<Record<FilterKey, number>>>(
+    () => ({
+      unassigned: counts.unassigned,
+      assigned_to_me: counts.assignedToMe,
+      new: counts.byStatus.new,
+      open: counts.byStatus.open,
+      in_progress: counts.byStatus.in_progress,
+      urgent: counts.urgent,
+      resolved: counts.byStatus.resolved,
+      closed: counts.byStatus.closed
+    }),
+    [counts]
+  );
 
-  const otherFilters: Array<{ key: FilterKey; label: [string, string]; count?: number }> = [
-    { key: "resolved", label: ["تم حلها", "Resolved"], count: counts.byStatus.resolved },
-    { key: "closed", label: ["مغلقة", "Closed"], count: counts.byStatus.closed }
-  ];
+  function select(id: string) {
+    setDetail(null);
+    setSelectedId(id);
+  }
+
+  function back() {
+    setSelectedId(null);
+    setDetail(null);
+  }
 
   const sendMessage = async () => {
-    if (!detail || !replyText.trim()) return;
+    if (!detail || !replyText.trim() || sending) return;
     setSending(true);
-    const response = await fetch(`/api/admin/support/tickets/${detail.id}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: replyText, isInternal: replyMode === "note" })
-    });
-    const json = await response.json();
-    if (json.ok) {
+    try {
+      const response = await fetch(`/api/admin/support/tickets/${detail.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: replyText, isInternal: replyMode === "note" })
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        toast("error", "تعذر الإرسال", json.error);
+        return;
+      }
       setReplyText("");
-      await loadDetail(detail.id);
-      await loadList();
+      toast("success", replyMode === "note" ? "تم حفظ الملاحظة الداخلية" : "تم إرسال الرد");
+      await Promise.all([loadDetail(detail.id), loadList()]);
+    } catch {
+      toast("error", "تعذر الإرسال", "تحقق من الاتصال وحاول مرة أخرى.");
+    } finally {
+      setSending(false);
     }
-    setSending(false);
   };
 
   const patchTicket = async (body: Record<string, unknown>) => {
     if (!detail) return;
-    const response = await fetch(`/api/admin/support/tickets/${detail.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    const json = await response.json();
-    if (json.ok) {
-      await loadDetail(detail.id);
-      await loadList();
+    try {
+      const response = await fetch(`/api/admin/support/tickets/${detail.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) return toast("error", "تعذر تحديث التذكرة", json.error);
+      await Promise.all([loadDetail(detail.id), loadList()]);
+    } catch {
+      toast("error", "تعذر تحديث التذكرة", "تحقق من الاتصال وحاول مرة أخرى.");
     }
   };
 
+  const filterButton = (item: { key: FilterKey; label: string }) => {
+    const count = countFor[item.key];
+    return (
+      <button key={item.key} type="button" aria-pressed={filter === item.key} data-active={filter === item.key || undefined} onClick={() => setFilter(item.key)}>
+        <span>{item.label}</span>
+        {typeof count === "number" && count > 0 ? <b>{count}</b> : null}
+      </button>
+    );
+  };
+
   return (
-    <div className="support-inbox" dir={language === "ar" ? "rtl" : "ltr"}>
-      <aside className="support-inbox-filters">
-        <h2>{t("البريد الوارد", "Inbox")}</h2>
-        <nav>
-          {filters.map((item) => (
-            <button key={item.key} type="button" className={filter === item.key ? "active" : ""} onClick={() => setFilter(item.key)}>
-              <span>{t(item.label[0], item.label[1])}</span>
-              {typeof item.count === "number" && item.count > 0 ? <b>{item.count}</b> : null}
-            </button>
-          ))}
-        </nav>
-        <span className="support-inbox-separator">{t("أخرى", "Other")}</span>
-        <nav>
-          {otherFilters.map((item) => (
-            <button key={item.key} type="button" className={filter === item.key ? "active" : ""} onClick={() => setFilter(item.key)}>
-              <span>{t(item.label[0], item.label[1])}</span>
-              {typeof item.count === "number" && item.count > 0 ? <b>{item.count}</b> : null}
-            </button>
-          ))}
-        </nav>
+    <div className="support-inbox ds-card" data-pane={selectedId ? "conversation" : "list"}>
+      <aside className="support-inbox-filters" aria-label="تصفية التذاكر">
+        <h2>البريد الوارد</h2>
+        <nav>{MAIN_FILTERS.map(filterButton)}</nav>
+        <span className="support-inbox-separator">أخرى</span>
+        <nav>{OTHER_FILTERS.map(filterButton)}</nav>
       </aside>
 
-      <section className="support-inbox-list">
-        <input
-          className="support-inbox-search"
-          placeholder={t("بحث في التذاكر والعملاء...", "Search tickets and customers...")}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
+      <section className="support-inbox-list" aria-label="قائمة التذاكر">
+        <div className="ds-search support-inbox-search">
+          <Icon name="search" size={17} />
+          <input className="ds-input" type="search" placeholder="بحث في التذاكر والعملاء…" aria-label="بحث في التذاكر" value={search} onChange={(event) => setSearch(event.target.value)} />
+        </div>
         <div className="support-inbox-list-rows">
-          {tickets.length === 0 ? (
-            <p className="support-inbox-empty">{t("لا توجد تذاكر مطابقة", "No matching tickets")}</p>
+          {!loaded ? (
+            <p className="support-inbox-empty">جارٍ التحميل…</p>
+          ) : tickets.length === 0 ? (
+            <EmptyState icon="lifebuoy" title="لا توجد تذاكر مطابقة" description="جرّب تغيير التصفية أو البحث." />
           ) : (
             tickets.map((ticket) => (
-              <button
-                key={ticket.id}
-                type="button"
-                className={`support-inbox-row ${selectedId === ticket.id ? "active" : ""}`}
-                onClick={() => setSelectedId(ticket.id)}
-              >
-                <div className="support-inbox-row-top">
+              <button key={ticket.id} type="button" className="support-inbox-row" data-active={selectedId === ticket.id || undefined} onClick={() => select(ticket.id)}>
+                <span className="support-inbox-row-top">
                   <b>{ticket.createdByName}</b>
-                  <span className={`support-priority-badge ${priorityBadgeClass(ticket.priority)}`}>{priorityLabel(ticket.priority, language)}</span>
-                </div>
+                  <Badge tone={PRIORITY_TONE[ticket.priority] ?? "neutral"} dot={false}>{PRIORITY_LABEL[ticket.priority] ?? ticket.priority}</Badge>
+                </span>
                 <span className="support-inbox-row-company">{ticket.companyName}</span>
                 <span className="support-inbox-row-subject">{ticket.subject}</span>
-                <div className="support-inbox-row-bottom">
-                  <span className={`support-status-badge ${statusBadgeClass(ticket.status)}`}>{statusLabel(ticket.status, language)}</span>
-                  <time>{formatDateTime(ticket.updatedAt, language)}</time>
-                </div>
+                <span className="support-inbox-row-bottom">
+                  <Badge tone={STATUS_TONE[ticket.status] ?? "neutral"}>{ADMIN_STATUS_LABEL[ticket.status] ?? ticket.status}</Badge>
+                  <time>{formatTicketTime(ticket.updatedAt)}</time>
+                </span>
               </button>
             ))
           )}
         </div>
       </section>
 
-      <section className="support-inbox-conversation">
-        {!detail ? (
-          <div className="support-inbox-empty-detail">{t("اختر تذكرة لعرض المحادثة", "Select a ticket to view the conversation")}</div>
+      <section className="support-inbox-conversation" aria-label="المحادثة">
+        {!selectedId ? (
+          <EmptyState icon="message" title="اختر تذكرة" description="اختر تذكرة من القائمة لعرض المحادثة والرد عليها." />
+        ) : !detail ? (
+          <p className="support-inbox-empty">جارٍ تحميل المحادثة…</p>
         ) : (
           <>
             <header className="support-inbox-conv-header">
-              <div>
+              <button type="button" className="ds-icon-btn support-inbox-back" aria-label="العودة إلى القائمة" onClick={back}><Icon name="chevronRight" size={18} /></button>
+              <div className="support-inbox-conv-title">
                 <b>{detail.createdByName}</b>
                 <span>{detail.companyName} · #{detail.ticketNumber}</span>
+                <small>{detail.subject}</small>
               </div>
               <div className="support-inbox-quick-actions">
-                <select value={detail.status} onChange={(event) => patchTicket({ status: event.target.value })}>
-                  {SUPPORT_STATUSES.map((status) => (
-                    <option key={status} value={status}>{statusLabel(status, language)}</option>
-                  ))}
+                <select className="ds-select" aria-label="حالة التذكرة" value={detail.status} onChange={(event) => patchTicket({ status: event.target.value })}>
+                  {SUPPORT_STATUSES.map((status) => <option key={status} value={status}>{ADMIN_STATUS_LABEL[status] ?? status}</option>)}
                 </select>
-                <select value={detail.priority} onChange={(event) => patchTicket({ priority: event.target.value })}>
-                  {SUPPORT_PRIORITIES.map((priority) => (
-                    <option key={priority} value={priority}>{priorityLabel(priority, language)}</option>
-                  ))}
+                <select className="ds-select" aria-label="أولوية التذكرة" value={detail.priority} onChange={(event) => patchTicket({ priority: event.target.value })}>
+                  {SUPPORT_PRIORITIES.map((priority) => <option key={priority} value={priority}>{PRIORITY_LABEL[priority] ?? priority}</option>)}
                 </select>
                 {detail.assignedAgentId ? (
-                  <button type="button" onClick={() => patchTicket({ assignedAgentId: "", assignedAgentName: "" })}>
-                    {t("إلغاء الإسناد", "Unassign")}
-                  </button>
+                  <Button variant="outline" onClick={() => patchTicket({ assignedAgentId: "", assignedAgentName: "" })}>إلغاء الإسناد{detail.assignedAgentName ? ` (${detail.assignedAgentName})` : ""}</Button>
                 ) : (
-                  <button type="button" onClick={() => patchTicket({ assignedAgentId: adminId, assignedAgentName: adminName })}>
-                    {t("تعيين لي", "Assign to me")}
-                  </button>
+                  <Button variant="outline" icon="user" onClick={() => patchTicket({ assignedAgentId: adminId, assignedAgentName: adminName })}>تعيين لي</Button>
                 )}
               </div>
             </header>
 
-            <div className="support-inbox-thread">
+            <div className="support-inbox-thread" role="log" aria-live="polite">
               {detail.messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`support-message support-message-${message.senderType} ${message.isInternal ? "support-message-internal" : ""}`}
-                >
-                  {message.senderType !== "system" ? <div className="support-message-avatar">{(message.senderName || "?").slice(0, 1)}</div> : null}
+                <div key={message.id} className={`support-message support-message-${message.senderType}${message.isInternal ? " support-message-internal" : ""}`}>
+                  {message.senderType !== "system" ? <div className="support-message-avatar" aria-hidden="true">{(message.senderName || "?").slice(0, 1)}</div> : null}
                   <div className="support-message-body">
                     {message.senderType !== "system" ? (
                       <div className="support-message-meta">
                         <b>{message.senderName}</b>
-                        {message.isInternal ? <span className="support-internal-tag">{t("ملاحظة داخلية", "Internal note")}</span> : null}
-                        <time>{formatDateTime(message.createdAt, language)}</time>
+                        {message.isInternal ? <Badge tone="warning" dot={false}>ملاحظة داخلية</Badge> : null}
+                        <time>{formatTicketTime(message.createdAt)}</time>
                       </div>
                     ) : null}
                     {message.text ? <p>{message.text}</p> : null}
@@ -282,32 +271,28 @@ export default function SupportInboxView({ adminId, adminName }: { adminId: stri
             </div>
 
             <div className="support-inbox-composer">
-              <div className="support-composer-tabs">
-                <button type="button" className={replyMode === "reply" ? "active" : ""} onClick={() => setReplyMode("reply")}>
-                  {t("الرد على العميل", "Reply to customer")}
-                </button>
-                <button type="button" className={replyMode === "note" ? "active" : ""} onClick={() => setReplyMode("note")}>
-                  {t("ملاحظة داخلية", "Internal note")}
-                </button>
+              <div className="support-composer-tabs" role="tablist" aria-label="نوع الرسالة">
+                <button type="button" role="tab" aria-selected={replyMode === "reply"} data-active={replyMode === "reply" || undefined} onClick={() => setReplyMode("reply")}>الرد على العميل</button>
+                <button type="button" role="tab" aria-selected={replyMode === "note"} data-active={replyMode === "note" || undefined} onClick={() => setReplyMode("note")}>ملاحظة داخلية</button>
               </div>
-              {replyMode === "note" ? (
-                <p className="support-internal-warning">{t("هذه الملاحظة مرئية لفريق الدعم فقط.", "This note is visible to the support team only.")}</p>
-              ) : null}
+              {replyMode === "note" ? <p className="support-internal-warning"><Icon name="info" size={14} />هذه الملاحظة مرئية لفريق الدعم فقط.</p> : null}
               <textarea
-                className={replyMode === "note" ? "support-composer-note" : ""}
+                className="ds-textarea"
+                data-note={replyMode === "note" || undefined}
                 rows={3}
                 value={replyText}
+                aria-label={replyMode === "note" ? "ملاحظة داخلية" : "نص الرد"}
                 onChange={(event) => setReplyText(event.target.value)}
-                placeholder={replyMode === "note" ? t("اكتب ملاحظة داخلية...", "Write an internal note...") : t("اكتب ردك هنا...", "Write your reply here...")}
+                placeholder={replyMode === "note" ? "اكتب ملاحظة داخلية…" : "اكتب ردك هنا…"}
                 onKeyDown={(event) => {
-                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") sendMessage();
+                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void sendMessage();
                 }}
               />
               <div className="support-composer-actions">
-                <span className="support-composer-hint">{t("Ctrl/Cmd + Enter للإرسال", "Ctrl/Cmd + Enter to send")}</span>
-                <button type="button" className="support-cta-primary" disabled={sending || !replyText.trim()} onClick={sendMessage}>
-                  {sending ? t("جاري الإرسال…", "Sending…") : replyMode === "note" ? t("حفظ الملاحظة", "Save note") : t("إرسال الرد", "Send reply")}
-                </button>
+                <span className="support-composer-hint">Ctrl/Cmd + Enter للإرسال</span>
+                <Button variant="primary" icon="message" loading={sending} disabled={!replyText.trim()} onClick={() => void sendMessage()}>
+                  {replyMode === "note" ? "حفظ الملاحظة" : "إرسال الرد"}
+                </Button>
               </div>
             </div>
           </>

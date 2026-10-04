@@ -1926,3 +1926,43 @@ a.ds-stat:hover {
 .ds-plan-facts span {
   color: var(--ds-text-muted);
 }
+
+/* ---------- Suggestion cards (development) ---------- */
+.ds-dev-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+.ds-dev-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.ds-dev-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ds-dev-card-head strong {
+  font-size: 15.5px;
+  line-height: 1.5;
+}
+.ds-dev-description {
+  margin: 0;
+  color: var(--ds-text);
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ds-dev-by {
+  margin: 0;
+  color: var(--ds-text-muted);
+  font-size: 12.5px;
+}
+.ds-dev-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
