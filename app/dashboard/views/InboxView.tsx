@@ -60,6 +60,7 @@ type InboxViewProps = {
   onMarkConversationUnread: (conversationId: string) => void | Promise<void>;
   onToggleConversationStatus: (conversationId: string) => void | Promise<void>;
   onSend: (event: FormEvent<HTMLFormElement>, replyToMessageId?: string) => void | Promise<void>;
+  isSending?: boolean;
   onSendAttachment: (attachment: MessageAttachment) => void | Promise<void>;
   onSendCommentReply: (messageId: string, text: string) => void | Promise<void>;
   onSendTemplate: (templateName?: string) => void | Promise<void>;
@@ -308,6 +309,7 @@ export default function InboxView({
   onMarkConversationUnread,
   onToggleConversationStatus,
   onSend,
+  isSending = false,
   onSendAttachment,
   onSendCommentReply,
   onSendTemplate,
@@ -1634,8 +1636,8 @@ export default function InboxView({
                       value={message}
                     />
                   </div>
-                  <button className="btn primary" disabled={isComposerDisabled} type="submit">
-                    {t("إرسال", "Send")}
+                  <button className="btn primary" disabled={isComposerDisabled || isSending} aria-busy={isSending} type="submit">
+                    {isSending ? t("جاري الإرسال...", "Sending...") : t("إرسال", "Send")}
                   </button>
                 </form>
               </>
