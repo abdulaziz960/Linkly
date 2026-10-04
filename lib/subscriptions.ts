@@ -1207,6 +1207,7 @@ export async function deleteTenant(tenantId: string) {
     // Campaigns.
     prisma.campaignRecipient.deleteMany({ where: { tenantId } }),
     prisma.campaignPayment.deleteMany({ where: { tenantId } }),
+    prisma.tenantFeatureGrant.deleteMany({ where: { tenantId } }),
     prisma.campaignBalance.deleteMany({ where: { tenantId } }),
     prisma.campaign.deleteMany({ where: { tenantId } }),
     // Tags, templates, quick replies.

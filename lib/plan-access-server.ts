@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { buildPlanAccess, isViewLockedForPlan, limitReachedMessage, planLimit, type PlanAccessData, type PlanLimitKind } from "./plan-access";
+import { listTenantGrants } from "./plan-grants";
 import type { ViewKey } from "../app/dashboard/types";
 
 /**
@@ -18,13 +19,15 @@ export async function getTenantPlanName(tenantId: string): Promise<string | null
 }
 
 export async function isViewLockedForTenant(tenantId: string, view: ViewKey): Promise<boolean> {
-  return isViewLockedForPlan(await getTenantPlanName(tenantId), view);
+  if (!isViewLockedForPlan(await getTenantPlanName(tenantId), view)) return false;
+  // Locked by the plan - unless the platform team unlocked this page for this workspace.
+  return !(await listTenantGrants(tenantId)).includes(view);
 }
 
 export async function getPlanAccessForTenant(tenantId: string): Promise<PlanAccessData> {
   const planName = await getTenantPlanName(tenantId);
   const plan = planName ? await prisma.plan.findUnique({ where: { name: planName }, select: { allowedChannels: true } }) : null;
-  return buildPlanAccess(planName, plan?.allowedChannels, await getTenantTrialState(tenantId));
+  return buildPlanAccess(planName, plan?.allowedChannels, await getTenantTrialState(tenantId), await listTenantGrants(tenantId));
 }
 
 export class PlanLimitError extends Error {}
@@ -38,7 +41,7 @@ async function countFor(tenantId: string, kind: PlanLimitKind): Promise<number> 
 
 /** Throws PlanLimitError (with a customer-facing message) when adding `adding` more would go past the plan's cap. */
 export async function assertWithinPlanLimit(tenantId: string, kind: PlanLimitKind, adding = 1): Promise<void> {
-  const limit = planLimit(await getTenantPlanName(tenantId), kind);
+  const limit = planLimit(await getTenantPlanName(tenantId), kind, await listTenantGrants(tenantId));
   if (limit === null) return;
   if ((await countFor(tenantId, kind)) + adding > limit) throw new PlanLimitError(limitReachedMessage(kind, limit));
 }

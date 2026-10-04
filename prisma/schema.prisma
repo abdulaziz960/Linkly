@@ -1244,3 +1244,16 @@ model Branch {
   @@index([tenantId, active])
   @@map("branches")
 }
+
+// A page the platform team unlocked for ONE workspace regardless of its plan
+// (set from the admin panel, see lib/plan-grants.ts).
+model TenantFeatureGrant {
+  id        String @id
+  tenantId  String @map("tenant_id")
+  viewKey   String @map("view_key")
+  grantedBy String @default("") @map("granted_by")
+  createdAt String @map("created_at")
+
+  @@unique([tenantId, viewKey])
+  @@map("tenant_feature_grants")
+}

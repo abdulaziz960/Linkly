@@ -166,8 +166,26 @@ export function isEscalationAllowedForPlan(planName: string | null | undefined):
   return getPlanRestriction(planName)?.escalation ?? true;
 }
 
+// When the platform team unlocks a page for one workspace, the caps and the bot steps tied to that page open too -
+// otherwise e.g. an unlocked catalog would still allow 0 products.
+export const GRANT_LIMIT_KIND: Partial<Record<ViewKey, PlanLimitKind>> = { catalog: "products", branches: "branches", knowledgeBase: "kbEntries", teams: "teams" };
+export const GRANT_BOT_STEPS: Partial<Record<ViewKey, string[]>> = {
+  ai: ["رد AI تلقائي"],
+  knowledgeBase: ["رد من قاعدة المعرفة"],
+  catalog: ["عرض الكتالوج"],
+  branches: ["أقرب فرع"],
+  teams: ["تحويل لفريق"]
+};
+
+/** The pages an admin may unlock for a workspace on this plan: the ones its plan locks. */
+export function grantablePagesForPlan(planName: string | null | undefined): ViewKey[] {
+  return lockedViewsForPlan(planName);
+}
+
 /** A plan's cap on a thing (teams, products, ...). null = unlimited. */
-export function planLimit(planName: string | null | undefined, kind: PlanLimitKind): number | null {
+export function planLimit(planName: string | null | undefined, kind: PlanLimitKind, grantedViews: ViewKey[] = []): number | null {
+  // An unlocked page lifts its own cap.
+  if (grantedViews.some((view) => GRANT_LIMIT_KIND[view] === kind)) return null;
   return getPlanRestriction(planName)?.limits[kind] ?? null;
 }
 
@@ -223,13 +241,14 @@ export type PlanAccessData = {
   isTrial: boolean;
 };
 
-export function buildPlanAccess(planName: string | null | undefined, allowedChannelsRaw: string | null | undefined, isTrial = false): PlanAccessData {
+export function buildPlanAccess(planName: string | null | undefined, allowedChannelsRaw: string | null | undefined, isTrial = false, grantedViews: ViewKey[] = []): PlanAccessData {
   const restriction = getPlanRestriction(planName);
+  const extraSteps = grantedViews.flatMap((view) => GRANT_BOT_STEPS[view] ?? []);
   return {
     planName: planName ?? "",
-    lockedViews: lockedViewsForPlan(planName),
+    lockedViews: lockedViewsForPlan(planName).filter((view) => !grantedViews.includes(view)),
     allowedChannels: allowedChannelsRaw ? parseAllowedChannels(allowedChannelsRaw) : "*",
-    botNodeTypes: restriction ? restriction.botNodeTypes : "*",
+    botNodeTypes: restriction ? (restriction.botNodeTypes === "*" ? "*" : [...restriction.botNodeTypes, ...extraSteps]) : "*",
     botMaxSteps: restriction ? restriction.botMaxSteps : null,
     basicReports: restriction?.basicReports ?? false,
     reportsExcel: restriction?.reportsExcel ?? true,
@@ -245,15 +264,17 @@ export function buildPlanAccess(planName: string | null | undefined, allowedChan
 export function validateBotNodesForPlan(
   planName: string | null | undefined,
   nodes: Array<{ id?: string; type: string }>,
-  existing: Array<{ id: string; type: string }>
+  existing: Array<{ id: string; type: string }>,
+  grantedViews: ViewKey[] = []
 ): { ok: true } | { ok: false; error: string } {
   const restriction = getPlanRestriction(planName);
   if (!restriction) return { ok: true };
+  const allowedTypes = restriction.botNodeTypes === "*" ? "*" : [...restriction.botNodeTypes, ...grantedViews.flatMap((view) => GRANT_BOT_STEPS[view] ?? [])];
 
   const existingTypeById = new Map(existing.map((node) => [node.id, node.type]));
   for (const node of nodes) {
     const isNewOrChanged = !node.id || existingTypeById.get(node.id) !== node.type;
-    if (isNewOrChanged && restriction.botNodeTypes !== "*" && !restriction.botNodeTypes.includes(node.type)) {
+    if (isNewOrChanged && allowedTypes !== "*" && !allowedTypes.includes(node.type)) {
       return { ok: false, error: `خطوة «${node.type}» غير متاحة في باقتك الحالية. رقِّ باقتك للاستمتاع بالمزايا.` };
     }
   }
