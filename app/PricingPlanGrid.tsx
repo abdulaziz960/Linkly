@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { BILLING_CYCLES, CYCLE_SLUGS, priceForCycle } from "../lib/billing-pricing";
-import { cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../lib/billing-cycle-copy";
+import { perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../lib/billing-cycle-copy";
 import { useBillingCycle } from "./useBillingCycle";
 import { useReducedMotion } from "./landing/motion";
 import s from "./page.module.css";
@@ -102,7 +102,8 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
     <div className={c.pgGrid} onPointerMove={onPointerMove}>{plans.map((p, pi) => {
       const featured = "featured" in p && p.featured;
       const monthlyPrice = Number(p.price);
-      const displayedPrice = priceForCycle(monthlyPrice, billingCycle);
+      const cycleTotal = priceForCycle(monthlyPrice, billingCycle);
+      const displayedPrice = perMonthPrice(cycleTotal, billingCycle);
       return <article
         className={`${c.pgCard} ${featured ? c.pgFeatured : ""} ${s.revealFade}`}
         key={p.name}
@@ -116,7 +117,7 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
           <AnimatedPrice value={displayedPrice} />
           <span>{text.currency}<br />{cyclePriceSuffix(billingCycle, lang)}</span>
         </div>
-        <p className={c.pgNote} data-show={multiMonth || undefined} aria-hidden={!multiMonth}>{multiMonth ? cycleBilledNote(billingCycle, displayedPrice, lang) : ""}</p>
+        <p className={c.pgNote} data-show={multiMonth || undefined} aria-hidden={!multiMonth}>{multiMonth ? cycleBilledNote(billingCycle, cycleTotal, lang) : ""}</p>
         <ul>{p.items.map((item, ii) => <li key={item} style={{ "--i": ii } as CSSProperties}><span className={c.pgCheck} aria-hidden="true">✓</span>{item}</li>)}</ul>
         <Link className={`${featured ? s.primaryLarge : s.planButton} ${c.pgCta}`} href={`/signup?plan=${encodeURIComponent(p.id)}${multiMonth ? `&billing=${CYCLE_SLUGS[billingCycle]}` : ""}`}>{p.cta}</Link>
       </article>;

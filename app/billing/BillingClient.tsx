@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { BILLING_CYCLES, isSamePlanRenewalTooEarly, priceForCycle } from "../../lib/billing-pricing";
-import { cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../../lib/billing-cycle-copy";
+import { perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../../lib/billing-cycle-copy";
 import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
 import { useBillingCycle } from "../useBillingCycle";
 
@@ -76,7 +76,8 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
       })}
     </div>
     <div className="plan-grid">{plans.map((plan) => {
-      const displayedPrice = priceForCycle(plan.monthlyPrice, billingCycle);
+      const cycleTotal = priceForCycle(plan.monthlyPrice, billingCycle);
+      const displayedPrice = perMonthPrice(cycleTotal, billingCycle);
       const items = getPlanDisplayItems(plan, lang);
       const featured = Boolean(planFeatures[plan.name]?.featured);
       const isCurrent = currentPlan === plan.name;
@@ -85,7 +86,7 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
         {isCurrent ? <span className="current-badge">{text.currentPlanBadge}</span> : featured ? <span className="recommended">{text.recommended}</span> : null}
         <h2>{plan.name}</h2>
         <div className="plan-price"><b>{displayedPrice}</b><span>{lang === "ar" ? "ر.س" : "SAR"} {cyclePriceSuffix(billingCycle, lang)}</span></div>
-        {billingCycle !== "شهري" ? <p className="plan-price-note">{cycleBilledNote(billingCycle, displayedPrice, lang)}</p> : null}
+        {billingCycle !== "شهري" ? <p className="plan-price-note">{cycleBilledNote(billingCycle, cycleTotal, lang)}</p> : null}
         <ul>{items.map((item) => <li key={item}>✓ {item}</li>)}</ul>
 
         <button disabled={loading !== "" || renewalTooEarly} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : renewalTooEarly ? text.activeUntil(currentSubscription?.renewalAt || "") : isCurrent ? text.renewPlan : text.upgradePlan}</button>

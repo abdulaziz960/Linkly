@@ -20,11 +20,11 @@ export function cycleSaveBadge(cycle: BillingCycle, lang: Lang): string {
   return lang === "ar" ? `وفر ${percent}٪` : `Save ${percent}%`;
 }
 
-/** "SAR / month" style suffix next to the price. */
+/** "/ month" suffix next to the price (always per month). */
 export function cyclePriceSuffix(cycle: BillingCycle, lang: Lang): string {
-  const months = CYCLE_MONTHS[cycle];
-  if (lang === "ar") return cycle === "شهري" ? "/ الشهر" : cycle === "سنوي" ? "/ السنة" : `/ ${months} أشهر`;
-  return cycle === "شهري" ? "/ month" : cycle === "سنوي" ? "/ year" : `/ ${months} months`;
+  // Multi-month cycles show the per-month equivalent; the full charge is in cycleBilledNote.
+  void cycle;
+  return lang === "ar" ? "/ الشهر" : "/ month";
 }
 
 /** One-line note under the price of a multi-month cycle. */
@@ -36,4 +36,9 @@ export function cycleBilledNote(cycle: BillingCycle, total: number, lang: Lang):
   }
   if (cycle === "سنوي") return `12 months for the price of 10 (2 free) · billed once as ${total} SAR`;
   return `Billed once as ${total} SAR every ${months} months`;
+}
+
+/** Price shown in big type: the per-month equivalent of a cycle's total. */
+export function perMonthPrice(total: number, cycle: BillingCycle): number {
+  return Math.round(total / CYCLE_MONTHS[cycle]);
 }
