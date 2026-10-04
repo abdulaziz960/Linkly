@@ -1790,3 +1790,49 @@ a.ds-stat:hover {
   font-weight: 600;
   cursor: pointer;
 }
+
+/* ---------- Table footer split, advanced filters, detail list ---------- */
+.ds-table-foot-split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ds-toolbar-advanced {
+  align-items: flex-end;
+  padding: 12px 14px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  background: var(--ds-surface-sunken);
+}
+.ds-toolbar-advanced .ds-field {
+  flex: 1 1 150px;
+}
+.ds-detail-list {
+  display: grid;
+  margin: 0;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  overflow: hidden;
+}
+.ds-detail-list > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1.4fr);
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--ds-border);
+  font-size: 13.5px;
+}
+.ds-detail-list > div:last-child {
+  border-bottom: 0;
+}
+.ds-detail-list dt {
+  color: var(--ds-text-muted);
+}
+.ds-detail-list dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
