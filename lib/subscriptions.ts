@@ -8,11 +8,11 @@ import { PAYMENT_STATUS, PAYMENT_GATEWAY, mapMoyasarInvoiceStatus, type PaymentK
 import { chargeSavedCard, buildPaymentMetadata, paymentDescription, summarizeMoyasarPayment, isAutoRenewEnabled, type GatewayPaymentDetails } from "./moyasar";
 import { confirmPromoCodeUsage, releasePromoCodeUsage } from "./promo-codes";
 import { encryptSecret, decryptSecret } from "./secret-storage";
-import { computeYearlyPrice, isBillingCycle, type BillingCycle } from "./billing-pricing";
+import { CYCLE_MONTHS, isBillingCycle, priceForCycle, type BillingCycle } from "./billing-pricing";
 import { isUnlimitedMessageQuota, UNLIMITED_MESSAGE_CREDIT } from "./message-quota";
 
 /** Length of one paid subscription period, in months, per billing cycle. */
-export const SUBSCRIPTION_PERIOD_MONTHS: Record<BillingCycle, number> = { "شهري": 1, "سنوي": 12 };
+export const SUBSCRIPTION_PERIOD_MONTHS: Record<BillingCycle, number> = CYCLE_MONTHS;
 
 function addMonths(date: Date, months: number) {
   const next = new Date(date.getTime());
@@ -35,7 +35,7 @@ function isoDate(date: Date) {
  * payment's unused ~300 remaining days at a 30-day rate would wildly
  * overcredit it.
  */
-const PRORATION_PERIOD_DAYS: Record<BillingCycle, number> = { "شهري": 30, "سنوي": 365 };
+const PRORATION_PERIOD_DAYS: Record<BillingCycle, number> = { "شهري": 30, "ربع سنوي": 91, "نصف سنوي": 182, "سنوي": 365 };
 
 /**
  * Credit for the unused days of the CURRENT plan when the owner switches
@@ -377,7 +377,7 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
     if (payment.planName && !isViewLockedForPlan(payment.planName, "campaigns")) {
       const creditMessages = isUnlimitedMessageQuota(payment.planMessageQuota)
         ? UNLIMITED_MESSAGE_CREDIT
-        : payment.planMessageQuota * (billingCycle === "سنوي" ? 12 : 1);
+        : payment.planMessageQuota * CYCLE_MONTHS[billingCycle];
       if (creditMessages > 0) {
         await tx.campaignBalance.upsert({
           where: { tenantId: payment.tenantId },
@@ -847,7 +847,7 @@ export async function attemptAutoRenewals(baseUrl: string) {
     // the actual guard against double-charging the saved card.
     const paymentId = `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}`;
     const billingCycle: BillingCycle = isBillingCycle(subscription.billingCycle) ? subscription.billingCycle : "شهري";
-    const renewAmount = billingCycle === "سنوي" ? computeYearlyPrice(plan.monthlyPrice) : plan.monthlyPrice;
+    const renewAmount = priceForCycle(plan.monthlyPrice, billingCycle);
     const amountHalalas = renewAmount * 100;
     try {
       await prisma.subscriptionPayment.create({

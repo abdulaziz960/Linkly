@@ -1891,8 +1891,8 @@
   --thumb: 0%;
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  max-width: 340px;
+  grid-template-columns: repeat(4, 1fr);
+  max-width: 640px;
   margin: 0 auto 34px;
   padding: 4px;
   border: 1px solid var(--line);
@@ -1904,18 +1904,19 @@
   position: absolute;
   inset-block: 4px;
   inset-inline-start: 4px;
-  width: calc(50% - 4px);
+  width: calc(25% - 2px);
   border-radius: 999px;
   background: linear-gradient(160deg, var(--brand), var(--dark));
   box-shadow: 0 6px 16px #178a8240;
   transition: translate 0.4s var(--ease);
 }
-.pgToggle[data-cycle="yearly"] .pgToggleThumb {
-  translate: 100% 0;
-}
-.pgToggle[data-cycle="yearly"] .pgToggleThumb:dir(rtl) {
-  translate: -100% 0;
-}
+.pgToggle[data-index="1"] .pgToggleThumb { translate: 100% 0; }
+.pgToggle[data-index="2"] .pgToggleThumb { translate: 200% 0; }
+.pgToggle[data-index="3"] .pgToggleThumb { translate: 300% 0; }
+.pgToggle[data-index="1"] .pgToggleThumb:dir(rtl) { translate: -100% 0; }
+.pgToggle[data-index="2"] .pgToggleThumb:dir(rtl) { translate: -200% 0; }
+.pgToggle[data-index="3"] .pgToggleThumb:dir(rtl) { translate: -300% 0; }
+
 .pgToggle button {
   position: relative;
   z-index: 1;
@@ -1952,6 +1953,9 @@
 .pgToggle button[aria-selected="true"] .pgSave {
   background: #ffffff2e;
   color: #fff;
+}
+@media (max-width: 640px) {
+  .pgToggle button { flex-direction: column; gap: 3px; padding: 8px 4px; font-size: 13px; }
 }
 
 .pgGrid {

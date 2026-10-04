@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
-import { ANNUAL_DISCOUNT_PERCENT, computeYearlyPrice } from "../lib/billing-pricing";
+import { BILLING_CYCLES, CYCLE_SLUGS, priceForCycle } from "../lib/billing-pricing";
+import { cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../lib/billing-cycle-copy";
 import { useBillingCycle } from "./useBillingCycle";
 import { useReducedMotion } from "./landing/motion";
 import s from "./page.module.css";
@@ -20,23 +21,11 @@ type Plan = {
 
 const copy = {
   ar: {
-    monthlyTab: "شهري",
-    yearlyTab: "سنوي",
-    yearlySave: `وفر ${ANNUAL_DISCOUNT_PERCENT}٪`,
     currency: "ريال",
-    perMonthSuffix: "/ الشهر",
-    perYearSuffix: "/ السنة",
-    billedYearly: (total: number) => `تُدفع دفعة واحدة بقيمة ${total} ريال سنويًا`,
     popular: "الأنسب لمعظم الفرق"
   },
   en: {
-    monthlyTab: "Monthly",
-    yearlyTab: "Yearly",
-    yearlySave: `Save ${ANNUAL_DISCOUNT_PERCENT}%`,
     currency: "SAR",
-    perMonthSuffix: "/ month",
-    perYearSuffix: "/ year",
-    billedYearly: (total: number) => `Billed once as ${total} SAR / year`,
     popular: "Best for most teams"
   }
 } as const;
@@ -82,7 +71,8 @@ function AnimatedPrice({ value }: { value: number }) {
 export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonly Plan[]; lang?: "ar" | "en" }) {
   const { billingCycle, chooseBillingCycle } = useBillingCycle();
   const text = copy[lang];
-  const yearlySelected = billingCycle === "سنوي";
+  const cycleIndex = BILLING_CYCLES.indexOf(billingCycle);
+  const multiMonth = billingCycle !== "شهري";
   const frame = useRef(0);
 
   // Cursor spotlight: two CSS variables on the hovered card, mouse only.
@@ -100,20 +90,19 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
   };
 
   return <>
-    <div className={c.pgToggle} role="tablist" data-cycle={yearlySelected ? "yearly" : "monthly"}>
+    <div className={c.pgToggle} role="tablist" data-index={cycleIndex}>
       <span className={c.pgToggleThumb} aria-hidden="true" />
-      <button type="button" role="tab" aria-selected={!yearlySelected} onClick={() => chooseBillingCycle("شهري")}>
-        {text.monthlyTab}
-      </button>
-      <button type="button" role="tab" aria-selected={yearlySelected} onClick={() => chooseBillingCycle("سنوي")}>
-        {text.yearlyTab}<span className={c.pgSave}>{text.yearlySave}</span>
-      </button>
+      {BILLING_CYCLES.map((cycle) => {
+        const badge = cycleSaveBadge(cycle, lang);
+        return <button type="button" role="tab" key={cycle} aria-selected={cycle === billingCycle} onClick={() => chooseBillingCycle(cycle)}>
+          {cycleTabLabel(cycle, lang)}{badge ? <span className={c.pgSave}>{badge}</span> : null}
+        </button>;
+      })}
     </div>
     <div className={c.pgGrid} onPointerMove={onPointerMove}>{plans.map((p, pi) => {
       const featured = "featured" in p && p.featured;
       const monthlyPrice = Number(p.price);
-      const yearly = computeYearlyPrice(monthlyPrice);
-      const displayedPrice = yearlySelected ? yearly : monthlyPrice;
+      const displayedPrice = priceForCycle(monthlyPrice, billingCycle);
       return <article
         className={`${c.pgCard} ${featured ? c.pgFeatured : ""} ${s.revealFade}`}
         key={p.name}
@@ -125,11 +114,11 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
         <p className={c.pgAudience}>{p.audience}</p>
         <div className={c.pgPrice}>
           <AnimatedPrice value={displayedPrice} />
-          <span>{text.currency}<br />{yearlySelected ? text.perYearSuffix : text.perMonthSuffix}</span>
+          <span>{text.currency}<br />{cyclePriceSuffix(billingCycle, lang)}</span>
         </div>
-        <p className={c.pgNote} data-show={yearlySelected || undefined} aria-hidden={!yearlySelected}>{text.billedYearly(yearly)}</p>
+        <p className={c.pgNote} data-show={multiMonth || undefined} aria-hidden={!multiMonth}>{multiMonth ? cycleBilledNote(billingCycle, displayedPrice, lang) : ""}</p>
         <ul>{p.items.map((item, ii) => <li key={item} style={{ "--i": ii } as CSSProperties}><span className={c.pgCheck} aria-hidden="true">✓</span>{item}</li>)}</ul>
-        <Link className={`${featured ? s.primaryLarge : s.planButton} ${c.pgCta}`} href={`/signup?plan=${encodeURIComponent(p.id)}${yearlySelected ? "&billing=yearly" : ""}`}>{p.cta}</Link>
+        <Link className={`${featured ? s.primaryLarge : s.planButton} ${c.pgCta}`} href={`/signup?plan=${encodeURIComponent(p.id)}${multiMonth ? `&billing=${CYCLE_SLUGS[billingCycle]}` : ""}`}>{p.cta}</Link>
       </article>;
     })}</div>
   </>;

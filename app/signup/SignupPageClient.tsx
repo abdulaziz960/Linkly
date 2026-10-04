@@ -1,5 +1,6 @@
 "use client";
 
+import type { BillingCycle } from "../../lib/billing-pricing";
 import Link from "next/link";
 import Image from "next/image";
 import SignupForm from "./SignupForm";
@@ -21,6 +22,8 @@ const copy = {
     selectedPlan: "الباقة التي اخترتها",
     billingMonthly: "دفع شهري بعد التجربة",
     billingYearly: "دفع سنوي بعد التجربة",
+    billingQuarterly: "دفع ربع سنوي بعد التجربة",
+    billingSemiannual: "دفع نصف سنوي بعد التجربة",
     planNote: "ستجرّب هذه الباقة بمزاياها فقط خلال الفترة التجريبية، ويمكنك تجربة باقة أخرى من داخل لوحة التحكم. لا تُفعّل الباقة المدفوعة إلا بعد إتمام الدفع.",
     haveAccount: "لديك حساب؟",
     login: "تسجيل الدخول"
@@ -40,13 +43,15 @@ const copy = {
     selectedPlan: "Your selected plan",
     billingMonthly: "Monthly billing after the trial",
     billingYearly: "Yearly billing after the trial",
+    billingQuarterly: "Quarterly billing after the trial",
+    billingSemiannual: "Semi-annual billing after the trial",
     planNote: "You'll try this plan with its own features during the trial, and can try another plan from inside the dashboard. A paid plan only activates after payment.",
     haveAccount: "Already have an account?",
     login: "Sign in"
   }
 } as const;
 
-export default function SignupPageClient({ selectedPlan, selectedBilling }: { selectedPlan: { id: string; name: string } | null; selectedBilling: "monthly" | "yearly" }) {
+export default function SignupPageClient({ selectedPlan, selectedBilling }: { selectedPlan: { id: string; name: string } | null; selectedBilling: BillingCycle }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
 
@@ -72,7 +77,7 @@ export default function SignupPageClient({ selectedPlan, selectedBilling }: { se
         {selectedPlan ? <div className="signup-selected-plan" data-testid="signup-selected-plan">
           <span>{text.selectedPlan}</span>
           <strong>{selectedPlan.name}</strong>
-          <small>{selectedBilling === "yearly" ? text.billingYearly : text.billingMonthly}</small>
+          <small>{{ "شهري": text.billingMonthly, "ربع سنوي": text.billingQuarterly, "نصف سنوي": text.billingSemiannual, "سنوي": text.billingYearly }[selectedBilling]}</small>
           <p>{text.planNote}</p>
         </div> : null}
         <SignupForm lang={lang} planId={selectedPlan?.id} />

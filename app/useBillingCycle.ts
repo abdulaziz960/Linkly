@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { BillingCycle } from "../lib/billing-pricing";
+import { CYCLE_SLUGS, cycleFromSlug, type BillingCycle } from "../lib/billing-pricing";
 
 function cycleFromUrl(): BillingCycle {
-  return new URLSearchParams(window.location.search).get("billing") === "yearly" ? "سنوي" : "شهري";
+  return cycleFromSlug(new URLSearchParams(window.location.search).get("billing"));
 }
 
 export function useBillingCycle() {
@@ -20,7 +20,7 @@ export function useBillingCycle() {
   const chooseBillingCycle = useCallback((cycle: BillingCycle) => {
     setBillingCycle(cycle);
     const url = new URL(window.location.href);
-    if (cycle === "سنوي") url.searchParams.set("billing", "yearly");
+    if (cycle !== "شهري") url.searchParams.set("billing", CYCLE_SLUGS[cycle]);
     else url.searchParams.delete("billing");
     window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
   }, []);

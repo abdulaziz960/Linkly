@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { ANNUAL_DISCOUNT_PERCENT, computeYearlyPrice, isSamePlanRenewalTooEarly } from "../../lib/billing-pricing";
+import { BILLING_CYCLES, isSamePlanRenewalTooEarly, priceForCycle } from "../../lib/billing-pricing";
+import { cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../../lib/billing-cycle-copy";
 import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
 import { useBillingCycle } from "../useBillingCycle";
 
@@ -10,12 +11,6 @@ const copy = {
   ar: {
     recommended: "الأنسب لمعظم الفرق",
     currentPlanBadge: "الباقة الحالية",
-    monthlyTab: "شهري",
-    yearlyTab: "سنوي",
-    yearlySave: `وفر ${ANNUAL_DISCOUNT_PERCENT}٪`,
-    perMonth: "ر.س / شهريًا",
-    perYear: "ر.س / سنويًا",
-    billedYearly: (total: number) => `تُدفع دفعة واحدة بقيمة ${total} ر.س سنويًا`,
     preparingPayment: "جاري تجهيز الدفع...",
     renewPlan: "تجديد هذه الباقة",
     activeUntil: (date: string) => `باقتك سارية حتى ${date}`,
@@ -36,12 +31,6 @@ const copy = {
   en: {
     recommended: "Best for most teams",
     currentPlanBadge: "Current plan",
-    monthlyTab: "Monthly",
-    yearlyTab: "Yearly",
-    yearlySave: `Save ${ANNUAL_DISCOUNT_PERCENT}%`,
-    perMonth: "SAR / month",
-    perYear: "SAR / year",
-    billedYearly: (total: number) => `Billed once as ${total} SAR / year`,
     preparingPayment: "Preparing payment...",
     renewPlan: "Renew this plan",
     activeUntil: (date: string) => `Your plan is active until ${date}`,
@@ -81,12 +70,13 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
 
   return <section>
     <div className="billing-cycle-toggle" role="tablist">
-      <button type="button" role="tab" aria-selected={billingCycle === "شهري"} className={billingCycle === "شهري" ? "active" : ""} onClick={() => chooseBillingCycle("شهري")}>{text.monthlyTab}</button>
-      <button type="button" role="tab" aria-selected={billingCycle === "سنوي"} className={billingCycle === "سنوي" ? "active" : ""} onClick={() => chooseBillingCycle("سنوي")}>{text.yearlyTab}<span className="billing-cycle-badge">{text.yearlySave}</span></button>
+      {BILLING_CYCLES.map((cycle) => {
+        const badge = cycleSaveBadge(cycle, lang);
+        return <button type="button" role="tab" key={cycle} aria-selected={billingCycle === cycle} className={billingCycle === cycle ? "active" : ""} onClick={() => chooseBillingCycle(cycle)}>{cycleTabLabel(cycle, lang)}{badge ? <span className="billing-cycle-badge">{badge}</span> : null}</button>;
+      })}
     </div>
     <div className="plan-grid">{plans.map((plan) => {
-      const yearly = computeYearlyPrice(plan.monthlyPrice);
-      const displayedPrice = billingCycle === "سنوي" ? yearly : plan.monthlyPrice;
+      const displayedPrice = priceForCycle(plan.monthlyPrice, billingCycle);
       const items = getPlanDisplayItems(plan, lang);
       const featured = Boolean(planFeatures[plan.name]?.featured);
       const isCurrent = currentPlan === plan.name;
@@ -94,8 +84,8 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
       return <article className={`plan-card ${featured ? "featured" : ""}`} key={plan.id}>
         {isCurrent ? <span className="current-badge">{text.currentPlanBadge}</span> : featured ? <span className="recommended">{text.recommended}</span> : null}
         <h2>{plan.name}</h2>
-        <div className="plan-price"><b>{displayedPrice}</b><span>{billingCycle === "سنوي" ? text.perYear : text.perMonth}</span></div>
-        {billingCycle === "سنوي" ? <p className="plan-price-note">{text.billedYearly(yearly)}</p> : null}
+        <div className="plan-price"><b>{displayedPrice}</b><span>{lang === "ar" ? "ر.س" : "SAR"} {cyclePriceSuffix(billingCycle, lang)}</span></div>
+        {billingCycle !== "شهري" ? <p className="plan-price-note">{cycleBilledNote(billingCycle, displayedPrice, lang)}</p> : null}
         <ul>{items.map((item) => <li key={item}>✓ {item}</li>)}</ul>
 
         <button disabled={loading !== "" || renewalTooEarly} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : renewalTooEarly ? text.activeUntil(currentSubscription?.renewalAt || "") : isCurrent ? text.renewPlan : text.upgradePlan}</button>

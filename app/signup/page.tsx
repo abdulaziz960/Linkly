@@ -1,4 +1,5 @@
 import SignupPageClient from "./SignupPageClient";
+import { cycleFromSlug } from "../../lib/billing-pricing";
 import { getActivePlans } from "../../lib/plans";
 import "./signup.css";
 
@@ -11,5 +12,5 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
   const selectedPlan = planId
     ? (await getActivePlans()).find((plan) => plan.id === planId)
     : undefined;
-  return <SignupPageClient selectedPlan={selectedPlan ? { id: selectedPlan.id, name: selectedPlan.name } : null} selectedBilling={billing === "yearly" ? "yearly" : "monthly"} />;
+  return <SignupPageClient selectedPlan={selectedPlan ? { id: selectedPlan.id, name: selectedPlan.name } : null} selectedBilling={cycleFromSlug(billing)} />;
 }

@@ -1,5 +1,6 @@
 import type { PaymentRow, SubscriptionRow } from "./types";
 import type { AdminLog } from "../../lib/database";
+import { CYCLE_MONTHS, isBillingCycle } from "../../lib/billing-pricing";
 import { EXTRA_USER_PRICE, parseTimestamp } from "./utils";
 import { describeAction, type ActionLogRow, type ActivityView } from "./activity";
 
@@ -106,7 +107,7 @@ const renewalTime = (subscription: SubscriptionRow) => {
 
 export const monthlyValue = (subscription: SubscriptionRow) => {
   const extra = Math.max(0, subscription.employeeCount - subscription.employeeLimit) * EXTRA_USER_PRICE;
-  return (subscription.billingCycle === "سنوي" ? subscription.amount / 12 : subscription.amount) + extra;
+  return subscription.amount / (isBillingCycle(subscription.billingCycle) ? CYCLE_MONTHS[subscription.billingCycle] : 1) + extra;
 };
 
 const paymentTime = (payment: PaymentRow) => parseTimestamp(payment.completedAt || payment.createdAt);
@@ -155,7 +156,7 @@ export function buildOverview(input: OverviewInput, range: Range): Overview {
   const revenueKeys = Array.from({ length: 11 }, (_, index) => currentMonth - 5 + index);
   const expectedFor = (key: number) =>
     active.reduce((sum, subscription) => {
-      if (subscription.billingCycle === "سنوي") {
+      if (isBillingCycle(subscription.billingCycle) && subscription.billingCycle !== "شهري") {
         const time = renewalTime(subscription);
         if (time === null) return sum;
         const renewalMonth = Math.max(monthKey(time), currentMonth);

@@ -25,7 +25,9 @@ const STATUS_TONE: Record<string, Tone> = { نشط: "success", تجربة: "warn
 const BILLING_CYCLES = [
   { value: "تجربة 3 أيام", label: "تجربة 3 أيام" },
   { value: "شهري", label: "شهري" },
-  { value: "سنوي", label: "سنوي" }
+  { value: "ربع سنوي", label: "ربع سنوي (3 شهور)" },
+  { value: "نصف سنوي", label: "نصف سنوي (6 شهور)" },
+  { value: "سنوي", label: "سنوي (12 شهر)" }
 ];
 
 async function call<T = unknown>(url: string, method: "POST" | "PATCH", body: unknown): Promise<{ ok: boolean; error?: string; data?: T }> {
