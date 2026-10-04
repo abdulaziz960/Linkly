@@ -17,7 +17,7 @@ import { usePwaInstall } from "../hooks/usePwaInstall";
  * notifications nudge so the two never show the same message at once.
  */
 export default function PwaInstallPopup() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { supported, installed, busy, isIos, install } = usePwaInstall();
   const [open, setOpen] = useState(true);
   const [showIosSteps, setShowIosSteps] = useState(false);
@@ -33,7 +33,7 @@ export default function PwaInstallPopup() {
   }
 
   return createPortal(
-    <div className="modal-backdrop ios-install-backdrop" role="presentation" onClick={() => setOpen(false)}>
+    <div className="modal-backdrop ios-install-backdrop" role="presentation" dir={language === "en" ? "ltr" : "rtl"} onClick={() => setOpen(false)}>
       <div className="account-modal ios-install-modal" role="dialog" aria-modal="true" aria-label={t("تثبيت التطبيق", "Install the app")} onClick={(event) => event.stopPropagation()}>
         <header className="modal-head">
           <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setOpen(false)}>×</button>

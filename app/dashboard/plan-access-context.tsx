@@ -88,7 +88,7 @@ export function PlanAccessProvider({ access, children }: { access: PlanAccessDat
     <PlanAccessContext.Provider value={value}>
       {children}
       {prompt ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setPrompt(null)}>
+        <div className="modal-backdrop" role="presentation" dir={language === "en" ? "ltr" : "rtl"} onClick={() => setPrompt(null)}>
           <div className="account-modal upgrade-modal" role="dialog" aria-modal="true" aria-label={prompt.title} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
               <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setPrompt(null)}>×</button>
@@ -112,6 +112,7 @@ export function PlanAccessProvider({ access, children }: { access: PlanAccessDat
               {switchError ? <p className="form-error">{switchError}</p> : null}
             </div>
             <footer className="modal-foot">
+              <button className="btn soft" type="button" onClick={() => setPrompt(null)}>{t("لاحقًا", "Not now")}</button>
               {access.isTrial && isTrialEligiblePlan(prompt.targetPlan) ? (
                 <button className="btn primary" type="button" disabled={switching} onClick={() => void tryPlan(prompt.targetPlan)}>
                   {switching ? t("جارٍ التفعيل...", "Switching...") : t(`جرّب ${prompt.targetPlan} الآن`, `Try ${prompt.targetPlan} now`)}
@@ -119,7 +120,6 @@ export function PlanAccessProvider({ access, children }: { access: PlanAccessDat
               ) : (
                 <Link className="btn primary" href="/billing">{t("ترقية الباقة", "Upgrade plan")}</Link>
               )}
-              <button className="btn soft" type="button" onClick={() => setPrompt(null)}>{t("لاحقًا", "Not now")}</button>
             </footer>
           </div>
         </div>

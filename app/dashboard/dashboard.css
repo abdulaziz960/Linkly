@@ -11308,10 +11308,17 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .upgrade-blurb p { margin: 4px 0 6px; color: #234; }
 .upgrade-blurb ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 2px; color: #3b4a46; font-size: 14px; }
 
-/* Upgrade popup: close icon pinned to the physical left. */
-.upgrade-modal .modal-head { position: relative; }
-.upgrade-modal .modal-head h2 { padding: 0 10px 0 60px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(16px, 4.4vw, 20px); }
-.upgrade-modal .modal-head .icon-btn-close { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); }
-/* Upgrade on the right, "Later" on the left - in both languages. */
-.upgrade-modal .modal-foot { direction: rtl; justify-content: flex-start; gap: 10px; }
+/* Upgrade popup title stays on one line. */
+.upgrade-modal .modal-head h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(16px, 4.4vw, 20px); }
 .upgrade-modal .modal-foot .btn { min-width: 150px; justify-content: center; }
+
+
+/* ---- Arabic (RTL) dialog convention, for every modal in the app ----
+   Close icon on the physical left with the title on the right; the primary
+   action sits on the right of the footer and the secondary one ("Later",
+   "Cancel") on its left. Footers list [secondary][primary] in the markup, so
+   in RTL reversing the row puts the primary button on the right. */
+[dir="rtl"] .modal-head { position: relative; }
+[dir="rtl"] .modal-head > .icon-btn-close { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); }
+[dir="rtl"] .modal-head > :not(.icon-btn-close) { padding-left: 64px; min-width: 0; }
+[dir="rtl"] .modal-foot { flex-direction: row-reverse; justify-content: flex-end; }

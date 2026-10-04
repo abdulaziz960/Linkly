@@ -17,7 +17,7 @@ import { usePwaInstall } from "../hooks/usePwaInstall";
  * actually visible on their device.
  */
 export default function PwaInstallButton({ showLabel = false }: { showLabel?: boolean }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { supported, installed, done, busy, isIos, install } = usePwaInstall();
   const [showIosHelp, setShowIosHelp] = useState(false);
 
@@ -52,7 +52,7 @@ export default function PwaInstallButton({ showLabel = false }: { showLabel?: bo
 
       {showIosHelp && typeof document !== "undefined"
         ? createPortal(
-          <div className="modal-backdrop ios-install-backdrop" role="presentation" onClick={() => setShowIosHelp(false)}>
+          <div className="modal-backdrop ios-install-backdrop" role="presentation" dir={language === "en" ? "ltr" : "rtl"} onClick={() => setShowIosHelp(false)}>
             <div className="account-modal ios-install-modal" role="dialog" aria-modal="true" aria-label={t("تثبيت التطبيق", "Install the app")} onClick={(event) => event.stopPropagation()}>
               <header className="modal-head">
                 <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setShowIosHelp(false)}>×</button>
