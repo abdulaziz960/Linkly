@@ -84,7 +84,7 @@ export default function AiSettingsView() {
           <div className="ai-managed-panel">
             <div>
               <h3>{t("مساعد AI مُدار من Linkly", "Linkly-managed AI Copilot")}</h3>
-              <p>{t("متاح فقط بباقة أعلى - بدون حاجة لمفتاح API خاص بك. تواصل معنا للترقية، أو استخدم مفتاحك الخاص أدناه.", "Only available on a higher plan - no API key of your own needed. Contact us to upgrade, or use your own key below.")}</p>
+              <p>{t("في باقتك يعمل المساعد بمفتاح API الخاص بك: اربطه من القسم أدناه وتُحسب تكلفة الاستخدام على حسابك لدى المزود. المساعد المُدار من لنكلي (بدون مفتاح) متاح بدءًا من باقة المؤسسات الصغيرة.", "On your plan the assistant runs with your own API key: connect it below and usage is billed to your account at the provider. The Linkly-managed assistant (no key needed) is available from the Small Enterprises plan.")}</p>
             </div>
           </div>
         )}

@@ -18,6 +18,3 @@
 .yes { color: #0f9d58; font-size: 18px; font-weight: 900; }
 .no { color: #b8c4c0; font-size: 18px; }
 .note { font-size: 13px; font-weight: 700; color: #234; }
-.table tfoot td { border-bottom: 0; padding-block: 16px; }
-.cta { display: inline-block; padding: 9px 16px; border-radius: 10px; background: #0f766e; color: #fff; font-weight: 800; font-size: 13px; text-decoration: none; }
-.cta:hover { background: #0b5f58; }

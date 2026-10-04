@@ -45,8 +45,10 @@ export const ENTERPRISE_PLAN = "باقة الشركات";
 export const PLAN_ORDER = [INDIVIDUALS_PLAN, REGULAR_PLAN, SMALL_ORG_PLAN, LARGE_ORG_PLAN, ENTERPRISE_PLAN];
 
 const INDIVIDUALS_VIEWS: ViewKey[] = ["inbox", "contacts", "tags", "quickReplies", "bot", "reports", "settings", "employees"];
-const REGULAR_VIEWS: ViewKey[] = [...INDIVIDUALS_VIEWS, "teams", "workHours", "templates", "campaigns", "segments", "pipeline"];
-const SMALL_ORG_VIEWS: ViewKey[] = [...REGULAR_VIEWS, "automations", "ai", "knowledgeBase", "operations", "branches"];
+// The regular plan opens the AI assistant too, but only with the customer's OWN API key: the Linkly-managed
+// AI (our key, our cost) stays a small-enterprises feature - it needs a positive aiDailyLimit on the Plan row, which this plan doesn't have.
+const REGULAR_VIEWS: ViewKey[] = [...INDIVIDUALS_VIEWS, "teams", "workHours", "templates", "campaigns", "segments", "pipeline", "ai"];
+const SMALL_ORG_VIEWS: ViewKey[] = [...REGULAR_VIEWS, "automations", "knowledgeBase", "operations", "branches"];
 const LARGE_ORG_VIEWS: ViewKey[] = [...SMALL_ORG_VIEWS, "developers", "integrations", "catalog"];
 
 // What the AI-free bot may use. AI and Knowledge Base steps arrive with the AI assistant (small enterprises); the catalog step with the catalog (large).
@@ -73,7 +75,7 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
   },
   [REGULAR_PLAN]: {
     views: REGULAR_VIEWS,
-    botNodeTypes: BOT_STEPS_BASIC,
+    botNodeTypes: [...BOT_STEPS_BASIC, "رد AI تلقائي"],
     botMaxSteps: 15,
     basicReports: true,
     // Fixed 30-minute escalation: the settings live in Automations, which this plan doesn't have.

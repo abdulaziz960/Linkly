@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { COMPARISON_ROWS, liveCell, orderComparisonPlans, type ComparisonCell, type ComparisonPlan } from "../lib/plan-comparison";
 import { planFeatures } from "../lib/plan-features";
 import s from "./PlanComparison.module.css";
@@ -6,8 +5,8 @@ import s from "./PlanComparison.module.css";
 type Props = { plans: Array<ComparisonPlan & { id: string }>; lang: "ar" | "en" };
 
 const copy = {
-  ar: { title: "قارن بين الباقات والمزايا", sub: "كل ما تتضمنه كل باقة، في مكان واحد.", feature: "الميزة", currency: "ريال", month: "/ الشهر", included: "مشمول", notIncluded: "غير مشمول", cta: "ابدأ التجربة" },
-  en: { title: "Compare plans and features", sub: "Everything each plan includes, in one place.", feature: "Feature", currency: "SAR", month: "/ month", included: "Included", notIncluded: "Not included", cta: "Start trial" }
+  ar: { title: "قارن بين الباقات والمزايا", sub: "كل ما تتضمنه كل باقة، في مكان واحد.", feature: "الميزة", currency: "ريال", month: "/ الشهر", included: "مشمول", notIncluded: "غير مشمول" },
+  en: { title: "Compare plans and features", sub: "Everything each plan includes, in one place.", feature: "Feature", currency: "SAR", month: "/ month", included: "Included", notIncluded: "Not included" }
 } as const;
 
 function Cell({ cell, lang }: { cell: ComparisonCell; lang: "ar" | "en" }) {
@@ -56,16 +55,6 @@ export default function PlanComparison({ plans, lang }: Props) {
               </tr>
             ))}
           </tbody>
-          <tfoot>
-            <tr>
-              <td className={s.featureCol} />
-              {ordered.map((plan) => (
-                <td key={plan.id}>
-                  <Link className={s.cta} href={`/signup?plan=${encodeURIComponent(plan.id)}`}>{text.cta}</Link>
-                </td>
-              ))}
-            </tr>
-          </tfoot>
         </table>
       </div>
     </div>

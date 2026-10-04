@@ -41,7 +41,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   { ar: "الرد الآلي", en: "Auto-reply", heading: true },
   { ar: "الرد الآلي", en: "Auto-reply bot", view: "bot", cells: [note("بسيط (حتى 6 خطوات)", "Simple (up to 6 steps)"), note("حتى 15 خطوة", "Up to 15 steps"), note("غير محدود", "Unlimited"), note("غير محدود", "Unlimited"), note("غير محدود", "Unlimited")] },
   { ar: "ساعات العمل والرد خارج الدوام", en: "Work hours and off-hours reply", view: "workHours", cells: [no, yes, yes, yes, yes] },
-  { ar: "مساعد الذكاء الاصطناعي", en: "AI assistant", view: "ai", live: "ai" },
+  { ar: "مساعد الذكاء الاصطناعي", en: "AI assistant", live: "ai" },
   { ar: "قاعدة المعرفة", en: "Knowledge base", view: "knowledgeBase", cells: [no, no, note("حتى 50 مدخلًا", "Up to 50 entries"), note("حتى 200 مدخل", "Up to 200 entries"), note("غير محدود", "Unlimited")] },
 
   { ar: "الفريق والتشغيل", en: "Team and operations", heading: true },
@@ -88,7 +88,9 @@ export function liveCell(kind: NonNullable<ComparisonRow["live"]>, plan: Compari
     return { ar: channels.map((key) => channelLabel(key, "ar")).join(" + "), en: channels.map((key) => channelLabel(key, "en")).join(" + ") };
   }
   if (kind === "ai") {
-    return plan.aiDailyLimit > 0 ? { ar: `${plan.aiDailyLimit} طلب يوميًا`, en: `${plan.aiDailyLimit} requests/day` } : false;
+    if (plan.aiDailyLimit > 0) return { ar: `مُدار من لنكلي (${plan.aiDailyLimit} طلب يوميًا) أو بمفتاحك`, en: `Managed by Linkly (${plan.aiDailyLimit} requests/day) or your own key` };
+    // No managed allowance, but the section is open: the customer connects their own API key.
+    return isViewLockedForPlan(plan.name, "ai") ? false : { ar: "بربط مفتاحك الخاص", en: "With your own API key" };
   }
   // campaigns: a plan without the campaigns section has no marketing allowance to show
   if (isViewLockedForPlan(plan.name, "campaigns") || plan.messageQuota <= 0) return false;

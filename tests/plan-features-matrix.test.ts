@@ -53,8 +53,11 @@ describe("the comparison table matches what is enforced", () => {
     const individuals = { name: "باقة الأفراد", monthlyPrice: 199, employeeLimit: 1, allowedChannels: "whatsapp", messageQuota: 1000, aiDailyLimit: 0 };
     const small = { name: "باقة المؤسسات الصغيرة", monthlyPrice: 599, employeeLimit: 6, allowedChannels: "whatsapp,instagram", messageQuota: 5000, aiDailyLimit: 50 };
     expect(liveCell("users", small)).toMatchObject({ ar: "6 مستخدم" });
+    const regular = { name: "الباقة العادية", monthlyPrice: 349, employeeLimit: 3, allowedChannels: "whatsapp,instagram", messageQuota: 3000, aiDailyLimit: 0 };
     expect(liveCell("ai", individuals)).toBe(false);
-    expect(liveCell("ai", small)).toMatchObject({ ar: "50 طلب يوميًا" });
+    // The regular plan has the AI assistant, but only with the customer's own key.
+    expect(liveCell("ai", regular)).toMatchObject({ ar: "بربط مفتاحك الخاص" });
+    expect(JSON.stringify(liveCell("ai", small))).toContain("50");
     expect(liveCell("campaigns", individuals)).toBe(false);
     expect(liveCell("campaigns", small)).not.toBe(false);
     expect(liveCell("channels", individuals)).toMatchObject({ en: "WhatsApp" });

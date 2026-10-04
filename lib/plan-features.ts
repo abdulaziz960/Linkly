@@ -38,8 +38,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     shortName: { ar: "العادية", en: "Regular" },
     audience: { ar: "الأنسب لصاحب عمل بدأ يكبر ويحتاج قناة ثانية وفريق صغير.", en: "Best for a growing business that needs a second channel and a small team." },
     items: {
-      ar: ["كل مزايا الأفراد", "رد آلي حتى 15 خطوة وساعات عمل", "فريقان وتوزيع محادثات تلقائي", "قوالب وحملات وتقسيم جمهور بالوسوم", "كانبان المبيعات وتصعيد المحادثات (30 دقيقة)", "تقارير أساسية"],
-      en: ["Everything in Individuals", "Auto-reply up to 15 steps and work hours", "2 teams and automatic routing", "Templates, campaigns and tag-based segments", "Sales pipeline and escalation (30 min)", "Basic reports"]
+      ar: ["كل مزايا الأفراد", "رد آلي حتى 15 خطوة وساعات عمل", "فريقان وتوزيع محادثات تلقائي", "قوالب وحملات وتقسيم جمهور بالوسوم", "مساعد AI بربط مفتاحك الخاص", "كانبان المبيعات وتصعيد المحادثات (30 دقيقة)", "تقارير أساسية"],
+      en: ["Everything in Individuals", "Auto-reply up to 15 steps and work hours", "2 teams and automatic routing", "Templates, campaigns and tag-based segments", "AI assistant with your own API key", "Sales pipeline and escalation (30 min)", "Basic reports"]
     }
   },
   "باقة المؤسسات الصغيرة": {
@@ -47,8 +47,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     audience: { ar: "الأنسب لفريق يحتاج أتمتة وتقسيم جمهور ومساعد AI.", en: "Best for a team that needs automation, audience segments, and an AI Assistant." },
     featured: true,
     items: {
-      ar: ["كل مزايا العادية", "فرق متعددة وأتمتة وقواعد تحويل", "مساعد AI (50 طلبًا يوميًا) وقاعدة معرفة (50 مدخلًا)", "حملات متكررة وتقسيم جمهور بتفاعل الحملات", "الفروع وإرسال أقرب فرع (حتى 20)", "تصعيد بمدة قابلة للتعديل ومركز عمليات", "تقارير أداء وSLA"],
-      en: ["Everything in Regular", "Multiple teams, automation and routing rules", "AI assistant (50 requests/day) and knowledge base (50 entries)", "Recurring campaigns and campaign-engagement segments", "Branches and nearest-branch reply (up to 20)", "Adjustable escalation and operations center", "Performance and SLA reports"]
+      ar: ["كل مزايا العادية", "فرق متعددة وأتمتة وقواعد تحويل", "مساعد AI مُدار من لنكلي (50 طلبًا يوميًا) وقاعدة معرفة (50 مدخلًا)", "حملات متكررة وتقسيم جمهور بتفاعل الحملات", "الفروع وإرسال أقرب فرع (حتى 20)", "تصعيد بمدة قابلة للتعديل ومركز عمليات", "تقارير أداء وSLA"],
+      en: ["Everything in Regular", "Multiple teams, automation and routing rules", "Linkly-managed AI assistant (50 requests/day) and knowledge base (50 entries)", "Recurring campaigns and campaign-engagement segments", "Branches and nearest-branch reply (up to 20)", "Adjustable escalation and operations center", "Performance and SLA reports"]
     }
   },
   "باقة المؤسسات الكبيرة": {

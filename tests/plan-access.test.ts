@@ -55,8 +55,11 @@ describe("plan access: individuals plan", () => {
       expect(RESTRICTED_PLANS[tiers[i]].views.length).toBeGreaterThan(RESTRICTED_PLANS[tiers[i - 1]].views.length);
     }
     // Regular: campaigns/templates/teams yes; AI, automations, branches, catalog, API no.
-    for (const view of ["campaigns", "templates", "teams", "workHours", "pipeline"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(false);
-    for (const view of ["ai", "knowledgeBase", "automations", "operations", "branches", "catalog", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(true);
+    for (const view of ["campaigns", "templates", "teams", "workHours", "pipeline", "ai"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(false);
+    for (const view of ["knowledgeBase", "automations", "operations", "branches", "catalog", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(true);
+    // The regular plan opens the AI assistant (with the customer's own key); the individuals plan does not.
+    expect(isViewLockedForPlan("الباقة العادية", "ai")).toBe(false);
+    expect(isViewLockedForPlan("باقة الأفراد", "ai")).toBe(true);
     // Small enterprises add AI, automations and branches but not the catalog or the developer API.
     for (const view of ["ai", "knowledgeBase", "automations", "operations", "branches"] as const) expect(isViewLockedForPlan("باقة المؤسسات الصغيرة", view)).toBe(false);
     for (const view of ["catalog", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("باقة المؤسسات الصغيرة", view)).toBe(true);
@@ -93,9 +96,11 @@ describe("plan access: individuals plan", () => {
     expect(access.botNodeTypes).not.toContain("رد AI تلقائي");
 
     const regular = await getPlanAccessForTenant(regularTenant);
-    expect(regular.lockedViews).toContain("ai");
+    expect(regular.lockedViews).not.toContain("ai");
+    expect(regular.lockedViews).toContain("knowledgeBase");
     expect(regular.lockedViews).not.toContain("campaigns");
-    expect(regular.botNodeTypes).not.toContain("رد AI تلقائي");
+    expect(regular.botNodeTypes).toContain("رد AI تلقائي");
+    expect(regular.botNodeTypes).not.toContain("رد من قاعدة المعرفة");
     expect(regular.botMaxSteps).toBe(15);
     expect(regular.isTrial).toBe(false);
   });
@@ -116,7 +121,8 @@ describe("plan access: individuals plan", () => {
     // The regular plan's bot may use the catalog but not AI; small enterprises may use AI; no step cap on regular.
     expect(validateBotNodesForPlan("الباقة العادية", [{ type: "أقرب فرع" }, { type: "إرسال قائمة طويلة" }], []).ok).toBe(true);
     expect(validateBotNodesForPlan("الباقة العادية", [{ type: "عرض الكتالوج" }], []).ok).toBe(false);
-    expect(validateBotNodesForPlan("الباقة العادية", [{ type: "رد AI تلقائي" }], []).ok).toBe(false);
+    expect(validateBotNodesForPlan("الباقة العادية", [{ type: "رد AI تلقائي" }], []).ok).toBe(true);
+    expect(validateBotNodesForPlan("الباقة العادية", [{ type: "رد من قاعدة المعرفة" }], []).ok).toBe(false);
     expect(validateBotNodesForPlan("الباقة العادية", Array.from({ length: 15 }, () => ({ type: "إرسال رسالة" })), []).ok).toBe(true);
     expect(validateBotNodesForPlan("الباقة العادية", Array.from({ length: 16 }, () => ({ type: "إرسال رسالة" })), []).ok).toBe(false);
     expect(validateBotNodesForPlan("باقة المؤسسات الكبيرة", [{ type: "عرض الكتالوج" }], []).ok).toBe(true);
@@ -147,7 +153,8 @@ describe("plan access: individuals plan", () => {
     // Upgrade prompts always name the cheapest plan that has the feature.
     expect(upgradeTargetForView("campaigns")).toBe("الباقة العادية");
     expect(upgradeTargetForView("automations")).toBe("باقة المؤسسات الصغيرة");
-    expect(upgradeTargetForView("ai")).toBe("باقة المؤسسات الصغيرة");
+    expect(upgradeTargetForView("ai")).toBe("الباقة العادية");
+    expect(upgradeTargetForView("knowledgeBase")).toBe("باقة المؤسسات الصغيرة");
     expect(upgradeTargetForView("developers")).toBe("باقة المؤسسات الكبيرة");
     expect(upgradeTargetForView("branding")).toBe("باقة الشركات");
     const { upgradeTargetForChannel } = await import("../lib/plan-access");
