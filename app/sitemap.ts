@@ -1,12 +1,15 @@
 import type { MetadataRoute } from "next";
-import { blogPosts } from "../lib/blog";
+import { getPublicPosts } from "../lib/blog-store";
 
 const baseUrl = "https://linklysa.io";
+
+// Blog posts come from the database, so this is built per request (never at build time).
+export const dynamic = "force-dynamic";
 
 // Each Arabic path paired with its English counterpart, so every sitemap
 // entry can carry reciprocal hreflang alternates (Google treats sitemap
 // alternates the same as <link rel="alternate hreflang"> tags).
-type PageEntry = { ar: string; en: string; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]; priority: number; lastModified?: Date };
+type PageEntry = { ar: string; en?: string; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]; priority: number; lastModified?: Date };
 const pages: Array<{ ar: string; en: string; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]; priority: number }> = [
   { ar: "/", en: "/en", changeFrequency: "weekly", priority: 1 },
   { ar: "/faq", en: "/en/faq", changeFrequency: "monthly", priority: 0.6 },
@@ -17,19 +20,20 @@ const pages: Array<{ ar: string; en: string; changeFrequency: MetadataRoute.Site
   { ar: "/data-deletion", en: "/en/data-deletion", changeFrequency: "yearly", priority: 0.3 }
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  // Blog posts come from lib/blog.ts, so a new post appears here automatically.
-  const postPages: PageEntry[] = blogPosts.map((post) => ({
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Published blog posts (managed from the admin panel) appear here automatically; /en only for posts that have an English version.
+  const postPages: PageEntry[] = (await getPublicPosts()).map((post) => ({
     ar: `/blog/${post.slug}`,
-    en: `/en/blog/${post.slug}`,
+    en: post.en ? `/en/blog/${post.slug}` : undefined,
     changeFrequency: "monthly",
     priority: 0.7,
     lastModified: new Date(post.date)
   }));
   return ([...pages, ...postPages] as PageEntry[]).flatMap((page) => {
     const { ar, en, changeFrequency, priority } = page;
-    const languages = { "ar-SA": `${baseUrl}${ar}`, en: `${baseUrl}${en}`, "x-default": `${baseUrl}${ar}` };
     const { lastModified } = page;
+    if (!en) return [{ url: `${baseUrl}${ar}`, lastModified, changeFrequency, priority }];
+    const languages = { "ar-SA": `${baseUrl}${ar}`, en: `${baseUrl}${en}`, "x-default": `${baseUrl}${ar}` };
     return [
       { url: `${baseUrl}${ar}`, lastModified, changeFrequency, priority, alternates: { languages } },
       { url: `${baseUrl}${en}`, lastModified, changeFrequency, priority: Math.max(0.3, priority - 0.3), alternates: { languages } }

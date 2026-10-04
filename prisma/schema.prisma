@@ -1257,3 +1257,39 @@ model TenantFeatureGrant {
   @@unique([tenantId, viewKey])
   @@map("tenant_feature_grants")
 }
+
+// A FAQ entry shown on the landing pages and /faq, managed from the admin panel (lib/faq-store.ts).
+model FaqItem {
+  id         String @id
+  questionAr String @default("") @map("question_ar")
+  answerAr   String @default("") @map("answer_ar")
+  questionEn String @default("") @map("question_en")
+  answerEn   String @default("") @map("answer_en")
+  sortOrder  Int    @default(0) @map("sort_order")
+  active     Int    @default(1)
+  createdAt  String @map("created_at")
+  updatedAt  String @map("updated_at")
+
+  @@index([active, sortOrder])
+  @@map("faq_items")
+}
+
+// A blog post, managed from the admin panel (lib/blog-store.ts). Bodies are plain text:
+// a line starting with "## " is a heading, blank-line-separated text is a paragraph.
+model BlogPost {
+  id            String @id
+  slug          String @unique
+  postDate      String @map("post_date")
+  titleAr       String @default("") @map("title_ar")
+  descriptionAr String @default("") @map("description_ar")
+  bodyAr        String @default("") @map("body_ar")
+  titleEn       String @default("") @map("title_en")
+  descriptionEn String @default("") @map("description_en")
+  bodyEn        String @default("") @map("body_en")
+  published     Int    @default(1)
+  createdAt     String @map("created_at")
+  updatedAt     String @map("updated_at")
+
+  @@index([published, postDate])
+  @@map("blog_posts")
+}

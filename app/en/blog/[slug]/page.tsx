@@ -1,17 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BlogPostView } from "../../../ContentViews";
-import { blogPosts, getBlogPost } from "../../../../lib/blog";
+import { getPublicPost } from "../../../../lib/blog-store";
+
+export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 
-export function generateStaticParams() {
-  return blogPosts.map((post) => ({ slug: post.slug }));
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const post = getBlogPost((await params).slug);
-  if (!post) return {};
+  const post = await getPublicPost((await params).slug);
+  if (!post?.en) return {};
   return {
     title: { absolute: `${post.en.title} | Linkly` },
     description: post.en.description,
@@ -20,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function BlogPostPageEn({ params }: Props) {
-  const post = getBlogPost((await params).slug);
-  if (!post) notFound();
+  const post = await getPublicPost((await params).slug);
+  if (!post?.en) notFound();
   return <BlogPostView post={post} lang="en" />;
 }

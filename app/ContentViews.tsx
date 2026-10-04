@@ -1,7 +1,7 @@
 import Link from "next/link";
 import ContentShell from "./ContentShell";
-import { faqsAr, faqsEn } from "../lib/faq";
-import { sortedBlogPosts, type BlogPost } from "../lib/blog";
+import type { FaqPair } from "../lib/faq-store";
+import type { PublicPost } from "../lib/blog-store";
 
 type Lang = "ar" | "en";
 
@@ -9,8 +9,7 @@ function dateLabel(date: string, lang: Lang) {
   return new Date(date).toLocaleDateString(lang === "en" ? "en-US" : "ar-SA-u-nu-latn", { dateStyle: "long", timeZone: "UTC" });
 }
 
-export function FaqView({ lang }: { lang: Lang }) {
-  const faqs = lang === "en" ? faqsEn : faqsAr;
+export function FaqView({ lang, faqs }: { lang: Lang; faqs: FaqPair[] }) {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -30,25 +29,25 @@ export function FaqView({ lang }: { lang: Lang }) {
   );
 }
 
-export function BlogIndexView({ lang }: { lang: Lang }) {
+export function BlogIndexView({ lang, posts }: { lang: Lang; posts: PublicPost[] }) {
   const base = lang === "en" ? "/en/blog" : "/blog";
   return (
     <ContentShell lang={lang}>
       <h1>{lang === "en" ? "Linkly blog" : "مدونة Linkly"}</h1>
       <p>{lang === "en" ? "Practical guides for customer service and sales teams." : "أدلة عملية لفرق خدمة العملاء والمبيعات."}</p>
-      {sortedBlogPosts().map((post) => (
+      {posts.filter((post) => post[lang]).map((post) => (
         <section key={post.slug}>
-          <h2><Link href={`${base}/${post.slug}`}>{post[lang].title}</Link></h2>
+          <h2><Link href={`${base}/${post.slug}`}>{post[lang]!.title}</Link></h2>
           <p><small>{dateLabel(post.date, lang)}</small></p>
-          <p>{post[lang].description}</p>
+          <p>{post[lang]!.description}</p>
         </section>
       ))}
     </ContentShell>
   );
 }
 
-export function BlogPostView({ post, lang }: { post: BlogPost; lang: Lang }) {
-  const content = post[lang];
+export function BlogPostView({ post, lang }: { post: PublicPost; lang: Lang }) {
+  const content = post[lang]!; // the page only renders a post that has this language
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",

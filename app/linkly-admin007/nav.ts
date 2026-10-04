@@ -28,7 +28,9 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: `${BASE}/support`, label: "الدعم الفني", icon: "lifebuoy", badge: "support" },
       { href: `${BASE}/development`, label: "التطوير", icon: "code", badge: "development" },
-      { href: `${BASE}/usage`, label: "الاستخدام", icon: "chart" }
+      { href: `${BASE}/usage`, label: "الاستخدام", icon: "chart" },
+      { href: `${BASE}/faq`, label: "الأسئلة الشائعة", icon: "lifebuoy" },
+      { href: `${BASE}/blog`, label: "المدونة", icon: "scroll" }
     ]
   },
   {

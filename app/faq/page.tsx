@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { FaqView } from "../ContentViews";
+import { getFaqs } from "../../lib/faq-store";
+
+// Managed from the admin panel, so it reads the database on each request (and never at build time).
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "الأسئلة الشائعة",
@@ -7,6 +11,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq", languages: { "ar-SA": "/faq", en: "/en/faq" } }
 };
 
-export default function FaqPage() {
-  return <FaqView lang="ar" />;
+export default async function FaqPage() {
+  return <FaqView lang="ar" faqs={await getFaqs("ar")} />;
 }

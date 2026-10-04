@@ -19,7 +19,7 @@ import ChannelHub from "../landing/ChannelHub";
 import HowJourney from "../landing/HowJourney";
 import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
 import { getActivePlansForLanding } from "../../lib/plans";
-import { faqsEn } from "../../lib/faq";
+import { getFaqs } from "../../lib/faq-store";
 // Shown on the landing metric ("5+ messaging platforms").
 const platformCount = 5;
 
@@ -43,7 +43,6 @@ const features = [
   ["Replies and automation", "Your team replies faster without retyping the same answer, and complex cases route automatically."],
   ["Operational reports", "See where delays and opportunities are with real numbers, not guesswork."]
 ] as const;
-const faqs = faqsEn;
 const productSteps = [["01", "The full conversation is right there", "Messages, channel, tags and status without switching screens."], ["02", "The owner is always known", "Assign the conversation to an employee or team and track the work."], ["03", "The next step is clear", "Move it into sales follow-up, support, or escalation."]] as const;
 const howSteps = [["1", "Create your account", "Start the trial and complete your business details."], ["2", "Connect your channels", "Set up the channels available for your business."], ["3", "Add your team", "Define employees, teams and permissions."], ["4", "Start replying", "Route conversations and track performance."]] as const;
 const channelDescriptions = {
@@ -66,6 +65,7 @@ const planCta: Record<string, string> = {
 
 function Check() { return <span className={s.check} aria-hidden="true">✓</span>; }
 export default async function EnglishHomePage() {
+  const faqs = await getFaqs("en");
   const dbPlans = await getActivePlansForLanding();
   const plans = dbPlans.map((plan) => {
     const features = planFeatures[plan.name];
