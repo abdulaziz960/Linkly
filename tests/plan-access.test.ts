@@ -55,8 +55,8 @@ describe("plan access: individuals plan", () => {
       expect(RESTRICTED_PLANS[tiers[i]].views.length).toBeGreaterThan(RESTRICTED_PLANS[tiers[i - 1]].views.length);
     }
     // Regular: campaigns/templates/teams yes; AI, automations, branches, catalog, API no.
-    for (const view of ["campaigns", "templates", "teams", "workHours", "pipeline", "ai"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(false);
-    for (const view of ["knowledgeBase", "automations", "operations", "branches", "catalog", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(true);
+    for (const view of ["campaigns", "templates", "teams", "workHours", "pipeline", "ai", "branches"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(false);
+    for (const view of ["knowledgeBase", "automations", "operations", "catalog", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(true);
     // The regular plan opens the AI assistant (with the customer's own key); the individuals plan does not.
     expect(isViewLockedForPlan("الباقة العادية", "ai")).toBe(false);
     expect(isViewLockedForPlan("باقة الأفراد", "ai")).toBe(true);

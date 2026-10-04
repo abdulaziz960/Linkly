@@ -47,8 +47,8 @@ export const PLAN_ORDER = [INDIVIDUALS_PLAN, REGULAR_PLAN, SMALL_ORG_PLAN, LARGE
 const INDIVIDUALS_VIEWS: ViewKey[] = ["inbox", "contacts", "tags", "quickReplies", "bot", "reports", "settings", "employees"];
 // The regular plan opens the AI assistant too, but only with the customer's OWN API key: the Linkly-managed
 // AI (our key, our cost) stays a small-enterprises feature - it needs a positive aiDailyLimit on the Plan row, which this plan doesn't have.
-const REGULAR_VIEWS: ViewKey[] = [...INDIVIDUALS_VIEWS, "teams", "workHours", "templates", "campaigns", "segments", "pipeline", "ai"];
-const SMALL_ORG_VIEWS: ViewKey[] = [...REGULAR_VIEWS, "automations", "knowledgeBase", "operations", "branches"];
+const REGULAR_VIEWS: ViewKey[] = [...INDIVIDUALS_VIEWS, "teams", "workHours", "templates", "campaigns", "segments", "pipeline", "ai", "branches"];
+const SMALL_ORG_VIEWS: ViewKey[] = [...REGULAR_VIEWS, "automations", "knowledgeBase", "operations"];
 const LARGE_ORG_VIEWS: ViewKey[] = [...SMALL_ORG_VIEWS, "developers", "integrations", "catalog"];
 
 // What the AI-free bot may use. AI and Knowledge Base steps arrive with the AI assistant (small enterprises); the catalog step with the catalog (large).
@@ -80,7 +80,7 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     basicReports: true,
     // Fixed 30-minute escalation: the settings live in Automations, which this plan doesn't have.
     escalation: true,
-    limits: { teams: 2, products: 0, branches: 0, kbEntries: 0 },
+    limits: { teams: 2, products: 0, branches: 3, kbEntries: 0 },
     recurringCampaigns: false,
     advancedSegments: false,
     reportsExcel: false
@@ -91,7 +91,7 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     botMaxSteps: null,
     basicReports: false,
     escalation: true,
-    limits: { teams: null, products: 0, branches: 20, kbEntries: 50 },
+    limits: { teams: null, products: 0, branches: 7, kbEntries: 50 },
     recurringCampaigns: true,
     advancedSegments: true,
     reportsExcel: false
@@ -102,7 +102,7 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     botMaxSteps: null,
     basicReports: false,
     escalation: true,
-    limits: { teams: null, products: 300, branches: 100, kbEntries: 200 },
+    limits: { teams: null, products: 300, branches: 15, kbEntries: 200 },
     recurringCampaigns: true,
     advancedSegments: true,
     reportsExcel: true

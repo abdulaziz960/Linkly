@@ -38,8 +38,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     shortName: { ar: "العادية", en: "Regular" },
     audience: { ar: "الأنسب لصاحب عمل بدأ يكبر ويحتاج قناة ثانية وفريق صغير.", en: "Best for a growing business that needs a second channel and a small team." },
     items: {
-      ar: ["كل مزايا الأفراد", "رد آلي حتى 15 خطوة وساعات عمل", "فريقان وتوزيع محادثات تلقائي", "قوالب وحملات وتقسيم جمهور بالوسوم", "مساعد AI بربط مفتاحك الخاص", "كانبان المبيعات وتصعيد المحادثات (30 دقيقة)", "تقارير أساسية"],
-      en: ["Everything in Individuals", "Auto-reply up to 15 steps and work hours", "2 teams and automatic routing", "Templates, campaigns and tag-based segments", "AI assistant with your own API key", "Sales pipeline and escalation (30 min)", "Basic reports"]
+      ar: ["كل مزايا الأفراد", "رد آلي حتى 15 خطوة وساعات عمل", "فريقان وتوزيع محادثات تلقائي", "قوالب وحملات وتقسيم جمهور بالوسوم", "مساعد AI بربط مفتاحك الخاص", "الفروع وإرسال أقرب فرع (حتى 3)", "كانبان المبيعات وتصعيد المحادثات (30 دقيقة)", "تقارير أساسية"],
+      en: ["Everything in Individuals", "Auto-reply up to 15 steps and work hours", "2 teams and automatic routing", "Templates, campaigns and tag-based segments", "AI assistant with your own API key", "Branches and nearest-branch reply (up to 3)", "Sales pipeline and escalation (30 min)", "Basic reports"]
     }
   },
   "باقة المؤسسات الصغيرة": {
@@ -47,16 +47,16 @@ export const planFeatures: Record<string, PlanFeatures> = {
     audience: { ar: "الأنسب لفريق يحتاج أتمتة وتقسيم جمهور ومساعد AI.", en: "Best for a team that needs automation, audience segments, and an AI Assistant." },
     featured: true,
     items: {
-      ar: ["كل مزايا العادية", "فرق متعددة وأتمتة وقواعد تحويل", "مساعد AI مُدار من لنكلي (50 طلبًا يوميًا) وقاعدة معرفة (50 مدخلًا)", "حملات متكررة وتقسيم جمهور بتفاعل الحملات", "الفروع وإرسال أقرب فرع (حتى 20)", "تصعيد بمدة قابلة للتعديل ومركز عمليات", "تقارير أداء وSLA"],
-      en: ["Everything in Regular", "Multiple teams, automation and routing rules", "Linkly-managed AI assistant (50 requests/day) and knowledge base (50 entries)", "Recurring campaigns and campaign-engagement segments", "Branches and nearest-branch reply (up to 20)", "Adjustable escalation and operations center", "Performance and SLA reports"]
+      ar: ["كل مزايا العادية", "فرق متعددة وأتمتة وقواعد تحويل", "مساعد AI مُدار من لنكلي (50 طلبًا يوميًا) وقاعدة معرفة (50 مدخلًا)", "حملات متكررة وتقسيم جمهور بتفاعل الحملات", "فروع حتى 7", "تصعيد بمدة قابلة للتعديل ومركز عمليات", "تقارير أداء وSLA"],
+      en: ["Everything in Regular", "Multiple teams, automation and routing rules", "Linkly-managed AI assistant (50 requests/day) and knowledge base (50 entries)", "Recurring campaigns and campaign-engagement segments", "Up to 7 branches", "Adjustable escalation and operations center", "Performance and SLA reports"]
     }
   },
   "باقة المؤسسات الكبيرة": {
     shortName: { ar: "المؤسسات الكبيرة", en: "Large Enterprises" },
     audience: { ar: "الأنسب لفرق متعددة تحتاج قنوات أكثر وواجهات تكامل.", en: "Best for multiple teams that need more channels and integrations." },
     items: {
-      ar: ["كل مزايا المؤسسات الصغيرة", "كتالوج المنتجات والشراء من واتساب (حتى 300 منتج)", "مساعد AI (100 طلب يوميًا) وقاعدة معرفة (200 مدخل)", "فروع حتى 100", "واجهة API وWebhooks وتكاملات", "تصدير Excel ودعم أولوية"],
-      en: ["Everything in Small Enterprises", "Product catalog and buying on WhatsApp (up to 300 products)", "AI assistant (100 requests/day) and knowledge base (200 entries)", "Up to 100 branches", "Developer API, webhooks and integrations", "Excel export and priority support"]
+      ar: ["كل مزايا المؤسسات الصغيرة", "كتالوج المنتجات والشراء من واتساب (حتى 300 منتج)", "مساعد AI (100 طلب يوميًا) وقاعدة معرفة (200 مدخل)", "فروع حتى 15", "واجهة API وWebhooks وتكاملات", "تصدير Excel ودعم أولوية"],
+      en: ["Everything in Small Enterprises", "Product catalog and buying on WhatsApp (up to 300 products)", "AI assistant (100 requests/day) and knowledge base (200 entries)", "Up to 15 branches", "Developer API, webhooks and integrations", "Excel export and priority support"]
     }
   },
   "باقة الشركات": {

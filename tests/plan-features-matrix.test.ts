@@ -39,12 +39,12 @@ describe("the comparison table matches what is enforced", () => {
     }
   });
 
-  it("puts the catalog on large+ and branches on small+, as proposed", async () => {
+  it("puts the catalog on large+ and branches on regular+, as set", async () => {
     const { isViewLockedForPlan } = await import("../lib/plan-access");
     expect(isViewLockedForPlan("باقة المؤسسات الصغيرة", "catalog")).toBe(true);
     expect(isViewLockedForPlan("باقة المؤسسات الكبيرة", "catalog")).toBe(false);
-    expect(isViewLockedForPlan("الباقة العادية", "branches")).toBe(true);
-    expect(isViewLockedForPlan("باقة المؤسسات الصغيرة", "branches")).toBe(false);
+    expect(isViewLockedForPlan("باقة الأفراد", "branches")).toBe(true);
+    expect(isViewLockedForPlan("الباقة العادية", "branches")).toBe(false);
     expect(isViewLockedForPlan("الباقة العادية", "templates")).toBe(false);
   });
 
@@ -105,5 +105,32 @@ describe("plan limits are enforced on the server", () => {
     expect(isRecurringCampaignAllowed("باقة المؤسسات الصغيرة")).toBe(true);
     expect(isAdvancedSegmentAllowed("الباقة العادية")).toBe(false);
     expect(isAdvancedSegmentAllowed("باقة الشركات")).toBe(true);
+  });
+});
+
+describe("branch caps per plan", () => {
+  it("allows 3 / 7 / 15 branches and unlimited on enterprise", async () => {
+    const { planLimit, upgradeTargetForView, limitReachedMessage } = await import("../lib/plan-access");
+    expect(planLimit("باقة الأفراد", "branches")).toBe(0);
+    expect(planLimit("الباقة العادية", "branches")).toBe(3);
+    expect(planLimit("باقة المؤسسات الصغيرة", "branches")).toBe(7);
+    expect(planLimit("باقة المؤسسات الكبيرة", "branches")).toBe(15);
+    expect(planLimit("باقة الشركات", "branches")).toBeNull();
+    expect(upgradeTargetForView("branches")).toBe("الباقة العادية");
+    expect(limitReachedMessage("branches", 3)).toContain("باقة المؤسسات الصغيرة");
+  });
+
+  it("stops the 4th branch on the regular plan", async () => {
+    const { ensureSchema } = await import("../lib/database");
+    const { prisma } = await import("../lib/prisma");
+    await ensureSchema();
+    const now = new Date(Date.now() + 86_400_000).toISOString();
+    await prisma.subscription.create({ data: { id: "sub-branch-cap", tenantId: "tenant-branch-cap", companyName: "B", ownerName: "O", ownerEmail: "b@x.sa", plan: "الباقة العادية", status: "نشط", renewalAt: now, createdAt: now, updatedAt: now } });
+    const { assertWithinPlanLimit, PlanLimitError } = await import("../lib/plan-access-server");
+    for (let i = 0; i < 3; i += 1) {
+      await assertWithinPlanLimit("tenant-branch-cap", "branches");
+      await prisma.branch.create({ data: { id: `b-${i}`, tenantId: "tenant-branch-cap", name: `B${i}`, latitude: 24.7, longitude: 46.6, createdAt: now, updatedAt: now } });
+    }
+    await expect(assertWithinPlanLimit("tenant-branch-cap", "branches")).rejects.toBeInstanceOf(PlanLimitError);
   });
 });
