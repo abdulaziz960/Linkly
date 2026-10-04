@@ -71,7 +71,7 @@ describe("catalog bot cards (WhatsApp)", () => {
     expect((sent.at(-1)!.input.buttons as Array<{ id: string }>).some((b) => b.id.startsWith("cat_more_"))).toBe(false);
   });
 
-  it("with payment off, a product with a page opens its link; with payment on it offers buy", async () => {
+  it("with payment off a product offers submit-an-order and shows its link; with payment on it offers buy", async () => {
     const { listBotProducts, saveCatalogSettings } = await import("../lib/catalog");
     const { handleCatalogReply } = await import("../lib/catalog-bot");
     const [product] = await listBotProducts(tenantId, 1);
@@ -79,9 +79,11 @@ describe("catalog bot cards (WhatsApp)", () => {
 
     sent.length = 0;
     await handleCatalogReply(c, { id: `prod_${product.id}`, text: "" }, "");
-    expect(sent[0].kind).toBe("cta");
-    expect(sent[0].input.url).toBe(product.productUrl);
+    // Payment off: a "submit an order" button, with the product page link inside the message text.
+    expect(sent[0].kind).toBe("buttons");
+    expect((sent[0].input.buttons as Array<{ id: string; title: string }>)[0]).toMatchObject({ id: `buy_${product.id}`, title: "تقديم طلب" });
     expect(String(sent[0].input.bodyText)).toContain("وصف المنتج");
+    expect(String(sent[0].input.bodyText)).toContain(String(product.productUrl));
 
     await saveCatalogSettings(tenantId, { paymentEnabled: true, gatewaySecretKey: "sk_test_abcdefghijklmnop1234" });
     sent.length = 0;
