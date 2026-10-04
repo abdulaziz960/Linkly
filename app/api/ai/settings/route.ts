@@ -5,6 +5,7 @@ import { prisma } from "../../../../lib/prisma";
 import { encryptSecret } from "../../../../lib/secret-storage";
 import { ensureSchema } from "../../../../lib/database";
 import { aiProviders } from "../../../../lib/ai-types";
+import { summarizeAiUsage } from "../../../../lib/ai-usage-summary";
 import { getPublicAiSettings } from "../../../../lib/workspace-ai";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -16,12 +17,14 @@ export async function GET() {
   if (user.role !== "مالك الحساب") return jsonError("إعدادات المزود متاحة لمالك الحساب", 403);
   const settings = await getPublicAiSettings(user.tenantId);
   const now = new Date().toISOString();
-  const [buckets, events] = await Promise.all([
+  const since = new Date(Date.now() - 30 * 86400000).toISOString();
+  const [buckets, events, recent] = await Promise.all([
     prisma.aiUsageBucket.findMany({ where: { tenantId: user.tenantId, period: { in: [now.slice(0, 10), now.slice(0, 7)] } } }),
-    prisma.aiUsageEvent.findMany({ where: { tenantId: user.tenantId }, orderBy: { createdAt: "desc" }, take: 50 })
+    prisma.aiUsageEvent.findMany({ where: { tenantId: user.tenantId }, orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.aiUsageEvent.findMany({ where: { tenantId: user.tenantId, createdAt: { gte: since } }, select: { userId: true, operation: true, status: true, inputTokens: true, outputTokens: true, estimatedCost: true }, take: 20000 })
   ]);
   return jsonOk({ settings, dailyUsed: buckets.find((item) => item.period.length === 10)?.count || 0,
-    monthlyUsed: buckets.find((item) => item.period.length === 7)?.count || 0, events });
+    monthlyUsed: buckets.find((item) => item.period.length === 7)?.count || 0, events, summary: summarizeAiUsage(recent) });
 }
 
 export async function PUT(request: NextRequest) {
