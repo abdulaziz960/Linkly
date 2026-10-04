@@ -202,6 +202,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [chatPanel, setChatPanel] = useState<ChatPanel>("chat");
   const [composerMode, setComposerMode] = useState<ComposerMode>("reply");
   const [message, setMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const sendingRef = useRef(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1083,30 +1085,43 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
   async function handleSend(event: FormEvent<HTMLFormElement>, replyToMessageId?: string) {
     event.preventDefault();
-    if (!activeConversation.id) return;
+    if (!activeConversation.id || sendingRef.current) return;
     const text = message.trim();
     const direction = composerMode === "note" ? "note" : "out";
     if (!text || activeConversation.status === "closed") return;
     if (activeConversation.windowExpired && direction !== "note") return;
 
-    const response = await fetch(`/api/conversations/${activeConversation.id}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        direction,
-        text,
-        replyToMessageId,
-        conversation: activeConversationSnapshot
-      })
-    });
+    sendingRef.current = true;
+    setIsSending(true);
+    const abortTimer = new AbortController();
+    const timeoutId = window.setTimeout(() => abortTimer.abort(), 30000);
+    try {
+      const response = await fetch(`/api/conversations/${activeConversation.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: abortTimer.signal,
+        body: JSON.stringify({
+          direction,
+          text,
+          replyToMessageId,
+          conversation: activeConversationSnapshot
+        })
+      });
 
-    if (!response.ok) {
-      window.alert(await readApiError(response, language));
-      return;
+      if (!response.ok) {
+        window.alert(await readApiError(response, language));
+        return;
+      }
+
+      setMessage("");
+      void loadDashboardData();
+    } catch {
+      window.alert(language === "en" ? "Couldn't send the message. Check your connection and try again." : "تعذر إرسال الرسالة. تحقق من اتصالك وحاول مجددًا.");
+    } finally {
+      window.clearTimeout(timeoutId);
+      sendingRef.current = false;
+      setIsSending(false);
     }
-
-    setMessage("");
-    await loadDashboardData();
   }
 
   async function handleSendTemplate(templateNameOverride?: string) {
@@ -1489,6 +1504,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             onMarkConversationUnread={handleMarkConversationUnread}
             onToggleConversationStatus={handleConversationStatusToggleById}
             onSend={handleSend}
+            isSending={isSending}
             onSendAttachment={handleSendAttachment}
             onSendCommentReply={handleSendCommentReply}
             onSendTemplate={handleSendTemplate}
