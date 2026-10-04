@@ -94,7 +94,7 @@ describe("features, channels and caps unlocked for one workspace", () => {
     // Regular already has escalation (30 min) -> not grantable; whatsapp is already in the plan; products cap (0) is page-bound but still a capped thing.
     expect(saved.features.sort()).toEqual(["recurringCampaigns", "unlimitedBot"]);
     expect(saved.channels).toEqual(["youtube"]);
-    expect(saved.limits.sort()).toEqual(["branches", "products"]);
+    expect(saved.limits).toEqual({ branches: null, products: null });
     expect((await getTenantGrants("tenant-grants-feat")).features.sort()).toEqual(["recurringCampaigns", "unlimitedBot"]);
   });
 
@@ -132,7 +132,58 @@ describe("features, channels and caps unlocked for one workspace", () => {
     expect(enterprise.views).toEqual([]);
     expect(enterprise.features).toEqual([]);
     expect(enterprise.channels).toEqual([]);
-    expect(enterprise.limits).toEqual([]);
+    // Numbers can be customized on any plan.
+    expect(enterprise.limits.length).toBe(4);
+    expect(enterprise.numbers.length).toBe(4);
     expect(grantableForPlan("الباقة العادية", "whatsapp,instagram,telegram,email").limits).toContain("teams");
+  });
+});
+
+describe("custom numbers for one workspace", () => {
+  it("parses, validates and stores custom caps and numbers", async () => {
+    const { parseGrantKeys, encodeGrantKeys } = await import("../lib/plan-access");
+    const grants = parseGrantKeys(["limit:branches=12", "limit:products=unlimited", "limit:teams=-3", "limit:nope=4", "num:botMaxSteps=40", "num:aiDaily=0", "num:escalationMinutes=0", "num:escalationMinutes=15x", "num:aiMonthly=2000"]);
+    expect(grants.limits).toEqual({ branches: 12, products: null });
+    expect(grants.numbers).toEqual({ botMaxSteps: 40, aiDaily: 0, aiMonthly: 2000 });
+    expect(encodeGrantKeys(grants).sort()).toEqual(["limit:branches=12", "limit:products=unlimited", "num:aiDaily=0", "num:aiMonthly=2000", "num:botMaxSteps=40"]);
+  });
+
+  it("uses a custom cap instead of the plan's, in both directions", async () => {
+    await subscribe("tenant-grants-num", "الباقة العادية");
+    const { setTenantGrants } = await import("../lib/plan-grants");
+    const { assertWithinPlanLimit, PlanLimitError } = await import("../lib/plan-access-server");
+    const { prisma } = await import("../lib/prisma");
+    const regular = "whatsapp,instagram,telegram,email";
+    const now = new Date().toISOString();
+
+    // Regular allows 3 branches; give this client 5, then 1.
+    await setTenantGrants("tenant-grants-num", ["limit:branches=5"], "admin", "الباقة العادية", regular);
+    for (let i = 0; i < 4; i += 1) await prisma.branch.create({ data: { id: `bn-${i}`, tenantId: "tenant-grants-num", name: `B${i}`, latitude: 24.7, longitude: 46.6, createdAt: now, updatedAt: now } });
+    await expect(assertWithinPlanLimit("tenant-grants-num", "branches")).resolves.toBeUndefined();
+    await prisma.branch.create({ data: { id: "bn-4", tenantId: "tenant-grants-num", name: "B4", latitude: 24.7, longitude: 46.6, createdAt: now, updatedAt: now } });
+    await expect(assertWithinPlanLimit("tenant-grants-num", "branches")).rejects.toBeInstanceOf(PlanLimitError);
+
+    await setTenantGrants("tenant-grants-num", ["limit:branches=0"], "admin", "الباقة العادية", regular);
+    await expect(assertWithinPlanLimit("tenant-grants-num", "branches")).rejects.toBeInstanceOf(PlanLimitError);
+  });
+
+  it("applies custom bot steps, managed-AI limits and escalation minutes", async () => {
+    await subscribe("tenant-grants-ai", "باقة الأفراد");
+    const { setTenantGrants, getTenantGrants } = await import("../lib/plan-grants");
+    const { getPlanAccessForTenant } = await import("../lib/plan-access-server");
+    const { getPublicAiSettings } = await import("../lib/workspace-ai");
+
+    // Individuals: no managed AI, 6 bot steps.
+    let ai = await getPublicAiSettings("tenant-grants-ai");
+    expect(ai.managedAvailable).toBe(false);
+    expect((await getPlanAccessForTenant("tenant-grants-ai")).botMaxSteps).toBe(6);
+
+    await setTenantGrants("tenant-grants-ai", ["num:botMaxSteps=25", "num:aiDaily=80", "num:aiMonthly=1500", "num:escalationMinutes=10"], "admin", "باقة الأفراد", "whatsapp");
+    ai = await getPublicAiSettings("tenant-grants-ai");
+    expect(ai.managedAvailable).toBe(true);
+    expect(ai.managedDailyLimit).toBe(80);
+    expect(ai.managedMonthlyLimit).toBe(1500);
+    expect((await getPlanAccessForTenant("tenant-grants-ai")).botMaxSteps).toBe(25);
+    expect((await getTenantGrants("tenant-grants-ai")).numbers.escalationMinutes).toBe(10);
   });
 });

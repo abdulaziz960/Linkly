@@ -27,10 +27,11 @@ export async function setTenantGrants(tenantId: string, requested: string[], gra
   const grantable = grantableForPlan(planName, allowedChannelsRaw);
   const asked = parseGrantKeys(requested);
   const wanted: Grants = {
-    views: asked.views.filter((view) => grantable.views.includes(view)),
-    features: asked.features.filter((feature) => grantable.features.includes(feature)),
-    channels: asked.channels.filter((channel) => grantable.channels.includes(channel)),
-    limits: asked.limits.filter((kind) => grantable.limits.includes(kind))
+    views: Array.from(new Set(asked.views.filter((view) => grantable.views.includes(view)))),
+    features: Array.from(new Set(asked.features.filter((feature) => grantable.features.includes(feature)))),
+    channels: Array.from(new Set(asked.channels.filter((channel) => grantable.channels.includes(channel)))),
+    limits: Object.fromEntries(Object.entries(asked.limits).filter(([kind]) => (grantable.limits as string[]).includes(kind))),
+    numbers: Object.fromEntries(Object.entries(asked.numbers).filter(([name]) => (grantable.numbers as string[]).includes(name)))
   };
   const keys = Array.from(new Set(encodeGrantKeys(wanted)));
   const now = new Date().toISOString();

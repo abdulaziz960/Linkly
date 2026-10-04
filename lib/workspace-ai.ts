@@ -4,6 +4,7 @@ import { ensureSchema } from "./database";
 import { decryptSecret } from "./secret-storage";
 import { defaultAiConnection, generateAiText, isAiConnectionConfigured, transcribeAudio, NO_SPEECH_MARKER, type AiConnection, type AiContext, type AudioTranscriptionInput } from "./ai-provider";
 import type { AiProvider, AiSettingsPublic } from "./ai-types";
+import { getTenantGrants } from "./plan-grants";
 import { ECONOMY_INPUT_USD, ECONOMY_MODEL, ECONOMY_OUTPUT_USD, MANAGED_BUDGET_TENANT, managedMonthlyRequestCap } from "./ai-economy";
 
 // A tenant's *current* plan, looked up fresh every call rather than cached -
@@ -13,8 +14,12 @@ async function getTenantPlanAiLimits(tenantId: string): Promise<{ dailyLimit: nu
   const subscription = await prisma.subscription.findUnique({ where: { tenantId }, select: { plan: true } });
   if (!subscription) return null;
   const plan = await prisma.plan.findUnique({ where: { name: subscription.plan } });
-  if (!plan || plan.aiDailyLimit <= 0) return null;
-  return { dailyLimit: plan.aiDailyLimit, monthlyLimit: plan.aiMonthlyLimit };
+  if (!plan) return null;
+  // The platform team can set a workspace's own managed-AI limits (or switch them on for a plan without them).
+  const { numbers } = await getTenantGrants(tenantId);
+  const dailyLimit = numbers.aiDaily ?? plan.aiDailyLimit;
+  if (dailyLimit <= 0) return null;
+  return { dailyLimit, monthlyLimit: numbers.aiMonthly ?? plan.aiMonthlyLimit };
 }
 
 export async function getPublicAiSettings(tenantId: string): Promise<AiSettingsPublic> {

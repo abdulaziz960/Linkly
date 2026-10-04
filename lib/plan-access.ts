@@ -196,11 +196,32 @@ export const GRANT_FEATURE_LABELS: Record<GrantFeature, { ar: string; en: string
 
 export const LIMIT_KIND_LABELS: Record<PlanLimitKind, string> = { teams: "عدد الفرق", products: "عدد المنتجات", branches: "عدد الفروع", kbEntries: "مدخلات قاعدة المعرفة" };
 
-export type Grants = { views: ViewKey[]; features: GrantFeature[]; channels: ChannelKey[]; limits: PlanLimitKind[] };
-export const NO_GRANTS: Grants = { views: [], features: [], channels: [], limits: [] };
+export const GRANT_NUMBERS = ["botMaxSteps", "aiDaily", "aiMonthly", "escalationMinutes"] as const;
+export type GrantNumber = typeof GRANT_NUMBERS[number];
+
+export const GRANT_NUMBER_LABELS: Record<GrantNumber, { ar: string; hint: string; min: number; max: number }> = {
+  botMaxSteps: { ar: "أقصى عدد خطوات الرد الآلي", hint: "خطوة", min: 1, max: 500 },
+  aiDaily: { ar: "حد مساعد AI اليومي (مفتاح لنكلي)", hint: "طلب/يوم", min: 0, max: 100000 },
+  aiMonthly: { ar: "حد مساعد AI الشهري (مفتاح لنكلي)", hint: "طلب/شهر", min: 0, max: 1000000 },
+  escalationMinutes: { ar: "مدة التصعيد", hint: "دقيقة", min: 1, max: 1440 }
+};
+
+/** A custom cap for one counted thing: a number, or null for "unlimited". */
+export type LimitGrants = Partial<Record<PlanLimitKind, number | null>>;
+
+export type Grants = {
+  views: ViewKey[];
+  features: GrantFeature[];
+  channels: ChannelKey[];
+  /** Custom caps (a number, or null = unlimited) that replace the plan's. */
+  limits: LimitGrants;
+  /** Custom numbers that replace the plan's (bot steps, AI limits, escalation minutes). */
+  numbers: Partial<Record<GrantNumber, number>>;
+};
+export const NO_GRANTS: Grants = { views: [], features: [], channels: [], limits: {}, numbers: {} };
 
 export function parseGrantKeys(keys: string[]): Grants {
-  const grants: Grants = { views: [], features: [], channels: [], limits: [] };
+  const grants: Grants = { views: [], features: [], channels: [], limits: {}, numbers: {} };
   for (const key of keys) {
     if (key.startsWith("feature:")) {
       const name = key.slice(8);
@@ -209,8 +230,16 @@ export function parseGrantKeys(keys: string[]): Grants {
       const name = key.slice(8);
       if (isValidChannelKey(name)) grants.channels.push(name);
     } else if (key.startsWith("limit:")) {
-      const name = key.slice(6);
-      if (name in LIMIT_KIND_LABELS) grants.limits.push(name as PlanLimitKind);
+      const [name, raw] = key.slice(6).split("=");
+      if (name in LIMIT_KIND_LABELS) {
+        const value = raw === "unlimited" || raw === undefined ? null : Number(raw);
+        if (value === null || (Number.isInteger(value) && value >= 0 && value <= 1_000_000)) grants.limits[name as PlanLimitKind] = value;
+      }
+    } else if (key.startsWith("num:")) {
+      const [name, raw] = key.slice(4).split("=");
+      const spec = (GRANT_NUMBERS as readonly string[]).includes(name) ? GRANT_NUMBER_LABELS[name as GrantNumber] : null;
+      const value = Number(raw);
+      if (spec && raw !== undefined && Number.isInteger(value) && value >= spec.min && value <= spec.max) grants.numbers[name as GrantNumber] = value;
     } else if ((allViewKeys as string[]).includes(key)) {
       grants.views.push(key as ViewKey);
     }
@@ -219,11 +248,19 @@ export function parseGrantKeys(keys: string[]): Grants {
 }
 
 export function encodeGrantKeys(grants: Grants): string[] {
-  return [...grants.views, ...grants.features.map((f) => `feature:${f}`), ...grants.channels.map((c) => `channel:${c}`), ...grants.limits.map((l) => `limit:${l}`)];
+  return [
+    ...grants.views,
+    ...grants.features.map((f) => `feature:${f}`),
+    ...grants.channels.map((c) => `channel:${c}`),
+    ...(Object.entries(grants.limits) as Array<[PlanLimitKind, number | null]>).map(([kind, value]) => `limit:${kind}=${value === null ? "unlimited" : value}`),
+    ...(Object.entries(grants.numbers) as Array<[GrantNumber, number]>).map(([name, value]) => `num:${name}=${value}`)
+  ];
 }
 
 /** What an admin may unlock for a workspace on this plan: only what the plan doesn't already include. */
-export function grantableForPlan(planName: string | null | undefined, allowedChannelsRaw: string | null | undefined): Grants {
+export type Grantable = { views: ViewKey[]; features: GrantFeature[]; channels: ChannelKey[]; limits: PlanLimitKind[]; numbers: GrantNumber[] };
+
+export function grantableForPlan(planName: string | null | undefined, allowedChannelsRaw: string | null | undefined): Grantable {
   const restriction = getPlanRestriction(planName);
   const channels = allowedChannelsRaw ? parseAllowedChannels(allowedChannelsRaw) : ("*" as const);
   const features: GrantFeature[] = !restriction ? [] : GRANT_FEATURES.filter((feature) => {
@@ -238,7 +275,9 @@ export function grantableForPlan(planName: string | null | undefined, allowedCha
     views: lockedViewsForPlan(planName),
     features,
     channels: channels === "*" ? [] : CHANNEL_CATALOG.map((entry) => entry.key).filter((key) => !channels.includes(key)),
-    limits: restriction ? (Object.keys(restriction.limits) as PlanLimitKind[]).filter((kind) => restriction.limits[kind] !== null) : []
+    // Any counted thing can get a custom cap, and any number can be overridden, on any plan.
+    limits: Object.keys(LIMIT_KIND_LABELS) as PlanLimitKind[],
+    numbers: [...GRANT_NUMBERS]
   };
 }
 
@@ -249,8 +288,9 @@ export function grantablePagesForPlan(planName: string | null | undefined): View
 
 /** A plan's cap on a thing (teams, products, ...). null = unlimited. */
 export function planLimit(planName: string | null | undefined, kind: PlanLimitKind, grants: Grants = NO_GRANTS): number | null {
-  // An unlocked page, or an explicit "unlimited", lifts the cap.
-  if (grants.limits.includes(kind) || grants.views.some((view) => GRANT_LIMIT_KIND[view] === kind)) return null;
+  // A custom cap (number, or null = unlimited) wins; an unlocked page also lifts its own cap.
+  if (kind in grants.limits) return grants.limits[kind] ?? null;
+  if (grants.views.some((view) => GRANT_LIMIT_KIND[view] === kind)) return null;
   return getPlanRestriction(planName)?.limits[kind] ?? null;
 }
 
@@ -317,7 +357,7 @@ export function buildPlanAccess(planName: string | null | undefined, allowedChan
     lockedViews: lockedViewsForPlan(planName).filter((view) => !grants.views.includes(view)),
     allowedChannels,
     botNodeTypes: restriction && !unlimitedBot ? (restriction.botNodeTypes === "*" ? "*" : [...restriction.botNodeTypes, ...extraSteps]) : "*",
-    botMaxSteps: restriction && !unlimitedBot ? restriction.botMaxSteps : null,
+    botMaxSteps: grants.numbers.botMaxSteps ?? (restriction && !unlimitedBot ? restriction.botMaxSteps : null),
     basicReports: (restriction?.basicReports ?? false) && !grants.features.includes("fullReports"),
     reportsExcel: (restriction?.reportsExcel ?? true) || grants.features.includes("reportsExcel"),
     isTrial
@@ -346,8 +386,9 @@ export function validateBotNodesForPlan(
       return { ok: false, error: `خطوة «${node.type}» غير متاحة في باقتك الحالية. رقِّ باقتك للاستمتاع بالمزايا.` };
     }
   }
-  if (restriction.botMaxSteps !== null && nodes.length > restriction.botMaxSteps && nodes.length > existing.length) {
-    return { ok: false, error: `الرد الآلي في باقتك الحالية يدعم حتى ${restriction.botMaxSteps} خطوات. رقِّ باقتك لإضافة المزيد.` };
+  const stepCap = grants.numbers.botMaxSteps ?? restriction.botMaxSteps;
+  if (stepCap !== null && nodes.length > stepCap && nodes.length > existing.length) {
+    return { ok: false, error: `الرد الآلي في باقتك الحالية يدعم حتى ${stepCap} خطوات. رقِّ باقتك لإضافة المزيد.` };
   }
   return { ok: true };
 }

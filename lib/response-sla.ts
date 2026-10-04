@@ -101,13 +101,16 @@ export async function escalateUnansweredConversations() {
 
   for (const { tenantId } of tenantRows) {
     // Plans without escalation (e.g. the single-user individuals plan) never raise SLA alerts.
-    if (!isEscalationAllowedForPlan(await getTenantPlanName(tenantId), await getTenantGrants(tenantId))) continue;
+    const grants = await getTenantGrants(tenantId);
+    if (!isEscalationAllowedForPlan(await getTenantPlanName(tenantId), grants)) continue;
     if (!(await isWithinWorkHours(tenantId))) continue;
 
     const preference = await prisma.tenantPreference.findUnique({ where: { tenantId }, select: { escalationMinutes: true } });
-    const minutes = preference?.escalationMinutes && preference.escalationMinutes >= MIN_ESCALATION_MINUTES && preference.escalationMinutes <= MAX_ESCALATION_MINUTES
-      ? preference.escalationMinutes
-      : DEFAULT_ESCALATION_MINUTES;
+    // A duration set by the platform team for this workspace wins; otherwise the owner's own setting, otherwise the default.
+    const minutes = grants.numbers.escalationMinutes
+      ?? (preference?.escalationMinutes && preference.escalationMinutes >= MIN_ESCALATION_MINUTES && preference.escalationMinutes <= MAX_ESCALATION_MINUTES
+        ? preference.escalationMinutes
+        : DEFAULT_ESCALATION_MINUTES);
     const cutoff = new Date(Date.now() - minutes * 60000).toISOString();
 
     // Whether a conversation was already escalated for its current last

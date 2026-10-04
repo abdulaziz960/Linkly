@@ -2480,3 +2480,13 @@
 
 .admin-grants-title { display: flex; flex-direction: column; gap: 2px; margin: 14px 20px 8px; font-size: 14px; }
 .admin-grants-title small { color: var(--admin-muted, #64748b); font-weight: 600; }
+
+.admin-grants-numbers { display: grid; gap: 8px; padding: 4px 20px 6px; }
+.admin-grants-numbers > div { display: grid; grid-template-columns: minmax(180px, 1fr) 130px auto auto; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--admin-line, #e3ebe8); border-radius: 10px; background: var(--admin-surface, #fff); }
+.admin-grants-numbers > div.on { border-color: #0f766e; background: #f1faf8; }
+.admin-grants-numbers span { display: flex; flex-direction: column; font-weight: 700; }
+.admin-grants-numbers span small { color: var(--admin-muted, #64748b); font-weight: 600; }
+.admin-grants-numbers input[type="number"] { padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; }
+.admin-grants-numbers em { font-style: normal; color: var(--admin-muted, #64748b); font-size: 12px; }
+.admin-grants-unlimited { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+@media (max-width: 720px) { .admin-grants-numbers > div { grid-template-columns: 1fr; } }
