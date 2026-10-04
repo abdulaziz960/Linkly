@@ -1665,12 +1665,14 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   </span>
                   <b>{channel.title}</b>
                   {handle ? <span className="channel-connect-handle" dir="ltr">{handle}</span> : <small>{channel.description}</small>}
-                  <button type="button" className={connected ? "connected" : ""} onClick={() => connected ? goToChannelSetup(channel.id) : connectChannel(channel.id)}>
-                    {connected ? t("متصل — إدارة", "Connected — manage") : t("ربط", "Connect")}
-                  </button>
-                  {channel.id === "whatsapp" && connected ? (
-                    <button type="button" className="channel-diagnose-btn" onClick={() => void runWhatsAppDiagnose()}>{t("فحص الربط", "Check connection")}</button>
-                  ) : null}
+                  <div className="channel-connect-actions">
+                    <button type="button" className={connected ? "connected" : ""} onClick={() => connected ? goToChannelSetup(channel.id) : connectChannel(channel.id)}>
+                      {connected ? t("متصل — إدارة", "Connected — manage") : t("ربط", "Connect")}
+                    </button>
+                    {channel.id === "whatsapp" && connected ? (
+                      <button type="button" className="channel-diagnose-btn" onClick={() => void runWhatsAppDiagnose()}>{t("فحص الربط", "Check connection")}</button>
+                    ) : null}
+                  </div>
                 </div>
               );
             })}

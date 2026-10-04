@@ -11328,7 +11328,11 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .btn.close-red:hover { background: #fdeded; border-color: #e89a9a; }
 @media (max-width: 900px) { .dashboard-drawer-head button { color: #ff8a8a; border-color: rgba(255, 138, 138, .5); } }
 
-.channel-diagnose-btn { margin-top: 6px; background: transparent; border: 0; color: #0f766e; font-weight: 800; font-size: 12px; cursor: pointer; text-decoration: underline; }
+/* Manage + check-connection sit side by side; the check is an outlined secondary button. */
+.channel-connect-actions { display: flex; gap: 8px; width: 100%; }
+.channel-connect-actions > button { flex: 1; min-width: 0; }
+.channel-connect-card .channel-diagnose-btn { background: #fff; color: var(--brand); border: 1px solid var(--brand); text-decoration: none; }
+.channel-connect-card .channel-diagnose-btn:hover { background: #f1faf8; }
 .diagnose-body { display: grid; gap: 12px; }
 .diagnose-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .diagnose-list li { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fbfaf9; text-align: start; }
