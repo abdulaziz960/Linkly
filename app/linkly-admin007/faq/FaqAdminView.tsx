@@ -2,31 +2,34 @@
 
 import { FormEvent, useState } from "react";
 import type { FaqItemRow } from "../../../lib/faq-store";
+import { callAdminApi, jsonInit } from "../content-api";
+import { formatNumber } from "../utils";
+import { Badge, Button, EmptyState, Section } from "../ds/primitives";
+import { Dialog, useConfirm } from "../ds/Dialog";
+import { useToast } from "../ds/Toast";
+import ActionMenu from "../ds/ActionMenu";
+import Icon from "../ds/Icon";
 
 type Draft = { id: string; questionAr: string; answerAr: string; questionEn: string; answerEn: string; active: boolean };
 const emptyDraft: Draft = { id: "", questionAr: "", answerAr: "", questionEn: "", answerEn: "", active: true };
-
-async function call<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; data?: T; error?: string }> {
-  try {
-    const response = await fetch(url, init);
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload?.ok) return { ok: false, error: payload?.error || "حدث خطأ" };
-    return { ok: true, data: payload.data as T };
-  } catch {
-    return { ok: false, error: "تعذر الاتصال بالخادم" };
-  }
-}
+const SAVED = "تظهر التغييرات للزوار خلال نحو نصف دقيقة.";
 
 export default function FaqAdminView({ initialItems }: { initialItems: FaqItemRow[] }) {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [items, setItems] = useState<FaqItemRow[]>(initialItems);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState("");
 
   async function reload() {
-    const result = await call<FaqItemRow[]>("/api/admin/faq");
+    const result = await callAdminApi<FaqItemRow[]>("/api/admin/faq");
     if (result.ok && result.data) setItems(result.data);
+  }
+
+  function open(next: Draft) {
+    setDraft(next);
+    setError("");
   }
 
   async function submit(event: FormEvent) {
@@ -34,90 +37,118 @@ export default function FaqAdminView({ initialItems }: { initialItems: FaqItemRo
     if (!draft) return;
     setSaving(true);
     setError("");
-    const body = JSON.stringify({ questionAr: draft.questionAr, answerAr: draft.answerAr, questionEn: draft.questionEn, answerEn: draft.answerEn, active: draft.active });
-    const result = await call<FaqItemRow>(draft.id ? `/api/admin/faq/${draft.id}` : "/api/admin/faq", { method: draft.id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body });
+    const body = { questionAr: draft.questionAr, answerAr: draft.answerAr, questionEn: draft.questionEn, answerEn: draft.answerEn, active: draft.active };
+    const result = await callAdminApi<FaqItemRow>(draft.id ? `/api/admin/faq/${draft.id}` : "/api/admin/faq", jsonInit(draft.id ? "PATCH" : "POST", body));
     setSaving(false);
-    if (!result.ok) {
-      setError(result.error || "تعذر الحفظ");
-      return;
-    }
+    if (!result.ok) return setError(result.error || "تعذر الحفظ");
     setDraft(null);
-    setNotice("تم الحفظ. تظهر التغييرات للزوار خلال نحو نصف دقيقة.");
+    toast("success", "تم الحفظ", SAVED);
     await reload();
   }
 
   async function toggleActive(item: FaqItemRow) {
-    await call(`/api/admin/faq/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...item, active: !item.active }) });
+    const result = await callAdminApi(`/api/admin/faq/${item.id}`, jsonInit("PATCH", { ...item, active: !item.active }));
+    if (!result.ok) return toast("error", "تعذر التحديث", result.error);
+    toast("success", item.active ? "تم إخفاء السؤال" : "تم إظهار السؤال", SAVED);
     await reload();
   }
 
   async function remove(item: FaqItemRow) {
-    if (!window.confirm(`حذف السؤال «${item.questionAr}»؟`)) return;
-    await call(`/api/admin/faq/${item.id}`, { method: "DELETE" });
+    const ok = await confirm({ title: `حذف السؤال «${item.questionAr}»؟`, description: "سيُحذف نهائيًا من الموقع ولا يمكن التراجع.", confirmLabel: "حذف", tone: "danger" });
+    if (!ok) return;
+    const result = await callAdminApi(`/api/admin/faq/${item.id}`, { method: "DELETE" });
+    if (!result.ok) return toast("error", "تعذر الحذف", result.error);
+    toast("success", "تم حذف السؤال");
     await reload();
   }
 
   async function move(index: number, direction: -1 | 1) {
     const target = index + direction;
     if (target < 0 || target >= items.length) return;
+    const previous = items;
     const next = [...items];
     [next[index], next[target]] = [next[target], next[index]];
     setItems(next);
-    await call("/api/admin/faq/reorder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: next.map((item) => item.id) }) });
+    const result = await callAdminApi("/api/admin/faq/reorder", jsonInit("POST", { ids: next.map((item) => item.id) }));
+    if (!result.ok) {
+      setItems(previous);
+      toast("error", "تعذر حفظ الترتيب", result.error);
+    }
   }
 
   return (
-    <section className="admin-card">
-      <div className="admin-card-head">
-        <div><h2>الأسئلة ({items.length})</h2><p>الترتيب هنا هو ترتيب ظهورها للزوار. المخفي لا يظهر في الموقع.</p></div>
-        <button className="admin-primary-button" type="button" onClick={() => { setDraft({ ...emptyDraft }); setError(""); }}>+ إضافة سؤال</button>
-      </div>
-      {notice ? <p className="admin-faq-notice" role="status">{notice}</p> : null}
+    <>
+      <Section
+        title={`الأسئلة (${formatNumber(items.length)})`}
+        description="الترتيب هنا هو ترتيب ظهورها للزوار. المخفي لا يظهر في الموقع."
+        actions={<Button variant="primary" icon="plus" onClick={() => open({ ...emptyDraft })}>إضافة سؤال</Button>}
+      >
+        {items.length === 0 ? (
+          <EmptyState icon="message" title="لا توجد أسئلة" description="أضف أول سؤال ليظهر للزوار." action={<Button variant="primary" icon="plus" onClick={() => open({ ...emptyDraft })}>إضافة سؤال</Button>} />
+        ) : (
+          <div className="ds-table-wrap">
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th scope="col">الترتيب</th>
+                  <th scope="col">السؤال</th>
+                  <th scope="col">الحالة</th>
+                  <th scope="col">الإنجليزية</th>
+                  <th scope="col"><span className="ds-sr-only">إجراءات</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, index) => (
+                  <tr key={item.id}>
+                    <td data-label="الترتيب">
+                      <div className="ds-cell-actions" style={{ justifyContent: "flex-start" }}>
+                        <Button variant="ghost" aria-label="تحريك للأعلى" disabled={index === 0} onClick={() => void move(index, -1)}><span style={{ display: "inline-flex", transform: "rotate(180deg)" }}><Icon name="chevronDown" size={16} /></span></Button>
+                        <Button variant="ghost" aria-label="تحريك للأسفل" disabled={index === items.length - 1} onClick={() => void move(index, 1)}><Icon name="chevronDown" size={16} /></Button>
+                      </div>
+                    </td>
+                    <td data-cell="main">
+                      <div className="ds-cell-stack"><strong>{item.questionAr}</strong><small>{item.answerAr.length > 110 ? `${item.answerAr.slice(0, 110)}…` : item.answerAr}</small></div>
+                    </td>
+                    <td data-label="الحالة"><Badge tone={item.active ? "success" : "neutral"} dot>{item.active ? "ظاهر" : "مخفي"}</Badge></td>
+                    <td data-label="الإنجليزية">{item.questionEn ? <Badge tone="info">متوفرة</Badge> : <small>تُعرض العربية</small>}</td>
+                    <td>
+                      <div className="ds-cell-actions">
+                        <Button variant="outline" onClick={() => open({ id: item.id, questionAr: item.questionAr, answerAr: item.answerAr, questionEn: item.questionEn, answerEn: item.answerEn, active: item.active })}>تعديل</Button>
+                        <ActionMenu
+                          label={`المزيد لسؤال ${item.questionAr}`}
+                          items={[
+                            { key: "toggle", label: item.active ? "إخفاء" : "إظهار", icon: item.active ? "x" : "check", onSelect: () => void toggleActive(item) },
+                            { key: "delete", label: "حذف", icon: "trash", tone: "danger", onSelect: () => void remove(item) }
+                          ]}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
 
-      <ol className="admin-faq-list">
-        {items.map((item, index) => (
-          <li key={item.id} className={item.active ? "" : "hidden"}>
-            <div className="admin-faq-order">
-              <button type="button" aria-label="أعلى" disabled={index === 0} onClick={() => void move(index, -1)}>▲</button>
-              <button type="button" aria-label="أسفل" disabled={index === items.length - 1} onClick={() => void move(index, 1)}>▼</button>
-            </div>
-            <div className="admin-faq-text">
-              <b>{item.questionAr}</b>
-              <p>{item.answerAr}</p>
-              <small dir="ltr">{item.questionEn ? `EN: ${item.questionEn}` : "لا توجد نسخة إنجليزية (تُعرض العربية)"}</small>
-            </div>
-            <div className="admin-faq-actions">
-              <button className="admin-secondary-button" type="button" onClick={() => { setDraft({ id: item.id, questionAr: item.questionAr, answerAr: item.answerAr, questionEn: item.questionEn, answerEn: item.answerEn, active: item.active }); setError(""); }}>تعديل</button>
-              <button className="admin-secondary-button" type="button" onClick={() => void toggleActive(item)}>{item.active ? "إخفاء" : "إظهار"}</button>
-              <button className="admin-secondary-button danger" type="button" onClick={() => void remove(item)}>حذف</button>
-            </div>
-          </li>
-        ))}
-        {items.length === 0 ? <li className="admin-empty-state">لا توجد أسئلة. أضف أول سؤال.</li> : null}
-      </ol>
-
-      {draft ? (
-        <div className="admin-modal" role="presentation" onClick={() => setDraft(null)}>
-          <form className="admin-modal-card" role="dialog" aria-modal="true" aria-label="سؤال" onSubmit={submit} onClick={(event) => event.stopPropagation()}>
-            <div className="admin-modal-head">
-              <div><h2>{draft.id ? "تعديل سؤال" : "إضافة سؤال"}</h2></div>
-              <button type="button" aria-label="إغلاق" onClick={() => setDraft(null)}>×</button>
-            </div>
-            <div className="admin-faq-form">
-              <label><span>السؤال (عربي)</span><input value={draft.questionAr} onChange={(event) => setDraft({ ...draft, questionAr: event.target.value })} maxLength={300} required /></label>
-              <label><span>الجواب (عربي)</span><textarea rows={4} value={draft.answerAr} onChange={(event) => setDraft({ ...draft, answerAr: event.target.value })} maxLength={2000} required /></label>
-              <label><span>Question (English) - اختياري</span><input dir="ltr" value={draft.questionEn} onChange={(event) => setDraft({ ...draft, questionEn: event.target.value })} maxLength={300} /></label>
-              <label><span>Answer (English) - اختياري</span><textarea dir="ltr" rows={4} value={draft.answerEn} onChange={(event) => setDraft({ ...draft, answerEn: event.target.value })} maxLength={2000} /></label>
-              <label className="admin-faq-check"><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} /><span>ظاهر للزوار</span></label>
-              {error ? <p className="admin-faq-error" role="alert">{error}</p> : null}
-            </div>
-            <div className="admin-faq-foot">
-              <button className="admin-primary-button" type="submit" disabled={saving}>{saving ? "جارٍ الحفظ..." : "حفظ"}</button>
-              <button className="admin-secondary-button" type="button" onClick={() => setDraft(null)}>إلغاء</button>
-            </div>
+      <Dialog
+        open={Boolean(draft)}
+        onClose={() => !saving && setDraft(null)}
+        title={draft?.id ? "تعديل سؤال" : "إضافة سؤال"}
+        size="lg"
+        footer={<><Button variant="outline" onClick={() => setDraft(null)} disabled={saving}>إلغاء</Button><Button variant="primary" type="submit" form="faq-form" loading={saving}>حفظ</Button></>}
+      >
+        {draft ? (
+          <form id="faq-form" onSubmit={submit} style={{ display: "grid", gap: 14 }}>
+            <label className="ds-field">السؤال (عربي)<input data-autofocus className="ds-input" value={draft.questionAr} onChange={(event) => setDraft({ ...draft, questionAr: event.target.value })} maxLength={300} required /></label>
+            <label className="ds-field">الجواب (عربي)<textarea className="ds-textarea" rows={4} value={draft.answerAr} onChange={(event) => setDraft({ ...draft, answerAr: event.target.value })} maxLength={2000} required /></label>
+            <label className="ds-field">Question (English) — اختياري<input className="ds-input" dir="ltr" value={draft.questionEn} onChange={(event) => setDraft({ ...draft, questionEn: event.target.value })} maxLength={300} /></label>
+            <label className="ds-field">Answer (English) — اختياري<textarea className="ds-textarea" dir="ltr" rows={4} value={draft.answerEn} onChange={(event) => setDraft({ ...draft, answerEn: event.target.value })} maxLength={2000} /></label>
+            <label className="ds-check"><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} />ظاهر للزوار</label>
+            {error ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />{error}</p> : null}
           </form>
-        </div>
-      ) : null}
-    </section>
+        ) : null}
+      </Dialog>
+    </>
   );
 }
