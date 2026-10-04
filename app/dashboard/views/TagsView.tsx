@@ -202,7 +202,7 @@ export default function TagsView({
               </div>
             </div>
             <footer className="modal-foot">
-              <button className="btn soft" type="button" onClick={() => setSelectedTag(null)}>{t("إغلاق", "Close")}</button>
+              <button className="btn soft close-red" type="button" onClick={() => setSelectedTag(null)}>{t("إغلاق", "Close")}</button>
             </footer>
           </section>
         </div>

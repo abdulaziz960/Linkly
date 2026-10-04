@@ -11322,3 +11322,8 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 [dir="rtl"] .modal-head > .icon-btn-close { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); }
 [dir="rtl"] .modal-head > :not(.icon-btn-close) { padding-left: 64px; min-width: 0; }
 [dir="rtl"] .modal-foot { flex-direction: row-reverse; justify-content: flex-end; }
+
+/* Every close control is red. */
+.btn.close-red { color: #d92d2d; border-color: #f3c9c9; }
+.btn.close-red:hover { background: #fdeded; border-color: #e89a9a; }
+@media (max-width: 900px) { .dashboard-drawer-head button { color: #ff8a8a; border-color: rgba(255, 138, 138, .5); } }

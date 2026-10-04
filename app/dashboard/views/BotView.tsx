@@ -989,7 +989,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
               </form>
             </div>
             <footer className="modal-foot">
-              <button className="btn soft" type="button" onClick={() => setBuilderOpen(false)}>{t("إغلاق", "Close")}</button>
+              <button className="btn soft close-red" type="button" onClick={() => setBuilderOpen(false)}>{t("إغلاق", "Close")}</button>
               <button className="btn primary bot-mobile-save" type="submit" form="bot-step-form" disabled={saving}>{editingNodeId ? t("حفظ التعديل", "Save changes") : t("إضافة خطوة", "Add step")}</button>
             </footer>
           </div>

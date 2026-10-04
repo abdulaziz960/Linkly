@@ -914,7 +914,7 @@ export default function AutomationsView({
               ) : null}
             </div>
             <footer className="modal-foot">
-              <button className="btn soft" type="button" onClick={() => setSimulatorOpen(false)}>{t("إغلاق", "Close")}</button>
+              <button className="btn soft close-red" type="button" onClick={() => setSimulatorOpen(false)}>{t("إغلاق", "Close")}</button>
               <button className="btn primary" type="submit" disabled={simRunning}>{simRunning ? t("جاري التجربة...", "Testing...") : t("تجربة", "Test")}</button>
             </footer>
           </form>

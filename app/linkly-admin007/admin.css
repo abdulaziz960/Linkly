@@ -2466,3 +2466,7 @@
 .admin-client-review dt { color: #496b66; font-size: 11px; font-weight: 800; }
 .admin-client-review dd { margin: 4px 0 0; color: #123330; font-size: 13px; font-weight: 800; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .admin-client-review dl { grid-template-columns: 1fr; } }
+
+/* Close buttons in admin dialogs are red. */
+.admin-modal-head button { color: #d92d2d; background: #fff5f5; }
+.admin-modal-head button:hover { background: #fdeded; }

@@ -494,7 +494,7 @@ export default function TeamsView({
               </div>
             </div>
             <footer className="modal-foot">
-              <button className="btn soft" type="button" onClick={() => setMembersOpen(null)}>{t("إغلاق", "Close")}</button>
+              <button className="btn soft close-red" type="button" onClick={() => setMembersOpen(null)}>{t("إغلاق", "Close")}</button>
               <button className="btn primary" type="button" onClick={() => { setMembersOpen(null); openEditTeamForm(membersOpen); }}>{t("تعديل الأعضاء", "Edit Members")}</button>
             </footer>
           </section>
