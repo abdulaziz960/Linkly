@@ -91,7 +91,7 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     botMaxSteps: null,
     basicReports: false,
     escalation: true,
-    limits: { teams: null, products: 0, branches: 7, kbEntries: 50 },
+    limits: { teams: null, products: 0, branches: 10, kbEntries: 50 },
     recurringCampaigns: true,
     advancedSegments: true,
     reportsExcel: false
@@ -102,7 +102,7 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     botMaxSteps: null,
     basicReports: false,
     escalation: true,
-    limits: { teams: null, products: 300, branches: 15, kbEntries: 200 },
+    limits: { teams: null, products: 300, branches: 30, kbEntries: 200 },
     recurringCampaigns: true,
     advancedSegments: true,
     reportsExcel: true

@@ -109,12 +109,12 @@ describe("plan limits are enforced on the server", () => {
 });
 
 describe("branch caps per plan", () => {
-  it("allows 3 / 7 / 15 branches and unlimited on enterprise", async () => {
+  it("allows 3 / 10 / 30 branches and unlimited on enterprise", async () => {
     const { planLimit, upgradeTargetForView, limitReachedMessage } = await import("../lib/plan-access");
     expect(planLimit("باقة الأفراد", "branches")).toBe(0);
     expect(planLimit("الباقة العادية", "branches")).toBe(3);
-    expect(planLimit("باقة المؤسسات الصغيرة", "branches")).toBe(7);
-    expect(planLimit("باقة المؤسسات الكبيرة", "branches")).toBe(15);
+    expect(planLimit("باقة المؤسسات الصغيرة", "branches")).toBe(10);
+    expect(planLimit("باقة المؤسسات الكبيرة", "branches")).toBe(30);
     expect(planLimit("باقة الشركات", "branches")).toBeNull();
     expect(upgradeTargetForView("branches")).toBe("الباقة العادية");
     expect(limitReachedMessage("branches", 3)).toContain("باقة المؤسسات الصغيرة");

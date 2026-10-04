@@ -47,16 +47,16 @@ export const planFeatures: Record<string, PlanFeatures> = {
     audience: { ar: "الأنسب لفريق يحتاج أتمتة وتقسيم جمهور ومساعد AI.", en: "Best for a team that needs automation, audience segments, and an AI Assistant." },
     featured: true,
     items: {
-      ar: ["كل مزايا العادية", "فرق متعددة وأتمتة وقواعد تحويل", "مساعد AI (50 طلبًا يوميًا) وقاعدة معرفة (50 مدخلًا)", "حملات متكررة وتقسيم جمهور بتفاعل الحملات", "إرسال أقرب فرع للعميل (حتى 7 فروع)", "تصعيد بمدة قابلة للتعديل ومركز عمليات", "تقارير أداء وSLA"],
-      en: ["Everything in Regular", "Multiple teams, automation and routing rules", "AI assistant (50 requests/day) and knowledge base (50 entries)", "Recurring campaigns and campaign-engagement segments", "Nearest-branch reply (up to 7 branches)", "Adjustable escalation and operations center", "Performance and SLA reports"]
+      ar: ["كل مزايا العادية", "فرق متعددة وأتمتة وقواعد تحويل", "مساعد AI (50 طلبًا يوميًا) وقاعدة معرفة (50 مدخلًا)", "حملات متكررة وتقسيم جمهور بتفاعل الحملات", "إرسال أقرب فرع للعميل (حتى 10 فروع)", "تصعيد بمدة قابلة للتعديل ومركز عمليات", "تقارير أداء وSLA"],
+      en: ["Everything in Regular", "Multiple teams, automation and routing rules", "AI assistant (50 requests/day) and knowledge base (50 entries)", "Recurring campaigns and campaign-engagement segments", "Nearest-branch reply (up to 10 branches)", "Adjustable escalation and operations center", "Performance and SLA reports"]
     }
   },
   "باقة المؤسسات الكبيرة": {
     shortName: { ar: "المؤسسات الكبيرة", en: "Large Enterprises" },
     audience: { ar: "الأنسب لفرق متعددة تحتاج قنوات أكثر وواجهات تكامل.", en: "Best for multiple teams that need more channels and integrations." },
     items: {
-      ar: ["كل مزايا المؤسسات الصغيرة", "كتالوج المنتجات والشراء من واتساب (حتى 300 منتج)", "مساعد AI (100 طلب يوميًا) وقاعدة معرفة (200 مدخل)", "إرسال أقرب فرع للعميل (حتى 15 فرعًا)", "واجهة API وWebhooks وتكاملات", "تصدير Excel ودعم أولوية"],
-      en: ["Everything in Small Enterprises", "Product catalog and buying on WhatsApp (up to 300 products)", "AI assistant (100 requests/day) and knowledge base (200 entries)", "Nearest-branch reply (up to 15 branches)", "Developer API, webhooks and integrations", "Excel export and priority support"]
+      ar: ["كل مزايا المؤسسات الصغيرة", "كتالوج المنتجات والشراء من واتساب (حتى 300 منتج)", "مساعد AI (100 طلب يوميًا) وقاعدة معرفة (200 مدخل)", "إرسال أقرب فرع للعميل (حتى 30 فرعًا)", "واجهة API وWebhooks وتكاملات", "تصدير Excel ودعم أولوية"],
+      en: ["Everything in Small Enterprises", "Product catalog and buying on WhatsApp (up to 300 products)", "AI assistant (100 requests/day) and knowledge base (200 entries)", "Nearest-branch reply (up to 30 branches)", "Developer API, webhooks and integrations", "Excel export and priority support"]
     }
   },
   "باقة الشركات": {
