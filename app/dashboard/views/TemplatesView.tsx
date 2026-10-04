@@ -1,5 +1,6 @@
 "use client";
 
+import { CATALOG_TEMPLATE_DEFAULT_BUTTON, CATALOG_TEMPLATE_PREFIX, isCatalogTemplateName } from "../../../lib/catalog-template-shared";
 import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
 import type { MessageTemplate } from "../types";
 import { useLanguage } from "../i18n";
@@ -156,6 +157,27 @@ export default function TemplatesView({
       buttonUrlExample: ""
     });
     setFormOpen(true);
+  }
+
+  const isCatalogForm = isCatalogTemplateName(form.name);
+
+  // The catalog kind is a normal template named catalog_* with one quick-reply
+  // button; tapping it opens the dashboard catalog (see lib/catalog-template.ts).
+  function chooseTemplateKind(catalog: boolean) {
+    setForm((current) => {
+      if (catalog) {
+        return {
+          ...current,
+          name: isCatalogTemplateName(current.name) ? current.name : `${CATALOG_TEMPLATE_PREFIX}${current.name}`,
+          buttonType: "QUICK_REPLY",
+          buttonText: current.buttonType === "QUICK_REPLY" && current.buttonText ? current.buttonText : CATALOG_TEMPLATE_DEFAULT_BUTTON,
+          buttonPhone: "",
+          buttonUrl: "",
+          message: current.message || t("أهلًا بك 👋 اطلع على منتجاتنا واختر ما يعجبك.", "Hi 👋 take a look at our products and pick what you like.")
+        };
+      }
+      return { ...current, name: isCatalogTemplateName(current.name) ? current.name.slice(CATALOG_TEMPLATE_PREFIX.length) : current.name };
+    });
   }
 
   async function submitTemplate(event: FormEvent<HTMLFormElement>) {
@@ -325,12 +347,11 @@ export default function TemplatesView({
                     <h3>{t("اختر نوع القالب", "Select template type")}</h3>
                   </div>
                   <div className="template-type-grid">
-                    <button type="button" className="template-type-card active" aria-pressed="true">
+                    <button type="button" className={`template-type-card ${isCatalogForm ? "" : "active"}`} aria-pressed={!isCatalogForm} disabled={form.editing} onClick={() => chooseTemplateKind(false)}>
                       <span className="template-type-icon">{DocIcon}</span>
                       {t("قياسي", "Standard")}
                     </button>
-                    <button type="button" className="template-type-card" disabled title={t("قريبًا", "Coming soon")}>
-                      <span className="template-type-soon">{t("قريبًا", "Soon")}</span>
+                    <button type="button" className={`template-type-card ${isCatalogForm ? "active" : ""}`} aria-pressed={isCatalogForm} disabled={form.editing} onClick={() => chooseTemplateKind(true)}>
                       <span className="template-type-icon">{CatalogIcon}</span>
                       {t("كتالوج", "Catalog")}
                     </button>
@@ -467,6 +488,7 @@ export default function TemplatesView({
                     <span>{t("نوع الزر", "Button type")}</span>
                     <CustomSelect
                       value={form.buttonType}
+                      disabled={isCatalogForm}
                       onChange={(value) => {
                         const buttonType = value as TemplateFormState["buttonType"];
                         setForm((current) => ({

@@ -558,11 +558,34 @@ async function executeFrom(
   });
 }
 
+/** Marker for a catalog opened by a catalog template's button (no bot flow involved). */
+export const CATALOG_TEMPLATE_WAITING = "__catalog_template__";
+
+/** The customer tapped a catalog template's button: show the catalog and keep answering its cards. */
+export async function startTemplateCatalog(channel: BotChannel, input: { tenantId: string; conversationId: string; recipientId: string }) {
+  const shown = await sendCatalogMenu(catalogContext(channel, input), "");
+  if (shown) await prisma.conversation.update({ where: { id: input.conversationId }, data: { botWaitingNodeId: CATALOG_TEMPLATE_WAITING } });
+}
+
 export async function runChannelBot(
   channel: BotChannel,
   input: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string; replyId?: string; location?: Coordinates }
 ) {
   const tenantId = input.tenantId || "tenant-demo";
+
+  // A catalog opened from a catalog template works even when no bot flow is set up.
+  const catalogSession = await prisma.conversation.findFirst({ where: { id: input.conversationId, botWaitingNodeId: CATALOG_TEMPLATE_WAITING }, select: { id: true } });
+  if (catalogSession) {
+    const outcome = await handleCatalogReply(catalogContext(channel, { tenantId, conversationId: input.conversationId, recipientId: input.recipientId }), { id: input.replyId, text: input.incomingText || "" }, "");
+    if (outcome === "agent") {
+      const claimed = await prisma.conversation.updateMany({ where: { id: input.conversationId, botWaitingNodeId: CATALOG_TEMPLATE_WAITING }, data: { botWaitingNodeId: "" } });
+      if (claimed.count === 0) return;
+      await prisma.conversation.updateMany({ where: { id: input.conversationId, status: "closed" }, data: { status: "unassigned", assignee: "بدون موظف" } });
+      await sendBotText(channel, { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, text: "تم تحويلك لأحد موظفينا، سيتواصل معك قريبًا." });
+    }
+    return;
+  }
+
   const settings = await getBotSettings(tenantId, channel);
   if (!settings.enabled) return;
 

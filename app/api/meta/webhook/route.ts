@@ -4,7 +4,8 @@ import { convertAudioToMp3 } from "../../../../lib/audio-conversion";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
-import { runWhatsAppBot, runChannelBot } from "../../../../lib/bot-engine";
+import { runWhatsAppBot, runChannelBot, startTemplateCatalog } from "../../../../lib/bot-engine";
+import { isCatalogTemplateButton } from "../../../../lib/catalog-template";
 import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { handleMarketingOptOutKeyword } from "../../../../lib/marketing-optout";
 import { handleMetaLeadgenEvent } from "../../../../lib/meta-leads";
@@ -495,6 +496,12 @@ export async function POST(request: NextRequest) {
             phone: message.from,
             text
           });
+          // A tap on a catalog template's button opens the dashboard catalog directly.
+          if (message.button?.text && await isCatalogTemplateButton(whatsappAccount.tenantId, message.button.text)) {
+            await startTemplateCatalog("whatsapp", { tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, recipientId: message.from });
+            savedMessages.push(message.id || message.from);
+            continue;
+          }
           await runWhatsAppBot({
             tenantId: whatsappAccount.tenantId,
             conversationId: stored.conversationId,
