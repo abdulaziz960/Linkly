@@ -11327,3 +11327,14 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .btn.close-red { color: #d92d2d; border-color: #f3c9c9; }
 .btn.close-red:hover { background: #fdeded; border-color: #e89a9a; }
 @media (max-width: 900px) { .dashboard-drawer-head button { color: #ff8a8a; border-color: rgba(255, 138, 138, .5); } }
+
+.channel-diagnose-btn { margin-top: 6px; background: transparent; border: 0; color: #0f766e; font-weight: 800; font-size: 12px; cursor: pointer; text-decoration: underline; }
+.diagnose-body { display: grid; gap: 12px; }
+.diagnose-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.diagnose-list li { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fbfaf9; text-align: start; }
+.diagnose-list li.fail { border-color: #f3c9c9; background: #fff5f5; }
+.diagnose-list li.warn { border-color: #fed7aa; background: #fff7ed; }
+.diagnose-list li b { display: block; }
+.diagnose-list li small { display: block; color: var(--muted); line-height: 1.7; }
+.diagnose-advice { margin: 0; padding: 12px 14px; border-radius: 12px; background: #fff7ed; color: #9a3412; font-weight: 800; line-height: 1.8; }
+.diagnose-advice.ok { background: #f1faf8; color: #0f766e; }

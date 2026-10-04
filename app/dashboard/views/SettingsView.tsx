@@ -314,6 +314,18 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
 export default function SettingsView({ onIntegrationChange }: SettingsViewProps) {
   const { t } = useLanguage();
   const { isChannelLocked, promptForChannel } = usePlanAccess();
+  // "Check the connection": asks Meta why WhatsApp sending may be refused (see lib/whatsapp-diagnose.ts).
+  const [diagnose, setDiagnose] = useState<{ loading: boolean; error: string; result: { ok: boolean; advice: string; checks: Array<{ id: string; label: string; status: "ok" | "fail" | "warn"; detail: string }> } | null } | null>(null);
+  async function runWhatsAppDiagnose() {
+    setDiagnose({ loading: true, error: "", result: null });
+    const response = await fetch("/api/meta/whatsapp-diagnose", { method: "POST" }).catch(() => null);
+    const payload = await response?.json().catch(() => null);
+    if (!response || !payload?.ok) {
+      setDiagnose({ loading: false, error: payload?.error || t("تعذر الفحص، حاول لاحقًا", "Could not run the check, try again later"), result: null });
+      return;
+    }
+    setDiagnose({ loading: false, error: "", result: payload.data });
+  }
   // A channel the tenant's plan doesn't include: shown locked, opens the upgrade popup.
   const planLockedChannel = (id: ChannelId): ChannelKey | null => {
     const key = apiChannel(id);
@@ -1656,6 +1668,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   <button type="button" className={connected ? "connected" : ""} onClick={() => connected ? goToChannelSetup(channel.id) : connectChannel(channel.id)}>
                     {connected ? t("متصل — إدارة", "Connected — manage") : t("ربط", "Connect")}
                   </button>
+                  {channel.id === "whatsapp" && connected ? (
+                    <button type="button" className="channel-diagnose-btn" onClick={() => void runWhatsAppDiagnose()}>{t("فحص الربط", "Check connection")}</button>
+                  ) : null}
                 </div>
               );
             })}
@@ -1676,6 +1691,37 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           </div>
         </div>
       </div>
+
+      {diagnose ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setDiagnose(null)}>
+          <div className="account-modal form-modal diagnose-modal" role="dialog" aria-modal="true" aria-label={t("فحص ربط واتساب", "WhatsApp connection check")} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setDiagnose(null)}>×</button>
+              <h2>{t("فحص ربط واتساب", "WhatsApp connection check")}</h2>
+            </header>
+            <div className="account-modal-body diagnose-body">
+              {diagnose.loading ? <p>{t("جارٍ سؤال Meta...", "Asking Meta...")}</p> : null}
+              {diagnose.error ? <p className="form-error">{diagnose.error}</p> : null}
+              {diagnose.result ? (
+                <>
+                  <ul className="diagnose-list">
+                    {diagnose.result.checks.map((check) => (
+                      <li key={check.id} className={check.status}>
+                        <span aria-hidden="true">{check.status === "ok" ? "✅" : check.status === "warn" ? "⚠️" : "❌"}</span>
+                        <div><b>{check.label}</b><small>{check.detail}</small></div>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className={diagnose.result.ok ? "diagnose-advice ok" : "diagnose-advice"}>{diagnose.result.advice}</p>
+                </>
+              ) : null}
+            </div>
+            <footer className="modal-foot">
+              <button className="btn soft" type="button" onClick={() => setDiagnose(null)}>{t("إغلاق", "Close")}</button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
 
       {wizardModalOpen ? (
       <div className="modal-backdrop" role="presentation" onClick={() => setWizardModalOpen(false)}>
