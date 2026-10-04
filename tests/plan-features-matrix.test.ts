@@ -60,7 +60,11 @@ describe("the comparison table matches what is enforced", () => {
     expect(JSON.stringify(liveCell("ai", small))).toContain("50");
     expect(liveCell("campaigns", individuals)).toBe(false);
     expect(liveCell("campaigns", small)).not.toBe(false);
-    expect(liveCell("channels", individuals)).toMatchObject({ en: "WhatsApp" });
+    const { channelCell } = await import("../lib/plan-comparison");
+    expect(channelCell("whatsapp", individuals)).toBe(true);
+    expect(channelCell("instagram", individuals)).toBe(false);
+    expect(channelCell("instagram", small)).toBe(true);
+    expect(channelCell("x", { ...small, allowedChannels: "*" })).toBe(true);
   });
 });
 

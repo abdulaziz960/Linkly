@@ -109,13 +109,29 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
   }
 };
 
-// Channel availability mirrors the plans' allowedChannels (lib/database.ts seed):
-// WhatsApp from the first plan, Instagram from the regular plan, TikTok from the large one, everything else enterprise.
-const CHANNEL_MIN_PLAN: Partial<Record<ChannelKey, string>> = {
-  whatsapp: INDIVIDUALS_PLAN,
-  instagram: REGULAR_PLAN,
-  tiktok: LARGE_ORG_PLAN
+// Which channels each plan may connect - the single source for the Plan rows' allowedChannels
+// (seed in lib/database.ts, migration in lib/plan-prices.ts), the upgrade prompts and the
+// landing comparison. Each tier includes everything below it. Cheap, popular channels come
+// first; the ones that cost more to keep in sync (polling, third-party APIs) sit higher up,
+// and X (paid API) is enterprise-only via "*".
+export const PLAN_CHANNELS: Record<string, ChannelKey[] | "*"> = {
+  [INDIVIDUALS_PLAN]: ["whatsapp"],
+  [REGULAR_PLAN]: ["whatsapp", "instagram", "telegram", "email"],
+  [SMALL_ORG_PLAN]: ["whatsapp", "instagram", "telegram", "email", "facebook", "google_maps", "meta_leads"],
+  [LARGE_ORG_PLAN]: ["whatsapp", "instagram", "telegram", "email", "facebook", "google_maps", "meta_leads", "tiktok", "youtube", "linkedin", "snapchat", "sms"],
+  [ENTERPRISE_PLAN]: "*"
 };
+
+/** The Plan row's allowedChannels string for a plan ("*" or comma-separated keys). */
+export function planChannelsString(planName: string): string {
+  const channels = PLAN_CHANNELS[planName];
+  return channels === "*" || !channels ? "*" : channels.join(",");
+}
+
+export function isChannelInPlan(planName: string, channel: ChannelKey): boolean {
+  const channels = PLAN_CHANNELS[planName];
+  return channels === "*" || Boolean(channels?.includes(channel));
+}
 
 /** The cheapest plan that includes a section. */
 export function upgradeTargetForView(view: ViewKey): string {
@@ -124,7 +140,7 @@ export function upgradeTargetForView(view: ViewKey): string {
 }
 
 export function upgradeTargetForChannel(channel: ChannelKey): string {
-  return CHANNEL_MIN_PLAN[channel] ?? ENTERPRISE_PLAN;
+  return PLAN_ORDER.find((name) => isChannelInPlan(name, channel)) ?? ENTERPRISE_PLAN;
 }
 
 /** The cheapest plan whose bot may use a step type. */

@@ -78,7 +78,9 @@ export function buildPlanDynamicItems(plan: PlanNumbers, lang: "ar" | "en", opti
   const parsedChannels = parseAllowedChannels(plan.allowedChannels);
   const channelsLine = parsedChannels === "*" || parsedChannels.length === 0
     ? (lang === "ar" ? "كل القنوات المتاحة بالمنصة" : "Every channel on the platform")
-    : parsedChannels.map((key) => channelLabel(key, lang)).join(" + ");
+    : parsedChannels.length > 4
+      ? `${parsedChannels.slice(0, 3).map((key) => channelLabel(key, lang)).join(" + ")}${lang === "ar" ? ` + ${parsedChannels.length - 3} قنوات أخرى` : ` + ${parsedChannels.length - 3} more channels`}`
+      : parsedChannels.map((key) => channelLabel(key, lang)).join(" + ");
 
   const messageQuotaLine = isUnlimitedMessageQuota(plan.messageQuota)
     ? (lang === "ar" ? "رسائل تسويقية غير محدودة" : "Unlimited marketing messages")

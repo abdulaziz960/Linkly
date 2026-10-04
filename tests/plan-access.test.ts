@@ -160,7 +160,8 @@ describe("plan access: individuals plan", () => {
     const { upgradeTargetForChannel } = await import("../lib/plan-access");
     expect(upgradeTargetForChannel("instagram")).toBe("الباقة العادية");
     expect(upgradeTargetForChannel("tiktok")).toBe("باقة المؤسسات الكبيرة");
-    expect(upgradeTargetForChannel("telegram")).toBe("باقة الشركات");
+    expect(upgradeTargetForChannel("telegram")).toBe("الباقة العادية");
+    expect(upgradeTargetForChannel("x")).toBe("باقة الشركات");
     expect(upgradeMessageForChannel("instagram")).toContain("باقتك لا تدعم الربط مع منصة");
   });
 });

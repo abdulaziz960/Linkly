@@ -4,7 +4,7 @@
 // built from the live Plan rows so an admin's edit shows up immediately.
 
 import { PLAN_ORDER, isViewLockedForPlan, type PlanLimitKind } from "./plan-access";
-import { channelLabel, parseAllowedChannels } from "./channel-catalog";
+import { channelLabel, parseAllowedChannels, type ChannelKey } from "./channel-catalog";
 import { isUnlimitedMessageQuota, messageQuotaLabel } from "./message-quota";
 import type { ViewKey } from "../app/dashboard/types";
 
@@ -21,22 +21,30 @@ export type ComparisonRow = {
   /** The dashboard section this row is about - lets a test check it against plan-access. */
   view?: ViewKey;
   /** Marks a row whose cells come from the live Plan row instead of this file. */
-  live?: "users" | "channels" | "campaigns" | "ai";
+  live?: "users" | "campaigns" | "ai";
+  /** A channel row: included when the live Plan row allows that channel. */
+  channel?: ChannelKey;
 };
 
 const yes = true;
 const no = false;
 const note = (ar: string, en: string): ComparisonCell => ({ ar, en });
 
+// The channels worth listing, in the order a customer cares about them (the website chat widget is on every plan, so it's not a row).
+const CHANNEL_ROW_KEYS: ChannelKey[] = ["whatsapp", "instagram", "telegram", "email", "facebook", "google_maps", "meta_leads", "tiktok", "youtube", "linkedin", "snapchat", "sms", "x"];
+const CHANNEL_ROWS: ComparisonRow[] = CHANNEL_ROW_KEYS.map((key) => ({ ar: channelLabel(key, "ar"), en: channelLabel(key, "en"), channel: key }));
+
 export const COMPARISON_ROWS: ComparisonRow[] = [
   { ar: "الأساسيات", en: "Essentials", heading: true },
   { ar: "المستخدمون", en: "Users", live: "users" },
-  { ar: "القنوات", en: "Channels", live: "channels" },
   { ar: "صندوق المحادثات الموحّد", en: "Shared inbox", view: "inbox", cells: [yes, yes, yes, yes, yes] },
   { ar: "العملاء", en: "Customers", view: "contacts", cells: [yes, yes, yes, yes, yes] },
   { ar: "الوسوم", en: "Tags", view: "tags", cells: [yes, yes, yes, yes, yes] },
   { ar: "الردود السريعة", en: "Quick replies", view: "quickReplies", cells: [yes, yes, yes, yes, yes] },
   { ar: "رسالة ترحيب لفتح المحادثة بعد 24 ساعة", en: "Welcome message to re-open a chat after 24h", cells: [yes, yes, yes, yes, yes] },
+
+  { ar: "القنوات", en: "Channels", heading: true },
+  ...CHANNEL_ROWS,
 
   { ar: "الرد الآلي", en: "Auto-reply", heading: true },
   { ar: "الرد الآلي", en: "Auto-reply bot", view: "bot", cells: [note("بسيط (حتى 6 خطوات)", "Simple (up to 6 steps)"), note("حتى 15 خطوة", "Up to 15 steps"), note("غير محدود", "Unlimited"), note("غير محدود", "Unlimited"), note("غير محدود", "Unlimited")] },
@@ -80,13 +88,14 @@ export function orderComparisonPlans<T extends { name: string }>(plans: T[]): T[
   return PLAN_ORDER.map((name) => plans.find((plan) => plan.name === name)).filter((plan): plan is T => Boolean(plan));
 }
 
+/** Whether the live Plan row lets this plan connect the channel. */
+export function channelCell(channel: ChannelKey, plan: ComparisonPlan): boolean {
+  const channels = parseAllowedChannels(plan.allowedChannels);
+  return channels === "*" || channels.includes(channel);
+}
+
 export function liveCell(kind: NonNullable<ComparisonRow["live"]>, plan: ComparisonPlan): ComparisonCell {
   if (kind === "users") return { ar: `${plan.employeeLimit} مستخدم`, en: `${plan.employeeLimit} users` };
-  if (kind === "channels") {
-    const channels = parseAllowedChannels(plan.allowedChannels);
-    if (channels === "*" || !channels.length) return { ar: "كل القنوات", en: "Every channel" };
-    return { ar: channels.map((key) => channelLabel(key, "ar")).join(" + "), en: channels.map((key) => channelLabel(key, "en")).join(" + ") };
-  }
   if (kind === "ai") {
     if (plan.aiDailyLimit > 0) return { ar: `مُدار من لنكلي (${plan.aiDailyLimit} طلب يوميًا) أو بمفتاحك`, en: `Managed by Linkly (${plan.aiDailyLimit} requests/day) or your own key` };
     // No managed allowance, but the section is open: the customer connects their own API key.

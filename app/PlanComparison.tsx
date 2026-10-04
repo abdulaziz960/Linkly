@@ -1,4 +1,4 @@
-import { COMPARISON_ROWS, liveCell, orderComparisonPlans, type ComparisonCell, type ComparisonPlan } from "../lib/plan-comparison";
+import { COMPARISON_ROWS, channelCell, liveCell, orderComparisonPlans, type ComparisonCell, type ComparisonPlan } from "../lib/plan-comparison";
 import { planFeatures } from "../lib/plan-features";
 import s from "./PlanComparison.module.css";
 
@@ -49,7 +49,7 @@ export default function PlanComparison({ plans, lang }: Props) {
                 <th scope="row" className={s.featureCol}>{row[lang]}</th>
                 {ordered.map((plan, index) => (
                   <td key={plan.id} className={planFeatures[plan.name]?.featured ? s.featured : undefined}>
-                    <Cell cell={row.live ? liveCell(row.live, plan) : row.cells?.[index] ?? false} lang={lang} />
+                    <Cell cell={row.channel ? channelCell(row.channel, plan) : row.live ? liveCell(row.live, plan) : row.cells?.[index] ?? false} lang={lang} />
                   </td>
                 ))}
               </tr>

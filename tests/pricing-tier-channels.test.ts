@@ -35,9 +35,9 @@ describe("2026 pricing tier restructure", () => {
     expect(newTiers.map((plan) => plan.monthlyPrice)).toEqual([199, 349, 599, 899, 1599]);
     expect(newTiers.map((plan) => plan.allowedChannels)).toEqual([
       "whatsapp",
-      "whatsapp,instagram",
-      "whatsapp,instagram",
-      "whatsapp,instagram,tiktok",
+      "whatsapp,instagram,telegram,email",
+      "whatsapp,instagram,telegram,email,facebook,google_maps,meta_leads",
+      "whatsapp,instagram,telegram,email,facebook,google_maps,meta_leads,tiktok,youtube,linkedin,snapchat,sms",
       "*"
     ]);
     // AI Copilot only kicks in from the small-enterprises tier up.
@@ -188,5 +188,36 @@ describe("2026-10 price update on an existing database", () => {
     expect(prices["plan-small-org"]).toBe(599);
     expect(prices["plan-large-org"]).toBe(880);
     expect(prices["plan-enterprise"]).toBe(1599);
+  });
+});
+
+describe("channel distribution on an existing database", () => {
+  it("moves default channel lists to the new distribution and never overwrites a hand-edited list", async () => {
+    const { ensureSchema } = await import("../lib/database");
+    const { prisma } = await import("../lib/prisma");
+    const { ensurePlanPrices } = await import("../lib/plan-prices");
+    const { PLAN_CHANNELS, isChannelInPlan, upgradeTargetForChannel } = await import("../lib/plan-access");
+    await ensureSchema();
+
+    await prisma.plan.update({ where: { id: "plan-regular" }, data: { allowedChannels: "whatsapp,instagram" } });
+    await prisma.plan.update({ where: { id: "plan-small-org" }, data: { allowedChannels: "whatsapp,instagram" } });
+    await prisma.plan.update({ where: { id: "plan-large-org" }, data: { allowedChannels: "whatsapp,telegram" } });
+    await ensurePlanPrices();
+    await ensurePlanPrices();
+
+    const rows = Object.fromEntries((await prisma.plan.findMany()).map((plan) => [plan.id, plan.allowedChannels]));
+    expect(rows["plan-regular"]).toBe("whatsapp,instagram,telegram,email");
+    expect(rows["plan-small-org"]).toContain("google_maps");
+    expect(rows["plan-large-org"]).toBe("whatsapp,telegram");
+
+    // The upgrade prompts and the comparison read the same distribution.
+    expect(upgradeTargetForChannel("telegram")).toBe("الباقة العادية");
+    expect(upgradeTargetForChannel("email")).toBe("الباقة العادية");
+    expect(upgradeTargetForChannel("facebook")).toBe("باقة المؤسسات الصغيرة");
+    expect(upgradeTargetForChannel("youtube")).toBe("باقة المؤسسات الكبيرة");
+    expect(upgradeTargetForChannel("linkedin")).toBe("باقة المؤسسات الكبيرة");
+    expect(upgradeTargetForChannel("x")).toBe("باقة الشركات");
+    expect(isChannelInPlan("باقة الأفراد", "instagram")).toBe(false);
+    expect(Object.keys(PLAN_CHANNELS)).toHaveLength(5);
   });
 });

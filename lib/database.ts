@@ -3,6 +3,7 @@ import { ensureAiSchema } from "./ai-schema";
 import { ensureCatalogSchema } from "./catalog-schema";
 import { ensureBranchesSchema } from "./branches-schema";
 import { ensurePlanPrices } from "./plan-prices";
+import { planChannelsString } from "./plan-access";
 import { UNLIMITED_MESSAGE_QUOTA } from "./message-quota";
 import { emailIntegrationId, findTenantEmailIntegration } from "./email-integration-lookup";
 import { createHash, randomUUID } from "crypto";
@@ -331,11 +332,11 @@ async function applyPricingTierRestructure() {
       // campaign messages credited per billing period (see
       // applyConfirmedSubscriptionPayment in lib/subscriptions.ts);
       // UNLIMITED_MESSAGE_QUOTA (-1) on the enterprise tier.
-      { id: "plan-individuals", name: "باقة الأفراد", monthlyPrice: 199, employeeLimit: 1, sortOrder: 1, allowedChannels: "whatsapp", aiDailyLimit: 0, aiMonthlyLimit: 0, messageQuota: 1000 },
-      { id: "plan-regular", name: "الباقة العادية", monthlyPrice: 349, employeeLimit: 3, sortOrder: 2, allowedChannels: "whatsapp,instagram", aiDailyLimit: 0, aiMonthlyLimit: 0, messageQuota: 3000 },
-      { id: "plan-small-org", name: "باقة المؤسسات الصغيرة", monthlyPrice: 599, employeeLimit: 6, sortOrder: 3, allowedChannels: "whatsapp,instagram", aiDailyLimit: 50, aiMonthlyLimit: 1000, messageQuota: 5000 },
-      { id: "plan-large-org", name: "باقة المؤسسات الكبيرة", monthlyPrice: 899, employeeLimit: 8, sortOrder: 4, allowedChannels: "whatsapp,instagram,tiktok", aiDailyLimit: 100, aiMonthlyLimit: 2000, messageQuota: 7000 },
-      { id: "plan-enterprise", name: "باقة الشركات", monthlyPrice: 1599, employeeLimit: 100, sortOrder: 5, allowedChannels: "*", aiDailyLimit: 300, aiMonthlyLimit: 6000, messageQuota: UNLIMITED_MESSAGE_QUOTA }
+      { id: "plan-individuals", name: "باقة الأفراد", monthlyPrice: 199, employeeLimit: 1, sortOrder: 1, allowedChannels: planChannelsString("باقة الأفراد"), aiDailyLimit: 0, aiMonthlyLimit: 0, messageQuota: 1000 },
+      { id: "plan-regular", name: "الباقة العادية", monthlyPrice: 349, employeeLimit: 3, sortOrder: 2, allowedChannels: planChannelsString("الباقة العادية"), aiDailyLimit: 0, aiMonthlyLimit: 0, messageQuota: 3000 },
+      { id: "plan-small-org", name: "باقة المؤسسات الصغيرة", monthlyPrice: 599, employeeLimit: 6, sortOrder: 3, allowedChannels: planChannelsString("باقة المؤسسات الصغيرة"), aiDailyLimit: 50, aiMonthlyLimit: 1000, messageQuota: 5000 },
+      { id: "plan-large-org", name: "باقة المؤسسات الكبيرة", monthlyPrice: 899, employeeLimit: 8, sortOrder: 4, allowedChannels: planChannelsString("باقة المؤسسات الكبيرة"), aiDailyLimit: 100, aiMonthlyLimit: 2000, messageQuota: 7000 },
+      { id: "plan-enterprise", name: "باقة الشركات", monthlyPrice: 1599, employeeLimit: 100, sortOrder: 5, allowedChannels: planChannelsString("باقة الشركات"), aiDailyLimit: 300, aiMonthlyLimit: 6000, messageQuota: UNLIMITED_MESSAGE_QUOTA }
     ];
     for (const plan of newPlans) {
       if (isPostgresDatabase) {
