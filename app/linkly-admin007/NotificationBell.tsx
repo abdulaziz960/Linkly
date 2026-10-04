@@ -4,15 +4,14 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { AdminNotification } from "./useAdminNotifications";
 import { useAdminNotifications } from "./useAdminNotifications";
-import { statusClass } from "./utils";
-import { useLanguage } from "./i18n";
+import Icon from "./ds/Icon";
+import { Badge, type Tone } from "./ds/primitives";
 
-function levelLabel(level: string, t: (ar: string, en: string) => string) {
-  if (level === "معلومة") return t("معلومة", "Info");
-  if (level === "تنبيه") return t("تنبيه", "Alert");
-  if (level === "خطأ") return t("خطأ", "Error");
-  return level;
-}
+const LEVEL: Record<string, { label: string; tone: Tone }> = {
+  "معلومة": { label: "معلومة", tone: "info" },
+  "تنبيه": { label: "تنبيه", tone: "warning" },
+  "خطأ": { label: "عاجل", tone: "danger" }
+};
 
 function targetHref(item: AdminNotification) {
   if (item.type === "renewal") return "/linkly-admin007/alerts";
@@ -20,79 +19,70 @@ function targetHref(item: AdminNotification) {
 }
 
 export default function NotificationBell() {
-  const { t } = useLanguage();
-  const { items, actionableCount, markAllRead } = useAdminNotifications();
+  const { items, actionableCount, markAllRead, soundEnabled, setSoundEnabled } = useAdminNotifications();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    // The dropdown is positioned relative to the bell, not the viewport - if
-    // the page (or any scrollable panel/table under it) scrolls while it's
-    // open, it's left floating disconnected from the bell over whatever
-    // content is now underneath it. Closing on any scroll avoids that on
-    // every admin page, not just the ones we happen to test.
-    function handleScroll() {
-      setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+    const onDown = (event: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("scroll", handleScroll, { capture: true });
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
-  function handleToggle() {
-    setOpen((current) => {
-      const next = !current;
-      if (next) markAllRead();
-      return next;
-    });
-  }
-
   return (
-    <div className="admin-notif-bell-wrap" ref={wrapRef}>
+    <div className="ds-popover-wrap" ref={wrapRef}>
       <button
         type="button"
-        className="admin-notif-bell"
-        onClick={handleToggle}
-        aria-label={t("الإشعارات", "Notifications")}
+        className="ds-icon-btn"
+        aria-label={actionableCount ? `الإشعارات، ${actionableCount} تحتاج متابعة` : "الإشعارات"}
         aria-expanded={open}
         aria-controls="admin-notification-list"
+        onClick={() => {
+          setOpen((current) => {
+            if (!current) markAllRead();
+            return !current;
+          });
+        }}
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
-        {actionableCount > 0 ? <span className="admin-nav-badge admin-notif-badge">{actionableCount > 9 ? "9+" : actionableCount}</span> : null}
+        <Icon name="bell" size={19} />
+        {actionableCount > 0 ? <span className="ds-dot" aria-hidden="true">{actionableCount > 9 ? "9+" : actionableCount}</span> : null}
       </button>
 
       {open ? (
-        <div id="admin-notification-list" className="admin-notif-dropdown">
-          <div className="admin-notif-dropdown-head">{t("الإشعارات", "Notifications")}</div>
-          <div className="admin-notif-dropdown-list">
-            {items.slice(0, 6).map((item) => (
-              <Link key={item.id} href={targetHref(item)} className="admin-notif-dropdown-row" onClick={() => setOpen(false)}>
-                <span className={`admin-pill ${statusClass(item.level)}`}>{levelLabel(item.level, t)}</span>
-                <div>
-                  <strong>{item.title}</strong>
-                  <span>{item.message}</span>
-                </div>
-              </Link>
-            ))}
-            {!items.length ? <p className="admin-empty-state">{t("لا توجد إشعارات حاليًا.", "No notifications right now.")}</p> : null}
+        <div id="admin-notification-list" className="ds-popover">
+          <div className="ds-popover-head">
+            <span>الإشعارات</span>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: "var(--ds-text-muted)", cursor: "pointer" }}>
+              <input type="checkbox" checked={soundEnabled} onChange={(event) => setSoundEnabled(event.target.checked)} />
+              تنبيه صوتي
+            </label>
           </div>
-          {items.length ? (
-            <Link href="/linkly-admin007/logs" className="admin-notif-dropdown-foot" onClick={() => setOpen(false)}>
-              {t("عرض جميع السجلات", "View all logs")}
-            </Link>
-          ) : null}
+          <div className="ds-popover-list">
+            {items.slice(0, 8).map((item) => {
+              const level = LEVEL[item.level] ?? LEVEL["معلومة"];
+              return (
+                <Link key={item.id} href={targetHref(item)} className="ds-popover-row" onClick={() => setOpen(false)}>
+                  <Badge tone={level.tone}>{level.label}</Badge>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <span>{item.message}</span>
+                  </div>
+                </Link>
+              );
+            })}
+            {!items.length ? (
+              <div className="ds-state"><span className="ds-state-icon"><Icon name="checkCircle" size={22} /></span><strong>لا توجد إشعارات</strong><p>كل شيء يسير بشكل طبيعي حاليًا.</p></div>
+            ) : null}
+          </div>
+          {items.length ? <Link href="/linkly-admin007/logs" className="ds-popover-foot" onClick={() => setOpen(false)}>عرض جميع السجلات</Link> : null}
         </div>
       ) : null}
     </div>

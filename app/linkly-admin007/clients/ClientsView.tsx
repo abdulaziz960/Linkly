@@ -8,6 +8,7 @@ import type { PlanRow, SubscriptionRow } from "../types";
 import { EXTRA_USER_PRICE, formatNumber, getRenewalAlert, statusClass } from "../utils";
 import CustomSelect from "../../components/CustomSelect";
 import { useLanguage } from "../i18n";
+import { useQueryFlag } from "../ds/useQueryFlag";
 
 type ClientsViewProps = {
   subscriptions: SubscriptionRow[];
@@ -51,12 +52,10 @@ export default function ClientsView({ subscriptions, plans }: ClientsViewProps) 
   const [statusFilter, setStatusFilter] = useState("الكل");
   const [sortBy, setSortBy] = useState<SortKey>("recent");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  useQueryFlag("new", () => setIsAddOpen(true));
   const [reviewClient, setReviewClient] = useState<ClientDraft | null>(null);
   const [selectedPlan, setSelectedPlan] = useState(plans.find((plan) => plan.active === 1)?.name || "باقة النمو");
   const [newClientAmount, setNewClientAmount] = useState(String(plans.find((plan) => plan.active === 1)?.monthlyPrice ?? 0));
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("new") === "1") setIsAddOpen(true);
-  }, []);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [inviteNotice, setInviteNotice] = useState("");

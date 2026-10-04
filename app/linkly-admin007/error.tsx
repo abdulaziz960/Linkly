@@ -1,11 +1,23 @@
 "use client";
 
-export default function AdminError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+import { useEffect, useState } from "react";
+import { ErrorState } from "./ds/primitives";
+
+export default function AdminError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const [offline, setOffline] = useState(false);
+
+  useEffect(() => {
+    setOffline(typeof navigator !== "undefined" && navigator.onLine === false);
+    // Technical details go to the console only - never to the page.
+    console.error("[admin] page failed to render", error.digest ?? "", error.message);
+  }, [error]);
+
   return (
-    <main className="admin-error" dir="rtl" role="alert">
-      <h1>تعذر تحميل لوحة التحكم</h1>
-      <p>لم نتمكن من جلب البيانات الآن. تحقق من اتصالك ثم حاول مجددًا.</p>
-      <button type="button" onClick={reset}>إعادة المحاولة</button>
-    </main>
+    <ErrorState
+      kind={offline ? "offline" : "error"}
+      title={offline ? "لا يوجد اتصال بالإنترنت" : "تعذر تحميل هذه الصفحة"}
+      description={offline ? "تحقق من اتصالك ثم أعد المحاولة." : "لم نتمكن من جلب البيانات الآن. حاول مرة أخرى، وإذا استمرت المشكلة تواصل مع فريق التطوير."}
+      onRetry={reset}
+    />
   );
 }

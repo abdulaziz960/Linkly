@@ -8,6 +8,7 @@ import type { DiscountCodeRow, PlanRow } from "../types";
 import { formatNumber } from "../utils";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
+import { useQueryFlag } from "../ds/useQueryFlag";
 
 type DiscountCodesViewProps = {
   discountCodes: DiscountCodeRow[];
@@ -77,6 +78,7 @@ export default function DiscountCodesView({ discountCodes, plans }: DiscountCode
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("الكل");
   const [sortBy, setSortBy] = useState<SortKey>("created");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  useQueryFlag("new", () => setIsCreateOpen(true));
   const [editCode, setEditCode] = useState<DiscountCodeRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");

@@ -3,130 +3,107 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { AdminUser } from "./types";
-import NotificationBell from "./NotificationBell";
-import { useLanguage } from "./i18n";
+import type { AdminSummary } from "../api/admin/summary/route";
+import Icon from "./ds/Icon";
+import { useConfirm } from "./ds/Dialog";
+import { useTheme } from "./ds/theme";
+import { NAV_GROUPS, type NavItem } from "./nav";
 
-const navItems = [
-  { href: "/linkly-admin007", labelAr: "نظرة عامة", labelEn: "Overview" },
-  { href: "/linkly-admin007/clients", labelAr: "العملاء", labelEn: "Clients" },
-  { href: "/linkly-admin007/alerts", labelAr: "تنبيهات التجديد", labelEn: "Renewal alerts" },
-  { href: "/linkly-admin007/support", labelAr: "الدعم الفني", labelEn: "Support" },
-  { href: "/linkly-admin007/development", labelAr: "التطوير", labelEn: "Development" },
-  { href: "/linkly-admin007/payments", labelAr: "المدفوعات", labelEn: "Payments" },
-  { href: "/linkly-admin007/plans", labelAr: "الباقات", labelEn: "Plans" },
-  { href: "/linkly-admin007/discount-codes", labelAr: "أكواد الخصم", labelEn: "Discount Codes" },
-  { href: "/linkly-admin007/team", labelAr: "الفريق", labelEn: "Team" },
-  { href: "/linkly-admin007/usage", labelAr: "الاستخدام", labelEn: "Usage" },
-  { href: "/linkly-admin007/logs", labelAr: "السجلات", labelEn: "Logs" },
-  { href: "/linkly-admin007/admin-actions", labelAr: "إجراءات الأدمن", labelEn: "Admin actions" }
-];
+function badgeFor(item: NavItem, summary: AdminSummary | null) {
+  if (!summary || !item.badge) return null;
+  if (item.badge === "renewals") return summary.renewalsDue ? { count: summary.renewalsDue, tone: "danger" as const } : null;
+  if (item.badge === "support") return summary.supportOpen ? { count: summary.supportOpen, tone: summary.supportUrgent ? ("danger" as const) : ("warning" as const) } : null;
+  return summary.developmentPending ? { count: summary.developmentPending, tone: "warning" as const } : null;
+}
 
-export default function AdminSidebar({ user }: { user: AdminUser }) {
+function isActive(pathname: string, href: string) {
+  if (href === "/linkly-admin007") return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export default function AdminSidebar({ user, summary, collapsed, onToggleCollapsed }: {
+  user: AdminUser;
+  summary: AdminSummary | null;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}) {
   const pathname = usePathname();
-  const { t } = useLanguage();
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
+  const confirm = useConfirm();
+  const { theme, toggle } = useTheme();
   const [signingOut, setSigningOut] = useState(false);
-  const [signOutError, setSignOutError] = useState("");
-  const profileRef = useRef<HTMLDivElement>(null);
-  const profileTriggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    setProfileOpen(false);
-    setNavOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (!profileOpen) return;
-    function onClickOutside(event: MouseEvent) {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setProfileOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    function onEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setProfileOpen(false);
-        profileTriggerRef.current?.focus();
-      }
-    }
-    document.addEventListener("keydown", onEscape);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      document.removeEventListener("keydown", onEscape);
-    };
-  }, [profileOpen]);
 
   async function signOut() {
     if (signingOut) return;
+    const ok = await confirm({ title: "تسجيل الخروج", description: "سيتم إنهاء جلستك الحالية في لوحة التحكم.", confirmLabel: "تسجيل الخروج" });
+    if (!ok) return;
     setSigningOut(true);
-    setSignOutError("");
     try {
       const response = await fetch("/api/auth/logout", { method: "POST", cache: "no-store" });
       if (!response.ok) throw new Error("logout failed");
       window.location.replace("/login");
     } catch {
-      setSignOutError(t("تعذر تسجيل الخروج. حاول مرة أخرى.", "Could not sign out. Please try again."));
       setSigningOut(false);
+      window.alert("تعذر تسجيل الخروج. حاول مرة أخرى.");
     }
   }
 
   return (
-    <aside className="admin-sidebar">
-      <div className="admin-brand">
-        <span className="admin-brand-mark">
-          <Image src="/assets/linkly-logo.png" alt="" width={56} height={31} />
-        </span>
-        <div>
-          <strong>Linkly</strong>
-        </div>
-        <NotificationBell />
+    <aside className="ds-sidebar" aria-label="القائمة الجانبية">
+      <div className="ds-sidebar-head">
+        <Link href="/linkly-admin007" className="ds-brand" aria-label="Linkly - نظرة عامة">
+          <Image src="/assets/linkly-logo.png" alt="" width={44} height={24} priority />
+          <span>Linkly</span>
+        </Link>
       </div>
 
-      <button type="button" className="admin-mobile-nav-toggle" aria-controls="admin-primary-nav" aria-expanded={navOpen} onClick={() => setNavOpen((open) => !open)}>
-        <span aria-hidden="true">☰</span> {t("القائمة", "Menu")}
-      </button>
-
-      <nav id="admin-primary-nav" className={`admin-nav${navOpen ? " is-open" : ""}`} aria-label={t("تنقل لوحة المزوّد", "Provider dashboard navigation")}>
-        {navItems.map((item, index) => (
-          <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""} aria-current={pathname === item.href ? "page" : undefined} onClick={() => setNavOpen(false)} prefetch>
-            <span className="admin-nav-icon" aria-hidden="true">{["▦", "♙", "◷", "☏", "✦", "▤", "◇", "♧", "◫", "≡", "⚑"][index]}</span>
-            {t(item.labelAr, item.labelEn)}
-          </Link>
+      <nav className="ds-sidebar-scroll" aria-label="تنقل لوحة التحكم">
+        {NAV_GROUPS.map((group) => (
+          <div className="ds-nav-group" key={group.label} role="group" aria-label={group.label}>
+            <div className="ds-nav-label">{group.label}</div>
+            {group.items.map((item) => {
+              const badge = badgeFor(item, summary);
+              const active = isActive(pathname, item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="ds-nav-link"
+                  aria-current={active ? "page" : undefined}
+                  data-badge={badge ? "" : undefined}
+                  title={collapsed ? item.label : undefined}
+                  aria-label={badge ? `${item.label}، ${badge.count} تنبيه` : undefined}
+                >
+                  <Icon name={item.icon} size={19} />
+                  <span className="ds-nav-text">{item.label}</span>
+                  {badge ? <span className="ds-count" data-tone={badge.tone}>{badge.count > 99 ? "99+" : badge.count}</span> : null}
+                </Link>
+              );
+            })}
+          </div>
         ))}
       </nav>
 
-      <div className="admin-profile" ref={profileRef}>
-        <button
-          type="button"
-          ref={profileTriggerRef}
-          className="admin-profile-trigger"
-          onClick={() => setProfileOpen((open) => !open)}
-          aria-expanded={profileOpen}
-          aria-controls="admin-profile-popover"
-        >
-          <span className="admin-profile-avatar" aria-hidden="true">{user.name.slice(0, 1)}</span>
-          <span className="admin-profile-identity">
+      <div className="ds-sidebar-foot">
+        <div className="ds-user-card">
+          <span className="ds-avatar" aria-hidden="true">{user.name.slice(0, 1)}</span>
+          <span className="ds-user-meta">
             <strong>{user.name}</strong>
-            <small>{t("مدير المنصة", "Platform admin")}</small>
+            <small>مدير المنصة</small>
           </span>
-          <span className="admin-profile-chevron" aria-hidden="true">⌃</span>
-        </button>
-        {profileOpen ? (
-          <div id="admin-profile-popover" className="admin-profile-popover">
-            <div className="admin-profile-popover-info">
-              <strong>{user.name}</strong>
-              <small>{user.email}</small>
-              <span>{t("مدير المنصة", "Platform admin")}</span>
-            </div>
-            <button type="button" className="admin-profile-popover-signout" onClick={signOut} disabled={signingOut}>
-              <span aria-hidden="true">↪</span> {signingOut ? t("جارٍ تسجيل الخروج…", "Signing out…") : t("تسجيل الخروج", "Sign out")}
-            </button>
-            {signOutError ? <p className="admin-profile-error" role="alert">{signOutError}</p> : null}
-          </div>
-        ) : null}
+        </div>
+        <div className="ds-sidebar-actions">
+          <button type="button" className="ds-btn" data-variant="ghost" onClick={toggle} aria-label={theme === "dark" ? "التبديل إلى الوضع الفاتح" : "التبديل إلى الوضع الداكن"} title={theme === "dark" ? "الوضع الفاتح" : "الوضع الداكن"}>
+            <Icon name={theme === "dark" ? "sun" : "moon"} size={16} /><span>{theme === "dark" ? "فاتح" : "داكن"}</span>
+          </button>
+          <button type="button" className="ds-btn" data-variant="ghost" onClick={signOut} disabled={signingOut} aria-label="تسجيل الخروج" title="تسجيل الخروج">
+            <Icon name="logout" size={16} /><span>خروج</span>
+          </button>
+          <button type="button" className="ds-btn" data-variant="ghost" onClick={onToggleCollapsed} aria-label={collapsed ? "توسيع القائمة" : "طي القائمة"} aria-pressed={collapsed} title={collapsed ? "توسيع القائمة" : "طي القائمة"} style={{ gridColumn: "1 / -1" }}>
+            <Icon name="panelLeft" size={16} /><span>{collapsed ? "توسيع" : "طي القائمة"}</span>
+          </button>
+        </div>
       </div>
     </aside>
   );

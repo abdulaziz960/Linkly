@@ -6,6 +6,7 @@ import type { FormEvent } from "react";
 import type { TeamRow } from "../types";
 import { formatNumber } from "../utils";
 import { useLanguage } from "../i18n";
+import { useQueryFlag } from "../ds/useQueryFlag";
 
 type TeamViewProps = {
   team: TeamRow[];
@@ -17,6 +18,7 @@ export default function TeamView({ team, currentUserId }: TeamViewProps) {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [isTeamInviteOpen, setIsTeamInviteOpen] = useState(false);
+  useQueryFlag("invite", () => setIsTeamInviteOpen(true));
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("invite") === "1") setIsTeamInviteOpen(true);
   }, []);

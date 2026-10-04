@@ -1,33 +1,44 @@
 import { getAdminLogs } from "../../lib/database";
+import { getAdminActionLogs } from "../../lib/admin-audit";
+import { getCurrentUser } from "../../lib/auth";
+import { prisma } from "../../lib/prisma";
 import { getSubscriptions, getSubscriptionPayments } from "../../lib/subscriptions";
-import { getPlans } from "../../lib/plans";
-import { getPlatformTeam } from "../../lib/platform-team";
 import AdminPageHeader from "./AdminPageHeader";
 import OverviewView from "./OverviewView";
 
+// Server timestamp for "data as of"; read outside render so the component stays pure.
+const nowMs = () => Date.now();
+
 export default async function AdminOverviewPage() {
-  const [subscriptions, payments, plans, team, logs] = await Promise.all([
+  const generatedAt = nowMs();
+  const [user, subscriptions, payments, logs, actions, urgentTickets] = await Promise.all([
+    getCurrentUser(),
     getSubscriptions(),
     getSubscriptionPayments(),
-    getPlans(),
-    getPlatformTeam(),
-    getAdminLogs()
+    getAdminLogs(),
+    getAdminActionLogs(60),
+    prisma.supportTicket.findMany({
+      where: { priority: "urgent", status: { notIn: ["resolved", "closed"] } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: { id: true, ticketNumber: true, subject: true, companyName: true, tenantId: true, createdAt: true, status: true }
+    })
   ]);
 
   return (
     <>
       <AdminPageHeader
-        eyebrow={["لوحة التحكم الأساسية", "Core dashboard"]}
-        title={["إدارة عملاء Linkly من مكان واحد", "Manage Linkly clients from one place"]}
-        description={["نظرة عامة سريعة على كل الأرقام المهمة، وتفاصيل كل قسم في صفحته الخاصة من القائمة الجانبية.", "A quick overview of every key number, with details for each section on its own sidebar page."]}
+        eyebrow={["نظرة عامة", "Overview"]}
+        title={[`مرحبًا ${user?.name ?? ""}`.trim(), "Welcome"]}
+        description={["ملخص حالة المنصة والإيرادات والإجراءات التي تحتاج انتباهك الآن.", "Platform health, revenue and the actions that need your attention."]}
       />
-
       <OverviewView
         subscriptions={subscriptions}
         payments={payments}
-        plansCount={plans.length}
-        teamCount={team.length}
-        logs={logs}
+        logs={logs.slice(-300)}
+        actions={actions}
+        urgentTickets={urgentTickets}
+        generatedAt={generatedAt}
       />
     </>
   );
