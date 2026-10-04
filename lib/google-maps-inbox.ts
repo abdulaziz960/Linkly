@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
+import { firstChar } from "./first-char";
 
 type StoreGoogleMapsReviewInput = {
   tenantId?: string;
@@ -43,14 +44,14 @@ export async function storeGoogleMapsReview(input: StoreGoogleMapsReviewInput) {
       update: {
         name: customerName,
         phone: cleanReviewId,
-        initial: customerName.charAt(0) || "G"
+        initial: firstChar(customerName) || "G"
       },
       create: {
         id: customerId,
         tenantId,
         name: customerName,
         phone: cleanReviewId,
-        initial: customerName.charAt(0) || "G"
+        initial: firstChar(customerName) || "G"
       }
     });
 

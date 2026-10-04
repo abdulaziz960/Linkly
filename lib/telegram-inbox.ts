@@ -6,6 +6,7 @@ import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
 import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
+import { firstChar } from "./first-char";
 
 type StoreTelegramMessageInput = {
   tenantId?: string;
@@ -30,7 +31,7 @@ function getCustomerName(chatId: string, name?: string) {
 }
 
 function getCustomerInitial(name: string, chatId: string) {
-  return name.trim().charAt(0) || chatId.slice(-1) || "T";
+  return firstChar(name.trim()) || chatId.slice(-1) || "T";
 }
 
 export async function storeTelegramMessage(input: StoreTelegramMessageInput) {

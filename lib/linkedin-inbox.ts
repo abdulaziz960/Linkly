@@ -5,6 +5,7 @@ import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
 import type { LinkedinComment } from "./linkedin";
+import { firstChar } from "./first-char";
 
 type StoreLinkedinCommentInput = {
   tenantId: string;
@@ -22,7 +23,7 @@ function isFallbackLinkedinName(name: string, actorUrn: string) {
 }
 
 function getCustomerInitial(name: string, actorUrn: string) {
-  return name.trim().charAt(0) || actorUrn.slice(-1) || "L";
+  return firstChar(name.trim()) || actorUrn.slice(-1) || "L";
 }
 
 export async function storeLinkedinComment(input: StoreLinkedinCommentInput) {

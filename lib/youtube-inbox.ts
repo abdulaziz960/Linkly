@@ -5,6 +5,7 @@ import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
 import type { YoutubeCommentThread } from "./youtube";
+import { firstChar } from "./first-char";
 
 type StoreYoutubeCommentInput = {
   tenantId: string;
@@ -22,7 +23,7 @@ function isFallbackYoutubeName(name: string, authorChannelId: string) {
 }
 
 function getCustomerInitial(name: string, authorChannelId: string) {
-  return name.trim().charAt(0) || authorChannelId.slice(-1) || "Y";
+  return firstChar(name.trim()) || authorChannelId.slice(-1) || "Y";
 }
 
 export async function storeYoutubeComment(input: StoreYoutubeCommentInput) {

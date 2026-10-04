@@ -5,6 +5,7 @@ import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
 import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
+import { firstChar } from "./first-char";
 
 type StoreInstagramMessageInput = {
   instagramUserId: string;
@@ -34,7 +35,7 @@ function isFallbackInstagramName(name: string, instagramUserId: string) {
 }
 
 function getCustomerInitial(name: string, instagramUserId: string) {
-  return name.trim().charAt(0) || instagramUserId.slice(-1) || "I";
+  return firstChar(name.trim()) || instagramUserId.slice(-1) || "I";
 }
 
 export async function storeInstagramMessage(input: StoreInstagramMessageInput) {

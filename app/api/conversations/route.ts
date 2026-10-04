@@ -6,6 +6,7 @@ import { prisma } from "../../../lib/prisma";
 import { normalizeWhatsAppPhone } from "../../../lib/whatsapp-inbox";
 import { processDueAutomations } from "../../../lib/automation-engine";
 import { jsonError, jsonOk } from "../_utils/json";
+import { firstChar } from "../../../lib/first-char";
 
 export const runtime = "nodejs";
 
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     await prisma.customer.upsert({
       where: { id: customerId },
       update: {},
-      create: { id: customerId, name, phone: normalizedPhone, initial: name.charAt(0) || "ع", tenantId: user.tenantId }
+      create: { id: customerId, name, phone: normalizedPhone, initial: firstChar(name) || "ع", tenantId: user.tenantId }
     });
   }
 

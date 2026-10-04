@@ -6,6 +6,7 @@ import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
 import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
+import { firstChar } from "./first-char";
 
 type StoreXMessageInput = {
   tenantId?: string;
@@ -42,7 +43,7 @@ function getCustomerName(xUserId: string, name?: string) {
 }
 
 function getCustomerInitial(name: string, xUserId: string) {
-  return name.trim().charAt(0) || xUserId.slice(-1) || "X";
+  return firstChar(name.trim()) || xUserId.slice(-1) || "X";
 }
 
 export async function storeXMessage(input: StoreXMessageInput) {

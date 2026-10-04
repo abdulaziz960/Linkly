@@ -5,6 +5,7 @@ import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
 import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
+import { firstChar } from "./first-char";
 
 function stableId(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex").slice(0, 24);
@@ -32,7 +33,7 @@ export async function storeWebsiteMessage(input: IncomingWebsiteMessage) {
 
   const id = websiteConversationId(tenantId, visitorId);
   const name = input.name?.trim() || "زائر الموقع";
-  const initial = name.charAt(0) || "ز";
+  const initial = firstChar(name) || "ز";
   const contact = input.email?.trim() || visitorId;
   const createdAt = new Date().toISOString();
   const messageId = `web-in-${stableId(`${id}:${createdAt}:${text}:${Math.random()}`)}`;

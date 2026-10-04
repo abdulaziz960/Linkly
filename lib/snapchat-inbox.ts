@@ -4,6 +4,7 @@ import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { triggerWebhookEvent } from "./webhooks";
 import type { SnapchatLeadAnswer } from "./snapchat";
+import { firstChar } from "./first-char";
 
 type StoreSnapchatLeadInput = {
   tenantId: string;
@@ -59,8 +60,8 @@ export async function storeSnapchatLead(input: StoreSnapchatLeadInput) {
   const result = await prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
       where: { id: customerId },
-      update: { name, phone, initial: name.trim().charAt(0) || "S" },
-      create: { id: customerId, name, phone, initial: name.trim().charAt(0) || "S", tenantId }
+      update: { name, phone, initial: firstChar(name.trim()) || "S" },
+      create: { id: customerId, name, phone, initial: firstChar(name.trim()) || "S", tenantId }
     });
 
     await tx.conversation.upsert({

@@ -43,6 +43,7 @@ import { playNewMessageChime } from "./notification-sound";
 import { requestNotificationPermissionOnce, showNewMessageNotification } from "./notification-browser";
 import TrialCountdownBanner from "./TrialCountdownBanner";
 import WhatsAppPaymentBanner from "./WhatsAppPaymentBanner";
+import { firstChar } from "../../lib/first-char";
 
 type DashboardSubscription = {
   companyName: string;
@@ -71,7 +72,7 @@ type DashboardClientProps = {
 };
 
 function getNameInitial(name: string) {
-  return name.trim().charAt(0) || "ع";
+  return firstChar(name.trim()) || "ع";
 }
 
 function statusLabel(status: string, t: (ar: string, en: string) => string) {

@@ -7,6 +7,7 @@ import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import { formatDateTime } from "../../../lib/time";
 import CampaignEngagementReport from "../components/CampaignEngagementReport";
+import { firstChar } from "../../../lib/first-char";
 
 const pageSizeOptions = [
   { value: "10", label: "10" },
@@ -532,7 +533,7 @@ export default function CampaignsView({
                 <tbody>
                   {campaignPagination.items.map((campaign) => (
                     <tr key={campaign.id}>
-                      <td data-label={t("الحملة", "Campaign")}><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <Image src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" width={42} height={42} unoptimized onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : campaign.name.trim().charAt(0) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}</span></div></td>
+                      <td data-label={t("الحملة", "Campaign")}><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <Image src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" width={42} height={42} unoptimized onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : firstChar(campaign.name.trim()) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}</span></div></td>
                       <td data-label={t("الإرسال", "Sending")}><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small></td>
                       <td data-label={t("التقدم", "Progress")}><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
                       <td data-label={t("الحالة", "Status")}><span className={campaign.status === "ملغاة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>

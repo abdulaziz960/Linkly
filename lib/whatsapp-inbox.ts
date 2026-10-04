@@ -5,6 +5,7 @@ import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
 import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
+import { firstChar, wellFormed } from "./first-char";
 
 type StoreWhatsAppMessageInput = {
   phone: string;
@@ -46,11 +47,11 @@ export function normalizeWhatsAppPhone(phone: string) {
 
 function getCustomerName(phone: string, name?: string) {
   const cleanName = name?.trim();
-  return cleanName || `عميل ${phone.slice(-4) || "واتساب"}`;
+  return cleanName ? wellFormed(cleanName) : `عميل ${phone.slice(-4) || "واتساب"}`;
 }
 
 function getCustomerInitial(name: string, phone: string) {
-  return name.trim().charAt(0) || phone.slice(-1) || "ع";
+  return firstChar(name.trim()) || phone.slice(-1) || "ع";
 }
 
 // The WhatsApp CTA on the marketing site appends an invisible marker to the
@@ -79,7 +80,8 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
   const conversationId = `${scopedPrefix}conv-${phone}`;
   const messageId = input.messageId ? `wa-${input.messageId}` : `wa-${input.direction}-${phone}-${Date.now()}`;
   const startClosed = await shouldStartConversationClosed(tenantId, "whatsapp");
-  const { cleanText, linkClickId } = input.direction === "in" ? extractAttributionMarker(input.text) : { cleanText: input.text, linkClickId: null };
+  const { cleanText: rawCleanText, linkClickId } = input.direction === "in" ? extractAttributionMarker(input.text) : { cleanText: input.text, linkClickId: null };
+  const cleanText = wellFormed(rawCleanText);
   const linkClick = linkClickId
     ? await prisma.linkClick.findFirst({ where: { id: linkClickId, tenantId, matchedConversationId: "" } })
     : null;

@@ -5,6 +5,7 @@ import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
 import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
+import { firstChar } from "./first-char";
 
 type StoreFacebookMessageInput = {
   facebookUserId: string;
@@ -24,7 +25,7 @@ function getCustomerName(facebookUserId: string, name?: string) {
 }
 
 function getCustomerInitial(name: string, facebookUserId: string) {
-  return name.trim().charAt(0) || facebookUserId.slice(-1) || "F";
+  return firstChar(name.trim()) || facebookUserId.slice(-1) || "F";
 }
 
 export async function storeFacebookMessage(input: StoreFacebookMessageInput) {

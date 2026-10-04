@@ -19,6 +19,7 @@ import { isWhatsAppReplyWindowExpired, sendWhatsAppTemplateMessage } from "../..
 import { sendXDirectMessage, sendXPostReply, XApiError } from "../../../../../lib/x-api";
 import { resolveXPostReplyTarget } from "../../../../../lib/x-reply-target";
 import { jsonError, jsonOk } from "../../../_utils/json";
+import { firstChar } from "../../../../../lib/first-char";
 
 type RouteContext = {
   params: Promise<{
@@ -60,7 +61,7 @@ function normalizeConversationStatus(status?: string) {
 }
 
 function getFallbackInitial(name: string, phone: string, initial?: string) {
-  return initial?.trim() || name.trim().charAt(0) || phone.slice(-1) || "ع";
+  return initial?.trim() || firstChar(name.trim()) || phone.slice(-1) || "ع";
 }
 
 function getPhoneFromConversationId(id: string) {

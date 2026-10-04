@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
+import { firstChar } from "./first-char";
 
 export type IncomingEmail = {
   tenantId: string;
@@ -150,8 +151,8 @@ export async function storeIncomingEmail(input: LegacyIncomingEmail) {
   return prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
       where: { id: customerId },
-      update: { name, phone: email, initial: name.charAt(0) || "ب" },
-      create: { id: customerId, tenantId, name, phone: email, initial: name.charAt(0) || "ب" }
+      update: { name, phone: email, initial: firstChar(name) || "ب" },
+      create: { id: customerId, tenantId, name, phone: email, initial: firstChar(name) || "ب" }
     });
     await tx.conversation.upsert({
       where: { id: conversationId },
@@ -210,7 +211,7 @@ export async function storeOutgoingEmail(input: LegacyOutgoingEmail) {
     await tx.customer.upsert({
       where: { id: customerId },
       update: {},
-      create: { id: customerId, tenantId, name, phone: email, initial: name.charAt(0) || "ب" }
+      create: { id: customerId, tenantId, name, phone: email, initial: firstChar(name) || "ب" }
     });
     await tx.conversation.upsert({
       where: { id: conversationId },

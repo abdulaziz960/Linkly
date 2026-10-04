@@ -4,6 +4,7 @@ import { ensureSchema } from "./database";
 import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
+import { firstChar } from "./first-char";
 
 /**
  * TikTok's Business Messaging API requires approved Messaging Partner
@@ -33,7 +34,7 @@ function getCustomerName(userId: string, name?: string) {
 }
 
 function getCustomerInitial(name: string, userId: string) {
-  return name.trim().charAt(0) || userId.slice(-1) || "T";
+  return firstChar(name.trim()) || userId.slice(-1) || "T";
 }
 
 function scopedId(tenantId: string, userId: string) {
