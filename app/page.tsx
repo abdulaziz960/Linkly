@@ -13,11 +13,8 @@ import { channelNames } from "./channel-names";
 import { planFeatures, getPlanDisplayItems } from "../lib/plan-features";
 import { getActivePlansForLanding } from "../lib/plans";
 import { faqsAr } from "../lib/faq";
-import { CHANNEL_CATALOG } from "../lib/channel-catalog";
-
-// Every platform a customer can connect (Meta lead forms are a lead source, not a conversation platform).
-// Shown as a rounded-down "10+" so adding one more channel never makes the number stale.
-const platformCount = Math.floor(CHANNEL_CATALOG.filter((channel) => channel.key !== "meta_leads").length / 5) * 5;
+// Shown on the landing metric ("5+ messaging platforms").
+const platformCount = 5;
 
 export const metadata: Metadata = {
   title: { absolute: "Linkly | صندوق موحّد لواتساب وإنستقرام والقنوات — منصة سعودية لخدمة العملاء" },
