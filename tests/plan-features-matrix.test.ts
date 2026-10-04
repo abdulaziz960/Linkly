@@ -109,28 +109,25 @@ describe("plan limits are enforced on the server", () => {
 });
 
 describe("branch caps per plan", () => {
-  it("allows 3 / 10 / 30 branches and unlimited on enterprise", async () => {
+  it("allows 30 / 65 / 100 branches and unlimited on enterprise", async () => {
     const { planLimit, upgradeTargetForView, limitReachedMessage } = await import("../lib/plan-access");
     expect(planLimit("باقة الأفراد", "branches")).toBe(0);
-    expect(planLimit("الباقة العادية", "branches")).toBe(3);
-    expect(planLimit("باقة المؤسسات الصغيرة", "branches")).toBe(10);
-    expect(planLimit("باقة المؤسسات الكبيرة", "branches")).toBe(30);
+    expect(planLimit("الباقة العادية", "branches")).toBe(30);
+    expect(planLimit("باقة المؤسسات الصغيرة", "branches")).toBe(65);
+    expect(planLimit("باقة المؤسسات الكبيرة", "branches")).toBe(100);
     expect(planLimit("باقة الشركات", "branches")).toBeNull();
     expect(upgradeTargetForView("branches")).toBe("الباقة العادية");
-    expect(limitReachedMessage("branches", 3)).toContain("باقة المؤسسات الصغيرة");
+    expect(limitReachedMessage("branches", 30)).toContain("باقة المؤسسات الصغيرة");
   });
 
-  it("stops the 4th branch on the regular plan", async () => {
+  it("stops the 31st branch on the regular plan", async () => {
     const { ensureSchema } = await import("../lib/database");
     const { prisma } = await import("../lib/prisma");
     await ensureSchema();
     const now = new Date(Date.now() + 86_400_000).toISOString();
     await prisma.subscription.create({ data: { id: "sub-branch-cap", tenantId: "tenant-branch-cap", companyName: "B", ownerName: "O", ownerEmail: "b@x.sa", plan: "الباقة العادية", status: "نشط", renewalAt: now, createdAt: now, updatedAt: now } });
     const { assertWithinPlanLimit, PlanLimitError } = await import("../lib/plan-access-server");
-    for (let i = 0; i < 3; i += 1) {
-      await assertWithinPlanLimit("tenant-branch-cap", "branches");
-      await prisma.branch.create({ data: { id: `b-${i}`, tenantId: "tenant-branch-cap", name: `B${i}`, latitude: 24.7, longitude: 46.6, createdAt: now, updatedAt: now } });
-    }
+    await prisma.branch.createMany({ data: Array.from({ length: 30 }, (_, i) => ({ id: `b-${i}`, tenantId: "tenant-branch-cap", name: `B${i}`, latitude: 24.7, longitude: 46.6, createdAt: now, updatedAt: now })) });
     await expect(assertWithinPlanLimit("tenant-branch-cap", "branches")).rejects.toBeInstanceOf(PlanLimitError);
   });
 });

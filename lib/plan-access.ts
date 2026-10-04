@@ -80,7 +80,7 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     basicReports: true,
     // Fixed 30-minute escalation: the settings live in Automations, which this plan doesn't have.
     escalation: true,
-    limits: { teams: 2, products: 0, branches: 3, kbEntries: 0 },
+    limits: { teams: 2, products: 0, branches: 30, kbEntries: 0 },
     recurringCampaigns: false,
     advancedSegments: false,
     reportsExcel: false
@@ -91,7 +91,7 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     botMaxSteps: null,
     basicReports: false,
     escalation: true,
-    limits: { teams: null, products: 0, branches: 10, kbEntries: 50 },
+    limits: { teams: null, products: 0, branches: 65, kbEntries: 50 },
     recurringCampaigns: true,
     advancedSegments: true,
     reportsExcel: false
@@ -102,7 +102,7 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     botMaxSteps: null,
     basicReports: false,
     escalation: true,
-    limits: { teams: null, products: 300, branches: 30, kbEntries: 200 },
+    limits: { teams: null, products: 300, branches: 100, kbEntries: 200 },
     recurringCampaigns: true,
     advancedSegments: true,
     reportsExcel: true
