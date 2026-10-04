@@ -71,7 +71,7 @@ describe("catalog bot cards (WhatsApp)", () => {
     expect((sent.at(-1)!.input.buttons as Array<{ id: string }>).some((b) => b.id.startsWith("cat_more_"))).toBe(false);
   });
 
-  it("with payment off a product offers submit-an-order and shows its link; with payment on it offers buy", async () => {
+  it("with payment off a product shows its page button then the order buttons; with payment on it offers buy", async () => {
     const { listBotProducts, saveCatalogSettings } = await import("../lib/catalog");
     const { handleCatalogReply } = await import("../lib/catalog-bot");
     const [product] = await listBotProducts(tenantId, 1);
@@ -79,11 +79,13 @@ describe("catalog bot cards (WhatsApp)", () => {
 
     sent.length = 0;
     await handleCatalogReply(c, { id: `prod_${product.id}`, text: "" }, "");
-    // Payment off: a "submit an order" button, with the product page link inside the message text.
-    expect(sent[0].kind).toBe("buttons");
-    expect((sent[0].input.buttons as Array<{ id: string; title: string }>)[0]).toMatchObject({ id: `buy_${product.id}`, title: "تقديم طلب" });
+    // Payment off with a product page: details carry the "open page" button, then the action buttons follow.
+    expect(sent[0].kind).toBe("cta");
+    expect(sent[0].input.url).toBe(product.productUrl);
     expect(String(sent[0].input.bodyText)).toContain("وصف المنتج");
-    expect(String(sent[0].input.bodyText)).toContain(String(product.productUrl));
+    expect(sent[1].kind).toBe("buttons");
+    expect((sent[1].input.buttons as Array<{ id: string; title: string }>).map((b) => b.title)).toEqual(["تقديم طلب", "كل المنتجات", "التحدث مع موظف"]);
+    expect((sent[1].input.buttons as Array<{ id: string }>)[0].id).toBe(`buy_${product.id}`);
 
     await saveCatalogSettings(tenantId, { paymentEnabled: true, gatewaySecretKey: "sk_test_abcdefghijklmnop1234" });
     sent.length = 0;

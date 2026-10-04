@@ -11,7 +11,7 @@ import {
 } from "./catalog";
 import { createMerchantInvoice } from "./catalog-payments";
 import { formatMessageTime } from "./time";
-import { sendWhatsAppIdButtons } from "./whatsapp-send";
+import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons } from "./whatsapp-send";
 
 /**
  * The in-chat shopping flow behind the bot's "عرض الكتالوج" step: browse the
@@ -153,14 +153,24 @@ async function showProduct(ctx: CatalogCtx, product: CatalogProduct) {
   const image = whatsappImageUrl(product);
   const nav = [{ id: ID_BACK, title: "كل المنتجات" }, { id: ID_AGENT, title: "التحدث مع موظف" }];
 
-  // Payment on -> "buy now" (a payment link). Payment off -> "submit an order": it lands in the
-  // Orders tab and a team member follows up. The product page link rides in the message text,
-  // since WhatsApp can't put a URL button next to reply buttons.
-  const body = !paymentOn && product.productUrl ? `${details}\n\nصفحة المنتج: ${product.productUrl}` : details;
-  const buttons = [{ id: `${ID_ORDER}${product.id}`, title: paymentOn ? "🛒 اشترِ الآن" : "تقديم طلب" }, ...nav];
-  let sent = await sendWhatsAppIdButtons({ ...common, bodyText: body, buttons, displayText: body, headerImageUrl: image });
-  if (!sent.ok && image) sent = await sendWhatsAppIdButtons({ ...common, bodyText: body, buttons, displayText: body });
-  if (!sent.ok) await ctx.sendText(body);
+  const orderButton = { id: `${ID_ORDER}${product.id}`, title: paymentOn ? "🛒 اشترِ الآن" : "تقديم طلب" };
+
+  // Payment off with a product page: the details message carries the "open the product page"
+  // button (WhatsApp allows one URL button and never next to reply buttons), and the actions -
+  // "submit an order" (lands in the Orders tab), all products, talk to an agent - follow right under it.
+  if (!paymentOn && product.productUrl) {
+    let sent = await sendWhatsAppCtaUrl({ ...common, bodyText: details, buttonLabel: "فتح صفحة المنتج", url: product.productUrl, displayText: details, headerImageUrl: image });
+    if (!sent.ok && image) sent = await sendWhatsAppCtaUrl({ ...common, bodyText: details, buttonLabel: "فتح صفحة المنتج", url: product.productUrl, displayText: details });
+    if (!sent.ok) await ctx.sendText(`${details}\n\nصفحة المنتج: ${product.productUrl}`);
+    await sendWhatsAppIdButtons({ ...common, bodyText: "ماذا تريد أن تفعل؟", buttons: [orderButton, ...nav], displayText: "ماذا تريد أن تفعل؟" });
+    return;
+  }
+
+  // Payment on ("buy now" -> a payment link), or no product page: one message with the reply buttons.
+  const buttons = [orderButton, ...nav];
+  let sent = await sendWhatsAppIdButtons({ ...common, bodyText: details, buttons, displayText: details, headerImageUrl: image });
+  if (!sent.ok && image) sent = await sendWhatsAppIdButtons({ ...common, bodyText: details, buttons, displayText: details });
+  if (!sent.ok) await ctx.sendText(details);
 }
 
 async function reopenForStaff(conversationId: string) {
