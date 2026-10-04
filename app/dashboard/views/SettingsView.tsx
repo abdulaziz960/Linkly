@@ -621,8 +621,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               }
             : isTikTok
               ? {
-                  title: t("طلب واجهة تيك توك", "Apply to the TikTok API"),
-                  description: t("أنشئ حساب تيك توك للأعمال واطلب صلاحية مراسلة الأعمال.", "Create a TikTok Business account and request Business Messaging access.")
+                  title: t("تجهيز حساب تيك توك", "Prepare your TikTok account"),
+                  description: t("جهّز حساب تيك توك الخاص بنشاطك التجاري.", "Get your business TikTok account ready.")
                 }
             : isSms
               ? {
@@ -1487,7 +1487,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <div className="meta-signup-card">
               <span className="provider-round-icon">T</span>
               <h3>{t("ربط حساب تيك توك", "Connect a TikTok account")}</h3>
-              <p>{t("سجّل الدخول بحساب تيك توك الخاص بنشاطك التجاري وسيتم حفظ بيانات الحساب تلقائياً. يبدأ إرسال الرسائل والتعليقات واستقبالها بعد موافقة تيك توك على صلاحية مراسلة الأعمال.", "Log in with your business's TikTok account and the account details will be saved automatically. Actual message and comment sending/receiving starts once TikTok approves Business Messaging access for our account.")}</p>
+              <p>{t("سجّل الدخول بحساب تيك توك الخاص بنشاطك التجاري وسيتم حفظ بيانات الحساب تلقائياً.", "Log in with your business's TikTok account and the account details will be saved automatically.")}</p>
               <button type="button" onClick={connectTikTokAccount}>
                 {t("تسجيل الدخول عبر تيك توك", "Log in with TikTok")}
               </button>
@@ -1571,7 +1571,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         : isInstagram
           ? t("بعد إكمال ربط Instagram سيتم حفظ الحساب والصلاحيات، وستظهر القناة في صندوق المحادثات عند استقبال أول حدث.", "After completing the Instagram connection, the account and permissions will be saved, and the channel will appear in the inbox once the first event arrives.")
         : isTikTok
-          ? t("تم حفظ بيانات TikTok. الإرسال والاستقبال الفعلي يبدأ بعد موافقة TikTok على صلاحية Business Messaging.", "The TikTok details have been saved. Actual sending and receiving starts once TikTok approves Business Messaging access.")
+          ? t("تم حفظ بيانات TikTok.", "The TikTok details have been saved.")
         : isSms
           ? t("تم حفظ بيانات Unifonic. الرد على أي محادثة SMS من المنصة يرسل رسالة فعلية الآن.", "The Unifonic details have been saved. Replying to any SMS conversation from the platform now sends an actual message.")
         : t("بعد إكمال نافذة Meta سيتم حفظ حافظة الأعمال، حساب واتساب، رقم الهاتف، والصلاحيات في بيانات الربط.", "After completing the Meta window, the business portfolio, WhatsApp account, phone number, and permissions will be saved to the connection data.")
@@ -1586,7 +1586,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       : isSnapchat
         ? t("اضغط ربط سناب شات واختر الحساب الإعلاني الذي تديره.", "Click Connect Snapchat and choose the ad account you manage.")
       : isTikTok
-        ? t("احفظ App Key وApp Secret وAccess Token بعد ما توافق عليك TikTok.", "Save the App Key, App Secret, and Access Token once TikTok approves you.")
+        ? t("احفظ App Key وApp Secret وAccess Token الخاصة بحسابك.", "Save the App Key, App Secret, and Access Token for your account.")
       : isSms
         ? t("أدخل AppSid واسم المرسل (Sender ID) من حساب Unifonic.", "Enter the AppSid and Sender ID from your Unifonic account.")
       : t("أكمل الربط أولاً حتى تصبح القناة جاهزة داخل المنصة.", "Finish the connection first to make the channel ready in the platform.");
