@@ -1557,3 +1557,134 @@ a.ds-stat:hover {
 .admin-shell button {
   font-family: inherit;
 }
+
+/* ---------- Toolbar + data table (list pages) ---------- */
+.ds-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.ds-toolbar .ds-search {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+.ds-toolbar-end {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ds-toolbar .ds-select {
+  width: auto;
+  min-width: 150px;
+}
+.ds-table-wrap {
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-surface);
+  box-shadow: var(--ds-shadow-sm);
+  overflow-x: auto;
+}
+.ds-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.ds-table th {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ds-border);
+  background: var(--ds-surface-sunken);
+  color: var(--ds-text-muted);
+  font-size: 12.5px;
+  font-weight: 800;
+  text-align: start;
+  white-space: nowrap;
+}
+.ds-table td {
+  padding: 14px;
+  border-bottom: 1px solid var(--ds-border);
+  vertical-align: middle;
+}
+.ds-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.ds-table tbody tr:hover {
+  background: var(--ds-surface-sunken);
+}
+.ds-cell-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 190px;
+}
+.ds-cell-main > div,
+.ds-cell-stack {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ds-cell-main strong,
+.ds-cell-stack strong {
+  font-size: 14.5px;
+}
+.ds-cell-main span,
+.ds-cell-stack small {
+  color: var(--ds-text-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ds-cell-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.ds-table-foot {
+  padding: 10px 14px;
+  border-top: 1px solid var(--ds-border);
+  color: var(--ds-text-muted);
+  font-size: 13px;
+}
+@media (max-width: 860px) {
+  .ds-table thead {
+    display: none;
+  }
+  .ds-table,
+  .ds-table tbody,
+  .ds-table tr,
+  .ds-table td {
+    display: block;
+  }
+  .ds-table tr {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--ds-border);
+  }
+  .ds-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .ds-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border: 0;
+  }
+  .ds-table td[data-label]::before {
+    content: attr(data-label);
+    color: var(--ds-text-muted);
+    font-size: 12.5px;
+    font-weight: 700;
+  }
+  .ds-table td[data-cell="main"] {
+    display: block;
+    padding-bottom: 10px;
+  }
+  .ds-cell-main {
+    min-width: 0;
+  }
+}
