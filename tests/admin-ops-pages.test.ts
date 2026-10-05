@@ -133,3 +133,13 @@ describe("ai classify", () => {
     expect(matchTagLabel(null, ["شكوى"])).toBeNull();
   });
 });
+
+import { formatRenewalDate } from "../app/linkly-admin007/clients/clients-data";
+describe("renewal date display", () => {
+  it("shows only the date for trial timestamps", () => {
+    expect(formatRenewalDate("")).toBe("غير محدد");
+    expect(formatRenewalDate("2026-10-08")).toBe("2026-10-08");
+    expect(formatRenewalDate("2026-10-08T13:07:04.891Z")).not.toContain("T13");
+    expect(formatRenewalDate("2026-10-08T13:07:04.891Z")).toContain("2026");
+  });
+});

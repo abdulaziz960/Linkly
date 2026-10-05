@@ -16,7 +16,7 @@ import Pagination from "../ds/Pagination";
 import { useSavedViews } from "../ds/useSavedViews";
 import { RENEWAL_FILTER_OPTIONS, USAGE_FILTER_OPTIONS } from "./clients-filter-options";
 import { NO_ADVANCED_FILTERS, clientsToCsv, countAdvancedFilters, deriveClient, matchesAdvanced, paginate, type AdvancedFilters, type RenewalFilter, type UsageFilter } from "./clients-filters";
-import { SORT_OPTIONS, STATUS_FILTERS, clientCounts, filterClients, invoiceBreakdown, sortClients, type ClientSort, type ClientStatusFilter } from "./clients-data";
+import { SORT_OPTIONS, STATUS_FILTERS, clientCounts, filterClients, formatRenewalDate, invoiceBreakdown, sortClients, type ClientSort, type ClientStatusFilter } from "./clients-data";
 
 type Props = { subscriptions: SubscriptionRow[]; plans: PlanRow[]; generatedAt: number };
 
@@ -451,7 +451,7 @@ export default function ClientsView({ subscriptions, plans, generatedAt }: Props
                       </td>
                       <td data-label="التجديد">
                         <div className="ds-cell-stack">
-                          <strong>{client.renewalAt || "غير محدد"}</strong>
+                          <strong>{formatRenewalDate(client.renewalAt)}</strong>
                           {alert ? <Badge tone={alert.tier === "overdue" ? "danger" : "warning"}>{alert.label}</Badge> : null}
                         </div>
                       </td>
