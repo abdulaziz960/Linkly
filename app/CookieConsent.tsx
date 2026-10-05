@@ -13,7 +13,7 @@ const CONSENT_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 const NO_BANNER_PREFIXES = ["/linkly-admin007"];
 /** Dispatched by CookieSettingsLink to reopen the banner after a first choice. */
 export const REOPEN_COOKIE_BANNER_EVENT = "linkly:open-cookie-settings";
-const GTM_ID = "GTM-5K5C9WRZ";
+const GTM_ID = "GTM-TXWK77FV";
 const GTAG_ID = "G-PRB5YHZPGY";
 
 type Consent = "accepted" | "rejected" | null;
