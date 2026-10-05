@@ -5,7 +5,6 @@ import type { Metadata } from "next";
 import { getCurrentUser } from "../../lib/auth";
 import AdminShell from "./AdminShell";
 import { SIDEBAR_COOKIE, THEME_COOKIE } from "./ds/prefs";
-import "./admin.css";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
