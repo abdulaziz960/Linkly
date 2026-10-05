@@ -4,7 +4,7 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 const isDevelopment = process.env.NODE_ENV === "development";
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} https://connect.facebook.net https://www.googletagmanager.com https://cdn.moyasar.com`,
+  `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} https://connect.facebook.net https://www.googletagmanager.com https://tagassistant.google.com https://cdn.moyasar.com`,
   "style-src 'self' 'unsafe-inline' https://cdn.moyasar.com",
   "img-src 'self' data: blob: https:",
   "media-src 'self' data: blob: https:",
@@ -15,8 +15,8 @@ const contentSecurityPolicy = [
   // *.sentry.io / *.ingest.sentry.io: client-side error/performance events
   // (instrumentation-client.ts) - a Sentry DSN only ever accepts events, so
   // this is fine to leave open even before SENTRY_DSN is actually set.
-  "connect-src 'self' https://graph.facebook.com https://www.facebook.com https://connect.facebook.net https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com https://api.moyasar.com https://*.sentry.io https://*.ingest.sentry.io",
-  "frame-src https://www.facebook.com https://web.facebook.com https://business.facebook.com https://www.googletagmanager.com",
+  "connect-src 'self' https://graph.facebook.com https://www.facebook.com https://connect.facebook.net https://www.googletagmanager.com https://tagassistant.google.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://stats.g.doubleclick.net https://api.moyasar.com https://*.sentry.io https://*.ingest.sentry.io",
+  "frame-src https://www.facebook.com https://web.facebook.com https://business.facebook.com https://www.googletagmanager.com https://tagassistant.google.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -46,8 +46,16 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(), browsing-topics=()" },
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" }
+          // Public pages keep the browser default so Google Tag Assistant (which
+          // opens the site from its own origin and talks to it through
+          // window.opener) can connect for GTM preview/debug. The signed-in and
+          // payment areas below keep the stricter same-origin-allow-popups.
+          { key: "Cross-Origin-Opener-Policy", value: "unsafe-none" }
         ]
+      },
+      {
+        source: "/:area(dashboard|linkly-admin007|billing|checkout|api)/:path*",
+        headers: [{ key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" }]
       },
       {
         // Brand images/icons keep their file names, so no immutable caching -
