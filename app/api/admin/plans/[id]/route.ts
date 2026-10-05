@@ -4,10 +4,13 @@ import { getPlans, updatePlan } from "../../../../../lib/plans";
 import { changeDetails, recordAdminAction } from "../../../../../lib/admin-audit";
 import { sanitizeAllowedChannelsInput } from "../../../../../lib/channel-catalog";
 import { jsonError, jsonOk } from "../../../_utils/json";
+import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 
 export const runtime = "nodejs";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const admin = await requirePlatformAdmin("billing");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 

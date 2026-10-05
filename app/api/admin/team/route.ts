@@ -5,6 +5,7 @@ import { getPlatformTeam, invitePlatformAdmin } from "../../../../lib/platform-t
 import { recordAdminAction } from "../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../_utils/json";
 import { getAppOrigin } from "../../../../lib/app-url";
+import { isTrustedOrigin } from "../../../../lib/origin-guard";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const admin = await requirePlatformAdmin("team");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 

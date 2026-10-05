@@ -5,12 +5,15 @@ import { prisma } from "../../../../../../../lib/prisma";
 import { statusAfterAgentReply, validateSupportAttachment, type SupportAttachmentInput } from "../../../../../../../lib/support";
 import { recordSupportAuditLog } from "../../../../../../../lib/support-server";
 import { jsonError, jsonOk } from "../../../../../_utils/json";
+import { isTrustedOrigin } from "../../../../../../../lib/origin-guard";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest, context: RouteContext) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const { id } = await context.params;
   const admin = await requirePlatformAdmin("support");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);

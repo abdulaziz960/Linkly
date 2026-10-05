@@ -3,6 +3,7 @@ import { requirePlatformAdmin } from "../../../../lib/admin-auth";
 import { recordAdminAction } from "../../../../lib/admin-audit";
 import { cleanBlogInput, createBlogPost, listAdminPosts, seedDefaultPostsIfEmpty, type BlogInput } from "../../../../lib/blog-store";
 import { jsonError, jsonOk } from "../../_utils/json";
+import { isTrustedOrigin } from "../../../../lib/origin-guard";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const admin = await requirePlatformAdmin("content");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
