@@ -2,8 +2,11 @@ import { getCurrentUser } from "../../../lib/auth";
 import AdminPageHeader from "../AdminPageHeader";
 import SupportInboxView from "./SupportInboxView";
 import "./support.css";
+import { guardPage } from "../guard";
 
 export default async function AdminSupportPage() {
+  const denied = await guardPage("support");
+  if (denied) return denied;
   const admin = await getCurrentUser();
 
   return (

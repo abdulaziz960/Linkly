@@ -1,10 +1,13 @@
 import { listFaqItems, seedDefaultFaqsIfEmpty } from "../../../lib/faq-store";
 import AdminPageHeader from "../AdminPageHeader";
 import FaqAdminView from "./FaqAdminView";
+import { guardPage } from "../guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminFaqPage() {
+  const denied = await guardPage("content");
+  if (denied) return denied;
   // The first visit copies the built-in questions into the table so they can be edited.
   await seedDefaultFaqsIfEmpty();
   const items = await listFaqItems();

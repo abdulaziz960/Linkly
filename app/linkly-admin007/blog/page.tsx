@@ -1,10 +1,13 @@
 import { listAdminPosts, seedDefaultPostsIfEmpty } from "../../../lib/blog-store";
 import AdminPageHeader from "../AdminPageHeader";
 import BlogAdminView from "./BlogAdminView";
+import { guardPage } from "../guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminBlogPage() {
+  const denied = await guardPage("content");
+  if (denied) return denied;
   // The first visit copies the built-in posts into the table so they can be edited.
   await seedDefaultPostsIfEmpty();
   const posts = await listAdminPosts();

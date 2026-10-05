@@ -8,7 +8,7 @@ import { jsonError, jsonOk } from "../../../../_utils/json";
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("clients");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
   const { id: tenantId } = await params;

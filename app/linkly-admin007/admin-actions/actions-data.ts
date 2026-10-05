@@ -35,7 +35,13 @@ export const ACTION_LABEL: Record<string, string> = {
   "update-client-subscription": "تعديل اشتراك عميل",
   "update-development-request": "تحديث اقتراح تطوير",
   "update-feature-grants": "تعديل صلاحيات عميل الاستثنائية",
-  "update-support-ticket": "تحديث تذكرة دعم"
+  "update-support-ticket": "تحديث تذكرة دعم",
+  "update-team-permissions": "تعديل صلاحيات عضو",
+  "suspend-platform-admin": "إيقاف حساب عضو",
+  "reactivate-platform-admin": "إعادة تفعيل عضو",
+  "revoke-platform-admin-sessions": "إنهاء جلسات عضو",
+  "add-client-note": "إضافة ملاحظة على عميل",
+  "delete-client-note": "حذف ملاحظة على عميل"
 };
 
 export const TARGET_LABEL: Record<string, string> = {

@@ -14,7 +14,7 @@ async function clientExists(tenantId: string) {
 }
 
 export async function GET(_request: NextRequest, { params }: Params) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("clients");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
   const { id: tenantId } = await params;
   try {
@@ -26,7 +26,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
 }
 
 export async function POST(request: NextRequest, { params }: Params) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("clients");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
   const { id: tenantId } = await params;
 
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(request: NextRequest, { params }: Params) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("clients");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
   const { id: tenantId } = await params;
   const noteId = new URL(request.url).searchParams.get("noteId") || "";

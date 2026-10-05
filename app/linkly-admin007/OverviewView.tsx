@@ -21,6 +21,9 @@ type Props = {
   actions: ActionLogRow[];
   urgentTickets: UrgentTicket[];
   generatedAt: number;
+  // Sections hidden for team members without the matching permission.
+  showRevenue?: boolean;
+  showActivity?: boolean;
 };
 
 const RANGES: { value: RangeKey; label: string }[] = [
@@ -51,7 +54,7 @@ function formatDue(value: string) {
   return new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", { dateStyle: "medium", timeZone: "Asia/Riyadh" }).format(time);
 }
 
-export default function OverviewView({ subscriptions, payments, logs, actions, urgentTickets, generatedAt }: Props) {
+export default function OverviewView({ subscriptions, payments, logs, actions, urgentTickets, generatedAt, showRevenue = true, showActivity = true }: Props) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const [mounted, setMounted] = useState(false);
@@ -159,10 +162,10 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
           <StatCard icon="checkCircle" tone="success" label="العملاء النشطون" value={formatNumber(kpis.activeClients)} href="/linkly-admin007/clients" hint="حسابات حالة اشتراكها «نشط» الآن" />
           <StatCard icon="clock" tone="info" label="في الفترة التجريبية" value={formatNumber(kpis.trialClients)} href="/linkly-admin007/clients" hint="حسابات تجريبية لم تتحول لاشتراك مدفوع بعد" />
           <StatCard icon="receipt" label="الاشتراكات النشطة" value={formatNumber(kpis.paidSubscriptions)} href="/linkly-admin007/clients" hint="اشتراكات نشطة بمبلغ أعلى من صفر (مدفوعة)" />
-          <StatCard icon="trendUp" label="MRR المتوقع" value={money(kpis.mrr)} help={{ term: "MRR المتوقع", definition: "الإيراد الشهري المتكرر: مجموع قيمة الاشتراكات النشطة محسوبة شهريًا (السنوي يُقسَّم على 12) شاملًا المستخدمين الإضافيين، قبل الخصومات. تقدير وليس إيرادًا محصّلًا." }} href="/linkly-admin007/clients" hint="تقدير شهري من الاشتراكات النشطة، وليس مبلغًا محصّلًا" />
-          <StatCard icon="chart" label="ARR المتوقع" value={money(kpis.arr)} help={{ term: "ARR المتوقع", definition: "الإيراد السنوي المتكرر = MRR × 12. رقم استرشادي لحجم الأعمال السنوي ولا يعني أنه تم تحصيله." }} hint="MRR × 12 · تقدير سنوي وليس إيرادًا محصّلًا" />
-          <StatCard icon="wallet" tone="success" label="الإيراد المحصّل" value={money(kpis.collected)} href="/linkly-admin007/payments" delta={collectedDelta === null ? null : { value: collectedDelta, goodWhen: "up" }} hint={noPayments ? "لا توجد مدفوعات مسجّلة بعد" : `مدفوعات مكتملة فعليًا خلال ${range.label}`} />
-          <StatCard icon="alert" tone={kpis.outstanding > 0 ? "warning" : "neutral"} label="المبالغ المستحقة" value={money(kpis.outstanding)} href="/linkly-admin007/payments" hint={kpis.outstandingCount ? `${formatNumber(kpis.outstandingCount)} دفعة قيد الانتظار ولم تُحصَّل بعد` : "لا توجد دفعات معلّقة"} />
+          {showRevenue ? (<StatCard icon="trendUp" label="MRR المتوقع" value={money(kpis.mrr)} help={{ term: "MRR المتوقع", definition: "الإيراد الشهري المتكرر: مجموع قيمة الاشتراكات النشطة محسوبة شهريًا (السنوي يُقسَّم على 12) شاملًا المستخدمين الإضافيين، قبل الخصومات. تقدير وليس إيرادًا محصّلًا." }} href="/linkly-admin007/clients" hint="تقدير شهري من الاشتراكات النشطة، وليس مبلغًا محصّلًا" />) : null}
+          {showRevenue ? (<StatCard icon="chart" label="ARR المتوقع" value={money(kpis.arr)} help={{ term: "ARR المتوقع", definition: "الإيراد السنوي المتكرر = MRR × 12. رقم استرشادي لحجم الأعمال السنوي ولا يعني أنه تم تحصيله." }} hint="MRR × 12 · تقدير سنوي وليس إيرادًا محصّلًا" />) : null}
+          {showRevenue ? (<StatCard icon="wallet" tone="success" label="الإيراد المحصّل" value={money(kpis.collected)} href="/linkly-admin007/payments" delta={collectedDelta === null ? null : { value: collectedDelta, goodWhen: "up" }} hint={noPayments ? "لا توجد مدفوعات مسجّلة بعد" : `مدفوعات مكتملة فعليًا خلال ${range.label}`} />) : null}
+          {showRevenue ? (<StatCard icon="alert" tone={kpis.outstanding > 0 ? "warning" : "neutral"} label="المبالغ المستحقة" value={money(kpis.outstanding)} href="/linkly-admin007/payments" hint={kpis.outstandingCount ? `${formatNumber(kpis.outstandingCount)} دفعة قيد الانتظار ولم تُحصَّل بعد` : "لا توجد دفعات معلّقة"} />) : null}
           <StatCard icon="message" label="المحادثات تحت الإدارة" value={formatNumber(kpis.conversations)} href="/linkly-admin007/usage" hint="مجموع محادثات كل العملاء حاليًا" />
           <StatCard icon="calendar" tone={kpis.overdueRenewals ? "danger" : "neutral"} label="التجديدات القادمة" value={formatNumber(kpis.upcomingRenewals)} href="/linkly-admin007/alerts" hint={`خلال 30 يومًا بقيمة ${money(kpis.upcomingRenewalsAmount)}${kpis.overdueRenewals ? ` · ${formatNumber(kpis.overdueRenewals)} متأخر` : ""}`} />
         </div>
@@ -183,6 +186,7 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
         </div>
 
         <div className="ds-grid-main" style={{ marginTop: 16 }}>
+          {showRevenue ? (
           <div className="ds-card ds-card-pad">
             <div className="ds-card-head"><div><h3>الإيرادات المحصّلة والمتوقعة</h3><p>المحصّل = مدفوعات مكتملة · المتوقع = تقدير من الاشتراكات النشطة</p></div></div>
             <LineChart
@@ -200,6 +204,7 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
               <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}><i style={{ width: 14, height: 0, borderTop: `3px dashed ${CHART_COLORS[1]}` }} />متوقع</span>
             </div>
           </div>
+          ) : null}
           <div className="ds-card ds-card-pad">
             <div className="ds-card-head"><div><h3>العملاء حسب الباقة</h3><p>عدد الحسابات على كل باقة</p></div></div>
             <Donut caption="توزيع العملاء حسب الباقة" centerLabel="عميل" slices={overview.planSlices.map((slice, index) => ({ ...slice, color: SLICE_COLORS[index % SLICE_COLORS.length] }))} format={(value) => formatNumber(value)} />
@@ -208,10 +213,12 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
         </div>
 
         <div className="ds-grid-2" style={{ marginTop: 16 }}>
+          {showRevenue ? (
           <div className="ds-card ds-card-pad">
             <div className="ds-card-head"><div><h3>التجديدات خلال الأشهر القادمة</h3><p>قيمة الاشتراكات حسب تاريخ تجديدها المسجّل (ر.س)</p></div></div>
             <BarChart labels={overview.renewalsByMonth.labels} values={overview.renewalsByMonth.values} format={(value) => formatNumber(Math.round(value))} caption="قيمة التجديدات القادمة بالريال" empty={<EmptyState icon="calendar" title="لا توجد تجديدات قادمة" description="ستظهر هنا عند وجود اشتراكات نشطة بتواريخ تجديد." />} />
           </div>
+          ) : null}
           <div className="ds-card ds-card-pad">
             <div className="ds-card-head"><div><h3>الاستخدام حسب العميل</h3><p>أعلى 6 عملاء من حيث عدد المحادثات</p></div><Link href="/linkly-admin007/usage" className="ds-btn" data-variant="ghost">كل الاستخدام</Link></div>
             <BarList rows={overview.usageTop} format={(value) => `${formatNumber(value)} محادثة`} empty={<EmptyState icon="message" title="لا توجد محادثات بعد" description="سيظهر الاستخدام عندما يبدأ العملاء باستقبال محادثات." />} />
@@ -219,6 +226,8 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
         </div>
       </Section>
 
+      {showActivity ? (
+        <>
       {/* 5. Recent activity */}
       <Section id="activity" title="آخر الأنشطة والتغييرات الحساسة" actions={<Link href="/linkly-admin007/admin-actions" className="ds-btn" data-variant="outline">سجل التدقيق الكامل</Link>}>
         <div className="ds-card ds-card-pad">
@@ -243,6 +252,9 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
           )}
         </div>
       </Section>
+
+        </>
+      ) : null}
 
       <Drawer open={Boolean(selected)} onClose={() => setSelected(null)} title={selected?.title ?? ""} description={selected ? `${relativeTime(parseTimestamp(selected.at), generatedAt)} · ${formatDue(selected.at)}` : undefined}>
         {selected ? (

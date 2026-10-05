@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("support");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
   const body = (await request.json()) as { text?: string; isInternal?: boolean; attachment?: SupportAttachmentInput };

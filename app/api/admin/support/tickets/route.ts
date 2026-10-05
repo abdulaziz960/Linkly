@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 const PAGE_SIZE = 30;
 
 export async function GET(request: NextRequest) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("support");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
   const { searchParams } = new URL(request.url);

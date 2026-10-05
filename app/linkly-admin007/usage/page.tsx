@@ -1,8 +1,11 @@
 import { getTenantUsageStats } from "../../../lib/admin-usage";
 import AdminPageHeader from "../AdminPageHeader";
 import UsageView from "./UsageView";
+import { guardPage } from "../guard";
 
 export default async function AdminUsagePage() {
+  const denied = await guardPage("clients");
+  if (denied) return denied;
   const rows = await getTenantUsageStats();
 
   return (

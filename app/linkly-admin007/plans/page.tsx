@@ -2,8 +2,11 @@ import { getPlans } from "../../../lib/plans";
 import { getSubscriptions } from "../../../lib/subscriptions";
 import AdminPageHeader from "../AdminPageHeader";
 import PlansView from "./PlansView";
+import { guardPage } from "../guard";
 
 export default async function AdminPlansPage() {
+  const denied = await guardPage("billing");
+  if (denied) return denied;
   const [plans, subscriptions] = await Promise.all([getPlans(), getSubscriptions()]);
 
   const subscriberCounts = new Map<string, number>();

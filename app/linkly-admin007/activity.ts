@@ -95,7 +95,13 @@ const TEMPLATES: Record<string, Template> = {
   "invite-platform-admin": { title: (a) => `دعا ${a} عضوًا جديدًا إلى فريق المنصة`, tone: "info" },
   "revoke-platform-admin": { title: (a) => `سحب ${a} صلاحية الإدارة من أحد أعضاء الفريق`, tone: "danger" },
   "update-development-request": { title: (a) => `حدّث ${a} حالة طلب تطوير`, tone: "info" },
-  "update-support-ticket": { title: (a) => `حدّث ${a} تذكرة دعم فني`, tone: "info" }
+  "update-support-ticket": { title: (a) => `حدّث ${a} تذكرة دعم فني`, tone: "info" },
+  "update-team-permissions": { title: (a) => `عدّل ${a} صلاحيات عضو في الفريق`, tone: "warning" },
+  "suspend-platform-admin": { title: (a) => `أوقف ${a} حساب عضو في الفريق`, tone: "danger" },
+  "reactivate-platform-admin": { title: (a) => `أعاد ${a} تفعيل حساب عضو`, tone: "success" },
+  "revoke-platform-admin-sessions": { title: (a) => `أنهى ${a} جلسات عضو في الفريق`, tone: "warning" },
+  "add-client-note": { title: (a) => `أضاف ${a} ملاحظة داخلية على عميل`, tone: "info" },
+  "delete-client-note": { title: (a) => `حذف ${a} ملاحظة داخلية`, tone: "warning" }
 };
 
 export const fieldLabel = (key: string) => FIELD_LABELS[key] ?? key;

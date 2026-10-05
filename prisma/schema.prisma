@@ -1306,3 +1306,13 @@ model ClientNote {
   @@index([tenantId, createdAt])
   @@map("client_notes")
 }
+
+// Per-member restrictions for the platform team (see lib/admin-permissions.ts).
+model PlatformAdminPermission {
+  userId      String @id @map("user_id")
+  permissions String
+  updatedAt   String @map("updated_at")
+  updatedBy   String @default("") @map("updated_by")
+
+  @@map("platform_admin_permissions")
+}

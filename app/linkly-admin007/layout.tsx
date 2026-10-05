@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { getCurrentUser } from "../../lib/auth";
 import AdminShell from "./AdminShell";
+import { getAdminPermissions } from "../../lib/admin-auth";
 import { SIDEBAR_COOKIE, THEME_COOKIE } from "./ds/prefs";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -20,6 +21,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     redirect("/dashboard");
   }
 
+  const permissions = await getAdminPermissions(user.id);
+
   // Theme and sidebar state come from cookies so the first paint is already correct.
   const store = await cookies();
   const theme = store.get(THEME_COOKIE)?.value === "dark" ? "dark" : "light";
@@ -27,7 +30,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <main className="admin-shell" dir="rtl" lang="ar" data-theme={theme} data-collapsed={collapsed ? "true" : undefined}>
-      <AdminShell user={user}>{children}</AdminShell>
+      <AdminShell user={user} permissions={permissions}>{children}</AdminShell>
     </main>
   );
 }

@@ -14,6 +14,7 @@ import { getAdminActionLogs } from "../../../../lib/admin-audit";
 import { Badge, EmptyState, LinkButton, Section, StatCard } from "../../ds/primitives";
 import { formatNumber, getRenewalAlert } from "../../utils";
 import { LOG_TONE, PAYMENT_TONE, billingSummary, newestFirst } from "./profile-data";
+import { guardPage } from "../../guard";
 
 const STATUS_TONE = { نشط: "success", تجربة: "warning", متوقف: "danger" } as const;
 
@@ -21,6 +22,8 @@ const STATUS_TONE = { نشط: "success", تجربة: "warning", متوقف: "dan
 const nowMs = () => Date.now();
 
 export default async function AdminClientProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const denied = await guardPage("clients");
+  if (denied) return denied;
   const generatedAt = nowMs();
   const { id } = await params;
   const tenantId = decodeURIComponent(id);

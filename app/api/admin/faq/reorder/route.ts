@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 /** `{ ids: [...] }` - the new order, first to last. */
 export async function POST(request: NextRequest) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("content");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
   const body = (await request.json().catch(() => null)) as { ids?: unknown } | null;

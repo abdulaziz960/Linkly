@@ -2,8 +2,11 @@ import { getDiscountCodes } from "../../../lib/promo-codes";
 import { getActivePlans } from "../../../lib/plans";
 import AdminPageHeader from "../AdminPageHeader";
 import DiscountCodesView from "./DiscountCodesView";
+import { guardPage } from "../guard";
 
 export default async function AdminDiscountCodesPage() {
+  const denied = await guardPage("billing");
+  if (denied) return denied;
   const [discountCodes, plans] = await Promise.all([getDiscountCodes(), getActivePlans()]);
 
   return (

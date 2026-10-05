@@ -11,6 +11,7 @@ import ActionMenu from "../ds/ActionMenu";
 import ChargeDialog from "./ChargeDialog";
 import Icon from "../ds/Icon";
 import { useQueryFlag } from "../ds/useQueryFlag";
+import { useAdminPermissions } from "../ds/permissions-context";
 import Pagination from "../ds/Pagination";
 import { useSavedViews } from "../ds/useSavedViews";
 import { RENEWAL_FILTER_OPTIONS, USAGE_FILTER_OPTIONS } from "./clients-filter-options";
@@ -54,6 +55,7 @@ export default function ClientsView({ subscriptions, plans, generatedAt }: Props
   const router = useRouter();
   const confirm = useConfirm();
   const toast = useToast();
+  const { can } = useAdminPermissions();
 
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ClientStatusFilter>("الكل");
@@ -460,7 +462,7 @@ export default function ClientsView({ subscriptions, plans, generatedAt }: Props
                           <ActionMenu
                             label={`المزيد من الإجراءات لـ ${client.companyName}`}
                             items={[
-                              { key: "charge", label: "شحن / تجديد الاشتراك", icon: "wallet", onSelect: () => openEditor("charge", client) },
+                              ...(can("billing") ? [{ key: "charge", label: "شحن / تجديد الاشتراك", icon: "wallet" as const, onSelect: () => openEditor("charge", client) }] : []),
                               { key: "plan", label: "تغيير الباقة يدويًا", icon: "layers", onSelect: () => openEditor("plan", client) },
                               { key: "limit", label: "تعديل حد المستخدمين", icon: "users", onSelect: () => openEditor("limit", client) },
                               { key: "balance", label: "إضافة رصيد رسائل حملات", icon: "message", onSelect: () => openEditor("balance", client) },

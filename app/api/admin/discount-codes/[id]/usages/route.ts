@@ -5,7 +5,7 @@ import { jsonError, jsonOk } from "../../../../_utils/json";
 export const runtime = "nodejs";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("billing");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
   const { id } = await params;
 

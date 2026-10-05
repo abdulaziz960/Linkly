@@ -2,11 +2,14 @@ import { getSubscriptions } from "../../../lib/subscriptions";
 import { getPlans } from "../../../lib/plans";
 import AdminPageHeader from "../AdminPageHeader";
 import ClientsView from "./ClientsView";
+import { guardPage } from "../guard";
 
 // Server timestamp used for date math in the client view; read outside render so the component stays pure.
 const nowMs = () => Date.now();
 
 export default async function AdminClientsPage() {
+  const denied = await guardPage("clients");
+  if (denied) return denied;
   const generatedAt = nowMs();
   const [subscriptions, plans] = await Promise.all([getSubscriptions(), getPlans()]);
 

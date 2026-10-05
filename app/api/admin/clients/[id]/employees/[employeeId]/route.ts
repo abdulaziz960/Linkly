@@ -20,7 +20,7 @@ type RouteContext = { params: Promise<{ id: string; employeeId: string }> };
  * and self-lockout guards, which don't apply to a trusted admin caller.
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("clients");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
   const { id: tenantId, employeeId } = await context.params;
