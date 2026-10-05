@@ -116,10 +116,10 @@ import { summarizeAiUsage } from "../lib/ai-usage-summary";
 describe("ai usage summary", () => {
   it("aggregates success, source, cost", () => {
     const e = (userId: string, operation: string, status: string, estimatedCost: number | null) => ({ userId, operation, status, inputTokens: null, outputTokens: null, estimatedCost });
-    const s = summarizeAiUsage([e("bot-ai-reply", "reply", "succeeded", 0.01), e("u1", "reply", "failed", null), e("u1", "summarize", "pending", 0.02)]);
-    expect(s).toMatchObject({ total: 3, succeeded: 1, failed: 1, successRate: 50, autoReply: 1, employee: 2, costUnknown: 1 });
-    expect(s.costUsd).toBeCloseTo(0.03);
-    expect(s.byOperation[0]).toEqual({ operation: "reply", count: 2 });
+    const s = summarizeAiUsage([e("bot-ai-reply", "reply", "succeeded", 0.01), e("u1", "reply", "failed", null), e("u1", "summarize", "pending", 0.02), e("bot-ai-reply", "reply", "handoff", 0.01)]);
+    expect(s).toMatchObject({ total: 4, succeeded: 1, failed: 1, handoff: 1, successRate: 67, autoReply: 2, employee: 2, costUnknown: 1 });
+    expect(s.costUsd).toBeCloseTo(0.04);
+    expect(s.byOperation[0]).toEqual({ operation: "reply", count: 3 });
     expect(summarizeAiUsage([]).successRate).toBeNull();
   });
 });

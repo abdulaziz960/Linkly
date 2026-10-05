@@ -110,7 +110,8 @@ export default function AiSettingsView() {
           <h3>{t("جودة واستخدام AI — آخر 30 يوماً", "AI quality and usage — last 30 days")}</h3>
           <div className="table-wrap"><table className="report-table"><tbody>
             <tr><th>{t("إجمالي الطلبات", "Total requests")}</th><td>{data.summary.total}</td></tr>
-            <tr><th>{t("نسبة النجاح", "Success rate")}</th><td>{data.summary.successRate === null ? t("غير متاح", "N/A") : `${data.summary.successRate}% (${data.summary.succeeded} / ${data.summary.succeeded + data.summary.failed})`}</td></tr>
+            <tr><th>{t("نسبة النجاح", "Success rate")}</th><td>{data.summary.successRate === null ? t("غير متاح", "N/A") : `${data.summary.successRate}% (${data.summary.succeeded + data.summary.handoff} / ${data.summary.succeeded + data.summary.handoff + data.summary.failed})`}</td></tr>
+            <tr><th>{t("حُوّلت للموظف (لا إجابة في قاعدة المعرفة)", "Handed to staff (no knowledge-base answer)")}</th><td>{data.summary.handoff}</td></tr>
             <tr><th>{t("الرد الآلي للعملاء", "Customer auto-replies")}</th><td>{data.summary.autoReply}</td></tr>
             <tr><th>{t("مساعد الموظفين", "Employee copilot")}</th><td>{data.summary.employee}</td></tr>
             <tr><th>{t("التكلفة التقديرية USD", "Estimated cost USD")}</th><td>{data.summary.costUsd.toFixed(4)}{data.summary.costUnknown ? t(` (+${data.summary.costUnknown} طلب بلا تقدير)`, ` (+${data.summary.costUnknown} unpriced)`) : ""}</td></tr>

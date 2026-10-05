@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { decryptSecret } from "./secret-storage";
-import { defaultAiConnection, generateAiText, isAiConnectionConfigured, transcribeAudio, NO_SPEECH_MARKER, type AiConnection, type AiContext, type AudioTranscriptionInput } from "./ai-provider";
+import { AI_NO_ANSWER, defaultAiConnection, generateAiText, isAiConnectionConfigured, transcribeAudio, NO_SPEECH_MARKER, type AiConnection, type AiContext, type AudioTranscriptionInput } from "./ai-provider";
 import type { AiProvider, AiSettingsPublic } from "./ai-types";
 import { getTenantGrants } from "./plan-grants";
 import { ECONOMY_INPUT_USD, ECONOMY_MODEL, ECONOMY_OUTPUT_USD, MANAGED_BUDGET_TENANT, managedMonthlyRequestCap } from "./ai-economy";
@@ -103,7 +103,9 @@ export async function runWorkspaceAi(tenantId: string, userId: string, conversat
   const cost = result && connection.provider === "ollama" ? 0 : result && result.inputTokens !== null && result.outputTokens !== null && inputRate != null && outputRate != null
     ? (result.inputTokens * inputRate + result.outputTokens * outputRate) / 1000000 : null;
   await prisma.aiUsageEvent.update({ where: { id: eventId }, data: {
-    status: result ? "succeeded" : "failed", inputTokens: result?.inputTokens, outputTokens: result?.outputTokens, estimatedCost: cost
+    // "handoff": the customer-facing auto-reply found nothing in the knowledge base, so the chat goes to a person.
+    status: !result ? "failed" : context.knowledgeOnly && result.text.includes(AI_NO_ANSWER) ? "handoff" : "succeeded",
+    inputTokens: result?.inputTokens, outputTokens: result?.outputTokens, estimatedCost: cost
   } });
   return { suggestion: result?.text || null, ...(result ? {} : { reason: "provider_unavailable" }) };
 }
