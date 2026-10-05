@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../i18n";
 import { usePwaInstall } from "../hooks/usePwaInstall";
@@ -16,36 +16,58 @@ import { usePwaInstall } from "../hooks/usePwaInstall";
  * See PwaInstallCoachmark, which now only handles the post-install
  * notifications nudge so the two never show the same message at once.
  */
+const DISMISSED_KEY = "linkly-pwa-install-popup-dismissed";
+
 export default function PwaInstallPopup() {
   const { t, language } = useLanguage();
-  const { supported, installed, busy, isIos, install } = usePwaInstall();
-  const [open, setOpen] = useState(true);
-  const [showIosSteps, setShowIosSteps] = useState(false);
+  const { supported, installed, busy, isIos, canPrompt, install } = usePwaInstall();
+  const [open, setOpen] = useState(false);
+  const [showSteps, setShowSteps] = useState(false);
+
+  // "Later" must hold for the whole visit: remember it for the session so a
+  // remount of the dashboard (view switch, refresh of state) cannot reopen it.
+  useEffect(() => {
+    try {
+      if (!window.sessionStorage.getItem(DISMISSED_KEY)) setOpen(true);
+    } catch {
+      setOpen(true);
+    }
+  }, []);
 
   if (!supported || installed || !open || typeof document === "undefined") return null;
 
-  function handlePrimaryClick() {
-    if (isIos) {
-      setShowIosSteps(true);
+  function close() {
+    try {
+      window.sessionStorage.setItem(DISMISSED_KEY, "1");
+    } catch {}
+    setOpen(false);
+  }
+
+  async function handlePrimaryClick() {
+    // Without a browser install prompt (iOS, or Chrome not offering one) the
+    // button used to do nothing visible - show manual steps instead.
+    if (isIos || !canPrompt) {
+      setShowSteps(true);
       return;
     }
-    install();
+    await install();
+    close();
   }
 
   return createPortal(
-    <div className="modal-backdrop ios-install-backdrop" role="presentation" dir={language === "en" ? "ltr" : "rtl"} onClick={() => setOpen(false)}>
+    <div className="modal-backdrop ios-install-backdrop" role="presentation" dir={language === "en" ? "ltr" : "rtl"} onClick={close}>
       <div className="account-modal ios-install-modal" role="dialog" aria-modal="true" aria-label={t("تثبيت التطبيق", "Install the app")} onClick={(event) => event.stopPropagation()}>
         <header className="modal-head">
-          <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setOpen(false)}>×</button>
+          <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={close}>×</button>
           <h2>{t("ثبّت تطبيق Linkly", "Install the Linkly app")}</h2>
         </header>
         <div className="account-modal-body">
-          {isIos && showIosSteps ? (
+          {showSteps ? (
             <>
               <p>{t("اتبع هذه الخطوات لتثبيت التطبيق:", "Follow these steps to install the app:")}</p>
               <ol>
-                <li>{t("اضغط على أيقونة المشاركة ⬆️ بأسفل سفاري", "Tap the Share icon ⬆️ at the bottom of Safari")}</li>
-                <li>{t("اختر \"إضافة إلى الشاشة الرئيسية\"", "Choose \"Add to Home Screen\"")}</li>
+                <li>{isIos ? t("اضغط على أيقونة المشاركة ⬆️ بأسفل سفاري", "Tap the Share icon ⬆️ at the bottom of Safari") : t("افتح قائمة المتصفح ⋮ أو أيقونة التثبيت في شريط العنوان", "Open the browser menu ⋮ or the install icon in the address bar")}</li>
+                <li>{isIos ? t("اختر \"إضافة إلى الشاشة الرئيسية\"", "Choose \"Add to Home Screen\"") : t("اختر \"تثبيت التطبيق\" أو \"Install\"", "Choose \"Install app\"")}</li>
                 <li>{t("افتح Linkly من الأيقونة الجديدة على شاشتك الرئيسية", "Open Linkly from the new icon on your home screen")}</li>
               </ol>
             </>
@@ -54,10 +76,10 @@ export default function PwaInstallPopup() {
           )}
         </div>
         <footer className="modal-foot">
-          <button className="btn soft" type="button" onClick={() => setOpen(false)}>{t("لاحقًا", "Later")}</button>
-          {isIos && showIosSteps ? null : (
+          <button className="btn soft" type="button" onClick={close}>{t("لاحقًا", "Later")}</button>
+          {showSteps ? null : (
             <button className="btn primary" type="button" disabled={busy} onClick={handlePrimaryClick}>
-              {isIos ? t("عرض الخطوات", "Show steps") : t("تثبيت الآن", "Install now")}
+              {isIos || !canPrompt ? t("عرض الخطوات", "Show steps") : t("تثبيت الآن", "Install now")}
             </button>
           )}
         </footer>
