@@ -1374,3 +1374,11 @@ model CmsImage {
 
   @@map("cms_images")
 }
+
+model LandingContent {
+  id        String @id
+  value     String @default("")
+  updatedAt String @map("updated_at")
+
+  @@map("landing_content")
+}

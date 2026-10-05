@@ -38,7 +38,12 @@ export function seoSchemaStatements(postgres: boolean) {
       height INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     )`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS cms_images_name_key ON cms_images(name)`
+    `CREATE UNIQUE INDEX IF NOT EXISTS cms_images_name_key ON cms_images(name)`,
+    `CREATE TABLE IF NOT EXISTS landing_content (
+      id TEXT PRIMARY KEY,
+      value TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )`
   ];
 }
 
