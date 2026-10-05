@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BlogPostView } from "../../ContentViews";
-import { getPublicPost } from "../../../lib/blog-store";
+import { getPublicPost, getPublicPosts, relatedPosts } from "../../../lib/blog-store";
 import { postMetadata } from "../../../lib/blog-seo";
 
 export const dynamic = "force-dynamic";
@@ -17,5 +17,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function BlogPostPage({ params }: Props) {
   const post = await getPublicPost((await params).slug);
   if (!post) notFound();
-  return <BlogPostView post={post} lang="ar" />;
+  const related = relatedPosts(post, await getPublicPosts(), "ar");
+  return <BlogPostView post={post} lang="ar" related={related} />;
 }

@@ -8,6 +8,7 @@ import { ensurePlanPrices } from "./plan-prices";
 import { ensureGrantsSchema } from "./grants-schema";
 import { ensureFaqSchema } from "./faq-schema";
 import { ensureBlogSchema } from "./blog-schema";
+import { ensureSeoSchema } from "./seo-schema";
 import { planChannelsString } from "./plan-access";
 import { UNLIMITED_MESSAGE_QUOTA } from "./message-quota";
 import { emailIntegrationId, findTenantEmailIntegration } from "./email-integration-lookup";
@@ -2587,7 +2588,7 @@ async function ensureDiscountCodesSchema() {
 
 export async function ensureSchema() {
   await ensureDiscountCodesSchema();
-  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).catch((error) => {
+  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).then(ensureSeoSchema).catch((error) => {
     schemaPromise = null;
     throw error;
   });

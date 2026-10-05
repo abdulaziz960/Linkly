@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { applyPageSeo } from "../lib/page-seo";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -22,12 +23,16 @@ import { getFaqs } from "../lib/faq-store";
 // Shown on the landing metric ("5+ messaging platforms").
 const platformCount = 5;
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   title: { absolute: "Linkly | صندوق موحّد لواتساب وإنستقرام والقنوات — منصة سعودية لخدمة العملاء" },
   description: "منصة سعودية تجمع محادثات واتساب وإنستقرام والبريد وتيليجرام وتيك توك وتساعد فرق الخدمة والمبيعات على التوزيع والمتابعة من مكان واحد.",
   alternates: { canonical: "/", languages: { "ar-SA": "/", en: "/en", "x-default": "/" } },
   openGraph: { title: "Linkly | كل محادثات عملائك في مكان واحد", description: "صندوق وارد موحد، توزيع للمحادثات، أتمتة وتقارير لفريقك.", locale: "ar_SA", alternateLocale: "en_US", url: "/", type: "website" }
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return applyPageSeo("/", baseMetadata);
+}
 
 // The pricing section reads live Plan rows (price, employee limit, channels,
 // message quota) so an admin's edit shows up immediately - see

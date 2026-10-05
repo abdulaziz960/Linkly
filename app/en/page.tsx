@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { applyPageSeo } from "../../lib/page-seo";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -23,12 +24,16 @@ import { getFaqs } from "../../lib/faq-store";
 // Shown on the landing metric ("5+ messaging platforms").
 const platformCount = 5;
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   title: { absolute: "Linkly | One inbox for WhatsApp, Instagram and every channel — Saudi customer service platform" },
   description: "A Saudi platform that brings WhatsApp, Instagram, email, Telegram and TikTok conversations together, helping support and sales teams route and follow up from one place.",
   alternates: { canonical: "/en", languages: { "ar-SA": "/", en: "/en", "x-default": "/" } },
   openGraph: { title: "Linkly | Every customer conversation in one place", description: "A shared inbox, conversation routing, automation and reports for your team.", locale: "en_US", alternateLocale: "ar_SA", url: "/en", type: "website" }
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return applyPageSeo("/en", baseMetadata);
+}
 
 // See app/page.tsx - same live-database pricing section; must be
 // force-dynamic, not ISR, or the build-time prerender attempt fails against

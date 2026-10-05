@@ -21,7 +21,7 @@ export const BLOG_SCHEMA_STATEMENTS = [
 ];
 
 // SEO fields added after the first release: added to an existing table only when missing.
-export const BLOG_SEO_TEXT_COLUMNS = ["meta_title_ar", "meta_title_en", "meta_description_ar", "meta_description_en", "canonical_url", "og_title_ar", "og_title_en", "og_description_ar", "og_description_en", "og_image", "featured_image", "image_alt_ar", "image_alt_en"] as const;
+export const BLOG_SEO_TEXT_COLUMNS = ["meta_title_ar", "meta_title_en", "meta_description_ar", "meta_description_en", "canonical_url", "og_title_ar", "og_title_en", "og_description_ar", "og_description_en", "og_image", "featured_image", "image_alt_ar", "image_alt_en", "author_name", "category_slug", "category_ar", "category_en", "related_slugs"] as const;
 export const BLOG_SEO_COLUMNS: Array<{ name: string; ddl: string }> = [
   ...BLOG_SEO_TEXT_COLUMNS.map((name) => ({ name, ddl: `${name} TEXT NOT NULL DEFAULT ''` })),
   { name: "noindex", ddl: "noindex INTEGER NOT NULL DEFAULT 0" }

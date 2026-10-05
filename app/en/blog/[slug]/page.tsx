@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BlogPostView } from "../../../ContentViews";
-import { getPublicPost } from "../../../../lib/blog-store";
+import { getPublicPost, getPublicPosts, relatedPosts } from "../../../../lib/blog-store";
 import { postMetadata, postSeoText } from "../../../../lib/blog-seo";
 
 export const dynamic = "force-dynamic";
@@ -17,5 +17,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function BlogPostPageEn({ params }: Props) {
   const post = await getPublicPost((await params).slug);
   if (!post?.en) notFound();
-  return <BlogPostView post={post} lang="en" />;
+  const related = relatedPosts(post, await getPublicPosts(), "en");
+  return <BlogPostView post={post} lang="en" related={related} />;
 }

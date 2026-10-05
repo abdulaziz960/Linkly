@@ -9,11 +9,12 @@ import { Dialog, useConfirm } from "../ds/Dialog";
 import { useToast } from "../ds/Toast";
 import ActionMenu from "../ds/ActionMenu";
 import Icon from "../ds/Icon";
+import ImageUploadField from "../ImageUploadField";
 
-type Draft = { id: string; slug: string; date: string; titleAr: string; descriptionAr: string; bodyAr: string; titleEn: string; descriptionEn: string; bodyEn: string; published: boolean; noindex: boolean } & Record<"metaTitleAr" | "metaTitleEn" | "metaDescriptionAr" | "metaDescriptionEn" | "canonicalUrl" | "ogTitleAr" | "ogTitleEn" | "ogDescriptionAr" | "ogDescriptionEn" | "ogImage" | "featuredImage" | "imageAltAr" | "imageAltEn", string>;
+type Draft = { id: string; slug: string; date: string; titleAr: string; descriptionAr: string; bodyAr: string; titleEn: string; descriptionEn: string; bodyEn: string; published: boolean; noindex: boolean } & Record<"metaTitleAr" | "metaTitleEn" | "metaDescriptionAr" | "metaDescriptionEn" | "canonicalUrl" | "ogTitleAr" | "ogTitleEn" | "ogDescriptionAr" | "ogDescriptionEn" | "ogImage" | "featuredImage" | "imageAltAr" | "imageAltEn" | "authorName" | "categorySlug" | "categoryAr" | "categoryEn" | "relatedSlugs", string>;
 
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyDraft = (): Draft => ({ id: "", slug: "", date: today(), titleAr: "", descriptionAr: "", bodyAr: "", titleEn: "", descriptionEn: "", bodyEn: "", published: true, noindex: false, metaTitleAr: "", metaTitleEn: "", metaDescriptionAr: "", metaDescriptionEn: "", canonicalUrl: "", ogTitleAr: "", ogTitleEn: "", ogDescriptionAr: "", ogDescriptionEn: "", ogImage: "", featuredImage: "", imageAltAr: "", imageAltEn: "" });
+const emptyDraft = (): Draft => ({ id: "", slug: "", date: today(), titleAr: "", descriptionAr: "", bodyAr: "", titleEn: "", descriptionEn: "", bodyEn: "", published: true, noindex: false, metaTitleAr: "", metaTitleEn: "", metaDescriptionAr: "", metaDescriptionEn: "", canonicalUrl: "", ogTitleAr: "", ogTitleEn: "", ogDescriptionAr: "", ogDescriptionEn: "", ogImage: "", featuredImage: "", imageAltAr: "", imageAltEn: "", authorName: "", categorySlug: "", categoryAr: "", categoryEn: "", relatedSlugs: "" });
 const SAVED = "تظهر التغييرات للزوار خلال نحو نصف دقيقة.";
 
 export default function BlogAdminView({ initialPosts }: { initialPosts: BlogAdminRow[] }) {
@@ -98,7 +99,7 @@ export default function BlogAdminView({ initialPosts }: { initialPosts: BlogAdmi
                     <td data-label="الإنجليزية">{post.titleEn ? <Badge tone="info">متوفرة</Badge> : <small>غير متوفرة</small>}</td>
                     <td>
                       <div className="ds-cell-actions">
-                        <Button variant="outline" onClick={() => open({ id: post.id, slug: post.slug, date: post.date, titleAr: post.titleAr, descriptionAr: post.descriptionAr, bodyAr: post.bodyAr, titleEn: post.titleEn, descriptionEn: post.descriptionEn, bodyEn: post.bodyEn, published: post.published, noindex: post.noindex, metaTitleAr: post.metaTitleAr, metaTitleEn: post.metaTitleEn, metaDescriptionAr: post.metaDescriptionAr, metaDescriptionEn: post.metaDescriptionEn, canonicalUrl: post.canonicalUrl, ogTitleAr: post.ogTitleAr, ogTitleEn: post.ogTitleEn, ogDescriptionAr: post.ogDescriptionAr, ogDescriptionEn: post.ogDescriptionEn, ogImage: post.ogImage, featuredImage: post.featuredImage, imageAltAr: post.imageAltAr, imageAltEn: post.imageAltEn })}>تعديل</Button>
+                        <Button variant="outline" onClick={() => open({ id: post.id, slug: post.slug, date: post.date, titleAr: post.titleAr, descriptionAr: post.descriptionAr, bodyAr: post.bodyAr, titleEn: post.titleEn, descriptionEn: post.descriptionEn, bodyEn: post.bodyEn, published: post.published, noindex: post.noindex, metaTitleAr: post.metaTitleAr, metaTitleEn: post.metaTitleEn, metaDescriptionAr: post.metaDescriptionAr, metaDescriptionEn: post.metaDescriptionEn, canonicalUrl: post.canonicalUrl, ogTitleAr: post.ogTitleAr, ogTitleEn: post.ogTitleEn, ogDescriptionAr: post.ogDescriptionAr, ogDescriptionEn: post.ogDescriptionEn, ogImage: post.ogImage, featuredImage: post.featuredImage, imageAltAr: post.imageAltAr, imageAltEn: post.imageAltEn, authorName: post.authorName, categorySlug: post.categorySlug, categoryAr: post.categoryAr, categoryEn: post.categoryEn, relatedSlugs: post.relatedSlugs })}>تعديل</Button>
                         <ActionMenu
                           label={`المزيد للمقال ${post.titleAr}`}
                           items={[
@@ -134,11 +135,18 @@ export default function BlogAdminView({ initialPosts }: { initialPosts: BlogAdmi
             <label className="ds-field">وصف مختصر (عربي) — يظهر في القائمة ونتائج البحث<textarea className="ds-textarea" rows={2} value={draft.descriptionAr} onChange={(event) => set({ descriptionAr: event.target.value })} maxLength={400} /></label>
             <label className="ds-field">المحتوى (عربي)
               <textarea className="ds-textarea" rows={12} value={draft.bodyAr} onChange={(event) => set({ bodyAr: event.target.value })} maxLength={30000} required />
-              <small>للعنوان الفرعي ابدأ السطر بـ <code>## </code> ثم النص. افصل الفقرات بسطر فارغ.</small>
+              <small>للعنوان الفرعي ابدأ السطر بـ <code>## </code> ثم النص. افصل الفقرات بسطر فارغ. لإضافة رابط داخلي اكتب <code>[نص الرابط](/blog/slug)</code>، أو رابطًا خارجيًا <code>[نص](https://...)</code>.</small>
             </label>
             <label className="ds-field">Title (English) — اختياري<input className="ds-input" dir="ltr" value={draft.titleEn} onChange={(event) => set({ titleEn: event.target.value })} maxLength={200} /></label>
             <label className="ds-field">Description (English)<textarea className="ds-textarea" dir="ltr" rows={2} value={draft.descriptionEn} onChange={(event) => set({ descriptionEn: event.target.value })} maxLength={400} /></label>
             <label className="ds-field">Body (English) — ## for headings, blank line between paragraphs<textarea className="ds-textarea" dir="ltr" rows={10} value={draft.bodyEn} onChange={(event) => set({ bodyEn: event.target.value })} maxLength={30000} /></label>
+            <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              <label className="ds-field">الكاتب (اختياري)<input className="ds-input" value={draft.authorName} onChange={(event) => set({ authorName: event.target.value })} maxLength={100} placeholder="مثال: فريق لنكلي" /></label>
+              <label className="ds-field">رابط التصنيف (slug إنجليزي)<input className="ds-input" dir="ltr" value={draft.categorySlug} onChange={(event) => set({ categorySlug: event.target.value })} maxLength={80} placeholder="customer-service" /></label>
+              <label className="ds-field">اسم التصنيف (عربي)<input className="ds-input" value={draft.categoryAr} onChange={(event) => set({ categoryAr: event.target.value })} maxLength={60} placeholder="خدمة العملاء" /></label>
+              <label className="ds-field">Category name (English)<input className="ds-input" dir="ltr" value={draft.categoryEn} onChange={(event) => set({ categoryEn: event.target.value })} maxLength={60} placeholder="Customer service" /></label>
+            </div>
+            <label className="ds-field">مقالات ذات صلة (روابط مختصرة مفصولة بفاصلة، اختياري — وإلا تُختار تلقائيًا)<input className="ds-input" dir="ltr" value={draft.relatedSlugs} onChange={(event) => set({ relatedSlugs: event.target.value })} maxLength={400} placeholder="slug-one, slug-two" /></label>
             <details className="admin-seo-box">
               <summary>إعدادات SEO والصورة البارزة</summary>
               <div className="admin-seo-grid">
@@ -152,8 +160,8 @@ export default function BlogAdminView({ initialPosts }: { initialPosts: BlogAdmi
                 <label className="ds-field">وصف المشاركة (Open Graph Description) — عربي<textarea className="ds-textarea" rows={2} value={draft.ogDescriptionAr} onChange={(event) => set({ ogDescriptionAr: event.target.value })} maxLength={320} /></label>
                 <label className="ds-field">OG Title (English)<input className="ds-input" dir="ltr" value={draft.ogTitleEn} onChange={(event) => set({ ogTitleEn: event.target.value })} maxLength={120} /></label>
                 <label className="ds-field">OG Description (English)<textarea className="ds-textarea" dir="ltr" rows={2} value={draft.ogDescriptionEn} onChange={(event) => set({ ogDescriptionEn: event.target.value })} maxLength={320} /></label>
-                <label className="ds-field">رابط الصورة البارزة (تظهر أعلى المقال)<input className="ds-input" dir="ltr" value={draft.featuredImage} onChange={(event) => set({ featuredImage: event.target.value })} maxLength={500} placeholder="https://.../image.webp أو /assets/..." /></label>
-                <label className="ds-field">رابط صورة المشاركة OG (اختياري، وإلا تُستخدم الصورة البارزة)<input className="ds-input" dir="ltr" value={draft.ogImage} onChange={(event) => set({ ogImage: event.target.value })} maxLength={500} placeholder="1200×630 مثالي" /></label>
+                <ImageUploadField label="الصورة البارزة (تظهر أعلى المقال)" value={draft.featuredImage} onChange={(value) => set({ featuredImage: value })} />
+                <ImageUploadField label="صورة المشاركة OG (اختياري، وإلا تُستخدم الصورة البارزة)" value={draft.ogImage} onChange={(value) => set({ ogImage: value })} placeholder="1200×630 مثالي" />
                 <label className="ds-field">النص البديل للصورة (Alt) — عربي<input className="ds-input" value={draft.imageAltAr} onChange={(event) => set({ imageAltAr: event.target.value })} maxLength={200} /></label>
                 <label className="ds-field">Image Alt (English)<input className="ds-input" dir="ltr" value={draft.imageAltEn} onChange={(event) => set({ imageAltEn: event.target.value })} maxLength={200} /></label>
               </div>

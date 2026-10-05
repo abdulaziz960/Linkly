@@ -14,7 +14,8 @@ import { blogPosts as defaultPosts, type BlogBlock, type BlogLocale } from "./bl
 
 export type PostSeoLocale = { metaTitle: string; metaDescription: string; ogTitle: string; ogDescription: string; imageAlt: string };
 export type PostSeo = { noindex: boolean; canonicalUrl: string; ogImage: string; featuredImage: string; ar: PostSeoLocale; en: PostSeoLocale };
-export type PublicPost = { slug: string; date: string; ar: BlogLocale; en: BlogLocale | null; seo: PostSeo };
+export type PostCategory = { slug: string; ar: string; en: string };
+export type PublicPost = { slug: string; date: string; ar: BlogLocale; en: BlogLocale | null; seo: PostSeo; author: string; category: PostCategory | null; related: string[] };
 
 const EMPTY_LOCALE_SEO: PostSeoLocale = { metaTitle: "", metaDescription: "", ogTitle: "", ogDescription: "", imageAlt: "" };
 const EMPTY_SEO: PostSeo = { noindex: false, canonicalUrl: "", ogImage: "", featuredImage: "", ar: EMPTY_LOCALE_SEO, en: EMPTY_LOCALE_SEO };
@@ -24,9 +25,10 @@ export type BlogSeoFields = {
   metaTitleAr: string; metaTitleEn: string; metaDescriptionAr: string; metaDescriptionEn: string;
   canonicalUrl: string; ogTitleAr: string; ogTitleEn: string; ogDescriptionAr: string; ogDescriptionEn: string;
   ogImage: string; featuredImage: string; imageAltAr: string; imageAltEn: string; noindex: boolean;
+  authorName: string; categorySlug: string; categoryAr: string; categoryEn: string; relatedSlugs: string;
 };
-const SEO_TEXT_KEYS = ["metaTitleAr", "metaTitleEn", "metaDescriptionAr", "metaDescriptionEn", "canonicalUrl", "ogTitleAr", "ogTitleEn", "ogDescriptionAr", "ogDescriptionEn", "ogImage", "featuredImage", "imageAltAr", "imageAltEn"] as const;
-const EMPTY_SEO_FIELDS: BlogSeoFields = { metaTitleAr: "", metaTitleEn: "", metaDescriptionAr: "", metaDescriptionEn: "", canonicalUrl: "", ogTitleAr: "", ogTitleEn: "", ogDescriptionAr: "", ogDescriptionEn: "", ogImage: "", featuredImage: "", imageAltAr: "", imageAltEn: "", noindex: false };
+const SEO_TEXT_KEYS = ["metaTitleAr", "metaTitleEn", "metaDescriptionAr", "metaDescriptionEn", "canonicalUrl", "ogTitleAr", "ogTitleEn", "ogDescriptionAr", "ogDescriptionEn", "ogImage", "featuredImage", "imageAltAr", "imageAltEn", "authorName", "categorySlug", "categoryAr", "categoryEn", "relatedSlugs"] as const;
+const EMPTY_SEO_FIELDS: BlogSeoFields = { metaTitleAr: "", metaTitleEn: "", metaDescriptionAr: "", metaDescriptionEn: "", canonicalUrl: "", ogTitleAr: "", ogTitleEn: "", ogDescriptionAr: "", ogDescriptionEn: "", ogImage: "", featuredImage: "", imageAltAr: "", imageAltEn: "", noindex: false, authorName: "", categorySlug: "", categoryAr: "", categoryEn: "", relatedSlugs: "" };
 export type BlogAdminRow = BlogSeoFields & { id: string; slug: string; date: string; titleAr: string; descriptionAr: string; bodyAr: string; titleEn: string; descriptionEn: string; bodyEn: string; published: boolean };
 
 export const BLOG_LIMITS = { title: 200, description: 400, body: 30000, posts: 500, metaTitle: 120, metaDescription: 320, url: 500, alt: 200 };
@@ -78,6 +80,9 @@ function toPublic(row: BlogAdminRow): PublicPost {
     ar: { title: row.titleAr, description: row.descriptionAr, blocks: parseBlogBody(row.bodyAr) },
     // A post without an English version simply isn't listed under /en.
     en: row.titleEn.trim() && row.bodyEn.trim() ? { title: row.titleEn, description: row.descriptionEn, blocks: parseBlogBody(row.bodyEn) } : null,
+    author: row.authorName,
+    category: row.categorySlug ? { slug: row.categorySlug, ar: row.categoryAr || row.categorySlug, en: row.categoryEn || row.categoryAr || row.categorySlug } : null,
+    related: row.relatedSlugs.split(",").map((slug) => slug.trim()).filter(Boolean),
     seo: {
       noindex: row.noindex,
       canonicalUrl: row.canonicalUrl,
@@ -89,7 +94,7 @@ function toPublic(row: BlogAdminRow): PublicPost {
   };
 }
 
-const defaultsAsPublic: PublicPost[] = defaultPosts.map((post) => ({ slug: post.slug, date: post.date, ar: post.ar, en: post.en, seo: EMPTY_SEO }));
+const defaultsAsPublic: PublicPost[] = defaultPosts.map((post) => ({ slug: post.slug, date: post.date, ar: post.ar, en: post.en, seo: EMPTY_SEO, author: "", category: null, related: [] }));
 const CACHE_MS = 30_000;
 let cache: { at: number; posts: PublicPost[] | null } | null = null;
 export function clearBlogCache() { cache = null; }
@@ -148,6 +153,13 @@ function text(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+/** "a-b, c-d\ne-f" -> "a-b,c-d,e-f" (valid, unique slugs; at most 6). */
+export function cleanSlugList(value: unknown): string {
+  const raw = typeof value === "string" ? value : "";
+  const slugs = raw.split(/[,\n]/).map((item) => normalizeSlug(item)).filter(Boolean);
+  return [...new Set(slugs)].slice(0, 6).join(",");
+}
+
 /** An absolute http(s) URL, or a site-relative path ("/assets/x.png"); anything else is rejected. */
 export function cleanUrl(value: unknown, max = BLOG_LIMITS.url): string | null {
   const raw = typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -185,7 +197,12 @@ export function cleanBlogInput(input: BlogInput): { ok: true; data: CleanBlog } 
     featuredImage: "",
     imageAltAr: text(input.imageAltAr, BLOG_LIMITS.alt),
     imageAltEn: text(input.imageAltEn, BLOG_LIMITS.alt),
-    noindex: Boolean(input.noindex)
+    noindex: Boolean(input.noindex),
+    authorName: text(input.authorName, 100),
+    categorySlug: normalizeSlug(typeof input.categorySlug === "string" ? input.categorySlug : ""),
+    categoryAr: text(input.categoryAr, 60),
+    categoryEn: text(input.categoryEn, 60),
+    relatedSlugs: cleanSlugList(input.relatedSlugs)
   };
   const canonical = cleanUrl(input.canonicalUrl);
   const ogImage = cleanUrl(input.ogImage);
@@ -196,6 +213,9 @@ export function cleanBlogInput(input: BlogInput): { ok: true; data: CleanBlog } 
   data.canonicalUrl = canonical;
   data.ogImage = ogImage;
   data.featuredImage = featuredImage;
+  if (data.categorySlug && !(data.categoryAr || data.categoryEn)) return { ok: false, error: "اكتب اسم التصنيف (عربي أو إنجليزي) مع الرابط المختصر للتصنيف" };
+  if (data.categoryAr && !data.categorySlug) data.categorySlug = normalizeSlug(data.categoryEn) || "";
+  if ((data.categoryAr || data.categoryEn) && !data.categorySlug) return { ok: false, error: "أضف رابطًا مختصرًا (slug) إنجليزيًا للتصنيف" };
   if (!data.slug) return { ok: false, error: "الرابط المختصر (slug) مطلوب: حروف إنجليزية وأرقام وشرطات فقط" };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date) || Number.isNaN(Date.parse(data.date))) return { ok: false, error: "التاريخ غير صالح" };
   if (!data.titleAr || !data.bodyAr) return { ok: false, error: "العنوان والمحتوى بالعربية مطلوبان" };
@@ -238,4 +258,35 @@ export async function deleteBlogPost(id: string): Promise<boolean> {
   const result = await prisma.blogPost.deleteMany({ where: { id } });
   clearBlogCache();
   return result.count > 0;
+}
+
+
+/** Posts in a category (slug), newest first, only those that exist in `lang`. */
+export function postsInCategory(posts: PublicPost[], categorySlug: string, lang: "ar" | "en"): PublicPost[] {
+  return posts.filter((post) => post.category?.slug === categorySlug && post[lang]);
+}
+
+/** Categories that have at least one published post in `lang`. */
+export function listCategories(posts: PublicPost[], lang: "ar" | "en"): Array<{ slug: string; name: string; count: number }> {
+  const found = new Map<string, { slug: string; name: string; count: number }>();
+  for (const post of posts) {
+    if (!post.category || !post[lang]) continue;
+    const entry = found.get(post.category.slug) ?? { slug: post.category.slug, name: post.category[lang], count: 0 };
+    entry.count += 1;
+    found.set(post.category.slug, entry);
+  }
+  return [...found.values()];
+}
+
+/** Up to 3 related posts: the ones picked by hand first, then the same category, then the newest others. */
+export function relatedPosts(post: PublicPost, posts: PublicPost[], lang: "ar" | "en"): PublicPost[] {
+  const available = posts.filter((other) => other.slug !== post.slug && other[lang]);
+  const chosen: PublicPost[] = [];
+  const add = (candidate?: PublicPost) => {
+    if (candidate && !chosen.includes(candidate) && chosen.length < 3) chosen.push(candidate);
+  };
+  for (const slug of post.related) add(available.find((other) => other.slug === slug));
+  if (post.category) for (const other of available.filter((item) => item.category?.slug === post.category!.slug)) add(other);
+  for (const other of available) add(other);
+  return chosen;
 }

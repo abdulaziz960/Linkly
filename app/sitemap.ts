@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { getPublicPosts } from "../lib/blog-store";
+import { getPublicPosts, listCategories } from "../lib/blog-store";
+import { getNoindexPaths } from "../lib/page-seo";
 
 const baseUrl = "https://linklysa.io";
 
@@ -29,7 +30,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
     lastModified: new Date(post.date)
   }));
-  return ([...pages, ...postPages] as PageEntry[]).flatMap((page) => {
+  const allPosts = await getPublicPosts();
+  const categoryPages: PageEntry[] = listCategories(allPosts.filter((post) => !post.seo.noindex), "ar").map((category) => ({
+    ar: `/blog/category/${category.slug}`,
+    en: listCategories(allPosts.filter((post) => !post.seo.noindex), "en").some((item) => item.slug === category.slug) ? `/en/blog/category/${category.slug}` : undefined,
+    changeFrequency: "weekly",
+    priority: 0.5
+  }));
+  // Fixed pages an admin marked noindex are left out of the sitemap (both languages' URLs are checked separately).
+  const noindexPaths = await getNoindexPaths();
+  const fixedPages = pages.filter((page) => !noindexPaths.has(page.ar)).map((page) => (noindexPaths.has(page.en) ? { ...page, en: undefined } : page));
+  return ([...fixedPages, ...postPages, ...categoryPages] as PageEntry[]).flatMap((page) => {
     const { ar, en, changeFrequency, priority } = page;
     const { lastModified } = page;
     if (!en) return [{ url: `${baseUrl}${ar}`, lastModified, changeFrequency, priority }];

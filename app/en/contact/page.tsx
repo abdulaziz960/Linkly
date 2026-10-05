@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
+import { applyPageSeo } from "../../../lib/page-seo";
 import Link from "next/link";
 import HtmlLangSync from "../../HtmlLangSync";
 import "../../legal.css";
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   title: { absolute: "Contact us | Linkly" },
   description: "Contact the Linkly team for sales, support, and help setting up your customer service channels.",
   alternates: { canonical: "/en/contact", languages: { "ar-SA": "/contact", en: "/en/contact" } }
 };
+
+// Page SEO is editable from the admin panel, so the metadata is read on each request.
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return applyPageSeo("/en/contact", baseMetadata);
+}
 
 export default function ContactPageEn() {
   return (

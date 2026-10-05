@@ -1301,6 +1301,11 @@ model BlogPost {
   imageAltAr       String @default("") @map("image_alt_ar")
   imageAltEn       String @default("") @map("image_alt_en")
   noindex           Int    @default(0)
+  authorName        String @default("") @map("author_name")
+  categorySlug      String @default("") @map("category_slug")
+  categoryAr        String @default("") @map("category_ar")
+  categoryEn        String @default("") @map("category_en")
+  relatedSlugs      String @default("") @map("related_slugs")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 
@@ -1329,4 +1334,43 @@ model PlatformAdminPermission {
   updatedBy   String @default("") @map("updated_by")
 
   @@map("platform_admin_permissions")
+}
+
+model Redirect {
+  id         String @id
+  fromPath   String @unique @map("from_path")
+  toUrl      String @default("") @map("to_url")
+  statusCode Int    @default(301) @map("status_code")
+  enabled    Int    @default(1)
+  note       String @default("")
+  createdAt  String @map("created_at")
+  updatedAt  String @map("updated_at")
+
+  @@map("redirects")
+}
+
+model PageSeo {
+  path            String @id
+  metaTitle       String @default("") @map("meta_title")
+  metaDescription String @default("") @map("meta_description")
+  canonicalUrl    String @default("") @map("canonical_url")
+  noindex         Int    @default(0)
+  ogTitle         String @default("") @map("og_title")
+  ogDescription   String @default("") @map("og_description")
+  ogImage         String @default("") @map("og_image")
+  updatedAt       String @map("updated_at")
+
+  @@map("page_seo")
+}
+
+model CmsImage {
+  id        String @id
+  name      String @unique
+  data      Bytes
+  mime      String @default("image/webp")
+  width     Int    @default(0)
+  height    Int    @default(0)
+  createdAt String @map("created_at")
+
+  @@map("cms_images")
 }
