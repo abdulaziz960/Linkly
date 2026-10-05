@@ -1,0 +1,5 @@
+
+.admin-seo-box { border: 1px solid #d6e8e5; border-radius: 12px; padding: 10px 14px; background: #f8fcfb; }
+.admin-seo-box summary { cursor: pointer; font-weight: 800; color: #0f5f59; }
+.admin-seo-grid { display: grid; gap: 12px; margin-top: 12px; }
+.admin-seo-box small { color: #64748b; font-weight: 600; margin-inline-start: 6px; }

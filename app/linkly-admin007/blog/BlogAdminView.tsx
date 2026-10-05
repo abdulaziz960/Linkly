@@ -10,10 +10,10 @@ import { useToast } from "../ds/Toast";
 import ActionMenu from "../ds/ActionMenu";
 import Icon from "../ds/Icon";
 
-type Draft = { id: string; slug: string; date: string; titleAr: string; descriptionAr: string; bodyAr: string; titleEn: string; descriptionEn: string; bodyEn: string; published: boolean };
+type Draft = { id: string; slug: string; date: string; titleAr: string; descriptionAr: string; bodyAr: string; titleEn: string; descriptionEn: string; bodyEn: string; published: boolean; noindex: boolean } & Record<"metaTitleAr" | "metaTitleEn" | "metaDescriptionAr" | "metaDescriptionEn" | "canonicalUrl" | "ogTitleAr" | "ogTitleEn" | "ogDescriptionAr" | "ogDescriptionEn" | "ogImage" | "featuredImage" | "imageAltAr" | "imageAltEn", string>;
 
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyDraft = (): Draft => ({ id: "", slug: "", date: today(), titleAr: "", descriptionAr: "", bodyAr: "", titleEn: "", descriptionEn: "", bodyEn: "", published: true });
+const emptyDraft = (): Draft => ({ id: "", slug: "", date: today(), titleAr: "", descriptionAr: "", bodyAr: "", titleEn: "", descriptionEn: "", bodyEn: "", published: true, noindex: false, metaTitleAr: "", metaTitleEn: "", metaDescriptionAr: "", metaDescriptionEn: "", canonicalUrl: "", ogTitleAr: "", ogTitleEn: "", ogDescriptionAr: "", ogDescriptionEn: "", ogImage: "", featuredImage: "", imageAltAr: "", imageAltEn: "" });
 const SAVED = "تظهر التغييرات للزوار خلال نحو نصف دقيقة.";
 
 export default function BlogAdminView({ initialPosts }: { initialPosts: BlogAdminRow[] }) {
@@ -98,7 +98,7 @@ export default function BlogAdminView({ initialPosts }: { initialPosts: BlogAdmi
                     <td data-label="الإنجليزية">{post.titleEn ? <Badge tone="info">متوفرة</Badge> : <small>غير متوفرة</small>}</td>
                     <td>
                       <div className="ds-cell-actions">
-                        <Button variant="outline" onClick={() => open({ id: post.id, slug: post.slug, date: post.date, titleAr: post.titleAr, descriptionAr: post.descriptionAr, bodyAr: post.bodyAr, titleEn: post.titleEn, descriptionEn: post.descriptionEn, bodyEn: post.bodyEn, published: post.published })}>تعديل</Button>
+                        <Button variant="outline" onClick={() => open({ id: post.id, slug: post.slug, date: post.date, titleAr: post.titleAr, descriptionAr: post.descriptionAr, bodyAr: post.bodyAr, titleEn: post.titleEn, descriptionEn: post.descriptionEn, bodyEn: post.bodyEn, published: post.published, noindex: post.noindex, metaTitleAr: post.metaTitleAr, metaTitleEn: post.metaTitleEn, metaDescriptionAr: post.metaDescriptionAr, metaDescriptionEn: post.metaDescriptionEn, canonicalUrl: post.canonicalUrl, ogTitleAr: post.ogTitleAr, ogTitleEn: post.ogTitleEn, ogDescriptionAr: post.ogDescriptionAr, ogDescriptionEn: post.ogDescriptionEn, ogImage: post.ogImage, featuredImage: post.featuredImage, imageAltAr: post.imageAltAr, imageAltEn: post.imageAltEn })}>تعديل</Button>
                         <ActionMenu
                           label={`المزيد للمقال ${post.titleAr}`}
                           items={[
@@ -139,7 +139,26 @@ export default function BlogAdminView({ initialPosts }: { initialPosts: BlogAdmi
             <label className="ds-field">Title (English) — اختياري<input className="ds-input" dir="ltr" value={draft.titleEn} onChange={(event) => set({ titleEn: event.target.value })} maxLength={200} /></label>
             <label className="ds-field">Description (English)<textarea className="ds-textarea" dir="ltr" rows={2} value={draft.descriptionEn} onChange={(event) => set({ descriptionEn: event.target.value })} maxLength={400} /></label>
             <label className="ds-field">Body (English) — ## for headings, blank line between paragraphs<textarea className="ds-textarea" dir="ltr" rows={10} value={draft.bodyEn} onChange={(event) => set({ bodyEn: event.target.value })} maxLength={30000} /></label>
-            <label className="ds-check"><input type="checkbox" checked={draft.published} onChange={(event) => set({ published: event.target.checked })} />منشور (ظاهر للزوار)</label>
+            <details className="admin-seo-box">
+              <summary>إعدادات SEO والصورة البارزة</summary>
+              <div className="admin-seo-grid">
+                <label className="ds-field">عنوان SEO (Meta Title) — عربي <small>{draft.metaTitleAr.length}/60 المثالي</small><input className="ds-input" value={draft.metaTitleAr} onChange={(event) => set({ metaTitleAr: event.target.value })} maxLength={120} placeholder="إن تُرك فارغًا يُستخدم عنوان المقال" /></label>
+                <label className="ds-field">وصف SEO (Meta Description) — عربي <small>{draft.metaDescriptionAr.length}/160 المثالي</small><textarea className="ds-textarea" rows={2} value={draft.metaDescriptionAr} onChange={(event) => set({ metaDescriptionAr: event.target.value })} maxLength={320} placeholder="إن تُرك فارغًا يُستخدم وصف المقال" /></label>
+                <label className="ds-field">Meta Title (English)<input className="ds-input" dir="ltr" value={draft.metaTitleEn} onChange={(event) => set({ metaTitleEn: event.target.value })} maxLength={120} /></label>
+                <label className="ds-field">Meta Description (English)<textarea className="ds-textarea" dir="ltr" rows={2} value={draft.metaDescriptionEn} onChange={(event) => set({ metaDescriptionEn: event.target.value })} maxLength={320} /></label>
+                <label className="ds-field">رابط Canonical للنسخة العربية (اختياري)<input className="ds-input" dir="ltr" value={draft.canonicalUrl} onChange={(event) => set({ canonicalUrl: event.target.value })} maxLength={500} placeholder="https://linklysa.io/blog/..." /></label>
+                <label className="ds-check"><input type="checkbox" checked={draft.noindex} onChange={(event) => set({ noindex: event.target.checked })} />Noindex — إخفاء المقال من محركات البحث (ويُستبعد من خريطة الموقع)</label>
+                <label className="ds-field">عنوان المشاركة (Open Graph Title) — عربي<input className="ds-input" value={draft.ogTitleAr} onChange={(event) => set({ ogTitleAr: event.target.value })} maxLength={120} /></label>
+                <label className="ds-field">وصف المشاركة (Open Graph Description) — عربي<textarea className="ds-textarea" rows={2} value={draft.ogDescriptionAr} onChange={(event) => set({ ogDescriptionAr: event.target.value })} maxLength={320} /></label>
+                <label className="ds-field">OG Title (English)<input className="ds-input" dir="ltr" value={draft.ogTitleEn} onChange={(event) => set({ ogTitleEn: event.target.value })} maxLength={120} /></label>
+                <label className="ds-field">OG Description (English)<textarea className="ds-textarea" dir="ltr" rows={2} value={draft.ogDescriptionEn} onChange={(event) => set({ ogDescriptionEn: event.target.value })} maxLength={320} /></label>
+                <label className="ds-field">رابط الصورة البارزة (تظهر أعلى المقال)<input className="ds-input" dir="ltr" value={draft.featuredImage} onChange={(event) => set({ featuredImage: event.target.value })} maxLength={500} placeholder="https://.../image.webp أو /assets/..." /></label>
+                <label className="ds-field">رابط صورة المشاركة OG (اختياري، وإلا تُستخدم الصورة البارزة)<input className="ds-input" dir="ltr" value={draft.ogImage} onChange={(event) => set({ ogImage: event.target.value })} maxLength={500} placeholder="1200×630 مثالي" /></label>
+                <label className="ds-field">النص البديل للصورة (Alt) — عربي<input className="ds-input" value={draft.imageAltAr} onChange={(event) => set({ imageAltAr: event.target.value })} maxLength={200} /></label>
+                <label className="ds-field">Image Alt (English)<input className="ds-input" dir="ltr" value={draft.imageAltEn} onChange={(event) => set({ imageAltEn: event.target.value })} maxLength={200} /></label>
+              </div>
+            </details>
+            <label className="ds-check"><input type="checkbox" checked={draft.published} onChange={(event) => set({ published: event.target.checked })} />منشور (ظاهر للزوار) — إلغاء التحديد يحفظه كمسودة</label>
             {error ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />{error}</p> : null}
           </form>
         ) : null}

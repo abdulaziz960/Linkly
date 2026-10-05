@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BlogPostView } from "../../../ContentViews";
 import { getPublicPost } from "../../../../lib/blog-store";
+import { postMetadata, postSeoText } from "../../../../lib/blog-seo";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +11,7 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = await getPublicPost((await params).slug);
   if (!post?.en) return {};
-  return {
-    title: { absolute: `${post.en.title} | Linkly` },
-    description: post.en.description,
-    alternates: { canonical: `/en/blog/${post.slug}`, languages: { "ar-SA": `/blog/${post.slug}`, en: `/en/blog/${post.slug}` } }
-  };
+  return { ...postMetadata(post, "en"), title: { absolute: `${postSeoText(post, "en").metaTitle} | Linkly` } };
 }
 
 export default async function BlogPostPageEn({ params }: Props) {

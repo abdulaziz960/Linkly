@@ -1,3 +1,4 @@
+import { postPath, postSeoText, postShareImage } from "../lib/blog-seo";
 import Link from "next/link";
 import ContentShell from "./ContentShell";
 import type { FaqPair } from "../lib/faq-store";
@@ -39,6 +40,10 @@ export function BlogIndexView({ lang, posts }: { lang: Lang; posts: PublicPost[]
         <section key={post.slug}>
           <h2><Link href={`${base}/${post.slug}`}>{post[lang]!.title}</Link></h2>
           <p><small>{dateLabel(post.date, lang)}</small></p>
+        {post.seo.featuredImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={post.seo.featuredImage} alt={postSeoText(post, lang).imageAlt} width={1200} height={630} fetchPriority="high" style={{ width: "100%", height: "auto", aspectRatio: "1200 / 630", objectFit: "cover", borderRadius: 14 }} />
+        ) : null}
           <p>{post[lang]!.description}</p>
         </section>
       ))}
@@ -54,7 +59,10 @@ export function BlogPostView({ post, lang }: { post: PublicPost; lang: Lang }) {
     headline: content.title,
     description: content.description,
     datePublished: post.date,
+    dateModified: post.date,
     inLanguage: lang === "en" ? "en" : "ar-SA",
+    mainEntityOfPage: `https://linklysa.io${postPath(post.slug, lang)}`,
+    ...(postShareImage(post) ? { image: postShareImage(post) } : {}),
     author: { "@type": "Organization", name: "Linkly" },
     publisher: { "@type": "Organization", name: "Linkly" }
   };

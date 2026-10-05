@@ -22,7 +22,7 @@ const pages: Array<{ ar: string; en: string; changeFrequency: MetadataRoute.Site
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Published blog posts (managed from the admin panel) appear here automatically; /en only for posts that have an English version.
-  const postPages: PageEntry[] = (await getPublicPosts()).map((post) => ({
+  const postPages: PageEntry[] = (await getPublicPosts()).filter((post) => !post.seo.noindex).map((post) => ({
     ar: `/blog/${post.slug}`,
     en: post.en ? `/en/blog/${post.slug}` : undefined,
     changeFrequency: "monthly",

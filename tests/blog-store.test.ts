@@ -77,3 +77,49 @@ describe("blog managed from the admin panel", () => {
     vi.doUnmock("../lib/admin-auth");
   });
 });
+
+describe("blog SEO fields", () => {
+  it("stores SEO fields, validates URLs, and builds metadata with fallbacks", async () => {
+    const { cleanBlogInput, createBlogPost, getPublicPost, clearBlogCache } = await import("../lib/blog-store");
+    const { postMetadata } = await import("../lib/blog-seo");
+    const base = { slug: "seo-test-post", date: "2026-11-05", titleAr: "عنوان", descriptionAr: "وصف", bodyAr: "نص", titleEn: "Title", descriptionEn: "Desc", bodyEn: "Body" };
+
+    expect(cleanBlogInput({ ...base, canonicalUrl: "javascript:alert(1)" }).ok).toBe(false);
+    expect(cleanBlogInput({ ...base, canonicalUrl: "/blog/x" }).ok).toBe(false); // canonical must be absolute
+    expect(cleanBlogInput({ ...base, featuredImage: "data:text/html,x" }).ok).toBe(false);
+    expect(cleanBlogInput({ ...base, ogImage: "//evil.example/x.png" }).ok).toBe(false);
+
+    const cleaned = cleanBlogInput({ ...base, metaTitleAr: "عنوان SEO", canonicalUrl: "https://linklysa.io/blog/custom", featuredImage: "/assets/linkly-logo.png", imageAltAr: "شعار", noindex: false });
+    expect(cleaned.ok).toBe(true);
+    if (!cleaned.ok) return;
+    const created = await createBlogPost(cleaned.data);
+    expect(created.ok).toBe(true);
+    clearBlogCache();
+
+    const post = await getPublicPost("seo-test-post");
+    expect(post).not.toBeNull();
+    const ar = postMetadata(post!, "ar");
+    expect(ar.title).toBe("عنوان SEO");
+    expect(ar.description).toBe("وصف"); // falls back to the article description
+    expect(ar.alternates?.canonical).toBe("https://linklysa.io/blog/custom");
+    expect(ar.robots).toBeUndefined();
+    expect((ar.openGraph as { images?: Array<{ url: string; alt: string }> }).images?.[0]).toEqual({ url: "/assets/linkly-logo.png", alt: "شعار" });
+    const en = postMetadata(post!, "en");
+    expect(en.alternates?.canonical).toBe("/en/blog/seo-test-post"); // the override is for the Arabic page only
+  });
+
+  it("noindex posts are marked robots noindex and left out of the sitemap", async () => {
+    const { cleanBlogInput, createBlogPost, getPublicPost, clearBlogCache } = await import("../lib/blog-store");
+    const { postMetadata } = await import("../lib/blog-seo");
+    const cleaned = cleanBlogInput({ slug: "hidden-from-search", date: "2026-11-06", titleAr: "مخفي", bodyAr: "نص", noindex: true });
+    if (!cleaned.ok) throw new Error(cleaned.error);
+    await createBlogPost(cleaned.data);
+    clearBlogCache();
+    const post = await getPublicPost("hidden-from-search");
+    expect(postMetadata(post!, "ar").robots).toEqual({ index: false, follow: true });
+    const sitemap = (await import("../app/sitemap")).default;
+    const urls = (await sitemap()).map((entry) => entry.url);
+    expect(urls.some((url) => url.includes("hidden-from-search"))).toBe(false);
+    expect(urls.some((url) => url.includes("seo-test-post"))).toBe(true);
+  });
+});
