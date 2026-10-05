@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
-import { updatePlan } from "../../../../../lib/plans";
-import { recordAdminAction } from "../../../../../lib/admin-audit";
+import { getPlans, updatePlan } from "../../../../../lib/plans";
+import { changeDetails, recordAdminAction } from "../../../../../lib/admin-audit";
 import { sanitizeAllowedChannelsInput } from "../../../../../lib/channel-catalog";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
@@ -23,6 +23,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   };
 
   try {
+    const previous = (await getPlans()).find((plan) => plan.id === id);
     const plan = await updatePlan(id, {
       ...body,
       // Omitted entirely (e.g. an unrelated "active" toggle) must leave the
@@ -30,7 +31,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       // unrestricted - only sanitize when the field was actually sent.
       allowedChannels: body.allowedChannels !== undefined ? sanitizeAllowedChannelsInput(body.allowedChannels) : undefined
     });
-    await recordAdminAction(admin, "update-plan", { type: "plan", id }, JSON.stringify(body));
+    await recordAdminAction(admin, "update-plan", { type: "plan", id }, changeDetails({ ...(previous ?? {}) }, body, previous?.name));
     return jsonOk(plan);
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر تحديث الباقة", 400);

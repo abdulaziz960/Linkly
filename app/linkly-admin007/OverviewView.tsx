@@ -250,16 +250,18 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
             {selected.details.length ? (
               <div className="ds-diff">
                 <div className="ds-diff-h">الحقل</div>
-                <div className="ds-diff-h" style={{ gridColumn: "span 2" }}>القيمة المسجّلة</div>
+                <div className="ds-diff-h">{selected.details.some((detail) => detail.previous !== undefined) ? "قبل" : ""}</div>
+                <div className="ds-diff-h">{selected.details.some((detail) => detail.previous !== undefined) ? "بعد" : "القيمة المسجّلة"}</div>
                 {selected.details.flatMap((detail) => [
                   <div key={`${detail.label}-l`} style={{ fontWeight: 700 }}>{detail.label}</div>,
-                  <div key={`${detail.label}-v`} className="ds-diff-new" style={{ gridColumn: "span 2" }}>{detail.value}</div>
+                  <div key={`${detail.label}-p`} className="ds-diff-old">{detail.previous ?? ""}</div>,
+                  <div key={`${detail.label}-v`} className="ds-diff-new">{detail.value}</div>
                 ])}
               </div>
             ) : (
               <EmptyState icon="info" title="لا توجد تفاصيل إضافية" description="لم يسجّل هذا الإجراء بيانات تفصيلية." />
             )}
-            <p className="ds-note"><Icon name="info" size={16} /><span>تُعرض القيم الجديدة وقت تنفيذ العملية. القيم السابقة غير محفوظة في سجل التدقيق حاليًا. لا تُعرض مفاتيح أو أسرار في هذا السجل.</span></p>
+            <p className="ds-note"><Icon name="info" size={16} /><span>عند تعديل باقة أو اشتراك أو كود خصم أو موظف تُعرض القيمة قبل التغيير وبعده. السجلات الأقدم تعرض القيم الجديدة فقط. لا تُعرض مفاتيح أو أسرار في هذا السجل.</span></p>
             <p style={{ margin: 0, color: "var(--ds-text-faint)", fontSize: 12 }}>رمز العملية: <span dir="ltr">{selected.technicalId}</span></p>
           </>
         ) : null}

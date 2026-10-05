@@ -3,7 +3,7 @@ import { requirePlatformAdmin } from "../../../../../../../lib/admin-auth";
 import { prisma } from "../../../../../../../lib/prisma";
 import { isValidEmail } from "../../../../../../../lib/validation";
 import { getSubscriptionForTenant, logAdminAction } from "../../../../../../../lib/subscriptions";
-import { recordAdminAction } from "../../../../../../../lib/admin-audit";
+import { changeDetails, recordAdminAction } from "../../../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -95,7 +95,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         "الموظفون"
       );
     }
-    await recordAdminAction(admin, "edit-client-employee", { type: "employee", id: employeeId }, JSON.stringify({ tenantId, ...body }));
+    await recordAdminAction(admin, "edit-client-employee", { type: "employee", id: employeeId }, changeDetails({ name: existingEmployee.name, email: existingEmployee.email, role: existingEmployee.role, permissions: existingEmployee.permissions }, { name, email, role, permissions: body.permissions }, existingEmployee.name));
 
     return jsonOk(employee);
   } catch {
