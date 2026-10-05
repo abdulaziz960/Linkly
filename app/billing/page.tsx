@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../lib/auth";
+import { planFeatures } from "../../lib/plan-features";
 import { getActivePlans, getPlanByName } from "../../lib/plans";
 import { getSubscriptionForTenant } from "../../lib/subscriptions";
 import { isMoyasarLiveMode } from "../../lib/moyasar";
@@ -40,5 +41,5 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       : null;
     return <AccountSuspendedNotice branding={branding} subscription={subscription} plans={currentPlan ? [...plans, currentPlan] : plans} />;
   }
-  return <BillingPageClient plans={plans} subscription={subscription} expired={expired === "1"} isTestMode={!isMoyasarLiveMode()} branding={branding} />;
+  return <BillingPageClient plans={plans.filter((plan) => !planFeatures[plan.name]?.custom || plan.name === subscription?.plan)} subscription={subscription} expired={expired === "1"} isTestMode={!isMoyasarLiveMode()} branding={branding} />;
 }

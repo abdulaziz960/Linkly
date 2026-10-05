@@ -6,6 +6,7 @@ import { prisma } from "../../../../lib/prisma";
 import { buildPaymentMetadata, isMoyasarConfigured } from "../../../../lib/moyasar";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../lib/payment-status";
 import { computeProrationCredit } from "../../../../lib/subscriptions";
+import { planFeatures } from "../../../../lib/plan-features";
 import { isBillingCycle, isSamePlanRenewalTooEarly, priceForCycle, RENEWAL_WINDOW_DAYS, type BillingCycle } from "../../../../lib/billing-pricing";
 import { reservePromoCodeUsage, releasePromoCodeUsage, promoCodeErrorMessage, type PromoCodeErrorCode } from "../../../../lib/promo-codes";
 
@@ -23,6 +24,8 @@ export async function POST(request: NextRequest) {
     where: subscription ? { id: planId, OR: [{ active: 1 }, { name: subscription.plan }] } : { id: planId, active: 1 }
   });
   if (!plan) return NextResponse.json({ error: "الباقة غير موجودة" }, { status: 404 });
+  // Quote-based plan ("صمم باقتك"): only its existing subscribers can renew it here.
+  if (planFeatures[plan.name]?.custom && subscription?.plan !== plan.name) return NextResponse.json({ error: "هذه الباقة بعرض سعر خاص، تواصل معنا لتصميم باقتك" }, { status: 400 });
   if (plan.monthlyPrice < 1) return NextResponse.json({ error: "سعر الباقة غير صالح" }, { status: 400 });
   // Same plan, same cycle, still paid up for more than the renewal window:
   // a second payment would only stack on the first. Renewal opens shortly
