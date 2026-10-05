@@ -93,7 +93,14 @@ export async function POST(request: NextRequest) {
     }
 
     return jsonOk({
-      activationUrl: process.env.NODE_ENV !== "production" ? inviteDelivery.activationUrl : undefined,
+      // In dev, always hand back the link (no inbox to check). In production,
+      // only when the real email failed to send - otherwise the customer's
+      // own inbox is the delivery channel and there's no reason to put a
+      // live activation link in a network response. Without this fallback a
+      // production email-provider outage leaves a brand-new signup with no
+      // way at all to activate their account (see the Resend domain-verification
+      // incident this guarded against).
+      activationUrl: process.env.NODE_ENV !== "production" || !inviteDelivery.sent ? inviteDelivery.activationUrl : undefined,
       emailSent: inviteDelivery.sent,
       message: inviteDelivery.message
     });
