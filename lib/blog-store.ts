@@ -44,7 +44,11 @@ export function parseBlogBody(body: string): BlogBlock[] {
       paragraph = [];
     };
     for (const line of lines) {
-      if (line.startsWith("## ")) {
+      if (line.startsWith("### ")) {
+        flush();
+        const heading = line.slice(4).trim();
+        if (heading) blocks.push({ type: "h3", text: heading });
+      } else if (line.startsWith("## ")) {
         flush();
         const heading = line.slice(3).trim();
         if (heading) blocks.push({ type: "h2", text: heading });
@@ -58,7 +62,7 @@ export function parseBlogBody(body: string): BlogBlock[] {
 }
 
 export function blocksToBody(blocks: BlogBlock[]): string {
-  return blocks.map((block) => (block.type === "h2" ? `## ${block.text}` : block.text)).join("\n\n");
+  return blocks.map((block) => (block.type === "h2" ? `## ${block.text}` : block.type === "h3" ? `### ${block.text}` : block.text)).join("\n\n");
 }
 
 export function normalizeSlug(value: string): string {

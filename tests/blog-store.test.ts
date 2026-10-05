@@ -22,8 +22,8 @@ afterAll(async () => {
 describe("blog managed from the admin panel", () => {
   it("parses the plain-text body into headings and paragraphs, and back", async () => {
     const { parseBlogBody, blocksToBody } = await import("../lib/blog-store");
-    const blocks = parseBlogBody("مقدمة\n\n## عنوان فرعي\nفقرة تحت العنوان\n\nفقرة أخيرة");
-    expect(blocks).toEqual([{ type: "p", text: "مقدمة" }, { type: "h2", text: "عنوان فرعي" }, { type: "p", text: "فقرة تحت العنوان" }, { type: "p", text: "فقرة أخيرة" }]);
+    const blocks = parseBlogBody("مقدمة\n\n## عنوان فرعي\nفقرة تحت العنوان\n\n### عنوان أصغر\nنص\n\nفقرة أخيرة");
+    expect(blocks).toEqual([{ type: "p", text: "مقدمة" }, { type: "h2", text: "عنوان فرعي" }, { type: "p", text: "فقرة تحت العنوان" }, { type: "h3", text: "عنوان أصغر" }, { type: "p", text: "نص" }, { type: "p", text: "فقرة أخيرة" }]);
     expect(parseBlogBody(blocksToBody(blocks))).toEqual(blocks);
   });
 

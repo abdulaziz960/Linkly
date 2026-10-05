@@ -148,7 +148,7 @@ export function BlogPostView({ post, lang, related = [] }: { post: PublicPost; l
           // eslint-disable-next-line @next/next/no-img-element
           <img className="post-cover" src={post.seo.featuredImage} alt={postSeoText(post, lang).imageAlt} width={1200} height={630} fetchPriority="high" decoding="async" />
         ) : null}
-        {content.blocks.map((block, index) => (block.type === "h2" ? <h2 key={index}>{block.text}</h2> : <p key={index}>{withLinks(block.text)}</p>))}
+        {content.blocks.map((block, index) => (block.type === "h2" ? <h2 key={index}>{block.text}</h2> : block.type === "h3" ? <h3 key={index}>{block.text}</h3> : <p key={index}>{withLinks(block.text)}</p>))}
       </article>
       {related.length ? (
         <aside className="related-posts" aria-label={lang === "en" ? "Related articles" : "مقالات ذات صلة"}>

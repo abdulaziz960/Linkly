@@ -1,6 +1,6 @@
 // Blog posts live here as plain data. Adding an object to `blogPosts` is all it
 // takes: the /blog index, the post page and sitemap.xml all derive from it.
-export type BlogBlock = { type: "h2" | "p"; text: string };
+export type BlogBlock = { type: "h2" | "h3" | "p"; text: string };
 export type BlogLocale = { title: string; description: string; blocks: BlogBlock[] };
 export type BlogPost = { slug: string; date: string; ar: BlogLocale; en: BlogLocale };
 

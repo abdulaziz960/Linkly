@@ -135,7 +135,7 @@ export default function BlogAdminView({ initialPosts }: { initialPosts: BlogAdmi
             <label className="ds-field">وصف مختصر (عربي) — يظهر في القائمة ونتائج البحث<textarea className="ds-textarea" rows={2} value={draft.descriptionAr} onChange={(event) => set({ descriptionAr: event.target.value })} maxLength={400} /></label>
             <label className="ds-field">المحتوى (عربي)
               <textarea className="ds-textarea" rows={12} value={draft.bodyAr} onChange={(event) => set({ bodyAr: event.target.value })} maxLength={30000} required />
-              <small>للعنوان الفرعي ابدأ السطر بـ <code>## </code> ثم النص. افصل الفقرات بسطر فارغ. لإضافة رابط داخلي اكتب <code>[نص الرابط](/blog/slug)</code>، أو رابطًا خارجيًا <code>[نص](https://...)</code>.</small>
+              <small>للعنوان الفرعي ابدأ السطر بـ <code>## </code> (H2) أو <code>### </code> (H3) ثم النص. افصل الفقرات بسطر فارغ. لإضافة رابط داخلي اكتب <code>[نص الرابط](/blog/slug)</code>، أو رابطًا خارجيًا <code>[نص](https://...)</code>.</small>
             </label>
             <label className="ds-field">Title (English) — اختياري<input className="ds-input" dir="ltr" value={draft.titleEn} onChange={(event) => set({ titleEn: event.target.value })} maxLength={200} /></label>
             <label className="ds-field">Description (English)<textarea className="ds-textarea" dir="ltr" rows={2} value={draft.descriptionEn} onChange={(event) => set({ descriptionEn: event.target.value })} maxLength={400} /></label>
