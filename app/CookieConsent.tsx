@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import Script from "next/script";
 
 const CONSENT_STORAGE_KEY = "linkly-analytics-consent";
 /** First-party cookie with the same value: survives localStorage clears and is re-issued by the server (/api/consent). */
@@ -13,8 +12,13 @@ const CONSENT_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 const NO_BANNER_PREFIXES = ["/linkly-admin007"];
 /** Dispatched by CookieSettingsLink to reopen the banner after a first choice. */
 export const REOPEN_COOKIE_BANNER_EVENT = "linkly:open-cookie-settings";
-const GTM_ID = "GTM-TXWK77FV";
-const GTAG_ID = "G-PRB5YHZPGY";
+
+/** Tells Google Consent Mode (set up in app/layout.tsx) about the visitor's choice. */
+function updateGoogleConsent(value: "accepted" | "rejected") {
+  const state = value === "accepted" ? "granted" : "denied";
+  // gtag() is defined by the inline script in app/layout.tsx.
+  (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag?.("consent", "update", { ad_storage: state, ad_user_data: state, ad_personalization: state, analytics_storage: state });
+}
 
 type Consent = "accepted" | "rejected" | null;
 
@@ -162,6 +166,7 @@ export default function CookieConsent() {
     setSettingsOpen(false);
     if (value === "rejected") clearAnalyticsCookies();
     persistConsent(value);
+    updateGoogleConsent(value);
     // Removing a Script element cannot unload a previously loaded analytics
     // runtime. Reload with the rejected preference to stop future tracking.
     if (shouldReload) window.location.reload();
@@ -172,24 +177,6 @@ export default function CookieConsent() {
 
   return (
     <>
-      {consent === "accepted" ? (
-        <>
-          <Script id="google-tag-manager" strategy="afterInteractive">
-            {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','${GTM_ID}');`}
-          </Script>
-          <Script id="google-tag" src={`https://www.googletagmanager.com/gtag/js?id=${GTAG_ID}`} strategy="afterInteractive" />
-          <Script id="google-tag-config" strategy="afterInteractive">
-            {`window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', '${GTAG_ID}');`}
-          </Script>
-        </>
-      ) : null}
       {ready && !decided && !settingsOpen ? (
         <div
           role="dialog"
