@@ -30,7 +30,10 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  // Tells the root layout which language the page is, so the server-rendered <html lang dir> is right for /en pages too.
+  const headers = new Headers(request.headers);
+  headers.set("x-linkly-lang", url.pathname === "/en" || url.pathname.startsWith("/en/") ? "en" : "ar");
+  return NextResponse.next({ request: { headers } });
 }
 
 export const config = {

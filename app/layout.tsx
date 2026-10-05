@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { headers } from "next/headers";
 import Script from "next/script";
 import type { ReactNode } from "react";
 import CookieConsent from "./CookieConsent";
@@ -53,13 +54,14 @@ export const metadata: Metadata = {
   }
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children
 }: Readonly<{
   children: ReactNode;
 }>) {
+  const english = (await headers()).get("x-linkly-lang") === "en";
   return (
-    <html lang="ar" dir="rtl" className={`${appFont.variable} ${displayFont.variable}`}>
+    <html lang={english ? "en" : "ar"} dir={english ? "ltr" : "rtl"} className={`${appFont.variable} ${displayFont.variable}`}>
       <head>
         {/*
           Google Tag Manager (container GTM-TXWK77FV) loads on every page so

@@ -34,7 +34,8 @@ export function postMetadata(post: PublicPost, lang: Lang): Metadata {
   const path = postPath(post.slug, lang);
   // The canonical override applies to the Arabic page; the English page always points at itself.
   const canonical = lang === "ar" && post.seo.canonicalUrl ? post.seo.canonicalUrl : path;
-  const image = postShareImage(post);
+  // A post without its own image shares with the site's default card instead of a bare link.
+  const image = postShareImage(post) || "/opengraph-image";
   return {
     title: text.metaTitle,
     description: text.metaDescription,

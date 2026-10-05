@@ -63,6 +63,11 @@ describe("managed redirects", () => {
     expect(paused.status).toBe(200); // disabled rules do nothing
     const post = await proxy(new NextRequest("http://localhost/old-pricing", { method: "POST" }));
     expect(post.status).toBe(200); // only GET/HEAD are redirected
+    const langHeader = async (path: string) => (await proxy(new NextRequest(`http://localhost${path}`))).headers.get("x-middleware-request-x-linkly-lang");
+    expect(await langHeader("/en/faq")).toBe("en");
+    expect(await langHeader("/en")).toBe("en");
+    expect(await langHeader("/faq")).toBe("ar");
+    expect(await langHeader("/entry")).toBe("ar"); // only /en and /en/* are English
     const legacy = await proxy(new NextRequest("http://localhost/terms.html"));
     expect(legacy.status).toBe(308);
 
