@@ -621,6 +621,12 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS admin_action_logs_admin_user_id_created_at_idx ON admin_action_logs (admin_user_id, created_at)`
   );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS renewal_followups (
+    tenant_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'new',
+    updated_by TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+  )`);
   // Developer API/webhooks tables (feat: f2b8f2b) never reached this
   // production bridge - the runtime-repair section further down that
   // otherwise creates them is skipped entirely in production, so
@@ -1599,6 +1605,12 @@ async function runSchemaMigrations() {
   )`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS admin_action_logs_admin_user_id_created_at_idx ON admin_action_logs (admin_user_id, created_at)`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS admin_action_logs_target_type_target_id_idx ON admin_action_logs (target_type, target_id)`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS renewal_followups (
+    tenant_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'new',
+    updated_by TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+  )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL,

@@ -1,39 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { SubscriptionRow } from "../types";
 import { formatNumber, RENEWAL_SOON_DAYS } from "../utils";
 import { Badge, Button, EmptyState, Segmented, StatCard } from "../ds/primitives";
 import ChargeDialog from "../clients/ChargeDialog";
 import { invoiceBreakdown } from "../clients/clients-data";
-import { BUCKETS, FOLLOW_UP_LABEL, bucketCounts, buildAlerts, exposure, inBucket, isFollowUp, parseStoredFollowUps, type Bucket, type FollowUp } from "./alerts-data";
+import { callAdminApi, jsonInit } from "../content-api";
+import { useToast } from "../ds/Toast";
+import { BUCKETS, FOLLOW_UP_LABEL, bucketCounts, buildAlerts, exposure, inBucket, isFollowUp, type Bucket, type FollowUp } from "./alerts-data";
 
-const STORAGE_KEY = "linkly-admin-renewal-followups";
+export type FollowUpEntries = Record<string, { status: FollowUp; updatedBy: string; updatedAt: string }>;
 
-export default function AlertsView({ subscriptions, initialStatus = "all" }: { subscriptions: SubscriptionRow[]; initialStatus?: string }) {
+export default function AlertsView({ subscriptions, initialStatus = "all", initialFollowUps = {} }: { subscriptions: SubscriptionRow[]; initialStatus?: string; initialFollowUps?: FollowUpEntries }) {
+  const toast = useToast();
   const [bucket, setBucket] = useState<Bucket>(initialStatus === "overdue" ? "overdue" : "all");
   const [chargeClient, setChargeClient] = useState<SubscriptionRow | null>(null);
-  const [followUps, setFollowUps] = useState<Record<string, FollowUp>>({});
+  const [followUps, setFollowUps] = useState<FollowUpEntries>(initialFollowUps);
 
-  // Follow-up notes are a personal reminder kept in this browser only.
-  useEffect(() => {
-    try {
-      setFollowUps(parseStoredFollowUps(window.localStorage.getItem(STORAGE_KEY)));
-    } catch {
-      // Storage blocked - the markers simply won't persist.
+  // Shared across the whole admin team: saved on the server, so everyone sees who last touched a client.
+  async function setFollowUp(tenantId: string, value: FollowUp) {
+    const previous = followUps[tenantId];
+    setFollowUps((current) => ({ ...current, [tenantId]: { status: value, updatedBy: "أنت", updatedAt: new Date().toISOString() } }));
+    const result = await callAdminApi<{ status: FollowUp; updatedBy: string; updatedAt: string }>("/api/admin/renewal-followups", jsonInit("PUT", { tenantId, status: value }));
+    if (result.ok && result.data) {
+      const saved = result.data;
+      setFollowUps((current) => ({ ...current, [tenantId]: saved }));
+      return;
     }
-  }, []);
-
-  function setFollowUp(tenantId: string, value: FollowUp) {
     setFollowUps((current) => {
-      const next = { ...current, [tenantId]: value };
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // Ignore - the marker still applies for this page view.
-      }
+      const next = { ...current };
+      if (previous) next[tenantId] = previous;
+      else delete next[tenantId];
       return next;
     });
+    toast("error", "تعذر حفظ حالة المتابعة", result.error);
   }
 
   const alerts = useMemo(() => buildAlerts(subscriptions), [subscriptions]);
@@ -80,7 +81,8 @@ export default function AlertsView({ subscriptions, initialStatus = "all" }: { s
               </thead>
               <tbody>
                 {visible.map(({ subscription, alert }) => {
-                  const followUp = followUps[subscription.tenantId] ?? "new";
+                  const entry = followUps[subscription.tenantId];
+                  const followUp = entry?.status ?? "new";
                   return (
                     <tr key={subscription.tenantId}>
                       <td data-cell="main">
@@ -102,10 +104,11 @@ export default function AlertsView({ subscriptions, initialStatus = "all" }: { s
                           style={{ minWidth: 140 }}
                           aria-label={`حالة متابعة ${subscription.companyName}`}
                           value={followUp}
-                          onChange={(event) => isFollowUp(event.target.value) && setFollowUp(subscription.tenantId, event.target.value)}
+                          onChange={(event) => isFollowUp(event.target.value) && void setFollowUp(subscription.tenantId, event.target.value)}
                         >
                           {(Object.keys(FOLLOW_UP_LABEL) as FollowUp[]).map((key) => <option key={key} value={key}>{FOLLOW_UP_LABEL[key]}</option>)}
                         </select>
+                        {entry?.updatedBy ? <small style={{ display: "block", color: "var(--ds-text-muted)", fontSize: 11.5, marginTop: 4 }}>آخر تحديث: <bdi dir="ltr">{entry.updatedBy}</bdi></small> : null}
                       </td>
                       <td>
                         <div className="ds-cell-actions">
@@ -117,7 +120,7 @@ export default function AlertsView({ subscriptions, initialStatus = "all" }: { s
                 })}
               </tbody>
             </table>
-            <div className="ds-table-foot">حالة المتابعة تُحفظ على هذا المتصفح فقط كتذكير شخصي.</div>
+            <div className="ds-table-foot">حالة المتابعة مشتركة بين فريق الإدارة، وتظهر لكل عضو مع آخر من حدّثها.</div>
           </div>
         )}
       </section>

@@ -996,6 +996,15 @@ model AdminLog {
 // is tenant-scoped and has no admin-actor field at all. See
 // lib/admin-audit.ts's recordAdminAction, called from every mutating
 // app/api/admin/** route.
+model RenewalFollowUp {
+  tenantId  String @id @map("tenant_id")
+  status    String @default("new")
+  updatedBy String @default("") @map("updated_by")
+  updatedAt String @map("updated_at")
+
+  @@map("renewal_followups")
+}
+
 model AdminActionLog {
   id          String @id
   adminUserId String @map("admin_user_id")
