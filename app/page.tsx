@@ -79,10 +79,11 @@ export default async function HomePage(){
       audience: features?.audience.ar ?? "باقة مرنة تناسب احتياج فريقك.",
       cta: planCta[plan.name] ?? "ابدأ التجربة",
       featured: features?.featured,
+      custom: features?.custom,
       items: getPlanDisplayItems(plan, "ar")
     };
   });
-  const prices = dbPlans.map((plan) => plan.monthlyPrice).filter((price) => price > 0);
+  const prices = dbPlans.filter((plan) => !planFeatures[plan.name]?.custom).map((plan) => plan.monthlyPrice).filter((price) => price > 0);
   const lowPrice = prices.length ? String(Math.min(...prices)) : "199";
   const highPrice = prices.length ? String(Math.max(...prices)) : "1599";
   const jsonLd = { "@context":"https://schema.org", "@graph":[

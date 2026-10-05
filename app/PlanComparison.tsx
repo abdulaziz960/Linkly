@@ -36,7 +36,7 @@ export default function PlanComparison({ plans, lang }: Props) {
               {ordered.map((plan) => (
                 <th scope="col" key={plan.id} className={planFeatures[plan.name]?.featured ? s.featured : undefined}>
                   <span className={s.planName}>{planFeatures[plan.name]?.shortName[lang] ?? plan.name}</span>
-                  <span className={s.price}><b>{plan.monthlyPrice}</b> {text.currency} <small>{text.month}</small></span>
+                  <span className={s.price}>{planFeatures[plan.name]?.custom ? <b>{lang === "ar" ? "حسب الطلب" : "On request"}</b> : <><b>{plan.monthlyPrice}</b> {text.currency} <small>{text.month}</small></>}</span>
                 </th>
               ))}
             </tr>

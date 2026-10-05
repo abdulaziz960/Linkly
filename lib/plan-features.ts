@@ -23,6 +23,8 @@ export type PlanFeatures = {
   audience: { ar: string; en: string };
   items: { ar: string[]; en: string[] };
   featured?: boolean;
+  /** Quote-based plan: no price, every feature selectable; the CTA goes to the contact page. */
+  custom?: boolean;
 };
 
 export const planFeatures: Record<string, PlanFeatures> = {
@@ -60,11 +62,12 @@ export const planFeatures: Record<string, PlanFeatures> = {
     }
   },
   "باقة الشركات": {
-    shortName: { ar: "الشركات", en: "Corporate" },
-    audience: { ar: "الأنسب للشركات الكبيرة اللي تحتاج كل القنوات وحساب مخصص.", en: "Best for large companies that need every channel and a dedicated account." },
+    shortName: { ar: "صمم باقتك", en: "Build your plan" },
+    custom: true,
+    audience: { ar: "تواصل معنا واختر المزايا والقنوات والحدود التي تحتاجها، ونصدر لك عرض سعر خاص بما طلبته.", en: "Contact us, pick the features, channels and limits you need, and we'll send you a quote for exactly that." },
     items: {
-      ar: ["كل مزايا المؤسسات الكبيرة بدون حدود", "كتالوج وفروع وقاعدة معرفة غير محدودة", "مساعد AI (300 طلب يوميًا)", "علامة تجارية مخصّصة (White-label)", "مدير حساب مخصص ودعم VIP فوري"],
-      en: ["Everything in Large Enterprises, unlimited", "Unlimited catalog, branches and knowledge base", "AI assistant (300 requests/day)", "Custom white-label branding", "Dedicated account manager and instant VIP support"]
+      ar: ["عدد المستخدمين الذي تحتاجه", "كل القنوات: واتساب وإنستقرام وتيليجرام وفيسبوك وجيميل وتيك توك ويوتيوب ولينكدإن وسناب وSMS وغيرها", "رسائل تسويقية وحملات متكررة بلا حدود", "شرائح عملاء متقدمة وتقارير وتصدير Excel", "أتمتة وبوت بخطوات وعقد بلا حدود", "كتالوج المنتجات والشراء من واتساب بعدد تحدده", "الفروع وإرسال أقرب فرع بعدد تحدده", "قاعدة المعرفة ومساعد AI بحدود تناسبك", "التصعيد التلقائي للمحادثات", "واجهة API وWebhooks وتكاملات", "علامة تجارية مخصّصة (White-label)", "مدير حساب مخصص ودعم VIP فوري"],
+      en: ["As many users as you need", "Every channel: WhatsApp, Instagram, Telegram, Facebook, Gmail, TikTok, YouTube, LinkedIn, Snapchat, SMS and more", "Unlimited marketing messages and recurring campaigns", "Advanced customer segments, reports and Excel export", "Automation and bots with unlimited steps and nodes", "Product catalog and buying on WhatsApp, sized to you", "Branches and nearest-branch replies, sized to you", "Knowledge base and AI assistant with limits that fit you", "Automatic conversation escalation", "Developer API, webhooks and integrations", "Custom white-label branding", "Dedicated account manager and instant VIP support"]
     }
   }
 };
@@ -96,6 +99,8 @@ function fallbackTailItems(lang: "ar" | "en"): string[] {
 
 /** Full bullet list for a plan card: live numbers first, then the static descriptive copy (or a generic fallback for an unrecognized plan name). */
 export function getPlanDisplayItems(plan: PlanNumbers & { name: string }, lang: "ar" | "en"): string[] {
+  const own = planFeatures[plan.name];
+  if (own?.custom) return own.items[lang];
   const dynamic = buildPlanDynamicItems(plan, lang, { skipQuota: isViewLockedForPlan(plan.name, "campaigns") });
   const tail = planFeatures[plan.name]?.items[lang] ?? fallbackTailItems(lang);
   return [...dynamic, ...tail];

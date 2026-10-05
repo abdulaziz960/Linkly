@@ -17,16 +17,21 @@ type Plan = {
   cta: string;
   items: readonly string[];
   featured?: boolean;
+  custom?: boolean;
 };
 
 const copy = {
   ar: {
     currency: "ريال",
-    popular: "الأنسب لمعظم الفرق"
+    popular: "الأنسب لمعظم الفرق",
+    customPrice: "حسب احتياجك",
+    customNote: "بدون سعر ثابت · عرض سعر خاص بعد التواصل"
   },
   en: {
     currency: "SAR",
-    popular: "Best for most teams"
+    popular: "Best for most teams",
+    customPrice: "Tailored to you",
+    customNote: "No fixed price · a custom quote after you contact us"
   }
 } as const;
 
@@ -113,13 +118,18 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
         {featured ? <span className={c.pgPopular}>{text.popular}</span> : null}
         <h3>{p.name}</h3>
         <p className={c.pgAudience}>{p.audience}</p>
+        {p.custom ? <>
+          <div className={c.pgPrice}><b className={c.pgAmount} style={{ fontSize: 30 }}>{text.customPrice}</b></div>
+          <p className={c.pgNote} data-show>{text.customNote}</p>
+        </> : <>
         <div className={c.pgPrice}>
           <AnimatedPrice value={displayedPrice} />
           <span>{text.currency}<br />{cyclePriceSuffix(billingCycle, lang)}</span>
         </div>
         <p className={c.pgNote} data-show={multiMonth || undefined} aria-hidden={!multiMonth}>{multiMonth ? cycleBilledNote(billingCycle, cycleTotal, lang) : ""}</p>
+        </>}
         <ul>{p.items.map((item, ii) => <li key={item} style={{ "--i": ii } as CSSProperties}><span className={c.pgCheck} aria-hidden="true">✓</span>{item}</li>)}</ul>
-        <Link className={`${featured ? s.primaryLarge : s.planButton} ${c.pgCta}`} href={`/signup?plan=${encodeURIComponent(p.id)}${multiMonth ? `&billing=${CYCLE_SLUGS[billingCycle]}` : ""}`}>{p.cta}</Link>
+        <Link className={`${featured ? s.primaryLarge : s.planButton} ${c.pgCta}`} href={p.custom ? (lang === "en" ? "/en/contact" : "/contact") : `/signup?plan=${encodeURIComponent(p.id)}${multiMonth ? `&billing=${CYCLE_SLUGS[billingCycle]}` : ""}`}>{p.cta}</Link>
       </article>;
     })}</div>
   </>;
