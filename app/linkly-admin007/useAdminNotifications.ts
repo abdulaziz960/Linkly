@@ -96,6 +96,17 @@ export function useAdminNotifications() {
     setUnreadIds(newIds);
   }, []);
 
+  const markRead = useCallback((id: string) => {
+    const seen = readSeenIds();
+    seen.add(id);
+    writeSeenIds(seen);
+    setUnreadIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
   const markAllRead = useCallback(() => {
     setItems((current) => {
       writeSeenIds(new Set(current.map((item) => item.id)));
@@ -112,19 +123,16 @@ export function useAdminNotifications() {
 
   return {
     items,
-    // The badge shown on the bell itself: how many currently-active items
-    // need attention (errors + alerts), independent of whether this browser
-    // has already opened the dropdown once. unreadCount (below) is a
-    // separate "seen" tracker used only to decide when to play the chime -
-    // using it for the badge too meant 15 still-unresolved errors read as
-    // "0 notifications" the moment anyone glanced at the dropdown once,
-    // even though nothing about them had actually been fixed.
-    actionableCount: items.filter((item) => item.level !== "معلومة").length,
+    // The badge counts items that need attention (errors + alerts) and that
+    // this browser has not opened yet. Opening an item (or "mark all read")
+    // clears it; a new or newly-escalated item brings the badge back.
+    actionableCount: items.filter((item) => item.level !== "معلومة" && unreadIds.has(item.id)).length,
     unreadCount: unreadIds.size,
     unreadIds,
     soundEnabled,
     setSoundEnabled,
     markAllRead,
+    markRead,
     refresh: fetchNotifications
   };
 }

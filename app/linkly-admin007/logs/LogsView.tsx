@@ -239,7 +239,7 @@ export default function LogsView({ subscriptions, logs, initialFilters }: Props)
                         </>
                       ) : null}
                     </div>
-                    <time dateTime={log.timestamp ? new Date(log.timestamp).toISOString() : undefined} title={fullDate(log.timestamp, log.at)} className="ds-log-time">
+                    <time suppressHydrationWarning dateTime={log.timestamp ? new Date(log.timestamp).toISOString() : undefined} title={fullDate(log.timestamp, log.at)} className="ds-log-time">
                       {relativeTime(log.timestamp, now, formatNumber)}
                       <small>{fullDate(log.timestamp, log.at)}</small>
                     </time>
