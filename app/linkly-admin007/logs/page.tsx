@@ -13,7 +13,7 @@ export default async function AdminLogsPage({ searchParams }: { searchParams: Pr
         title={["سجل الحركة", "Activity log"]}
         description={["فلتر السجلات حسب العميل واعرض سجل الحركة كامل لكل حساب.", "Filter logs by client and view the full activity log for each account."]}
       />
-      <LogsView subscriptions={subscriptions} logs={logs} initialFilters={filters} />
+      <LogsView key={JSON.stringify(filters)} subscriptions={subscriptions} logs={logs} initialFilters={filters} />
     </>
   );
 }

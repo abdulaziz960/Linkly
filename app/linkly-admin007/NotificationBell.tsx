@@ -15,11 +15,13 @@ const LEVEL: Record<string, { label: string; tone: Tone }> = {
 
 function targetHref(item: AdminNotification) {
   if (item.type === "renewal") return "/linkly-admin007/alerts";
+  // The logs page hides error-level rows, so an error would open an empty list; send it to the client instead.
+  if (item.level === "خطأ" && item.tenantId) return `/linkly-admin007/clients/${item.tenantId}`;
   return `/linkly-admin007/logs?client=${item.tenantId}`;
 }
 
 export default function NotificationBell() {
-  const { items, actionableCount, markAllRead, soundEnabled, setSoundEnabled } = useAdminNotifications();
+  const { items, actionableCount, unreadIds, markRead, markAllRead, soundEnabled, setSoundEnabled } = useAdminNotifications();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -45,12 +47,7 @@ export default function NotificationBell() {
         aria-label={actionableCount ? `الإشعارات، ${actionableCount} تحتاج متابعة` : "الإشعارات"}
         aria-expanded={open}
         aria-controls="admin-notification-list"
-        onClick={() => {
-          setOpen((current) => {
-            if (!current) markAllRead();
-            return !current;
-          });
-        }}
+        onClick={() => setOpen((current) => !current)}
       >
         <Icon name="bell" size={19} />
         {actionableCount > 0 ? <span className="ds-dot" aria-hidden="true">{actionableCount > 9 ? "9+" : actionableCount}</span> : null}
@@ -64,12 +61,13 @@ export default function NotificationBell() {
               <input type="checkbox" checked={soundEnabled} onChange={(event) => setSoundEnabled(event.target.checked)} />
               تنبيه صوتي
             </label>
+            {actionableCount > 0 ? <button type="button" className="ds-link-btn" onClick={markAllRead}>تحديد الكل كمقروء</button> : null}
           </div>
           <div className="ds-popover-list">
             {items.slice(0, 8).map((item) => {
               const level = LEVEL[item.level] ?? LEVEL["معلومة"];
               return (
-                <Link key={item.id} href={targetHref(item)} className="ds-popover-row" onClick={() => setOpen(false)}>
+                <Link key={item.id} href={targetHref(item)} className="ds-popover-row" onClick={() => { markRead(item.id); setOpen(false); }} style={unreadIds.has(item.id) ? undefined : { opacity: 0.65 }}>
                   <Badge tone={level.tone}>{level.label}</Badge>
                   <div>
                     <strong>{item.title}</strong>
