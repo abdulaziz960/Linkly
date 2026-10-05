@@ -3,11 +3,14 @@ import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
 import { recordAdminAction } from "../../../../../lib/admin-audit";
 import { reorderFaqItems } from "../../../../../lib/faq-store";
 import { jsonError, jsonOk } from "../../../_utils/json";
+import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 
 export const runtime = "nodejs";
 
 /** `{ ids: [...] }` - the new order, first to last. */
 export async function POST(request: NextRequest) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const admin = await requirePlatformAdmin("content");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 

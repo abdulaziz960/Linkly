@@ -5,6 +5,7 @@ import { isValidEmail } from "../../../../../../../lib/validation";
 import { getSubscriptionForTenant, logAdminAction } from "../../../../../../../lib/subscriptions";
 import { changeDetails, recordAdminAction } from "../../../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../../../_utils/json";
+import { isTrustedOrigin } from "../../../../../../../lib/origin-guard";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,8 @@ type RouteContext = { params: Promise<{ id: string; employeeId: string }> };
  * and self-lockout guards, which don't apply to a trusted admin caller.
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const admin = await requirePlatformAdmin("clients");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 

@@ -4,12 +4,15 @@ import { prisma } from "../../../../../../lib/prisma";
 import { isDevelopmentStatus } from "../../../../../../lib/development";
 import { recordAdminAction } from "../../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../../_utils/json";
+import { isTrustedOrigin } from "../../../../../../lib/origin-guard";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export const runtime = "nodejs";
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const { id } = await context.params;
   const admin = await requirePlatformAdmin("support");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);

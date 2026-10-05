@@ -6,6 +6,7 @@ import { recordAdminAction } from "../../../../../../lib/admin-audit";
 import { getTenantGrants, setTenantGrants } from "../../../../../../lib/plan-grants";
 import { encodeGrantKeys } from "../../../../../../lib/plan-access";
 import { jsonError, jsonOk } from "../../../../_utils/json";
+import { isTrustedOrigin } from "../../../../../../lib/origin-guard";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
  * `{ keys: ["catalog", "feature:escalation", "channel:youtube", "limit:branches", ...] }`.
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const admin = await requirePlatformAdmin("clients");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 

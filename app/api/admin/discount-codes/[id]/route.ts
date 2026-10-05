@@ -4,10 +4,13 @@ import { getDiscountCodeById, updateDiscountCode } from "../../../../../lib/prom
 import { changeDetails, recordAdminAction } from "../../../../../lib/admin-audit";
 import { prisma } from "../../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../../_utils/json";
+import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 
 export const runtime = "nodejs";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const admin = await requirePlatformAdmin("billing");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
   const { id } = await params;
@@ -39,6 +42,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const admin = await requirePlatformAdmin("billing");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
   const { id } = await params;

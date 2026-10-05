@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const createTenantWithSubscription = vi.fn();
 const sendTrialSignupNotification = vi.fn();
@@ -79,5 +79,36 @@ describe("POST /api/trial", () => {
     createTenantWithSubscription.mockRejectedValue(new Error("duplicate"));
     expect((await POST(request({ ...validBody, termsAccepted: true }))).status).toBe(400);
     expect(sendTrialSignupNotification).not.toHaveBeenCalled();
+  });
+
+  describe("activationUrl fallback (a production email-provider outage must not strand a new signup)", () => {
+    const originalEnv = process.env.NODE_ENV;
+    afterEach(() => {
+      vi.stubEnv("NODE_ENV", originalEnv ?? "test");
+    });
+
+    it("omits activationUrl in production when the invite email actually sent", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      createTenantWithSubscription.mockResolvedValue({ created: true, subscription: { tenantId: "tenant-new" }, inviteDelivery: { sent: true, activationUrl: "https://linklysa.io/activate?token=x", message: "" } });
+
+      const body = await (await POST(request({ ...validBody, termsAccepted: true }))).json();
+      expect(body.data.activationUrl).toBeUndefined();
+    });
+
+    it("returns activationUrl in production when the invite email failed to send", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      createTenantWithSubscription.mockResolvedValue({ created: true, subscription: { tenantId: "tenant-new" }, inviteDelivery: { sent: false, activationUrl: "https://linklysa.io/activate?token=x", message: "" } });
+
+      const body = await (await POST(request({ ...validBody, termsAccepted: true }))).json();
+      expect(body.data.activationUrl).toBe("https://linklysa.io/activate?token=x");
+    });
+
+    it("always returns activationUrl outside production, sent or not", async () => {
+      vi.stubEnv("NODE_ENV", "development");
+      createTenantWithSubscription.mockResolvedValue({ created: true, subscription: { tenantId: "tenant-new" }, inviteDelivery: { sent: true, activationUrl: "https://linklysa.io/activate?token=x", message: "" } });
+
+      const body = await (await POST(request({ ...validBody, termsAccepted: true }))).json();
+      expect(body.data.activationUrl).toBe("https://linklysa.io/activate?token=x");
+    });
   });
 });

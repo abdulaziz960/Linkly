@@ -54,8 +54,11 @@ export async function POST(request: NextRequest) {
   if (items.length > MAX_BATCH) return withCors(NextResponse.json({ ok: false, error: `At most ${MAX_BATCH} products per request` }, { status: 400 }));
 
   const tenantId = result.auth!.tenantId;
-  const created: string[] = [];
-  const updated: string[] = [];
+  // Callers need the Linkly id back - externalId alone is not enough for a
+  // subsequent GET/DELETE by internal id, and before this field existed the
+  // response only gave counts, so a caller had no way to learn the id a
+  // freshly created product was assigned.
+  const items_: Array<{ id: string; externalId: string; status: "created" | "updated" }> = [];
   const errors: Array<{ index: number; error: string }> = [];
 
   for (const [index, item] of items.entries()) {
@@ -70,13 +73,15 @@ export async function POST(request: NextRequest) {
     }
     try {
       const { product, created: wasCreated } = await upsertProductByExternalId(tenantId, "api", cleaned.data);
-      (wasCreated ? created : updated).push(product.id);
+      items_.push({ id: product.id, externalId: cleaned.data.externalId, status: wasCreated ? "created" : "updated" });
     } catch (error) {
       if (!(error instanceof PlanLimitError)) throw error;
       errors.push({ index, error: error.message });
     }
   }
 
-  const status = errors.length && !created.length && !updated.length ? 400 : 200;
-  return withCors(NextResponse.json({ ok: status === 200, data: { created: created.length, updated: updated.length, errors } }, { status }));
+  const created = items_.filter((entry) => entry.status === "created").length;
+  const updated = items_.filter((entry) => entry.status === "updated").length;
+  const status = errors.length && !items_.length ? 400 : 200;
+  return withCors(NextResponse.json({ ok: status === 200, data: { created, updated, items: items_, errors } }, { status }));
 }

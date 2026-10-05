@@ -3,10 +3,13 @@ import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
 import { recordAdminAction } from "../../../../../lib/admin-audit";
 import { cleanBlogInput, deleteBlogPost, updateBlogPost, type BlogInput } from "../../../../../lib/blog-store";
 import { jsonError, jsonOk } from "../../../_utils/json";
+import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 
 export const runtime = "nodejs";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const admin = await requirePlatformAdmin("content");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
@@ -20,7 +23,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   return jsonOk(result.post);
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const admin = await requirePlatformAdmin("content");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 

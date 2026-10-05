@@ -8,6 +8,7 @@ import { buildPaymentMetadata, createMoyasarInvoice, isMoyasarConfigured, paymen
 import { createStripeCheckoutSession, isStripeConfigured } from "../../../../../lib/stripe";
 import { recordAdminAction } from "../../../../../lib/admin-audit";
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../../lib/payment-status";
+import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,8 @@ export const runtime = "nodejs";
  * through the same webhook / apply path as self-serve checkout.
  */
 export async function POST(request: NextRequest) {
+  if (!isTrustedOrigin(request)) return NextResponse.json({ ok: false, error: "الطلب مرفوض (مصدر غير موثوق)" }, { status: 403 });
+
   const admin = await requirePlatformAdmin("billing");
   if (!admin) return NextResponse.json({ ok: false, error: "لا تملك صلاحية الوصول" }, { status: 403 });
 

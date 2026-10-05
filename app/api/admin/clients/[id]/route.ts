@@ -3,10 +3,13 @@ import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
 import { getSubscriptionForTenant, updateSubscription } from "../../../../../lib/subscriptions";
 import { changeDetails, recordAdminAction } from "../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../_utils/json";
+import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 
 export const runtime = "nodejs";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   const admin = await requirePlatformAdmin("clients");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
@@ -39,6 +42,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 // PATCH instead - it blocks the tenant's access immediately while keeping
 // every row (conversations, customers, billing history, ...) intact, and
 // can be reversed at any time by setting status back to "نشط".
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
+  if (!isTrustedOrigin(request)) return jsonError("الطلب مرفوض (مصدر غير موثوق)", 403);
+
   return jsonError("حذف حسابات العملاء نهائيًا غير متاح. استخدم تعطيل الحساب بدلاً من ذلك.", 403);
 }
