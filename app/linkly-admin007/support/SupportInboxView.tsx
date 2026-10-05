@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { SUPPORT_PRIORITIES, SUPPORT_STATUSES } from "../../../lib/support";
-import { Badge, Button, EmptyState } from "../ds/primitives";
+import { Badge, Button, EmptyState, Segmented } from "../ds/primitives";
+import SupportBoard from "./SupportBoard";
+import { formatWaiting, slaInfo } from "./support-sla";
 import { useToast } from "../ds/Toast";
 import Icon from "../ds/Icon";
 import { ADMIN_STATUS_LABEL, MAIN_FILTERS, OTHER_FILTERS, PRIORITY_LABEL, PRIORITY_TONE, STATUS_TONE, applyClientFilter, buildListQuery, formatTicketTime, type FilterKey } from "./support-data";
@@ -21,6 +23,8 @@ type Ticket = {
   status: string;
   assignedAgentId: string;
   assignedAgentName: string;
+  createdAt: string;
+  lastCustomerReplyAt: string;
   updatedAt: string;
 };
 
@@ -36,7 +40,7 @@ type Message = {
   createdAt: string;
 };
 
-type TicketDetail = Ticket & { messages: Message[]; createdAt: string; relatedUrl: string };
+type TicketDetail = Ticket & { messages: Message[]; relatedUrl: string };
 type Counts = { byStatus: Record<string, number>; urgent: number; unassigned: number; assignedToMe: number };
 
 export default function SupportInboxView({ adminId, adminName }: { adminId: string; adminName: string }) {
@@ -44,6 +48,8 @@ export default function SupportInboxView({ adminId, adminName }: { adminId: stri
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [counts, setCounts] = useState<Counts>({ byStatus: {}, urgent: 0, unassigned: 0, assignedToMe: 0 });
+  const [view, setView] = useState<"inbox" | "board">("inbox");
+  const [now] = useState(() => Date.now());
   const [filter, setFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -169,7 +175,24 @@ export default function SupportInboxView({ adminId, adminName }: { adminId: stri
     );
   };
 
+  const toggle = (
+    <div style={{ marginBottom: 14 }}>
+      <Segmented label="طريقة عرض التذاكر" value={view} onChange={setView} options={[{ value: "inbox", label: "صندوق الوارد" }, { value: "board", label: "لوحة Kanban" }]} />
+    </div>
+  );
+
+  if (view === "board") {
+    return (
+      <>
+        {toggle}
+        <SupportBoard onOpen={(id) => { select(id); setView("inbox"); }} />
+      </>
+    );
+  }
+
   return (
+    <>
+      {toggle}
     <div className="support-inbox ds-card" data-pane={selectedId ? "conversation" : "list"}>
       <aside className="support-inbox-filters" aria-label="تصفية التذاكر">
         <h2>البريد الوارد</h2>
@@ -199,6 +222,10 @@ export default function SupportInboxView({ adminId, adminName }: { adminId: stri
                 <span className="support-inbox-row-subject">{ticket.subject}</span>
                 <span className="support-inbox-row-bottom">
                   <Badge tone={STATUS_TONE[ticket.status] ?? "neutral"}>{ADMIN_STATUS_LABEL[ticket.status] ?? ticket.status}</Badge>
+                  {(() => {
+                    const sla = slaInfo(ticket, now);
+                    return sla.state === "none" ? null : <Badge tone={sla.state === "breached" ? "danger" : sla.state === "at_risk" ? "warning" : "success"} dot={false}>ينتظر {formatWaiting(sla.waitingMinutes)}</Badge>;
+                  })()}
                   <time>{formatTicketTime(ticket.updatedAt)}</time>
                 </span>
               </button>
@@ -299,5 +326,6 @@ export default function SupportInboxView({ adminId, adminName }: { adminId: stri
         )}
       </section>
     </div>
+    </>
   );
 }

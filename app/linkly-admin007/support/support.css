@@ -355,3 +355,102 @@
     display: inline-grid;
   }
 }
+
+/* ---------- Kanban board ---------- */
+.support-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(250px, 1fr);
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  align-items: start;
+}
+.support-board-col {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-surface-sunken);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.support-board-col[data-over] {
+  border-color: var(--ds-brand);
+  background: var(--ds-brand-soft);
+}
+.support-board-col > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px;
+}
+.support-board-cards {
+  display: grid;
+  gap: 10px;
+  min-height: 48px;
+}
+.support-board-empty {
+  margin: 0;
+  padding: 14px 6px;
+  color: var(--ds-text-faint);
+  font-size: 13px;
+  text-align: center;
+}
+.support-board-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  background: var(--ds-surface);
+  box-shadow: var(--ds-shadow-sm);
+  cursor: grab;
+}
+.support-board-card[data-dragging] {
+  opacity: 0.5;
+}
+.support-board-open {
+  display: grid;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.support-board-open strong {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.support-board-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ds-text-muted);
+  font-size: 12.5px;
+}
+.support-board-company,
+.support-board-agent {
+  color: var(--ds-text-muted);
+  font-size: 12.5px;
+}
+.support-board-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.support-board-move .ds-select {
+  min-height: 34px;
+  font-size: 13px;
+}
+.support-board-loading {
+  padding: 40px;
+  color: var(--ds-text-muted);
+  text-align: center;
+}
