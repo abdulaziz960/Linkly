@@ -1293,3 +1293,26 @@ model BlogPost {
   @@index([published, postDate])
   @@map("blog_posts")
 }
+
+// Internal notes platform admins keep on a client (never shown to the client).
+model ClientNote {
+  id         String @id
+  tenantId   String @map("tenant_id")
+  authorId   String @default("") @map("author_id")
+  authorName String @default("") @map("author_name")
+  body       String
+  createdAt  String @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@map("client_notes")
+}
+
+// Per-member restrictions for the platform team (see lib/admin-permissions.ts).
+model PlatformAdminPermission {
+  userId      String @id @map("user_id")
+  permissions String
+  updatedAt   String @map("updated_at")
+  updatedBy   String @default("") @map("updated_by")
+
+  @@map("platform_admin_permissions")
+}

@@ -116,6 +116,7 @@ export function usePwaInstall() {
     subscribed,
     busy,
     isIos: isIos(),
+    canPrompt: Boolean(deferredPrompt),
     // Ready once install/enable would actually do something more - hides
     // every entry point (button, sidebar row, coachmark) once satisfied.
     done: installed && subscribed,

@@ -1,8 +1,11 @@
 import { getSubscriptions, getSubscriptionPayments } from "../../../lib/subscriptions";
 import AdminPageHeader from "../AdminPageHeader";
 import PaymentsView from "./PaymentsView";
+import { guardPage } from "../guard";
 
 export default async function AdminPaymentsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const denied = await guardPage("billing");
+  if (denied) return denied;
   const [filters, subscriptions, payments] = await Promise.all([searchParams, getSubscriptions(), getSubscriptionPayments()]);
 
   return (
@@ -12,7 +15,7 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
         title={["سجل مدفوعات العملاء", "Client payment history"]}
         description={["سجل كل طلبات الدفع عبر Moyasar لكل عميل - اشتراكات وشحن رصيد رسائل الحملات معًا - بحالتها الفعلية.", "A record of every payment request via Moyasar for each client — subscriptions and campaign message balance top-ups together — with its actual status."]}
       />
-      <PaymentsView subscriptions={subscriptions} payments={payments} initialStatus={filters.status} initialClient={filters.client} />
+      <PaymentsView subscriptions={subscriptions} payments={payments} initialStatus={filters.status} initialClient={filters.client} initialQuery={filters.q} />
     </>
   );
 }

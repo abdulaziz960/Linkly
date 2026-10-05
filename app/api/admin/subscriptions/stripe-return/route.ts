@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   // this top-level navigation. Gating it the same way as every other
   // admin/subscriptions route closes off an anonymous caller replaying a
   // leaked session_id/paymentId pair to activate someone's subscription.
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("billing");
   if (!admin) {
     return NextResponse.redirect(`${baseUrl()}/linkly-admin007`);
   }

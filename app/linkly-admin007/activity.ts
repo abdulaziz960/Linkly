@@ -13,7 +13,8 @@ export type ActionLogRow = {
   createdAt: string;
 };
 
-export type ActivityDetail = { label: string; value: string };
+// `previous` is set when the audit entry recorded the value before the change.
+export type ActivityDetail = { label: string; value: string; previous?: string };
 export type ActivityView = {
   id: string;
   at: string;
@@ -57,7 +58,15 @@ const FIELD_LABELS: Record<string, string> = {
   renewalAt: "تاريخ التجديد",
   role: "الدور",
   tenantId: "معرّف العميل",
-  rejectionReason: "سبب الرفض"
+  rejectionReason: "سبب الرفض",
+  maxDiscountAmount: "أقصى مبلغ خصم",
+  minimumAmount: "الحد الأدنى للمبلغ",
+  applicablePlanIds: "الباقات المشمولة",
+  newUsersOnly: "للمستخدمين الجدد فقط",
+  firstSubscriptionOnly: "لأول اشتراك فقط",
+  usageLimitPerUser: "حد الاستخدام لكل مستخدم",
+  permissions: "الصلاحيات",
+  subject: "العنصر"
 };
 
 const STATUS_VALUES: Record<string, string> = {
@@ -86,10 +95,18 @@ const TEMPLATES: Record<string, Template> = {
   "invite-platform-admin": { title: (a) => `دعا ${a} عضوًا جديدًا إلى فريق المنصة`, tone: "info" },
   "revoke-platform-admin": { title: (a) => `سحب ${a} صلاحية الإدارة من أحد أعضاء الفريق`, tone: "danger" },
   "update-development-request": { title: (a) => `حدّث ${a} حالة طلب تطوير`, tone: "info" },
-  "update-support-ticket": { title: (a) => `حدّث ${a} تذكرة دعم فني`, tone: "info" }
+  "update-support-ticket": { title: (a) => `حدّث ${a} تذكرة دعم فني`, tone: "info" },
+  "update-team-permissions": { title: (a) => `عدّل ${a} صلاحيات عضو في الفريق`, tone: "warning" },
+  "suspend-platform-admin": { title: (a) => `أوقف ${a} حساب عضو في الفريق`, tone: "danger" },
+  "reactivate-platform-admin": { title: (a) => `أعاد ${a} تفعيل حساب عضو`, tone: "success" },
+  "revoke-platform-admin-sessions": { title: (a) => `أنهى ${a} جلسات عضو في الفريق`, tone: "warning" },
+  "add-client-note": { title: (a) => `أضاف ${a} ملاحظة داخلية على عميل`, tone: "info" },
+  "delete-client-note": { title: (a) => `حذف ${a} ملاحظة داخلية`, tone: "warning" }
 };
 
-function formatValue(key: string, value: unknown): string {
+export const fieldLabel = (key: string) => FIELD_LABELS[key] ?? key;
+
+export function formatValue(key: string, value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "نعم" : "لا";
   if (key === "active") return Number(value) === 1 ? "نعم" : "لا";
@@ -104,7 +121,16 @@ export function parseDetails(raw: string): ActivityDetail[] {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return Object.entries(parsed as Record<string, unknown>)
+      const record = parsed as Record<string, unknown>;
+      // New format: { subject?, before: {...}, after: {...} } - show "from -> to".
+      if (record.after && typeof record.after === "object" && !Array.isArray(record.after)) {
+        const after = record.after as Record<string, unknown>;
+        const before = (record.before && typeof record.before === "object" ? record.before : {}) as Record<string, unknown>;
+        return Object.keys(after)
+          .filter((key) => !SENSITIVE.test(key))
+          .map((key) => ({ label: FIELD_LABELS[key] ?? key, value: formatValue(key, after[key]), previous: key in before ? formatValue(key, before[key]) : undefined }));
+      }
+      return Object.entries(record)
         .filter(([key, value]) => !SENSITIVE.test(key) && (typeof value !== "object" || value === null))
         .map(([key, value]) => ({ label: FIELD_LABELS[key] ?? key, value: formatValue(key, value) }));
     }
@@ -118,7 +144,14 @@ export function describeAction(row: ActionLogRow): ActivityView {
   const actor = row.adminName || row.adminEmail.split("@")[0] || "أحد أعضاء الفريق";
   const template = TEMPLATES[row.action];
   const details = parseDetails(row.details);
-  const target = details.find((detail) => detail.label === "المنشأة" || detail.label === "الاسم" || detail.label === "الكود")?.value ?? "";
+  let subject = "";
+  try {
+    const parsed: unknown = JSON.parse(row.details);
+    if (parsed && typeof parsed === "object" && typeof (parsed as Record<string, unknown>).subject === "string") subject = (parsed as Record<string, string>).subject;
+  } catch {
+    // plain-text details have no subject
+  }
+  const target = subject || (details.find((detail) => detail.label === "المنشأة" || detail.label === "الاسم" || detail.label === "الكود")?.value ?? "");
   return {
     id: row.id,
     at: row.createdAt,

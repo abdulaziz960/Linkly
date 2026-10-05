@@ -10,6 +10,8 @@ import Icon from "./ds/Icon";
 import { useConfirm } from "./ds/Dialog";
 import { useTheme } from "./ds/theme";
 import { NAV_GROUPS, type NavItem } from "./nav";
+import { canAccessPath } from "../../lib/admin-permissions";
+import { useAdminPermissions } from "./ds/permissions-context";
 
 function badgeFor(item: NavItem, summary: AdminSummary | null) {
   if (!summary || !item.badge) return null;
@@ -33,6 +35,9 @@ export default function AdminSidebar({ user, summary, collapsed, onToggleCollaps
   const confirm = useConfirm();
   const { theme, toggle } = useTheme();
   const [signingOut, setSigningOut] = useState(false);
+  const { permissions } = useAdminPermissions();
+  // Links to sections the member cannot open are not shown (the server blocks them regardless).
+  const groups = NAV_GROUPS.map((group) => ({ ...group, items: group.items.filter((item) => canAccessPath(permissions, item.href)) })).filter((group) => group.items.length > 0);
 
   async function signOut() {
     if (signingOut) return;
@@ -59,7 +64,7 @@ export default function AdminSidebar({ user, summary, collapsed, onToggleCollaps
       </div>
 
       <nav className="ds-sidebar-scroll" aria-label="تنقل لوحة التحكم">
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div className="ds-nav-group" key={group.label} role="group" aria-label={group.label}>
             <div className="ds-nav-label">{group.label}</div>
             {group.items.map((item) => {

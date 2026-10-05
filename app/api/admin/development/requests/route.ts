@@ -6,7 +6,7 @@ import { jsonError, jsonOk } from "../../../_utils/json";
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("support");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
   const { searchParams } = new URL(request.url);

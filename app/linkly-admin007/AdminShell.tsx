@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import type { AdminUser } from "./types";
+import type { AdminPermission } from "../../lib/admin-permissions";
+import { AdminPermissionsProvider } from "./ds/permissions-context";
 import AdminSidebar from "./AdminSidebar";
 import AdminTopbar from "./AdminTopbar";
 import { LanguageProvider } from "./i18n";
@@ -13,7 +15,7 @@ import { ConfirmProvider } from "./ds/Dialog";
 import { useAdminSummary } from "./useAdminSummary";
 import "./ds/ds.css";
 
-export default function AdminShell({ user, children }: { user: AdminUser; children: ReactNode }) {
+export default function AdminShell({ user, permissions, children }: { user: AdminUser; permissions: AdminPermission[]; children: ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -49,6 +51,7 @@ export default function AdminShell({ user, children }: { user: AdminUser; childr
       <ThemeProvider>
         <ToastProvider>
           <ConfirmProvider>
+            <AdminPermissionsProvider permissions={permissions}>
             <a href="#admin-content" className="ds-skip">تخطي إلى المحتوى</a>
             <div className="ds-app" data-drawer={drawerOpen ? "open" : "closed"}>
               <AdminSidebar user={user} summary={summary} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
@@ -58,6 +61,7 @@ export default function AdminShell({ user, children }: { user: AdminUser; childr
                 <section className="ds-content" id="admin-content" tabIndex={-1}>{children}</section>
               </div>
             </div>
+            </AdminPermissionsProvider>
           </ConfirmProvider>
         </ToastProvider>
       </ThemeProvider>

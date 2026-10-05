@@ -17,7 +17,7 @@ export async function getPlatformTeam() {
   await ensureSchema();
   return prisma.userAccount.findMany({
     where: { isPlatformAdmin: 1 },
-    select: { id: true, name: true, email: true, createdAt: true },
+    select: { id: true, name: true, email: true, createdAt: true, lastLoginAt: true, disabled: true },
     orderBy: { createdAt: "asc" }
   });
 }
@@ -68,7 +68,7 @@ export async function invitePlatformAdmin(input: { name: string; email: string }
   const activationUrl = `${origin}/activate?token=${resetToken}`;
   const delivery = await sendActivationEmail({ to: email, name, activationUrl });
 
-  return { delivery };
+  return { delivery, userId };
 }
 
 export async function revokePlatformAdmin(id: string, requestingUserId: string) {
@@ -82,4 +82,37 @@ export async function revokePlatformAdmin(id: string, requestingUserId: string) 
   if (!target || target.isPlatformAdmin !== 1) throw new Error("العضو غير موجود");
 
   await prisma.userAccount.update({ where: { id }, data: { isPlatformAdmin: 0 } });
+}
+
+/**
+ * Suspends or reactivates a team member's account. Suspending also invalidates
+ * every session they have (sessionVersion bump) so access stops immediately.
+ * Guards: not yourself, and never the last active member who can manage the team.
+ */
+export async function setPlatformAdminDisabled(id: string, disabled: boolean, requestingUserId: string, teamManagerIds: string[]) {
+  await ensureSchema();
+  if (disabled && id === requestingUserId) throw new Error("لا يمكنك إيقاف حسابك بنفسك");
+
+  const target = await prisma.userAccount.findUnique({ where: { id } });
+  if (!target || target.isPlatformAdmin !== 1) throw new Error("العضو غير موجود");
+
+  if (disabled) {
+    const activeManagers = await prisma.userAccount.count({ where: { id: { in: teamManagerIds }, isPlatformAdmin: 1, disabled: 0 } });
+    const targetIsActiveManager = teamManagerIds.includes(id) && target.disabled === 0;
+    if (targetIsActiveManager && activeManagers <= 1) throw new Error("لا يمكن إيقاف آخر عضو نشط يملك صلاحية إدارة الفريق");
+  }
+
+  await prisma.userAccount.update({
+    where: { id },
+    data: disabled ? { disabled: 1, sessionVersion: { increment: 1 } } : { disabled: 0 }
+  });
+}
+
+/** Signs a member out everywhere by invalidating all their session tokens. */
+export async function revokePlatformAdminSessions(id: string, requestingUserId: string) {
+  await ensureSchema();
+  if (id === requestingUserId) throw new Error("لإنهاء جلستك الحالية استخدم تسجيل الخروج");
+  const target = await prisma.userAccount.findUnique({ where: { id } });
+  if (!target || target.isPlatformAdmin !== 1) throw new Error("العضو غير موجود");
+  await prisma.userAccount.update({ where: { id }, data: { sessionVersion: { increment: 1 } } });
 }

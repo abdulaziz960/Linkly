@@ -113,7 +113,7 @@ export default function AdminActionsView({ actions }: { actions: AdminActionLog[
             <div><dt>الإجراء</dt><dd dir="ltr">{selected.action}</dd></div>
             {selected.targetType ? <div><dt>نوع الهدف</dt><dd>{TARGET_LABEL[selected.targetType] ?? selected.targetType}</dd></div> : null}
             {selected.targetId ? <div><dt>معرّف الهدف</dt><dd dir="ltr">{selected.targetId}</dd></div> : null}
-            {parseDetails(selected.details).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}
+            {parseDetails(selected.details).map(([key, value, previous]) => <div key={key}><dt>{key}</dt><dd>{previous !== undefined ? <><span style={{ color: "var(--ds-text-faint)", textDecoration: "line-through" }}>{previous}</span> ← <b style={{ color: "var(--ds-success)" }}>{value}</b></> : value}</dd></div>)}
           </dl>
         ) : null}
       </Drawer>

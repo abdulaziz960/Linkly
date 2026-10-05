@@ -111,6 +111,10 @@ export type TeamRow = {
   name: string;
   email: string;
   createdAt: string;
+  lastLoginAt?: string;
+  disabled?: number;
+  // Permission keys held by the member (see lib/admin-permissions.ts); full access when omitted.
+  permissions?: string[];
 };
 
 export type AdminUser = { id: string; name: string; email: string };

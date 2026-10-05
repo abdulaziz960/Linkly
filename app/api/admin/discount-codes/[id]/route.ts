@@ -1,14 +1,14 @@
 import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
 import { getDiscountCodeById, updateDiscountCode } from "../../../../../lib/promo-codes";
-import { recordAdminAction } from "../../../../../lib/admin-audit";
+import { changeDetails, recordAdminAction } from "../../../../../lib/admin-audit";
 import { prisma } from "../../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("billing");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
   const { id } = await params;
 
@@ -29,8 +29,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   };
 
   try {
+    const previous = await getDiscountCodeById(id);
     const discountCode = await updateDiscountCode(id, body);
-    await recordAdminAction(admin, "update-discount-code", { type: "discount_code", id }, JSON.stringify(body));
+    await recordAdminAction(admin, "update-discount-code", { type: "discount_code", id }, changeDetails(previous ?? {}, body, previous?.code));
     return jsonOk(discountCode);
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "تعذر تحديث كود الخصم", 400);
@@ -38,7 +39,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("billing");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
   const { id } = await params;
 

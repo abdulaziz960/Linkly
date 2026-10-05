@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { PlanRow, SubscriptionRow } from "../types";
 import { formatNumber, getRenewalAlert } from "../utils";
@@ -11,9 +11,14 @@ import ActionMenu from "../ds/ActionMenu";
 import ChargeDialog from "./ChargeDialog";
 import Icon from "../ds/Icon";
 import { useQueryFlag } from "../ds/useQueryFlag";
+import { useAdminPermissions } from "../ds/permissions-context";
+import Pagination from "../ds/Pagination";
+import { useSavedViews } from "../ds/useSavedViews";
+import { RENEWAL_FILTER_OPTIONS, USAGE_FILTER_OPTIONS } from "./clients-filter-options";
+import { NO_ADVANCED_FILTERS, clientsToCsv, countAdvancedFilters, deriveClient, matchesAdvanced, paginate, type AdvancedFilters, type RenewalFilter, type UsageFilter } from "./clients-filters";
 import { SORT_OPTIONS, STATUS_FILTERS, clientCounts, filterClients, invoiceBreakdown, sortClients, type ClientSort, type ClientStatusFilter } from "./clients-data";
 
-type Props = { subscriptions: SubscriptionRow[]; plans: PlanRow[] };
+type Props = { subscriptions: SubscriptionRow[]; plans: PlanRow[]; generatedAt: number };
 
 type ClientDraft = { company: string; owner: string; ownerEmail: string; plan: string; status: string; renewal: string; amount: string; billingCycle: string };
 type CreatePayload = { company: string; owner: string; ownerEmail: string; plan: string; status: string; renewal: string; amount: number; billingCycle: string };
@@ -46,15 +51,23 @@ function emptyDraft(plans: PlanRow[]): ClientDraft {
   return { company: "", owner: "", ownerEmail: "", plan: first?.name || "", status: "تجربة", renewal: "", amount: String(first?.monthlyPrice ?? 0), billingCycle: "تجربة 3 أيام" };
 }
 
-export default function ClientsView({ subscriptions, plans }: Props) {
+export default function ClientsView({ subscriptions, plans, generatedAt }: Props) {
   const router = useRouter();
   const confirm = useConfirm();
   const toast = useToast();
+  const { can } = useAdminPermissions();
 
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ClientStatusFilter>("الكل");
   const [sort, setSort] = useState<ClientSort>("recent");
   const [followUpOnly, setFollowUpOnly] = useState(false);
+  const [advanced, setAdvanced] = useState<AdvancedFilters>(NO_ADVANCED_FILTERS);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const { views, save: saveView, remove: removeView } = useSavedViews<{ query: string; status: ClientStatusFilter; followUpOnly: boolean; advanced: AdvancedFilters }>("linkly_admin_clients_views");
 
   const [modal, setModal] = useState<Modal>(null);
   const [busy, setBusy] = useState(false);
@@ -74,8 +87,64 @@ export default function ClientsView({ subscriptions, plans }: Props) {
   const [balanceAmount, setBalanceAmount] = useState("");
 
   const counts = useMemo(() => clientCounts(subscriptions), [subscriptions]);
-  const visible = useMemo(() => sortClients(filterClients(subscriptions, { query, status, followUpOnly }), sort), [subscriptions, query, status, followUpOnly, sort]);
-  const hasFilters = Boolean(query.trim()) || status !== "الكل" || followUpOnly;
+  const derived = useMemo(() => new Map(subscriptions.map((client) => [client.tenantId, deriveClient(client, generatedAt)])), [subscriptions, generatedAt]);
+  const advancedCount = countAdvancedFilters(advanced);
+  const visible = useMemo(
+    () => sortClients(filterClients(subscriptions, { query, status, followUpOnly }), sort).filter((client) => matchesAdvanced(client, derived.get(client.tenantId)!, advanced)),
+    [subscriptions, query, status, followUpOnly, sort, advanced, derived]
+  );
+  const hasFilters = Boolean(query.trim()) || status !== "الكل" || followUpOnly || advancedCount > 0;
+  const paged = useMemo(() => paginate(visible, page, pageSize), [visible, page, pageSize]);
+  const planNames = useMemo(() => Array.from(new Set([...plans.map((plan) => plan.name), ...subscriptions.map((client) => client.plan)])).filter(Boolean), [plans, subscriptions]);
+  const selectedClients = useMemo(() => subscriptions.filter((client) => selected.has(client.tenantId)), [subscriptions, selected]);
+
+  // Back to page 1 whenever the result set changes; selection never outlives its rows.
+  useEffect(() => setPage(1), [query, status, followUpOnly, sort, advanced, pageSize]);
+  useEffect(() => setSelected((current) => new Set([...current].filter((key) => subscriptions.some((client) => client.tenantId === key)))), [subscriptions]);
+
+  function clearFilters() {
+    setQuery("");
+    setStatus("الكل");
+    setFollowUpOnly(false);
+    setAdvanced(NO_ADVANCED_FILTERS);
+  }
+
+  function exportCsv(rows: SubscriptionRow[], label: string) {
+    const blob = new Blob([clientsToCsv(rows)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `linkly-clients-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast("success", "تم تصدير الملف", `${formatNumber(rows.length)} عميل (${label})`);
+  }
+
+  async function bulkSetStatus(targets: SubscriptionRow[], next: "نشط" | "متوقف") {
+    if (!targets.length) return;
+    const disabling = next === "متوقف";
+    const names = targets.slice(0, 5).map((client) => client.companyName).join("، ") + (targets.length > 5 ? ` و${formatNumber(targets.length - 5)} آخرين` : "");
+    const ok = await confirm({
+      title: disabling ? `تعطيل ${formatNumber(targets.length)} حساب؟` : `تفعيل ${formatNumber(targets.length)} حساب؟`,
+      description: disabling ? `سيفقد العملاء الوصول إلى لوحاتهم فورًا (${names}). لا يُحذف أي شيء ويمكن إعادة التفعيل في أي وقت.` : `سيعود الوصول إلى العملاء فورًا (${names}).`,
+      confirmLabel: disabling ? "تعطيل الحسابات" : "تفعيل الحسابات",
+      tone: disabling ? "danger" : "default",
+      requireText: disabling && targets.length > 1 ? "تعطيل" : undefined
+    });
+    if (!ok) return;
+    setBulkBusy(true);
+    let failed = 0;
+    let lastError = "";
+    for (const client of targets) {
+      const result = await call(`/api/admin/clients/${client.tenantId}`, "PATCH", { status: next });
+      if (!result.ok) { failed += 1; lastError = result.error || ""; }
+    }
+    setBulkBusy(false);
+    if (failed === 0) toast("success", disabling ? "تم تعطيل الحسابات" : "تم تفعيل الحسابات", `${formatNumber(targets.length)} حساب`);
+    else toast("error", `تعذر تحديث ${formatNumber(failed)} من ${formatNumber(targets.length)}`, lastError);
+    setSelected(new Set());
+    router.refresh();
+  }
 
   function openAdd() {
     setDraft(emptyDraft(plans));
@@ -244,6 +313,10 @@ export default function ClientsView({ subscriptions, plans }: Props) {
             }))}
           />
           <div className="ds-toolbar-end">
+            <Button variant={showAdvanced ? "primary" : "outline"} icon="filter" aria-expanded={showAdvanced} onClick={() => setShowAdvanced((value) => !value)}>
+              فلاتر متقدمة{advancedCount ? ` (${formatNumber(advancedCount)})` : ""}
+            </Button>
+            <Button variant="outline" icon="download" disabled={!visible.length} onClick={() => exportCsv(visible, "النتائج الحالية")}>تصدير CSV</Button>
             <Button variant={followUpOnly ? "primary" : "outline"} icon="alert" aria-pressed={followUpOnly} onClick={() => setFollowUpOnly((value) => !value)}>
               يحتاج متابعة
             </Button>
@@ -253,6 +326,62 @@ export default function ClientsView({ subscriptions, plans }: Props) {
           </div>
         </div>
 
+        {showAdvanced ? (
+          <div className="ds-filter-panel" role="group" aria-label="فلاتر العملاء المتقدمة">
+            <div className="ds-field" style={{ gridColumn: "span 2" }}>
+              <span>الباقة</span>
+              <div className="ds-chip-row">
+                {planNames.map((plan) => (
+                  <button key={plan} type="button" className="ds-chip" aria-pressed={advanced.plans.includes(plan)} onClick={() => setAdvanced((current) => ({ ...current, plans: current.plans.includes(plan) ? current.plans.filter((item) => item !== plan) : [...current.plans, plan] }))}>{plan}</button>
+                ))}
+              </div>
+            </div>
+            <label className="ds-field"><span>موعد التجديد</span>
+              <select className="ds-select" value={advanced.renewal} onChange={(event) => setAdvanced((current) => ({ ...current, renewal: event.target.value as RenewalFilter }))}>
+                {RENEWAL_FILTER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+            <label className="ds-field"><span>الاستخدام</span>
+              <select className="ds-select" value={advanced.usage} onChange={(event) => setAdvanced((current) => ({ ...current, usage: event.target.value as UsageFilter }))}>
+                {USAGE_FILTER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+            <label className="ds-field"><span>انضم من</span><input className="ds-input" type="date" value={advanced.joinedFrom} max={advanced.joinedTo || undefined} onChange={(event) => setAdvanced((current) => ({ ...current, joinedFrom: event.target.value }))} /></label>
+            <label className="ds-field"><span>انضم حتى</span><input className="ds-input" type="date" value={advanced.joinedTo} min={advanced.joinedFrom || undefined} onChange={(event) => setAdvanced((current) => ({ ...current, joinedTo: event.target.value }))} /></label>
+            <div style={{ display: "flex", gap: 8, alignItems: "end", flexWrap: "wrap" }}>
+              <Button variant="ghost" disabled={!hasFilters} onClick={clearFilters}>مسح كل الفلاتر</Button>
+              <Button variant="outline" disabled={!hasFilters} onClick={() => {
+                const name = window.prompt("اسم العرض المحفوظ:");
+                if (name?.trim()) { saveView(name.trim(), { query, status, followUpOnly, advanced }); toast("success", "تم حفظ العرض", name.trim()); }
+              }}>حفظ كعرض</Button>
+            </div>
+            {views.length ? (
+              <div className="ds-field" style={{ gridColumn: "1 / -1" }}>
+                <span>العروض المحفوظة (على هذا المتصفح)</span>
+                <div className="ds-chip-row">
+                  {views.map((view) => (
+                    <span key={view.id} className="ds-chip" style={{ paddingInlineEnd: 4 }}>
+                      <button type="button" style={{ all: "unset", cursor: "pointer" }} onClick={() => { setQuery(view.filters.query); setStatus(view.filters.status); setFollowUpOnly(view.filters.followUpOnly); setAdvanced(view.filters.advanced); }}>{view.name}</button>
+                      <button type="button" className="ds-icon-btn" style={{ width: 24, height: 24 }} aria-label={`حذف العرض ${view.name}`} onClick={() => removeView(view.id)}><Icon name="x" size={13} /></button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {selected.size > 0 ? (
+          <div className="ds-bulkbar" role="region" aria-label="إجراءات جماعية">
+            <span>{formatNumber(selected.size)} محدد</span>
+            <div className="ds-bulkbar-spacer" />
+            <Button variant="outline" icon="download" onClick={() => exportCsv(selectedClients, "المحدد")}>تصدير المحدد</Button>
+            <Button variant="outline" loading={bulkBusy} disabled={!selectedClients.some((client) => client.status === "متوقف")} onClick={() => bulkSetStatus(selectedClients.filter((client) => client.status === "متوقف"), "نشط")}>تفعيل</Button>
+            <Button variant="danger" loading={bulkBusy} disabled={!selectedClients.some((client) => client.status !== "متوقف")} onClick={() => bulkSetStatus(selectedClients.filter((client) => client.status !== "متوقف"), "متوقف")}>تعطيل</Button>
+            <Button variant="ghost" onClick={() => setSelected(new Set())}>إلغاء التحديد</Button>
+          </div>
+        ) : null}
+
         {!subscriptions.length ? (
           <EmptyState icon="users" title="لا يوجد عملاء بعد" description="أنشئ أول حساب عميل وسيصله رابط التفعيل على بريده." action={<Button variant="primary" icon="plus" onClick={openAdd}>إضافة عميل</Button>} />
         ) : !visible.length ? (
@@ -260,13 +389,22 @@ export default function ClientsView({ subscriptions, plans }: Props) {
             icon="search"
             title="لا توجد نتائج مطابقة"
             description="جرّب تغيير كلمات البحث أو إزالة التصفية."
-            action={hasFilters ? <Button variant="outline" onClick={() => { setQuery(""); setStatus("الكل"); setFollowUpOnly(false); }}>إزالة التصفية</Button> : undefined}
+            action={hasFilters ? <Button variant="outline" onClick={clearFilters}>إزالة التصفية</Button> : undefined}
           />
         ) : (
           <div className="ds-table-wrap">
             <table className="ds-table">
               <thead>
                 <tr>
+                  <th scope="col" className="ds-table-check">
+                    <input
+                      type="checkbox"
+                      aria-label="تحديد كل العملاء في هذه الصفحة"
+                      checked={paged.rows.length > 0 && paged.rows.every((client) => selected.has(client.tenantId))}
+                      ref={(element) => { if (element) element.indeterminate = paged.rows.some((client) => selected.has(client.tenantId)) && !paged.rows.every((client) => selected.has(client.tenantId)); }}
+                      onChange={(event) => setSelected((current) => { const next = new Set(current); for (const client of paged.rows) { if (event.target.checked) next.add(client.tenantId); else next.delete(client.tenantId); } return next; })}
+                    />
+                  </th>
                   <th scope="col">العميل</th>
                   <th scope="col">الحالة</th>
                   <th scope="col">الباقة</th>
@@ -278,11 +416,14 @@ export default function ClientsView({ subscriptions, plans }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((client) => {
+                {paged.rows.map((client) => {
                   const invoice = invoiceBreakdown(client);
                   const alert = getRenewalAlert(client);
                   return (
-                    <tr key={client.tenantId}>
+                    <tr key={client.tenantId} data-selected={selected.has(client.tenantId) || undefined}>
+                      <td className="ds-table-check">
+                        <input type="checkbox" aria-label={`تحديد ${client.companyName}`} checked={selected.has(client.tenantId)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(client.tenantId)) next.delete(client.tenantId); else next.add(client.tenantId); return next; })} />
+                      </td>
                       <td data-cell="main">
                         <div className="ds-cell-main">
                           <span className="ds-avatar" aria-hidden="true">{client.companyName.slice(0, 1) || "ع"}</span>
@@ -321,7 +462,7 @@ export default function ClientsView({ subscriptions, plans }: Props) {
                           <ActionMenu
                             label={`المزيد من الإجراءات لـ ${client.companyName}`}
                             items={[
-                              { key: "charge", label: "شحن / تجديد الاشتراك", icon: "wallet", onSelect: () => openEditor("charge", client) },
+                              ...(can("billing") ? [{ key: "charge", label: "شحن / تجديد الاشتراك", icon: "wallet" as const, onSelect: () => openEditor("charge", client) }] : []),
                               { key: "plan", label: "تغيير الباقة يدويًا", icon: "layers", onSelect: () => openEditor("plan", client) },
                               { key: "limit", label: "تعديل حد المستخدمين", icon: "users", onSelect: () => openEditor("limit", client) },
                               { key: "balance", label: "إضافة رصيد رسائل حملات", icon: "message", onSelect: () => openEditor("balance", client) },
@@ -346,6 +487,7 @@ export default function ClientsView({ subscriptions, plans }: Props) {
             <div className="ds-table-foot">يُعرض {formatNumber(visible.length)} من {formatNumber(subscriptions.length)} عميل.</div>
           </div>
         )}
+        {visible.length ? <Pagination page={paged.page} pageCount={paged.pageCount} total={visible.length} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} /> : null}
       </Section>
 
       {/* ---- Add client ---- */}

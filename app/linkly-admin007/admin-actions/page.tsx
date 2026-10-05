@@ -1,8 +1,11 @@
 import { getAdminActionLogs } from "../../../lib/admin-audit";
 import AdminPageHeader from "../AdminPageHeader";
 import AdminActionsView from "./AdminActionsView";
+import { guardPage } from "../guard";
 
 export default async function AdminActionsPage() {
+  const denied = await guardPage("team");
+  if (denied) return denied;
   const actions = await getAdminActionLogs();
 
   return (

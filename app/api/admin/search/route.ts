@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requirePlatformAdmin } from "../../../../lib/admin-auth";
+import { getAdminPermissions, requirePlatformAdmin } from "../../../../lib/admin-auth";
 import { getSubscriptionPayments, getSubscriptions } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -26,7 +26,12 @@ export async function GET(request: NextRequest) {
   const query = normalise(new URL(request.url).searchParams.get("q")?.trim() ?? "");
   if (query.length < 2) return jsonOk<AdminSearchResults>({ clients: [], payments: [] });
 
-  const [subscriptions, payments] = await Promise.all([getSubscriptions(), getSubscriptionPayments()]);
+  // Each group is searched only when the member may see it.
+  const permissions = await getAdminPermissions(admin.id);
+  const [subscriptions, payments] = await Promise.all([
+    permissions.includes("clients") ? getSubscriptions() : Promise.resolve([]),
+    permissions.includes("billing") ? getSubscriptionPayments() : Promise.resolve([])
+  ]);
 
   const clients = subscriptions
     .filter((subscription) => normalise(`${subscription.companyName} ${subscription.ownerName} ${subscription.ownerEmail} ${subscription.tenantId}`).includes(query))

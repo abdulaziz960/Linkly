@@ -6,6 +6,11 @@ import Link from "next/link";
 import Script from "next/script";
 
 const CONSENT_STORAGE_KEY = "linkly-analytics-consent";
+/** First-party cookie with the same value: survives localStorage clears and is re-issued by the server (/api/consent). */
+const CONSENT_COOKIE_NAME = "linkly_consent";
+const CONSENT_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+/** Internal tools never show the banner and never load analytics. */
+const NO_BANNER_PREFIXES = ["/linkly-admin007"];
 /** Dispatched by CookieSettingsLink to reopen the banner after a first choice. */
 export const REOPEN_COOKIE_BANNER_EVENT = "linkly:open-cookie-settings";
 const GTM_ID = "GTM-5K5C9WRZ";
@@ -36,6 +41,38 @@ function clearAnalyticsCookies() {
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/${domain ? `; domain=${domain}` : ""}`;
     });
   });
+}
+
+function readCookieConsent(): Consent {
+  if (typeof document === "undefined") return null;
+  const entry = document.cookie.split("; ").find((item) => item.startsWith(`${CONSENT_COOKIE_NAME}=`));
+  const value = entry?.split("=")[1];
+  return value === "accepted" || value === "rejected" ? value : null;
+}
+
+function readStoredConsent(): Consent {
+  let local: Consent = null;
+  try {
+    const stored = window.localStorage.getItem(CONSENT_STORAGE_KEY);
+    if (stored === "accepted" || stored === "rejected") local = stored;
+  } catch {
+    // Storage blocked - the cookie below may still hold the choice.
+  }
+  return readCookieConsent() ?? local;
+}
+
+/** Writes the choice to every store (cookie, localStorage) so it is remembered even if one of them is cleared. */
+function persistConsent(value: "accepted" | "rejected") {
+  try {
+    window.localStorage.setItem(CONSENT_STORAGE_KEY, value);
+  } catch {
+    // Best effort; the cookie still holds it.
+  }
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${CONSENT_COOKIE_NAME}=${value}; Max-Age=${CONSENT_MAX_AGE_SECONDS}; Path=/; SameSite=Lax${secure}`;
+  // Re-issue the cookie from the server: browsers (Safari ITP) cap script-set
+  // cookies at 7 days but keep server-set first-party cookies for their full life.
+  void fetch("/api/consent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ choice: value }), keepalive: true }).catch(() => undefined);
 }
 
 const copy = {
@@ -86,21 +123,22 @@ export default function CookieConsent() {
   const text = copy[lang];
   const [consent, setConsent] = useState<Consent>(null);
   const [decided, setDecided] = useState(false);
+  // The stored choice is only known on the client. Until it has been read, no
+  // banner is rendered, so returning visitors never see it flash on page load.
+  const [ready, setReady] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(CONSENT_STORAGE_KEY);
-      if (stored === "accepted" || stored === "rejected") {
-        setConsent(stored);
-        setDecided(true);
-        if (stored === "rejected") clearAnalyticsCookies();
-      }
-    } catch {
-      // Private mode/blocked storage - fall through to showing the banner
-      // every visit rather than tracking without ever asking.
+    const stored = readStoredConsent();
+    if (stored) {
+      setConsent(stored);
+      setDecided(true);
+      if (stored === "rejected") clearAnalyticsCookies();
+      // Self-heal: if only one store still has the choice, copy it to the other.
+      persistConsent(stored);
     }
+    setReady(true);
 
     const reopen = () => setSettingsOpen(true);
     window.addEventListener(REOPEN_COOKIE_BANNER_EVENT, reopen);
@@ -123,16 +161,14 @@ export default function CookieConsent() {
     setDecided(true);
     setSettingsOpen(false);
     if (value === "rejected") clearAnalyticsCookies();
-    try {
-      window.localStorage.setItem(CONSENT_STORAGE_KEY, value);
-    } catch {
-      // Best-effort persistence only - the in-memory choice still applies
-      // for the rest of this page view either way.
-    }
+    persistConsent(value);
     // Removing a Script element cannot unload a previously loaded analytics
     // runtime. Reload with the rejected preference to stop future tracking.
     if (shouldReload) window.location.reload();
   }
+
+  // Internal tools (admin panel): no banner, no analytics.
+  if (NO_BANNER_PREFIXES.some((prefix) => pathname?.startsWith(prefix))) return null;
 
   return (
     <>
@@ -154,7 +190,7 @@ gtag('config', '${GTAG_ID}');`}
           </Script>
         </>
       ) : null}
-      {!decided && !settingsOpen ? (
+      {ready && !decided && !settingsOpen ? (
         <div
           role="dialog"
           aria-label={lang === "ar" ? "إشعار الكوكيز" : "Cookie notice"}

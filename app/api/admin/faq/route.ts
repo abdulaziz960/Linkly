@@ -7,14 +7,14 @@ import { jsonError, jsonOk } from "../../_utils/json";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("content");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
   await seedDefaultFaqsIfEmpty();
   return jsonOk(await listFaqItems());
 }
 
 export async function POST(request: NextRequest) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("content");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
   const body = (await request.json().catch(() => null)) as FaqInput | null;

@@ -5,6 +5,7 @@ import type { PaymentRow, SubscriptionRow } from "../types";
 import { formatNumber } from "../utils";
 import { Badge, Button, EmptyState, Section, Segmented, StatCard } from "../ds/primitives";
 import { Drawer } from "../ds/Dialog";
+import ChargeDialog from "../clients/ChargeDialog";
 import { useToast } from "../ds/Toast";
 import Icon from "../ds/Icon";
 import { sanitizeCsvCell } from "../../../lib/csv-export";
@@ -32,6 +33,7 @@ type Props = {
   payments: PaymentRow[];
   initialStatus?: string;
   initialClient?: string;
+  initialQuery?: string;
 };
 
 function download(content: BlobPart, type: string, name: string) {
@@ -46,16 +48,18 @@ function download(content: BlobPart, type: string, name: string) {
 const EXPORT_HEADERS = ["التاريخ", "العميل", "النوع", "المبلغ", "الحالة", "مرجع Moyasar"];
 const exportRow = (payment: PaymentRow) => [payment.completedAt || payment.createdAt, payment.companyName, payment.source, payment.amount, payment.status, payment.moyasarId];
 
-export default function PaymentsView({ subscriptions, payments, initialStatus, initialClient }: Props) {
+export default function PaymentsView({ subscriptions, payments, initialStatus, initialClient, initialQuery }: Props) {
   const toast = useToast();
   const [filters, setFilters] = useState<PaymentFilters>(() => ({
     ...EMPTY_FILTERS,
+    query: initialQuery?.slice(0, 120) ?? "",
     status: normalizeStatusParam(initialStatus),
     client: initialClient && subscriptions.some((client) => client.tenantId === initialClient) ? initialClient : "all"
   }));
   const [sort, setSort] = useState<PaymentSort>("recent");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selected, setSelected] = useState<PaymentRow | null>(null);
+  const [retryClient, setRetryClient] = useState<SubscriptionRow | null>(null);
   const [now] = useState(() => Date.now());
 
   function patch(next: Partial<PaymentFilters>) {
@@ -234,6 +238,11 @@ export default function PaymentsView({ subscriptions, payments, initialStatus, i
         footer={
           selected?.status === "قيد الانتظار" && selected.paymentUrl ? (
             <Button variant="primary" icon="external" onClick={() => window.open(selected.paymentUrl, "_blank", "noreferrer")}>فتح رابط الدفع</Button>
+          ) : selected && selected.status !== "مكتمل" && selected.status !== "قيد الانتظار" && subscriptions.some((client) => client.tenantId === selected.tenantId) ? (
+            <>
+              <Button variant="outline" onClick={() => setSelected(null)}>إغلاق</Button>
+              <Button variant="primary" icon="refresh" onClick={() => { setRetryClient(subscriptions.find((client) => client.tenantId === selected.tenantId) ?? null); setSelected(null); }}>إنشاء رابط دفع جديد</Button>
+            </>
           ) : (
             <Button variant="outline" onClick={() => setSelected(null)}>إغلاق</Button>
           )
@@ -253,6 +262,9 @@ export default function PaymentsView({ subscriptions, payments, initialStatus, i
           </div>
         ) : null}
       </Drawer>
+
+      {/* Retry = a fresh payment link for the same client; success is only ever set by the gateway confirmation. */}
+      <ChargeDialog client={retryClient} onClose={() => setRetryClient(null)} />
     </>
   );
 }

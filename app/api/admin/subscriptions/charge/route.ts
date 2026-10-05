@@ -18,7 +18,7 @@ export const runtime = "nodejs";
  * through the same webhook / apply path as self-serve checkout.
  */
 export async function POST(request: NextRequest) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("billing");
   if (!admin) return NextResponse.json({ ok: false, error: "لا تملك صلاحية الوصول" }, { status: 403 });
 
   const body = (await request.json().catch(() => null)) as { tenantId?: string; amount?: number; gateway?: string } | null;

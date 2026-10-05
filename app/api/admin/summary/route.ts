@@ -1,4 +1,4 @@
-import { requirePlatformAdmin } from "../../../../lib/admin-auth";
+import { getAdminPermissions, requirePlatformAdmin } from "../../../../lib/admin-auth";
 import { ensureSchema } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { getSubscriptions } from "../../../../lib/subscriptions";
@@ -24,11 +24,14 @@ export async function GET() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Counters only for the areas the member may open.
+  const permissions = await getAdminPermissions(admin.id);
+  const canSupport = permissions.includes("support");
   const [subscriptions, supportOpen, supportUrgent, developmentPending] = await Promise.all([
-    getSubscriptions(),
-    prisma.supportTicket.count({ where: { status: { notIn: ["resolved", "closed"] } } }),
-    prisma.supportTicket.count({ where: { priority: "urgent", status: { notIn: ["resolved", "closed"] } } }),
-    prisma.featureRequest.count({ where: { status: "pending" } })
+    permissions.includes("clients") ? getSubscriptions() : Promise.resolve([]),
+    canSupport ? prisma.supportTicket.count({ where: { status: { notIn: ["resolved", "closed"] } } }) : Promise.resolve(0),
+    canSupport ? prisma.supportTicket.count({ where: { priority: "urgent", status: { notIn: ["resolved", "closed"] } } }) : Promise.resolve(0),
+    canSupport ? prisma.featureRequest.count({ where: { status: "pending" } }) : Promise.resolve(0)
   ]);
 
   const renewalsDue = subscriptions.filter((subscription) => {

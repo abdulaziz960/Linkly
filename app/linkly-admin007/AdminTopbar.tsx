@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import type { AdminUser } from "./types";
 import Icon from "./ds/Icon";
 import { breadcrumbsFor, QUICK_ACTIONS } from "./nav";
+import { canAccessPath } from "../../lib/admin-permissions";
+import { useAdminPermissions } from "./ds/permissions-context";
 import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
 import { useTheme } from "./ds/theme";
@@ -37,6 +39,8 @@ export default function AdminTopbar({ onOpenMenu, user }: { onOpenMenu: () => vo
   const quickRef = useDismiss(quickOpen, () => setQuickOpen(false));
   const userRef = useDismiss(userOpen, () => setUserOpen(false));
   const crumbs = breadcrumbsFor(pathname);
+  const { permissions } = useAdminPermissions();
+  const quickActions = QUICK_ACTIONS.filter((action) => canAccessPath(permissions, action.href.split("?")[0]));
 
   useEffect(() => {
     setQuickOpen(false);
@@ -62,13 +66,14 @@ export default function AdminTopbar({ onOpenMenu, user }: { onOpenMenu: () => vo
 
       <GlobalSearch />
 
+      {quickActions.length > 0 ? (
       <div className="ds-popover-wrap" ref={quickRef}>
         <button type="button" className="ds-btn" data-variant="primary" onClick={() => setQuickOpen((open) => !open)} aria-haspopup="menu" aria-expanded={quickOpen}>
           <Icon name="plus" size={16} /><span className="ds-hide-sm">إجراء سريع</span>
         </button>
         {quickOpen ? (
           <div className="ds-popover" role="menu" style={{ width: 240 }}>
-            {QUICK_ACTIONS.map((action) => (
+            {quickActions.map((action) => (
               <button key={action.href} type="button" role="menuitem" className="ds-menu-item" onClick={() => router.push(action.href)}>
                 <Icon name={action.icon} size={17} />{action.label}
               </button>
@@ -76,6 +81,7 @@ export default function AdminTopbar({ onOpenMenu, user }: { onOpenMenu: () => vo
           </div>
         ) : null}
       </div>
+      ) : null}
 
       <NotificationBell />
 

@@ -2,8 +2,11 @@ import { notFound } from "next/navigation";
 import { getDiscountCodeById, getDiscountCodeUsageStats } from "../../../../lib/promo-codes";
 import AdminPageHeader from "../../AdminPageHeader";
 import DiscountCodeDetailView from "./DiscountCodeDetailView";
+import { guardPage } from "../../guard";
 
 export default async function AdminDiscountCodeDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const denied = await guardPage("billing");
+  if (denied) return denied;
   const { id } = await params;
   const discountCode = await getDiscountCodeById(id);
   if (!discountCode) notFound();

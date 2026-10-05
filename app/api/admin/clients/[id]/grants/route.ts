@@ -10,7 +10,7 @@ import { jsonError, jsonOk } from "../../../../_utils/json";
 export const runtime = "nodejs";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("clients");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
   const { id: tenantId } = await params;
   return jsonOk({ granted: encodeGrantKeys(await getTenantGrants(tenantId)) });
@@ -21,7 +21,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
  * `{ keys: ["catalog", "feature:escalation", "channel:youtube", "limit:branches", ...] }`.
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdmin("clients");
   if (!admin) return jsonError("لا تملك صلاحية الوصول", 403);
 
   const { id: tenantId } = await params;

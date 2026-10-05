@@ -1,4 +1,5 @@
 import type { Tone } from "../ds/primitives";
+import { fieldLabel, formatValue } from "../activity";
 
 export type ActionLike = {
   id: string;
@@ -34,7 +35,13 @@ export const ACTION_LABEL: Record<string, string> = {
   "update-client-subscription": "تعديل اشتراك عميل",
   "update-development-request": "تحديث اقتراح تطوير",
   "update-feature-grants": "تعديل صلاحيات عميل الاستثنائية",
-  "update-support-ticket": "تحديث تذكرة دعم"
+  "update-support-ticket": "تحديث تذكرة دعم",
+  "update-team-permissions": "تعديل صلاحيات عضو",
+  "suspend-platform-admin": "إيقاف حساب عضو",
+  "reactivate-platform-admin": "إعادة تفعيل عضو",
+  "revoke-platform-admin-sessions": "إنهاء جلسات عضو",
+  "add-client-note": "إضافة ملاحظة على عميل",
+  "delete-client-note": "حذف ملاحظة على عميل"
 };
 
 export const TARGET_LABEL: Record<string, string> = {
@@ -68,14 +75,27 @@ export function filterActions<T extends ActionLike>(actions: T[], filters: { adm
   });
 }
 
-/** Turns the stored details string into key/value rows; falls back to a single raw row. */
-export function parseDetails(details: string): Array<[string, string]> {
+/**
+ * Turns the stored details string into rows: [label, value, previous?]. The
+ * "before/after" format written by changeDetails() yields rows with the
+ * previous value; flat JSON and plain text keep their original shape.
+ * Nested objects are never dumped as raw JSON.
+ */
+export function parseDetails(details: string): Array<[string, string] | [string, string, string]> {
   const text = details.trim();
   if (!text) return [];
   try {
     const parsed = JSON.parse(text);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return Object.entries(parsed as Record<string, unknown>).map(([key, value]) => [key, typeof value === "string" ? value : JSON.stringify(value)] as [string, string]);
+      const record = parsed as Record<string, unknown>;
+      if (record.after && typeof record.after === "object" && !Array.isArray(record.after)) {
+        const after = record.after as Record<string, unknown>;
+        const before = (record.before && typeof record.before === "object" ? record.before : {}) as Record<string, unknown>;
+        return Object.keys(after).map((key) => (key in before
+          ? [fieldLabel(key), formatValue(key, after[key]), formatValue(key, before[key])] as [string, string, string]
+          : [fieldLabel(key), formatValue(key, after[key])] as [string, string]));
+      }
+      return Object.entries(record).map(([key, value]) => [key, typeof value === "string" ? value : typeof value === "object" && value !== null ? "—" : JSON.stringify(value)] as [string, string]);
     }
   } catch {
     // Not JSON - show it verbatim.

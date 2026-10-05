@@ -1,8 +1,11 @@
 import { getSubscriptions } from "../../../lib/subscriptions";
 import AdminPageHeader from "../AdminPageHeader";
 import AlertsView from "./AlertsView";
+import { guardPage } from "../guard";
 
 export default async function AdminAlertsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const denied = await guardPage("clients");
+  if (denied) return denied;
   const [subscriptions, filters] = await Promise.all([getSubscriptions(), searchParams]);
 
   return (
