@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type AdminNotification = {
   id: string;
-  type: "renewal" | "log";
+  type: "renewal" | "log" | "email";
   level: "معلومة" | "تنبيه" | "خطأ";
   title: string;
   message: string;

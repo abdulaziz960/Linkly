@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { cleanUrl } from "./blog-store";
+import { DEFAULT_PAGE_SEO } from "./page-seo-defaults";
 
 /**
  * SEO overrides for the fixed public pages (home, FAQ, contact, legal...),
- * edited from the admin panel. A blank field keeps the page's built-in value.
+ * edited from the admin panel. A field the admin has not filled in falls back to the
+ * complete defaults in lib/page-seo-defaults.ts; a saved value always wins.
  * Blog posts have their own fields (see lib/blog-seo.ts).
  */
 
@@ -32,6 +34,22 @@ export type PageSeoInput = { metaTitle?: unknown; metaDescription?: unknown; can
 type Stored = Omit<PageSeoRow, "label">;
 const blank = (path: string): Stored => ({ path, metaTitle: "", metaDescription: "", canonicalUrl: "", noindex: false, ogTitle: "", ogDescription: "", ogImage: "" });
 
+/** Stored values first, then the built-in defaults, per field. */
+function withDefaults(path: string, stored: Stored): Stored {
+  const fallback = DEFAULT_PAGE_SEO[path];
+  if (!fallback) return stored;
+  const pick = (value: string, fallbackValue: string) => value.trim() || fallbackValue;
+  return {
+    ...stored,
+    metaTitle: pick(stored.metaTitle, fallback.metaTitle),
+    metaDescription: pick(stored.metaDescription, fallback.metaDescription),
+    canonicalUrl: pick(stored.canonicalUrl, fallback.canonicalUrl),
+    ogTitle: pick(stored.ogTitle, fallback.ogTitle),
+    ogDescription: pick(stored.ogDescription, fallback.ogDescription),
+    ogImage: pick(stored.ogImage, fallback.ogImage)
+  };
+}
+
 const CACHE_MS = 30_000;
 let cache: { at: number; rows: Map<string, Stored> } | null = null;
 export function clearPageSeoCache() { cache = null; }
@@ -52,7 +70,7 @@ async function loadRows(): Promise<Map<string, Stored>> {
 }
 
 export async function getPageSeo(path: string): Promise<Stored> {
-  return (await loadRows()).get(path) ?? blank(path);
+  return withDefaults(path, (await loadRows()).get(path) ?? blank(path));
 }
 
 /** Pages an admin marked noindex - kept out of sitemap.xml. */
@@ -86,7 +104,7 @@ export async function applyPageSeo(path: string, base: Metadata): Promise<Metada
 
 export async function listPageSeo(): Promise<PageSeoRow[]> {
   const rows = await loadRowsFresh();
-  return KNOWN_PAGES.map((page) => ({ ...(rows.get(page.path) ?? blank(page.path)), label: page.label }));
+  return KNOWN_PAGES.map((page) => ({ ...withDefaults(page.path, rows.get(page.path) ?? blank(page.path)), label: page.label }));
 }
 
 async function loadRowsFresh() {

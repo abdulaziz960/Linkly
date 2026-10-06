@@ -1400,3 +1400,10 @@ model AdminHiddenClient {
 
   @@map("admin_hidden_clients")
 }
+
+model EmailUsageDay {
+  day  String @id
+  sent Int    @default(0)
+
+  @@map("email_usage_days")
+}

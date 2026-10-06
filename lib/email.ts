@@ -1,3 +1,6 @@
+import { renderEmail } from "./email-layout";
+import { recordEmailSent } from "./email-usage";
+
 type SendActivationEmailInput = {
   to: string;
   name: string;
@@ -19,8 +22,6 @@ function escapeHtml(value: string) {
 }
 
 function activationEmailContent(name: string, activationUrl: string, purpose: "activation" | "password_reset" | "workspace_invite", workspaceName = "") {
-  const safeName = escapeHtml(name);
-  const safeUrl = escapeHtml(activationUrl);
   const isReset = purpose === "password_reset";
   const isWorkspaceInvite = purpose === "workspace_invite";
   const heading = isReset ? "إعادة تعيين كلمة السر" : isWorkspaceInvite ? "دعوة للانضمام إلى شركة جديدة" : "تحقق من بريدك الإلكتروني";
@@ -32,7 +33,7 @@ function activationEmailContent(name: string, activationUrl: string, purpose: "a
       : "مرحباً بك في Linkly! اضغط الزر أدناه لتأكيد بريدك الإلكتروني وتفعيل حسابك.";
   const expiry = isReset ? "ساعة واحدة" : "3 أيام";
   const text = `مرحباً ${name}\n\n${description}\n${activationUrl}\n\nينتهي الرابط خلال ${expiry}. إذا لم تطلب هذا الإجراء، تجاهل هذه الرسالة.`;
-  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:48px 24px 40px;background:#e1efed;text-align:center"><table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto"><tr><td width="88" height="88" style="width:88px;height:88px;background:#178a82;border-radius:50%;text-align:center;vertical-align:middle;font-size:40px;line-height:88px;color:#ffffff;font-weight:800">&#10003;</td></tr></table></td></tr><tr><td style="padding:36px 32px 8px;text-align:center"><h1 style="margin:0 0 16px;font-size:26px;line-height:1.4;color:#123330;font-weight:800">${heading}</h1><p style="margin:0 0 28px;color:#5b7570;font-size:16px;line-height:1.9">${safeName ? `مرحباً ${safeName}،<br>` : ""}${description}</p><p style="margin:0 0 32px"><a href="${safeUrl}" style="display:inline-block;background:#178a82;color:#fff;padding:16px 40px;border-radius:999px;text-decoration:none;font-size:16px;font-weight:800">${buttonLabel}</a></p><p style="margin:0 0 8px;color:#8ba39d;font-size:13px;line-height:1.7">إذا لم يعمل الزر، انسخ الرابط التالي:</p><p style="direction:ltr;text-align:left;word-break:break-all;background:#eaf3f1;border-radius:12px;padding:12px;color:#106b65;font-size:12px;margin:0 0 24px">${safeUrl}</p></td></tr><tr><td style="padding:0 32px 36px;text-align:center;color:#8ba39d;font-size:13px;line-height:1.7">ينتهي الرابط خلال ${expiry}.<br>إذا لم تطلب هذا الإجراء، تجاهل هذه الرسالة ولن يتغير شيء.</td></tr><tr><td style="padding:20px 32px;background:#e1efed;text-align:center;color:#5b7570;font-size:12px">Linkly — منصة إدارة محادثات العملاء</td></tr></table></td></tr></table></body></html>`;
+  const html = renderEmail({ brand: DEFAULT_EMAIL_BRANDING, heading, greetingName: name || undefined, paragraphs: [description], button: { label: buttonLabel, url: activationUrl }, fallbackLink: true, note: `ينتهي هذا الرابط خلال ${expiry}. إذا لم تطلب هذا الإجراء، تجاهل هذه الرسالة.` });
   return { text, html };
 }
 
@@ -55,7 +56,10 @@ async function sendEmail({ to, subject, text, html, idempotencyKey }: { to: stri
         body: JSON.stringify({ from: resendFrom, to, subject, text, html })
       });
       const payload = await response.json().catch(() => null) as { id?: string; message?: string } | null;
-      if (response.ok && payload?.id) return true;
+      if (response.ok && payload?.id) {
+        await recordEmailSent();
+        return true;
+      }
       console.error("Resend email failed", { status: response.status, payload });
     } catch (error) {
       console.error("Resend email request failed", error);
@@ -87,7 +91,7 @@ async function sendEmail({ to, subject, text, html, idempotencyKey }: { to: stri
 /** Called only for a newly committed self-service signup, never activation resends. */
 export async function sendTrialSignupNotification(input: { tenantId: string; companyName: string; ownerName: string; ownerEmail: string }): Promise<boolean> {
   const text = `تسجيل تجربة جديد في Linkly\nالنشاط: ${input.companyName}\nالاسم: ${input.ownerName}\nالبريد: ${input.ownerEmail}\nالحساب بانتظار تأكيد البريد الإلكتروني.`;
-  const html = `<!doctype html><html lang="ar" dir="rtl"><body dir="rtl" style="direction:rtl;text-align:right;margin:0;padding:24px;background:#eaf3f1;color:#123330;font-family:Tahoma,Arial,sans-serif"><table dir="rtl" role="presentation" width="100%" cellpadding="20" style="direction:rtl;text-align:right;max-width:560px;background:#ffffff;border:1px solid #d8e8e5;border-radius:16px"><tr><td><h1 style="color:#178a82;font-size:24px">تسجيل تجربة جديد في Linkly</h1><p>النشاط: ${escapeHtml(input.companyName)}</p><p>الاسم: ${escapeHtml(input.ownerName)}</p><p>البريد: <span dir="ltr" style="direction:ltr;unicode-bidi:embed">${escapeHtml(input.ownerEmail)}</span></p><p>الحساب بانتظار تأكيد البريد الإلكتروني.</p></td></tr></table></body></html>`;
+  const html = renderEmail({ brand: DEFAULT_EMAIL_BRANDING, heading: "تسجيل تجربة جديد في Linkly", rows: [["النشاط", input.companyName], ["الاسم", input.ownerName], ["البريد", input.ownerEmail]], note: "الحساب بانتظار تأكيد البريد الإلكتروني." });
   return sendEmail({ to: "info@linklysa.io", subject: "تسجيل تجربة جديد في Linkly", text, html, idempotencyKey: `trial-signup/${input.tenantId}` });
 }
 
@@ -124,10 +128,8 @@ export async function sendActivationEmail({ to, name, activationUrl, purpose = "
 }
 
 function twoFactorCodeEmailContent(name: string, code: string) {
-  const safeName = escapeHtml(name);
-  const safeCode = escapeHtml(code);
   const text = `مرحباً ${name}\n\nرمز تسجيل الدخول الخاص بك في Linkly هو: ${code}\n\nصالح لمدة 10 دقائق. إذا لم تطلب تسجيل الدخول، تجاهل هذه الرسالة.`;
-  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:40px 32px 8px;text-align:center"><h1 style="margin:0 0 16px;font-size:24px;line-height:1.4;color:#123330;font-weight:800">رمز تسجيل الدخول</h1><p style="margin:0 0 28px;color:#5b7570;font-size:16px;line-height:1.9">${safeName ? `مرحباً ${safeName}،<br>` : ""}استخدم الرمز التالي لإكمال تسجيل الدخول إلى Linkly.</p><p style="margin:0 0 28px;direction:ltr;font-size:36px;font-weight:800;letter-spacing:8px;color:#178a82;background:#eaf3f1;border-radius:14px;padding:18px 12px">${safeCode}</p></td></tr><tr><td style="padding:0 32px 36px;text-align:center;color:#8ba39d;font-size:13px;line-height:1.7">صالح لمدة 10 دقائق.<br>إذا لم تطلب تسجيل الدخول، تجاهل هذه الرسالة ولن يتغير شيء.</td></tr><tr><td style="padding:20px 32px;background:#e1efed;text-align:center;color:#5b7570;font-size:12px">Linkly — منصة إدارة محادثات العملاء</td></tr></table></td></tr></table></body></html>`;
+  const html = renderEmail({ brand: DEFAULT_EMAIL_BRANDING, heading: "رمز تسجيل الدخول", greetingName: name || undefined, paragraphs: ["استخدم الرمز التالي لإكمال تسجيل الدخول إلى Linkly."], code, note: "صالح لمدة 10 دقائق. إذا لم تطلب تسجيل الدخول، تجاهل هذه الرسالة ولن يتغير شيء." });
   return { text, html };
 }
 
@@ -146,12 +148,9 @@ type EmailBranding = { name: string; color: string };
 const DEFAULT_EMAIL_BRANDING: EmailBranding = { name: "Linkly", color: "#178a82" };
 
 function trialEndingEmailContent(name: string, hoursLeft: number, billingUrl: string, branding: EmailBranding) {
-  const safeName = escapeHtml(name);
-  const safeUrl = escapeHtml(billingUrl);
-  const safeBrandName = escapeHtml(branding.name);
   const timeLabel = hoursLeft >= 24 ? `${Math.round(hoursLeft / 24)} يوم` : `${hoursLeft} ساعة`;
   const text = `مرحباً ${name}\n\nتجربتك المجانية في ${branding.name} تنتهي خلال ${timeLabel}. رقّي حسابك الآن حتى لا تفقد الوصول لمحادثاتك وفريقك.\n${billingUrl}`;
-  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:48px 24px 40px;background:#e1efed;text-align:center"><table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto"><tr><td width="88" height="88" style="width:88px;height:88px;background:${branding.color};border-radius:50%;text-align:center;vertical-align:middle;font-size:36px;line-height:88px;color:#ffffff;font-weight:800">&#9203;</td></tr></table></td></tr><tr><td style="padding:36px 32px 8px;text-align:center"><h1 style="margin:0 0 16px;font-size:24px;line-height:1.4;color:#123330;font-weight:800">تجربتك تنتهي خلال ${timeLabel}</h1><p style="margin:0 0 28px;color:#5b7570;font-size:16px;line-height:1.9">${safeName ? `مرحباً ${safeName}،<br>` : ""}رقّي حسابك الآن حتى لا تفقد الوصول لمحادثاتك وفريقك وإعداداتك.</p><p style="margin:0 0 32px"><a href="${safeUrl}" style="display:inline-block;background:${branding.color};color:#fff;padding:16px 40px;border-radius:999px;text-decoration:none;font-size:16px;font-weight:800">الترقية الآن</a></p></td></tr><tr><td style="padding:20px 32px;background:#e1efed;text-align:center;color:#5b7570;font-size:12px">${safeBrandName} — منصة إدارة محادثات العملاء</td></tr></table></td></tr></table></body></html>`;
+  const html = renderEmail({ brand: branding, heading: `تجربتك تنتهي خلال ${timeLabel}`, greetingName: name || undefined, paragraphs: ["رقّي حسابك الآن حتى لا تفقد الوصول لمحادثاتك وفريقك وإعداداتك."], button: { label: "الترقية الآن", url: billingUrl } });
   return { text, html };
 }
 
@@ -161,12 +160,9 @@ export async function sendTrialEndingEmail({ to, name, hoursLeft, billingUrl, br
 }
 
 function subscriptionRenewalEmailContent(name: string, daysLeft: number, renewalDate: string, billingUrl: string, branding: EmailBranding) {
-  const safeName = escapeHtml(name);
-  const safeUrl = escapeHtml(billingUrl);
-  const safeBrandName = escapeHtml(branding.name);
   const timeLabel = daysLeft <= 1 ? "غداً" : `${daysLeft} أيام`;
   const text = `مرحباً ${name}\n\nاشتراكك في ${branding.name} ينتهي خلال ${timeLabel} (بتاريخ ${renewalDate}). جدّد الآن حتى لا ينقطع الوصول لمحادثاتك وفريقك.\n${billingUrl}`;
-  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:48px 24px 40px;background:#e1efed;text-align:center"><table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto"><tr><td width="88" height="88" style="width:88px;height:88px;background:${branding.color};border-radius:50%;text-align:center;vertical-align:middle;font-size:36px;line-height:88px;color:#ffffff;font-weight:800">&#9203;</td></tr></table></td></tr><tr><td style="padding:36px 32px 8px;text-align:center"><h1 style="margin:0 0 16px;font-size:24px;line-height:1.4;color:#123330;font-weight:800">اشتراكك ينتهي خلال ${timeLabel}</h1><p style="margin:0 0 28px;color:#5b7570;font-size:16px;line-height:1.9">${safeName ? `مرحباً ${safeName}،<br>` : ""}اشتراكك ينتهي بتاريخ ${renewalDate}. جدّد الآن حتى لا ينقطع وصولك لمحادثاتك وفريقك وإعداداتك.</p><p style="margin:0 0 32px"><a href="${safeUrl}" style="display:inline-block;background:${branding.color};color:#fff;padding:16px 40px;border-radius:999px;text-decoration:none;font-size:16px;font-weight:800">تجديد الاشتراك</a></p></td></tr><tr><td style="padding:20px 32px;background:#e1efed;text-align:center;color:#5b7570;font-size:12px">${safeBrandName} — منصة إدارة محادثات العملاء</td></tr></table></td></tr></table></body></html>`;
+  const html = renderEmail({ brand: branding, heading: `اشتراكك ينتهي خلال ${timeLabel}`, greetingName: name || undefined, paragraphs: [`اشتراكك ينتهي بتاريخ ${renewalDate}. جدّد الآن حتى لا ينقطع وصولك لمحادثاتك وفريقك وإعداداتك.`], button: { label: "تجديد الاشتراك", url: billingUrl } });
   return { text, html };
 }
 
@@ -176,14 +172,11 @@ export async function sendSubscriptionRenewalEmail({ to, name, daysLeft, renewal
 }
 
 function subscriptionRenewalFailedEmailContent(name: string, disabled: boolean, billingUrl: string, branding: EmailBranding) {
-  const safeName = escapeHtml(name);
-  const safeUrl = escapeHtml(billingUrl);
-  const safeBrandName = escapeHtml(branding.name);
   const body = disabled
     ? "تعذّر شحن بطاقتك المحفوظة عدة مرات، فأوقفنا التجديد التلقائي على حسابك. جدّد يدويًا من صفحة الفوترة حتى لا ينقطع وصولك، ويمكنك تفعيل التجديد التلقائي من جديد ببطاقة أخرى."
     : "تعذّر شحن بطاقتك المحفوظة لتجديد اشتراكك. سنحاول مرة أخرى، لكن يمكنك أيضًا التجديد يدويًا الآن أو تحديث بيانات بطاقتك.";
   const text = `مرحباً ${name}\n\n${body}\n${billingUrl}`;
-  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:48px 24px 40px;background:#fff1f0;text-align:center"><table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto"><tr><td width="88" height="88" style="width:88px;height:88px;background:#b42318;border-radius:50%;text-align:center;vertical-align:middle;font-size:36px;line-height:88px;color:#ffffff;font-weight:800">&#9888;</td></tr></table></td></tr><tr><td style="padding:36px 32px 8px;text-align:center"><h1 style="margin:0 0 16px;font-size:24px;line-height:1.4;color:#123330;font-weight:800">تعذّر تجديد اشتراكك تلقائيًا</h1><p style="margin:0 0 28px;color:#5b7570;font-size:16px;line-height:1.9">${safeName ? `مرحباً ${safeName}،<br>` : ""}${body}</p><p style="margin:0 0 32px"><a href="${safeUrl}" style="display:inline-block;background:${branding.color};color:#fff;padding:16px 40px;border-radius:999px;text-decoration:none;font-size:16px;font-weight:800">الذهاب لصفحة الفوترة</a></p></td></tr><tr><td style="padding:20px 32px;background:#e1efed;text-align:center;color:#5b7570;font-size:12px">${safeBrandName} — منصة إدارة محادثات العملاء</td></tr></table></td></tr></table></body></html>`;
+  const html = renderEmail({ brand: branding, heading: "تعذّر تجديد اشتراكك تلقائيًا", greetingName: name || undefined, paragraphs: [body], button: { label: "الذهاب لصفحة الفوترة", url: billingUrl }, tone: "danger" });
   return { text, html };
 }
 
@@ -193,12 +186,9 @@ export async function sendSubscriptionRenewalFailedEmail({ to, name, disabled, b
 }
 
 function lowBalanceEmailContent(name: string, remaining: number, percent: number, topUpUrl: string, branding: EmailBranding) {
-  const safeName = escapeHtml(name);
-  const safeUrl = escapeHtml(topUpUrl);
-  const safeBrandName = escapeHtml(branding.name);
   const remainingLabel = remaining.toLocaleString("en-US");
   const text = `مرحباً ${name}\n\nرصيد رسائل حملاتك في ${branding.name} وصل إلى ${percent}% (${remainingLabel} رسالة متبقية). اشحن رصيدك الآن حتى لا تتوقف حملاتك القادمة.\n${topUpUrl}`;
-  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:48px 24px 40px;background:#e1efed;text-align:center"><table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto"><tr><td width="88" height="88" style="width:88px;height:88px;background:${branding.color};border-radius:50%;text-align:center;vertical-align:middle;font-size:36px;line-height:88px;color:#ffffff;font-weight:800">&#9888;</td></tr></table></td></tr><tr><td style="padding:36px 32px 8px;text-align:center"><h1 style="margin:0 0 16px;font-size:24px;line-height:1.4;color:#123330;font-weight:800">رصيد رسائل حملاتك عند ${percent}%</h1><p style="margin:0 0 28px;color:#5b7570;font-size:16px;line-height:1.9">${safeName ? `مرحباً ${safeName}،<br>` : ""}تبقّى لديك ${remainingLabel} رسالة فقط. اشحن رصيدك الآن حتى لا تتوقف حملاتك القادمة.</p><p style="margin:0 0 32px"><a href="${safeUrl}" style="display:inline-block;background:${branding.color};color:#fff;padding:16px 40px;border-radius:999px;text-decoration:none;font-size:16px;font-weight:800">شحن الرصيد الآن</a></p></td></tr><tr><td style="padding:20px 32px;background:#e1efed;text-align:center;color:#5b7570;font-size:12px">${safeBrandName} — منصة إدارة محادثات العملاء</td></tr></table></td></tr></table></body></html>`;
+  const html = renderEmail({ brand: branding, heading: `رصيد رسائل حملاتك عند ${percent}%`, greetingName: name || undefined, paragraphs: [`تبقّى لديك ${remainingLabel} رسالة فقط. اشحن رصيدك الآن حتى لا تتوقف حملاتك القادمة.`], button: { label: "شحن الرصيد الآن", url: topUpUrl } });
   return { text, html };
 }
 
@@ -213,13 +203,7 @@ const ADMIN_NOTIFICATION_EMAIL = "info@linklysa.io";
 function adminNotificationContent(heading: string, rows: [string, string][], body?: string) {
   const textRows = rows.map(([label, value]) => `${label}: ${value}`).join("\n");
   const text = body ? `${heading}\n\n${textRows}\n\n${body}` : `${heading}\n\n${textRows}`;
-  const rowsHtml = rows
-    .map(([label, value]) => `<tr><td style="color:#5b7570;padding:4px 12px 4px 0;vertical-align:top;white-space:nowrap">${escapeHtml(label)}</td><td style="font-weight:700">${escapeHtml(value)}</td></tr>`)
-    .join("");
-  const bodyHtml = body
-    ? `<p style="margin:20px 0 0;padding-top:16px;border-top:1px solid #e1efed;color:#123330;font-size:14px;line-height:1.8;white-space:pre-wrap">${escapeHtml(body)}</p>`
-    : "";
-  const html = `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#eaf3f1;font-family:Arial,Tahoma,sans-serif;color:#123330"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#eaf3f1;padding:32px 12px"><tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;background:#ffffff;border:1px solid #d8e8e5;border-radius:20px;overflow:hidden"><tr><td style="padding:32px"><h1 style="margin:0 0 20px;font-size:22px;color:#123330;font-weight:800">${escapeHtml(heading)}</h1><table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-size:15px;color:#123330;line-height:2">${rowsHtml}</table>${bodyHtml}</td></tr></table></td></tr></table></body></html>`;
+  const html = renderEmail({ brand: DEFAULT_EMAIL_BRANDING, heading, rows, body });
   return { text, html };
 }
 

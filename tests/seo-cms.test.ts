@@ -90,7 +90,9 @@ describe("page SEO overrides", () => {
 
     const base = { title: "Base", description: "Base description", alternates: { canonical: "/faq" }, openGraph: { siteName: "Linkly" } };
     clearPageSeoCache();
-    expect(await applyPageSeo("/faq", base)).toMatchObject({ title: "Base", description: "Base description" });
+    // /faq ships built-in SEO defaults, so they win over the page's own metadata until an admin overrides them.
+    const { DEFAULT_PAGE_SEO } = await import("../lib/page-seo-defaults");
+    expect(await applyPageSeo("/faq", base)).toMatchObject({ title: { absolute: DEFAULT_PAGE_SEO["/faq"].metaTitle }, description: DEFAULT_PAGE_SEO["/faq"].metaDescription });
 
     const cleaned = cleanPageSeoInput("/faq", { metaTitle: "عنوان مخصص", ogImage: "/media/x-1234abcd.webp", noindex: true });
     if (!cleaned.ok) throw new Error(cleaned.error);
@@ -98,7 +100,7 @@ describe("page SEO overrides", () => {
 
     const merged = await applyPageSeo("/faq", base);
     expect(merged.title).toEqual({ absolute: "عنوان مخصص" });
-    expect(merged.description).toBe("Base description"); // blank override keeps the default
+    expect(merged.description).toBe(DEFAULT_PAGE_SEO["/faq"].metaDescription); // blank override keeps the default
     expect(merged.robots).toEqual({ index: false, follow: true });
     expect((merged.openGraph as { siteName?: string }).siteName).toBe("Linkly");
     expect((merged.openGraph as { images?: unknown[] }).images).toEqual([{ url: "/media/x-1234abcd.webp" }]);

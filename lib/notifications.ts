@@ -1,11 +1,12 @@
 import { getAdminLogs } from "./database";
+import { getEmailUsage } from "./email-usage";
 import { getVisibleSubscriptions, getHiddenTenantIds } from "./admin-hidden-clients";
 
 const RENEWAL_SOON_DAYS = 7;
 
 export type AdminNotification = {
   id: string;
-  type: "renewal" | "log";
+  type: "renewal" | "log" | "email";
   level: "معلومة" | "تنبيه" | "خطأ";
   title: string;
   message: string;
@@ -21,7 +22,7 @@ function parseRenewalDate(renewalAt: string) {
 }
 
 export async function getAdminNotifications(): Promise<AdminNotification[]> {
-  const [subscriptions, logs, hiddenTenants] = await Promise.all([getVisibleSubscriptions(), getAdminLogs(), getHiddenTenantIds()]);
+  const [subscriptions, logs, hiddenTenants, emailUsage] = await Promise.all([getVisibleSubscriptions(), getAdminLogs(), getHiddenTenantIds(), getEmailUsage()]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -91,5 +92,20 @@ export async function getAdminNotifications(): Promise<AdminNotification[]> {
       };
     });
 
-  return [...renewalNotifications, ...logNotifications];
+  const emailNotifications: AdminNotification[] = [];
+  if (emailUsage && emailUsage.level !== "ok") {
+    const atLimit = emailUsage.level === "limit";
+    emailNotifications.push({
+      id: `email-usage-${new Date().toISOString().slice(0, 10)}-${emailUsage.level}`,
+      type: "email",
+      level: atLimit ? "خطأ" : "تنبيه",
+      title: atLimit ? "وصل الإرسال للحد المجاني في Resend" : "اقترب الإرسال من الحد المجاني في Resend",
+      message: `اليوم ${emailUsage.today}/${emailUsage.dailyLimit} · هذا الشهر ${emailUsage.month}/${emailUsage.monthlyLimit}`,
+      at: new Date().toISOString(),
+      clientName: "",
+      tenantId: ""
+    });
+  }
+
+  return [...emailNotifications, ...renewalNotifications, ...logNotifications];
 }

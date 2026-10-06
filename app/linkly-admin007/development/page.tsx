@@ -3,7 +3,7 @@ import DevelopmentView from "./DevelopmentView";
 import { guardPage } from "../guard";
 
 export default async function AdminDevelopmentPage() {
-  const denied = await guardPage("support");
+  const denied = await guardPage(["support", "tech"]);
   if (denied) return denied;
   return (
     <>
