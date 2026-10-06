@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { isInlineDataUrl, messageAttachmentPath } from "./message-attachments";
 import { ensureAiSchema } from "./ai-schema";
 import { ensureCatalogSchema } from "./catalog-schema";
 import { ensureBranchesSchema } from "./branches-schema";
@@ -3121,7 +3122,8 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       author: message.author || undefined,
       attachment: message.attachmentType && message.attachmentUrl ? {
         type: message.attachmentType as NonNullable<Message["attachment"]>["type"],
-        url: message.attachmentUrl,
+        // Inline base64 media is served from its own URL instead of riding along with every refresh.
+        url: isInlineDataUrl(message.attachmentUrl) ? messageAttachmentPath(conversation.id, message.id) : message.attachmentUrl,
         name: message.attachmentName || message.text,
         mimeType: message.attachmentMime || undefined
       } : undefined,
