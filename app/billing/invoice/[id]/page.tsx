@@ -73,83 +73,91 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const itemLabelEn = isSubscription ? `Linkly subscription - ${invoice.planName || "plan"}` : "Campaign message top-up";
   const qty = isSubscription ? 1 : invoice.messages;
 
+  const accentStyle = { "--inv-accent": branding.color } as React.CSSProperties;
+  const amountText = invoice.amount.toLocaleString("en-US");
+
   return (
-    <main className="invoice-page">
+    <main className="invoice-page" style={accentStyle}>
       <div className="invoice-card">
         <div className="invoice-head">
-          <h1>{branding.name}</h1>
-          <div className="invoice-head-meta">
-            <div>
-              <span>RECEIPT NO. <em>رقم الإيصال</em></span>
-              <b>{receiptNo}</b>
-            </div>
-            <div>
-              <span>ISSUED <em>تاريخ الإصدار</em></span>
-              <b>{formatDateOnly(invoice.createdAt)}</b>
-            </div>
+          <div className="invoice-brand">
+            {/* Branding logos can be data URLs, which next/image does not support. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {branding.logoDataUrl ? <img src={branding.logoDataUrl} alt="" /> : null}
+            <h1>{branding.name}</h1>
+          </div>
+          <div className="invoice-title">
+            <strong>إيصال دفع</strong>
+            <span className="invoice-sub">Payment receipt</span>
+            <span className={`invoice-status-badge ${isPaid ? "paid" : "pending"}`}>
+              {isPaid ? "تم الدفع" : "قيد الانتظار"} <em>{isPaid ? "Paid" : "Pending"}</em>
+            </span>
           </div>
         </div>
 
-        <div className="invoice-section-title">
-          <span>PAYMENT RECEIPT</span>
-          <span>إيصال دفع</span>
-        </div>
-        <h2 className="invoice-item-heading">
-          <span>{itemLabelEn}</span>
-          <span>{itemLabelAr}</span>
-        </h2>
-
-        <div className="invoice-meta-grid">
+        <div className="invoice-meta">
           <div>
-            <span>BILLED TO <em>صادرة إلى</em></span>
-            <b>{invoice.companyName}</b>
+            <span className="invoice-label">رقم الإيصال <em>Receipt No</em></span>
+            <b dir="ltr">{receiptNo}</b>
+          </div>
+          <div>
+            <span className="invoice-label">تاريخ الإصدار <em>Issued</em></span>
+            <b dir="ltr">{formatDateOnly(invoice.createdAt)}</b>
+          </div>
+          <div>
+            <span className="invoice-label">طريقة الدفع <em>Payment method</em></span>
+            <b>{paymentMethodLabel.ar}<small>{paymentMethodLabel.en}</small></b>
           </div>
           {periodCovered ? (
             <div>
-              <span>PERIOD COVERED <em>الفترة المغطاة</em></span>
+              <span className="invoice-label">الفترة المغطاة <em>Period covered</em></span>
               <b dir="ltr">{periodCovered}</b>
             </div>
           ) : null}
-          <div>
-            <span>PAYMENT METHOD <em>طريقة الدفع</em></span>
-            <b>{paymentMethodLabel.en} <em>{paymentMethodLabel.ar}</em></b>
-          </div>
+        </div>
+
+        <div className="invoice-billed">
+          <span className="invoice-label">صادرة إلى <em>Billed to</em></span>
+          <b>{invoice.companyName}</b>
         </div>
 
         <table className="invoice-table">
           <thead>
             <tr>
-              <th>DESCRIPTION <em>الوصف</em></th>
-              <th>QTY <em>الكمية</em></th>
-              <th>AMOUNT <em>المبلغ</em></th>
+              <th>الوصف <em>Description</em></th>
+              <th className="num">الكمية <em>Qty</em></th>
+              <th className="num">المبلغ <em>Amount</em></th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td>
-                <b>{itemLabelEn}</b>
-                <em>{itemLabelAr}</em>
+                <b>{itemLabelAr}</b>
+                <small>{itemLabelEn}</small>
               </td>
-              <td>{qty.toLocaleString("en-US")}</td>
-              <td>{invoice.amount.toLocaleString("en-US")} SAR <em>{invoice.amount.toLocaleString("ar")} ريال</em></td>
+              <td className="num" dir="ltr">{qty.toLocaleString("en-US")}</td>
+              <td className="num"><span dir="ltr">{amountText}</span> ر.س</td>
             </tr>
           </tbody>
         </table>
 
         <div className="invoice-totals">
-          <div>
-            <span>Subtotal <em>المجموع الفرعي</em></span>
-            <b>{invoice.amount.toLocaleString("en-US")} SAR</b>
-          </div>
-          <div className="invoice-total-paid">
-            <span>Total paid <em>الإجمالي المدفوع</em></span>
-            <b>{invoice.amount.toLocaleString("en-US")} SAR</b>
+          <div className="invoice-totals-box">
+            <div>
+              <span>المجموع الفرعي <em>Subtotal</em></span>
+              <b><span dir="ltr">{amountText}</span> ر.س</b>
+            </div>
+            <div className="invoice-total-paid">
+              <span>{isPaid ? "الإجمالي المدفوع" : "الإجمالي المستحق"} <em>{isPaid ? "Total paid" : "Total due"}</em></span>
+              <b><span dir="ltr">{amountText}</span> ر.س</b>
+            </div>
           </div>
         </div>
 
-        <span className={`invoice-status-badge ${isPaid ? "paid" : "pending"}`}>
-          {isPaid ? "Paid" : "Pending"} <em>{isPaid ? "تم الدفع" : "قيد الانتظار"}</em>
-        </span>
+        <div className="invoice-foot">
+          <span>شكرًا لاشتراكك في {branding.name}.</span>
+          <span>Thank you for your subscription</span>
+        </div>
 
         <div className="invoice-actions">
           <InvoicePrintButton />
