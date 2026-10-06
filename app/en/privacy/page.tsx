@@ -28,7 +28,7 @@ export default function PrivacyPageEn() {
           Linkly
         </Link>
         <h1>Privacy Policy</h1>
-        <p className="legal-updated">Last updated: July 27, 2026</p>
+        <p className="legal-updated">Last updated: October 6, 2026</p>
 
         <p>
           Linkly is a platform for managing customer conversations across multiple channels such as WhatsApp,
@@ -61,6 +61,43 @@ export default function PrivacyPageEn() {
           connect (X, LinkedIn, Snapchat, YouTube, TikTok, Telegram, or email): it is used solely to operate
           messaging and engagement features on your behalf, and is never sold or used for advertising unrelated to
           the service.
+        </p>
+
+        <h2>Google user data (Gmail, YouTube and Business Profile)</h2>
+        <p>
+          When a customer connects their Google account to Linkly, we request only the following permissions, with
+          their explicit consent on Google&apos;s official consent screen:
+        </p>
+        <ul>
+          <li>Gmail: read incoming messages (gmail.readonly) and send replies (gmail.send), to show email in the shared inbox and reply to it.</li>
+          <li>YouTube: read comments on the customer&apos;s channel and reply to them (youtube.force-ssl).</li>
+          <li>Google Business Profile: read reviews and reply to them (business.manage).</li>
+        </ul>
+        <p>
+          We use this data only to display messages, comments and reviews inside the customer&apos;s account and to send
+          the replies written by the customer or their authorized team members. We do not use it for any other purpose.
+        </p>
+        <h3>Who we share, transfer or disclose Google user data with</h3>
+        <ul>
+          <li>We do not sell Google user data, do not share it with data brokers or advertising networks, and do not use it for advertising or profiling.</li>
+          <li>The data is visible only to the users of the same workspace whom the customer added, according to the permissions the customer granted them.</li>
+          <li>We store and process it on Google Cloud infrastructure (Cloud Run and Cloud SQL in the me-central2 region) as a hosting provider acting on our behalf, which may not use the data for anything other than providing the service.</li>
+          <li>If the customer turns on Linkly&apos;s AI features and uses them on a conversation that contains content from these channels, only the conversation text needed for that operation is sent to the AI provider the customer chose (Google Gemini, OpenAI, OpenRouter or DeepSeek) to carry out the request. The feature does not run on channel content unless the customer enables it.</li>
+          <li>We do not disclose Google user data to any other party except with the customer&apos;s consent, where required by law or a court order, or for security and abuse prevention.</li>
+        </ul>
+        <h3>Limited Use</h3>
+        <p>
+          Linkly&apos;s use and transfer to any other app of information received from Google APIs will adhere to the Google
+          API Services User Data Policy, including the Limited Use requirements. In addition: our staff do not read
+          Google user data unless the customer consents, for security or technical troubleshooting, or to comply with
+          law, and we do not use Google user data to train generalized AI models.
+        </p>
+        <h3>Retention and deletion</h3>
+        <p>
+          When a Google channel is disconnected from the platform settings we delete its access tokens, and the
+          customer may request deletion of their data through the
+          <Link href="/en/data-deletion"> data deletion page</Link>. They can also revoke access at any time at
+          myaccount.google.com/permissions.
         </p>
 
         <h2>Data protection</h2>
