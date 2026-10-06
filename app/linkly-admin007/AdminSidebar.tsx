@@ -3,12 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import type { AdminUser } from "./types";
 import type { AdminSummary } from "../api/admin/summary/route";
 import Icon from "./ds/Icon";
-import { useConfirm } from "./ds/Dialog";
-import { useTheme } from "./ds/theme";
 import { NAV_GROUPS, type NavItem } from "./nav";
 import { canAccessPath } from "../../lib/admin-permissions";
 import { useAdminPermissions } from "./ds/permissions-context";
@@ -25,34 +21,11 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function AdminSidebar({ user, summary, collapsed, onToggleCollapsed }: {
-  user: AdminUser;
-  summary: AdminSummary | null;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
-}) {
+export default function AdminSidebar({ summary }: { summary: AdminSummary | null }) {
   const pathname = usePathname();
-  const confirm = useConfirm();
-  const { theme, toggle } = useTheme();
-  const [signingOut, setSigningOut] = useState(false);
   const { permissions } = useAdminPermissions();
   // Links to sections the member cannot open are not shown (the server blocks them regardless).
   const groups = NAV_GROUPS.map((group) => ({ ...group, items: group.items.filter((item) => canAccessPath(permissions, item.href)) })).filter((group) => group.items.length > 0);
-
-  async function signOut() {
-    if (signingOut) return;
-    const ok = await confirm({ title: "تسجيل الخروج", description: "سيتم إنهاء جلستك الحالية في لوحة التحكم.", confirmLabel: "تسجيل الخروج" });
-    if (!ok) return;
-    setSigningOut(true);
-    try {
-      const response = await fetch("/api/auth/logout", { method: "POST", cache: "no-store" });
-      if (!response.ok) throw new Error("logout failed");
-      window.location.replace("/login");
-    } catch {
-      setSigningOut(false);
-      window.alert("تعذر تسجيل الخروج. حاول مرة أخرى.");
-    }
-  }
 
   return (
     <aside className="ds-sidebar" aria-label="القائمة الجانبية">
@@ -77,7 +50,6 @@ export default function AdminSidebar({ user, summary, collapsed, onToggleCollaps
                   className="ds-nav-link"
                   aria-current={active ? "page" : undefined}
                   data-badge={badge ? "" : undefined}
-                  title={collapsed ? item.label : undefined}
                   aria-label={badge ? `${item.label}، ${badge.count} تنبيه` : undefined}
                 >
                   <Icon name={item.icon} size={19} />
@@ -90,26 +62,6 @@ export default function AdminSidebar({ user, summary, collapsed, onToggleCollaps
         ))}
       </nav>
 
-      <div className="ds-sidebar-foot">
-        <div className="ds-user-card">
-          <span className="ds-avatar" aria-hidden="true">{user.name.slice(0, 1)}</span>
-          <span className="ds-user-meta">
-            <strong>{user.name}</strong>
-            <small>مدير المنصة</small>
-          </span>
-        </div>
-        <div className="ds-sidebar-actions">
-          <button type="button" className="ds-btn" data-variant="ghost" onClick={toggle} aria-label={theme === "dark" ? "التبديل إلى الوضع الفاتح" : "التبديل إلى الوضع الداكن"} title={theme === "dark" ? "الوضع الفاتح" : "الوضع الداكن"}>
-            <Icon name={theme === "dark" ? "sun" : "moon"} size={16} /><span>{theme === "dark" ? "فاتح" : "داكن"}</span>
-          </button>
-          <button type="button" className="ds-btn" data-variant="ghost" onClick={signOut} disabled={signingOut} aria-label="تسجيل الخروج" title="تسجيل الخروج">
-            <Icon name="logout" size={16} /><span>خروج</span>
-          </button>
-          <button type="button" className="ds-btn" data-variant="ghost" onClick={onToggleCollapsed} aria-label={collapsed ? "توسيع القائمة" : "طي القائمة"} aria-pressed={collapsed} title={collapsed ? "توسيع القائمة" : "طي القائمة"} style={{ gridColumn: "1 / -1" }}>
-            <Icon name="panelLeft" size={16} /><span>{collapsed ? "توسيع" : "طي القائمة"}</span>
-          </button>
-        </div>
-      </div>
     </aside>
   );
 }

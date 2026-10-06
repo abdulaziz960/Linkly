@@ -11,6 +11,7 @@ import { useAdminPermissions } from "./ds/permissions-context";
 import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
 import { useTheme } from "./ds/theme";
+import { useConfirm } from "./ds/Dialog";
 
 function useDismiss(open: boolean, close: () => void) {
   const ref = useRef<HTMLDivElement>(null);
@@ -34,6 +35,8 @@ export default function AdminTopbar({ onOpenMenu, user }: { onOpenMenu: () => vo
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggle } = useTheme();
+  const confirm = useConfirm();
+  const [signingOut, setSigningOut] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const quickRef = useDismiss(quickOpen, () => setQuickOpen(false));
@@ -41,6 +44,21 @@ export default function AdminTopbar({ onOpenMenu, user }: { onOpenMenu: () => vo
   const crumbs = breadcrumbsFor(pathname);
   const { permissions } = useAdminPermissions();
   const quickActions = QUICK_ACTIONS.filter((action) => canAccessPath(permissions, action.href.split("?")[0]));
+
+  async function signOut() {
+    if (signingOut) return;
+    const ok = await confirm({ title: "تسجيل الخروج", description: "سيتم إنهاء جلستك الحالية في لوحة التحكم.", confirmLabel: "تسجيل الخروج" });
+    if (!ok) return;
+    setSigningOut(true);
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST", cache: "no-store" });
+      if (!response.ok) throw new Error("logout failed");
+      window.location.replace("/login");
+    } catch {
+      setSigningOut(false);
+      window.alert("تعذر تسجيل الخروج. حاول مرة أخرى.");
+    }
+  }
 
   useEffect(() => {
     setQuickOpen(false);
@@ -101,6 +119,9 @@ export default function AdminTopbar({ onOpenMenu, user }: { onOpenMenu: () => vo
             <Link href="/linkly-admin007/settings" role="menuitem" className="ds-menu-item"><Icon name="settings" size={17} />إعدادات الحساب</Link>
             <button type="button" role="menuitem" className="ds-menu-item" onClick={toggle}>
               <Icon name={theme === "dark" ? "sun" : "moon"} size={17} />{theme === "dark" ? "الوضع الفاتح" : "الوضع الداكن"}
+            </button>
+            <button type="button" role="menuitem" className="ds-menu-item" onClick={signOut} disabled={signingOut}>
+              <Icon name="logout" size={17} />تسجيل الخروج
             </button>
           </div>
         ) : null}
