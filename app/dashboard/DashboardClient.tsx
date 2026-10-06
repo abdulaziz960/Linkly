@@ -162,11 +162,22 @@ function writeCachedList<T>(key: string, value: T[]) {
   }
 }
 
+// Last ETag + payload per endpoint, kept in memory only (never the browser disk
+// cache - these are private customer conversations). Endpoints that send an ETag
+// (currently /api/conversations) answer 304 with no body when nothing changed, so
+// the 3-second refresh costs a few bytes instead of re-sending the whole inbox.
+const conditionalCache = new Map<string, { etag: string; data: unknown }>();
+
 async function fetchData<T>(path: string) {
-  const response = await fetch(path);
+  const cached = conditionalCache.get(path);
+  const response = await fetch(path, cached ? { headers: { "If-None-Match": cached.etag } } : undefined);
+  if (response.status === 304 && cached) return cached.data as T;
   if (!response.ok) return null;
   const payload = (await response.json()) as { ok: boolean; data?: T };
-  return payload.ok && payload.data !== undefined ? payload.data : null;
+  const data = payload.ok && payload.data !== undefined ? payload.data : null;
+  const etag = response.headers.get("etag");
+  if (etag && data !== null) conditionalCache.set(path, { etag, data });
+  return data;
 }
 
 async function fetchQuickRepliesWithSuggestions() {
