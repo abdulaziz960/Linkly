@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import SignupForm from "./SignupForm";
 import { useStoredLanguage } from "../useStoredLanguage";
+import { REOPEN_COOKIE_BANNER_EVENT } from "../CookieConsent";
 
 const copy = {
   ar: {
@@ -26,7 +27,8 @@ const copy = {
     billingSemiannual: "دفع نصف سنوي بعد التجربة",
     planNote: "ستجرّب هذه الباقة بمزاياها فقط خلال الفترة التجريبية، ويمكنك تجربة باقة أخرى من داخل لوحة التحكم. لا تُفعّل الباقة المدفوعة إلا بعد إتمام الدفع.",
     haveAccount: "لديك حساب؟",
-    login: "تسجيل الدخول"
+    login: "تسجيل الدخول",
+    cookieSettings: "إعدادات الكوكيز"
   },
   en: {
     kicker: "3-day free trial",
@@ -47,7 +49,8 @@ const copy = {
     billingSemiannual: "Semi-annual billing after the trial",
     planNote: "You'll try this plan with its own features during the trial, and can try another plan from inside the dashboard. A paid plan only activates after payment.",
     haveAccount: "Already have an account?",
-    login: "Sign in"
+    login: "Sign in",
+    cookieSettings: "Cookie settings"
   }
 } as const;
 
@@ -82,6 +85,7 @@ export default function SignupPageClient({ selectedPlan, selectedBilling }: { se
         </div> : null}
         <SignupForm lang={lang} planId={selectedPlan?.id} />
         <small>{text.haveAccount} <Link href="/login">{text.login}</Link></small>
+        <small><button type="button" className="signup-cookie-settings" onClick={() => window.dispatchEvent(new Event(REOPEN_COOKIE_BANNER_EVENT))}>{text.cookieSettings}</button></small>
       </section>
     </main>
   );
