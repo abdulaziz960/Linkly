@@ -162,9 +162,8 @@ main.admin-shell {
 
 /* Sidebar */
 .ds-sidebar {
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  position: relative;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   border-inline-end: 1px solid var(--ds-border);
@@ -195,9 +194,7 @@ main.admin-shell {
 }
 .ds-sidebar-scroll {
   flex: 1;
-  padding: 12px 10px;
-  overflow-y: auto;
-  scrollbar-width: thin;
+  padding: 12px 10px 20px;
 }
 .ds-nav-group + .ds-nav-group {
   margin-top: 18px;
@@ -290,6 +287,17 @@ main.admin-shell {
   background: var(--ds-brand);
   color: var(--ds-on-brand);
   font-weight: 800;
+}
+.ds-avatar-logo {
+  background: #fff;
+  border: 1px solid var(--ds-border);
+  overflow: hidden;
+}
+.ds-avatar-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 3px;
 }
 .ds-user-meta {
   min-width: 0;
@@ -1443,6 +1451,8 @@ a.ds-stat:hover {
     position: fixed;
     inset-block: 0;
     inset-inline-start: 0;
+    min-height: 0;
+    height: 100dvh;
     width: min(300px, 86vw);
     translate: 100% 0;
     transition: translate 0.25s var(--ds-ease);
@@ -1453,6 +1463,10 @@ a.ds-stat:hover {
   }
   .ds-app[data-drawer="open"] .ds-sidebar {
     translate: 0 0;
+  }
+  .ds-sidebar-scroll {
+    overflow-y: auto;
+    scrollbar-width: thin;
   }
   .ds-backdrop {
     position: fixed;

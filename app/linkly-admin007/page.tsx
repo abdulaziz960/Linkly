@@ -3,7 +3,8 @@ import { getAdminPermissions } from "../../lib/admin-auth";
 import { getCurrentUser } from "../../lib/auth";
 import type { AdminLog } from "../../lib/database";
 import { prisma } from "../../lib/prisma";
-import { getSubscriptions, getSubscriptionPayments } from "../../lib/subscriptions";
+import { getSubscriptionPayments } from "../../lib/subscriptions";
+import { getVisibleSubscriptions } from "../../lib/admin-hidden-clients";
 import { ErrorState } from "./ds/primitives";
 import AdminPageHeader from "./AdminPageHeader";
 import OverviewView from "./OverviewView";
@@ -32,7 +33,7 @@ export default async function AdminOverviewPage() {
 
   // Only what the member may see is loaded, so restricted data never reaches the page.
   const [subscriptions, payments, logRows, actions, urgentTickets] = await Promise.all([
-    getSubscriptions(),
+    getVisibleSubscriptions(),
     canBilling ? getSubscriptionPayments() : Promise.resolve([]),
     // Newest 300 only - the log table can grow without bound.
     prisma.adminLog.findMany({ orderBy: { id: "desc" }, take: 300 }),

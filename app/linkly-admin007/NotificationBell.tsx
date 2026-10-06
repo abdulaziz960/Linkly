@@ -21,7 +21,7 @@ function targetHref(item: AdminNotification) {
 }
 
 export default function NotificationBell() {
-  const { items, actionableCount, unreadIds, markRead, markAllRead, soundEnabled, setSoundEnabled } = useAdminNotifications();
+  const { items, unreadCount, unreadIds, markRead, markAllRead, soundEnabled, setSoundEnabled } = useAdminNotifications();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -44,13 +44,13 @@ export default function NotificationBell() {
       <button
         type="button"
         className="ds-icon-btn"
-        aria-label={actionableCount ? `الإشعارات، ${actionableCount} تحتاج متابعة` : "الإشعارات"}
+        aria-label={unreadCount ? `الإشعارات، ${unreadCount} غير مقروء` : "الإشعارات"}
         aria-expanded={open}
         aria-controls="admin-notification-list"
         onClick={() => setOpen((current) => !current)}
       >
         <Icon name="bell" size={19} />
-        {actionableCount > 0 ? <span className="ds-dot" aria-hidden="true">{actionableCount > 9 ? "9+" : actionableCount}</span> : null}
+        {unreadCount > 0 ? <span className="ds-dot" aria-hidden="true">{unreadCount > 99 ? "99+" : unreadCount}</span> : null}
       </button>
 
       {open ? (
@@ -61,10 +61,10 @@ export default function NotificationBell() {
               <input type="checkbox" checked={soundEnabled} onChange={(event) => setSoundEnabled(event.target.checked)} />
               تنبيه صوتي
             </label>
-            {actionableCount > 0 ? <button type="button" className="ds-link-btn" onClick={markAllRead}>تحديد الكل كمقروء</button> : null}
+            {unreadCount > 0 ? <button type="button" className="ds-link-btn" onClick={markAllRead}>تحديد الكل كمقروء</button> : null}
           </div>
           <div className="ds-popover-list">
-            {items.slice(0, 8).map((item) => {
+            {items.map((item) => {
               const level = LEVEL[item.level] ?? LEVEL["معلومة"];
               return (
                 <Link key={item.id} href={targetHref(item)} className="ds-popover-row" onClick={() => { markRead(item.id); setOpen(false); }} style={unreadIds.has(item.id) ? undefined : { opacity: 0.65 }}>

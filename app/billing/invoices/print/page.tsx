@@ -43,27 +43,44 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
   const latest = to || invoiceDates[invoiceDates.length - 1];
   const periodLabel = earliest && latest ? `${formatDateOnly(earliest)} - ${formatDateOnly(latest)}` : formatDateOnly(new Date().toISOString());
 
+  const accentStyle = { "--inv-accent": branding.color } as React.CSSProperties;
+  const clientName = subscription?.companyName || user.tenantId;
+
   return (
-    <main className="invoice-page">
+    <main className="invoice-page" style={accentStyle}>
       <div className="invoice-card">
         <div className="invoice-head">
-          <h1>{branding.name}</h1>
-          <div className="invoice-head-meta">
-            <div>
-              <span>PERIOD <em>الفترة</em></span>
-              <b dir="ltr">{periodLabel}</b>
-            </div>
-            <div>
-              <span>ISSUED <em>تاريخ الإصدار</em></span>
-              <b>{formatDateOnly(new Date().toISOString())}</b>
-            </div>
+          <div className="invoice-brand">
+            {/* Branding logos can be data URLs, which next/image does not support. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {branding.logoDataUrl ? <img src={branding.logoDataUrl} alt="" /> : null}
+            <h1>{branding.name}</h1>
+          </div>
+          <div className="invoice-title">
+            <strong>كشف الفواتير</strong>
+            <span className="invoice-sub">Invoice statement</span>
           </div>
         </div>
 
-        <h2 className="invoice-item-heading">
-          <span>{subscription?.companyName || user.tenantId}</span>
-          <span>{subscription?.companyName || user.tenantId}</span>
-        </h2>
+        <div className="invoice-meta cols-3">
+          <div>
+            <span className="invoice-label">الفترة <em>Period</em></span>
+            <b dir="ltr">{periodLabel}</b>
+          </div>
+          <div>
+            <span className="invoice-label">تاريخ الإصدار <em>Issued</em></span>
+            <b dir="ltr">{formatDateOnly(new Date().toISOString())}</b>
+          </div>
+          <div>
+            <span className="invoice-label">عدد الفواتير <em>Invoices</em></span>
+            <b dir="ltr">{invoices.length.toLocaleString("en-US")}</b>
+          </div>
+        </div>
+
+        <div className="invoice-billed">
+          <span className="invoice-label">صادر إلى <em>Billed to</em></span>
+          <b>{clientName}</b>
+        </div>
 
         {invoices.length === 0 ? (
           <p className="invoice-not-found">لا توجد فواتير في هذه الفترة.</p>
@@ -71,21 +88,21 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
           <table className="invoice-table">
             <thead>
               <tr>
-                <th>DATE <em>التاريخ</em></th>
-                <th>DESCRIPTION <em>الوصف</em></th>
-                <th>STATUS <em>الحالة</em></th>
-                <th>AMOUNT <em>المبلغ</em></th>
+                <th>التاريخ <em>Date</em></th>
+                <th>الوصف <em>Description</em></th>
+                <th>الحالة <em>Status</em></th>
+                <th className="num">المبلغ <em>Amount</em></th>
               </tr>
             </thead>
             <tbody>
               {invoices.map((invoice) => (
                 <tr key={invoice.id}>
-                  <td>{formatDateOnly(invoice.createdAt)}</td>
+                  <td dir="ltr" style={{ textAlign: "start", whiteSpace: "nowrap" }}>{formatDateOnly(invoice.createdAt)}</td>
                   <td>
                     <b>{invoice.source === "اشتراك" ? `اشتراك - ${invoice.planName || "باقة"}` : "شحن رسائل حملات"}</b>
                   </td>
                   <td>{invoice.status}</td>
-                  <td>{invoice.amount.toLocaleString("en-US")} SAR</td>
+                  <td className="num"><span dir="ltr">{invoice.amount.toLocaleString("en-US")}</span> ر.س</td>
                 </tr>
               ))}
             </tbody>
@@ -93,9 +110,11 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
         )}
 
         <div className="invoice-totals">
-          <div className="invoice-total-paid">
-            <span>Total paid <em>إجمالي المدفوع</em></span>
-            <b>{totalPaid.toLocaleString("en-US")} SAR</b>
+          <div className="invoice-totals-box">
+            <div className="invoice-total-paid">
+              <span>إجمالي المدفوع <em>Total paid</em></span>
+              <b><span dir="ltr">{totalPaid.toLocaleString("en-US")}</span> ر.س</b>
+            </div>
           </div>
         </div>
 

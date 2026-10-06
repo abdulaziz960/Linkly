@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { createHash } from "crypto";
 import { getConversations } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { getEmployeeForUser, getVisibleAssigneeNames } from "../../../lib/permissions-server";
@@ -19,14 +20,25 @@ async function assigneeScopeFor(user: { role: string; email: string; tenantId: s
   return getVisibleAssigneeNames(user, employee);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return jsonError("غير مصرح", 401);
   processDueAutomations(user.tenantId).catch((error) => {
     console.error("Automation queue processing failed", error);
   });
   const assigneeNames = await assigneeScopeFor(user);
-  return jsonOk(await getConversations(user.tenantId, assigneeNames));
+  const body = JSON.stringify({ ok: true, data: await getConversations(user.tenantId, assigneeNames) });
+
+  // The dashboard re-fetches this every few seconds and the body is the whole
+  // inbox (about 2 MB), which made it ~90% of the site's outbound traffic. The
+  // ETag is a hash of the exact body, so a 304 can only be returned when the
+  // client already holds identical data - it can never serve a stale inbox.
+  // no-store keeps the browser from writing private conversations to its disk
+  // cache; the dashboard sends If-None-Match itself and keeps the last copy in memory.
+  const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
+  const headers = { ETag: etag, "Cache-Control": "private, no-store" };
+  if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
+  return new Response(body, { status: 200, headers: { ...headers, "Content-Type": "application/json" } });
 }
 
 export async function POST(request: NextRequest) {

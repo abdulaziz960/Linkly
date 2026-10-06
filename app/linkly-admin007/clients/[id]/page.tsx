@@ -8,6 +8,8 @@ import AdminPageHeader from "../../AdminPageHeader";
 import ClientEmployeesPanel from "./ClientEmployeesPanel";
 import ClientAccessPanel from "./ClientAccessPanel";
 import ClientNotesPanel from "./ClientNotesPanel";
+import ClientAvatar from "../ClientAvatar";
+import { getClientLogoTenantIds } from "../../../../lib/admin-client-logos";
 import ProfileTabs from "./ProfileTabs";
 import { ProfileChannels, ProfileConversations, ProfileTickets, ProfileTimeline, ProfileUsage } from "./ProfileSections";
 import { getAdminActionLogs } from "../../../../lib/admin-audit";
@@ -27,6 +29,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
   const generatedAt = nowMs();
   const { id } = await params;
   const tenantId = decodeURIComponent(id);
+  const logoTenantIds = await getClientLogoTenantIds();
   const [subscriptions, payments, logs, employees] = await Promise.all([
     getSubscriptions(),
     getSubscriptionPayments(),
@@ -136,7 +139,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
       />
 
       <div className="ds-card ds-card-pad ds-profile-hero">
-        <span className="ds-avatar" aria-hidden="true">{client.companyName.slice(0, 1) || "ع"}</span>
+        <ClientAvatar tenantId={client.tenantId} name={client.companyName} hasLogo={logoTenantIds.includes(client.tenantId)} />
         <div className="ds-profile-hero-main">
           <div className="ds-profile-hero-title">
             <h2>{client.companyName}</h2>

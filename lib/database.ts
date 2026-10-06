@@ -1,9 +1,11 @@
 import { prisma } from "./prisma";
+import { isInlineDataUrl, messageAttachmentPath } from "./message-attachments";
 import { ensureAiSchema } from "./ai-schema";
 import { ensureCatalogSchema } from "./catalog-schema";
 import { ensureBranchesSchema } from "./branches-schema";
 import { ensureClientNotesSchema } from "./client-notes-schema";
 import { ensureAdminPermissionsSchema } from "./admin-permissions-schema";
+import { ensureAdminHiddenClientsSchema } from "./admin-hidden-clients-schema";
 import { ensurePlanPrices } from "./plan-prices";
 import { ensureGrantsSchema } from "./grants-schema";
 import { ensureFaqSchema } from "./faq-schema";
@@ -621,6 +623,12 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS admin_action_logs_admin_user_id_created_at_idx ON admin_action_logs (admin_user_id, created_at)`
   );
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS renewal_followups (
+    tenant_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'new',
+    updated_by TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+  )`);
   // Developer API/webhooks tables (feat: f2b8f2b) never reached this
   // production bridge - the runtime-repair section further down that
   // otherwise creates them is skipped entirely in production, so
@@ -1599,6 +1607,12 @@ async function runSchemaMigrations() {
   )`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS admin_action_logs_admin_user_id_created_at_idx ON admin_action_logs (admin_user_id, created_at)`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS admin_action_logs_target_type_target_id_idx ON admin_action_logs (target_type, target_id)`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS renewal_followups (
+    tenant_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'new',
+    updated_by TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+  )`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL,
@@ -2588,7 +2602,7 @@ async function ensureDiscountCodesSchema() {
 
 export async function ensureSchema() {
   await ensureDiscountCodesSchema();
-  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).then(ensureSeoSchema).catch((error) => {
+  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensureAdminHiddenClientsSchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).then(ensureSeoSchema).catch((error) => {
     schemaPromise = null;
     throw error;
   });
@@ -3109,7 +3123,8 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       author: message.author || undefined,
       attachment: message.attachmentType && message.attachmentUrl ? {
         type: message.attachmentType as NonNullable<Message["attachment"]>["type"],
-        url: message.attachmentUrl,
+        // Inline base64 media is served from its own URL instead of riding along with every refresh.
+        url: isInlineDataUrl(message.attachmentUrl) ? messageAttachmentPath(conversation.id, message.id) : message.attachmentUrl,
         name: message.attachmentName || message.text,
         mimeType: message.attachmentMime || undefined
       } : undefined,
