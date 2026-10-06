@@ -1,5 +1,6 @@
 "use client";
 
+import ClientAvatar from "./ClientAvatar";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { PlanRow, SubscriptionRow } from "../types";
@@ -18,7 +19,7 @@ import { RENEWAL_FILTER_OPTIONS, USAGE_FILTER_OPTIONS } from "./clients-filter-o
 import { NO_ADVANCED_FILTERS, clientsToCsv, countAdvancedFilters, deriveClient, matchesAdvanced, paginate, type AdvancedFilters, type RenewalFilter, type UsageFilter } from "./clients-filters";
 import { SORT_OPTIONS, STATUS_FILTERS, clientCounts, filterClients, formatRenewalDate, invoiceBreakdown, sortClients, type ClientSort, type ClientStatusFilter } from "./clients-data";
 
-type Props = { subscriptions: SubscriptionRow[]; plans: PlanRow[]; generatedAt: number; hiddenCount: number; showingHidden: boolean };
+type Props = { subscriptions: SubscriptionRow[]; plans: PlanRow[]; generatedAt: number; hiddenCount: number; showingHidden: boolean; logoTenantIds: string[] };
 
 type ClientDraft = { company: string; owner: string; ownerEmail: string; plan: string; status: string; renewal: string; amount: string; billingCycle: string };
 type CreatePayload = { company: string; owner: string; ownerEmail: string; plan: string; status: string; renewal: string; amount: number; billingCycle: string };
@@ -51,7 +52,8 @@ function emptyDraft(plans: PlanRow[]): ClientDraft {
   return { company: "", owner: "", ownerEmail: "", plan: first?.name || "", status: "تجربة", renewal: "", amount: String(first?.monthlyPrice ?? 0), billingCycle: "تجربة 3 أيام" };
 }
 
-export default function ClientsView({ subscriptions, plans, generatedAt, hiddenCount, showingHidden }: Props) {
+export default function ClientsView({ subscriptions, plans, generatedAt, hiddenCount, showingHidden, logoTenantIds }: Props) {
+  const logoSet = useMemo(() => new Set(logoTenantIds), [logoTenantIds]);
   const router = useRouter();
   const confirm = useConfirm();
   const toast = useToast();
@@ -454,7 +456,7 @@ export default function ClientsView({ subscriptions, plans, generatedAt, hiddenC
                       </td>
                       <td data-cell="main">
                         <div className="ds-cell-main">
-                          <span className="ds-avatar" aria-hidden="true">{client.companyName.slice(0, 1) || "ع"}</span>
+                          <ClientAvatar tenantId={client.tenantId} name={client.companyName} hasLogo={logoSet.has(client.tenantId)} />
                           <div>
                             <strong>{client.companyName}</strong>
                             <span>{client.ownerName} · <bdi dir="ltr">{client.ownerEmail}</bdi></span>

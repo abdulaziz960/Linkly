@@ -1,5 +1,6 @@
 import { getSubscriptions } from "../../../lib/subscriptions";
 import { getHiddenTenantIds } from "../../../lib/admin-hidden-clients";
+import { getClientLogoTenantIds } from "../../../lib/admin-client-logos";
 import { getPlans } from "../../../lib/plans";
 import AdminPageHeader from "../AdminPageHeader";
 import ClientsView from "./ClientsView";
@@ -13,6 +14,7 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
   if (denied) return denied;
   const generatedAt = nowMs();
   const [allSubscriptions, plans, hiddenTenants, filters] = await Promise.all([getSubscriptions(), getPlans(), getHiddenTenantIds(), searchParams]);
+  const logoTenantIds = await getClientLogoTenantIds();
   // Test/demo workspaces the team hid stay out of the list (and the totals) unless "المخفية" is opened.
   const showingHidden = filters.hidden === "1";
   const subscriptions = allSubscriptions.filter((subscription) => hiddenTenants.has(subscription.tenantId) === showingHidden);
@@ -25,7 +27,7 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
         title={["إدارة عملاء Linkly", "Manage Linkly clients"]}
         description={["كل عميل هنا حساب دخول حقيقي فعلي — إنشاء عميل جديد ينشئ حساب دخول حقيقي له فورًا.", "Every client here is a real, live login account — creating a new client creates their real login account immediately."]}
       />
-      <ClientsView subscriptions={subscriptions} plans={plans} generatedAt={generatedAt} hiddenCount={hiddenCount} showingHidden={showingHidden} />
+      <ClientsView subscriptions={subscriptions} plans={plans} generatedAt={generatedAt} hiddenCount={hiddenCount} showingHidden={showingHidden} logoTenantIds={logoTenantIds} />
     </>
   );
 }

@@ -288,6 +288,17 @@ main.admin-shell {
   color: var(--ds-on-brand);
   font-weight: 800;
 }
+.ds-avatar-logo {
+  background: #fff;
+  border: 1px solid var(--ds-border);
+  overflow: hidden;
+}
+.ds-avatar-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 3px;
+}
 .ds-user-meta {
   min-width: 0;
   flex: 1;

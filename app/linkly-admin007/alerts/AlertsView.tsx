@@ -7,12 +7,14 @@ import { Badge, Button, EmptyState, Segmented, StatCard } from "../ds/primitives
 import ChargeDialog from "../clients/ChargeDialog";
 import { invoiceBreakdown } from "../clients/clients-data";
 import { callAdminApi, jsonInit } from "../content-api";
+import ClientAvatar from "../clients/ClientAvatar";
 import { useToast } from "../ds/Toast";
 import { BUCKETS, FOLLOW_UP_LABEL, bucketCounts, buildAlerts, exposure, inBucket, isFollowUp, type Bucket, type FollowUp } from "./alerts-data";
 
 export type FollowUpEntries = Record<string, { status: FollowUp; updatedBy: string; updatedAt: string }>;
 
-export default function AlertsView({ subscriptions, initialStatus = "all", initialFollowUps = {} }: { subscriptions: SubscriptionRow[]; initialStatus?: string; initialFollowUps?: FollowUpEntries }) {
+export default function AlertsView({ subscriptions, logoTenantIds = [], initialStatus = "all", initialFollowUps = {} }: { subscriptions: SubscriptionRow[]; logoTenantIds?: string[]; initialStatus?: string; initialFollowUps?: FollowUpEntries }) {
+  const logoSet = new Set(logoTenantIds);
   const toast = useToast();
   const [bucket, setBucket] = useState<Bucket>(initialStatus === "overdue" ? "overdue" : "all");
   const [chargeClient, setChargeClient] = useState<SubscriptionRow | null>(null);
@@ -87,7 +89,7 @@ export default function AlertsView({ subscriptions, initialStatus = "all", initi
                     <tr key={subscription.tenantId}>
                       <td data-cell="main">
                         <div className="ds-cell-main">
-                          <span className="ds-avatar" aria-hidden="true">{subscription.companyName.slice(0, 1) || "ع"}</span>
+                          <ClientAvatar tenantId={subscription.tenantId} name={subscription.companyName} hasLogo={logoSet.has(subscription.tenantId)} />
                           <div><strong>{subscription.companyName}</strong><span>{subscription.plan}</span></div>
                         </div>
                       </td>
