@@ -1,4 +1,5 @@
 import { renderEmail } from "./email-layout";
+import { recordEmailSent } from "./email-usage";
 
 type SendActivationEmailInput = {
   to: string;
@@ -55,7 +56,10 @@ async function sendEmail({ to, subject, text, html, idempotencyKey }: { to: stri
         body: JSON.stringify({ from: resendFrom, to, subject, text, html })
       });
       const payload = await response.json().catch(() => null) as { id?: string; message?: string } | null;
-      if (response.ok && payload?.id) return true;
+      if (response.ok && payload?.id) {
+        await recordEmailSent();
+        return true;
+      }
       console.error("Resend email failed", { status: response.status, payload });
     } catch (error) {
       console.error("Resend email request failed", error);

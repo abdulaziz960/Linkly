@@ -15,6 +15,7 @@ const LEVEL: Record<string, { label: string; tone: Tone }> = {
 
 function targetHref(item: AdminNotification) {
   if (item.type === "renewal") return "/linkly-admin007/alerts";
+  if (item.type === "email") return "/linkly-admin007";
   // The logs page hides error-level rows, so an error would open an empty list; send it to the client instead.
   if (item.level === "خطأ" && item.tenantId) return `/linkly-admin007/clients/${item.tenantId}`;
   return `/linkly-admin007/logs?client=${item.tenantId}`;
