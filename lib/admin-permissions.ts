@@ -1,7 +1,7 @@
 // Fine-grained access for platform team members. Pure helpers (no DB) so the
 // rules can be unit tested and shared by the server and the UI.
 
-export const ADMIN_PERMISSIONS = ["clients", "billing", "support", "content", "team"] as const;
+export const ADMIN_PERMISSIONS = ["clients", "billing", "support", "content", "team", "tech"] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 
 export const PERMISSION_LABELS: Record<AdminPermission, { label: string; hint: string }> = {
@@ -9,14 +9,17 @@ export const PERMISSION_LABELS: Record<AdminPermission, { label: string; hint: s
   billing: { label: "الإيرادات", hint: "المدفوعات والباقات وأكواد الخصم وإنشاء روابط الدفع." },
   support: { label: "الدعم والتطوير", hint: "تذاكر الدعم الفني واقتراحات التطوير." },
   content: { label: "المحتوى", hint: "المدونة والأسئلة الشائعة." },
-  team: { label: "الفريق والتدقيق", hint: "إدارة أعضاء الفريق وصلاحياتهم وسجل التدقيق." }
+  team: { label: "الفريق والتدقيق", hint: "إدارة أعضاء الفريق وصلاحياتهم وسجل التدقيق." },
+  tech: { label: "التقنية", hint: "سجلات النشاط التشغيلية، الاستخدام، وطلبات التطوير." }
 };
 
 export const PERMISSION_PRESETS: { id: string; label: string; permissions: AdminPermission[] }[] = [
   { id: "owner", label: "مدير كامل", permissions: [...ADMIN_PERMISSIONS] },
-  { id: "finance", label: "مالية", permissions: ["clients", "billing"] },
+  { id: "accountant", label: "محاسب", permissions: ["billing"] },
+  { id: "finance", label: "مالية (مع العملاء)", permissions: ["clients", "billing"] },
   { id: "support", label: "دعم فني", permissions: ["clients", "support"] },
-  { id: "content", label: "محتوى", permissions: ["content"] }
+  { id: "seo", label: "SEO ومحتوى", permissions: ["content"] },
+  { id: "developer", label: "مبرمج", permissions: ["tech"] }
 ];
 
 /** Stored value -> permission list. "*" or an empty/absent value means full access (the pre-existing behaviour). */
@@ -36,17 +39,20 @@ export function hasAdminPermission(permissions: readonly AdminPermission[], need
 }
 
 // Which permission each admin page needs. Longest matching prefix wins; paths
-// not listed (overview, settings, logs) are open to every team member.
+// not listed (overview, settings) are open to every team member. A rule may
+// list several permissions - holding any one of them is enough (the first is
+// the primary one, shown in the "no access" message).
 const BASE = "/linkly-admin007";
-const PATH_RULES: [string, AdminPermission][] = [
+const PATH_RULES: [string, AdminPermission | AdminPermission[]][] = [
   [`${BASE}/clients`, "clients"],
   [`${BASE}/alerts`, "clients"],
-  [`${BASE}/usage`, "clients"],
+  [`${BASE}/usage`, ["clients", "tech"]],
   [`${BASE}/payments`, "billing"],
   [`${BASE}/plans`, "billing"],
   [`${BASE}/discount-codes`, "billing"],
   [`${BASE}/support`, "support"],
-  [`${BASE}/development`, "support"],
+  [`${BASE}/development`, ["support", "tech"]],
+  [`${BASE}/logs`, "tech"],
   [`${BASE}/blog`, "content"],
   [`${BASE}/faq`, "content"],
   [`${BASE}/redirects`, "content"],
@@ -56,14 +62,19 @@ const PATH_RULES: [string, AdminPermission][] = [
   [`${BASE}/admin-actions`, "team"]
 ];
 
-export function permissionForPath(pathname: string): AdminPermission | null {
+function rulesForPath(pathname: string): AdminPermission[] | null {
   const match = PATH_RULES.filter(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`)).sort((a, b) => b[0].length - a[0].length)[0];
-  return match ? match[1] : null;
+  return match ? (Array.isArray(match[1]) ? match[1] : [match[1]]) : null;
+}
+
+/** The primary permission a page needs, or null when every team member may open it. */
+export function permissionForPath(pathname: string): AdminPermission | null {
+  return rulesForPath(pathname)?.[0] ?? null;
 }
 
 export function canAccessPath(permissions: readonly AdminPermission[], pathname: string) {
-  const needed = permissionForPath(pathname);
-  return needed === null || permissions.includes(needed);
+  const needed = rulesForPath(pathname);
+  return needed === null || needed.some((permission) => permissions.includes(permission));
 }
 
 /**

@@ -4,7 +4,7 @@ import UsageView from "./UsageView";
 import { guardPage } from "../guard";
 
 export default async function AdminUsagePage() {
-  const denied = await guardPage("clients");
+  const denied = await guardPage(["clients", "tech"]);
   if (denied) return denied;
   const rows = await getTenantUsageStats();
 

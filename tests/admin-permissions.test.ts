@@ -32,7 +32,16 @@ describe("permission helpers", () => {
     expect(permissionForPath("/linkly-admin007/settings")).toBeNull();
     expect(canAccessPath(["support"], "/linkly-admin007/payments")).toBe(false);
     expect(canAccessPath(["support"], "/linkly-admin007/support")).toBe(true);
-    expect(canAccessPath(["support"], "/linkly-admin007/logs")).toBe(true);
+    expect(canAccessPath(["support"], "/linkly-admin007/logs")).toBe(false);
+    expect(canAccessPath(["content"], "/linkly-admin007/logs")).toBe(false);
+    expect(canAccessPath(["tech"], "/linkly-admin007/logs")).toBe(true);
+    expect(canAccessPath(["tech"], "/linkly-admin007/development")).toBe(true);
+    expect(canAccessPath(["support"], "/linkly-admin007/development")).toBe(true);
+    expect(canAccessPath(["tech"], "/linkly-admin007/payments")).toBe(false);
+    expect(canAccessPath(["tech"], "/linkly-admin007/clients")).toBe(false);
+    expect(canAccessPath(["clients"], "/linkly-admin007/usage")).toBe(true);
+    expect(canAccessPath(["billing"], "/linkly-admin007/page-seo")).toBe(false);
+    expect(canAccessPath(["content"], "/linkly-admin007/page-seo")).toBe(true);
     expect(hasAdminPermission(["clients"], "billing")).toBe(false);
   });
 

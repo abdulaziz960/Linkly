@@ -10,12 +10,14 @@ import { ErrorState } from "./ds/primitives";
  * without the permission never receives that data (hiding the link is not
  * enough). Returns the "no permission" state to render, or null to continue.
  */
-export async function guardPage(permission: AdminPermission) {
+export async function guardPage(needed: AdminPermission | AdminPermission[]) {
+  const accepted = Array.isArray(needed) ? needed : [needed];
+  const permission = accepted[0];
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.isPlatformAdmin !== 1) redirect("/dashboard");
   const permissions = await getAdminPermissions(user.id);
-  if (permissions.includes(permission)) return null;
+  if (accepted.some((item) => permissions.includes(item))) return null;
   return (
     <ErrorState
       kind="denied"
