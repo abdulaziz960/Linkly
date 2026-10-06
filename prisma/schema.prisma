@@ -1391,3 +1391,12 @@ model LandingContent {
 
   @@map("landing_content")
 }
+
+// Clients the platform team hid from the admin panel lists (see lib/admin-hidden-clients.ts).
+model AdminHiddenClient {
+  tenantId String @id @map("tenant_id")
+  hiddenAt String @map("hidden_at")
+  hiddenBy String @default("") @map("hidden_by")
+
+  @@map("admin_hidden_clients")
+}

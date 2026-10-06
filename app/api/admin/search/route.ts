@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getAdminPermissions, requirePlatformAdmin } from "../../../../lib/admin-auth";
-import { getSubscriptionPayments, getSubscriptions } from "../../../../lib/subscriptions";
+import { getSubscriptionPayments } from "../../../../lib/subscriptions";
+import { getVisibleSubscriptions } from "../../../../lib/admin-hidden-clients";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
   // Each group is searched only when the member may see it.
   const permissions = await getAdminPermissions(admin.id);
   const [subscriptions, payments] = await Promise.all([
-    permissions.includes("clients") ? getSubscriptions() : Promise.resolve([]),
+    permissions.includes("clients") ? getVisibleSubscriptions() : Promise.resolve([]),
     permissions.includes("billing") ? getSubscriptionPayments() : Promise.resolve([])
   ]);
 

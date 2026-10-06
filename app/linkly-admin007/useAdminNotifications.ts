@@ -123,11 +123,11 @@ export function useAdminNotifications() {
 
   return {
     items,
-    // The badge counts items that need attention (errors + alerts) and that
-    // this browser has not opened yet. Opening an item (or "mark all read")
-    // clears it; a new or newly-escalated item brings the badge back.
-    actionableCount: items.filter((item) => item.level !== "معلومة" && unreadIds.has(item.id)).length,
-    unreadCount: unreadIds.size,
+    // The badge is exactly the number of listed items this browser has not
+    // opened yet, whatever their level: opening one (or "mark all read") takes
+    // one off, and a new item brings it back. It used to count only errors and
+    // alerts, so opening an info row never changed the number.
+    unreadCount: items.filter((item) => unreadIds.has(item.id)).length,
     unreadIds,
     soundEnabled,
     setSoundEnabled,

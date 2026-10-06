@@ -1,5 +1,5 @@
 import { getPlans } from "../../../lib/plans";
-import { getSubscriptions } from "../../../lib/subscriptions";
+import { getVisibleSubscriptions } from "../../../lib/admin-hidden-clients";
 import AdminPageHeader from "../AdminPageHeader";
 import PlansView from "./PlansView";
 import { guardPage } from "../guard";
@@ -13,7 +13,7 @@ const RETIRED_PLAN_NAMES = new Set(["باقة البداية", "باقة الن�
 export default async function AdminPlansPage() {
   const denied = await guardPage("billing");
   if (denied) return denied;
-  const [plans, subscriptions] = await Promise.all([getPlans(), getSubscriptions()]);
+  const [plans, subscriptions] = await Promise.all([getPlans(), getVisibleSubscriptions()]);
 
   const subscriberCounts = new Map<string, number>();
   for (const subscription of subscriptions) {

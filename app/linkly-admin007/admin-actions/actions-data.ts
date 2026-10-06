@@ -31,6 +31,8 @@ export const ACTION_LABEL: Record<string, string> = {
   "update-plan": "تعديل باقة",
   "edit-client-employee": "تعديل موظف لدى عميل",
   "invite-platform-admin": "دعوة عضو للفريق",
+  "hide-clients": "إخفاء عملاء من القوائم",
+  "unhide-clients": "إظهار عملاء مخفيين",
   "revoke-platform-admin": "إزالة صلاحية عضو",
   "update-client-subscription": "تعديل اشتراك عميل",
   "update-development-request": "تحديث اقتراح تطوير",

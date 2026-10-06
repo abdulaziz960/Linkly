@@ -1,4 +1,4 @@
-import { getSubscriptions } from "../../../lib/subscriptions";
+import { getVisibleSubscriptions } from "../../../lib/admin-hidden-clients";
 import AdminPageHeader from "../AdminPageHeader";
 import { getRenewalFollowUps } from "../../../lib/renewal-followups";
 import AlertsView from "./AlertsView";
@@ -7,7 +7,7 @@ import { guardPage } from "../guard";
 export default async function AdminAlertsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const denied = await guardPage("clients");
   if (denied) return denied;
-  const [subscriptions, filters, followUps] = await Promise.all([getSubscriptions(), searchParams, getRenewalFollowUps()]);
+  const [subscriptions, filters, followUps] = await Promise.all([getVisibleSubscriptions(), searchParams, getRenewalFollowUps()]);
 
   return (
     <>

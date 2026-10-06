@@ -5,6 +5,7 @@ import { ensureCatalogSchema } from "./catalog-schema";
 import { ensureBranchesSchema } from "./branches-schema";
 import { ensureClientNotesSchema } from "./client-notes-schema";
 import { ensureAdminPermissionsSchema } from "./admin-permissions-schema";
+import { ensureAdminHiddenClientsSchema } from "./admin-hidden-clients-schema";
 import { ensurePlanPrices } from "./plan-prices";
 import { ensureGrantsSchema } from "./grants-schema";
 import { ensureFaqSchema } from "./faq-schema";
@@ -2601,7 +2602,7 @@ async function ensureDiscountCodesSchema() {
 
 export async function ensureSchema() {
   await ensureDiscountCodesSchema();
-  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).then(ensureSeoSchema).catch((error) => {
+  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensureAdminHiddenClientsSchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).then(ensureSeoSchema).catch((error) => {
     schemaPromise = null;
     throw error;
   });

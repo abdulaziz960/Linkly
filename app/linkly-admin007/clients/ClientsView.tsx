@@ -18,7 +18,7 @@ import { RENEWAL_FILTER_OPTIONS, USAGE_FILTER_OPTIONS } from "./clients-filter-o
 import { NO_ADVANCED_FILTERS, clientsToCsv, countAdvancedFilters, deriveClient, matchesAdvanced, paginate, type AdvancedFilters, type RenewalFilter, type UsageFilter } from "./clients-filters";
 import { SORT_OPTIONS, STATUS_FILTERS, clientCounts, filterClients, formatRenewalDate, invoiceBreakdown, sortClients, type ClientSort, type ClientStatusFilter } from "./clients-data";
 
-type Props = { subscriptions: SubscriptionRow[]; plans: PlanRow[]; generatedAt: number };
+type Props = { subscriptions: SubscriptionRow[]; plans: PlanRow[]; generatedAt: number; hiddenCount: number; showingHidden: boolean };
 
 type ClientDraft = { company: string; owner: string; ownerEmail: string; plan: string; status: string; renewal: string; amount: string; billingCycle: string };
 type CreatePayload = { company: string; owner: string; ownerEmail: string; plan: string; status: string; renewal: string; amount: number; billingCycle: string };
@@ -51,7 +51,7 @@ function emptyDraft(plans: PlanRow[]): ClientDraft {
   return { company: "", owner: "", ownerEmail: "", plan: first?.name || "", status: "تجربة", renewal: "", amount: String(first?.monthlyPrice ?? 0), billingCycle: "تجربة 3 أيام" };
 }
 
-export default function ClientsView({ subscriptions, plans, generatedAt }: Props) {
+export default function ClientsView({ subscriptions, plans, generatedAt, hiddenCount, showingHidden }: Props) {
   const router = useRouter();
   const confirm = useConfirm();
   const toast = useToast();
@@ -142,6 +142,26 @@ export default function ClientsView({ subscriptions, plans, generatedAt }: Props
     setBulkBusy(false);
     if (failed === 0) toast("success", disabling ? "تم تعطيل الحسابات" : "تم تفعيل الحسابات", `${formatNumber(targets.length)} حساب`);
     else toast("error", `تعذر تحديث ${formatNumber(failed)} من ${formatNumber(targets.length)}`, lastError);
+    setSelected(new Set());
+    router.refresh();
+  }
+
+  async function bulkSetHidden(targets: SubscriptionRow[], hidden: boolean) {
+    if (!targets.length) return;
+    const names = targets.slice(0, 5).map((client) => client.companyName).join("، ") + (targets.length > 5 ? ` و${formatNumber(targets.length - 5)} آخرين` : "");
+    const ok = await confirm({
+      title: hidden ? `إخفاء ${formatNumber(targets.length)} حساب من القوائم؟` : `إظهار ${formatNumber(targets.length)} حساب في القوائم؟`,
+      description: hidden
+        ? `(${names}) لن تظهر في قائمة العملاء ولا الأرقام ولا الإشعارات. لا يُحذف أي شيء ولا يتغير وصولهم أو اشتراكهم، ويمكنك إظهارهم من زر «المخفية».`
+        : `(${names}) سيعودون إلى قائمة العملاء والأرقام والإشعارات.`,
+      confirmLabel: hidden ? "إخفاء" : "إظهار"
+    });
+    if (!ok) return;
+    setBulkBusy(true);
+    const result = await call("/api/admin/clients/hidden", "POST", { tenantIds: targets.map((client) => client.tenantId), hidden });
+    setBulkBusy(false);
+    if (result.ok) toast("success", hidden ? "تم الإخفاء" : "تم الإظهار", `${formatNumber(targets.length)} حساب`);
+    else toast("error", "تعذر التنفيذ", result.error);
     setSelected(new Set());
     router.refresh();
   }
@@ -296,7 +316,14 @@ export default function ClientsView({ subscriptions, plans, generatedAt }: Props
       <Section
         title={`العملاء (${formatNumber(visible.length)} من ${formatNumber(subscriptions.length)})`}
         description="حالة الاشتراك الفعلية وعدد المستخدمين والفاتورة الشهرية لكل عميل."
-        actions={<Button variant="primary" icon="plus" onClick={openAdd}>إضافة عميل</Button>}
+        actions={<>
+          {showingHidden || hiddenCount > 0 ? (
+            <Button variant="outline" onClick={() => router.push(showingHidden ? "/linkly-admin007/clients" : "/linkly-admin007/clients?hidden=1")}>
+              {showingHidden ? "العودة للقائمة" : `المخفية (${formatNumber(hiddenCount)})`}
+            </Button>
+          ) : null}
+          <Button variant="primary" icon="plus" onClick={openAdd}>إضافة عميل</Button>
+        </>}
       >
         <div className="ds-toolbar">
           <div className="ds-search">
@@ -378,6 +405,7 @@ export default function ClientsView({ subscriptions, plans, generatedAt }: Props
             <Button variant="outline" icon="download" onClick={() => exportCsv(selectedClients, "المحدد")}>تصدير المحدد</Button>
             <Button variant="outline" loading={bulkBusy} disabled={!selectedClients.some((client) => client.status === "متوقف")} onClick={() => bulkSetStatus(selectedClients.filter((client) => client.status === "متوقف"), "نشط")}>تفعيل</Button>
             <Button variant="danger" loading={bulkBusy} disabled={!selectedClients.some((client) => client.status !== "متوقف")} onClick={() => bulkSetStatus(selectedClients.filter((client) => client.status !== "متوقف"), "متوقف")}>تعطيل</Button>
+            {can("clients") ? <Button variant="outline" loading={bulkBusy} onClick={() => bulkSetHidden(selectedClients, !showingHidden)}>{showingHidden ? "إظهار في القوائم" : "إخفاء من القوائم"}</Button> : null}
             <Button variant="ghost" onClick={() => setSelected(new Set())}>إلغاء التحديد</Button>
           </div>
         ) : null}
