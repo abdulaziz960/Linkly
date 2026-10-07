@@ -8,16 +8,42 @@ const CONSENT_STORAGE_KEY = "linkly-analytics-consent";
 /** First-party cookie with the same value: survives localStorage clears and is re-issued by the server (/api/consent). */
 const CONSENT_COOKIE_NAME = "linkly_consent";
 const CONSENT_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+const GTM_CONTAINER_ID = "GTM-TXWK77FV";
 /** Internal tools never show the banner and never load analytics. */
 const NO_BANNER_PREFIXES = ["/linkly-admin007"];
 /** Dispatched by CookieSettingsLink to reopen the banner after a first choice. */
 export const REOPEN_COOKIE_BANNER_EVENT = "linkly:open-cookie-settings";
 
-/** Tells Google Consent Mode (set up in app/layout.tsx) about the visitor's choice. */
+type TrackingWindow = Window & {
+  dataLayer?: unknown[];
+  gtag?: (...args: unknown[]) => void;
+};
+
+/** GTM and its Clarity tag are never requested until analytics is accepted. */
+function loadAcceptedAnalytics() {
+  if (window.location.pathname.startsWith("/linkly-admin007") || document.getElementById("linkly-gtm")) return;
+  const trackingWindow = window as TrackingWindow;
+  trackingWindow.dataLayer ??= [];
+  trackingWindow.gtag = (...args: unknown[]) => { trackingWindow.dataLayer!.push(args); };
+  // Consent must be in the data layer before the container starts evaluating tags.
+  trackingWindow.gtag("consent", "default", {
+    ad_storage: "granted",
+    ad_user_data: "granted",
+    ad_personalization: "granted",
+    analytics_storage: "granted"
+  });
+  trackingWindow.dataLayer.push({ "gtm.start": Date.now(), event: "gtm.js" });
+  const script = document.createElement("script");
+  script.id = "linkly-gtm";
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtm.js?id=${GTM_CONTAINER_ID}`;
+  document.head.appendChild(script);
+}
+
+/** Tells Google Consent Mode about a later visitor choice. */
 function updateGoogleConsent(value: "accepted" | "rejected") {
   const state = value === "accepted" ? "granted" : "denied";
-  // gtag() is defined by the inline script in app/layout.tsx.
-  (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag?.("consent", "update", { ad_storage: state, ad_user_data: state, ad_personalization: state, analytics_storage: state });
+  (window as TrackingWindow).gtag?.("consent", "update", { ad_storage: state, ad_user_data: state, ad_personalization: state, analytics_storage: state });
 }
 
 type Consent = "accepted" | "rejected" | null;
@@ -115,11 +141,8 @@ const copy = {
 } as const;
 
 /**
- * Google Tag Manager/gtag used to fire unconditionally on every page load
- * (including for anonymous visitors on the marketing site) with no consent
- * mechanism at all - a PDPL gap flagged in the pre-launch compliance audit.
- * Nothing analytics-related loads until the visitor explicitly accepts here;
- * the choice is remembered in localStorage so the banner only shows once.
+ * The choice is remembered in a first-party cookie and localStorage. GTM and
+ * the Clarity tag inside it are fetched only for an accepted visitor.
  */
 export default function CookieConsent() {
   const pathname = usePathname();
@@ -149,6 +172,12 @@ export default function CookieConsent() {
     return () => window.removeEventListener(REOPEN_COOKIE_BANNER_EVENT, reopen);
   }, []);
 
+  // A visitor may navigate from the admin area (where tracking is disabled)
+  // to a public page without a full reload.
+  useEffect(() => {
+    if (consent === "accepted") loadAcceptedAnalytics();
+  }, [consent, pathname]);
+
   useEffect(() => {
     if (!settingsOpen) return;
     closeButtonRef.current?.focus();
@@ -167,6 +196,7 @@ export default function CookieConsent() {
     if (value === "rejected") clearAnalyticsCookies();
     persistConsent(value);
     updateGoogleConsent(value);
+    if (value === "accepted") loadAcceptedAnalytics();
     // Removing a Script element cannot unload a previously loaded analytics
     // runtime. Reload with the rejected preference to stop future tracking.
     if (shouldReload) window.location.reload();
@@ -227,7 +257,7 @@ export default function CookieConsent() {
             <button
               type="button"
               onClick={() => choose("accepted")}
-              style={{ padding: "8px 16px", borderRadius: 10, border: 0, background: "#178a82", color: "#fff", fontWeight: 700, cursor: "pointer" }}
+              style={{ padding: "8px 16px", borderRadius: 10, border: 0, background: "#106b65", color: "#fff", fontWeight: 700, cursor: "pointer" }}
             >
               {text.accept}
             </button>
@@ -262,7 +292,7 @@ export default function CookieConsent() {
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 20 }}>
               <button type="button" onClick={() => choose("rejected")} style={{ flex: "1 1 150px", minHeight: 44, border: "1px solid #178a82", borderRadius: 10, background: "#fff", color: "#106b65", fontWeight: 800, cursor: "pointer" }}>{text.reject}</button>
-              <button type="button" onClick={() => choose("accepted")} style={{ flex: "1 1 150px", minHeight: 44, border: 0, borderRadius: 10, background: "#178a82", color: "#fff", fontWeight: 800, cursor: "pointer" }}>{text.accept}</button>
+              <button type="button" onClick={() => choose("accepted")} style={{ flex: "1 1 150px", minHeight: 44, border: 0, borderRadius: 10, background: "#106b65", color: "#fff", fontWeight: 800, cursor: "pointer" }}>{text.accept}</button>
             </div>
           </section>
         </div>

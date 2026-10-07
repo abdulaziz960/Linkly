@@ -245,7 +245,7 @@
   display: inline-block;
   padding: 2px 7px;
   border-radius: 999px;
-  background: var(--brand);
+  background: var(--dark);
   color: #fff;
   font-weight: 700;
 }
@@ -363,7 +363,7 @@
   padding: 24px 20px;
   border-radius: 20px;
   cursor: pointer;
-  opacity: 0.6;
+  opacity: 1;
   transition: opacity 0.35s ease, background-color 0.35s ease, box-shadow 0.35s ease;
 }
 .storySteps li[data-active] {
@@ -378,13 +378,13 @@
   place-items: center;
   border-radius: 12px;
   background: #e1efed;
-  color: var(--brand);
+  color: var(--dark);
   font-size: 13px;
   font-weight: 800;
   transition: background-color 0.35s ease, color 0.35s ease;
 }
 .storySteps li[data-active] .storyNumber {
-  background: var(--brand);
+  background: var(--dark);
   color: #fff;
 }
 .storySteps h3 {
@@ -884,7 +884,7 @@
   padding: 7px 13px;
   border: 0;
   border-radius: 10px;
-  background: var(--brand);
+  background: var(--dark);
   color: #fff;
   font: inherit;
   font-size: 12px;
