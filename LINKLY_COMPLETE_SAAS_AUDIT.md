@@ -58,6 +58,35 @@ running environment, provider sandbox or production configuration is `NOT TESTED
   tests that assert the fixed behaviour, otherwise the suite stays red.
 * Playwright suite (`e2e/`) not executed in this stage.
 
+### C.1 Correction (stage 2) — seven security defects are still open
+
+Stage 1 repeated the earlier report's claim that no Critical/High issue was open. Running
+`tests/prelaunch-audit-reproduction.test.ts` shows that is **not true**. Defects that still
+reproduce on current `main` (now encoded as `it.fails`, so the suite is green but each one
+documents a real gap):
+
+| ID | Defect | Severity (my estimate) |
+|---|---|---|
+| AUD-04 | Telegram message-id collision returns another tenant's conversation and quoted text | High (cross-tenant leak) |
+| AUD-01 | Public website-widget polling returns internal staff notes | High |
+| AUD-03 | Opening a conversation by customer id bypasses assignee scope and returns history | Medium |
+| AUD-02 | Employee can take over another employee's assigned conversation | Medium |
+| AUD-08 | Tenant deletion leaves API keys and customer-related records | Medium (data retention) |
+| AUD-05 | Replayed Telegram event double-counts unread and re-runs automations | Low |
+| AUD-10 | Conversation can reference a customer from another tenant at DB level | Low (defence in depth) |
+
+Fixed and now covered by regression tests: AUD-06 (webhook loopback/SSRF), AUD-07
+(logout invalidates session), AUD-09 (one gateway payment cannot activate two rows).
+None of the seven open items has been fixed yet; each is a production behaviour change
+and awaits approval (P0/P1 in section E).
+
+### C.2 Playwright
+
+Executed `npx playwright test`: 2 passed, 10 failed. All 10 failures are
+`browserType.launch: Executable doesn't exist` — the Playwright browsers are not installed on
+this machine (`npx playwright install` needed, a ~100 MB download). Therefore the browser/E2E
+results are **NOT TESTED**, not failures of the product.
+
 ## D. Items that need an explicit decision before any change
 
 1. **Grace period enforcement.** Set `SUBSCRIPTION_GRACE_DAYS=7` on the production service?
@@ -89,13 +118,13 @@ running environment, provider sandbox or production configuration is `NOT TESTED
 
 | Item | Status |
 |---|---|
-| Critical/high security findings from earlier audit fixed | PASS (documented; 0 open) |
-| Unit/integration suite green | PARTIAL (3 stale reproduction tests red) |
+| Critical/high security findings fixed | FAIL — AUD-04 and AUD-01 still open (see C.1) |
+| Unit/integration suite green | PASS (all green after tests were rewritten; 7 known-open defects tracked as `it.fails`) |
 | Grace period enforced as policy | NOT TESTED (depends on prod env) |
 | Smart reopening | FAIL vs. brief (design difference) |
 | Payments against gateway sandbox | NOT TESTED |
 | OAuth channels against provider sandboxes | NOT TESTED |
-| E2E browser suite | NOT TESTED |
+| E2E browser suite | NOT TESTED (Playwright browsers not installed) |
 | Performance / load | NOT TESTED |
 
 ## G. Notes
