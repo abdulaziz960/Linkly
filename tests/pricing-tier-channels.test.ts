@@ -43,7 +43,7 @@ describe("2026 pricing tier restructure", () => {
     // AI Copilot only kicks in from the small-enterprises tier up.
     expect(newTiers.map((plan) => plan.aiDailyLimit)).toEqual([0, 0, 50, 100, 300]);
     // Marketing message quota per plan - -1 (enterprise) means unlimited.
-    expect(newTiers.map((plan) => plan.messageQuota)).toEqual([1000, 3000, 5000, 7000, -1]);
+    expect(newTiers.map((plan) => plan.messageQuota)).toEqual([500, 1500, 3000, 5000, -1]);
 
     // Nothing to migrate on a fresh install - the 3 original plan names
     // were never created here in the first place (see the separate
