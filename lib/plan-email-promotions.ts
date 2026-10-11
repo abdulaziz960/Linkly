@@ -1,10 +1,10 @@
 import { messageQuotaLabel } from "./message-quota";
 
 const EMAIL_PROMOTION_MONTHLY_CREDITS: Record<string, number> = {
-  "الباقة العادية": 500,
-  "باقة المؤسسات الصغيرة": 1000,
-  "باقة المؤسسات الكبيرة": 3000,
-  "باقة الشركات": 5000
+  "الباقة العادية": 100,
+  "باقة المؤسسات الصغيرة": 250,
+  "باقة المؤسسات الكبيرة": 500,
+  "باقة الشركات": 1000
 };
 
 export function emailPromotionCreditsForPlan(planName: string) {
