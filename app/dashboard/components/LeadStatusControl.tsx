@@ -10,6 +10,7 @@ export default function LeadStatusControl({ conversationId }: { conversationId: 
   const { t, language } = useLanguage();
   const [status, setStatus] = useState("جديد");
   const [statuses, setStatuses] = useState<string[]>([]);
+  const [dealValue, setDealValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState("");
 
@@ -18,10 +19,11 @@ export default function LeadStatusControl({ conversationId }: { conversationId: 
     setNote("");
     fetch(`/api/conversations/${encodeURIComponent(conversationId)}/lead-status`, { cache: "no-store" })
       .then((response) => response.json())
-      .then((result: { ok?: boolean; data?: { status: string; statuses: string[] } }) => {
+      .then((result: { ok?: boolean; data?: { status: string; statuses: string[]; dealValue?: number } }) => {
         if (!cancelled && result.ok && result.data) {
           setStatus(result.data.status);
           setStatuses(result.data.statuses);
+          setDealValue(result.data.dealValue ? String(result.data.dealValue) : "");
         }
       })
       .catch(() => undefined);
@@ -39,7 +41,7 @@ export default function LeadStatusControl({ conversationId }: { conversationId: 
       const response = await fetch(`/api/conversations/${encodeURIComponent(conversationId)}/lead-status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: next })
+        body: JSON.stringify({ status: next, ...(dealValue.trim() ? { dealValue: Number(dealValue) } : {}) })
       });
       const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; data?: { event?: { sent?: boolean; ok?: boolean; eventName?: string; message?: string } } } | null;
       if (!response.ok || !result?.ok) {
@@ -63,6 +65,10 @@ export default function LeadStatusControl({ conversationId }: { conversationId: 
       <select value={status} disabled={saving || statuses.length === 0} onChange={(event) => void change(event.target.value)} aria-label={t("حالة العميل المحتمل", "Lead status")}>
         {(statuses.length ? statuses : [status]).map((item) => <option key={item} value={item}>{language === "en" ? LABELS_EN[item] ?? item : item}</option>)}
       </select>
+      <label style={{ display: "grid", gap: 4, marginTop: 8, fontSize: 12.5 }}>
+        {t("قيمة الصفقة (ر.س) — تُرسل مع الحدث", "Deal value (SAR) — sent with the event")}
+        <input type="number" min={0} step="0.01" inputMode="decimal" value={dealValue} disabled={saving} onChange={(event) => setDealValue(event.target.value)} placeholder="0" dir="ltr" />
+      </label>
       {note ? <small role="status">{note}</small> : null}
     </span>
   );

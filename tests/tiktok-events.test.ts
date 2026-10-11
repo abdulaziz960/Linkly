@@ -122,6 +122,25 @@ describe("TikTok Ads lead-status events", () => {
     expect(await sendTestEvent("ten-off")).toMatchObject({ ok: false });
   });
 
+  it("sends the deal value and currency with the event, and keeps it on the conversation", async () => {
+    await seedConversation("conv-6", "ten-a");
+    const sent = mockTikTok();
+    const { setLeadStatus, getDealValue } = await import("../lib/tiktok-events");
+    expect(await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-6", status: "تم البيع", dealValue: "1250.5", actor: "x" })).toMatchObject({ ok: true, event: { sent: true, ok: true } });
+    expect(sent[0].body.data[0].properties).toMatchObject({ value: 1250.5, currency: "SAR", lead_status: "تم البيع" });
+    expect(await getDealValue("ten-a", "conv-6")).toBe(1250.5);
+    expect(await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-6", status: "مؤهل", dealValue: "abc", actor: "x" })).toMatchObject({ ok: false, code: 400 });
+    expect(await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-6", status: "مؤهل", dealValue: -5, actor: "x" })).toMatchObject({ ok: false, code: 400 });
+  });
+
+  it("omits value and currency when there is no deal value", async () => {
+    await seedConversation("conv-7", "ten-a");
+    const sent = mockTikTok();
+    const { setLeadStatus } = await import("../lib/tiktok-events");
+    await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-7", status: "تم البيع", actor: "x" });
+    expect(sent[0].body.data[0].properties).toEqual({ lead_status: "تم البيع" });
+  });
+
   it("sends the page for Pixel (web) events and explains an event_source_id rejection", async () => {
     await seedConversation("conv-5", "ten-web");
     const { saveTikTokAdsSettings, setLeadStatus, sendTestEvent } = await import("../lib/tiktok-events");

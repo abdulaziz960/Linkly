@@ -214,8 +214,14 @@ function buildPayload(settings: { eventSetId: string; eventSource: string; testE
   };
 }
 
+/** The sale value TikTok learns from; only sent when the conversation has one. */
+export const DEAL_CURRENCY = "SAR";
+function dealProperties(dealValue?: number): Record<string, unknown> {
+  return typeof dealValue === "number" && Number.isFinite(dealValue) && dealValue > 0 ? { value: Math.round(dealValue * 100) / 100, currency: DEAL_CURRENCY } : {};
+}
+
 /** Sends the event mapped to `status` for this conversation. Never throws; a failure is logged and returned. */
-export async function sendLeadStatusEvent(input: { tenantId: string; conversationId: string; status: string; phone: string }): Promise<SendResult> {
+export async function sendLeadStatusEvent(input: { tenantId: string; conversationId: string; status: string; phone: string; dealValue?: number }): Promise<SendResult> {
   try {
     const row = await readSettingsRow(input.tenantId);
     if (!row || row.enabled !== 1 || !row.event_set_id || !row.access_token_enc) return { sent: false, skipped: "disabled" };
@@ -229,7 +235,7 @@ export async function sendLeadStatusEvent(input: { tenantId: string; conversatio
     if (already.length) return { sent: false, skipped: "duplicate", eventName };
 
     const url = process.env.TIKTOK_EVENTS_URL || DEFAULT_EVENTS_URL;
-    const result = await post(url, decryptSecret(row.access_token_enc), buildPayload({ eventSetId: row.event_set_id, eventSource: row.event_source || "crm", testEventCode: row.test_event_code }, { name: eventName, eventId, phone: input.phone, properties: { lead_status: input.status } }));
+    const result = await post(url, decryptSecret(row.access_token_enc), buildPayload({ eventSetId: row.event_set_id, eventSource: row.event_source || "crm", testEventCode: row.test_event_code }, { name: eventName, eventId, phone: input.phone, properties: { lead_status: input.status, ...dealProperties(input.dealValue) } }));
     await logEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.status, eventName, eventId, ok: result.ok, httpStatus: result.httpStatus, message: result.message });
     return { sent: true, ok: result.ok, eventName, message: result.message };
   } catch (error) {
@@ -253,6 +259,11 @@ export async function sendTestEvent(tenantId: string): Promise<{ ok: boolean; me
   }
 }
 
+export async function getDealValue(tenantId: string, conversationId: string): Promise<number> {
+  const row = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, select: { dealValue: true } });
+  return row?.dealValue ?? 0;
+}
+
 export async function getLeadStatus(tenantId: string, conversationId: string): Promise<LeadStatus> {
   await ensureTables();
   const rows = await prisma.$queryRaw<Array<{ status: string }>>`SELECT status FROM conversation_lead_status WHERE conversation_id = ${conversationId} AND tenant_id = ${tenantId}`;
@@ -261,11 +272,20 @@ export async function getLeadStatus(tenantId: string, conversationId: string): P
 }
 
 /** Saves the status of a conversation that belongs to `tenantId` and sends the mapped event. */
-export async function setLeadStatus(input: { tenantId: string; conversationId: string; status: unknown; actor: string }): Promise<{ ok: true; status: LeadStatus; event: SendResult } | { ok: false; error: string; code: number }> {
+export async function setLeadStatus(input: { tenantId: string; conversationId: string; status: unknown; actor: string; dealValue?: unknown }): Promise<{ ok: true; status: LeadStatus; event: SendResult } | { ok: false; error: string; code: number }> {
   if (typeof input.status !== "string" || !(LEAD_STATUSES as readonly string[]).includes(input.status)) return { ok: false, error: "حالة غير صالحة", code: 400 };
   const status = input.status as LeadStatus;
-  const conversation = await prisma.conversation.findFirst({ where: { id: input.conversationId, tenantId: input.tenantId }, select: { id: true, customer: { select: { phone: true } } } });
+  const conversation = await prisma.conversation.findFirst({ where: { id: input.conversationId, tenantId: input.tenantId }, select: { id: true, dealValue: true, customer: { select: { phone: true } } } });
   if (!conversation) return { ok: false, error: "المحادثة غير موجودة", code: 404 };
+
+  // An optional sale value (SAR) saved on the conversation itself, so the pipeline sees it too.
+  let dealValue = conversation.dealValue;
+  if (input.dealValue !== undefined && input.dealValue !== null && input.dealValue !== "") {
+    const parsed = Number(input.dealValue);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100_000_000) return { ok: false, error: "قيمة الصفقة غير صالحة", code: 400 };
+    dealValue = Math.round(parsed * 100) / 100;
+    await prisma.conversation.updateMany({ where: { id: input.conversationId, tenantId: input.tenantId }, data: { dealValue } });
+  }
 
   await ensureTables();
   const now = new Date().toISOString();
@@ -277,7 +297,7 @@ export async function setLeadStatus(input: { tenantId: string; conversationId: s
   }
   const event = existing[0]?.status === status
     ? ({ sent: false, skipped: "duplicate" } as SendResult)
-    : await sendLeadStatusEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status, phone: conversation.customer.phone });
+    : await sendLeadStatusEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status, phone: conversation.customer.phone, dealValue });
   return { ok: true, status, event };
 }
 
