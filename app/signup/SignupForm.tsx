@@ -122,8 +122,9 @@ export default function SignupForm({ lang = "ar", planId }: { lang?: "ar" | "en"
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!termsAccepted) return setError(text.termsRequired);
-    setLoading(true); setError("");
     const form = new FormData(event.currentTarget);
+    if (!form.get("businessType")) return setError(lang === "en" ? "Choose your business type." : "اختر نوع النشاط.");
+    setLoading(true); setError("");
     const response = await fetch("/api/trial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
       companyName: form.get("companyName"), businessType: form.get("businessType"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), teamSize: form.get("teamSize"), channels: selected, website: form.get("website"), termsAccepted, planId
     }) });
@@ -143,7 +144,7 @@ export default function SignupForm({ lang = "ar", planId }: { lang?: "ar" | "en"
 
   return <form className="journey-form" onSubmit={submit}>
     <label>{text.companyName}<input name="companyName" required maxLength={120} autoComplete="organization" placeholder={text.companyNamePlaceholder} /></label>
-    <label>{text.businessType}<select name="businessType" required defaultValue="">{businessTypeOptions.map((option) => <option key={option.value} value={option.value} disabled={!option.value}>{option.label}</option>)}</select></label>
+    <label>{text.businessType}<CustomSelect name="businessType" defaultValue="" options={businessTypeOptions} /></label>
     <label>{text.ownerName}<input name="ownerName" required maxLength={100} autoComplete="name" placeholder={text.ownerNamePlaceholder} /></label>
     <label>{text.email}<input name="ownerEmail" type="email" required maxLength={254} autoComplete="email" placeholder="name@company.sa" /></label>
     <label>{text.phone}<input name="phone" type="tel" required inputMode="tel" maxLength={30} autoComplete="tel" pattern="^(00966|\+966|966|0)?5\d{8}$" title={text.phonePlaceholder} placeholder={text.phonePlaceholder} /></label>
