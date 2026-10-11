@@ -1,7 +1,6 @@
 "use client";
 
 import AdSourceBanner from "../components/AdSourceBanner";
-import AdSourceInfo from "../components/AdSourceInfo";
 import LeadStatusControl from "../components/LeadStatusControl";
 import { ChangeEvent, CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import FilterButton from "../components/FilterButton";
@@ -1676,7 +1675,7 @@ export default function InboxView({
             )}
           </div>
         ) : (
-          <div className="profile-panel">
+          <div className="profile-panel" style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", alignContent: "start" }}>
             <div className="profile-card">
               <h2>{t("بيانات العميل", "Customer details")}</h2>
               {activeConversation.attrPageId ? <section aria-label={t("مصدر العميل", "Customer attribution")}>
@@ -1737,7 +1736,6 @@ export default function InboxView({
                   <dt>{t("حالة العميل المحتمل", "Lead status")}</dt>
                   <dd><LeadStatusControl conversationId={activeConversation.id} /></dd>
                 </div>
-                <AdSourceInfo conversationId={activeConversation.id} />
                 <div>
                   <dt>{t("الوسوم", "Tags")}</dt>
                   <dd className="profile-tags-field">
