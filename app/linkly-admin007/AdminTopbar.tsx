@@ -84,6 +84,10 @@ export default function AdminTopbar({ onOpenMenu, user }: { onOpenMenu: () => vo
 
       <GlobalSearch />
 
+      <Link href="/dashboard?view=inbox" className="ds-btn" data-variant="secondary" aria-label="فتح لوحة المحادثات">
+        <Icon name="message" size={16} /><span className="ds-hide-sm">المحادثات</span>
+      </Link>
+
       {quickActions.length > 0 ? (
       <div className="ds-popover-wrap" ref={quickRef}>
         <button type="button" className="ds-btn" data-variant="primary" onClick={() => setQuickOpen((open) => !open)} aria-haspopup="menu" aria-expanded={quickOpen}>
@@ -116,6 +120,7 @@ export default function AdminTopbar({ onOpenMenu, user }: { onOpenMenu: () => vo
                 <small>مدير المنصة</small>
               </div>
             </div>
+            <Link href="/dashboard?view=inbox" role="menuitem" className="ds-menu-item"><Icon name="message" size={17} />لوحة المحادثات</Link>
             <Link href="/linkly-admin007/settings" role="menuitem" className="ds-menu-item"><Icon name="settings" size={17} />إعدادات الحساب</Link>
             <button type="button" role="menuitem" className="ds-menu-item" onClick={toggle}>
               <Icon name={theme === "dark" ? "sun" : "moon"} size={17} />{theme === "dark" ? "الوضع الفاتح" : "الوضع الداكن"}

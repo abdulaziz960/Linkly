@@ -8,7 +8,10 @@ export type NavGroup = { label: string; items: NavItem[] };
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "الإدارة العامة",
-    items: [{ href: BASE, label: "نظرة عامة", icon: "dashboard" }]
+    items: [
+      { href: BASE, label: "نظرة عامة", icon: "dashboard" },
+      { href: "/dashboard?view=inbox", label: "المحادثات", icon: "message" }
+    ]
   },
   {
     label: "العملاء والاشتراكات",
