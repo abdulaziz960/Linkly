@@ -877,10 +877,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                 {(draftContent.kind === "message" || draftContent.kind === "knowledgeBase" || draftContent.kind === "aiReply" || draftContent.kind === "catalog" || draftContent.kind === "branch") ? (
                   <label>
                     <span>{t("ربط بخطوة", "Connect to step")}</span>
-                    <select value={draftContent.next || ""} onChange={(event) => setDraftContent({ ...draftContent, next: event.target.value || null })}>
-                      <option value="">{t("بدون ربط", "No connection")}</option>
-                      {nodes.filter((node) => node.id !== editingNodeId).map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}
-                    </select>
+                    <CustomSelect value={draftContent.next || ""} onChange={(value) => setDraftContent({ ...draftContent, next: value || null })} options={[{ value: "", label: t("بدون ربط", "No connection") }, ...nodes.filter((node) => node.id !== editingNodeId).map((node) => ({ value: node.id, label: node.title }))]} />
                   </label>
                 ) : null}
 
@@ -941,10 +938,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                               }}
                               placeholder={t(`الخيار ${index + 1}`, `Option ${index + 1}`)}
                             />
-                            <select aria-label={t(`ربط الخيار ${index + 1} بخطوة`, `Connect option ${index + 1} to step`)} value={option.next || ""} onChange={(event) => setDraftContent({ ...draftContent, options: draftContent.options.map((item) => item.id === option.id ? { ...item, next: event.target.value || null } : item) })}>
-                              <option value="">{t("بدون ربط", "No connection")}</option>
-                              {nodes.filter((node) => node.id !== editingNodeId).map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}
-                            </select>
+                            <CustomSelect ariaLabel={t(`ربط الخيار ${index + 1} بخطوة`, `Connect option ${index + 1} to step`)} value={option.next || ""} onChange={(value) => setDraftContent({ ...draftContent, options: draftContent.options.map((item) => item.id === option.id ? { ...item, next: value || null } : item) })} options={[{ value: "", label: t("بدون ربط", "No connection") }, ...nodes.filter((node) => node.id !== editingNodeId).map((node) => ({ value: node.id, label: node.title }))]} />
                             <button
                               type="button"
                               className="icon-btn"

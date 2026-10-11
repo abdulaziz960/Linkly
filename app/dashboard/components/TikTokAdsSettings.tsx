@@ -1,5 +1,6 @@
 "use client";
 
+import CustomSelect from "../../components/CustomSelect";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 
@@ -122,12 +123,12 @@ export default function TikTokAdsSettings() {
         </label>
         <label style={fieldLabel}>
           {t("نوع المصدر", "Source type")}
-          <select style={input} value={eventSource} onChange={(event) => setEventSource(event.target.value)}>
-            <option value="web">{t("Pixel (web) — معرّف Pixel من 20 حرفًا", "Pixel (web) — a 20-character Pixel code")}</option>
-            <option value="crm">{t("CRM — معرّف مجموعة أحداث CRM/المراسلة", "CRM — a CRM / messaging event set ID")}</option>
-            <option value="app">{t("تطبيق (app)", "App")}</option>
-            <option value="offline">{t("أحداث غير متصلة (offline)", "Offline events")}</option>
-          </select>
+          <CustomSelect value={eventSource} onChange={setEventSource} options={[
+            { value: "web", label: t("Pixel (web) — معرّف Pixel من 20 حرفًا", "Pixel (web) — a 20-character Pixel code") },
+            { value: "crm", label: t("CRM — معرّف مجموعة أحداث CRM/المراسلة", "CRM — a CRM / messaging event set ID") },
+            { value: "app", label: t("تطبيق (app)", "App") },
+            { value: "offline", label: t("أحداث غير متصلة (offline)", "Offline events") }
+          ]} />
           <span style={hint}>{t("يجب أن يطابق نوع المعرّف أعلاه، وإلا ترفض TikTok الطلب (event_source_id).", "Must match the ID above, otherwise TikTok rejects the request (event_source_id).")}</span>
         </label>
         <label style={fieldLabel}>

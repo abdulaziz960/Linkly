@@ -1,5 +1,6 @@
 "use client";
 
+import CustomSelect from "../../components/CustomSelect";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 
@@ -85,9 +86,7 @@ export default function LeadStatusControl({ conversationId }: { conversationId: 
 
   return (
     <span className="lead-status-control" style={{ display: "grid", gap: 10, width: "100%" }}>
-      <select style={controlStyle} value={pendingSold ? SOLD : status} disabled={saving || statuses.length === 0} onChange={(event) => onPick(event.target.value)} aria-label={t("حالة العميل المحتمل", "Lead status")}>
-        {(statuses.length ? statuses : [status]).map((item) => <option key={item} value={item}>{label(item)}</option>)}
-      </select>
+      <CustomSelect value={pendingSold ? SOLD : status} onChange={onPick} disabled={saving || statuses.length === 0} ariaLabel={t("حالة العميل المحتمل", "Lead status")} options={(statuses.length ? statuses : [status]).map((item) => ({ value: item, label: label(item) }))} />
 
       {showValue ? (
         <span style={{ display: "grid", gap: 8, padding: 12, borderRadius: 12, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface-soft, rgba(0,0,0,0.02))" }}>

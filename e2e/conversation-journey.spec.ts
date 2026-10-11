@@ -71,7 +71,8 @@ test("WhatsApp CTA → signed inbound webhook → Inbox → AI draft → Pipelin
   await expect(conversions).toContainText("home");
   await expect(conversions).toContainText("أفضل أزرار الدعوة للإجراء");
   await page.getByRole("navigation").getByRole("button", { name: "إعدادات مساعد AI", exact: true }).click();
-  await page.getByRole("combobox", { name: "المزود", exact: true }).selectOption("openai");
+  await page.getByRole("button", { name: "المزود", exact: true }).click();
+  await page.getByRole("option", { name: "openai", exact: true }).click();
   await page.getByLabel("معرّف الموديل", { exact: true }).fill("test-model");
   await page.getByLabel("مفتاح API", { exact: true }).fill("browser-test-key-not-a-real-secret");
   await page.getByRole("button", { name: "حفظ إعدادات AI", exact: true }).click();

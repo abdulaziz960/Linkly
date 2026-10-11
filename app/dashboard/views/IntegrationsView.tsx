@@ -1,5 +1,6 @@
 "use client";
 
+import CustomSelect from "../../components/CustomSelect";
 import TikTokAdsSettings from "../components/TikTokAdsSettings";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
@@ -135,16 +136,12 @@ export default function IntegrationsView() {
                       <label>
                         {t("قالب الترحيب", "Welcome template")}
                         {templates.length ? (
-                          <select
+                          <CustomSelect
                             value={settings.leadWelcomeTemplateName}
                             disabled={saving}
-                            onChange={(event) => saveLeadAdsSettings({ leadWelcomeTemplateName: event.target.value })}
-                          >
-                            <option value="">{t("اختر قالبًا", "Choose a template")}</option>
-                            {templates.map((template) => (
-                              <option key={template.name} value={template.name}>{template.name}</option>
-                            ))}
-                          </select>
+                            onChange={(value) => saveLeadAdsSettings({ leadWelcomeTemplateName: value })}
+                            options={[{ value: "", label: t("اختر قالبًا", "Choose a template") }, ...templates.map((template) => ({ value: template.name, label: template.name }))]}
+                          />
                         ) : (
                           <p className="meta-test-warning">{t("ما فيه قوالب معتمدة على حسابك بعد.", "Your account has no approved templates yet.")}</p>
                         )}

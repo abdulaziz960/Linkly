@@ -1,5 +1,6 @@
 "use client";
 
+import CustomSelect from "../../components/CustomSelect";
 import { FormEvent, useMemo, useState } from "react";
 import type { ConversationChannel, Customer } from "../types";
 import { ChannelIcon } from "./SettingsView";
@@ -278,12 +279,7 @@ export default function ContactsView({
               <p>{t("كل محادثات العميل المختار ستنتقل إلى هذا العميل، وسيتم حذف السجل المكرر نهائيًا. لا يمكن التراجع عن هذا الإجراء.", "All conversations from the selected customer will move here, and the duplicate record will be permanently deleted. This can't be undone.")}</p>
               <label>
                 <span>{t("العميل المكرر (سيُحذف)", "Duplicate customer (will be deleted)")}</span>
-                <select value={mergeSourceId} onChange={(event) => setMergeSourceId(event.target.value)} required>
-                  <option value="" disabled>{t("اختر عميلًا…", "Choose a customer…")}</option>
-                  {customers.filter((customer) => customer.id !== mergeTarget.id).map((customer) => (
-                    <option key={customer.id} value={customer.id}>{customer.name} · {customer.phone}</option>
-                  ))}
-                </select>
+                <CustomSelect value={mergeSourceId} onChange={setMergeSourceId} placeholder={t("اختر عميلًا…", "Choose a customer…")} options={[{ value: "", label: t("اختر عميلًا…", "Choose a customer…") }, ...customers.filter((customer) => customer.id !== mergeTarget.id).map((customer) => ({ value: customer.id, label: `${customer.name} · ${customer.phone}` }))]} />
               </label>
               {mergeError ? <p className="form-error">{mergeError}</p> : null}
             </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import CustomSelect from "../../components/CustomSelect";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { IntegrationSettings } from "../types";
 import { useLanguage } from "../i18n";
@@ -2112,12 +2113,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               </label>
               <label>
                 {t("مجال النشاط", "Business industry")}
-                <select value={businessProfile.vertical} onChange={(event) => setBusinessProfile((current) => ({ ...current, vertical: event.target.value }))}>
-                  <option value="">{t("اختر المجال", "Choose an industry")}</option>
-                  {businessVerticalOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{t(option.ar, option.en)}</option>
-                  ))}
-                </select>
+                <CustomSelect value={businessProfile.vertical} onChange={(value) => setBusinessProfile((current) => ({ ...current, vertical: value }))} options={[{ value: "", label: t("اختر المجال", "Choose an industry") }, ...businessVerticalOptions.map((option) => ({ value: option.value, label: t(option.ar, option.en) }))]} />
               </label>
               <label>
                 {t("موقع النشاط 1", "Business website 1")}
@@ -2182,11 +2178,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <label>
                 {testTemplates.length ? t("القالب", "Template") : t("نص الرسالة", "Message text")}
                 {testTemplates.length ? (
-                  <select value={testTemplateName} onChange={(event) => setTestTemplateName(event.target.value)}>
-                    {testTemplates.map((template) => (
-                      <option key={template.name} value={template.name}>{template.name}</option>
-                    ))}
-                  </select>
+                  <CustomSelect value={testTemplateName} onChange={setTestTemplateName} options={testTemplates.map((template) => ({ value: template.name, label: template.name }))} />
                 ) : (
                   <textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} />
                 )}

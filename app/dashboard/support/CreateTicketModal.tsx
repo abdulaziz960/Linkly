@@ -1,5 +1,6 @@
 "use client";
 
+import CustomSelect from "../../components/CustomSelect";
 import { useRef, useState, type DragEvent } from "react";
 import Link from "next/link";
 import { SUPPORT_CATEGORIES, SUPPORT_PRIORITIES } from "../../../lib/support";
@@ -127,19 +128,11 @@ export default function CreateTicketModal({
         <div className="support-field-row">
           <label className="support-field">
             <span>{isEnglish ? "Category" : "نوع المشكلة"}</span>
-            <select value={category} onChange={(event) => setCategory(event.target.value)}>
-              {SUPPORT_CATEGORIES.map((value) => (
-                <option key={value} value={value}>{categoryLabel(value, lang)}</option>
-              ))}
-            </select>
+            <CustomSelect value={category} onChange={setCategory} options={SUPPORT_CATEGORIES.map((value) => ({ value, label: categoryLabel(value, lang) }))} />
           </label>
           <label className="support-field">
             <span>{isEnglish ? "Priority" : "الأولوية"}</span>
-            <select value={priority} onChange={(event) => setPriority(event.target.value)}>
-              {SUPPORT_PRIORITIES.map((value) => (
-                <option key={value} value={value}>{priorityLabel(value, lang)}</option>
-              ))}
-            </select>
+            <CustomSelect value={priority} onChange={setPriority} options={SUPPORT_PRIORITIES.map((value) => ({ value, label: priorityLabel(value, lang) }))} />
           </label>
         </div>
 
