@@ -81,7 +81,9 @@ export default function PlansView({ plans, subscriberCounts }: Props) {
   }
 
   function setField<K extends keyof PlanDraft>(key: K, value: PlanDraft[K]) {
-    setDraft((current) => ({ ...current, [key]: value }));
+    // Numeric fields: drop leading zeros so typing over the initial "0" doesn't leave "05".
+    const next = typeof value === "string" && /^0\d+$/.test(value) ? value.replace(/^0+(?=\d)/, "") : value;
+    setDraft((current) => ({ ...current, [key]: next as PlanDraft[K] }));
   }
 
   async function submit(event: FormEvent) {
@@ -203,17 +205,17 @@ export default function PlansView({ plans, subscriberCounts }: Props) {
                 اسم الباقة
                 <input data-autofocus={!isEdit || undefined} className="ds-input" required readOnly={isEdit} placeholder="مثال: باقة الأعمال" value={draft.name} onChange={(event) => setField("name", event.target.value)} />
               </label>
-              <label className="ds-field">السعر الشهري (ر.س)<input data-autofocus={isEdit || undefined} className="ds-input" type="number" min="0" required value={draft.monthlyPrice} onChange={(event) => setField("monthlyPrice", event.target.value)} /></label>
-              <label className="ds-field">حد المستخدمين<input className="ds-input" type="number" min="1" required value={draft.employeeLimit} onChange={(event) => setField("employeeLimit", event.target.value)} /></label>
+              <label className="ds-field">السعر الشهري (ر.س)<input data-autofocus={isEdit || undefined} className="ds-input" type="number" dir="ltr" onFocus={(event) => event.currentTarget.select()} min="0" required value={draft.monthlyPrice} onChange={(event) => setField("monthlyPrice", event.target.value)} /></label>
+              <label className="ds-field">حد المستخدمين<input className="ds-input" type="number" dir="ltr" onFocus={(event) => event.currentTarget.select()} min="1" required value={draft.employeeLimit} onChange={(event) => setField("employeeLimit", event.target.value)} /></label>
               <label className="ds-field">
                 حد مساعد AI اليومي
-                <input className="ds-input" type="number" min="0" value={draft.aiDailyLimit} onChange={(event) => setField("aiDailyLimit", event.target.value)} />
+                <input className="ds-input" type="number" dir="ltr" onFocus={(event) => event.currentTarget.select()} min="0" value={draft.aiDailyLimit} onChange={(event) => setField("aiDailyLimit", event.target.value)} />
                 <small>0 = غير متاح في هذه الباقة</small>
               </label>
-              <label className="ds-field">حد مساعد AI الشهري<input className="ds-input" type="number" min="0" value={draft.aiMonthlyLimit} onChange={(event) => setField("aiMonthlyLimit", event.target.value)} /></label>
+              <label className="ds-field">حد مساعد AI الشهري<input className="ds-input" type="number" dir="ltr" onFocus={(event) => event.currentTarget.select()} min="0" value={draft.aiMonthlyLimit} onChange={(event) => setField("aiMonthlyLimit", event.target.value)} /></label>
               <label className="ds-field">
                 حصة الرسائل التسويقية
-                <input className="ds-input" type="number" min="0" disabled={draft.messageUnlimited} value={draft.messageQuota} onChange={(event) => setField("messageQuota", event.target.value)} />
+                <input className="ds-input" type="number" dir="ltr" onFocus={(event) => event.currentTarget.select()} min="0" disabled={draft.messageUnlimited} value={draft.messageQuota} onChange={(event) => setField("messageQuota", event.target.value)} />
                 <small>تُضاف إلى رصيد الحملات مع كل دفعة</small>
               </label>
             </div>
