@@ -15,6 +15,7 @@ export default function TikTokAdsSettings() {
   const [eventSetId, setEventSetId] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [testEventCode, setTestEventCode] = useState("");
+  const [eventSource, setEventSource] = useState("crm");
   const [enabled, setEnabled] = useState(false);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -24,6 +25,7 @@ export default function TikTokAdsSettings() {
     setSettings(next);
     setEventSetId(next.eventSetId);
     setTestEventCode(next.testEventCode);
+    setEventSource(next.eventSource || "crm");
     setEnabled(next.enabled);
     setMapping(next.mapping);
   }
@@ -53,7 +55,7 @@ export default function TikTokAdsSettings() {
       const response = await fetch("/api/tiktok-ads/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventSetId, accessToken, testEventCode, enabled, mapping })
+        body: JSON.stringify({ eventSetId, accessToken, testEventCode, eventSource, enabled, mapping })
       });
       const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; data?: { settings: Settings } } | null;
       if (!response.ok || !result?.ok || !result.data) {
@@ -104,6 +106,16 @@ export default function TikTokAdsSettings() {
         <label style={fieldLabel}>
           Event Set ID
           <input dir="ltr" style={input} value={eventSetId} onChange={(event) => setEventSetId(event.target.value)} placeholder="CTM12345" />
+        </label>
+        <label style={fieldLabel}>
+          {t("نوع المصدر", "Source type")}
+          <select style={input} value={eventSource} onChange={(event) => setEventSource(event.target.value)}>
+            <option value="web">{t("Pixel (web) — معرّف Pixel من 20 حرفًا", "Pixel (web) — a 20-character Pixel code")}</option>
+            <option value="crm">{t("CRM — معرّف مجموعة أحداث CRM/المراسلة", "CRM — a CRM / messaging event set ID")}</option>
+            <option value="app">{t("تطبيق (app)", "App")}</option>
+            <option value="offline">{t("أحداث غير متصلة (offline)", "Offline events")}</option>
+          </select>
+          <span style={hint}>{t("يجب أن يطابق نوع المعرّف أعلاه، وإلا ترفض TikTok الطلب (event_source_id).", "Must match the ID above, otherwise TikTok rejects the request (event_source_id).")}</span>
         </label>
         <label style={fieldLabel}>
           {t("رمز الوصول (Access Token)", "Access token")}

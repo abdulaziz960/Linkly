@@ -23,7 +23,7 @@ export type EventMapping = Record<LeadStatus, string>;
 export const DEFAULT_MAPPING: EventMapping = { "جديد": "", "مهتم": "", "غير مهتم": "", "مؤهل": "Lead", "غير مؤهل": "", "تم البيع": "Purchase" };
 
 const EVENT_NAME = /^[A-Za-z][A-Za-z0-9_ ]{0,39}$/;
-const EVENT_SOURCES = ["crm", "web", "app", "offline"] as const;
+export const EVENT_SOURCES = ["web", "crm", "app", "offline"] as const;
 
 let ready: Promise<void> | null = null;
 function ensureTables() {
@@ -188,7 +188,13 @@ async function post(url: string, token: string, body: unknown) {
   const payload = await response.json().catch(() => null) as { code?: number; message?: string } | null;
   // TikTok answers 200 with {code: 0} on success; a non-zero code is a rejection.
   const ok = response.ok && (payload?.code === undefined || payload.code === 0);
-  return { ok, httpStatus: response.status, message: ok ? "OK" : payload?.message || `HTTP ${response.status}` };
+  return { ok, httpStatus: response.status, message: ok ? "OK" : explainRejection(payload?.message || `HTTP ${response.status}`) };
+}
+
+/** TikTok rejects an ID of one kind sent as another (a Pixel code needs source "web"; a CRM event set needs "crm"). */
+function explainRejection(message: string): string {
+  if (/event_source_id/i.test(message)) return `${message}. تأكد أن «نوع المصدر» يطابق نوع المعرّف: معرّف Pixel (20 حرفًا) ← Pixel (web)، ومعرّف مجموعة أحداث CRM ← CRM.`;
+  return message;
 }
 
 function buildPayload(settings: { eventSetId: string; eventSource: string; testEventCode: string }, event: { name: string; eventId: string; phone: string; properties?: Record<string, unknown> }) {
@@ -201,7 +207,9 @@ function buildPayload(settings: { eventSetId: string; eventSource: string; testE
       event_time: Math.floor(Date.now() / 1000),
       event_id: event.eventId,
       user: { phone: hashPhone(event.phone) },
-      properties: event.properties ?? {}
+      properties: event.properties ?? {},
+      // Web (Pixel) events carry the page they came from; for a conversation that is the platform's own site.
+      ...(settings.eventSource === "web" ? { page: { url: process.env.TIKTOK_EVENTS_PAGE_URL || "https://linklysa.io" } } : {})
     }]
   };
 }

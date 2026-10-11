@@ -122,6 +122,21 @@ describe("TikTok Ads lead-status events", () => {
     expect(await sendTestEvent("ten-off")).toMatchObject({ ok: false });
   });
 
+  it("sends the page for Pixel (web) events and explains an event_source_id rejection", async () => {
+    await seedConversation("conv-5", "ten-web");
+    const { saveTikTokAdsSettings, setLeadStatus, sendTestEvent } = await import("../lib/tiktok-events");
+    await saveTikTokAdsSettings("ten-web", { eventSetId: "DB5QHHRC77U074LG3TQG", accessToken: "tok_" + "y".repeat(20), eventSource: "web", enabled: true });
+    const sent = mockTikTok();
+    await setLeadStatus({ tenantId: "ten-web", conversationId: "conv-5", status: "تم البيع", actor: "x" });
+    expect(sent[0].body.event_source).toBe("web");
+    expect((sent[0].body.data[0] as unknown as { page: { url: string } }).page.url).toBe("https://linklysa.io");
+
+    mockTikTok({ code: 40002, message: "Invalid value for event_source_id: not a valid string" });
+    const rejected = await sendTestEvent("ten-web");
+    expect(rejected.ok).toBe(false);
+    expect(rejected.message).toContain("نوع المصدر");
+  });
+
   it("honours a local mock endpoint through TIKTOK_EVENTS_URL", async () => {
     await seedConversation("conv-4", "ten-a");
     vi.stubEnv("TIKTOK_EVENTS_URL", "http://localhost:4010/track");
