@@ -1,5 +1,6 @@
 "use client";
 
+import LeadStatusControl from "../components/LeadStatusControl";
 import { ChangeEvent, CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import FilterButton from "../components/FilterButton";
 import CustomSelect from "../../components/CustomSelect";
@@ -1728,6 +1729,10 @@ export default function InboxView({
                                             : t("المعرف", "ID")}
                   </dt>
                   <dd dir="ltr">{activeConversation.phone}</dd>
+                </div>
+                <div>
+                  <dt>{t("حالة العميل المحتمل", "Lead status")}</dt>
+                  <dd><LeadStatusControl conversationId={activeConversation.id} /></dd>
                 </div>
                 <div>
                   <dt>{t("الوسوم", "Tags")}</dt>

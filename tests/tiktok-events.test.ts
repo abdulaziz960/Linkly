@@ -1,0 +1,134 @@
+import { existsSync, unlinkSync } from "fs";
+import { createHash } from "crypto";
+import { join } from "path";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+const testDbPath = join(process.cwd(), "tests", ".tmp-tiktok-events.db");
+
+beforeAll(() => {
+  if (existsSync(testDbPath)) unlinkSync(testDbPath);
+  vi.stubEnv("DATABASE_URL", `file:${testDbPath}`);
+  vi.stubEnv("INTEGRATION_ENCRYPTION_KEY", "test-integration-key-with-at-least-32-characters");
+  vi.stubEnv("AUTH_SECRET", "test-auth-secret-with-at-least-32-characters");
+});
+
+afterAll(async () => {
+  vi.unstubAllGlobals();
+  const { prisma } = await import("../lib/prisma");
+  await prisma.$disconnect();
+  for (const suffix of ["", "-journal", "-wal", "-shm"]) {
+    const path = `${testDbPath}${suffix}`;
+    if (existsSync(path)) unlinkSync(path);
+  }
+});
+
+type Sent = { url: string; token: string; body: { event_source: string; event_source_id: string; test_event_code?: string; data: Array<{ event: string; event_id: string; user: { phone: string }; properties: Record<string, unknown> }> } };
+
+function mockTikTok(response: { ok?: boolean; code?: number; message?: string } = {}) {
+  const sent: Sent[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+    sent.push({ url, token: (init.headers as Record<string, string>)["Access-Token"], body: JSON.parse(String(init.body)) });
+    return new Response(JSON.stringify({ code: response.code ?? 0, message: response.message ?? "OK" }), { status: response.ok === false ? 400 : 200 });
+  }));
+  return sent;
+}
+
+async function seedConversation(id: string, tenantId: string, phone = "966500000001") {
+  const { prisma } = await import("../lib/prisma");
+  const { ensureSchema } = await import("../lib/database");
+  await ensureSchema();
+  await prisma.customer.create({ data: { id: `cust-${id}`, name: "عميل", phone, initial: "ع", tenantId } });
+  await prisma.conversation.create({ data: { id, customerId: `cust-${id}`, channel: "whatsapp", lastMessage: "مرحبا", status: "assigned", assignee: "موظف", tenantId } });
+}
+
+describe("TikTok Ads lead-status events", () => {
+  it("validates settings and never returns the token", async () => {
+    const { cleanSettingsInput, saveTikTokAdsSettings, getTikTokAdsSettings } = await import("../lib/tiktok-events");
+    expect(cleanSettingsInput({ eventSetId: "bad id!" }).ok).toBe(false);
+    expect(cleanSettingsInput({ accessToken: "short" }).ok).toBe(false);
+    expect(cleanSettingsInput({ eventSource: "nonsense" }).ok).toBe(false);
+    expect(cleanSettingsInput({ mapping: { "مؤهل": "بالعربي" } }).ok).toBe(false);
+
+    const cleaned = cleanSettingsInput({ eventSetId: "CTM12345", accessToken: "tok_" + "x".repeat(20), enabled: true, mapping: { "مهتم": "Lead", "مؤهل": "" } });
+    if (!cleaned.ok) throw new Error(cleaned.error);
+    const saved = await saveTikTokAdsSettings("ten-a", cleaned.data);
+    expect(saved).toMatchObject({ eventSetId: "CTM12345", hasToken: true, enabled: true });
+    expect(saved.mapping["مهتم"]).toBe("Lead");
+    expect(saved.mapping["تم البيع"]).toBe("Purchase"); // untouched statuses keep their default
+    expect(JSON.stringify(saved)).not.toContain("tok_");
+
+    // A later save without a token keeps the stored one; enabling without a token is refused.
+    expect((await saveTikTokAdsSettings("ten-a", { eventSetId: "CTM12345" })).hasToken).toBe(true);
+    expect((await saveTikTokAdsSettings("ten-empty", { enabled: true })).enabled).toBe(false);
+    expect((await getTikTokAdsSettings("ten-other")).hasToken).toBe(false); // per workspace
+  });
+
+  it("sends the mapped event with a hashed phone, once per status", async () => {
+    await seedConversation("conv-1", "ten-a", "+966 50 000 0001");
+    const sent = mockTikTok();
+    const { setLeadStatus, recentEvents } = await import("../lib/tiktok-events");
+
+    const interested = await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-1", status: "مهتم", actor: "موظف" });
+    expect(interested).toMatchObject({ ok: true, status: "مهتم", event: { sent: true, ok: true, eventName: "Lead" } });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].url).toBe("https://business-api.tiktok.com/open_api/v1.3/event/track/");
+    expect(sent[0].token).toContain("tok_");
+    expect(sent[0].body.event_source_id).toBe("CTM12345");
+    expect(sent[0].body.data[0].user.phone).toBe(createHash("sha256").update("+966500000001").digest("hex"));
+    expect(sent[0].body.data[0].properties.lead_status).toBe("مهتم");
+
+    // "مؤهل" is mapped to "" here, so nothing goes out.
+    const qualified = await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-1", status: "مؤهل", actor: "موظف" });
+    expect(qualified).toMatchObject({ ok: true, event: { sent: false, skipped: "no-mapping" } });
+
+    // Going back to "مهتم" later does not count the lead twice.
+    await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-1", status: "جديد", actor: "موظف" });
+    const again = await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-1", status: "مهتم", actor: "موظف" });
+    expect(again).toMatchObject({ ok: true, event: { sent: false, skipped: "duplicate" } });
+    expect(sent).toHaveLength(1);
+
+    const log = await recentEvents("ten-a");
+    expect(log[0]).toMatchObject({ event_name: "Lead", ok: 1 });
+  });
+
+  it("keeps the status when TikTok rejects the event, and logs the failure", async () => {
+    await seedConversation("conv-2", "ten-a");
+    mockTikTok({ code: 40002, message: "Invalid event set" });
+    const { setLeadStatus, getLeadStatus, recentEvents } = await import("../lib/tiktok-events");
+    const result = await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-2", status: "تم البيع", actor: "موظف" });
+    expect(result).toMatchObject({ ok: true, status: "تم البيع", event: { sent: true, ok: false, eventName: "Purchase" } });
+    expect(await getLeadStatus("ten-a", "conv-2")).toBe("تم البيع");
+    expect((await recentEvents("ten-a"))[0]).toMatchObject({ ok: 0 });
+  });
+
+  it("refuses statuses it does not know and conversations of other workspaces", async () => {
+    const sent = mockTikTok();
+    const { setLeadStatus } = await import("../lib/tiktok-events");
+    expect(await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-1", status: "غريب", actor: "x" })).toMatchObject({ ok: false, code: 400 });
+    expect(await setLeadStatus({ tenantId: "ten-b", conversationId: "conv-1", status: "مهتم", actor: "x" })).toMatchObject({ ok: false, code: 404 });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("does not send anything while disabled, and sends a test event with the test code", async () => {
+    await seedConversation("conv-3", "ten-off");
+    const sent = mockTikTok();
+    const { setLeadStatus, saveTikTokAdsSettings, sendTestEvent } = await import("../lib/tiktok-events");
+    expect(await setLeadStatus({ tenantId: "ten-off", conversationId: "conv-3", status: "مؤهل", actor: "x" })).toMatchObject({ ok: true, event: { sent: false, skipped: "disabled" } });
+
+    await saveTikTokAdsSettings("ten-a", { testEventCode: "TEST999" });
+    const test = await sendTestEvent("ten-a");
+    expect(test.ok).toBe(true);
+    expect(sent.at(-1)?.body.test_event_code).toBe("TEST999");
+    expect(await sendTestEvent("ten-off")).toMatchObject({ ok: false });
+  });
+
+  it("honours a local mock endpoint through TIKTOK_EVENTS_URL", async () => {
+    await seedConversation("conv-4", "ten-a");
+    vi.stubEnv("TIKTOK_EVENTS_URL", "http://localhost:4010/track");
+    const sent = mockTikTok();
+    const { setLeadStatus } = await import("../lib/tiktok-events");
+    await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-4", status: "تم البيع", actor: "x" });
+    expect(sent[0].url).toBe("http://localhost:4010/track");
+    vi.unstubAllEnvs();
+  });
+});

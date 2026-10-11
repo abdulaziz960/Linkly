@@ -1,5 +1,6 @@
 "use client";
 
+import TikTokAdsSettings from "../components/TikTokAdsSettings";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import { ChannelIcon } from "./SettingsView";
@@ -27,6 +28,7 @@ export default function IntegrationsView() {
   const [templates, setTemplates] = useState<Array<{ name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [tiktokAdsOpen, setTiktokAdsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,11 +89,6 @@ export default function IntegrationsView() {
       id: "snapchat",
       title: t("سناب شات", "Snapchat"),
       description: t("استقبل عملاء نماذج إعلانات سناب شات المحتملين.", "Receive leads from Snapchat Lead Generation Ads.")
-    },
-    {
-      id: "tiktok",
-      title: t("تيك توك", "TikTok"),
-      description: t("اربط حساب تيك توك لإدارة المحادثات والتعليقات.", "Connect your TikTok account to manage messages and comments.")
     }
   ];
 
@@ -159,7 +156,34 @@ export default function IntegrationsView() {
             </div>
           );
         })}
+
+        <div className="meta-test-card">
+          <div>
+            <span className="channel-icon channel-icon-tiktok">
+              <ChannelIcon id="tiktok" />
+            </span>
+            <h3>{t("إعلانات تيك توك: ربط الأحداث", "TikTok Ads: event feedback")}</h3>
+            <p>{t("أرسل حالة العميل المحتمل (مؤهل، مهتم، تم البيع...) إلى TikTok لتتعلّم حملاتك.", "Send the lead status (qualified, interested, sold...) to TikTok so your campaigns learn.")}</p>
+          </div>
+          <button className="btn primary" type="button" onClick={() => setTiktokAdsOpen(true)}>
+            {t("إعداد ربط الأحداث", "Set up event feedback")}
+          </button>
+        </div>
       </div>
+
+      {tiktokAdsOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setTiktokAdsOpen(false)}>
+          <div className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("إعلانات TikTok", "TikTok Ads")} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setTiktokAdsOpen(false)}>×</button>
+              <h2>{t("إعلانات TikTok", "TikTok Ads")}</h2>
+            </header>
+            <div className="account-modal-body">
+              <TikTokAdsSettings />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
