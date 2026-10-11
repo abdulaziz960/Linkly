@@ -738,6 +738,9 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE plans ADD COLUMN IF NOT EXISTS feature_items_en TEXT NOT NULL DEFAULT ''`
   );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE plans ADD COLUMN IF NOT EXISTS email_quota INTEGER NOT NULL DEFAULT -1`
+  );
   await applyPricingTierRestructure();
 
   // Segment targeting by a past campaign's engagement bucket - added
@@ -2311,6 +2314,9 @@ async function runSchemaMigrations() {
   }
   if (!planColumns.some((column) => column.name === "feature_items_en")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN feature_items_en TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!planColumns.some((column) => column.name === "email_quota")) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE plans ADD COLUMN email_quota INTEGER NOT NULL DEFAULT -1`);
   }
   await applyPricingTierRestructure();
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS subscriptions (

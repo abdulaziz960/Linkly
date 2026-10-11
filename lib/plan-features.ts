@@ -80,6 +80,7 @@ export type PlanNumbers = {
   name?: string;
   featureItemsAr?: string | null;
   featureItemsEn?: string | null;
+  emailQuota?: number | null;
 };
 
 /** The three numeric bullets (users, channels, message quota), always built fresh from the live Plan row. */
@@ -96,8 +97,8 @@ export function buildPlanDynamicItems(plan: PlanNumbers, lang: "ar" | "en", opti
   const messageQuotaLine = isUnlimitedMessageQuota(plan.messageQuota)
     ? (lang === "ar" ? "رسائل تسويقية غير محدودة" : "Unlimited marketing messages")
     : lang === "ar" ? `${messageQuotaLabel(plan.messageQuota, "ar")} رسالة تسويقية شهريًا` : `${messageQuotaLabel(plan.messageQuota, "en")} marketing messages/month`;
-  const emailCreditsLine = emailPromotionCreditsForPlan(plan.name || "")
-    ? emailPromotionCreditLabel(plan.name || "", lang)
+  const emailCreditsLine = emailPromotionCreditsForPlan(plan.name || "", plan.emailQuota)
+    ? emailPromotionCreditLabel(plan.name || "", lang, plan.emailQuota)
     : "";
 
   // A plan that has no campaigns section has no marketing messages to promise.

@@ -390,7 +390,8 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
       }
     }
 
-    const emailCredits = payment.planName ? emailPromotionCreditsForPlan(payment.planName) * CYCLE_MONTHS[billingCycle] : 0;
+    const paidPlanRow = payment.planName ? await tx.plan.findUnique({ where: { name: payment.planName }, select: { emailQuota: true } }) : null;
+    const emailCredits = payment.planName ? emailPromotionCreditsForPlan(payment.planName, paidPlanRow?.emailQuota) * CYCLE_MONTHS[billingCycle] : 0;
     if (emailCredits > 0) {
       await tx.emailCampaignBalance.upsert({
         where: { tenantId: payment.tenantId },

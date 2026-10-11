@@ -25,6 +25,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     messageQuota?: number;
     featureItemsAr?: string;
     featureItemsEn?: string;
+    emailQuota?: number;
   };
 
   try {

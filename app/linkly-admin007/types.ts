@@ -61,6 +61,7 @@ export type PlanRow = {
   messageQuota: number;
   featureItemsAr: string;
   featureItemsEn: string;
+  emailQuota?: number;
   sortOrder: number;
   active: number;
   createdAt: string;

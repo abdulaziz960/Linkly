@@ -1,3 +1,4 @@
+import { emailPromotionCreditsForPlan } from "../../../lib/plan-email-promotions";
 import type { PlanRow } from "../types";
 import { parseAllowedChannels, type AllowedChannels } from "../../../lib/channel-catalog";
 import { UNLIMITED_MESSAGE_QUOTA } from "../../../lib/message-quota";
@@ -14,6 +15,7 @@ export type PlanDraft = {
   messageUnlimited: boolean;
   featureItemsAr: string;
   featureItemsEn: string;
+  emailQuota: string;
   channels: AllowedChannels;
   active: boolean;
 };
@@ -28,6 +30,7 @@ export const EMPTY_PLAN_DRAFT: PlanDraft = {
   messageUnlimited: false,
   featureItemsAr: "",
   featureItemsEn: "",
+  emailQuota: "0",
   channels: "*",
   active: true
 };
@@ -43,6 +46,7 @@ export function draftFromPlan(plan: PlanRow): PlanDraft {
     aiMonthlyLimit: String(plan.aiMonthlyLimit),
     messageQuota: unlimited ? "0" : String(plan.messageQuota),
     messageUnlimited: unlimited,
+    emailQuota: String(emailPromotionCreditsForPlan(plan.name, plan.emailQuota)),
     featureItemsAr: plan.featureItemsAr || defaultFeatures?.ar.join("\n") || "",
     featureItemsEn: plan.featureItemsEn || defaultFeatures?.en.join("\n") || "",
     channels: parseAllowedChannels(plan.allowedChannels || "*"),
@@ -60,6 +64,7 @@ export function validatePlanDraft(draft: PlanDraft, mode: "create" | "edit"): st
   if (!Number.isFinite(employeeLimit) || employeeLimit < 1) return "حد المستخدمين يجب أن يكون 1 على الأقل.";
   if (!isNonNegative(Number(draft.aiDailyLimit)) || !isNonNegative(Number(draft.aiMonthlyLimit))) return "حدود الذكاء الاصطناعي يجب ألا تقل عن صفر.";
   if (!draft.messageUnlimited && !isNonNegative(Number(draft.messageQuota))) return "حصة الرسائل التسويقية يجب ألا تقل عن صفر.";
+  if (!isNonNegative(Number(draft.emailQuota))) return "حد رسائل البريد يجب ألا يقل عن صفر.";
   if (Array.isArray(draft.channels) && draft.channels.length === 0) return "اختر قناة واحدة على الأقل، أو فعّل «كل القنوات».";
   return null;
 }
@@ -73,7 +78,8 @@ export function planPayload(draft: PlanDraft, mode: "create" | "edit") {
     allowedChannels: draft.channels,
     messageQuota: draft.messageUnlimited ? UNLIMITED_MESSAGE_QUOTA : Number(draft.messageQuota),
     featureItemsAr: draft.featureItemsAr,
-    featureItemsEn: draft.featureItemsEn
+    featureItemsEn: draft.featureItemsEn,
+    emailQuota: Number(draft.emailQuota)
   };
   return mode === "create" ? { name: draft.name.trim(), ...base } : { ...base, active: draft.active };
 }

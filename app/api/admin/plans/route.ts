@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     messageQuota?: number;
     featureItemsAr?: string;
     featureItemsEn?: string;
+    emailQuota?: number;
   };
 
   try {
@@ -43,7 +44,8 @@ export async function POST(request: NextRequest) {
       allowedChannels: sanitizeAllowedChannelsInput(body.allowedChannels),
       messageQuota: Number(body.messageQuota ?? 0),
       featureItemsAr: body.featureItemsAr,
-      featureItemsEn: body.featureItemsEn
+      featureItemsEn: body.featureItemsEn,
+      emailQuota: body.emailQuota
     });
     await recordAdminAction(admin, "create-plan", { type: "plan", id: plan.id }, JSON.stringify({ name: body.name, monthlyPrice: body.monthlyPrice }));
     return jsonOk(plan);

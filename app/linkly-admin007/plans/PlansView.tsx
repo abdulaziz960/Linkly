@@ -173,7 +173,7 @@ export default function PlansView({ plans, subscriberCounts }: Props) {
                     <li><span>المشتركون</span><strong>{formatNumber(subscribers)}</strong></li>
                     <li><span>القنوات</span><strong>{channels === "*" ? "بدون قيود" : formatNumber(channels.length)}</strong></li>
                     <li><span>رسائل تسويقية</span><strong>{plan.messageQuota === UNLIMITED_MESSAGE_QUOTA ? "غير محدود" : formatNumber(plan.messageQuota)}</strong></li>
-                    <li><span>بريد تسويقي</span><strong>{emailPromotionCreditLabel(plan.name)}</strong></li>
+                    <li><span>بريد تسويقي</span><strong>{emailPromotionCreditLabel(plan.name, "ar", plan.emailQuota)}</strong></li>
                   </ul>
                   <div className="ds-plan-feature-preview">
                     <span>المزايا الظاهرة للعملاء</span>
@@ -200,7 +200,7 @@ export default function PlansView({ plans, subscriberCounts }: Props) {
       >
         {dialog ? (
           <form id="plan-form" onSubmit={submit} style={{ display: "grid", gap: 16 }}>
-            <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+            <div className="ds-plan-form-grid">
               <label className="ds-field">
                 اسم الباقة
                 <input data-autofocus={!isEdit || undefined} className="ds-input" required readOnly={isEdit} placeholder="مثال: باقة الأعمال" value={draft.name} onChange={(event) => setField("name", event.target.value)} />
@@ -217,6 +217,11 @@ export default function PlansView({ plans, subscriberCounts }: Props) {
                 حصة الرسائل التسويقية
                 <input className="ds-input" type="number" dir="ltr" onFocus={(event) => event.currentTarget.select()} min="0" disabled={draft.messageUnlimited} value={draft.messageQuota} onChange={(event) => setField("messageQuota", event.target.value)} />
                 <small>تُضاف إلى رصيد الحملات مع كل دفعة</small>
+              </label>
+              <label className="ds-field">
+                حد رسائل البريد التسويقي
+                <input className="ds-input" type="number" dir="ltr" onFocus={(event) => event.currentTarget.select()} min="0" value={draft.emailQuota} onChange={(event) => setField("emailQuota", event.target.value)} />
+                <small>تُضاف إلى رصيد البريد مع كل شهر مدفوع</small>
               </label>
             </div>
             <label className="ds-check-inline">

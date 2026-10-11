@@ -833,6 +833,8 @@ model Plan {
   // Admin-edited customer-facing feature list, one feature per line (blank = built-in list).
   featureItemsAr String @default("") @map("feature_items_ar")
   featureItemsEn String @default("") @map("feature_items_en")
+  // Promotional emails credited per month. -1 = use the built-in default for the plan name (lib/plan-email-promotions.ts).
+  emailQuota Int @default(-1) @map("email_quota")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 

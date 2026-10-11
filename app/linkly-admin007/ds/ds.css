@@ -2218,3 +2218,17 @@ a.ds-stat:hover {
     padding: 0;
   }
 }
+
+/* Plan editor: every box the same width and height (three per row, one on phones). */
+.ds-plan-form-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+}
+.ds-plan-form-grid .ds-field { align-content: start; }
+.ds-plan-form-grid .ds-input { height: 46px; width: 100%; box-sizing: border-box; }
+.ds-plan-form-grid .ds-field small { min-height: 18px; }
+@media (max-width: 720px) {
+  .ds-plan-form-grid { grid-template-columns: 1fr; }
+}

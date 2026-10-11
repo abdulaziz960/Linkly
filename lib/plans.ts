@@ -75,6 +75,7 @@ type CreatePlanInput = {
   messageQuota?: number;
   featureItemsAr?: string;
   featureItemsEn?: string;
+  emailQuota?: number;
 };
 
 export async function createPlan(input: CreatePlanInput) {
@@ -105,6 +106,7 @@ export async function createPlan(input: CreatePlanInput) {
   const allowedChannels = serializeAllowedChannels(input.allowedChannels ?? "*");
   const featureItemsAr = normalizeFeatureItems(input.featureItemsAr);
   const featureItemsEn = normalizeFeatureItems(input.featureItemsEn);
+  const emailQuota = input.emailQuota !== undefined && Number.isFinite(input.emailQuota) && input.emailQuota >= 0 ? Math.round(input.emailQuota) : -1;
 
   if (isPostgresDatabase) {
     // Production's live `plans` table carries legacy columns (monthly_amount,
@@ -125,6 +127,7 @@ export async function createPlan(input: CreatePlanInput) {
       message_quota: roundedMessageQuota,
       feature_items_ar: featureItemsAr,
       feature_items_en: featureItemsEn,
+      email_quota: emailQuota,
       created_at: now,
       updated_at: now
     });
@@ -145,6 +148,7 @@ export async function createPlan(input: CreatePlanInput) {
       messageQuota: roundedMessageQuota,
       featureItemsAr,
       featureItemsEn,
+      emailQuota,
       sortOrder,
       active: 1,
       createdAt: now,
@@ -163,6 +167,7 @@ type UpdatePlanInput = {
   messageQuota?: number;
   featureItemsAr?: string;
   featureItemsEn?: string;
+  emailQuota?: number;
 };
 
 export async function updatePlan(id: string, input: UpdatePlanInput) {
@@ -185,6 +190,9 @@ export async function updatePlan(id: string, input: UpdatePlanInput) {
   if (input.messageQuota !== undefined && !isValidMessageQuota(input.messageQuota)) {
     throw new Error("حصة الرسائل التسويقية غير صحيحة");
   }
+  if (input.emailQuota !== undefined && (!Number.isFinite(input.emailQuota) || input.emailQuota < 0)) {
+    throw new Error("حد رسائل البريد غير صحيح");
+  }
 
   return prisma.plan.update({
     where: { id },
@@ -197,6 +205,7 @@ export async function updatePlan(id: string, input: UpdatePlanInput) {
       messageQuota: input.messageQuota !== undefined ? Math.round(input.messageQuota) : existing.messageQuota,
       featureItemsAr: input.featureItemsAr !== undefined ? normalizeFeatureItems(input.featureItemsAr) : existing.featureItemsAr,
       featureItemsEn: input.featureItemsEn !== undefined ? normalizeFeatureItems(input.featureItemsEn) : existing.featureItemsEn,
+      emailQuota: input.emailQuota !== undefined ? Math.round(input.emailQuota) : existing.emailQuota,
       active: input.active !== undefined ? (input.active ? 1 : 0) : existing.active,
       updatedAt: nowTimestamp()
     }
