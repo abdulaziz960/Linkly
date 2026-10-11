@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { notifyStageChange } from "../../../../lib/tiktok-events";
 import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { runAutomations } from "../../../../lib/automation-engine";
@@ -48,16 +49,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     let previousAssignee = "";
     let customerName = "";
+    let previousStage = "";
+    let customerPhone = "";
     const conversation = await prisma.$transaction(async (tx) => {
       const existing = await tx.conversation.findFirst({
         where: { id, tenantId: user.tenantId },
-        select: { id: true, assignee: true, customer: { select: { name: true } } }
+        select: { id: true, assignee: true, pipelineStage: true, customer: { select: { name: true, phone: true } } }
       });
 
       if (!existing) throw new Error("not-found");
       if (visibleAssignees && !UNASSIGNED.has(existing.assignee) && !visibleAssignees.includes(existing.assignee)) throw new Error("not-found");
       previousAssignee = existing.assignee;
       customerName = existing.customer.name;
+      previousStage = existing.pipelineStage;
+      customerPhone = existing.customer.phone;
 
       if (body.tags) {
         await tx.conversationTag.deleteMany({ where: { conversationId: id, conversation: { tenantId: user.tenantId } } });
@@ -87,6 +92,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       });
       return tx.conversation.findFirstOrThrow({ where: { id, tenantId: user.tenantId } });
     });
+
+    // The lead status sent to TikTok is this stage: moving a card on the leads page and changing it in the conversation behave the same.
+    if (body.pipelineStage && body.pipelineStage !== previousStage) {
+      await notifyStageChange({ tenantId: user.tenantId, conversationId: id, stage: body.pipelineStage, previousStage, phone: customerPhone, dealValue: conversation.dealValue }).catch((error) => {
+        console.error(`TikTok event failed for conversation ${id}`, error);
+      });
+    }
 
     if (body.assignee !== undefined && body.assignee !== previousAssignee) {
       await logAdminAction(

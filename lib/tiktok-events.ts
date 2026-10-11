@@ -16,12 +16,16 @@ import { decryptSecret, encryptSecret } from "./secret-storage";
 
 export const DEFAULT_EVENTS_URL = "https://business-api.tiktok.com/open_api/v1.3/event/track/";
 
-export const LEAD_STATUSES = ["جديد", "مهتم", "غير مهتم", "مؤهل", "غير مؤهل", "تم البيع"] as const;
+// The lead status IS the conversation's stage on the "العملاء المحتملون" page (same field), so the
+// conversation panel and that page can never disagree. Keep in sync with pipelineStages in app/dashboard/types.ts.
+export const LEAD_STATUSES = ["جديد", "مهتم", "مؤهل", "عرض سعر", "تم الحجز", "فاز", "خسر"] as const;
+/** Stages where a deal value makes sense (same list the leads page uses). */
+export const STAGES_WITH_DEAL_VALUE: readonly string[] = ["عرض سعر", "تم الحجز", "فاز", "خسر"];
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 /** status -> TikTok event name ("" = do not send anything for this status). Editable per workspace. */
 export type EventMapping = Record<LeadStatus, string>;
-export const DEFAULT_MAPPING: EventMapping = { "جديد": "", "مهتم": "", "غير مهتم": "", "مؤهل": "Lead", "غير مؤهل": "", "تم البيع": "Purchase" };
+export const DEFAULT_MAPPING: EventMapping = { "جديد": "", "مهتم": "", "مؤهل": "Lead", "عرض سعر": "", "تم الحجز": "", "فاز": "Purchase", "خسر": "" };
 
 const EVENT_NAME = /^[A-Za-z][A-Za-z0-9_ ]{0,39}$/;
 export const EVENT_SOURCES = ["web", "crm", "app", "offline"] as const;
@@ -266,10 +270,9 @@ export async function getDealValue(tenantId: string, conversationId: string): Pr
 }
 
 export async function getLeadStatus(tenantId: string, conversationId: string): Promise<LeadStatus> {
-  await ensureTables();
-  const rows = await prisma.$queryRaw<Array<{ status: string }>>`SELECT status FROM conversation_lead_status WHERE conversation_id = ${conversationId} AND tenant_id = ${tenantId}`;
-  const status = rows[0]?.status;
-  return (LEAD_STATUSES as readonly string[]).includes(status ?? "") ? (status as LeadStatus) : "جديد";
+  const row = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, select: { pipelineStage: true } });
+  const stage = row?.pipelineStage ?? "";
+  return (LEAD_STATUSES as readonly string[]).includes(stage) ? (stage as LeadStatus) : "جديد";
 }
 
 /** The TikTok click id of the ad that opened this conversation, if it was captured. */
@@ -282,33 +285,33 @@ async function tiktokClickId(tenantId: string, conversationId: string): Promise<
   }
 }
 
-/** Saves the status of a conversation that belongs to `tenantId` and sends the mapped event. */
+/**
+ * Sends the TikTok event for a stage change. Called by every path that changes the
+ * stage (the conversation panel and the leads page) so both behave the same.
+ * Never throws; the stage is already saved when this runs.
+ */
+export async function notifyStageChange(input: { tenantId: string; conversationId: string; stage: string; previousStage?: string; phone: string; dealValue?: number }): Promise<SendResult> {
+  if (!(LEAD_STATUSES as readonly string[]).includes(input.stage)) return { sent: false, skipped: "no-mapping" };
+  if (input.previousStage !== undefined && input.previousStage === input.stage) return { sent: false, skipped: "duplicate" };
+  return sendLeadStatusEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.stage, phone: input.phone, dealValue: input.dealValue, clickId: await tiktokClickId(input.tenantId, input.conversationId) });
+}
+
+/** Saves the stage (and optional deal value) of a conversation of `tenantId`, then sends the mapped event. */
 export async function setLeadStatus(input: { tenantId: string; conversationId: string; status: unknown; actor: string; dealValue?: unknown }): Promise<{ ok: true; status: LeadStatus; event: SendResult } | { ok: false; error: string; code: number }> {
   if (typeof input.status !== "string" || !(LEAD_STATUSES as readonly string[]).includes(input.status)) return { ok: false, error: "حالة غير صالحة", code: 400 };
   const status = input.status as LeadStatus;
-  const conversation = await prisma.conversation.findFirst({ where: { id: input.conversationId, tenantId: input.tenantId }, select: { id: true, dealValue: true, customer: { select: { phone: true } } } });
+  const conversation = await prisma.conversation.findFirst({ where: { id: input.conversationId, tenantId: input.tenantId }, select: { id: true, dealValue: true, pipelineStage: true, customer: { select: { phone: true } } } });
   if (!conversation) return { ok: false, error: "المحادثة غير موجودة", code: 404 };
 
-  // An optional sale value (SAR) saved on the conversation itself, so the pipeline sees it too.
   let dealValue = conversation.dealValue;
   if (input.dealValue !== undefined && input.dealValue !== null && input.dealValue !== "") {
     const parsed = Number(input.dealValue);
     if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100_000_000) return { ok: false, error: "قيمة الصفقة غير صالحة", code: 400 };
     dealValue = Math.round(parsed * 100) / 100;
-    await prisma.conversation.updateMany({ where: { id: input.conversationId, tenantId: input.tenantId }, data: { dealValue } });
   }
 
-  await ensureTables();
-  const now = new Date().toISOString();
-  const existing = await prisma.$queryRaw<Array<{ status: string }>>`SELECT status FROM conversation_lead_status WHERE conversation_id = ${input.conversationId}`;
-  if (existing.length) {
-    await prisma.$executeRaw`UPDATE conversation_lead_status SET status = ${status}, updated_by = ${input.actor}, updated_at = ${now} WHERE conversation_id = ${input.conversationId}`;
-  } else {
-    await prisma.$executeRaw`INSERT INTO conversation_lead_status (conversation_id, tenant_id, status, updated_by, updated_at) VALUES (${input.conversationId}, ${input.tenantId}, ${status}, ${input.actor}, ${now})`;
-  }
-  const event = existing[0]?.status === status
-    ? ({ sent: false, skipped: "duplicate" } as SendResult)
-    : await sendLeadStatusEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status, phone: conversation.customer.phone, dealValue, clickId: await tiktokClickId(input.tenantId, input.conversationId) });
+  await prisma.conversation.updateMany({ where: { id: input.conversationId, tenantId: input.tenantId }, data: { pipelineStage: status, dealValue } });
+  const event = await notifyStageChange({ tenantId: input.tenantId, conversationId: input.conversationId, stage: status, previousStage: conversation.pipelineStage, phone: conversation.customer.phone, dealValue });
   return { ok: true, status, event };
 }
 

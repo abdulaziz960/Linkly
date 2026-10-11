@@ -71,7 +71,7 @@ describe("ad source of a conversation", () => {
       bodies.push(JSON.parse(String(init.body)));
       return new Response(JSON.stringify({ code: 0 }));
     }));
-    await setLeadStatus({ tenantId: "ten-tt", conversationId: "conv-tt", status: "تم البيع", actor: "x" });
+    await setLeadStatus({ tenantId: "ten-tt", conversationId: "conv-tt", status: "فاز", actor: "x" });
     expect(bodies[0].data[0].user.ttclid).toBe("CLICKABC123");
     expect(bodies[0].data[0].user.phone).toMatch(/^[0-9a-f]{64}$/);
   });

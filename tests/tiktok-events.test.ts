@@ -54,7 +54,7 @@ describe("TikTok Ads lead-status events", () => {
     const saved = await saveTikTokAdsSettings("ten-a", cleaned.data);
     expect(saved).toMatchObject({ eventSetId: "CTM12345", hasToken: true, enabled: true });
     expect(saved.mapping["مهتم"]).toBe("Lead");
-    expect(saved.mapping["تم البيع"]).toBe("Purchase"); // untouched statuses keep their default
+    expect(saved.mapping["فاز"]).toBe("Purchase"); // untouched statuses keep their default
     expect(JSON.stringify(saved)).not.toContain("tok_");
 
     // A later save without a token keeps the stored one; enabling without a token is refused.
@@ -95,9 +95,9 @@ describe("TikTok Ads lead-status events", () => {
     await seedConversation("conv-2", "ten-a");
     mockTikTok({ code: 40002, message: "Invalid event set" });
     const { setLeadStatus, getLeadStatus, recentEvents } = await import("../lib/tiktok-events");
-    const result = await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-2", status: "تم البيع", actor: "موظف" });
-    expect(result).toMatchObject({ ok: true, status: "تم البيع", event: { sent: true, ok: false, eventName: "Purchase" } });
-    expect(await getLeadStatus("ten-a", "conv-2")).toBe("تم البيع");
+    const result = await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-2", status: "فاز", actor: "موظف" });
+    expect(result).toMatchObject({ ok: true, status: "فاز", event: { sent: true, ok: false, eventName: "Purchase" } });
+    expect(await getLeadStatus("ten-a", "conv-2")).toBe("فاز");
     expect((await recentEvents("ten-a"))[0]).toMatchObject({ ok: 0 });
   });
 
@@ -126,8 +126,8 @@ describe("TikTok Ads lead-status events", () => {
     await seedConversation("conv-6", "ten-a");
     const sent = mockTikTok();
     const { setLeadStatus, getDealValue } = await import("../lib/tiktok-events");
-    expect(await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-6", status: "تم البيع", dealValue: "1250.5", actor: "x" })).toMatchObject({ ok: true, event: { sent: true, ok: true } });
-    expect(sent[0].body.data[0].properties).toMatchObject({ value: 1250.5, currency: "SAR", lead_status: "تم البيع" });
+    expect(await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-6", status: "فاز", dealValue: "1250.5", actor: "x" })).toMatchObject({ ok: true, event: { sent: true, ok: true } });
+    expect(sent[0].body.data[0].properties).toMatchObject({ value: 1250.5, currency: "SAR", lead_status: "فاز" });
     expect(await getDealValue("ten-a", "conv-6")).toBe(1250.5);
     expect(await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-6", status: "مؤهل", dealValue: "abc", actor: "x" })).toMatchObject({ ok: false, code: 400 });
     expect(await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-6", status: "مؤهل", dealValue: -5, actor: "x" })).toMatchObject({ ok: false, code: 400 });
@@ -137,8 +137,8 @@ describe("TikTok Ads lead-status events", () => {
     await seedConversation("conv-7", "ten-a");
     const sent = mockTikTok();
     const { setLeadStatus } = await import("../lib/tiktok-events");
-    await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-7", status: "تم البيع", actor: "x" });
-    expect(sent[0].body.data[0].properties).toEqual({ lead_status: "تم البيع" });
+    await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-7", status: "فاز", actor: "x" });
+    expect(sent[0].body.data[0].properties).toEqual({ lead_status: "فاز" });
   });
 
   it("sends the page for Pixel (web) events and explains an event_source_id rejection", async () => {
@@ -146,7 +146,7 @@ describe("TikTok Ads lead-status events", () => {
     const { saveTikTokAdsSettings, setLeadStatus, sendTestEvent } = await import("../lib/tiktok-events");
     await saveTikTokAdsSettings("ten-web", { eventSetId: "DB5QHHRC77U074LG3TQG", accessToken: "tok_" + "y".repeat(20), eventSource: "web", enabled: true });
     const sent = mockTikTok();
-    await setLeadStatus({ tenantId: "ten-web", conversationId: "conv-5", status: "تم البيع", actor: "x" });
+    await setLeadStatus({ tenantId: "ten-web", conversationId: "conv-5", status: "فاز", actor: "x" });
     expect(sent[0].body.event_source).toBe("web");
     expect((sent[0].body.data[0] as unknown as { page: { url: string } }).page.url).toBe("https://linklysa.io");
 
@@ -161,7 +161,7 @@ describe("TikTok Ads lead-status events", () => {
     vi.stubEnv("TIKTOK_EVENTS_URL", "http://localhost:4010/track");
     const sent = mockTikTok();
     const { setLeadStatus } = await import("../lib/tiktok-events");
-    await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-4", status: "تم البيع", actor: "x" });
+    await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-4", status: "فاز", actor: "x" });
     expect(sent[0].url).toBe("http://localhost:4010/track");
     vi.unstubAllEnvs();
   });
