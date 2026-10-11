@@ -3,8 +3,9 @@
 import CustomSelect from "../../components/CustomSelect";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import { stageDisplayLabel } from "../stage-labels";
 
-const LABELS_EN: Record<string, string> = { "جديد": "New", "مهتم": "Interested", "مؤهل": "Qualified", "عرض سعر": "Quoted", "تم الحجز": "Booked", "فاز": "Won", "خسر": "Lost" };
+const LABELS_EN: Record<string, string> = { "جديد": "New", "مهتم": "Interested", "مؤهل": "Qualified", "عرض سعر": "Quoted", "تم الحجز": "Booked", "فاز": "Sold", "خسر": "Not interested" };
 // Stages that carry a deal value (same ones the leads page asks it for).
 const VALUE_STAGES = ["عرض سعر", "تم الحجز", "فاز", "خسر"];
 
@@ -83,7 +84,7 @@ export default function LeadStatusControl({ conversationId }: { conversationId: 
     void save(next, false);
   }
 
-  const label = (item: string) => (language === "en" ? LABELS_EN[item] ?? item : item);
+  const label = (item: string) => (language === "en" ? LABELS_EN[item] ?? item : stageDisplayLabel(item, "ar"));
   const showValue = Boolean(pendingStage) || VALUE_STAGES.includes(status);
   const valueStage = pendingStage || status;
 

@@ -26,7 +26,7 @@ function stageLabel(stage: PipelineStage, t: (ar: string, en: string) => string)
     "عرض سعر": ["عرض سعر / تمويل", "Offer / financing"],
     "تم الحجز": ["حجز وحدة", "Unit reserved"],
     "فاز": ["تم البيع", "Sold"],
-    "خسر": ["غير مناسب", "Not a fit"]
+    "خسر": ["غير مهتم", "Not interested"]
   };
   const [ar, en] = labels[stage];
   return t(ar, en);

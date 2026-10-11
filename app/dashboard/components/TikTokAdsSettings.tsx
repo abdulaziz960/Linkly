@@ -3,13 +3,14 @@
 import CustomSelect from "../../components/CustomSelect";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import { stageDisplayLabel } from "../stage-labels";
 
 type Settings = { eventSetId: string; hasToken: boolean; eventSource: string; testEventCode: string; enabled: boolean; mapping: Record<string, string>; updatedAt: string };
 type EventLog = { conversation_id: string; status: string; event_name: string; ok: number; message: string; created_at: string };
 
 /** TikTok Ads: the Event Set + token, and which TikTok event each lead status sends. */
 export default function TikTokAdsSettings() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [events, setEvents] = useState<EventLog[]>([]);
@@ -153,7 +154,7 @@ export default function TikTokAdsSettings() {
           <b style={{ fontSize: 12.5, opacity: 0.7 }}>{t("حدث TikTok", "TikTok event")}</b>
           {statuses.map((status) => (
             <div key={status} style={{ display: "contents" }}>
-              <span style={{ fontWeight: 700 }}>{status}</span>
+              <span style={{ fontWeight: 700 }}>{stageDisplayLabel(status, language === "en" ? "en" : "ar")}</span>
               <input dir="ltr" style={input} aria-label={status} value={mapping[status] ?? ""} onChange={(event) => setMapping((current) => ({ ...current, [status]: event.target.value }))} placeholder="Lead / Purchase" />
             </div>
           ))}
