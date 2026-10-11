@@ -329,6 +329,7 @@ function InternalLeadsTable({
 export default function PipelineView({ conversations, automationRules, templates, onOpenConversation, onRefreshData }: PipelineViewProps) {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<PipelineTab>("external");
+  const [layout, setLayout] = useState<"board" | "table">("board");
   const [localStages, setLocalStages] = useState<Record<string, PipelineStage>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
   const [savingValueId, setSavingValueId] = useState<string | null>(null);
@@ -425,14 +426,20 @@ export default function PipelineView({ conversations, automationRules, templates
       </div>
       {activeTab === "external" ? <ExternalLeadsTab t={t} /> : (
         <div className="lead-internal">
-          <InternalLeadsTable
-            conversations={conversations}
-            t={t}
-            savingValueId={savingValueId}
-            onMove={moveConversation}
-            onSetDealValue={setDealValue}
-            onOpenConversation={onOpenConversation}
-          />
+          <div className="pipeline-tabs lead-layout-switch" role="group" aria-label={t("طريقة العرض", "View")}>
+            <button type="button" aria-pressed={layout === "board"} onClick={() => setLayout("board")}>{t("لوحة", "Board")}</button>
+            <button type="button" aria-pressed={layout === "table"} onClick={() => setLayout("table")}>{t("جدول", "Table")}</button>
+          </div>
+          {layout === "table" ? (
+            <InternalLeadsTable
+              conversations={conversations}
+              t={t}
+              savingValueId={savingValueId}
+              onMove={moveConversation}
+              onSetDealValue={setDealValue}
+              onOpenConversation={onOpenConversation}
+            />
+          ) : (
       <DndContext sensors={sensors} onDragStart={(event) => setActiveId(String(event.active.id))} onDragEnd={handleDragEnd}>
         <div className="pipeline-board">
           {pipelineStages.map((stage) => {
@@ -475,6 +482,7 @@ export default function PipelineView({ conversations, automationRules, templates
           ) : null}
         </DragOverlay>
       </DndContext>
+          )}
         </div>
       )}
     </section>
