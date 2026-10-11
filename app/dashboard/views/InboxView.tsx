@@ -1,5 +1,6 @@
 "use client";
 
+import AdSourceBanner from "../components/AdSourceBanner";
 import AdSourceInfo from "../components/AdSourceInfo";
 import LeadStatusControl from "../components/LeadStatusControl";
 import { ChangeEvent, CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -1232,6 +1233,7 @@ export default function InboxView({
 
         {chatPanel === "chat" ? (
           <div className="chat-panel">
+            <AdSourceBanner conversationId={activeConversation.id} />
             <div className="messages" ref={messagesContainerRef}>
               {activeConversation.messages.map((item) => (
                 item.source?.type === "system_assignment" || item.source?.type === "system_escalation" ? (
