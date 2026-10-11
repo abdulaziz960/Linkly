@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { buildPlanAccess, isViewLockedForPlan, limitReachedMessage, planLimit, type PlanAccessData, type PlanLimitKind } from "./plan-access";
+import { REAL_ESTATE_PROJECTS_VIEW, buildPlanAccess, isViewLockedForPlan, limitReachedMessage, planLimit, type PlanAccessData, type PlanLimitKind } from "./plan-access";
 import { getTenantGrants } from "./plan-grants";
 import type { ViewKey } from "../app/dashboard/types";
 
@@ -19,9 +19,11 @@ export async function getTenantPlanName(tenantId: string): Promise<string | null
 }
 
 export async function isViewLockedForTenant(tenantId: string, view: ViewKey): Promise<boolean> {
+  const grants = await getTenantGrants(tenantId);
+  if (view === REAL_ESTATE_PROJECTS_VIEW && !grants.views.includes(REAL_ESTATE_PROJECTS_VIEW)) return true;
   if (!isViewLockedForPlan(await getTenantPlanName(tenantId), view)) return false;
   // Locked by the plan - unless the platform team unlocked this page for this workspace.
-  return !(await getTenantGrants(tenantId)).views.includes(view);
+  return !grants.views.includes(view);
 }
 
 export async function getPlanAccessForTenant(tenantId: string): Promise<PlanAccessData> {

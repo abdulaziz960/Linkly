@@ -40,6 +40,10 @@ await prisma.plan.create({ data: {
   allowedChannels: "whatsapp", messageQuota: 1000,
   createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
 } });
+await prisma.tenantFeatureGrant.create({ data: {
+  id: "browser-real-estate-projects", tenantId: "browser-workspace", viewKey: "pipeline",
+  grantedBy: "browser-test", createdAt: new Date().toISOString()
+} });
 await prisma.integrationSetting.create({ data: {
   id: "browser-whatsapp", tenantId: "browser-workspace", provider: "whatsapp_cloud", status: "connected",
   businessName: "Browser Workspace", wabaName: "Browser", phoneNumber: "966555000000", phoneNumberId: "browser-number-id",

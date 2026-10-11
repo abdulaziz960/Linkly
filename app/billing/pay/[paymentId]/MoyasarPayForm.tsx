@@ -18,7 +18,7 @@ type Props = {
   /** Text for the customer's card statement - already sanitized by paymentStatementDescriptor(). */
   statementDescriptor: string;
   /** Which payment row this confirms against - see /billing/success. Defaults to "subscription". */
-  kind?: "subscription" | "campaign_topup";
+  kind?: "subscription" | "campaign_topup" | "email_topup";
   /** Server route that verifies the completed payment and applies its outcome. */
   confirmUrl?: string;
 };
@@ -107,7 +107,7 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
           if (payload.outcome !== "completed" && payload.outcome !== "already_processed") {
             throw new Error("لم تتم الموافقة على الدفعة من جهة البنك. تحقق من بيانات البطاقة أو استخدم بطاقة أخرى.");
           }
-          router.push("/dashboard?view=inbox");
+          router.push(kind === "email_topup" ? "/dashboard?view=emailPromotions&tab=balance" : kind === "campaign_topup" ? "/dashboard?view=campaigns&tab=balance" : "/dashboard?view=inbox");
         } catch (err) {
           setConfirming(false);
           setError(err instanceof Error ? err.message : "تعذر تأكيد الدفعة");
@@ -119,7 +119,7 @@ export default function MoyasarPayForm({ paymentId, amountHalalas, description, 
           // navigates that popup tab itself, matching how this app's other
           // popup flows (Meta/Google/etc. OAuth callbacks) already redirect
           // the popup rather than trying to reach back into a nulled opener.
-          window.setTimeout(() => router.push("/dashboard?view=inbox"), 2500);
+          window.setTimeout(() => router.push(kind === "email_topup" ? "/dashboard?view=emailPromotions&tab=balance" : kind === "campaign_topup" ? "/dashboard?view=campaigns&tab=balance" : "/dashboard?view=inbox"), 2500);
         }
       }
     });

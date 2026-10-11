@@ -129,7 +129,8 @@ describe("features, channels and caps unlocked for one workspace", () => {
     expect(individuals.channels).not.toContain("whatsapp");
     expect(individuals.features).toContain("escalation");
     const enterprise = grantableForPlan("باقة الشركات", "*");
-    expect(enterprise.views).toEqual([]);
+    // The leads page can be granted on any plan: it is hidden unless the workspace is real-estate or medical.
+    expect(enterprise.views).toEqual(["pipeline"]);
     expect(enterprise.features).toEqual([]);
     expect(enterprise.channels).toEqual([]);
     // Numbers can be customized on any plan.

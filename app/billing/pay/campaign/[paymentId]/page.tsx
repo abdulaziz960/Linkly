@@ -5,6 +5,7 @@ import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { prisma } from "../../../../../lib/prisma";
 import { expectedHalalas } from "../../../../../lib/subscriptions";
 import { paymentDescription, paymentStatementDescriptor } from "../../../../../lib/moyasar";
+import { getMoyasarPublishableKey } from "../../../../../lib/moyasar-publishable";
 import { PAYMENT_STATUS } from "../../../../../lib/payment-status";
 import MoyasarPayForm from "../../[paymentId]/MoyasarPayForm";
 import PayPromoBox from "../../PayPromoBox";
@@ -31,7 +32,7 @@ export default async function CampaignPayPage({ params }: { params: Promise<{ pa
   if (payment.status === PAYMENT_STATUS.completed) redirect("/billing/success?kind=campaign_topup");
   if (payment.status !== PAYMENT_STATUS.pending) redirect("/dashboard?view=campaigns&tab=balance");
 
-  const publishableKey = process.env.NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY || "";
+  const publishableKey = getMoyasarPublishableKey();
   const description = paymentDescription("campaign_topup", { messages: payment.messages });
   const promo = await getPaymentPromoSummary(payment.id);
 

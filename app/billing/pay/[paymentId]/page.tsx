@@ -6,6 +6,7 @@ import { expectedHalalas } from "../../../../lib/subscriptions";
 import { PAYMENT_STATUS } from "../../../../lib/payment-status";
 import { isBillingCycle, isSamePlanRenewalTooEarly } from "../../../../lib/billing-pricing";
 import { paymentStatementDescriptor } from "../../../../lib/moyasar";
+import { getMoyasarPublishableKey } from "../../../../lib/moyasar-publishable";
 import MoyasarPayForm from "./MoyasarPayForm";
 import PayPromoBox from "../PayPromoBox";
 import "../../billing.css";
@@ -33,7 +34,7 @@ export default async function BillingPayPage({ params }: { params: Promise<{ pay
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
   if (isBillingCycle(payment.billingCycle) && isSamePlanRenewalTooEarly(subscription, payment.planName, payment.billingCycle)) redirect("/billing");
 
-  const publishableKey = process.env.NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY || "";
+  const publishableKey = getMoyasarPublishableKey();
   const description = `اشتراك Linkly${payment.planName ? ` (${payment.planName})` : ""}`;
 
   return (

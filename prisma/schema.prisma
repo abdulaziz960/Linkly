@@ -334,6 +334,81 @@ model CampaignRecipientClick {
   @@map("campaign_recipient_clicks")
 }
 
+model EmailCampaign {
+  id           String @id
+  tenantId     String @map("tenant_id")
+  name         String
+  subject      String
+  senderName   String @map("sender_name")
+  senderEmail  String @map("sender_email")
+  bodyHtml     String @map("body_html")
+  bodyText     String @default("") @map("body_text")
+  ctaText      String @default("") @map("cta_text")
+  ctaUrl       String @default("") @map("cta_url")
+  audienceMode String @default("all") @map("audience_mode")
+  audienceJson String @default("{}") @map("audience_json")
+  scheduledAt  String @default("") @map("scheduled_at")
+  status       String @default("draft")
+  totalRecipients Int @default(0) @map("total_recipients")
+  sentCount        Int @default(0) @map("sent_count")
+  deliveredCount   Int @default(0) @map("delivered_count")
+  openCount        Int @default(0) @map("open_count")
+  clickCount       Int @default(0) @map("click_count")
+  bounceCount      Int @default(0) @map("bounce_count")
+  unsubscribeCount Int @default(0) @map("unsubscribe_count")
+  createdAt    String @map("created_at")
+  updatedAt    String @map("updated_at")
+
+  @@index([tenantId, status])
+  @@index([tenantId, scheduledAt])
+  @@map("email_campaigns")
+}
+
+model EmailCampaignRecipient {
+  id          String @id
+  campaignId  String @map("campaign_id")
+  tenantId    String @map("tenant_id")
+  customerId  String @default("") @map("customer_id")
+  email       String
+  name        String @default("")
+  status      String @default("pending")
+  providerId  String @default("") @map("provider_id")
+  error       String @default("")
+  sentAt      String @default("") @map("sent_at")
+  deliveredAt String @default("") @map("delivered_at")
+  openedAt    String @default("") @map("opened_at")
+  clickedAt   String @default("") @map("clicked_at")
+  bouncedAt   String @default("") @map("bounced_at")
+  unsubscribedAt String @default("") @map("unsubscribed_at")
+  openCount   Int @default(0) @map("open_count")
+  clickCount  Int @default(0) @map("click_count")
+  createdAt   String @map("created_at")
+
+  @@index([campaignId, status])
+  @@index([tenantId, email])
+  @@map("email_campaign_recipients")
+}
+
+model EmailMarketingOptOut {
+  id        String @id
+  tenantId  String @map("tenant_id")
+  email     String
+  source    String @default("unsubscribe")
+  createdAt String @map("created_at")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("email_marketing_opt_outs")
+}
+
+model EmailCampaignBalance {
+  tenantId  String @id @map("tenant_id")
+  balance   Int    @default(0)
+  updatedAt String @map("updated_at")
+
+  @@map("email_campaign_balances")
+}
+
 model CampaignBalance {
   tenantId        String @id @map("tenant_id")
   balance         Int    @default(0)

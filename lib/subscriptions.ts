@@ -10,6 +10,8 @@ import { confirmPromoCodeUsage, releasePromoCodeUsage } from "./promo-codes";
 import { encryptSecret, decryptSecret } from "./secret-storage";
 import { CYCLE_MONTHS, isBillingCycle, priceForCycle, type BillingCycle } from "./billing-pricing";
 import { isUnlimitedMessageQuota, UNLIMITED_MESSAGE_CREDIT } from "./message-quota";
+import { emailPromotionCreditsForPlan } from "./plan-email-promotions";
+import { ensureEmailPromotionsSchema } from "./email-promotions-schema";
 
 /** Length of one paid subscription period, in months, per billing cycle. */
 export const SUBSCRIPTION_PERIOD_MONTHS: Record<BillingCycle, number> = CYCLE_MONTHS;
@@ -261,6 +263,7 @@ export async function getInvoiceForTenant(tenantId: string, invoiceId: string) {
  * a redelivered webhook or a double confirm click can't double-renew.
  */
 export async function applyConfirmedSubscriptionPayment(paymentId: string, details?: GatewayPaymentDetails, allowAutoRenewEnroll = false): Promise<{ activated: boolean; periodStart?: string; periodEnd?: string; previousPlan?: string; newPlan?: string }> {
+  await ensureEmailPromotionsSchema();
   const payment = await prisma.subscriptionPayment.findUnique({ where: { id: paymentId } });
   if (!payment) return { activated: false };
 
@@ -385,6 +388,15 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
           create: { tenantId: payment.tenantId, balance: creditMessages, lastTopUpAmount: creditMessages, updatedAt: now }
         });
       }
+    }
+
+    const emailCredits = payment.planName ? emailPromotionCreditsForPlan(payment.planName) * CYCLE_MONTHS[billingCycle] : 0;
+    if (emailCredits > 0) {
+      await tx.emailCampaignBalance.upsert({
+        where: { tenantId: payment.tenantId },
+        update: { balance: { increment: emailCredits }, updatedAt: now },
+        create: { tenantId: payment.tenantId, balance: emailCredits, updatedAt: now }
+      });
     }
 
     await confirmPromoCodeUsage(tx, payment.id, `sub-${payment.tenantId}`);
@@ -951,6 +963,7 @@ export async function attemptAutoRenewals(baseUrl: string) {
 
 type CreateTenantInput = {
   companyName: string;
+  businessType?: string;
   ownerName: string;
   ownerEmail: string;
   plan: string;
@@ -1080,6 +1093,19 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
         updatedAt: now
       }
     });
+
+    // The leads section ("العملاء المحتملون") is only for real-estate and medical businesses; other types never see it.
+    if (input.businessType === "real_estate" || input.businessType === "healthcare") {
+      await tx.tenantFeatureGrant.create({
+        data: {
+          id: `grant-${randomUUID()}`,
+          tenantId,
+          viewKey: "pipeline",
+          grantedBy: "signup-business-type",
+          createdAt: now
+        }
+      });
+    }
 
     await tx.adminLog.create({
       data: {

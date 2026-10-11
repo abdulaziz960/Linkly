@@ -17,6 +17,7 @@
 import { parseAllowedChannels, channelLabel } from "./channel-catalog";
 import { isUnlimitedMessageQuota, messageQuotaLabel } from "./message-quota";
 import { isViewLockedForPlan } from "./plan-access";
+import { emailPromotionCreditsForPlan, emailPromotionCreditLabel } from "./plan-email-promotions";
 
 export type PlanFeatures = {
   shortName: { ar: string; en: string };
@@ -40,8 +41,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     shortName: { ar: "العادية", en: "Regular" },
     audience: { ar: "الأنسب لصاحب عمل بدأ يكبر ويحتاج قناة ثانية وفريق صغير.", en: "Best for a growing business that needs a second channel and a small team." },
     items: {
-      ar: ["كل مزايا الأفراد", "رد آلي حتى 15 خطوة وساعات عمل", "فريقان وتوزيع محادثات تلقائي", "قوالب وحملات وتقسيم جمهور بالوسوم", "مساعد AI بربط مفتاحك الخاص", "إرسال أقرب فرع للعميل تلقائيًا (حتى 30 فرعًا)", "كانبان المبيعات وتصعيد المحادثات (30 دقيقة)", "تقارير أساسية"],
-      en: ["Everything in Individuals", "Auto-reply up to 15 steps and work hours", "2 teams and automatic routing", "Templates, campaigns and tag-based segments", "AI assistant with your own API key", "Automatically send the customer their nearest branch (up to 30 branches)", "Sales pipeline and escalation (30 min)", "Basic reports"]
+      ar: ["كل مزايا الأفراد", "رد آلي حتى 15 خطوة وساعات عمل", "فريقان وتوزيع محادثات تلقائي", "قوالب وحملات وتقسيم جمهور بالوسوم", "مساعد AI بربط مفتاحك الخاص", "إرسال أقرب فرع للعميل تلقائيًا (حتى 30 فرعًا)", "تصعيد المحادثات (30 دقيقة)", "تقارير أساسية"],
+      en: ["Everything in Individuals", "Auto-reply up to 15 steps and work hours", "2 teams and automatic routing", "Templates, campaigns and tag-based segments", "AI assistant with your own API key", "Automatically send the customer their nearest branch (up to 30 branches)", "Conversation escalation (30 min)", "Basic reports"]
     }
   },
   "باقة المؤسسات الصغيرة": {
@@ -66,8 +67,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     custom: true,
     audience: { ar: "تواصل معنا واختر المزايا والقنوات والحدود التي تحتاجها، ونصدر لك عرض سعر خاص بما طلبته.", en: "Contact us, pick the features, channels and limits you need, and we'll send you a quote for exactly that." },
     items: {
-      ar: ["عدد المستخدمين الذي تحتاجه", "كل القنوات: واتساب وإنستقرام وتيليجرام وفيسبوك وجيميل وتيك توك ويوتيوب ولينكدإن وسناب وSMS وغيرها", "رسائل تسويقية وحملات متكررة بلا حدود", "شرائح عملاء متقدمة وتقارير وتصدير Excel", "أتمتة وبوت بخطوات وعقد بلا حدود", "كتالوج المنتجات والشراء من واتساب بعدد تحدده", "الفروع وإرسال أقرب فرع بعدد تحدده", "قاعدة المعرفة ومساعد AI بحدود تناسبك", "التصعيد التلقائي للمحادثات", "واجهة API وWebhooks وتكاملات", "علامة تجارية مخصّصة (White-label)", "مدير حساب مخصص ودعم VIP فوري"],
-      en: ["As many users as you need", "Every channel: WhatsApp, Instagram, Telegram, Facebook, Gmail, TikTok, YouTube, LinkedIn, Snapchat, SMS and more", "Unlimited marketing messages and recurring campaigns", "Advanced customer segments, reports and Excel export", "Automation and bots with unlimited steps and nodes", "Product catalog and buying on WhatsApp, sized to you", "Branches and nearest-branch replies, sized to you", "Knowledge base and AI assistant with limits that fit you", "Automatic conversation escalation", "Developer API, webhooks and integrations", "Custom white-label branding", "Dedicated account manager and instant VIP support"]
+      ar: ["عدد المستخدمين الذي تحتاجه", "كل القنوات: واتساب وإنستقرام وتيليجرام وفيسبوك وجيميل وتيك توك ويوتيوب ولينكدإن وسناب وSMS وغيرها", "رسائل تسويقية وحملات متكررة بلا حدود", "5,000 بريد تسويقي شهريًا أو حسب الاتفاق", "شرائح عملاء متقدمة وتقارير وتصدير Excel", "أتمتة وبوت بخطوات وعقد بلا حدود", "كتالوج المنتجات والشراء من واتساب بعدد تحدده", "الفروع وإرسال أقرب فرع بعدد تحدده", "قاعدة المعرفة ومساعد AI بحدود تناسبك", "التصعيد التلقائي للمحادثات", "واجهة API وWebhooks وتكاملات", "علامة تجارية مخصّصة (White-label)", "مدير حساب مخصص ودعم VIP فوري"],
+      en: ["As many users as you need", "Every channel: WhatsApp, Instagram, Telegram, Facebook, Gmail, TikTok, YouTube, LinkedIn, Snapchat, SMS and more", "Unlimited marketing messages and recurring campaigns", "5,000 promotional emails/month or by agreement", "Advanced customer segments, reports and Excel export", "Automation and bots with unlimited steps and nodes", "Product catalog and buying on WhatsApp, sized to you", "Branches and nearest-branch replies, sized to you", "Knowledge base and AI assistant with limits that fit you", "Automatic conversation escalation", "Developer API, webhooks and integrations", "Custom white-label branding", "Dedicated account manager and instant VIP support"]
     }
   }
 };
@@ -95,9 +96,12 @@ export function buildPlanDynamicItems(plan: PlanNumbers, lang: "ar" | "en", opti
   const messageQuotaLine = isUnlimitedMessageQuota(plan.messageQuota)
     ? (lang === "ar" ? "رسائل تسويقية غير محدودة" : "Unlimited marketing messages")
     : lang === "ar" ? `${messageQuotaLabel(plan.messageQuota, "ar")} رسالة تسويقية شهريًا` : `${messageQuotaLabel(plan.messageQuota, "en")} marketing messages/month`;
+  const emailCreditsLine = emailPromotionCreditsForPlan(plan.name || "")
+    ? emailPromotionCreditLabel(plan.name || "", lang)
+    : "";
 
   // A plan that has no campaigns section has no marketing messages to promise.
-  return options.skipQuota ? [usersLine, channelsLine] : [usersLine, channelsLine, messageQuotaLine];
+  return options.skipQuota ? [usersLine, channelsLine] : [usersLine, channelsLine, messageQuotaLine, emailCreditsLine].filter(Boolean);
 }
 
 function fallbackTailItems(lang: "ar" | "en"): string[] {

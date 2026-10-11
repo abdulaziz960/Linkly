@@ -17,6 +17,7 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as {
     companyName?: string;
+    businessType?: string;
     ownerName?: string;
     ownerEmail?: string;
     phone?: string;
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
   } | null;
 
   const companyName = body?.companyName?.trim() || "";
+  const businessType = body?.businessType?.trim() || "";
   const ownerName = body?.ownerName?.trim() || "";
   const ownerEmail = body?.ownerEmail?.trim() || "";
   const phone = body?.phone?.trim() || "";
@@ -40,8 +42,8 @@ export async function POST(request: NextRequest) {
     return jsonError("تم تجاوز عدد المحاولات. حاول مرة أخرى لاحقاً", 429);
   }
 
-  if (!companyName || !ownerName || !ownerEmail || !phone) {
-    return jsonError("عبّي اسم النشاط والاسم والبريد الإلكتروني ورقم الجوال", 400);
+  if (!companyName || !businessType || !ownerName || !ownerEmail || !phone) {
+    return jsonError("عبّي اسم النشاط ونوع النشاط والاسم والبريد الإلكتروني ورقم الجوال", 400);
   }
   // The checkbox on the signup form already requires this, but that's only
   // a client-side gate - never trust it alone for something a consent
@@ -58,6 +60,20 @@ export async function POST(request: NextRequest) {
   if (!isValidDisplayName(ownerName)) return jsonError("أدخل اسمك الكامل (حرفين على الأقل)", 400);
   const allowedChannels = new Set(["whatsapp", "instagram", "telegram", "email", "tiktok"]);
   if (channels.some((channel) => !allowedChannels.has(channel))) return jsonError("إحدى القنوات المختارة غير صالحة", 400);
+  const businessTypeLabels: Record<string, string> = {
+    real_estate: "عقار وتطوير عقاري",
+    retail: "متاجر وتجزئة",
+    ecommerce: "متجر إلكتروني",
+    restaurant: "مطاعم ومقاهي",
+    healthcare: "عيادات وصحة",
+    beauty: "صالونات وتجميل",
+    education: "تعليم وتدريب",
+    automotive: "سيارات وخدماتها",
+    travel: "سفر وسياحة",
+    professional_services: "خدمات مهنية",
+    other: "نشاط آخر"
+  };
+  if (!businessTypeLabels[businessType]) return jsonError("اختر نوع نشاط صحيح", 400);
 
   const plans = await getActivePlans();
   // The plan the visitor chose on the pricing page is the one they trial (enterprise excluded).
@@ -65,6 +81,7 @@ export async function POST(request: NextRequest) {
 
   const signupDetails = [
     phone ? `جوال: ${phone}` : null,
+    `نوع النشاط: ${businessTypeLabels[businessType]}`,
     teamSize ? `حجم الفريق: ${teamSize}` : null,
     channels.length ? `قنوات: ${channels.join("، ")}` : null
   ].filter(Boolean);
@@ -74,6 +91,7 @@ export async function POST(request: NextRequest) {
       companyName,
       ownerName,
       ownerEmail,
+      businessType,
       plan: starterPlan?.name || "باقة البداية",
       status: "تجربة",
       amount: 0,

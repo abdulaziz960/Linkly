@@ -34,13 +34,17 @@ export const VIEW_BLURBS: Partial<Record<ViewKey, FeatureBlurb>> = {
     ar: { text: "أرسل رسائل تسويقية لعملائك على واتساب بقوالب معتمدة، وتابع من فتحها ومن ضغط روابطها.", points: ["جدولة الحملات وإرسالها لشريحة محددة", "روابط تتبع النقرات وتقرير للتفاعل", "حماية تلقائية لمن أوقف الرسائل التسويقية"] },
     en: { text: "Send marketing messages to your customers on WhatsApp with approved templates, and see who opened and clicked.", points: ["Schedule campaigns to a chosen segment", "Click-tracking links and an engagement report", "Automatic protection for people who opted out"] }
   },
+  emailPromotions: {
+    ar: { text: "أرسل عروضك عبر البريد الإلكتروني لشرائح عملائك وتابع الفتح والنقرات.", points: ["رصيد بريد تسويقي شهري مع الباقة", "اختيار الجمهور حسب الوسوم والقناة", "إحصاءات الفتح والنقر وإلغاء الاشتراك"] },
+    en: { text: "Send your offers by email to your customer segments and track opens and clicks.", points: ["Monthly promotional email credits with your plan", "Audience by tags and channel", "Open, click and unsubscribe analytics"] }
+  },
   segments: {
     ar: { text: "قسّم عملاءك إلى شرائح لتستهدف كل مجموعة بالرسالة المناسبة.", points: ["شرائح بالوسوم وأيام عدم التفاعل", "شرائح بتفاعل الحملات السابقة", "استهدفها مباشرة في الحملات"] },
     en: { text: "Group your customers into segments and target each group with the right message.", points: ["Segments by tags and inactivity days", "Segments by past campaign engagement", "Target them directly in campaigns"] }
   },
   pipeline: {
-    ar: { text: "تابع فرص البيع كلوحة كانبان من أول اهتمام إلى إغلاق الصفقة.", points: ["مراحل واضحة لكل عميل", "قيمة الصفقات ونسب النجاح", "ربط المحادثة بمرحلة البيع"] },
-    en: { text: "Track sales opportunities on a kanban board from first interest to a closed deal.", points: ["Clear stages for every customer", "Deal values and win rates", "Link each chat to a sales stage"] }
+    ar: { text: "استقبل العملاء المحتملين من منصة خارجية أو تابعهم داخل لنكلي من أول استفسار إلى الإغلاق.", points: ["ربط Webhook عبر Zapier", "جدول ومراحل واضحة لكل ليد", "قيمة الوحدة ونسب الإغلاق"] },
+    en: { text: "Receive external leads or track them inside Linkly from first inquiry to close.", points: ["Zapier webhook connection", "Clear table and stages per lead", "Unit value and close rates"] }
   },
   templates: {
     ar: { text: "أنشئ قوالب رسائل واتساب المعتمدة لإعادة فتح المحادثات والحملات.", points: ["قوالب بصور وأزرار", "إعادة فتح محادثة بعد 24 ساعة", "تُستخدم في الحملات"] },

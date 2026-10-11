@@ -436,10 +436,14 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const currentProfileStatus = currentEmployee?.status ?? "متصل";
   const accountInitial = getNameInitial(initialUser.name);
   const roleViews = useMemo(() => getAllowedViews(initialUser, currentEmployee), [currentEmployee, initialUser]);
+  const visibleRoleViews = useMemo(
+    () => roleViews.filter((view) => !planAccess.hiddenViews.includes(view)),
+    [roleViews, planAccess.hiddenViews]
+  );
   // The plan caps every role: sections it doesn't include stay visible in the
   // sidebar (locked, opening an upgrade prompt) but can never be the active view.
-  const allowedViews = useMemo(() => roleViews.filter((view) => !planAccess.lockedViews.includes(view)), [roleViews, planAccess.lockedViews]);
-  const lockedViewsForUser = useMemo(() => roleViews.filter((view) => planAccess.lockedViews.includes(view)), [roleViews, planAccess.lockedViews]);
+  const allowedViews = useMemo(() => visibleRoleViews.filter((view) => !planAccess.lockedViews.includes(view)), [visibleRoleViews, planAccess.lockedViews]);
+  const lockedViewsForUser = useMemo(() => visibleRoleViews.filter((view) => planAccess.lockedViews.includes(view)), [visibleRoleViews, planAccess.lockedViews]);
   const canReopenConversations = canViewAllConversations || currentEmployee.role === "مشرف";
   const canDeleteConversations = initialUser.role === "مالك الحساب" || initialUser.role === "مشرف";
 

@@ -30,6 +30,7 @@ function request(body: unknown) {
 
 const validBody = {
   companyName: "Acme Co",
+  businessType: "real_estate",
   ownerName: "Owner Name",
   ownerEmail: "owner@acme.example",
   phone: "0501234567"
@@ -46,6 +47,19 @@ describe("POST /api/trial", () => {
     const response = await POST(request({ ...validBody, termsAccepted: false }));
     expect(response.status).toBe(400);
     expect(createTenantWithSubscription).not.toHaveBeenCalled();
+  });
+
+  it("refuses a signup without a valid business type", async () => {
+    for (const businessType of ["", "spaceships"]) {
+      const response = await POST(request({ ...validBody, businessType, termsAccepted: true }));
+      expect(response.status).toBe(400);
+    }
+    expect(createTenantWithSubscription).not.toHaveBeenCalled();
+  });
+
+  it("passes the business type on so real-estate and medical signups get the leads page", async () => {
+    await POST(request({ ...validBody, businessType: "healthcare", termsAccepted: true }));
+    expect(createTenantWithSubscription).toHaveBeenCalledWith(expect.objectContaining({ businessType: "healthcare" }));
   });
 
   it("refuses when termsAccepted is missing entirely (not just falsy)", async () => {

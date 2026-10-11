@@ -20,6 +20,7 @@ import CampaignsView from "./CampaignsView";
 import ContactsView from "./ContactsView";
 import CatalogView from "./CatalogView";
 import DevelopersView from "./DevelopersView";
+import EmailPromotionsView from "./EmailPromotionsView";
 import EmployeesView from "./EmployeesView";
 import IntegrationsView from "./IntegrationsView";
 import KnowledgeBaseView from "./KnowledgeBaseView";
@@ -91,6 +92,7 @@ export default function DashboardViewRouter({
     );
   }
   if (view === "campaigns") return <CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} brandName={branding.name} onRefreshData={onRefreshData} />;
+  if (view === "emailPromotions") return <EmailPromotionsView customers={customers} conversations={conversations} tags={tags} />;
   if (view === "segments") return <SegmentsView tags={tags} />;
   if (view === "pipeline") return <PipelineView conversations={conversations} automationRules={automationRules} templates={templates} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "templates") return <TemplatesView templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;

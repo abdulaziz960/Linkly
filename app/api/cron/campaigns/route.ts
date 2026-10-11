@@ -12,6 +12,8 @@ import { escalateUnansweredConversations } from "../../../../lib/response-sla";
 import { syncDueProductFeeds } from "../../../../lib/product-feed";
 import { provisionOpenerTemplates } from "../../../../lib/opener-template";
 import { isCronRequestAuthorized } from "../../../../lib/cron-auth";
+import { ensureEmailPromotionsSchema } from "../../../../lib/email-promotions-schema";
+import { activateDueEmailCampaigns, processEmailCampaignBatch } from "../../../../lib/email-promotions";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -25,11 +27,19 @@ export async function GET(request: NextRequest) {
   }
 
   await ensureSchema();
+  await ensureEmailPromotionsSchema();
 
-  const [campaignTenants, recurringCampaignTenants, automationTenants, conversationSummaryTenants, xTenants] = await Promise.all([
+  const [campaignTenants, emailCampaignTenants, recurringCampaignTenants, automationTenants, conversationSummaryTenants, xTenants] = await Promise.all([
     prisma.campaign.findMany({
       distinct: ["tenantId"],
       where: { status: { in: ["مجدولة", "قيد الإرسال"] } },
+      select: { tenantId: true },
+      orderBy: { tenantId: "asc" },
+      take: 50
+    }),
+    prisma.emailCampaign.findMany({
+      distinct: ["tenantId"],
+      where: { status: { in: ["scheduled", "sending"] } },
       select: { tenantId: true },
       orderBy: { tenantId: "asc" },
       take: 50
@@ -63,13 +73,15 @@ export async function GET(request: NextRequest) {
     })
   ]);
 
-  const tenantIds = [...new Set([...campaignTenants, ...recurringCampaignTenants, ...automationTenants, ...conversationSummaryTenants].map(({ tenantId }) => tenantId))];
+  const tenantIds = [...new Set([...campaignTenants, ...emailCampaignTenants, ...recurringCampaignTenants, ...automationTenants, ...conversationSummaryTenants].map(({ tenantId }) => tenantId))];
   const xTenantIds = xTenants.map(({ tenantId }) => tenantId);
 
   for (const tenantId of tenantIds) {
     await activateDueScheduledCampaigns(tenantId);
     await activateDueRecurringCampaigns(tenantId);
     await processCampaignBatch(tenantId, 25);
+    await activateDueEmailCampaigns(tenantId);
+    await processEmailCampaignBatch(tenantId, 25);
     await processDueAutomations(tenantId);
     await processDueConversationSummaries(tenantId, 10);
   }

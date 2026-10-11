@@ -49,19 +49,23 @@ test("WhatsApp CTA → signed inbound webhook → Inbox → AI draft → Pipelin
   await page.getByRole("button", { name: "اقترح رد بالذكاء الاصطناعي" }).click();
   await expect(page.locator("textarea").filter({ visible: true }).first()).toHaveValue("أهلاً بك، يسعدني مساعدتك في اختيار الباقة.");
 
-  await page.getByRole("navigation").getByRole("button", { name: "كانبان المبيعات", exact: true }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "العملاء المحتملون", exact: true }).click();
+  await page.getByRole("tab", { name: "داخل المنصة" }).click();
   const card = page.locator('.pipeline-card').filter({ hasText: "عميل اختبار الرحلة" });
   await expect(card).toBeVisible();
-  await card.getByRole("combobox", { name: "مرحلة الصفقة" }).selectOption("عرض سعر");
-  await expect(card.getByRole("spinbutton", { name: "قيمة الصفقة" })).toBeVisible();
-  await card.getByRole("spinbutton", { name: "قيمة الصفقة" }).fill("7200");
-  await card.getByRole("spinbutton", { name: "قيمة الصفقة" }).blur();
+  await card.getByRole("button", { name: "مرحلة الليد" }).click();
+  await page.getByRole("option", { name: "عرض سعر / تمويل", exact: true }).click();
+  await expect(card.getByRole("spinbutton", { name: "قيمة الوحدة" })).toBeVisible();
+  await card.getByRole("spinbutton", { name: "قيمة الوحدة" }).fill("7200");
+  await card.getByRole("spinbutton", { name: "قيمة الوحدة" }).blur();
   await expect(card.getByRole("status")).toContainText("تم حفظ القيمة");
-  await card.getByRole("combobox", { name: "مرحلة الصفقة" }).selectOption("فاز");
+  await card.getByRole("button", { name: "مرحلة الليد" }).click();
+  await page.getByRole("option", { name: "تم البيع", exact: true }).click();
   await expect(card.getByRole("status")).toContainText("تم حفظ المرحلة");
   await page.reload();
-  await expect(card.getByRole("combobox", { name: "مرحلة الصفقة" })).toHaveValue("فاز");
-  await expect(card.getByRole("spinbutton", { name: "قيمة الصفقة" })).toHaveValue("7200");
+  await page.getByRole("tab", { name: "داخل المنصة" }).click();
+  await expect(card.getByRole("button", { name: "مرحلة الليد" })).toContainText("تم البيع");
+  await expect(card.getByRole("spinbutton", { name: "قيمة الوحدة" })).toHaveValue("7200");
 
   await page.getByRole("navigation").getByRole("button", { name: "التقارير", exact: true }).click();
   const revenue = page.locator(".panel-body").filter({ has: page.getByRole("heading", { name: "الإيراد حسب الرابط", exact: true }) });

@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 const testDbPath = join(process.cwd(), "tests", ".tmp-plan-access.db");
 const individualsTenant = "tenant-plan-individuals";
 const regularTenant = "tenant-plan-regular";
+const realEstateTenant = "tenant-plan-real-estate";
 
 beforeAll(() => {
   if (existsSync(testDbPath)) unlinkSync(testDbPath);
@@ -54,9 +55,9 @@ describe("plan access: individuals plan", () => {
       for (const view of RESTRICTED_PLANS[tiers[i - 1]].views) expect(RESTRICTED_PLANS[tiers[i]].views).toContain(view);
       expect(RESTRICTED_PLANS[tiers[i]].views.length).toBeGreaterThan(RESTRICTED_PLANS[tiers[i - 1]].views.length);
     }
-    // Regular: campaigns/templates/teams yes; AI, automations, branches, catalog, API no.
-    for (const view of ["campaigns", "templates", "teams", "workHours", "pipeline", "ai", "branches"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(false);
-    for (const view of ["knowledgeBase", "automations", "operations", "catalog", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(true);
+    // Regular: campaigns/templates/teams yes; real-estate projects, automations, catalog, API no.
+    for (const view of ["campaigns", "templates", "teams", "workHours", "ai", "branches"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(false);
+    for (const view of ["pipeline", "knowledgeBase", "automations", "operations", "catalog", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(true);
     // The regular plan opens the AI assistant (with the customer's own key); the individuals plan does not.
     expect(isViewLockedForPlan("الباقة العادية", "ai")).toBe(false);
     expect(isViewLockedForPlan("باقة الأفراد", "ai")).toBe(true);
@@ -97,12 +98,27 @@ describe("plan access: individuals plan", () => {
 
     const regular = await getPlanAccessForTenant(regularTenant);
     expect(regular.lockedViews).not.toContain("ai");
+    expect(regular.hiddenViews).toContain("pipeline");
     expect(regular.lockedViews).toContain("knowledgeBase");
     expect(regular.lockedViews).not.toContain("campaigns");
     expect(regular.botNodeTypes).toContain("رد AI تلقائي");
     expect(regular.botNodeTypes).not.toContain("رد من قاعدة المعرفة");
     expect(regular.botMaxSteps).toBe(15);
     expect(regular.isTrial).toBe(false);
+  });
+
+  it("shows real-estate projects only when the workspace is explicitly enabled", async () => {
+    await subscribe(realEstateTenant, "الباقة العادية");
+    const { prisma } = await import("../lib/prisma");
+    const { getPlanAccessForTenant } = await import("../lib/plan-access-server");
+
+    expect((await getPlanAccessForTenant(realEstateTenant)).hiddenViews).toContain("pipeline");
+    await prisma.tenantFeatureGrant.create({
+      data: { id: "grant-real-estate-pipeline", tenantId: realEstateTenant, viewKey: "pipeline", grantedBy: "test", createdAt: new Date().toISOString() }
+    });
+    const access = await getPlanAccessForTenant(realEstateTenant);
+    expect(access.hiddenViews).not.toContain("pipeline");
+    expect(access.lockedViews).not.toContain("pipeline");
   });
 
   it("limits new bot steps but never breaks a flow that already exists", async () => {
@@ -149,6 +165,8 @@ describe("plan access: individuals plan", () => {
 
     // Other plans still advertise their message quota.
     expect(getPlanDisplayItems({ name: "الباقة العادية", employeeLimit: 3, allowedChannels: "whatsapp,instagram", messageQuota: 3000 }, "ar").join(" ")).toContain("رسالة تسويقية");
+    expect(getPlanDisplayItems({ name: "الباقة العادية", employeeLimit: 3, allowedChannels: "whatsapp,instagram", messageQuota: 3000 }, "ar").join(" ")).toContain("بريد تسويقي");
+    expect(getPlanDisplayItems({ name: "الباقة العادية", employeeLimit: 3, allowedChannels: "whatsapp,instagram", messageQuota: 3000, featureItemsAr: "ميزة مخصصة\nميزة ثانية" }, "ar")).toContain("ميزة مخصصة");
 
     // Upgrade prompts always name the cheapest plan that has the feature.
     expect(upgradeTargetForView("campaigns")).toBe("الباقة العادية");

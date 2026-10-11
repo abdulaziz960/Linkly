@@ -19,8 +19,8 @@ export async function listTenantGrants(tenantId: string): Promise<ViewKey[]> {
 /**
  * Replaces a workspace's grants with `requested`. Only things the plan does
  * NOT already include can be granted (anything else is already open, or
- * invalid), so a grant never outlives its purpose silently: if the workspace
- * later moves to a plan that includes it, the stored grant simply has no effect.
+ * invalid). Real-estate projects are the one vertical-specific page that may
+ * be granted on any plan because it is hidden unless the workspace needs it.
  */
 export async function setTenantGrants(tenantId: string, requested: string[], grantedBy: string, planName: string | null, allowedChannelsRaw: string | null = null): Promise<Grants> {
   await ensureSchema();

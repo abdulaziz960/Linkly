@@ -11,6 +11,7 @@ import Icon from "../ds/Icon";
 import { useQueryFlag } from "../ds/useQueryFlag";
 import { CHANNEL_CATALOG, parseAllowedChannels, type AllowedChannels } from "../../../lib/channel-catalog";
 import { UNLIMITED_MESSAGE_QUOTA } from "../../../lib/message-quota";
+import { emailPromotionCreditLabel } from "../../../lib/plan-email-promotions";
 import { getPlanDisplayItems } from "../../../lib/plan-features";
 import { EMPTY_PLAN_DRAFT, draftFromPlan, planPayload, planStats, validatePlanDraft, type PlanDraft } from "./plans-data";
 
@@ -170,6 +171,7 @@ export default function PlansView({ plans, subscriberCounts }: Props) {
                     <li><span>المشتركون</span><strong>{formatNumber(subscribers)}</strong></li>
                     <li><span>القنوات</span><strong>{channels === "*" ? "بدون قيود" : formatNumber(channels.length)}</strong></li>
                     <li><span>رسائل تسويقية</span><strong>{plan.messageQuota === UNLIMITED_MESSAGE_QUOTA ? "غير محدود" : formatNumber(plan.messageQuota)}</strong></li>
+                    <li><span>بريد تسويقي</span><strong>{emailPromotionCreditLabel(plan.name)}</strong></li>
                   </ul>
                   <div className="ds-plan-feature-preview">
                     <span>المزايا الظاهرة للعملاء</span>

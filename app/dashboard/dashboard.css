@@ -6991,6 +6991,44 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   flex-wrap: wrap;
 }
 
+.whatsapp-registration {
+  display: flex;
+  align-items: end;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.whatsapp-registration > div {
+  flex: 1 1 100%;
+}
+
+.whatsapp-registration h4,
+.whatsapp-registration p {
+  margin: 0;
+}
+
+.whatsapp-registration p {
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+.whatsapp-registration label {
+  display: grid;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.whatsapp-registration input {
+  width: 180px;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  font: inherit;
+}
+
 .primary-action,
 .copy-row button {
   min-height: 48px;
@@ -10057,6 +10095,12 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 @media(max-width:820px){.balance-low-banner{flex-wrap:wrap}.campaign-balance-hero{grid-template-columns:1fr}.balance-kpi-grid{grid-template-columns:1fr 1fr}.balance-pricing-card{grid-column:1/-1}.pricing-table-card{grid-template-columns:1fr}.pricing-note{grid-column:auto}.pricing-intro{padding:16px}.pricing-modal{max-height:calc(100vh - 20px)}}
 @media(max-width:520px){.balance-kpi-grid,.campaigns-page .transactions-toolbar{grid-template-columns:1fr}.balance-pricing-card{grid-column:auto}.campaigns-page .transactions-toolbar .entries{justify-self:start}.pricing-table-head,.pricing-tier-row{grid-template-columns:1fr .9fr .5fr;padding-inline:9px}.pricing-tier-row>span,.pricing-tier-row b{font-size:11px}}
 
+/* Email promotions */
+.email-balance-page{display:grid;gap:14px}.email-purchase-board{overflow:hidden}.email-purchase-grid{display:grid;grid-template-columns:minmax(220px,340px) minmax(0,1fr);gap:16px;padding:20px;background:var(--surface)}.email-purchase-grid>label{display:grid;gap:8px;color:var(--muted);font-size:12px;font-weight:900}.email-purchase-grid input{min-height:48px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);padding:0 14px;font:inherit;font-weight:900}.email-purchase-grid .charge-presets{align-content:start}.email-purchase-grid .charge-calculator{grid-column:1/-1}.email-purchase-grid>.btn{grid-column:1/-1;justify-self:start;min-height:44px}.email-pricing-table{margin:18px}.email-pricing-table .pricing-table-head,.email-pricing-table .pricing-tier-row{grid-template-columns:1.1fr 1fr 1fr}.email-pricing-table .pricing-tier-row em{justify-self:start;background:#f0fdfa;color:#0f766e}.email-balance-page .campaign-balance-total strong{font-variant-numeric:tabular-nums}
+.email-campaign-builder-modal{grid-template-columns:minmax(0,1fr) 380px}.email-builder-fields{gap:12px}.email-builder-fields>label.email-file-field{border-style:dashed;background:#f7fffc}.email-file-field input[type=file]{height:auto;min-height:44px;padding:10px;background:#fff}.email-file-field small{display:block;margin-top:6px;color:var(--muted);font-size:11px;font-weight:800}.email-schedule-card{counter-increment:campaign-step;position:relative;padding:16px 58px 16px 16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 5px 16px rgba(15,23,42,.03)}[dir="ltr"] .email-schedule-card{padding:16px 16px 16px 58px}.email-schedule-card::before{content:counter(campaign-step);position:absolute;inset-inline-start:16px;top:15px;width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:#e5f5f1;color:#0f766e;font-size:12px;font-weight:950}.email-schedule-card>div{display:grid;gap:4px}.email-schedule-card strong{color:var(--ink);font-size:13px;font-weight:950}.email-schedule-card small{color:var(--muted);font-size:11px;font-weight:800}.email-custom-audience{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#fff}.email-custom-audience label{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:11px;background:#fbfaf9}.email-custom-audience small{grid-column:2;color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis}.email-editor-card{padding:16px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 5px 16px rgba(15,23,42,.03)}.email-editor-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.email-editor-head>span{color:var(--ink);font-size:13px;font-weight:900}.email-editor-head>div{display:flex;gap:6px}.email-editor{min-height:180px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:12px;line-height:1.8;outline:none;direction:rtl;text-align:right;unicode-bidi:plaintext}.email-editor-card small{display:block;margin-top:8px;color:var(--muted);font-size:11px;font-weight:800}.email-builder-foot{gap:10px}.email-builder-foot .btn{min-width:130px}.email-builder-foot .email-cancel-btn{border-color:#fecdd3;background:#fff1f2;color:#b91c1c}.email-live-preview .email-preview-card{display:grid;gap:12px;padding:16px;border:1px solid #dbe5e2;border-radius:18px;background:#fff;box-shadow:0 10px 24px rgba(15,23,42,.07)}.email-preview-card>div:first-child{display:grid;gap:2px;padding-bottom:10px;border-bottom:1px solid var(--line)}.email-preview-card b{color:#0f766e;font-size:13px}.email-preview-card span,.email-preview-card small{color:var(--muted);font-size:11px;font-weight:800}.email-preview-card h3{margin:0;font-size:18px;line-height:1.5}.email-preview-body{min-height:110px;color:#334155;font-size:13px;line-height:1.8;direction:rtl;text-align:right;unicode-bidi:plaintext}.email-preview-card button{justify-self:start;min-height:38px;border:0;border-radius:999px;background:#0f766e;color:#fff;padding:0 16px;font:inherit;font-size:12px;font-weight:900}.email-preview-count{width:100%;margin-top:12px}.email-live-preview dl{grid-template-columns:1fr}.email-live-preview dl dd{word-break:break-word}
+.email-transactions-board table{min-width:860px}.email-pricing-modal{width:min(860px,calc(100vw - 32px))}.email-pricing-modal .modal-head>div{display:grid;gap:3px}.email-pricing-modal .modal-head span{color:#0f766e;font-size:11px;font-weight:950;letter-spacing:.08em}.email-custom-credits-field{display:grid;gap:8px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#fff}.email-custom-credits-field span{color:var(--muted);font-size:12px;font-weight:900}.email-custom-credits-field input{min-height:48px;border:1px solid var(--line);border-radius:12px;background:#fbfaf9;color:var(--ink);padding:0 14px;font:inherit;font-size:18px;font-weight:950}.email-custom-credits-field small{color:var(--muted);font-size:11px;font-weight:800;line-height:1.6}.email-package-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}.email-package-card{display:grid;gap:6px;min-height:126px;padding:14px 10px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);text-align:start;font:inherit;cursor:pointer;box-shadow:0 5px 14px rgba(15,23,42,.03)}.email-package-card:hover,.email-package-card.active{border-color:#0f766e;background:#f0fdfa;box-shadow:inset 0 0 0 1px #99d8cc}.email-package-card span{color:var(--muted);font-size:11px;font-weight:900}.email-package-card b{font-size:20px;font-weight:950}.email-package-card small{align-self:end;color:#0f766e;font-size:11px;font-weight:900;line-height:1.5}.email-pricing-modal .balance-selected-package{border:1px solid #dbe5e2;background:#f8fffd}.email-pricing-modal .charge-calculator{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:780px){.email-purchase-grid{grid-template-columns:1fr}.email-purchase-grid>.btn{justify-self:stretch}.email-pricing-table{margin:12px}.email-pricing-table .pricing-table-head,.email-pricing-table .pricing-tier-row{grid-template-columns:1fr}.email-package-grid{grid-template-columns:1fr 1fr}.email-pricing-modal .charge-calculator{grid-template-columns:1fr}}
+
 /* Users & Teams management */
 .user-management-panel{overflow:visible}
 .user-management-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid var(--line)}
@@ -10137,6 +10181,261 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
+}
+
+.pipeline-tabs {
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.pipeline-tabs button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.pipeline-tabs button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--brand-700);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+}
+
+.lead-integration,
+.lead-internal {
+  min-height: 0;
+  overflow: auto;
+}
+
+.lead-integration {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.lead-integration-hero,
+.lead-integration-card,
+.lead-table-panel {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+
+.lead-integration-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+}
+
+.lead-integration-hero h3,
+.lead-integration-card h4,
+.lead-table-head h3 {
+  margin: 0;
+}
+
+.lead-integration-hero p,
+.lead-integration-card p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.lead-integration-link,
+.lead-copy-field button,
+.lead-table td button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid var(--brand-300);
+  border-radius: 999px;
+  background: var(--brand-50);
+  color: var(--brand-700);
+  padding: 0 13px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lead-integration-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.lead-integration-card {
+  padding: 16px;
+}
+
+.lead-integration-card :is(ol, ul) {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding-inline-start: 22px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.lead-copy-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.lead-copy-field > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.lead-copy-field > div {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lead-copy-field code {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  white-space: pre;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.lead-fields-table {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.lead-fields-table div {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.lead-fields-table b {
+  direction: ltr;
+  text-align: left;
+  font-size: 12px;
+}
+
+.lead-fields-table span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lead-internal {
+  display: grid;
+  gap: 14px;
+}
+
+.lead-table-panel {
+  min-width: 0;
+}
+
+.lead-table-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.lead-table-head span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.lead-table-wrap {
+  overflow-x: auto;
+}
+
+.lead-table {
+  width: 100%;
+  min-width: 850px;
+  border-collapse: collapse;
+}
+
+.lead-table th,
+.lead-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  text-align: start;
+  vertical-align: middle;
+  font-size: 12px;
+}
+
+.lead-table th {
+  color: var(--muted);
+  background: var(--surface-soft);
+  font-weight: 900;
+}
+
+.lead-table td b,
+.lead-table td small {
+  display: block;
+}
+
+.lead-table td small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.lead-table input {
+  width: 110px;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.lead-table-stage-select .custom-select-trigger {
+  min-height: 38px;
+  min-width: 150px;
+  border-radius: 10px;
+  font-size: 12px;
 }
 
 .pipeline-board {
@@ -11021,6 +11320,28 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 @media (max-width: 680px) {
+  .pipeline-tabs,
+  .lead-integration-hero,
+  .lead-copy-field > div,
+  .lead-table-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pipeline-tabs {
+    display: flex;
+  }
+
+  .lead-integration-grid,
+  .lead-fields-table div {
+    grid-template-columns: 1fr;
+  }
+
+  .lead-integration-hero,
+  .lead-integration-card {
+    padding: 14px;
+  }
+
   .trial-countdown-banner { overflow: visible; padding: 6px; }
   .trial-countdown-pill {
     display: grid;
@@ -11224,6 +11545,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   color: var(--ink);
   font: inherit;
 }
+
 
 .catalog-product-cell {
   display: inline-flex;

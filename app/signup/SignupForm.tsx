@@ -12,6 +12,37 @@ const teamSizeOptions = [
   { value: "16+", label: "16+" }
 ];
 
+const businessTypes = {
+  ar: [
+    { value: "", label: "اختر نوع النشاط" },
+    { value: "real_estate", label: "عقار وتطوير عقاري" },
+    { value: "retail", label: "متاجر وتجزئة" },
+    { value: "ecommerce", label: "متجر إلكتروني" },
+    { value: "restaurant", label: "مطاعم ومقاهي" },
+    { value: "healthcare", label: "عيادات وصحة" },
+    { value: "beauty", label: "صالونات وتجميل" },
+    { value: "education", label: "تعليم وتدريب" },
+    { value: "automotive", label: "سيارات وخدماتها" },
+    { value: "travel", label: "سفر وسياحة" },
+    { value: "professional_services", label: "خدمات مهنية" },
+    { value: "other", label: "نشاط آخر" }
+  ],
+  en: [
+    { value: "", label: "Choose business type" },
+    { value: "real_estate", label: "Real estate and property development" },
+    { value: "retail", label: "Retail" },
+    { value: "ecommerce", label: "E-commerce" },
+    { value: "restaurant", label: "Restaurants and cafes" },
+    { value: "healthcare", label: "Clinics and healthcare" },
+    { value: "beauty", label: "Beauty and salons" },
+    { value: "education", label: "Education and training" },
+    { value: "automotive", label: "Automotive" },
+    { value: "travel", label: "Travel and tourism" },
+    { value: "professional_services", label: "Professional services" },
+    { value: "other", label: "Other business" }
+  ]
+};
+
 const channels = {
   ar: [
     { value: "whatsapp", label: "واتساب" },
@@ -33,6 +64,7 @@ const copy = {
   ar: {
     companyName: "اسم النشاط التجاري",
     companyNamePlaceholder: "مثال: شركة سما",
+    businessType: "نوع النشاط",
     ownerName: "اسمك",
     ownerNamePlaceholder: "الاسم الكامل",
     email: "البريد الإلكتروني",
@@ -55,6 +87,7 @@ const copy = {
   en: {
     companyName: "Business name",
     companyNamePlaceholder: "e.g. Sama Company",
+    businessType: "Business type",
     ownerName: "Your name",
     ownerNamePlaceholder: "Full name",
     email: "Email",
@@ -80,6 +113,7 @@ export default function SignupForm({ lang = "ar", planId }: { lang?: "ar" | "en"
   const router = useRouter();
   const text = copy[lang];
   const channelOptions = channels[lang];
+  const businessTypeOptions = businessTypes[lang];
   const [selected, setSelected] = useState<string[]>(["whatsapp"]);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -91,7 +125,7 @@ export default function SignupForm({ lang = "ar", planId }: { lang?: "ar" | "en"
     setLoading(true); setError("");
     const form = new FormData(event.currentTarget);
     const response = await fetch("/api/trial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-      companyName: form.get("companyName"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), teamSize: form.get("teamSize"), channels: selected, website: form.get("website"), termsAccepted, planId
+      companyName: form.get("companyName"), businessType: form.get("businessType"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), teamSize: form.get("teamSize"), channels: selected, website: form.get("website"), termsAccepted, planId
     }) });
     const payload = await response.json().catch(() => ({})) as {
       error?: string;
@@ -109,6 +143,7 @@ export default function SignupForm({ lang = "ar", planId }: { lang?: "ar" | "en"
 
   return <form className="journey-form" onSubmit={submit}>
     <label>{text.companyName}<input name="companyName" required maxLength={120} autoComplete="organization" placeholder={text.companyNamePlaceholder} /></label>
+    <label>{text.businessType}<select name="businessType" required defaultValue="">{businessTypeOptions.map((option) => <option key={option.value} value={option.value} disabled={!option.value}>{option.label}</option>)}</select></label>
     <label>{text.ownerName}<input name="ownerName" required maxLength={100} autoComplete="name" placeholder={text.ownerNamePlaceholder} /></label>
     <label>{text.email}<input name="ownerEmail" type="email" required maxLength={254} autoComplete="email" placeholder="name@company.sa" /></label>
     <label>{text.phone}<input name="phone" type="tel" required inputMode="tel" maxLength={30} autoComplete="tel" pattern="^(00966|\+966|966|0)?5\d{8}$" title={text.phonePlaceholder} placeholder={text.phonePlaceholder} /></label>

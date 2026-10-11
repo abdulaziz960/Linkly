@@ -6,7 +6,7 @@ const widths = [320, 360, 375, 390, 430, 768, 1024];
 const views = [
   ["inbox", "المحادثات"],
   ["contacts", "العملاء"],
-  ["pipeline", "كانبان المبيعات"],
+  ["pipeline", "العملاء المحتملون"],
   ["campaigns", "الحملات"],
   ["automations", "الأتمتة"],
   ["bot", "الرد الآلي"],
@@ -38,6 +38,9 @@ test("dashboard fits mobile viewports and its drawer remains usable", async ({ p
       await expect(page.locator(".dashboard-sidebar")).toBeVisible();
       await page.getByRole("navigation").getByRole("button", { name: label, exact: true }).click();
       await expect(page.locator(".dashboard-shell")).not.toHaveClass(/menu-open/);
+      if (key === "pipeline") {
+        await page.getByRole("tab", { name: "داخل المنصة" }).click();
+      }
       if (key === "bot" && width <= 720) {
         await expect(page.locator(".bot-step-library")).toBeVisible();
         await page.getByRole("tab", { name: "المخطط" }).click();

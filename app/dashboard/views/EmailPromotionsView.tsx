@@ -1,0 +1,543 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Conversation, Customer, EmailCampaignSummary, Tag } from "../types";
+import { useLanguage } from "../i18n";
+
+type FormState = {
+  name: string;
+  subject: string;
+  senderName: string;
+  senderEmail: string;
+  bodyHtml: string;
+  ctaText: string;
+  ctaUrl: string;
+  audienceMode: "all" | "tag" | "status" | "channel" | "custom" | "file";
+  tagNames: string[];
+  conversationStatus: string;
+  channel: string;
+  customerIds: string[];
+  scheduledAt: string;
+};
+
+const emptyForm: FormState = {
+  name: "",
+  subject: "",
+  senderName: "",
+  senderEmail: "",
+  bodyHtml: "<p></p>",
+  ctaText: "",
+  ctaUrl: "",
+  audienceMode: "all",
+  tagNames: [],
+  conversationStatus: "assigned",
+  channel: "email",
+  customerIds: [],
+  scheduledAt: ""
+};
+
+const statusTabs = ["all", "draft", "scheduled", "sending", "sent", "failed"] as const;
+const emailViewTabs = ["campaigns", "balance"] as const;
+const emailPricingTiers = [
+  { credits: 1000, price: 25 },
+  { credits: 5000, price: 99 },
+  { credits: 10000, price: 179 },
+  { credits: 25000, price: 399 },
+  { credits: 50000, price: 699 }
+];
+
+type EmailTransaction = {
+  id: string;
+  credits: number;
+  amount: number;
+  status: string;
+  paymentMethod: string;
+  gatewayStatus: string;
+  createdAt: string;
+  completedAt: string;
+};
+
+function isEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function statusLabel(status: string, t: (ar: string, en: string) => string) {
+  if (status === "draft") return t("مسودة", "Draft");
+  if (status === "scheduled") return t("مجدولة", "Scheduled");
+  if (status === "sending") return t("قيد الإرسال", "Sending");
+  if (status === "sent") return t("مرسلة", "Sent");
+  if (status === "failed") return t("فشلت", "Failed");
+  if (status === "cancelled") return t("ملغاة", "Cancelled");
+  return status;
+}
+
+function priceForEmailCredits(credits: number) {
+  const tier = [...emailPricingTiers].reverse().find((item) => credits >= item.credits) || emailPricingTiers[0];
+  const perEmail = tier.price / tier.credits;
+  return { tier, total: Math.round(credits * perEmail * 100) / 100, perEmail };
+}
+
+function paymentStatusLabel(status: string, t: (ar: string, en: string) => string) {
+  if (status === "مكتمل" || status === "completed") return t("مكتملة", "Completed");
+  if (status === "فشل" || status === "failed") return t("فشلت", "Failed");
+  if (status === "ملغى" || status === "cancelled") return t("ملغاة", "Cancelled");
+  return t("قيد الانتظار", "Pending");
+}
+
+export default function EmailPromotionsView({ customers, conversations, tags }: { customers: Customer[]; conversations: Conversation[]; tags: Tag[] }) {
+  const { t } = useLanguage();
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [campaigns, setCampaigns] = useState<EmailCampaignSummary[]>([]);
+  const [transactions, setTransactions] = useState<EmailTransaction[]>([]);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [open, setOpen] = useState(false);
+  const [activeView, setActiveView] = useState<(typeof emailViewTabs)[number]>(() => {
+    if (typeof window === "undefined") return "campaigns";
+    return new URLSearchParams(window.location.search).get("tab") === "balance" ? "balance" : "campaigns";
+  });
+  const [activeTab, setActiveTab] = useState<(typeof statusTabs)[number]>("all");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<"" | "draft" | "send" | "schedule">("");
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState("");
+  const [preview, setPreview] = useState<{ count: number; sample: Array<{ name: string; email: string }> } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [recipientFile, setRecipientFile] = useState<File | null>(null);
+  const [emailBalance, setEmailBalance] = useState(0);
+  const [creditsToAdd, setCreditsToAdd] = useState("1000");
+  const [chargeOpen, setChargeOpen] = useState(false);
+  const [chargeSubmitting, setChargeSubmitting] = useState(false);
+  const [chargeError, setChargeError] = useState("");
+
+  const emailCustomers = useMemo(() => customers.filter((customer) => isEmail(customer.phone)), [customers]);
+  const channelOptions = useMemo(() => Array.from(new Set(conversations.map((conversation) => conversation.channel))).sort(), [conversations]);
+  const visibleCampaigns = campaigns.filter((campaign) => activeTab === "all" || campaign.status === activeTab);
+  const totals = useMemo(() => campaigns.reduce((sum, campaign) => ({
+    recipients: sum.recipients + campaign.analytics.totalRecipients,
+    sent: sum.sent + campaign.analytics.sentCount,
+    opens: sum.opens + campaign.analytics.openCount,
+    clicks: sum.clicks + campaign.analytics.clickCount
+  }), { recipients: 0, sent: 0, opens: 0, clicks: 0 }), [campaigns]);
+  const parsedCreditsToAdd = Math.max(0, Number(creditsToAdd.replace(/[^\d]/g, "")) || 0);
+  const creditPrice = priceForEmailCredits(parsedCreditsToAdd || 1);
+  const canBuyCredits = parsedCreditsToAdd >= emailPricingTiers[0].credits;
+  const completedTransactions = transactions.filter((transaction) => transaction.status === "مكتمل" || transaction.status === "completed");
+  const totalPurchasedCredits = completedTransactions.reduce((sum, transaction) => sum + transaction.credits, 0);
+
+  async function loadCampaigns() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/email-promotions", { cache: "no-store" });
+      const body = await response.json();
+      if (!response.ok || !body.ok) throw new Error(body.error || "load failed");
+      setCampaigns(body.data?.campaigns || body.data || []);
+      setEmailBalance(body.data?.balance || 0);
+      setTransactions(body.data?.transactions || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("تعذر تحميل الحملات البريدية", "Could not load email campaigns"));
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadCampaigns();
+  }, []);
+
+  function audiencePayload() {
+    if (form.audienceMode === "file") return { mode: "file", fileName: recipientFile?.name || "" };
+    if (form.audienceMode === "tag") return { mode: "tag", tagNames: form.tagNames };
+    if (form.audienceMode === "status") return { mode: "status", conversationStatus: form.conversationStatus };
+    if (form.audienceMode === "channel") return { mode: "channel", channel: form.channel };
+    if (form.audienceMode === "custom") return { mode: "custom", customerIds: form.customerIds };
+    return { mode: "all" };
+  }
+
+  async function loadPreview() {
+    setPreviewLoading(true);
+    setPreview(null);
+    try {
+      const response = form.audienceMode === "file"
+        ? await fetch("/api/email-promotions/preview", {
+            method: "POST",
+            body: (() => {
+              const data = new FormData();
+              if (recipientFile) data.set("file", recipientFile);
+              return data;
+            })()
+          })
+        : await fetch("/api/email-promotions/preview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audience: audiencePayload() })
+          });
+      const body = await response.json();
+      if (!response.ok || !body.ok) throw new Error(body.error || "preview failed");
+      setPreview(body.data);
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : t("تعذر حساب الجمهور", "Could not preview audience"));
+    }
+    setPreviewLoading(false);
+  }
+
+  function syncEditor() {
+    setForm((current) => ({ ...current, bodyHtml: editorRef.current?.innerHTML || "" }));
+  }
+
+  function editorCommand(command: "bold" | "italic" | "insertUnorderedList") {
+    document.execCommand(command);
+    syncEditor();
+  }
+
+  async function submit(action: "draft" | "send" | "schedule") {
+    syncEditor();
+    setSaving(action);
+    setError("");
+    setFeedback("");
+    try {
+      const next = { ...form, bodyHtml: editorRef.current?.innerHTML || form.bodyHtml };
+      const response = form.audienceMode === "file"
+        ? await fetch("/api/email-promotions", {
+            method: "POST",
+            body: (() => {
+              const data = new FormData();
+              data.set("name", next.name);
+              data.set("subject", next.subject);
+              data.set("senderName", next.senderName);
+              data.set("senderEmail", next.senderEmail);
+              data.set("bodyHtml", next.bodyHtml);
+              data.set("ctaText", next.ctaText);
+              data.set("ctaUrl", next.ctaUrl);
+              data.set("scheduledAt", action === "schedule" ? next.scheduledAt : "");
+              data.set("action", action);
+              data.set("audience", JSON.stringify(audiencePayload()));
+              if (recipientFile) data.set("file", recipientFile);
+              return data;
+            })()
+          })
+        : await fetch("/api/email-promotions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...next,
+              action,
+              audience: audiencePayload(),
+              scheduledAt: action === "schedule" ? next.scheduledAt : ""
+            })
+          });
+      const body = await response.json();
+      if (!response.ok || !body.ok) throw new Error(body.error || "save failed");
+      setCampaigns(body.data.campaigns || []);
+      setEmailBalance(body.data.balance || emailBalance);
+      setTransactions(body.data.transactions || transactions);
+      setForm(emptyForm);
+      setScheduleEnabled(false);
+      setRecipientFile(null);
+      if (editorRef.current) editorRef.current.innerHTML = emptyForm.bodyHtml;
+      setOpen(false);
+      setFeedback(action === "draft" ? t("تم حفظ المسودة", "Draft saved") : action === "schedule" ? t("تمت جدولة الحملة", "Campaign scheduled") : t("بدأ إرسال الحملة", "Campaign sending started"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("تعذر حفظ الحملة", "Could not save campaign"));
+    }
+    setSaving("");
+  }
+
+  async function campaignAction(id: string, status: "sending" | "cancelled" | "delete") {
+    setFeedback("");
+    setError("");
+    const response = await fetch(`/api/email-promotions/${id}`, { method: status === "delete" ? "DELETE" : "PATCH", headers: { "Content-Type": "application/json" }, body: status === "delete" ? undefined : JSON.stringify({ status }) });
+    const body = await response.json().catch(() => null);
+    if (!response.ok || !body?.ok) {
+      setError(body?.error || t("تعذر تنفيذ الإجراء", "Action failed"));
+      return;
+    }
+    setCampaigns(body.data || []);
+    setFeedback(t("تم تنفيذ الإجراء", "Action completed"));
+  }
+
+  async function createChargeRequest() {
+    setChargeSubmitting(true);
+    setChargeError("");
+    try {
+      const response = await fetch("/api/email-promotions/balance/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credits: parsedCreditsToAdd })
+      });
+      const body = await response.json();
+      if (!response.ok || !body.ok) throw new Error(body.error || "charge failed");
+      window.location.href = `/billing/pay/email/${body.data.paymentId}`;
+    } catch (err) {
+      setChargeError(err instanceof Error ? err.message : t("تعذر إنشاء طلب الشراء", "Could not create payment request"));
+    }
+    setChargeSubmitting(false);
+  }
+
+  function pricingRangeLabel(tier: (typeof emailPricingTiers)[number]) {
+    return `${tier.credits.toLocaleString("en-US")} ${t("إيميل", "emails")}`;
+  }
+
+  return (
+    <section className="page-stack campaigns-page">
+      <header className="campaigns-hero">
+        <div>
+          <span>{t("مركز البريد التسويقي", "EMAIL PROMOTION CENTER")}</span>
+          <h1>{t("عروض بريدية من ملف أو من عملاء المنصة", "Email promotions from files or platform customers")}</h1>
+          <p>{t("أنشئ حملات بريد تسويقية موجهة للعملاء الذين لديهم بريد صالح، مع تتبع الفتح والضغط وإلغاء الاشتراك.", "Create promotional email campaigns for customers with valid email addresses, including opens, clicks and unsubscribe tracking.")}</p>
+        </div>
+        <button className="btn primary campaign-create-cta" type="button" onClick={() => setOpen(true)}>＋ {t("حملة بريد جديدة", "New email campaign")}</button>
+      </header>
+
+      {feedback ? <p role="status" className="success-banner">{feedback}</p> : null}
+      {error ? <p role="alert" className="error-banner">{error}</p> : null}
+
+      <div className="section-tabs campaign-tabs">
+        <button className={activeView === "campaigns" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveView("campaigns")}>{t("نظرة العروض", "Email overview")}</button>
+        <button className={activeView === "balance" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveView("balance")}>{t("الرصيد والشراء", "Balance & purchase")}</button>
+      </div>
+
+      {activeView === "campaigns" ? (
+        <>
+      <section className="campaign-health-grid" aria-label={t("جاهزية البريد", "Email readiness")}>
+        <article className={emailBalance > 0 ? "is-ready" : "is-blocked"}><span>◉</span><div><b>{t("رصيد البريد", "Email balance")}</b><strong>{emailBalance.toLocaleString("en-US")} {t("رسالة", "emails")}</strong></div></article>
+        <article className={emailCustomers.length > 0 ? "is-ready" : "is-blocked"}><span>◇</span><div><b>{t("عملاء ببريد", "Customers with email")}</b><strong>{emailCustomers.length.toLocaleString("en-US")}</strong></div></article>
+        <article><span>↗</span><div><b>{t("معدل الفتح", "Open rate")}</b><strong>{totals.sent ? Math.round((totals.opens / totals.sent) * 100) : 0}%</strong><small>{totals.opens.toLocaleString("en-US")} / {totals.sent.toLocaleString("en-US")}</small></div></article>
+      </section>
+
+      <section className="campaign-kpis" aria-label={t("ملخص البريد", "Email summary")}>
+        <article><span>{t("رصيد البريد", "Email balance")}</span><strong>{emailBalance}</strong></article>
+        <article><span>{t("إجمالي المستلمين", "Total recipients")}</span><strong>{totals.recipients}</strong></article>
+        <article><span>{t("المرسلة", "Sent")}</span><strong>{totals.sent}</strong></article>
+        <article><span>{t("الفتح", "Opens")}</span><strong>{totals.opens}</strong></article>
+      </section>
+
+      {open ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setOpen(false)}>
+          <form className="account-modal form-modal campaign-create-modal campaign-builder-modal email-campaign-builder-modal" role="dialog" aria-modal="true" aria-label={t("إنشاء حملة بريدية", "Create email campaign")} onSubmit={(event) => event.preventDefault()} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head campaign-builder-head">
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setOpen(false)}>×</button>
+              <div><span>{t("منشئ العروض البريدية", "EMAIL CAMPAIGN BUILDER")}</span><h2>{t("إنشاء حملة بريدية جديدة", "Create a new email campaign")}</h2></div>
+            </header>
+            <div className="account-modal-body form-grid campaign-builder-fields email-builder-fields">
+              <label><span>{t("اسم الحملة", "Campaign name")}</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder={t("مثال: عرض نهاية الأسبوع", "Example: Weekend offer")} /></label>
+              <label><span>{t("عنوان البريد", "Email subject")}</span><input value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} placeholder={t("عنوان يظهر في صندوق الوارد", "Subject shown in the inbox")} /></label>
+              <label><span>{t("اسم المرسل", "Sender name")}</span><input value={form.senderName} onChange={(event) => setForm({ ...form, senderName: event.target.value })} placeholder={t("اسم الشركة أو الفرع", "Company or branch name")} /></label>
+              <label><span>{t("بريد المرسل", "Sender email")}</span><input dir="ltr" value={form.senderEmail} onChange={(event) => setForm({ ...form, senderEmail: event.target.value })} placeholder="marketing@example.com" /></label>
+              <label><span>{t("الجمهور", "Audience")}</span>
+                <select value={form.audienceMode} onChange={(event) => { setForm({ ...form, audienceMode: event.target.value as FormState["audienceMode"] }); setPreview(null); }}>
+                  <option value="all">{t("كل العملاء أصحاب البريد", "All customers with email")}</option>
+                  <option value="file">{t("رفع ملف Excel أو CSV", "Upload Excel or CSV file")}</option>
+                  <option value="tag">{t("حسب الوسم", "By tag")}</option>
+                  <option value="status">{t("حسب حالة المحادثة", "By conversation status")}</option>
+                  <option value="channel">{t("حسب المصدر/القناة", "By source/channel")}</option>
+                  <option value="custom">{t("اختيار يدوي", "Custom selected customers")}</option>
+                </select>
+              </label>
+              {form.audienceMode === "file" ? (
+                <label className="email-file-field"><span>{t("ملف الإيميلات", "Email file")}</span><input type="file" accept=".csv,.xlsx,.xls" onChange={(event) => { setRecipientFile(event.target.files?.[0] || null); setPreview(null); }} /><small>{recipientFile ? recipientFile.name : t("يدعم Excel و CSV. يفضّل وجود عمود email وعمود name اختياري.", "Supports Excel and CSV. Recommended columns: email and optional name.")}</small></label>
+              ) : null}
+              {form.audienceMode === "tag" ? (
+                <label><span>{t("الوسوم", "Tags")}</span><select multiple value={form.tagNames} onChange={(event) => setForm({ ...form, tagNames: Array.from(event.currentTarget.selectedOptions).map((option) => option.value) })}>{tags.map((tag) => <option key={tag.id} value={tag.name}>{tag.name}</option>)}</select></label>
+              ) : null}
+              {form.audienceMode === "status" ? (
+                <label><span>{t("حالة المحادثة", "Conversation status")}</span><select value={form.conversationStatus} onChange={(event) => setForm({ ...form, conversationStatus: event.target.value })}><option value="assigned">{t("مسندة", "Assigned")}</option><option value="unassigned">{t("غير مسندة", "Unassigned")}</option><option value="closed">{t("مغلقة", "Closed")}</option></select></label>
+              ) : null}
+              {form.audienceMode === "channel" ? (
+                <label><span>{t("القناة", "Channel")}</span><select value={form.channel} onChange={(event) => setForm({ ...form, channel: event.target.value })}>{channelOptions.map((channel) => <option key={channel} value={channel}>{channel}</option>)}</select></label>
+              ) : null}
+              {form.audienceMode === "custom" ? (
+                <div className="email-custom-audience">
+                  {emailCustomers.map((customer) => (
+                    <label key={customer.id}>
+                      <input type="checkbox" checked={form.customerIds.includes(customer.id)} onChange={(event) => setForm({ ...form, customerIds: event.target.checked ? [...form.customerIds, customer.id] : form.customerIds.filter((id) => id !== customer.id) })} />
+                      <span>{customer.name}</span><small dir="ltr">{customer.phone}</small>
+                    </label>
+                  ))}
+                  {!emailCustomers.length ? <p className="muted-copy">{t("لا يوجد عملاء لديهم بريد صالح حتى الآن.", "No customers with valid email yet.")}</p> : null}
+                </div>
+              ) : null}
+              <label><span>{t("نص زر الدعوة", "CTA button text")}</span><input value={form.ctaText} onChange={(event) => setForm({ ...form, ctaText: event.target.value })} placeholder={t("مثال: احجز الآن", "Example: Book now")} /></label>
+              <label><span>{t("رابط زر الدعوة", "CTA URL")}</span><input dir="ltr" value={form.ctaUrl} onChange={(event) => setForm({ ...form, ctaUrl: event.target.value })} placeholder="https://..." /></label>
+              <div className="email-schedule-card schedule-toggle">
+                <div>
+                  <strong>{t("جدولة الحملة", "Schedule campaign")}</strong>
+                  <small>{scheduleEnabled ? t("اختر التاريخ والوقت المناسب للإرسال.", "Choose the date and time to send.") : t("اتركها مغلقة للإرسال مباشرة الآن.", "Keep this off to send immediately.")}</small>
+                </div>
+                <button
+                  className={scheduleEnabled ? "toggle on" : "toggle"}
+                  type="button"
+                  aria-pressed={scheduleEnabled}
+                  aria-label={t("جدولة الحملة", "Schedule campaign")}
+                  onClick={() => {
+                    setScheduleEnabled((current) => {
+                      if (current) setForm((next) => ({ ...next, scheduledAt: "" }));
+                      return !current;
+                    });
+                  }}
+                />
+              </div>
+              {scheduleEnabled ? (
+                <label><span>{t("تاريخ ووقت الإرسال", "Send date and time")}</span><input type="datetime-local" value={form.scheduledAt} onChange={(event) => setForm({ ...form, scheduledAt: event.target.value })} /></label>
+              ) : null}
+              <div className="email-editor-card">
+                <div className="email-editor-head">
+                  <span>{t("محتوى البريد", "Email body")}</span>
+                  <div>
+                    <button className="btn soft" type="button" onClick={() => editorCommand("bold")}>B</button>
+                    <button className="btn soft" type="button" onClick={() => editorCommand("italic")}>I</button>
+                    <button className="btn soft" type="button" onClick={() => editorCommand("insertUnorderedList")}>•</button>
+                  </div>
+                </div>
+                <div ref={editorRef} className="textarea email-editor" dir="rtl" contentEditable suppressContentEditableWarning onInput={syncEditor} dangerouslySetInnerHTML={{ __html: form.bodyHtml }} />
+                <small>{t("سيتم إضافة رابط إلغاء الاشتراك تلقائيًا لكل رسالة.", "An unsubscribe link is automatically added to every email.")}</small>
+              </div>
+            </div>
+            <aside className="campaign-live-preview email-live-preview" aria-label={t("معاينة البريد", "Email preview")}>
+              <div className="campaign-preview-title"><span>{t("معاينة البريد", "Email preview")}</span><small>{t("شكل تقريبي للرسالة والجمهور", "Approximate message and audience")}</small></div>
+              <div className="email-preview-card">
+                <div><b>{form.senderName || t("اسم المرسل", "Sender name")}</b><span dir="ltr">{form.senderEmail || "marketing@example.com"}</span></div>
+                <h3>{form.subject || t("عنوان البريد يظهر هنا", "Email subject appears here")}</h3>
+                <div className="email-preview-body" dangerouslySetInnerHTML={{ __html: form.bodyHtml || "<p></p>" }} />
+                {form.ctaText ? <button type="button">{form.ctaText}</button> : null}
+                <small>{t("رابط إلغاء الاشتراك يضاف تلقائيًا", "Unsubscribe link is added automatically")}</small>
+              </div>
+              <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{form.audienceMode === "file" ? t("ملف مرفوع", "Uploaded file") : form.audienceMode === "all" ? t("كل العملاء", "All customers") : t("تصفية مخصصة", "Custom filter")}</dd></div><div><dt>{t("المستلمين", "Recipients")}</dt><dd>{preview ? preview.count.toLocaleString("en-US") : "—"}</dd></div>{recipientFile ? <div><dt>{t("الملف", "File")}</dt><dd>{recipientFile.name}</dd></div> : null}</dl>
+              <button className="btn soft email-preview-count" type="button" disabled={previewLoading || (form.audienceMode === "file" && !recipientFile)} onClick={loadPreview}>{previewLoading ? t("جاري الحساب...", "Counting...") : t("معاينة الجمهور", "Preview audience")}</button>
+            </aside>
+            <footer className="modal-foot email-builder-foot">
+              <button className="btn danger email-cancel-btn" type="button" onClick={() => setOpen(false)}>{t("إلغاء", "Cancel")}</button>
+              <button className="btn primary" type="button" disabled={!!saving || (scheduleEnabled && !form.scheduledAt)} onClick={() => submit(scheduleEnabled ? "schedule" : "send")}>
+                {saving === "send" ? t("جاري الإرسال...", "Sending...") : saving === "schedule" ? t("جاري الجدولة...", "Scheduling...") : scheduleEnabled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الآن", "Send now")}
+              </button>
+            </footer>
+          </form>
+        </div>
+      ) : null}
+
+      <div className="section-tabs campaign-tabs">
+        {statusTabs.map((tab) => <button type="button" key={tab} className={activeTab === tab ? "section-tab active" : "section-tab"} onClick={() => setActiveTab(tab)}>{tab === "all" ? t("الكل", "All") : statusLabel(tab, t)} <span>{tab === "all" ? campaigns.length : campaigns.filter((campaign) => campaign.status === tab).length}</span></button>)}
+      </div>
+
+      <div className="campaign-board campaign-list-board">
+        <div className="campaign-list-head"><div><h2>{t("كل حملات البريد", "All email campaigns")}</h2><p>{t("تابع حالة الإرسال والأداء من نفس الجدول.", "Track send state and performance from one table.")}</p></div><button className="reload" type="button" onClick={loadCampaigns}>↻ {t("تحديث البيانات", "Refresh data")}</button></div>
+        <div className="table-wrap">
+        <table className="mobile-card-table">
+          <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("الحالة", "Status")}</th><th>{t("المستلمين", "Recipients")}</th><th>{t("إرسال/وصول", "Sent/Delivered")}</th><th>{t("فتح/ضغط", "Open/Click")}</th><th>{t("ارتداد/إلغاء", "Bounce/Unsubscribe")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
+          <tbody>
+            {visibleCampaigns.map((campaign) => (
+              <tr key={campaign.id}>
+                <td><strong>{campaign.name}</strong><br /><small>{campaign.subject}</small></td>
+                <td><span className={campaign.status === "failed" ? "state off" : campaign.status === "scheduled" ? "state warn" : "state ok"}>{statusLabel(campaign.status, t)}</span></td>
+                <td>{campaign.analytics.totalRecipients}</td>
+                <td>{campaign.analytics.sentCount} / {campaign.analytics.deliveredCount}</td>
+                <td>{campaign.analytics.openCount} / {campaign.analytics.clickCount}</td>
+                <td>{campaign.analytics.bounceCount} / {campaign.analytics.unsubscribeCount}</td>
+                <td>
+                  {campaign.status === "scheduled" || campaign.status === "draft" ? <button className="btn soft" type="button" onClick={() => campaignAction(campaign.id, "sending")}>{t("إرسال الآن", "Send now")}</button> : null}
+                  {campaign.status === "scheduled" || campaign.status === "draft" ? <button className="btn soft" type="button" onClick={() => campaignAction(campaign.id, "cancelled")}>{t("إلغاء", "Cancel")}</button> : null}
+                  {campaign.status !== "sending" ? <button className="btn danger" type="button" onClick={() => campaignAction(campaign.id, "delete")}>{t("حذف", "Delete")}</button> : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {loading ? <p>{t("جاري تحميل الحملات...", "Loading campaigns...")}</p> : null}
+        {!loading && !visibleCampaigns.length ? <p className="muted-copy">{t("لا توجد حملات بريدية ضمن هذا التصنيف.", "No email campaigns in this view.")}</p> : null}
+        </div>
+      </div>
+        </>
+      ) : (
+        <div className="balance-page email-balance-page">
+          <section className="campaign-balance-hero">
+            <div>
+              <span>{t("رصيد البريد", "EMAIL BALANCE")}</span>
+              <h2>{t("اشترِ رصيد الإيميلات قبل الإرسال", "Buy email credits before sending")}</h2>
+              <p>{t("رصيد البريد منفصل عن رصيد حملات واتساب. عند نجاح الدفع ينضاف الرصيد تلقائيًا وتقدر ترسل حملاتك مباشرة.", "Email credits are separate from WhatsApp campaign credits. Once payment succeeds, credits are added automatically and campaigns can send right away.")}</p>
+            </div>
+            <div className="campaign-balance-total">
+              <small>{t("الرصيد المتاح", "Available balance")}</small>
+              <strong>{emailBalance.toLocaleString("en-US")}</strong>
+              <span>{t("إيميل", "emails")}</span>
+              <button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>＋ {t("شراء رصيد", "Buy credits")}</button>
+            </div>
+          </section>
+
+          <section className="balance-kpi-grid">
+            <article><span>{t("الاستخدام الكلي", "Total usage")}</span><strong>{totals.sent.toLocaleString("en-US")}</strong><small>{t("إيميل مرسل من الحملات", "campaign emails sent")}</small></article>
+            <article><span>{t("المعاملات", "Transactions")}</span><strong>{transactions.length.toLocaleString("en-US")}</strong><small>{totalPurchasedCredits.toLocaleString("en-US")} {t("رصيد مضاف", "credits added")}</small></article>
+            <article className="balance-pricing-card"><span>{t("أسعار الرسايل", "Message prices")}</span><strong>{(emailPricingTiers[emailPricingTiers.length - 1].price / emailPricingTiers[emailPricingTiers.length - 1].credits).toFixed(3)} {t("ريال / رسالة", "SAR / message")}</strong><button type="button" onClick={() => setChargeOpen(true)}>{t("عرض الأسعار", "View prices")} ←</button></article>
+          </section>
+
+          <div className="campaign-board campaign-list-board email-transactions-board">
+            <div className="campaign-list-head">
+              <div><h2>{t("سجل المعاملات", "Transaction history")}</h2><p>{t("هنا تظهر عمليات شراء وإضافة رصيد البريد التسويقي.", "Email credit purchases and top-ups appear here.")}</p></div>
+              <button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>{t("أسعار الرسايل", "Message prices")}</button>
+            </div>
+            <div className="table-wrap">
+              <table className="mobile-card-table">
+                <thead><tr><th>{t("التاريخ", "Date")}</th><th>{t("الرصيد", "Credits")}</th><th>{t("المبلغ", "Amount")}</th><th>{t("سعر الرسالة", "Price/message")}</th><th>{t("الحالة", "Status")}</th><th>{t("طريقة الدفع", "Payment method")}</th></tr></thead>
+                <tbody>
+                  {transactions.map((transaction) => (
+                    <tr key={transaction.id}>
+                      <td>{new Date(transaction.completedAt || transaction.createdAt).toLocaleDateString("ar-SA")}</td>
+                      <td>{transaction.credits.toLocaleString("en-US")}</td>
+                      <td>{transaction.amount.toLocaleString("en-US")} {t("ريال", "SAR")}</td>
+                      <td>{(transaction.amount / Math.max(1, transaction.credits)).toFixed(3)} {t("ريال", "SAR")}</td>
+                      <td><span className={transaction.status === "مكتمل" || transaction.status === "completed" ? "state ok" : transaction.status === "فشل" || transaction.status === "failed" ? "state off" : "state warn"}>{paymentStatusLabel(transaction.status, t)}</span></td>
+                      <td>{transaction.paymentMethod || transaction.gatewayStatus || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!transactions.length ? <p className="muted-copy">{t("لا توجد معاملات رصيد بريد حتى الآن.", "No email credit transactions yet.")}</p> : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {chargeOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setChargeOpen(false)}>
+          <div className="account-modal balance-modal email-pricing-modal" role="dialog" aria-modal="true" aria-label={t("أسعار رصيد البريد", "Email credit prices")} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setChargeOpen(false)}>×</button>
+              <div><span>{t("أسعار الرسايل", "MESSAGE PRICING")}</span><h2>{t("اختر باقة رصيد البريد", "Choose an email credit package")}</h2></div>
+            </header>
+            <div className="account-modal-body balance-modal-body">
+              <div className="balance-selected-package">
+                <span>{t("الباقة المختارة", "Selected package")}</span>
+                <b>{parsedCreditsToAdd.toLocaleString("en-US")} {t("إيميل", "emails")}</b>
+                <strong>{creditPrice.total.toLocaleString("en-US")} {t("ريال", "SAR")} · {creditPrice.perEmail.toFixed(3)} {t("ريال للرسالة", "SAR/message")}</strong>
+              </div>
+              <label className="email-custom-credits-field">
+                <span>{t("عدد مخصص", "Custom quantity")}</span>
+                <input inputMode="numeric" value={creditsToAdd} onChange={(event) => setCreditsToAdd(event.target.value)} placeholder="1000" />
+                <small>{t("اكتب العدد المطلوب وسيظهر السعر تلقائيًا. الحد الأدنى 1,000 رسالة.", "Enter the quantity and the price updates automatically. Minimum is 1,000 messages.")}</small>
+              </label>
+              <div className="email-package-grid" aria-label={t("باقات رصيد البريد", "Email credit packages")}>
+                {emailPricingTiers.map((tier) => (
+                  <button key={tier.credits} className={creditPrice.tier.credits === tier.credits ? "email-package-card active" : "email-package-card"} type="button" onClick={() => setCreditsToAdd(String(tier.credits))}>
+                    <span>{tier.credits.toLocaleString("en-US")} {t("إيميل", "emails")}</span>
+                    <b>{tier.price.toLocaleString("en-US")} {t("ريال", "SAR")}</b>
+                    <small>{(tier.price / tier.credits).toFixed(3)} {t("ريال لكل رسالة", "SAR per message")}</small>
+                  </button>
+                ))}
+              </div>
+              <div className="charge-calculator">
+                <div><span>{t("الرصيد", "Credits")}</span><b>{pricingRangeLabel(creditPrice.tier)}</b></div>
+                <div><span>{t("سعر الرسالة", "Price per message")}</span><b>{creditPrice.perEmail.toFixed(3)} {t("ريال", "SAR")}</b></div>
+                <div><span>{t("الإجمالي", "Total")}</span><b>{creditPrice.total.toLocaleString("en-US")} {t("ريال", "SAR")}</b></div>
+              </div>
+              <p className="field-hint">{t("السعر يشمل رصيد رسائل الحملات البريدية فقط. رسائل النظام مثل التفعيل واستعادة كلمة المرور لا تخصم من هذا الرصيد.", "This price is for promotional email campaign credits only. System emails such as verification and password reset do not deduct from this balance.")}</p>
+              {chargeError ? <p className="form-error">{chargeError}</p> : null}
+            </div>
+            <footer className="modal-foot">
+              <button className="btn soft" type="button" onClick={() => setChargeOpen(false)}>{t("إلغاء", "Cancel")}</button>
+              <button className="btn primary" type="button" disabled={!canBuyCredits || chargeSubmitting} onClick={createChargeRequest}>{chargeSubmitting ? t("جارٍ التجهيز...", "Preparing...") : t("متابعة إلى صفحة الدفع", "Continue to checkout")}</button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}

@@ -47,7 +47,8 @@ export const PLAN_ORDER = [INDIVIDUALS_PLAN, REGULAR_PLAN, SMALL_ORG_PLAN, LARGE
 const INDIVIDUALS_VIEWS: ViewKey[] = ["inbox", "contacts", "tags", "quickReplies", "bot", "reports", "settings", "employees"];
 // The regular plan opens the AI assistant too, but only with the customer's OWN API key: the Linkly-managed
 // AI (our key, our cost) stays a small-enterprises feature - it needs a positive aiDailyLimit on the Plan row, which this plan doesn't have.
-const REGULAR_VIEWS: ViewKey[] = [...INDIVIDUALS_VIEWS, "teams", "workHours", "templates", "campaigns", "segments", "pipeline", "ai", "branches"];
+export const REAL_ESTATE_PROJECTS_VIEW: ViewKey = "pipeline";
+const REGULAR_VIEWS: ViewKey[] = [...INDIVIDUALS_VIEWS, "teams", "workHours", "templates", "campaigns", "emailPromotions", "segments", "ai", "branches"];
 const SMALL_ORG_VIEWS: ViewKey[] = [...REGULAR_VIEWS, "automations", "knowledgeBase", "operations"];
 const LARGE_ORG_VIEWS: ViewKey[] = [...SMALL_ORG_VIEWS, "developers", "integrations", "catalog"];
 
@@ -272,7 +273,7 @@ export function grantableForPlan(planName: string | null | undefined, allowedCha
     return restriction.botNodeTypes !== "*" || restriction.botMaxSteps !== null;
   });
   return {
-    views: lockedViewsForPlan(planName),
+    views: Array.from(new Set([...lockedViewsForPlan(planName), REAL_ESTATE_PROJECTS_VIEW])),
     features,
     channels: channels === "*" ? [] : CHANNEL_CATALOG.map((entry) => entry.key).filter((key) => !channels.includes(key)),
     // Any counted thing can get a custom cap, and any number can be overridden, on any plan.
@@ -337,6 +338,8 @@ export function upgradeMessageForChannel(channel: ChannelKey): string {
 export type PlanAccessData = {
   planName: string;
   lockedViews: ViewKey[];
+  /** Sections hidden entirely unless the platform team explicitly enables them for this workspace. */
+  hiddenViews: ViewKey[];
   allowedChannels: AllowedChannels;
   botNodeTypes: string[] | "*";
   botMaxSteps: number | null;
@@ -352,9 +355,11 @@ export function buildPlanAccess(planName: string | null | undefined, allowedChan
   const baseChannels = allowedChannelsRaw ? parseAllowedChannels(allowedChannelsRaw) : "*";
   const allowedChannels = baseChannels === "*" ? "*" : Array.from(new Set([...baseChannels, ...grants.channels]));
   const unlimitedBot = grants.features.includes("unlimitedBot");
+  const hiddenViews = grants.views.includes(REAL_ESTATE_PROJECTS_VIEW) ? [] : [REAL_ESTATE_PROJECTS_VIEW];
   return {
     planName: planName ?? "",
     lockedViews: lockedViewsForPlan(planName).filter((view) => !grants.views.includes(view)),
+    hiddenViews,
     allowedChannels,
     botNodeTypes: restriction && !unlimitedBot ? (restriction.botNodeTypes === "*" ? "*" : [...restriction.botNodeTypes, ...extraSteps]) : "*",
     botMaxSteps: grants.numbers.botMaxSteps ?? (restriction && !unlimitedBot ? restriction.botMaxSteps : null),

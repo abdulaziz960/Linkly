@@ -8,6 +8,7 @@ export type ViewKey =
   | "knowledgeBase"
   | "automations"
   | "campaigns"
+  | "emailPromotions"
   | "segments"
   | "pipeline"
   | "templates"
@@ -269,6 +270,38 @@ export type Campaign = {
   updatedAt: string;
   hasHeaderMedia?: boolean;
   recurrenceId?: string;
+};
+
+export type EmailCampaignSummary = {
+  id: string;
+  name: string;
+  subject: string;
+  senderName: string;
+  senderEmail: string;
+  bodyHtml: string;
+  ctaText: string;
+  ctaUrl: string;
+  audienceMode: string;
+  audience: {
+    mode?: string;
+    tagNames?: string[];
+    conversationStatus?: string;
+    channel?: string;
+    customerIds?: string[];
+  };
+  scheduledAt: string;
+  status: "draft" | "scheduled" | "sending" | "sent" | "failed" | "cancelled";
+  analytics: {
+    totalRecipients: number;
+    sentCount: number;
+    deliveredCount: number;
+    openCount: number;
+    clickCount: number;
+    bounceCount: number;
+    unsubscribeCount: number;
+  };
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type WorkSchedule = {

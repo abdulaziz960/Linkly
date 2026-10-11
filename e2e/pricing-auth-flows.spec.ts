@@ -70,6 +70,7 @@ for (const language of ["ar", "en"] as const) {
     if (language === "en") await page.getByRole("button", { name: "English" }).click();
     const form = page.locator(".journey-form");
     await form.locator('[name="companyName"]').fill("Mobile Test Company");
+    await form.locator('[name="businessType"]').selectOption("retail");
     await form.locator('[name="ownerName"]').fill("Browser Test Owner");
     await form.locator('[name="ownerEmail"]').fill(email);
     await form.locator('[name="phone"]').fill("0501234567");

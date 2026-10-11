@@ -84,7 +84,7 @@ export default function ClientAccessPanel({ tenantId, plan, grantable, granted, 
   }
 
   const checkGroups = [
-    { title: "الصفحات", hint: "صفحات اللوحة التي تقفلها الباقة. الصفحة المفتوحة تفتح معها حدودها وخطوات الرد الآلي المرتبطة بها.", items: grantable.views.map((view) => ({ key: view, label: viewTitles[view] })) },
+    { title: "الصفحات", hint: "صفحات اللوحة المقفلة أو المخصصة لعميل بعينه، مثل العملاء المحتملين. الصفحة المفتوحة تفتح معها حدودها وخطوات الرد الآلي المرتبطة بها.", items: grantable.views.map((view) => ({ key: view, label: viewTitles[view] })) },
     { title: "المزايا", hint: "مزايا إضافية على ما تشمله الباقة.", items: grantable.features.map((feature) => ({ key: `feature:${feature}`, label: GRANT_FEATURE_LABELS[feature].ar })) },
     { title: "القنوات", hint: "قنوات ربط خارج قنوات الباقة.", items: grantable.channels.map((channel) => ({ key: `channel:${channel}`, label: channelLabel(channel, "ar") })) }
   ].filter((group) => group.items.length > 0);
