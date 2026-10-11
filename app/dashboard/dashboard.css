@@ -11666,4 +11666,5 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .diagnose-advice { margin: 0; padding: 12px 14px; border-radius: 12px; background: #fff7ed; color: #9a3412; font-weight: 800; line-height: 1.8; }
 .diagnose-advice.ok { background: #f1faf8; color: #0f766e; }
 
-.lead-layout-switch { margin: 0 0 12px; }
+.lead-internal { align-content: start; }
+.lead-layout-switch { margin: 0 0 12px; justify-self: start; align-self: start; height: auto; }
