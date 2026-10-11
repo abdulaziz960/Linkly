@@ -37,6 +37,7 @@ describe("2026 pricing tier restructure - migrating pre-existing production-like
       employee_limit INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1,
       ai_daily_limit INTEGER NOT NULL DEFAULT 0, ai_monthly_limit INTEGER NOT NULL DEFAULT 0,
       allowed_channels TEXT NOT NULL DEFAULT '*', message_quota INTEGER NOT NULL DEFAULT 0,
+      feature_items_ar TEXT NOT NULL DEFAULT '', feature_items_en TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     )`);
     const now = new Date().toISOString();

@@ -8,6 +8,15 @@ function isValidMessageQuota(value: number) {
   return Number.isFinite(value) && (value === UNLIMITED_MESSAGE_QUOTA || value >= 0);
 }
 
+function normalizeFeatureItems(value?: string) {
+  return (value || "")
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 40)
+    .join("\n");
+}
+
 function nowTimestamp() {
   return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
     dateStyle: "medium",
@@ -64,6 +73,8 @@ type CreatePlanInput = {
   aiMonthlyLimit?: number;
   allowedChannels?: AllowedChannels;
   messageQuota?: number;
+  featureItemsAr?: string;
+  featureItemsEn?: string;
 };
 
 export async function createPlan(input: CreatePlanInput) {
@@ -92,6 +103,8 @@ export async function createPlan(input: CreatePlanInput) {
   const roundedAiMonthlyLimit = Math.round(aiMonthlyLimit);
   const roundedMessageQuota = Math.round(messageQuota);
   const allowedChannels = serializeAllowedChannels(input.allowedChannels ?? "*");
+  const featureItemsAr = normalizeFeatureItems(input.featureItemsAr);
+  const featureItemsEn = normalizeFeatureItems(input.featureItemsEn);
 
   if (isPostgresDatabase) {
     // Production's live `plans` table carries legacy columns (monthly_amount,
@@ -110,6 +123,8 @@ export async function createPlan(input: CreatePlanInput) {
       ai_monthly_limit: roundedAiMonthlyLimit,
       allowed_channels: allowedChannels,
       message_quota: roundedMessageQuota,
+      feature_items_ar: featureItemsAr,
+      feature_items_en: featureItemsEn,
       created_at: now,
       updated_at: now
     });
@@ -128,6 +143,8 @@ export async function createPlan(input: CreatePlanInput) {
       aiMonthlyLimit: roundedAiMonthlyLimit,
       allowedChannels,
       messageQuota: roundedMessageQuota,
+      featureItemsAr,
+      featureItemsEn,
       sortOrder,
       active: 1,
       createdAt: now,
@@ -144,6 +161,8 @@ type UpdatePlanInput = {
   aiMonthlyLimit?: number;
   allowedChannels?: AllowedChannels;
   messageQuota?: number;
+  featureItemsAr?: string;
+  featureItemsEn?: string;
 };
 
 export async function updatePlan(id: string, input: UpdatePlanInput) {
@@ -176,6 +195,8 @@ export async function updatePlan(id: string, input: UpdatePlanInput) {
       aiMonthlyLimit: input.aiMonthlyLimit !== undefined ? Math.round(input.aiMonthlyLimit) : existing.aiMonthlyLimit,
       allowedChannels: input.allowedChannels !== undefined ? serializeAllowedChannels(input.allowedChannels) : existing.allowedChannels,
       messageQuota: input.messageQuota !== undefined ? Math.round(input.messageQuota) : existing.messageQuota,
+      featureItemsAr: input.featureItemsAr !== undefined ? normalizeFeatureItems(input.featureItemsAr) : existing.featureItemsAr,
+      featureItemsEn: input.featureItemsEn !== undefined ? normalizeFeatureItems(input.featureItemsEn) : existing.featureItemsEn,
       active: input.active !== undefined ? (input.active ? 1 : 0) : existing.active,
       updatedAt: nowTimestamp()
     }

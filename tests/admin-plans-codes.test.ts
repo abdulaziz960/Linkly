@@ -5,7 +5,7 @@ import { EMPTY_CODE_DRAFT, codePayload, codeStats, computeStatus, discountLabel,
 import { UNLIMITED_MESSAGE_QUOTA } from "../lib/message-quota";
 
 const plan = (overrides: Partial<PlanRow>): PlanRow => ({
-  id: "p1", name: "باقة", monthlyPrice: 199, employeeLimit: 3, aiDailyLimit: 0, aiMonthlyLimit: 0, allowedChannels: "*", messageQuota: 1000, sortOrder: 1, active: 1, createdAt: "", updatedAt: "", ...overrides
+  id: "p1", name: "باقة", monthlyPrice: 199, employeeLimit: 3, aiDailyLimit: 0, aiMonthlyLimit: 0, allowedChannels: "*", messageQuota: 1000, featureItemsAr: "", featureItemsEn: "", sortOrder: 1, active: 1, createdAt: "", updatedAt: "", ...overrides
 });
 
 describe("plan drafts", () => {
@@ -13,6 +13,7 @@ describe("plan drafts", () => {
     const draft = draftFromPlan(plan({ allowedChannels: "whatsapp,instagram", messageQuota: UNLIMITED_MESSAGE_QUOTA, aiDailyLimit: 50 }));
     expect(draft.messageUnlimited).toBe(true);
     expect(draft.channels).toEqual(["whatsapp", "instagram"]);
+    expect(draft.featureItemsAr).toBe("");
     expect(planPayload(draft, "edit")).toMatchObject({ monthlyPrice: 199, aiDailyLimit: 50, messageQuota: UNLIMITED_MESSAGE_QUOTA, active: true });
     expect(planPayload({ ...draft, name: " باقة جديدة " }, "create")).toMatchObject({ name: "باقة جديدة" });
     expect(planPayload(draft, "edit")).not.toHaveProperty("name");

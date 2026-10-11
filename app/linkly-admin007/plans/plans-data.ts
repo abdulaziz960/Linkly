@@ -1,6 +1,7 @@
 import type { PlanRow } from "../types";
 import { parseAllowedChannels, type AllowedChannels } from "../../../lib/channel-catalog";
 import { UNLIMITED_MESSAGE_QUOTA } from "../../../lib/message-quota";
+import { planFeatures } from "../../../lib/plan-features";
 
 /** Form state (everything is a string while typing). */
 export type PlanDraft = {
@@ -11,6 +12,8 @@ export type PlanDraft = {
   aiMonthlyLimit: string;
   messageQuota: string;
   messageUnlimited: boolean;
+  featureItemsAr: string;
+  featureItemsEn: string;
   channels: AllowedChannels;
   active: boolean;
 };
@@ -23,12 +26,15 @@ export const EMPTY_PLAN_DRAFT: PlanDraft = {
   aiMonthlyLimit: "0",
   messageQuota: "0",
   messageUnlimited: false,
+  featureItemsAr: "",
+  featureItemsEn: "",
   channels: "*",
   active: true
 };
 
 export function draftFromPlan(plan: PlanRow): PlanDraft {
   const unlimited = plan.messageQuota === UNLIMITED_MESSAGE_QUOTA;
+  const defaultFeatures = planFeatures[plan.name]?.items;
   return {
     name: plan.name,
     monthlyPrice: String(plan.monthlyPrice),
@@ -37,6 +43,8 @@ export function draftFromPlan(plan: PlanRow): PlanDraft {
     aiMonthlyLimit: String(plan.aiMonthlyLimit),
     messageQuota: unlimited ? "0" : String(plan.messageQuota),
     messageUnlimited: unlimited,
+    featureItemsAr: plan.featureItemsAr || defaultFeatures?.ar.join("\n") || "",
+    featureItemsEn: plan.featureItemsEn || defaultFeatures?.en.join("\n") || "",
     channels: parseAllowedChannels(plan.allowedChannels || "*"),
     active: plan.active === 1
   };
@@ -63,7 +71,9 @@ export function planPayload(draft: PlanDraft, mode: "create" | "edit") {
     aiDailyLimit: Number(draft.aiDailyLimit),
     aiMonthlyLimit: Number(draft.aiMonthlyLimit),
     allowedChannels: draft.channels,
-    messageQuota: draft.messageUnlimited ? UNLIMITED_MESSAGE_QUOTA : Number(draft.messageQuota)
+    messageQuota: draft.messageUnlimited ? UNLIMITED_MESSAGE_QUOTA : Number(draft.messageQuota),
+    featureItemsAr: draft.featureItemsAr,
+    featureItemsEn: draft.featureItemsEn
   };
   return mode === "create" ? { name: draft.name.trim(), ...base } : { ...base, active: draft.active };
 }

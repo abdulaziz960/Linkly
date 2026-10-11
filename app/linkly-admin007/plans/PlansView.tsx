@@ -11,6 +11,7 @@ import Icon from "../ds/Icon";
 import { useQueryFlag } from "../ds/useQueryFlag";
 import { CHANNEL_CATALOG, parseAllowedChannels, type AllowedChannels } from "../../../lib/channel-catalog";
 import { UNLIMITED_MESSAGE_QUOTA } from "../../../lib/message-quota";
+import { getPlanDisplayItems } from "../../../lib/plan-features";
 import { EMPTY_PLAN_DRAFT, draftFromPlan, planPayload, planStats, validatePlanDraft, type PlanDraft } from "./plans-data";
 
 type Props = { plans: PlanRow[]; subscriberCounts: Record<string, number> };
@@ -152,6 +153,7 @@ export default function PlansView({ plans, subscriberCounts }: Props) {
             {plans.map((plan) => {
               const subscribers = subscriberCounts[plan.name] || 0;
               const channels = parseAllowedChannels(plan.allowedChannels || "*");
+              const visibleFeatures = getPlanDisplayItems(plan, "ar");
               return (
                 <article key={plan.id} className="ds-card ds-plan" data-inactive={plan.active !== 1 || undefined}>
                   <div className="ds-plan-top">
@@ -169,6 +171,13 @@ export default function PlansView({ plans, subscriberCounts }: Props) {
                     <li><span>القنوات</span><strong>{channels === "*" ? "بدون قيود" : formatNumber(channels.length)}</strong></li>
                     <li><span>رسائل تسويقية</span><strong>{plan.messageQuota === UNLIMITED_MESSAGE_QUOTA ? "غير محدود" : formatNumber(plan.messageQuota)}</strong></li>
                   </ul>
+                  <div className="ds-plan-feature-preview">
+                    <span>المزايا الظاهرة للعملاء</span>
+                    <ul>
+                      {visibleFeatures.slice(0, 6).map((item) => <li key={item}>{item}</li>)}
+                      {visibleFeatures.length > 6 ? <li>+ {formatNumber(visibleFeatures.length - 6)} مزايا إضافية</li> : null}
+                    </ul>
+                  </div>
                   <Button variant="outline" icon="edit" onClick={() => openEdit(plan)}>تعديل الباقة</Button>
                 </article>
               );
@@ -210,6 +219,18 @@ export default function PlansView({ plans, subscriberCounts }: Props) {
               <input type="checkbox" checked={draft.messageUnlimited} onChange={(event) => setField("messageUnlimited", event.target.checked)} />
               رسائل غير محدودة
             </label>
+            <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+              <label className="ds-field">
+                المزايا الظاهرة للعملاء (عربي)
+                <textarea className="ds-textarea" rows={8} value={draft.featureItemsAr} onChange={(event) => setField("featureItemsAr", event.target.value)} placeholder={"اكتب كل ميزة في سطر مستقل.\nاتركها فارغة لاستخدام مزايا الباقة الافتراضية."} />
+                <small>تظهر في الصفحة الرئيسية وصفحة الباقات داخل لوحة العميل.</small>
+              </label>
+              <label className="ds-field">
+                المزايا الظاهرة للعملاء (English)
+                <textarea className="ds-textarea" dir="ltr" rows={8} value={draft.featureItemsEn} onChange={(event) => setField("featureItemsEn", event.target.value)} placeholder={"Write one feature per line.\nLeave empty to use the default features."} />
+                <small>اختياري، يستخدم في النسخة الإنجليزية.</small>
+              </label>
+            </div>
             <ChannelPicker value={draft.channels} onChange={(channels) => setField("channels", channels)} />
             {isEdit ? (
               <label className="ds-check-inline">

@@ -29,6 +29,8 @@ export async function POST(request: NextRequest) {
     aiMonthlyLimit?: number;
     allowedChannels?: unknown;
     messageQuota?: number;
+    featureItemsAr?: string;
+    featureItemsEn?: string;
   };
 
   try {
@@ -39,7 +41,9 @@ export async function POST(request: NextRequest) {
       aiDailyLimit: Number(body.aiDailyLimit ?? 0),
       aiMonthlyLimit: Number(body.aiMonthlyLimit ?? 0),
       allowedChannels: sanitizeAllowedChannelsInput(body.allowedChannels),
-      messageQuota: Number(body.messageQuota ?? 0)
+      messageQuota: Number(body.messageQuota ?? 0),
+      featureItemsAr: body.featureItemsAr,
+      featureItemsEn: body.featureItemsEn
     });
     await recordAdminAction(admin, "create-plan", { type: "plan", id: plan.id }, JSON.stringify({ name: body.name, monthlyPrice: body.monthlyPrice }));
     return jsonOk(plan);

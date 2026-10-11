@@ -755,6 +755,9 @@ model Plan {
   // credited amount then uses a large-but-finite practical constant instead
   // of literally -1, which would break the balance's spend gate.
   messageQuota Int @default(0) @map("message_quota")
+  // Admin-edited customer-facing feature list, one feature per line (blank = built-in list).
+  featureItemsAr String @default("") @map("feature_items_ar")
+  featureItemsEn String @default("") @map("feature_items_en")
   createdAt     String @map("created_at")
   updatedAt     String @map("updated_at")
 

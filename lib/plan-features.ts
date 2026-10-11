@@ -72,7 +72,14 @@ export const planFeatures: Record<string, PlanFeatures> = {
   }
 };
 
-export type PlanNumbers = { employeeLimit: number; allowedChannels: string; messageQuota: number };
+export type PlanNumbers = {
+  employeeLimit: number;
+  allowedChannels: string;
+  messageQuota: number;
+  name?: string;
+  featureItemsAr?: string | null;
+  featureItemsEn?: string | null;
+};
 
 /** The three numeric bullets (users, channels, message quota), always built fresh from the live Plan row. */
 export function buildPlanDynamicItems(plan: PlanNumbers, lang: "ar" | "en", options: { skipQuota?: boolean } = {}): string[] {
@@ -98,10 +105,15 @@ function fallbackTailItems(lang: "ar" | "en"): string[] {
 }
 
 /** Full bullet list for a plan card: live numbers first, then the static descriptive copy (or a generic fallback for an unrecognized plan name). */
+function parseCustomFeatureItems(value?: string | null): string[] {
+  return (value || "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+}
+
 export function getPlanDisplayItems(plan: PlanNumbers & { name: string }, lang: "ar" | "en"): string[] {
   const own = planFeatures[plan.name];
-  if (own?.custom) return own.items[lang];
+  const customItems = parseCustomFeatureItems(lang === "ar" ? plan.featureItemsAr : plan.featureItemsEn);
+  if (own?.custom) return customItems.length ? customItems : own.items[lang];
   const dynamic = buildPlanDynamicItems(plan, lang, { skipQuota: isViewLockedForPlan(plan.name, "campaigns") });
-  const tail = planFeatures[plan.name]?.items[lang] ?? fallbackTailItems(lang);
+  const tail = customItems.length ? customItems : (planFeatures[plan.name]?.items[lang] ?? fallbackTailItems(lang));
   return [...dynamic, ...tail];
 }

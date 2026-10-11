@@ -59,6 +59,8 @@ export type PlanRow = {
   allowedChannels: string;
   // Marketing messages credited to CampaignBalance per subscription payment on this plan - see lib/message-quota.ts.
   messageQuota: number;
+  featureItemsAr: string;
+  featureItemsEn: string;
   sortOrder: number;
   active: number;
   createdAt: string;
