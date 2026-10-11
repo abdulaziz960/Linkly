@@ -100,5 +100,13 @@ export async function POST(request: NextRequest) {
 
   if (!conversation) return jsonError("تعذر فتح محادثة العميل");
 
+  // Opening a customer must not bypass the assignee scope the inbox list applies:
+  // a non-owner can open only their own (or their team's) or an unassigned conversation.
+  const visibleAssignees = await assigneeScopeFor(user);
+  const assignee = conversation.assignee || "";
+  if (visibleAssignees && assignee && assignee !== "بدون موظف" && !visibleAssignees.includes(assignee)) {
+    return jsonError("لم يتم العثور على العميل", 404);
+  }
+
   return jsonOk(conversation);
 }

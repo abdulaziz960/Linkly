@@ -1235,5 +1235,48 @@ export async function deleteTenant(tenantId: string) {
     prisma.subscription.delete({ where: { tenantId } })
   ]);
 
+  // Everything else that belongs to the tenant (credentials, knowledge base, catalog, logs...).
+  // Each table is cleaned independently and best-effort: the tenant itself is already gone above,
+  // and one missing/legacy table must not leave the other tables' data behind. Discount-code
+  // usage rows are deliberately kept, they are redemption accounting for the codes.
+  const cleanups: Array<[string, () => Promise<unknown>]> = [
+    ["supportTicketMessage", async () => {
+      const tickets = await prisma.supportTicket.findMany({ where: { tenantId }, select: { id: true } });
+      if (tickets.length) await prisma.supportTicketMessage.deleteMany({ where: { ticketId: { in: tickets.map((ticket) => ticket.id) } } });
+    }],
+    ["supportTicket", () => prisma.supportTicket.deleteMany({ where: { tenantId } })],
+    ["apiKey", () => prisma.apiKey.deleteMany({ where: { tenantId } })],
+    ["webhookDelivery", () => prisma.webhookDelivery.deleteMany({ where: { tenantId } })],
+    ["webhook", () => prisma.webhook.deleteMany({ where: { tenantId } })],
+    ["pushSubscription", () => prisma.pushSubscription.deleteMany({ where: { tenantId } })],
+    ["knowledgeBaseEntry", () => prisma.knowledgeBaseEntry.deleteMany({ where: { tenantId } })],
+    ["aiWorkspaceSetting", () => prisma.aiWorkspaceSetting.deleteMany({ where: { tenantId } })],
+    ["aiUsageBucket", () => prisma.aiUsageBucket.deleteMany({ where: { tenantId } })],
+    ["aiUsageEvent", () => prisma.aiUsageEvent.deleteMany({ where: { tenantId } })],
+    ["conversationInsight", () => prisma.conversationInsight.deleteMany({ where: { tenantId } })],
+    ["conversationSummaryQueueItem", () => prisma.conversationSummaryQueueItem.deleteMany({ where: { tenantId } })],
+    ["campaignRecipientClick", () => prisma.campaignRecipientClick.deleteMany({ where: { tenantId } })],
+    ["campaignRecurrence", () => prisma.campaignRecurrence.deleteMany({ where: { tenantId } })],
+    ["segment", () => prisma.segment.deleteMany({ where: { tenantId } })],
+    ["lead", () => prisma.lead.deleteMany({ where: { tenantId } })],
+    ["linkClick", () => prisma.linkClick.deleteMany({ where: { tenantId } })],
+    ["catalogOrder", () => prisma.catalogOrder.deleteMany({ where: { tenantId } })],
+    ["product", () => prisma.product.deleteMany({ where: { tenantId } })],
+    ["catalogSetting", () => prisma.catalogSetting.deleteMany({ where: { tenantId } })],
+    ["branch", () => prisma.branch.deleteMany({ where: { tenantId } })],
+    ["featureRequest", () => prisma.featureRequest.deleteMany({ where: { tenantId } })],
+    ["tenantPreference", () => prisma.tenantPreference.deleteMany({ where: { tenantId } })],
+    ["renewalFollowUp", () => prisma.renewalFollowUp.deleteMany({ where: { tenantId } })],
+    ["clientNote", () => prisma.clientNote.deleteMany({ where: { tenantId } })],
+    ["adminHiddenClient", () => prisma.adminHiddenClient.deleteMany({ where: { tenantId } })]
+  ];
+  for (const [name, run] of cleanups) {
+    try {
+      await run();
+    } catch (error) {
+      console.error("Tenant cleanup step failed", { tenantId, table: name, error });
+    }
+  }
+
   return { companyName: subscription.companyName };
 }

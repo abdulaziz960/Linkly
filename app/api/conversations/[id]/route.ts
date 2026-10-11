@@ -9,6 +9,9 @@ import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscripti
 import { logAssignmentMessage } from "../../../../lib/conversation-system-messages";
 import { jsonError, jsonOk } from "../../_utils/json";
 import { pipelineStages } from "../../../dashboard/types";
+import { getEmployeeForUser, getVisibleAssigneeNames } from "../../../../lib/permissions-server";
+
+const UNASSIGNED = new Set(["", "بدون موظف"]);
 
 type RouteContext = {
   params: Promise<{
@@ -38,6 +41,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return jsonError("مرحلة غير معروفة", 400);
   }
 
+  // Only the owner sees every conversation; everyone else may change only conversations
+  // assigned to them (or their team, for a supervisor) or still unassigned.
+  const visibleAssignees = await getVisibleAssigneeNames(user, await getEmployeeForUser(user));
+
   try {
     let previousAssignee = "";
     let customerName = "";
@@ -48,6 +55,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       });
 
       if (!existing) throw new Error("not-found");
+      if (visibleAssignees && !UNASSIGNED.has(existing.assignee) && !visibleAssignees.includes(existing.assignee)) throw new Error("not-found");
       previousAssignee = existing.assignee;
       customerName = existing.customer.name;
 

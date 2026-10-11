@@ -52,7 +52,7 @@ it("AUD-01 [FIXED]: public widget polling must not expose internal notes", async
   expect(await response.text()).not.toContain("INTERNAL ONLY");
 });
 
-it.fails("AUD-02 [OPEN]: employee must not change another employee's assigned conversation", async () => {
+it("AUD-02 [FIXED]: employee must not change another employee's assigned conversation", async () => {
   await seedConversation("audit-private", actor.tenantId);
   const { PATCH } = await import("../app/api/conversations/[id]/route");
   const response = await PATCH(new NextRequest("http://localhost/api/conversations/audit-private", { method: "PATCH", body: JSON.stringify({ assignee: actor.name, dealValue: 999 }) }), { params: Promise.resolve({ id: "audit-private" }) });
@@ -61,7 +61,7 @@ it.fails("AUD-02 [OPEN]: employee must not change another employee's assigned co
   expect((await prisma.conversation.findUniqueOrThrow({ where: { id: "audit-private" } })).assignee).toBe("Another employee");
 });
 
-it.fails("AUD-03 [OPEN]: opening a conversation by customer must respect assignee scope", async () => {
+it("AUD-03 [FIXED]: opening a conversation by customer must respect assignee scope", async () => {
   await seedConversation("audit-private-read", actor.tenantId);
   const { prisma } = await import("../lib/prisma");
   await prisma.message.create({ data: { id: "private-read-message", conversationId: "audit-private-read", direction: "in", text: "OTHER AGENT PRIVATE HISTORY", time: "12:00", createdAt: new Date().toISOString() } });
@@ -120,7 +120,7 @@ it("AUD-07 [FIXED]: logout invalidates the signed session token server-side", as
   expect(row.sessionVersion).toBeGreaterThan(session!.sessionVersion);
 });
 
-it.fails("AUD-08 [OPEN]: tenant deletion must remove credentials and customer-related records", async () => {
+it("AUD-08 [FIXED]: tenant deletion must remove credentials and customer-related records", async () => {
   const { prisma } = await import("../lib/prisma");
   const tenantId = "audit-delete"; const now = new Date().toISOString();
   await prisma.subscription.create({ data: { id: "audit-delete-sub", tenantId, companyName: "Audit Delete", ownerName: "Owner", ownerEmail: "delete@audit.invalid", plan: "test", status: "نشط", employeeLimit: 3, amount: 0, billingCycle: "شهري", renewalAt: "", createdAt: now, updatedAt: now } });
