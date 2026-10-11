@@ -120,42 +120,7 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
         </p>
       </div>
 
-      {/* 2. Priority actions */}
-      <Section id="priorities" title="الإجراءات ذات الأولوية" description={overview.priorities.length ? `${overview.priorities.length} بند يحتاج متابعة، مرتّبة حسب الأهمية.` : undefined}>
-        {overview.priorities.length === 0 ? (
-          <div className="ds-all-clear"><Icon name="checkCircle" size={22} />لا توجد إجراءات عاجلة الآن. التجديدات والمدفوعات والدعم كلها تحت السيطرة.</div>
-        ) : (
-          <div className="ds-card">
-            <ul className="ds-priority-list">
-              {priorities.map((item) => {
-                const level = LEVEL_BADGE[item.level];
-                const due = formatDue(item.due);
-                return (
-                  <li key={item.id} className="ds-priority" data-level={item.level}>
-                    <span className="ds-priority-icon"><Icon name={item.icon} size={19} /></span>
-                    <div className="ds-priority-body">
-                      <strong>{item.title} <Badge tone={level.tone}>{level.label}</Badge></strong>
-                      <span>{item.description}</span>
-                      <div className="ds-priority-meta">
-                        <span>العميل: <b style={{ color: "var(--ds-text)" }}>{item.clientName || "—"}</b></span>
-                        {due ? <span>{item.id.startsWith("overdue") || item.id.startsWith("renew") ? "تاريخ الاستحقاق" : "التاريخ"}: {due}</span> : null}
-                      </div>
-                    </div>
-                    <Link href={item.href} className="ds-btn" data-variant="outline">{item.actionLabel}</Link>
-                  </li>
-                );
-              })}
-            </ul>
-            {overview.priorities.length > PRIORITY_PREVIEW ? (
-              <div style={{ padding: 12, borderTop: "1px solid var(--ds-border)", textAlign: "center" }}>
-                <Button variant="ghost" onClick={() => setShowAllPriorities((value) => !value)}>{showAllPriorities ? "عرض أقل" : `عرض كل البنود (${overview.priorities.length})`}</Button>
-              </div>
-            ) : null}
-          </div>
-        )}
-      </Section>
-
-      {/* 3. KPI cards */}
+      {/* 2. KPI cards - first thing on the page */}
       <Section id="kpis" title="المؤشرات الرئيسية">
         <div className="ds-stat-grid">
           <StatCard icon="users" label="إجمالي العملاء" value={formatNumber(kpis.totalClients)} href="/linkly-admin007/clients" delta={newClientsDelta === null ? null : { value: newClientsDelta, goodWhen: "up" }} hint={`${formatNumber(kpis.newClients)} عميل جديد (${range.label}) · العدد الكلي لحظي`} />
@@ -171,7 +136,7 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
         </div>
       </Section>
 
-      {/* 4. Charts */}
+      {/* 3. Charts */}
       <Section id="charts" title="التحليلات" description="الرسوم تعرض آخر 12 شهرًا بغضّ النظر عن النطاق الزمني أعلاه.">
         <div className="ds-grid-main">
           <div className="ds-card ds-card-pad">
@@ -224,6 +189,41 @@ export default function OverviewView({ subscriptions, payments, logs, actions, u
             <BarList rows={overview.usageTop} format={(value) => `${formatNumber(value)} محادثة`} empty={<EmptyState icon="message" title="لا توجد محادثات بعد" description="سيظهر الاستخدام عندما يبدأ العملاء باستقبال محادثات." />} />
           </div>
         </div>
+      </Section>
+
+      {/* 4. Priority actions (after the KPI cards and charts) */}
+      <Section id="priorities" title="الإجراءات ذات الأولوية" description={overview.priorities.length ? `${overview.priorities.length} بند يحتاج متابعة، مرتّبة حسب الأهمية.` : undefined}>
+        {overview.priorities.length === 0 ? (
+          <div className="ds-all-clear"><Icon name="checkCircle" size={22} />لا توجد إجراءات عاجلة الآن. التجديدات والمدفوعات والدعم كلها تحت السيطرة.</div>
+        ) : (
+          <div className="ds-card">
+            <ul className="ds-priority-list">
+              {priorities.map((item) => {
+                const level = LEVEL_BADGE[item.level];
+                const due = formatDue(item.due);
+                return (
+                  <li key={item.id} className="ds-priority" data-level={item.level}>
+                    <span className="ds-priority-icon"><Icon name={item.icon} size={19} /></span>
+                    <div className="ds-priority-body">
+                      <strong>{item.title} <Badge tone={level.tone}>{level.label}</Badge></strong>
+                      <span>{item.description}</span>
+                      <div className="ds-priority-meta">
+                        <span>العميل: <b style={{ color: "var(--ds-text)" }}>{item.clientName || "—"}</b></span>
+                        {due ? <span>{item.id.startsWith("overdue") || item.id.startsWith("renew") ? "تاريخ الاستحقاق" : "التاريخ"}: {due}</span> : null}
+                      </div>
+                    </div>
+                    <Link href={item.href} className="ds-btn" data-variant="outline">{item.actionLabel}</Link>
+                  </li>
+                );
+              })}
+            </ul>
+            {overview.priorities.length > PRIORITY_PREVIEW ? (
+              <div style={{ padding: 12, borderTop: "1px solid var(--ds-border)", textAlign: "center" }}>
+                <Button variant="ghost" onClick={() => setShowAllPriorities((value) => !value)}>{showAllPriorities ? "عرض أقل" : `عرض كل البنود (${overview.priorities.length})`}</Button>
+              </div>
+            ) : null}
+          </div>
+        )}
       </Section>
 
       {showActivity ? (
