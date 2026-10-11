@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { getAdSource } from "./ad-source";
 import { prisma } from "./prisma";
 import { decryptSecret, encryptSecret } from "./secret-storage";
 
@@ -197,7 +198,7 @@ function explainRejection(message: string): string {
   return message;
 }
 
-function buildPayload(settings: { eventSetId: string; eventSource: string; testEventCode: string }, event: { name: string; eventId: string; phone: string; properties?: Record<string, unknown> }) {
+function buildPayload(settings: { eventSetId: string; eventSource: string; testEventCode: string }, event: { name: string; eventId: string; phone: string; clickId?: string; properties?: Record<string, unknown> }) {
   return {
     event_source: settings.eventSource,
     event_source_id: settings.eventSetId,
@@ -206,7 +207,7 @@ function buildPayload(settings: { eventSetId: string; eventSource: string; testE
       event: event.name,
       event_time: Math.floor(Date.now() / 1000),
       event_id: event.eventId,
-      user: { phone: hashPhone(event.phone) },
+      user: { phone: hashPhone(event.phone), ...(event.clickId ? { ttclid: event.clickId } : {}) },
       properties: event.properties ?? {},
       // Web (Pixel) events carry the page they came from; for a conversation that is the platform's own site.
       ...(settings.eventSource === "web" ? { page: { url: process.env.TIKTOK_EVENTS_PAGE_URL || "https://linklysa.io" } } : {})
@@ -221,7 +222,7 @@ function dealProperties(dealValue?: number): Record<string, unknown> {
 }
 
 /** Sends the event mapped to `status` for this conversation. Never throws; a failure is logged and returned. */
-export async function sendLeadStatusEvent(input: { tenantId: string; conversationId: string; status: string; phone: string; dealValue?: number }): Promise<SendResult> {
+export async function sendLeadStatusEvent(input: { tenantId: string; conversationId: string; status: string; phone: string; dealValue?: number; clickId?: string }): Promise<SendResult> {
   try {
     const row = await readSettingsRow(input.tenantId);
     if (!row || row.enabled !== 1 || !row.event_set_id || !row.access_token_enc) return { sent: false, skipped: "disabled" };
@@ -235,7 +236,7 @@ export async function sendLeadStatusEvent(input: { tenantId: string; conversatio
     if (already.length) return { sent: false, skipped: "duplicate", eventName };
 
     const url = process.env.TIKTOK_EVENTS_URL || DEFAULT_EVENTS_URL;
-    const result = await post(url, decryptSecret(row.access_token_enc), buildPayload({ eventSetId: row.event_set_id, eventSource: row.event_source || "crm", testEventCode: row.test_event_code }, { name: eventName, eventId, phone: input.phone, properties: { lead_status: input.status, ...dealProperties(input.dealValue) } }));
+    const result = await post(url, decryptSecret(row.access_token_enc), buildPayload({ eventSetId: row.event_set_id, eventSource: row.event_source || "crm", testEventCode: row.test_event_code }, { name: eventName, eventId, phone: input.phone, clickId: input.clickId, properties: { lead_status: input.status, ...dealProperties(input.dealValue) } }));
     await logEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.status, eventName, eventId, ok: result.ok, httpStatus: result.httpStatus, message: result.message });
     return { sent: true, ok: result.ok, eventName, message: result.message };
   } catch (error) {
@@ -271,6 +272,16 @@ export async function getLeadStatus(tenantId: string, conversationId: string): P
   return (LEAD_STATUSES as readonly string[]).includes(status ?? "") ? (status as LeadStatus) : "جديد";
 }
 
+/** The TikTok click id of the ad that opened this conversation, if it was captured. */
+async function tiktokClickId(tenantId: string, conversationId: string): Promise<string> {
+  try {
+    const source = await getAdSource(tenantId, conversationId);
+    return source?.platform === "tiktok" ? source.clickId : "";
+  } catch {
+    return "";
+  }
+}
+
 /** Saves the status of a conversation that belongs to `tenantId` and sends the mapped event. */
 export async function setLeadStatus(input: { tenantId: string; conversationId: string; status: unknown; actor: string; dealValue?: unknown }): Promise<{ ok: true; status: LeadStatus; event: SendResult } | { ok: false; error: string; code: number }> {
   if (typeof input.status !== "string" || !(LEAD_STATUSES as readonly string[]).includes(input.status)) return { ok: false, error: "حالة غير صالحة", code: 400 };
@@ -297,7 +308,7 @@ export async function setLeadStatus(input: { tenantId: string; conversationId: s
   }
   const event = existing[0]?.status === status
     ? ({ sent: false, skipped: "duplicate" } as SendResult)
-    : await sendLeadStatusEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status, phone: conversation.customer.phone, dealValue });
+    : await sendLeadStatusEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status, phone: conversation.customer.phone, dealValue, clickId: await tiktokClickId(input.tenantId, input.conversationId) });
   return { ok: true, status, event };
 }
 

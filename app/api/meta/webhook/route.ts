@@ -5,6 +5,7 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
 import { runWhatsAppBot, runChannelBot, startTemplateCatalog } from "../../../../lib/bot-engine";
+import { captureAdSource } from "../../../../lib/ad-source";
 import { isCatalogTemplateButton } from "../../../../lib/catalog-template";
 import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { handleMarketingOptOutKeyword } from "../../../../lib/marketing-optout";
@@ -490,6 +491,8 @@ export async function POST(request: NextRequest) {
         });
 
         if (stored.isNew) {
+          // Which ad opened this conversation (Meta click-to-WhatsApp referral, or a TikTok click id).
+          await captureAdSource({ tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, message });
           await handleMarketingOptOutKeyword({
             tenantId: whatsappAccount.tenantId,
             conversationId: stored.conversationId,
