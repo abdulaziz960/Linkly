@@ -67,12 +67,12 @@ documents a real gap):
 
 | ID | Defect | Severity (my estimate) |
 |---|---|---|
-| AUD-04 | Telegram message-id collision returns another tenant's conversation and quoted text | High (cross-tenant leak) |
-| AUD-01 | Public website-widget polling returns internal staff notes | High |
+| AUD-04 | ~~Telegram message-id collision returns another tenant's conversation and quoted text~~ **FIXED (stage 3)** in `lib/telegram-inbox.ts` | High (cross-tenant leak) |
+| AUD-01 | ~~Public website-widget polling returns internal staff notes~~ **FIXED (stage 3)** in `app/api/website/messages/route.ts` | High |
 | AUD-03 | Opening a conversation by customer id bypasses assignee scope and returns history | Medium |
 | AUD-02 | Employee can take over another employee's assigned conversation | Medium |
 | AUD-08 | Tenant deletion leaves API keys and customer-related records | Medium (data retention) |
-| AUD-05 | Replayed Telegram event double-counts unread and re-runs automations | Low |
+| AUD-05 | ~~Replayed Telegram event double-counts unread and re-runs automations~~ **FIXED (stage 3)** | Low |
 | AUD-10 | Conversation can reference a customer from another tenant at DB level | Low (defence in depth) |
 
 Fixed and now covered by regression tests: AUD-06 (webhook loopback/SSRF), AUD-07
@@ -118,7 +118,7 @@ results are **NOT TESTED**, not failures of the product.
 
 | Item | Status |
 |---|---|
-| Critical/high security findings fixed | FAIL — AUD-04 and AUD-01 still open (see C.1) |
+| Critical/high security findings fixed | PASS for AUD-01 and AUD-04 (fixed and tested, **not yet deployed**); AUD-02/03/08/10 still open (see C.1) |
 | Unit/integration suite green | PASS (all green after tests were rewritten; 7 known-open defects tracked as `it.fails`) |
 | Grace period enforced as policy | NOT TESTED (depends on prod env) |
 | Smart reopening | FAIL vs. brief (design difference) |

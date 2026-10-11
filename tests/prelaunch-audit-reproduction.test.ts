@@ -39,7 +39,7 @@ async function seedConversation(id: string, tenantId: string, channel = "whatsap
   await prisma.conversation.create({ data: { id, tenantId, customerId: `customer-${id}`, channel, assignee: "Another employee", lastMessage: "private", status: "assigned" } });
 }
 
-it.fails("AUD-01 [OPEN]: public widget polling must not expose internal notes", async () => {
+it("AUD-01 [FIXED]: public widget polling must not expose internal notes", async () => {
   const { prisma } = await import("../lib/prisma");
   const { websiteConversationId } = await import("../lib/website-inbox");
   const id = websiteConversationId("audit-widget", "visitor-a");
@@ -70,17 +70,17 @@ it.fails("AUD-03 [OPEN]: opening a conversation by customer must respect assigne
   expect(await response.text()).not.toContain("OTHER AGENT PRIVATE HISTORY");
 });
 
-it.fails("AUD-04 [OPEN]: a Telegram message id collision must never cross tenants", async () => {
+it("AUD-04 [FIXED]: a Telegram message id collision must never cross tenants", async () => {
   const { storeTelegramMessage } = await import("../lib/telegram-inbox");
   const a = await storeTelegramMessage({ tenantId: "telegram-a", chatId: "1000", direction: "in", text: "TENANT A SECRET", messageId: "1000-1" });
   const b = await storeTelegramMessage({ tenantId: "telegram-b", chatId: "1000", direction: "in", text: "Tenant B first message", messageId: "1000-1" });
   expect(b.conversationId).not.toBe(a.conversationId);
   expect(b.text).toBe("Tenant B first message");
   const reply = await storeTelegramMessage({ tenantId: "telegram-b", chatId: "1000", direction: "in", text: "Reply from B", messageId: "1000-2", replyToMessageId: "1" });
-  expect(reply.replyToText).not.toBe("TENANT A SECRET");
+  expect(reply.replyToText).toBe("Tenant B first message");
 });
 
-it.fails("AUD-05 [OPEN]: replaying a Telegram event must not double-count unread or re-run automations", async () => {
+it("AUD-05 [FIXED]: replaying a Telegram event must not double-count unread or re-run automations", async () => {
   const { storeTelegramMessage } = await import("../lib/telegram-inbox");
   const { runInboundMessageAutomations } = await import("../lib/automation-engine");
   vi.mocked(runInboundMessageAutomations).mockClear();

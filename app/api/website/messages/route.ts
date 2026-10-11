@@ -33,7 +33,8 @@ export async function GET(request: NextRequest) {
 
   const conversationId = websiteConversationId(tenantId, visitorId);
   const messages = await prisma.message.findMany({
-    where: { conversationId },
+    // Internal staff notes (direction "note") are never visible to the visitor.
+    where: { conversationId, direction: { in: ["in", "out"] } },
     orderBy: { createdAt: "asc" }
   });
 

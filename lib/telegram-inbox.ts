@@ -47,6 +47,9 @@ export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
   const startClosed = await shouldStartConversationClosed(tenantId, "telegram");
   const ratingRecorded = input.direction === "in" ? await maybeRecordRatingReply(conversationId, input.text) : false;
 
+  // Set inside the transaction: true when this exact event was already stored (provider retry / replay).
+  let duplicate = false;
+
   return prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
       where: { id: customerId },
@@ -85,12 +88,26 @@ export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
       await restartBotFlowIfClosed(tx, conversationId);
     }
 
+    // Message ids are derived from the provider's chat/message ids, which two tenants can share.
+    // If the plain id already belongs to another tenant's conversation, store ours under a
+    // tenant-suffixed id instead of silently returning (and quoting) the other tenant's row.
+    const existingMessage = await tx.message.findUnique({ where: { id: messageId }, select: { conversationId: true } });
+    const collides = Boolean(existingMessage && existingMessage.conversationId !== conversationId);
+    const storedMessageId = collides ? `${messageId}@${tenantId}` : messageId;
+    duplicate = collides
+      ? Boolean(await tx.message.findUnique({ where: { id: storedMessageId }, select: { id: true } }))
+      : Boolean(existingMessage);
+
+    // Quoted messages are only ever looked up inside this conversation.
     const replyToMessage = input.replyToMessageId
       ? await tx.message.findFirst({
           where: {
+            conversationId,
             OR: [
               { id: `tg-${input.chatId}-${input.replyToMessageId}` },
+              { id: `tg-${input.chatId}-${input.replyToMessageId}@${tenantId}` },
               { id: `tg-out-${input.chatId}-${input.replyToMessageId}` },
+              { id: `tg-out-${input.chatId}-${input.replyToMessageId}@${tenantId}` },
               { id: input.replyToMessageId }
             ]
           }
@@ -98,10 +115,10 @@ export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
       : null;
 
     const message = await tx.message.upsert({
-      where: { id: messageId },
+      where: { id: storedMessageId },
       update: {},
       create: {
-        id: messageId,
+        id: storedMessageId,
         conversationId,
         direction: input.direction,
         text: input.text,
@@ -118,18 +135,21 @@ export async function storeTelegramMessage(input: StoreTelegramMessageInput) {
       }
     });
 
-    await tx.conversation.update({
-      where: { id: conversationId },
-      data: {
-        lastMessage: input.text,
-        unread: input.direction === "in" ? { increment: 1 } : undefined,
-        lastActivityAt: activityAt
-      }
-    });
+    // A replayed event must not bump the unread counter again.
+    if (!duplicate) {
+      await tx.conversation.update({
+        where: { id: conversationId },
+        data: {
+          lastMessage: input.text,
+          unread: input.direction === "in" ? { increment: 1 } : undefined,
+          lastActivityAt: activityAt
+        }
+      });
+    }
 
     return message;
   }).then(async (result) => {
-    if (input.direction === "in") {
+    if (input.direction === "in" && !duplicate) {
       await runInboundMessageAutomations(result.conversationId, tenantId, input.text);
     }
     if (ratingRecorded) {
