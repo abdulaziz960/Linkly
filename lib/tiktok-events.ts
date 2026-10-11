@@ -246,7 +246,8 @@ export async function sendTestEvent(tenantId: string): Promise<{ ok: boolean; me
     const url = process.env.TIKTOK_EVENTS_URL || DEFAULT_EVENTS_URL;
     const eventId = `test-${Date.now()}`;
     const result = await post(url, decryptSecret(row.access_token_enc), buildPayload({ eventSetId: row.event_set_id, eventSource: row.event_source || "crm", testEventCode: row.test_event_code }, { name: "Lead", eventId, phone: "966500000000", properties: { lead_status: "test" } }));
-    return { ok: result.ok, message: result.ok ? "أُرسل حدث اختباري بنجاح" : `رفضت TikTok الحدث: ${result.message}` };
+    const used = `نوع المصدر المستخدم: ${row.event_source || "crm"}، المعرّف: ${row.event_set_id.slice(0, 4)}…${row.event_set_id.slice(-3)}`;
+    return { ok: result.ok, message: result.ok ? `أُرسل حدث اختباري بنجاح (${used})` : `رفضت TikTok الحدث: ${result.message} (${used})` };
   } catch {
     return { ok: false, message: "تعذر الاتصال بـ TikTok" };
   }

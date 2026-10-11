@@ -77,6 +77,19 @@ export default function TikTokAdsSettings() {
     setBusy(true);
     setFeedback(null);
     try {
+      // The test uses the SAVED settings, so save what is on screen first (the source type is easy to change and forget to save).
+      const saved = await fetch("/api/tiktok-ads/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventSetId, accessToken, testEventCode, eventSource, enabled, mapping })
+      });
+      const savedResult = await saved.json().catch(() => null) as { ok?: boolean; error?: string; data?: { settings: Settings } } | null;
+      if (!saved.ok || !savedResult?.ok) {
+        setFeedback({ type: "error", text: savedResult?.error || t("تعذر حفظ الإعدادات قبل الاختبار", "Could not save the settings before testing") });
+        return;
+      }
+      if (savedResult.data) apply(savedResult.data.settings);
+      setAccessToken("");
       const response = await fetch("/api/tiktok-ads/test", { method: "POST" });
       const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; data?: { ok: boolean; message: string } } | null;
       setFeedback({ type: result?.data?.ok ? "success" : "error", text: result?.data?.message || result?.error || t("تعذر الإرسال", "Could not send") });
