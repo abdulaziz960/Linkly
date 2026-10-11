@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureWhatsAppNumberRegistered } from "../../../../lib/whatsapp-registration";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
@@ -126,27 +127,6 @@ async function subscribeWhatsAppBusinessAccount(wabaId: string, accessToken: str
 
   if (!response.ok) {
     console.error("WhatsApp business webhook subscription failed", payload);
-  }
-}
-
-async function registerWhatsAppPhoneNumber(phoneNumberId: string, accessToken: string) {
-  if (!phoneNumberId || !accessToken) return;
-
-  const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/register`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      pin: "000000"
-    })
-  });
-  const payload = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    console.error("WhatsApp phone number registration failed", payload);
   }
 }
 
@@ -369,6 +349,11 @@ export async function GET(request: NextRequest) {
       await subscribeWhatsAppBusinessAccount(effectiveWabaId, accessToken);
     }
 
+    // Moves the number from Pending to Connected right away (the connect flow must not depend on it succeeding).
+    if (accessToken && effectivePhoneNumberId) {
+      await ensureWhatsAppNumberRegistered({ tenantId: user.tenantId, phoneNumberId: effectivePhoneNumberId, accessToken });
+    }
+
     // Diagnostic trail for "(#200) no permission to send" reports: which business accounts this
     // token is actually authorised on, next to the one the signup reported. No secrets are logged.
     if (accessToken && appSecret) {
@@ -379,10 +364,6 @@ export async function GET(request: NextRequest) {
           console.warn("WhatsApp connect token check", { tenantId: user.tenantId, reportedWabaId: effectiveWabaId, reportedPhoneNumberId: effectivePhoneNumberId, valid: payload.data?.is_valid, scopes: payload.data?.scopes, messagingTargets: targets, reportedWabaCovered: targets.includes(effectiveWabaId) });
         })
         .catch(() => undefined);
-    }
-
-    if (accessToken && effectivePhoneNumberId) {
-      await registerWhatsAppPhoneNumber(effectivePhoneNumberId, accessToken);
     }
 
     await prisma.integrationSetting.updateMany({

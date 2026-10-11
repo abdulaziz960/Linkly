@@ -376,6 +376,11 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [businessProfileLoading, setBusinessProfileLoading] = useState(false);
   const [businessProfileSaving, setBusinessProfileSaving] = useState(false);
   const [businessProfileFeedback, setBusinessProfileFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [registrationNeeded, setRegistrationNeeded] = useState(false);
+  const [numberRegistration, setNumberRegistration] = useState<{ status: string; message: string } | null>(null);
+  const [retryingRegistration, setRetryingRegistration] = useState(false);
+  const [registrationPin, setRegistrationPin] = useState("");
+  const [registeringPhone, setRegisteringPhone] = useState(false);
   const [oauthEmailStatus, setOauthEmailStatus] = useState<{ provider: "webhook" | "gmail"; status: "connected" | "not_connected" | "pending"; emailAddress: string } | null>(null);
   const [channelBotEnabled, setChannelBotEnabled] = useState(false);
   const [channelBotLoading, setChannelBotLoading] = useState(false);
@@ -455,6 +460,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   useEffect(() => {
     if (isWhatsApp && settings.status === "connected") {
       void loadBusinessProfile();
+      void loadNumberRegistration();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isWhatsApp, settings.status]);
@@ -1002,6 +1008,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         });
         setBusinessProfilePictureUrl(profile.profile_picture_url || "");
       } else {
+        setRegistrationNeeded(String(result?.error || "").includes("133010"));
         setBusinessProfileFeedback({ type: "error", text: result?.error || t("تعذر جلب الملف التجاري من Meta", "Couldn't load the business profile from Meta") });
       }
     } catch {
@@ -1044,16 +1051,74 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       const result = await response.json().catch(() => null);
 
       if (response.ok && result?.ok) {
-        setBusinessProfileFeedback({ type: "success", text: t("تم حفظ الملف التجاري بنجاح.", "The business profile was saved successfully.") });
+        setBusinessProfileFeedback({ type: "success", text: result.data?.message || t("تم حفظ الملف التجاري بنجاح.", "The business profile was saved successfully.") });
         setBusinessProfilePictureDataUrl("");
         void loadBusinessProfile();
       } else {
+        setRegistrationNeeded(String(result?.error || "").includes("133010"));
         setBusinessProfileFeedback({ type: "error", text: result?.error || t("تعذر حفظ الملف التجاري", "Couldn't save the business profile") });
       }
     } catch {
       setBusinessProfileFeedback({ type: "error", text: t("تعذر الاتصال بالسيرفر، تأكد من اتصالك بالإنترنت وحاول من جديد", "Couldn't reach the server, check your internet connection and try again") });
     } finally {
       setBusinessProfileSaving(false);
+    }
+  }
+
+  // Whether Meta shows the number as Connected; when it is not, the card says why and offers a retry.
+  async function loadNumberRegistration() {
+    try {
+      const response = await fetch("/api/meta/whatsapp-registration", { cache: "no-store" });
+      const result = await response.json().catch(() => null) as { ok?: boolean; data?: { status?: string; message?: string } } | null;
+      if (response.ok && result?.ok && result.data?.status) setNumberRegistration({ status: result.data.status, message: result.data.message || "" });
+    } catch {
+      // Best effort: the banner just stays hidden.
+    }
+  }
+
+  async function retryNumberRegistration() {
+    if (retryingRegistration) return;
+    setRetryingRegistration(true);
+    try {
+      const response = await fetch("/api/meta/whatsapp-registration", { method: "POST" });
+      const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; data?: { status?: string; message?: string } } | null;
+      if (!response.ok || !result?.ok) {
+        setNumberRegistration({ status: "failed", message: result?.error || t("تعذر إعادة المحاولة الآن", "Could not retry right now") });
+      } else {
+        setNumberRegistration({ status: result.data?.status || "failed", message: result.data?.message || "" });
+      }
+    } catch {
+      setNumberRegistration({ status: "failed", message: t("تعذر الاتصال بالخادم، حاول بعد قليل", "Could not reach the server, try again later") });
+    } finally {
+      setRetryingRegistration(false);
+    }
+  }
+
+  async function registerWhatsAppPhone(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (registeringPhone || !/^\d{6}$/.test(registrationPin)) return;
+    setRegisteringPhone(true);
+    setBusinessProfileFeedback(null);
+    try {
+      const response = await fetch("/api/meta/whatsapp-register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: registrationPin })
+      });
+      const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; data?: { message?: string } } | null;
+      setRegistrationPin("");
+      if (!response.ok || !result?.ok) {
+        setBusinessProfileFeedback({ type: "error", text: result?.error || t("تعذر تسجيل الرقم لدى Meta", "Meta could not register the number") });
+        return;
+      }
+      setRegistrationNeeded(false);
+      setNumberRegistration({ status: "registered", message: "" });
+      setBusinessProfileFeedback({ type: "success", text: result.data?.message || t("تم تسجيل الرقم لدى Meta", "The number is registered with Meta") });
+    } catch {
+      setRegistrationPin("");
+      setBusinessProfileFeedback({ type: "error", text: t("تعذر الاتصال بالخادم، حاول بعد قليل", "Could not reach the server, try again later") });
+    } finally {
+      setRegisteringPhone(false);
     }
   }
 
@@ -1529,10 +1594,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             <span className={`provider-round-icon${!isInstagram && !isFacebook ? " channel-icon-whatsapp" : ""}`}>
               {isInstagram ? "◎" : isFacebook ? "f" : <ChannelIcon id="whatsapp" />}
             </span>
-            <h3>{isInstagram ? t("ربط Instagram عبر Meta", "Connect Instagram with Meta") : isFacebook ? t("ربط صفحة Facebook", "Connect Facebook Page") : t("إعداد سريع عبر Meta", "Quick setup with Meta")}</h3>
+            <h3>{isInstagram ? t("ربط Instagram", "Connect Instagram") : isFacebook ? t("ربط صفحة Facebook", "Connect Facebook Page") : t("إعداد سريع عبر Meta", "Quick setup with Meta")}</h3>
             <p>
               {isInstagram
-                ? t("اربط حساب Instagram Business أو Creator المرتبط بصفحة Facebook حتى تظهر الرسائل والتعليقات داخل صندوق المحادثات.", "Connect the Instagram Business or Creator account linked to your Facebook page so messages and comments appear in the inbox.")
+                ? t("سجّل الدخول بحساب Instagram احترافي وامنح صلاحية إدارة التعليقات، لتظهر الرسائل والتعليقات في صندوق المحادثات وترد عليها من لنكلي.", "Sign in with a professional Instagram account and grant comment-management access to view messages and comments in the inbox and reply from Linkly.")
                 : isFacebook
                   ? t("اربط صفحة Facebook حتى تظهر رسائل Messenger داخل صندوق المحادثات وتقدر ترد عليها من المنصة.", "Connect your Facebook page so Messenger messages appear in the inbox and you can reply to them from the platform.")
                 : t("استخدم رحلة WhatsApp Embedded Signup لربط أرقام جديدة بسرعة. سيتم تحويلك إلى Meta لتسجيل الدخول إلى حساب WhatsApp Business الخاص بك. توفر صلاحية المسؤول (Admin) يجعل الإعداد أسهل وأسرع.", "Use the WhatsApp Embedded Signup flow to quickly connect new numbers. You will be redirected to Meta to log into your WhatsApp Business account. Having admin access will help make the setup smooth and easy.")}
@@ -1987,6 +2052,21 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             </div>
           ) : null}
 
+          {isWhatsApp && settings.status === "connected" && numberRegistration && numberRegistration.status !== "registered" && numberRegistration.status !== "unknown" ? (
+            <div className="whatsapp-registration" role="alert">
+              <div>
+                <h4>{t("الرقم لم يكتمل تسجيله لدى Meta", "The number is not registered with Meta yet")}</h4>
+                <p>{numberRegistration.message}</p>
+              </div>
+              <div className="business-profile-actions">
+                <button className="primary-action" type="button" disabled={retryingRegistration} onClick={() => void retryNumberRegistration()}>
+                  {retryingRegistration ? t("جاري المحاولة...", "Trying...") : t("إعادة محاولة التسجيل", "Retry registration")}
+                </button>
+                <button className="soft-action" type="button" onClick={() => setRegistrationNeeded(true)}>{t("إدخال رمز التحقق يدويًا", "Enter the PIN manually")}</button>
+              </div>
+            </div>
+          ) : null}
+
           {isWhatsApp && settings.status === "connected" ? <div className="business-profile-card">
             <div>
               <h3>{t("الملف التجاري لواتساب", "WhatsApp business profile")}</h3>
@@ -2056,8 +2136,26 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               <button className="soft-action" disabled={businessProfileLoading || businessProfileSaving} type="button" onClick={loadBusinessProfile}>
                 {businessProfileLoading ? t("جاري التحديث...", "Refreshing...") : t("تحديث من Meta", "Refresh from Meta")}
               </button>
+              <button className="soft-action" type="button" aria-expanded={registrationNeeded} onClick={() => setRegistrationNeeded((current) => !current)}>
+                {registrationNeeded ? t("إخفاء تسجيل الرقم", "Hide number registration") : t("تسجيل الرقم لدى Meta", "Register number with Meta")}
+              </button>
             </div>
             {businessProfileFeedback && <p className={`meta-test-feedback ${businessProfileFeedback.type}`}>{businessProfileFeedback.text}</p>}
+            {registrationNeeded ? (
+              <form className="whatsapp-registration" onSubmit={registerWhatsAppPhone}>
+                <div>
+                  <h4>{t("إكمال تسجيل رقم واتساب", "Complete WhatsApp number registration")}</h4>
+                  <p>{t("إذا كانت هذه أول مرة تسجل فيها الرقم، اختر رمز حماية من 6 أرقام واحتفظ به. إن كان للرقم رمز تحقق بخطوتين سابق، أدخله هنا. هذا ليس رمز SMS. انتظر بضع دقائق إذا طلبت Meta ذلك قبل المحاولة مجددًا.", "If this is the first registration, choose and keep a 6-digit security PIN. If this number already has a two-step verification PIN, enter the existing one. This is not an SMS code. Wait a few minutes before retrying if Meta asks you to.")}</p>
+                </div>
+                <label>
+                  {t("رمز التحقق بخطوتين", "Two-step verification PIN")}
+                  <input dir="ltr" type="password" inputMode="numeric" autoComplete="off" pattern="[0-9]{6}" maxLength={6} value={registrationPin} onChange={(event) => setRegistrationPin(event.target.value.replace(/\D/g, ""))} required />
+                </label>
+                <button className="primary-action" type="submit" disabled={registeringPhone || registrationPin.length !== 6}>
+                  {registeringPhone ? t("جاري تسجيل الرقم...", "Registering number...") : t("تسجيل الرقم لدى Meta", "Register number with Meta")}
+                </button>
+              </form>
+            ) : null}
           </div> : null}
 
           {!isInstagram && !isFacebook && !isTelegram && !isX && !isGoogleMaps && !isYoutube && !isLinkedin && !isSnapchat && !isEmail && !isWebsite && !isTikTok && !isSms && settings.status === "connected" ? <div className="meta-test-card">

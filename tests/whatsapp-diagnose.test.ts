@@ -45,6 +45,7 @@ describe("WhatsApp connection check", () => {
     mockGraph({
       "/debug_token": { data: { is_valid: true, scopes: ["whatsapp_business_messaging", "whatsapp_business_management"], granular_scopes: [{ scope: "whatsapp_business_messaging", target_ids: ["waba-OTHER"] }] } },
       "/waba-1/phone_numbers": { error: { code: 200, message: "permission" } },
+      "/phone-1": { error: { code: 200, message: "permission" } },
       "/waba-1/subscribed_apps": { data: [] }
     });
     const { diagnoseWhatsApp } = await import("../lib/whatsapp-diagnose");
@@ -60,12 +61,28 @@ describe("WhatsApp connection check", () => {
     mockGraph({
       "/debug_token": { data: { is_valid: true, scopes: ["whatsapp_business_messaging", "whatsapp_business_management"], granular_scopes: [{ scope: "whatsapp_business_messaging", target_ids: ["waba-1"] }] } },
       "/waba-1/phone_numbers": { data: [{ id: "phone-1", display_phone_number: "+966 50 000 0000" }] },
+      "/phone-1": { id: "phone-1", status: "CONNECTED" },
       "/waba-1/subscribed_apps": { data: [{ whatsapp_business_api_data: { id: "1296230909161568" } }] }
     });
     const { diagnoseWhatsApp } = await import("../lib/whatsapp-diagnose");
     const result = await diagnoseWhatsApp("tenant-diag-ok");
     expect(result.ok).toBe(true);
     expect(result.checks.every((check) => check.status === "ok")).toBe(true);
+  });
+
+  it("flags a connected integration whose phone is not registered for sending", async () => {
+    await connect("tenant-diag-unregistered");
+    mockGraph({
+      "/debug_token": { data: { is_valid: true, scopes: ["whatsapp_business_messaging", "whatsapp_business_management"], granular_scopes: [{ scope: "whatsapp_business_messaging", target_ids: ["waba-1"] }] } },
+      "/waba-1/phone_numbers": { data: [{ id: "phone-1" }] },
+      "/phone-1": { id: "phone-1", status: "PENDING" },
+      "/waba-1/subscribed_apps": { data: [{ whatsapp_business_api_data: { id: "1296230909161568" } }] }
+    });
+    const { diagnoseWhatsApp } = await import("../lib/whatsapp-diagnose");
+    const result = await diagnoseWhatsApp("tenant-diag-unregistered");
+    expect(result.ok).toBe(false);
+    expect(result.checks.find((check) => check.id === "registration")?.status).toBe("fail");
+    expect(result.advice).toContain("تسجيله");
   });
 
   it("reports missing data when WhatsApp isn't connected", async () => {

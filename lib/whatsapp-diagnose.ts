@@ -94,6 +94,19 @@ export async function diagnoseWhatsApp(tenantId: string): Promise<DiagnoseResult
     });
   }
 
+  const phone = await graph(`/${phoneNumberId}?fields=status`, token);
+  if (!phone.ok) {
+    checks.push({ id: "registration", label: "جاهزية الرقم للإرسال", status: "warn", detail: metaMessage(phone.data) || "تعذر قراءة حالة الرقم من Meta." });
+  } else {
+    const status = typeof phone.data.status === "string" ? phone.data.status.toUpperCase() : "";
+    checks.push({
+      id: "registration",
+      label: "جاهزية الرقم للإرسال",
+      status: status === "CONNECTED" ? "ok" : status ? "fail" : "warn",
+      detail: status === "CONNECTED" ? "الرقم مسجل ومتصل لدى Meta." : status ? `حالة الرقم لدى Meta: ${status}. أكمل تسجيله قبل الإرسال.` : "لم تُرجع Meta حالة تسجيل الرقم. هذا الفحص لا يؤكد إمكانية الإرسال."
+    });
+  }
+
   // 3) Is our app subscribed to the account's webhooks?
   const subscribed = await graph(`/${wabaId}/subscribed_apps`, token);
   if (subscribed.ok) {
@@ -103,13 +116,15 @@ export async function diagnoseWhatsApp(tenantId: string): Promise<DiagnoseResult
   }
 
   const failed = checks.filter((check) => check.status === "fail");
-  let advice = "كل الفحوصات سليمة. إن استمر الخطأ فجرّب بعد دقائق أو أرسل لنا المعرّفات أعلاه.";
+  let advice = "فحوصات الربط سليمة. إذا استمر رفض الإرسال، راجع حالة الرقم لدى Meta ورمز الخطأ الظاهر عند الرد.";
   if (failed.some((check) => check.id === "target" || check.id === "numbers")) {
     advice = "أعد ربط واتساب، وفي نافذة Meta **اختر حساب واتساب للأعمال والرقم نفسه** وفعّل كل الصلاحيات المعروضة (الرسائل والإدارة).";
   } else if (failed.some((check) => check.id === "scopes")) {
     advice = "أعد ربط واتساب ووافق على كل الصلاحيات في نافذة Meta (لا تحذف أي صلاحية).";
   } else if (failed.some((check) => check.id === "token")) {
     advice = "المفتاح غير صالح. أعد ربط واتساب من «الإعدادات والربط».";
+  } else if (failed.some((check) => check.id === "registration")) {
+    advice = "الرقم غير جاهز للإرسال. أكمل تسجيله لدى Meta برمز التحقق بخطوتين من إعدادات واتساب.";
   }
   return { ok: failed.length === 0, checks, advice };
 }

@@ -90,8 +90,12 @@ describe("friendlyWhatsAppError", () => {
     const { friendlyWhatsAppError } = await import("../lib/whatsapp-billing");
     expect(friendlyWhatsAppError({ error: { code: 200, message: "(#200) You do not have the necessary permission" } }, "x")).toContain("أعد ربط قناة واتساب");
     expect(friendlyWhatsAppError({ error: { code: 190, message: "Error validating access token" } }, "x")).toContain("انتهت صلاحية ربط واتساب");
+    expect(friendlyWhatsAppError({ error: { code: 133010, message: "The account is not registered" } }, "x")).toContain("غير مسجل");
     expect(friendlyWhatsAppError({ error: { code: 999, message: "Something else", error_user_msg: "رسالة المستخدم" } }, "x")).toBe("رسالة المستخدم");
     expect(friendlyWhatsAppError({ error: { code: 999, message: "Something else" } }, "x")).toBe("Something else");
+    const unknownError = friendlyWhatsAppError({ error: { code: 1, message: "An unknown error has occurred.", fbtrace_id: "trace-example" } }, "x");
+    expect(unknownError).toContain("رمز 1");
+    expect(unknownError).toContain("trace-example");
     expect(friendlyWhatsAppError(null, "fallback")).toBe("fallback");
   });
 });

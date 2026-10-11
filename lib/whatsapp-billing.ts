@@ -14,7 +14,7 @@ const PAYMENT_ISSUE_ERROR_CODE = 131042;
  * short Arabic explanation with the fix; anything else keeps Meta's own text.
  */
 export function friendlyWhatsAppError(payload: unknown, fallback: string): string {
-  const error = (payload as { error?: { code?: number; error_user_msg?: string; message?: string } } | null | undefined)?.error;
+  const error = (payload as { error?: { code?: number; error_subcode?: number; error_user_msg?: string; message?: string; fbtrace_id?: string } } | null | undefined)?.error;
   switch (error?.code) {
     case 200:
       return "صلاحيات ربط واتساب لهذا الحساب ناقصة (Meta رفضت الإرسال). أعد ربط قناة واتساب من «الإعدادات والربط» ووافق على كل الصلاحيات المطلوبة أثناء الربط.";
@@ -22,8 +22,16 @@ export function friendlyWhatsAppError(payload: unknown, fallback: string): strin
       return "انتهت صلاحية ربط واتساب أو أُلغيت. أعد ربط القناة من «الإعدادات والربط».";
     case 131030:
       return "هذا الرقم غير مسموح له باستقبال الرسائل حاليًا (حساب واتساب في وضع التجربة). أضفه كرقم تجريبي في Meta أو فعّل الحساب.";
+    case 133010:
+      return "رقم واتساب غير مسجل لدى Meta (133010). أكمل تسجيله من الإعدادات والربط قبل إرسال الرسائل.";
     default:
-      return error?.error_user_msg || error?.message || fallback;
+      if (error?.error_user_msg) return error.error_user_msg;
+      if (error?.message && /^(an unknown error has occurred|something went wrong)\.?$/i.test(error.message.trim())) {
+        const code = error.code !== undefined ? ` (رمز ${error.code}${error.error_subcode ? `/${error.error_subcode}` : ""})` : "";
+        const trace = error.fbtrace_id ? ` رمز التتبع للدعم: ${error.fbtrace_id}.` : "";
+        return `تعذر إرسال الرسالة عبر واتساب: أعادت Meta خطأ عامًا${code} دون توضيح السبب. جرّب بعد قليل، وإذا استمر الخطأ تواصل مع دعم Meta.${trace}`;
+      }
+      return error?.message || fallback;
   }
 }
 
