@@ -15,7 +15,7 @@ const copy = {
   }
 };
 
-export default function LoginPageClient() {
+export default function LoginPageClient({ googleEnabled = false, googleError }: { googleEnabled?: boolean; googleError?: string }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
 
@@ -39,7 +39,7 @@ export default function LoginPageClient() {
           <h1>{text.welcome}</h1>
         </div>
 
-        <LoginForm lang={lang} />
+        <LoginForm lang={lang} googleEnabled={googleEnabled} googleError={googleError} />
       </section>
     </main>
   );

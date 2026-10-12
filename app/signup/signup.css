@@ -50,3 +50,12 @@
 /* Reopens the cookie-consent banner - the choice must stay changeable after the first visit. */
 .signup-cookie-settings { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; opacity: .8; }
 .signup-cookie-settings:hover, .signup-cookie-settings:focus-visible { opacity: 1; }
+
+.signup-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+  margin-bottom: 4px;
+}

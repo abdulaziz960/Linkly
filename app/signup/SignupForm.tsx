@@ -109,7 +109,7 @@ const copy = {
   }
 };
 
-export default function SignupForm({ lang = "ar", planId }: { lang?: "ar" | "en"; planId?: string }) {
+export default function SignupForm({ lang = "ar", planId, googleEnabled = false, googleProfile = null }: { lang?: "ar" | "en"; planId?: string; googleEnabled?: boolean; googleProfile?: { email: string; name: string } | null }) {
   const router = useRouter();
   const text = copy[lang];
   const channelOptions = channels[lang];
@@ -126,27 +126,29 @@ export default function SignupForm({ lang = "ar", planId }: { lang?: "ar" | "en"
     if (!form.get("businessType")) return setError(lang === "en" ? "Choose your business type." : "اختر نوع النشاط.");
     setLoading(true); setError("");
     const response = await fetch("/api/trial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-      companyName: form.get("companyName"), businessType: form.get("businessType"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), teamSize: form.get("teamSize"), channels: selected, website: form.get("website"), termsAccepted, planId
+      companyName: form.get("companyName"), businessType: form.get("businessType"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), teamSize: form.get("teamSize"), channels: selected, website: form.get("website"), termsAccepted, planId, googleSignup: Boolean(googleProfile)
     }) });
     const payload = await response.json().catch(() => ({})) as {
       error?: string;
       message?: string;
-      data?: { message?: string; activationUrl?: string; emailSent?: boolean };
+      data?: { message?: string; activationUrl?: string; emailSent?: boolean; redirectTo?: string };
     };
     setLoading(false);
     // The backend only returns Arabic error messages today, so an
     // English-language signup still shows an Arabic error string here.
     if (!response.ok) return setError(payload.error || payload.message || text.genericError);
+    if (payload.data?.redirectTo) return router.push(payload.data.redirectTo);
     if (payload.data?.activationUrl) return router.push(payload.data.activationUrl.replace(location.origin, ""));
     const delivery = payload.data?.emailSent === false ? "failed" : "sent";
     router.push(`/signup/success?email=${encodeURIComponent(String(form.get("ownerEmail") || ""))}&delivery=${delivery}${lang === "en" ? "&lang=en" : ""}`);
   }
 
   return <form className="journey-form" onSubmit={submit}>
+    {googleEnabled && !googleProfile ? <a className="journey-submit signup-google" href="/api/auth/google/start?mode=signup">{lang === "en" ? "Sign up with Google" : "التسجيل بواسطة Google"}</a> : null}
     <label>{text.companyName}<input name="companyName" required maxLength={120} autoComplete="organization" placeholder={text.companyNamePlaceholder} /></label>
     <label>{text.businessType}<CustomSelect name="businessType" defaultValue="" options={businessTypeOptions} /></label>
-    <label>{text.ownerName}<input name="ownerName" required maxLength={100} autoComplete="name" placeholder={text.ownerNamePlaceholder} /></label>
-    <label>{text.email}<input name="ownerEmail" type="email" required maxLength={254} autoComplete="email" placeholder="name@company.sa" /></label>
+    <label>{text.ownerName}<input name="ownerName" required maxLength={100} autoComplete="name" defaultValue={googleProfile?.name} placeholder={text.ownerNamePlaceholder} /></label>
+    <label>{text.email}<input name="ownerEmail" type="email" required maxLength={254} autoComplete="email" defaultValue={googleProfile?.email} readOnly={Boolean(googleProfile)} placeholder="name@company.sa" /></label>
     <label>{text.phone}<input name="phone" type="tel" required inputMode="tel" maxLength={30} autoComplete="tel" pattern="^(00966|\+966|966|0)?5\d{8}$" title={text.phonePlaceholder} placeholder={text.phonePlaceholder} /></label>
     <label className="signup-honeypot" aria-hidden="true">{text.website}<input name="website" tabIndex={-1} autoComplete="off" /></label>
     <details className="signup-options">

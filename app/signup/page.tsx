@@ -1,4 +1,6 @@
+import { cookies } from "next/headers";
 import SignupPageClient from "./SignupPageClient";
+import { GOOGLE_SIGNUP_COOKIE, googleSignInConfigured, verifyGoogleSignupToken } from "../../lib/google-signin";
 import { cycleFromSlug } from "../../lib/billing-pricing";
 import { getActivePlans } from "../../lib/plans";
 import "./signup.css";
@@ -12,5 +14,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
   const selectedPlan = planId
     ? (await getActivePlans()).find((plan) => plan.id === planId)
     : undefined;
-  return <SignupPageClient selectedPlan={selectedPlan ? { id: selectedPlan.id, name: selectedPlan.name } : null} selectedBilling={cycleFromSlug(billing)} />;
+  const googleProfile = verifyGoogleSignupToken((await cookies()).get(GOOGLE_SIGNUP_COOKIE)?.value);
+  return <SignupPageClient selectedPlan={selectedPlan ? { id: selectedPlan.id, name: selectedPlan.name } : null} selectedBilling={cycleFromSlug(billing)} googleEnabled={googleSignInConfigured()} googleProfile={googleProfile} />;
 }

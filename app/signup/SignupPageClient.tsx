@@ -54,7 +54,7 @@ const copy = {
   }
 } as const;
 
-export default function SignupPageClient({ selectedPlan, selectedBilling }: { selectedPlan: { id: string; name: string } | null; selectedBilling: BillingCycle }) {
+export default function SignupPageClient({ selectedPlan, selectedBilling, googleEnabled = false, googleProfile = null }: { selectedPlan: { id: string; name: string } | null; selectedBilling: BillingCycle; googleEnabled?: boolean; googleProfile?: { email: string; name: string } | null }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
 
@@ -83,7 +83,7 @@ export default function SignupPageClient({ selectedPlan, selectedBilling }: { se
           <small>{{ "شهري": text.billingMonthly, "ربع سنوي": text.billingQuarterly, "نصف سنوي": text.billingSemiannual, "سنوي": text.billingYearly }[selectedBilling]}</small>
           <p>{text.planNote}</p>
         </div> : null}
-        <SignupForm lang={lang} planId={selectedPlan?.id} />
+        <SignupForm lang={lang} planId={selectedPlan?.id} googleEnabled={googleEnabled} googleProfile={googleProfile} />
         <small>{text.haveAccount} <Link href="/login">{text.login}</Link></small>
         <small><button type="button" className="signup-cookie-settings" onClick={() => window.dispatchEvent(new Event(REOPEN_COOKIE_BANNER_EVENT))}>{text.cookieSettings}</button></small>
       </section>

@@ -62,13 +62,25 @@ function completeLogin(router: ReturnType<typeof useRouter>, data: { redirectTo?
   router.refresh();
 }
 
-export default function LoginForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
+const googleMessages: Record<string, string> = {
+  unavailable: "الدخول بواسطة Google غير متاح حالياً",
+  cancelled: "تم إلغاء الدخول بواسطة Google",
+  "unverified-email": "بريد Google غير موثّق",
+  disabled: "هذا الحساب معطّل، تواصل مع مسؤول حسابكم",
+  "password-required": "هذا الحساب يتطلب الدخول بالبريد وكلمة المرور",
+  "two-factor": "هذا الحساب مفعّل عليه التحقق بخطوتين، ادخل بالبريد وكلمة المرور",
+  "rate-limited": "محاولات كثيرة، حاول لاحقاً",
+  "invalid-state": "انتهت الجلسة، حاول مرة أخرى",
+  failed: "تعذر الدخول بواسطة Google"
+};
+
+export default function LoginForm({ lang = "ar", googleEnabled = false, googleError }: { lang?: "ar" | "en"; googleEnabled?: boolean; googleError?: string }) {
   const router = useRouter();
   const text = copy[lang];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(googleError ? googleMessages[googleError] || "" : "");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState<"credentials" | "2fa">("credentials");
@@ -247,6 +259,11 @@ export default function LoginForm({ lang = "ar" }: { lang?: "ar" | "en" }) {
       <button className="login-submit" type="submit" disabled={loading}>
         {loading ? text.submitting : text.submit}
       </button>
+      {googleEnabled ? (
+        <a className="login-google" href="/api/auth/google/start?mode=login">
+          {lang === "en" ? "Continue with Google" : "المتابعة بواسطة Google"}
+        </a>
+      ) : null}
     </form>
   );
 }

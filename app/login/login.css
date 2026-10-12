@@ -393,3 +393,19 @@
     flex-direction: column;
   }
 }
+
+.login-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  background: #fff;
+  color: #1d2939;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.login-google:hover { background: #f9fafb; }

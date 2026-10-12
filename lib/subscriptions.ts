@@ -973,6 +973,8 @@ type CreateTenantInput = {
   billingCycle: string;
   renewalAt: string;
   adminName: string;
+  /** The email was already verified by the identity provider (Google sign-in): no activation invite is created or sent. */
+  emailVerified?: boolean;
 };
 
 /**
@@ -1066,16 +1068,18 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
       }
     });
 
-    await tx.employeeInvite.create({
-      data: {
-        id: `invite-${randomUUID()}`,
-        email,
-        tokenHash,
-        expiresAt,
-        purpose: "employee_activation",
-        createdAt: new Date().toISOString()
-      }
-    });
+    if (!input.emailVerified) {
+      await tx.employeeInvite.create({
+        data: {
+          id: `invite-${randomUUID()}`,
+          email,
+          tokenHash,
+          expiresAt,
+          purpose: "employee_activation",
+          createdAt: new Date().toISOString()
+        }
+      });
+    }
 
     await tx.subscription.create({
       data: {
@@ -1120,6 +1124,11 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
       }
     });
   });
+
+  if (input.emailVerified) {
+    const verifiedSubscription = await prisma.subscription.findUnique({ where: { tenantId } });
+    return { subscription: verifiedSubscription, inviteDelivery: { sent: true, activationUrl: "", message: "" }, created: true };
+  }
 
   const origin = process.env.NODE_ENV === "production"
     ? "https://linklysa.io"
