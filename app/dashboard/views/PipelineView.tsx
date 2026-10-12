@@ -18,7 +18,7 @@ type PipelineViewProps = {
   onRefreshData: () => Promise<void>;
 };
 
-type PipelineTab = "external" | "internal";
+type PipelineTab = "external" | "internal" | "links";
 
 function stageLabel(stage: PipelineStage, t: (ar: string, en: string) => string) {
   const labels: Record<PipelineStage, [string, string]> = {
@@ -249,6 +249,138 @@ function StepCard({ number, title, children }: { number: number; title: string; 
         {children}
       </div>
     </section>
+  );
+}
+
+type WaLinkItem = { code: string; name: string; platform: string; campaign: string; message: string; createdAt: string; clicks: number; conversations: number };
+
+/** WhatsApp tracking links for ads: the destination to use in Snapchat / TikTok / Google ads. */
+function WaLinksTab({ t }: { t: (ar: string, en: string) => string }) {
+  const [links, setLinks] = useState<WaLinkItem[]>([]);
+  const [origin, setOrigin] = useState("");
+  const [whatsappReady, setWhatsappReady] = useState(true);
+  const [name, setName] = useState("");
+  const [platform, setPlatform] = useState("snapchat");
+  const [campaign, setCampaign] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState("");
+  const [error, setError] = useState("");
+
+  async function load() {
+    try {
+      const response = await fetch("/api/wa-links", { cache: "no-store" });
+      const result = await response.json().catch(() => null) as { ok?: boolean; data?: { links: WaLinkItem[]; origin: string; whatsappReady: boolean } } | null;
+      if (response.ok && result?.ok && result.data) {
+        setLinks(result.data.links);
+        setOrigin(result.data.origin);
+        setWhatsappReady(result.data.whatsappReady);
+      }
+    } catch {
+      // The list simply stays empty.
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function create() {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/wa-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, platform, campaign, message }) });
+      const result = await response.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (!response.ok || !result?.ok) {
+        setError(result?.error || t("تعذر إنشاء الرابط", "Could not create the link"));
+        return;
+      }
+      setName("");
+      setCampaign("");
+      setMessage("");
+      await load();
+    } catch {
+      setError(t("تعذر الاتصال بالخادم", "Could not reach the server"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(code: string) {
+    await fetch(`/api/wa-links/${code}`, { method: "DELETE" }).catch(() => null);
+    await load();
+  }
+
+  async function copy(code: string) {
+    await navigator.clipboard?.writeText(`${origin}/api/w/${code}`).catch(() => undefined);
+    setCopied(code);
+    window.setTimeout(() => setCopied(""), 1500);
+  }
+
+  const platformLabel = (value: string) => ({ snapchat: t("سناب شات", "Snapchat"), tiktok: t("تيك توك", "TikTok"), google: t("قوقل", "Google"), meta: t("ميتا", "Meta"), other: t("أخرى", "Other") }[value] ?? value);
+  const muted: React.CSSProperties = { margin: 0, lineHeight: 1.8, opacity: 0.8, fontSize: 14 };
+  const input: React.CSSProperties = { width: "100%", minHeight: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--line, #cfd9d6)", background: "var(--surface, #fff)", color: "inherit", font: "inherit", fontWeight: 600 };
+  const label: React.CSSProperties = { display: "grid", gap: 6, fontWeight: 700, fontSize: 14 };
+
+  return (
+    <div style={{ display: "grid", gap: 14, minHeight: 0, overflow: "auto", paddingBottom: 24 }}>
+      <section style={{ display: "grid", gap: 10, padding: 18, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface-soft, rgba(23,138,130,0.06))" }}>
+        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>{t("روابط واتساب لإعلاناتك", "WhatsApp links for your ads")}</h3>
+        <p style={muted}>{t("استخدم الرابط وجهةً لإعلان سناب أو تيك توك أو قوقل بدل رابط واتساب المباشر. عند الضغط يسجّل لنكلي النقرة ومعرّفها ثم يفتح واتساب برسالتك الجاهزة، فيظهر مصدر العميل (المنصة والحملة) أعلى المحادثة، وتُطابَق أحداث المراحل بمعرّف النقرة.", "Use the link as the destination of a Snapchat, TikTok or Google ad instead of a plain WhatsApp link. On click Linkly records the click and its id, then opens WhatsApp with your message, so the customer's source (platform and campaign) shows above the conversation and stage events are matched with the click id.")}</p>
+        {!whatsappReady ? <p className="meta-test-warning" style={{ margin: 0 }}>{t("واتساب غير مربوط بعد، فلن تعمل الروابط حتى تربطه.", "WhatsApp is not connected yet, so the links will not work until you connect it.")}</p> : null}
+      </section>
+
+      <section style={{ display: "grid", gap: 12, padding: 16, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
+        <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 900 }}>{t("إنشاء رابط جديد", "Create a link")}</h4>
+        <label style={label}>
+          {t("اسم الرابط", "Link name")}
+          <input style={input} value={name} onChange={(event) => setName(event.target.value)} placeholder={t("مثال: إعلان سناب - عرض الصيف", "e.g. Snapchat ad - summer offer")} />
+        </label>
+        <label style={label}>
+          {t("المنصة", "Platform")}
+          <CustomSelect value={platform} onChange={setPlatform} options={[
+            { value: "snapchat", label: t("سناب شات", "Snapchat") },
+            { value: "tiktok", label: t("تيك توك", "TikTok") },
+            { value: "google", label: t("قوقل", "Google") },
+            { value: "meta", label: t("ميتا", "Meta") },
+            { value: "other", label: t("أخرى", "Other") }
+          ]} />
+        </label>
+        <label style={label}>
+          {t("اسم الحملة أو المشروع (اختياري)", "Campaign or project name (optional)")}
+          <input style={input} value={campaign} onChange={(event) => setCampaign(event.target.value)} placeholder={t("مثال: مشروع واجهة الرياض", "e.g. Riyadh Front project")} />
+        </label>
+        <label style={label}>
+          {t("الرسالة الجاهزة في واتساب", "Pre-filled WhatsApp message")}
+          <input style={input} value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t("السلام عليكم، أبغى أستفسر عن العرض", "Hello, I'd like to ask about the offer")} />
+        </label>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button className="primary-action" type="button" disabled={busy} onClick={() => void create()}>{t("إنشاء الرابط", "Create link")}</button>
+          {error ? <span className="meta-test-feedback error">{error}</span> : null}
+        </div>
+      </section>
+
+      <section style={{ display: "grid", gap: 10, padding: 16, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
+        <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 900 }}>{t("روابطك", "Your links")}</h4>
+        {links.length === 0 ? <p style={muted}>{t("لا توجد روابط بعد.", "No links yet.")}</p> : null}
+        {links.map((link) => (
+          <div key={link.code} style={{ display: "grid", gap: 8, padding: "12px 14px", borderRadius: 10, background: "var(--surface-soft, #f3f7f6)" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <b>{link.name}</b>
+              <span style={{ padding: "1px 10px", borderRadius: 999, background: "#178a82", color: "#fff", fontSize: 12, fontWeight: 800 }}>{platformLabel(link.platform)}</span>
+              {link.campaign ? <span style={{ opacity: 0.75, fontSize: 13 }}>{link.campaign}</span> : null}
+              <span style={{ marginInlineStart: "auto", fontSize: 13, opacity: 0.8 }}>{t(`${link.clicks} نقرة · ${link.conversations} محادثة`, `${link.clicks} clicks · ${link.conversations} chats`)}</span>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <code dir="ltr" style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 13, padding: "6px 10px", borderRadius: 8, background: "var(--surface, #fff)", border: "1px solid var(--line, #dfe7e5)", overflowX: "auto", whiteSpace: "nowrap" }}>{`${origin}/api/w/${link.code}`}</code>
+              <button type="button" className="soft-action" style={{ flexShrink: 0, minHeight: 34 }} onClick={() => void copy(link.code)}>{copied === link.code ? "✓" : t("نسخ", "Copy")}</button>
+              <button type="button" className="soft-action" style={{ flexShrink: 0, minHeight: 34 }} onClick={() => void remove(link.code)}>{t("حذف", "Delete")}</button>
+            </div>
+          </div>
+        ))}
+        <p style={{ ...muted, fontSize: 12.5 }}>{t("ضع الرابط كما هو في «الوجهة / Website URL» في الإعلان. سناب يضيف معرّف النقرة (ScCid) وتيك توك ttclid وقوقل gclid تلقائيًا، وتبقى كل المعرّفات تُلتقط.", "Put the link as is in the ad's destination / Website URL. Snapchat adds ScCid, TikTok ttclid and Google gclid automatically, and every id is captured.")}</p>
+      </section>
+    </div>
   );
 }
 
@@ -653,10 +785,11 @@ export default function PipelineView({ conversations, automationRules, templates
         <p>{t("استقبل الليدات من منصة خارجية أو تابع العملاء المحتملين داخل لنكلي حسب المرحلة.", "Receive leads from an external platform or track leads inside Linkly by stage.")}</p>
         <div className="pipeline-tabs" role="tablist" aria-label={t("تبويبات العملاء المحتملين", "Leads tabs")}>
           <button type="button" role="tab" aria-selected={activeTab === "external"} onClick={() => setActiveTab("external")}>{t("ربط منصة خارجية", "External platform")}</button>
+          <button type="button" role="tab" aria-selected={activeTab === "links"} onClick={() => setActiveTab("links")}>{t("روابط الإعلانات", "Ad links")}</button>
           <button type="button" role="tab" aria-selected={activeTab === "internal"} onClick={() => setActiveTab("internal")}>{t("داخل المنصة", "Inside platform")}</button>
         </div>
       </div>
-      {activeTab === "external" ? <ExternalLeadsTab t={t} onShowInternal={() => setActiveTab("internal")} onRefresh={onRefreshData} /> : (
+      {activeTab === "links" ? <WaLinksTab t={t} /> : activeTab === "external" ? <ExternalLeadsTab t={t} onShowInternal={() => setActiveTab("internal")} onRefresh={onRefreshData} /> : (
         <div className="lead-internal">
           <div className="pipeline-tabs lead-layout-switch" role="group" aria-label={t("طريقة العرض", "View")}>
             <button type="button" aria-pressed={layout === "board"} onClick={() => setLayout("board")}>{t("لوحة", "Board")}</button>

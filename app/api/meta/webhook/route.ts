@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { convertAudioToMp3 } from "../../../../lib/audio-conversion";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
+import { captureLinkAdSource } from "../../../../lib/wa-links";
 import { handleOrderInquiry } from "../../../../lib/store-engine";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
 import { runWhatsAppBot, runChannelBot, startTemplateCatalog } from "../../../../lib/bot-engine";
@@ -494,6 +495,8 @@ export async function POST(request: NextRequest) {
         if (stored.isNew) {
           // Which ad opened this conversation (Meta click-to-WhatsApp referral, or a TikTok click id).
           await captureAdSource({ tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, message });
+          // A message that came through one of the workspace's WhatsApp tracking links (Snapchat / TikTok / Google ads).
+          await captureLinkAdSource({ tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId });
           await handleMarketingOptOutKeyword({
             tenantId: whatsappAccount.tenantId,
             conversationId: stored.conversationId,

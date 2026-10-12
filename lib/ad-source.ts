@@ -167,6 +167,22 @@ export async function getAdSource(tenantId: string, conversationId: string): Pro
  * Never throws - a failure here must not affect receiving the message.
  */
 /**
+ * Records the source of a conversation that came through one of the workspace's WhatsApp tracking links:
+ * the platform and campaign of the link, and the platform's click id (ScCid / ttclid / gclid) so events can use it.
+ * Never overwrites a source already captured; never throws.
+ */
+export async function recordLinkAdSource(input: { tenantId: string; conversationId: string; platform: "meta" | "tiktok" | "snapchat" | "google" | "unknown"; headline?: string; clickId?: string }): Promise<void> {
+  try {
+    await ensureTable();
+    if (await getAdSource(input.tenantId, input.conversationId)) return;
+    const now = new Date().toISOString();
+    await prisma.$executeRaw`INSERT INTO conversation_ad_source (conversation_id, tenant_id, platform, ad_id, headline, source_url, click_id, matched_by, raw_json, thumbnail_url, media_type, created_at) VALUES (${input.conversationId}, ${input.tenantId}, ${input.platform}, '', ${str(input.headline, 300)}, '', ${str(input.clickId, 400)}, 'tracking_link', '', '', '', ${now})`;
+  } catch (error) {
+    console.error("Link ad source failed", error);
+  }
+}
+
+/**
  * Records the ad behind a lead FORM (Meta Lead Ads, Snapchat Lead Gen) on the conversation it created, so the
  * strip above the messages shows the campaign / ad like it does for click-to-WhatsApp. Never overwrites a source
  * already captured; never throws.
