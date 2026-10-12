@@ -253,7 +253,7 @@ function StepCard({ number, title, children }: { number: number; title: string; 
 }
 
 function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en: string) => string; onShowInternal: () => void; onRefresh: () => Promise<void> }) {
-  const [source, setSource] = useState<"tiktok" | "snapchat" | "other">("tiktok");
+  const [source, setSource] = useState<"tiktok" | "google" | "other">("tiktok");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -303,7 +303,7 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
     <div style={{ display: "grid", gap: 14, minHeight: 0, overflow: "auto", paddingBottom: 24 }}>
       <section style={{ display: "grid", gap: 10, padding: 18, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface-soft, rgba(23,138,130,0.06))" }}>
         <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>{t("ربط منصة نماذج خارجية (Zapier أو Make)", "Connect an external form platform (Zapier or Make)")}</h3>
-        <p style={muted}>{t("لأي منصة ليس لها ربط مباشر مثل نماذج تيك توك أو Typeform أو Google Sheets: ترسل ليدها إلى لنكلي فيظهر هنا كمحادثة ومرحلة «استفسار جديد».", "For any platform without a direct connection, such as TikTok forms, Typeform or Google Sheets: send its leads to Linkly and they show up here as a conversation at the “New inquiry” stage.")}</p>
+        <p style={muted}>{t("لأي منصة ليس لها ربط مباشر مثل نماذج تيك توك أو نماذج قوقل أو Typeform أو Google Sheets: ترسل ليدها إلى لنكلي فيظهر هنا كمحادثة ومرحلة «استفسار جديد».", "For any platform without a direct connection, such as TikTok forms, Google forms, Typeform or Google Sheets: send its leads to Linkly and they show up here as a conversation at the “New inquiry” stage.")}</p>
         <p style={{ ...muted, opacity: 0.9 }}>
           {t("ميتا وسناب شات لا يحتاجان هذا: يرتبطان مباشرة من صفحة", "Meta and Snapchat do not need this: they connect directly from the")} <a href="/dashboard?view=integrations" style={{ fontWeight: 800 }}>{t("التكاملات", "Integrations")}</a>.
         </p>
@@ -315,11 +315,11 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
       </StepCard>
 
       <StepCard number={2} title={t("اختر مصدر الليد (المشغّل) في Zapier أو Make", "Pick the lead source (trigger) in Zapier or Make")}>
-        <p style={muted}>{t("المشغّل هو المنصة التي يملأ فيها العميل النموذج. اختر مصدرك لتظهر لك أسماء الحقول التي ستربطها في الخطوة التالية:", "The trigger is the platform where the customer fills the form. Pick yours to see the field names you will map in the next step:")}</p>
+        <p style={muted}>{t("المشغّل هو المنصة التي يملأ فيها العميل النموذج. هذا التبويب للمنصات التي ليس لها ربط مباشر في لنكلي (تيك توك وقوقل وغيرهما). ميتا وسناب شات يرتبطان مباشرة من التكاملات بدون Zapier. اختر مصدرك لتظهر لك أسماء الحقول:", "The trigger is the platform where the customer fills the form. This tab is for platforms without a direct connection in Linkly (TikTok, Google and others). Meta and Snapchat connect directly from Integrations, no Zapier. Pick yours to see the field names:")}</p>
         <div style={{ maxWidth: 320 }}>
-          <CustomSelect value={source} onChange={(value) => setSource(value as "tiktok" | "snapchat" | "other")} options={[
+          <CustomSelect value={source} onChange={(value) => setSource(value as "tiktok" | "google" | "other")} options={[
             { value: "tiktok", label: t("تيك توك: TikTok Lead Generation ← New Lead", "TikTok: TikTok Lead Generation → New Lead") },
-            { value: "snapchat", label: t("سناب شات: Snapchat Lead Gen ← New Lead", "Snapchat: Snapchat Lead Gen → New Lead") },
+            { value: "google", label: t("قوقل: Google Ads ← New Lead Form Response", "Google: Google Ads → New Lead Form Response") },
             { value: "other", label: t("مصدر آخر: Typeform / Google Sheets / غيره", "Other: Typeform / Google Sheets / other") }
           ]} />
         </div>
@@ -343,7 +343,7 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
         <ZapRow data field="purchase_purpose" hint={t("إجابة سؤال الغرض من الشراء", "The purchase-purpose answer")} t={t} />
         <ZapRow data field="purchase_method" hint={t("إجابة سؤال طريقة الشراء", "The purchase-method answer")} t={t} />
         <ZapRow data field="preferred_contact_time" hint={t("إجابة وقت التواصل المفضل", "The preferred-contact-time answer")} t={t} />
-        <ZapRow data field="lead_source" hint={t(`نص ثابت تكتبه: ${source === "tiktok" ? "تيك توك" : source === "snapchat" ? "سناب شات" : "اسم مصدرك"} (اختياري، يظهر في المحادثة)`, `a fixed text you type: ${source === "tiktok" ? "TikTok" : source === "snapchat" ? "Snapchat" : "your source name"} (optional, shown in the conversation)`)} t={t} />
+        <ZapRow data field="lead_source" hint={t(`نص ثابت تكتبه: ${source === "tiktok" ? "تيك توك" : source === "google" ? "قوقل" : "اسم مصدرك"} (اختياري، يظهر في المحادثة)`, `a fixed text you type: ${source === "tiktok" ? "TikTok" : source === "google" ? "Google" : "your source name"} (optional, shown in the conversation)`)} t={t} />
 
         </ZapGroup>
 
