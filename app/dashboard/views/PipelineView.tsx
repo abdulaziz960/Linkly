@@ -171,7 +171,7 @@ function Column({ stage, children, t, count }: { stage: PipelineStage; children:
   );
 }
 
-function CopyField({ label, value, t }: { label: string; value: string; t: (ar: string, en: string) => string }) {
+function CopyField({ label, value, t, multiline = false }: { label: string; value: string; t: (ar: string, en: string) => string; multiline?: boolean }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -181,13 +181,25 @@ function CopyField({ label, value, t }: { label: string; value: string; t: (ar: 
   }
 
   return (
-    <div className="lead-copy-field">
-      <span>{label}</span>
-      <div>
-        <code dir="ltr">{value}</code>
-        <button type="button" onClick={copy}>{copied ? t("تم النسخ", "Copied") : t("نسخ", "Copy")}</button>
+    <div style={{ display: "grid", gap: 6 }}>
+      <span style={{ fontSize: 13, fontWeight: 800 }}>{label}</span>
+      <div style={{ display: "flex", gap: 8, alignItems: multiline ? "flex-start" : "center" }}>
+        <code dir="ltr" style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface-soft, #f3f7f6)", fontSize: 13, textAlign: "left", whiteSpace: multiline ? "pre" : "nowrap", overflowX: "auto" }}>{value}</code>
+        <button type="button" className="soft-action" style={{ flexShrink: 0, minHeight: 38, padding: "0 14px" }} onClick={copy}>{copied ? t("تم النسخ ✓", "Copied ✓") : t("نسخ", "Copy")}</button>
       </div>
     </div>
+  );
+}
+
+function StepCard({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
+  return (
+    <section style={{ display: "grid", gridTemplateColumns: "40px minmax(0, 1fr)", gap: 14, padding: 16, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
+      <span aria-hidden="true" style={{ width: 36, height: 36, borderRadius: 999, display: "grid", placeItems: "center", background: "#178a82", color: "#fff", fontWeight: 900 }}>{number}</span>
+      <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
+        <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 900 }}>{title}</h4>
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -197,55 +209,59 @@ function ExternalLeadsTab({ t }: { t: (ar: string, en: string) => string }) {
   const sampleBody = `{
   "customerName": "محمد عبدالله",
   "customerPhone": "0501234567",
-  "text": "عميل محتمل من نموذج خارجي - مهتم بمشروع واجهة الرياض"
+  "text": "عميل محتمل من تيك توك - مهتم بمشروع واجهة الرياض"
 }`;
+  const muted: React.CSSProperties = { margin: 0, lineHeight: 1.8, opacity: 0.8, fontSize: 14 };
+
+  const fields: Array<{ name: string; required: boolean; description: string; example: string }> = [
+    { name: "customerPhone", required: true, description: t("رقم جوال العميل المحتمل", "The lead's mobile number"), example: "0501234567" },
+    { name: "text", required: true, description: t("نص الليد: من أين جاء وماذا يريد", "Lead text: where it came from and what they want"), example: t("مهتم بمشروع واجهة الرياض", "Interested in the Riyadh Front project") },
+    { name: "customerName", required: false, description: t("اسم العميل", "The lead's name"), example: t("محمد عبدالله", "Mohammed") },
+    { name: "visit", required: false, description: t("true إذا كان الليد زيارة أو حجزًا مؤكدًا", "true when the lead is a visit or confirmed booking"), example: "true" },
+    { name: "visitAt", required: false, description: t("وقت الزيارة بصيغة ISO", "Visit time in ISO format"), example: "2026-10-20T16:00:00+03:00" }
+  ];
 
   return (
-    <div className="lead-integration">
-      <section className="lead-integration-hero">
-        <div>
-          <h3>{t("ربط منصة خارجية عبر Zapier", "Connect an external platform via Zapier")}</h3>
-          <p>{t("استخدم Webhook من Zapier أو Make أو أي منصة نماذج لإرسال العميل المحتمل إلى لنكلي تلقائيًا وفتحه كمحادثة داخل المنصة.", "Use a webhook from Zapier, Make, or any form platform to send a lead to Linkly automatically and open it as a conversation inside the platform.")}</p>
-        </div>
-        <a className="lead-integration-link" href="/dashboard?view=developers">{t("مفاتيح API", "API keys")}</a>
+    <div style={{ display: "grid", gap: 14, minHeight: 0, overflow: "auto", paddingBottom: 24 }}>
+      <section style={{ display: "grid", gap: 10, padding: 18, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface-soft, rgba(23,138,130,0.06))" }}>
+        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>{t("ربط منصة نماذج خارجية (Zapier أو Make)", "Connect an external form platform (Zapier or Make)")}</h3>
+        <p style={muted}>{t("لأي منصة ليس لها ربط مباشر مثل نماذج تيك توك أو Typeform أو Google Sheets: ترسل ليدها إلى لنكلي فيظهر هنا كمحادثة ومرحلة «استفسار جديد».", "For any platform without a direct connection, such as TikTok forms, Typeform or Google Sheets: send its leads to Linkly and they show up here as a conversation at the “New inquiry” stage.")}</p>
+        <p style={{ ...muted, opacity: 0.9 }}>
+          {t("ميتا وسناب شات لا يحتاجان هذا: يرتبطان مباشرة من صفحة", "Meta and Snapchat do not need this: they connect directly from the")} <a href="/dashboard?view=integrations" style={{ fontWeight: 800 }}>{t("التكاملات", "Integrations")}</a>.
+        </p>
       </section>
 
-      <div className="lead-integration-grid">
-        <section className="lead-integration-card">
-          <h4>{t("إعداد Zapier", "Zapier setup")}</h4>
-          <ol>
-            <li>{t("اختر التطبيق الخارجي كمصدر الليد مثل Facebook Lead Ads أو Typeform أو Google Sheets.", "Choose the external app as the lead source, such as Facebook Lead Ads, Typeform, or Google Sheets.")}</li>
-            <li>{t("أضف خطوة Webhooks by Zapier واختر Custom Request.", "Add a Webhooks by Zapier step and choose Custom Request.")}</li>
-            <li>{t("طريقة الطلب POST، ونوع البيانات JSON.", "Use POST as the method and JSON as the data type.")}</li>
-            <li>{t("أضف ترويسة Authorization بقيمة Bearer ثم مفتاح API الخاص بحساب العميل.", "Add the Authorization header with Bearer followed by the client's API key.")}</li>
-          </ol>
-        </section>
+      <StepCard number={1} title={t("احصل على مفتاح API", "Get an API key")}>
+        <p style={muted}>{t("من صفحة «المطورون» أنشئ مفتاحًا. يبدأ بـ lk_ ويظهر مرة واحدة، فانسخه واحفظه.", "Create a key on the Developers page. It starts with lk_ and is shown once, so copy and keep it.")}</p>
+        <a className="btn primary" href="/dashboard?view=developers" style={{ justifySelf: "start" }}>{t("فتح صفحة المطورون", "Open the Developers page")}</a>
+      </StepCard>
 
-        <section className="lead-integration-card">
-          <h4>{t("المتطلبات", "Requirements")}</h4>
-          <ul>
-            <li>{t("مفتاح API من صفحة المطورون أو من فريق لنكلي.", "An API key from the Developers page or the Linkly team.")}</li>
-            <li>{t("رقم جوال سعودي للعميل المحتمل.", "A Saudi mobile number for the lead.")}</li>
-            <li>{t("نص يوضح مصدر الليد أو المشروع المطلوب.", "A message describing the lead source or requested project.")}</li>
-          </ul>
-        </section>
-      </div>
+      <StepCard number={2} title={t("اختر مصدر الليد في Zapier أو Make", "Pick the lead source in Zapier or Make")}>
+        <p style={muted}>{t("المشغّل (Trigger) هو المنصة التي يملأ فيها العميل النموذج، مثل: TikTok Lead Generation ← New Lead، أو Typeform ← New Entry، أو Google Sheets ← New Row.", "The trigger is the platform where the customer fills the form, e.g. TikTok Lead Generation → New Lead, Typeform → New Entry, or Google Sheets → New Row.")}</p>
+      </StepCard>
 
-      <section className="lead-integration-card">
-        <h4>{t("بيانات الويب هوك", "Webhook details")}</h4>
-        <CopyField label={t("رابط الويب هوك", "Webhook URL")} value={webhookUrl} t={t} />
-        <CopyField label={t("الترويسة", "Header")} value="Authorization: Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx" t={t} />
-        <CopyField label={t("مثال JSON", "JSON example")} value={sampleBody} t={t} />
-      </section>
+      <StepCard number={3} title={t("أضف إجراء Webhook من نوع POST بهذه البيانات", "Add a POST webhook action with this data")}>
+        <p style={muted}>{t("في Zapier: Webhooks by Zapier ← Custom Request. في Make: HTTP ← Make a request. اجعل نوع البيانات JSON.", "In Zapier: Webhooks by Zapier → Custom Request. In Make: HTTP → Make a request. Set the data type to JSON.")}</p>
+        <CopyField label={t("الطريقة والرابط (POST)", "Method and URL (POST)")} value={webhookUrl} t={t} />
+        <CopyField label={t("الترويسة: الاسم", "Header: name")} value="Authorization" t={t} />
+        <CopyField label={t("الترويسة: القيمة (ضع مفتاحك بدل lk_xxx)", "Header: value (put your key in place of lk_xxx)")} value="Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx" t={t} />
+        <CopyField label={t("الجسم (JSON): اربط كل حقل بحقل النموذج المناسب", "Body (JSON): map each field to the matching form field")} value={sampleBody} t={t} multiline />
+      </StepCard>
 
-      <section className="lead-integration-card">
-        <h4>{t("الحقول", "Fields")}</h4>
-        <div className="lead-fields-table">
-          <div><b>customerPhone</b><span>{t("مطلوب - رقم جوال سعودي مثل 0501234567", "Required - Saudi mobile number such as 0501234567")}</span></div>
-          <div><b>text</b><span>{t("مطلوب - نص الليد أو رسالة المصدر", "Required - lead message or source text")}</span></div>
-          <div><b>customerName</b><span>{t("اختياري - اسم العميل المحتمل", "Optional - lead name")}</span></div>
-          <div><b>visit</b><span>{t("اختياري - true إذا كان الليد يمثل زيارة أو حجزًا مؤكدًا", "Optional - true if the lead represents a visit or confirmed booking")}</span></div>
-          <div><b>visitAt</b><span>{t("اختياري - وقت الزيارة بصيغة ISO", "Optional - visit time in ISO format")}</span></div>
+      <StepCard number={4} title={t("جرّب وتحقّق", "Test it")}>
+        <p style={muted}>{t("شغّل الاختبار في Zapier أو Make بنموذج تجريبي، ثم افتح تبويب «داخل المنصة»: يظهر العميل بمرحلة «استفسار جديد» وتجد محادثته في صندوق الوارد.", "Run the test in Zapier or Make with a sample entry, then open the “Inside platform” tab: the lead appears at “New inquiry” and its conversation is in the inbox.")}</p>
+      </StepCard>
+
+      <section style={{ display: "grid", gap: 10, padding: 16, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
+        <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 900 }}>{t("الحقول المقبولة", "Accepted fields")}</h4>
+        <div style={{ display: "grid", gap: 8 }}>
+          {fields.map((field) => (
+            <div key={field.name} style={{ display: "grid", gridTemplateColumns: "minmax(120px, 0.7fr) 70px minmax(0, 2fr)", gap: 10, alignItems: "center", padding: "10px 12px", borderRadius: 10, background: "var(--surface-soft, #f3f7f6)" }}>
+              <b dir="ltr" style={{ textAlign: "left", fontSize: 13 }}>{field.name}</b>
+              <span style={{ justifySelf: "start", padding: "1px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, background: field.required ? "#fde6d8" : "#e6eef0", color: field.required ? "#b4501d" : "#4c635f" }}>{field.required ? t("مطلوب", "Required") : t("اختياري", "Optional")}</span>
+              <span style={{ fontSize: 13.5, lineHeight: 1.7 }}>{field.description} <code dir="ltr" style={{ opacity: 0.7 }}>{field.example}</code></span>
+            </div>
+          ))}
         </div>
       </section>
     </div>
