@@ -11689,3 +11689,20 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .meta-test-card .channel-icon img {
   display: block;
 }
+
+/* Leads page, inside the platform: the filters and the board keep their own height and the page scrolls
+   (the board used to be squeezed to a few pixels once the filter bar was added). */
+.lead-internal {
+  grid-auto-rows: max-content;
+  align-content: start;
+  overflow-y: auto;
+  padding-bottom: 24px;
+}
+
+.lead-internal .pipeline-board {
+  min-height: 520px;
+}
+
+.lead-internal .lead-table-panel {
+  min-height: 0;
+}

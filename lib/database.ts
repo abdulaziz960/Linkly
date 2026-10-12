@@ -3134,12 +3134,20 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
 
   // The ad behind each lead (captured from click-to-WhatsApp referrals and lead forms), for the leads page filters.
   // The table is created on first use, so a workspace that never had one simply has no sources.
-  const adSources = new Map<string, { platform: string; headline: string }>();
+  const adSources = new Map<string, { platform: string; headline: string; matchedBy: string }>();
   try {
-    const rows = await prisma.$queryRaw<Array<{ conversation_id: string; platform: string; headline: string }>>`SELECT conversation_id, platform, headline FROM conversation_ad_source WHERE tenant_id = ${tenantId}`;
-    for (const row of rows) adSources.set(row.conversation_id, { platform: row.platform, headline: row.headline });
+    const rows = await prisma.$queryRaw<Array<{ conversation_id: string; platform: string; headline: string; matched_by: string }>>`SELECT conversation_id, platform, headline, matched_by FROM conversation_ad_source WHERE tenant_id = ${tenantId}`;
+    for (const row of rows) adSources.set(row.conversation_id, { platform: row.platform, headline: row.headline, matchedBy: row.matched_by });
   } catch {
     // no ad sources yet
+  }
+  // Conversations that began as a lead-form submission (a record in the leads table), whatever their ad source says.
+  const formConversationIds = new Set<string>();
+  try {
+    const leadRows = await prisma.lead.findMany({ where: { tenantId, conversationId: { not: "" } }, select: { conversationId: true } });
+    for (const row of leadRows) formConversationIds.add(row.conversationId);
+  } catch {
+    // no leads yet
   }
 
   return conversations.map((conversation) => {
@@ -3222,6 +3230,7 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       attrUtmContent: conversation.attrUtmContent || undefined,
       adPlatform: (adSources.get(conversation.id)?.platform || undefined) as Conversation["adPlatform"],
       adHeadline: adSources.get(conversation.id)?.headline || undefined,
+      leadKind: (formConversationIds.has(conversation.id) || adSources.get(conversation.id)?.matchedBy === "lead_form" ? "form" : "contact") as Conversation["leadKind"],
       isEscalated: (Boolean(conversation.escalatedForMessageId)
         && lastRealMessage?.id === conversation.escalatedForMessageId
         && lastRealMessage?.direction === "in") || undefined

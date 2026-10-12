@@ -102,6 +102,8 @@ export type Conversation = {
   adPlatform?: "meta" | "tiktok" | "snapchat" | "google" | "unknown";
   /** The ad / campaign / form name of that ad source. */
   adHeadline?: string;
+  /** "form": the person filled a lead form (they are contacted); "contact": they wrote to us themselves. */
+  leadKind?: "form" | "contact";
   // True only while the conversation's last message is still the exact
   // inbound message that triggered an SLA escalation (lib/response-sla.ts) -
   // an employee reply flips the last message to outbound, which clears this

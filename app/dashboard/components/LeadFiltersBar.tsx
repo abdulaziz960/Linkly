@@ -101,6 +101,16 @@ export default function LeadFiltersBar({ filters, options, total, shown, onChang
           ]} />
         </label>
         <label style={field}>
+          {t("نوع العميل", "Customer type")}
+          <CustomSelect value={filters.kind} onChange={(value) => set({ kind: value })} options={[
+            { value: "all", label: t("كل الأنواع", "All types") },
+            ...["form", "contact"].map((kind) => ({
+              value: kind,
+              label: `${kind === "form" ? t("معبّئ فورم", "Filled a form") : t("متواصل (راسلنا بنفسه)", "Contacted us")} (${options.kinds.find((item) => item.value === kind)?.count ?? 0})`
+            }))
+          ]} />
+        </label>
+        <label style={field}>
           {t("المشروع / الحملة", "Project / campaign")}
           <CustomSelect value={filters.project} onChange={(value) => set({ project: value })} options={[
             { value: "all", label: t("كل المشاريع", "All projects") },

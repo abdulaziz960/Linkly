@@ -126,6 +126,25 @@ describe("POST /api/v1/conversations", () => {
     expect(await getAdSource(tenantId, plain.data.conversationId)).toBeNull();
   });
 
+  it("lands an API lead in the same thread a WhatsApp message from that phone uses", async () => {
+    const { generateApiKey } = await import("../lib/developer-api");
+    const { POST } = await import("../app/api/v1/conversations/route");
+    const { prisma } = await import("../lib/prisma");
+    const { storeWhatsAppMessage, whatsappThreadIds } = await import("../lib/whatsapp-inbox");
+    const { rawKey } = await generateApiKey(tenantId, "one thread test key");
+
+    const firstResponse = await POST(jsonRequest("https://example.test/api/v1/conversations", { phone_number: "0503334455", full_name: "فيصل" }, rawKey));
+    const first = await firstResponse.json();
+    expect(first.data.conversationId).toBe(whatsappThreadIds(tenantId, "966503334455").conversationId);
+
+    const again = await (await POST(jsonRequest("https://example.test/api/v1/conversations", { phone_number: "+966 50 333 4455", full_name: "فيصل" }, rawKey))).json();
+    expect(again.data.conversationId).toBe(first.data.conversationId);
+
+    const stored = await storeWhatsAppMessage({ phone: "966503334455", name: "فيصل", text: "السلام عليكم", direction: "in", tenantId, messageId: "one-thread-1" });
+    expect(stored.conversationId).toBe(first.data.conversationId);
+    expect(await prisma.conversation.count({ where: { tenantId, customer: { phone: "966503334455" } } })).toBe(1);
+  });
+
   it("still needs a phone", async () => {
     const { generateApiKey } = await import("../lib/developer-api");
     const { POST } = await import("../app/api/v1/conversations/route");

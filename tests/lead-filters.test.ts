@@ -17,7 +17,7 @@ const leads: Conversation[] = [
   lead("2", { firstMessageAt: "2026-10-10T08:00:00", channel: "snapchat", adPlatform: "snapchat", adHeadline: "نموذج الصيف" }),
   lead("3", { firstMessageAt: "2026-09-01T08:00:00", attrUtmCampaign: "فلل الشمال", assignee: "سارة", pipelineStage: "مؤهل" }),
   lead("4", { firstMessageAt: "2026-10-14T10:00:00", channel: "instagram" }),
-  lead("5", { firstMessageAt: undefined, lastActivityAt: "2026-10-13T10:00:00", adPlatform: "tiktok" })
+  lead("5", { firstMessageAt: undefined, lastActivityAt: "2026-10-13T10:00:00", adPlatform: "tiktok", leadKind: "form" })
 ];
 
 const filtered = (patch: Partial<LeadFilters>) => applyLeadFilters(leads, { ...EMPTY_LEAD_FILTERS, ...patch }, undefined, NOW).map((item) => item.id);
@@ -52,6 +52,12 @@ describe("lead filters", () => {
     expect(filtered({ search: "عميل 4" })).toEqual(["4"]);
     expect(filtered({ search: "0002" })).toEqual(["2"]);
     expect(filtered({ project: "فلل الشمال", assignee: "سارة", datePreset: "today" })).toEqual(["1"]);
+  });
+
+  it("filters by customer type: filled a form vs wrote to us", () => {
+    expect(filtered({ kind: "form" })).toEqual(["5"]);
+    expect(filtered({ kind: "contact" })).toEqual(["1", "2", "3", "4"]);
+    expect(buildFilterOptions(leads).kinds).toEqual([{ value: "contact", count: 4 }, { value: "form", count: 1 }]);
   });
 
   it("uses the stage the page shows (a card just dragged) rather than the stored one", () => {

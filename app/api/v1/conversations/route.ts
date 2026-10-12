@@ -43,11 +43,11 @@ export async function POST(request: NextRequest) {
   const customerName = stringOf("customerName", "full_name", "name").slice(0, 100);
   const answers: FormAnswer[] = body ? extraAnswersFromBody(body) : [];
   const explicitText = stringOf("text").slice(0, 4000);
-  // With no text, the answers themselves are the message.
-  const text = explicitText || (answers.length ? "عميل محتمل من نموذج خارجي" : "");
+  // The phone is the only thing a lead needs: without a text, the answers (if any) are the message.
+  const text = explicitText || "عميل محتمل من نموذج خارجي";
 
   if (!customerPhone || !text) {
-    return withCors(NextResponse.json({ ok: false, error: "phone_number (or customerPhone) is required, with either text or form fields" }, { status: 400 }));
+    return withCors(NextResponse.json({ ok: false, error: "phone_number (or customerPhone) is required" }, { status: 400 }));
   }
   if (!isValidSaudiPhone(customerPhone)) {
     return withCors(NextResponse.json({ ok: false, error: "customerPhone must be a valid Saudi mobile number" }, { status: 400 }));

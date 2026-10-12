@@ -119,3 +119,27 @@ describe("the form is shown as readable lines", () => {
     ])).toBe("📋 نموذج: عرض الصيف\n• الاسم: هند\n• رقم الجوال: 0500000654\n• ميزانيتك: —");
   });
 });
+
+describe("one person, one thread", () => {
+  it("puts a Snapchat form lead into the phone's WhatsApp conversation, so a later message lands in it", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { storeWhatsAppMessage, whatsappThreadIds } = await import("../lib/whatsapp-inbox");
+    const result = await store("L-MERGE-0009", "0500000909");
+    const ids = whatsappThreadIds("ten-snap", "966500000909");
+    expect(result.conversationId).toBe(ids.conversationId);
+    const conversation = await prisma.conversation.findUnique({ where: { id: ids.conversationId } });
+    expect(conversation?.channel).toBe("whatsapp");
+
+    // The customer then writes on WhatsApp: same conversation, no second thread.
+    const stored = await storeWhatsAppMessage({ phone: "966500000909", name: "أحمد", text: "هلا", direction: "in", tenantId: "ten-snap", messageId: "merge-1" });
+    expect(stored.conversationId).toBe(ids.conversationId);
+    expect(await prisma.conversation.count({ where: { tenantId: "ten-snap", customer: { phone: "966500000909" } } })).toBe(1);
+  });
+
+  it("keeps a lead with no usable phone as its own Snapchat conversation", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const result = await store("L-NOPHONE-0010", "abc");
+    const conversation = await prisma.conversation.findUnique({ where: { id: result.conversationId } });
+    expect(conversation?.channel).toBe("snapchat");
+  });
+});

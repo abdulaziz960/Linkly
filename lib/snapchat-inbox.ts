@@ -9,7 +9,8 @@ import { questionLabel, summarizeFormAnswers } from "./lead-form";
 import { getIntegrationSettings } from "./database";
 import { recordFormAdSource } from "./ad-source";
 import { sendWhatsAppTemplate } from "./campaign-engine";
-import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "./whatsapp-inbox";
+import { normalizeWhatsAppPhone, storeWhatsAppMessage, whatsappThreadIds } from "./whatsapp-inbox";
+import { leadWhatsappNumber } from "./phone-format";
 
 type StoreSnapchatLeadInput = {
   tenantId: string;
@@ -96,16 +97,21 @@ export async function storeSnapchatLead(input: StoreSnapchatLeadInput) {
   const phone = findAnswer(input.answers, PHONE_KEYS);
   const email = findAnswer(input.answers, EMAIL_KEYS);
   const scopedPrefix = tenantId === "tenant-demo" ? "" : `${tenantId}-`;
-  const customerId = `${scopedPrefix}sc-lead-${input.leadId}`;
-  const conversationId = `${scopedPrefix}sc-lead-${input.leadId}`;
+  // With a usable phone the lead joins that phone's WhatsApp thread (one person, one conversation: the welcome and
+  // any reply land there too). Without one it stays a conversation of its own on the Snapchat channel.
+  const threadPhone = leadWhatsappNumber(phone);
+  const thread = threadPhone ? whatsappThreadIds(tenantId, threadPhone) : null;
+  const customerId = thread?.customerId ?? `${scopedPrefix}sc-lead-${input.leadId}`;
+  const conversationId = thread?.conversationId ?? `${scopedPrefix}sc-lead-${input.leadId}`;
+  const conversationChannel = thread ? "whatsapp" : "snapchat";
   const messageId = `sc-${input.leadId}`;
   const summary = summarizeAnswers(input.formName, input.answers);
 
   const result = await prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
       where: { id: customerId },
-      update: { name, phone, initial: firstChar(name.trim()) || "S" },
-      create: { id: customerId, name, phone, initial: firstChar(name.trim()) || "S", tenantId }
+      update: { name, phone: threadPhone || phone, initial: firstChar(name.trim()) || "S" },
+      create: { id: customerId, name, phone: threadPhone || phone, initial: firstChar(name.trim()) || "S", tenantId }
     });
 
     await tx.conversation.upsert({
@@ -114,7 +120,7 @@ export async function storeSnapchatLead(input: StoreSnapchatLeadInput) {
       create: {
         id: conversationId,
         customerId,
-        channel: "snapchat",
+        channel: conversationChannel,
         lastMessage: summary,
         status: "unassigned",
         assignee: "بدون موظف",

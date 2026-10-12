@@ -1,7 +1,10 @@
 import { createHash } from "crypto";
 import { sendWhatsAppTemplate } from "./campaign-engine";
 import { prisma } from "./prisma";
+import { leadWhatsappNumber } from "./phone-format";
 import { storeWhatsAppMessage } from "./whatsapp-inbox";
+
+export { leadWhatsappNumber };
 
 /**
  * The WhatsApp welcome for leads that arrive through the public leads API (Zapier / Make: TikTok forms, Google
@@ -55,15 +58,6 @@ export async function saveLeadWelcomeSettings(tenantId: string, input: { enabled
     await prisma.$executeRaw`INSERT INTO lead_welcome_settings (tenant_id, enabled, template, updated_at) VALUES (${tenantId}, ${enabled ? 1 : 0}, ${template}, ${now})`;
   }
   return { enabled, template };
-}
-
-/** Digits with the country code: 05xxxxxxxx / 5xxxxxxxx get 966, 00-prefixed numbers lose the 00. "" when not usable. */
-export function leadWhatsappNumber(raw: string): string {
-  let digits = raw.replace(/\D/g, "");
-  if (digits.startsWith("00")) digits = digits.slice(2);
-  if (/^05\d{8}$/.test(digits)) digits = `966${digits.slice(1)}`;
-  else if (/^5\d{8}$/.test(digits)) digits = `966${digits}`;
-  return digits.length >= 10 && digits.length <= 15 ? digits : "";
 }
 
 export type WelcomeOutcome = "sent" | "off" | "no-template" | "bad-phone" | "already-welcomed" | "failed";

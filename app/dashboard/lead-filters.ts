@@ -21,11 +21,13 @@ export type LeadFilters = {
   channel: string;
   source: string;
   project: string;
+  /** "form" (filled a form) | "contact" (wrote to us) | "all". */
+  kind: string;
   stage: string;
   assignee: string;
 };
 
-export const EMPTY_LEAD_FILTERS: LeadFilters = { search: "", datePreset: "all", from: "", to: "", channel: "all", source: "all", project: "all", stage: "all", assignee: "all" };
+export const EMPTY_LEAD_FILTERS: LeadFilters = { search: "", datePreset: "all", from: "", to: "", channel: "all", source: "all", project: "all", kind: "all", stage: "all", assignee: "all" };
 
 export function hasActiveFilters(filters: LeadFilters): boolean {
   return (Object.keys(EMPTY_LEAD_FILTERS) as Array<keyof LeadFilters>).some((key) => filters[key] !== EMPTY_LEAD_FILTERS[key]);
@@ -34,6 +36,11 @@ export function hasActiveFilters(filters: LeadFilters): boolean {
 /** "meta" | "tiktok" | "snapchat" for a lead that came from an ad, "direct" otherwise. */
 export function sourceOf(conversation: Conversation): string {
   return conversation.adPlatform && conversation.adPlatform !== "unknown" ? conversation.adPlatform : conversation.adPlatform === "unknown" ? "ad" : "direct";
+}
+
+/** "form" for someone who filled a lead form, "contact" for someone who wrote to us. */
+export function kindOf(conversation: Conversation): "form" | "contact" {
+  return conversation.leadKind === "form" ? "form" : "contact";
 }
 
 /** The name of the campaign / ad / form behind the lead ("" when it came from none). */
@@ -78,6 +85,7 @@ export function applyLeadFilters(conversations: Conversation[], filters: LeadFil
     if (filters.channel !== "all" && conversation.channel !== filters.channel) return false;
     if (filters.source !== "all" && sourceOf(conversation) !== filters.source) return false;
     if (filters.project !== "all" && projectOf(conversation) !== filters.project) return false;
+    if (filters.kind !== "all" && kindOf(conversation) !== filters.kind) return false;
     if (filters.stage !== "all" && stageOf(conversation) !== filters.stage) return false;
     if (filters.assignee !== "all" && conversation.assignee !== filters.assignee) return false;
     return true;
@@ -88,6 +96,7 @@ export type FilterOptions = {
   channels: Array<{ value: string; count: number }>;
   sources: Array<{ value: string; count: number }>;
   projects: Array<{ value: string; count: number }>;
+  kinds: Array<{ value: string; count: number }>;
   assignees: string[];
 };
 
@@ -103,6 +112,7 @@ export function buildFilterOptions(conversations: Conversation[]): FilterOptions
     channels: countBy(conversations.map((conversation) => conversation.channel)),
     sources: countBy(conversations.map(sourceOf)),
     projects: countBy(conversations.map(projectOf).filter(Boolean)),
+    kinds: countBy(conversations.map(kindOf)),
     assignees: [...new Set(conversations.map((conversation) => conversation.assignee).filter(Boolean))].sort()
   };
 }

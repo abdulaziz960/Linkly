@@ -68,6 +68,15 @@ function extractAttributionMarker(text: string): { cleanText: string; linkClickI
   return { cleanText: text.slice(0, match.index).trimEnd(), linkClickId: match[1] };
 }
 
+/**
+ * The customer and conversation ids of a phone's WhatsApp thread. Every path that creates a conversation for a
+ * phone (WhatsApp messages, lead forms, the leads API) uses these, so one person is one thread.
+ */
+export function whatsappThreadIds(tenantId: string, phoneDigits: string): { customerId: string; conversationId: string } {
+  const prefix = tenantId === "tenant-demo" ? "" : `${tenantId}-`;
+  return { customerId: `${prefix}wa-${phoneDigits}`, conversationId: `${prefix}conv-${phoneDigits}` };
+}
+
 export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
   await ensureSchema();
 

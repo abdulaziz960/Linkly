@@ -1,3 +1,5 @@
+import { leadWhatsappNumber } from "./phone-format";
+import { whatsappThreadIds } from "./whatsapp-inbox";
 import { randomBytes, randomUUID, createHash } from "crypto";
 import { prisma } from "./prisma";
 import { runInboundMessageAutomations } from "./automation-engine";
@@ -88,7 +90,11 @@ export async function revokeApiKey(tenantId: string, id: string): Promise<boolea
  * conversation activity.
  */
 export async function openApiConversation(tenantId: string, input: { customerPhone: string; customerName?: string; text: string; recordVisit?: boolean; visitAt?: string }): Promise<{ conversationId: string }> {
-  const phone = input.customerPhone.trim();
+  const rawPhone = input.customerPhone.trim();
+  // A lead's phone in its WhatsApp form, so the same person is one customer and one thread whether they
+  // arrive by the API, a form or a WhatsApp message.
+  const normalized = leadWhatsappNumber(rawPhone);
+  const phone = normalized || rawPhone;
   const text = input.text.trim();
   if (!phone) throw new Error("Missing customer phone");
   if (!text) throw new Error("Missing message text");
@@ -98,9 +104,10 @@ export async function openApiConversation(tenantId: string, input: { customerPho
   const visitAt = input.recordVisit ? (input.visitAt?.trim() || createdAt) : "";
 
   const conversationId = await prisma.$transaction(async (tx) => {
-    let customer = await tx.customer.findFirst({ where: { tenantId, phone } });
+    const threadIds = normalized ? whatsappThreadIds(tenantId, normalized) : null;
+    let customer = await tx.customer.findFirst({ where: { tenantId, phone: { in: [...new Set([phone, rawPhone])] } } });
     if (!customer) {
-      const id = `c-${randomUUID()}`;
+      const id = threadIds && !(await tx.customer.findUnique({ where: { id: threadIds.customerId }, select: { id: true } })) ? threadIds.customerId : `c-${randomUUID()}`;
       customer = await tx.customer.create({
         data: {
           id, tenantId, name, phone, initial: name.slice(0, 1),
@@ -116,9 +123,10 @@ export async function openApiConversation(tenantId: string, input: { customerPho
 
     let conversation = await tx.conversation.findFirst({ where: { tenantId, customerId: customer.id }, orderBy: { lastActivityAt: "desc" } });
     if (!conversation) {
+      const conversationKey = threadIds && !(await tx.conversation.findUnique({ where: { id: threadIds.conversationId }, select: { id: true } })) ? threadIds.conversationId : `c-${randomUUID()}`;
       conversation = await tx.conversation.create({
         data: {
-          id: `c-${randomUUID()}`,
+          id: conversationKey,
           tenantId,
           customerId: customer.id,
           channel: "whatsapp",
