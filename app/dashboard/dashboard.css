@@ -11668,3 +11668,24 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 
 .lead-internal { align-content: start; }
 .lead-layout-switch { margin: 0 0 12px; justify-self: start; align-self: start; height: auto; }
+
+/* Integration cards: every brand icon sits in the same centered 52px tile (it was only sized inside .channel-card). */
+.meta-test-card .channel-icon {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  margin-bottom: 12px;
+}
+
+.meta-test-card .channel-icon svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+.meta-test-card .channel-icon img {
+  display: block;
+}
