@@ -18,6 +18,9 @@ export type AdSource = {
   clickId: string;
   matchedBy: string;
   raw: string;
+  /** The ad's picture (or video poster) when the platform sent one, https only. */
+  thumbnailUrl: string;
+  mediaType: "image" | "video" | "";
   createdAt: string;
 };
 
@@ -33,6 +36,23 @@ type WhatsAppMessage = {
 
 function str(value: unknown, max = 500): string {
   return typeof value === "string" ? value.slice(0, max) : "";
+}
+
+/** Only https links are kept: the strip renders them as an image. */
+function httpsUrl(value: unknown): string {
+  const url = str(value, 1500).trim();
+  return /^https:\/\/[^\s"'<>]+$/i.test(url) ? url : "";
+}
+
+/** Pure: the picture of the ad from a referral object (a video's poster when it has no image). */
+export function extractAdMedia(referral: Record<string, unknown> | null | undefined): { thumbnailUrl: string; mediaType: "image" | "video" | "" } {
+  if (!referral) return { thumbnailUrl: "", mediaType: "" };
+  const declared = str(referral.media_type, 20).toLowerCase();
+  const image = httpsUrl(referral.image_url);
+  const thumbnail = httpsUrl(referral.thumbnail_url);
+  const video = httpsUrl(referral.video_url);
+  const mediaType = declared === "video" || (!image && video) ? "video" : image || thumbnail ? "image" : "";
+  return { thumbnailUrl: mediaType === "video" ? thumbnail || image : image || thumbnail, mediaType };
 }
 
 /** Pure: reads the ad source out of an inbound WhatsApp message payload (null when it carries none). */
@@ -56,7 +76,8 @@ export function extractAdSource(message: WhatsAppMessage): Omit<AdSource, "creat
     sourceUrl,
     clickId: tiktokClick || metaClick,
     matchedBy: tiktokClick ? (TTCLID.test(sourceUrl) ? "referral.source_url" : "text") : referral ? "referral" : "",
-    raw: safeRaw
+    raw: safeRaw,
+    ...extractAdMedia(referral)
   };
 }
 
@@ -75,7 +96,12 @@ function ensureTable() {
       raw_json TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
     )`)
-    .then(() => undefined)
+    .then(async () => {
+      // Added after the table first shipped; a second run finds the column and the error is ignored.
+      for (const column of ["thumbnail_url", "media_type"]) {
+        await prisma.$executeRawUnsafe(`ALTER TABLE conversation_ad_source ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`).catch(() => undefined);
+      }
+    })
     .catch((error) => {
       ready = null;
       throw error;
@@ -83,14 +109,14 @@ function ensureTable() {
   return ready;
 }
 
-type Row = { platform: string; ad_id: string; headline: string; source_url: string; click_id: string; matched_by: string; raw_json: string; created_at: string };
+type Row = { platform: string; ad_id: string; headline: string; source_url: string; click_id: string; matched_by: string; raw_json: string; thumbnail_url: string; media_type: string; created_at: string };
 
 export async function getAdSource(tenantId: string, conversationId: string): Promise<AdSource | null> {
   await ensureTable();
-  const rows = await prisma.$queryRaw<Row[]>`SELECT platform, ad_id, headline, source_url, click_id, matched_by, raw_json, created_at FROM conversation_ad_source WHERE conversation_id = ${conversationId} AND tenant_id = ${tenantId}`;
+  const rows = await prisma.$queryRaw<Row[]>`SELECT platform, ad_id, headline, source_url, click_id, matched_by, raw_json, thumbnail_url, media_type, created_at FROM conversation_ad_source WHERE conversation_id = ${conversationId} AND tenant_id = ${tenantId}`;
   const row = rows[0];
   if (!row) return null;
-  return { platform: row.platform as AdSource["platform"], adId: row.ad_id, headline: row.headline, sourceUrl: row.source_url, clickId: row.click_id, matchedBy: row.matched_by, raw: row.raw_json, createdAt: row.created_at };
+  return { platform: row.platform as AdSource["platform"], adId: row.ad_id, headline: row.headline, sourceUrl: row.source_url, clickId: row.click_id, matchedBy: row.matched_by, raw: row.raw_json, thumbnailUrl: row.thumbnail_url || "", mediaType: row.media_type === "video" ? "video" : row.media_type === "image" ? "image" : "", createdAt: row.created_at };
 }
 
 /**
@@ -106,7 +132,7 @@ export async function captureAdSource(input: { tenantId: string; conversationId:
     const existing = await getAdSource(input.tenantId, input.conversationId);
     const now = new Date().toISOString();
     if (!existing) {
-      await prisma.$executeRaw`INSERT INTO conversation_ad_source (conversation_id, tenant_id, platform, ad_id, headline, source_url, click_id, matched_by, raw_json, created_at) VALUES (${input.conversationId}, ${input.tenantId}, ${source.platform}, ${source.adId}, ${source.headline}, ${source.sourceUrl}, ${source.clickId}, ${source.matchedBy}, ${source.raw}, ${now})`;
+      await prisma.$executeRaw`INSERT INTO conversation_ad_source (conversation_id, tenant_id, platform, ad_id, headline, source_url, click_id, matched_by, raw_json, thumbnail_url, media_type, created_at) VALUES (${input.conversationId}, ${input.tenantId}, ${source.platform}, ${source.adId}, ${source.headline}, ${source.sourceUrl}, ${source.clickId}, ${source.matchedBy}, ${source.raw}, ${source.thumbnailUrl}, ${source.mediaType}, ${now})`;
     } else if (!existing.clickId && source.clickId) {
       await prisma.$executeRaw`UPDATE conversation_ad_source SET click_id = ${source.clickId}, platform = ${source.platform}, matched_by = ${source.matchedBy} WHERE conversation_id = ${input.conversationId} AND tenant_id = ${input.tenantId}`;
     }

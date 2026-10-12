@@ -15,5 +15,5 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (!owned) return jsonError("المحادثة غير موجودة", 404);
   const source = await getAdSource(user.tenantId, id);
   // The raw payload is for diagnosis only and is not sent to the browser.
-  return jsonOk(source ? { platform: source.platform, adId: source.adId, headline: source.headline, sourceUrl: source.sourceUrl, hasClickId: Boolean(source.clickId), createdAt: source.createdAt } : null);
+  return jsonOk(source ? { platform: source.platform, adId: source.adId, headline: source.headline, sourceUrl: source.sourceUrl, thumbnailUrl: source.thumbnailUrl, mediaType: source.mediaType, hasClickId: Boolean(source.clickId), createdAt: source.createdAt } : null);
 }

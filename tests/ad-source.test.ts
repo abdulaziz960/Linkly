@@ -76,3 +76,16 @@ describe("ad source of a conversation", () => {
     expect(bodies[0].data[0].user.phone).toMatch(/^[0-9a-f]{64}$/);
   });
 });
+
+describe("ad media", () => {
+  it("keeps only an https picture and marks videos", async () => {
+    const { extractAdMedia, extractAdSource } = await import("../lib/ad-source");
+    expect(extractAdMedia({ media_type: "image", image_url: "https://cdn.example/a.jpg" })).toEqual({ thumbnailUrl: "https://cdn.example/a.jpg", mediaType: "image" });
+    expect(extractAdMedia({ media_type: "video", video_url: "https://cdn.example/v.mp4", thumbnail_url: "https://cdn.example/t.jpg" })).toEqual({ thumbnailUrl: "https://cdn.example/t.jpg", mediaType: "video" });
+    expect(extractAdMedia({ image_url: "http://insecure.example/a.jpg" })).toEqual({ thumbnailUrl: "", mediaType: "" });
+    expect(extractAdMedia({ image_url: "javascript:alert(1)" })).toEqual({ thumbnailUrl: "", mediaType: "" });
+    expect(extractAdMedia(null)).toEqual({ thumbnailUrl: "", mediaType: "" });
+    const source = extractAdSource({ type: "text", text: { body: "hi" }, referral: { source_type: "ad", source_id: "1", ctwa_clid: "c1", media_type: "image", image_url: "https://cdn.example/p.png" } });
+    expect(source).toMatchObject({ platform: "meta", thumbnailUrl: "https://cdn.example/p.png", mediaType: "image" });
+  });
+});
