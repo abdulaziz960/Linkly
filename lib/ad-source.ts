@@ -21,6 +21,8 @@ export type AdSource = {
   /** The ad's picture (or video poster) when the platform sent one, https only. */
   thumbnailUrl: string;
   mediaType: "image" | "video" | "";
+  /** Set when a picture lookup already ran and found nothing (not asked again). */
+  pictureLookedUp?: boolean;
   createdAt: string;
 };
 
@@ -109,6 +111,43 @@ function ensureTable() {
   return ready;
 }
 
+/** Stored when we looked for a picture and the platform has none, so we do not ask again on every open. */
+const NO_PICTURE = "none";
+const TIKTOK_VIDEO = /^https:\/\/(www\.|m\.|vm\.)?tiktok\.com\/[^\s]*\/video\/\d+/i;
+let tiktokCooldownUntil = 0;
+
+/** Pure: the https cover picture out of a TikTok oEmbed response ("" when it has none). */
+export function thumbnailFromTikTokOEmbed(payload: unknown): string {
+  const url = payload && typeof payload === "object" ? (payload as Record<string, unknown>).thumbnail_url : "";
+  return httpsUrl(url);
+}
+
+/**
+ * TikTok does not send the ad's picture with the WhatsApp message, but when the ad link is a public
+ * video link, TikTok's oEmbed gives its cover. Looked up once, the first time the conversation's
+ * strip is opened (not in the webhook, so receiving a message never waits on TikTok).
+ */
+export async function ensureTikTokThumbnail(tenantId: string, conversationId: string, source: AdSource): Promise<AdSource> {
+  if (source.platform !== "tiktok" || source.thumbnailUrl || source.pictureLookedUp) return source;
+  if (!TIKTOK_VIDEO.test(source.sourceUrl) || Date.now() < tiktokCooldownUntil) return source;
+  try {
+    const url = new URL("https://www.tiktok.com/oembed");
+    url.searchParams.set("url", source.sourceUrl.split("?")[0]);
+    const response = await fetch(url, { signal: AbortSignal.timeout(4000), headers: { Accept: "application/json" } });
+    if (response.status === 429 || response.status >= 500) {
+      tiktokCooldownUntil = Date.now() + 5 * 60 * 1000;
+      return source;
+    }
+    const thumbnail = response.ok ? thumbnailFromTikTokOEmbed(await response.json().catch(() => null)) : "";
+    await ensureTable();
+    await prisma.$executeRaw`UPDATE conversation_ad_source SET thumbnail_url = ${thumbnail || NO_PICTURE}, media_type = ${thumbnail ? "video" : ""} WHERE conversation_id = ${conversationId} AND tenant_id = ${tenantId}`;
+    return thumbnail ? { ...source, thumbnailUrl: thumbnail, mediaType: "video" } : { ...source, pictureLookedUp: true };
+  } catch {
+    tiktokCooldownUntil = Date.now() + 60 * 1000;
+    return source;
+  }
+}
+
 type Row = { platform: string; ad_id: string; headline: string; source_url: string; click_id: string; matched_by: string; raw_json: string; thumbnail_url: string; media_type: string; created_at: string };
 
 export async function getAdSource(tenantId: string, conversationId: string): Promise<AdSource | null> {
@@ -116,7 +155,7 @@ export async function getAdSource(tenantId: string, conversationId: string): Pro
   const rows = await prisma.$queryRaw<Row[]>`SELECT platform, ad_id, headline, source_url, click_id, matched_by, raw_json, thumbnail_url, media_type, created_at FROM conversation_ad_source WHERE conversation_id = ${conversationId} AND tenant_id = ${tenantId}`;
   const row = rows[0];
   if (!row) return null;
-  return { platform: row.platform as AdSource["platform"], adId: row.ad_id, headline: row.headline, sourceUrl: row.source_url, clickId: row.click_id, matchedBy: row.matched_by, raw: row.raw_json, thumbnailUrl: row.thumbnail_url || "", mediaType: row.media_type === "video" ? "video" : row.media_type === "image" ? "image" : "", createdAt: row.created_at };
+  return { platform: row.platform as AdSource["platform"], adId: row.ad_id, headline: row.headline, sourceUrl: row.source_url, clickId: row.click_id, matchedBy: row.matched_by, raw: row.raw_json, thumbnailUrl: row.thumbnail_url === NO_PICTURE ? "" : row.thumbnail_url || "", pictureLookedUp: row.thumbnail_url === NO_PICTURE, mediaType: row.media_type === "video" ? "video" : row.media_type === "image" ? "image" : "", createdAt: row.created_at };
 }
 
 /**

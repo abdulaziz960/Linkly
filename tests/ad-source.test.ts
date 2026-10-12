@@ -89,3 +89,32 @@ describe("ad media", () => {
     expect(source).toMatchObject({ platform: "meta", thumbnailUrl: "https://cdn.example/p.png", mediaType: "image" });
   });
 });
+
+describe("TikTok cover lookup", () => {
+  it("reads the cover from the oEmbed payload and looks it up once", async () => {
+    const { thumbnailFromTikTokOEmbed, ensureTikTokThumbnail, getAdSource, captureAdSource } = await import("../lib/ad-source");
+    expect(thumbnailFromTikTokOEmbed({ thumbnail_url: "https://p16.tiktokcdn.com/cover.jpeg" })).toBe("https://p16.tiktokcdn.com/cover.jpeg");
+    expect(thumbnailFromTikTokOEmbed({ thumbnail_url: "http://insecure/c.jpg" })).toBe("");
+    expect(thumbnailFromTikTokOEmbed(null)).toBe("");
+
+    await captureAdSource({ tenantId: "ten-cover", conversationId: "conv-cover", message: { type: "text", text: { body: "hi" }, referral: { source_url: "https://www.tiktok.com/@brand/video/7380000000000000?ttclid=E.C.P.abcdef", headline: "عرض" } } });
+    const stored = await getAdSource("ten-cover", "conv-cover");
+    expect(stored).toMatchObject({ platform: "tiktok", thumbnailUrl: "" });
+
+    const fetchMock = vi.fn(async (..._args: unknown[]) => new Response(JSON.stringify({ thumbnail_url: "https://p16.tiktokcdn.com/cover.jpeg" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const withCover = await ensureTikTokThumbnail("ten-cover", "conv-cover", stored!);
+    expect(withCover).toMatchObject({ thumbnailUrl: "https://p16.tiktokcdn.com/cover.jpeg", mediaType: "video" });
+    expect(String(fetchMock.mock.calls[0][0])).toContain("tiktok.com/oembed");
+    // Saved: the next read has the picture and no further request is made.
+    expect((await getAdSource("ten-cover", "conv-cover"))?.thumbnailUrl).toBe("https://p16.tiktokcdn.com/cover.jpeg");
+    await ensureTikTokThumbnail("ten-cover", "conv-cover", (await getAdSource("ten-cover", "conv-cover"))!);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Not a public video link: never asked.
+    const other = { ...stored!, sourceUrl: "https://example.com/x", thumbnailUrl: "" };
+    await ensureTikTokThumbnail("ten-cover", "conv-cover", other);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+});
