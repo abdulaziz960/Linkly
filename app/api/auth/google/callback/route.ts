@@ -6,8 +6,7 @@ import { prisma } from "../../../../../lib/prisma";
 import { ensureSchema } from "../../../../../lib/database";
 import { consumeRateLimit, requestIdentifier } from "../../../../../lib/rate-limit";
 import {
-  GOOGLE_SIGNIN_STATE_COOKIE, GOOGLE_SIGNUP_COOKIE, GOOGLE_SIGNUP_TTL_SECONDS,
-  createGoogleSignupToken, googleSignInCredentials, googleSignInRedirectUri, identityFromIdToken
+  GOOGLE_SIGNIN_STATE_COOKIE, googleSignInCredentials, googleSignInRedirectUri, identityFromIdToken
 } from "../../../../../lib/google-signin";
 
 export const runtime = "nodejs";
@@ -49,17 +48,8 @@ export async function GET(request: NextRequest) {
   await ensureSchema();
   const account = await prisma.userAccount.findUnique({ where: { email: identity.email } });
 
-  if (!account) {
-    // No account yet: the signup form still needs the company name, phone and
-    // terms acceptance, so hand the verified email over in a short-lived cookie.
-    const response = NextResponse.redirect(new URL("/signup?google=1", origin));
-    response.cookies.delete(GOOGLE_SIGNIN_STATE_COOKIE);
-    response.cookies.set(GOOGLE_SIGNUP_COOKIE, createGoogleSignupToken(identity), {
-      httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: GOOGLE_SIGNUP_TTL_SECONDS
-    });
-    return response;
-  }
-
+  // Google sign-in is for existing accounts only - accounts are created from the signup form.
+  if (!account) return fail("no-account");
   if (account.disabled) return fail("disabled");
   // Platform admins and accounts with two-factor on keep the password + code
   // path - Google sign-in must never be a way around either.

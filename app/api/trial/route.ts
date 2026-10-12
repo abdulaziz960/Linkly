@@ -6,9 +6,6 @@ import { pickTrialPlan } from "../../../lib/trial-plan";
 import { jsonError, jsonOk } from "../_utils/json";
 import { consumeRateLimit, requestIdentifier } from "../../../lib/rate-limit";
 import { isValidEmail, isValidSaudiPhone, isValidDisplayName } from "../../../lib/validation";
-import { finalizeLogin } from "../../../lib/auth";
-import { prisma } from "../../../lib/prisma";
-import { GOOGLE_SIGNUP_COOKIE, verifyGoogleSignupToken } from "../../../lib/google-signin";
 
 export const runtime = "nodejs";
 
@@ -29,17 +26,12 @@ export async function POST(request: NextRequest) {
     website?: string;
     termsAccepted?: boolean;
     planId?: string;
-    googleSignup?: boolean;
   } | null;
 
   const companyName = body?.companyName?.trim() || "";
   const businessType = body?.businessType?.trim() || "";
   const ownerName = body?.ownerName?.trim() || "";
-  // "Sign up with Google": the email comes from the signed cookie the OAuth
-  // callback set, never from the request body, and is already verified.
-  const googleProfile = body?.googleSignup ? verifyGoogleSignupToken(request.cookies.get(GOOGLE_SIGNUP_COOKIE)?.value) : null;
-  if (body?.googleSignup && !googleProfile) return jsonError("انتهت صلاحية التحقق من Google، أعد المحاولة", 400);
-  const ownerEmail = googleProfile?.email || body?.ownerEmail?.trim() || "";
+  const ownerEmail = body?.ownerEmail?.trim() || "";
   const phone = body?.phone?.trim() || "";
   const teamSize = body?.teamSize?.trim() || "";
   const channels = Array.isArray(body?.channels) ? body.channels.filter((c) => typeof c === "string") : [];
@@ -105,7 +97,6 @@ export async function POST(request: NextRequest) {
       amount: 0,
       billingCycle: "تجربة 3 أيام",
       renewalAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-      emailVerified: Boolean(googleProfile),
       adminName: `تسجيل ذاتي من صفحة الهبوط${signupDetails.length ? ` (${signupDetails.join(" · ")})` : ""}`
     });
 
@@ -116,20 +107,6 @@ export async function POST(request: NextRequest) {
         if (!sent) console.warn("Trial signup notification delivery failed", { tenantId: subscription.tenantId });
       } catch {
         console.warn("Trial signup notification delivery failed", { tenantId: subscription.tenantId });
-      }
-    }
-
-    if (googleProfile && subscription) {
-      const account = await prisma.userAccount.findUnique({ where: { email: ownerEmail.toLowerCase() } });
-      if (account) {
-        const { passwordHash: _passwordHash, ...safeUser } = account;
-        void _passwordHash;
-        const login = await finalizeLogin(safeUser as Parameters<typeof finalizeLogin>[0], false, request);
-        const { redirectTo } = (await login.clone().json().catch(() => ({}))) as { redirectTo?: string };
-        const response = jsonOk({ redirectTo: redirectTo || "/dashboard?view=settings&onboarding=1", emailSent: true, message: "" });
-        for (const cookie of login.headers.getSetCookie()) response.headers.append("set-cookie", cookie);
-        response.cookies.delete(GOOGLE_SIGNUP_COOKIE);
-        return response;
       }
     }
 

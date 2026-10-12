@@ -64,6 +64,7 @@ function completeLogin(router: ReturnType<typeof useRouter>, data: { redirectTo?
 
 const googleMessages: Record<string, string> = {
   unavailable: "الدخول بواسطة Google غير متاح حالياً",
+  "no-account": "لا يوجد حساب بهذا البريد. أنشئ حسابك أولاً من صفحة التسجيل.",
   cancelled: "تم إلغاء الدخول بواسطة Google",
   "unverified-email": "بريد Google غير موثّق",
   disabled: "هذا الحساب معطّل، تواصل مع مسؤول حسابكم",
@@ -260,14 +261,10 @@ export default function LoginForm({ lang = "ar", googleEnabled = false, googleEr
         {loading ? text.submitting : text.submit}
       </button>
       {googleEnabled ? (
-        <>
-          <a className="login-google" href="/api/auth/google/start?mode=login">
+        <a className="login-google" href="/api/auth/google/start?mode=login">
             {lang === "en" ? "Continue with Google" : "المتابعة بواسطة Google"}
           </a>
-          <p className="login-google-hint">
-            {lang === "en" ? "New here? Continue with Google, then complete your business details to start your free trial." : "مستخدم جديد؟ تابع بواسطة Google ثم أكمل بيانات نشاطك لبدء التجربة المجانية."}
-          </p>
-        </>
+
       ) : null}
     </form>
   );
