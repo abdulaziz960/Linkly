@@ -514,6 +514,10 @@ export async function PATCH(request: NextRequest) {
 
   const connectionCheck: ConnectionCheck = body.reset === true
     ? { status: "pending", message: "غير مكتمل: لم يتم حفظ بيانات الربط بعد", missingFields: [] as string[] }
+    // The Snapchat connection is made by its own OAuth flow; this route only stores the lead welcome settings
+    // for it, so it must never re-verify (and possibly downgrade) the connection against Meta.
+    : channel === "snapchat"
+      ? { status: existingSettings.status, message: "تم حفظ الإعدادات", missingFields: [] as string[] }
     : channel === "telegram"
       ? await verifyTelegramConnection(request, { ...existingSettings, ...verificationData })
       : channel === "x"
@@ -531,7 +535,7 @@ export async function PATCH(request: NextRequest) {
   // leadAdsEnabled is an Int column, not a string like every field in
   // `allowedFields` - kept out of that generic loop/typing and merged in
   // separately here instead of widening IntegrationField to non-string values.
-  const leadAdsEnabledUpdate = channel === "meta_leads" && (typeof body.leadAdsEnabled === "boolean" || typeof body.leadAdsEnabled === "number")
+  const leadAdsEnabledUpdate = (channel === "meta_leads" || channel === "snapchat") && (typeof body.leadAdsEnabled === "boolean" || typeof body.leadAdsEnabled === "number")
     ? { leadAdsEnabled: body.leadAdsEnabled ? 1 : 0 }
     : {};
   await prisma.integrationSetting.updateMany({

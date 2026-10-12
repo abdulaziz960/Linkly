@@ -5,6 +5,9 @@ import { runInboundMessageAutomations } from "./automation-engine";
 import { triggerWebhookEvent } from "./webhooks";
 import type { SnapchatLeadAnswer } from "./snapchat";
 import { firstChar } from "./first-char";
+import { getIntegrationSettings } from "./database";
+import { sendWhatsAppTemplate } from "./campaign-engine";
+import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
 
 type StoreSnapchatLeadInput = {
   tenantId: string;
@@ -43,8 +46,44 @@ function summarizeAnswers(formName: string, answers: SnapchatLeadAnswer[]) {
  * The Customer/Conversation are still created so the submission shows up
  * in the same unified inbox as every other channel.
  */
+/** Digits with the country code: a Saudi local number (05xxxxxxxx / 5xxxxxxxx) gets 966, 00-prefixed numbers lose the 00. */
+export function whatsappNumberFromForm(raw: string): string {
+  let digits = normalizeWhatsAppPhone(raw);
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (/^05\d{8}$/.test(digits)) digits = `966${digits.slice(1)}`;
+  else if (/^5\d{8}$/.test(digits)) digits = `966${digits}`;
+  return digits.length >= 10 && digits.length <= 15 ? digits : "";
+}
+
+/**
+ * The welcome template a workspace may send on WhatsApp the moment a Snapchat lead is added.
+ * Never throws; the lead is already stored. Records what happened as a system note in the lead's
+ * conversation, so the team can see whether the welcome went out.
+ */
+async function sendSnapchatWelcome(input: { tenantId: string; conversationId: string; phone: string; name: string; leadId: string }) {
+  try {
+    const settings = await getIntegrationSettings("snapchat", input.tenantId);
+    const template = settings.leadWelcomeTemplateName?.trim();
+    if (settings.leadAdsEnabled !== 1 || !template) return;
+    const phone = whatsappNumberFromForm(input.phone);
+    let note: string;
+    if (!phone) note = "لم تُرسل رسالة الترحيب: رقم الجوال في النموذج غير صالح لواتساب";
+    else {
+      const result = await sendWhatsAppTemplate(input.tenantId, phone, template, "ar", input.name);
+      note = result.ok ? `أُرسلت رسالة ترحيب عبر واتساب (القالب: ${template})` : `تعذر إرسال رسالة الترحيب عبر واتساب: ${result.error}`;
+    }
+    const now = new Date();
+    await prisma.message.create({
+      data: { id: `sc-welcome-${input.leadId}`, conversationId: input.conversationId, direction: "out", text: note, time: formatMessageTime(now), createdAt: now.toISOString(), author: "نظام" }
+    });
+  } catch (error) {
+    console.error("Snapchat lead welcome failed", error);
+  }
+}
+
 export async function storeSnapchatLead(input: StoreSnapchatLeadInput) {
   await ensureSchema();
+  const alreadyStored = Boolean(await prisma.lead.findUnique({ where: { id: `lead-${input.leadId}` }, select: { id: true } }));
 
   const activityAt = input.submittedAt ? new Date(input.submittedAt).toISOString() : new Date().toISOString();
   const tenantId = input.tenantId;
@@ -128,6 +167,7 @@ export async function storeSnapchatLead(input: StoreSnapchatLeadInput) {
   });
 
   await runInboundMessageAutomations(result.conversationId, tenantId, summary);
+  if (!alreadyStored) await sendSnapchatWelcome({ tenantId, conversationId: result.conversationId, phone, name, leadId: input.leadId });
   await triggerWebhookEvent(tenantId, "lead.created", {
     id: result.lead.id,
     source: "snapchat",

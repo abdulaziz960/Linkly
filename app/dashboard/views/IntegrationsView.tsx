@@ -88,14 +88,14 @@ export default function IntegrationsView() {
     };
   }, []);
 
-  async function saveLeadAdsSettings(next: Partial<IntegrationSettings>) {
-    const current = settingsByChannel.meta_leads;
+  async function saveLeadAdsSettings(channel: LeadChannel, next: Partial<IntegrationSettings>) {
+    const current = settingsByChannel[channel];
     if (!current) return;
     const merged = { ...current, ...next };
-    setSettingsByChannel((prev) => ({ ...prev, meta_leads: merged }));
+    setSettingsByChannel((prev) => ({ ...prev, [channel]: merged }));
     setSaving(true);
     try {
-      await fetch("/api/settings/integration?channel=meta_leads", {
+      await fetch(`/api/settings/integration?channel=${channel}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(merged)
@@ -204,7 +204,7 @@ export default function IntegrationsView() {
                   <p style={{ margin: 0, lineHeight: 1.8, opacity: 0.8 }}>
                     {open === "meta"
                       ? t("عند ملء العميل لنموذج إعلانك يصل مباشرة إلى لنكلي كعميل محتمل ومحادثة، ويُرسل له قالب ترحيب على واتساب.", "When a customer fills in your ad form, it arrives in Linkly as a lead and conversation, and a welcome template is sent on WhatsApp.")
-                      : t("عند ملء العميل لنموذج إعلانك يصل مباشرة إلى لنكلي كعميل محتمل.", "When a customer fills in your ad form, it arrives in Linkly as a lead.")}
+                      : t("عند ملء العميل لنموذج إعلانك يصل مباشرة إلى لنكلي كعميل محتمل، ويمكنك إرسال رسالة ترحيب له على واتساب (يلزم رقم جوال في النموذج وقالب معتمد وواتساب مربوط).", "When a customer fills in your ad form, it arrives in Linkly as a lead, and you can send them a WhatsApp welcome (needs a phone field in the form, an approved template and a connected WhatsApp).")}
                   </p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                     <button className="btn primary" type="button" onClick={() => connect(leadChannelOf[open])} disabled={loading}>
@@ -213,16 +213,16 @@ export default function IntegrationsView() {
                     {statusPill(currentSettings?.status === "connected", t("متصل", "Connected"), t("غير متصل", "Not connected"))}
                   </div>
 
-                  {open === "meta" && currentSettings?.status === "connected" ? (
+                  {(open === "meta" || open === "snapchat") && currentSettings?.status === "connected" ? (
                     <>
                       <label className="check-row">
                         <input
                           type="checkbox"
                           checked={currentSettings.leadAdsEnabled === 1}
                           disabled={saving}
-                          onChange={(event) => saveLeadAdsSettings({ leadAdsEnabled: event.target.checked ? 1 : 0 })}
+                          onChange={(event) => saveLeadAdsSettings(leadChannelOf[open], { leadAdsEnabled: event.target.checked ? 1 : 0 })}
                         />
-                        {t("تفعيل الترحيب التلقائي من Lead Ads", "Enable automatic Lead Ads welcome")}
+                        {open === "snapchat" ? t("إرسال رسالة ترحيب على واتساب فور وصول العميل", "Send a WhatsApp welcome as soon as the lead arrives") : t("تفعيل الترحيب التلقائي من Lead Ads", "Enable automatic Lead Ads welcome")}
                       </label>
                       {currentSettings.leadAdsEnabled === 1 ? (
                         <div className="meta-test-grid">
@@ -232,7 +232,7 @@ export default function IntegrationsView() {
                               <CustomSelect
                                 value={currentSettings.leadWelcomeTemplateName}
                                 disabled={saving}
-                                onChange={(value) => saveLeadAdsSettings({ leadWelcomeTemplateName: value })}
+                                onChange={(value) => saveLeadAdsSettings(leadChannelOf[open], { leadWelcomeTemplateName: value })}
                                 options={[{ value: "", label: t("اختر قالبًا", "Choose a template") }, ...templates.map((template) => ({ value: template.name, label: template.name }))]}
                               />
                             ) : (
