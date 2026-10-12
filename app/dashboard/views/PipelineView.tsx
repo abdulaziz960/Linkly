@@ -191,6 +191,41 @@ function CopyField({ label, value, t, multiline = false }: { label: string; valu
   );
 }
 
+/** One row of Zapier's configuration screen: the field's name there, and the value to put in it. */
+function ZapRow({ field, value, hint, t, copyable = true, data = false }: { field: string; value?: string; hint?: string; t: (ar: string, en: string) => string; copyable?: boolean; data?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const toCopy = data ? field : value || "";
+  async function copy() {
+    await navigator.clipboard?.writeText(toCopy).catch(() => undefined);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  }
+  const copyButton = copyable ? (
+    <button type="button" className="soft-action" style={{ flexShrink: 0, minHeight: 30, padding: "0 10px", fontSize: 12.5 }} onClick={copy}>{copied ? "✓" : t("نسخ", "Copy")}</button>
+  ) : null;
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(150px, 0.9fr) minmax(0, 1.6fr)", gap: 10, alignItems: "center", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
+      {data ? (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
+          <code dir="ltr" style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 13, fontWeight: 800, overflowX: "auto", whiteSpace: "nowrap" }}>{field}</code>
+          {copyButton}
+        </div>
+      ) : (
+        <b dir="ltr" style={{ textAlign: "left", fontSize: 13 }}>{field}</b>
+      )}
+      <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
+        {!data ? (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
+            <code dir="ltr" style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 12.5, overflowX: "auto", whiteSpace: "nowrap" }}>{value}</code>
+            {copyButton}
+          </div>
+        ) : null}
+        {hint ? <span style={{ fontSize: 12.5, opacity: data ? 0.95 : 0.75, lineHeight: 1.6 }}>{hint}</span> : null}
+      </div>
+    </div>
+  );
+}
+
 function StepCard({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
   return (
     <section style={{ display: "grid", gridTemplateColumns: "40px minmax(0, 1fr)", gap: 14, padding: 16, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
@@ -204,6 +239,7 @@ function StepCard({ number, title, children }: { number: number; title: string; 
 }
 
 function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en: string) => string; onShowInternal: () => void; onRefresh: () => Promise<void> }) {
+  const [source, setSource] = useState<"tiktok" | "snapchat" | "other">("tiktok");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -264,16 +300,51 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
         <a className="btn primary" href="/dashboard?view=developers" style={{ justifySelf: "start" }}>{t("فتح صفحة المطورون", "Open the Developers page")}</a>
       </StepCard>
 
-      <StepCard number={2} title={t("اختر مصدر الليد في Zapier أو Make", "Pick the lead source in Zapier or Make")}>
-        <p style={muted}>{t("المشغّل (Trigger) هو المنصة التي يملأ فيها العميل النموذج، مثل: TikTok Lead Generation ← New Lead، أو Typeform ← New Entry، أو Google Sheets ← New Row.", "The trigger is the platform where the customer fills the form, e.g. TikTok Lead Generation → New Lead, Typeform → New Entry, or Google Sheets → New Row.")}</p>
+      <StepCard number={2} title={t("اختر مصدر الليد (المشغّل) في Zapier أو Make", "Pick the lead source (trigger) in Zapier or Make")}>
+        <p style={muted}>{t("المشغّل هو المنصة التي يملأ فيها العميل النموذج. اختر مصدرك لتظهر لك أسماء الحقول التي ستربطها في الخطوة التالية:", "The trigger is the platform where the customer fills the form. Pick yours to see the field names you will map in the next step:")}</p>
+        <div style={{ maxWidth: 320 }}>
+          <CustomSelect value={source} onChange={(value) => setSource(value as "tiktok" | "snapchat" | "other")} options={[
+            { value: "tiktok", label: t("تيك توك: TikTok Lead Generation ← New Lead", "TikTok: TikTok Lead Generation → New Lead") },
+            { value: "snapchat", label: t("سناب شات: Snapchat Lead Gen ← New Lead", "Snapchat: Snapchat Lead Gen → New Lead") },
+            { value: "other", label: t("مصدر آخر: Typeform / Google Sheets / غيره", "Other: Typeform / Google Sheets / other") }
+          ]} />
+        </div>
       </StepCard>
 
-      <StepCard number={3} title={t("أضف إجراء Webhook من نوع POST بهذه البيانات", "Add a POST webhook action with this data")}>
-        <p style={muted}>{t("في Zapier الأسهل: Webhooks by Zapier ← حدث POST ← Payload Type: Json، ثم أضف كل حقل في Data (الاسم ← القيمة من خطوة المصدر) والترويسة في Headers. أو حدث Custom Request وألصق جسم JSON كما هو. في Make: HTTP ← Make a request.", "Easiest in Zapier: Webhooks by Zapier → POST event → Payload Type: Json, then add each field under Data (name → value from the source step) and the header under Headers. Or the Custom Request event with the JSON body pasted as is. In Make: HTTP → Make a request.")}</p>
-        <CopyField label={t("الطريقة والرابط (POST)", "Method and URL (POST)")} value={webhookUrl} t={t} />
-        <CopyField label={t("الترويسة: الاسم", "Header: name")} value="Authorization" t={t} />
-        <CopyField label={t("الترويسة: القيمة (ضع مفتاحك بدل lk_xxx)", "Header: value (put your key in place of lk_xxx)")} value="Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx" t={t} />
-        <CopyField label={t("الجسم (JSON): اربط كل حقل بحقل النموذج المناسب", "Body (JSON): map each field to the matching form field")} value={sampleBody} t={t} multiline />
+      <StepCard number={3} title={t("أضف إجراء Webhook POST واملأه كما يلي", "Add a Webhook POST action and fill it in like this")}>
+        <p style={muted}>{t("إجراء (Action) جديد: Webhooks by Zapier ← حدث POST. هذا ما ستملؤه في كل قسم من الشاشة، بالترتيب نفسه:", "A new Action: Webhooks by Zapier → POST event. This is what to put in each section of the screen, in the same order:")}</p>
+
+        <h5 style={{ margin: "4px 0 0", fontSize: 14, fontWeight: 900 }}>{t("① الإعداد العام", "① General")}</h5>
+        <ZapRow field="URL" value={webhookUrl} t={t} />
+        <ZapRow field="Payload Type" value="Json" hint={t("أو Form، كلاهما مقبول.", "Or Form; both are accepted.")} t={t} />
+        <ZapRow field="Wrap Request In Array" value="No" t={t} copyable={false} />
+        <ZapRow field="Unflatten" value="Yes" t={t} copyable={false} />
+
+        <h5 style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 900 }}>{t("② Data: أضف سطرًا لكل حقل (الاسم ثم القيمة)", "② Data: add one row per field (name, then value)")}</h5>
+        <p style={muted}>{t("في كل سطر: العمود الأول هو اسم الحقل (اكتبه أو انسخه كما هو في خانة الاسم)، والثاني ما تختاره في خانة القيمة من بيانات خطوة المصدر.", "In each row: the first column is the field name (type or copy it as is into the name box); the second is what to pick in the value box from the source step's data.")}</p>
+        <ZapRow data field="phone_number" hint={t(`القيمة: ${source === "other" ? "عمود/سؤال الجوال" : "1. Phone Number"} ← مطلوب`, `Value: ${source === "other" ? "the phone column/question" : "1. Phone Number"} → required`)} t={t} />
+        <ZapRow data field="full_name" hint={t(`القيمة: ${source === "other" ? "عمود/سؤال الاسم" : "1. Full Name"}`, `Value: ${source === "other" ? "the name column/question" : "1. Full Name"}`)} t={t} />
+        <ZapRow data field="email" hint={t(`القيمة: ${source === "other" ? "عمود/سؤال البريد" : "1. Email"}`, `Value: ${source === "other" ? "the email column/question" : "1. Email"}`)} t={t} />
+        <ZapRow data field="budget" hint={t(source === "other" ? "القيمة: إجابة سؤال الميزانية" : "القيمة: 1. اسم السؤال المخصص (مثل «الميزانية»)", source === "other" ? "Value: the budget answer" : "Value: 1. your custom question (e.g. “Budget”)")} t={t} />
+        <ZapRow data field="purchase_purpose" hint={t("القيمة: إجابة سؤال الغرض من الشراء", "Value: the purchase-purpose answer")} t={t} />
+        <ZapRow data field="purchase_method" hint={t("القيمة: إجابة سؤال طريقة الشراء", "Value: the purchase-method answer")} t={t} />
+        <ZapRow data field="preferred_contact_time" hint={t("القيمة: إجابة وقت التواصل المفضل", "Value: the preferred-contact-time answer")} t={t} />
+        <ZapRow data field="lead_source" hint={t(`القيمة: نص ثابت تكتبه: ${source === "tiktok" ? "تيك توك" : source === "snapchat" ? "سناب شات" : "اسم مصدرك"} (اختياري، يظهر في المحادثة)`, `Value: a fixed text you type: ${source === "tiktok" ? "TikTok" : source === "snapchat" ? "Snapchat" : "your source name"} (optional, shown in the conversation)`)} t={t} />
+
+        <h5 style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 900 }}>{t("③ Headers: سطر واحد", "③ Headers: one row")}</h5>
+        <ZapRow field="Authorization" value="Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx" hint={t("استبدل lk_xxx بمفتاحك من الخطوة 1. اترك مسافة بعد كلمة Bearer.", "Replace lk_xxx with your key from step 1. Keep a space after the word Bearer.")} t={t} />
+
+        <details style={{ marginTop: 4 }}>
+          <summary style={{ cursor: "pointer", fontWeight: 800, fontSize: 13.5 }}>{t("بديل: حدث Custom Request بجسم JSON كامل", "Alternative: the Custom Request event with a full JSON body")}</summary>
+          <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+            <p style={muted}>{t("Method: POST. في Data الصق هذا الجسم واستبدل القيم بحقول المصدر. وفي Headers ضع Authorization كما فوق، و Content-Type: application/json.", "Method: POST. Paste this body in Data and replace the values with the source fields. In Headers put Authorization as above, plus Content-Type: application/json.")}</p>
+            <CopyField label={t("الجسم (JSON)", "Body (JSON)")} value={sampleBody} t={t} multiline />
+          </div>
+        </details>
+
+        <p className="meta-test-feedback" style={{ margin: "6px 0 0", lineHeight: 1.8 }}>
+          {t("عند الضغط على Test في Zapier، رقم الجوال التجريبي (555-123-4567) ليس سعوديًا فيرجع الخطأ 400. هذا طبيعي: ضع رقمًا سعوديًا مؤقتًا للاختبار فقط.", "When you click Test in Zapier, the sample phone (555-123-4567) is not Saudi, so you get a 400 error. That is normal: put a Saudi number temporarily just for the test.")}
+        </p>
       </StepCard>
 
       <StepCard number={4} title={t("جرّب وتحقّق", "Test it")}>
