@@ -27,7 +27,16 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("redirect_uri", `${getAppOrigin(request)}/api/meta/callback`);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("state", oauthState.state);
-  url.searchParams.set("scope", "ads_management,ads_read,business_management");
+  // The app uses "Facebook Login for Business" (the dialog is titled that), which takes a saved
+  // configuration (config_id, with its permissions) instead of a `scope` list. Without a config_id we fall back to
+  // `scope`, which only works for apps still on classic Facebook Login.
+  const configId = (process.env.META_ADS_CONFIG_ID || "").trim();
+  if (/^\d+$/.test(configId)) {
+    url.searchParams.set("config_id", configId);
+    url.searchParams.set("override_default_response_type", "true");
+  } else {
+    url.searchParams.set("scope", "ads_management,ads_read,business_management");
+  }
 
   const response = NextResponse.redirect(url);
   response.cookies.set("audiencew_meta_state", oauthState.nonce, {
