@@ -278,7 +278,7 @@ export async function listAdAssets(tenantId: string): Promise<{ ok: true; accoun
 
 // ---- Sending events ----
 
-export type MetaSendResult = { sent: boolean; skipped?: "disabled" | "no-mapping" | "duplicate" | "no-click-id" | "no-waba"; ok?: boolean; eventName?: string; message?: string };
+export type MetaSendResult = { sent: boolean; skipped?: "disabled" | "no-mapping" | "duplicate" | "no-click-id" | "no-waba"; kind?: "messaging" | "crm"; ok?: boolean; eventName?: string; message?: string };
 
 async function logEvent(entry: { tenantId: string; conversationId: string; status: string; eventName: string; eventId: string; ok: boolean; httpStatus: number; message: string }) {
   const id = `mtev-${createHash("sha1").update(`${entry.eventId}:${Date.now()}:${Math.random()}`).digest("hex").slice(0, 20)}`;
@@ -327,6 +327,38 @@ export function buildMetaPayload(input: { eventName: string; eventId: string; wa
   };
 }
 
+/**
+ * Conversions API for the CRM, for leads that came from a Lead Ads FORM: matched through the lead's own id
+ * (`lead_id` from the leadgen webhook) instead of a click-to-WhatsApp click id, so Meta can learn which form
+ * leads turned into qualified leads and sales.
+ */
+export function buildMetaCrmPayload(input: { eventName: string; eventId: string; leadId: string; dealValue?: number; testEventCode?: string; eventTime?: number; phone?: string; contact?: LeadContact }) {
+  const value = typeof input.dealValue === "number" && Number.isFinite(input.dealValue) && input.dealValue > 0 ? Math.round(input.dealValue * 100) / 100 : 0;
+  return {
+    data: [{
+      event_name: input.eventName,
+      event_time: input.eventTime ?? Math.floor(Date.now() / 1000),
+      event_id: input.eventId,
+      action_source: "system_generated",
+      user_data: {
+        lead_id: input.leadId,
+        ...(hashPhoneDigits(input.phone) ? { ph: [hashPhoneDigits(input.phone)] } : {}),
+        ...(hashEmail(input.contact?.email) ? { em: [hashEmail(input.contact?.email)] } : {}),
+        ...(hashName(input.contact?.firstName) ? { fn: [hashName(input.contact?.firstName)] } : {}),
+        ...(hashName(input.contact?.lastName) ? { ln: [hashName(input.contact?.lastName)] } : {})
+      },
+      custom_data: { event_source: "crm", lead_event_source: "Linkly", ...(value > 0 ? { value, currency: DEAL_CURRENCY } : {}) }
+    }],
+    ...(input.testEventCode ? { test_event_code: input.testEventCode } : {})
+  };
+}
+
+/** The Lead Ads lead id (leadgen id) saved for this conversation when it came from a Meta form, else "". */
+async function formLeadId(tenantId: string, conversationId: string): Promise<string> {
+  const lead = await prisma.lead.findFirst({ where: { tenantId, conversationId, source: "meta" }, orderBy: { createdAt: "asc" }, select: { sourceId: true } });
+  return (lead?.sourceId || "").replace(/^meta-/, "");
+}
+
 /** Sends the event mapped to `status` for a conversation. Never throws; a failure is logged and returned. */
 export async function sendMetaStageEvent(input: { tenantId: string; conversationId: string; status: string; dealValue?: number }): Promise<MetaSendResult> {
   try {
@@ -335,13 +367,15 @@ export async function sendMetaStageEvent(input: { tenantId: string; conversation
     const eventName = parseMapping(row.mapping_json)[input.status as MetaStage] ?? "";
     if (!eventName) return { sent: false, skipped: "no-mapping" };
 
-    // Business-messaging events are matched through the ad click id; a conversation that did not come from an ad has none.
+    // Two ways to match a conversation to an ad: the click-to-WhatsApp click id (messaging events), or the id of
+    // the Lead Ads form lead (CRM events). A conversation that came from neither has nothing to match.
     const source = await getAdSource(input.tenantId, input.conversationId);
     const clickId = source?.platform === "meta" ? source.clickId : "";
-    if (!clickId) return { sent: false, skipped: "no-click-id", eventName };
+    const leadId = clickId ? "" : await formLeadId(input.tenantId, input.conversationId);
+    if (!clickId && !leadId) return { sent: false, skipped: "no-click-id", eventName };
 
-    const waba = (await getIntegrationSettings("whatsapp", input.tenantId)).wabaId?.trim() || "";
-    if (!waba) return { sent: false, skipped: "no-waba", eventName };
+    const waba = clickId ? (await getIntegrationSettings("whatsapp", input.tenantId)).wabaId?.trim() || "" : "";
+    if (clickId && !waba) return { sent: false, skipped: "no-waba", eventName };
 
     // One event per conversation per stage: moving back and forth must not double-count a lead.
     const eventId = createHash("sha1").update(`${input.tenantId}:${input.conversationId}:${input.status}`).digest("hex");
@@ -352,9 +386,9 @@ export async function sendMetaStageEvent(input: { tenantId: string; conversation
       getLeadContact(input.tenantId, input.conversationId),
       prisma.conversation.findFirst({ where: { id: input.conversationId, tenantId: input.tenantId }, select: { customer: { select: { phone: true } } } })
     ]);
-    const result = await post(row.dataset_id, decryptSecret(row.access_token_enc), buildMetaPayload({ eventName, eventId, wabaId: waba, clickId, dealValue: input.dealValue, testEventCode: row.test_event_code, phone: conversation?.customer.phone, contact }));
+    const result = await post(row.dataset_id, decryptSecret(row.access_token_enc), (clickId ? buildMetaPayload({ eventName, eventId, wabaId: waba, clickId, dealValue: input.dealValue, testEventCode: row.test_event_code, phone: conversation?.customer.phone, contact }) : buildMetaCrmPayload({ eventName, eventId, leadId, dealValue: input.dealValue, testEventCode: row.test_event_code, phone: conversation?.customer.phone, contact })));
     await logEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.status, eventName, eventId, ok: result.ok, httpStatus: result.httpStatus, message: result.message });
-    return { sent: true, ok: result.ok, eventName, message: result.message };
+    return { sent: true, ok: result.ok, eventName, message: result.message, kind: clickId ? "messaging" : "crm" };
   } catch (error) {
     console.error("Meta event send failed", error);
     return { sent: false, ok: false, message: "تعذر الاتصال بميتا" };

@@ -22,7 +22,7 @@ afterAll(async () => {
   }
 });
 
-type Sent = { url: string; body: { test_event_code?: string; data: Array<{ event_name: string; event_id: string; action_source: string; messaging_channel: string; user_data: Record<string, string>; custom_data?: { value: number; currency: string } }> } };
+type Sent = { url: string; body: { test_event_code?: string; data: Array<{ event_name: string; event_id: string; action_source: string; messaging_channel: string; user_data: Record<string, unknown>; custom_data?: { value?: number; currency?: string; event_source?: string; lead_event_source?: string } }> } };
 
 function mockMeta(response: { ok?: boolean; received?: number; message?: string; code?: number } = {}) {
   const sent: Sent[] = [];
@@ -99,6 +99,25 @@ describe("Meta Ads stage events", () => {
     expect(sold).toMatchObject({ sent: true, eventName: "Purchase" });
     expect(sent[1].body.data[0].custom_data).toEqual({ value: 5000, currency: "SAR" });
     expect((await recentMetaEvents("ten-send")).map((row) => row.event_name).sort()).toEqual(["Lead", "Purchase"]);
+  });
+
+  it("sends CRM events for a Lead Ads form lead, matched by its lead id", async () => {
+    await seedConversation("conv-crm", "ten-crm", {});
+    const { prisma } = await import("../lib/prisma");
+    await prisma.lead.create({ data: { id: "lead-meta-lg-99", tenantId: "ten-crm", customerId: "cust-conv-crm", conversationId: "conv-crm", source: "meta", sourceId: "meta-lg-99", name: "ماجد", phone: "966500000009", email: "m@example.com", createdAt: new Date().toISOString() } });
+    const { saveMetaAdsSettings, notifyMetaStageChange } = await import("../lib/meta-events");
+    await saveMetaAdsSettings("ten-crm", { datasetId: "7777777777", accessToken: "EAAB" + "c".repeat(30), enabled: true });
+    const sent = mockMeta();
+
+    const qualified = await notifyMetaStageChange({ tenantId: "ten-crm", conversationId: "conv-crm", stage: "مؤهل", previousStage: "جديد" });
+    expect(qualified).toMatchObject({ sent: true, ok: true, kind: "crm", eventName: "Lead" });
+    const event = sent[0].body.data[0];
+    expect(event).toMatchObject({ action_source: "system_generated", user_data: { lead_id: "lg-99" }, custom_data: { event_source: "crm", lead_event_source: "Linkly" } });
+    expect(event.user_data).not.toHaveProperty("ctwa_clid");
+
+    const sold = await notifyMetaStageChange({ tenantId: "ten-crm", conversationId: "conv-crm", stage: "فاز", previousStage: "مؤهل", dealValue: 2500 });
+    expect(sold).toMatchObject({ sent: true, kind: "crm", eventName: "Purchase" });
+    expect(sent[1].body.data[0].custom_data).toMatchObject({ value: 2500, currency: "SAR" });
   });
 
   it("adds the hashed email and names when the customer typed them in a form", async () => {

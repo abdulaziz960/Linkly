@@ -239,7 +239,7 @@ export default function MetaAdsSettings() {
       <section style={box}>
         <div>
           <h4 style={sectionTitle}>{t("الحدث المرسل لكل مرحلة", "Event sent for each stage")}</h4>
-          <span style={hint}>{t("اترك الحقل فارغًا إذا لا تريد إرسال شيء لتلك المرحلة.", "Leave a field blank to send nothing for that stage.")}</span>
+          <span style={hint}>{t("اترك الحقل فارغًا إذا لا تريد إرسال شيء لتلك المرحلة. تُستخدم الأسماء نفسها لعملاء النقر إلى واتساب ولعملاء نماذج Lead Ads (بحدث CRM مرتبط بمعرّف الليد).", "Leave a field blank to send nothing for that stage. The same names are used for click-to-WhatsApp customers and for Lead Ads form customers (as a CRM event tied to the lead id).")}</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(110px, 0.8fr) 1.4fr", gap: "10px 12px", alignItems: "center" }}>
           <b style={{ fontSize: 12.5, opacity: 0.7 }}>{t("المرحلة", "Stage")}</b>
