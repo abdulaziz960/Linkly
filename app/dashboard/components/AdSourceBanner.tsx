@@ -38,8 +38,8 @@ export default function AdSourceBanner({ conversationId }: { conversationId: str
           <a href={source.sourceUrl || source.thumbnailUrl} target="_blank" rel="noopener noreferrer" aria-label={t("فتح الإعلان", "Open the ad")} style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
             {/* The ad picture comes from the ad platform's CDN; if it expired the strip simply drops it. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={source.thumbnailUrl} alt={source.headline || t("صورة الإعلان", "Ad picture")} width={40} height={40} loading="lazy" referrerPolicy="no-referrer" onError={() => setImageFailed(true)} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line, #dfe7e5)" }} />
-            {source.mediaType === "video" ? <span aria-hidden="true" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "#fff", fontSize: 14, textShadow: "0 1px 3px rgba(0,0,0,.6)" }}>▶</span> : null}
+            <img src={source.thumbnailUrl} alt={source.headline || t("صورة الإعلان", "Ad picture")} width={72} height={72} loading="lazy" referrerPolicy="no-referrer" onError={() => setImageFailed(true)} style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 10, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface-soft, #f3f7f6)" }} />
+            {source.mediaType === "video" ? <span aria-hidden="true" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "#fff", fontSize: 22, textShadow: "0 1px 3px rgba(0,0,0,.6)" }}>▶</span> : null}
           </a>
         ) : null}
         <span style={{ padding: "1px 10px", borderRadius: 999, fontWeight: 800, fontSize: 12, background: "#178a82", color: "#fff" }}>{platform}</span>
