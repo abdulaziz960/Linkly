@@ -1,6 +1,7 @@
 import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "./whatsapp-inbox";
 import { getIntegrationSettings } from "./database";
 import { sendWhatsAppTemplate } from "./campaign-engine";
+import { recordFormAdSource } from "./ad-source";
 
 type MetaLeadField = { name?: string; values?: string[] };
 
@@ -44,19 +45,12 @@ export async function fetchMetaLead(leadgenId: string, pageAccessToken: string):
 
 /**
  * Runs when a Facebook/Instagram Lead Ad form is submitted: pulls the
- * submitted name/phone, opens a new WhatsApp conversation attributed to the
- * ad/campaign, and sends the tenant's configured welcome template. A no-op
- * (not an error) whenever the tenant hasn't opted in, hasn't picked a
- * welcome template yet, or hasn't connected WhatsApp - lead ads stays
- * silently inactive rather than failing loudly for tenants who never set it up.
+ * submitted name/phone and opens a new WhatsApp conversation attributed to
+ * the ad/campaign (it then shows on the leads page). The lead is always
+ * saved; the welcome template is sent only when the tenant turned it on,
+ * picked a template and connected WhatsApp.
  */
 export async function handleMetaLeadgenEvent(tenantId: string, pageAccessToken: string, leadgenId: string) {
-  const leadsSettings = await getIntegrationSettings("meta_leads", tenantId);
-  if (!leadsSettings.leadAdsEnabled || !leadsSettings.leadWelcomeTemplateName.trim()) return;
-
-  const whatsappSettings = await getIntegrationSettings("whatsapp", tenantId);
-  if (!whatsappSettings.phoneNumberId || !whatsappSettings.accessToken) return;
-
   const lead = await fetchMetaLead(leadgenId, pageAccessToken);
   if (!lead?.field_data) return;
 
@@ -72,6 +66,8 @@ export async function handleMetaLeadgenEvent(tenantId: string, pageAccessToken: 
     direction: "out",
     tenantId,
     author: "نظام",
+    // A fixed id per lead: the same lead delivered twice (webhook retry) is stored once and never welcomed twice.
+    messageId: `leadgen-${leadgenId}`,
     attribution: {
       utmSource: lead.platform || "meta",
       utmMedium: "lead_ad",
@@ -82,7 +78,22 @@ export async function handleMetaLeadgenEvent(tenantId: string, pageAccessToken: 
     }
   });
 
+  await recordFormAdSource({
+    tenantId,
+    conversationId: stored.conversationId,
+    platform: "meta",
+    adId: lead.ad_id || lead.form_id || "",
+    headline: [lead.campaign_name, lead.ad_name].filter(Boolean).join(" · ")
+  });
+
   if (!stored.isNew) return;
 
-  await sendWhatsAppTemplate(tenantId, phone, leadsSettings.leadWelcomeTemplateName, "ar", name);
+  // The lead is saved either way; the welcome goes out only when the workspace set it up.
+  const leadsSettings = await getIntegrationSettings("meta_leads", tenantId);
+  const template = leadsSettings.leadWelcomeTemplateName.trim();
+  if (!leadsSettings.leadAdsEnabled || !template) return;
+  const whatsappSettings = await getIntegrationSettings("whatsapp", tenantId);
+  if (!whatsappSettings.phoneNumberId || !whatsappSettings.accessToken) return;
+
+  await sendWhatsAppTemplate(tenantId, phone, template, "ar", name);
 }

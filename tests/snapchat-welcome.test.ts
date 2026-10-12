@@ -97,3 +97,11 @@ describe("Snapchat lead welcome on WhatsApp", () => {
     expect((await prisma.message.findFirst({ where: { conversationId: rejected.conversationId, direction: "out" } }))?.text).toContain("تعذر إرسال");
   });
 });
+
+describe("Snapchat form leads carry their form as the ad source", () => {
+  it("records the form on the conversation so the strip can show it", async () => {
+    const { getAdSource } = await import("../lib/ad-source");
+    const result = await store("L-SRC-0008", "0500000888");
+    expect(await getAdSource("ten-snap", result.conversationId)).toMatchObject({ platform: "snapchat", adId: "f1", headline: "نموذج", matchedBy: "lead_form" });
+  });
+});

@@ -16,5 +16,5 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const stored = await getAdSource(user.tenantId, id);
   const source = stored ? await ensureTikTokThumbnail(user.tenantId, id, stored) : null;
   // The raw payload is for diagnosis only and is not sent to the browser.
-  return jsonOk(source ? { platform: source.platform, adId: source.adId, headline: source.headline, sourceUrl: source.sourceUrl, thumbnailUrl: source.thumbnailUrl, mediaType: source.mediaType, hasClickId: Boolean(source.clickId), createdAt: source.createdAt } : null);
+  return jsonOk(source ? { platform: source.platform, adId: source.adId, headline: source.headline, sourceUrl: source.sourceUrl, thumbnailUrl: source.thumbnailUrl, mediaType: source.mediaType, hasClickId: Boolean(source.clickId), fromForm: source.matchedBy === "lead_form", createdAt: source.createdAt } : null);
 }

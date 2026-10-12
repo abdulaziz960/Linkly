@@ -6,6 +6,7 @@ import { triggerWebhookEvent } from "./webhooks";
 import type { SnapchatLeadAnswer } from "./snapchat";
 import { firstChar } from "./first-char";
 import { getIntegrationSettings } from "./database";
+import { recordFormAdSource } from "./ad-source";
 import { sendWhatsAppTemplate } from "./campaign-engine";
 import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "./whatsapp-inbox";
 
@@ -180,6 +181,7 @@ export async function storeSnapchatLead(input: StoreSnapchatLeadInput) {
     return { conversationId, message, lead };
   });
 
+  await recordFormAdSource({ tenantId, conversationId: result.conversationId, platform: "snapchat", adId: input.formId, headline: input.formName });
   await runInboundMessageAutomations(result.conversationId, tenantId, summary);
   if (!alreadyStored) await sendSnapchatWelcome({ tenantId, conversationId: result.conversationId, phone, name: formName, leadId: input.leadId, summary });
   await triggerWebhookEvent(tenantId, "lead.created", {

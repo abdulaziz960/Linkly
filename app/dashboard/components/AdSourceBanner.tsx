@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 
-type Source = { platform: "meta" | "tiktok" | "snapchat" | "unknown"; adId: string; headline: string; sourceUrl: string; hasClickId: boolean; thumbnailUrl?: string; mediaType?: "image" | "video" | "" };
+type Source = { platform: "meta" | "tiktok" | "snapchat" | "unknown"; adId: string; headline: string; sourceUrl: string; hasClickId: boolean; thumbnailUrl?: string; mediaType?: "image" | "video" | ""; fromForm?: boolean };
 
 /** A slim strip above the messages saying which ad opened the conversation; nothing is shown for conversations that did not come from an ad. */
 export default function AdSourceBanner({ conversationId }: { conversationId: string }) {
@@ -46,10 +46,10 @@ export default function AdSourceBanner({ conversationId }: { conversationId: str
       <div style={{ minWidth: 0, display: "grid", gap: 2, flex: 1 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ padding: "1px 10px", borderRadius: 999, fontWeight: 800, fontSize: 12, background: "#178a82", color: "#fff" }}>{platform}</span>
-          <b>{t("جاءت من إعلان", "Came from an ad")}</b>
+          <b>{source.fromForm ? t("جاءت من نموذج إعلان", "Came from an ad form") : t("جاءت من إعلان", "Came from an ad")}</b>
         </div>
         {source.headline ? <span style={{ fontWeight: 700 }}>{source.headline}</span> : null}
-        {source.adId ? <small dir="ltr" style={{ textAlign: "start", opacity: 0.8 }}>{t("معرّف الإعلان", "Ad ID")}: {source.adId}</small> : null}
+        {source.adId ? <small dir="ltr" style={{ textAlign: "start", opacity: 0.8 }}>{source.fromForm && source.platform === "snapchat" ? t("معرّف النموذج", "Form ID") : t("معرّف الإعلان", "Ad ID")}: {source.adId}</small> : null}
         {source.sourceUrl ? <a href={source.sourceUrl} target="_blank" rel="noopener noreferrer" dir="ltr" style={{ textAlign: "start", fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{source.sourceUrl}</a> : null}
       </div>
     </div>

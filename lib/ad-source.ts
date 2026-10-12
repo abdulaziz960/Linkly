@@ -166,6 +166,22 @@ export async function getAdSource(tenantId: string, conversationId: string): Pro
  * ad source wins; a later one only fills in a click id that was missing.
  * Never throws - a failure here must not affect receiving the message.
  */
+/**
+ * Records the ad behind a lead FORM (Meta Lead Ads, Snapchat Lead Gen) on the conversation it created, so the
+ * strip above the messages shows the campaign / ad like it does for click-to-WhatsApp. Never overwrites a source
+ * already captured; never throws.
+ */
+export async function recordFormAdSource(input: { tenantId: string; conversationId: string; platform: "meta" | "tiktok" | "snapchat"; adId?: string; headline?: string; sourceUrl?: string }): Promise<void> {
+  try {
+    await ensureTable();
+    if (await getAdSource(input.tenantId, input.conversationId)) return;
+    const now = new Date().toISOString();
+    await prisma.$executeRaw`INSERT INTO conversation_ad_source (conversation_id, tenant_id, platform, ad_id, headline, source_url, click_id, matched_by, raw_json, thumbnail_url, media_type, created_at) VALUES (${input.conversationId}, ${input.tenantId}, ${input.platform}, ${str(input.adId, 200)}, ${str(input.headline, 300)}, ${httpsUrl(input.sourceUrl)}, '', 'lead_form', '', '', '', ${now})`;
+  } catch (error) {
+    console.error("Form ad source failed", error);
+  }
+}
+
 export async function captureAdSource(input: { tenantId: string; conversationId: string; message: WhatsAppMessage }): Promise<void> {
   try {
     const source = extractAdSource(input.message);
