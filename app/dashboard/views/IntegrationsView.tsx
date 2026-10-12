@@ -183,12 +183,15 @@ export default function IntegrationsView() {
 
       <div className="channel-grid">
         {[
-          { id: "salla", letter: "س", color: "#0c8f83", title: t("سلة", "Salla"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") },
-          { id: "zid", letter: "ز", color: "#7a2ee6", title: t("زد", "Zid"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") }
+          { id: "salla", logo: "/brands/salla.png", title: t("سلة", "Salla"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") },
+          { id: "zid", logo: "/brands/zid.svg", title: t("زد", "Zid"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") }
         ].map((store) => (
           <div key={store.id} className="meta-test-card">
             <div>
-              <span className="channel-icon" aria-hidden="true" style={{ background: `${store.color}1a`, color: store.color, fontWeight: 900, fontSize: 22, display: "grid", placeItems: "center" }}>{store.letter}</span>
+              <span className="channel-icon" aria-hidden="true" style={{ display: "grid", placeItems: "center", background: "var(--surface-soft, #f3f7f6)" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={store.logo} alt="" width={36} height={36} style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 8 }} />
+              </span>
               <h3>{store.title}</h3>
               <p>{store.description}</p>
               <span className="status-pill unassigned">{t("قريبًا", "Coming soon")}</span>
