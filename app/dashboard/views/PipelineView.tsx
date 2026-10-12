@@ -203,7 +203,29 @@ function StepCard({ number, title, children }: { number: number; title: string; 
   );
 }
 
-function ExternalLeadsTab({ t }: { t: (ar: string, en: string) => string }) {
+function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en: string) => string; onShowInternal: () => void; onRefresh: () => Promise<void> }) {
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function sendTestLead() {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const response = await fetch("/api/leads/test", { method: "POST" });
+      const result = await response.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (response.ok && result?.ok) {
+        await onRefresh().catch(() => undefined);
+        setTestResult({ ok: true, text: t("وصل الليد التجريبي ✓ يظهر الآن في «داخل المنصة» بمرحلة «استفسار جديد».", "The test lead arrived ✓ It now shows under “Inside platform” at “New inquiry”.") });
+      } else {
+        setTestResult({ ok: false, text: result?.error || t("تعذر إنشاء الليد التجريبي", "Could not create the test lead") });
+      }
+    } catch {
+      setTestResult({ ok: false, text: t("تعذر الاتصال بالخادم", "Could not reach the server") });
+    } finally {
+      setTesting(false);
+    }
+  }
+
   const origin = typeof window === "undefined" ? "https://linklysa.io" : window.location.origin;
   const webhookUrl = `${origin}/api/v1/conversations`;
   const sampleBody = `{
@@ -250,6 +272,12 @@ function ExternalLeadsTab({ t }: { t: (ar: string, en: string) => string }) {
 
       <StepCard number={4} title={t("جرّب وتحقّق", "Test it")}>
         <p style={muted}>{t("شغّل الاختبار في Zapier أو Make بنموذج تجريبي، ثم افتح تبويب «داخل المنصة»: يظهر العميل بمرحلة «استفسار جديد» وتجد محادثته في صندوق الوارد.", "Run the test in Zapier or Make with a sample entry, then open the “Inside platform” tab: the lead appears at “New inquiry” and its conversation is in the inbox.")}</p>
+        <p style={muted}>{t("أو تأكد من أن صفحة الليدات تستقبل بضغطة واحدة: يُنشأ عميل باسم «ليد تجريبي» (نفس العميل في كل مرة).", "Or check that the leads page receives leads in one click: a customer named “Test lead” is created (the same one each time).")}</p>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <button className="btn primary" type="button" disabled={testing} onClick={() => void sendTestLead()}>{testing ? t("جارٍ الإرسال…", "Sending…") : t("إرسال ليد تجريبي", "Send a test lead")}</button>
+          {testResult?.ok ? <button className="soft-action" type="button" onClick={onShowInternal}>{t("عرضه في داخل المنصة", "Show it inside the platform")}</button> : null}
+        </div>
+        {testResult ? <p className={`meta-test-feedback ${testResult.ok ? "success" : "error"}`} style={{ margin: 0 }}>{testResult.text}</p> : null}
       </StepCard>
 
       <section style={{ display: "grid", gap: 10, padding: 16, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
@@ -450,7 +478,7 @@ export default function PipelineView({ conversations, automationRules, templates
           <button type="button" role="tab" aria-selected={activeTab === "internal"} onClick={() => setActiveTab("internal")}>{t("داخل المنصة", "Inside platform")}</button>
         </div>
       </div>
-      {activeTab === "external" ? <ExternalLeadsTab t={t} /> : (
+      {activeTab === "external" ? <ExternalLeadsTab t={t} onShowInternal={() => setActiveTab("internal")} onRefresh={onRefreshData} /> : (
         <div className="lead-internal">
           <div className="pipeline-tabs lead-layout-switch" role="group" aria-label={t("طريقة العرض", "View")}>
             <button type="button" aria-pressed={layout === "board"} onClick={() => setLayout("board")}>{t("لوحة", "Board")}</button>
