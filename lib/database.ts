@@ -3132,6 +3132,16 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
   const now = Date.now();
   const dayInMs = 24 * 60 * 60 * 1000;
 
+  // The ad behind each lead (captured from click-to-WhatsApp referrals and lead forms), for the leads page filters.
+  // The table is created on first use, so a workspace that never had one simply has no sources.
+  const adSources = new Map<string, { platform: string; headline: string }>();
+  try {
+    const rows = await prisma.$queryRaw<Array<{ conversation_id: string; platform: string; headline: string }>>`SELECT conversation_id, platform, headline FROM conversation_ad_source WHERE tenant_id = ${tenantId}`;
+    for (const row of rows) adSources.set(row.conversation_id, { platform: row.platform, headline: row.headline });
+  } catch {
+    // no ad sources yet
+  }
+
   return conversations.map((conversation) => {
     const messages = conversation.messages.map<Message>((message) => ({
       id: message.id,
@@ -3210,6 +3220,8 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       attrUtmMedium: conversation.attrUtmMedium || undefined,
       attrUtmCampaign: conversation.attrUtmCampaign || undefined,
       attrUtmContent: conversation.attrUtmContent || undefined,
+      adPlatform: (adSources.get(conversation.id)?.platform || undefined) as Conversation["adPlatform"],
+      adHeadline: adSources.get(conversation.id)?.headline || undefined,
       isEscalated: (Boolean(conversation.escalatedForMessageId)
         && lastRealMessage?.id === conversation.escalatedForMessageId
         && lastRealMessage?.direction === "in") || undefined

@@ -1,5 +1,7 @@
 "use client";
 
+import LeadFiltersBar from "../components/LeadFiltersBar";
+import { EMPTY_LEAD_FILTERS, applyLeadFilters, buildFilterOptions, type LeadFilters } from "../lead-filters";
 import { useMemo, useState } from "react";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
@@ -336,6 +338,7 @@ export default function PipelineView({ conversations, automationRules, templates
   const [templateMenuId, setTemplateMenuId] = useState<string | null>(null);
   const [automationMenuId, setAutomationMenuId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<LeadFilters>(EMPTY_LEAD_FILTERS);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -343,14 +346,21 @@ export default function PipelineView({ conversations, automationRules, templates
     return localStages[conversation.id] ?? (conversation.pipelineStage as PipelineStage) ?? "جديد";
   }
 
+  const filterOptions = useMemo(() => buildFilterOptions(conversations), [conversations]);
+  const visibleConversations = useMemo(
+    () => applyLeadFilters(conversations, filters, (conversation) => stageOf(conversation)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [conversations, filters, localStages]
+  );
+
   const columns = useMemo(() => {
     const map = new Map<PipelineStage, Conversation[]>(pipelineStages.map((stage) => [stage, [] as Conversation[]]));
-    for (const conversation of conversations) {
+    for (const conversation of visibleConversations) {
       map.get(stageOf(conversation))?.push(conversation);
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations, localStages]);
+  }, [visibleConversations, localStages]);
 
   async function moveConversation(id: string, stage: PipelineStage) {
     setLocalStages((current) => ({ ...current, [id]: stage }));
@@ -430,9 +440,10 @@ export default function PipelineView({ conversations, automationRules, templates
             <button type="button" aria-pressed={layout === "board"} onClick={() => setLayout("board")}>{t("لوحة", "Board")}</button>
             <button type="button" aria-pressed={layout === "table"} onClick={() => setLayout("table")}>{t("جدول", "Table")}</button>
           </div>
+          <LeadFiltersBar filters={filters} options={filterOptions} total={conversations.length} shown={visibleConversations.length} onChange={setFilters} />
           {layout === "table" ? (
             <InternalLeadsTable
-              conversations={conversations}
+              conversations={visibleConversations}
               t={t}
               savingValueId={savingValueId}
               onMove={moveConversation}
