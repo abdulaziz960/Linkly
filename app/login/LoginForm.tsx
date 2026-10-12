@@ -260,9 +260,14 @@ export default function LoginForm({ lang = "ar", googleEnabled = false, googleEr
         {loading ? text.submitting : text.submit}
       </button>
       {googleEnabled ? (
-        <a className="login-google" href="/api/auth/google/start?mode=login">
-          {lang === "en" ? "Continue with Google" : "المتابعة بواسطة Google"}
-        </a>
+        <>
+          <a className="login-google" href="/api/auth/google/start?mode=login">
+            {lang === "en" ? "Continue with Google" : "المتابعة بواسطة Google"}
+          </a>
+          <p className="login-google-hint">
+            {lang === "en" ? "New here? Continuing with Google also creates your free trial account." : "مستخدم جديد؟ المتابعة بواسطة Google تنشئ لك حساب التجربة المجانية أيضاً."}
+          </p>
+        </>
       ) : null}
     </form>
   );
