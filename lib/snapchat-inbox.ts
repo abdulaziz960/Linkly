@@ -87,7 +87,9 @@ export async function storeSnapchatLead(input: StoreSnapchatLeadInput) {
 
   const activityAt = input.submittedAt ? new Date(input.submittedAt).toISOString() : new Date().toISOString();
   const tenantId = input.tenantId;
-  const name = findAnswer(input.answers, NAME_KEYS) || `عميل سناب شات ${input.leadId.slice(-4)}`;
+  // The name the customer typed; empty when the form has none (the welcome then says "عميلنا" instead of a placeholder).
+  const formName = findAnswer(input.answers, NAME_KEYS);
+  const name = formName || `عميل سناب شات ${input.leadId.slice(-4)}`;
   const phone = findAnswer(input.answers, PHONE_KEYS);
   const email = findAnswer(input.answers, EMAIL_KEYS);
   const scopedPrefix = tenantId === "tenant-demo" ? "" : `${tenantId}-`;
@@ -167,7 +169,7 @@ export async function storeSnapchatLead(input: StoreSnapchatLeadInput) {
   });
 
   await runInboundMessageAutomations(result.conversationId, tenantId, summary);
-  if (!alreadyStored) await sendSnapchatWelcome({ tenantId, conversationId: result.conversationId, phone, name, leadId: input.leadId });
+  if (!alreadyStored) await sendSnapchatWelcome({ tenantId, conversationId: result.conversationId, phone, name: formName, leadId: input.leadId });
   await triggerWebhookEvent(tenantId, "lead.created", {
     id: result.lead.id,
     source: "snapchat",

@@ -58,6 +58,16 @@ describe("Snapchat lead welcome on WhatsApp", () => {
     expect(sendTemplate).toHaveBeenCalledTimes(1);
   });
 
+  it("greets by the customer's name, and never by the placeholder name when the form has none", async () => {
+    const { storeSnapchatLead } = await import("../lib/snapchat-inbox");
+    await storeSnapchatLead({ tenantId: "ten-snap", adAccountId: "acc", formId: "f1", formName: "نموذج", leadId: "L-NONAME-0006", answers: [{ question: "PHONE_NUMBER", answer: "0500000666" }] });
+    expect(sendTemplate).toHaveBeenCalledTimes(1);
+    expect(sendTemplate.mock.calls[0][4]).toBe("");
+    sendTemplate.mockClear();
+    await store("L-NAME-0007", "0500000777");
+    expect(sendTemplate.mock.calls[0][4]).toBe("أحمد");
+  });
+
   it("turns local and international formats into a WhatsApp number", async () => {
     const { whatsappNumberFromForm } = await import("../lib/snapchat-inbox");
     expect(whatsappNumberFromForm("0500000111")).toBe("966500000111");
