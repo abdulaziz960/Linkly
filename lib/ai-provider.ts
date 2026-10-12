@@ -46,7 +46,9 @@ export function defaultAiConnection(): AiConnection {
   if (process.env.AI_MANAGED_PROVIDER?.trim() && process.env.AI_MANAGED_PROVIDER.trim() !== "gemini") {
     return { provider: "gemini", model: "", apiKey: "" };
   }
-  return { provider: "gemini", model: process.env.GEMINI_MODEL?.trim() || ECONOMY_MODEL, apiKey: process.env.GEMINI_API_KEY?.trim() || "", economy: true };
+  // The managed model is pinned in code (lib/ai-economy.ts) together with the price used for the cost
+  // guard; a stale GEMINI_MODEL left in the environment must not silently switch it or disable the feature.
+  return { provider: "gemini", model: ECONOMY_MODEL, apiKey: process.env.GEMINI_API_KEY?.trim() || "", economy: true };
 }
 
 function knowledgeSection(context: AiContext) {

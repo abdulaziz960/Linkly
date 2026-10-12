@@ -29,7 +29,7 @@ describe("workspace AI controls", () => {
     const { prisma } = await import("../lib/prisma");
     const { runWorkspaceAi } = await import("../lib/workspace-ai");
     vi.stubEnv("AI_MANAGED_PROVIDER", "gemini");
-    vi.stubEnv("GEMINI_MODEL", "gemini-3.1-flash-lite");
+    vi.stubEnv("GEMINI_MODEL", "gemini-3.5-flash-lite");
     vi.stubEnv("GEMINI_API_KEY", "synthetic-test-key");
     vi.stubEnv("AI_MANAGED_BUDGET_SAR", "0.025");
     const now = new Date().toISOString();
@@ -39,7 +39,7 @@ describe("workspace AI controls", () => {
       await prisma.plan.create({ data: { id: "budget-plan", name: "budget-plan", aiDailyLimit: 10, aiMonthlyLimit: 10, createdAt: now, updatedAt: now } });
       for (const tenantId of ["budget-a", "budget-b"]) {
         await prisma.subscription.create({ data: { id: `${tenantId}-sub`, tenantId, companyName: "Test", ownerName: "Owner", ownerEmail: `${tenantId}@example.test`, plan: "budget-plan", createdAt: now, updatedAt: now } });
-        await prisma.aiWorkspaceSetting.create({ data: { tenantId, provider: "gemini", model: "gemini-3.1-flash-lite", enabled: 1, apiKey: "", updatedAt: now } });
+        await prisma.aiWorkspaceSetting.create({ data: { tenantId, provider: "gemini", model: "gemini-3.5-flash-lite", enabled: 1, apiKey: "", updatedAt: now } });
       }
       const copilot = { ...context, source: "copilot" as const };
       expect(await runWorkspaceAi("budget-a", "owner", "test", { ...copilot, draft: "a".repeat(4001) })).toMatchObject({ reason: "draft_too_long" });

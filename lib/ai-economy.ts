@@ -1,8 +1,10 @@
-// Reviewed against Google's Standard text pricing on 2026-09-21.
+// Reviewed against Google's Standard (paid) text pricing on 2026-10-12.
+// Moved from gemini-3.1-flash-lite, which answered in 10-28 s (and often 503) in a live check
+// against gemini-3.5-flash-lite's ~1 s for the same prompt, so replies timed out at the 20 s guard.
 // This is an application guard, NOT a guarantee on the Google Cloud invoice.
-export const ECONOMY_MODEL = "gemini-3.1-flash-lite";
-export const ECONOMY_INPUT_USD = 0.25;
-export const ECONOMY_OUTPUT_USD = 1.5;
+export const ECONOMY_MODEL = "gemini-3.5-flash-lite";
+export const ECONOMY_INPUT_USD = 0.3;
+export const ECONOMY_OUTPUT_USD = 2.5;
 export const ECONOMY_OUTPUT_TOKENS = 512;
 export const ECONOMY_MAX_INPUT_BYTES = 12000;
 // Conservative fixed allowance; failed/ambiguous attempts are not refunded.

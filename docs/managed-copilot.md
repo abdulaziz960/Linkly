@@ -5,7 +5,7 @@ Status: code prepared locally; production activation requires a paid Gemini API 
 ## Server configuration
 
 - `AI_MANAGED_PROVIDER=gemini`
-- `GEMINI_MODEL=gemini-3.1-flash-lite` (other managed model IDs fail closed)
+- `GEMINI_MODEL=gemini-3.5-flash-lite` (other managed model IDs fail closed)
 - `GEMINI_API_KEY`: inject through Google Secret Manager into the application service; never commit or expose in browser configuration.
 - `AI_MANAGED_BUDGET_SAR=50`: platform-wide allowance, not per tenant. Zero disables managed calls. Invalid values or amounts above 50 disable calls.
 

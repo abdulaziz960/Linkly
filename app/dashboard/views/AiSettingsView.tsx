@@ -4,6 +4,7 @@ import CustomSelect from "../../components/CustomSelect";
 import { useEffect, useState, type FormEvent } from "react";
 import { aiProviders, type AiSettingsPublic } from "../../../lib/ai-types";
 import type { AiUsageSummary } from "../../../lib/ai-usage-summary";
+import { ECONOMY_MODEL } from "../../../lib/ai-economy";
 import { useLanguage } from "../i18n";
 
 type Usage = { id: string; createdAt: string; provider: string; model: string; operation: string; status: string; inputTokens: number | null; outputTokens: number | null; estimatedCost: number | null };
@@ -60,7 +61,7 @@ export default function AiSettingsView() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          provider: "gemini", model: "gemini-3.1-flash-lite", enabled, useManaged: true,
+          provider: "gemini", model: ECONOMY_MODEL, enabled, useManaged: true,
           prompt: settings.prompt, dailyLimit: settings.managedDailyLimit, monthlyLimit: settings.managedMonthlyLimit,
           inputRate: settings.inputRate, outputRate: settings.outputRate, apiKey: ""
         })
