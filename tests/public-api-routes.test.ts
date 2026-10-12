@@ -92,6 +92,24 @@ describe("POST /api/v1/conversations", () => {
     expect(lead).toMatchObject({ email: "khaled@example.com", name: "خالد الحربي", source: "api" });
   });
 
+  it("accepts a Zapier Form payload (form-encoded) with the common names", async () => {
+    const { generateApiKey } = await import("../lib/developer-api");
+    const { POST } = await import("../app/api/v1/conversations/route");
+    const { prisma } = await import("../lib/prisma");
+    const { rawKey } = await generateApiKey(tenantId, "form payload test key");
+    const form = new URLSearchParams({ name: "هند", phone: "0509998877", lead_source: "سناب شات", budget: "500000" });
+    const response = await POST(new Request("https://example.test/api/v1/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: `Bearer ${rawKey}` },
+      body: form.toString()
+    }) as never);
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    const texts = (await prisma.message.findMany({ where: { conversationId: body.data.conversationId } })).map((message) => message.text).join("\n");
+    expect(texts).toContain("• مصدر الليد: سناب شات");
+    expect(texts).toContain("• الميزانية: 500000");
+  });
+
   it("still needs a phone", async () => {
     const { generateApiKey } = await import("../lib/developer-api");
     const { POST } = await import("../app/api/v1/conversations/route");

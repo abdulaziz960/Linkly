@@ -21,7 +21,11 @@ export async function POST(request: NextRequest) {
     return withCors(NextResponse.json({ ok: false, error: "Too many requests" }, { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }));
   }
 
-  const raw = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  // Zapier's "Form" payload type sends form fields instead of JSON; both are accepted.
+  const contentType = request.headers.get("content-type") || "";
+  const raw = /application\/x-www-form-urlencoded|multipart\/form-data/i.test(contentType)
+    ? await request.formData().then((form) => Object.fromEntries([...form.entries()].filter(([, value]) => typeof value === "string"))).catch(() => null) as Record<string, unknown> | null
+    : (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const body = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : null;
   const stringOf = (...keys: string[]) => {
     for (const key of keys) {
