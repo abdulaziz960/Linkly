@@ -11,6 +11,7 @@ import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { ensureOpenerTemplate } from "../../../../lib/opener-template";
+import { exchangeCodeForLongLivedToken, saveMetaAdsSettings } from "../../../../lib/meta-events";
 
 const techProviderMetaAppId = "1296230909161568";
 // Must match techProviderInstagramAppId in app/api/meta/connect/route.ts -
@@ -163,6 +164,27 @@ export async function GET(request: NextRequest) {
   if (!(await userHasViewPermission(user, "settings"))) {
     if (wantsJson) return NextResponse.json({ ok: false, error: "لا تملك صلاحية الوصول لإعدادات القنوات" }, { status: 403 });
     return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=forbidden&view=settings");
+  }
+
+  // "Sign in with Meta" to pick the ad account and dataset (pixel) for conversion events.
+  // Handled before the channel logic below because it has no integration-settings row.
+  if (stateValues?.channel === "meta_ads") {
+    if (user.role !== "مالك الحساب") {
+      return closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=forbidden&view=integrations");
+    }
+    let outcome = "meta-ads-failed";
+    if (code) {
+      const exchanged = await exchangeCodeForLongLivedToken(code, `${getAppOrigin(request)}/api/meta/callback`);
+      if ("token" in exchanged) {
+        await saveMetaAdsSettings(user.tenantId, { accessToken: exchanged.token, tokenKind: "oauth", tokenExpiresAt: exchanged.expiresAt });
+        outcome = "meta-ads-connected";
+      }
+    } else if (searchParams.get("error")) {
+      outcome = "meta-ads-denied";
+    }
+    const adsResponse = closePopupAndRedirect(getAppOrigin(request), `/dashboard?meta=${outcome}&view=integrations`);
+    adsResponse.cookies.delete("audiencew_meta_state");
+    return adsResponse;
   }
 
   const settings = await getIntegrationSettings(channel, user.tenantId);

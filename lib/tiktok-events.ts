@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { getAdSource } from "./ad-source";
+import { notifyMetaStageChange } from "./meta-events";
 import { prisma } from "./prisma";
 import { decryptSecret, encryptSecret } from "./secret-storage";
 
@@ -293,7 +294,12 @@ async function tiktokClickId(tenantId: string, conversationId: string): Promise<
 export async function notifyStageChange(input: { tenantId: string; conversationId: string; stage: string; previousStage?: string; phone: string; dealValue?: number }): Promise<SendResult> {
   if (!(LEAD_STATUSES as readonly string[]).includes(input.stage)) return { sent: false, skipped: "no-mapping" };
   if (input.previousStage !== undefined && input.previousStage === input.stage) return { sent: false, skipped: "duplicate" };
-  return sendLeadStatusEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.stage, phone: input.phone, dealValue: input.dealValue, clickId: await tiktokClickId(input.tenantId, input.conversationId) });
+  // Every ad platform the workspace connected hears about the change; one failing never blocks the other.
+  const [result] = await Promise.all([
+    (async () => sendLeadStatusEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.stage, phone: input.phone, dealValue: input.dealValue, clickId: await tiktokClickId(input.tenantId, input.conversationId) }))(),
+    notifyMetaStageChange({ tenantId: input.tenantId, conversationId: input.conversationId, stage: input.stage, dealValue: input.dealValue })
+  ]);
+  return result;
 }
 
 /** Saves the stage (and optional deal value) of a conversation of `tenantId`, then sends the mapped event. */

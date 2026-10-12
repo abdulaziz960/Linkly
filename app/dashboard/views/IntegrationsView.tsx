@@ -2,6 +2,7 @@
 
 import CustomSelect from "../../components/CustomSelect";
 import TikTokAdsSettings from "../components/TikTokAdsSettings";
+import MetaAdsSettings from "../components/MetaAdsSettings";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import { ChannelIcon } from "./SettingsView";
@@ -30,6 +31,7 @@ export default function IntegrationsView() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tiktokAdsOpen, setTiktokAdsOpen] = useState(false);
+  const [metaAdsOpen, setMetaAdsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +158,19 @@ export default function IntegrationsView() {
 
         <div className="meta-test-card">
           <div>
+            <span className="channel-icon channel-icon-facebook">
+              <ChannelIcon id="facebook" />
+            </span>
+            <h3>{t("إعلانات ميتا: ربط الأحداث", "Meta Ads: event feedback")}</h3>
+            <p>{t("سجّل الدخول مع ميتا، اختر الحساب الإعلاني والبيكسل، وأرسل مراحل العميل (مؤهل، تم البيع...) لتتعلّم حملاتك.", "Sign in with Meta, choose your ad account and pixel, and send customer stages (qualified, sold...) so your campaigns learn.")}</p>
+          </div>
+          <button className="btn primary" type="button" onClick={() => setMetaAdsOpen(true)}>
+            {t("إعداد ربط الأحداث", "Set up event feedback")}
+          </button>
+        </div>
+
+        <div className="meta-test-card">
+          <div>
             <span className="channel-icon channel-icon-tiktok">
               <ChannelIcon id="tiktok" />
             </span>
@@ -167,6 +182,20 @@ export default function IntegrationsView() {
           </button>
         </div>
       </div>
+
+      {metaAdsOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setMetaAdsOpen(false)}>
+          <div className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("إعلانات Meta", "Meta Ads")} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setMetaAdsOpen(false)}>×</button>
+              <h2>{t("إعلانات Meta", "Meta Ads")}</h2>
+            </header>
+            <div className="account-modal-body">
+              <MetaAdsSettings />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {tiktokAdsOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setTiktokAdsOpen(false)}>
