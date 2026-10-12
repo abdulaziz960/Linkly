@@ -174,7 +174,12 @@ export async function addManualCampaignBalance(tenantId: string, messages: numbe
   return payment;
 }
 
-export async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false, trackingCode = "") {
+/**
+ * `bodyValues` fills the body variables by position (1st variable = bodyValues[0], ...). Variables beyond the
+ * list, or when it is omitted, get the recipient's name as before. Used by order and cart messages, whose
+ * templates carry the order number, the status, a link...
+ */
+export async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false, trackingCode = "", bodyValues: string[] = []) {
   const settings = await getIntegrationSettings("whatsapp", tenantId);
   const phoneNumberId = settings.phoneNumberId?.trim();
   const accessToken = settings.accessToken?.trim();
@@ -254,7 +259,7 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
     // template do "{{1}} name ... {{2}} link" as well as the single-variable
     // "{{1}} link" case (trivially "last" too), without the caller having to
     // know which position means what.
-    const bodyValueAt = (position: number, total: number) => (linkUrl && position === total - 1 ? linkUrl : value);
+    const bodyValueAt = (position: number, total: number) => bodyValues[position]?.trim() || (linkUrl && position === total - 1 ? linkUrl : value);
     const positionalCount = isNamedFormat ? placeholders.length : Math.max(...placeholders.map(Number));
     components.push({
       type: "body",

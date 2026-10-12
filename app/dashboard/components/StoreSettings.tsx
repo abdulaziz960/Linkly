@@ -5,8 +5,11 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 
 type OrderEvent = "created" | "processing" | "shipped" | "delivered" | "cancelled";
+type StatusGroup = "review" | "processing" | "shipped" | "delivered" | "cancelled" | "other";
+type Connection = { status: "connected" | "disconnected"; merchantName: string; merchantId: string };
 type Settings = {
   orderNotifications: Record<OrderEvent, { enabled: boolean; template: string }>;
+  orderLookup: { enabled: boolean; requirePhoneMatch: boolean; texts: Record<StatusGroup, string>; notFoundText: string; askNumberText: string };
   abandonedCart: {
     enabled: boolean;
     delayMinutes: number;
@@ -23,17 +26,53 @@ type Settings = {
 
 const ORDER_EVENTS: OrderEvent[] = ["created", "processing", "shipped", "delivered", "cancelled"];
 
-type Section = "orders" | "carts";
+type Section = "connection" | "orders" | "lookup" | "carts";
+const STATUS_GROUPS: StatusGroup[] = ["review", "processing", "shipped", "delivered", "cancelled", "other"];
 
 /** Salla / Zid: which notifications go out and how abandoned carts are followed up. Stored now; sending starts once the store is connected. */
 export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
   const { t } = useLanguage();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [templates, setTemplates] = useState<string[]>([]);
-  const [section, setSection] = useState<Section>("orders");
+  const [section, setSection] = useState<Section>("connection");
+  const [connection, setConnection] = useState<Connection | null>(null);
+  const [available, setAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  async function loadConnection() {
+    try {
+      const response = await fetch(`/api/store-integrations/${store}/connection`, { cache: "no-store" });
+      const result = await response.json().catch(() => null) as { ok?: boolean; data?: { connection: Connection; available: boolean } } | null;
+      if (response.ok && result?.ok && result.data) {
+        setConnection(result.data.connection);
+        setAvailable(result.data.available);
+      }
+    } catch {
+      // The tab keeps showing "not connected".
+    }
+  }
+
+  async function disconnect() {
+    setBusy(true);
+    try {
+      await fetch(`/api/store-integrations/${store}/connection`, { method: "DELETE" });
+      await loadConnection();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadConnection();
+    function onMessage(event: MessageEvent) {
+      if (event.origin === window.location.origin && (event.data as { type?: string } | null)?.type === "linkly:store-connected") void loadConnection();
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store]);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,18 +151,76 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      <p className="meta-test-feedback" style={{ margin: 0, lineHeight: 1.8 }}>
-        {t("هذه الإعدادات تُحفظ الآن، ولن تُرسل أي رسائل قبل إتمام ربط المتجر. ستُطبَّق تلقائيًا فور تفعيل الربط.", "These settings are saved now; no messages are sent until the store is connected. They apply automatically once the connection is enabled.")}
-      </p>
+      {connection?.status !== "connected" ? (
+        <p className="meta-test-feedback" style={{ margin: 0, lineHeight: 1.8 }}>
+          {t("المتجر غير مرتبط بعد: الإعدادات تُحفظ، ولا تُرسل أي رسائل قبل الربط.", "The store is not connected yet: settings are saved, and nothing is sent until it is.")}
+        </p>
+      ) : null}
 
-      <div className="pipeline-tabs" role="tablist" style={{ marginTop: 0 }}>
+      <div className="pipeline-tabs" role="tablist" style={{ marginTop: 0, flexWrap: "wrap" }}>
+        <button type="button" role="tab" aria-selected={section === "connection"} onClick={() => setSection("connection")}>{t("الربط", "Connection")}</button>
         <button type="button" role="tab" aria-selected={section === "orders"} onClick={() => setSection("orders")}>{t("إشعارات الطلب", "Order notifications")}</button>
+        <button type="button" role="tab" aria-selected={section === "lookup"} onClick={() => setSection("lookup")}>{t("استعلام الطلبات", "Order lookup")}</button>
         <button type="button" role="tab" aria-selected={section === "carts"} onClick={() => setSection("carts")}>{t("السلات المتروكة", "Abandoned carts")}</button>
       </div>
 
-      {section === "orders" ? (
+      {section === "connection" ? (
+        <section style={box}>
+          <h4 style={sectionTitle}>{store === "salla" ? t("ربط متجر سلة", "Connect your Salla store") : t("ربط متجر زد", "Connect your Zid store")}</h4>
+          {connection?.status === "connected" ? (
+            <p style={{ margin: 0, fontWeight: 700 }}>{t("متصل", "Connected")}{connection.merchantName ? ` — ${connection.merchantName}` : ""}</p>
+          ) : (
+            <p style={{ margin: 0, opacity: 0.8 }}>{t("غير متصل", "Not connected")}</p>
+          )}
+          {store === "zid" ? (
+            <span style={hint}>{t("ربط زد قريبًا.", "Zid connection is coming soon.")}</span>
+          ) : !available ? (
+            <span style={hint}>{t("الربط غير مفعّل بعد على الخادم (بيانات تطبيق سلة غير مضبوطة). تواصل مع الدعم.", "The connection is not enabled on the server yet (the Salla app credentials are not set). Contact support.")}</span>
+          ) : (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button className="primary-action" type="button" disabled={busy} onClick={() => window.open("/api/salla/connect", "salla-connect", "width=620,height=760")}>
+                {connection?.status === "connected" ? t("إعادة الربط", "Reconnect") : t("ربط المتجر", "Connect store")}
+              </button>
+              {connection?.status === "connected" ? <button className="soft-action" type="button" disabled={busy} onClick={() => void disconnect()}>{t("فصل الربط", "Disconnect")}</button> : null}
+            </div>
+          )}
+          <span style={hint}>{t("بعد الربط تصل أحداث الطلبات والسلات المتروكة تلقائيًا، وتُطبَّق الإعدادات في التبويبات الأخرى.", "After connecting, order and abandoned-cart events arrive automatically and the settings in the other tabs apply.")}</span>
+        </section>
+      ) : section === "lookup" ? (
+        <>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, cursor: "pointer" }}>
+            <input type="checkbox" checked={settings.orderLookup.enabled} onChange={(event) => setSettings({ ...settings, orderLookup: { ...settings.orderLookup, enabled: event.target.checked } })} style={{ width: 18, height: 18 }} />
+            {t("الرد على سؤال العميل عن حالة طلبه", "Answer customers who ask about their order")}
+          </label>
+          <section style={box}>
+            <label style={{ display: "grid", gap: 4, cursor: "pointer" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700 }}>
+                <input type="checkbox" checked={settings.orderLookup.requirePhoneMatch} onChange={(event) => setSettings({ ...settings, orderLookup: { ...settings.orderLookup, requirePhoneMatch: event.target.checked } })} style={{ width: 18, height: 18 }} />
+                {t("لا أجيب إلا إذا طابق جوال الطلب جوال المحادثة", "Only answer when the order's phone matches this chat")}
+              </span>
+              <span style={hint}>{t("موصى به بشدة: يمنع أي شخص من الاستعلام عن طلب غيره.", "Strongly recommended: stops anyone from asking about someone else's order.")}</span>
+            </label>
+            <span style={hint}>{t("المتغيرات المتاحة في النصوص: {{order}} رقم الطلب، {{status}} الحالة، {{name}} الاسم، {{company}} شركة الشحن، {{tracking}} رقم التتبع، {{link}} رابط التتبع.", "Available in the texts: {{order}} order number, {{status}} status, {{name}} name, {{company}} courier, {{tracking}} tracking number, {{link}} tracking link.")}</span>
+            {STATUS_GROUPS.map((group) => (
+              <label key={group} style={fieldLabel}>
+                {{ review: t("قيد المراجعة", "Under review"), processing: t("قيد التجهيز", "Processing"), shipped: t("تم الشحن / جاري التوصيل", "Shipped / out for delivery"), delivered: t("تم التسليم", "Delivered"), cancelled: t("ملغي", "Cancelled"), other: t("حالة أخرى", "Other status") }[group]}
+                <textarea style={{ ...input, minHeight: 76, padding: 10 }} value={settings.orderLookup.texts[group]} onChange={(event) => setSettings({ ...settings, orderLookup: { ...settings.orderLookup, texts: { ...settings.orderLookup.texts, [group]: event.target.value } } })} />
+              </label>
+            ))}
+            <label style={fieldLabel}>
+              {t("إذا لم يوجد الطلب أو لم يطابق الجوال", "When the order is not found or the phone does not match")}
+              <textarea style={{ ...input, minHeight: 64, padding: 10 }} value={settings.orderLookup.notFoundText} onChange={(event) => setSettings({ ...settings, orderLookup: { ...settings.orderLookup, notFoundText: event.target.value } })} />
+            </label>
+            <label style={fieldLabel}>
+              {t("إذا سأل بدون رقم الطلب", "When they ask without an order number")}
+              <textarea style={{ ...input, minHeight: 64, padding: 10 }} value={settings.orderLookup.askNumberText} onChange={(event) => setSettings({ ...settings, orderLookup: { ...settings.orderLookup, askNumberText: event.target.value } })} />
+            </label>
+          </section>
+        </>
+      ) : section === "orders" ? (
         <section style={box}>
           <h4 style={sectionTitle}>{t("إشعار العميل على واتساب لكل حالة", "WhatsApp notification per order status")}</h4>
+          <span style={hint}>{t("متغيرات القالب بالترتيب: {{1}} اسم العميل، {{2}} رقم الطلب، {{3}} الحالة، {{4}} رابط التتبع.", "Template variables in order: {{1}} customer name, {{2}} order number, {{3}} status, {{4}} tracking link.")}</span>
           {ORDER_EVENTS.map((event) => {
             const item = settings.orderNotifications[event];
             const missing = warnings.includes(`order:${event}`);
@@ -206,6 +303,7 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
 
           <section style={box}>
             <h4 style={sectionTitle}>{t("القوالب والخصم", "Templates and discount")}</h4>
+            <span style={hint}>{t("متغيرات القالب بالترتيب: {{1}} اسم العميل، {{2}} قيمة السلة، {{3}} رابط إكمال الطلب، {{4}} كود الخصم.", "Template variables in order: {{1}} customer name, {{2}} cart total, {{3}} link to finish the order, {{4}} discount code.")}</span>
             {Array.from({ length: cart.maxReminders }, (_, index) => (
               <label key={index} style={fieldLabel}>
                 {t(`قالب التذكير ${index + 1}`, `Reminder ${index + 1} template`)}

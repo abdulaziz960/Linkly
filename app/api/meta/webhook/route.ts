@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { convertAudioToMp3 } from "../../../../lib/audio-conversion";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
+import { handleOrderInquiry } from "../../../../lib/store-engine";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
 import { runWhatsAppBot, runChannelBot, startTemplateCatalog } from "../../../../lib/bot-engine";
 import { captureAdSource } from "../../../../lib/ad-source";
@@ -502,6 +503,11 @@ export async function POST(request: NextRequest) {
           // A tap on a catalog template's button opens the dashboard catalog directly.
           if (message.button?.text && await isCatalogTemplateButton(whatsappAccount.tenantId, message.button.text)) {
             await startTemplateCatalog("whatsapp", { tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, recipientId: message.from });
+            savedMessages.push(message.id || message.from);
+            continue;
+          }
+          // A customer asking where their order is gets the answer from the connected store (Salla), not the bot flow.
+          if (text && !message.interactive && await handleOrderInquiry({ tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, phone: message.from, text })) {
             savedMessages.push(message.id || message.from);
             continue;
           }

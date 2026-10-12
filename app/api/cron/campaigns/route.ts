@@ -14,6 +14,7 @@ import { provisionOpenerTemplates } from "../../../../lib/opener-template";
 import { isCronRequestAuthorized } from "../../../../lib/cron-auth";
 import { ensureEmailPromotionsSchema } from "../../../../lib/email-promotions-schema";
 import { activateDueEmailCampaigns, processEmailCampaignBatch } from "../../../../lib/email-promotions";
+import { processStoreCartReminders, tenantsWithDueCartReminders } from "../../../../lib/store-engine";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -86,6 +87,14 @@ export async function GET(request: NextRequest) {
     await processDueConversationSummaries(tenantId, 10);
   }
 
+  // Abandoned-cart reminders of connected online stores (Salla / Zid); a failure here never stops the rest of the run.
+  let storeCartRemindersSent = 0;
+  try {
+    for (const tenantId of await tenantsWithDueCartReminders()) storeCartRemindersSent += await processStoreCartReminders(tenantId, 25);
+  } catch (error) {
+    console.error("Store cart reminders failed", error);
+  }
+
   const xResults = await Promise.allSettled(xTenantIds.map(async (tenantId) => {
     const settings = await getIntegrationSettings("x", tenantId);
     return syncXTenant(settings);
@@ -127,5 +136,5 @@ export async function GET(request: NextRequest) {
     return null;
   });
 
-  return NextResponse.json({ ok: true, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, openerTemplates });
+  return NextResponse.json({ ok: true, storeCartRemindersSent, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, openerTemplates });
 }

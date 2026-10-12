@@ -21,8 +21,23 @@ export type OrderEvent = (typeof ORDER_EVENTS)[number];
 
 export type OrderEventSetting = { enabled: boolean; template: string };
 
+/** Where an order is, as the customer understands it. Store-specific statuses map onto these (see lib/store-engine.ts). */
+export const STATUS_GROUPS = ["review", "processing", "shipped", "delivered", "cancelled", "other"] as const;
+export type StatusGroup = (typeof STATUS_GROUPS)[number];
+
+export type OrderLookupSettings = {
+  enabled: boolean;
+  /** Only answer when the order's phone is the phone of this conversation. Strongly recommended. */
+  requirePhoneMatch: boolean;
+  /** Reply per status group. Placeholders: {{order}} {{status}} {{company}} {{tracking}} {{link}} {{name}}. */
+  texts: Record<StatusGroup, string>;
+  notFoundText: string;
+  askNumberText: string;
+};
+
 export type StoreSettings = {
   orderNotifications: Record<OrderEvent, OrderEventSetting>;
+  orderLookup: OrderLookupSettings;
   abandonedCart: {
     enabled: boolean;
     /** Minutes after the cart was left before the first reminder. */
@@ -44,7 +59,23 @@ export type StoreSettings = {
   dailyCap: number;
 };
 
+export const DEFAULT_LOOKUP_TEXTS: Record<StatusGroup, string> = {
+  review: "طلبك رقم {{order}} قيد المراجعة. سنبدأ تجهيزه قريبًا بإذن الله.",
+  processing: "طلبك رقم {{order}} قيد التجهيز الآن، وسنخبرك فور شحنه.",
+  shipped: "طلبك رقم {{order}} جاري التوصيل 🚚{{company}}{{tracking}}{{link}}",
+  delivered: "طلبك رقم {{order}} تم تسليمه. نتمنى أن ينال إعجابك 🌟",
+  cancelled: "طلبك رقم {{order}} ملغي. إن كان لديك استفسار سيتواصل معك أحد موظفينا.",
+  other: "حالة طلبك رقم {{order}}: {{status}}."
+};
+
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
+  orderLookup: {
+    enabled: false,
+    requirePhoneMatch: true,
+    texts: DEFAULT_LOOKUP_TEXTS,
+    notFoundText: "ما قدرنا نلاقي الطلب بهذا الرقم على جوالك. سيتواصل معك أحد موظفينا للمساعدة.",
+    askNumberText: "تمام، أرسل لي رقم طلبك وأتحقق لك من حالته."
+  },
   orderNotifications: {
     created: { enabled: false, template: "" },
     processing: { enabled: false, template: "" },
@@ -115,6 +146,25 @@ export function normalizeStoreSettings(input: unknown): StoreSettings {
     };
   }
 
+  const lookupSource = record(source.orderLookup);
+  const textsSource = record(lookupSource.texts);
+  const texts = {} as Record<StatusGroup, string>;
+  for (const group of STATUS_GROUPS) {
+    const text = typeof textsSource[group] === "string" ? (textsSource[group] as string).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").trim().slice(0, 800) : "";
+    texts[group] = text || DEFAULT_LOOKUP_TEXTS[group];
+  }
+  const freeText = (value: unknown, fallback: string) => {
+    const text = typeof value === "string" ? value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").trim().slice(0, 800) : "";
+    return text || fallback;
+  };
+  const orderLookup: OrderLookupSettings = {
+    enabled: typeof lookupSource.enabled === "boolean" ? lookupSource.enabled : defaults.orderLookup.enabled,
+    requirePhoneMatch: typeof lookupSource.requirePhoneMatch === "boolean" ? lookupSource.requirePhoneMatch : defaults.orderLookup.requirePhoneMatch,
+    texts,
+    notFoundText: freeText(lookupSource.notFoundText, defaults.orderLookup.notFoundText),
+    askNumberText: freeText(lookupSource.askNumberText, defaults.orderLookup.askNumberText)
+  };
+
   const cart = record(source.abandonedCart);
   const quiet = record(cart.quietHours);
   const templatesSource = Array.isArray(cart.templates) ? cart.templates : [];
@@ -123,6 +173,7 @@ export function normalizeStoreSettings(input: unknown): StoreSettings {
 
   return {
     orderNotifications,
+    orderLookup,
     abandonedCart: {
       enabled: typeof cart.enabled === "boolean" ? cart.enabled : defaults.abandonedCart.enabled,
       delayMinutes: clampInt(cart.delayMinutes, 10, 1440, defaults.abandonedCart.delayMinutes),
