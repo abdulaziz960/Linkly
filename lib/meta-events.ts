@@ -1,6 +1,8 @@
 import { createHash } from "crypto";
 import { pipelineStages } from "../app/dashboard/types";
 import { getAdSource } from "./ad-source";
+import { hashEmail, hashName, hashPhoneDigits } from "./identity-hash";
+import { getLeadContact, type LeadContact } from "./lead-contact";
 import { getIntegrationSettings } from "./database";
 import { prisma } from "./prisma";
 import { decryptSecret, encryptSecret } from "./secret-storage";
@@ -301,7 +303,7 @@ async function post(datasetId: string, token: string, body: Record<string, unkno
 
 const DEAL_CURRENCY = "SAR";
 
-export function buildMetaPayload(input: { eventName: string; eventId: string; wabaId: string; clickId: string; dealValue?: number; testEventCode?: string; eventTime?: number }) {
+export function buildMetaPayload(input: { eventName: string; eventId: string; wabaId: string; clickId: string; dealValue?: number; testEventCode?: string; eventTime?: number; phone?: string; contact?: LeadContact }) {
   const value = typeof input.dealValue === "number" && Number.isFinite(input.dealValue) && input.dealValue > 0 ? Math.round(input.dealValue * 100) / 100 : 0;
   return {
     data: [{
@@ -310,7 +312,15 @@ export function buildMetaPayload(input: { eventName: string; eventId: string; wa
       event_id: input.eventId,
       action_source: "business_messaging",
       messaging_channel: "whatsapp",
-      user_data: { whatsapp_business_account_id: input.wabaId, ctwa_clid: input.clickId },
+      user_data: {
+        whatsapp_business_account_id: input.wabaId,
+        ctwa_clid: input.clickId,
+        // Extra hashed identifiers (Meta hashes-only): they raise the Event Match Quality.
+        ...(hashPhoneDigits(input.phone) ? { ph: [hashPhoneDigits(input.phone)] } : {}),
+        ...(hashEmail(input.contact?.email) ? { em: [hashEmail(input.contact?.email)] } : {}),
+        ...(hashName(input.contact?.firstName) ? { fn: [hashName(input.contact?.firstName)] } : {}),
+        ...(hashName(input.contact?.lastName) ? { ln: [hashName(input.contact?.lastName)] } : {})
+      },
       ...(value > 0 ? { custom_data: { value, currency: DEAL_CURRENCY } } : {})
     }],
     ...(input.testEventCode ? { test_event_code: input.testEventCode } : {})
@@ -338,7 +348,11 @@ export async function sendMetaStageEvent(input: { tenantId: string; conversation
     const already = await prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM meta_event_log WHERE tenant_id = ${input.tenantId} AND event_id = ${eventId} AND ok = 1 LIMIT 1`;
     if (already.length) return { sent: false, skipped: "duplicate", eventName };
 
-    const result = await post(row.dataset_id, decryptSecret(row.access_token_enc), buildMetaPayload({ eventName, eventId, wabaId: waba, clickId, dealValue: input.dealValue, testEventCode: row.test_event_code }));
+    const [contact, conversation] = await Promise.all([
+      getLeadContact(input.tenantId, input.conversationId),
+      prisma.conversation.findFirst({ where: { id: input.conversationId, tenantId: input.tenantId }, select: { customer: { select: { phone: true } } } })
+    ]);
+    const result = await post(row.dataset_id, decryptSecret(row.access_token_enc), buildMetaPayload({ eventName, eventId, wabaId: waba, clickId, dealValue: input.dealValue, testEventCode: row.test_event_code, phone: conversation?.customer.phone, contact }));
     await logEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.status, eventName, eventId, ok: result.ok, httpStatus: result.httpStatus, message: result.message });
     return { sent: true, ok: result.ok, eventName, message: result.message };
   } catch (error) {

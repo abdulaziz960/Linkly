@@ -1,6 +1,8 @@
 import { createHash } from "crypto";
 import { pipelineStages } from "../app/dashboard/types";
 import { getAdSource } from "./ad-source";
+import { hashEmail, hashName } from "./identity-hash";
+import { getLeadContact, type LeadContact } from "./lead-contact";
 import { prisma } from "./prisma";
 import { decryptSecret, encryptSecret } from "./secret-storage";
 
@@ -172,7 +174,7 @@ export function hashSnapPhone(phone: string): string {
 
 const DEAL_CURRENCY = "SAR";
 
-export function buildSnapPayload(input: { eventName: string; phone: string; clickId?: string; actionSource: string; dealValue?: number; eventTime?: number }) {
+export function buildSnapPayload(input: { eventName: string; phone: string; clickId?: string; actionSource: string; dealValue?: number; eventTime?: number; contact?: LeadContact }) {
   const value = typeof input.dealValue === "number" && Number.isFinite(input.dealValue) && input.dealValue > 0 ? Math.round(input.dealValue * 100) / 100 : 0;
   return {
     data: [{
@@ -180,7 +182,14 @@ export function buildSnapPayload(input: { eventName: string; phone: string; clic
       action_source: input.actionSource,
       event_time: input.eventTime ?? Date.now(),
       ...(input.actionSource === "WEB" ? { event_source_url: process.env.SNAP_EVENTS_PAGE_URL || "https://linklysa.io" } : {}),
-      user_data: { ph: [hashSnapPhone(input.phone)], ...(input.clickId ? { sc_click_id: input.clickId } : {}) },
+      user_data: {
+        ph: [hashSnapPhone(input.phone)],
+        // More identifiers raise the match rate: hashed email and names when the customer gave them.
+        ...(hashEmail(input.contact?.email) ? { em: [hashEmail(input.contact?.email)] } : {}),
+        ...(hashName(input.contact?.firstName) ? { fn: [hashName(input.contact?.firstName)] } : {}),
+        ...(hashName(input.contact?.lastName) ? { ln: [hashName(input.contact?.lastName)] } : {}),
+        ...(input.clickId ? { sc_click_id: input.clickId } : {})
+      },
       ...(value > 0 ? { custom_data: { value, currency: DEAL_CURRENCY } } : {})
     }]
   };
@@ -227,7 +236,8 @@ export async function sendSnapStageEvent(input: { tenantId: string; conversation
     // Only conversations that came from an ad are reported, unless the workspace chose to send them all.
     const fromAd = source?.platform === "snapchat" || source?.platform === "unknown";
     if (row.send_all !== 1 && !fromAd) return { sent: false, skipped: "not-from-ad", eventName };
-    const result = await post(row.pixel_id, decryptSecret(row.access_token_enc), buildSnapPayload({ eventName, phone: input.phone, clickId, actionSource: row.action_source || "WEB", dealValue: input.dealValue }));
+    const contact = await getLeadContact(input.tenantId, input.conversationId);
+    const result = await post(row.pixel_id, decryptSecret(row.access_token_enc), buildSnapPayload({ eventName, phone: input.phone, clickId, actionSource: row.action_source || "WEB", dealValue: input.dealValue, contact }));
     await logEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.status, eventName, eventId, ok: result.ok, httpStatus: result.httpStatus, message: result.message });
     return { sent: true, ok: result.ok, eventName, message: result.message };
   } catch (error) {

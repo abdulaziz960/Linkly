@@ -22,7 +22,7 @@ afterAll(async () => {
   }
 });
 
-type Sent = { url: string; body: { data: Array<{ event_name: string; action_source: string; user_data: { ph: string[]; sc_click_id?: string }; custom_data?: { value: number; currency: string } }> } };
+type Sent = { url: string; body: { data: Array<{ event_name: string; action_source: string; user_data: { ph: string[]; em?: string[]; fn?: string[]; ln?: string[]; sc_click_id?: string }; custom_data?: { value: number; currency: string } }> } };
 
 function mockSnap(response: { ok?: boolean; reason?: string } = {}) {
   const sent: Sent[] = [];
@@ -89,6 +89,18 @@ describe("Snapchat Ads stage events", () => {
     expect(sold).toMatchObject({ sent: true, eventName: "PURCHASE" });
     expect(sent[1].body.data[0].custom_data).toEqual({ value: 4000, currency: "SAR" });
     expect((await recentSnapEvents("ten-send")).map((row) => row.event_name).sort()).toEqual(["PURCHASE", "SIGN_UP"]);
+  });
+
+  it("adds the hashed email and names to the event when the customer gave them", async () => {
+    await seedConversation("conv-s5", "ten-snapmail", "حياكم https://example.com/o?ScCid=mm11NN22oo33");
+    const { prisma } = await import("../lib/prisma");
+    await prisma.lead.create({ data: { id: "lead-s5", tenantId: "ten-snapmail", customerId: "cust-conv-s5", conversationId: "conv-s5", source: "snapchat", name: "هند السبيعي", phone: "966500000123", email: "Hind@Example.com", createdAt: new Date().toISOString() } });
+    const { saveSnapAdsSettings, notifySnapStageChange } = await import("../lib/snap-events");
+    await saveSnapAdsSettings("ten-snapmail", { pixelId: "33333333-aaaa-bbbb-cccc-1234567890ab", accessToken: "snaptoken" + "m".repeat(30), enabled: true });
+    const sent = mockSnap();
+    await notifySnapStageChange({ tenantId: "ten-snapmail", conversationId: "conv-s5", stage: "مؤهل", previousStage: "جديد", phone: "966500000123" });
+    const sha = (value: string) => createHash("sha256").update(value).digest("hex");
+    expect(sent[0].body.data[0].user_data).toMatchObject({ em: [sha("hind@example.com")], fn: [sha("هند")], ln: [sha("السبيعي")] });
   });
 
   it("logs a rejection with its reason, and does nothing while disabled", async () => {

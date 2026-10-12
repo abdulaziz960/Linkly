@@ -1,4 +1,5 @@
 import { existsSync, unlinkSync } from "fs";
+import { createHash } from "crypto";
 import { join } from "path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -85,7 +86,9 @@ describe("Meta Ads stage events", () => {
     expect(first).toMatchObject({ sent: true, ok: true, eventName: "Lead" });
     expect(sent).toHaveLength(1);
     expect(sent[0].url).toContain("/9876543210/events");
-    expect(sent[0].body.data[0].user_data).toEqual({ whatsapp_business_account_id: "waba-1", ctwa_clid: "ctwa-abc" });
+    const sha = (value: string) => createHash("sha256").update(value).digest("hex");
+    expect(sent[0].body.data[0].user_data).toMatchObject({ whatsapp_business_account_id: "waba-1", ctwa_clid: "ctwa-abc", ph: [sha("966500000009")] });
+    expect(sent[0].body.data[0].user_data).not.toHaveProperty("em"); // no email was given
 
     expect(await notifyMetaStageChange({ tenantId: "ten-send", conversationId: "conv-m1", stage: "مؤهل", previousStage: "جديد" })).toMatchObject({ sent: false, skipped: "duplicate" });
     expect(await notifyMetaStageChange({ tenantId: "ten-send", conversationId: "conv-m1", stage: "مهتم", previousStage: "جديد" })).toMatchObject({ sent: false, skipped: "no-mapping" });
@@ -96,6 +99,18 @@ describe("Meta Ads stage events", () => {
     expect(sold).toMatchObject({ sent: true, eventName: "Purchase" });
     expect(sent[1].body.data[0].custom_data).toEqual({ value: 5000, currency: "SAR" });
     expect((await recentMetaEvents("ten-send")).map((row) => row.event_name).sort()).toEqual(["Lead", "Purchase"]);
+  });
+
+  it("adds the hashed email and names when the customer typed them in a form", async () => {
+    await seedConversation("conv-m5", "ten-email", { clickId: "ctwa-email", waba: "waba-5" });
+    const { prisma } = await import("../lib/prisma");
+    await prisma.lead.create({ data: { id: "lead-m5", tenantId: "ten-email", customerId: "cust-conv-m5", conversationId: "conv-m5", source: "meta", name: "ماجد الدوسري", phone: "966500000009", email: " Majed@Example.com ", createdAt: new Date().toISOString() } });
+    const { saveMetaAdsSettings, notifyMetaStageChange } = await import("../lib/meta-events");
+    await saveMetaAdsSettings("ten-email", { datasetId: "5555555555", accessToken: "EAAB" + "e".repeat(30), enabled: true });
+    const sent = mockMeta();
+    await notifyMetaStageChange({ tenantId: "ten-email", conversationId: "conv-m5", stage: "مؤهل", previousStage: "جديد" });
+    const sha = (value: string) => createHash("sha256").update(value).digest("hex");
+    expect(sent[0].body.data[0].user_data).toMatchObject({ em: [sha("majed@example.com")], fn: [sha("ماجد")], ln: [sha("الدوسري")] });
   });
 
   it("logs a rejection with a readable reason and does not throw", async () => {

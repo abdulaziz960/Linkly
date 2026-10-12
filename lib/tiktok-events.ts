@@ -1,5 +1,7 @@
 import { createHash } from "crypto";
 import { getAdSource } from "./ad-source";
+import { hashEmail } from "./identity-hash";
+import { getLeadContact } from "./lead-contact";
 import { notifyMetaStageChange } from "./meta-events";
 import { notifySnapStageChange } from "./snap-events";
 import { prisma } from "./prisma";
@@ -211,7 +213,7 @@ function explainRejection(message: string): string {
   return message;
 }
 
-function buildPayload(settings: { eventSetId: string; eventSource: string; testEventCode: string }, event: { name: string; eventId: string; phone: string; clickId?: string; properties?: Record<string, unknown> }) {
+function buildPayload(settings: { eventSetId: string; eventSource: string; testEventCode: string }, event: { name: string; eventId: string; phone: string; clickId?: string; email?: string; properties?: Record<string, unknown> }) {
   return {
     event_source: settings.eventSource,
     event_source_id: settings.eventSetId,
@@ -220,7 +222,8 @@ function buildPayload(settings: { eventSetId: string; eventSource: string; testE
       event: event.name,
       event_time: Math.floor(Date.now() / 1000),
       event_id: event.eventId,
-      user: { phone: hashPhone(event.phone), ...(event.clickId ? { ttclid: event.clickId } : {}) },
+      // The hashed email, when the customer typed one in a form, makes the match stronger than the phone alone.
+      user: { phone: hashPhone(event.phone), ...(hashEmail(event.email) ? { email: hashEmail(event.email) } : {}), ...(event.clickId ? { ttclid: event.clickId } : {}) },
       properties: event.properties ?? {},
       // Web (Pixel) events carry the page they came from; for a conversation that is the platform's own site.
       ...(settings.eventSource === "web" ? { page: { url: process.env.TIKTOK_EVENTS_PAGE_URL || "https://linklysa.io" } } : {})
@@ -251,7 +254,7 @@ export async function sendLeadStatusEvent(input: { tenantId: string; conversatio
     if (already.length) return { sent: false, skipped: "duplicate", eventName };
 
     const url = process.env.TIKTOK_EVENTS_URL || DEFAULT_EVENTS_URL;
-    const result = await post(url, decryptSecret(row.access_token_enc), buildPayload({ eventSetId: row.event_set_id, eventSource: row.event_source || "crm", testEventCode: row.test_event_code }, { name: eventName, eventId, phone: input.phone, clickId: input.clickId, properties: { lead_status: input.status, ...dealProperties(input.dealValue) } }));
+    const result = await post(url, decryptSecret(row.access_token_enc), buildPayload({ eventSetId: row.event_set_id, eventSource: row.event_source || "crm", testEventCode: row.test_event_code }, { name: eventName, eventId, phone: input.phone, clickId: input.clickId, email: (await getLeadContact(input.tenantId, input.conversationId)).email, properties: { lead_status: input.status, ...dealProperties(input.dealValue) } }));
     await logEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.status, eventName, eventId, ok: result.ok, httpStatus: result.httpStatus, message: result.message });
     return { sent: true, ok: result.ok, eventName, message: result.message };
   } catch (error) {

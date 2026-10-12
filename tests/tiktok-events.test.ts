@@ -190,3 +190,18 @@ describe("TikTok: ad conversations only by default", () => {
     void prisma;
   });
 });
+
+describe("TikTok: stronger matching with the customer's email", () => {
+  it("adds the hashed email to the event when the customer typed one in a form", async () => {
+    await seedConversation("conv-mail-1", "ten-mail", "966500000777");
+    const { prisma } = await import("../lib/prisma");
+    await prisma.lead.create({ data: { id: "lead-mail-1", tenantId: "ten-mail", customerId: "cust-conv-mail-1", conversationId: "conv-mail-1", source: "api", name: "سارة", phone: "966500000777", email: " Sara@Example.COM ", createdAt: new Date().toISOString() } });
+    const { saveTikTokAdsSettings, notifyStageChange } = await import("../lib/tiktok-events");
+    await saveTikTokAdsSettings("ten-mail", { eventSetId: "DB5QHHRC77U074LG3TQG", accessToken: "tok_" + "m".repeat(20), eventSource: "web", enabled: true, sendAll: true });
+    const sent = mockTikTok();
+    await notifyStageChange({ tenantId: "ten-mail", conversationId: "conv-mail-1", stage: "مؤهل", previousStage: "جديد", phone: "966500000777" });
+    const user = sent[0].body.data[0].user as Record<string, string>;
+    expect(user.email).toBe(createHash("sha256").update("sara@example.com").digest("hex"));
+    expect(user.phone).toBeTruthy();
+  });
+});
