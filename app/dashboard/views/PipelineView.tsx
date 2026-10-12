@@ -235,12 +235,12 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
 }`;
   const muted: React.CSSProperties = { margin: 0, lineHeight: 1.8, opacity: 0.8, fontSize: 14 };
 
-  const fields: Array<{ name: string; required: boolean; description: string; example: string }> = [
-    { name: "customerPhone", required: true, description: t("رقم جوال العميل المحتمل", "The lead's mobile number"), example: "0501234567" },
-    { name: "text", required: true, description: t("نص الليد: من أين جاء وماذا يريد", "Lead text: where it came from and what they want"), example: t("مهتم بمشروع واجهة الرياض", "Interested in the Riyadh Front project") },
-    { name: "customerName", required: false, description: t("اسم العميل", "The lead's name"), example: t("محمد عبدالله", "Mohammed") },
-    { name: "visit", required: false, description: t("true إذا كان الليد زيارة أو حجزًا مؤكدًا", "true when the lead is a visit or confirmed booking"), example: "true" },
-    { name: "visitAt", required: false, description: t("وقت الزيارة بصيغة ISO", "Visit time in ISO format"), example: "2026-10-20T16:00:00+03:00" }
+  const fields: Array<{ name: string; label: string; required: boolean; description: string; example: string }> = [
+    { name: "customerPhone", label: t("رقم الجوال", "Mobile number"), required: true, description: t("جوال العميل. به نتواصل معه ونفتح محادثته.", "The customer's mobile. We use it to open their conversation."), example: "0501234567" },
+    { name: "text", label: t("نص الطلب", "Request text"), required: true, description: t("ما كتبه العميل أو من أين جاء، ليقرأه الموظف أول ما يفتح المحادثة.", "What the customer wrote or where they came from, so the agent sees it first."), example: t("مهتم بمشروع واجهة الرياض", "Interested in the Riyadh Front project") },
+    { name: "customerName", label: t("الاسم", "Name"), required: false, description: t("اسم العميل. إن لم تُرسله نعرض رقم جواله بدل الاسم.", "The customer's name. If omitted we show their phone number instead."), example: t("محمد عبدالله", "Mohammed") },
+    { name: "visit", label: t("زيارة أو حجز", "Visit or booking"), required: false, description: t("أرسل true إذا كان هذا الليد زيارة أو حجزًا مؤكدًا، فتُسجَّل زيارةً في التقارير.", "Send true if this lead is a visit or confirmed booking; it is then recorded as a visit in reports."), example: "true" },
+    { name: "visitAt", label: t("موعد الزيارة", "Visit time"), required: false, description: t("موعد الزيارة بصيغة تاريخ ووقت (مع «زيارة أو حجز»).", "The visit date and time (used with “Visit or booking”)."), example: "2026-10-20T16:00:00+03:00" }
   ];
 
   return (
@@ -281,13 +281,18 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
       </StepCard>
 
       <section style={{ display: "grid", gap: 10, padding: 16, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
-        <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 900 }}>{t("الحقول المقبولة", "Accepted fields")}</h4>
+        <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 900 }}>{t("ما الذي ترسله مع كل عميل؟", "What do you send with each lead?")}</h4>
+        <p style={muted}>{t("في الخطوة ③ (جسم JSON) تُرسل معلومات العميل في حقول بأسماء ثابتة. حقلان فقط مطلوبان، والباقي اختياري.", "In step ③ (the JSON body) you send the customer's details in fields with fixed names. Only two are required; the rest are optional.")}</p>
         <div style={{ display: "grid", gap: 8 }}>
           {fields.map((field) => (
-            <div key={field.name} style={{ display: "grid", gridTemplateColumns: "minmax(120px, 0.7fr) 70px minmax(0, 2fr)", gap: 10, alignItems: "center", padding: "10px 12px", borderRadius: 10, background: "var(--surface-soft, #f3f7f6)" }}>
-              <b dir="ltr" style={{ textAlign: "left", fontSize: 13 }}>{field.name}</b>
-              <span style={{ justifySelf: "start", padding: "1px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, background: field.required ? "#fde6d8" : "#e6eef0", color: field.required ? "#b4501d" : "#4c635f" }}>{field.required ? t("مطلوب", "Required") : t("اختياري", "Optional")}</span>
-              <span style={{ fontSize: 13.5, lineHeight: 1.7 }}>{field.description} <code dir="ltr" style={{ opacity: 0.7 }}>{field.example}</code></span>
+            <div key={field.name} style={{ display: "grid", gap: 6, padding: "12px 14px", borderRadius: 10, background: "var(--surface-soft, #f3f7f6)", borderInlineStart: `4px solid ${field.required ? "#e0752d" : "#9ccfca"}` }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                <b style={{ fontSize: 14.5 }}>{field.label}</b>
+                <code dir="ltr" style={{ padding: "1px 8px", borderRadius: 6, background: "var(--surface, #fff)", border: "1px solid var(--line, #dfe7e5)", fontSize: 12.5 }}>{field.name}</code>
+                <span style={{ padding: "1px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, background: field.required ? "#fde6d8" : "#e6eef0", color: field.required ? "#b4501d" : "#4c635f" }}>{field.required ? t("مطلوب", "Required") : t("اختياري", "Optional")}</span>
+              </div>
+              <span style={{ fontSize: 13.5, lineHeight: 1.7 }}>{field.description}</span>
+              <span style={{ fontSize: 12.5, opacity: 0.75 }}>{t("مثال:", "Example:")} <code dir="ltr">{field.example}</code></span>
             </div>
           ))}
         </div>
