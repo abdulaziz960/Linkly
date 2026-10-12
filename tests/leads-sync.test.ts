@@ -35,7 +35,7 @@ describe("lead status = the stage on the leads page", () => {
     await prisma.conversation.create({ data: { id: "conv-l1", customerId: "cust-l1", channel: "whatsapp", lastMessage: "", status: "unassigned", assignee: "بدون موظف", tenantId: "tenant-leads" } });
 
     const { saveTikTokAdsSettings, getLeadStatus } = await import("../lib/tiktok-events");
-    await saveTikTokAdsSettings("tenant-leads", { eventSetId: "DB5QHHRC77U074LG3TQG", accessToken: "tok_" + "k".repeat(20), eventSource: "web", enabled: true });
+    await saveTikTokAdsSettings("tenant-leads", { eventSetId: "DB5QHHRC77U074LG3TQG", accessToken: "tok_" + "k".repeat(20), eventSource: "web", enabled: true, sendAll: true });
 
     const sent: Array<{ event: string; value?: unknown }> = [];
     vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {

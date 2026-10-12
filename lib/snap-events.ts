@@ -39,6 +39,7 @@ function ensureTables() {
       mapping_json TEXT NOT NULL DEFAULT '',
       updated_at TEXT NOT NULL
     )`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE snap_ads_settings ADD COLUMN send_all INTEGER NOT NULL DEFAULT 0`).catch(() => undefined);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS snap_event_log (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL,
@@ -58,13 +59,15 @@ function ensureTables() {
   return ready;
 }
 
-type Row = { pixel_id: string; access_token_enc: string; action_source: string; enabled: number; mapping_json: string; updated_at: string };
+type Row = { pixel_id: string; access_token_enc: string; action_source: string; enabled: number; send_all: number; mapping_json: string; updated_at: string };
 
 export type SnapAdsSettings = {
   pixelId: string;
   hasToken: boolean;
   actionSource: string;
   enabled: boolean;
+  /** Send for every conversation (matched by phone), not only the ones that came from an ad. Off by default. */
+  sendAll: boolean;
   mapping: SnapMapping;
   updatedAt: string;
 };
@@ -85,7 +88,7 @@ function parseMapping(json: string): SnapMapping {
 
 async function readRow(tenantId: string): Promise<Row | null> {
   await ensureTables();
-  const rows = await prisma.$queryRaw<Row[]>`SELECT pixel_id, access_token_enc, action_source, enabled, mapping_json, updated_at FROM snap_ads_settings WHERE tenant_id = ${tenantId} LIMIT 1`;
+  const rows = await prisma.$queryRaw<Row[]>`SELECT pixel_id, access_token_enc, action_source, enabled, send_all, mapping_json, updated_at FROM snap_ads_settings WHERE tenant_id = ${tenantId} LIMIT 1`;
   return rows[0] ?? null;
 }
 
@@ -97,13 +100,14 @@ export async function getSnapAdsSettings(tenantId: string): Promise<SnapAdsSetti
     hasToken: Boolean(row?.access_token_enc),
     actionSource: row?.action_source || "WEB",
     enabled: row?.enabled === 1,
+    sendAll: row?.send_all === 1,
     mapping: parseMapping(row?.mapping_json ?? ""),
     updatedAt: row?.updated_at ?? ""
   };
 }
 
-export type SnapSettingsInput = { pixelId?: unknown; accessToken?: unknown; actionSource?: unknown; enabled?: unknown; mapping?: unknown };
-type CleanData = { pixelId?: string; accessToken?: string; actionSource?: string; enabled?: boolean; mapping?: SnapMapping };
+export type SnapSettingsInput = { pixelId?: unknown; accessToken?: unknown; actionSource?: unknown; enabled?: unknown; sendAll?: unknown; mapping?: unknown };
+type CleanData = { pixelId?: string; accessToken?: string; actionSource?: string; enabled?: boolean; sendAll?: boolean; mapping?: SnapMapping };
 
 export function cleanSnapSettingsInput(input: SnapSettingsInput): { ok: true; data: CleanData } | { ok: false; error: string } {
   const data: CleanData = {};
@@ -122,6 +126,7 @@ export function cleanSnapSettingsInput(input: SnapSettingsInput): { ok: true; da
     data.actionSource = input.actionSource;
   }
   if (input.enabled !== undefined) data.enabled = Boolean(input.enabled);
+  if (input.sendAll !== undefined) data.sendAll = Boolean(input.sendAll);
   if (input.mapping !== undefined) {
     if (typeof input.mapping !== "object" || input.mapping === null) return { ok: false, error: "ربط المراحل غير صالح" };
     const mapping = { ...DEFAULT_SNAP_MAPPING };
@@ -145,15 +150,16 @@ export async function saveSnapAdsSettings(tenantId: string, data: CleanData): Pr
     token: data.accessToken ? encryptSecret(data.accessToken) : existing?.access_token_enc ?? "",
     actionSource: data.actionSource ?? existing?.action_source ?? "WEB",
     enabled: (data.enabled ?? existing?.enabled === 1) ? 1 : 0,
+    sendAll: (data.sendAll ?? existing?.send_all === 1) ? 1 : 0,
     mapping: data.mapping ? JSON.stringify(data.mapping) : existing?.mapping_json ?? "",
     now: new Date().toISOString()
   };
   // Enabling without a pixel and a token would only produce failed sends.
   if (next.enabled === 1 && (!next.pixelId || !next.token)) next.enabled = 0;
   if (existing) {
-    await prisma.$executeRaw`UPDATE snap_ads_settings SET pixel_id = ${next.pixelId}, access_token_enc = ${next.token}, action_source = ${next.actionSource}, enabled = ${next.enabled}, mapping_json = ${next.mapping}, updated_at = ${next.now} WHERE tenant_id = ${tenantId}`;
+    await prisma.$executeRaw`UPDATE snap_ads_settings SET pixel_id = ${next.pixelId}, access_token_enc = ${next.token}, action_source = ${next.actionSource}, enabled = ${next.enabled}, send_all = ${next.sendAll}, mapping_json = ${next.mapping}, updated_at = ${next.now} WHERE tenant_id = ${tenantId}`;
   } else {
-    await prisma.$executeRaw`INSERT INTO snap_ads_settings (tenant_id, pixel_id, access_token_enc, action_source, enabled, mapping_json, updated_at) VALUES (${tenantId}, ${next.pixelId}, ${next.token}, ${next.actionSource}, ${next.enabled}, ${next.mapping}, ${next.now})`;
+    await prisma.$executeRaw`INSERT INTO snap_ads_settings (tenant_id, pixel_id, access_token_enc, action_source, enabled, send_all, mapping_json, updated_at) VALUES (${tenantId}, ${next.pixelId}, ${next.token}, ${next.actionSource}, ${next.enabled}, ${next.sendAll}, ${next.mapping}, ${next.now})`;
   }
   return getSnapAdsSettings(tenantId);
 }
@@ -180,7 +186,7 @@ export function buildSnapPayload(input: { eventName: string; phone: string; clic
   };
 }
 
-export type SnapSendResult = { sent: boolean; skipped?: "disabled" | "no-mapping" | "duplicate" | "no-phone"; ok?: boolean; eventName?: string; message?: string };
+export type SnapSendResult = { sent: boolean; skipped?: "disabled" | "no-mapping" | "duplicate" | "no-phone" | "not-from-ad"; ok?: boolean; eventName?: string; message?: string };
 
 async function logEvent(entry: { tenantId: string; conversationId: string; status: string; eventName: string; eventId: string; ok: boolean; httpStatus: number; message: string }) {
   const id = `snev-${createHash("sha1").update(`${entry.eventId}:${Date.now()}:${Math.random()}`).digest("hex").slice(0, 20)}`;
@@ -218,6 +224,9 @@ export async function sendSnapStageEvent(input: { tenantId: string; conversation
 
     const source = await getAdSource(input.tenantId, input.conversationId).catch(() => null);
     const clickId = source?.platform === "snapchat" ? source.clickId : "";
+    // Only conversations that came from an ad are reported, unless the workspace chose to send them all.
+    const fromAd = source?.platform === "snapchat" || source?.platform === "unknown";
+    if (row.send_all !== 1 && !fromAd) return { sent: false, skipped: "not-from-ad", eventName };
     const result = await post(row.pixel_id, decryptSecret(row.access_token_enc), buildSnapPayload({ eventName, phone: input.phone, clickId, actionSource: row.action_source || "WEB", dealValue: input.dealValue }));
     await logEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.status, eventName, eventId, ok: result.ok, httpStatus: result.httpStatus, message: result.message });
     return { sent: true, ok: result.ok, eventName, message: result.message };

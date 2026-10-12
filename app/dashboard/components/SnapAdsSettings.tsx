@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import { stageDisplayLabel } from "../stage-labels";
 
-type Settings = { pixelId: string; hasToken: boolean; actionSource: string; enabled: boolean; mapping: Record<string, string>; updatedAt: string };
+type Settings = { pixelId: string; hasToken: boolean; actionSource: string; enabled: boolean; sendAll: boolean; mapping: Record<string, string>; updatedAt: string };
 type EventLog = { conversation_id: string; status: string; event_name: string; ok: number; message: string; created_at: string };
 
 /** Snapchat Ads: the Pixel ID + Conversions API token, and which Snap event each stage sends. */
@@ -18,6 +18,7 @@ export default function SnapAdsSettings() {
   const [accessToken, setAccessToken] = useState("");
   const [actionSource, setActionSource] = useState("WEB");
   const [enabled, setEnabled] = useState(false);
+  const [sendAll, setSendAll] = useState(false);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -27,6 +28,7 @@ export default function SnapAdsSettings() {
     setPixelId(next.pixelId);
     setActionSource(next.actionSource || "WEB");
     setEnabled(next.enabled);
+    setSendAll(next.sendAll);
     setMapping(next.mapping);
   }
 
@@ -52,7 +54,7 @@ export default function SnapAdsSettings() {
     const response = await fetch("/api/snap-ads/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pixelId, accessToken, actionSource, enabled, mapping })
+      body: JSON.stringify({ pixelId, accessToken, actionSource, enabled, sendAll, mapping })
     });
     const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; data?: { settings: Settings } } | null;
     if (!response.ok || !result?.ok || !result.data) {
@@ -149,6 +151,16 @@ export default function SnapAdsSettings() {
           ))}
         </div>
       </section>
+
+      <label style={{ display: "grid", gap: 4, cursor: "pointer" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700 }}>
+          <input type="checkbox" checked={sendAll} onChange={(event) => setSendAll(event.target.checked)} style={{ width: 18, height: 18 }} />
+          {t("أرسل لكل المحادثات، وليس محادثات الإعلانات فقط", "Send for every conversation, not only ad conversations")}
+        </span>
+        <span style={{ fontWeight: 400, fontSize: 12.5, opacity: 0.7, lineHeight: 1.6 }}>
+          {t("الافتراضي: تُرسل الأحداث فقط للمحادثات التي جاءت من إعلان. تفعيل هذا يرسل رقم جوال (مشفّر) كل عميل تتغير مرحلته، حتى من لم يأتِ من إعلان.", "By default events are sent only for conversations that came from an ad. Turning this on sends the (hashed) phone of every customer whose stage changes, even ones that did not come from an ad.")}
+        </span>
+      </label>
 
       <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, cursor: "pointer" }}>
         <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} style={{ width: 18, height: 18 }} />

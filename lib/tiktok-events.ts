@@ -45,6 +45,8 @@ function ensureTables() {
       mapping_json TEXT NOT NULL DEFAULT '',
       updated_at TEXT NOT NULL
     )`);
+    // Added after the table first shipped; a second run finds the column and the error is ignored.
+    await prisma.$executeRawUnsafe(`ALTER TABLE tiktok_ads_settings ADD COLUMN send_all INTEGER NOT NULL DEFAULT 0`).catch(() => undefined);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS conversation_lead_status (
       conversation_id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL,
@@ -77,11 +79,13 @@ export type TikTokAdsSettings = {
   eventSource: string;
   testEventCode: string;
   enabled: boolean;
+  /** Send for every conversation (matched by phone), not only the ones that came from an ad. Off by default. */
+  sendAll: boolean;
   mapping: EventMapping;
   updatedAt: string;
 };
 
-type SettingsRow = { event_set_id: string; access_token_enc: string; event_source: string; test_event_code: string; enabled: number; mapping_json: string; updated_at: string };
+type SettingsRow = { event_set_id: string; access_token_enc: string; event_source: string; test_event_code: string; enabled: number; send_all: number; mapping_json: string; updated_at: string };
 
 function parseMapping(json: string): EventMapping {
   const mapping: EventMapping = { ...DEFAULT_MAPPING };
@@ -99,7 +103,7 @@ function parseMapping(json: string): EventMapping {
 
 async function readSettingsRow(tenantId: string): Promise<SettingsRow | null> {
   await ensureTables();
-  const rows = await prisma.$queryRaw<SettingsRow[]>`SELECT event_set_id, access_token_enc, event_source, test_event_code, enabled, mapping_json, updated_at FROM tiktok_ads_settings WHERE tenant_id = ${tenantId}`;
+  const rows = await prisma.$queryRaw<SettingsRow[]>`SELECT event_set_id, access_token_enc, event_source, test_event_code, enabled, send_all, mapping_json, updated_at FROM tiktok_ads_settings WHERE tenant_id = ${tenantId}`;
   return rows[0] ?? null;
 }
 
@@ -111,16 +115,17 @@ export async function getTikTokAdsSettings(tenantId: string): Promise<TikTokAdsS
     hasToken: Boolean(row?.access_token_enc),
     eventSource: row?.event_source || "crm",
     testEventCode: row?.test_event_code ?? "",
+    sendAll: row?.send_all === 1,
     enabled: row?.enabled === 1,
     mapping: parseMapping(row?.mapping_json ?? ""),
     updatedAt: row?.updated_at ?? ""
   };
 }
 
-export type SettingsInput = { eventSetId?: unknown; accessToken?: unknown; eventSource?: unknown; testEventCode?: unknown; enabled?: unknown; mapping?: unknown };
+export type SettingsInput = { eventSetId?: unknown; accessToken?: unknown; eventSource?: unknown; testEventCode?: unknown; enabled?: unknown; sendAll?: unknown; mapping?: unknown };
 
-export function cleanSettingsInput(input: SettingsInput): { ok: true; data: { eventSetId?: string; accessToken?: string; eventSource?: string; testEventCode?: string; enabled?: boolean; mapping?: EventMapping } } | { ok: false; error: string } {
-  const data: { eventSetId?: string; accessToken?: string; eventSource?: string; testEventCode?: string; enabled?: boolean; mapping?: EventMapping } = {};
+export function cleanSettingsInput(input: SettingsInput): { ok: true; data: { eventSetId?: string; accessToken?: string; eventSource?: string; testEventCode?: string; enabled?: boolean; sendAll?: boolean; mapping?: EventMapping } } | { ok: false; error: string } {
+  const data: { eventSetId?: string; accessToken?: string; eventSource?: string; testEventCode?: string; enabled?: boolean; sendAll?: boolean; mapping?: EventMapping } = {};
   if (input.eventSetId !== undefined) {
     const value = typeof input.eventSetId === "string" ? input.eventSetId.trim() : "";
     if (value && !/^[A-Za-z0-9_-]{4,64}$/.test(value)) return { ok: false, error: "معرّف الـ Event Set غير صالح" };
@@ -141,6 +146,7 @@ export function cleanSettingsInput(input: SettingsInput): { ok: true; data: { ev
     data.testEventCode = code;
   }
   if (input.enabled !== undefined) data.enabled = Boolean(input.enabled);
+  if (input.sendAll !== undefined) data.sendAll = Boolean(input.sendAll);
   if (input.mapping !== undefined) {
     if (typeof input.mapping !== "object" || input.mapping === null) return { ok: false, error: "ربط الحالات غير صالح" };
     const mapping = { ...DEFAULT_MAPPING };
@@ -155,7 +161,7 @@ export function cleanSettingsInput(input: SettingsInput): { ok: true; data: { ev
   return { ok: true, data };
 }
 
-export async function saveTikTokAdsSettings(tenantId: string, data: { eventSetId?: string; accessToken?: string; eventSource?: string; testEventCode?: string; enabled?: boolean; mapping?: EventMapping }): Promise<TikTokAdsSettings> {
+export async function saveTikTokAdsSettings(tenantId: string, data: { eventSetId?: string; accessToken?: string; eventSource?: string; testEventCode?: string; enabled?: boolean; sendAll?: boolean; mapping?: EventMapping }): Promise<TikTokAdsSettings> {
   await ensureTables();
   const existing = await readSettingsRow(tenantId);
   const next = {
@@ -163,6 +169,7 @@ export async function saveTikTokAdsSettings(tenantId: string, data: { eventSetId
     token: data.accessToken ? encryptSecret(data.accessToken) : existing?.access_token_enc ?? "",
     eventSource: data.eventSource ?? existing?.event_source ?? "crm",
     testEventCode: data.testEventCode ?? existing?.test_event_code ?? "",
+    sendAll: (data.sendAll ?? existing?.send_all === 1) ? 1 : 0,
     enabled: (data.enabled ?? existing?.enabled === 1) ? 1 : 0,
     mapping: data.mapping ? JSON.stringify(data.mapping) : existing?.mapping_json ?? "",
     now: new Date().toISOString()
@@ -170,9 +177,9 @@ export async function saveTikTokAdsSettings(tenantId: string, data: { eventSetId
   // Enabling without a saved token/event set would only produce failed sends.
   if (next.enabled === 1 && (!next.eventSetId || !next.token)) next.enabled = 0;
   if (existing) {
-    await prisma.$executeRaw`UPDATE tiktok_ads_settings SET event_set_id = ${next.eventSetId}, access_token_enc = ${next.token}, event_source = ${next.eventSource}, test_event_code = ${next.testEventCode}, enabled = ${next.enabled}, mapping_json = ${next.mapping}, updated_at = ${next.now} WHERE tenant_id = ${tenantId}`;
+    await prisma.$executeRaw`UPDATE tiktok_ads_settings SET event_set_id = ${next.eventSetId}, access_token_enc = ${next.token}, event_source = ${next.eventSource}, test_event_code = ${next.testEventCode}, enabled = ${next.enabled}, send_all = ${next.sendAll}, mapping_json = ${next.mapping}, updated_at = ${next.now} WHERE tenant_id = ${tenantId}`;
   } else {
-    await prisma.$executeRaw`INSERT INTO tiktok_ads_settings (tenant_id, event_set_id, access_token_enc, event_source, test_event_code, enabled, mapping_json, updated_at) VALUES (${tenantId}, ${next.eventSetId}, ${next.token}, ${next.eventSource}, ${next.testEventCode}, ${next.enabled}, ${next.mapping}, ${next.now})`;
+    await prisma.$executeRaw`INSERT INTO tiktok_ads_settings (tenant_id, event_set_id, access_token_enc, event_source, test_event_code, enabled, send_all, mapping_json, updated_at) VALUES (${tenantId}, ${next.eventSetId}, ${next.token}, ${next.eventSource}, ${next.testEventCode}, ${next.enabled}, ${next.sendAll}, ${next.mapping}, ${next.now})`;
   }
   return getTikTokAdsSettings(tenantId);
 }
@@ -183,7 +190,7 @@ export function hashPhone(phone: string): string {
   return createHash("sha256").update(`+${digits}`).digest("hex");
 }
 
-export type SendResult = { sent: boolean; skipped?: "disabled" | "no-mapping" | "duplicate" | "no-phone"; ok?: boolean; eventName?: string; message?: string };
+export type SendResult = { sent: boolean; skipped?: "disabled" | "no-mapping" | "duplicate" | "no-phone" | "not-from-ad"; ok?: boolean; eventName?: string; message?: string };
 
 async function logEvent(entry: { tenantId: string; conversationId: string; status: string; eventName: string; eventId: string; ok: boolean; httpStatus: number; message: string }) {
   const id = `ttev-${createHash("sha1").update(`${entry.eventId}:${Date.now()}:${Math.random()}`).digest("hex").slice(0, 20)}`;
@@ -228,13 +235,15 @@ function dealProperties(dealValue?: number): Record<string, unknown> {
 }
 
 /** Sends the event mapped to `status` for this conversation. Never throws; a failure is logged and returned. */
-export async function sendLeadStatusEvent(input: { tenantId: string; conversationId: string; status: string; phone: string; dealValue?: number; clickId?: string }): Promise<SendResult> {
+export async function sendLeadStatusEvent(input: { tenantId: string; conversationId: string; status: string; phone: string; dealValue?: number; clickId?: string; fromAd?: boolean }): Promise<SendResult> {
   try {
     const row = await readSettingsRow(input.tenantId);
     if (!row || row.enabled !== 1 || !row.event_set_id || !row.access_token_enc) return { sent: false, skipped: "disabled" };
     const eventName = parseMapping(row.mapping_json)[input.status as LeadStatus] ?? "";
     if (!eventName) return { sent: false, skipped: "no-mapping" };
     if (!input.phone.replace(/\D/g, "")) return { sent: false, skipped: "no-phone" };
+    // Only conversations that came from an ad are reported, unless the workspace chose to send them all.
+    if (row.send_all !== 1 && !input.fromAd) return { sent: false, skipped: "not-from-ad", eventName };
 
     // One event per conversation per status: moving back and forth must not double-count a lead.
     const eventId = createHash("sha1").update(`${input.tenantId}:${input.conversationId}:${input.status}`).digest("hex");
@@ -278,12 +287,14 @@ export async function getLeadStatus(tenantId: string, conversationId: string): P
 }
 
 /** The TikTok click id of the ad that opened this conversation, if it was captured. */
-async function tiktokClickId(tenantId: string, conversationId: string): Promise<string> {
+async function tiktokAdContext(tenantId: string, conversationId: string): Promise<{ clickId: string; fromAd: boolean }> {
   try {
     const source = await getAdSource(tenantId, conversationId);
-    return source?.platform === "tiktok" ? source.clickId : "";
+    // "unknown" is an ad whose platform we could not tell apart; it still came from an ad.
+    const fromAd = source?.platform === "tiktok" || source?.platform === "unknown";
+    return { clickId: source?.platform === "tiktok" ? source.clickId : "", fromAd };
   } catch {
-    return "";
+    return { clickId: "", fromAd: false };
   }
 }
 
@@ -297,7 +308,10 @@ export async function notifyStageChange(input: { tenantId: string; conversationI
   if (input.previousStage !== undefined && input.previousStage === input.stage) return { sent: false, skipped: "duplicate" };
   // Every ad platform the workspace connected hears about the change; one failing never blocks the other.
   const [result] = await Promise.all([
-    (async () => sendLeadStatusEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.stage, phone: input.phone, dealValue: input.dealValue, clickId: await tiktokClickId(input.tenantId, input.conversationId) }))(),
+    (async () => {
+      const ad = await tiktokAdContext(input.tenantId, input.conversationId);
+      return sendLeadStatusEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.stage, phone: input.phone, dealValue: input.dealValue, clickId: ad.clickId, fromAd: ad.fromAd });
+    })(),
     notifyMetaStageChange({ tenantId: input.tenantId, conversationId: input.conversationId, stage: input.stage, dealValue: input.dealValue }),
     notifySnapStageChange({ tenantId: input.tenantId, conversationId: input.conversationId, stage: input.stage, phone: input.phone, dealValue: input.dealValue })
   ]);

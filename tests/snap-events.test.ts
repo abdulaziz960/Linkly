@@ -94,7 +94,7 @@ describe("Snapchat Ads stage events", () => {
   it("logs a rejection with its reason, and does nothing while disabled", async () => {
     await seedConversation("conv-s2", "ten-fail");
     const { saveSnapAdsSettings, notifySnapStageChange } = await import("../lib/snap-events");
-    await saveSnapAdsSettings("ten-fail", { pixelId: "11111111-aaaa-bbbb-cccc-1234567890ab", accessToken: "snaptoken" + "z".repeat(30), enabled: true });
+    await saveSnapAdsSettings("ten-fail", { pixelId: "11111111-aaaa-bbbb-cccc-1234567890ab", accessToken: "snaptoken" + "z".repeat(30), enabled: true, sendAll: true });
     mockSnap({ ok: false, reason: "Invalid pixel" });
     const failed = await notifySnapStageChange({ tenantId: "ten-fail", conversationId: "conv-s2", stage: "مؤهل", previousStage: "جديد", phone: "966500000123" });
     expect(failed).toMatchObject({ sent: true, ok: false });
@@ -104,5 +104,24 @@ describe("Snapchat Ads stage events", () => {
     const sent = mockSnap();
     expect(await notifySnapStageChange({ tenantId: "ten-fail", conversationId: "conv-s2", stage: "فاز", previousStage: "مؤهل", phone: "966500000123" })).toMatchObject({ sent: false, skipped: "disabled" });
     expect(sent).toHaveLength(0);
+  });
+});
+
+describe("Snapchat: ad conversations only by default", () => {
+  it("skips a conversation that did not come from an ad, unless send-all is on", async () => {
+    await seedConversation("conv-s3", "ten-adonly");
+    await seedConversation("conv-s4", "ten-adonly", "عرض https://example.com/o?ScCid=zz99YY88xx77");
+    const { saveSnapAdsSettings, notifySnapStageChange, getSnapAdsSettings } = await import("../lib/snap-events");
+    await saveSnapAdsSettings("ten-adonly", { pixelId: "22222222-aaaa-bbbb-cccc-1234567890ab", accessToken: "snaptoken" + "w".repeat(30), enabled: true });
+    expect((await getSnapAdsSettings("ten-adonly")).sendAll).toBe(false);
+    const sent = mockSnap();
+
+    expect(await notifySnapStageChange({ tenantId: "ten-adonly", conversationId: "conv-s3", stage: "مؤهل", previousStage: "جديد", phone: "966500000123" })).toMatchObject({ sent: false, skipped: "not-from-ad" });
+    expect(sent).toHaveLength(0);
+    expect(await notifySnapStageChange({ tenantId: "ten-adonly", conversationId: "conv-s4", stage: "مؤهل", previousStage: "جديد", phone: "966500000123" })).toMatchObject({ sent: true, ok: true });
+    expect(sent).toHaveLength(1);
+
+    await saveSnapAdsSettings("ten-adonly", { sendAll: true });
+    expect(await notifySnapStageChange({ tenantId: "ten-adonly", conversationId: "conv-s3", stage: "مؤهل", previousStage: "جديد", phone: "966500000123" })).toMatchObject({ sent: true, ok: true });
   });
 });

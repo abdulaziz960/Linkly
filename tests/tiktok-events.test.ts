@@ -49,7 +49,7 @@ describe("TikTok Ads lead-status events", () => {
     expect(cleanSettingsInput({ eventSource: "nonsense" }).ok).toBe(false);
     expect(cleanSettingsInput({ mapping: { "مؤهل": "بالعربي" } }).ok).toBe(false);
 
-    const cleaned = cleanSettingsInput({ eventSetId: "CTM12345", accessToken: "tok_" + "x".repeat(20), enabled: true, mapping: { "مهتم": "Lead", "مؤهل": "" } });
+    const cleaned = cleanSettingsInput({ eventSetId: "CTM12345", accessToken: "tok_" + "x".repeat(20), enabled: true, sendAll: true, mapping: { "مهتم": "Lead", "مؤهل": "" } });
     if (!cleaned.ok) throw new Error(cleaned.error);
     const saved = await saveTikTokAdsSettings("ten-a", cleaned.data);
     expect(saved).toMatchObject({ eventSetId: "CTM12345", hasToken: true, enabled: true });
@@ -144,7 +144,7 @@ describe("TikTok Ads lead-status events", () => {
   it("sends the page for Pixel (web) events and explains an event_source_id rejection", async () => {
     await seedConversation("conv-5", "ten-web");
     const { saveTikTokAdsSettings, setLeadStatus, sendTestEvent } = await import("../lib/tiktok-events");
-    await saveTikTokAdsSettings("ten-web", { eventSetId: "DB5QHHRC77U074LG3TQG", accessToken: "tok_" + "y".repeat(20), eventSource: "web", enabled: true });
+    await saveTikTokAdsSettings("ten-web", { eventSetId: "DB5QHHRC77U074LG3TQG", accessToken: "tok_" + "y".repeat(20), eventSource: "web", enabled: true, sendAll: true });
     const sent = mockTikTok();
     await setLeadStatus({ tenantId: "ten-web", conversationId: "conv-5", status: "فاز", actor: "x" });
     expect(sent[0].body.event_source).toBe("web");
@@ -164,5 +164,29 @@ describe("TikTok Ads lead-status events", () => {
     await setLeadStatus({ tenantId: "ten-a", conversationId: "conv-4", status: "فاز", actor: "x" });
     expect(sent[0].url).toBe("http://localhost:4010/track");
     vi.unstubAllEnvs();
+  });
+});
+
+describe("TikTok: ad conversations only by default", () => {
+  it("skips a conversation that did not come from an ad, unless send-all is on", async () => {
+    await seedConversation("conv-ad-0", "ten-adonly", "966500000555");
+    await seedConversation("conv-ad-1", "ten-adonly", "966500000556");
+    const { prisma } = await import("../lib/prisma");
+    const { captureAdSource } = await import("../lib/ad-source");
+    await captureAdSource({ tenantId: "ten-adonly", conversationId: "conv-ad-1", message: { type: "text", text: { body: "hi" }, referral: { source_url: "https://www.tiktok.com/@brand/video/7380000000000000?ttclid=E.C.P.adonly1" } } });
+    const { saveTikTokAdsSettings, getTikTokAdsSettings, notifyStageChange } = await import("../lib/tiktok-events");
+    await saveTikTokAdsSettings("ten-adonly", { eventSetId: "DB5QHHRC77U074LG3TQG", accessToken: "tok_" + "a".repeat(20), eventSource: "web", enabled: true });
+    expect((await getTikTokAdsSettings("ten-adonly")).sendAll).toBe(false);
+    const sent = mockTikTok();
+
+    expect(await notifyStageChange({ tenantId: "ten-adonly", conversationId: "conv-ad-0", stage: "مؤهل", previousStage: "جديد", phone: "966500000555" })).toMatchObject({ sent: false, skipped: "not-from-ad" });
+    expect(sent).toHaveLength(0);
+    const fromAd = await notifyStageChange({ tenantId: "ten-adonly", conversationId: "conv-ad-1", stage: "مؤهل", previousStage: "جديد", phone: "966500000556" });
+    expect(fromAd).toMatchObject({ sent: true, ok: true });
+    expect(sent[0].body.data[0].user).toMatchObject({ ttclid: "E.C.P.adonly1" });
+
+    await saveTikTokAdsSettings("ten-adonly", { sendAll: true });
+    expect(await notifyStageChange({ tenantId: "ten-adonly", conversationId: "conv-ad-0", stage: "مؤهل", previousStage: "جديد", phone: "966500000555" })).toMatchObject({ sent: true, ok: true });
+    void prisma;
   });
 });
