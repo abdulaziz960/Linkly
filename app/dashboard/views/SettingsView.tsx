@@ -139,7 +139,6 @@ function getChannels(t: TFn): Array<{ id: SelectableChannelId; title: string; de
     { id: "telegram", title: t(channelNames.telegram.ar, channelNames.telegram.en), description: t("اضبط قناة تيليجرام باستخدام رمز البوت", "Configure Telegram channel using Bot token"), active: true },
     { id: "x", title: t(channelNames.x.ar, channelNames.x.en), description: t("اربط حساب إكس عبر التفويض الآمن", "Connect your X account via OAuth"), active: true },
     { id: "gmail", title: t(channelNames.gmail.ar, channelNames.gmail.en), description: t("اربط جيميل مباشرة عبر التفويض الآمن", "Connect Gmail directly via OAuth"), active: true },
-    { id: "zapier", title: "Zapier", description: t("استقبل العملاء المحتملين عبر Webhook", "Receive leads through a webhook"), active: true },
     { id: "google_maps", title: t(channelNames.google_maps.ar, channelNames.google_maps.en), description: t("اربط ملف نشاطك التجاري على جوجل", "Connect your Google Business Profile"), active: true },
     { id: "tiktok", title: t(channelNames.tiktok.ar, channelNames.tiktok.en), description: t("اربط حساب تيك توك لإدارة المحادثات والتعليقات", "Connect your TikTok account to manage messages and comments"), active: true },
     { id: "sms", title: t(channelNames.sms.ar, channelNames.sms.en), description: t("أرسل واستقبل الرسائل النصية عبر يونيفونك", "Send and receive SMS messages via Unifonic"), active: true },
