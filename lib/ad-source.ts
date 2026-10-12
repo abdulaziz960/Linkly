@@ -11,7 +11,7 @@ import { prisma } from "./prisma";
  */
 
 export type AdSource = {
-  platform: "meta" | "tiktok" | "snapchat" | "unknown";
+  platform: "meta" | "tiktok" | "snapchat" | "google" | "unknown";
   adId: string;
   headline: string;
   sourceUrl: string;
@@ -171,7 +171,7 @@ export async function getAdSource(tenantId: string, conversationId: string): Pro
  * strip above the messages shows the campaign / ad like it does for click-to-WhatsApp. Never overwrites a source
  * already captured; never throws.
  */
-export async function recordFormAdSource(input: { tenantId: string; conversationId: string; platform: "meta" | "tiktok" | "snapchat"; adId?: string; headline?: string; sourceUrl?: string }): Promise<void> {
+export async function recordFormAdSource(input: { tenantId: string; conversationId: string; platform: "meta" | "tiktok" | "snapchat" | "google"; adId?: string; headline?: string; sourceUrl?: string }): Promise<void> {
   try {
     await ensureTable();
     if (await getAdSource(input.tenantId, input.conversationId)) return;

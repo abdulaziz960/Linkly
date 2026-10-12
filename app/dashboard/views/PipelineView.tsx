@@ -2,7 +2,7 @@
 
 import LeadFiltersBar from "../components/LeadFiltersBar";
 import { EMPTY_LEAD_FILTERS, applyLeadFilters, buildFilterOptions, type LeadFilters } from "../lead-filters";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import type { AutomationRule, Conversation, MessageTemplate, PipelineStage } from "../types";
@@ -252,6 +252,82 @@ function StepCard({ number, title, children }: { number: number; title: string; 
   );
 }
 
+/** The WhatsApp welcome for leads that arrive through Zapier / Make / the API (TikTok, Google, forms...). */
+function ExternalWelcomeCard({ t }: { t: (ar: string, en: string) => string }) {
+  const [enabled, setEnabled] = useState(false);
+  const [template, setTemplate] = useState("");
+  const [templates, setTemplates] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/leads/welcome", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((result: { ok?: boolean; data?: { settings: { enabled: boolean; template: string } } }) => {
+        if (cancelled || !result?.ok || !result.data) return;
+        setEnabled(result.data.settings.enabled);
+        setTemplate(result.data.settings.template);
+      })
+      .catch(() => null);
+    fetch("/api/templates")
+      .then((response) => response.json())
+      .then((result: { ok: boolean; data?: Array<{ name: string; status?: string }> }) => {
+        if (cancelled || !result?.ok) return;
+        setTemplates((result.data || []).filter((item) => item.status === "معتمد").map((item) => item.name));
+      })
+      .catch(() => null);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function save() {
+    setBusy(true);
+    setFeedback(null);
+    try {
+      const response = await fetch("/api/leads/welcome", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled, template }) });
+      const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; data?: { settings: { enabled: boolean; template: string } } } | null;
+      if (response.ok && result?.ok && result.data) {
+        setEnabled(result.data.settings.enabled);
+        setTemplate(result.data.settings.template);
+        const downgraded = enabled && !result.data.settings.enabled;
+        setFeedback({ ok: !downgraded, text: downgraded ? t("حُفظت الإعدادات لكن لم يُفعَّل الترحيب: اختر قالبًا أولًا.", "Saved, but the welcome is off: choose a template first.") : t("تم الحفظ", "Saved") });
+      } else {
+        setFeedback({ ok: false, text: result?.error || t("تعذر الحفظ", "Could not save") });
+      }
+    } catch {
+      setFeedback({ ok: false, text: t("تعذر الاتصال بالخادم", "Could not reach the server") });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section style={{ display: "grid", gap: 12, padding: 16, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
+      <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 900 }}>{t("رسالة ترحيب تلقائية على واتساب", "Automatic WhatsApp welcome")}</h4>
+      <p style={{ margin: 0, lineHeight: 1.8, opacity: 0.8, fontSize: 14 }}>
+        {t("تُرسل لكل ليد جديد يصل من هنا (تيك توك، قوقل، وغيرها) فور وصوله، مرة واحدة لكل رقم. تحتاج قالبًا معتمدًا وواتساب مربوطًا. تُحفظ معلومات النموذج في محادثته فيكمل الرد الآلي أو الموظف من حيث وصل.", "Sent to every new lead that arrives here (TikTok, Google, others) as soon as it arrives, once per number. Needs an approved template and a connected WhatsApp. The form details are saved in its conversation so the auto-reply or an agent continues from there.")}
+      </p>
+      <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, cursor: "pointer" }}>
+        <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} style={{ width: 18, height: 18 }} />
+        {t("تفعيل رسالة الترحيب", "Turn the welcome on")}
+      </label>
+      <div style={{ maxWidth: 360 }}>
+        {templates.length ? (
+          <CustomSelect value={template} onChange={setTemplate} placeholder={t("اختر قالبًا", "Choose a template")} options={[{ value: "", label: t("اختر قالبًا", "Choose a template") }, ...templates.map((name) => ({ value: name, label: name }))]} />
+        ) : (
+          <p className="meta-test-warning" style={{ margin: 0 }}>{t("ما فيه قوالب معتمدة على حسابك بعد.", "Your account has no approved templates yet.")}</p>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <button className="primary-action" type="button" disabled={busy} onClick={() => void save()}>{t("حفظ", "Save")}</button>
+        {feedback ? <span className={`meta-test-feedback ${feedback.ok ? "success" : "error"}`}>{feedback.text}</span> : null}
+      </div>
+    </section>
+  );
+}
+
 function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en: string) => string; onShowInternal: () => void; onRefresh: () => Promise<void> }) {
   const [source, setSource] = useState<"tiktok" | "google" | "other">("tiktok");
   const [testing, setTesting] = useState(false);
@@ -343,7 +419,8 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
         <ZapRow data field="purchase_purpose" hint={t("إجابة سؤال الغرض من الشراء", "The purchase-purpose answer")} t={t} />
         <ZapRow data field="purchase_method" hint={t("إجابة سؤال طريقة الشراء", "The purchase-method answer")} t={t} />
         <ZapRow data field="preferred_contact_time" hint={t("إجابة وقت التواصل المفضل", "The preferred-contact-time answer")} t={t} />
-        <ZapRow data field="lead_source" hint={t(`نص ثابت تكتبه: ${source === "tiktok" ? "تيك توك" : source === "google" ? "قوقل" : "اسم مصدرك"} (اختياري، يظهر في المحادثة)`, `a fixed text you type: ${source === "tiktok" ? "TikTok" : source === "google" ? "Google" : "your source name"} (optional, shown in the conversation)`)} t={t} />
+        <ZapRow data field="lead_source" hint={t(`مهم: نص ثابت تكتبه (${source === "tiktok" ? "تيك توك" : source === "google" ? "قوقل" : "اسم مصدرك"}). به تظهر المنصة فوق المحادثة وفي فلتر «مصدر الإعلان». اكتب: تيك توك أو قوقل أو سناب أو ميتا.`, `Important: a fixed text you type (${source === "tiktok" ? "TikTok" : source === "google" ? "Google" : "your source name"}). It makes the platform show above the conversation and in the “Ad source” filter. Write: TikTok, Google, Snapchat or Meta.`)} t={t} />
+        <ZapRow data field="campaign" hint={t("اختياري: اسم الحملة أو المشروع. يظهر في الشريط وفي فلتر «المشروع / الحملة».", "Optional: the campaign or project name. Shown in the strip and in the “Project / campaign” filter.")} t={t} />
 
         </ZapGroup>
 
@@ -373,6 +450,8 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
         </div>
         {testResult ? <p className={`meta-test-feedback ${testResult.ok ? "success" : "error"}`} style={{ margin: 0 }}>{testResult.text}</p> : null}
       </StepCard>
+
+      <ExternalWelcomeCard t={t} />
 
       <section style={{ display: "grid", gap: 10, padding: 16, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
         <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 900 }}>{t("ما الذي ترسله مع كل عميل؟", "What do you send with each lead?")}</h4>

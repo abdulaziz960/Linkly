@@ -27,6 +27,7 @@ export default function LeadFiltersBar({ filters, options, total, shown, onChang
       meta: t("إعلانات ميتا", "Meta ads"),
       tiktok: t("إعلانات تيك توك", "TikTok ads"),
       snapchat: t("إعلانات سناب", "Snapchat ads"),
+      google: t("إعلانات قوقل", "Google ads"),
       ad: t("إعلان (منصة غير معروفة)", "Ad (unknown platform)"),
       direct: t("مباشر (بدون إعلان)", "Direct (no ad)")
     }[value] ?? value);

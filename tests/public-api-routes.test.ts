@@ -110,6 +110,22 @@ describe("POST /api/v1/conversations", () => {
     expect(texts).toContain("• الميزانية: 500000");
   });
 
+  it("shows a Zapier lead as coming from the platform it names (TikTok, Google)", async () => {
+    const { generateApiKey } = await import("../lib/developer-api");
+    const { POST } = await import("../app/api/v1/conversations/route");
+    const { getAdSource } = await import("../lib/ad-source");
+    const { rawKey } = await generateApiKey(tenantId, "platform source test key");
+
+    const tiktok = await (await POST(jsonRequest("https://example.test/api/v1/conversations", { phone_number: "0501112233", full_name: "ليلى", lead_source: "تيك توك", campaign: "عرض الصيف" }, rawKey))).json();
+    expect(await getAdSource(tenantId, tiktok.data.conversationId)).toMatchObject({ platform: "tiktok", headline: "عرض الصيف", matchedBy: "lead_form" });
+
+    const google = await (await POST(jsonRequest("https://example.test/api/v1/conversations", { phone_number: "0501112244", lead_source: "Google Ads" }, rawKey))).json();
+    expect(await getAdSource(tenantId, google.data.conversationId)).toMatchObject({ platform: "google", headline: "Google Ads" });
+
+    const plain = await (await POST(jsonRequest("https://example.test/api/v1/conversations", { phone_number: "0501112255", lead_source: "Typeform" }, rawKey))).json();
+    expect(await getAdSource(tenantId, plain.data.conversationId)).toBeNull();
+  });
+
   it("still needs a phone", async () => {
     const { generateApiKey } = await import("../lib/developer-api");
     const { POST } = await import("../app/api/v1/conversations/route");

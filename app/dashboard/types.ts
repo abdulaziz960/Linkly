@@ -99,7 +99,7 @@ export type Conversation = {
   attrUtmCampaign?: string;
   attrUtmContent?: string;
   /** The ad platform that brought this lead (from the captured ad source), when there is one. */
-  adPlatform?: "meta" | "tiktok" | "snapchat" | "unknown";
+  adPlatform?: "meta" | "tiktok" | "snapchat" | "google" | "unknown";
   /** The ad / campaign / form name of that ad source. */
   adHeadline?: string;
   // True only while the conversation's last message is still the exact

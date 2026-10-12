@@ -3,8 +3,11 @@ import { authenticateApiRequest, openApiConversation } from "../../../../lib/dev
 import { consumeRateLimit } from "../../../../lib/rate-limit";
 import { isValidSaudiPhone } from "../../../../lib/validation";
 import { withCors } from "../../_utils/cors";
-import { extraAnswersFromBody, type FormAnswer } from "../../../../lib/lead-form";
+import { extraAnswersFromBody, platformFromLeadSource, type FormAnswer } from "../../../../lib/lead-form";
+import { recordFormAdSource } from "../../../../lib/ad-source";
 import { saveFormSubmission } from "../../../../lib/lead-form-store";
+import { sendExternalLeadWelcome } from "../../../../lib/lead-welcome";
+import { summarizeFormAnswers } from "../../../../lib/lead-form";
 
 export const runtime = "nodejs";
 
@@ -76,6 +79,23 @@ export async function POST(request: NextRequest) {
         phone: customerPhone
       });
     }
+    // The platform named in lead_source / source makes the lead show "from TikTok / Google..." like the direct ones.
+    const platform = platformFromLeadSource(stringOf("lead_source", "source", "platform", "utm_source"));
+    if (platform) {
+      await recordFormAdSource({
+        tenantId: auth.tenantId,
+        conversationId,
+        platform,
+        headline: stringOf("campaign", "utm_campaign", "ad_name", "form_name", "project") || stringOf("lead_source", "source")
+      });
+    }
+    // The WhatsApp welcome (when the workspace turned it on): once per phone, never blocks the response on failure.
+    await sendExternalLeadWelcome({
+      tenantId: auth.tenantId,
+      phone: customerPhone,
+      name: customerName,
+      summary: answers.length ? summarizeFormAnswers("بيانات النموذج", answers) : text
+    });
     return withCors(NextResponse.json({ ok: true, data: { conversationId } }));
   } catch (error) {
     console.error("Public API conversation creation failed", error);

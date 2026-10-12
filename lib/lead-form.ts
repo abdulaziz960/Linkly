@@ -62,6 +62,17 @@ export function pickAnswer(answers: FormAnswer[], keys: string[]): string {
   return match?.answer.trim() ?? "";
 }
 
+/** The ad platform named in a form's "lead source" field (Arabic or English), or null when it is not one we know. */
+export function platformFromLeadSource(source: string | null | undefined): "meta" | "tiktok" | "snapchat" | "google" | null {
+  const text = (source ?? "").trim().toLowerCase();
+  if (!text) return null;
+  if (/tik\s*tok|تيك\s*توك|تيكتوك/.test(text)) return "tiktok";
+  if (/snap|سناب/.test(text)) return "snapchat";
+  if (/google|قوقل|جوجل|غوغل|يوتيوب|youtube/.test(text)) return "google";
+  if (/meta|facebook|instagram|\bfb\b|\big\b|ميتا|فيسبوك|فيس بوك|انستقرام|انستغرام|إنستقرام|إنستغرام/.test(text)) return "meta";
+  return null;
+}
+
 const API_KNOWN_KEYS = new Set(["customerphone", "phone_number", "phone", "mobile", "customername", "full_name", "name", "text", "visit", "visitat"]);
 
 /** The extra scalar fields of a request body (everything that is not a known lead field), capped and trimmed. */

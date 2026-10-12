@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { extraAnswersFromBody, pickAnswer, questionLabel, summarizeFormAnswers } from "../lib/lead-form";
+import { extraAnswersFromBody, pickAnswer, platformFromLeadSource, questionLabel, summarizeFormAnswers } from "../lib/lead-form";
+
+describe("platform named in a lead's source field", () => {
+  it("recognises the ad platforms in Arabic and English", () => {
+    for (const value of ["TikTok", "tik tok", "تيك توك", "تيكتوك"]) expect(platformFromLeadSource(value)).toBe("tiktok");
+    for (const value of ["Google Ads", "قوقل", "جوجل", "YouTube"]) expect(platformFromLeadSource(value)).toBe("google");
+    for (const value of ["Snapchat", "سناب شات"]) expect(platformFromLeadSource(value)).toBe("snapchat");
+    for (const value of ["Meta", "Facebook", "Instagram", "ميتا", "فيسبوك", "انستقرام"]) expect(platformFromLeadSource(value)).toBe("meta");
+    expect(platformFromLeadSource("Typeform")).toBeNull();
+    expect(platformFromLeadSource("")).toBeNull();
+    expect(platformFromLeadSource(null)).toBeNull();
+  });
+});
 
 describe("lead form answers", () => {
   it("labels the real-estate form fields in Arabic", () => {
