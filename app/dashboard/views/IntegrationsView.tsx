@@ -174,6 +174,30 @@ export default function IntegrationsView() {
         })}
       </div>
 
+      <div className="channels-overview-head" style={{ marginTop: 8 }}>
+        <div>
+          <h2>{t("المتاجر الإلكترونية", "E-commerce stores")}</h2>
+          <p>{t("اربط متجرك في سلة أو زد لمتابعة طلبات العملاء وسلاتهم المتروكة من محادثات واتساب.", "Connect your Salla or Zid store to follow customers' orders and abandoned carts from WhatsApp conversations.")}</p>
+        </div>
+      </div>
+
+      <div className="channel-grid">
+        {[
+          { id: "salla", letter: "س", color: "#0c8f83", title: t("سلة", "Salla"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") },
+          { id: "zid", letter: "ز", color: "#7a2ee6", title: t("زد", "Zid"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") }
+        ].map((store) => (
+          <div key={store.id} className="meta-test-card">
+            <div>
+              <span className="channel-icon" aria-hidden="true" style={{ background: `${store.color}1a`, color: store.color, fontWeight: 900, fontSize: 22, display: "grid", placeItems: "center" }}>{store.letter}</span>
+              <h3>{store.title}</h3>
+              <p>{store.description}</p>
+              <span className="status-pill unassigned">{t("قريبًا", "Coming soon")}</span>
+            </div>
+            <button className="btn primary" type="button" disabled>{t("قريبًا", "Coming soon")}</button>
+          </div>
+        ))}
+      </div>
+
       {open && current ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setOpen(null)}>
           <div className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={current.title} onClick={(event) => event.stopPropagation()}>
