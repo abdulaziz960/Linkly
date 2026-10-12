@@ -144,6 +144,7 @@ export default function SignupForm({ lang = "ar", planId, googleProfile = null }
   }
 
   return <form className="journey-form" onSubmit={submit}>
+    {googleProfile ? <p className="signup-google-note" role="status">{lang === "en" ? "Your email was verified by Google. Complete your business details to start your trial." : "تم التحقق من بريدك عبر Google. أكمل بيانات نشاطك لبدء التجربة."}</p> : null}
     <label>{text.companyName}<input name="companyName" required maxLength={120} autoComplete="organization" placeholder={text.companyNamePlaceholder} /></label>
     <label>{text.businessType}<CustomSelect name="businessType" defaultValue="" options={businessTypeOptions} /></label>
     <label>{text.ownerName}<input name="ownerName" required maxLength={100} autoComplete="name" defaultValue={googleProfile?.name} placeholder={text.ownerNamePlaceholder} /></label>

@@ -265,7 +265,7 @@ export default function LoginForm({ lang = "ar", googleEnabled = false, googleEr
             {lang === "en" ? "Continue with Google" : "المتابعة بواسطة Google"}
           </a>
           <p className="login-google-hint">
-            {lang === "en" ? "New here? Continuing with Google also creates your free trial account." : "مستخدم جديد؟ المتابعة بواسطة Google تنشئ لك حساب التجربة المجانية أيضاً."}
+            {lang === "en" ? "New here? Continue with Google, then complete your business details to start your free trial." : "مستخدم جديد؟ تابع بواسطة Google ثم أكمل بيانات نشاطك لبدء التجربة المجانية."}
           </p>
         </>
       ) : null}
