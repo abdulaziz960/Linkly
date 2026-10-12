@@ -7,7 +7,7 @@ import type { SnapchatLeadAnswer } from "./snapchat";
 import { firstChar } from "./first-char";
 import { getIntegrationSettings } from "./database";
 import { sendWhatsAppTemplate } from "./campaign-engine";
-import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
+import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "./whatsapp-inbox";
 
 type StoreSnapchatLeadInput = {
   tenantId: string;
@@ -60,7 +60,7 @@ export function whatsappNumberFromForm(raw: string): string {
  * Never throws; the lead is already stored. Records what happened as a system note in the lead's
  * conversation, so the team can see whether the welcome went out.
  */
-async function sendSnapchatWelcome(input: { tenantId: string; conversationId: string; phone: string; name: string; leadId: string }) {
+async function sendSnapchatWelcome(input: { tenantId: string; conversationId: string; phone: string; name: string; leadId: string; summary: string }) {
   try {
     const settings = await getIntegrationSettings("snapchat", input.tenantId);
     const template = settings.leadWelcomeTemplateName?.trim();
@@ -71,6 +71,18 @@ async function sendSnapchatWelcome(input: { tenantId: string; conversationId: st
     else {
       const result = await sendWhatsAppTemplate(input.tenantId, phone, template, "ar", input.name);
       note = result.ok ? `أُرسلت رسالة ترحيب عبر واتساب (القالب: ${template})` : `تعذر إرسال رسالة الترحيب عبر واتساب: ${result.error}`;
+      if (result.ok) {
+        // Open the WhatsApp conversation with what we know, so when the customer replies the thread (and
+        // the assistant, if the bot answers with AI) starts from the form answers instead of from nothing.
+        await storeWhatsAppMessage({
+          phone,
+          name: input.name,
+          text: `أُرسلت رسالة ترحيب (القالب: ${template}) بعد تعبئة العميل نموذج سناب شات.\n${input.summary}`,
+          direction: "out",
+          tenantId: input.tenantId,
+          author: "نظام"
+        }).catch((error) => console.error("Snapchat welcome conversation failed", error));
+      }
     }
     const now = new Date();
     await prisma.message.create({
@@ -169,7 +181,7 @@ export async function storeSnapchatLead(input: StoreSnapchatLeadInput) {
   });
 
   await runInboundMessageAutomations(result.conversationId, tenantId, summary);
-  if (!alreadyStored) await sendSnapchatWelcome({ tenantId, conversationId: result.conversationId, phone, name: formName, leadId: input.leadId });
+  if (!alreadyStored) await sendSnapchatWelcome({ tenantId, conversationId: result.conversationId, phone, name: formName, leadId: input.leadId, summary });
   await triggerWebhookEvent(tenantId, "lead.created", {
     id: result.lead.id,
     source: "snapchat",

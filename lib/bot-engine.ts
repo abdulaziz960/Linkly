@@ -71,6 +71,19 @@ export type BotNode = {
 };
 
 const BOT_AUTHOR = "الرد الآلي";
+
+/** Authors of outbound messages that are not a person on the team (bot, system notes, platform). */
+const NON_HUMAN_AUTHORS = new Set(["", BOT_AUTHOR, "نظام", "Linkly", "Google Business"]);
+
+export function isHumanAuthor(author: string | null | undefined): boolean {
+  return !NON_HUMAN_AUTHORS.has((author ?? "").trim());
+}
+
+/** True once a team member has replied in this conversation; the AI step must then stay quiet. */
+export async function humanHasJoined(conversationId: string): Promise<boolean> {
+  const replies = await prisma.message.findMany({ where: { conversationId, direction: "out" }, select: { author: true }, take: 200 });
+  return replies.some((reply) => isHumanAuthor(reply.author));
+}
 const LIST_NODE_TYPES = new Set(["إرسال قائمة قصيرة", "إرسال قائمة طويلة"]);
 const MESSAGE_NODE_TYPE = "إرسال رسالة";
 const TEAM_NODE_TYPE = "تحويل لفريق";
@@ -621,6 +634,11 @@ export async function runChannelBot(
     }
 
     if (waitingNode.content.kind === "aiReply") {
+      // A team member answered: the AI stops, so the customer never gets both a person and the assistant.
+      if (await humanHasJoined(input.conversationId)) {
+        await prisma.conversation.updateMany({ where: { id: input.conversationId, botWaitingNodeId: waitingId }, data: { botWaitingNodeId: "" } });
+        return;
+      }
       const claimed = await prisma.conversation.updateMany({
         where: { id: input.conversationId, botWaitingNodeId: waitingId },
         data: { botWaitingNodeId: "" }
