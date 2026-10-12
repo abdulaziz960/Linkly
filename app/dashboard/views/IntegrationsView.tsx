@@ -4,6 +4,7 @@ import CustomSelect from "../../components/CustomSelect";
 import TikTokAdsSettings from "../components/TikTokAdsSettings";
 import MetaAdsSettings from "../components/MetaAdsSettings";
 import SnapAdsSettings from "../components/SnapAdsSettings";
+import StoreSettings from "../components/StoreSettings";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import { ChannelIcon } from "./SettingsView";
@@ -50,6 +51,7 @@ export default function IntegrationsView() {
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState<Platform | null>(null);
   const [tab, setTab] = useState<Tab>("receive");
+  const [storeOpen, setStoreOpen] = useState<"salla" | "zid" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,12 +196,26 @@ export default function IntegrationsView() {
               </span>
               <h3>{store.title}</h3>
               <p>{store.description}</p>
-              <span className="status-pill unassigned">{t("قريبًا", "Coming soon")}</span>
+              <span className="status-pill unassigned">{t("الربط: قريبًا", "Connection: coming soon")}</span>
             </div>
-            <button className="btn primary" type="button" disabled>{t("قريبًا", "Coming soon")}</button>
+            <button className="btn primary" type="button" onClick={() => setStoreOpen(store.id as "salla" | "zid")}>{t("إعدادات الإشعارات", "Notification settings")}</button>
           </div>
         ))}
       </div>
+
+      {storeOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setStoreOpen(null)}>
+          <div className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={storeOpen === "salla" ? t("سلة", "Salla") : t("زد", "Zid")} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setStoreOpen(null)}>×</button>
+              <h2>{storeOpen === "salla" ? t("سلة", "Salla") : t("زد", "Zid")}</h2>
+            </header>
+            <div className="account-modal-body">
+              <StoreSettings store={storeOpen} />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {open && current ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setOpen(null)}>
