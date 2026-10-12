@@ -5,6 +5,7 @@ import { runInboundMessageAutomations } from "./automation-engine";
 import { triggerWebhookEvent } from "./webhooks";
 import type { SnapchatLeadAnswer } from "./snapchat";
 import { firstChar } from "./first-char";
+import { questionLabel, summarizeFormAnswers } from "./lead-form";
 import { getIntegrationSettings } from "./database";
 import { recordFormAdSource } from "./ad-source";
 import { sendWhatsAppTemplate } from "./campaign-engine";
@@ -29,49 +30,8 @@ function findAnswer(answers: SnapchatLeadAnswer[], keys: string[]) {
   return match?.answer?.trim() || "";
 }
 
-const QUESTION_LABELS: Record<string, string> = {
-  FULL_NAME: "الاسم",
-  NAME: "الاسم",
-  FIRST_NAME: "الاسم الأول",
-  LAST_NAME: "اسم العائلة",
-  PHONE_NUMBER: "رقم الجوال",
-  PHONE: "رقم الجوال",
-  EMAIL: "البريد الإلكتروني",
-  CITY: "المدينة",
-  COUNTRY: "الدولة",
-  ZIP_CODE: "الرمز البريدي",
-  POSTAL_CODE: "الرمز البريدي",
-  GENDER: "الجنس",
-  DATE_OF_BIRTH: "تاريخ الميلاد",
-  AGE: "العمر"
-};
+export { questionLabel };
 
-/** "FULL_NAME" -> "الاسم"; a custom question keeps its own wording (underscores read as spaces). */
-export function questionLabel(question: string): string {
-  const key = question.trim().toUpperCase();
-  return QUESTION_LABELS[key] ?? question.replace(/_/g, " ").trim();
-}
-
-/** The form as readable lines: a title, then "label: answer" per question that was answered. */
-export function summarizeAnswers(formName: string, answers: SnapchatLeadAnswer[]) {
-  const lines = [`📋 نموذج: ${formName || "بدون اسم"}`];
-  for (const answer of answers) {
-    const value = (answer.answer || "").trim();
-    if (!answer.question && !value) continue;
-    lines.push(`• ${questionLabel(answer.question || "")}: ${value || "—"}`);
-  }
-  return lines.join("\n");
-}
-
-/**
- * A Snapchat Lead Generation Ads submission isn't a chat message, so unlike
- * every other channel's storeXMessage() it doesn't create a back-and-forth
- * thread - it creates one synthetic inbound message rendering the form's
- * Q&A, plus a Lead row carrying the raw attribution (form/campaign/ad
- * account) that the Leads API and the "lead.created" webhook read from.
- * The Customer/Conversation are still created so the submission shows up
- * in the same unified inbox as every other channel.
- */
 /** Digits with the country code: a Saudi local number (05xxxxxxxx / 5xxxxxxxx) gets 966, 00-prefixed numbers lose the 00. */
 export function whatsappNumberFromForm(raw: string): string {
   let digits = normalizeWhatsAppPhone(raw);
@@ -79,6 +39,11 @@ export function whatsappNumberFromForm(raw: string): string {
   if (/^05\d{8}$/.test(digits)) digits = `966${digits.slice(1)}`;
   else if (/^5\d{8}$/.test(digits)) digits = `966${digits}`;
   return digits.length >= 10 && digits.length <= 15 ? digits : "";
+}
+
+/** The form as readable lines (see lib/lead-form.ts). */
+export function summarizeAnswers(formName: string, answers: SnapchatLeadAnswer[]) {
+  return summarizeFormAnswers(`نموذج: ${formName || "بدون اسم"}`, answers.map((answer) => ({ question: answer.question || "", answer: answer.answer || "" })));
 }
 
 /**

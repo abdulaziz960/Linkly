@@ -31,7 +31,13 @@ beforeEach(() => {
     campaign_name: "حملة الصيف",
     form_id: "form-5",
     platform: "fb",
-    field_data: [{ name: "full_name", values: ["ماجد"] }, { name: "phone_number", values: ["+966500000321"] }]
+    field_data: [
+      { name: "full_name", values: ["ماجد"] },
+      { name: "phone_number", values: ["+966500000321"] },
+      { name: "email", values: ["majed@example.com"] },
+      { name: "budget", values: ["1,500,000"] },
+      { name: "purchase_purpose", values: ["استثمار"] }
+    ]
   }), { status: 200 })));
 });
 
@@ -59,6 +65,15 @@ describe("Meta Lead Ads form leads", () => {
 
     const source = await getAdSource("ten-leads", conversation!.id);
     expect(source).toMatchObject({ platform: "meta", adId: "ad-77", headline: "حملة الصيف · إعلان الفلل", matchedBy: "lead_form" });
+
+    // Everything the customer typed is kept: readable in the conversation, raw on the lead record.
+    const form = await prisma.message.findFirst({ where: { conversationId: conversation!.id, direction: "in" } });
+    expect(form?.text).toContain("• الميزانية: 1,500,000");
+    expect(form?.text).toContain("• الغرض من الشراء: استثمار");
+    expect(form?.text).toContain("• البريد الإلكتروني: majed@example.com");
+    const record = await prisma.lead.findFirst({ where: { tenantId: "ten-leads", source: "meta" } });
+    expect(record).toMatchObject({ email: "majed@example.com", name: "ماجد", phone: "966500000321" });
+    expect(JSON.parse(record!.answersJson)).toContainEqual({ question: "budget", answer: "1,500,000" });
   });
 
   it("sends the welcome once when it is set up, even if the lead is delivered twice", async () => {

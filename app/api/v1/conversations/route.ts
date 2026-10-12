@@ -3,6 +3,8 @@ import { authenticateApiRequest, openApiConversation } from "../../../../lib/dev
 import { consumeRateLimit } from "../../../../lib/rate-limit";
 import { isValidSaudiPhone } from "../../../../lib/validation";
 import { withCors } from "../../_utils/cors";
+import { extraAnswersFromBody, type FormAnswer } from "../../../../lib/lead-form";
+import { saveFormSubmission } from "../../../../lib/lead-form-store";
 
 export const runtime = "nodejs";
 
@@ -19,17 +21,31 @@ export async function POST(request: NextRequest) {
     return withCors(NextResponse.json({ ok: false, error: "Too many requests" }, { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }));
   }
 
-  const body = (await request.json().catch(() => null)) as { customerPhone?: string; customerName?: string; text?: string; visit?: boolean; visitAt?: string } | null;
-  const customerPhone = body?.customerPhone?.trim() || "";
-  const text = body?.text?.trim().slice(0, 4000) || "";
+  const raw = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const body = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : null;
+  const stringOf = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = body?.[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+      if (typeof value === "number") return String(value);
+    }
+    return "";
+  };
+  // Form-style names (phone_number, full_name...) are accepted next to the original ones.
+  const customerPhone = stringOf("customerPhone", "phone_number", "phone", "mobile");
+  const customerName = stringOf("customerName", "full_name", "name").slice(0, 100);
+  const answers: FormAnswer[] = body ? extraAnswersFromBody(body) : [];
+  const explicitText = stringOf("text").slice(0, 4000);
+  // With no text, the answers themselves are the message.
+  const text = explicitText || (answers.length ? "عميل محتمل من نموذج خارجي" : "");
 
   if (!customerPhone || !text) {
-    return withCors(NextResponse.json({ ok: false, error: "customerPhone and text are required" }, { status: 400 }));
+    return withCors(NextResponse.json({ ok: false, error: "phone_number (or customerPhone) is required, with either text or form fields" }, { status: 400 }));
   }
   if (!isValidSaudiPhone(customerPhone)) {
     return withCors(NextResponse.json({ ok: false, error: "customerPhone must be a valid Saudi mobile number" }, { status: 400 }));
   }
-  const visitAt = body?.visitAt?.trim() || "";
+  const visitAt = stringOf("visitAt");
   if (visitAt && Number.isNaN(Date.parse(visitAt))) {
     return withCors(NextResponse.json({ ok: false, error: "visitAt must be a valid ISO date" }, { status: 400 }));
   }
@@ -37,11 +53,25 @@ export async function POST(request: NextRequest) {
   try {
     const { conversationId } = await openApiConversation(auth.tenantId, {
       customerPhone,
-      customerName: body?.customerName?.trim().slice(0, 100),
+      customerName: customerName || undefined,
       text,
-      recordVisit: Boolean(body?.visit),
+      recordVisit: body?.visit === true || body?.visit === "true",
       visitAt: visitAt ? new Date(visitAt).toISOString() : undefined
     });
+    // Whatever else the form carried (email, budget, purpose...) is kept on the lead and shown in the conversation.
+    if (answers.length) {
+      const key = `api-${conversationId}-${Date.now()}`;
+      await saveFormSubmission({
+        tenantId: auth.tenantId,
+        conversationId,
+        key,
+        source: "api",
+        title: "بيانات النموذج",
+        answers,
+        name: customerName,
+        phone: customerPhone
+      });
+    }
     return withCors(NextResponse.json({ ok: true, data: { conversationId } }));
   } catch (error) {
     console.error("Public API conversation creation failed", error);

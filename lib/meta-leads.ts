@@ -2,6 +2,7 @@ import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "./whatsapp-inbox";
 import { getIntegrationSettings } from "./database";
 import { sendWhatsAppTemplate } from "./campaign-engine";
 import { recordFormAdSource } from "./ad-source";
+import { saveFormSubmission } from "./lead-form-store";
 
 type MetaLeadField = { name?: string; values?: string[] };
 
@@ -84,6 +85,21 @@ export async function handleMetaLeadgenEvent(tenantId: string, pageAccessToken: 
     platform: "meta",
     adId: lead.ad_id || lead.form_id || "",
     headline: [lead.campaign_name, lead.ad_name].filter(Boolean).join(" · ")
+  });
+
+  // Everything the customer typed (email, budget, purpose...) goes into the conversation and the lead record.
+  await saveFormSubmission({
+    tenantId,
+    conversationId: stored.conversationId,
+    key: `meta-${leadgenId}`,
+    source: "meta",
+    title: `نموذج: ${campaignName || "إعلان ميتا"}`,
+    answers: lead.field_data.map((field) => ({ question: field.name || "", answer: (field.values || []).join("، ") })),
+    name,
+    phone,
+    formId: lead.form_id,
+    formName: campaignName,
+    campaignId: lead.campaign_id
   });
 
   if (!stored.isNew) return;

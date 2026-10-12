@@ -229,18 +229,24 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
   const origin = typeof window === "undefined" ? "https://linklysa.io" : window.location.origin;
   const webhookUrl = `${origin}/api/v1/conversations`;
   const sampleBody = `{
-  "customerName": "محمد عبدالله",
-  "customerPhone": "0501234567",
-  "text": "عميل محتمل من تيك توك - مهتم بمشروع واجهة الرياض"
+  "full_name": "محمد عبدالله",
+  "phone_number": "0501234567",
+  "email": "mohammed@example.com",
+  "budget": "1,200,000",
+  "purchase_purpose": "سكن",
+  "purchase_method": "تمويل بنكي",
+  "preferred_contact_time": "بعد العصر"
 }`;
   const muted: React.CSSProperties = { margin: 0, lineHeight: 1.8, opacity: 0.8, fontSize: 14 };
 
   const fields: Array<{ name: string; label: string; required: boolean; description: string; example: string }> = [
-    { name: "customerPhone", label: t("رقم الجوال", "Mobile number"), required: true, description: t("جوال العميل. به نتواصل معه ونفتح محادثته.", "The customer's mobile. We use it to open their conversation."), example: "0501234567" },
-    { name: "text", label: t("نص الطلب", "Request text"), required: true, description: t("ما كتبه العميل أو من أين جاء، ليقرأه الموظف أول ما يفتح المحادثة.", "What the customer wrote or where they came from, so the agent sees it first."), example: t("مهتم بمشروع واجهة الرياض", "Interested in the Riyadh Front project") },
-    { name: "customerName", label: t("الاسم", "Name"), required: false, description: t("اسم العميل. إن لم تُرسله نعرض رقم جواله بدل الاسم.", "The customer's name. If omitted we show their phone number instead."), example: t("محمد عبدالله", "Mohammed") },
-    { name: "visit", label: t("زيارة أو حجز", "Visit or booking"), required: false, description: t("أرسل true إذا كان هذا الليد زيارة أو حجزًا مؤكدًا، فتُسجَّل زيارةً في التقارير.", "Send true if this lead is a visit or confirmed booking; it is then recorded as a visit in reports."), example: "true" },
-    { name: "visitAt", label: t("موعد الزيارة", "Visit time"), required: false, description: t("موعد الزيارة بصيغة تاريخ ووقت (مع «زيارة أو حجز»).", "The visit date and time (used with “Visit or booking”)."), example: "2026-10-20T16:00:00+03:00" }
+    { name: "phone_number", label: t("رقم الجوال", "Mobile number"), required: true, description: t("جوال العميل. به نفتح محادثته ونتواصل معه.", "The customer's mobile. We open their conversation with it."), example: "0501234567" },
+    { name: "full_name", label: t("الاسم", "Name"), required: false, description: t("اسم العميل. إن لم تُرسله نعرض رقم جواله.", "The customer's name. If omitted we show the phone number."), example: t("محمد عبدالله", "Mohammed") },
+    { name: "email", label: t("البريد الإلكتروني", "Email"), required: false, description: t("بريد العميل، يُحفظ مع بيانات النموذج.", "The customer's email, kept with the form data."), example: "mohammed@example.com" },
+    { name: "budget", label: t("الميزانية", "Budget"), required: false, description: t("ميزانية العميل كما كتبها.", "The customer's budget as typed."), example: "1,200,000" },
+    { name: "purchase_purpose", label: t("الغرض من الشراء", "Purchase purpose"), required: false, description: t("سكن، استثمار...", "Living, investment..."), example: t("سكن", "Living") },
+    { name: "purchase_method", label: t("طريقة الشراء", "Purchase method"), required: false, description: t("نقدًا، تمويل بنكي...", "Cash, bank financing..."), example: t("تمويل بنكي", "Bank financing") },
+    { name: "preferred_contact_time", label: t("وقت التواصل المفضل", "Preferred contact time"), required: false, description: t("متى يفضّل العميل أن يُتصل به.", "When the customer prefers to be contacted."), example: t("بعد العصر", "Afternoon") }
   ];
 
   return (
@@ -282,7 +288,7 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
 
       <section style={{ display: "grid", gap: 10, padding: 16, borderRadius: 14, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
         <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 900 }}>{t("ما الذي ترسله مع كل عميل؟", "What do you send with each lead?")}</h4>
-        <p style={muted}>{t("في الخطوة ③ (جسم JSON) تُرسل معلومات العميل في حقول بأسماء ثابتة. حقلان فقط مطلوبان، والباقي اختياري.", "In step ③ (the JSON body) you send the customer's details in fields with fixed names. Only two are required; the rest are optional.")}</p>
+        <p style={muted}>{t("في الخطوة ③ (جسم JSON) تُرسل معلومات العميل بهذه الأسماء. رقم الجوال وحده مطلوب. وأي حقل آخر في نموذجك تُرسله يظهر تلقائيًا في محادثة العميل.", "In step ③ (the JSON body) you send the customer's details with these names. Only the mobile number is required. Any other field of your form that you send shows up automatically in the customer's conversation.")}</p>
         <div style={{ display: "grid", gap: 8 }}>
           {fields.map((field) => (
             <div key={field.name} style={{ display: "grid", gap: 6, padding: "12px 14px", borderRadius: 10, background: "var(--surface-soft, #f3f7f6)", borderInlineStart: `4px solid ${field.required ? "#e0752d" : "#9ccfca"}` }}>

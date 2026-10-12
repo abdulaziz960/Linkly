@@ -66,6 +66,40 @@ describe("POST /api/v1/conversations", () => {
     expect(body.data.conversationId).toBeTruthy();
   });
 
+  it("accepts the form-style field names and keeps the extra answers on the lead", async () => {
+    const { generateApiKey } = await import("../lib/developer-api");
+    const { POST } = await import("../app/api/v1/conversations/route");
+    const { prisma } = await import("../lib/prisma");
+    const { rawKey } = await generateApiKey(tenantId, "form fields test key");
+
+    const response = await POST(jsonRequest("https://example.test/api/v1/conversations", {
+      full_name: "خالد الحربي",
+      phone_number: "0507654321",
+      email: "khaled@example.com",
+      budget: "900,000",
+      purchase_purpose: "استثمار",
+      purchase_method: "نقدًا",
+      preferred_contact_time: "مساءً"
+    }, rawKey));
+    const body = await response.json();
+    expect(response.status).toBe(200);
+
+    const messages = await prisma.message.findMany({ where: { conversationId: body.data.conversationId }, orderBy: { createdAt: "asc" } });
+    const text = messages.map((message) => message.text).join("\n");
+    expect(text).toContain("• الميزانية: 900,000");
+    expect(text).toContain("• وقت التواصل المفضل: مساءً");
+    const lead = await prisma.lead.findFirst({ where: { tenantId, conversationId: body.data.conversationId } });
+    expect(lead).toMatchObject({ email: "khaled@example.com", name: "خالد الحربي", source: "api" });
+  });
+
+  it("still needs a phone", async () => {
+    const { generateApiKey } = await import("../lib/developer-api");
+    const { POST } = await import("../app/api/v1/conversations/route");
+    const { rawKey } = await generateApiKey(tenantId, "no phone test key");
+    const response = await POST(jsonRequest("https://example.test/api/v1/conversations", { full_name: "بدون جوال", budget: "1" }, rawKey));
+    expect(response.status).toBe(400);
+  });
+
   it("rejects an invalid phone number", async () => {
     const { generateApiKey } = await import("../lib/developer-api");
     const { POST } = await import("../app/api/v1/conversations/route");
