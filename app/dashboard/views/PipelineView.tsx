@@ -204,24 +204,38 @@ function ZapRow({ field, value, hint, t, copyable = true, data = false }: { fiel
     <button type="button" className="soft-action" style={{ flexShrink: 0, minHeight: 30, padding: "0 10px", fontSize: 12.5 }} onClick={copy}>{copied ? "✓" : t("نسخ", "Copy")}</button>
   ) : null;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(150px, 0.9fr) minmax(0, 1.6fr)", gap: 10, alignItems: "center", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(170px, 0.8fr) minmax(0, 1.7fr)", gap: 16, alignItems: "center", padding: "12px 14px", borderTop: "1px solid var(--line, #e6eeec)" }}>
       {data ? (
         <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
-          <code dir="ltr" style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 13, fontWeight: 800, overflowX: "auto", whiteSpace: "nowrap" }}>{field}</code>
+          <code dir="ltr" style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 13, fontWeight: 800, padding: "6px 10px", borderRadius: 8, background: "var(--surface-soft, #f3f7f6)", border: "1px solid var(--line, #dfe7e5)", overflowX: "auto", whiteSpace: "nowrap" }}>{field}</code>
           {copyButton}
         </div>
       ) : (
-        <b dir="ltr" style={{ textAlign: "left", fontSize: 13 }}>{field}</b>
+        <b style={{ textAlign: "start", fontSize: 13.5 }}>{field}</b>
       )}
       <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
         {!data ? (
           <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
-            <code dir="ltr" style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 12.5, overflowX: "auto", whiteSpace: "nowrap" }}>{value}</code>
+            <code dir="ltr" style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 13, padding: "6px 10px", borderRadius: 8, background: "var(--surface-soft, #f3f7f6)", border: "1px solid var(--line, #dfe7e5)", overflowX: "auto", whiteSpace: "nowrap" }}>{value}</code>
             {copyButton}
           </div>
         ) : null}
-        {hint ? <span style={{ fontSize: 12.5, opacity: data ? 0.95 : 0.75, lineHeight: 1.6 }}>{hint}</span> : null}
+        {hint ? <span dir={t("rtl", "ltr")} style={{ display: "block", fontSize: 13.5, opacity: data ? 1 : 0.8, lineHeight: 1.7, textAlign: "start" }}>{hint}</span> : null}
       </div>
+    </div>
+  );
+}
+
+/** A bordered group of Zapier rows with a titled header and a column-header strip. */
+function ZapGroup({ title, columns, children }: { title: string; columns: [string, string]; children: React.ReactNode }) {
+  return (
+    <div style={{ borderRadius: 12, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)", overflow: "hidden" }}>
+      <div style={{ padding: "11px 14px", background: "#e8f3f1", fontWeight: 900, fontSize: 14, borderInlineStart: "4px solid #178a82" }}>{title}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(170px, 0.8fr) minmax(0, 1.7fr)", gap: 16, padding: "7px 14px", fontSize: 12, fontWeight: 800, opacity: 0.65, background: "var(--surface-soft, #f6faf9)" }}>
+        <span>{columns[0]}</span>
+        <span>{columns[1]}</span>
+      </div>
+      {children}
     </div>
   );
 }
@@ -314,25 +328,28 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
       <StepCard number={3} title={t("أضف إجراء Webhook POST واملأه كما يلي", "Add a Webhook POST action and fill it in like this")}>
         <p style={muted}>{t("إجراء (Action) جديد: Webhooks by Zapier ← حدث POST. هذا ما ستملؤه في كل قسم من الشاشة، بالترتيب نفسه:", "A new Action: Webhooks by Zapier → POST event. This is what to put in each section of the screen, in the same order:")}</p>
 
-        <h5 style={{ margin: "4px 0 0", fontSize: 14, fontWeight: 900 }}>{t("① الإعداد العام", "① General")}</h5>
+        <ZapGroup title={t("① الإعداد العام", "① General")} columns={[t("الحقل في Zapier", "Field in Zapier"), t("ما تضعه فيه", "What to put in it")]}>
         <ZapRow field="URL" value={webhookUrl} t={t} />
         <ZapRow field="Payload Type" value="Json" hint={t("أو Form، كلاهما مقبول.", "Or Form; both are accepted.")} t={t} />
         <ZapRow field="Wrap Request In Array" value="No" t={t} copyable={false} />
         <ZapRow field="Unflatten" value="Yes" t={t} copyable={false} />
+        </ZapGroup>
 
-        <h5 style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 900 }}>{t("② Data: أضف سطرًا لكل حقل (الاسم ثم القيمة)", "② Data: add one row per field (name, then value)")}</h5>
-        <p style={muted}>{t("في كل سطر: العمود الأول هو اسم الحقل (اكتبه أو انسخه كما هو في خانة الاسم)، والثاني ما تختاره في خانة القيمة من بيانات خطوة المصدر.", "In each row: the first column is the field name (type or copy it as is into the name box); the second is what to pick in the value box from the source step's data.")}</p>
-        <ZapRow data field="phone_number" hint={t(`القيمة: ${source === "other" ? "عمود/سؤال الجوال" : "1. Phone Number"} ← مطلوب`, `Value: ${source === "other" ? "the phone column/question" : "1. Phone Number"} → required`)} t={t} />
-        <ZapRow data field="full_name" hint={t(`القيمة: ${source === "other" ? "عمود/سؤال الاسم" : "1. Full Name"}`, `Value: ${source === "other" ? "the name column/question" : "1. Full Name"}`)} t={t} />
-        <ZapRow data field="email" hint={t(`القيمة: ${source === "other" ? "عمود/سؤال البريد" : "1. Email"}`, `Value: ${source === "other" ? "the email column/question" : "1. Email"}`)} t={t} />
-        <ZapRow data field="budget" hint={t(source === "other" ? "القيمة: إجابة سؤال الميزانية" : "القيمة: 1. اسم السؤال المخصص (مثل «الميزانية»)", source === "other" ? "Value: the budget answer" : "Value: 1. your custom question (e.g. “Budget”)")} t={t} />
-        <ZapRow data field="purchase_purpose" hint={t("القيمة: إجابة سؤال الغرض من الشراء", "Value: the purchase-purpose answer")} t={t} />
-        <ZapRow data field="purchase_method" hint={t("القيمة: إجابة سؤال طريقة الشراء", "Value: the purchase-method answer")} t={t} />
-        <ZapRow data field="preferred_contact_time" hint={t("القيمة: إجابة وقت التواصل المفضل", "Value: the preferred-contact-time answer")} t={t} />
-        <ZapRow data field="lead_source" hint={t(`القيمة: نص ثابت تكتبه: ${source === "tiktok" ? "تيك توك" : source === "snapchat" ? "سناب شات" : "اسم مصدرك"} (اختياري، يظهر في المحادثة)`, `Value: a fixed text you type: ${source === "tiktok" ? "TikTok" : source === "snapchat" ? "Snapchat" : "your source name"} (optional, shown in the conversation)`)} t={t} />
+        <ZapGroup title={t("② Data: أضف سطرًا لكل حقل", "② Data: add one row per field")} columns={[t("اسم الحقل (انسخه)", "Field name (copy it)"), t("ما تختاره في خانة القيمة", "What to pick in the value box")]}>
+        <ZapRow data field="phone_number" hint={t(`${source === "other" ? "عمود/سؤال الجوال" : "1. Phone Number"} ← مطلوب`, `${source === "other" ? "the phone column/question" : "1. Phone Number"} → required`)} t={t} />
+        <ZapRow data field="full_name" hint={t(`${source === "other" ? "عمود/سؤال الاسم" : "1. Full Name"}`, `${source === "other" ? "the name column/question" : "1. Full Name"}`)} t={t} />
+        <ZapRow data field="email" hint={t(`${source === "other" ? "عمود/سؤال البريد" : "1. Email"}`, `${source === "other" ? "the email column/question" : "1. Email"}`)} t={t} />
+        <ZapRow data field="budget" hint={t(source === "other" ? "إجابة سؤال الميزانية" : "1. اسم السؤال المخصص (مثل «الميزانية»)", source === "other" ? "The budget answer" : "1. your custom question (e.g. “Budget”)")} t={t} />
+        <ZapRow data field="purchase_purpose" hint={t("إجابة سؤال الغرض من الشراء", "The purchase-purpose answer")} t={t} />
+        <ZapRow data field="purchase_method" hint={t("إجابة سؤال طريقة الشراء", "The purchase-method answer")} t={t} />
+        <ZapRow data field="preferred_contact_time" hint={t("إجابة وقت التواصل المفضل", "The preferred-contact-time answer")} t={t} />
+        <ZapRow data field="lead_source" hint={t(`نص ثابت تكتبه: ${source === "tiktok" ? "تيك توك" : source === "snapchat" ? "سناب شات" : "اسم مصدرك"} (اختياري، يظهر في المحادثة)`, `a fixed text you type: ${source === "tiktok" ? "TikTok" : source === "snapchat" ? "Snapchat" : "your source name"} (optional, shown in the conversation)`)} t={t} />
 
-        <h5 style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 900 }}>{t("③ Headers: سطر واحد", "③ Headers: one row")}</h5>
+        </ZapGroup>
+
+        <ZapGroup title={t("③ Headers: سطر واحد", "③ Headers: one row")} columns={[t("الاسم", "Name"), t("القيمة", "Value")]}>
         <ZapRow field="Authorization" value="Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx" hint={t("استبدل lk_xxx بمفتاحك من الخطوة 1. اترك مسافة بعد كلمة Bearer.", "Replace lk_xxx with your key from step 1. Keep a space after the word Bearer.")} t={t} />
+        </ZapGroup>
 
         <details style={{ marginTop: 4 }}>
           <summary style={{ cursor: "pointer", fontWeight: 800, fontSize: 13.5 }}>{t("بديل: حدث Custom Request بجسم JSON كامل", "Alternative: the Custom Request event with a full JSON body")}</summary>
