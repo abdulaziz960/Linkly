@@ -269,7 +269,7 @@ function ExternalLeadsTab({ t, onShowInternal, onRefresh }: { t: (ar: string, en
       </StepCard>
 
       <StepCard number={3} title={t("أضف إجراء Webhook من نوع POST بهذه البيانات", "Add a POST webhook action with this data")}>
-        <p style={muted}>{t("في Zapier: Webhooks by Zapier ← Custom Request. في Make: HTTP ← Make a request. اجعل نوع البيانات JSON.", "In Zapier: Webhooks by Zapier → Custom Request. In Make: HTTP → Make a request. Set the data type to JSON.")}</p>
+        <p style={muted}>{t("في Zapier الأسهل: Webhooks by Zapier ← حدث POST ← Payload Type: Json، ثم أضف كل حقل في Data (الاسم ← القيمة من خطوة المصدر) والترويسة في Headers. أو حدث Custom Request وألصق جسم JSON كما هو. في Make: HTTP ← Make a request.", "Easiest in Zapier: Webhooks by Zapier → POST event → Payload Type: Json, then add each field under Data (name → value from the source step) and the header under Headers. Or the Custom Request event with the JSON body pasted as is. In Make: HTTP → Make a request.")}</p>
         <CopyField label={t("الطريقة والرابط (POST)", "Method and URL (POST)")} value={webhookUrl} t={t} />
         <CopyField label={t("الترويسة: الاسم", "Header: name")} value="Authorization" t={t} />
         <CopyField label={t("الترويسة: القيمة (ضع مفتاحك بدل lk_xxx)", "Header: value (put your key in place of lk_xxx)")} value="Bearer lk_xxxxxxxxxxxxxxxxxxxxxxxx" t={t} />
