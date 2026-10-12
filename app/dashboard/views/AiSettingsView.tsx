@@ -27,6 +27,20 @@ export default function AiSettingsView() {
   function update(patch: Partial<AiSettingsPublic>) { setData((current) => current ? { ...current, settings: { ...current.settings, ...patch } } : current); }
   async function save(event: FormEvent) {
     event.preventDefault();
+    if (!settings) return;
+    // Checked here so the owner gets a clear reason instead of a silent no-op later in the inbox.
+    if (!Number.isInteger(settings.dailyLimit) || !Number.isInteger(settings.monthlyLimit) || settings.dailyLimit < 0 || settings.monthlyLimit < 0) {
+      setFeedback(t("الحدان اليومي والشهري يجب أن يكونا أرقامًا صحيحة غير سالبة.", "Daily and monthly limits must be whole numbers, zero or more."));
+      return;
+    }
+    if (settings.dailyLimit > settings.monthlyLimit) {
+      setFeedback(t("الحد اليومي لا يمكن أن يتجاوز الحد الشهري.", "The daily limit cannot exceed the monthly limit."));
+      return;
+    }
+    if (settings.enabled && !settings.hasKey && !apiKey.trim() && !settings.managedAvailable) {
+      setFeedback(t("أدخل مفتاح API أولًا: باقتك الحالية لا تشمل المساعد المُدار من Linkly.", "Enter an API key first: your current plan does not include the Linkly-managed assistant."));
+      return;
+    }
     setSaving(true); setFeedback("");
     try {
       const response = await fetch("/api/ai/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...settings, apiKey }) });
@@ -68,6 +82,7 @@ export default function AiSettingsView() {
             <div>
               <h3>{settings.managedLocal ? t("مساعد محلي — دون رسوم API", "Local Copilot — no API fees") : t("مساعد Linkly — Gemini Flash-Lite", "Linkly Copilot — Gemini Flash-Lite")}</h3>
               {!settings.managedLocal ? <p>{t("اقتراحات للمراجعة فقط، دون إرسال تلقائي. يستخدم آخر 6 رسائل بسياق مختصر؛ التلخيص ليس لكامل المحادثة. يخضع لحصة باقتك وحد استخدام شهري مشترك للمنصة، دون انتقال تلقائي لنموذج أغلى.", "Review-only suggestions, never sent automatically. Uses abbreviated context from the last 6 messages; summaries do not cover the entire conversation. Subject to plan quotas and a shared platform monthly allowance, with no automatic switch to a pricier model.")}</p> : null}
+              <p className="ai-managed-note"><b>{t("لموظفيك فقط:", "For your employees only:")}</b> {t("المساعد المُدار يقترح الردود للموظف داخل صندوق الوارد. الرد التلقائي على العملاء (عقدة «رد AI تلقائي» في البوت) لا يعمل به، ويتطلب ربط مفتاحك الخاص من القسم أدناه.", "The managed assistant suggests replies to your employees inside the inbox. Automatic customer replies (the \"Automatic AI reply\" bot step) do not run on it and require your own API key, connected below.")}</p>
               <p>{t(`مشمول ضمن باقتك الحالية - بدون حاجة لمفتاح API خاص بك. الحد: ${settings.managedDailyLimit} يوميًا / ${settings.managedMonthlyLimit} شهريًا.`, `Included with your current plan - no API key of your own needed. Limit: ${settings.managedDailyLimit}/day, ${settings.managedMonthlyLimit}/month.`)}</p>
               {settings.managedLocal ? <p>{t("يعمل عبر Ollama على خادم خاص. موارد التشغيل لها تكلفة؛ لا يوجد انتقال تلقائي لمزود مدفوع. الاقتراح للمراجعة ولا يُرسل تلقائياً، ولا يشغّل ردود البوت الآلية.", "Runs through Ollama on a private server. Hosting resources still have a cost; no automatic paid fallback. Suggestions require review and do not power automatic bot replies.")}</p> : null}
               {!settings.managedReady ? <p className="ai-managed-warning">{t("لم تكتمل إعدادات خادم المساعد بعد. يلزم إعداد المزود من إدارة المنصة.", "The assistant server is not configured yet. Contact the platform administrator.")}</p> : <p>{t("إعداد الاتصال محفوظ؛ توفر الخادم والنموذج يُتحقق منه عند طلب الاقتراح.", "Connection configured; server and model availability is checked when a suggestion is requested.")}</p>}
