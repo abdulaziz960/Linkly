@@ -11,7 +11,7 @@ import { prisma } from "./prisma";
  */
 
 export type AdSource = {
-  platform: "meta" | "tiktok" | "unknown";
+  platform: "meta" | "tiktok" | "snapchat" | "unknown";
   adId: string;
   headline: string;
   sourceUrl: string;
@@ -27,6 +27,8 @@ export type AdSource = {
 };
 
 const TTCLID = /[?&]ttclid=([A-Za-z0-9_.\-~]{6,200})/i;
+/** Snap appends its click id to the ad's destination link as ScCid. */
+const SCCID = /[?&](?:ScCid|sc_click_id)=([A-Za-z0-9_.\-~]{6,200})/i;
 
 type WhatsAppMessage = {
   type?: string;
@@ -64,20 +66,21 @@ export function extractAdSource(message: WhatsAppMessage): Omit<AdSource, "creat
   const sourceUrl = str(referral?.source_url, 800);
 
   const tiktokClick = TTCLID.exec(sourceUrl)?.[1] ?? TTCLID.exec(text)?.[1] ?? "";
+  const snapClick = SCCID.exec(sourceUrl)?.[1] ?? SCCID.exec(text)?.[1] ?? "";
   const metaClick = str(referral?.ctwa_clid, 400);
   const isTikTokUrl = /(^|\.)tiktok\.com/i.test(sourceUrl.replace(/^https?:\/\//i, "").split("/")[0] ?? "");
 
-  if (!referral && !tiktokClick) return null;
+  if (!referral && !tiktokClick && !snapClick) return null;
 
-  const platform: AdSource["platform"] = tiktokClick || isTikTokUrl ? "tiktok" : metaClick || referral?.source_type ? "meta" : "unknown";
+  const platform: AdSource["platform"] = tiktokClick || isTikTokUrl ? "tiktok" : snapClick ? "snapchat" : metaClick || referral?.source_type ? "meta" : "unknown";
   const safeRaw = referral ? JSON.stringify({ referral }).slice(0, 2000) : "";
   return {
     platform,
     adId: str(referral?.source_id, 200),
     headline: str(referral?.headline, 300),
     sourceUrl,
-    clickId: tiktokClick || metaClick,
-    matchedBy: tiktokClick ? (TTCLID.test(sourceUrl) ? "referral.source_url" : "text") : referral ? "referral" : "",
+    clickId: tiktokClick || snapClick || metaClick,
+    matchedBy: tiktokClick || snapClick ? ((tiktokClick ? TTCLID : SCCID).test(sourceUrl) ? "referral.source_url" : "text") : referral ? "referral" : "",
     raw: safeRaw,
     ...extractAdMedia(referral)
   };

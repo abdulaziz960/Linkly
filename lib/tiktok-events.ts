@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { getAdSource } from "./ad-source";
 import { notifyMetaStageChange } from "./meta-events";
+import { notifySnapStageChange } from "./snap-events";
 import { prisma } from "./prisma";
 import { decryptSecret, encryptSecret } from "./secret-storage";
 
@@ -297,7 +298,8 @@ export async function notifyStageChange(input: { tenantId: string; conversationI
   // Every ad platform the workspace connected hears about the change; one failing never blocks the other.
   const [result] = await Promise.all([
     (async () => sendLeadStatusEvent({ tenantId: input.tenantId, conversationId: input.conversationId, status: input.stage, phone: input.phone, dealValue: input.dealValue, clickId: await tiktokClickId(input.tenantId, input.conversationId) }))(),
-    notifyMetaStageChange({ tenantId: input.tenantId, conversationId: input.conversationId, stage: input.stage, dealValue: input.dealValue })
+    notifyMetaStageChange({ tenantId: input.tenantId, conversationId: input.conversationId, stage: input.stage, dealValue: input.dealValue }),
+    notifySnapStageChange({ tenantId: input.tenantId, conversationId: input.conversationId, stage: input.stage, phone: input.phone, dealValue: input.dealValue })
   ]);
   return result;
 }

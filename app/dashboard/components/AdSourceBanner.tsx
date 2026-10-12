@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 
-type Source = { platform: "meta" | "tiktok" | "unknown"; adId: string; headline: string; sourceUrl: string; hasClickId: boolean; thumbnailUrl?: string; mediaType?: "image" | "video" | "" };
+type Source = { platform: "meta" | "tiktok" | "snapchat" | "unknown"; adId: string; headline: string; sourceUrl: string; hasClickId: boolean; thumbnailUrl?: string; mediaType?: "image" | "video" | "" };
 
 /** A slim strip above the messages saying which ad opened the conversation; nothing is shown for conversations that did not come from an ad. */
 export default function AdSourceBanner({ conversationId }: { conversationId: string }) {
@@ -27,7 +27,7 @@ export default function AdSourceBanner({ conversationId }: { conversationId: str
   }, [conversationId]);
 
   if (!source) return null;
-  const platform = source.platform === "tiktok" ? "TikTok" : source.platform === "meta" ? "Meta" : t("إعلان", "Ad");
+  const platform = source.platform === "tiktok" ? "TikTok" : source.platform === "snapchat" ? "Snapchat" : source.platform === "meta" ? "Meta" : t("إعلان", "Ad");
   const showImage = Boolean(source.thumbnailUrl) && !imageFailed;
   const tile: React.CSSProperties = { width: 72, height: 72, borderRadius: 10, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface-soft, #f3f7f6)", flexShrink: 0 };
 

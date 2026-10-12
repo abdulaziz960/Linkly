@@ -3,6 +3,7 @@
 import CustomSelect from "../../components/CustomSelect";
 import TikTokAdsSettings from "../components/TikTokAdsSettings";
 import MetaAdsSettings from "../components/MetaAdsSettings";
+import SnapAdsSettings from "../components/SnapAdsSettings";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import { ChannelIcon } from "./SettingsView";
@@ -32,6 +33,7 @@ export default function IntegrationsView() {
   const [saving, setSaving] = useState(false);
   const [tiktokAdsOpen, setTiktokAdsOpen] = useState(false);
   const [metaAdsOpen, setMetaAdsOpen] = useState(false);
+  const [snapAdsOpen, setSnapAdsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +173,19 @@ export default function IntegrationsView() {
 
         <div className="meta-test-card">
           <div>
+            <span className="channel-icon channel-icon-snapchat">
+              <ChannelIcon id="snapchat" />
+            </span>
+            <h3>{t("إعلانات سناب شات: ربط الأحداث", "Snapchat Ads: event feedback")}</h3>
+            <p>{t("أرسل مراحل العميل (مؤهل، تم البيع...) إلى Snapchat عبر Conversions API لتتعلّم حملاتك.", "Send customer stages (qualified, sold...) to Snapchat through the Conversions API so your campaigns learn.")}</p>
+          </div>
+          <button className="btn primary" type="button" onClick={() => setSnapAdsOpen(true)}>
+            {t("إعداد ربط الأحداث", "Set up event feedback")}
+          </button>
+        </div>
+
+        <div className="meta-test-card">
+          <div>
             <span className="channel-icon channel-icon-tiktok">
               <ChannelIcon id="tiktok" />
             </span>
@@ -182,6 +197,20 @@ export default function IntegrationsView() {
           </button>
         </div>
       </div>
+
+      {snapAdsOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setSnapAdsOpen(false)}>
+          <div className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("إعلانات Snapchat", "Snapchat Ads")} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setSnapAdsOpen(false)}>×</button>
+              <h2>{t("إعلانات Snapchat", "Snapchat Ads")}</h2>
+            </header>
+            <div className="account-modal-body">
+              <SnapAdsSettings />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {metaAdsOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setMetaAdsOpen(false)}>
