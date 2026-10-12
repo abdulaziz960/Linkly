@@ -109,7 +109,7 @@ const copy = {
   }
 };
 
-export default function SignupForm({ lang = "ar", planId, googleEnabled = false, googleProfile = null }: { lang?: "ar" | "en"; planId?: string; googleEnabled?: boolean; googleProfile?: { email: string; name: string } | null }) {
+export default function SignupForm({ lang = "ar", planId, googleProfile = null }: { lang?: "ar" | "en"; planId?: string; googleProfile?: { email: string; name: string } | null }) {
   const router = useRouter();
   const text = copy[lang];
   const channelOptions = channels[lang];
@@ -144,7 +144,6 @@ export default function SignupForm({ lang = "ar", planId, googleEnabled = false,
   }
 
   return <form className="journey-form" onSubmit={submit}>
-    {googleEnabled && !googleProfile ? <a className="journey-submit signup-google" href="/api/auth/google/start?mode=signup">{lang === "en" ? "Sign up with Google" : "التسجيل بواسطة Google"}</a> : null}
     <label>{text.companyName}<input name="companyName" required maxLength={120} autoComplete="organization" placeholder={text.companyNamePlaceholder} /></label>
     <label>{text.businessType}<CustomSelect name="businessType" defaultValue="" options={businessTypeOptions} /></label>
     <label>{text.ownerName}<input name="ownerName" required maxLength={100} autoComplete="name" defaultValue={googleProfile?.name} placeholder={text.ownerNamePlaceholder} /></label>
