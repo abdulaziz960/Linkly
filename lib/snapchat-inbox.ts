@@ -29,11 +29,36 @@ function findAnswer(answers: SnapchatLeadAnswer[], keys: string[]) {
   return match?.answer?.trim() || "";
 }
 
-function summarizeAnswers(formName: string, answers: SnapchatLeadAnswer[]) {
-  const lines = [`نموذج: ${formName || "بدون اسم"}`];
+const QUESTION_LABELS: Record<string, string> = {
+  FULL_NAME: "الاسم",
+  NAME: "الاسم",
+  FIRST_NAME: "الاسم الأول",
+  LAST_NAME: "اسم العائلة",
+  PHONE_NUMBER: "رقم الجوال",
+  PHONE: "رقم الجوال",
+  EMAIL: "البريد الإلكتروني",
+  CITY: "المدينة",
+  COUNTRY: "الدولة",
+  ZIP_CODE: "الرمز البريدي",
+  POSTAL_CODE: "الرمز البريدي",
+  GENDER: "الجنس",
+  DATE_OF_BIRTH: "تاريخ الميلاد",
+  AGE: "العمر"
+};
+
+/** "FULL_NAME" -> "الاسم"; a custom question keeps its own wording (underscores read as spaces). */
+export function questionLabel(question: string): string {
+  const key = question.trim().toUpperCase();
+  return QUESTION_LABELS[key] ?? question.replace(/_/g, " ").trim();
+}
+
+/** The form as readable lines: a title, then "label: answer" per question that was answered. */
+export function summarizeAnswers(formName: string, answers: SnapchatLeadAnswer[]) {
+  const lines = [`📋 نموذج: ${formName || "بدون اسم"}`];
   for (const answer of answers) {
-    if (!answer.question && !answer.answer) continue;
-    lines.push(`${answer.question}: ${answer.answer}`);
+    const value = (answer.answer || "").trim();
+    if (!answer.question && !value) continue;
+    lines.push(`• ${questionLabel(answer.question || "")}: ${value || "—"}`);
   }
   return lines.join("\n");
 }

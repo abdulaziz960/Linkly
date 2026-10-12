@@ -105,3 +105,17 @@ describe("Snapchat form leads carry their form as the ad source", () => {
     expect(await getAdSource("ten-snap", result.conversationId)).toMatchObject({ platform: "snapchat", adId: "f1", headline: "نموذج", matchedBy: "lead_form" });
   });
 });
+
+describe("the form is shown as readable lines", () => {
+  it("labels the standard questions and keeps custom ones", async () => {
+    const { summarizeAnswers, questionLabel } = await import("../lib/snapchat-inbox");
+    expect(questionLabel("FULL_NAME")).toBe("الاسم");
+    expect(questionLabel("PHONE_NUMBER")).toBe("رقم الجوال");
+    expect(questionLabel("budget_range")).toBe("budget range");
+    expect(summarizeAnswers("عرض الصيف", [
+      { question: "FULL_NAME", answer: "هند" },
+      { question: "PHONE_NUMBER", answer: "0500000654" },
+      { question: "ميزانيتك", answer: "" }
+    ])).toBe("📋 نموذج: عرض الصيف\n• الاسم: هند\n• رقم الجوال: 0500000654\n• ميزانيتك: —");
+  });
+});
