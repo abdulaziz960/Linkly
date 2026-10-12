@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state");
   const savedState = request.cookies.get("audiencew_snapchat_state")?.value;
   const redirectTo = new URL("/dashboard", getAppOrigin(request));
-  redirectTo.searchParams.set("view", "settings");
+  // Snapchat is connected from the Integrations page (it only brings lead forms, not messages).
+  redirectTo.searchParams.set("view", "integrations");
   redirectTo.searchParams.set("channel", "snapchat");
 
   if (!code || !state || !savedState || !safeEqual(state, savedState)) {

@@ -145,7 +145,6 @@ function getChannels(t: TFn): Array<{ id: SelectableChannelId; title: string; de
     { id: "sms", title: t(channelNames.sms.ar, channelNames.sms.en), description: t("أرسل واستقبل الرسائل النصية عبر يونيفونك", "Send and receive SMS messages via Unifonic"), active: true },
     { id: "youtube", title: t(channelNames.youtube.ar, channelNames.youtube.en), description: t("استقبل وردّ على تعليقات فيديوهاتك", "Receive and reply to your videos' comments"), active: true },
     { id: "linkedin", title: t(channelNames.linkedin.ar, channelNames.linkedin.en), description: t("استقبل وردّ على تعليقات منشورات صفحتك", "Receive and reply to your page's post comments"), active: true },
-    { id: "snapchat", title: t(channelNames.snapchat.ar, channelNames.snapchat.en), description: t("استقبل عملاء نماذج إعلانات سناب شات المحتملين", "Receive leads from Snapchat Lead Generation Ads"), active: true }
   ];
 }
 
@@ -546,7 +545,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   // Temporarily locked while these channels are paused for rework - the
   // underlying integrations stay intact, they're just hidden from new
   // connections for now.
-  const temporarilyLockedChannelIds = new Set<ChannelId>(["sms", "google_maps", "linkedin", "snapchat"]);
+  const temporarilyLockedChannelIds = new Set<ChannelId>(["sms", "google_maps", "linkedin"]);
 
   function goToChannelSetup(channelId: SelectableChannelId) {
     setSelectedChannel(channelId);
