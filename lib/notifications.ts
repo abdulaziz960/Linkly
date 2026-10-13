@@ -24,7 +24,7 @@ function parseRenewalDate(renewalAt: string) {
 export async function getAdminNotifications(): Promise<AdminNotification[]> {
   const hiddenTenants = await getHiddenTenantIds();
   // Only the newest rows are ever shown, so only they are read (this runs on every poll).
-  const [subscriptions, logs, emailUsage] = await Promise.all([getVisibleSubscriptions(), getRecentAdminLogs({ limit: 80, excludeClientIds: [...hiddenTenants] }), getEmailUsage()]);
+  const [subscriptions, logs, emailUsage] = await Promise.all([getVisibleSubscriptions({ withCounts: false }), getRecentAdminLogs({ limit: 80, excludeClientIds: [...hiddenTenants] }), getEmailUsage()]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

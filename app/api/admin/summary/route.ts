@@ -28,7 +28,7 @@ export async function GET() {
   const permissions = await getAdminPermissions(admin.id);
   const canSupport = permissions.includes("support");
   const [subscriptions, supportOpen, supportUrgent, developmentPending] = await Promise.all([
-    permissions.includes("clients") ? getVisibleSubscriptions() : Promise.resolve([]),
+    permissions.includes("clients") ? getVisibleSubscriptions({ withCounts: false }) : Promise.resolve([]),
     canSupport ? prisma.supportTicket.count({ where: { status: { notIn: ["resolved", "closed"] } } }) : Promise.resolve(0),
     canSupport ? prisma.supportTicket.count({ where: { priority: "urgent", status: { notIn: ["resolved", "closed"] } } }) : Promise.resolve(0),
     canSupport ? prisma.featureRequest.count({ where: { status: "pending" } }) : Promise.resolve(0)

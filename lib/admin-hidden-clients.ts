@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
-import { getSubscriptions } from "./subscriptions";
+import { getSubscriptionRows, getSubscriptions } from "./subscriptions";
 
 /**
  * Clients the platform team has hidden from the admin panel's lists, counts and
@@ -39,8 +39,20 @@ export async function setClientsHidden(tenantIds: string[], hidden: boolean, upd
   return ids.length;
 }
 
-/** Every subscription except the hidden ones - for the admin panel's lists, totals and notifications. */
-export async function getVisibleSubscriptions() {
-  const [subscriptions, hidden] = await Promise.all([getSubscriptions(), getHiddenTenantIds()]);
-  return subscriptions.filter((subscription) => !hidden.has(subscription.tenantId));
+type SubscriptionsWithCounts = Awaited<ReturnType<typeof getSubscriptions>>;
+type SubscriptionRows = Awaited<ReturnType<typeof getSubscriptionRows>>;
+
+/**
+ * Every subscription except the hidden ones - for the admin panel's lists, totals and notifications.
+ * Endpoints the panel polls pass { withCounts: false }: they only need status, plan and renewal, and
+ * skip the employee / conversation totals.
+ */
+export async function getVisibleSubscriptions(): Promise<SubscriptionsWithCounts>;
+export async function getVisibleSubscriptions(options: { withCounts: false }): Promise<SubscriptionRows>;
+export async function getVisibleSubscriptions(options?: { withCounts?: boolean }): Promise<SubscriptionsWithCounts | SubscriptionRows> {
+  const [subscriptions, hidden] = await Promise.all([
+    options?.withCounts === false ? getSubscriptionRows() : getSubscriptions(),
+    getHiddenTenantIds()
+  ]);
+  return subscriptions.filter((subscription) => !hidden.has(subscription.tenantId)) as SubscriptionsWithCounts | SubscriptionRows;
 }

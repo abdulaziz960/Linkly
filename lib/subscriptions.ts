@@ -144,22 +144,64 @@ function nowTimestamp() {
   }).format(new Date());
 }
 
-export async function getSubscriptions() {
+/** One row per tenant, no aggregates - cheap enough for the admin panel's polled endpoints. */
+export async function getSubscriptionRows() {
   await ensureSchema();
-  const [subscriptions, employeeCounts, conversationCounts, campaignBalances] = await Promise.all([
-    prisma.subscription.findMany({ orderBy: { createdAt: "desc" } }),
+  return prisma.subscription.findMany({ orderBy: { createdAt: "desc" } });
+}
+
+type TenantCounts = {
+  employees: Map<string, number>;
+  conversations: Map<string, number>;
+  campaignBalances: Map<string, number>;
+};
+
+// The per-tenant totals scan every employee, conversation and balance row. They
+// only decorate the admin lists, so a few seconds of staleness is invisible, and
+// many admin pages / polls in a row share one scan instead of repeating it.
+const TENANT_COUNTS_TTL_MS = 30_000;
+let tenantCountsCache: { at: number; value: Promise<TenantCounts> } | null = null;
+
+async function loadTenantCounts(): Promise<TenantCounts> {
+  const [employeeCounts, conversationCounts, campaignBalances] = await Promise.all([
     prisma.employee.groupBy({ by: ["tenantId"], _count: { _all: true } }),
     prisma.conversation.groupBy({ by: ["tenantId"], _count: { _all: true } }),
     prisma.campaignBalance.findMany({ select: { tenantId: true, balance: true } })
   ]);
-  const employeesByTenant = new Map(employeeCounts.map((row) => [row.tenantId, row._count._all]));
-  const conversationsByTenant = new Map(conversationCounts.map((row) => [row.tenantId, row._count._all]));
-  const campaignBalanceByTenant = new Map(campaignBalances.map((row) => [row.tenantId, row.balance]));
+  return {
+    employees: new Map(employeeCounts.map((row) => [row.tenantId, row._count._all])),
+    conversations: new Map(conversationCounts.map((row) => [row.tenantId, row._count._all])),
+    campaignBalances: new Map(campaignBalances.map((row) => [row.tenantId, row.balance]))
+  };
+}
+
+/** Forget the cached totals so the next read scans again (after a change that must show at once). */
+export function clearSubscriptionCountsCache() {
+  tenantCountsCache = null;
+}
+
+function getTenantCounts(): Promise<TenantCounts> {
+  // Tests assert on counts straight after writing, so by default they never see a cached scan
+  // (ADMIN_COUNTS_CACHE_MS lets the cache's own test turn it on).
+  const ttl = process.env.NODE_ENV === "test" ? Number(process.env.ADMIN_COUNTS_CACHE_MS) || 0 : TENANT_COUNTS_TTL_MS;
+  if (tenantCountsCache && Date.now() - tenantCountsCache.at < ttl) return tenantCountsCache.value;
+  const value = loadTenantCounts();
+  const entry = { at: Date.now(), value };
+  tenantCountsCache = entry;
+  // A failed scan must not be served for the next 30 seconds.
+  value.catch(() => {
+    if (tenantCountsCache === entry) tenantCountsCache = null;
+  });
+  return value;
+}
+
+export async function getSubscriptions() {
+  const [subscriptions, counts] = await Promise.all([getSubscriptionRows(), getTenantCounts()]);
   return subscriptions.map((subscription) => ({
     ...subscription,
-    employeeCount: employeesByTenant.get(subscription.tenantId) ?? 0,
-    conversationCount: conversationsByTenant.get(subscription.tenantId) ?? 0,
-    campaignBalance: campaignBalanceByTenant.get(subscription.tenantId) ?? 0
+    employeeCount: counts.employees.get(subscription.tenantId) ?? 0,
+    conversationCount: counts.conversations.get(subscription.tenantId) ?? 0,
+    campaignBalance: counts.campaignBalances.get(subscription.tenantId) ?? 0
   }));
 }
 

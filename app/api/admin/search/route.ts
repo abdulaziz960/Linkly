@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   // Each group is searched only when the member may see it.
   const permissions = await getAdminPermissions(admin.id);
   const [subscriptions, payments] = await Promise.all([
-    permissions.includes("clients") ? getVisibleSubscriptions() : Promise.resolve([]),
+    permissions.includes("clients") ? getVisibleSubscriptions({ withCounts: false }) : Promise.resolve([]),
     permissions.includes("billing") ? getSubscriptionPayments() : Promise.resolve([])
   ]);
 
