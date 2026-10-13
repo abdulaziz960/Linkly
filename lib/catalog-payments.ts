@@ -19,6 +19,51 @@ function authorization(secretKey: string) {
 
 export type MerchantInvoice = { id: string; url: string };
 
+/** A short, readable order number for messages: the first 8 characters of the order id's unique part. */
+export function shortOrderNumber(orderId: string): string {
+  const unique = orderId.replace(/^ord-/i, "").replace(/-/g, "");
+  return `ORD-${unique.slice(0, 8).toUpperCase()}`;
+}
+
+function usableCustomerName(name: string, phone = ""): string {
+  const value = (name || "").trim();
+  if (!value || value === phone || /^عميل\s+\S+$/i.test(value)) return "";
+  return value;
+}
+
+function arabicDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ar-SA-u-nu-latn-ca-gregory", { dateStyle: "long", timeZone: "Asia/Riyadh" }).format(date);
+}
+
+/** The payment-received message: who, which order, what, how much and when - a plain-text receipt. */
+export function buildPaidOrderMessage(order: {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  productName: string;
+  quantity: number;
+  total: number;
+  currency: string;
+}, paidAtIso: string, fallbackName = ""): string {
+  const name = usableCustomerName(order.customerName, order.customerPhone) || usableCustomerName(fallbackName, order.customerPhone);
+  const amount = Number.isInteger(order.total) ? String(order.total) : order.total.toFixed(2);
+  const currency = order.currency === "SAR" ? "ر.س" : order.currency;
+  const lines = [
+    name ? `شكرًا لك ${name}، تم استلام دفعك ✅` : "تم استلام دفعك ✅",
+    "",
+    `رقم الطلب: ${shortOrderNumber(order.id)}`,
+    `المنتج: ${order.productName}`,
+    ...(order.quantity > 1 ? [`الكمية: ${order.quantity}`] : []),
+    `المبلغ المدفوع: ${amount} ${currency}`,
+    ...(arabicDate(paidAtIso) ? [`التاريخ: ${arabicDate(paidAtIso)}`] : []),
+    "",
+    "سنتواصل معك قريبًا لإتمام الطلب."
+  ];
+  return lines.join("\n");
+}
+
 export async function createMerchantInvoice(input: {
   secretKey: string;
   amount: number;
@@ -124,7 +169,7 @@ export async function processOrderPaymentCallback(orderId: string): Promise<{ ht
         tenantId: order.tenantId,
         conversationId: order.conversationId,
         to: conversation.customer.phone,
-        text: `تم استلام الدفع لطلبك (${order.productName}) بمبلغ ${order.total} ر.س. شكرًا لك! سنتواصل معك قريبًا لإتمام الطلب.`,
+        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name),
         author: "الرد الآلي"
       }).catch((error) => console.error("Order paid confirmation failed", error));
     }

@@ -9,7 +9,7 @@ import {
   listBotProducts,
   type CatalogProduct
 } from "./catalog";
-import { createMerchantInvoice } from "./catalog-payments";
+import { createMerchantInvoice, shortOrderNumber } from "./catalog-payments";
 import { formatMessageTime } from "./time";
 import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons } from "./whatsapp-send";
 
@@ -241,7 +241,7 @@ async function purchase(ctx: CatalogCtx, productId: string) {
       });
       await prisma.catalogOrder.update({ where: { id: order.id }, data: { paymentId: invoice.id, paymentUrl: invoice.url, updatedAt: new Date().toISOString() } });
       await addOrderNote(ctx.conversationId, `طلب جديد بانتظار الدفع: ${summary}`);
-      await ctx.sendText(`تم تجهيز طلبك ✅\n${summary}\n\nلإتمام الدفع بأمان اضغط على الرابط:\n${invoice.url}`);
+      await ctx.sendText(`تم تجهيز طلبك ✅\nرقم الطلب: ${shortOrderNumber(order.id)}\n${summary}\n\nلإتمام الدفع بأمان اضغط على الرابط:\n${invoice.url}`);
       return;
     } catch {
       // The merchant's key/account is the likely culprit - fall through to a
