@@ -85,8 +85,27 @@ export default function QuickWelcomeTemplate({ onCreated }: { onCreated?: () => 
 
   if (!open) {
     return (
-      <button type="button" className="btn soft" style={{ justifySelf: "start" }} onClick={() => setOpen(true)}>
-        ＋ {t("اكتب رسالة ترحيب جديدة", "Write a new welcome message")}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{
+          justifySelf: "start",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          minHeight: 46,
+          padding: "0 18px",
+          borderRadius: 12,
+          border: "1.5px solid var(--primary, #0f6b5c)",
+          background: "var(--surface, #fff)",
+          color: "var(--primary, #0f6b5c)",
+          fontWeight: 800,
+          fontSize: 15,
+          cursor: "pointer"
+        }}
+      >
+        <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>＋</span>
+        {t("اكتب رسالة ترحيب جديدة", "Write a new welcome message")}
       </button>
     );
   }

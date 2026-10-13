@@ -344,9 +344,9 @@ export default function IntegrationsView() {
                               <p className="meta-test-warning">{t("ما فيه قوالب معتمدة على حسابك بعد.", "Your account has no approved templates yet.")}</p>
                             )}
                           </label>
-                          <QuickWelcomeTemplate onCreated={loadTemplates} />
                         </div>
                       ) : null}
+                      {currentSettings.leadAdsEnabled === 1 ? <QuickWelcomeTemplate onCreated={loadTemplates} /> : null}
                     </>
                   ) : null}
                 </div>
