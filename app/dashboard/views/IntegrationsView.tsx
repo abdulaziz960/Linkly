@@ -52,6 +52,28 @@ export default function IntegrationsView() {
   const [open, setOpen] = useState<Platform | null>(null);
   const [tab, setTab] = useState<Tab>("receive");
   const [storeOpen, setStoreOpen] = useState<"salla" | "zid" | null>(null);
+  const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // The connect/callback routes come back here with ?snapchat=<result> or ?tiktok=<result>.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const platform = params.get("snapchat") ? "snapchat" : params.get("tiktok") ? "tiktok" : null;
+    if (!platform) return;
+    const result = params.get(platform) || "";
+    const name = platform === "snapchat" ? t("سناب شات", "Snapchat") : t("تيك توك", "TikTok");
+    const messages: Record<string, { type: "success" | "error"; ar: string; en: string }> = {
+      connected: { type: "success", ar: `تم ربط ${name} بنجاح.`, en: `${name} connected.` },
+      "missing-credentials": { type: "error", ar: `ربط ${name} غير مفعّل بعد: لم تُضبط بيانات التطبيق لدى المنصة. تواصل مع الدعم.`, en: `${name} linking isn't enabled yet: the app credentials aren't configured. Contact support.` },
+      forbidden: { type: "error", ar: "لا تملك صلاحية ربط التكاملات.", en: "You don't have permission to connect integrations." },
+      "plan-upgrade-needed": { type: "error", ar: `ربط ${name} غير متاح في باقتك الحالية.`, en: `${name} isn't included in your current plan.` },
+      "invalid-state": { type: "error", ar: "انتهت مهلة الربط. أعد المحاولة.", en: "The connection timed out. Try again." },
+      "token-error": { type: "error", ar: `رفض ${name} طلب الربط. أعد المحاولة.`, en: `${name} rejected the connection. Try again.` }
+    };
+    const entry = messages[result] ?? { type: result === "connected" ? "success" : "error", ar: `تعذّر ربط ${name} (${result}).`, en: `Could not connect ${name} (${result}).` };
+    setNotice({ type: entry.type, message: t(entry.ar, entry.en) });
+    window.history.replaceState(null, "", "/dashboard?view=integrations");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +167,7 @@ export default function IntegrationsView() {
       <div className="channels-overview-head">
         <div>
           <h2>{t("التكاملات", "Integrations")}</h2>
+          {notice ? <div className={`automation-feedback ${notice.type}`} role="status" style={{ marginBottom: 12 }}>{notice.message}</div> : null}
           <p>{t("اربط منصات الإعلانات لاستقبال العملاء المحتملين، وأرسل إليها نتائج المحادثات لتتحسن حملاتك.", "Connect your ad platforms to receive leads and send conversation outcomes back so your campaigns improve.")}</p>
         </div>
       </div>

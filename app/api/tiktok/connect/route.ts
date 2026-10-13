@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   if (!(await userHasViewPermission(user, "settings"))) {
-    return NextResponse.redirect(new URL("/dashboard?view=settings&channel=tiktok&tiktok=forbidden", getAppOrigin(request)));
+    return NextResponse.redirect(new URL("/dashboard?view=integrations&channel=tiktok&tiktok=forbidden", getAppOrigin(request)));
   }
   if (!(await isChannelAllowedForTenant(user.tenantId, "tiktok"))) {
-    return NextResponse.redirect(new URL("/dashboard?view=settings&channel=tiktok&tiktok=plan-upgrade-needed", getAppOrigin(request)));
+    return NextResponse.redirect(new URL("/dashboard?view=integrations&channel=tiktok&tiktok=plan-upgrade-needed", getAppOrigin(request)));
   }
 
   const clientKey = process.env.TIKTOK_CLIENT_KEY || "";

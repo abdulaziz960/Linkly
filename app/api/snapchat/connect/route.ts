@@ -12,15 +12,15 @@ export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   if (!(await userHasViewPermission(user, "settings"))) {
-    return NextResponse.redirect(new URL("/dashboard?view=settings&channel=snapchat&snapchat=forbidden", getAppOrigin(request)));
+    return NextResponse.redirect(new URL("/dashboard?view=integrations&channel=snapchat&snapchat=forbidden", getAppOrigin(request)));
   }
   if (!(await isChannelAllowedForTenant(user.tenantId, "snapchat"))) {
-    return NextResponse.redirect(new URL("/dashboard?view=settings&channel=snapchat&snapchat=plan-upgrade-needed", getAppOrigin(request)));
+    return NextResponse.redirect(new URL("/dashboard?view=integrations&channel=snapchat&snapchat=plan-upgrade-needed", getAppOrigin(request)));
   }
 
   const clientId = snapchatClientId();
   if (!clientId) {
-    return NextResponse.redirect(new URL("/dashboard?view=settings&channel=snapchat&snapchat=missing-credentials", getAppOrigin(request)));
+    return NextResponse.redirect(new URL("/dashboard?view=integrations&channel=snapchat&snapchat=missing-credentials", getAppOrigin(request)));
   }
 
   const state = randomBytes(16).toString("hex");
