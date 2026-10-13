@@ -21,6 +21,7 @@ import HowJourney from "./landing/HowJourney";
 import { planFeatures, getPlanDisplayItems } from "../lib/plan-features";
 import { getActivePlansForLanding } from "../lib/plans";
 import { getFaqs } from "../lib/faq-store";
+import { safeJsonLd } from "../lib/json-ld";
 // Shown on the landing metric ("5+ messaging platforms").
 const platformCount = 5;
 
@@ -99,7 +100,7 @@ export default async function HomePage(){
     { "@type":"FAQPage", mainEntity:faqs.map(([q,a])=>({"@type":"Question",name:q,acceptedAnswer:{"@type":"Answer",text:a}})) }
   ]};
   return <div className={s.page}>
-  <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd).replace(/</g,"\\u003c")}}/>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(jsonLd)}}/>
   <ScrollReveal />
   <MobileCtaVisibility />
   <LandingNav />

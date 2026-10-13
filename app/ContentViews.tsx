@@ -5,6 +5,7 @@ import type { FaqPair } from "../lib/faq-store";
 import type { PublicPost } from "../lib/blog-store";
 import { listCategories } from "../lib/blog-store";
 import type { ReactNode } from "react";
+import { safeJsonLd } from "../lib/json-ld";
 
 type Lang = "ar" | "en";
 
@@ -20,7 +21,7 @@ export function FaqView({ lang, faqs }: { lang: Lang; faqs: FaqPair[] }) {
   };
   return (
     <ContentShell lang={lang}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <h1>{lang === "en" ? "Frequently asked questions" : "الأسئلة الشائعة"}</h1>
       {faqs.map(([q, a]) => (
         <section key={q}>
@@ -45,7 +46,7 @@ export function Breadcrumbs({ items, lang }: { items: Crumb[]; lang: Lang }) {
   };
   return (
     <nav className="crumbs" aria-label={lang === "en" ? "Breadcrumb" : "مسار التنقل"}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <ol>
         {items.map((item, index) => (
           <li key={`${item.name}-${index}`}>{item.path && index < items.length - 1 ? <Link href={item.path}>{item.name}</Link> : <span aria-current={index === items.length - 1 ? "page" : undefined}>{item.name}</span>}</li>
@@ -135,7 +136,7 @@ export function BlogPostView({ post, lang, related = [] }: { post: PublicPost; l
   const crumbs: Crumb[] = [...crumbRoot(lang), ...(post.category ? [{ name: post.category[lang], path: `${blogBase(lang)}/category/${post.category.slug}` }] : []), { name: content.title }];
   return (
     <ContentShell lang={lang}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <Breadcrumbs lang={lang} items={crumbs} />
       <article className="article-body">
         <h1>{content.title}</h1>

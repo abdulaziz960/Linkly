@@ -30,10 +30,10 @@
     "@sentry/nextjs": "^10.75.0",
     "exceljs": "^4.4.0",
     "ffmpeg-static": "^5.3.0",
-    "next": "^16.3.5",
+    "next": "^16.4.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
