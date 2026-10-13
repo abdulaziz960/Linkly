@@ -1274,6 +1274,7 @@ export async function deleteTenant(tenantId: string) {
     ["supportTicket", () => prisma.supportTicket.deleteMany({ where: { tenantId } })],
     ["apiKey", () => prisma.apiKey.deleteMany({ where: { tenantId } })],
     ["webhookDelivery", () => prisma.webhookDelivery.deleteMany({ where: { tenantId } })],
+    ["webhookRetry", () => prisma.webhookRetry.deleteMany({ where: { tenantId } })],
     ["webhook", () => prisma.webhook.deleteMany({ where: { tenantId } })],
     ["pushSubscription", () => prisma.pushSubscription.deleteMany({ where: { tenantId } })],
     ["knowledgeBaseEntry", () => prisma.knowledgeBaseEntry.deleteMany({ where: { tenantId } })],

@@ -12,6 +12,7 @@ import { escalateUnansweredConversations } from "../../../../lib/response-sla";
 import { syncDueProductFeeds } from "../../../../lib/product-feed";
 import { provisionOpenerTemplates } from "../../../../lib/opener-template";
 import { isCronRequestAuthorized } from "../../../../lib/cron-auth";
+import { processWebhookRetries } from "../../../../lib/webhooks";
 import { ensureEmailPromotionsSchema } from "../../../../lib/email-promotions-schema";
 import { activateDueEmailCampaigns, processEmailCampaignBatch } from "../../../../lib/email-promotions";
 import { processStoreCartReminders, tenantsWithDueCartReminders } from "../../../../lib/store-engine";
@@ -131,10 +132,15 @@ export async function GET(request: NextRequest) {
     return { synced: 0, failed: 0 };
   });
 
+  const webhookRetries = await processWebhookRetries().catch((error) => {
+    console.error("Webhook retries failed", error);
+    return { attempted: 0, delivered: 0, dead: 0, cancelled: 0 };
+  });
+
   const openerTemplates = await provisionOpenerTemplates().catch((error) => {
     console.error("Opener template provisioning failed", error);
     return null;
   });
 
-  return NextResponse.json({ ok: true, storeCartRemindersSent, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, openerTemplates });
+  return NextResponse.json({ ok: true, storeCartRemindersSent, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, webhookRetries, openerTemplates });
 }

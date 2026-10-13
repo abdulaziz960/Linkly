@@ -1487,3 +1487,23 @@ model EmailUsageDay {
 
   @@map("email_usage_days")
 }
+
+// A webhook delivery that failed transiently and is waiting for its next
+// attempt (see lib/webhooks.ts processWebhookRetries). One row per event per
+// webhook; the id doubles as the stable X-Linkly-Delivery header.
+model WebhookRetry {
+  id            String @id
+  webhookId     String @map("webhook_id")
+  tenantId      String @map("tenant_id")
+  event         String
+  body          String
+  attempts      Int    @default(1)
+  status        String @default("pending")
+  nextAttemptAt String @map("next_attempt_at")
+  lastStatus    Int    @default(0) @map("last_status")
+  createdAt     String @map("created_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([webhookId])
+  @@map("webhook_retries")
+}
