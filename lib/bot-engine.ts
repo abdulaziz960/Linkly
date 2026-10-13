@@ -286,15 +286,33 @@ function formatListMessage(node: BotNode): string {
   return numbered ? `${node.content.text}\n${numbered}` : node.content.text;
 }
 
+type BotPersonalization = { customerName?: string; customerPhone?: string };
+
+function friendlyCustomerName(value?: string, phone?: string) {
+  const name = (value || "").trim();
+  if (!name || name === phone || /^عميل\s+\S+$/i.test(name)) return "عميلنا";
+  return name;
+}
+
+/** Fills {{name}} / {{phone}} (and their Arabic and long forms) with the customer's own details. */
+export function renderBotVariables(text: string, variables: BotPersonalization = {}) {
+  const name = friendlyCustomerName(variables.customerName, variables.customerPhone);
+  const phone = (variables.customerPhone || "").trim();
+  return text
+    .replace(/\{\{\s*(?:name|customer_name|customer\.name|اسم_العميل)\s*\}\}/gi, name)
+    .replace(/\{\{\s*(?:phone|customer_phone|customer\.phone|جوال_العميل)\s*\}\}/gi, phone);
+}
+
 // WhatsApp gets real tappable reply buttons (up to 3 options) or a native
 // list picker (up to 10 options) instead of a plain-text "1. option"
 // message. A "قائمة قصيرة" step still renders as buttons at 3 options or
 // fewer, but upgrades to the list picker instead of silently degrading to
 // plain text the moment it grows past 3 - only WhatsApp lists past 10
 // options, and other channels, fall back to the plain-text rendering.
-async function sendBotList(channel: BotChannel, node: BotNode, args: { tenantId: string; conversationId: string; recipientId: string }) {
+async function sendBotList(channel: BotChannel, node: BotNode, args: { tenantId: string; conversationId: string; recipientId: string } & BotPersonalization) {
   if (node.content.kind !== "list") return { ok: false };
-  const displayText = formatListMessage(node);
+  const bodyText = renderBotVariables(node.content.text, args);
+  const displayText = renderBotVariables(formatListMessage(node), args);
 
   if (channel === "whatsapp" && node.content.options.length >= 1) {
     const isExplicitLongList = node.type === "إرسال قائمة طويلة";
@@ -305,7 +323,7 @@ async function sendBotList(channel: BotChannel, node: BotNode, args: { tenantId:
         tenantId: args.tenantId,
         conversationId: args.conversationId,
         to: args.recipientId,
-        bodyText: node.content.text,
+        bodyText,
         options: node.content.options.map((option) => option.label),
         kind: useButtons ? "button" : "list",
         listButtonLabel: "اختر",
@@ -319,8 +337,9 @@ async function sendBotList(channel: BotChannel, node: BotNode, args: { tenantId:
   return sendBotText(channel, { ...args, text: displayText });
 }
 
-export async function sendBotText(channel: BotChannel, args: { tenantId: string; conversationId: string; recipientId: string; text: string; author?: string }) {
+export async function sendBotText(channel: BotChannel, args: { tenantId: string; conversationId: string; recipientId: string; text: string; author?: string } & BotPersonalization) {
   const author = args.author ?? BOT_AUTHOR;
+  const text = renderBotVariables(args.text, args);
   if (channel === "whatsapp") {
     // A free-text send outside WhatsApp's 24h customer-service window is
     // guaranteed to be rejected by Meta (error 131047, "Re-engagement
@@ -334,7 +353,7 @@ export async function sendBotText(channel: BotChannel, args: { tenantId: string;
       tenantId: args.tenantId,
       conversationId: args.conversationId,
       to: args.recipientId,
-      text: args.text,
+      text,
       author
     });
   }
@@ -344,7 +363,7 @@ export async function sendBotText(channel: BotChannel, args: { tenantId: string;
       tenantId: args.tenantId,
       conversationId: args.conversationId,
       chatId: args.recipientId,
-      text: args.text,
+      text,
       author
     });
   }
@@ -354,7 +373,7 @@ export async function sendBotText(channel: BotChannel, args: { tenantId: string;
       tenantId: args.tenantId,
       conversationId: args.conversationId,
       recipientId: args.recipientId,
-      text: args.text,
+      text,
       author
     });
   }
@@ -364,7 +383,7 @@ export async function sendBotText(channel: BotChannel, args: { tenantId: string;
       tenantId: args.tenantId,
       conversationId: args.conversationId,
       recipientId: args.recipientId,
-      text: args.text,
+      text,
       author
     });
   }
@@ -374,14 +393,14 @@ export async function sendBotText(channel: BotChannel, args: { tenantId: string;
       tenantId: args.tenantId,
       conversationId: args.conversationId,
       recipientId: args.recipientId,
-      text: args.text,
+      text,
       author
     });
   }
 
   return sendWebsiteTextMessage({
     conversationId: args.conversationId,
-    text: args.text,
+    text,
     author
   });
 }
@@ -424,23 +443,23 @@ async function getAiReplyText(tenantId: string, conversationId: string): Promise
   return text;
 }
 
-function branchContext(channel: BotChannel, ctx: { tenantId: string; conversationId: string; recipientId: string }): BranchCtx {
+function branchContext(channel: BotChannel, ctx: { tenantId: string; conversationId: string; recipientId: string } & BotPersonalization): BranchCtx {
   return {
     channel,
     tenantId: ctx.tenantId,
     conversationId: ctx.conversationId,
     recipientId: ctx.recipientId,
-    sendText: (text) => sendBotText(channel, { tenantId: ctx.tenantId, conversationId: ctx.conversationId, recipientId: ctx.recipientId, text })
+    sendText: (text) => sendBotText(channel, { ...ctx, text })
   };
 }
 
-function catalogContext(channel: BotChannel, ctx: { tenantId: string; conversationId: string; recipientId: string }): CatalogCtx {
+function catalogContext(channel: BotChannel, ctx: { tenantId: string; conversationId: string; recipientId: string } & BotPersonalization): CatalogCtx {
   return {
     channel,
     tenantId: ctx.tenantId,
     conversationId: ctx.conversationId,
     recipientId: ctx.recipientId,
-    sendText: (text) => sendBotText(channel, { tenantId: ctx.tenantId, conversationId: ctx.conversationId, recipientId: ctx.recipientId, text })
+    sendText: (text) => sendBotText(channel, { ...ctx, text })
   };
 }
 
@@ -451,7 +470,7 @@ async function executeFrom(
   channel: BotChannel,
   nodes: BotNode[],
   startId: string,
-  ctx: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string; replyId?: string; location?: Coordinates }
+  ctx: { tenantId: string; conversationId: string; recipientId: string; incomingText?: string; replyId?: string; location?: Coordinates } & BotPersonalization
 ) {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   let currentId: string | null = startId;
@@ -482,7 +501,7 @@ async function executeFrom(
             dataUrl: media.dataUrl,
             mimeType: media.mimeType,
             fileName: media.name,
-            caption,
+            caption: renderBotVariables(caption, ctx),
             author: BOT_AUTHOR
           });
         }
@@ -553,7 +572,7 @@ async function executeFrom(
     }
 
     if (node.type === BRANCH_NODE_TYPE && node.content.kind === "branch") {
-      const state = await startBranchStep(branchContext(channel, ctx), node.content.text, ctx.location);
+      const state = await startBranchStep(branchContext(channel, ctx), renderBotVariables(node.content.text, ctx), ctx.location);
       if (state === "waiting") {
         await prisma.conversation.update({ where: { id: ctx.conversationId }, data: { botWaitingNodeId: node.id } });
         return;
@@ -632,13 +651,22 @@ export async function runChannelBot(
   const settings = await getBotSettings(tenantId, channel);
   if (!settings.enabled) return;
 
-  const conversation = await prisma.conversation.findUnique({ where: { id: input.conversationId } });
+  const conversation = await prisma.conversation.findUnique({ where: { id: input.conversationId }, include: { customer: true } });
   if (!conversation) return;
 
   const nodes = await getBotNodes(tenantId, channel);
   if (!nodes.length) return;
 
-  const ctx = { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, incomingText: input.incomingText, replyId: input.replyId, location: input.location };
+  const ctx = {
+    tenantId,
+    conversationId: input.conversationId,
+    recipientId: input.recipientId,
+    incomingText: input.incomingText,
+    replyId: input.replyId,
+    location: input.location,
+    customerName: conversation.customer.name,
+    customerPhone: conversation.customer.phone
+  };
 
   if (!conversation.botRanAt) {
     // Claim the "start the flow" step atomically: only the invocation whose
