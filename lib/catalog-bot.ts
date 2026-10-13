@@ -235,7 +235,7 @@ async function purchase(ctx: CatalogCtx, productId: string) {
         amount: order.total,
         description: product.name,
         callbackUrl: `${origin}/api/catalog/payment-webhook?o=${encodeURIComponent(order.id)}`,
-        successUrl: `${origin}/order/thanks`,
+        successUrl: `${origin}/order/thanks?o=${encodeURIComponent(order.id)}`,
         backUrl: `${origin}/order/thanks`,
         metadata: { order_id: order.id, product: product.name.slice(0, 100) }
       });

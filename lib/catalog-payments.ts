@@ -128,6 +128,27 @@ function mapInvoiceStatus(status: string): OrderStatus | null {
  * some other account's key simply fails to fetch, so a forged callback can't
  * mark anything paid.
  */
+/**
+ * Safety net for a payment callback that never arrives (or arrives while the
+ * server is down): re-checks every recent order still awaiting payment against
+ * Moyasar. processOrderPaymentCallback is idempotent, so an order the callback
+ * already handled is simply skipped.
+ */
+export async function reconcileAwaitingOrders(limit = 25): Promise<{ checked: number }> {
+  await ensureSchema();
+  const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  const orders = await prisma.catalogOrder.findMany({
+    where: { status: "awaiting_payment", paymentId: { not: "" }, createdAt: { gte: since } },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+    select: { id: true }
+  });
+  for (const order of orders) {
+    await processOrderPaymentCallback(order.id).catch((error) => console.error("Order payment reconcile failed", error));
+  }
+  return { checked: orders.length };
+}
+
 export async function processOrderPaymentCallback(orderId: string): Promise<{ httpStatus: number; body: { ok: boolean; status?: string } }> {
   await ensureSchema();
   const order = orderId ? await prisma.catalogOrder.findUnique({ where: { id: orderId } }) : null;

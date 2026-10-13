@@ -78,3 +78,27 @@ describe("paid catalog order", () => {
     expect(sent.length).toBe(before);
   }, 30_000);
 });
+
+describe("awaiting-payment reconcile", () => {
+  it("confirms an order whose callback never arrived, and leaves unpaid ones alone", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { reconcileAwaitingOrders } = await import("../lib/catalog-payments");
+
+    const base = { tenantId, conversationId: "conv-rc", customerName: "سارة العتيبي", customerPhone: "966500001111", productId: "p1", productName: "سماعة", unitPrice: 100, quantity: 1, total: 100, currency: "SAR", status: "awaiting_payment", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    await prisma.catalogOrder.create({ data: { ...base, id: "ord-11111111-2222-4333-8444-555555555555", paymentId: "inv-paid", paymentUrl: "x" } });
+    await prisma.catalogOrder.create({ data: { ...base, id: "ord-99999999-2222-4333-8444-555555555555", paymentId: "inv-open", paymentUrl: "x" } });
+
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const target = String(url);
+      if (target.includes("/invoices/inv-paid")) return new Response(JSON.stringify({ id: "inv-paid", status: "paid", amount: 10000, metadata: { order_id: "ord-11111111-2222-4333-8444-555555555555" } }));
+      if (target.includes("/invoices/inv-open")) return new Response(JSON.stringify({ id: "inv-open", status: "initiated", amount: 10000, metadata: { order_id: "ord-99999999-2222-4333-8444-555555555555" } }));
+      if (target.endsWith("/media")) return new Response(JSON.stringify({ id: "doc-2" }));
+      return new Response(JSON.stringify({ messages: [{ id: "wamid.R" }] }));
+    }));
+
+    const result = await reconcileAwaitingOrders();
+    expect(result.checked).toBeGreaterThanOrEqual(2);
+    expect((await prisma.catalogOrder.findUnique({ where: { id: "ord-11111111-2222-4333-8444-555555555555" } }))?.status).toBe("paid");
+    expect((await prisma.catalogOrder.findUnique({ where: { id: "ord-99999999-2222-4333-8444-555555555555" } }))?.status).toBe("awaiting_payment");
+  }, 30_000);
+});

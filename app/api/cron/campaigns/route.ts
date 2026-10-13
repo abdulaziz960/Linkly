@@ -10,6 +10,7 @@ import { processDueConversationSummaries } from "../../../../lib/conversation-in
 import { sendReengagementReminders } from "../../../../lib/reengagement";
 import { escalateUnansweredConversations } from "../../../../lib/response-sla";
 import { syncDueProductFeeds } from "../../../../lib/product-feed";
+import { reconcileAwaitingOrders } from "../../../../lib/catalog-payments";
 import { provisionOpenerTemplates } from "../../../../lib/opener-template";
 import { isCronRequestAuthorized } from "../../../../lib/cron-auth";
 import { processWebhookRetries } from "../../../../lib/webhooks";
@@ -130,6 +131,11 @@ export async function GET(request: NextRequest) {
   const productFeeds = await syncDueProductFeeds().catch((error) => {
     console.error("Product feed sync failed", error);
     return { synced: 0, failed: 0 };
+  });
+
+  const orderPayments = await reconcileAwaitingOrders().catch((error) => {
+    console.error("Order payment reconcile failed", error);
+    return { checked: 0 };
   });
 
   const webhookRetries = await processWebhookRetries().catch((error) => {
