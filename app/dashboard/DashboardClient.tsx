@@ -190,6 +190,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const restoredNavigationRef = useRef(false);
   const loadDashboardDataSeqRef = useRef(0);
   const loadDashboardDataInFlightRef = useRef(false);
+  // Last conversations array seen. fetchData returns the cached array itself on a 304, so an unchanged list is the identical object.
+  const lastConversationsRef = useRef<Conversation[] | null>(null);
+  const lastFullLoadAtRef = useRef(0);
   const seenInboundMessageIdsRef = useRef<Set<string> | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -498,35 +501,60 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     }
   }
 
-  const loadDashboardData = useCallback(async () => {
+  // `live: true` is the 3-second poll: it only asks for the conversations (an ETag makes that a tiny 304 when
+  // nothing changed) and the customers when the conversations did. Everything else (employees, teams, tags,
+  // templates, quick replies, automations, campaigns, work hours, branding) changes rarely and is reloaded by a
+  // normal call - on mount, after a change the user makes, and about once a minute.
+  const loadDashboardData = useCallback(async (options: { live?: boolean } = {}) => {
+    const live = options.live === true;
     const requestId = ++loadDashboardDataSeqRef.current;
     loadDashboardDataInFlightRef.current = true;
+    if (!live) lastFullLoadAtRef.current = Date.now();
     try {
-      const [
-        nextConversations,
-        nextCustomers,
-        nextEmployees,
-        nextTeams,
-        nextTags,
-        nextTemplates,
-        nextQuickReplies,
-        nextAutomationRules,
-        nextCampaigns,
-        nextWorkSchedules,
-        nextBranding
-      ] = await Promise.all([
-        fetchData<Conversation[]>("/api/conversations"),
-        fetchData<Customer[]>("/api/customers"),
-        fetchData<Employee[]>("/api/employees"),
-        fetchData<Team[]>("/api/teams"),
-        fetchData<Tag[]>("/api/tags"),
-        fetchData<MessageTemplate[]>("/api/templates"),
-        fetchQuickRepliesWithSuggestions(),
-        fetchData<AutomationRule[]>("/api/automations"),
-        fetchData<Campaign[]>("/api/campaigns"),
-        fetchData<WorkSchedule[]>("/api/work-hours"),
-        fetchData<{ name: string; logoDataUrl: string; color: string }>("/api/settings/branding")
-      ]);
+      let nextConversations: Conversation[] | null;
+      let nextCustomers: Customer[] | null = null;
+      let nextEmployees: Employee[] | null = null;
+      let nextTeams: Team[] | null = null;
+      let nextTags: Tag[] | null = null;
+      let nextTemplates: MessageTemplate[] | null = null;
+      let nextQuickReplies: QuickReply[] | null = null;
+      let nextAutomationRules: AutomationRule[] | null = null;
+      let nextCampaigns: Campaign[] | null = null;
+      let nextWorkSchedules: WorkSchedule[] | null = null;
+      let nextBranding: { name: string; logoDataUrl: string; color: string } | null = null;
+
+      if (live) {
+        nextConversations = await fetchData<Conversation[]>("/api/conversations");
+        if (nextConversations && nextConversations !== lastConversationsRef.current) {
+          nextCustomers = await fetchData<Customer[]>("/api/customers");
+        }
+      } else {
+        [
+          nextConversations,
+          nextCustomers,
+          nextEmployees,
+          nextTeams,
+          nextTags,
+          nextTemplates,
+          nextQuickReplies,
+          nextAutomationRules,
+          nextCampaigns,
+          nextWorkSchedules,
+          nextBranding
+        ] = await Promise.all([
+          fetchData<Conversation[]>("/api/conversations"),
+          fetchData<Customer[]>("/api/customers"),
+          fetchData<Employee[]>("/api/employees"),
+          fetchData<Team[]>("/api/teams"),
+          fetchData<Tag[]>("/api/tags"),
+          fetchData<MessageTemplate[]>("/api/templates"),
+          fetchQuickRepliesWithSuggestions(),
+          fetchData<AutomationRule[]>("/api/automations"),
+          fetchData<Campaign[]>("/api/campaigns"),
+          fetchData<WorkSchedule[]>("/api/work-hours"),
+          fetchData<{ name: string; logoDataUrl: string; color: string }>("/api/settings/branding")
+        ]);
+      }
 
       if (requestId !== loadDashboardDataSeqRef.current) return;
 
@@ -553,7 +581,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         }
         seenInboundMessageIdsRef.current = inboundIds;
 
-        writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
+        if (nextConversations !== lastConversationsRef.current) writeCachedList(CONVERSATIONS_CACHE_KEY, nextConversations);
+        lastConversationsRef.current = nextConversations;
         setConversations(nextConversations);
         setActiveConversationId((currentId) =>
           currentId && nextConversations.some((conversation) => conversation.id === currentId)
@@ -624,21 +653,27 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   useEffect(() => {
     if (activeView === "operations") return;
 
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible" && !loadDashboardDataInFlightRef.current) {
-        void loadDashboardData();
-      }
+    // Every tick is a light "live" refresh; the reference data (employees, teams, templates...) gets a full
+    // reload at most once a minute, and on returning to the tab if it has been a while.
+    const FULL_REFRESH_MS = 60_000;
+    const RETURN_REFRESH_MS = 20_000;
+    const refresh = (fullAfterMs: number) => {
+      if (document.visibilityState !== "visible" || loadDashboardDataInFlightRef.current) return;
+      if (Date.now() - lastFullLoadAtRef.current >= fullAfterMs) void loadDashboardData();
+      else void loadDashboardData({ live: true });
     };
+    const poll = () => refresh(FULL_REFRESH_MS);
+    const onReturn = () => refresh(RETURN_REFRESH_MS);
 
-    const intervalId = window.setInterval(refreshWhenVisible, 3000);
+    const intervalId = window.setInterval(poll, 3000);
 
-    window.addEventListener("focus", refreshWhenVisible);
-    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", onReturn);
+    document.addEventListener("visibilitychange", onReturn);
 
     return () => {
       window.clearInterval(intervalId);
-      window.removeEventListener("focus", refreshWhenVisible);
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", onReturn);
+      document.removeEventListener("visibilitychange", onReturn);
     };
   }, [activeView, loadDashboardData]);
 
