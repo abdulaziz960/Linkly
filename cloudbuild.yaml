@@ -11,9 +11,48 @@ substitutions:
   # (sentry.server.config.ts/sentry.edge.config.ts) reads a separate runtime
   # env var, SENTRY_DSN, set directly on the Cloud Run service - not here.
   _SENTRY_DSN: ""
+  # Emergency switch for the quality gate below. Leave "false". Set the trigger
+  # substitution _SKIP_CHECKS to "true" only to ship a fix while the checks
+  # themselves are broken - the gate is what keeps a failing build off
+  # production, so every skipped run should be followed by a normal one.
+  _SKIP_CHECKS: "false"
+
+# The checks run next to the image build and the push waits for both, so a
+# failing check stops the release without adding their time to the build.
+# Headroom over Cloud Build's 10 minute default.
+timeout: 1800s
 
 steps:
-  - name: "gcr.io/cloud-builders/docker"
+  # Same lint / typecheck / unit-test gate as .github/workflows/ci.yml (the
+  # slow browser journeys stay in GitHub Actions). Nothing is pushed or
+  # deployed unless this step succeeds.
+  - id: verify
+    name: "node:22"
+    waitFor: ["-"]
+    entrypoint: bash
+    env:
+      - "DATABASE_URL=file:./ci.db"
+      - "AUTH_SECRET=ci-only-auth-secret-with-at-least-32-characters"
+      - "NEXT_TELEMETRY_DISABLED=1"
+      - "SKIP_CHECKS=$_SKIP_CHECKS"
+    args:
+      - "-c"
+      - |
+        set -euo pipefail
+        if [ "$$SKIP_CHECKS" = "true" ]; then
+          echo "WARNING: quality gate skipped (_SKIP_CHECKS=true)"
+          exit 0
+        fi
+        # Same install as CI: the postinstall hook generates the Prisma client.
+        npm ci
+        npm run lint
+        npm run typecheck
+        # One retry absorbs a timing-sensitive test on a small build machine.
+        npm test -- --retry=1
+
+  - id: build-image
+    name: "gcr.io/cloud-builders/docker"
+    waitFor: ["-"]
     args:
       - "build"
       - "-t"
@@ -25,11 +64,17 @@ steps:
       - "--build-arg"
       - "NEXT_PUBLIC_SENTRY_DSN=$_SENTRY_DSN"
       - "."
-  - name: "gcr.io/cloud-builders/docker"
+
+  - id: push-image
+    name: "gcr.io/cloud-builders/docker"
+    waitFor: ["build-image", "verify"]
     args:
       - "push"
       - "me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$BUILD_ID"
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+
+  - id: deploy
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    waitFor: ["push-image"]
     entrypoint: gcloud
     args:
       - "run"
