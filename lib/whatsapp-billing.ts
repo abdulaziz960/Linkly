@@ -35,6 +35,21 @@ export function friendlyWhatsAppError(payload: unknown, fallback: string): strin
   }
 }
 
+/**
+ * Where a workspace pays its WhatsApp bill: Meta's billing hub, scoped to that
+ * workspace's own WhatsApp Business Account and business (the generic
+ * payment-methods address opens an empty page). Only numeric ids are used.
+ */
+export function whatsappBillingUrl(input: { wabaId?: string; businessId?: string }) {
+  const params = new URLSearchParams();
+  const wabaId = (input.wabaId || "").trim();
+  const businessId = (input.businessId || "").trim();
+  if (/^\d+$/.test(wabaId)) params.set("asset_id", wabaId);
+  if (/^\d+$/.test(businessId)) params.set("business_id", businessId);
+  params.set("placement", "whatsapp_ads");
+  return `https://business.facebook.com/latest/billing_hub/accounts/details/?${params.toString()}`;
+}
+
 export function whatsappSendErrorCode(payload: unknown): number | undefined {
   const code = (payload as { error?: { code?: number } } | null | undefined)?.error?.code;
   return typeof code === "number" ? code : undefined;

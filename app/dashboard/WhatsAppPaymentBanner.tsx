@@ -3,16 +3,18 @@ import { useLayoutEffect, useRef } from "react";
 
 type Props = {
   visible: boolean;
+  payUrl?: string;
   language: "ar" | "en";
 };
 
-const META_WHATSAPP_PAYMENTS_URL = "https://business.facebook.com/wa/manage/payment-methods/";
+// Shown only when the workspace's own billing address could not be built (the old generic address opened an empty page).
+const META_WHATSAPP_PAYMENTS_URL = "https://business.facebook.com/latest/billing_hub/accounts/details/?placement=whatsapp_ads";
 
 // Mirrors TrialCountdownBanner's own height-into-a-CSS-var pattern (see
 // dashboard.css's --top-banners-h, which sums this banner's height with the
 // trial/top-links one instead of taking their max - the two can be visible
 // at the same time, unlike trial vs. top-links which never coexist).
-export default function WhatsAppPaymentBanner({ visible, language }: Props) {
+export default function WhatsAppPaymentBanner({ visible, language, payUrl }: Props) {
   const t = (ar: string, en: string) => (language === "en" ? en : ar);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -41,7 +43,7 @@ export default function WhatsAppPaymentBanner({ visible, language }: Props) {
         <span className="whatsapp-payment-text">
           {t("توجد مشكلة بالدفع مع حساب واتساب على ميتا - الرسائل متوقفة حتى تُحل", "There's a payment problem with your Meta WhatsApp account - messages are blocked until it's resolved")}
         </span>
-        <a href={META_WHATSAPP_PAYMENTS_URL} target="_blank" rel="noopener noreferrer" className="whatsapp-payment-cta">
+        <a href={payUrl || META_WHATSAPP_PAYMENTS_URL} target="_blank" rel="noopener noreferrer" className="whatsapp-payment-cta">
           {t("سدد الآن", "Pay now")}
           <b aria-hidden="true">{t("←", "→")}</b>
         </a>

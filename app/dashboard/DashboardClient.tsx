@@ -257,6 +257,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [twoFactorError, setTwoFactorError] = useState("");
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationSettings["status"]>("pending");
   const [whatsappPaymentIssue, setWhatsappPaymentIssue] = useState(false);
+  const [whatsappPayUrl, setWhatsappPayUrl] = useState("");
   const [instagramStatus, setInstagramStatus] = useState<IntegrationSettings["status"]>("pending");
   const [facebookStatus, setFacebookStatus] = useState<IntegrationSettings["status"]>("pending");
   const [telegramStatus, setTelegramStatus] = useState<IntegrationSettings["status"]>("pending");
@@ -422,7 +423,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       .catch(() => setEmailStatus("pending"));
     fetch("/api/whatsapp/payment-status")
       .then((response) => response.json())
-      .then((data: { hasIssue?: boolean }) => setWhatsappPaymentIssue(Boolean(data.hasIssue)))
+      .then((data: { hasIssue?: boolean; payUrl?: string }) => {
+        setWhatsappPaymentIssue(Boolean(data.hasIssue));
+        setWhatsappPayUrl(data.payUrl || "");
+      })
       .catch(() => setWhatsappPaymentIssue(false));
   }, []);
   const activeConversation =
@@ -1416,7 +1420,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       <div className="dashboard-top-banners">
         {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
-        <WhatsAppPaymentBanner visible={whatsappPaymentIssue} language={language} />
+        <WhatsAppPaymentBanner visible={whatsappPaymentIssue} payUrl={whatsappPayUrl} language={language} />
       <div className="dashboard-top-links" ref={topLinksRef}>
         <PwaInstallButton />
         {inboxTabsMode !== "employee" ? <NotificationBell notifications={notifications} onOpenNotification={handleOpenNotification} /> : null}

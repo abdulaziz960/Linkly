@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { getIntegrationSettings } from "../../../../lib/database";
+import { whatsappBillingUrl } from "../../../../lib/whatsapp-billing";
 
 // Deliberately open to any logged-in employee (not gated behind the
 // "settings" permission like /api/settings/integration) - a payment issue
@@ -11,5 +12,9 @@ export async function GET() {
   if (!user) return NextResponse.json({ hasIssue: false }, { status: 401 });
 
   const settings = await getIntegrationSettings("whatsapp", user.tenantId);
-  return NextResponse.json({ hasIssue: Boolean(settings.whatsappPaymentIssueAt) });
+  return NextResponse.json({
+    hasIssue: Boolean(settings.whatsappPaymentIssueAt),
+    // businessName holds the Meta business id captured when the number was connected.
+    payUrl: whatsappBillingUrl({ wabaId: settings.wabaId, businessId: settings.businessName })
+  });
 }
