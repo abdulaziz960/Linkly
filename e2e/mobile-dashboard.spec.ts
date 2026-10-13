@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import { skipPwaInstallPopup } from "./support";
 
 const widths = [320, 360, 375, 390, 430, 768, 1024];
 const views = [
@@ -19,6 +20,7 @@ test("dashboard fits mobile viewports and its drawer remains usable", async ({ p
   test.setTimeout(240000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await skipPwaInstallPopup(page);
   await page.goto("/login");
   const cookieNotice = page.getByRole("dialog", { name: "إشعار الكوكيز" });
   if (await cookieNotice.isVisible()) await cookieNotice.getByRole("button", { name: "رفض", exact: true }).click();

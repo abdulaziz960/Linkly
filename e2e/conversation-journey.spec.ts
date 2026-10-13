@@ -1,9 +1,11 @@
 import { createHmac } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { skipPwaInstallPopup } from "./support";
 
 test("WhatsApp CTA → signed inbound webhook → Inbox → AI draft → Pipeline → Analytics", async ({ page, request }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await skipPwaInstallPopup(page);
   let whatsAppText = "";
   // Simulate the external WhatsApp handoff, preserving the actual link text.
   await page.route("https://wa.me/**", async (route) => {

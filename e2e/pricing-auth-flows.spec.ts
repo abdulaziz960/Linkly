@@ -7,21 +7,22 @@ test("Switch pricing between monthly and yearly", async ({ page }) => {
   await expect(pricing.getByRole("tab", { name: "Monthly" })).toHaveAttribute("aria-selected", "true");
   await pricing.getByRole("tab", { name: /Yearly/ }).click();
   await expect(pricing.getByRole("tab", { name: /Yearly/ })).toHaveAttribute("aria-selected", "true");
-  await expect(pricing).toContainText("/ year");
-  await expect(pricing).not.toContainText("/ month");
+  // Plans always show a per-month price; the yearly cycle adds the one-off total as a note.
+  await expect(pricing).toContainText("12 months for the price of 10");
+  await expect(pricing).toContainText("billed once as 1990 SAR");
   await expect(page).toHaveURL(/billing=yearly/);
   await pricing.getByRole("tab", { name: "Monthly" }).focus();
   await page.keyboard.press("Enter");
   await expect(pricing.getByRole("tab", { name: "Monthly" })).toHaveAttribute("aria-selected", "true");
   await expect(pricing).toContainText("/ month");
+  await expect(pricing).not.toContainText("billed once as");
 });
 
 test("Switch pricing to yearly billing from the URL", async ({ page }) => {
   await page.goto("/en?billing=yearly#pricing");
   const pricing = page.locator("#pricing");
   await expect(pricing.getByRole("tab", { name: /Yearly/ })).toHaveAttribute("aria-selected", "true");
-  await expect(pricing).toContainText("/ year");
-  await expect(pricing).not.toContainText("/ month");
+  await expect(pricing).toContainText("billed once as 1990 SAR");
 });
 
 test("Proceed from pricing to sign up with the selected plan and billing cycle", async ({ page }) => {
@@ -46,9 +47,10 @@ test("Account billing shows the same yearly price and cycle", async ({ page }) =
   await page.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
   await expect(page).toHaveURL(/dashboard/);
   await page.goto("/billing?billing=yearly");
-  await expect(page.getByRole("tab", { name: /سنوي/ })).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".plan-grid")).toContainText("ر.س / سنويًا");
-  await expect(page.locator(".plan-grid")).not.toContainText("ر.س / شهريًا");
+  // "سنوي" alone also matches "ربع سنوي" and "نصف سنوي".
+  await expect(page.getByRole("tab", { name: /^سنوي/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".plan-grid")).toContainText("تُدفع دفعة واحدة 1990 ريال");
+  await expect(page.locator(".plan-grid")).toContainText("ر.س / الشهر");
 });
 
 test("Open cookie settings from the privacy page", async ({ page }) => {
@@ -70,7 +72,8 @@ for (const language of ["ar", "en"] as const) {
     if (language === "en") await page.getByRole("button", { name: "English" }).click();
     const form = page.locator(".journey-form");
     await form.locator('[name="companyName"]').fill("Mobile Test Company");
-    await form.locator('[name="businessType"]').selectOption("retail");
+    await form.locator(".custom-select-trigger").first().click();
+    await page.getByRole("option", { name: language === "ar" ? "متاجر وتجزئة" : "Retail", exact: true }).click();
     await form.locator('[name="ownerName"]').fill("Browser Test Owner");
     await form.locator('[name="ownerEmail"]').fill(email);
     await form.locator('[name="phone"]').fill("0501234567");
