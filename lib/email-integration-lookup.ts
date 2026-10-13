@@ -26,3 +26,28 @@ export async function findTenantEmailIntegration(tenantId: string, client: Email
   if (canonical && canonical.tenantId === tenantId) return canonical;
   return client.emailIntegration.findFirst({ where: { tenantId }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }] });
 }
+
+function isUniqueViolation(error: unknown) {
+  return typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2002";
+}
+
+/**
+ * The tenant's email integration, created on first use. Several requests can
+ * arrive together on a tenant's first visit (the dashboard loads settings from
+ * more than one place), and every one of them sees "no row yet". The unique
+ * index on tenant_id lets exactly one create succeed; the others must not turn
+ * that into a 500 - they read the row the winner made.
+ */
+export async function getOrCreateTenantEmailIntegration(tenantId: string, data: Prisma.EmailIntegrationUncheckedCreateInput): Promise<EmailIntegration> {
+  const existing = await findTenantEmailIntegration(tenantId);
+  if (existing) return existing;
+  try {
+    return await prisma.emailIntegration.create({ data });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      const raced = await findTenantEmailIntegration(tenantId);
+      if (raced) return raced;
+    }
+    throw error;
+  }
+}

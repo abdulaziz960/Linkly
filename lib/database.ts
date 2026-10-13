@@ -15,7 +15,7 @@ import { ensureBlogSchema } from "./blog-schema";
 import { ensureSeoSchema } from "./seo-schema";
 import { planChannelsString } from "./plan-access";
 import { UNLIMITED_MESSAGE_QUOTA } from "./message-quota";
-import { emailIntegrationId, findTenantEmailIntegration } from "./email-integration-lookup";
+import { emailIntegrationId, findTenantEmailIntegration, getOrCreateTenantEmailIntegration } from "./email-integration-lookup";
 import { createHash, randomUUID } from "crypto";
 import { getPasswordValidationError, hashPassword, verifyPassword } from "./passwords";
 import { decryptSecret, encryptSecret, hasIntegrationEncryptionKey, integrationSecretFields } from "./secret-storage";
@@ -3509,6 +3509,24 @@ export function getTenantIntegrationId(channel: IntegrationChannel, tenantId = "
   return !tenantId || tenantId === "tenant-demo" ? baseId : `${tenantId}:${baseId}`;
 }
 
+/**
+ * Creates a tenant's settings row on first use. Several requests can reach
+ * this together on a tenant's first visit and each sees "no row"; the primary
+ * key lets one create win, and the others must read that row rather than
+ * fail the whole request with a 500.
+ */
+async function createIntegrationSettingIfMissing(tenantId: string, provider: string, args: Parameters<typeof prisma.integrationSetting.create>[0]) {
+  try {
+    return await prisma.integrationSetting.create(args);
+  } catch (error) {
+    if ((error as { code?: unknown } | null)?.code === "P2002") {
+      const raced = await prisma.integrationSetting.findFirst({ where: { tenantId, provider } });
+      if (raced) return raced;
+    }
+    throw error;
+  }
+}
+
 export async function getIntegrationSettings(channel: IntegrationChannel = "whatsapp", tenantId = "tenant-demo"): Promise<IntegrationSettings> {
   await ensureSeeded();
   const id = getTenantIntegrationId(channel, tenantId);
@@ -3516,7 +3534,7 @@ export async function getIntegrationSettings(channel: IntegrationChannel = "what
   const existingSettings = await prisma.integrationSetting.findFirst({
     where: { tenantId, provider }
   });
-  const settings = existingSettings ?? await prisma.integrationSetting.create({
+  const settings = existingSettings ?? await createIntegrationSettingIfMissing(tenantId, provider, {
     data: {
       id,
       tenantId,
@@ -3648,17 +3666,15 @@ export async function getEmailIntegrationSettings(tenantId = "tenant-demo"): Pro
   const tenantSettings = await findTenantEmailIntegration(tenantId);
   const settings = tenantSettings ?? (tenantId === "tenant-demo"
     ? await prisma.emailIntegration.findFirstOrThrow({ where: { tenantId } })
-    : await prisma.emailIntegration.create({
-      data: {
-        id: emailIntegrationId(tenantId),
-        tenantId,
-        provider: "gmail",
-        status: "not_connected",
-        senderName: "",
-        emailAddress: "",
-        webhookSecret: maybeEncryptGeneratedSecret(randomUUID()),
-        updatedAt: new Date().toISOString()
-      }
+    : await getOrCreateTenantEmailIntegration(tenantId, {
+      id: emailIntegrationId(tenantId),
+      tenantId,
+      provider: "gmail",
+      status: "not_connected",
+      senderName: "",
+      emailAddress: "",
+      webhookSecret: maybeEncryptGeneratedSecret(randomUUID()),
+      updatedAt: new Date().toISOString()
     }));
   const encryptedUpdates: { webhookSecret?: string; accessToken?: string; refreshToken?: string } = {};
   if (shouldEncryptIntegrationSecrets()) {
