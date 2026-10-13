@@ -8,6 +8,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import type { AutomationRule, Conversation, MessageTemplate, PipelineStage } from "../types";
 import { pipelineStages, pipelineStagesWithDealValue } from "../types";
 import { useLanguage } from "../i18n";
+import QuickWelcomeTemplate from "../components/QuickWelcomeTemplate";
 import CustomSelect from "../../components/CustomSelect";
 
 type PipelineViewProps = {
@@ -390,6 +391,16 @@ function ExternalWelcomeCard({ t }: { t: (ar: string, en: string) => string }) {
   const [template, setTemplate] = useState("");
   const [templates, setTemplates] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+
+  function loadTemplates() {
+    fetch("/api/templates")
+      .then((response) => response.json())
+      .then((result: { ok: boolean; data?: Array<{ name: string; status?: string }> }) => {
+        if (!result?.ok) return;
+        setTemplates((result.data || []).filter((item) => item.status === "معتمد").map((item) => item.name));
+      })
+      .catch(() => null);
+  }
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
@@ -452,6 +463,7 @@ function ExternalWelcomeCard({ t }: { t: (ar: string, en: string) => string }) {
           <p className="meta-test-warning" style={{ margin: 0 }}>{t("ما فيه قوالب معتمدة على حسابك بعد.", "Your account has no approved templates yet.")}</p>
         )}
       </div>
+      <QuickWelcomeTemplate onCreated={loadTemplates} />
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button className="primary-action" type="button" disabled={busy} onClick={() => void save()}>{t("حفظ", "Save")}</button>
         {feedback ? <span className={`meta-test-feedback ${feedback.ok ? "success" : "error"}`}>{feedback.text}</span> : null}

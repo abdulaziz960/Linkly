@@ -5,6 +5,7 @@ import TikTokAdsSettings from "../components/TikTokAdsSettings";
 import MetaAdsSettings from "../components/MetaAdsSettings";
 import SnapAdsSettings from "../components/SnapAdsSettings";
 import SnapAdAccountPicker from "../components/SnapAdAccountPicker";
+import QuickWelcomeTemplate from "../components/QuickWelcomeTemplate";
 import StoreSettings from "../components/StoreSettings";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
@@ -54,6 +55,16 @@ export default function IntegrationsView() {
   const [tab, setTab] = useState<Tab>("receive");
   const [storeOpen, setStoreOpen] = useState<"salla" | "zid" | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  function loadTemplates() {
+    fetch("/api/templates")
+      .then((response) => response.json())
+      .then((result: { ok: boolean; data?: Array<{ name: string; status?: string }> }) => {
+        if (!result?.ok) return;
+        setTemplates((result.data || []).filter((template) => template.status === "معتمد").map((template) => ({ name: template.name })));
+      })
+      .catch(() => null);
+  }
 
   // The connect/callback routes come back here with ?snapchat=<result> or ?tiktok=<result>.
   useEffect(() => {
@@ -125,6 +136,26 @@ export default function IntegrationsView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(merged)
       });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function disconnect(channel: LeadChannel) {
+    if (!window.confirm(t("فك الربط سيوقف استقبال العملاء من هذه المنصة حتى تربطها من جديد. هل تريد المتابعة؟", "Unlinking stops receiving customers from this platform until you connect it again. Continue?"))) return;
+    setSaving(true);
+    try {
+      const response = await fetch("/api/settings/integration/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر فك الربط.", "Could not unlink."));
+      setSettingsByChannel((current) => (current[channel] ? { ...current, [channel]: { ...current[channel]!, status: "pending", leadAdsEnabled: 0 } } : current));
+      setNotice({ type: "success", message: t("تم فك الربط.", "Unlinked.") });
+    } catch (error) {
+      setNotice({ type: "error", message: error instanceof Error ? error.message : t("تعذر فك الربط.", "Could not unlink.") });
     } finally {
       setSaving(false);
     }
@@ -277,6 +308,11 @@ export default function IntegrationsView() {
                     <button className="btn primary" type="button" onClick={() => connect(leadChannelOf[open])} disabled={loading}>
                       {currentSettings?.status === "connected" ? t("إعادة الربط", "Reconnect") : t("ربط", "Connect")}
                     </button>
+                    {currentSettings?.status === "connected" ? (
+                      <button className="btn danger" type="button" style={{ background: "#b91c1c", borderColor: "#b91c1c", color: "#fff" }} onClick={() => void disconnect(leadChannelOf[open])} disabled={saving || loading}>
+                        {t("فك الربط", "Unlink")}
+                      </button>
+                    ) : null}
                     {statusPill(currentSettings?.status === "connected", t("متصل", "Connected"), t("غير متصل", "Not connected"))}
                   </div>
 
@@ -308,6 +344,7 @@ export default function IntegrationsView() {
                               <p className="meta-test-warning">{t("ما فيه قوالب معتمدة على حسابك بعد.", "Your account has no approved templates yet.")}</p>
                             )}
                           </label>
+                          <QuickWelcomeTemplate onCreated={loadTemplates} />
                         </div>
                       ) : null}
                     </>
