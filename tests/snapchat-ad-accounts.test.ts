@@ -52,7 +52,8 @@ describe("Snapchat: choosing the ad account", () => {
       if (target.endsWith("/me/organizations")) {
         return new Response(JSON.stringify({ organizations: [{ organization: { id: "org-a", name: "شركة أ" } }, { organization: { id: "org-b", name: "شركة ب" } }] }));
       }
-      if (target.includes("/organizations/org-a/adaccounts")) return new Response(JSON.stringify({ adaccounts: [{ adaccount: { id: "acc-1", name: "حملات الرياض" } }, { adaccount: { id: "acc-2", name: "حملات جدة" } }] }));
+      if (target.includes("/organizations/org-a/adaccounts") && target.includes("page=2")) return new Response(JSON.stringify({ adaccounts: [{ adaccount: { id: "acc-2", name: "حملات جدة" } }] }));
+      if (target.includes("/organizations/org-a/adaccounts")) return new Response(JSON.stringify({ adaccounts: [{ adaccount: { id: "acc-1", name: "حملات الرياض" } }], paging: { next_link: "https://adsapi.snapchat.com/v1/organizations/org-a/adaccounts?page=2" } }));
       if (target.includes("/organizations/org-b/adaccounts")) return new Response(JSON.stringify({ adaccounts: [{ adaccount: { id: "acc-3", name: "حساب ب" } }] }));
       return new Response("{}", { status: 404 });
     }));

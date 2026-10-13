@@ -152,25 +152,42 @@ export async function getMyAdAccountInfo(settings: IntegrationSettings): Promise
 
 export type SnapchatAdAccountOption = { id: string; name: string; organizationId: string; organizationName: string };
 
-/** Every ad account the connected member can reach, across all of their organizations (first 10). */
+/** Snapchat pages its lists; follow `paging.next_link` until it ends (bounded so a bad cursor cannot loop forever). */
+async function fetchSnapchatList<T>(settings: IntegrationSettings, firstUrl: string, itemsKey: string, maxPages = 20): Promise<{ items: T[]; ok: boolean; message?: string }> {
+  const items: T[] = [];
+  let url: string | null = firstUrl;
+  for (let page = 0; url && page < maxPages; page += 1) {
+    const response = await fetchSnapchatWithAutoRefresh(settings, url);
+    const payload = (await response.json().catch(() => null)) as ({ message?: string; paging?: { next_link?: string } } & Record<string, unknown>) | null;
+    if (!response.ok) return { items, ok: false, message: payload?.message };
+    const pageItems = payload?.[itemsKey];
+    if (Array.isArray(pageItems)) items.push(...(pageItems as T[]));
+    const next: string | null = payload?.paging?.next_link || null;
+    url = next && next !== url ? next : null;
+  }
+  return { items, ok: true };
+}
+
+/** Every ad account the connected member can reach, across all of their organizations. */
 export async function listSnapchatAdAccounts(settings: IntegrationSettings): Promise<SnapchatAdAccountOption[]> {
-  const orgsResponse = await fetchSnapchatWithAutoRefresh(settings, "https://adsapi.snapchat.com/v1/me/organizations");
-  const orgsPayload = await orgsResponse.json().catch(() => null) as {
-    organizations?: Array<{ organization?: { id?: string; name?: string } }>;
-    message?: string;
-  } | null;
-  if (!orgsResponse.ok) throw new Error(orgsPayload?.message || "Unable to list managed Snapchat organizations");
+  const orgs = await fetchSnapchatList<{ organization?: { id?: string; name?: string } }>(settings, "https://adsapi.snapchat.com/v1/me/organizations", "organizations");
+  if (!orgs.ok) throw new Error(orgs.message || "Unable to list managed Snapchat organizations");
 
   const result: SnapchatAdAccountOption[] = [];
-  for (const entry of (orgsPayload?.organizations ?? []).slice(0, 10)) {
+  const seen = new Set<string>();
+  for (const entry of orgs.items.slice(0, 100)) {
     const organization = entry.organization;
     if (!organization?.id) continue;
-    const response = await fetchSnapchatWithAutoRefresh(settings, `https://adsapi.snapchat.com/v1/organizations/${organization.id}/adaccounts`);
-    const payload = await response.json().catch(() => null) as { adaccounts?: Array<{ adaccount?: { id?: string; name?: string } }> } | null;
-    if (!response.ok) continue;
-    for (const item of payload?.adaccounts ?? []) {
-      if (!item.adaccount?.id) continue;
-      result.push({ id: item.adaccount.id, name: item.adaccount.name || item.adaccount.id, organizationId: organization.id, organizationName: organization.name || "" });
+    const accounts = await fetchSnapchatList<{ adaccount?: { id?: string; name?: string } }>(
+      settings,
+      `https://adsapi.snapchat.com/v1/organizations/${organization.id}/adaccounts`,
+      "adaccounts"
+    );
+    for (const item of accounts.items) {
+      const id = item.adaccount?.id;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      result.push({ id, name: item.adaccount?.name || id, organizationId: organization.id, organizationName: organization.name || "" });
     }
   }
   return result;
