@@ -58,19 +58,13 @@ export async function saveAutomationMedia(
   const name = (typeof input.name === "string" ? input.name : "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 120) || (kind === "image" ? "صورة" : kind === "video" ? "فيديو" : "مستند");
   const id = `amedia-${randomUUID()}`;
   await ensureTable();
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO automation_media (id, tenant_id, kind, name, mime_type, size, data_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, tenantId, kind, name, parsed.mimeType, parsed.bytes.length, dataUrl, new Date().toISOString()
-  );
+  await prisma.$executeRaw`INSERT INTO automation_media (id, tenant_id, kind, name, mime_type, size, data_url, created_at) VALUES (${id}, ${tenantId}, ${kind}, ${name}, ${parsed.mimeType}, ${parsed.bytes.length}, ${dataUrl}, ${new Date().toISOString()})`;
   return { ok: true, id, kind, name };
 }
 
 export async function loadAutomationMedia(tenantId: string, id: string): Promise<StoredAutomationMedia | null> {
   await ensureTable();
-  const rows = await prisma.$queryRawUnsafe<Array<{ id: string; kind: string; name: string; mime_type: string; data_url: string }>>(
-    `SELECT id, kind, name, mime_type, data_url FROM automation_media WHERE id = ? AND tenant_id = ?`,
-    id, tenantId
-  );
+  const rows = await prisma.$queryRaw<Array<{ id: string; kind: string; name: string; mime_type: string; data_url: string }>>`SELECT id, kind, name, mime_type, data_url FROM automation_media WHERE id = ${id} AND tenant_id = ${tenantId}`;
   const row = rows[0];
   if (!row || (row.kind !== "image" && row.kind !== "video" && row.kind !== "document")) return null;
   return { id: row.id, kind: row.kind, name: row.name, mimeType: row.mime_type, dataUrl: row.data_url };
