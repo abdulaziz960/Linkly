@@ -5,6 +5,7 @@ import { getUserAccountById, recordUserLogin, type UserAccount } from "./databas
 import { prisma } from "./prisma";
 import { getClientIp } from "./rate-limit";
 import { getTenantCompanyName, logAdminAction } from "./subscriptions";
+import { computeSubscriptionAccess } from "./subscription-access";
 
 export const authCookieName = "audiencew_session";
 
@@ -132,16 +133,8 @@ export async function getSubscriptionAccess(tenantId: string) {
     select: { status: true, renewalAt: true }
   });
   if (!subscription) return { expired: false, overdue: false };
-  const expiry = subscription.renewalAt ? new Date(subscription.renewalAt).getTime() : Number.NaN;
-  const now = Date.now();
-  const trialExpired = subscription.status === "تجربة" && Number.isFinite(expiry) && expiry <= now;
-  // renewalAt is the paid-through date for an active subscription; past it
-  // the tenant has not paid for the current period.
-  const overdue = subscription.status === "نشط" && Number.isFinite(expiry) && expiry <= now;
-  const graceDays = subscriptionGraceDays();
-  const renewalLapsed = overdue && graceDays !== null && expiry + graceDays * 86_400_000 <= now;
-  const expired = trialExpired || renewalLapsed || subscription.status === "متوقف";
-  return { expired, overdue, status: subscription.status, renewalAt: subscription.renewalAt };
+  const access = computeSubscriptionAccess(subscription, Date.now(), subscriptionGraceDays());
+  return { expired: access.expired, overdue: access.overdue, status: subscription.status, renewalAt: subscription.renewalAt, invalidRenewalDate: access.invalidRenewalDate };
 }
 
 export async function getCurrentUser(options: { allowExpired?: boolean } = {}) {

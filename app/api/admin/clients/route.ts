@@ -4,6 +4,7 @@ import { createTenantWithSubscription, getSubscriptions } from "../../../../lib/
 import { recordAdminAction } from "../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../_utils/json";
 import { isTrustedOrigin } from "../../../../lib/origin-guard";
+import { isValidRenewalAt } from "../../../../lib/subscription-access";
 
 export const runtime = "nodejs";
 
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
   const status = body.status || "تجربة";
   const renewalAt = body.renewal || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const amount = Number(body.amount ?? (status === "تجربة" ? 0 : 499));
+  if (!isValidRenewalAt(renewalAt)) return jsonError("تاريخ التجديد غير صالح. أدخل تاريخاً صحيحاً.", 400);
   const billingCycle = body.billingCycle || (status === "تجربة" ? "تجربة 3 أيام" : "شهري");
 
   try {

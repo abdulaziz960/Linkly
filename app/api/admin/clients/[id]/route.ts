@@ -4,6 +4,7 @@ import { getSubscriptionForTenant, updateSubscription } from "../../../../../lib
 import { changeDetails, recordAdminAction } from "../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../_utils/json";
 import { isTrustedOrigin } from "../../../../../lib/origin-guard";
+import { isValidRenewalAt } from "../../../../../lib/subscription-access";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   if (body.employeeLimit !== undefined && (!Number.isFinite(body.employeeLimit) || body.employeeLimit < 1)) {
     return jsonError("حد المستخدمين غير صحيح");
+  }
+
+  // A blank or unreadable date would leave the account with no end date at all.
+  if (body.renewalAt !== undefined && !isValidRenewalAt(body.renewalAt)) {
+    return jsonError("تاريخ التجديد غير صالح. أدخل تاريخاً صحيحاً.", 400);
   }
 
   try {

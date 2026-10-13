@@ -12,6 +12,7 @@ import { CYCLE_MONTHS, isBillingCycle, priceForCycle, type BillingCycle } from "
 import { isUnlimitedMessageQuota, UNLIMITED_MESSAGE_CREDIT } from "./message-quota";
 import { emailPromotionCreditsForPlan } from "./plan-email-promotions";
 import { ensureEmailPromotionsSchema } from "./email-promotions-schema";
+import { isValidRenewalAt } from "./subscription-access";
 
 /** Length of one paid subscription period, in months, per billing cycle. */
 export const SUBSCRIPTION_PERIOD_MONTHS: Record<BillingCycle, number> = CYCLE_MONTHS;
@@ -1144,6 +1145,7 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
   await ensureSchema();
   const existing = await prisma.subscription.findUnique({ where: { tenantId } });
   if (!existing) throw new Error("الاشتراك غير موجود");
+  if (input.renewalAt !== undefined && !isValidRenewalAt(input.renewalAt)) throw new Error("تاريخ التجديد غير صالح");
 
   // Switching the plan name alone leaves employeeLimit/amount stale unless
   // the caller also happens to pass them - look the target plan up so an
