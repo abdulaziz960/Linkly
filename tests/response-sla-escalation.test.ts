@@ -181,8 +181,9 @@ describe("escalateUnansweredConversations", () => {
     await seedConversation({ id: "conv-sla-custom-short", assignee: "بدون موظف", lastDirection: "in", lastActivityAt: fifteenMinutesAgo });
     // Seeded via seedConversation() with the default tenantId constant -
     // re-point this one row at the custom tenant for this test only.
-    await prisma.conversation.update({ where: { id: "conv-sla-custom-short" }, data: { tenantId: customTenantId } });
+    // Customer first - a conversation may not point at another tenant's customer, even briefly.
     await prisma.customer.update({ where: { id: "cust-conv-sla-custom-short" }, data: { tenantId: customTenantId } });
+    await prisma.conversation.update({ where: { id: "conv-sla-custom-short" }, data: { tenantId: customTenantId } });
 
     const { escalateUnansweredConversations } = await import("../lib/response-sla");
     await escalateUnansweredConversations();
@@ -205,8 +206,9 @@ describe("escalateUnansweredConversations", () => {
     await seedConversation({ id: "conv-sla-custom-long", assignee: "بدون موظف", lastDirection: "in" });
     // seedConversation()'s OLD_ENOUGH is 40 minutes ago - past the 30-minute
     // default, but still well under this tenant's configured 90 minutes.
-    await prisma.conversation.update({ where: { id: "conv-sla-custom-long" }, data: { tenantId: customTenantId } });
+    // Customer first - a conversation may not point at another tenant's customer, even briefly.
     await prisma.customer.update({ where: { id: "cust-conv-sla-custom-long" }, data: { tenantId: customTenantId } });
+    await prisma.conversation.update({ where: { id: "conv-sla-custom-long" }, data: { tenantId: customTenantId } });
 
     const { escalateUnansweredConversations } = await import("../lib/response-sla");
     await escalateUnansweredConversations();

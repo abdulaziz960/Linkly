@@ -151,7 +151,7 @@ it("AUD-09 [FIXED]: one paid gateway transaction cannot activate two payment row
   vi.unstubAllGlobals();
 });
 
-it.fails("AUD-10 [OPEN]: a conversation must not accept a customer from another tenant", async () => {
+it("AUD-10 [FIXED]: a conversation must not accept a customer from another tenant", async () => {
   const { prisma } = await import("../lib/prisma");
   await expect(prisma.conversation.create({ data: { id: "audit-cross-fk", tenantId: "tenant-foreign", customerId: "customer-audit-private", lastMessage: "", status: "unassigned", assignee: "" } })).rejects.toThrow();
 });

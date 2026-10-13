@@ -9,6 +9,7 @@ import { ensureAdminHiddenClientsSchema } from "./admin-hidden-clients-schema";
 import { ensureEmailUsageSchema } from "./email-usage-schema";
 import { ensureWebhookRetriesSchema } from "./webhook-retries-schema";
 import { ensureAdminLogsSchema } from "./admin-logs-schema";
+import { ensureTenantIntegritySchema } from "./tenant-integrity-schema";
 import { ensurePlanPrices } from "./plan-prices";
 import { ensureGrantsSchema } from "./grants-schema";
 import { ensureFaqSchema } from "./faq-schema";
@@ -2623,7 +2624,7 @@ async function ensureDiscountCodesSchema() {
 
 export async function ensureSchema() {
   await ensureDiscountCodesSchema();
-  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensureAdminHiddenClientsSchema).then(ensureEmailUsageSchema).then(ensureWebhookRetriesSchema).then(ensureAdminLogsSchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).then(ensureSeoSchema).catch((error) => {
+  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensureAdminHiddenClientsSchema).then(ensureEmailUsageSchema).then(ensureWebhookRetriesSchema).then(ensureAdminLogsSchema).then(ensureTenantIntegritySchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).then(ensureSeoSchema).catch((error) => {
     schemaPromise = null;
     throw error;
   });
