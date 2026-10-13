@@ -508,7 +508,7 @@ type SendWhatsAppCustomInput = {
   /** What the thread shows for this outbound message. */
   displayText: string;
   author?: string;
-  attachment?: { type: "image"; url: string; name: string; mimeType: string };
+  attachment?: { type: "image" | "document"; url: string; name: string; mimeType: string };
 };
 
 /**
@@ -713,7 +713,7 @@ export async function sendWhatsAppUploadedMedia(input: {
   tenantId?: string;
   conversationId: string;
   to: string;
-  kind: "image" | "video";
+  kind: "image" | "video" | "document";
   dataUrl: string;
   mimeType: string;
   fileName: string;
@@ -754,15 +754,16 @@ export async function sendWhatsAppUploadedMedia(input: {
 
   const caption = input.caption.trim().slice(0, 1024);
   const image = input.kind === "image";
+  const document = input.kind === "document";
   return sendWhatsAppCustomMessage({
     tenantId: input.tenantId,
     conversationId: input.conversationId,
     to: input.to,
     author: input.author,
     // The thread can show pictures but not play videos yet, so a video is logged as text.
-    displayText: image ? caption || "صورة" : `🎬 ${caption || "فيديو"}`,
-    ...(image ? { attachment: { type: "image" as const, url: input.dataUrl, name: input.fileName, mimeType: input.mimeType } } : {}),
-    message: { type: input.kind, [input.kind]: { id: mediaId, ...(caption ? { caption } : {}) } }
+    displayText: image ? caption || "صورة" : document ? caption || input.fileName : `🎬 ${caption || "فيديو"}`,
+    ...(image || document ? { attachment: { type: input.kind as "image" | "document", url: input.dataUrl, name: input.fileName, mimeType: input.mimeType } } : {}),
+    message: { type: input.kind, [input.kind]: { id: mediaId, ...(document ? { filename: input.fileName } : {}), ...(caption ? { caption } : {}) } }
   });
 }
 

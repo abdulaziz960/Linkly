@@ -97,7 +97,7 @@ const KNOWLEDGE_BASE_NODE_TYPE = "رد من قاعدة المعرفة";
 const AI_REPLY_NODE_TYPE = "رد AI تلقائي";
 const CATALOG_NODE_TYPE = "عرض الكتالوج";
 const BRANCH_NODE_TYPE = "أقرب فرع";
-const MEDIA_NODE_TYPES: Record<string, "image" | "video"> = { "إرسال صورة": "image", "إرسال فيديو": "video" };
+const MEDIA_NODE_TYPES: Record<string, "image" | "video" | "document"> = { "إرسال صورة": "image", "إرسال فيديو": "video", "إرسال مستند": "document" };
 
 function settingsId(tenantId: string, channel: BotChannel) {
   return `bot-settings-${tenantId}-${channel}`;

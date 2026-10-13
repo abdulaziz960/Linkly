@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { AutomationRule, Employee, MessageTemplate, Tag, Team } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
+import { mediaAccept, mediaChoose, mediaFileLooksRight, mediaKindByType, mediaUploadFirst, mediaWrongFile } from "../media-kinds";
 
 type AutomationForm = {
   id?: string;
@@ -31,7 +32,7 @@ type AutomationAction = {
   mediaName?: string;
 };
 
-const mediaActions: Record<string, "image" | "video"> = { "إرسال صورة": "image", "إرسال فيديو": "video" };
+const mediaActions = mediaKindByType;
 
 type SimulationMatch = {
   id: string;
@@ -73,7 +74,7 @@ type AutomationPreset = {
 const triggerOptions = ["تم إنشاء رسالة", "تم فتح محادثة", "رد العميل", "تم إغلاق الرسالة"];
 const conditionFieldOptions = ["الرسالة تحتوي على", "العميل لديه وسم", "حالة المحادثة", "مصدر الرسالة"];
 const conditionOperatorOptions = ["يساوي", "يحتوي", "لا يساوي"];
-const actionOptions = ["فتح المحادثة", "إضافة وسم", "إسناد إلى موظف", "إسناد إلى فريق", "إرسال قالب", "إرسال صورة", "إرسال فيديو", "إغلاق المحادثة"];
+const actionOptions = ["فتح المحادثة", "إضافة وسم", "إسناد إلى موظف", "إسناد إلى فريق", "إرسال قالب", "إرسال صورة", "إرسال فيديو", "إرسال مستند", "إغلاق المحادثة"];
 const conversationStatusOptions = ["اختر حالة", "مفتوحة", "غير مسندة", "مسندة", "مغلقة"];
 const messageSourceOptions = ["اختر مصدر", "WhatsApp", "المنصة", "حملة", "رد آلي"];
 
@@ -104,6 +105,7 @@ function staticLabel(value: string | undefined, t: (ar: string, en: string) => s
     "إرسال قالب": t("إرسال قالب", "Send template"),
     "إرسال صورة": t("إرسال صورة", "Send image"),
     "إرسال فيديو": t("إرسال فيديو", "Send video"),
+    "إرسال مستند": t("إرسال مستند", "Send document"),
     "إغلاق المحادثة": t("إغلاق المحادثة", "Close conversation"),
     "اختر حالة": t("اختر حالة", "Select status"),
     "مفتوحة": t("مفتوحة", "Open"),
@@ -471,8 +473,8 @@ export default function AutomationsView({
     if (!file) return;
     const kind = mediaActions[form.actions[index]?.type];
     if (!kind) return;
-    if (!file.type.startsWith(`${kind}/`)) {
-      setFeedback({ type: "error", message: kind === "image" ? t("اختر ملف صورة (JPG أو PNG).", "Choose an image file (JPG or PNG).") : t("اختر ملف فيديو (MP4).", "Choose a video file (MP4).") });
+    if (!mediaFileLooksRight(kind, file)) {
+      setFeedback({ type: "error", message: mediaWrongFile(kind, t) });
       return;
     }
     setMediaUploading(index);
@@ -524,7 +526,7 @@ export default function AutomationsView({
     }
     const missingMedia = form.actions.find((action) => mediaActions[action.type] && (!action.target || action.target === "لا يحتاج اختيار"));
     if (missingMedia) {
-      setFeedback({ type: "error", message: mediaActions[missingMedia.type] === "image" ? t("ارفع الصورة أولًا في إجراء إرسال الصورة.", "Upload the image for the send-image action first.") : t("ارفع الفيديو أولًا في إجراء إرسال الفيديو.", "Upload the video for the send-video action first.") });
+      setFeedback({ type: "error", message: mediaUploadFirst(mediaActions[missingMedia.type], t) });
       return;
     }
     setSaving(true);
@@ -853,14 +855,14 @@ export default function AutomationsView({
                           <input
                             type="file"
                             hidden
-                            accept={mediaActions[action.type] === "image" ? "image/jpeg,image/png" : "video/mp4,video/3gpp"}
+                            accept={mediaAccept[mediaActions[action.type]]}
                             onChange={(event) => { void uploadActionMedia(index, event.target.files?.[0]); event.target.value = ""; }}
                           />
                           {mediaUploading === index
                             ? t("جارٍ الرفع...", "Uploading...")
                             : action.mediaName && action.target !== "لا يحتاج اختيار"
                               ? `✓ ${action.mediaName}`
-                              : mediaActions[action.type] === "image" ? t("اختر صورة", "Choose image") : t("اختر فيديو", "Choose video")}
+                              : mediaChoose(mediaActions[action.type], t)}
                         </label>
                       ) : (
                         <CustomSelect

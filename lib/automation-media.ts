@@ -6,16 +6,18 @@ import { parseDataUrl } from "./message-attachments";
  * Pictures and videos an automation rule sends. Kept apart from the rule's
  * actions JSON so listing rules stays light - an action only carries the id.
  */
-export type AutomationMediaKind = "image" | "video";
+export type AutomationMediaKind = "image" | "video" | "document";
 
 export const AUTOMATION_MEDIA_ACTIONS: Record<string, AutomationMediaKind> = {
   "إرسال صورة": "image",
-  "إرسال فيديو": "video"
+  "إرسال فيديو": "video",
+  "إرسال مستند": "document"
 };
 
 const LIMITS: Record<AutomationMediaKind, { mimes: string[]; bytes: number; label: string }> = {
   image: { mimes: ["image/jpeg", "image/png"], bytes: 5 * 1024 * 1024, label: "الصورة يجب أن تكون JPG أو PNG وبحجم أقل من 5 ميجا" },
-  video: { mimes: ["video/mp4", "video/3gpp"], bytes: 12 * 1024 * 1024, label: "الفيديو يجب أن يكون MP4 وبحجم أقل من 12 ميجا" }
+  video: { mimes: ["video/mp4", "video/3gpp"], bytes: 12 * 1024 * 1024, label: "الفيديو يجب أن يكون MP4 وبحجم أقل من 12 ميجا" },
+  document: { mimes: ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "text/plain"], bytes: 10 * 1024 * 1024, label: "المستند يجب أن يكون PDF أو Word أو Excel أو PowerPoint أو نص، وبحجم أقل من 10 ميجا" }
 };
 
 let ready: Promise<void> | null = null;
@@ -50,10 +52,10 @@ export async function saveAutomationMedia(
   if (!parsed) return { ok: false, error: "الملف غير صالح" };
 
   const kind = (Object.keys(LIMITS) as AutomationMediaKind[]).find((key) => LIMITS[key].mimes.includes(parsed.mimeType));
-  if (!kind) return { ok: false, error: "الصيغة غير مدعومة. المسموح: صورة JPG/PNG أو فيديو MP4" };
+  if (!kind) return { ok: false, error: "الصيغة غير مدعومة. المسموح: صورة JPG/PNG أو فيديو MP4 أو مستند PDF/Word/Excel/PowerPoint" };
   if (parsed.bytes.length > LIMITS[kind].bytes) return { ok: false, error: LIMITS[kind].label };
 
-  const name = (typeof input.name === "string" ? input.name : "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 120) || (kind === "image" ? "صورة" : "فيديو");
+  const name = (typeof input.name === "string" ? input.name : "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 120) || (kind === "image" ? "صورة" : kind === "video" ? "فيديو" : "مستند");
   const id = `amedia-${randomUUID()}`;
   await ensureTable();
   await prisma.$executeRawUnsafe(
@@ -70,6 +72,6 @@ export async function loadAutomationMedia(tenantId: string, id: string): Promise
     id, tenantId
   );
   const row = rows[0];
-  if (!row || (row.kind !== "image" && row.kind !== "video")) return null;
+  if (!row || (row.kind !== "image" && row.kind !== "video" && row.kind !== "document")) return null;
   return { id: row.id, kind: row.kind, name: row.name, mimeType: row.mime_type, dataUrl: row.data_url };
 }

@@ -31,6 +31,7 @@ describe("automation pictures and videos", () => {
 
     expect(await saveAutomationMedia(tenantId, { name: "a.png", dataUrl: png })).toMatchObject({ ok: true, kind: "image" });
     expect(await saveAutomationMedia(tenantId, { name: "a.mp4", dataUrl: mp4 })).toMatchObject({ ok: true, kind: "video" });
+    expect(await saveAutomationMedia(tenantId, { name: "a.pdf", dataUrl: `data:application/pdf;base64,${Buffer.from("%PDF-1.4").toString("base64")}` })).toMatchObject({ ok: true, kind: "document" });
     expect(await saveAutomationMedia(tenantId, { name: "a.svg", dataUrl: `data:image/svg+xml;base64,${Buffer.from("<svg/>").toString("base64")}` })).toMatchObject({ ok: false });
     expect(await saveAutomationMedia(tenantId, { name: "a.png", dataUrl: "not-a-data-url" })).toMatchObject({ ok: false });
 
@@ -89,5 +90,34 @@ describe("automation pictures and videos", () => {
     expect(calls[1].body).toMatchObject({ to: "966500001111", type: "image", image: { id: "media-77", caption: "أهلاً سارة، هذا العرض" } });
     const message = await prisma.message.findFirst({ where: { conversationId: "conv-am", direction: "out" } });
     expect(message).toMatchObject({ text: "أهلاً سارة، هذا العرض", attachmentType: "image", author: "الأتمتة" });
+  });
+
+  it("a send-document action uploads the file and sends it with its file name", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { saveAutomationMedia } = await import("../lib/automation-media");
+    const { runAutomationRuleManually } = await import("../lib/automation-engine");
+
+    const saved = await saveAutomationMedia(tenantId, { name: "price-list.pdf", dataUrl: `data:application/pdf;base64,${Buffer.from("%PDF-1.4 test").toString("base64")}` });
+    if (!saved.ok) throw new Error("save failed");
+    await prisma.automationRule.create({
+      data: {
+        id: "auto-doc", tenantId, name: "قائمة الأسعار", description: "", trigger: "رد العميل", action: "إرسال مستند", target: saved.id,
+        delayMinutes: 0, conditionsJson: "[]", createdAt: "Oct 13, 2026", enabled: 1,
+        actionsJson: JSON.stringify([{ type: "إرسال مستند", target: saved.id, caption: "قائمة الأسعار", mediaName: "price-list.pdf" }])
+      }
+    });
+
+    const calls: Array<{ url: string; body: unknown }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), body: init.body instanceof FormData ? "form" : JSON.parse(String(init.body)) });
+      if (String(url).endsWith("/media")) return new Response(JSON.stringify({ id: "doc-9" }));
+      return new Response(JSON.stringify({ messages: [{ id: "wamid.DOC1" }] }));
+    }));
+
+    await runAutomationRuleManually("auto-doc", tenantId, "conv-am");
+
+    expect(calls[1].body).toMatchObject({ type: "document", document: { id: "doc-9", filename: "price-list.pdf", caption: "قائمة الأسعار" } });
+    const message = await prisma.message.findFirst({ where: { conversationId: "conv-am", attachmentType: "document" } });
+    expect(message).toMatchObject({ attachmentName: "price-list.pdf", attachmentMime: "application/pdf" });
   });
 });

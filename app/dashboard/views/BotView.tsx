@@ -8,6 +8,7 @@ import { upgradeTargetForBotStep, REGULAR_PLAN } from "../../../lib/plan-access"
 import CustomSelect from "../../components/CustomSelect";
 import type { Employee, Team } from "../types";
 import { channelNames } from "../../channel-names";
+import { mediaAccept, mediaChoose, mediaFileLooksRight, mediaKindByType, mediaLimitHint, mediaUploadFirst, mediaWrongFile } from "../media-kinds";
 
 type BotListOption = { id: string; label: string; next: string | null };
 
@@ -54,7 +55,7 @@ type ReadyStep = {
   kind?: "flow" | "step";
 };
 
-const nodeTypes = ["إرسال رسالة", "إرسال صورة", "إرسال فيديو", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "رد من قاعدة المعرفة", "رد AI تلقائي", "عرض الكتالوج", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
+const nodeTypes = ["إرسال رسالة", "إرسال صورة", "إرسال فيديو", "إرسال مستند", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "رد من قاعدة المعرفة", "رد AI تلقائي", "عرض الكتالوج", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
 const LIST_NODE_TYPES = new Set(["إرسال قائمة قصيرة", "إرسال قائمة طويلة"]);
 const TERMINAL_NODE_TYPES = new Set(["تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"]);
 
@@ -62,6 +63,7 @@ const nodeTypeLabelsEn: Record<string, string> = {
   "إرسال رسالة": "Send a message",
   "إرسال صورة": "Send an image",
   "إرسال فيديو": "Send a video",
+  "إرسال مستند": "Send a document",
   "إرسال قائمة قصيرة": "Send a short list",
   "إرسال قائمة طويلة": "Send a long list",
   "رد من قاعدة المعرفة": "Knowledge Base reply",
@@ -167,7 +169,7 @@ function emptyContentFor(type: string): BotNodeContent {
   if (type === "رد AI تلقائي") return { kind: "aiReply", next: null };
   if (type === "عرض الكتالوج") return { kind: "catalog", text: "", next: null };
   if (type === "أقرب فرع") return { kind: "branch", text: "", next: null };
-  if (type === "إرسال صورة" || type === "إرسال فيديو") return { kind: "media", mediaId: "", mediaName: "", caption: "", next: null };
+  if (mediaKindByType[type]) return { kind: "media", mediaId: "", mediaName: "", caption: "", next: null };
   return { kind: "message", text: "", next: null };
 }
 
@@ -439,9 +441,10 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
 
   async function uploadStepMedia(file: File | undefined) {
     if (!file || draftContent.kind !== "media") return;
-    const kind = nodeType === "إرسال صورة" ? "image" : "video";
-    if (!file.type.startsWith(`${kind}/`)) {
-      setFeedback({ type: "error", message: kind === "image" ? t("اختر ملف صورة (JPG أو PNG).", "Choose an image file (JPG or PNG).") : t("اختر ملف فيديو (MP4).", "Choose a video file (MP4).") });
+    const kind = mediaKindByType[nodeType];
+    if (!kind) return;
+    if (!mediaFileLooksRight(kind, file)) {
+      setFeedback({ type: "error", message: mediaWrongFile(kind, t) });
       return;
     }
     setMediaUploading(true);
@@ -474,7 +477,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
     const content = draftContent.kind === "list" ? { ...draftContent, options: draftContent.options.filter((option) => option.label.trim()) } : draftContent;
     if (content.kind === "message" && !content.text.trim()) return;
     if (content.kind === "media" && !content.mediaId) {
-      setFeedback({ type: "error", message: nodeType === "إرسال صورة" ? t("ارفع الصورة أولًا.", "Upload the image first.") : t("ارفع الفيديو أولًا.", "Upload the video first.") });
+      setFeedback({ type: "error", message: mediaUploadFirst(mediaKindByType[nodeType] || "image", t) });
       return;
     }
     if (content.kind === "list" && !content.text.trim()) return;
@@ -862,19 +865,19 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                 {draftContent.kind === "media" ? (
                   <>
                     <label>
-                      <span>{nodeType === "إرسال صورة" ? t("الصورة (JPG أو PNG، حتى 5 ميجا)", "Image (JPG or PNG, up to 5 MB)") : t("الفيديو (MP4، حتى 12 ميجا)", "Video (MP4, up to 12 MB)")}</span>
+                      <span>{mediaLimitHint(mediaKindByType[nodeType] || "image", t)}</span>
                       <span className="btn soft bot-media-pick" style={{ justifyContent: "center", cursor: "pointer" }}>
                         <input
                           type="file"
                           hidden
-                          accept={nodeType === "إرسال صورة" ? "image/jpeg,image/png" : "video/mp4,video/3gpp"}
+                          accept={mediaAccept[mediaKindByType[nodeType] || "image"]}
                           onChange={(event) => { void uploadStepMedia(event.target.files?.[0]); event.target.value = ""; }}
                         />
                         {mediaUploading
                           ? t("جارٍ الرفع...", "Uploading...")
                           : draftContent.mediaId
                             ? `✓ ${draftContent.mediaName || t("تم الرفع", "Uploaded")} — ${t("اضغط للتغيير", "tap to change")}`
-                            : nodeType === "إرسال صورة" ? t("اختر صورة", "Choose image") : t("اختر فيديو", "Choose video")}
+                            : mediaChoose(mediaKindByType[nodeType] || "image", t)}
                       </span>
                     </label>
                     <label>
