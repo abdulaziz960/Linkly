@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { getMerchantGatewayKeyForVerification, restockOrderUnits, type OrderStatus } from "./catalog";
 import { sendWhatsAppTextMessage } from "./whatsapp-send";
+import { shortOrderNumber } from "./order-number";
 
 /**
  * Payments for catalog orders go through the MERCHANT'S OWN Moyasar
@@ -17,13 +18,9 @@ function authorization(secretKey: string) {
   return `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`;
 }
 
-export type MerchantInvoice = { id: string; url: string };
+export { shortOrderNumber };
 
-/** A short, readable order number for messages: the first 8 characters of the order id's unique part. */
-export function shortOrderNumber(orderId: string): string {
-  const unique = orderId.replace(/^ord-/i, "").replace(/-/g, "");
-  return `ORD-${unique.slice(0, 8).toUpperCase()}`;
-}
+export type MerchantInvoice = { id: string; url: string };
 
 function usableCustomerName(name: string, phone = ""): string {
   const value = (name || "").trim();
@@ -172,6 +169,40 @@ export async function processOrderPaymentCallback(orderId: string): Promise<{ ht
         text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name),
         author: "الرد الآلي"
       }).catch((error) => console.error("Order paid confirmation failed", error));
+
+      // The payment receipt as a PDF, right after the text confirmation. Best-effort:
+      // a failure here must never undo or repeat the confirmation above.
+      try {
+        const [{ renderReceiptPdf }, { sendWhatsAppUploadedMedia }, { getTenantCompanyName }] = await Promise.all([
+          import("./order-receipt"),
+          import("./whatsapp-send"),
+          import("./subscriptions")
+        ]);
+        const pdf = await renderReceiptPdf({
+          merchantName: await getTenantCompanyName(order.tenantId),
+          orderId: order.id,
+          customerName: order.customerName || conversation.customer.name,
+          productName: order.productName,
+          quantity: order.quantity,
+          unitPrice: order.unitPrice,
+          total: order.total,
+          currency: order.currency,
+          paidAtIso: new Date().toISOString()
+        });
+        await sendWhatsAppUploadedMedia({
+          tenantId: order.tenantId,
+          conversationId: order.conversationId,
+          to: conversation.customer.phone,
+          kind: "document",
+          dataUrl: `data:application/pdf;base64,${pdf.toString("base64")}`,
+          mimeType: "application/pdf",
+          fileName: `receipt-${shortOrderNumber(order.id)}.pdf`,
+          caption: `إيصال الدفع - ${shortOrderNumber(order.id)}`,
+          author: "الرد الآلي"
+        });
+      } catch (error) {
+        console.error("Order receipt PDF failed", error);
+      }
     }
   }
 
