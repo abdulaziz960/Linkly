@@ -41,8 +41,19 @@ type StoreWhatsAppMessageInput = {
   };
 };
 
+/**
+ * Digits only, in the international form WhatsApp (and every customer id,
+ * thread id and lookup here) uses. Saudi numbers typed the local way -
+ * 05xxxxxxxx or 5xxxxxxxx - become 9665xxxxxxxx, and a 00 international
+ * prefix is dropped, so one person is one customer and one thread whether
+ * they arrive through a form, an import, the dashboard or a WhatsApp message.
+ */
 export function normalizeWhatsAppPhone(phone: string) {
-  return phone.replace(/[^\d]/g, "");
+  let digits = phone.replace(/[^\d]/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (/^05\d{8}$/.test(digits)) return `966${digits.slice(1)}`;
+  if (/^5\d{8}$/.test(digits)) return `966${digits}`;
+  return digits;
 }
 
 function getCustomerName(phone: string, name?: string) {

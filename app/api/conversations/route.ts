@@ -61,12 +61,24 @@ export async function POST(request: NextRequest) {
     if (!normalizedPhone) return jsonError("رقم الهاتف غير صالح");
     const scopedPrefix = user.tenantId === "tenant-demo" ? "" : `${user.tenantId}-`;
     customerId = `${scopedPrefix}wa-${normalizedPhone}`;
-    const name = body.name?.trim() || `عميل ${normalizedPhone.slice(-4) || "واتساب"}`;
-    await prisma.customer.upsert({
-      where: { id: customerId },
-      update: {},
-      create: { id: customerId, name, phone: normalizedPhone, initial: firstChar(name) || "ع", tenantId: user.tenantId }
-    });
+    // The same person may already be stored under the local spelling
+    // (05xxxxxxxx) from before numbers were normalised: reuse that customer
+    // instead of creating a second one.
+    const localSpellings = normalizedPhone.startsWith("966") && normalizedPhone.length === 12
+      ? [`0${normalizedPhone.slice(3)}`, normalizedPhone.slice(3)]
+      : [];
+    const existingCustomer = await prisma.customer.findFirst({ where: { tenantId: user.tenantId, phone: normalizedPhone } })
+      ?? (localSpellings.length ? await prisma.customer.findFirst({ where: { tenantId: user.tenantId, phone: { in: localSpellings } }, orderBy: { id: "asc" } }) : null);
+    if (existingCustomer) {
+      customerId = existingCustomer.id;
+    } else {
+      const name = body.name?.trim() || `عميل ${normalizedPhone.slice(-4) || "واتساب"}`;
+      await prisma.customer.upsert({
+        where: { id: customerId },
+        update: {},
+        create: { id: customerId, name, phone: normalizedPhone, initial: firstChar(name) || "ع", tenantId: user.tenantId }
+      });
+    }
   }
 
   const customer = await prisma.customer.findUnique({
