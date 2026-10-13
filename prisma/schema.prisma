@@ -1067,7 +1067,11 @@ model AdminLog {
   source     String
   level      String
   message    String
+  // ISO timestamp the row was written (empty for rows that predate the column).
+  createdAt  String @default("") @map("created_at")
 
+  @@index([createdAt])
+  @@index([clientId, createdAt])
   @@map("admin_logs")
 }
 

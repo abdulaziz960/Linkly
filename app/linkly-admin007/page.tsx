@@ -36,7 +36,7 @@ export default async function AdminOverviewPage() {
     getVisibleSubscriptions(),
     canBilling ? getSubscriptionPayments() : Promise.resolve([]),
     // Newest 300 only - the log table can grow without bound.
-    prisma.adminLog.findMany({ orderBy: { id: "desc" }, take: 300 }),
+    prisma.adminLog.findMany({ orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 300 }),
     canTeam ? getAdminActionLogs(60) : Promise.resolve([]),
     canSupport
       ? prisma.supportTicket.findMany({

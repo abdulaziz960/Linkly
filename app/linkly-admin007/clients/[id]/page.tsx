@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getAdminLogs } from "../../../../lib/database";
+import { getRecentAdminLogs } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { getSubscriptions, getSubscriptionPayments } from "../../../../lib/subscriptions";
 import { getTenantGrants } from "../../../../lib/plan-grants";
@@ -33,7 +33,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
   const [subscriptions, payments, logs, employees] = await Promise.all([
     getSubscriptions(),
     getSubscriptionPayments(),
-    getAdminLogs(),
+    getRecentAdminLogs({ clientId: tenantId, limit: 300 }),
     prisma.employee.findMany({ where: { tenantId }, orderBy: { name: "asc" } })
   ]);
   const client = subscriptions.find((item) => item.tenantId === tenantId);
@@ -68,7 +68,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
   ]);
 
   const clientPayments = newestFirst(payments.filter((item) => item.tenantId === tenantId));
-  const clientLogs = logs.filter((item) => item.clientId === tenantId).reverse();
+  const clientLogs = logs; // already this client's rows, newest first
   const summary = billingSummary(client, clientPayments);
   const renewal = getRenewalAlert(client);
 

@@ -1,4 +1,4 @@
-import { getAdminLogs } from "../../../lib/database";
+import { getRecentAdminLogs } from "../../../lib/database";
 import { getSubscriptions } from "../../../lib/subscriptions";
 import { guardPage } from "../guard";
 import AdminPageHeader from "../AdminPageHeader";
@@ -7,7 +7,15 @@ import LogsView from "./LogsView";
 export default async function AdminLogsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const denied = await guardPage("tech");
   if (denied) return denied;
-  const [filters, subscriptions, logs] = await Promise.all([searchParams, getSubscriptions(), getAdminLogs()]);
+  const [filters, subscriptions] = await Promise.all([searchParams, getSubscriptions()]);
+  // The newest rows overall, plus the chosen client's own newest rows when a client link was followed.
+  const [recent, forClient] = await Promise.all([
+    getRecentAdminLogs({ limit: 1000 }),
+    filters.client && filters.client !== "all" ? getRecentAdminLogs({ clientId: filters.client, limit: 500 }) : Promise.resolve([])
+  ]);
+  const seen = new Set<string>();
+  const logs = [...forClient, ...recent].filter((log) => (seen.has(log.id) ? false : (seen.add(log.id), true)));
+
 
   return (
     <>

@@ -61,7 +61,7 @@ export async function PUT(request: NextRequest) {
       prompt: body.prompt, dailyLimit: body.dailyLimit, monthlyLimit: body.monthlyLimit,
       inputRate: body.inputRate, outputRate: body.outputRate, apiKey, updatedAt: new Date().toISOString() };
     await tx.aiWorkspaceSetting.upsert({ where: { tenantId: user.tenantId }, update: data, create: { tenantId: user.tenantId, ...data } });
-    await tx.adminLog.create({ data: { id: randomUUID(), at: data.updatedAt, clientId: user.tenantId,
+    await tx.adminLog.create({ data: { id: randomUUID(), at: data.updatedAt, createdAt: data.updatedAt, clientId: user.tenantId,
       clientName: user.name, source: "AI settings", level: "معلومة",
       message: JSON.stringify({ actorId: user.id, action: "ai.settings.updated", before: existing ? {
         provider: existing.provider, model: existing.model, enabled: existing.enabled, dailyLimit: existing.dailyLimit, monthlyLimit: existing.monthlyLimit

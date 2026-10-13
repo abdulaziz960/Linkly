@@ -643,10 +643,13 @@ export function subscriptionPaymentLogMessage(amount: number, method: string, pr
 }
 
 export async function logAdminAction(tenantId: string, clientName: string, message: string, level: "معلومة" | "تنبيه" | "خطأ" = "معلومة", source = "لوحة الأدمن") {
+  // The created_at column is added by ensureSchema; make sure it is there before the first write.
+  await ensureSchema();
   await prisma.adminLog.create({
     data: {
       id: `log-${randomUUID()}`,
       at: nowTimestamp(),
+      createdAt: new Date().toISOString(),
       clientId: tenantId,
       clientName,
       source,
@@ -692,7 +695,7 @@ export async function sendTrialEndingReminders(baseUrl: string) {
     if (!stage) continue;
 
     const marker = `[trial-reminder-${stage.id}:${subscription.tenantId}]`;
-    const alreadySent = await prisma.adminLog.findFirst({ where: { message: { contains: marker } } });
+    const alreadySent = await prisma.adminLog.findFirst({ where: { clientId: subscription.tenantId, message: { contains: marker } } });
     if (alreadySent) continue;
 
     const owner = await prisma.userAccount.findFirst({
@@ -754,7 +757,7 @@ export async function sendSubscriptionRenewalReminders(baseUrl: string) {
     if (!stage) continue;
 
     const marker = `[renewal-reminder-${stage.id}:${subscription.tenantId}]`;
-    const alreadySent = await prisma.adminLog.findFirst({ where: { message: { contains: marker } } });
+    const alreadySent = await prisma.adminLog.findFirst({ where: { clientId: subscription.tenantId, message: { contains: marker } } });
     if (alreadySent) continue;
 
     const owner = await prisma.userAccount.findFirst({
@@ -1113,6 +1116,7 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
       data: {
         id: `log-${randomUUID()}`,
         at: now,
+        createdAt: new Date().toISOString(),
         clientId: tenantId,
         clientName: input.companyName,
         source: "لوحة الأدمن",

@@ -8,6 +8,7 @@ import { ensureAdminPermissionsSchema } from "./admin-permissions-schema";
 import { ensureAdminHiddenClientsSchema } from "./admin-hidden-clients-schema";
 import { ensureEmailUsageSchema } from "./email-usage-schema";
 import { ensureWebhookRetriesSchema } from "./webhook-retries-schema";
+import { ensureAdminLogsSchema } from "./admin-logs-schema";
 import { ensurePlanPrices } from "./plan-prices";
 import { ensureGrantsSchema } from "./grants-schema";
 import { ensureFaqSchema } from "./faq-schema";
@@ -2622,7 +2623,7 @@ async function ensureDiscountCodesSchema() {
 
 export async function ensureSchema() {
   await ensureDiscountCodesSchema();
-  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensureAdminHiddenClientsSchema).then(ensureEmailUsageSchema).then(ensureWebhookRetriesSchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).then(ensureSeoSchema).catch((error) => {
+  schemaPromise ??= runSchemaMigrations().then(ensureAiSchema).then(ensureCatalogSchema).then(ensureBranchesSchema).then(ensureClientNotesSchema).then(ensureAdminPermissionsSchema).then(ensureAdminHiddenClientsSchema).then(ensureEmailUsageSchema).then(ensureWebhookRetriesSchema).then(ensureAdminLogsSchema).then(ensurePlanPrices).then(ensureGrantsSchema).then(ensureFaqSchema).then(ensureBlogSchema).then(ensureSeoSchema).catch((error) => {
     schemaPromise = null;
     throw error;
   });
@@ -3712,19 +3713,36 @@ export async function getProviderSubscriptions(): Promise<ProviderSubscription[]
   return rows as ProviderSubscription[];
 }
 
-export async function getAdminLogs(): Promise<AdminLog[]> {
+const ADMIN_LOG_DEFAULT_LIMIT = 200;
+const ADMIN_LOG_MAX_LIMIT = 1000;
+
+/**
+ * The newest admin log rows first, always bounded. The table grows without
+ * limit, so no reader may load all of it: this is called on every admin
+ * notification poll. Prisma's typed client maps columns to camelCase itself
+ * (a raw query once returned lower-cased keys on PostgreSQL and silently broke
+ * the per-client filter).
+ */
+export async function getRecentAdminLogs(options: { limit?: number; clientId?: string; excludeClientIds?: string[] } = {}): Promise<AdminLog[]> {
   await ensureSeeded();
-  // Was a raw SQL query with unquoted camelCase aliases (e.g. `client_id AS
-  // clientId`) - PostgreSQL folds unquoted identifiers to lowercase, so the
-  // result rows actually came back keyed `clientid`, not `clientId`. Every
-  // row's `clientId` field was silently undefined in production (SQLite,
-  // used in dev/tests, does not fold identifier case the same way, so this
-  // never reproduced locally) - the Logs page's per-client filter compared
-  // that undefined against a real tenant id and could never match, no
-  // matter which client was selected. Prisma's typed client sidesteps the
-  // whole class of bug: it maps DB columns to camelCase fields itself.
-  const rows = await prisma.adminLog.findMany({ orderBy: { id: "asc" } });
-  return rows as AdminLog[];
+  const limit = Math.min(ADMIN_LOG_MAX_LIMIT, Math.max(1, Math.floor(options.limit ?? ADMIN_LOG_DEFAULT_LIMIT)));
+  const exclude = (options.excludeClientIds ?? []).filter(Boolean);
+  const rows = await prisma.adminLog.findMany({
+    where: options.clientId
+      ? { clientId: options.clientId }
+      : exclude.length ? { clientId: { notIn: exclude } } : undefined,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit
+  });
+  return rows.map(({ createdAt: _createdAt, ...row }) => {
+    void _createdAt;
+    return row;
+  }) as AdminLog[];
+}
+
+/** Oldest-first, capped to the newest rows (kept for callers that expect that order). */
+export async function getAdminLogs(): Promise<AdminLog[]> {
+  return (await getRecentAdminLogs({ limit: ADMIN_LOG_MAX_LIMIT })).reverse();
 }
 
 export async function getUserAccountById(id: string): Promise<UserAccount | null> {

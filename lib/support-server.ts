@@ -33,6 +33,7 @@ export async function recordSupportAuditLog(input: {
     data: {
       id: `support-${randomUUID()}`,
       at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       clientId: input.tenantId,
       clientName: input.companyName,
       source: "الدعم الفني",

@@ -25,7 +25,7 @@ export async function sendLowBalanceAlerts(baseUrl: string) {
     const percent = (row.balance / row.lastTopUpAmount) * 100;
     for (const threshold of thresholdsToAlert(percent)) {
       const marker = `[balance-alert-${threshold}:${row.tenantId}:${row.lastTopUpAmount}]`;
-      const alreadySent = await prisma.adminLog.findFirst({ where: { message: { contains: marker } } });
+      const alreadySent = await prisma.adminLog.findFirst({ where: { clientId: row.tenantId, message: { contains: marker } } });
       if (alreadySent) continue;
 
       const owner = await prisma.userAccount.findFirst({

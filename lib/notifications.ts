@@ -1,4 +1,4 @@
-import { getAdminLogs } from "./database";
+import { getRecentAdminLogs } from "./database";
 import { getEmailUsage } from "./email-usage";
 import { getVisibleSubscriptions, getHiddenTenantIds } from "./admin-hidden-clients";
 
@@ -22,7 +22,9 @@ function parseRenewalDate(renewalAt: string) {
 }
 
 export async function getAdminNotifications(): Promise<AdminNotification[]> {
-  const [subscriptions, logs, hiddenTenants, emailUsage] = await Promise.all([getVisibleSubscriptions(), getAdminLogs(), getHiddenTenantIds(), getEmailUsage()]);
+  const hiddenTenants = await getHiddenTenantIds();
+  // Only the newest rows are ever shown, so only they are read (this runs on every poll).
+  const [subscriptions, logs, emailUsage] = await Promise.all([getVisibleSubscriptions(), getRecentAdminLogs({ limit: 80, excludeClientIds: [...hiddenTenants] }), getEmailUsage()]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -64,7 +66,7 @@ export async function getAdminNotifications(): Promise<AdminNotification[]> {
   // Collapse by a signature that strips the query string (the only thing
   // that varies between them) and keep just the newest per signature, with
   // a count for the rest.
-  const recentLogs = logs.filter((log) => !log.clientId || !hiddenTenants.has(log.clientId)).reverse().slice(0, 80);
+  const recentLogs = logs;
   const bySignature = new Map<string, { log: (typeof recentLogs)[number]; count: number }>();
   for (const log of recentLogs) {
     const signature = `${log.level}::${log.source}::${log.message.replace(/\?\S*/g, "")}`;
