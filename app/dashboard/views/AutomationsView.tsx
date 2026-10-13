@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { AutomationRule, Employee, MessageTemplate, Tag, Team } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
-import { mediaAccept, mediaChoose, mediaFileLooksRight, mediaKindByType, mediaUploadFirst, mediaWrongFile } from "../media-kinds";
+import { mediaAccept, mediaChoose, mediaFileLooksRight, mediaKindByType, mediaUploadFirst, mediaWrongFile, readFileAsDataUrl, uploadFailureMessage } from "../media-kinds";
 
 type AutomationForm = {
   id?: string;
@@ -480,19 +480,14 @@ export default function AutomationsView({
     setMediaUploading(index);
     setFeedback(null);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ""));
-        reader.onerror = () => reject(new Error("read"));
-        reader.readAsDataURL(file);
-      });
+      const dataUrl = await readFileAsDataUrl(file);
       const response = await fetch("/api/automations/media", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: file.name, dataUrl })
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر رفع الملف.", "Could not upload the file."));
+      if (!response.ok || !payload?.ok) throw new Error(uploadFailureMessage(response.status, payload?.error, t));
       setForm((current) => ({
         ...current,
         actions: current.actions.map((action, actionIndex) => (actionIndex === index ? { ...action, target: payload.data.id, mediaName: payload.data.name } : action))

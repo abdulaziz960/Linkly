@@ -8,7 +8,7 @@ import { upgradeTargetForBotStep, REGULAR_PLAN } from "../../../lib/plan-access"
 import CustomSelect from "../../components/CustomSelect";
 import type { Employee, Team } from "../types";
 import { channelNames } from "../../channel-names";
-import { mediaAccept, mediaChoose, mediaFileLooksRight, mediaKindByType, mediaLimitHint, mediaUploadFirst, mediaWrongFile } from "../media-kinds";
+import { mediaAccept, mediaChoose, mediaFileLooksRight, mediaKindByType, mediaLimitHint, mediaUploadFirst, mediaWrongFile, readFileAsDataUrl, uploadFailureMessage } from "../media-kinds";
 
 type BotListOption = { id: string; label: string; next: string | null };
 
@@ -450,19 +450,14 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
     setMediaUploading(true);
     setFeedback(null);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ""));
-        reader.onerror = () => reject(new Error("read"));
-        reader.readAsDataURL(file);
-      });
+      const dataUrl = await readFileAsDataUrl(file);
       const response = await fetch("/api/bot/media", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: file.name, dataUrl })
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر رفع الملف.", "Could not upload the file."));
+      if (!response.ok || !payload?.ok) throw new Error(uploadFailureMessage(response.status, payload?.error, t));
       setDraftContent((current) => (current.kind === "media" ? { ...current, mediaId: payload.data.id, mediaName: payload.data.name } : current));
     } catch (error) {
       setFeedback({ type: "error", message: error instanceof Error ? error.message : t("تعذر رفع الملف.", "Could not upload the file.") });
