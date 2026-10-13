@@ -27,7 +27,11 @@ type AutomationCondition = {
 type AutomationAction = {
   type: string;
   target: string;
+  caption?: string;
+  mediaName?: string;
 };
+
+const mediaActions: Record<string, "image" | "video"> = { "إرسال صورة": "image", "إرسال فيديو": "video" };
 
 type SimulationMatch = {
   id: string;
@@ -69,7 +73,7 @@ type AutomationPreset = {
 const triggerOptions = ["تم إنشاء رسالة", "تم فتح محادثة", "رد العميل", "تم إغلاق الرسالة"];
 const conditionFieldOptions = ["الرسالة تحتوي على", "العميل لديه وسم", "حالة المحادثة", "مصدر الرسالة"];
 const conditionOperatorOptions = ["يساوي", "يحتوي", "لا يساوي"];
-const actionOptions = ["فتح المحادثة", "إضافة وسم", "إسناد إلى موظف", "إسناد إلى فريق", "إرسال قالب", "إغلاق المحادثة"];
+const actionOptions = ["فتح المحادثة", "إضافة وسم", "إسناد إلى موظف", "إسناد إلى فريق", "إرسال قالب", "إرسال صورة", "إرسال فيديو", "إغلاق المحادثة"];
 const conversationStatusOptions = ["اختر حالة", "مفتوحة", "غير مسندة", "مسندة", "مغلقة"];
 const messageSourceOptions = ["اختر مصدر", "WhatsApp", "المنصة", "حملة", "رد آلي"];
 
@@ -98,6 +102,8 @@ function staticLabel(value: string | undefined, t: (ar: string, en: string) => s
     "إسناد إلى موظف": t("إسناد إلى موظف", "Assign to employee"),
     "إسناد إلى فريق": t("إسناد إلى فريق", "Assign to team"),
     "إرسال قالب": t("إرسال قالب", "Send template"),
+    "إرسال صورة": t("إرسال صورة", "Send image"),
+    "إرسال فيديو": t("إرسال فيديو", "Send video"),
     "إغلاق المحادثة": t("إغلاق المحادثة", "Close conversation"),
     "اختر حالة": t("اختر حالة", "Select status"),
     "مفتوحة": t("مفتوحة", "Open"),
@@ -176,6 +182,7 @@ export default function AutomationsView({
   const [form, setForm] = useState<AutomationForm>(emptyForm);
   const [builderStep, setBuilderStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [mediaUploading, setMediaUploading] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "enabled" | "disabled">("all");
@@ -454,9 +461,45 @@ export default function AutomationsView({
       actions: current.actions.map((action, actionIndex) => {
         if (actionIndex !== index) return action;
         if (field === "type") return { type: value, target: defaultTargetForAction(value) };
+        if (field === "caption" || field === "mediaName") return { ...action, [field]: value };
         return { ...action, target: value };
       })
     }));
+  }
+
+  async function uploadActionMedia(index: number, file: File | undefined) {
+    if (!file) return;
+    const kind = mediaActions[form.actions[index]?.type];
+    if (!kind) return;
+    if (!file.type.startsWith(`${kind}/`)) {
+      setFeedback({ type: "error", message: kind === "image" ? t("اختر ملف صورة (JPG أو PNG).", "Choose an image file (JPG or PNG).") : t("اختر ملف فيديو (MP4).", "Choose a video file (MP4).") });
+      return;
+    }
+    setMediaUploading(index);
+    setFeedback(null);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("read"));
+        reader.readAsDataURL(file);
+      });
+      const response = await fetch("/api/automations/media", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, dataUrl })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر رفع الملف.", "Could not upload the file."));
+      setForm((current) => ({
+        ...current,
+        actions: current.actions.map((action, actionIndex) => (actionIndex === index ? { ...action, target: payload.data.id, mediaName: payload.data.name } : action))
+      }));
+    } catch (error) {
+      setFeedback({ type: "error", message: error instanceof Error ? error.message : t("تعذر رفع الملف.", "Could not upload the file.") });
+    } finally {
+      setMediaUploading(null);
+    }
   }
 
   function addAction() {
@@ -477,6 +520,11 @@ export default function AutomationsView({
     event.preventDefault();
     if (builderStep < 4) {
       nextBuilderStep();
+      return;
+    }
+    const missingMedia = form.actions.find((action) => mediaActions[action.type] && (!action.target || action.target === "لا يحتاج اختيار"));
+    if (missingMedia) {
+      setFeedback({ type: "error", message: mediaActions[missingMedia.type] === "image" ? t("ارفع الصورة أولًا في إجراء إرسال الصورة.", "Upload the image for the send-image action first.") : t("ارفع الفيديو أولًا في إجراء إرسال الفيديو.", "Upload the video for the send-video action first.") });
       return;
     }
     setSaving(true);
@@ -793,18 +841,45 @@ export default function AutomationsView({
                 <h3 className="automation-section-title">{t("الإجراءات", "Actions")}</h3>
                 <div className="automation-box">
                   {form.actions.map((action, index) => (
-                    <div className="automation-row action" key={`${action.type}-${index}`}>
+                    <div className="automation-action-group" key={`${action.type}-${index}`}>
+                    <div className="automation-row action">
                       <CustomSelect
                         value={action.type}
                         onChange={(value) => updateAction(index, "type", value)}
                         options={actionOptions.map((option) => ({ value: option, label: staticLabel(option, t) }))}
                       />
-                      <CustomSelect
-                        value={action.target}
-                        onChange={(value) => updateAction(index, "target", value)}
-                        options={targetOptionsForAction(action.type, action.target).map((option) => ({ value: option, label: staticLabel(option, t) }))}
-                      />
+                      {mediaActions[action.type] ? (
+                        <label className="btn soft automation-media-pick">
+                          <input
+                            type="file"
+                            hidden
+                            accept={mediaActions[action.type] === "image" ? "image/jpeg,image/png" : "video/mp4,video/3gpp"}
+                            onChange={(event) => { void uploadActionMedia(index, event.target.files?.[0]); event.target.value = ""; }}
+                          />
+                          {mediaUploading === index
+                            ? t("جارٍ الرفع...", "Uploading...")
+                            : action.mediaName && action.target !== "لا يحتاج اختيار"
+                              ? `✓ ${action.mediaName}`
+                              : mediaActions[action.type] === "image" ? t("اختر صورة", "Choose image") : t("اختر فيديو", "Choose video")}
+                        </label>
+                      ) : (
+                        <CustomSelect
+                          value={action.target}
+                          onChange={(value) => updateAction(index, "target", value)}
+                          options={targetOptionsForAction(action.type, action.target).map((option) => ({ value: option, label: staticLabel(option, t) }))}
+                        />
+                      )}
                       <button className="automation-remove" type="button" onClick={() => removeAction(index)}>×</button>
+                    </div>
+                    {mediaActions[action.type] ? (
+                      <input
+                        className="automation-media-caption"
+                        value={action.caption || ""}
+                        maxLength={1024}
+                        onChange={(event) => updateAction(index, "caption", event.target.value)}
+                        placeholder={t("نص يظهر مع الملف (اختياري) — يمكنك كتابة {{name}} لاسم العميل", "Caption (optional) — use {{name}} for the customer name")}
+                      />
+                    ) : null}
                     </div>
                   ))}
                   <button className="btn soft automation-add" type="button" onClick={addAction}>{t("+ إضافة إجراء", "+ Add Action")}</button>
@@ -831,7 +906,7 @@ export default function AutomationsView({
                       <span>←</span>
                       <article><small>{t("الإجراءات", "Actions")}</small><b>{form.actions.length === 1 ? t("إجراء واحد", "1 action") : t(`${form.actions.length} إجراءات`, `${form.actions.length} actions`)}</b></article>
                     </div>
-                    <ul>{form.actions.map((action, index) => <li key={`${action.type}-${index}`}><span>{index + 1}</span>{staticLabel(action.type, t)}{action.target !== "لا يحتاج اختيار" ? ` — ${staticLabel(action.target, t)}` : ""}</li>)}</ul>
+                    <ul>{form.actions.map((action, index) => <li key={`${action.type}-${index}`}><span>{index + 1}</span>{staticLabel(action.type, t)}{action.target !== "لا يحتاج اختيار" ? ` — ${mediaActions[action.type] ? action.mediaName || "" : staticLabel(action.target, t)}` : ""}</li>)}</ul>
                   </div>
                   <label className="automation-enable-card">
                     <input type="checkbox" checked={form.enabled} onChange={(event) => setForm((current) => ({ ...current, enabled: event.target.checked }))} />

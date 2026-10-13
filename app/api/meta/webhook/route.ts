@@ -13,6 +13,7 @@ import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { handleMarketingOptOutKeyword } from "../../../../lib/marketing-optout";
 import { handleMetaLeadgenEvent } from "../../../../lib/meta-leads";
 import { prisma } from "../../../../lib/prisma";
+import { recordWhatsAppSendOutcome } from "../../../../lib/whatsapp-billing";
 import { decryptSecret } from "../../../../lib/secret-storage";
 import { verifyPrefixedHmac } from "../../../../lib/webhook-security";
 
@@ -426,6 +427,18 @@ export async function POST(request: NextRequest) {
             status: status.status,
             errors: status.errors
           });
+        }
+
+        // Meta accepts the send and only reports the payment problem afterwards,
+        // as a failed status (131042) - that is what turns the dashboard banner on.
+        // A delivered message proves payment works again, which turns it off.
+        if (status.status === "failed") {
+          const errorCode = Number(status.errors?.[0]?.code);
+          if (Number.isFinite(errorCode)) {
+            await recordWhatsAppSendOutcome({ tenantId: whatsappAccount.tenantId, ok: false, hadIssueFlag: false, errorCode });
+          }
+        } else if (status.status === "delivered") {
+          await recordWhatsAppSendOutcome({ tenantId: whatsappAccount.tenantId, ok: true, hadIssueFlag: true });
         }
 
         if (!status.id || !status.status) continue;

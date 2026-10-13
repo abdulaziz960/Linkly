@@ -4512,6 +4512,24 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   grid-template-columns: 1fr 1fr 44px;
 }
 
+.automation-action-group {
+  display: grid;
+  gap: 8px;
+}
+
+.automation-media-pick {
+  justify-content: center;
+  min-height: 46px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.automation-media-caption {
+  width: 100%;
+}
+
 .automation-remove {
   width: 38px;
   height: 38px;
@@ -6145,6 +6163,33 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   width: 100%;
   padding: 12px 14px;
   font-size: 15px;
+}
+
+/* The next-step picker is a CustomSelect (.custom-select, width:100%), not a <select>,
+   so the rule below never reached it and it squeezed the label input to nothing. */
+.bot-option-editor-row .custom-select {
+  flex: 0 0 200px;
+  width: 200px;
+  min-width: 0;
+}
+
+.bot-option-editor-row input {
+  min-width: 140px;
+}
+
+@media (max-width: 560px) {
+  .bot-option-editor-row {
+    flex-wrap: wrap;
+  }
+
+  .bot-option-editor-row input {
+    flex: 1 1 100%;
+  }
+
+  .bot-option-editor-row .custom-select {
+    flex: 1 1 0;
+    width: auto;
+  }
 }
 
 /*

@@ -10,7 +10,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 export const runtime = "nodejs";
 
 type AutomationConditionInput = { field?: string; operator?: string; value?: string };
-type AutomationActionInput = { type?: string; target?: string };
+type AutomationActionInput = { type?: string; target?: string; caption?: string; mediaName?: string };
 
 function cleanConditions(conditions?: AutomationConditionInput[]) {
   if (!Array.isArray(conditions)) return undefined;
@@ -27,7 +27,9 @@ function cleanActions(actions?: AutomationActionInput[]) {
 
   return JSON.stringify(actions.map((action) => ({
     type: action.type?.trim() || "فتح المحادثة",
-    target: action.target?.trim() || "لا يحتاج اختيار"
+    target: action.target?.trim() || "لا يحتاج اختيار",
+    ...(action.caption?.trim() ? { caption: action.caption.trim().slice(0, 1024) } : {}),
+    ...(action.mediaName?.trim() ? { mediaName: action.mediaName.trim().slice(0, 120) } : {})
   })));
 }
 

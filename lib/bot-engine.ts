@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
-import { isWhatsAppReplyWindowExpired, sendWhatsAppTextMessage, sendWhatsAppInteractiveMessage } from "./whatsapp-send";
+import { isWhatsAppReplyWindowExpired, sendWhatsAppTextMessage, sendWhatsAppInteractiveMessage, sendWhatsAppUploadedMedia } from "./whatsapp-send";
+import { loadAutomationMedia } from "./automation-media";
 import { sendTelegramTextMessage } from "./telegram-send";
 import { sendInstagramTextMessage } from "./instagram-send";
 import { sendFacebookTextMessage } from "./facebook-send";
@@ -50,7 +51,10 @@ export type BotNodeContent =
   // of the tenant's branches (lib/branch-bot.ts). `text` is the request
   // message; `next` runs after the customer got their branch (or when the
   // tenant has no branches yet).
-  | { kind: "branch"; text: string; next: string | null };
+  | { kind: "branch"; text: string; next: string | null }
+  // A picture or video the workspace uploaded (lib/automation-media.ts) with an
+  // optional caption; sent on WhatsApp, other channels get the caption as text.
+  | { kind: "media"; mediaId: string; mediaName: string; caption: string; next: string | null };
 
 export type BotNodeInput = {
   id?: string;
@@ -93,6 +97,7 @@ const KNOWLEDGE_BASE_NODE_TYPE = "رد من قاعدة المعرفة";
 const AI_REPLY_NODE_TYPE = "رد AI تلقائي";
 const CATALOG_NODE_TYPE = "عرض الكتالوج";
 const BRANCH_NODE_TYPE = "أقرب فرع";
+const MEDIA_NODE_TYPES: Record<string, "image" | "video"> = { "إرسال صورة": "image", "إرسال فيديو": "video" };
 
 function settingsId(tenantId: string, channel: BotChannel) {
   return `bot-settings-${tenantId}-${channel}`;
@@ -194,7 +199,7 @@ export async function getBotNodes(tenantId = "tenant-demo", channel: BotChannel 
 }
 
 function remapNodeLinks(content: BotNodeContent, idMap: Map<string, string>): BotNodeContent {
-  if (content.kind === "message" || content.kind === "knowledgeBase" || content.kind === "aiReply" || content.kind === "catalog" || content.kind === "branch") {
+  if (content.kind === "message" || content.kind === "knowledgeBase" || content.kind === "aiReply" || content.kind === "catalog" || content.kind === "branch" || content.kind === "media") {
     return { ...content, next: content.next ? idMap.get(content.next) || content.next : null };
   }
   if (content.kind === "list") {
@@ -459,6 +464,31 @@ async function executeFrom(
 
     if (node.type === MESSAGE_NODE_TYPE && node.content.kind === "message") {
       await sendBotText(channel, { ...ctx, text: node.content.text });
+      currentId = node.content.next;
+      continue;
+    }
+
+    if (MEDIA_NODE_TYPES[node.type] && node.content.kind === "media") {
+      const media = node.content.mediaId ? await loadAutomationMedia(ctx.tenantId, node.content.mediaId) : null;
+      const caption = node.content.caption.trim();
+      if (media && media.kind === MEDIA_NODE_TYPES[node.type] && channel === "whatsapp") {
+        // Same guard as sendBotText: free-form media outside the 24h window is rejected by Meta.
+        if (!(await isWhatsAppReplyWindowExpired(ctx.conversationId, false))) {
+          await sendWhatsAppUploadedMedia({
+            tenantId: ctx.tenantId,
+            conversationId: ctx.conversationId,
+            to: ctx.recipientId,
+            kind: media.kind,
+            dataUrl: media.dataUrl,
+            mimeType: media.mimeType,
+            fileName: media.name,
+            caption,
+            author: BOT_AUTHOR
+          });
+        }
+      } else if (caption) {
+        await sendBotText(channel, { ...ctx, text: caption });
+      }
       currentId = node.content.next;
       continue;
     }

@@ -1,7 +1,8 @@
 import { prisma } from "./prisma";
 import { ensureSchema, getIntegrationSettings } from "./database";
 import { formatMessageTime } from "./time";
-import { sendWhatsAppTemplateMessage, sendWhatsAppTextMessage } from "./whatsapp-send";
+import { sendWhatsAppTemplateMessage, sendWhatsAppTextMessage, sendWhatsAppUploadedMedia } from "./whatsapp-send";
+import { AUTOMATION_MEDIA_ACTIONS, loadAutomationMedia } from "./automation-media";
 import { sendTelegramTextMessage } from "./telegram-send";
 import { sendInstagramTextMessage } from "./instagram-send";
 import { sendFacebookTextMessage } from "./facebook-send";
@@ -27,7 +28,7 @@ type RunContext = {
 };
 
 type StoredCondition = { field: string; operator: string; value: string };
-type StoredAction = { type: string; target: string };
+type StoredAction = { type: string; target: string; caption?: string; mediaName?: string };
 
 const AUTOMATION_AUTHOR = "الأتمتة";
 
@@ -248,6 +249,32 @@ async function executeAction(action: StoredAction, tenantId: string, conversatio
 
   if (action.type === "إغلاق المحادثة") {
     await prisma.conversation.update({ where: { id: conversationId }, data: { status: "closed" } });
+    return;
+  }
+
+  if (AUTOMATION_MEDIA_ACTIONS[action.type]) {
+    if (isUnsetPlaceholder(action.target)) return;
+    const media = await loadAutomationMedia(tenantId, action.target);
+    if (!media || media.kind !== AUTOMATION_MEDIA_ACTIONS[action.type]) return;
+
+    const conversation = await loadConversationContext(conversationId, tenantId);
+    // Pictures and videos go out on WhatsApp only; other channels have no safe equivalent here.
+    if (!conversation || conversation.channel !== "whatsapp") return;
+
+    const result = await sendWhatsAppUploadedMedia({
+      tenantId,
+      conversationId,
+      to: conversation.customer.phone,
+      kind: media.kind,
+      dataUrl: media.dataUrl,
+      mimeType: media.mimeType,
+      fileName: media.name,
+      caption: (action.caption || "").replace(/\{\{\s*name\s*\}\}/gi, conversation.customer.name),
+      author: AUTOMATION_AUTHOR
+    });
+    if (!result.ok && !("skipped" in result && result.skipped)) {
+      console.error(`Automation media send failed for ${conversationId}`, "error" in result ? result.error : "");
+    }
     return;
   }
 

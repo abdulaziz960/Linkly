@@ -53,7 +53,7 @@ const SMALL_ORG_VIEWS: ViewKey[] = [...REGULAR_VIEWS, "automations", "knowledgeB
 const LARGE_ORG_VIEWS: ViewKey[] = [...SMALL_ORG_VIEWS, "developers", "integrations", "catalog"];
 
 // What the AI-free bot may use. AI and Knowledge Base steps arrive with the AI assistant (small enterprises); the catalog step with the catalog (large).
-const BOT_STEPS_BASIC = ["إرسال رسالة", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
+const BOT_STEPS_BASIC = ["إرسال رسالة", "إرسال صورة", "إرسال فيديو", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
 
 // Only the plans listed here are limited, each to exactly its own features.
 // Enterprise (and any unknown/custom plan) is fully open. Channels are

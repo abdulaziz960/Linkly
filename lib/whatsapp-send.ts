@@ -1,4 +1,4 @@
-import { outboundSignal } from "./outbound-timeout";
+import { OUTBOUND_MEDIA_TIMEOUT_MS, outboundSignal } from "./outbound-timeout";
 import { prisma } from "./prisma";
 import { getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
@@ -701,6 +701,68 @@ export function sendWhatsAppImageByUrl(input: {
     author: input.author,
     attachment: { type: "image", url: input.imageUrl, name: "product.jpg", mimeType: "image/jpeg" },
     message: { type: "image", image: { link: input.imageUrl, caption: input.caption.slice(0, 1024) } }
+  });
+}
+
+/**
+ * A picture or video the workspace uploaded itself (automation rules): the
+ * bytes go to Meta's media endpoint first, then the message points at the
+ * returned id, so no public URL is needed. Never throws.
+ */
+export async function sendWhatsAppUploadedMedia(input: {
+  tenantId?: string;
+  conversationId: string;
+  to: string;
+  kind: "image" | "video";
+  dataUrl: string;
+  mimeType: string;
+  fileName: string;
+  caption: string;
+  author?: string;
+}) {
+  const settings = await getIntegrationSettings("whatsapp", input.tenantId);
+  const phoneNumberId = settings.phoneNumberId?.trim();
+  const accessToken = settings.accessToken?.trim();
+  if (!phoneNumberId || !accessToken) return { ok: false as const, skipped: true };
+
+  const match = /^data:[^,]*;base64,([\s\S]*)$/i.exec(input.dataUrl);
+  if (!match) return { ok: false as const, error: "INVALID_MEDIA" };
+  const bytes = Buffer.from(match[1], "base64");
+
+  let mediaId = "";
+  try {
+    const form = new FormData();
+    form.set("messaging_product", "whatsapp");
+    form.set("type", input.mimeType);
+    form.set("file", new Blob([new Uint8Array(bytes)], { type: input.mimeType }), input.fileName);
+    const upload = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/media`, {
+      method: "POST",
+      signal: outboundSignal(OUTBOUND_MEDIA_TIMEOUT_MS),
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form
+    });
+    const payload = await upload.json().catch(() => null);
+    if (!upload.ok || !payload?.id) {
+      console.error("WhatsApp media upload failed", payload?.error || payload);
+      return { ok: false as const, error: friendlyWhatsAppError(payload, "MEDIA_UPLOAD_FAILED") };
+    }
+    mediaId = String(payload.id);
+  } catch (error) {
+    console.error("WhatsApp media upload network failure", error);
+    return { ok: false as const, error: "MEDIA_UPLOAD_FAILED" };
+  }
+
+  const caption = input.caption.trim().slice(0, 1024);
+  const image = input.kind === "image";
+  return sendWhatsAppCustomMessage({
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+    to: input.to,
+    author: input.author,
+    // The thread can show pictures but not play videos yet, so a video is logged as text.
+    displayText: image ? caption || "صورة" : `🎬 ${caption || "فيديو"}`,
+    ...(image ? { attachment: { type: "image" as const, url: input.dataUrl, name: input.fileName, mimeType: input.mimeType } } : {}),
+    message: { type: input.kind, [input.kind]: { id: mediaId, ...(caption ? { caption } : {}) } }
   });
 }
 

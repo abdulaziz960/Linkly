@@ -20,7 +20,8 @@ type BotNodeContent =
   | { kind: "knowledgeBase"; noMatchText: string; next: string | null }
   | { kind: "aiReply"; next: string | null }
   | { kind: "catalog"; text: string; next: string | null }
-  | { kind: "branch"; text: string; next: string | null };
+  | { kind: "branch"; text: string; next: string | null }
+  | { kind: "media"; mediaId: string; mediaName: string; caption: string; next: string | null };
 
 type BotNode = {
   id: string;
@@ -53,12 +54,14 @@ type ReadyStep = {
   kind?: "flow" | "step";
 };
 
-const nodeTypes = ["إرسال رسالة", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "رد من قاعدة المعرفة", "رد AI تلقائي", "عرض الكتالوج", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
+const nodeTypes = ["إرسال رسالة", "إرسال صورة", "إرسال فيديو", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "رد من قاعدة المعرفة", "رد AI تلقائي", "عرض الكتالوج", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
 const LIST_NODE_TYPES = new Set(["إرسال قائمة قصيرة", "إرسال قائمة طويلة"]);
 const TERMINAL_NODE_TYPES = new Set(["تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"]);
 
 const nodeTypeLabelsEn: Record<string, string> = {
   "إرسال رسالة": "Send a message",
+  "إرسال صورة": "Send an image",
+  "إرسال فيديو": "Send a video",
   "إرسال قائمة قصيرة": "Send a short list",
   "إرسال قائمة طويلة": "Send a long list",
   "رد من قاعدة المعرفة": "Knowledge Base reply",
@@ -164,6 +167,7 @@ function emptyContentFor(type: string): BotNodeContent {
   if (type === "رد AI تلقائي") return { kind: "aiReply", next: null };
   if (type === "عرض الكتالوج") return { kind: "catalog", text: "", next: null };
   if (type === "أقرب فرع") return { kind: "branch", text: "", next: null };
+  if (type === "إرسال صورة" || type === "إرسال فيديو") return { kind: "media", mediaId: "", mediaName: "", caption: "", next: null };
   return { kind: "message", text: "", next: null };
 }
 
@@ -176,7 +180,7 @@ const START_POSITION = { x: 24, y: 160 };
 const DRAG_CLICK_THRESHOLD = 5;
 
 function outgoingLinks(node: BotNode): Array<{ from: string; to: string }> {
-  if ((node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch") && node.content.next) return [{ from: node.id, to: node.content.next }];
+  if ((node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch" || node.content.kind === "media") && node.content.next) return [{ from: node.id, to: node.content.next }];
   if (node.content.kind === "list") {
     return node.content.options.filter((option) => option.next).map((option) => ({ from: `${node.id}:${option.id}`, to: option.next as string }));
   }
@@ -187,7 +191,7 @@ function outgoingLinks(node: BotNode): Array<{ from: string; to: string }> {
 // which node/option it belongs to - shared by both the dot rendering and the
 // hit-testing that resolves a drag-to-connect drop.
 function connectorAnchors(node: BotNode): Array<{ key: string; optionId: string | null; x: number; y: number }> {
-  if (node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch") {
+  if (node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch" || node.content.kind === "media") {
     return [{ key: node.id, optionId: null, x: node.x + NODE_WIDTH, y: node.y + 28 }];
   }
   if (node.content.kind === "list") {
@@ -208,6 +212,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
   const stepTypeUpgradePlan = (type: string) => upgradeTargetForBotStep(type);
   const [channel, setChannel] = useState<BotChannel>("whatsapp");
   const [builderOpen, setBuilderOpen] = useState(false);
+  const [mediaUploading, setMediaUploading] = useState(false);
   const [nodes, setNodes] = useState<BotNode[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -422,7 +427,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
   // deleting a step can never leave a dangling reference behind.
   function pruneLinksTo(list: BotNode[], removedId: string): BotNode[] {
     return list.map((node) => {
-      if ((node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch") && node.content.next === removedId) {
+      if ((node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch" || node.content.kind === "media") && node.content.next === removedId) {
         return { ...node, content: { ...node.content, next: null } };
       }
       if (node.content.kind === "list") {
@@ -432,11 +437,46 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
     });
   }
 
+  async function uploadStepMedia(file: File | undefined) {
+    if (!file || draftContent.kind !== "media") return;
+    const kind = nodeType === "إرسال صورة" ? "image" : "video";
+    if (!file.type.startsWith(`${kind}/`)) {
+      setFeedback({ type: "error", message: kind === "image" ? t("اختر ملف صورة (JPG أو PNG).", "Choose an image file (JPG or PNG).") : t("اختر ملف فيديو (MP4).", "Choose a video file (MP4).") });
+      return;
+    }
+    setMediaUploading(true);
+    setFeedback(null);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("read"));
+        reader.readAsDataURL(file);
+      });
+      const response = await fetch("/api/bot/media", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, dataUrl })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر رفع الملف.", "Could not upload the file."));
+      setDraftContent((current) => (current.kind === "media" ? { ...current, mediaId: payload.data.id, mediaName: payload.data.name } : current));
+    } catch (error) {
+      setFeedback({ type: "error", message: error instanceof Error ? error.message : t("تعذر رفع الملف.", "Could not upload the file.") });
+    } finally {
+      setMediaUploading(false);
+    }
+  }
+
   async function submitNode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = nodeTitle.trim() || nodeType;
     const content = draftContent.kind === "list" ? { ...draftContent, options: draftContent.options.filter((option) => option.label.trim()) } : draftContent;
     if (content.kind === "message" && !content.text.trim()) return;
+    if (content.kind === "media" && !content.mediaId) {
+      setFeedback({ type: "error", message: nodeType === "إرسال صورة" ? t("ارفع الصورة أولًا.", "Upload the image first.") : t("ارفع الفيديو أولًا.", "Upload the video first.") });
+      return;
+    }
     if (content.kind === "list" && !content.text.trim()) return;
     if (content.kind === "knowledgeBase" && !content.noMatchText.trim()) return;
     if (content.kind === "team" && !content.teamName.trim() && teams.length) return;
@@ -561,7 +601,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
       if (source.optionId && node.content.kind === "list") {
         return { ...node, content: { ...node.content, options: node.content.options.map((option) => (option.id === source.optionId ? { ...option, next: targetNode.id } : option)) } };
       }
-      if (!source.optionId && (node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch")) {
+      if (!source.optionId && (node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch" || node.content.kind === "media")) {
         return { ...node, content: { ...node.content, next: targetNode.id } };
       }
       return node;
@@ -738,10 +778,11 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
               {node.content.kind === "team" ? <small>{node.content.teamName || t("لم يُحدد فريق", "No team chosen")}</small> : null}
               {node.content.kind === "employee" ? <small>{node.content.employeeName || t("لم يُحدد موظف", "No employee chosen")}</small> : null}
               {node.content.kind === "knowledgeBase" ? <small>{t("يرد من قاعدة المعرفة حسب رسالة العميل", "Replies from the Knowledge Base based on the customer's message")}</small> : null}
+              {node.content.kind === "media" ? <small>{node.content.mediaName ? `📎 ${node.content.mediaName}` : t("لم يُرفع ملف بعد", "No file uploaded yet")}{node.content.caption ? ` — ${node.content.caption}` : ""}</small> : null}
               {node.content.kind === "branch" ? <small>{node.content.text || t("يطلب موقع العميل ويرسل له أقرب فرع", "Asks for the customer's location and sends the nearest branch")}</small> : null}
               {node.content.kind === "catalog" ? <small>{node.content.text || t("يعرض منتجات الكتالوج ويتيح الشراء من الواتساب", "Shows the catalog products and lets customers buy in chat")}</small> : null}
               {node.content.kind === "aiReply" ? <small>{t("يرد تلقائيًا بالذكاء الاصطناعي على كل رسالة، بدون مراجعة موظف", "Automatically replies with AI to every message, no agent review needed")}</small> : null}
-              {node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch" ? (
+              {node.content.kind === "message" || node.content.kind === "knowledgeBase" || node.content.kind === "aiReply" || node.content.kind === "catalog" || node.content.kind === "branch" || node.content.kind === "media" ? (
                 <button
                   className={`bot-connector ${node.content.next ? "linked" : ""}`}
                   type="button"
@@ -818,6 +859,37 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                   </label>
                 ) : null}
 
+                {draftContent.kind === "media" ? (
+                  <>
+                    <label>
+                      <span>{nodeType === "إرسال صورة" ? t("الصورة (JPG أو PNG، حتى 5 ميجا)", "Image (JPG or PNG, up to 5 MB)") : t("الفيديو (MP4، حتى 12 ميجا)", "Video (MP4, up to 12 MB)")}</span>
+                      <span className="btn soft bot-media-pick" style={{ justifyContent: "center", cursor: "pointer" }}>
+                        <input
+                          type="file"
+                          hidden
+                          accept={nodeType === "إرسال صورة" ? "image/jpeg,image/png" : "video/mp4,video/3gpp"}
+                          onChange={(event) => { void uploadStepMedia(event.target.files?.[0]); event.target.value = ""; }}
+                        />
+                        {mediaUploading
+                          ? t("جارٍ الرفع...", "Uploading...")
+                          : draftContent.mediaId
+                            ? `✓ ${draftContent.mediaName || t("تم الرفع", "Uploaded")} — ${t("اضغط للتغيير", "tap to change")}`
+                            : nodeType === "إرسال صورة" ? t("اختر صورة", "Choose image") : t("اختر فيديو", "Choose video")}
+                      </span>
+                    </label>
+                    <label>
+                      <span>{t("نص يظهر مع الملف (اختياري)", "Caption (optional)")}</span>
+                      <textarea
+                        value={draftContent.caption}
+                        maxLength={1024}
+                        onChange={(event) => setDraftContent({ ...draftContent, caption: event.target.value })}
+                        placeholder={t("مثال: هذا عرض هذا الأسبوع", "Example: This week's offer")}
+                        rows={3}
+                      />
+                    </label>
+                  </>
+                ) : null}
+
                 {draftContent.kind === "close" ? (
                   <label>
                     <span>{t("رسالة الإغلاق (اختياري)", "Closing message (optional)")}</span>
@@ -874,7 +946,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                   <small className="field-hint">{t("يرد على العميل بالذكاء الاصطناعي حسب إعدادات \"مساعد AI\" (الأسلوب والصلاحيات والحدود اليومية)، بدون أي مراجعة بشرية قبل الإرسال. يعمل بمفتاح API الخاص بحسابك فقط (المساعد المُدار من Linkly للموظفين فقط). ويجيب من قاعدة المعرفة فقط، وإن لم يجد إجابة يمرّر المحادثة للخطوة التالية. اربط خطوة تالية (مثل تحويل لموظف) تُستخدم عندما يتعذر الرد (معطّل أو تجاوز الحد أو لا إجابة).", "Replies to the customer with AI per the \"AI Copilot\" settings (style, key, daily limits) - no human review before sending. It runs only with your own API key (the Linkly-managed assistant is for employees only) and answers from the knowledge base only; if nothing matches, the chat goes to the next step. Link a next step (e.g. transfer to an employee) used when the AI can't reply (disabled, over its limit or no answer).")}</small>
                 ) : null}
 
-                {(draftContent.kind === "message" || draftContent.kind === "knowledgeBase" || draftContent.kind === "aiReply" || draftContent.kind === "catalog" || draftContent.kind === "branch") ? (
+                {(draftContent.kind === "message" || draftContent.kind === "knowledgeBase" || draftContent.kind === "aiReply" || draftContent.kind === "catalog" || draftContent.kind === "branch" || draftContent.kind === "media") ? (
                   <label>
                     <span>{t("ربط بخطوة", "Connect to step")}</span>
                     <CustomSelect value={draftContent.next || ""} onChange={(value) => setDraftContent({ ...draftContent, next: value || null })} options={[{ value: "", label: t("بدون ربط", "No connection") }, ...nodes.filter((node) => node.id !== editingNodeId).map((node) => ({ value: node.id, label: node.title }))]} />

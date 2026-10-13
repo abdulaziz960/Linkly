@@ -3050,7 +3050,9 @@ function parseAutomationActions(value: string): AutomationRule["actions"] {
       .filter((action) => action && typeof action === "object")
       .map((action) => ({
         type: typeof action.type === "string" ? action.type : "فتح المحادثة",
-        target: typeof action.target === "string" ? action.target : "لا يحتاج اختيار"
+        target: typeof action.target === "string" ? action.target : "لا يحتاج اختيار",
+        ...(typeof action.caption === "string" && action.caption ? { caption: action.caption } : {}),
+        ...(typeof action.mediaName === "string" && action.mediaName ? { mediaName: action.mediaName } : {})
       }));
   } catch {
     return [];

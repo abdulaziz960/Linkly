@@ -261,6 +261,8 @@ export type AutomationRule = {
   actions?: Array<{
     type: string;
     target: string;
+    caption?: string;
+    mediaName?: string;
   }>;
   createdAt: string;
   enabled: boolean;
