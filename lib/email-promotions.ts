@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import ExcelJS from "exceljs";
 import { prisma } from "./prisma";
 import { ensureEmailPromotionsSchema } from "./email-promotions-schema";
+import { emailHtmlToText, sanitizeEmailHtml } from "./email-html";
 
 export const EMAIL_CAMPAIGN_STATUSES = ["draft", "scheduled", "sending", "sent", "failed", "cancelled"] as const;
 export type EmailCampaignStatus = (typeof EMAIL_CAMPAIGN_STATUSES)[number];
@@ -120,12 +121,7 @@ export async function parseEmailRecipientFile(buffer: Buffer, filename: string):
 }
 
 function stripHtml(value: string) {
-  return value
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return emailHtmlToText(value);
 }
 
 function escapeHtml(value: string) {
@@ -259,7 +255,8 @@ export async function listEmailCampaigns(tenantId: string) {
     subject: campaign.subject,
     senderName: campaign.senderName,
     senderEmail: campaign.senderEmail,
-    bodyHtml: campaign.bodyHtml,
+    // Rows saved before sanitising existed are cleaned on the way out as well.
+    bodyHtml: sanitizeEmailHtml(campaign.bodyHtml),
     ctaText: campaign.ctaText,
     ctaUrl: campaign.ctaUrl,
     audienceMode: campaign.audienceMode,
@@ -322,7 +319,7 @@ export async function createEmailCampaign(tenantId: string, input: EmailCampaign
         subject: input.subject.trim(),
         senderName: input.senderName.trim(),
         senderEmail: normalizeMarketingEmail(input.senderEmail),
-        bodyHtml: input.bodyHtml.trim(),
+        bodyHtml: sanitizeEmailHtml(input.bodyHtml).trim(),
         bodyText: stripHtml(input.bodyHtml),
         ctaText: input.ctaText?.trim() || "",
         ctaUrl: input.ctaUrl?.trim() || "",
@@ -362,7 +359,7 @@ export function decorateEmailHtml(campaign: { id: string; name: string; bodyHtml
   const button = campaign.ctaText && ctaHref
     ? `<p style="margin:24px 0"><a href="${escapeHtml(ctaHref)}" style="display:inline-block;background:#178a82;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700">${escapeHtml(campaign.ctaText)}</a></p>`
     : "";
-  return `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#f8fafc;font-family:Arial,Tahoma,sans-serif;line-height:1.8;color:#1f2937;direction:rtl;text-align:right"><main style="max-width:680px;margin:0 auto;padding:28px 18px"><section style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:28px;box-shadow:0 8px 24px rgba(15,23,42,.05)"><div style="direction:rtl;text-align:right">${campaign.bodyHtml}</div>${button}<hr style="border:0;border-top:1px solid #e5e7eb;margin:26px 0"><p style="margin:0;font-size:12px;color:#64748b">تستلم هذه الرسالة لأن بريدك مسجل ضمن قائمة التواصل التسويقي لدينا. إذا لم تعد ترغب باستلام الرسائل التسويقية يمكنك <a href="${escapeHtml(unsubscribeUrl)}" style="color:#0f766e;font-weight:700">إلغاء الاشتراك</a>.</p></section></main><img src="${escapeHtml(openPixel)}" width="1" height="1" alt="" style="display:none"></body></html>`;
+  return `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#f8fafc;font-family:Arial,Tahoma,sans-serif;line-height:1.8;color:#1f2937;direction:rtl;text-align:right"><main style="max-width:680px;margin:0 auto;padding:28px 18px"><section style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:28px;box-shadow:0 8px 24px rgba(15,23,42,.05)"><div style="direction:rtl;text-align:right">${sanitizeEmailHtml(campaign.bodyHtml)}</div>${button}<hr style="border:0;border-top:1px solid #e5e7eb;margin:26px 0"><p style="margin:0;font-size:12px;color:#64748b">تستلم هذه الرسالة لأن بريدك مسجل ضمن قائمة التواصل التسويقي لدينا. إذا لم تعد ترغب باستلام الرسائل التسويقية يمكنك <a href="${escapeHtml(unsubscribeUrl)}" style="color:#0f766e;font-weight:700">إلغاء الاشتراك</a>.</p></section></main><img src="${escapeHtml(openPixel)}" width="1" height="1" alt="" style="display:none"></body></html>`;
 }
 
 async function sendProviderEmail(input: { from: string; to: string; subject: string; html: string; text: string; idempotencyKey: string }) {

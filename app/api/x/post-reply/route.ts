@@ -4,12 +4,21 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { formatMessageTime } from "../../../../lib/time";
 import { sendXPostReply, XApiError } from "../../../../lib/x-api";
+import { getEmployeeForUser, getVisibleAssigneeNames, userHasViewPermission } from "../../../../lib/permissions-server";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
+
+  // Replying publishes a post from the company account, so it needs the inbox
+  // and, like every other conversation action, only the conversations this
+  // employee can see (the owner sees all).
+  if (!(await userHasViewPermission(user, "inbox"))) {
+    return NextResponse.json({ ok: false, error: "لا تملك صلاحية الوصول للمحادثات" }, { status: 403 });
+  }
+  const assigneeNames = await getVisibleAssigneeNames(user, await getEmployeeForUser(user));
 
   const body = await request.json().catch(() => null) as { messageId?: string; text?: string } | null;
   const messageId = body?.messageId?.trim() || "";
@@ -22,7 +31,7 @@ export async function POST(request: NextRequest) {
   const sourceMessage = await prisma.message.findFirst({
     where: {
       id: messageId,
-      conversation: { tenantId: user.tenantId, channel: "x" }
+      conversation: { tenantId: user.tenantId, channel: "x", ...(assigneeNames ? { assignee: { in: assigneeNames } } : {}) }
     },
     include: { conversation: true }
   });

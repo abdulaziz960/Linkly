@@ -4,12 +4,14 @@ import { getIntegrationSettings } from "../../../../../lib/database";
 import { ensureXRealtimeDelivery } from "../../../../../lib/x-activity";
 import { prisma } from "../../../../../lib/prisma";
 import { getAppOrigin } from "../../../../../lib/app-url";
+import { userHasViewPermission } from "../../../../../lib/permissions-server";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ ok: false, error: "يلزم تسجيل الدخول" }, { status: 401 });
+  if (!(await userHasViewPermission(user, "settings"))) return NextResponse.json({ ok: false, error: "لا تملك صلاحية الوصول لإعدادات القنوات" }, { status: 403 });
 
   const settings = await getIntegrationSettings("x", user.tenantId);
   const userId = settings.wabaId.trim();

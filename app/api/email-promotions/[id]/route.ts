@@ -6,6 +6,7 @@ import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { ensureEmailPromotionsSchema } from "../../../../lib/email-promotions-schema";
 import { listEmailCampaigns, processEmailCampaignBatch, resolveEmailRecipients, validateEmailCampaignInput } from "../../../../lib/email-promotions";
 import { jsonError, jsonOk } from "../../_utils/json";
+import { emailHtmlToText, sanitizeEmailHtml } from "../../../../lib/email-html";
 
 export const runtime = "nodejs";
 
@@ -44,8 +45,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           subject: input.subject.trim(),
           senderName: input.senderName.trim(),
           senderEmail: input.senderEmail.trim().toLowerCase(),
-          bodyHtml: input.bodyHtml.trim(),
-          bodyText: input.bodyHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+          bodyHtml: sanitizeEmailHtml(input.bodyHtml).trim(),
+          bodyText: emailHtmlToText(input.bodyHtml),
           ctaText: input.ctaText.trim(),
           ctaUrl: input.ctaUrl.trim(),
           audienceMode: input.audience.mode,

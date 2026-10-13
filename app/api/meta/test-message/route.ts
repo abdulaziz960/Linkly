@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { normalizeWhatsAppPhone, storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { SECRET_MASK } from "../../../../lib/secret-storage";
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -12,6 +13,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+    if (!(await userHasViewPermission(user, "settings"))) return jsonError("لا تملك صلاحية الوصول لإعدادات القنوات", 403);
 
     // This sends a real outbound WhatsApp message through Meta's API using
     // the tenant's own credentials - without a cap, any authenticated

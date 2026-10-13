@@ -3,12 +3,14 @@ import { getEmailIntegrationSettings } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { getCurrentUser } from "../../../../lib/auth";
 import { SECRET_MASK } from "../../../../lib/secret-storage";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await userHasViewPermission(user, "settings"))) return NextResponse.json({ error: "لا تملك صلاحية الوصول لإعدادات القنوات" }, { status: 403 });
   const settings = await getEmailIntegrationSettings(user.tenantId);
   return NextResponse.json({ ...settings, webhookSecret: settings.webhookSecret ? SECRET_MASK : "" });
 }
@@ -16,6 +18,7 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await userHasViewPermission(user, "settings"))) return NextResponse.json({ error: "لا تملك صلاحية الوصول لإعدادات القنوات" }, { status: 403 });
   const current = await getEmailIntegrationSettings(user.tenantId);
   const body = await request.json();
   const provider = body.provider === "gmail" || body.provider === "webhook" ? body.provider : undefined;

@@ -398,7 +398,8 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
               <div className="email-preview-card">
                 <div><b>{form.senderName || t("اسم المرسل", "Sender name")}</b><span dir="ltr">{form.senderEmail || "marketing@example.com"}</span></div>
                 <h3>{form.subject || t("عنوان البريد يظهر هنا", "Email subject appears here")}</h3>
-                <div className="email-preview-body" dangerouslySetInnerHTML={{ __html: form.bodyHtml || "<p></p>" }} />
+                {/* sandbox="" - no scripts, no same-origin access: whatever the markup contains cannot run in the dashboard. */}
+                <iframe className="email-preview-body email-preview-frame" title={t("معاينة البريد", "Email preview")} sandbox="" srcDoc={`<!doctype html><html dir="rtl"><body style="margin:0;font-family:Arial,Tahoma,sans-serif;line-height:1.8;color:#1f2937">${form.bodyHtml || "<p></p>"}</body></html>`} />
                 {form.ctaText ? <button type="button">{form.ctaText}</button> : null}
                 <small>{t("رابط إلغاء الاشتراك يضاف تلقائيًا", "Unsubscribe link is added automatically")}</small>
               </div>

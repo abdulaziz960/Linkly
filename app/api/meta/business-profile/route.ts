@@ -3,6 +3,7 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { getCurrentUser } from "../../../../lib/auth";
 import { uploadMetaMedia } from "../../../../lib/meta-media-upload";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
+import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -101,6 +102,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser();
     if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+    if (!(await userHasViewPermission(user, "settings"))) return jsonError("لا تملك صلاحية الوصول لإعدادات القنوات", 403);
 
     const settings = await getIntegrationSettings("whatsapp", user.tenantId);
     if (!settings.phoneNumberId || !settings.accessToken) {
@@ -121,6 +123,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) return jsonError("يلزم تسجيل الدخول", 401);
+    if (!(await userHasViewPermission(user, "settings"))) return jsonError("لا تملك صلاحية الوصول لإعدادات القنوات", 403);
 
     const settings = await getIntegrationSettings("whatsapp", user.tenantId);
     if (!settings.phoneNumberId || !settings.accessToken) {
