@@ -4,6 +4,7 @@ import CustomSelect from "../../components/CustomSelect";
 import TikTokAdsSettings from "../components/TikTokAdsSettings";
 import MetaAdsSettings from "../components/MetaAdsSettings";
 import SnapAdsSettings from "../components/SnapAdsSettings";
+import SnapAdAccountPicker from "../components/SnapAdAccountPicker";
 import StoreSettings from "../components/StoreSettings";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
@@ -278,6 +279,8 @@ export default function IntegrationsView() {
                     </button>
                     {statusPill(currentSettings?.status === "connected", t("متصل", "Connected"), t("غير متصل", "Not connected"))}
                   </div>
+
+                  {open === "snapchat" && currentSettings?.status === "connected" ? <SnapAdAccountPicker /> : null}
 
                   {(open === "meta" || open === "snapchat") && currentSettings?.status === "connected" ? (
                     <>

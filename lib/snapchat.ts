@@ -150,6 +150,32 @@ export async function getMyAdAccountInfo(settings: IntegrationSettings): Promise
   };
 }
 
+export type SnapchatAdAccountOption = { id: string; name: string; organizationId: string; organizationName: string };
+
+/** Every ad account the connected member can reach, across all of their organizations (first 10). */
+export async function listSnapchatAdAccounts(settings: IntegrationSettings): Promise<SnapchatAdAccountOption[]> {
+  const orgsResponse = await fetchSnapchatWithAutoRefresh(settings, "https://adsapi.snapchat.com/v1/me/organizations");
+  const orgsPayload = await orgsResponse.json().catch(() => null) as {
+    organizations?: Array<{ organization?: { id?: string; name?: string } }>;
+    message?: string;
+  } | null;
+  if (!orgsResponse.ok) throw new Error(orgsPayload?.message || "Unable to list managed Snapchat organizations");
+
+  const result: SnapchatAdAccountOption[] = [];
+  for (const entry of (orgsPayload?.organizations ?? []).slice(0, 10)) {
+    const organization = entry.organization;
+    if (!organization?.id) continue;
+    const response = await fetchSnapchatWithAutoRefresh(settings, `https://adsapi.snapchat.com/v1/organizations/${organization.id}/adaccounts`);
+    const payload = await response.json().catch(() => null) as { adaccounts?: Array<{ adaccount?: { id?: string; name?: string } }> } | null;
+    if (!response.ok) continue;
+    for (const item of payload?.adaccounts ?? []) {
+      if (!item.adaccount?.id) continue;
+      result.push({ id: item.adaccount.id, name: item.adaccount.name || item.adaccount.id, organizationId: organization.id, organizationName: organization.name || "" });
+    }
+  }
+  return result;
+}
+
 export type SnapchatLeadForm = {
   id: string;
   name: string;
