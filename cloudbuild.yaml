@@ -47,8 +47,9 @@ steps:
         npm ci
         npm run lint
         npm run typecheck
-        # One retry absorbs a timing-sensitive test on a small build machine.
-        npm test -- --retry=1
+        # No --retry here: it makes vitest report the suite's intentional
+        # expected-failure tests (it.fails) as failures.
+        npm test
 
   - id: build-image
     name: "gcr.io/cloud-builders/docker"
