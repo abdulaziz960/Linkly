@@ -105,10 +105,13 @@ export async function disconnectStore(tenantId: string, store: StoreKey): Promis
 }
 
 /** The workspace that connected this store account (webhooks identify the store, not the workspace). */
-export async function findTenantByMerchant(store: StoreKey, merchantId: string): Promise<string | null> {
+export async function findTenantByMerchant(store: StoreKey, merchantId: string, options: { includeDisconnected?: boolean } = {}): Promise<string | null> {
   if (!merchantId) return null;
   await ensureTable();
-  const rows = await prisma.$queryRaw<Array<{ tenant_id: string }>>`SELECT tenant_id FROM store_connections WHERE store = ${store} AND merchant_id = ${merchantId} AND status = 'connected' LIMIT 1`;
+  // A shop's data-erasure request arrives after it uninstalled, so it is looked up whatever its status.
+  const rows = options.includeDisconnected
+    ? await prisma.$queryRaw<Array<{ tenant_id: string }>>`SELECT tenant_id FROM store_connections WHERE store = ${store} AND merchant_id = ${merchantId} LIMIT 1`
+    : await prisma.$queryRaw<Array<{ tenant_id: string }>>`SELECT tenant_id FROM store_connections WHERE store = ${store} AND merchant_id = ${merchantId} AND status = 'connected' LIMIT 1`;
   return rows[0]?.tenant_id ?? null;
 }
 

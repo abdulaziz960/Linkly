@@ -32,8 +32,9 @@ type Section = "connection" | "orders" | "lookup" | "carts" | "checkout";
 const STATUS_GROUPS: StatusGroup[] = ["review", "processing", "shipped", "delivered", "cancelled", "other"];
 
 /** Salla / Zid: which notifications go out and how abandoned carts are followed up. Stored now; sending starts once the store is connected. */
-export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
+export default function StoreSettings({ store }: { store: "salla" | "zid" | "shopify" }) {
   const { t } = useLanguage();
+  const [shopDomain, setShopDomain] = useState("");
   const [settings, setSettings] = useState<Settings | null>(null);
   const [templates, setTemplates] = useState<string[]>([]);
   const [section, setSection] = useState<Section>("connection");
@@ -218,17 +219,34 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
 
       {section === "connection" ? (
         <section style={box}>
-          <h4 style={sectionTitle}>{store === "salla" ? t("ربط متجر سلة", "Connect your Salla store") : t("ربط متجر زد", "Connect your Zid store")}</h4>
+          <h4 style={sectionTitle}>{store === "salla" ? t("ربط متجر سلة", "Connect your Salla store") : store === "shopify" ? t("ربط متجر شوبيفاي", "Connect your Shopify store") : t("ربط متجر زد", "Connect your Zid store")}</h4>
           {connection?.status === "connected" ? (
             <p style={{ margin: 0, fontWeight: 700 }}>{t("متصل", "Connected")}{connection.merchantName ? ` — ${connection.merchantName}` : ""}</p>
           ) : (
             <p style={{ margin: 0, opacity: 0.8 }}>{t("غير متصل", "Not connected")}</p>
           )}
           {!available ? (
-            <span style={hint}>{store === "zid" ? t("الربط غير مفعّل بعد على الخادم (بيانات تطبيق زد غير مضبوطة). تواصل مع الدعم.", "The connection is not enabled yet on the server (Zid app credentials are not set). Contact support.") : t("الربط غير مفعّل بعد على الخادم (بيانات تطبيق سلة غير مضبوطة). تواصل مع الدعم.", "The connection is not enabled on the server yet (the Salla app credentials are not set). Contact support.")}</span>
+            <span style={hint}>{store === "shopify" ? t("الربط غير مفعّل بعد على الخادم (بيانات تطبيق شوبيفاي غير مضبوطة). تواصل مع الدعم.", "The connection is not enabled yet on the server (Shopify app credentials are not set). Contact support.") : store === "zid" ? t("الربط غير مفعّل بعد على الخادم (بيانات تطبيق زد غير مضبوطة). تواصل مع الدعم.", "The connection is not enabled yet on the server (Zid app credentials are not set). Contact support.") : t("الربط غير مفعّل بعد على الخادم (بيانات تطبيق سلة غير مضبوطة). تواصل مع الدعم.", "The connection is not enabled on the server yet (the Salla app credentials are not set). Contact support.")}</span>
           ) : (
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button className="primary-action" type="button" disabled={busy} onClick={() => window.open(`/api/${store}/connect`, `${store}-connect`, "width=620,height=760")}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+              {store === "shopify" ? (
+                <label style={{ ...fieldLabel, flex: "1 1 260px" }}>
+                  {t("نطاق المتجر في شوبيفاي", "Your Shopify store domain")}
+                  <input
+                    style={input}
+                    dir="ltr"
+                    value={shopDomain}
+                    placeholder="my-store.myshopify.com"
+                    onChange={(event) => setShopDomain(event.target.value)}
+                  />
+                </label>
+              ) : null}
+              <button
+                className="primary-action"
+                type="button"
+                disabled={busy || (store === "shopify" && !shopDomain.trim())}
+                onClick={() => window.open(store === "shopify" ? `/api/shopify/connect?shop=${encodeURIComponent(shopDomain.trim())}` : `/api/${store}/connect`, `${store}-connect`, "width=620,height=760")}
+              >
                 {connection?.status === "connected" ? t("إعادة الربط", "Reconnect") : t("ربط المتجر", "Connect store")}
               </button>
               {connection?.status === "connected" ? <button className="soft-action" type="button" disabled={busy} onClick={() => void disconnect()}>{t("فصل الربط", "Disconnect")}</button> : null}

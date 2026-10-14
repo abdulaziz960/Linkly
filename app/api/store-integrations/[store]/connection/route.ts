@@ -5,6 +5,7 @@ import { disconnectStore, getStoreConnection } from "../../../../../lib/store-co
 import { isStoreKey } from "../../../../../lib/store-settings";
 import { sallaConfigured } from "../../../../../lib/salla";
 import { zidConfigured } from "../../../../../lib/zid";
+import { shopifyConfigured } from "../../../../../lib/shopify";
 import { jsonError, jsonOk } from "../../../_utils/json";
 import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 
@@ -20,7 +21,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
   if (!(await userHasViewPermission(user, "integrations"))) return jsonError("لا تملك صلاحية الوصول", 403);
   const connection = await getStoreConnection(user.tenantId, store);
-  return jsonOk({ connection, available: store === "salla" ? sallaConfigured() : zidConfigured() });
+  return jsonOk({ connection, available: store === "salla" ? sallaConfigured() : store === "shopify" ? shopifyConfigured() : zidConfigured() });
 }
 
 export async function DELETE(request: NextRequest, { params }: Params) {

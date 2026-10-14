@@ -53,12 +53,12 @@ export default function IntegrationsView() {
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState<Platform | null>(null);
   const [tab, setTab] = useState<Tab>("receive");
-  const [storeOpen, setStoreOpen] = useState<"salla" | "zid" | null>(null);
-  const [storeConnected, setStoreConnected] = useState<Partial<Record<"salla" | "zid", boolean>>>({});
+  const [storeOpen, setStoreOpen] = useState<"salla" | "zid" | "shopify" | null>(null);
+  const [storeConnected, setStoreConnected] = useState<Partial<Record<"salla" | "zid" | "shopify", boolean>>>({});
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   function loadStoreConnections() {
-    (["salla", "zid"] as const).forEach((store) => {
+    (["salla", "zid", "shopify"] as const).forEach((store) => {
       fetch(`/api/store-integrations/${store}/connection`, { cache: "no-store" })
         .then((response) => response.json())
         .then((result: { ok?: boolean; data?: { connection?: { status?: string } } }) => {
@@ -250,14 +250,15 @@ export default function IntegrationsView() {
       <div className="channels-overview-head" style={{ marginTop: 8 }}>
         <div>
           <h2>{t("المتاجر الإلكترونية", "E-commerce stores")}</h2>
-          <p>{t("اربط متجرك في سلة أو زد لمتابعة طلبات العملاء وسلاتهم المتروكة من محادثات واتساب.", "Connect your Salla or Zid store to follow customers' orders and abandoned carts from WhatsApp conversations.")}</p>
+          <p>{t("اربط متجرك في سلة أو زد أو شوبيفاي لمتابعة طلبات العملاء وسلاتهم المتروكة من محادثات واتساب.", "Connect your Salla, Zid or Shopify store to follow customers' orders and abandoned carts from WhatsApp conversations.")}</p>
         </div>
       </div>
 
       <div className="channel-grid">
         {[
           { id: "salla", logo: "/brands/salla.png", title: t("سلة", "Salla"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") },
-          { id: "zid", logo: "/brands/zid.svg", title: t("زد", "Zid"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") }
+          { id: "zid", logo: "/brands/zid.svg", title: t("زد", "Zid"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") },
+          { id: "shopify", logo: "/brands/shopify.svg", title: t("شوبيفاي", "Shopify"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") }
         ].map((store) => (
           <div key={store.id} className="meta-test-card">
             <div>
@@ -267,19 +268,19 @@ export default function IntegrationsView() {
               </span>
               <h3>{store.title}</h3>
               <p>{store.description}</p>
-              {statusPill(Boolean(storeConnected[store.id as "salla" | "zid"]), t("متصل", "Connected"), t("غير متصل", "Not connected"))}
+              {statusPill(Boolean(storeConnected[store.id as "salla" | "zid" | "shopify"]), t("متصل", "Connected"), t("غير متصل", "Not connected"))}
             </div>
-            <button className="btn primary" type="button" onClick={() => setStoreOpen(store.id as "salla" | "zid")}>{t("إعدادات الإشعارات", "Notification settings")}</button>
+            <button className="btn primary" type="button" onClick={() => setStoreOpen(store.id as "salla" | "zid" | "shopify")}>{t("إعدادات الإشعارات", "Notification settings")}</button>
           </div>
         ))}
       </div>
 
       {storeOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => { setStoreOpen(null); loadStoreConnections(); }}>
-          <div className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={storeOpen === "salla" ? t("سلة", "Salla") : t("زد", "Zid")} onClick={(event) => event.stopPropagation()}>
+          <div className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={storeOpen === "salla" ? t("سلة", "Salla") : storeOpen === "shopify" ? t("شوبيفاي", "Shopify") : t("زد", "Zid")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
               <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => { setStoreOpen(null); loadStoreConnections(); }}>×</button>
-              <h2>{storeOpen === "salla" ? t("سلة", "Salla") : t("زد", "Zid")}</h2>
+              <h2>{storeOpen === "salla" ? t("سلة", "Salla") : storeOpen === "shopify" ? t("شوبيفاي", "Shopify") : t("زد", "Zid")}</h2>
             </header>
             <div className="account-modal-body">
               <StoreSettings store={storeOpen} />

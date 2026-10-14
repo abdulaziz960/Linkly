@@ -20,7 +20,7 @@ afterAll(async () => {
   }
 });
 
-describe("store integration settings (Salla / Zid)", () => {
+describe("store integration settings (Salla / Zid / Shopify)", () => {
   it("normalizes anything into valid settings and clamps the numbers", async () => {
     const { normalizeStoreSettings, DEFAULT_STORE_SETTINGS } = await import("../lib/store-settings");
     expect(normalizeStoreSettings(null)).toEqual(DEFAULT_STORE_SETTINGS);
@@ -60,6 +60,7 @@ describe("store integration settings (Salla / Zid)", () => {
     const { isStoreKey } = await import("../lib/store-settings");
     expect(isStoreKey("salla")).toBe(true);
     expect(isStoreKey("zid")).toBe(true);
-    expect(isStoreKey("shopify")).toBe(false);
+    expect(isStoreKey("shopify")).toBe(true);
+    expect(isStoreKey("woocommerce")).toBe(false);
   });
 });

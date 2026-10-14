@@ -9,7 +9,7 @@ import { prisma } from "./prisma";
  * built on top of it, and the screen says so.
  */
 
-export const STORES = ["salla", "zid"] as const;
+export const STORES = ["salla", "zid", "shopify"] as const;
 export type StoreKey = (typeof STORES)[number];
 
 export function isStoreKey(value: unknown): value is StoreKey {

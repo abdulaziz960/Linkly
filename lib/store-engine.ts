@@ -4,8 +4,9 @@ import { sendWhatsAppTemplate } from "./campaign-engine";
 import { prisma } from "./prisma";
 import { findSallaOrderByReference, parseSallaWebhook, type StoreCart, type StoreEvent, type StoreOrder } from "./salla";
 import { createZidCoupon, fetchZidCart, fetchZidOrder, findZidOrderByReference, parseZidWebhook, uniqueCouponCode } from "./zid";
-import { findTenantByMerchant, readStoreTokens } from "./store-connections";
-import { getStoreSettings, type OrderEvent, type StatusGroup, type StoreKey, type StoreSettings } from "./store-settings";
+import { findShopifyOrderByReference, parseShopifyWebhook } from "./shopify";
+import { disconnectStore, findTenantByMerchant, readStoreTokens } from "./store-connections";
+import { STORES, getStoreSettings, type OrderEvent, type StatusGroup, type StoreKey, type StoreSettings } from "./store-settings";
 
 /**
  * The store engine: what happens when a store tells us something (order created / status changed /
@@ -282,6 +283,12 @@ export async function processStoreCartReminders(tenantId: string, limit = 25): P
   return sent;
 }
 
+function findStoreOrderByReference(store: StoreKey, tenantId: string, reference: string): Promise<StoreOrder | null> {
+  if (store === "zid") return findZidOrderByReference(tenantId, reference);
+  if (store === "shopify") return findShopifyOrderByReference(tenantId, reference);
+  return findSallaOrderByReference(tenantId, reference);
+}
+
 // ---------- webhook entry ----------
 
 export async function handleSallaWebhook(body: unknown): Promise<WebhookOutcome> {
@@ -290,6 +297,53 @@ export async function handleSallaWebhook(body: unknown): Promise<WebhookOutcome>
   if (!tenantId) return { handled: false, status: 202, detail: "unknown merchant" };
   const detail = await applyStoreEvent(tenantId, "salla", event);
   return { handled: true, status: 200, detail };
+}
+
+/** Shopify's orders / checkouts / uninstall events. The shop domain identifies the workspace. */
+export async function handleShopifyWebhook(topic: string, shop: string, body: unknown): Promise<WebhookOutcome> {
+  const tenantId = await findTenantByMerchant("shopify", shop);
+  if (!tenantId) return { handled: false, status: 202, detail: "unknown shop" };
+  if (topic === "app/uninstalled") {
+    await disconnectStore(tenantId, "shopify");
+    return { handled: true, status: 200, detail: "disconnected" };
+  }
+  const event = parseShopifyWebhook(topic, shop, body);
+  const detail = await applyStoreEvent(tenantId, "shopify", event);
+  return { handled: true, status: 200, detail };
+}
+
+/**
+ * Shopify's mandatory privacy webhooks. What a workspace holds from a shop is the phone and name in its
+ * event log and pending cart reminders; an erasure removes them, a data request is recorded for the
+ * merchant (nothing is sent to the shopper from here).
+ */
+export async function handleShopifyPrivacyWebhook(topic: string, shop: string, body: unknown): Promise<WebhookOutcome> {
+  const tenantId = await findTenantByMerchant("shopify", shop, { includeDisconnected: true });
+  if (!tenantId) return { handled: true, status: 200, detail: "nothing held for this shop" };
+  await ensureTables();
+  if (topic === "shop/redact") {
+    await prisma.$executeRaw`DELETE FROM store_cart_reminders WHERE tenant_id = ${tenantId} AND store = 'shopify'`;
+    await prisma.$executeRaw`DELETE FROM store_event_log WHERE tenant_id = ${tenantId} AND store = 'shopify'`;
+    await disconnectStore(tenantId, "shopify");
+    return { handled: true, status: 200, detail: "shop erased" };
+  }
+  const raw = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const customer = (raw.customer && typeof raw.customer === "object" ? raw.customer : {}) as Record<string, unknown>;
+  const phone = typeof customer.phone === "string" ? customer.phone.replace(/\D/g, "") : "";
+  if (topic === "customers/redact") {
+    const tail = phone.slice(-9);
+    if (tail.length === 9) {
+      const pattern = `%${tail}`;
+      await prisma.$executeRaw`DELETE FROM store_cart_reminders WHERE tenant_id = ${tenantId} AND store = 'shopify' AND phone LIKE ${pattern}`;
+      await prisma.$executeRaw`DELETE FROM store_event_log WHERE tenant_id = ${tenantId} AND store = 'shopify' AND phone LIKE ${pattern}`;
+    }
+    return { handled: true, status: 200, detail: "customer erased" };
+  }
+  if (topic === "customers/data_request") {
+    await logEvent(tenantId, "shopify", "privacy-request", String(customer.id ?? ""), phone, true, "customers/data_request");
+    return { handled: true, status: 200, detail: "recorded" };
+  }
+  return { handled: true, status: 200, detail: "ignored" };
 }
 
 /**
@@ -390,7 +444,7 @@ export async function handleOrderInquiry(input: { tenantId: string; conversation
 
     // The store this workspace connected (Salla first, then Zid).
     let store: StoreKey | null = null;
-    for (const candidate of ["salla", "zid"] as StoreKey[]) {
+    for (const candidate of STORES) {
       if (await readStoreTokens(input.tenantId, candidate)) {
         store = candidate;
         break;
@@ -406,7 +460,7 @@ export async function handleOrderInquiry(input: { tenantId: string; conversation
       await send(settings.orderLookup.askNumberText);
       return true;
     }
-    const order = store === "zid" ? await findZidOrderByReference(input.tenantId, reference) : await findSallaOrderByReference(input.tenantId, reference);
+    const order = await findStoreOrderByReference(store, input.tenantId, reference);
     const allowed = order && (!settings.orderLookup.requirePhoneMatch || samePhone(order.customerPhone, input.phone));
     if (!order || !allowed) {
       // From another phone: ask for the last 4 digits of the phone on the order. The question is the same
@@ -436,7 +490,7 @@ async function answerPendingVerification(
   digits: string
 ): Promise<boolean> {
   let store: StoreKey | null = null;
-  for (const candidate of ["salla", "zid"] as StoreKey[]) {
+  for (const candidate of STORES) {
     if (await readStoreTokens(input.tenantId, candidate)) {
       store = candidate;
       break;
@@ -449,7 +503,7 @@ async function answerPendingVerification(
   const { settings } = await getStoreSettings(input.tenantId, store);
   const send = (message: string) => sendBotText("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, text: message, author: "الرد الآلي" });
 
-  const order = store === "zid" ? await findZidOrderByReference(input.tenantId, pending.reference) : await findSallaOrderByReference(input.tenantId, pending.reference);
+  const order = await findStoreOrderByReference(store, input.tenantId, pending.reference);
   if (order && order.customerPhone && lastFourDigits(order.customerPhone) === digits) {
     await clearPendingVerification(input.conversationId);
     const group = orderStatusGroup(order.statusSlug, order.statusLabel);
