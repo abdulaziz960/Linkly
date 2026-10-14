@@ -14,10 +14,15 @@ function closeWith(request: NextRequest, message: string) {
   );
 }
 
-/** Starts "Connect Zid": sends the store owner to Zid to approve access. */
+/**
+ * Starts "Connect Zid": sends the store owner to Zid to approve access. This is also the app's Redirection URL
+ * (Zid's install flow begins at the app, which then goes to Zid's authorize page with the callback as redirect_uri).
+ */
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
+  // Zid sends a merchant here after "Install" in the App Market. Without a Linkly session there is nobody to
+  // attach the store to: say so (the page then lands on the sign-in), rather than a silent bounce.
+  if (!user) return closeWith(request, "سجّل الدخول إلى لنكلي أولًا، ثم اربط المتجر من: التكاملات ← زد ← ربط المتجر.");
   if (user.role !== "مالك الحساب") return closeWith(request, "ربط المتجر متاح لمالك الحساب فقط.");
   if (!zidConfigured()) return closeWith(request, "ربط زد غير مفعّل بعد على الخادم (بيانات التطبيق ناقصة).");
 
