@@ -14,7 +14,7 @@
 | Allowed redirection URL(s) | `https://linklysa.io/api/shopify/callback` |
 | Embedded app | **مُطفأ** (التطبيق غير مضمَّن في لوحة Shopify) |
 | Access scopes | `read_orders` و`read_customers` |
-| Webhooks API version | يطابق `SHOPIFY_API_VERSION` (الافتراضي في الكود `2026-01`) |
+| Webhooks API version | يطابق `SHOPIFY_API_VERSION` (الافتراضي في الكود `2026-10`) |
 
 ### Webhooks الإلزامية للخصوصية (Compliance webhooks)
 في قسم Webhooks/Privacy ضع الرابط نفسه للثلاثة:
@@ -43,7 +43,7 @@
 | `SHOPIFY_CLIENT_ID` | Client ID | متغير عادي |
 | `SHOPIFY_CLIENT_SECRET` | Client secret | **سرّ** (Secret Manager). هو نفسه يوقّع OAuth والـwebhooks، فلا يوجد سرّ webhook منفصل |
 | `SHOPIFY_SCOPES` | اختياري | الافتراضي `read_orders,read_customers`؛ يجب أن يساوي ما في التطبيق |
-| `SHOPIFY_API_VERSION` | اختياري | الافتراضي `2026-01` |
+| `SHOPIFY_API_VERSION` | اختياري | الافتراضي `2026-10`؛ يجب أن يطابق «Webhooks API version» في التطبيق |
 
 ## 5) التجربة
 1. من لوحة Linkly (حساب المالك): **التكاملات ← شوبيفاي**، أدخل `your-store.myshopify.com`، **ربط المتجر**.

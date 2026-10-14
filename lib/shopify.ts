@@ -12,7 +12,7 @@ import { storePhone, type StoreCart, type StoreEvent, type StoreOrder } from "./
  * every webhook, so there is no separate webhook secret.
  */
 
-export const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION?.trim() || "2026-01";
+export const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION?.trim() || "2026-10";
 
 /** Orders (and the checkouts that become abandoned carts) need read_orders; customers for names and phones. */
 const DEFAULT_SCOPES = "read_orders,read_customers";
