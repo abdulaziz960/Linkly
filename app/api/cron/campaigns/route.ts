@@ -11,6 +11,7 @@ import { sendReengagementReminders } from "../../../../lib/reengagement";
 import { escalateUnansweredConversations } from "../../../../lib/response-sla";
 import { syncDueProductFeeds } from "../../../../lib/product-feed";
 import { reconcileAwaitingOrders } from "../../../../lib/catalog-payments";
+import { syncDueZidProducts } from "../../../../lib/zid-products";
 import { provisionOpenerTemplates } from "../../../../lib/opener-template";
 import { isCronRequestAuthorized } from "../../../../lib/cron-auth";
 import { processWebhookRetries } from "../../../../lib/webhooks";
@@ -133,6 +134,11 @@ export async function GET(request: NextRequest) {
     return { synced: 0, failed: 0 };
   });
 
+  const zidProducts = await syncDueZidProducts().catch((error) => {
+    console.error("Zid product sync failed", error);
+    return { synced: 0, failed: 0 };
+  });
+
   const orderPayments = await reconcileAwaitingOrders().catch((error) => {
     console.error("Order payment reconcile failed", error);
     return { checked: 0 };
@@ -148,5 +154,5 @@ export async function GET(request: NextRequest) {
     return null;
   });
 
-  return NextResponse.json({ ok: true, storeCartRemindersSent, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, webhookRetries, openerTemplates });
+  return NextResponse.json({ ok: true, storeCartRemindersSent, zidProducts, orderPayments, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, webhookRetries, openerTemplates });
 }

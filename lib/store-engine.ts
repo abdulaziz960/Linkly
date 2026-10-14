@@ -3,6 +3,7 @@ import { sendBotText } from "./bot-engine";
 import { sendWhatsAppTemplate } from "./campaign-engine";
 import { prisma } from "./prisma";
 import { findSallaOrderByReference, parseSallaWebhook, type StoreCart, type StoreEvent, type StoreOrder } from "./salla";
+import { createZidCoupon, fetchZidCart, fetchZidOrder, findZidOrderByReference, parseZidWebhook, uniqueCouponCode } from "./zid";
 import { findTenantByMerchant, readStoreTokens } from "./store-connections";
 import { getStoreSettings, type OrderEvent, type StatusGroup, type StoreKey, type StoreSettings } from "./store-settings";
 
@@ -30,6 +31,13 @@ function ensureTables() {
       ok INTEGER NOT NULL DEFAULT 0,
       detail TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS store_order_verification (
+      conversation_id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      reference TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      expires_at TEXT NOT NULL
     )`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS store_cart_reminders (
       id TEXT PRIMARY KEY,
@@ -60,8 +68,9 @@ function ensureTables() {
 export function orderStatusGroup(slug: string, label = ""): StatusGroup {
   const key = `${slug} ${label}`.toLowerCase();
   if (/cancel|ملغ|restor|مسترج/.test(key)) return "cancelled";
+  // Zid's "indelivery" (on its way) contains "deliver" and must not read as delivered.
+  if (/in_?delivery|shipp|delivering|out_for|جاري التوصيل|تم الشحن|قيد التوصيل/.test(key)) return "shipped";
   if (/deliver|complet|تم التسليم|مكتمل|تم التوصيل/.test(key) && !/delivering|جاري/.test(key)) return "delivered";
-  if (/shipp|delivering|out_for|جاري التوصيل|تم الشحن|قيد التوصيل/.test(key)) return "shipped";
   if (/in_progress|processing|prepar|قيد التنفيذ|قيد التجهيز|جاري التجهيز/.test(key)) return "processing";
   if (/under_review|review|pending|قيد المراجعة|بانتظار/.test(key)) return "review";
   return "other";
@@ -250,7 +259,13 @@ export async function processStoreCartReminders(tenantId: string, limit = 25): P
       const template = rules.templates[row.step];
       if (!template) { await finish("done"); continue; }
       const isLast = row.step + 1 >= rules.maxReminders;
-      const discount = isLast ? rules.discountCode : "";
+      let discount = isLast ? rules.discountCode : "";
+      // A fresh single-use coupon for this customer replaces the shared code (Zid; the shared code stays as the fallback).
+      if (isLast && store === "zid" && rules.uniqueCoupon.enabled) {
+        const coupon = await createZidCoupon(tenantId, { code: uniqueCouponCode(), percent: rules.uniqueCoupon.percent, validHours: rules.uniqueCoupon.validHours });
+        if (coupon) discount = coupon.code;
+        else console.error("Zid unique coupon could not be created; using the shared code", tenantId);
+      }
       const result = await sendWhatsAppTemplate(tenantId, row.phone, template, "ar", row.name, "", false, "", [row.name || "عميلنا", String(Math.round(row.total)), row.url || "-", discount]);
       await logEvent(tenantId, store, "cart", `${row.cart_id}:${row.step + 1}`, row.phone, result.ok, result.ok ? "" : result.error);
       if (result.ok) sent += 1;
@@ -277,6 +292,29 @@ export async function handleSallaWebhook(body: unknown): Promise<WebhookOutcome>
   return { handled: true, status: 200, detail };
 }
 
+/**
+ * Zid's delivery carries (at most) the record's id: the workspace and event come from our own signed
+ * callback URL, and the full order / cart is re-read through the API so we do not depend on the webhook's
+ * payload shape. Falls back to whatever the body itself held.
+ */
+export async function handleZidWebhook(tenantId: string, eventName: string, body: unknown): Promise<WebhookOutcome> {
+  let event = parseZidWebhook(eventName, body);
+  if (event.type === "order.created" || event.type === "order.status.updated") {
+    const full = await fetchZidOrder(tenantId, event.order.id);
+    if (full) {
+      // A status update's new status may be newer than what the read returned a moment ago; keep the API's view.
+      event = { ...event, order: { ...event.order, ...Object.fromEntries(Object.entries(full).filter(([, value]) => value !== "" && value !== 0)) } as StoreOrder };
+    }
+    if (!event.order.customerPhone) return { handled: true, status: 200, detail: "no-phone" };
+  } else if (event.type === "abandoned.cart") {
+    const full = event.cart.customerPhone && event.cart.url ? null : await fetchZidCart(tenantId, event.cart.id);
+    if (full) event = { ...event, cart: { ...event.cart, ...Object.fromEntries(Object.entries(full).filter(([, value]) => value !== "" && value !== 0)) } as StoreCart };
+    if (!event.cart.customerPhone) return { handled: true, status: 200, detail: "no-phone" };
+  }
+  const detail = await applyStoreEvent(tenantId, "zid", event);
+  return { handled: true, status: 200, detail };
+}
+
 // ---------- order questions in the conversation ----------
 
 /**
@@ -284,18 +322,67 @@ export async function handleSallaWebhook(body: unknown): Promise<WebhookOutcome>
  * Returns true when it handled the message (so the bot does not also answer). Only answers with the
  * order's details when the order's phone is this conversation's phone (unless the workspace turned that off).
  */
+const VERIFY_MINUTES = 10;
+const VERIFY_MAX_ATTEMPTS = 3;
+
+function lastFourDigits(phone: string): string {
+  return phone.replace(/\D/g, "").slice(-4);
+}
+
+async function setPendingVerification(tenantId: string, conversationId: string, reference: string): Promise<void> {
+  await ensureTables();
+  const expires = new Date(Date.now() + VERIFY_MINUTES * 60_000).toISOString();
+  await prisma.$executeRaw`DELETE FROM store_order_verification WHERE conversation_id = ${conversationId}`;
+  await prisma.$executeRaw`INSERT INTO store_order_verification (conversation_id, tenant_id, reference, attempts, expires_at) VALUES (${conversationId}, ${tenantId}, ${reference}, 0, ${expires})`;
+}
+
+async function getPendingVerification(conversationId: string): Promise<{ reference: string; attempts: number } | null> {
+  await ensureTables();
+  const rows = await prisma.$queryRaw<Array<{ reference: string; attempts: number; expires_at: string }>>`SELECT reference, attempts, expires_at FROM store_order_verification WHERE conversation_id = ${conversationId}`;
+  const row = rows[0];
+  if (!row) return null;
+  if (Date.parse(row.expires_at) < Date.now()) {
+    await prisma.$executeRaw`DELETE FROM store_order_verification WHERE conversation_id = ${conversationId}`;
+    return null;
+  }
+  return { reference: row.reference, attempts: Number(row.attempts) };
+}
+
+async function clearPendingVerification(conversationId: string): Promise<void> {
+  await ensureTables();
+  await prisma.$executeRaw`DELETE FROM store_order_verification WHERE conversation_id = ${conversationId}`;
+}
+
+async function bumpPendingVerification(conversationId: string): Promise<void> {
+  await ensureTables();
+  await prisma.$executeRaw`UPDATE store_order_verification SET attempts = attempts + 1 WHERE conversation_id = ${conversationId}`;
+}
+
 export async function handleOrderInquiry(input: { tenantId: string; conversationId: string; phone: string; text: string }): Promise<boolean> {
   try {
     const text = input.text.trim();
     if (!text || text.length > 400) return false;
+
+    // The answer to "send the last 4 digits" is a bare number, so it is checked before the question detection below.
+    const pending = await getPendingVerification(input.conversationId);
+    const digitsOnly = /^\D*(\d{4})\D*$/.exec(text)?.[1] ?? "";
+    if (pending && digitsOnly) return answerPendingVerification(input, pending, digitsOnly);
+
     const reference = extractOrderReference(text);
     const asking = looksLikeOrderQuestion(text);
     if (!asking && !(reference && /طلب|order/i.test(text))) return false;
 
-    const store: StoreKey = "salla";
+    // The store this workspace connected (Salla first, then Zid).
+    let store: StoreKey | null = null;
+    for (const candidate of ["salla", "zid"] as StoreKey[]) {
+      if (await readStoreTokens(input.tenantId, candidate)) {
+        store = candidate;
+        break;
+      }
+    }
+    if (!store) return false;
     const { settings } = await getStoreSettings(input.tenantId, store);
     if (!settings.orderLookup.enabled) return false;
-    if (!(await readStoreTokens(input.tenantId, store))) return false;
 
     const send = (message: string) => sendBotText("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, text: message, author: "الرد الآلي" });
 
@@ -303,9 +390,16 @@ export async function handleOrderInquiry(input: { tenantId: string; conversation
       await send(settings.orderLookup.askNumberText);
       return true;
     }
-    const order = await findSallaOrderByReference(input.tenantId, reference);
+    const order = store === "zid" ? await findZidOrderByReference(input.tenantId, reference) : await findSallaOrderByReference(input.tenantId, reference);
     const allowed = order && (!settings.orderLookup.requirePhoneMatch || samePhone(order.customerPhone, input.phone));
     if (!order || !allowed) {
+      // From another phone: ask for the last 4 digits of the phone on the order. The question is the same
+      // whether the order exists or not, so it gives nothing away; the answer is what is checked.
+      if (settings.orderLookup.requirePhoneMatch && settings.orderLookup.verifyWithLastDigits) {
+        await setPendingVerification(input.tenantId, input.conversationId, reference);
+        await send(settings.orderLookup.askDigitsText);
+        return true;
+      }
       // The same answer whether it does not exist or belongs to someone else: no hint about other people's orders.
       await send(settings.orderLookup.notFoundText);
       return true;
@@ -317,4 +411,38 @@ export async function handleOrderInquiry(input: { tenantId: string; conversation
     console.error("Order inquiry failed", error);
     return false;
   }
+}
+
+/** The customer answered the "last 4 digits" question: show the order only if they match the phone on it. */
+async function answerPendingVerification(
+  input: { tenantId: string; conversationId: string; phone: string },
+  pending: { reference: string; attempts: number },
+  digits: string
+): Promise<boolean> {
+  let store: StoreKey | null = null;
+  for (const candidate of ["salla", "zid"] as StoreKey[]) {
+    if (await readStoreTokens(input.tenantId, candidate)) {
+      store = candidate;
+      break;
+    }
+  }
+  if (!store) {
+    await clearPendingVerification(input.conversationId);
+    return false;
+  }
+  const { settings } = await getStoreSettings(input.tenantId, store);
+  const send = (message: string) => sendBotText("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, text: message, author: "الرد الآلي" });
+
+  const order = store === "zid" ? await findZidOrderByReference(input.tenantId, pending.reference) : await findSallaOrderByReference(input.tenantId, pending.reference);
+  if (order && order.customerPhone && lastFourDigits(order.customerPhone) === digits) {
+    await clearPendingVerification(input.conversationId);
+    const group = orderStatusGroup(order.statusSlug, order.statusLabel);
+    await send(renderOrderText(settings.orderLookup.texts[group], order));
+    return true;
+  }
+  // Wrong digits (or no such order): the same refusal, and only a few tries.
+  if (pending.attempts + 1 >= VERIFY_MAX_ATTEMPTS) await clearPendingVerification(input.conversationId);
+  else await bumpPendingVerification(input.conversationId);
+  await send(settings.orderLookup.notFoundText);
+  return true;
 }

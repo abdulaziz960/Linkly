@@ -29,6 +29,13 @@ export type OrderLookupSettings = {
   enabled: boolean;
   /** Only answer when the order's phone is the phone of this conversation. Strongly recommended. */
   requirePhoneMatch: boolean;
+  /**
+   * When the order's phone is not this chat's phone, ask for the last 4 digits of the phone on the order
+   * instead of refusing (only meaningful while requirePhoneMatch is on).
+   */
+  verifyWithLastDigits: boolean;
+  /** The question asked for those digits. */
+  askDigitsText: string;
   /** Reply per status group. Placeholders: {{order}} {{status}} {{company}} {{tracking}} {{link}} {{name}}. */
   texts: Record<StatusGroup, string>;
   notFoundText: string;
@@ -50,6 +57,8 @@ export type StoreSettings = {
     quietHours: { enabled: boolean; start: string; end: string };
     /** Added to the last reminder when set. */
     discountCode: string;
+    /** Zid only: a fresh single-use coupon per customer on the last reminder (needs the app's Coupons scope). */
+    uniqueCoupon: { enabled: boolean; percent: number; validHours: number };
     /** One template per reminder (first, second, third). */
     templates: [string, string, string];
     /** Skip customers who ordered in the last N days. 0 = never skip. */
@@ -72,6 +81,8 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   orderLookup: {
     enabled: false,
     requirePhoneMatch: true,
+    verifyWithLastDigits: true,
+    askDigitsText: "للتحقق من الطلب، أرسل آخر 4 أرقام من الجوال المسجّل في الطلب.",
     texts: DEFAULT_LOOKUP_TEXTS,
     notFoundText: "ما قدرنا نلاقي الطلب بهذا الرقم على جوالك. سيتواصل معك أحد موظفينا للمساعدة.",
     askNumberText: "تمام، أرسل لي رقم طلبك وأتحقق لك من حالته."
@@ -91,6 +102,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
     minCartValue: 0,
     quietHours: { enabled: true, start: "22:00", end: "08:00" },
     discountCode: "",
+    uniqueCoupon: { enabled: false, percent: 10, validHours: 48 },
     templates: ["", "", ""],
     skipIfOrderedDays: 7
   },
@@ -160,6 +172,8 @@ export function normalizeStoreSettings(input: unknown): StoreSettings {
   const orderLookup: OrderLookupSettings = {
     enabled: typeof lookupSource.enabled === "boolean" ? lookupSource.enabled : defaults.orderLookup.enabled,
     requirePhoneMatch: typeof lookupSource.requirePhoneMatch === "boolean" ? lookupSource.requirePhoneMatch : defaults.orderLookup.requirePhoneMatch,
+    verifyWithLastDigits: typeof lookupSource.verifyWithLastDigits === "boolean" ? lookupSource.verifyWithLastDigits : defaults.orderLookup.verifyWithLastDigits,
+    askDigitsText: freeText(lookupSource.askDigitsText, defaults.orderLookup.askDigitsText),
     texts,
     notFoundText: freeText(lookupSource.notFoundText, defaults.orderLookup.notFoundText),
     askNumberText: freeText(lookupSource.askNumberText, defaults.orderLookup.askNumberText)
@@ -169,6 +183,7 @@ export function normalizeStoreSettings(input: unknown): StoreSettings {
   const quiet = record(cart.quietHours);
   const templatesSource = Array.isArray(cart.templates) ? cart.templates : [];
   const maxReminders = clampInt(cart.maxReminders, 1, 3, defaults.abandonedCart.maxReminders) as 1 | 2 | 3;
+  const coupon = record(cart.uniqueCoupon);
   const discount = typeof cart.discountCode === "string" ? cart.discountCode.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) : "";
 
   return {
@@ -186,6 +201,11 @@ export function normalizeStoreSettings(input: unknown): StoreSettings {
         end: typeof quiet.end === "string" && TIME.test(quiet.end) ? quiet.end : defaults.abandonedCart.quietHours.end
       },
       discountCode: discount,
+      uniqueCoupon: {
+        enabled: typeof coupon.enabled === "boolean" ? coupon.enabled : defaults.abandonedCart.uniqueCoupon.enabled,
+        percent: clampInt(coupon.percent, 1, 90, defaults.abandonedCart.uniqueCoupon.percent),
+        validHours: clampInt(coupon.validHours, 6, 720, defaults.abandonedCart.uniqueCoupon.validHours)
+      },
       templates: [templateName(templatesSource[0]), templateName(templatesSource[1]), templateName(templatesSource[2])],
       skipIfOrderedDays: clampInt(cart.skipIfOrderedDays, 0, 90, defaults.abandonedCart.skipIfOrderedDays)
     },

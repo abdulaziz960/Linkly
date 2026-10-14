@@ -9,7 +9,7 @@ type StatusGroup = "review" | "processing" | "shipped" | "delivered" | "cancelle
 type Connection = { status: "connected" | "disconnected"; merchantName: string; merchantId: string };
 type Settings = {
   orderNotifications: Record<OrderEvent, { enabled: boolean; template: string }>;
-  orderLookup: { enabled: boolean; requirePhoneMatch: boolean; texts: Record<StatusGroup, string>; notFoundText: string; askNumberText: string };
+  orderLookup: { enabled: boolean; requirePhoneMatch: boolean; verifyWithLastDigits: boolean; askDigitsText: string; texts: Record<StatusGroup, string>; notFoundText: string; askNumberText: string };
   abandonedCart: {
     enabled: boolean;
     delayMinutes: number;
@@ -18,6 +18,7 @@ type Settings = {
     minCartValue: number;
     quietHours: { enabled: boolean; start: string; end: string };
     discountCode: string;
+    uniqueCoupon: { enabled: boolean; percent: number; validHours: number };
     templates: [string, string, string];
     skipIfOrderedDays: number;
   };
@@ -38,6 +39,9 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
   const [connection, setConnection] = useState<Connection | null>(null);
   const [available, setAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [productSync, setProductSync] = useState<{ lastAt: string; status: string; message: string } | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncNote, setSyncNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -54,6 +58,29 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
     }
   }
 
+  async function loadProductSync() {
+    if (store !== "zid") return;
+    const response = await fetch(`/api/store-integrations/${store}/products`, { cache: "no-store" }).catch(() => null);
+    const result = (await response?.json().catch(() => null)) as { ok?: boolean; data?: { lastAt: string; status: string; message: string } } | null;
+    if (result?.ok && result.data) setProductSync(result.data);
+  }
+
+  async function syncProducts() {
+    setSyncing(true);
+    setSyncNote(null);
+    try {
+      const response = await fetch(`/api/store-integrations/${store}/products`, { method: "POST" });
+      const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; data?: { message: string } } | null;
+      if (!response.ok || !result?.ok) throw new Error(result?.error || t("تعذرت مزامنة المنتجات.", "Could not sync the products."));
+      setSyncNote({ ok: true, text: result.data?.message || t("تمت المزامنة.", "Synced.") });
+      await loadProductSync();
+    } catch (error) {
+      setSyncNote({ ok: false, text: error instanceof Error ? error.message : t("تعذرت مزامنة المنتجات.", "Could not sync the products.") });
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function disconnect() {
     setBusy(true);
     try {
@@ -66,6 +93,7 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
 
   useEffect(() => {
     void loadConnection();
+    void loadProductSync();
     function onMessage(event: MessageEvent) {
       if (event.origin === window.location.origin && (event.data as { type?: string } | null)?.type === "linkly:store-connected") void loadConnection();
     }
@@ -172,18 +200,29 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
           ) : (
             <p style={{ margin: 0, opacity: 0.8 }}>{t("غير متصل", "Not connected")}</p>
           )}
-          {store === "zid" ? (
-            <span style={hint}>{t("ربط زد قريبًا.", "Zid connection is coming soon.")}</span>
-          ) : !available ? (
-            <span style={hint}>{t("الربط غير مفعّل بعد على الخادم (بيانات تطبيق سلة غير مضبوطة). تواصل مع الدعم.", "The connection is not enabled on the server yet (the Salla app credentials are not set). Contact support.")}</span>
+          {!available ? (
+            <span style={hint}>{store === "zid" ? t("الربط غير مفعّل بعد على الخادم (بيانات تطبيق زد غير مضبوطة). تواصل مع الدعم.", "The connection is not enabled yet on the server (Zid app credentials are not set). Contact support.") : t("الربط غير مفعّل بعد على الخادم (بيانات تطبيق سلة غير مضبوطة). تواصل مع الدعم.", "The connection is not enabled on the server yet (the Salla app credentials are not set). Contact support.")}</span>
           ) : (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button className="primary-action" type="button" disabled={busy} onClick={() => window.open("/api/salla/connect", "salla-connect", "width=620,height=760")}>
+              <button className="primary-action" type="button" disabled={busy} onClick={() => window.open(`/api/${store}/connect`, `${store}-connect`, "width=620,height=760")}>
                 {connection?.status === "connected" ? t("إعادة الربط", "Reconnect") : t("ربط المتجر", "Connect store")}
               </button>
               {connection?.status === "connected" ? <button className="soft-action" type="button" disabled={busy} onClick={() => void disconnect()}>{t("فصل الربط", "Disconnect")}</button> : null}
             </div>
           )}
+          {store === "zid" && connection?.status === "connected" ? (
+            <div style={{ display: "grid", gap: 8, paddingTop: 6 }}>
+              <h4 style={sectionTitle}>{t("منتجات المتجر", "Store products")}</h4>
+              <span style={hint}>{t("اسحب منتجات متجر زد إلى كتالوج لنكلي، وتتحدّث تلقائيًا كل ساعات بعد أول مزامنة. يحتاج صلاحية «المنتجات» في تطبيق زد.", "Pull your Zid products into the Linkly catalog; they refresh automatically every few hours after the first sync. Needs the app's Products scope.")}</span>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <button className="primary-action" type="button" disabled={syncing} onClick={() => void syncProducts()}>
+                  {syncing ? t("جارٍ المزامنة...", "Syncing...") : t("مزامنة المنتجات الآن", "Sync products now")}
+                </button>
+                {syncNote ? <span className={`automation-feedback ${syncNote.ok ? "success" : "error"}`}>{syncNote.text}</span> : null}
+              </div>
+              {productSync?.lastAt ? <span style={hint}>{t("آخر مزامنة:", "Last sync:")} {new Date(productSync.lastAt).toLocaleString("ar-SA")} — {productSync.message}</span> : null}
+            </div>
+          ) : null}
           <span style={hint}>{t("بعد الربط تصل أحداث الطلبات والسلات المتروكة تلقائيًا، وتُطبَّق الإعدادات في التبويبات الأخرى.", "After connecting, order and abandoned-cart events arrive automatically and the settings in the other tabs apply.")}</span>
         </section>
       ) : section === "lookup" ? (
@@ -200,6 +239,23 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
               </span>
               <span style={hint}>{t("موصى به بشدة: يمنع أي شخص من الاستعلام عن طلب غيره.", "Strongly recommended: stops anyone from asking about someone else's order.")}</span>
             </label>
+            {settings.orderLookup.requirePhoneMatch ? (
+              <>
+                <label style={{ display: "grid", gap: 4, cursor: "pointer" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700 }}>
+                    <input type="checkbox" checked={settings.orderLookup.verifyWithLastDigits} onChange={(event) => setSettings({ ...settings, orderLookup: { ...settings.orderLookup, verifyWithLastDigits: event.target.checked } })} style={{ width: 18, height: 18 }} />
+                    {t("إن سأل من جوال آخر: أطلب آخر 4 أرقام من جوال الطلب", "From another phone: ask for the last 4 digits of the order's phone")}
+                  </span>
+                  <span style={hint}>{t("يسمح للعميل بالاستعلام من جوال غير المسجّل بعد التحقق، ويمنع تخمين أرقام الطلبات.", "Lets a customer ask from a different phone after verifying, and stops order-number guessing.")}</span>
+                </label>
+                {settings.orderLookup.verifyWithLastDigits ? (
+                  <label style={fieldLabel}>
+                    {t("سؤال التحقق", "Verification question")}
+                    <textarea style={{ ...input, minHeight: 64, padding: 10 }} value={settings.orderLookup.askDigitsText} onChange={(event) => setSettings({ ...settings, orderLookup: { ...settings.orderLookup, askDigitsText: event.target.value } })} />
+                  </label>
+                ) : null}
+              </>
+            ) : null}
             <span style={hint}>{t("المتغيرات المتاحة في النصوص: {{order}} رقم الطلب، {{status}} الحالة، {{name}} الاسم، {{company}} شركة الشحن، {{tracking}} رقم التتبع، {{link}} رابط التتبع.", "Available in the texts: {{order}} order number, {{status}} status, {{name}} name, {{company}} courier, {{tracking}} tracking number, {{link}} tracking link.")}</span>
             {STATUS_GROUPS.map((group) => (
               <label key={group} style={fieldLabel}>
@@ -321,6 +377,32 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
                 ) : null}
               </label>
             ))}
+            {store === "zid" ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={cart.uniqueCoupon.enabled}
+                    onChange={(event) => setCart({ uniqueCoupon: { ...cart.uniqueCoupon, enabled: event.target.checked } })}
+                    style={{ width: 18, height: 18 }}
+                  />
+                  {t("كوبون خاص لكل عميل في آخر تذكير", "A unique coupon per customer on the last reminder")}
+                </label>
+                {cart.uniqueCoupon.enabled ? (
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <label style={fieldLabel}>
+                      {t("نسبة الخصم %", "Discount %")}
+                      <input type="number" min={1} max={90} style={input} value={cart.uniqueCoupon.percent} onChange={(event) => setCart({ uniqueCoupon: { ...cart.uniqueCoupon, percent: Number(event.target.value) || 1 } })} />
+                    </label>
+                    <label style={fieldLabel}>
+                      {t("صلاحية الكوبون (ساعات)", "Valid for (hours)")}
+                      <input type="number" min={6} max={720} style={input} value={cart.uniqueCoupon.validHours} onChange={(event) => setCart({ uniqueCoupon: { ...cart.uniqueCoupon, validHours: Number(event.target.value) || 48 } })} />
+                    </label>
+                  </div>
+                ) : null}
+                <span style={hint}>{t("يحتاج صلاحية «الكوبونات» في تطبيق زد. إن تعذّر إنشاؤه يُستخدم الكود الثابت أدناه.", "Needs the app's Coupons scope. If it can't be created, the shared code below is used.")}</span>
+              </div>
+            ) : null}
             <label style={fieldLabel}>
               {t("كود خصم (اختياري)", "Discount code (optional)")}
               <input dir="ltr" style={input} value={cart.discountCode} onChange={(event) => setCart({ discountCode: event.target.value })} placeholder="COMEBACK10" />

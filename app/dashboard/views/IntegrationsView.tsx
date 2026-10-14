@@ -54,7 +54,23 @@ export default function IntegrationsView() {
   const [open, setOpen] = useState<Platform | null>(null);
   const [tab, setTab] = useState<Tab>("receive");
   const [storeOpen, setStoreOpen] = useState<"salla" | "zid" | null>(null);
+  const [storeConnected, setStoreConnected] = useState<Partial<Record<"salla" | "zid", boolean>>>({});
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  function loadStoreConnections() {
+    (["salla", "zid"] as const).forEach((store) => {
+      fetch(`/api/store-integrations/${store}/connection`, { cache: "no-store" })
+        .then((response) => response.json())
+        .then((result: { ok?: boolean; data?: { connection?: { status?: string } } }) => {
+          if (result?.ok) setStoreConnected((current) => ({ ...current, [store]: result.data?.connection?.status === "connected" }));
+        })
+        .catch(() => null);
+    });
+  }
+
+  useEffect(() => {
+    loadStoreConnections();
+  }, []);
 
   function loadTemplates() {
     fetch("/api/templates")
@@ -251,7 +267,7 @@ export default function IntegrationsView() {
               </span>
               <h3>{store.title}</h3>
               <p>{store.description}</p>
-              <span className="status-pill unassigned">{t("الربط: قريبًا", "Connection: coming soon")}</span>
+              {statusPill(Boolean(storeConnected[store.id as "salla" | "zid"]), t("متصل", "Connected"), t("غير متصل", "Not connected"))}
             </div>
             <button className="btn primary" type="button" onClick={() => setStoreOpen(store.id as "salla" | "zid")}>{t("إعدادات الإشعارات", "Notification settings")}</button>
           </div>
@@ -259,10 +275,10 @@ export default function IntegrationsView() {
       </div>
 
       {storeOpen ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setStoreOpen(null)}>
+        <div className="modal-backdrop" role="presentation" onClick={() => { setStoreOpen(null); loadStoreConnections(); }}>
           <div className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={storeOpen === "salla" ? t("سلة", "Salla") : t("زد", "Zid")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setStoreOpen(null)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => { setStoreOpen(null); loadStoreConnections(); }}>×</button>
               <h2>{storeOpen === "salla" ? t("سلة", "Salla") : t("زد", "Zid")}</h2>
             </header>
             <div className="account-modal-body">

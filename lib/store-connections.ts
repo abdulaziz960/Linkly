@@ -112,6 +112,13 @@ export async function findTenantByMerchant(store: StoreKey, merchantId: string):
   return rows[0]?.tenant_id ?? null;
 }
 
+/** Workspaces with a live connection to this store (for periodic jobs). */
+export async function listConnectedTenants(store: StoreKey, limit = 200): Promise<string[]> {
+  await ensureTable();
+  const rows = await prisma.$queryRaw<Array<{ tenant_id: string }>>`SELECT tenant_id FROM store_connections WHERE store = ${store} AND status = 'connected' LIMIT ${limit}`;
+  return rows.map((row) => row.tenant_id);
+}
+
 export type StoreTokens = { accessToken: string; refreshToken: string; expiresAt: string; merchantId: string };
 
 export async function readStoreTokens(tenantId: string, store: StoreKey): Promise<StoreTokens | null> {

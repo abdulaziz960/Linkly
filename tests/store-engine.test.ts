@@ -215,16 +215,63 @@ describe("answering 'where is my order' in the chat", () => {
     expect(reply).toContain("TRK123");
   });
 
-  it("gives the same not-found answer for someone else's order", async () => {
+  it("gives the same not-found answer for someone else's order (verification off)", async () => {
     await connect("ten-ask2", "m-5");
     const { saveStoreSettings, DEFAULT_STORE_SETTINGS } = await import("../lib/store-settings");
-    await saveStoreSettings("ten-ask2", "salla", { orderLookup: { enabled: true } });
+    await saveStoreSettings("ten-ask2", "salla", { orderLookup: { enabled: true, verifyWithLastDigits: false } });
     mockSalla();
     const { handleOrderInquiry } = await import("../lib/store-engine");
     expect(await handleOrderInquiry({ tenantId: "ten-ask2", conversationId: "conv-2", phone: "966500000999", text: "تتبع طلبي 100245" })).toBe(true);
     const reply = String((sendBotText.mock.calls[0][1] as { text: string }).text);
     expect(reply).toBe(DEFAULT_STORE_SETTINGS.orderLookup.notFoundText);
     expect(reply).not.toContain("TRK123");
+  });
+
+  it("from another phone: asks for the last 4 digits, answers only when they match", async () => {
+    await connect("ten-verify", "m-7");
+    const { saveStoreSettings, DEFAULT_STORE_SETTINGS } = await import("../lib/store-settings");
+    await saveStoreSettings("ten-verify", "salla", { orderLookup: { enabled: true } });
+    mockSalla();
+    const { handleOrderInquiry } = await import("../lib/store-engine");
+    const ask = (text: string) => handleOrderInquiry({ tenantId: "ten-verify", conversationId: "conv-v", phone: "966500000999", text });
+    const lastReply = () => String((sendBotText.mock.calls.at(-1)?.[1] as { text: string }).text);
+
+    expect(await ask("وين طلبي رقم 100245")).toBe(true);
+    expect(lastReply()).toBe(DEFAULT_STORE_SETTINGS.orderLookup.askDigitsText);
+    expect(lastReply()).not.toContain("TRK123");
+
+    // wrong digits: the plain refusal, nothing about the order
+    expect(await ask("9999")).toBe(true);
+    expect(lastReply()).toBe(DEFAULT_STORE_SETTINGS.orderLookup.notFoundText);
+
+    // right digits (the order's phone is 966500000111): the order
+    expect(await ask("0111")).toBe(true);
+    expect(lastReply()).toContain("TRK123");
+
+    // verified once: the 4 digits alone are not an order question any more
+    sendBotText.mockClear();
+    expect(await ask("0111")).toBe(false);
+    expect(sendBotText).not.toHaveBeenCalled();
+  });
+
+  it("asks for the digits for an order that does not exist too, and gives up after three wrong tries", async () => {
+    await connect("ten-verify2", "m-8");
+    const { saveStoreSettings, DEFAULT_STORE_SETTINGS } = await import("../lib/store-settings");
+    await saveStoreSettings("ten-verify2", "salla", { orderLookup: { enabled: true } });
+    mockSalla();
+    const { handleOrderInquiry } = await import("../lib/store-engine");
+    const ask = (text: string) => handleOrderInquiry({ tenantId: "ten-verify2", conversationId: "conv-v2", phone: "966500000999", text });
+    const lastReply = () => String((sendBotText.mock.calls.at(-1)?.[1] as { text: string }).text);
+
+    expect(await ask("وين طلبي رقم 777777")).toBe(true);
+    expect(lastReply()).toBe(DEFAULT_STORE_SETTINGS.orderLookup.askDigitsText); // same question as for a real order
+    for (const digits of ["1111", "2222", "3333"]) {
+      expect(await ask(digits)).toBe(true);
+      expect(lastReply()).toBe(DEFAULT_STORE_SETTINGS.orderLookup.notFoundText);
+    }
+    // after the third failure the pending check is gone
+    sendBotText.mockClear();
+    expect(await ask("4444")).toBe(false);
   });
 
   it("asks for the number when there is none, and stays out of the way otherwise", async () => {
