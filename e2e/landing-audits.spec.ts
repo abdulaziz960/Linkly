@@ -19,3 +19,16 @@ test("landing analytics waits for cookie consent and keeps its CSP", async ({ pa
   await expect(page.locator("#linkly-gtm")).toHaveCount(1);
   await expect.poll(() => requests.some((url) => url.includes("googletagmanager.com/gtm.js"))).toBe(true);
 });
+
+test("landing intro video: poster and sound button show, and the files are served with range support", async ({ page, request }) => {
+  await page.goto("/");
+  const section = page.locator("#video");
+  await section.scrollIntoViewIfNeeded();
+  await expect(section.getByRole("button", { name: "تشغيل الصوت" })).toBeVisible();
+
+  const ranged = await request.get("/assets/video/linkly-hero.mp4", { headers: { Range: "bytes=0-99" } });
+  expect(ranged.status()).toBe(206);
+  expect(ranged.headers()["content-type"]).toContain("video/mp4");
+  expect((await ranged.body()).length).toBe(100);
+  expect((await request.get("/assets/video/linkly-hero-poster.jpg")).status()).toBe(200);
+});
