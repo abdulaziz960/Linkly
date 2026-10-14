@@ -66,6 +66,11 @@ export type StoreSettings = {
   };
   /** Most store messages per day across all events. 0 = no cap. */
   dailyCap: number;
+  /**
+   * Zid only: a purchase made in the WhatsApp catalog becomes an order in the Zid store, paid through
+   * Zid's own payment link. Needs a delivery option (and the payment-link method id, found automatically).
+   */
+  checkout: { enabled: boolean; shippingMethodId: number; paymentMethodId: number; linkValidHours: number };
 };
 
 export const DEFAULT_LOOKUP_TEXTS: Record<StatusGroup, string> = {
@@ -106,7 +111,8 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
     templates: ["", "", ""],
     skipIfOrderedDays: 7
   },
-  dailyCap: 0
+  dailyCap: 0,
+  checkout: { enabled: false, shippingMethodId: 0, paymentMethodId: 0, linkValidHours: 24 }
 };
 
 let ready: Promise<void> | null = null;
@@ -184,6 +190,7 @@ export function normalizeStoreSettings(input: unknown): StoreSettings {
   const templatesSource = Array.isArray(cart.templates) ? cart.templates : [];
   const maxReminders = clampInt(cart.maxReminders, 1, 3, defaults.abandonedCart.maxReminders) as 1 | 2 | 3;
   const coupon = record(cart.uniqueCoupon);
+  const checkoutSource = record(source.checkout);
   const discount = typeof cart.discountCode === "string" ? cart.discountCode.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) : "";
 
   return {
@@ -209,7 +216,13 @@ export function normalizeStoreSettings(input: unknown): StoreSettings {
       templates: [templateName(templatesSource[0]), templateName(templatesSource[1]), templateName(templatesSource[2])],
       skipIfOrderedDays: clampInt(cart.skipIfOrderedDays, 0, 90, defaults.abandonedCart.skipIfOrderedDays)
     },
-    dailyCap: clampInt(source.dailyCap, 0, 100_000, defaults.dailyCap)
+    dailyCap: clampInt(source.dailyCap, 0, 100_000, defaults.dailyCap),
+    checkout: {
+      enabled: typeof checkoutSource.enabled === "boolean" ? checkoutSource.enabled : defaults.checkout.enabled,
+      shippingMethodId: clampInt(checkoutSource.shippingMethodId, 0, 2_000_000_000, defaults.checkout.shippingMethodId),
+      paymentMethodId: clampInt(checkoutSource.paymentMethodId, 0, 2_000_000_000, defaults.checkout.paymentMethodId),
+      linkValidHours: clampInt(checkoutSource.linkValidHours, 1, 168, defaults.checkout.linkValidHours)
+    }
   };
 }
 

@@ -297,7 +297,22 @@ export async function handleSallaWebhook(body: unknown): Promise<WebhookOutcome>
  * callback URL, and the full order / cart is re-read through the API so we do not depend on the webhook's
  * payload shape. Falls back to whatever the body itself held.
  */
+/** A Zid order we created from the WhatsApp catalog: confirm it as paid once Zid says so (re-checked with Zid). */
+async function reconcileCatalogOrderFromZid(tenantId: string, zidOrderId: string): Promise<void> {
+  if (!zidOrderId) return;
+  const { processOrderPaymentCallback } = await import("./catalog-payments");
+  const row = await prisma.catalogOrder.findFirst({ where: { tenantId, paymentId: `zid-${zidOrderId}`, status: "awaiting_payment" }, select: { id: true } });
+  if (row) await processOrderPaymentCallback(row.id).catch((error) => console.error("Zid order payment reconcile failed", error));
+}
+
 export async function handleZidWebhook(tenantId: string, eventName: string, body: unknown): Promise<WebhookOutcome> {
+  // Payment changes only matter for the orders we created ourselves; nothing is sent to the customer here.
+  if (eventName === "order.payment_status.update") {
+    const raw = (body && typeof body === "object" ? (body as Record<string, unknown>) : {}) as Record<string, unknown>;
+    const nested = (raw.order && typeof raw.order === "object" ? raw.order : raw.data && typeof raw.data === "object" ? raw.data : {}) as Record<string, unknown>;
+    await reconcileCatalogOrderFromZid(tenantId, String(raw.id ?? nested.id ?? ""));
+    return { handled: true, status: 200, detail: "payment-checked" };
+  }
   let event = parseZidWebhook(eventName, body);
   if (event.type === "order.created" || event.type === "order.status.updated") {
     const full = await fetchZidOrder(tenantId, event.order.id);
@@ -305,6 +320,7 @@ export async function handleZidWebhook(tenantId: string, eventName: string, body
       // A status update's new status may be newer than what the read returned a moment ago; keep the API's view.
       event = { ...event, order: { ...event.order, ...Object.fromEntries(Object.entries(full).filter(([, value]) => value !== "" && value !== 0)) } as StoreOrder };
     }
+    await reconcileCatalogOrderFromZid(tenantId, event.order.id);
     if (!event.order.customerPhone) return { handled: true, status: 200, detail: "no-phone" };
   } else if (event.type === "abandoned.cart") {
     const full = event.cart.customerPhone && event.cart.url ? null : await fetchZidCart(tenantId, event.cart.id);

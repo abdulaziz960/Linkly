@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { GATEWAY_KEY_PATTERN, getPublicCatalogSettings, saveCatalogSettings } from "../../../../lib/catalog";
 import { isPubliclyRoutableUrl } from "../../../../lib/url-safety";
+import { getZidCatalogMode } from "../../../../lib/catalog-zid";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -12,7 +13,8 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return jsonError("غير مصرح", 401);
   if (!(await userHasViewPermission(user, "catalog"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
-  return jsonOk({ ...(await getPublicCatalogSettings(user.tenantId)), canManagePayment: user.role === "مالك الحساب" });
+  const zid = await getZidCatalogMode(user.tenantId);
+  return jsonOk({ ...(await getPublicCatalogSettings(user.tenantId)), canManagePayment: user.role === "مالك الحساب", zidConnected: zid.connected, zidCheckoutReady: zid.ready });
 }
 
 export async function PUT(request: NextRequest) {
@@ -33,6 +35,18 @@ export async function PUT(request: NextRequest) {
   // Payment settings decide where customers' money goes - owner only, like
   // the AI provider key (app/api/ai/settings/route.ts).
   if (touchesPayment && user.role !== "مالك الحساب") return jsonError("إعدادات الدفع متاحة لمالك الحساب فقط", 403);
+
+  // Connected to Zid: payment and the product list are Zid's. Setting up the merchant's own gateway or a
+  // product feed would make the same product listable or payable twice, so it is refused here (clearing is fine).
+  const zidConnected = (await getZidCatalogMode(user.tenantId)).connected;
+  if (zidConnected) {
+    const settingKey = typeof body.gatewaySecretKey === "string" && body.gatewaySecretKey.trim() !== "";
+    const enablesPayment = body.paymentEnabled === true;
+    const setsFeed = typeof body.feedUrl === "string" && body.feedUrl.trim() !== "";
+    if (settingKey || enablesPayment || setsFeed) {
+      return jsonError("متجرك مربوط بزد: الدفع والمنتجات تُدار من زد، فلا حاجة لبوابة دفع أو رابط ملف منتجات.", 409);
+    }
+  }
 
   const patch: Parameters<typeof saveCatalogSettings>[1] = {};
 

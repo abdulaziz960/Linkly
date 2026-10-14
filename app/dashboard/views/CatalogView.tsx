@@ -44,6 +44,8 @@ type Settings = {
   feedLastStatus: string;
   feedLastMessage: string;
   canManagePayment: boolean;
+  zidConnected?: boolean;
+  zidCheckoutReady?: boolean;
 };
 
 type ProductForm = {
@@ -365,6 +367,17 @@ export default function CatalogView() {
         <>
           {notice ? <p className={`automation-feedback ${notice.type}`} role="status">{notice.message}</p> : null}
 
+          {settings?.zidConnected ? (
+            <div className="panel">
+              <div className="panel-head"><h2>{t("متجر زد مربوط", "Zid store connected")}</h2></div>
+              <div className="panel-body">
+                <p>{t("المنتجات والدفع يُدارون من زد: تُسحب منتجاتك من متجرك، والشراء من الواتساب يُنشئ الطلب في زد ويصل العميل رابط دفع زد.", "Products and payment are managed by Zid: your store's products are pulled in, and buying from WhatsApp creates the order in Zid with a Zid payment link.")}</p>
+                <p className="muted-copy">{settings.zidCheckoutReady ? t("الشراء من واتساب مفعّل.", "Buying from WhatsApp is on.") : t("لتفعيل الشراء من واتساب: التكاملات ← زد ← تبويب «الشراء من واتساب».", "To turn on buying from WhatsApp: Integrations → Zid → the \"Buy from WhatsApp\" tab.")}</p>
+                <p className="muted-copy">{t("بوابة دفع ميسر ورابط ملف المنتجات غير مطلوبين مع زد، فأُخفيا لتفادي التعارض.", "A Moyasar gateway and a product feed URL aren't needed with Zid, so they're hidden to avoid conflicts.")}</p>
+              </div>
+            </div>
+          ) : (
+            <>
           <div className="panel">
             <div className="panel-head"><h2>{t("الدفع من الواتساب", "Pay from WhatsApp")}</h2></div>
             <div className="panel-body">
@@ -425,6 +438,9 @@ export default function CatalogView() {
               ) : null}
             </div>
           </div>
+
+            </>
+          )}
 
           <div className="panel">
             <div className="panel-head"><h2>{t("موقع مبرمج خصيصًا؟ اربطه عبر API", "Custom-built website? Connect via API")}</h2></div>

@@ -306,7 +306,12 @@ export async function syncDueProductFeeds(): Promise<{ synced: number; failed: n
     take: 50
   });
   const nowMs = Date.now();
+  const { isZidConnected } = await import("./catalog-zid");
+  const connectedToZid = new Set<string>();
+  for (const setting of candidates) if (await isZidConnected(setting.tenantId)) connectedToZid.add(setting.tenantId);
   const due = candidates.filter((setting) => {
+    // A workspace connected to Zid gets its products from the store, never from a feed URL as well.
+    if (connectedToZid.has(setting.tenantId)) return false;
     if (!setting.feedLastSyncedAt) return true;
     const last = new Date(setting.feedLastSyncedAt).getTime();
     return Number.isNaN(last) || nowMs - last >= Math.max(15, setting.feedIntervalMinutes) * 60_000;

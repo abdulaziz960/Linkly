@@ -155,6 +155,13 @@ export async function processOrderPaymentCallback(orderId: string): Promise<{ ht
   if (!order || !order.paymentId) return { httpStatus: 200, body: { ok: true } };
   if (order.status === "paid") return { httpStatus: 200, body: { ok: true, status: "paid" } };
 
+  // An order created in the merchant's Zid store: Zid holds the payment, so ask Zid (never the delivery body).
+  if (order.paymentId.startsWith("zid-")) {
+    const { isZidOrderPaid } = await import("./zid-checkout");
+    if (!(await isZidOrderPaid(order.tenantId, order.paymentId.slice(4)))) return { httpStatus: 200, body: { ok: true, status: order.status } };
+    return applyOrderTransition(order, "paid");
+  }
+
   const secretKey = await getMerchantGatewayKeyForVerification(order.tenantId);
   const invoice = await fetchMerchantInvoice(secretKey, order.paymentId);
   if (!invoice || invoice.orderId !== order.id) return { httpStatus: 200, body: { ok: true } };
@@ -167,8 +174,15 @@ export async function processOrderPaymentCallback(orderId: string): Promise<{ ht
     return { httpStatus: 200, body: { ok: true, status: order.status } };
   }
 
-  // Claim the transition atomically so a callback delivered twice sends
-  // the confirmation message once.
+  return applyOrderTransition(order, next);
+}
+
+/**
+ * Moves a verified order to its new status, once: the transition is claimed atomically so a callback
+ * delivered twice sends the confirmation (and the receipt) a single time. The caller has already verified
+ * the payment with the provider.
+ */
+async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.catalogOrder.findUniqueOrThrow>>, next: OrderStatus): Promise<{ httpStatus: number; body: { ok: boolean; status?: string } }> {
   const claimed = await prisma.catalogOrder.updateMany({
     where: { id: order.id, status: { not: next } },
     data: { status: next, updatedAt: new Date().toISOString() }
@@ -229,3 +243,4 @@ export async function processOrderPaymentCallback(orderId: string): Promise<{ ht
 
   return { httpStatus: 200, body: { ok: true, status: next } };
 }
+

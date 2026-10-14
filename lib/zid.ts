@@ -22,7 +22,7 @@ export const ZID_TOKEN_URL = "https://oauth.zid.sa/oauth/token";
 export const ZID_API = "https://api.zid.sa/v1";
 
 /** Events we subscribe each connected store to. The event name travels in our own callback URL. */
-export const ZID_EVENTS = ["order.create", "order.status.update", "abandoned_cart.created"] as const;
+export const ZID_EVENTS = ["order.create", "order.status.update", "order.payment_status.update", "abandoned_cart.created"] as const;
 export type ZidEvent = (typeof ZID_EVENTS)[number];
 
 type Json = Record<string, unknown>;
@@ -292,6 +292,21 @@ export async function findZidOrderByReference(tenantId: string, reference: strin
   if (!match) return null;
   // The list view may omit shipping and the customer's phone; the detail view has them.
   return (await fetchZidOrder(tenantId, match.id)) ?? match;
+}
+
+/** A write call through the workspace's connection (token refresh included). */
+export async function zidApiPost(tenantId: string, path: string, body: unknown, asForm = false) {
+  return zidRequest(tenantId, "POST", path, body, asForm);
+}
+
+/** The raw order payload (the detail view), for fields the engine's order shape leaves out (payment status). */
+export async function fetchZidOrderRaw(tenantId: string, orderId: string): Promise<Record<string, unknown> | null> {
+  const id = orderId.replace(/\D/g, "");
+  if (!id) return null;
+  const result = await zidRequest(tenantId, "GET", `/managers/store/orders/${encodeURIComponent(id)}/view`);
+  if (!result.ok) return null;
+  const order = obj(result.payload.order);
+  return Object.keys(order).length ? order : result.payload;
 }
 
 /** A read-only call through the workspace's connection (token refresh included). */

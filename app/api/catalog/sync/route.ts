@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { FeedError, syncProductFeed } from "../../../../lib/product-feed";
+import { isZidConnected } from "../../../../lib/catalog-zid";
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -16,6 +17,8 @@ export async function POST(request: NextRequest) {
   // Each call downloads and parses a remote file - cap how often it can be hammered.
   const limit = await consumeRateLimit("catalog-sync", requestIdentifier(request, user.tenantId), 6, 10 * 60 * 1000);
   if (!limit.allowed) return jsonError("محاولات كثيرة. حاول مرة أخرى بعد قليل", 429);
+
+  if (await isZidConnected(user.tenantId)) return jsonError("متجرك مربوط بزد: تُسحب المنتجات من زد، فلا حاجة لرابط ملف.", 409);
 
   try {
     return jsonOk(await syncProductFeed(user.tenantId));

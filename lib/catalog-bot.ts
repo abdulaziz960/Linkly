@@ -10,6 +10,8 @@ import {
   type CatalogProduct
 } from "./catalog";
 import { createMerchantInvoice, shortOrderNumber } from "./catalog-payments";
+import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, setCheckoutState } from "./catalog-zid";
+import { createZidOrder } from "./zid-checkout";
 import { formatMessageTime } from "./time";
 import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons } from "./whatsapp-send";
 
@@ -141,7 +143,9 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
 
 async function showProduct(ctx: CatalogCtx, product: CatalogProduct) {
   const details = productDetails(product);
-  const paymentOn = Boolean(await getMerchantGatewayKey(ctx.tenantId));
+  // Connected to Zid: payment is Zid's, and only a product from the store can be bought here; otherwise the merchant's own gateway.
+  const zid = await getZidCatalogMode(ctx.tenantId);
+  const paymentOn = zid.connected ? zid.ready && isZidProduct(product) : Boolean(await getMerchantGatewayKey(ctx.tenantId));
 
   if (ctx.channel !== "whatsapp") {
     const tail = paymentOn ? `\n\nللشراء اكتب: شراء ${product.name}` : `\n\nلتقديم طلب اكتب: شراء ${product.name}${product.productUrl ? `\n\nصفحة المنتج: ${product.productUrl}` : ""}`;
@@ -203,6 +207,14 @@ async function purchase(ctx: CatalogCtx, productId: string) {
     return;
   }
 
+  // A Zid store: the order is created in the store itself (address questions first). Stock is Zid's to track.
+  const zid = await getZidCatalogMode(ctx.tenantId);
+  if (zid.connected && zid.ready && isZidProduct(product)) {
+    await setCheckoutState(ctx.tenantId, ctx.conversationId, { productId: product.id, step: "city", city: "" });
+    await ctx.sendText("ممتاز 👌 لتجهيز طلبك أحتاج عنوان التوصيل.\nما اسم *مدينتك*؟\n(اكتب «إلغاء» للإيقاف)");
+    return;
+  }
+
   // Tracked stock: take one unit atomically so two customers can't both buy the last one.
   if (product.stock > 0) {
     const taken = await prisma.product.updateMany({ where: { id: product.id, tenantId: ctx.tenantId, stock: { gt: 0 } }, data: { stock: { decrement: 1 } } });
@@ -215,7 +227,9 @@ async function purchase(ctx: CatalogCtx, productId: string) {
   const conversation = await prisma.conversation.findUnique({ where: { id: ctx.conversationId }, include: { customer: true } });
   const customerName = conversation?.customer.name || "";
   const customerPhone = conversation?.customer.phone || "";
-  const gatewayKey = await getMerchantGatewayKey(ctx.tenantId);
+  // Connected to Zid, the merchant's own gateway is never used (a product that is not from the store, or
+  // checkout not set up yet, goes to a person); otherwise the gateway when there is one.
+  const gatewayKey = zid.connected ? "" : await getMerchantGatewayKey(ctx.tenantId);
 
   const order = await createOrder({
     tenantId: ctx.tenantId,
@@ -255,6 +269,74 @@ async function purchase(ctx: CatalogCtx, productId: string) {
   await ctx.sendText(`تم استلام طلبك ✅\n${summary}\n\nسيتواصل معك أحد موظفينا قريبًا لإتمام الطلب.`);
 }
 
+/** Next step of the address questions: the city, then the address, then the order is created in Zid. */
+async function continueZidCheckout(ctx: CatalogCtx, state: { productId: string; step: "city" | "address"; city: string }, text: string): Promise<boolean> {
+  if (!text) return false;
+  if (/^(إلغاء|الغاء|cancel)$/i.test(text)) {
+    await clearCheckoutState(ctx.conversationId);
+    await ctx.sendText("تم إلغاء الطلب. يمكنك اختيار منتج آخر متى شئت.");
+    return true;
+  }
+  if (state.step === "city") {
+    if (text.length > 60) {
+      await ctx.sendText("اكتب اسم المدينة فقط، مثل: الرياض");
+      return true;
+    }
+    await setCheckoutState(ctx.tenantId, ctx.conversationId, { productId: state.productId, step: "address", city: text });
+    await ctx.sendText("وما *عنوانك* بالتفصيل؟ (الحي والشارع ورقم المبنى)");
+    return true;
+  }
+
+  // The address came in: create the order in the store.
+  await clearCheckoutState(ctx.conversationId);
+  const product = await getProduct(ctx.tenantId, state.productId);
+  const conversation = await prisma.conversation.findUnique({ where: { id: ctx.conversationId }, include: { customer: true } });
+  const zid = await getZidCatalogMode(ctx.tenantId);
+  if (!product || !isProductAvailable(product) || !conversation || !zid.ready || !isZidProduct(product)) {
+    await ctx.sendText("عذرًا، تعذّر تجهيز الطلب الآن. سيتواصل معك أحد موظفينا قريبًا.");
+    await reopenForStaff(ctx.conversationId);
+    return true;
+  }
+
+  const customerName = conversation.customer.name;
+  const created = await createZidOrder(ctx.tenantId, {
+    customerName,
+    phone: conversation.customer.phone,
+    city: state.city,
+    addressLine: text,
+    sku: product.sku,
+    quantity: 1,
+    shippingMethodId: zid.shippingMethodId,
+    paymentMethodId: zid.paymentMethodId,
+    linkValidHours: zid.linkValidHours,
+    currency: product.currency
+  });
+
+  const order = await createOrder({
+    tenantId: ctx.tenantId,
+    conversationId: ctx.conversationId,
+    customerName,
+    customerPhone: conversation.customer.phone,
+    product,
+    status: created.ok && created.paymentLink ? "awaiting_payment" : "new"
+  });
+  const summary = `${product.name} - ${formatPrice(order.total, order.currency)}`;
+
+  if (created.ok && created.paymentLink) {
+    await prisma.catalogOrder.update({ where: { id: order.id }, data: { paymentId: `zid-${created.orderId}`, paymentUrl: created.paymentLink, updatedAt: new Date().toISOString() } });
+    await addOrderNote(ctx.conversationId, `طلب جديد في متجر زد (${created.code}) بانتظار الدفع: ${summary}`);
+    await ctx.sendText(`تم تجهيز طلبك ✅\nرقم الطلب: ${created.code}\n${summary}\n\nلإتمام الدفع بأمان اضغط على الرابط:\n${created.paymentLink}`);
+    return true;
+  }
+
+  // Zid refused the order (an address its shipping does not cover, a product without stock...): a person finishes it.
+  console.error("Zid order creation failed", created.ok ? "no payment link" : created.message);
+  await reopenForStaff(ctx.conversationId);
+  await addOrderNote(ctx.conversationId, `طلب يحتاج متابعة (تعذر إنشاؤه في زد${created.ok ? "" : `: ${created.message}`}): ${summary}\nالمدينة: ${state.city}\nالعنوان: ${text}`);
+  await ctx.sendText(`تم استلام طلبك ✅\n${summary}\n\nسيتواصل معك أحد موظفينا قريبًا لإتمام الطلب.`);
+  return true;
+}
+
 /**
  * Handles the customer's reply while the bot is waiting at a catalog step.
  * Returns "agent" when they asked for a human, "handled" when the reply was
@@ -263,6 +345,15 @@ async function purchase(ctx: CatalogCtx, productId: string) {
  */
 export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; text: string }, intro: string): Promise<"handled" | "agent" | "ignored"> {
   const id = reply.id || "";
+
+  // Answering the address questions of a Zid checkout.
+  if (!id) {
+    const state = await getCheckoutState(ctx.conversationId);
+    if (state && (await continueZidCheckout(ctx, state, reply.text.trim()))) return "handled";
+  } else {
+    // Any tap on the menu abandons a half-finished checkout.
+    await clearCheckoutState(ctx.conversationId);
+  }
 
   if (id === ID_AGENT) return "agent";
   if (id.startsWith(ID_MORE)) {

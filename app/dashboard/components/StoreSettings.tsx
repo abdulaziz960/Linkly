@@ -23,11 +23,12 @@ type Settings = {
     skipIfOrderedDays: number;
   };
   dailyCap: number;
+  checkout: { enabled: boolean; shippingMethodId: number; paymentMethodId: number; linkValidHours: number };
 };
 
 const ORDER_EVENTS: OrderEvent[] = ["created", "processing", "shipped", "delivered", "cancelled"];
 
-type Section = "connection" | "orders" | "lookup" | "carts";
+type Section = "connection" | "orders" | "lookup" | "carts" | "checkout";
 const STATUS_GROUPS: StatusGroup[] = ["review", "processing", "shipped", "delivered", "cancelled", "other"];
 
 /** Salla / Zid: which notifications go out and how abandoned carts are followed up. Stored now; sending starts once the store is connected. */
@@ -41,6 +42,9 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
   const [busy, setBusy] = useState(false);
   const [productSync, setProductSync] = useState<{ lastAt: string; status: string; message: string } | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [deliveryOptions, setDeliveryOptions] = useState<Array<{ id: number; name: string }>>([]);
+  const [checkoutNote, setCheckoutNote] = useState("");
+  const [loadingCheckout, setLoadingCheckout] = useState(false);
   const [syncNote, setSyncNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -63,6 +67,25 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
     const response = await fetch(`/api/store-integrations/${store}/products`, { cache: "no-store" }).catch(() => null);
     const result = (await response?.json().catch(() => null)) as { ok?: boolean; data?: { lastAt: string; status: string; message: string } } | null;
     if (result?.ok && result.data) setProductSync(result.data);
+  }
+
+  async function loadCheckoutOptions() {
+    if (store !== "zid") return;
+    setLoadingCheckout(true);
+    setCheckoutNote("");
+    try {
+      const response = await fetch(`/api/store-integrations/${store}/checkout`, { cache: "no-store" });
+      const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; data?: { deliveryOptions: Array<{ id: number; name: string }>; deliveryError: string; suggestedPaymentMethodId: number } } | null;
+      if (!response.ok || !result?.ok || !result.data) throw new Error(result?.error || t("تعذر جلب خيارات الشحن.", "Could not load the delivery options."));
+      setDeliveryOptions(result.data.deliveryOptions);
+      if (result.data.deliveryError) setCheckoutNote(result.data.deliveryError);
+      const suggested = result.data.suggestedPaymentMethodId;
+      setSettings((current) => (current && suggested > 0 && current.checkout.paymentMethodId === 0 ? { ...current, checkout: { ...current.checkout, paymentMethodId: suggested } } : current));
+    } catch (error) {
+      setCheckoutNote(error instanceof Error ? error.message : t("تعذر جلب خيارات الشحن.", "Could not load the delivery options."));
+    } finally {
+      setLoadingCheckout(false);
+    }
   }
 
   async function syncProducts() {
@@ -190,6 +213,7 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
         <button type="button" role="tab" aria-selected={section === "orders"} onClick={() => setSection("orders")}>{t("إشعارات الطلب", "Order notifications")}</button>
         <button type="button" role="tab" aria-selected={section === "lookup"} onClick={() => setSection("lookup")}>{t("استعلام الطلبات", "Order lookup")}</button>
         <button type="button" role="tab" aria-selected={section === "carts"} onClick={() => setSection("carts")}>{t("السلات المتروكة", "Abandoned carts")}</button>
+        {store === "zid" ? <button type="button" role="tab" aria-selected={section === "checkout"} onClick={() => { setSection("checkout"); void loadCheckoutOptions(); }}>{t("الشراء من واتساب", "Buy from WhatsApp")}</button> : null}
       </div>
 
       {section === "connection" ? (
@@ -224,6 +248,40 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" }) {
             </div>
           ) : null}
           <span style={hint}>{t("بعد الربط تصل أحداث الطلبات والسلات المتروكة تلقائيًا، وتُطبَّق الإعدادات في التبويبات الأخرى.", "After connecting, order and abandoned-cart events arrive automatically and the settings in the other tabs apply.")}</span>
+        </section>
+      ) : section === "checkout" ? (
+        <section style={box}>
+          <h4 style={sectionTitle}>{t("الشراء من واتساب → طلب في زد", "Buying from WhatsApp → an order in Zid")}</h4>
+          <span style={hint}>{t("عند الشراء من كتالوج واتساب يُنشأ الطلب في متجر زد ويصل العميل رابط دفع زد. المخزون والشحن والفاتورة من زد، ولا تُستخدم بوابة ميسر.", "A purchase from the WhatsApp catalog creates the order in your Zid store and the customer gets a Zid payment link. Stock, shipping and the invoice are Zid's; no Moyasar gateway is used.")}</span>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, cursor: "pointer" }}>
+            <input type="checkbox" checked={settings.checkout.enabled} onChange={(event) => setSettings({ ...settings, checkout: { ...settings.checkout, enabled: event.target.checked } })} style={{ width: 18, height: 18 }} />
+            {t("تفعيل الشراء من واتساب", "Turn on buying from WhatsApp")}
+          </label>
+          <label style={fieldLabel}>
+            {t("طريقة الشحن", "Delivery option")}
+            <CustomSelect
+              value={String(settings.checkout.shippingMethodId || "")}
+              placeholder={loadingCheckout ? t("جارٍ التحميل...", "Loading...") : t("اختر طريقة الشحن", "Choose a delivery option")}
+              options={[{ value: "", label: t("اختر طريقة الشحن", "Choose a delivery option") }, ...deliveryOptions.map((option) => ({ value: String(option.id), label: option.name }))]}
+              onChange={(value) => setSettings({ ...settings, checkout: { ...settings.checkout, shippingMethodId: Number(value) || 0 } })}
+            />
+            <span style={hint}>{t("خيارات الشحن المضافة في متجرك على زد.", "The delivery options set up in your Zid store.")}</span>
+          </label>
+          <label style={fieldLabel}>
+            {t("رقم طريقة الدفع (رابط الدفع)", "Payment method id (payment link)")}
+            <input type="number" min={0} dir="ltr" style={input} value={settings.checkout.paymentMethodId || ""} onChange={(event) => setSettings({ ...settings, checkout: { ...settings.checkout, paymentMethodId: Number(event.target.value) || 0 } })} placeholder="555224" />
+            <span style={hint}>{t("يُملأ تلقائيًا إن وجدناه. وإلا خذه من زد: طرق الدفع ← الدفع برابط (ZidPay).", "Filled automatically when found; otherwise take it from Zid: payment methods → payment link (ZidPay).")}</span>
+          </label>
+          <label style={fieldLabel}>
+            {t("صلاحية رابط الدفع (ساعات)", "Payment link valid for (hours)")}
+            <input type="number" min={1} max={168} style={input} value={settings.checkout.linkValidHours} onChange={(event) => setSettings({ ...settings, checkout: { ...settings.checkout, linkValidHours: Number(event.target.value) || 24 } })} />
+          </label>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <button className="soft-action" type="button" disabled={loadingCheckout} onClick={() => void loadCheckoutOptions()}>{t("تحديث الخيارات من زد", "Refresh from Zid")}</button>
+            {settings.checkout.enabled && (!settings.checkout.shippingMethodId || !settings.checkout.paymentMethodId) ? <span style={{ ...hint, color: "#c0392b", opacity: 1 }}>{t("اختر طريقة الشحن وأدخل رقم طريقة الدفع ليعمل.", "Choose a delivery option and enter the payment method id for it to work.")}</span> : null}
+          </div>
+          {checkoutNote ? <span className="automation-feedback error">{checkoutNote}</span> : null}
+          <span style={hint}>{t("لا يُشترى من واتساب إلا منتج مسحوب من زد (لديه SKU). غيره يُحوَّل لموظف.", "Only a product pulled from Zid (it has a SKU) can be bought from WhatsApp; anything else goes to a person.")}</span>
         </section>
       ) : section === "lookup" ? (
         <>
