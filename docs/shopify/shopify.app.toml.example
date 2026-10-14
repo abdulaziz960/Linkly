@@ -1,0 +1,25 @@
+# Optional: the same settings as docs/shopify-setup.md, for Shopify CLI users
+# (`shopify app config link`, then `shopify app deploy`). Copy to shopify.app.toml
+# at the project root, put your own client_id, and deploy. Not used by the build.
+#
+# The order / checkout / uninstall webhooks are NOT declared here on purpose:
+# Linkly registers them for each shop when it connects. Declaring them here as well
+# would deliver every event twice. Only the mandatory privacy webhooks live here.
+
+name = "Linkly"
+client_id = "REPLACE_WITH_YOUR_CLIENT_ID"
+application_url = "https://linklysa.io/api/shopify/connect"
+embedded = false
+
+[access_scopes]
+scopes = "read_orders,read_customers"
+
+[auth]
+redirect_urls = ["https://linklysa.io/api/shopify/callback"]
+
+[webhooks]
+api_version = "2026-01"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "https://linklysa.io/api/shopify/webhook"

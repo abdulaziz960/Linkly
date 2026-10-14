@@ -63,6 +63,20 @@ export default function PrivacyPageEn() {
           the service.
         </p>
 
+        <h2>Online store data (Salla, Zid and Shopify)</h2>
+        <p>
+          When a customer connects their Salla, Zid or Shopify store, we request read access to orders and customers
+          only, with their explicit consent on the platform's own authorization screen. We use this data (order number,
+          status, amount and shipping details, the name and phone number on the order, and abandoned carts) to send
+          order notifications and abandoned-cart reminders over WhatsApp and to answer shoppers' questions about their
+          orders, on the merchant's behalf and according to the settings the merchant chooses.
+        </p>
+        <ul>
+          <li>We do not sell store or shopper data, use it for advertising or profiling, or share it except with the service providers needed to operate the platform.</li>
+          <li>Access tokens are stored encrypted, and the merchant can disconnect at any time, which ends our access to the store immediately.</li>
+          <li>We keep an order-event log and cart reminders to run the feature and avoid duplicate messages, and we delete store or shopper data when the platform sends an erasure request (such as Shopify's mandatory privacy webhooks) or when the merchant asks.</li>
+        </ul>
+
         <h2>Google user data (Gmail, YouTube and Business Profile)</h2>
         <p>
           When a customer connects their Google account to Linkly, we request only the following permissions, with

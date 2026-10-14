@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { verifyOAuthState } from "../../../../lib/oauth-state";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
+import { findTenantByMerchant } from "../../../../lib/store-connections";
 import {
   exchangeShopifyCode,
   fetchShopifyShop,
@@ -38,6 +39,11 @@ export async function GET(request: NextRequest) {
   if (user.role !== "مالك الحساب") return closeWith(request, "ربط المتجر متاح لمالك الحساب فقط.");
   const code = params.get("code") || "";
   if (!code) return closeWith(request, "لم تتم الموافقة على الربط.");
+
+  // A shop's webhooks are routed to the one workspace that connected it, so a shop already
+  // connected elsewhere is not taken over by a second workspace.
+  const owner = await findTenantByMerchant("shopify", shop);
+  if (owner && owner !== user.tenantId) return closeWith(request, "هذا المتجر مربوط بحساب آخر في لنكلي. افصل الربط هناك أولًا.");
 
   const tokens = await exchangeShopifyCode(shop, code);
   if ("error" in tokens) return closeWith(request, tokens.error);
