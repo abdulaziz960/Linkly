@@ -24,9 +24,11 @@ import EmployeesView from "./EmployeesView";
 import IntegrationsView from "./IntegrationsView";
 import PipelineView from "./PipelineView";
 import QuickRepliesView from "./QuickRepliesView";
-import ReportsHub from "./ReportsHub";
-import AiHub from "./AiHub";
 import ViewTabs from "./ViewTabs";
+import OperationsView from "./OperationsView";
+import ReportsView from "./ReportsView";
+import AiSettingsView from "./AiSettingsView";
+import KnowledgeBaseView from "./KnowledgeBaseView";
 import SegmentsView from "./SegmentsView";
 import SettingsView from "./SettingsView";
 import TagsView from "./TagsView";
@@ -98,16 +100,13 @@ export default function DashboardViewRouter({
 }: DashboardViewRouterProps) {
   if (view === "operations" || view === "reports") {
     return (
-      <ReportsHub
-        initialTab={view === "operations" ? "now" : "reports"}
-        canViewOperations={view === "operations" ? true : canViewOperations}
-        canViewReports={view === "reports" ? true : canViewReports}
-        conversations={conversations}
-        employees={employees}
-        teams={teams}
-        workSchedules={workSchedules}
-        onOpenConversation={onOpenConversation}
-        onRefreshData={onRefreshData}
+      <ViewTabs
+        initialKey={view}
+        ariaLabel="التقارير والعمليات"
+        tabs={[
+          { viewKey: "operations", label: "الآن (مركز العمليات)", lockLabel: "مركز العمليات", available: view === "operations" || canViewOperations, content: <OperationsView conversations={conversations} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
+          { viewKey: "reports", label: "التقارير", available: view === "reports" || canViewReports, content: <ReportsView conversations={conversations} employees={employees} teams={teams} workSchedules={workSchedules} onOpenConversation={onOpenConversation} /> }
+        ]}
       />
     );
   }
@@ -126,10 +125,14 @@ export default function DashboardViewRouter({
   if (view === "bot") return <BotView teams={teams} employees={employees} />;
   if (view === "ai" || view === "knowledgeBase") {
     return (
-      <AiHub
-        initialTab={view === "knowledgeBase" ? "knowledge" : "assistant"}
-        canViewAssistant={view === "ai" ? true : canViewAi}
-        canViewKnowledge={view === "knowledgeBase" ? true : canViewKnowledgeBase}
+      <ViewTabs
+        initialKey={view}
+        ariaLabel="مساعد AI وقاعدة المعرفة"
+        note={<p className="muted-copy" style={{ margin: "10px 24px 0" }}>المساعد وخطوة «رد AI تلقائي» لا يجيبان إلا من قاعدة المعرفة، فأضف فيها أسئلتك وأجوبتك أولًا.</p>}
+        tabs={[
+          { viewKey: "knowledgeBase", label: "قاعدة المعرفة", available: view === "knowledgeBase" || canViewKnowledgeBase, content: <KnowledgeBaseView /> },
+          { viewKey: "ai", label: "إعدادات المساعد", available: view === "ai" || canViewAi, content: <AiSettingsView /> }
+        ]}
       />
     );
   }

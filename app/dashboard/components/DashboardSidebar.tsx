@@ -175,8 +175,6 @@ export default function DashboardSidebar({
   const mergedAi = allowedViews.includes("ai") && allowedViews.includes("knowledgeBase");
   const mergedContacts = allowedViews.includes("contacts") && allowedViews.includes("tags");
   // Employees, teams and the teams' work hours are one page; the entry shows when any of the extra parts exists.
-  // Channels (settings), ad platforms / stores (integrations) and the developer tools are one "connect" page.
-  const mergedConnect = allowedViews.includes("settings") && (allowedViews.includes("integrations") || allowedViews.includes("developers"));
   const mergedTeam = allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours"));
   const labelFor = (item: { key: ViewKey; label: string }) =>
     item.key === "reports" && mergedOperations ? (isEnglish ? "Reports & operations" : "التقارير والعمليات")
@@ -184,17 +182,18 @@ export default function DashboardSidebar({
       : item.key === "contacts" && mergedContacts ? (isEnglish ? "Contacts & tags" : "العملاء والوسوم")
       : item.key === "employees" && mergedTeam ? (isEnglish ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل")
       : isEnglish ? navItemLabelsEn[item.key] : item.label;
-  const visibleNavItems = navItems.filter(
-    (item) =>
-      (allowedViews.includes(item.key) || lockedViews.includes(item.key)) &&
-      !(item.key === "operations" && mergedOperations) &&
-      !(item.key === "knowledgeBase" && mergedAi) &&
-      !(item.key === "tags" && mergedContacts) &&
-      !(item.key === "teams" && mergedTeam) &&
-      !(item.key === "workHours" && mergedTeam) &&
-      !(item.key === "integrations" && mergedConnect) &&
-      !(item.key === "developers" && mergedConnect)
-  );
+  // A part that is merged into a page is not a sidebar entry of its own, allowed or plan-locked: when it is locked
+  // the page shows it as a locked tab that opens the same upgrade message.
+  const partOf = (part: ViewKey, anchor: ViewKey) => allowedViews.includes(anchor) && (allowedViews.includes(part) || lockedViews.includes(part));
+  const mergedPart = (key: ViewKey) =>
+    (key === "operations" && partOf("operations", "reports")) ||
+    (key === "knowledgeBase" && partOf("knowledgeBase", "ai")) ||
+    (key === "tags" && partOf("tags", "contacts")) ||
+    (key === "teams" && partOf("teams", "employees")) ||
+    (key === "workHours" && partOf("workHours", "employees")) ||
+    (key === "integrations" && partOf("integrations", "settings")) ||
+    (key === "developers" && partOf("developers", "settings"));
+  const visibleNavItems = navItems.filter((item) => (allowedViews.includes(item.key) || lockedViews.includes(item.key)) && !mergedPart(item.key));
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "صندوق الوارد", labelEn: "Inbox", keys: ["inbox", "quickReplies"] },
     { label: "جهات الاتصال", labelEn: "Contacts", keys: ["contacts", "tags"] },
