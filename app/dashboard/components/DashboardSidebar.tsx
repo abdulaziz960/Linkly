@@ -208,15 +208,12 @@ export default function DashboardSidebar({
       !mergedPart(item.key) &&
       !(item.key === "branches" && catalogPair)
   );
-  // Most-used first: the daily work (replies, customers, products), then marketing, automation, numbers, setup.
+  // Four blocks, most-used first: daily work, marketing, automation and AI, then administration.
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
-    { label: "صندوق الوارد", labelEn: "Inbox", keys: ["inbox", "quickReplies"] },
-    { label: "العملاء", labelEn: "Customers", keys: ["contacts", "tags", "pipeline"] },
-    { label: "المنتجات", labelEn: "Products", keys: ["catalog", "branches"] },
-    { label: "الحملات", labelEn: "Campaigns", keys: ["campaigns", "emailPromotions", "segments", "templates"] },
+    { label: "العمل اليومي", labelEn: "Daily work", keys: ["inbox", "quickReplies", "contacts", "tags", "pipeline", "catalog", "branches"] },
+    { label: "التسويق", labelEn: "Marketing", keys: ["campaigns", "emailPromotions", "segments", "templates"] },
     { label: "الأتمتة والذكاء", labelEn: "Automation & AI", keys: ["bot", "automations", "ai", "knowledgeBase"] },
-    { label: "التحليلات", labelEn: "Analytics", keys: ["reports", "operations"] },
-    { label: "الإعدادات", labelEn: "Settings", keys: ["settings", "integrations", "developers", "employees", "teams", "workHours", "branding"] }
+    { label: "الإدارة", labelEn: "Administration", keys: ["reports", "operations", "settings", "integrations", "developers", "employees", "teams", "workHours", "branding"] }
   ];
   const connected = integrationStatus === "connected";
   const linkedChannels: Array<{ key: ConversationChannel; label: string; connected: boolean }> = [

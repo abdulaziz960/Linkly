@@ -8618,8 +8618,9 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .dashboard-nav-cluster {
   display: grid;
   gap: 7px;
-  padding-top: 9px;
-  border-top: 1px solid rgba(255, 255, 255, .1);
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, .24);
 }
 
 .dashboard-nav-cluster:first-of-type {
