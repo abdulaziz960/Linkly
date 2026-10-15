@@ -174,13 +174,15 @@ export default function DashboardSidebar({
   // Same for the AI assistant and the knowledge base it answers from.
   const mergedAi = allowedViews.includes("ai") && allowedViews.includes("knowledgeBase");
   const mergedContacts = allowedViews.includes("contacts") && allowedViews.includes("tags");
+  // Leads (the sales kanban) are a tab of the customers page for anyone who has both.
+  const leadsInContacts = allowedViews.includes("contacts") && (allowedViews.includes("pipeline") || lockedViews.includes("pipeline"));
   // Employees, teams and the teams' work hours are one page; the entry shows when any of the extra parts exists.
   const mergedTeam = allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours"));
   const labelFor = (item: { key: ViewKey; label: string }) =>
     item.key === "reports" && mergedOperations ? (isEnglish ? "Reports & operations" : "التقارير والعمليات")
       : item.key === "ai" && mergedAi ? (isEnglish ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة")
       : item.key === "catalog" && catalogPair ? (isEnglish ? "Catalog & branches" : "الكتالوج والفروع")
-      : item.key === "contacts" && mergedContacts ? (isEnglish ? "Contacts & tags" : "العملاء والوسوم")
+      : item.key === "contacts" && (mergedContacts || leadsInContacts) ? (isEnglish ? "Customers, leads & tags" : "العملاء والعملاء المحتملون والوسوم")
       : item.key === "employees" && mergedTeam ? (isEnglish ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل")
       : isEnglish ? navItemLabelsEn[item.key] : item.label;
   // A part that is merged into a page is not a sidebar entry of its own, allowed or plan-locked: when it is locked
@@ -190,6 +192,7 @@ export default function DashboardSidebar({
     (key === "operations" && partOf("operations", "reports")) ||
     (key === "knowledgeBase" && partOf("knowledgeBase", "ai")) ||
     (key === "tags" && partOf("tags", "contacts")) ||
+    (key === "pipeline" && partOf("pipeline", "contacts")) ||
     (key === "teams" && partOf("teams", "employees")) ||
     (key === "workHours" && partOf("workHours", "employees")) ||
     (key === "integrations" && partOf("integrations", "settings")) ||
@@ -205,16 +208,15 @@ export default function DashboardSidebar({
       !mergedPart(item.key) &&
       !(item.key === "branches" && catalogPair)
   );
+  // Most-used first: the daily work (replies, customers, products), then marketing, automation, numbers, setup.
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "صندوق الوارد", labelEn: "Inbox", keys: ["inbox", "quickReplies"] },
-    { label: "جهات الاتصال", labelEn: "Contacts", keys: ["contacts", "tags"] },
-    { label: "المبيعات", labelEn: "Sales", keys: ["pipeline", "catalog"] },
+    { label: "العملاء", labelEn: "Customers", keys: ["contacts", "tags", "pipeline"] },
+    { label: "المنتجات", labelEn: "Products", keys: ["catalog", "branches"] },
     { label: "الحملات", labelEn: "Campaigns", keys: ["campaigns", "emailPromotions", "segments", "templates"] },
-    { label: "الأتمتة", labelEn: "Automations", keys: ["automations"] },
-    { label: "الذكاء الاصطناعي", labelEn: "AI", keys: ["ai", "bot", "knowledgeBase"] },
-    { label: "التحليلات", labelEn: "Analytics", keys: ["operations", "reports"] },
-    { label: "التكاملات", labelEn: "Integrations", keys: ["integrations", "settings", "developers"] },
-    { label: "الإعدادات", labelEn: "Settings", keys: ["teams", "employees", "workHours", "branches", "branding"] }
+    { label: "الأتمتة والذكاء", labelEn: "Automation & AI", keys: ["bot", "automations", "ai", "knowledgeBase"] },
+    { label: "التحليلات", labelEn: "Analytics", keys: ["reports", "operations"] },
+    { label: "الإعدادات", labelEn: "Settings", keys: ["settings", "integrations", "developers", "employees", "teams", "workHours", "branding"] }
   ];
   const connected = integrationStatus === "connected";
   const linkedChannels: Array<{ key: ConversationChannel; label: string; connected: boolean }> = [
@@ -273,7 +275,9 @@ export default function DashboardSidebar({
           )
           : null}
         {navigationGroups.map((group) => {
-          const groupItems = visibleNavItems.filter((item) => group.keys.includes(item.key));
+          const groupItems = visibleNavItems
+            .filter((item) => group.keys.includes(item.key))
+            .sort((a, b) => group.keys.indexOf(a.key) - group.keys.indexOf(b.key));
           if (!groupItems.length) return null;
           return (
           <div className="dashboard-nav-cluster" key={group.label} aria-label={isEnglish ? group.labelEn : group.label}>

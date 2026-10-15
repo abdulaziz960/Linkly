@@ -59,6 +59,7 @@ type DashboardViewRouterProps = {
   canViewKnowledgeBase?: boolean;
   canViewContacts?: boolean;
   canViewTags?: boolean;
+  canViewPipeline?: boolean;
   canViewTeams?: boolean;
   canViewEmployees?: boolean;
   canViewWorkHours?: boolean;
@@ -92,6 +93,7 @@ export default function DashboardViewRouter({
   canViewKnowledgeBase = false,
   canViewContacts = false,
   canViewTags = false,
+  canViewPipeline = false,
   canViewTeams = false,
   canViewEmployees = false,
   canViewWorkHours = false,
@@ -114,13 +116,14 @@ export default function DashboardViewRouter({
       />
     );
   }
-  if (view === "contacts" || view === "tags") {
+  if (view === "contacts" || view === "tags" || view === "pipeline") {
     return (
       <ViewTabs
         initialKey={view}
-        ariaLabel="العملاء والوسوم"
+        ariaLabel="العملاء والعملاء المحتملون والوسوم"
         tabs={[
           { viewKey: "contacts", label: "العملاء", available: view === "contacts" || canViewContacts, content: <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
+          { viewKey: "pipeline", label: "العملاء المحتملون", available: view === "pipeline" || canViewPipeline, content: <PipelineView conversations={conversations} automationRules={automationRules} templates={templates} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
           { viewKey: "tags", label: "الوسوم", available: view === "tags" || canViewTags, content: <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> }
         ]}
       />
@@ -155,7 +158,6 @@ export default function DashboardViewRouter({
   if (view === "campaigns") return <CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} brandName={branding.name} onRefreshData={onRefreshData} />;
   if (view === "emailPromotions") return <EmailPromotionsView customers={customers} conversations={conversations} tags={tags} />;
   if (view === "segments") return <SegmentsView tags={tags} />;
-  if (view === "pipeline") return <PipelineView conversations={conversations} automationRules={automationRules} templates={templates} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "templates") return <TemplatesView templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "teams" || view === "employees" || view === "workHours") {
