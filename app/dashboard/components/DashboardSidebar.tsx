@@ -169,7 +169,11 @@ export default function DashboardSidebar({
       : { label, top, right: window.innerWidth - bounds.left + 12 });
   };
   const hideSidebarTooltip = () => setSidebarTooltip(null);
-  const visibleNavItems = navItems.filter((item) => allowedViews.includes(item.key) || lockedViews.includes(item.key));
+  // The live operations board lives inside Reports as a tab for anyone who has both: one entry, not two.
+  const mergedOperations = allowedViews.includes("operations") && allowedViews.includes("reports");
+  const labelFor = (item: { key: ViewKey; label: string }) =>
+    item.key === "reports" && mergedOperations ? (isEnglish ? "Reports & operations" : "التقارير والعمليات") : isEnglish ? navItemLabelsEn[item.key] : item.label;
+  const visibleNavItems = navItems.filter((item) => (allowedViews.includes(item.key) || lockedViews.includes(item.key)) && !(item.key === "operations" && mergedOperations));
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "صندوق الوارد", labelEn: "Inbox", keys: ["inbox", "quickReplies"] },
     { label: "جهات الاتصال", labelEn: "Contacts", keys: ["contacts", "tags"] },
@@ -227,7 +231,7 @@ export default function DashboardSidebar({
               <label><span>{isEnglish ? "Go to" : "انتقل إلى"}</span><input autoFocus value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} placeholder={isEnglish ? "Search sections..." : "ابحث عن قسم..."} /></label>
               <div>
                 {visibleNavItems.filter((item) => `${item.label} ${navItemLabelsEn[item.key]}`.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((item) => (
-                  <button key={item.key} type="button" onClick={() => { if (lockedViews.includes(item.key)) { promptForView(item.key, isEnglish ? navItemLabelsEn[item.key] : item.label); } else { onChangeView(item.key); } setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{isEnglish ? navItemLabelsEn[item.key] : item.label}</span></button>
+                  <button key={item.key} type="button" onClick={() => { if (lockedViews.includes(item.key)) { promptForView(item.key, labelFor(item)); } else { onChangeView(item.key); } setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{labelFor(item)}</span></button>
                 ))}
                 {visibleLinkedChannels.filter((channel) => channel.label.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((channel) => (
                   <button key={channel.key} type="button" onClick={() => { onChangeChannel(channel.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><span className={`nav-channel-dot ${channel.key}`} aria-hidden="true"><ChannelIcon id={channel.key} /></span><span>{channel.label}</span></button>
@@ -250,17 +254,17 @@ export default function DashboardSidebar({
               type="button"
               onClick={() => {
                 hideSidebarTooltip();
-                if (lockedViews.includes(item.key)) { promptForView(item.key, isEnglish ? navItemLabelsEn[item.key] : item.label); return; }
+                if (lockedViews.includes(item.key)) { promptForView(item.key, labelFor(item)); return; }
                 onChangeView(item.key);
               }}
-              onMouseEnter={(event) => showSidebarTooltip(event, isEnglish ? navItemLabelsEn[item.key] : item.label)}
+              onMouseEnter={(event) => showSidebarTooltip(event, labelFor(item))}
               onMouseLeave={hideSidebarTooltip}
-              onFocus={(event) => showSidebarTooltip(event, isEnglish ? navItemLabelsEn[item.key] : item.label)}
+              onFocus={(event) => showSidebarTooltip(event, labelFor(item))}
               onBlur={hideSidebarTooltip}
-              aria-label={isEnglish ? navItemLabelsEn[item.key] : item.label}
+              aria-label={labelFor(item)}
             >
               <DashboardNavIcon view={item.key} />
-              <span className="dashboard-nav-label">{isEnglish ? navItemLabelsEn[item.key] : item.label}</span>
+              <span className="dashboard-nav-label">{labelFor(item)}</span>
             </button>
             ))}
           </div>

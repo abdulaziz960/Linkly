@@ -11808,3 +11808,8 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   padding: 12px 14px;
   text-align: start;
 }
+
+/* Reports + operations share one page: the tab bar sits in the same gutter as the page content. */
+.reports-hub-tabs {
+  margin: 20px 24px 0;
+}

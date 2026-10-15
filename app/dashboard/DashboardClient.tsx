@@ -1508,7 +1508,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
       <main className="dashboard-main">
         <MobileTopbar
-          title={language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]}
+          title={(activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]}
           language={language}
           menuOpen={menuOpen}
           onToggleMenu={() => setMenuOpen((value) => !value)}
@@ -1582,6 +1582,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             onIntegrationChange={handleIntegrationChange}
             onRefreshData={loadDashboardData}
             onOpenConversation={handleOpenConversation}
+            canViewOperations={allowedViews.includes("operations")}
+            canViewReports={allowedViews.includes("reports")}
             view={activeView}
           />
         )}

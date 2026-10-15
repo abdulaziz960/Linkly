@@ -24,10 +24,9 @@ import EmailPromotionsView from "./EmailPromotionsView";
 import EmployeesView from "./EmployeesView";
 import IntegrationsView from "./IntegrationsView";
 import KnowledgeBaseView from "./KnowledgeBaseView";
-import OperationsView from "./OperationsView";
 import PipelineView from "./PipelineView";
 import QuickRepliesView from "./QuickRepliesView";
-import ReportsView from "./ReportsView";
+import ReportsHub from "./ReportsHub";
 import SegmentsView from "./SegmentsView";
 import SettingsView from "./SettingsView";
 import TagsView from "./TagsView";
@@ -52,6 +51,8 @@ type DashboardViewRouterProps = {
   onIntegrationChange: (settings: IntegrationSettings) => void;
   onRefreshData: () => Promise<void>;
   onOpenConversation: (conversationId: string) => void;
+  canViewOperations?: boolean;
+  canViewReports?: boolean;
   view: ViewKey;
 };
 
@@ -71,9 +72,25 @@ export default function DashboardViewRouter({
   templates,
   whatsappConnected,
   branding,
+  canViewOperations = false,
+  canViewReports = false,
   view
 }: DashboardViewRouterProps) {
-  if (view === "operations") return <OperationsView conversations={conversations} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
+  if (view === "operations" || view === "reports") {
+    return (
+      <ReportsHub
+        initialTab={view === "operations" ? "now" : "reports"}
+        canViewOperations={view === "operations" ? true : canViewOperations}
+        canViewReports={view === "reports" ? true : canViewReports}
+        conversations={conversations}
+        employees={employees}
+        teams={teams}
+        workSchedules={workSchedules}
+        onOpenConversation={onOpenConversation}
+        onRefreshData={onRefreshData}
+      />
+    );
+  }
   if (view === "contacts") return <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "tags") return <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "bot") return <BotView teams={teams} employees={employees} />;
@@ -98,7 +115,6 @@ export default function DashboardViewRouter({
   if (view === "templates") return <TemplatesView templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "workHours") return <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} />;
-  if (view === "reports") return <ReportsView conversations={conversations} employees={employees} teams={teams} workSchedules={workSchedules} onOpenConversation={onOpenConversation} />;
   if (view === "teams") return <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "employees") return <EmployeesView employees={employees} conversations={conversations} onRefreshData={onRefreshData} />;
   if (view === "settings") return <SettingsView onIntegrationChange={onIntegrationChange} />;
