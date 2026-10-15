@@ -179,6 +179,7 @@ export default function DashboardSidebar({
   const labelFor = (item: { key: ViewKey; label: string }) =>
     item.key === "reports" && mergedOperations ? (isEnglish ? "Reports & operations" : "التقارير والعمليات")
       : item.key === "ai" && mergedAi ? (isEnglish ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة")
+      : item.key === "catalog" && catalogPair ? (isEnglish ? "Catalog & branches" : "الكتالوج والفروع")
       : item.key === "contacts" && mergedContacts ? (isEnglish ? "Contacts & tags" : "العملاء والوسوم")
       : item.key === "employees" && mergedTeam ? (isEnglish ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل")
       : isEnglish ? navItemLabelsEn[item.key] : item.label;
@@ -193,7 +194,17 @@ export default function DashboardSidebar({
     (key === "workHours" && partOf("workHours", "employees")) ||
     (key === "integrations" && partOf("integrations", "settings")) ||
     (key === "developers" && partOf("developers", "settings"));
-  const visibleNavItems = navItems.filter((item) => (allowedViews.includes(item.key) || lockedViews.includes(item.key)) && !mergedPart(item.key));
+  // Catalog and branches share one entry as soon as either is available (the other shows as a locked tab).
+  const catalogPair = allowedViews.includes("catalog") || allowedViews.includes("branches");
+  const navTarget = (item: { key: ViewKey }): ViewKey => (item.key === "catalog" && catalogPair && !allowedViews.includes("catalog") ? "branches" : item.key);
+  const itemLocked = (item: { key: ViewKey }) => (item.key === "catalog" && catalogPair ? false : lockedViews.includes(item.key));
+  const itemActive = (item: { key: ViewKey }) => activeView === item.key || (item.key === "catalog" && catalogPair && activeView === "branches");
+  const visibleNavItems = navItems.filter(
+    (item) =>
+      (allowedViews.includes(item.key) || lockedViews.includes(item.key) || (item.key === "catalog" && catalogPair)) &&
+      !mergedPart(item.key) &&
+      !(item.key === "branches" && catalogPair)
+  );
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "صندوق الوارد", labelEn: "Inbox", keys: ["inbox", "quickReplies"] },
     { label: "جهات الاتصال", labelEn: "Contacts", keys: ["contacts", "tags"] },
@@ -251,7 +262,7 @@ export default function DashboardSidebar({
               <label><span>{isEnglish ? "Go to" : "انتقل إلى"}</span><input autoFocus value={navigationSearch} onChange={(event) => setNavigationSearch(event.target.value)} placeholder={isEnglish ? "Search sections..." : "ابحث عن قسم..."} /></label>
               <div>
                 {visibleNavItems.filter((item) => `${item.label} ${navItemLabelsEn[item.key]}`.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((item) => (
-                  <button key={item.key} type="button" onClick={() => { if (lockedViews.includes(item.key)) { promptForView(item.key, labelFor(item)); } else { onChangeView(item.key); } setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{labelFor(item)}</span></button>
+                  <button key={item.key} type="button" onClick={() => { if (itemLocked(item)) { promptForView(item.key, labelFor(item)); } else { onChangeView(navTarget(item)); } setNavigationSearchOpen(false); setNavigationSearch(""); }}><DashboardNavIcon view={item.key} /><span>{labelFor(item)}</span></button>
                 ))}
                 {visibleLinkedChannels.filter((channel) => channel.label.toLowerCase().includes(navigationSearch.trim().toLowerCase())).map((channel) => (
                   <button key={channel.key} type="button" onClick={() => { onChangeChannel(channel.key); setNavigationSearchOpen(false); setNavigationSearch(""); }}><span className={`nav-channel-dot ${channel.key}`} aria-hidden="true"><ChannelIcon id={channel.key} /></span><span>{channel.label}</span></button>
@@ -270,12 +281,12 @@ export default function DashboardSidebar({
             {groupItems.map((item) => (
             <button
               key={item.key}
-              className={`${activeView === item.key && (item.key !== "inbox" || selectedChannel === "all") ? "active" : ""}${lockedViews.includes(item.key) ? " plan-locked" : ""}`}
+              className={`${itemActive(item) && (item.key !== "inbox" || selectedChannel === "all") ? "active" : ""}${itemLocked(item) ? " plan-locked" : ""}`}
               type="button"
               onClick={() => {
                 hideSidebarTooltip();
-                if (lockedViews.includes(item.key)) { promptForView(item.key, labelFor(item)); return; }
-                onChangeView(item.key);
+                if (itemLocked(item)) { promptForView(item.key, labelFor(item)); return; }
+                onChangeView(navTarget(item));
               }}
               onMouseEnter={(event) => showSidebarTooltip(event, labelFor(item))}
               onMouseLeave={hideSidebarTooltip}

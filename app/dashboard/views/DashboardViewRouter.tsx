@@ -65,6 +65,8 @@ type DashboardViewRouterProps = {
   canViewSettings?: boolean;
   canViewIntegrations?: boolean;
   canViewDevelopers?: boolean;
+  canViewCatalog?: boolean;
+  canViewBranches?: boolean;
   view: ViewKey;
 };
 
@@ -96,6 +98,8 @@ export default function DashboardViewRouter({
   canViewSettings = false,
   canViewIntegrations = false,
   canViewDevelopers = false,
+  canViewCatalog = false,
+  canViewBranches = false,
   view
 }: DashboardViewRouterProps) {
   if (view === "operations" || view === "reports") {
@@ -180,8 +184,18 @@ export default function DashboardViewRouter({
       />
     );
   }
-  if (view === "catalog") return <CatalogView />;
-  if (view === "branches") return <BranchesView />;
+  if (view === "catalog" || view === "branches") {
+    return (
+      <ViewTabs
+        initialKey={view}
+        ariaLabel="الكتالوج والفروع"
+        tabs={[
+          { viewKey: "catalog", label: "الكتالوج", available: view === "catalog" || canViewCatalog, content: <CatalogView /> },
+          { viewKey: "branches", label: "الفروع", available: view === "branches" || canViewBranches, content: <BranchesView /> }
+        ]}
+      />
+    );
+  }
   if (view === "branding") return <BrandingView onRefreshData={onRefreshData} />;
   return null;
 }

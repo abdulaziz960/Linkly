@@ -1508,7 +1508,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
       <main className="dashboard-main">
         <MobileTopbar
-          title={(activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : (activeView === "ai" || activeView === "knowledgeBase") && allowedViews.includes("ai") && allowedViews.includes("knowledgeBase") ? (language === "en" ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة") : (activeView === "contacts" || activeView === "tags") && allowedViews.includes("contacts") && allowedViews.includes("tags") ? (language === "en" ? "Contacts & tags" : "العملاء والوسوم") : (activeView === "teams" || activeView === "employees" || activeView === "workHours") && allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours")) ? (language === "en" ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل") : (activeView === "integrations" || activeView === "developers") && allowedViews.includes("settings") ? (language === "en" ? navItemLabelsEn.settings : viewTitles.settings) : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]}
+          title={(activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : (activeView === "ai" || activeView === "knowledgeBase") && allowedViews.includes("ai") && allowedViews.includes("knowledgeBase") ? (language === "en" ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة") : (activeView === "contacts" || activeView === "tags") && allowedViews.includes("contacts") && allowedViews.includes("tags") ? (language === "en" ? "Contacts & tags" : "العملاء والوسوم") : (activeView === "teams" || activeView === "employees" || activeView === "workHours") && allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours")) ? (language === "en" ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل") : (activeView === "catalog" || activeView === "branches") && (allowedViews.includes("catalog") || allowedViews.includes("branches")) ? (language === "en" ? "Catalog & branches" : "الكتالوج والفروع") : (activeView === "integrations" || activeView === "developers") && allowedViews.includes("settings") ? (language === "en" ? navItemLabelsEn.settings : viewTitles.settings) : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]}
           language={language}
           menuOpen={menuOpen}
           onToggleMenu={() => setMenuOpen((value) => !value)}
@@ -1594,6 +1594,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             canViewSettings={allowedViews.includes("settings")}
             canViewIntegrations={allowedViews.includes("integrations")}
             canViewDevelopers={allowedViews.includes("developers")}
+            canViewCatalog={allowedViews.includes("catalog")}
+            canViewBranches={allowedViews.includes("branches")}
             view={activeView}
           />
         )}
