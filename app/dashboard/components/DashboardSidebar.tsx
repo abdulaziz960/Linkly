@@ -173,15 +173,23 @@ export default function DashboardSidebar({
   const mergedOperations = allowedViews.includes("operations") && allowedViews.includes("reports");
   // Same for the AI assistant and the knowledge base it answers from.
   const mergedAi = allowedViews.includes("ai") && allowedViews.includes("knowledgeBase");
+  const mergedContacts = allowedViews.includes("contacts") && allowedViews.includes("tags");
+  // Employees, teams and the teams' work hours are one page; the entry shows when any of the extra parts exists.
+  const mergedTeam = allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours"));
   const labelFor = (item: { key: ViewKey; label: string }) =>
     item.key === "reports" && mergedOperations ? (isEnglish ? "Reports & operations" : "التقارير والعمليات")
       : item.key === "ai" && mergedAi ? (isEnglish ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة")
+      : item.key === "contacts" && mergedContacts ? (isEnglish ? "Contacts & tags" : "العملاء والوسوم")
+      : item.key === "employees" && mergedTeam ? (isEnglish ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل")
       : isEnglish ? navItemLabelsEn[item.key] : item.label;
   const visibleNavItems = navItems.filter(
     (item) =>
       (allowedViews.includes(item.key) || lockedViews.includes(item.key)) &&
       !(item.key === "operations" && mergedOperations) &&
-      !(item.key === "knowledgeBase" && mergedAi)
+      !(item.key === "knowledgeBase" && mergedAi) &&
+      !(item.key === "tags" && mergedContacts) &&
+      !(item.key === "teams" && mergedTeam) &&
+      !(item.key === "workHours" && mergedTeam)
   );
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "صندوق الوارد", labelEn: "Inbox", keys: ["inbox", "quickReplies"] },

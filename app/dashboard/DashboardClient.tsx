@@ -1508,7 +1508,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
       <main className="dashboard-main">
         <MobileTopbar
-          title={(activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : (activeView === "ai" || activeView === "knowledgeBase") && allowedViews.includes("ai") && allowedViews.includes("knowledgeBase") ? (language === "en" ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة") : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]}
+          title={(activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : (activeView === "ai" || activeView === "knowledgeBase") && allowedViews.includes("ai") && allowedViews.includes("knowledgeBase") ? (language === "en" ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة") : (activeView === "contacts" || activeView === "tags") && allowedViews.includes("contacts") && allowedViews.includes("tags") ? (language === "en" ? "Contacts & tags" : "العملاء والوسوم") : (activeView === "teams" || activeView === "employees" || activeView === "workHours") && allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours")) ? (language === "en" ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل") : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]}
           language={language}
           menuOpen={menuOpen}
           onToggleMenu={() => setMenuOpen((value) => !value)}
@@ -1586,6 +1586,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             canViewReports={allowedViews.includes("reports")}
             canViewAi={allowedViews.includes("ai")}
             canViewKnowledgeBase={allowedViews.includes("knowledgeBase")}
+            canViewContacts={allowedViews.includes("contacts")}
+            canViewTags={allowedViews.includes("tags")}
+            canViewTeams={allowedViews.includes("teams")}
+            canViewEmployees={allowedViews.includes("employees")}
+            canViewWorkHours={allowedViews.includes("workHours")}
             view={activeView}
           />
         )}

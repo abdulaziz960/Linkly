@@ -26,6 +26,7 @@ import PipelineView from "./PipelineView";
 import QuickRepliesView from "./QuickRepliesView";
 import ReportsHub from "./ReportsHub";
 import AiHub from "./AiHub";
+import ViewTabs from "./ViewTabs";
 import SegmentsView from "./SegmentsView";
 import SettingsView from "./SettingsView";
 import TagsView from "./TagsView";
@@ -54,6 +55,11 @@ type DashboardViewRouterProps = {
   canViewReports?: boolean;
   canViewAi?: boolean;
   canViewKnowledgeBase?: boolean;
+  canViewContacts?: boolean;
+  canViewTags?: boolean;
+  canViewTeams?: boolean;
+  canViewEmployees?: boolean;
+  canViewWorkHours?: boolean;
   view: ViewKey;
 };
 
@@ -77,6 +83,11 @@ export default function DashboardViewRouter({
   canViewReports = false,
   canViewAi = false,
   canViewKnowledgeBase = false,
+  canViewContacts = false,
+  canViewTags = false,
+  canViewTeams = false,
+  canViewEmployees = false,
+  canViewWorkHours = false,
   view
 }: DashboardViewRouterProps) {
   if (view === "operations" || view === "reports") {
@@ -94,8 +105,18 @@ export default function DashboardViewRouter({
       />
     );
   }
-  if (view === "contacts") return <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
-  if (view === "tags") return <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
+  if (view === "contacts" || view === "tags") {
+    return (
+      <ViewTabs
+        initialKey={view}
+        ariaLabel="العملاء والوسوم"
+        tabs={[
+          { viewKey: "contacts", label: "العملاء", available: view === "contacts" || canViewContacts, content: <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
+          { viewKey: "tags", label: "الوسوم", available: view === "tags" || canViewTags, content: <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> }
+        ]}
+      />
+    );
+  }
   if (view === "bot") return <BotView teams={teams} employees={employees} />;
   if (view === "ai" || view === "knowledgeBase") {
     return (
@@ -124,9 +145,19 @@ export default function DashboardViewRouter({
   if (view === "pipeline") return <PipelineView conversations={conversations} automationRules={automationRules} templates={templates} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "templates") return <TemplatesView templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
-  if (view === "workHours") return <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} />;
-  if (view === "teams") return <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} />;
-  if (view === "employees") return <EmployeesView employees={employees} conversations={conversations} onRefreshData={onRefreshData} />;
+  if (view === "teams" || view === "employees" || view === "workHours") {
+    return (
+      <ViewTabs
+        initialKey={view}
+        ariaLabel="الموظفون والفرق"
+        tabs={[
+          { viewKey: "employees", label: "الموظفون والصلاحيات", available: view === "employees" || canViewEmployees, content: <EmployeesView employees={employees} conversations={conversations} onRefreshData={onRefreshData} /> },
+          { viewKey: "teams", label: "الفرق", available: view === "teams" || canViewTeams, content: <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} /> },
+          { viewKey: "workHours", label: "ساعات العمل", available: view === "workHours" || canViewWorkHours, content: <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} /> }
+        ]}
+      />
+    );
+  }
   if (view === "settings") return <SettingsView onIntegrationChange={onIntegrationChange} />;
   if (view === "integrations") return <IntegrationsView />;
   if (view === "developers") return <DevelopersView />;
