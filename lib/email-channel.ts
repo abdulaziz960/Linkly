@@ -4,6 +4,7 @@ import { storeIncomingEmail, storeOutgoingEmail } from "./email-inbox";
 import { decryptSecret, encryptSecret } from "./secret-storage";
 import type { EmailIntegration } from "@prisma/client";
 import { emailIntegrationId, findTenantEmailIntegration } from "./email-integration-lookup";
+import { emailBodyToText } from "./email-text";
 
 type EmailProvider = "gmail";
 type OAuthOwner = { userId: string; tenantId: string };
@@ -211,7 +212,7 @@ function extractPlainText(payload?: GmailMessagePart): string {
     }
   }
   if (payload.mimeType === "text/html" && payload.body?.data) {
-    return Buffer.from(payload.body.data, "base64url").toString("utf8").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    return emailBodyToText(Buffer.from(payload.body.data, "base64url").toString("utf8"));
   }
   return "";
 }

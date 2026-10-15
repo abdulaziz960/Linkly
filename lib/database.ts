@@ -1,3 +1,4 @@
+import { emailBodyToText } from "./email-text";
 import { prisma } from "./prisma";
 import { isInlineDataUrl, messageAttachmentPath } from "./message-attachments";
 import { ensureAiSchema } from "./ai-schema";
@@ -3159,7 +3160,8 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
     const messages = conversation.messages.map<Message>((message) => ({
       id: message.id,
       direction: message.direction as Message["direction"],
-      text: message.text,
+      // An email stored before the body cleaner existed may still carry its CSS / entities: clean it on the way out.
+      text: conversation.channel === "email" && message.direction === "in" ? emailBodyToText(message.text) || message.text : message.text,
       time: message.time,
       createdAt: message.createdAt || undefined,
       author: message.author || undefined,

@@ -4,6 +4,7 @@ import { formatMessageTime } from "./time";
 import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { firstChar } from "./first-char";
+import { emailBodyToText } from "./email-text";
 
 export type IncomingEmail = {
   tenantId: string;
@@ -22,15 +23,6 @@ function stableId(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex").slice(0, 24);
 }
 
-function stripHtml(value = "") {
-  return value
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 export async function storeEmailMessage(input: IncomingEmail) {
   const tenantId = input.tenantId || "tenant-demo";
   const email = input.from.trim().toLowerCase();
@@ -47,10 +39,7 @@ export async function storeEmailMessage(input: IncomingEmail) {
   // real plain-text part (mislabeled or missing text/plain alternative),
   // which otherwise skips stripHtml entirely and leaks raw <style>/CSS
   // source into the conversation as if it were the customer's own message.
-  const looksLikeHtml = (value: string) => /<[a-z][\s\S]*>/i.test(value);
-  const rawText = input.text?.trim() || "";
-  const plainText = rawText && looksLikeHtml(rawText) ? stripHtml(rawText) : rawText;
-  const body = (plainText || stripHtml(input.html) || "رسالة بريد واردة").trim();
+  const body = (emailBodyToText(input.text) || emailBodyToText(input.html) || "رسالة بريد واردة").trim();
   const senderName = input.fromName?.trim() || email.split("@")[0] || "عميل البريد";
   const initial = senderName.slice(0, 1).toUpperCase() || "@";
 
