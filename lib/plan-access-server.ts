@@ -1,5 +1,18 @@
 import { prisma } from "./prisma";
-import { REAL_ESTATE_PROJECTS_VIEW, buildPlanAccess, isViewLockedForPlan, limitReachedMessage, planLimit, type PlanAccessData, type PlanLimitKind } from "./plan-access";
+import {
+  REAL_ESTATE_PROJECTS_VIEW,
+  buildPlanAccess,
+  isAdEventsAllowed,
+  isStoreIntegrationAllowed,
+  isViewLockedForPlan,
+  limitReachedMessage,
+  planLimit,
+  upgradeMessageForAdEvents,
+  upgradeMessageForStoreIntegration,
+  type AdEventPlatform,
+  type PlanAccessData,
+  type PlanLimitKind
+} from "./plan-access";
 import { getTenantGrants } from "./plan-grants";
 import type { ViewKey } from "../app/dashboard/types";
 
@@ -46,4 +59,20 @@ export async function assertWithinPlanLimit(tenantId: string, kind: PlanLimitKin
   const limit = planLimit(await getTenantPlanName(tenantId), kind, await getTenantGrants(tenantId));
   if (limit === null) return;
   if ((await countFor(tenantId, kind)) + adding > limit) throw new PlanLimitError(limitReachedMessage(kind, limit));
+}
+
+/**
+ * An upgrade message when the workspace's plan does not include sending events to this ad platform, else null.
+ * `alreadyConfigured` keeps a workspace that set it up before the plan limit working (it just cannot add new ones).
+ */
+export async function adEventsBlockedMessage(tenantId: string, platform: AdEventPlatform, alreadyConfigured = false): Promise<string | null> {
+  if (alreadyConfigured) return null;
+  const allowed = isAdEventsAllowed(await getTenantPlanName(tenantId), platform, await getTenantGrants(tenantId));
+  return allowed ? null : upgradeMessageForAdEvents(platform);
+}
+
+/** An upgrade message when the plan does not include linking an online store, else null. */
+export async function storeIntegrationBlockedMessage(tenantId: string): Promise<string | null> {
+  const allowed = isStoreIntegrationAllowed(await getTenantPlanName(tenantId), await getTenantGrants(tenantId));
+  return allowed ? null : upgradeMessageForStoreIntegration();
 }

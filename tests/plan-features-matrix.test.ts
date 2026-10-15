@@ -48,6 +48,40 @@ describe("the comparison table matches what is enforced", () => {
     expect(isViewLockedForPlan("الباقة العادية", "templates")).toBe(false);
   });
 
+  it("keeps ad events and store links in line with the comparison rows", async () => {
+    const { COMPARISON_ROWS } = await import("../lib/plan-comparison");
+    const { PLAN_ORDER, isAdEventsAllowed, isStoreIntegrationAllowed } = await import("../lib/plan-access");
+    const eventsRow = COMPARISON_ROWS.find((row) => row.en.startsWith("Conversion events"))!;
+    const storesRow = COMPARISON_ROWS.find((row) => row.en.startsWith("Store integrations"))!;
+    PLAN_ORDER.forEach((plan, index) => {
+      expect(eventsRow.cells![index] !== false, `events ${plan}`).toBe(isAdEventsAllowed(plan, "meta"));
+      expect(storesRow.cells![index] !== false, `stores ${plan}`).toBe(isStoreIntegrationAllowed(plan));
+    });
+    expect(isAdEventsAllowed("باقة المؤسسات الصغيرة", "snapchat")).toBe(false);
+    expect(isAdEventsAllowed("باقة المؤسسات الكبيرة", "tiktok")).toBe(true);
+    expect(isAdEventsAllowed("الباقة العادية", "meta")).toBe(false);
+    expect(isAdEventsAllowed("خطة مخصصة غير معروفة", "meta")).toBe(true);
+  });
+
+  it("the server blocks ad events and store links by plan, and keeps an existing setup working", async () => {
+    const { adEventsBlockedMessage, storeIntegrationBlockedMessage } = await import("../lib/plan-access-server");
+    await tenantOn("باقة المؤسسات الصغيرة", "t-ev-small");
+    await tenantOn("باقة المؤسسات الكبيرة", "t-ev-large");
+    expect(await adEventsBlockedMessage("t-ev-small", "meta")).toBeNull();
+    expect(await adEventsBlockedMessage("t-ev-small", "snapchat")).toContain("سناب شات");
+    expect(await adEventsBlockedMessage("t-ev-small", "snapchat", true)).toBeNull();
+    expect(await adEventsBlockedMessage("t-ev-large", "tiktok")).toBeNull();
+    expect(await storeIntegrationBlockedMessage("t-ev-small")).toContain("باقة المؤسسات الكبيرة");
+    expect(await storeIntegrationBlockedMessage("t-ev-large")).toBeNull();
+  });
+
+  it("a grant opens ad events and stores for one workspace", async () => {
+    const { isAdEventsAllowed, isStoreIntegrationAllowed, NO_GRANTS } = await import("../lib/plan-access");
+    const grants = { ...NO_GRANTS, features: ["adEvents" as const, "storeIntegrations" as const] };
+    expect(isAdEventsAllowed("الباقة العادية", "tiktok", grants)).toBe(true);
+    expect(isStoreIntegrationAllowed("الباقة العادية", grants)).toBe(true);
+  });
+
   it("builds the live rows from the plan numbers", async () => {
     const { liveCell } = await import("../lib/plan-comparison");
     const individuals = { name: "باقة الأفراد", monthlyPrice: 199, employeeLimit: 1, allowedChannels: "whatsapp", messageQuota: 1000, aiDailyLimit: 0 };

@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { cleanSnapSettingsInput, getSnapAdsSettings, recentSnapEvents, saveSnapAdsSettings, SNAP_STAGES, type SnapSettingsInput } from "../../../../lib/snap-events";
 import { jsonError, jsonOk } from "../../_utils/json";
+import { adEventsBlockedMessage } from "../../../../lib/plan-access-server";
 import { isTrustedOrigin } from "../../../../lib/origin-guard";
 
 export const runtime = "nodejs";
@@ -21,6 +22,11 @@ export async function PUT(request: NextRequest) {
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
   if (user.role !== "مالك الحساب") return jsonError("إعدادات إعلانات سناب متاحة لمالك الحساب فقط", 403);
 
+  {
+    const existing = await getSnapAdsSettings(user.tenantId);
+    const blocked = await adEventsBlockedMessage(user.tenantId, "snapchat", existing.enabled);
+    if (blocked) return jsonError(blocked, 403);
+  }
   const cleaned = cleanSnapSettingsInput(((await request.json().catch(() => null)) ?? {}) as SnapSettingsInput);
   if (!cleaned.ok) return jsonError(cleaned.error, 400);
   return jsonOk({ settings: await saveSnapAdsSettings(user.tenantId, cleaned.data) });

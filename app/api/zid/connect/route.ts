@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
+import { storeIntegrationBlockedMessage } from "../../../../lib/plan-access-server";
 import { createOAuthState } from "../../../../lib/oauth-state";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
@@ -24,6 +25,10 @@ export async function GET(request: NextRequest) {
   // attach the store to: say so (the page then lands on the sign-in), rather than a silent bounce.
   if (!user) return closeWith(request, "سجّل الدخول إلى لنكلي أولًا، ثم اربط المتجر من: التكاملات ← زد ← ربط المتجر.");
   if (user.role !== "مالك الحساب") return closeWith(request, "ربط المتجر متاح لمالك الحساب فقط.");
+  {
+    const blocked = await storeIntegrationBlockedMessage(user.tenantId);
+    if (blocked) return closeWith(request, blocked);
+  }
   if (!zidConfigured()) return closeWith(request, "ربط زد غير مفعّل بعد على الخادم (بيانات التطبيق ناقصة).");
 
   const state = createOAuthState("zid", { tenantId: user.tenantId });

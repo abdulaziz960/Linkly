@@ -3,6 +3,8 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { createOAuthState } from "../../../../lib/oauth-state";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
+import { adEventsBlockedMessage } from "../../../../lib/plan-access-server";
+import { getMetaAdsSettings } from "../../../../lib/meta-events";
 
 export const runtime = "nodejs";
 
@@ -17,6 +19,15 @@ export async function GET(request: NextRequest) {
   if (user.role !== "مالك الحساب") {
     return new NextResponse(
       popupCloseHtml(getAppOrigin(request), "ربط إعلانات ميتا متاح لمالك الحساب فقط.", { type: "audiencew:meta-connected" }, "/dashboard?view=integrations"),
+      { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }
+    );
+  }
+
+  const existing = await getMetaAdsSettings(user.tenantId);
+  const blocked = await adEventsBlockedMessage(user.tenantId, "meta", existing.enabled || Boolean(existing.datasetId));
+  if (blocked) {
+    return new NextResponse(
+      popupCloseHtml(getAppOrigin(request), blocked, { type: "audiencew:meta-connected" }, "/dashboard?view=integrations"),
       { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }
     );
   }

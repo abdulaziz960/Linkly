@@ -5,11 +5,14 @@ import { NextRequest } from "next/server";
 const SECRET = "shpss_connect_secret";
 let currentUser: { id: string; role: string; tenantId: string } | null = { id: "u1", role: "مالك الحساب", tenantId: "tenant-shopify-connect" };
 vi.mock("../lib/auth", () => ({ getCurrentUser: vi.fn(async () => currentUser) }));
+let planBlock: string | null = null;
+vi.mock("../lib/plan-access-server", () => ({ storeIntegrationBlockedMessage: vi.fn(async () => planBlock) }));
 
 beforeEach(() => {
   vi.stubEnv("SHOPIFY_CLIENT_ID", "client-cn");
   vi.stubEnv("SHOPIFY_CLIENT_SECRET", SECRET);
   currentUser = { id: "u1", role: "مالك الحساب", tenantId: "tenant-shopify-connect" };
+  planBlock = null;
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -25,6 +28,15 @@ describe("GET /api/shopify/connect", () => {
     expect(location.searchParams.get("client_id")).toBe("client-cn");
     expect(location.searchParams.get("redirect_uri")).toBe("https://linklysa.io/api/shopify/callback");
     expect(response.headers.get("set-cookie")).toContain("linkly_shopify_state=");
+  });
+
+  it("stops at the upgrade message when the plan has no store integrations", async () => {
+    planBlock = "ربط المتاجر غير متاح في باقتك";
+    const { GET } = await import("../app/api/shopify/connect/route");
+    const response = await GET(connect("shop=my-store"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(await response.text()).toContain("ربط المتاجر غير متاح في باقتك");
   });
 
   it("does not go anywhere for a value that is not a Shopify shop", async () => {

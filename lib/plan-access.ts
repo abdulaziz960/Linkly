@@ -14,6 +14,10 @@ import type { ViewKey } from "../app/dashboard/types";
 
 export type PlanLimitKind = "teams" | "products" | "branches" | "kbEntries";
 
+/** Ad platforms Linkly can send conversion events to. */
+export type AdEventPlatform = "meta" | "snapchat" | "tiktok";
+export const AD_EVENT_PLATFORM_LABELS: Record<AdEventPlatform, string> = { meta: "ميتا", snapchat: "سناب شات", tiktok: "تيك توك" };
+
 export type PlanRestriction = {
   /** Dashboard sections this plan may open - everything else is locked. */
   views: ViewKey[];
@@ -33,6 +37,10 @@ export type PlanRestriction = {
   advancedSegments: boolean;
   /** Excel export in reports. */
   reportsExcel: boolean;
+  /** Ad platforms this plan may send conversion events to (campaign optimisation). */
+  adEvents: AdEventPlatform[];
+  /** Linking an online store (Salla, Zid, Shopify). */
+  storeIntegrations: boolean;
 };
 
 export const INDIVIDUALS_PLAN = "باقة الأفراد";
@@ -72,7 +80,9 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     limits: { teams: 0, products: 0, branches: 0, kbEntries: 0 },
     recurringCampaigns: false,
     advancedSegments: false,
-    reportsExcel: false
+    reportsExcel: false,
+    adEvents: [],
+    storeIntegrations: false
   },
   [REGULAR_PLAN]: {
     views: REGULAR_VIEWS,
@@ -84,7 +94,9 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     limits: { teams: 2, products: 0, branches: 30, kbEntries: 0 },
     recurringCampaigns: false,
     advancedSegments: false,
-    reportsExcel: false
+    reportsExcel: false,
+    adEvents: [],
+    storeIntegrations: false
   },
   [SMALL_ORG_PLAN]: {
     views: SMALL_ORG_VIEWS,
@@ -95,7 +107,9 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     limits: { teams: null, products: 0, branches: 65, kbEntries: 50 },
     recurringCampaigns: true,
     advancedSegments: true,
-    reportsExcel: false
+    reportsExcel: false,
+    adEvents: ["meta"],
+    storeIntegrations: false
   },
   [LARGE_ORG_PLAN]: {
     views: LARGE_ORG_VIEWS,
@@ -106,7 +120,9 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     limits: { teams: null, products: 300, branches: 100, kbEntries: 200 },
     recurringCampaigns: true,
     advancedSegments: true,
-    reportsExcel: true
+    reportsExcel: true,
+    adEvents: ["meta", "snapchat", "tiktok"],
+    storeIntegrations: true
   }
 };
 
@@ -183,7 +199,7 @@ export const GRANT_BOT_STEPS: Partial<Record<ViewKey, string[]>> = {
 // switch, a channel, or an "unlimited" for a capped thing. Stored as strings: a page key as-is,
 // the rest prefixed ("feature:", "channel:", "limit:").
 
-export const GRANT_FEATURES = ["recurringCampaigns", "advancedSegments", "fullReports", "reportsExcel", "escalation", "unlimitedBot"] as const;
+export const GRANT_FEATURES = ["recurringCampaigns", "advancedSegments", "fullReports", "reportsExcel", "escalation", "unlimitedBot", "adEvents", "storeIntegrations"] as const;
 export type GrantFeature = typeof GRANT_FEATURES[number];
 
 export const GRANT_FEATURE_LABELS: Record<GrantFeature, { ar: string; en: string }> = {
@@ -192,7 +208,9 @@ export const GRANT_FEATURE_LABELS: Record<GrantFeature, { ar: string; en: string
   fullReports: { ar: "التقارير الكاملة (موظفون وفرق وSLA)", en: "Full reports" },
   reportsExcel: { ar: "تصدير التقارير إلى Excel", en: "Excel report export" },
   escalation: { ar: "تصعيد المحادثات المتأخرة", en: "Escalation of late conversations" },
-  unlimitedBot: { ar: "رد آلي بلا حد خطوات وبكل أنواع الخطوات", en: "Unlimited bot steps and all step types" }
+  unlimitedBot: { ar: "رد آلي بلا حد خطوات وبكل أنواع الخطوات", en: "Unlimited bot steps and all step types" },
+  adEvents: { ar: "إرسال الأحداث لمنصات الإعلانات (ميتا وسناب وتيك توك)", en: "Ad-platform conversion events (Meta, Snapchat, TikTok)" },
+  storeIntegrations: { ar: "ربط المتاجر (سلة، زد، شوبيفاي)", en: "Store integrations (Salla, Zid, Shopify)" }
 };
 
 export const LIMIT_KIND_LABELS: Record<PlanLimitKind, string> = { teams: "عدد الفرق", products: "عدد المنتجات", branches: "عدد الفروع", kbEntries: "مدخلات قاعدة المعرفة" };
@@ -270,6 +288,8 @@ export function grantableForPlan(planName: string | null | undefined, allowedCha
     if (feature === "fullReports") return restriction.basicReports;
     if (feature === "reportsExcel") return !restriction.reportsExcel;
     if (feature === "escalation") return !restriction.escalation;
+    if (feature === "adEvents") return restriction.adEvents.length < 3;
+    if (feature === "storeIntegrations") return !restriction.storeIntegrations;
     return restriction.botNodeTypes !== "*" || restriction.botMaxSteps !== null;
   });
   return {
@@ -319,6 +339,27 @@ export function isRecurringCampaignAllowed(planName: string | null | undefined, 
 
 export function isAdvancedSegmentAllowed(planName: string | null | undefined, grants: Grants = NO_GRANTS): boolean {
   return grants.features.includes("advancedSegments") || (getPlanRestriction(planName)?.advancedSegments ?? true);
+}
+
+/** Whether the plan (or a grant) lets the workspace send conversion events to this ad platform. */
+export function isAdEventsAllowed(planName: string | null | undefined, platform: AdEventPlatform, grants: Grants = NO_GRANTS): boolean {
+  const restriction = getPlanRestriction(planName);
+  return !restriction || grants.features.includes("adEvents") || restriction.adEvents.includes(platform);
+}
+
+export function isStoreIntegrationAllowed(planName: string | null | undefined, grants: Grants = NO_GRANTS): boolean {
+  const restriction = getPlanRestriction(planName);
+  return !restriction || grants.features.includes("storeIntegrations") || restriction.storeIntegrations;
+}
+
+export function upgradeMessageForAdEvents(platform: AdEventPlatform): string {
+  const target = PLAN_ORDER.find((name) => (RESTRICTED_PLANS[name] ? RESTRICTED_PLANS[name].adEvents.includes(platform) : true)) ?? ENTERPRISE_PLAN;
+  return `إرسال أحداث إعلانات ${AD_EVENT_PLATFORM_LABELS[platform]} غير متاح في باقتك الحالية، وهو متاح بدءًا من ${target}. رقِّ باقتك للاستمتاع بالمزايا.`;
+}
+
+export function upgradeMessageForStoreIntegration(): string {
+  const target = PLAN_ORDER.find((name) => (RESTRICTED_PLANS[name] ? RESTRICTED_PLANS[name].storeIntegrations : true)) ?? ENTERPRISE_PLAN;
+  return `ربط المتاجر (سلة، زد، شوبيفاي) غير متاح في باقتك الحالية، وهو متاح بدءًا من ${target}. رقِّ باقتك للاستمتاع بالمزايا.`;
 }
 
 export function isViewLockedForPlan(planName: string | null | undefined, view: ViewKey): boolean {

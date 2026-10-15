@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
+import { storeIntegrationBlockedMessage } from "../../../../lib/plan-access-server";
 import { createOAuthState } from "../../../../lib/oauth-state";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
@@ -19,6 +20,10 @@ export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   if (user.role !== "مالك الحساب") return closeWith(request, "ربط المتجر متاح لمالك الحساب فقط.");
+  {
+    const blocked = await storeIntegrationBlockedMessage(user.tenantId);
+    if (blocked) return closeWith(request, blocked);
+  }
   if (!sallaConfigured()) return closeWith(request, "ربط سلة غير مفعّل بعد على الخادم (بيانات التطبيق ناقصة).");
 
   const state = createOAuthState("salla", { tenantId: user.tenantId });
