@@ -60,6 +60,9 @@ type DashboardViewRouterProps = {
   canViewTeams?: boolean;
   canViewEmployees?: boolean;
   canViewWorkHours?: boolean;
+  canViewSettings?: boolean;
+  canViewIntegrations?: boolean;
+  canViewDevelopers?: boolean;
   view: ViewKey;
 };
 
@@ -88,6 +91,9 @@ export default function DashboardViewRouter({
   canViewTeams = false,
   canViewEmployees = false,
   canViewWorkHours = false,
+  canViewSettings = false,
+  canViewIntegrations = false,
+  canViewDevelopers = false,
   view
 }: DashboardViewRouterProps) {
   if (view === "operations" || view === "reports") {
@@ -158,9 +164,19 @@ export default function DashboardViewRouter({
       />
     );
   }
-  if (view === "settings") return <SettingsView onIntegrationChange={onIntegrationChange} />;
-  if (view === "integrations") return <IntegrationsView />;
-  if (view === "developers") return <DevelopersView />;
+  if (view === "settings" || view === "integrations" || view === "developers") {
+    return (
+      <ViewTabs
+        initialKey={view}
+        ariaLabel="الإعدادات والربط"
+        tabs={[
+          { viewKey: "settings", label: "القنوات", available: view === "settings" || canViewSettings, content: <SettingsView onIntegrationChange={onIntegrationChange} /> },
+          { viewKey: "integrations", label: "التكاملات", available: view === "integrations" || canViewIntegrations, content: <IntegrationsView /> },
+          { viewKey: "developers", label: "المطورون", available: view === "developers" || canViewDevelopers, content: <DevelopersView /> }
+        ]}
+      />
+    );
+  }
   if (view === "catalog") return <CatalogView />;
   if (view === "branches") return <BranchesView />;
   if (view === "branding") return <BrandingView onRefreshData={onRefreshData} />;

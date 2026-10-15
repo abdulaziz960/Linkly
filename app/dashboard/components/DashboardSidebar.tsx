@@ -175,6 +175,8 @@ export default function DashboardSidebar({
   const mergedAi = allowedViews.includes("ai") && allowedViews.includes("knowledgeBase");
   const mergedContacts = allowedViews.includes("contacts") && allowedViews.includes("tags");
   // Employees, teams and the teams' work hours are one page; the entry shows when any of the extra parts exists.
+  // Channels (settings), ad platforms / stores (integrations) and the developer tools are one "connect" page.
+  const mergedConnect = allowedViews.includes("settings") && (allowedViews.includes("integrations") || allowedViews.includes("developers"));
   const mergedTeam = allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours"));
   const labelFor = (item: { key: ViewKey; label: string }) =>
     item.key === "reports" && mergedOperations ? (isEnglish ? "Reports & operations" : "التقارير والعمليات")
@@ -189,7 +191,9 @@ export default function DashboardSidebar({
       !(item.key === "knowledgeBase" && mergedAi) &&
       !(item.key === "tags" && mergedContacts) &&
       !(item.key === "teams" && mergedTeam) &&
-      !(item.key === "workHours" && mergedTeam)
+      !(item.key === "workHours" && mergedTeam) &&
+      !(item.key === "integrations" && mergedConnect) &&
+      !(item.key === "developers" && mergedConnect)
   );
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "صندوق الوارد", labelEn: "Inbox", keys: ["inbox", "quickReplies"] },
