@@ -1508,7 +1508,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
       <main className="dashboard-main">
         <MobileTopbar
-          title={(activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]}
+          title={(activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : (activeView === "ai" || activeView === "knowledgeBase") && allowedViews.includes("ai") && allowedViews.includes("knowledgeBase") ? (language === "en" ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة") : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]}
           language={language}
           menuOpen={menuOpen}
           onToggleMenu={() => setMenuOpen((value) => !value)}
@@ -1584,6 +1584,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             onOpenConversation={handleOpenConversation}
             canViewOperations={allowedViews.includes("operations")}
             canViewReports={allowedViews.includes("reports")}
+            canViewAi={allowedViews.includes("ai")}
+            canViewKnowledgeBase={allowedViews.includes("knowledgeBase")}
             view={activeView}
           />
         )}

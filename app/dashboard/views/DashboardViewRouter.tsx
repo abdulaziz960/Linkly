@@ -13,7 +13,6 @@ import type {
   WorkSchedule
 } from "../types";
 import AutomationsView from "./AutomationsView";
-import AiSettingsView from "./AiSettingsView";
 import BotView from "./BotView";
 import BrandingView from "./BrandingView";
 import CampaignsView from "./CampaignsView";
@@ -23,10 +22,10 @@ import DevelopersView from "./DevelopersView";
 import EmailPromotionsView from "./EmailPromotionsView";
 import EmployeesView from "./EmployeesView";
 import IntegrationsView from "./IntegrationsView";
-import KnowledgeBaseView from "./KnowledgeBaseView";
 import PipelineView from "./PipelineView";
 import QuickRepliesView from "./QuickRepliesView";
 import ReportsHub from "./ReportsHub";
+import AiHub from "./AiHub";
 import SegmentsView from "./SegmentsView";
 import SettingsView from "./SettingsView";
 import TagsView from "./TagsView";
@@ -53,6 +52,8 @@ type DashboardViewRouterProps = {
   onOpenConversation: (conversationId: string) => void;
   canViewOperations?: boolean;
   canViewReports?: boolean;
+  canViewAi?: boolean;
+  canViewKnowledgeBase?: boolean;
   view: ViewKey;
 };
 
@@ -74,6 +75,8 @@ export default function DashboardViewRouter({
   branding,
   canViewOperations = false,
   canViewReports = false,
+  canViewAi = false,
+  canViewKnowledgeBase = false,
   view
 }: DashboardViewRouterProps) {
   if (view === "operations" || view === "reports") {
@@ -94,8 +97,15 @@ export default function DashboardViewRouter({
   if (view === "contacts") return <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "tags") return <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} />;
   if (view === "bot") return <BotView teams={teams} employees={employees} />;
-  if (view === "ai") return <AiSettingsView />;
-  if (view === "knowledgeBase") return <KnowledgeBaseView />;
+  if (view === "ai" || view === "knowledgeBase") {
+    return (
+      <AiHub
+        initialTab={view === "knowledgeBase" ? "knowledge" : "assistant"}
+        canViewAssistant={view === "ai" ? true : canViewAi}
+        canViewKnowledge={view === "knowledgeBase" ? true : canViewKnowledgeBase}
+      />
+    );
+  }
   if (view === "automations") {
     return (
       <AutomationsView

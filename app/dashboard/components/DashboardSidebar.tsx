@@ -171,9 +171,18 @@ export default function DashboardSidebar({
   const hideSidebarTooltip = () => setSidebarTooltip(null);
   // The live operations board lives inside Reports as a tab for anyone who has both: one entry, not two.
   const mergedOperations = allowedViews.includes("operations") && allowedViews.includes("reports");
+  // Same for the AI assistant and the knowledge base it answers from.
+  const mergedAi = allowedViews.includes("ai") && allowedViews.includes("knowledgeBase");
   const labelFor = (item: { key: ViewKey; label: string }) =>
-    item.key === "reports" && mergedOperations ? (isEnglish ? "Reports & operations" : "التقارير والعمليات") : isEnglish ? navItemLabelsEn[item.key] : item.label;
-  const visibleNavItems = navItems.filter((item) => (allowedViews.includes(item.key) || lockedViews.includes(item.key)) && !(item.key === "operations" && mergedOperations));
+    item.key === "reports" && mergedOperations ? (isEnglish ? "Reports & operations" : "التقارير والعمليات")
+      : item.key === "ai" && mergedAi ? (isEnglish ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة")
+      : isEnglish ? navItemLabelsEn[item.key] : item.label;
+  const visibleNavItems = navItems.filter(
+    (item) =>
+      (allowedViews.includes(item.key) || lockedViews.includes(item.key)) &&
+      !(item.key === "operations" && mergedOperations) &&
+      !(item.key === "knowledgeBase" && mergedAi)
+  );
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "صندوق الوارد", labelEn: "Inbox", keys: ["inbox", "quickReplies"] },
     { label: "جهات الاتصال", labelEn: "Contacts", keys: ["contacts", "tags"] },
