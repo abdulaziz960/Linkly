@@ -47,4 +47,47 @@ describe("operations metrics", () => {
     expect(rows.map((row) => row.conversation.id)).toEqual(["waiting"]);
     expect(rows[0].minutes).toBeGreaterThan(SLA_MINUTES);
   });
+
+  it("keeps a customer waiting when only a note, an assignment line or an automatic reply came after their message", () => {
+    const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
+    const rows = getWaitingConversations([
+      conversation({
+        id: "noted",
+        messages: [
+          { id: "a1", direction: "in", text: "x", time: "", createdAt: at(50) },
+          { id: "a2", direction: "note", text: "تم إسناد المحادثة إلى موظف", time: "", createdAt: at(49) }
+        ]
+      }),
+      conversation({
+        id: "auto-replied",
+        messages: [
+          { id: "b1", direction: "in", text: "x", time: "", createdAt: at(120) },
+          { id: "b2", direction: "in", text: "y", time: "", createdAt: at(100) },
+          { id: "b3", direction: "out", text: "خارج الدوام", time: "", createdAt: at(99), author: "الرد الآلي" }
+        ]
+      }),
+      conversation({
+        id: "answered-by-person",
+        messages: [
+          { id: "c1", direction: "in", text: "x", time: "", createdAt: at(90) },
+          { id: "c2", direction: "out", text: "أهلًا", time: "", createdAt: at(80), author: "ثواب" },
+          { id: "c3", direction: "note", text: "ملاحظة", time: "", createdAt: at(70) }
+        ]
+      }),
+      conversation({
+        id: "asked-again",
+        messages: [
+          { id: "d1", direction: "in", text: "x", time: "", createdAt: at(200) },
+          { id: "d2", direction: "out", text: "أهلًا", time: "", createdAt: at(190), author: "ثواب" },
+          { id: "d3", direction: "in", text: "y", time: "", createdAt: at(30) }
+        ]
+      })
+    ], now);
+
+    expect(rows.map((row) => row.conversation.id)).toEqual(["auto-replied", "noted", "asked-again"]);
+    // waiting is counted from the customer's first unanswered message, not the newest one
+    expect(Math.round(rows[0].minutes)).toBe(120);
+    expect(Math.round(rows[1].minutes)).toBe(50);
+    expect(Math.round(rows[2].minutes)).toBe(30);
+  });
 });
