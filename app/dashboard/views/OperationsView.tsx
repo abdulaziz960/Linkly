@@ -57,7 +57,7 @@ export default function OperationsView({ conversations, onOpenConversation, onRe
   }
 
   return (
-    <>
+    <section className="page-stack operations-page">
       <section className="panel">
         <div className="panel-head">
           <div>
@@ -136,6 +136,6 @@ export default function OperationsView({ conversations, onOpenConversation, onRe
           )}
         </div>
       </section>
-    </>
+    </section>
   );
 }

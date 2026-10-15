@@ -11753,3 +11753,58 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .email-preview-frame{display:block;width:100%;height:260px;border:0;background:#fff;border-radius:8px}
+
+/* Operations center: the live board keeps the page gutter like every other page, and its five figures wrap evenly. */
+.operations-page .report-metrics {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 1280px) {
+  .operations-page .report-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 680px) {
+  .operations-page .report-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 440px) {
+  .operations-page .report-metrics { grid-template-columns: 1fr; }
+}
+
+.operations-page .report-metric {
+  min-height: 132px;
+  cursor: default;
+}
+
+.operations-page .report-metric:hover {
+  transform: none;
+}
+
+.operations-page .report-metric strong {
+  font-size: clamp(22px, 2.4vw, 28px);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.operations-page .panel-head {
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.operations-page .panel-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.operations-page .report-table {
+  min-width: 0;
+  width: 100%;
+}
+
+.operations-page .report-table td,
+.operations-page .report-table th {
+  padding: 12px 14px;
+  text-align: start;
+}
