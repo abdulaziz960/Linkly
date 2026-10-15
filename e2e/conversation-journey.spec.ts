@@ -51,7 +51,8 @@ test("WhatsApp CTA → signed inbound webhook → Inbox → AI draft → Pipelin
   await page.getByRole("button", { name: "اقترح رد بالذكاء الاصطناعي" }).click();
   await expect(page.locator("textarea").filter({ visible: true }).first()).toHaveValue("أهلاً بك، يسعدني مساعدتك في اختيار الباقة.");
 
-  await page.getByRole("navigation").getByRole("button", { name: "العملاء المحتملون", exact: true }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "العملاء والعملاء المحتملون والوسوم", exact: true }).click();
+  await page.getByRole("tab", { name: "العملاء المحتملون", exact: true }).click();
   await page.getByRole("tab", { name: "داخل المنصة" }).click();
   const card = page.locator('.pipeline-card').filter({ hasText: "عميل اختبار الرحلة" });
   await expect(card).toBeVisible();
@@ -69,14 +70,14 @@ test("WhatsApp CTA → signed inbound webhook → Inbox → AI draft → Pipelin
   await expect(card.getByRole("button", { name: "مرحلة الليد" })).toContainText("تم البيع");
   await expect(card.getByRole("spinbutton", { name: "قيمة الوحدة" })).toHaveValue("7200");
 
-  await page.getByRole("navigation").getByRole("button", { name: "التقارير", exact: true }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "التقارير والعمليات", exact: true }).click();
   const revenue = page.locator(".panel-body").filter({ has: page.getByRole("heading", { name: "الإيراد حسب الرابط", exact: true }) });
   await expect(revenue).toContainText("hero-whatsapp");
   const conversions = page.locator(".panel").filter({ has: page.getByRole("heading", { name: "التحويلات", exact: true }) });
   await expect(conversions).toContainText(/7[٬,]?200|٧[٬,]?٢٠٠/);
   await expect(conversions).toContainText("home");
   await expect(conversions).toContainText("أفضل أزرار الدعوة للإجراء");
-  await page.getByRole("navigation").getByRole("button", { name: "إعدادات مساعد AI", exact: true }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "مساعد AI وقاعدة المعرفة", exact: true }).click();
   await page.getByRole("button", { name: "المزود", exact: true }).click();
   await page.getByRole("option", { name: "openai", exact: true }).click();
   await page.getByLabel("معرّف الموديل", { exact: true }).fill("test-model");

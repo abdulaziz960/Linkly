@@ -6,14 +6,14 @@ import { skipPwaInstallPopup } from "./support";
 const widths = [320, 360, 375, 390, 430, 768, 1024];
 const views = [
   ["inbox", "المحادثات"],
-  ["contacts", "العملاء"],
-  ["pipeline", "العملاء المحتملون"],
+  ["contacts", "العملاء والعملاء المحتملون والوسوم"],
+  ["pipeline", "العملاء والعملاء المحتملون والوسوم"],
   ["campaigns", "الحملات"],
   ["automations", "الأتمتة"],
   ["bot", "الرد الآلي"],
-  ["reports", "التقارير"],
-  ["integrations", "التكاملات"],
-  ["employees", "الموظفين والصلاحيات"]
+  ["reports", "التقارير والعمليات"],
+  ["integrations", "الإعدادات والربط"],
+  ["employees", "الموظفون والفرق وساعات العمل"]
 ] as const;
 
 test("dashboard fits mobile viewports and its drawer remains usable", async ({ page }) => {
@@ -41,6 +41,7 @@ test("dashboard fits mobile viewports and its drawer remains usable", async ({ p
       await page.getByRole("navigation").getByRole("button", { name: label, exact: true }).click();
       await expect(page.locator(".dashboard-shell")).not.toHaveClass(/menu-open/);
       if (key === "pipeline") {
+        await page.getByRole("tab", { name: "العملاء المحتملون", exact: true }).click();
         await page.getByRole("tab", { name: "داخل المنصة" }).click();
       }
       if (key === "bot" && width <= 720) {
@@ -96,7 +97,7 @@ test("dashboard fits mobile viewports and its drawer remains usable", async ({ p
   await expect(menuButton).toBeFocused();
 
   await menuButton.click();
-  await page.getByRole("navigation").getByRole("button", { name: "العملاء", exact: true }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "العملاء والعملاء المحتملون والوسوم", exact: true }).click();
   await page.getByRole("button", { name: "إضافة عميل", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "حفظ عميل" })).toBeVisible();
   await page.getByRole("dialog", { name: "حفظ عميل" }).getByRole("textbox", { name: "اسم العميل" }).fill("عميل اختبار الجوال");
