@@ -43,6 +43,7 @@ import { playNewMessageChime } from "./notification-sound";
 import { requestNotificationPermissionOnce, showNewMessageNotification } from "./notification-browser";
 import TrialCountdownBanner from "./TrialCountdownBanner";
 import WhatsAppPaymentBanner from "./WhatsAppPaymentBanner";
+import RenewalBanner from "./RenewalBanner";
 import { firstChar } from "../../lib/first-char";
 
 type DashboardSubscription = {
@@ -51,6 +52,9 @@ type DashboardSubscription = {
   status: string;
   billingCycle: string;
   renewalAt: string;
+  cancelledAt?: string;
+  autoRenewEnabled?: number;
+  autoRenewFailCount?: number;
 } | null;
 
 type DashboardInvoice = {
@@ -1420,6 +1424,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       <div className="dashboard-top-banners">
         {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
+        <RenewalBanner subscription={subscription} visible={initialUser.role === "مالك الحساب"} language={language} />
         <WhatsAppPaymentBanner visible={whatsappPaymentIssue} payUrl={whatsappPayUrl} language={language} />
       <div className="dashboard-top-links" ref={topLinksRef}>
         <PwaInstallButton />

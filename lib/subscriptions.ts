@@ -359,6 +359,8 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
         // cancelled (see app/api/billing/cancel).
         cancelledAt: "",
         updatedAt: nowTimestamp(),
+        // Any confirmed payment clears the failed-charge counter (the dashboard's "charge failed" notice reads it).
+        autoRenewFailCount: 0,
         // Plan/employeeLimit come from the staged plan whenever the payment
         // carries one (every self-serve checkout; admin invoices carry none
         // and leave the plan as-is). Renewing the SAME plan never lowers a
