@@ -45,6 +45,9 @@ RUN groupadd --system --gid 1001 nodejs && useradd --system --uid 1001 --gid nod
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# The X Chat engine (lib/xchat/engine.ts) loads its WASM file by path at runtime, so the bundler's file tracing does not
+# see it: copy the package next to the app's own node_modules.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@xdevplatform/chat-xdk ./node_modules/@xdevplatform/chat-xdk
 
 USER nextjs
 EXPOSE 8080
