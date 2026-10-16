@@ -6,6 +6,16 @@ import { AI_NO_ANSWER, defaultAiConnection, generateAiText, isAiConnectionConfig
 import type { AiProvider, AiSettingsPublic } from "./ai-types";
 import { getTenantGrants } from "./plan-grants";
 import { ECONOMY_INPUT_USD, ECONOMY_MODEL, ECONOMY_OUTPUT_USD, MANAGED_BUDGET_TENANT, managedMonthlyRequestCap } from "./ai-economy";
+import { isGoogleAiExcludedChannel } from "./google-ai-channel";
+
+async function conversationAiRestriction(tenantId: string, conversationId: string) {
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId },
+    select: { channel: true }
+  });
+  if (!conversation) return "conversation_not_found";
+  return isGoogleAiExcludedChannel(conversation.channel) ? "google_channel_disabled" : null;
+}
 
 // A tenant's *current* plan, looked up fresh every call rather than cached -
 // an upgrade/downgrade must take effect on the very next message, not wait
@@ -48,6 +58,8 @@ export async function runWorkspaceAi(tenantId: string, userId: string, conversat
   // No row, or the tenant hasn't switched this on, means AI never runs -
   // there is no implicit default-on state, whether BYOK or managed.
   if (!setting || setting.enabled !== 1) return { suggestion: null, reason: "disabled" };
+  const restriction = await conversationAiRestriction(tenantId, conversationId);
+  if (restriction) return { suggestion: null, reason: restriction };
 
   let connection: AiConnection;
   let limits: [number, number];
@@ -121,6 +133,8 @@ export async function runWorkspaceTranscription(tenantId: string, userId: string
   await ensureSchema();
   const setting = await prisma.aiWorkspaceSetting.findUnique({ where: { tenantId } });
   if (!setting || setting.enabled !== 1) return { transcript: null, reason: "disabled" };
+  const restriction = await conversationAiRestriction(tenantId, conversationId);
+  if (restriction) return { transcript: null, reason: restriction };
 
   let connection: AiConnection;
   let limits: [number, number];

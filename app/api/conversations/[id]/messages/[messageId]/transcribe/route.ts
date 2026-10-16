@@ -5,6 +5,7 @@ import { runWorkspaceTranscription } from "../../../../../../../lib/workspace-ai
 import { getEmployeeForUser } from "../../../../../../../lib/permissions-server";
 import { consumeRateLimit, requestIdentifier } from "../../../../../../../lib/rate-limit";
 import { jsonError, jsonOk } from "../../../../../_utils/json";
+import { isGoogleAiExcludedChannel } from "../../../../../../../lib/google-ai-channel";
 
 type RouteContext = { params: Promise<{ id: string; messageId: string }> };
 
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const employee = await getEmployeeForUser(user);
     if (!employee || employee.name !== conversation.assignee) return jsonError("المحادثة غير موجودة", 404);
   }
+  if (isGoogleAiExcludedChannel(conversation.channel)) return jsonError("الذكاء الاصطناعي غير متاح لمحادثات Google", 403);
 
   const message = await prisma.message.findFirst({ where: { id: messageId, conversationId: id } });
   if (!message) return jsonError("الرسالة غير موجودة", 404);

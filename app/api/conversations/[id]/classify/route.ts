@@ -6,6 +6,7 @@ import { getEmployeeForUser } from "../../../../../lib/permissions-server";
 import { consumeRateLimit, requestIdentifier } from "../../../../../lib/rate-limit";
 import { jsonError, jsonOk } from "../../../_utils/json";
 import { matchTagLabel } from "../../../../../lib/ai-classify";
+import { isGoogleAiExcludedChannel } from "../../../../../lib/google-ai-channel";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const employee = await getEmployeeForUser(user);
     if (!employee || employee.name !== conversation.assignee) return jsonError("المحادثة غير موجودة", 404);
   }
+  if (isGoogleAiExcludedChannel(conversation.channel)) return jsonError("الذكاء الاصطناعي غير متاح لمحادثات Google", 403);
   // Never override a person's tagging, and nothing to choose from means no model call.
   if (conversation.tags.length) return jsonOk({ tag: null, reason: "already_tagged" });
   const tags = await prisma.tag.findMany({ where: { tenantId: user.tenantId }, select: { name: true }, take: 40 });

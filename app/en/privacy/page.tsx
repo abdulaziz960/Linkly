@@ -96,7 +96,7 @@ export default function PrivacyPageEn() {
           <li>We do not sell Google user data, do not share it with data brokers or advertising networks, and do not use it for advertising or profiling.</li>
           <li>The data is visible only to the users of the same workspace whom the customer added, according to the permissions the customer granted them.</li>
           <li>We store and process it on Google Cloud infrastructure (Cloud Run and Cloud SQL in the me-central2 region) as a hosting provider acting on our behalf, which may not use the data for anything other than providing the service.</li>
-          <li>If the customer turns on Linkly&apos;s AI features and uses them on a conversation that contains content from these channels, only the conversation text needed for that operation is sent to the AI provider the customer chose (Google Gemini, OpenAI, OpenRouter or DeepSeek) to carry out the request. The feature does not run on channel content unless the customer enables it.</li>
+          <li>AI features, including automated replies, suggestions, summaries, classifications and audio transcription, are disabled for Gmail, YouTube and Google Business Profile conversations. We do not send the content of these conversations to AI providers, model aggregators or their downstream models.</li>
           <li>We do not disclose Google user data to any other party except with the customer&apos;s consent, where required by law or a court order, or for security and abuse prevention.</li>
         </ul>
         <h3>Limited Use</h3>

@@ -36,8 +36,10 @@ describe("runWorkspaceTranscription", () => {
     const { prisma } = await import("../lib/prisma");
     const now = new Date().toISOString();
     await prisma.aiWorkspaceSetting.create({ data: { tenantId: "transcribe-openai", provider: "openai", model: "gpt-test", enabled: 1, apiKey: "enc:v1:whatever", dailyLimit: 10, monthlyLimit: 100, updatedAt: now } });
+    await prisma.customer.create({ data: { id: "transcribe-openai-customer", tenantId: "transcribe-openai", name: "Customer", phone: "openai", initial: "C" } });
+    await prisma.conversation.create({ data: { id: "transcribe-openai-conversation", tenantId: "transcribe-openai", customerId: "transcribe-openai-customer", lastMessage: "Audio", status: "assigned", assignee: "" } });
     const { runWorkspaceTranscription } = await import("../lib/workspace-ai");
-    const result = await runWorkspaceTranscription("transcribe-openai", "user", "conversation", audioInput);
+    const result = await runWorkspaceTranscription("transcribe-openai", "user", "transcribe-openai-conversation", audioInput);
     expect(result.reason === "provider_unsupported" || result.reason === "key_unavailable").toBe(true);
   });
 
@@ -49,6 +51,8 @@ describe("runWorkspaceTranscription", () => {
       method: "PUT",
       body: JSON.stringify({ provider: "gemini", model: "gemini-test-model", enabled: true, prompt: "", dailyLimit: 10, monthlyLimit: 100, inputRate: 1, outputRate: 2, apiKey: "gemini-byok-key" })
     }));
+    await prisma.customer.create({ data: { id: "transcribe-gemini-customer", tenantId: session.tenantId, name: "Customer", phone: "gemini", initial: "C" } });
+    await prisma.conversation.create({ data: { id: "conversation-1", tenantId: session.tenantId, customerId: "transcribe-gemini-customer", lastMessage: "Audio", status: "assigned", assignee: "" } });
 
     const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: "مرحبا، هذه تجربة" }] } }],

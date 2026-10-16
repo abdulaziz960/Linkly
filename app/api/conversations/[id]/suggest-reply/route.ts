@@ -7,6 +7,7 @@ import { aiOperations, type AiOperation } from "../../../../../lib/ai-types";
 import { getEmployeeForUser } from "../../../../../lib/permissions-server";
 import { consumeRateLimit, requestIdentifier } from "../../../../../lib/rate-limit";
 import { jsonError, jsonOk } from "../../../_utils/json";
+import { isGoogleAiExcludedChannel } from "../../../../../lib/google-ai-channel";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const employee = await getEmployeeForUser(user);
     if (!employee || employee.name !== conversation.assignee) return jsonError("المحادثة غير موجودة", 404);
   }
+  if (isGoogleAiExcludedChannel(conversation.channel)) return jsonError("الذكاء الاصطناعي غير متاح لمحادثات Google", 403);
 
   const body = (await request.json().catch(() => null)) as { language?: "ar" | "en"; operation?: AiOperation; draft?: string } | null;
   if (body?.operation !== undefined && !aiOperations.includes(body.operation)) return jsonError("عملية غير معروفة", 400);

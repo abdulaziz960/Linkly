@@ -13,6 +13,9 @@ beforeAll(async () => {
   vi.stubEnv("GEMINI_API_KEY", "");
   const { ensureSchema } = await import("../lib/database");
   await ensureSchema();
+  const { prisma } = await import("../lib/prisma");
+  await prisma.customer.create({ data: { id: "ai-workspace-customer", tenantId: session.tenantId, name: "Customer", phone: "100", initial: "C" } });
+  await prisma.conversation.create({ data: { id: "conversation", tenantId: session.tenantId, customerId: "ai-workspace-customer", lastMessage: "Hello", status: "assigned", assignee: "" } });
 });
 afterAll(async () => {
   const { prisma } = await import("../lib/prisma");
@@ -25,6 +28,42 @@ function put(body: object) { return new NextRequest("http://localhost/api/ai/set
 const context = { messages: [{ direction: "in" as const, text: "Hello" }], customerName: "Customer", language: "en" as const };
 
 describe("workspace AI controls", () => {
+  it("keeps Google conversations out of every AI path, including direct APIs", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { runWorkspaceAi, runWorkspaceTranscription } = await import("../lib/workspace-ai");
+    const tenantId = "google-ai-isolation";
+    const previousTenant = session.tenantId;
+    session.tenantId = tenantId;
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await prisma.aiWorkspaceSetting.create({ data: { tenantId, provider: "openai", model: "test-model", enabled: 1, apiKey: "synthetic-key", dailyLimit: 10, monthlyLimit: 10, updatedAt: new Date().toISOString() } });
+      await prisma.customer.create({ data: { id: "google-ai-customer", tenantId, name: "Customer", phone: "google", initial: "C" } });
+      for (const channel of ["email", "gmail", "youtube", "google_maps"]) {
+        const id = `google-ai-${channel}`;
+        await prisma.conversation.create({ data: { id, tenantId, customerId: "google-ai-customer", channel, lastMessage: "Private Google content", status: "assigned", assignee: "" } });
+        for (const operation of ["reply", "summarize", "classify"] as const) {
+          expect(await runWorkspaceAi(tenantId, session.id, id, { ...context, operation })).toEqual({ suggestion: null, reason: "google_channel_disabled" });
+        }
+        expect(await runWorkspaceTranscription(tenantId, session.id, id, { base64: "ZGF0YQ==", mimeType: "audio/mpeg", language: "en" })).toEqual({ transcript: null, reason: "google_channel_disabled" });
+      }
+      expect(await runWorkspaceAi(tenantId, session.id, "missing-google-conversation", context)).toEqual({ suggestion: null, reason: "conversation_not_found" });
+
+      const { POST: suggest } = await import("../app/api/conversations/[id]/suggest-reply/route");
+      const { POST: classify } = await import("../app/api/conversations/[id]/classify/route");
+      const { POST: transcribe } = await import("../app/api/conversations/[id]/messages/[messageId]/transcribe/route");
+      const params = { params: Promise.resolve({ id: "google-ai-email" }) };
+      expect((await suggest(new NextRequest("http://localhost/ai", { method: "POST", body: "{}" }), params)).status).toBe(403);
+      expect((await classify(new NextRequest("http://localhost/classify", { method: "POST" }), params)).status).toBe(403);
+      expect((await transcribe(new NextRequest("http://localhost/transcribe", { method: "POST" }), { params: Promise.resolve({ id: "google-ai-email", messageId: "missing" }) })).status).toBe(403);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(await prisma.aiUsageEvent.count({ where: { tenantId } })).toBe(0);
+    } finally {
+      session.tenantId = previousTenant;
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("shares the managed budget across tenants and retains failed-attempt reservations", async () => {
     const { prisma } = await import("../lib/prisma");
     const { runWorkspaceAi } = await import("../lib/workspace-ai");
@@ -40,13 +79,15 @@ describe("workspace AI controls", () => {
       for (const tenantId of ["budget-a", "budget-b"]) {
         await prisma.subscription.create({ data: { id: `${tenantId}-sub`, tenantId, companyName: "Test", ownerName: "Owner", ownerEmail: `${tenantId}@example.test`, plan: "budget-plan", createdAt: now, updatedAt: now } });
         await prisma.aiWorkspaceSetting.create({ data: { tenantId, provider: "gemini", model: "gemini-3.5-flash-lite", enabled: 1, apiKey: "", updatedAt: now } });
+        await prisma.customer.create({ data: { id: `${tenantId}-customer`, tenantId, name: "Customer", phone: tenantId, initial: "C" } });
+        await prisma.conversation.create({ data: { id: `${tenantId}-test`, tenantId, customerId: `${tenantId}-customer`, lastMessage: "Hello", status: "assigned", assignee: "" } });
       }
       const copilot = { ...context, source: "copilot" as const };
-      expect(await runWorkspaceAi("budget-a", "owner", "test", { ...copilot, draft: "a".repeat(4001) })).toMatchObject({ reason: "draft_too_long" });
-      expect(await runWorkspaceAi("budget-a", "owner", "test", context)).toMatchObject({ reason: "employee_only" });
+      expect(await runWorkspaceAi("budget-a", "owner", "budget-a-test", { ...copilot, draft: "a".repeat(4001) })).toMatchObject({ reason: "draft_too_long" });
+      expect(await runWorkspaceAi("budget-a", "owner", "budget-a-test", context)).toMatchObject({ reason: "employee_only" });
       expect(fetchMock).not.toHaveBeenCalled();
-      expect(await runWorkspaceAi("budget-a", "owner", "test", copilot)).toMatchObject({ reason: "provider_unavailable" });
-      expect(await runWorkspaceAi("budget-b", "owner", "test", copilot)).toMatchObject({ reason: "budget_limit" });
+      expect(await runWorkspaceAi("budget-a", "owner", "budget-a-test", copilot)).toMatchObject({ reason: "provider_unavailable" });
+      expect(await runWorkspaceAi("budget-b", "owner", "budget-b-test", copilot)).toMatchObject({ reason: "budget_limit" });
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(await prisma.aiUsageBucket.count({ where: { tenantId: "budget-b" } })).toBe(0);
       expect(await prisma.aiUsageEvent.findFirst({ where: { tenantId: "budget-a" } })).toMatchObject({ status: "failed" });
@@ -129,20 +170,22 @@ describe("workspace AI controls", () => {
     try {
       await PUT(put({ ...settings, apiKey: "old-paid-key" }));
       await PUT(put({ ...settings, useManaged: true, apiKey: "" }));
+      await prisma.customer.create({ data: { id: "ai-local-customer", tenantId: session.tenantId, name: "Customer", phone: "local", initial: "C" } });
+      await prisma.conversation.create({ data: { id: "local-conversation", tenantId: session.tenantId, customerId: "ai-local-customer", lastMessage: "Hello", status: "assigned", assignee: "" } });
       expect((await prisma.aiWorkspaceSetting.findUniqueOrThrow({ where: { tenantId: session.tenantId } })).apiKey).toBe("");
       const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ done: true, message: { content: "Local draft" }, prompt_eval_count: 10, eval_count: 5 })));
       vi.stubGlobal("fetch", fetchMock);
-      expect(await runWorkspaceAi(session.tenantId, session.id, "conversation", { ...context, source: "copilot" })).toMatchObject({ reason: "plan_upgrade_required" });
+      expect(await runWorkspaceAi(session.tenantId, session.id, "local-conversation", { ...context, source: "copilot" })).toMatchObject({ reason: "plan_upgrade_required" });
       expect(fetchMock).not.toHaveBeenCalled();
       await prisma.plan.create({ data: { id: "ai-local-plan", name: "ai-local-plan", aiDailyLimit: 2, aiMonthlyLimit: 1, createdAt: now, updatedAt: now } });
       await prisma.subscription.create({ data: { id: "ai-local-sub", tenantId: session.tenantId, companyName: "Local", ownerName: "Owner", ownerEmail: "local@ai.test", plan: "ai-local-plan", createdAt: now, updatedAt: now } });
       const publicBody = await (await GET()).json();
       expect(publicBody.data.settings).toMatchObject({ managedLocal: true, managedReady: true, hasKey: false });
       expect(JSON.stringify(publicBody)).not.toContain("127.0.0.1");
-      expect(await runWorkspaceAi(session.tenantId, session.id, "conversation", context)).toMatchObject({ reason: "employee_only" });
+      expect(await runWorkspaceAi(session.tenantId, session.id, "local-conversation", context)).toMatchObject({ reason: "employee_only" });
       expect(fetchMock).not.toHaveBeenCalled();
-      expect(await runWorkspaceAi(session.tenantId, session.id, "conversation", { ...context, source: "copilot" })).toEqual({ suggestion: "Local draft" });
-      expect(await runWorkspaceAi(session.tenantId, session.id, "conversation", { ...context, source: "copilot" })).toMatchObject({ reason: "usage_limit" });
+      expect(await runWorkspaceAi(session.tenantId, session.id, "local-conversation", { ...context, source: "copilot" })).toEqual({ suggestion: "Local draft" });
+      expect(await runWorkspaceAi(session.tenantId, session.id, "local-conversation", { ...context, source: "copilot" })).toMatchObject({ reason: "usage_limit" });
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(await prisma.aiUsageEvent.findFirstOrThrow({ where: { tenantId: session.tenantId } })).toMatchObject({ provider: "ollama", estimatedCost: 0, status: "succeeded" });
     } finally {

@@ -22,6 +22,7 @@ import { ChannelIcon } from "./SettingsView";
 import { isDeletedMessageText, useLanguage } from "../i18n";
 import { getChannelName } from "../../channel-names";
 import { aiOperations, type AiOperation } from "../../../lib/ai-types";
+import { isGoogleAiExcludedChannel } from "../../../lib/google-ai-channel";
 
 type InboxViewProps = {
   activeConversation: Conversation;
@@ -411,6 +412,7 @@ export default function InboxView({
   };
   const isClosed = activeConversation.status === "closed";
   const hasActiveConversation = Boolean(activeConversation.id);
+  const googleAiDisabled = isGoogleAiExcludedChannel(activeConversation.channel);
   // A private note isn't sent to the customer, so it isn't subject to
   // WhatsApp's 24h reply window the way a regular reply is - only gate the
   // composer on the window when the team member is actually replying.
@@ -710,7 +712,7 @@ export default function InboxView({
   }
 
   async function handleSuggestReply() {
-    if (!activeConversation.id || isAiSuggesting) return;
+    if (!activeConversation.id || isAiSuggesting || googleAiDisabled) return;
     setIsAiSuggesting(true);
     setAiFeedback("");
     setAiFeedbackConversationId(activeConversation.id);
@@ -769,7 +771,7 @@ export default function InboxView({
   const lastMessage = activeConversation.messages?.[activeConversation.messages.length - 1];
   const autoDraftKey = hasActiveConversation && lastMessage?.direction === "in" ? `${activeConversation.id}:${lastMessage.id}` : "";
   useEffect(() => {
-    if (!autoDraft || !autoDraftKey || aiOperation !== "reply" || isComposerDisabled || message.trim()) return;
+    if (!autoDraft || !autoDraftKey || googleAiDisabled || aiOperation !== "reply" || isComposerDisabled || message.trim()) return;
     if (autoDraftTried.current.has(autoDraftKey)) return;
     autoDraftTried.current.add(autoDraftKey);
     void handleSuggestReply();
@@ -778,10 +780,10 @@ export default function InboxView({
       fetch(`/api/conversations/${conversationId}/classify`, { method: "POST" }).catch(() => undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoDraft, autoDraftKey]);
+  }, [autoDraft, autoDraftKey, googleAiDisabled]);
 
   async function handleTranscribeAudio(messageId: string) {
-    if (!activeConversation.id || transcribingMessageId) return;
+    if (!activeConversation.id || transcribingMessageId || googleAiDisabled) return;
     setTranscribingMessageId(messageId);
     setTranscribeErrors((current) => ({ ...current, [messageId]: "" }));
     try {
@@ -1310,9 +1312,9 @@ export default function InboxView({
                         <a className="message-attachment-link" href={item.attachment.url} download={item.attachment.name}>
                           {t("فتح الصوت", "Open audio")}
                         </a>
-                        {item.transcript || transcripts[item.id] ? (
+                        {!googleAiDisabled && (item.transcript || transcripts[item.id]) ? (
                           <p className="message-attachment-transcript">{item.transcript || transcripts[item.id]}</p>
-                        ) : (
+                        ) : !googleAiDisabled ? (
                           <button
                             type="button"
                             className="message-attachment-transcribe-btn"
@@ -1321,7 +1323,7 @@ export default function InboxView({
                           >
                             {transcribingMessageId === item.id ? t("جاري تفريغ الصوت...", "Transcribing...") : t("تفريغ الصوت إلى نص", "Transcribe to text")}
                           </button>
-                        )}
+                        ) : null}
                         {transcribeErrors[item.id] ? <small className="message-attachment-transcribe-error">{transcribeErrors[item.id]}</small> : null}
                       </>
                     )
@@ -1613,28 +1615,34 @@ export default function InboxView({
                       </svg>
                     )}
                   </button>
-                  <button
-                    className="attachment-button ai-suggest-button"
-                    disabled={isComposerDisabled || isAiSuggesting}
-                    aria-label={t("اقترح رد بالذكاء الاصطناعي", "Suggest an AI reply")}
-                    title={t("اقترح رد بالذكاء الاصطناعي", "Suggest an AI reply")}
-                    type="button"
-                    onClick={handleSuggestReply}
-                  >
-                    {isAiSuggesting ? <span className="ai-suggest-spinner" aria-hidden="true" /> : <span aria-hidden="true">✨</span>}
-                  </button>
-                  <CustomSelect
-                    className="ai-tool-select"
-                    value={aiOperation}
-                    onChange={(value) => setAiOperation(value as AiOperation)}
-                    disabled={isAiSuggesting}
-                    options={aiOperationOptions}
-                  />
-                  <label className="ai-autodraft-toggle" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }} title={t("يكتب مسودة رد تلقائيًا عند وصول رسالة جديدة من العميل، ويستهلك من رصيد AI", "Drafts a reply automatically when the customer writes; uses AI quota")}>
-                    <input type="checkbox" checked={autoDraft} onChange={(event) => toggleAutoDraft(event.target.checked)} />
-                    {t("مسودة تلقائية", "Auto-draft")}
-                  </label>
-                  {aiFeedback && aiFeedbackConversationId === activeConversation.id ? <p role="status" style={{ whiteSpace: "pre-wrap" }}>{aiFeedback}</p> : null}
+                  {googleAiDisabled ? (
+                    <span className="ai-channel-restriction">{t("الذكاء الاصطناعي غير متاح لمحادثات Google", "AI is unavailable for Google conversations")}</span>
+                  ) : (
+                    <>
+                      <button
+                        className="attachment-button ai-suggest-button"
+                        disabled={isComposerDisabled || isAiSuggesting}
+                        aria-label={t("اقترح رد بالذكاء الاصطناعي", "Suggest an AI reply")}
+                        title={t("اقترح رد بالذكاء الاصطناعي", "Suggest an AI reply")}
+                        type="button"
+                        onClick={handleSuggestReply}
+                      >
+                        {isAiSuggesting ? <span className="ai-suggest-spinner" aria-hidden="true" /> : <span aria-hidden="true">✨</span>}
+                      </button>
+                      <CustomSelect
+                        className="ai-tool-select"
+                        value={aiOperation}
+                        onChange={(value) => setAiOperation(value as AiOperation)}
+                        disabled={isAiSuggesting}
+                        options={aiOperationOptions}
+                      />
+                      <label className="ai-autodraft-toggle" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }} title={t("يكتب مسودة رد تلقائيًا عند وصول رسالة جديدة من العميل، ويستهلك من رصيد AI", "Drafts a reply automatically when the customer writes; uses AI quota")}>
+                        <input type="checkbox" checked={autoDraft} onChange={(event) => toggleAutoDraft(event.target.checked)} />
+                        {t("مسودة تلقائية", "Auto-draft")}
+                      </label>
+                      {aiFeedback && aiFeedbackConversationId === activeConversation.id ? <p role="status" style={{ whiteSpace: "pre-wrap" }}>{aiFeedback}</p> : null}
+                    </>
+                  )}
                   <div className="quick-reply-picker-wrap composer-message-wrap">
                     {shouldShowQuickReplySuggestions ? (
                       <div className="quick-reply-picker" role="menu" aria-label={t("الردود السريعة", "Quick replies")}>

@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
+import { isGoogleAiExcludedChannel } from "./google-ai-channel";
 
 export type ConversationSummaryResult = {
   summary: string;
@@ -26,6 +27,8 @@ export async function summarizeConversation(transcript: Array<{ author: string; 
 }
 
 export async function enqueueConversationSummary(conversationId: string, tenantId: string): Promise<void> {
+  const conversation = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, select: { channel: true } });
+  if (!conversation || isGoogleAiExcludedChannel(conversation.channel)) return;
   const existing = await prisma.conversationInsight.findUnique({ where: { conversationId } });
   if (existing) return;
 
@@ -59,6 +62,12 @@ export async function processDueConversationSummaries(tenantId: string, batchSiz
       where: { id: item.id, tenantId: item.tenantId }
     });
     if (claim.count !== 1) continue;
+
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: item.conversationId, tenantId },
+      select: { channel: true }
+    });
+    if (!conversation || isGoogleAiExcludedChannel(conversation.channel)) continue;
 
     const messages = await prisma.message.findMany({
       where: { conversationId: item.conversationId },

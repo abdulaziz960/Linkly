@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
+import { isGoogleAiExcludedChannel } from "../../../../lib/google-ai-channel";
 
 export const runtime = "nodejs";
 
@@ -27,22 +28,23 @@ export async function GET(request: NextRequest) {
   });
 
   const conversations = await prisma.conversation.findMany({
-    where: { id: { in: insights.map((insight) => insight.conversationId) } },
+    where: { tenantId: user.tenantId, id: { in: insights.map((insight) => insight.conversationId) } },
     select: { id: true, channel: true, closedAt: true, customer: { select: { name: true } } }
   });
   const conversationById = new Map(conversations.map((conversation) => [conversation.id, conversation]));
 
-  const items = insights.map((insight) => {
+  const items = insights.flatMap((insight) => {
     const conversation = conversationById.get(insight.conversationId);
-    return {
+    if (!conversation || isGoogleAiExcludedChannel(conversation.channel)) return [];
+    return [{
       conversationId: insight.conversationId,
-      customerName: conversation?.customer.name || "",
-      channel: conversation?.channel || "",
-      closedAt: conversation?.closedAt || "",
+      customerName: conversation.customer.name,
+      channel: conversation.channel,
+      closedAt: conversation.closedAt || "",
       intent: insight.intent,
       satisfactionLevel: insight.satisfactionLevel,
       summary: insight.summary
-    };
+    }];
   });
 
   const byIntent: Record<string, number> = {};

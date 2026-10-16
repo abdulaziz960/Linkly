@@ -65,6 +65,22 @@ describe("summarizeConversation", () => {
 });
 
 describe("enqueueConversationSummary", () => {
+  it("does not enqueue Google-channel conversations, including Gmail email", async () => {
+    const { enqueueConversationSummary, processDueConversationSummaries } = await import("../lib/conversation-insights");
+    const { prisma } = await import("../lib/prisma");
+    const id = "conv-insight-google-email";
+    await seedClosedConversation(id);
+    await prisma.conversation.update({ where: { id }, data: { channel: "email" } });
+
+    await enqueueConversationSummary(id, tenantId);
+    expect(await prisma.conversationSummaryQueueItem.count({ where: { conversationId: id } })).toBe(0);
+
+    await prisma.conversationSummaryQueueItem.create({ data: { id: `ciq-${randomUUID()}`, conversationId: id, tenantId, createdAt: new Date().toISOString() } });
+    await processDueConversationSummaries(tenantId, 100);
+    expect(await prisma.conversationSummaryQueueItem.count({ where: { conversationId: id } })).toBe(0);
+    expect(await prisma.conversationInsight.findUnique({ where: { conversationId: id } })).toBeNull();
+  });
+
   it("creates a queue item for a conversation with no existing insight", async () => {
     const { enqueueConversationSummary } = await import("../lib/conversation-insights");
     const { prisma } = await import("../lib/prisma");
