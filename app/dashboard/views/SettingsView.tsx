@@ -362,6 +362,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [connectingViaMeta, setConnectingViaMeta] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [checkingXRealtime, setCheckingXRealtime] = useState(false);
+  const [xChatBusy, setXChatBusy] = useState(false);
+  const [xChatEnabled, setXChatEnabled] = useState<boolean | null>(null);
   const [copied, setCopied] = useState("");
   const [wizardStep, setWizardStep] = useState(1);
   const [testRecipient, setTestRecipient] = useState("");
@@ -411,8 +413,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     };
     const message = messages[result];
     if (message) setSaveFeedback(message);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [t]);
   useEffect(() => {
     // Strip the one-time OAuth callback params (meta=..., channel=email,
     // gmail=connected) once they've been read above - otherwise reloading
@@ -1235,6 +1236,66 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   // means realtime delivery is already active, while an error here is
   // exactly why messages have been falling back to the slower periodic
   // poll instead of arriving instantly.
+  // Encrypted X conversations (X Chat): reading them needs the account's own chat keys, created here and registered with X.
+  async function loadXChatStatus() {
+    try {
+      const response = await fetch("/api/x/chat/status", { cache: "no-store" });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; data?: { enabled?: boolean } } | null;
+      if (response.ok && payload?.ok) setXChatEnabled(Boolean(payload.data?.enabled));
+    } catch {
+      // the button simply keeps its default label
+    }
+  }
+
+  async function enableXChat() {
+    const confirmed = window.confirm(t(
+      "سيتم إنشاء مفاتيح تشفير لحساب X هذا وتسجيلها عند X ليقرأ لنكلي المحادثات المشفّرة. قد تتأثر محادثات الحساب المشفّرة القديمة، وقد يطلب تطبيق X إعادة ضبطها. هل تريد المتابعة؟",
+      "This creates chat encryption keys for this X account and registers them with X so Linkly can read encrypted conversations. The account's older encrypted conversations may be affected, and the X app may ask to reset them. Continue?"
+    ));
+    if (!confirmed) return;
+    setXChatBusy(true);
+    setSaveFeedback(null);
+    try {
+      const response = await fetch("/api/x/chat/enable", { method: "POST" });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (response.ok && payload?.ok) {
+        setXChatEnabled(true);
+        setSaveFeedback({ type: "success", text: t("تم تفعيل الرسائل المشفّرة. اضغط «مزامنة المشفّرة الآن» بعد أن يرسل لك أحد رسالة.", "Encrypted messages are on. Press “Sync encrypted now” after someone messages you.") });
+      } else {
+        setSaveFeedback({ type: "error", text: payload?.error || t("تعذر تفعيل الرسائل المشفّرة.", "Could not enable encrypted messages.") });
+      }
+    } finally {
+      setXChatBusy(false);
+    }
+  }
+
+  async function syncXChatNow() {
+    setXChatBusy(true);
+    setSaveFeedback(null);
+    try {
+      const response = await fetch("/api/x/chat/sync", { method: "POST" });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; error?: string; data?: { stored?: number; conversations?: number; undecryptable?: number; skipped?: string; errors?: string[] } } | null;
+      const data = payload?.data;
+      if (response.ok && payload?.ok && data) {
+        const detail = data.errors?.length ? ` — ${data.errors[0]}` : "";
+        setSaveFeedback({
+          type: data.errors?.length ? "error" : "success",
+          text: data.skipped
+            ? t("الرسائل المشفّرة غير مفعّلة بعد.", "Encrypted messages are not enabled yet.")
+            : t(`المحادثات: ${data.conversations ?? 0} · رسائل جديدة: ${data.stored ?? 0} · تعذر فكّها: ${data.undecryptable ?? 0}${detail}`, `Conversations: ${data.conversations ?? 0} · new messages: ${data.stored ?? 0} · could not decrypt: ${data.undecryptable ?? 0}${detail}`)
+        });
+      } else {
+        setSaveFeedback({ type: "error", text: payload?.error || t("تعذرت المزامنة.", "Sync failed.") });
+      }
+    } finally {
+      setXChatBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (isX && isConnected) void loadXChatStatus();
+  }, [isX, isConnected]);
+
   async function checkXRealtimeStatus() {
     setCheckingXRealtime(true);
     try {
@@ -1921,6 +1982,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
             </button> : null}
             {isX && isConnected ? <button className="primary-action" disabled={checkingXRealtime} type="button" onClick={checkXRealtimeStatus}>
               {checkingXRealtime ? t("جاري التحقق...", "Checking...") : t("تحقق من الاستقبال اللحظي", "Check realtime delivery")}
+            </button> : null}
+            {isX && isConnected ? <button className="primary-action" disabled={xChatBusy} type="button" onClick={xChatEnabled ? syncXChatNow : enableXChat}>
+              {xChatBusy ? t("جاري التنفيذ...", "Working...") : xChatEnabled ? t("مزامنة المشفّرة الآن", "Sync encrypted now") : t("تفعيل الرسائل المشفّرة", "Enable encrypted messages")}
             </button> : null}
           </div>
           ) : null}

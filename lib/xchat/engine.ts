@@ -50,14 +50,14 @@ export type XChatSendPayload = {
 };
 
 export type XChatDecryptedEvent = {
+  /** "message", "keyChange", "readReceipt", ... (the engine's own names). */
   type: string;
-  sender_id?: string;
+  id?: string;
   senderId?: string;
-  conversation_id?: string;
   conversationId?: string;
-  message_id?: string;
-  messageId?: string;
-  content?: { text?: string };
+  createdAtMsec?: number;
+  verified?: boolean;
+  content?: { contentType?: string; text?: string };
   [key: string]: unknown;
 };
 

@@ -2,6 +2,7 @@ import type { IntegrationSettings } from "../app/dashboard/types";
 import { fetchXWithAutoRefresh, getXApiErrorMessage, XApiError } from "./x-api";
 import { storeXMessage } from "./x-inbox";
 import { prisma } from "./prisma";
+import { syncXChatForTenant } from "./xchat/service";
 
 type XDmEvent = {
   id?: string;
@@ -158,10 +159,16 @@ export async function syncXTenant(settings: IntegrationSettings) {
     }
   })));
 
+  // Encrypted conversations (X Chat) share this poll, when the workspace has enabled them. A failure there never hides
+  // the plain DMs that were just stored.
+  const encrypted = await syncXChatForTenant(tenantId).catch(() => null);
+  const encryptedStored = encrypted?.stored ?? 0;
+
   return {
     ok: true,
-    synced: storedDms.length,
+    synced: storedDms.length + encryptedStored,
     syncedDms: storedDms.length,
+    syncedEncrypted: encryptedStored,
     status: 200
   };
 }
