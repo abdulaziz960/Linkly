@@ -13,6 +13,7 @@ vi.mock("../lib/xchat/api", () => ({
     return "999";
   }),
   getUserPublicKeys: vi.fn(async () => []),
+  getXUserName: vi.fn(async () => "@customer"),
   toSigningKey: vi.fn(() => null),
   listConversations: vi.fn(async () => []),
   listConversationEvents: vi.fn(async () => ({ events: [], keyEvents: [] }))

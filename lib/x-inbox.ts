@@ -73,10 +73,10 @@ export async function storeXMessage(input: StoreXMessageInput) {
   const result = await prisma.$transaction(async (tx) => {
     await tx.customer.upsert({
       where: { id: customerId },
+      // A message that carries no display name (an encrypted DM, an outgoing reply) must not replace a real name already known.
       update: {
-        name,
-        phone: recipientId,
-        initial: getCustomerInitial(name, xUserId)
+        ...(input.name?.trim() ? { name, initial: getCustomerInitial(name, xUserId) } : {}),
+        phone: recipientId
       },
       create: {
         id: customerId,

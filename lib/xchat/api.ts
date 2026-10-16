@@ -99,3 +99,10 @@ export async function listConversationEvents(settings: IntegrationSettings, conv
   );
   return { events: result.data ?? [], keyEvents: result.meta?.conversation_key_events ?? [] };
 }
+
+/** The customer's display name (@handle) for the inbox; encrypted events carry only the sender's numeric id. */
+export async function getXUserName(settings: IntegrationSettings, userId: string): Promise<string | undefined> {
+  const result = await call<{ data?: { name?: string; username?: string } }>(settings, `/users/${encodeURIComponent(userId)}?user.fields=name,username`);
+  const user = result.data;
+  return user?.username ? `@${user.username}` : user?.name || undefined;
+}

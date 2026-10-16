@@ -4,7 +4,7 @@
 import { getIntegrationSettings } from "../database";
 import { storeXMessage } from "../x-inbox";
 import { XApiError } from "../x-api";
-import { registerPublicKey, getUserPublicKeys, listConversations, listConversationEvents, toSigningKey } from "./api";
+import { registerPublicKey, getUserPublicKeys, getXUserName, listConversations, listConversationEvents, toSigningKey } from "./api";
 import { engineFromKeys, generateAccountKeys, type XChatSigningKey } from "./engine";
 import { getXChatKeys, getXChatKeyStatus, saveXChatKeys } from "./keystore";
 import { getLastEventId, isNewerId, setLastEventId } from "./state";
@@ -66,6 +66,12 @@ export async function syncXChatForTenant(tenantId: string): Promise<XChatSyncRes
     return signingKeys.get(userId) ?? [];
   };
 
+  const names = new Map<string, string | undefined>();
+  const nameFor = async (userId: string) => {
+    if (!names.has(userId)) names.set(userId, await getXUserName(settings, userId).catch(() => undefined));
+    return names.get(userId);
+  };
+
   try {
     const conversations = (await listConversations(settings))
       // Groups (ids start with "g") are not supported yet.
@@ -98,6 +104,7 @@ export async function syncXChatForTenant(tenantId: string): Promise<XChatSyncRes
         await storeXMessage({
           tenantId,
           xUserId: senderId,
+          name: await nameFor(senderId),
           text: event.content.text.trim(),
           direction: "in",
           messageId: `chat-${eventId}`,
