@@ -92,7 +92,7 @@ export async function escalateUnansweredConversations() {
 
   const tenantRows = await prisma.conversation.findMany({
     distinct: ["tenantId"],
-    where: { status: { not: "closed" }, lastActivityAt: { not: "", lte: broadestCutoff } },
+    where: { status: { not: "closed" }, channel: { not: "email" }, lastActivityAt: { not: "", lte: broadestCutoff } },
     select: { tenantId: true },
     take: 50
   });
@@ -118,7 +118,8 @@ export async function escalateUnansweredConversations() {
     // message actually fetched), so this just pulls every not-closed,
     // overdue conversation for the tenant.
     const candidates = await prisma.conversation.findMany({
-      where: { tenantId, status: { not: "closed" }, lastActivityAt: { not: "", lte: cutoff } },
+      // Email is not a chat: a message there may legitimately wait for hours, so it never raises an SLA alert.
+      where: { tenantId, status: { not: "closed" }, channel: { not: "email" }, lastActivityAt: { not: "", lte: cutoff } },
       orderBy: { lastActivityAt: "asc" },
       take: MAX_CONVERSATIONS_PER_TENANT,
       include: { customer: true }

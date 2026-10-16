@@ -23,7 +23,7 @@ afterAll(async () => {
 
 const OLD_ENOUGH = new Date(Date.now() - 40 * 60000).toISOString();
 
-async function seedConversation(params: { id: string; assignee: string; lastDirection: "in" | "out"; lastActivityAt?: string }) {
+async function seedConversation(params: { id: string; assignee: string; lastDirection: "in" | "out"; lastActivityAt?: string; channel?: string }) {
   const { prisma } = await import("../lib/prisma");
   const { ensureSchema } = await import("../lib/database");
   await ensureSchema();
@@ -35,7 +35,7 @@ async function seedConversation(params: { id: string; assignee: string; lastDire
     data: {
       id: params.id,
       customerId,
-      channel: "whatsapp",
+      channel: params.channel ?? "whatsapp",
       lastMessage: "مرحبا",
       status: params.assignee === "بدون موظف" ? "unassigned" : "assigned",
       assignee: params.assignee,
@@ -118,6 +118,18 @@ describe("escalateUnansweredConversations", () => {
 
     const conversation = await prisma.conversation.findUnique({ where: { id: "conv-sla-note-after" } });
     expect(conversation?.escalatedForMessageId).toBe("msg-conv-sla-note-after");
+  });
+
+  it("never escalates an email conversation, however long it waits", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { escalateUnansweredConversations } = await import("../lib/response-sla");
+    await seedConversation({ id: "conv-sla-email", assignee: "بدون موظف", lastDirection: "in", channel: "email", lastActivityAt: new Date(Date.now() - 5 * 3600_000).toISOString() });
+
+    await escalateUnansweredConversations();
+
+    const conversation = await prisma.conversation.findUnique({ where: { id: "conv-sla-email" } });
+    expect(conversation?.escalatedForMessageId ?? "").toBe("");
+    expect(await prisma.message.count({ where: { conversationId: "conv-sla-email", sourceType: "system_escalation" } })).toBe(0);
   });
 
   it("does not escalate a conversation the agent already replied to (last message is outbound)", async () => {

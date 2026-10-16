@@ -38,14 +38,57 @@ function removeLeakedCss(text: string): string {
   return out.replace(/\/\*[\s\S]*?\*\//g, " ");
 }
 
+/** An email that spaces every line from the next with a blank line (layout tables turned into text) is read as one flow. */
+function dropUniformBlankLines(text: string): string {
+  const chunks = text.split(/\n[ \t]*\n/);
+  if (chunks.length < 4) return text;
+  const singleLine = chunks.filter((chunk) => !chunk.includes("\n")).length;
+  return singleLine / chunks.length >= 0.8 ? chunks.join("\n") : text;
+}
+
+/** A one-time code laid out in one cell per digit ("4", "0", "8", "7" or "4 0 8 7") reads as the number it is. */
+function joinSpacedDigits(lines: string[]): string[] {
+  const out: string[] = [];
+  let run: string[] = [];
+  const flush = () => {
+    if (run.length >= 3) out.push(run.join(""));
+    else out.push(...run);
+    run = [];
+  };
+  for (const line of lines) {
+    if (/^\d$/.test(line)) {
+      run.push(line);
+      continue;
+    }
+    flush();
+    out.push(/^\d(?: \d){2,9}$/.test(line) ? line.replace(/ /g, "") : line);
+  }
+  flush();
+  return out;
+}
+
+/** The same sentence twice (a hidden preheader above the visible text) is shown once. */
+function dropRepeatedLines(lines: string[]): string[] {
+  const seen = new Set<string>();
+  return lines.filter((line) => {
+    if (line.length < 12) return true;
+    if (seen.has(line)) return false;
+    seen.add(line);
+    return true;
+  });
+}
+
 export function emailBodyToText(value: string | undefined | null): string {
   let text = String(value ?? "");
   if (!text.trim()) return "";
 
-  if (/<[a-z!/][\s\S]*>/i.test(text)) {
+  const isHtml = /<[a-z!/][\s\S]*>/i.test(text);
+  if (isHtml) {
     text = text
       .replace(/<!--[\s\S]*?-->/g, " ")
       .replace(/<(head|style|script|title|noscript)\b[\s\S]*?<\/\1\s*>/gi, " ")
+      // The hidden "preheader" a sender puts first for the mailbox preview is not part of the message.
+      .replace(/<(div|span|p)\b[^>]*(?:display\s*:\s*none|mso-hide\s*:\s*all)[^>]*>[\s\S]*?<\/\1\s*>/gi, " ")
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<\/(p|div|tr|li|h[1-6]|table|blockquote|section|article|header|footer)\s*>/gi, "\n")
       .replace(/<(td|th)\b[^>]*>/gi, " ")
@@ -56,11 +99,20 @@ export function emailBodyToText(value: string | undefined | null): string {
   text = decodeEntities(text);
   text = removeLeakedCss(text);
 
-  return text
+  text = text
     .replace(/\r\n?/g, "\n")
-    .replace(/[​-‏‪-‮⁠﻿]/g, "")
+    .replace(/[\u200b-\u200f\u202a-\u202e\u2060\ufeff]/g, "")
     .replace(/[ \t\f\v]+/g, " ")
     .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  text = dropUniformBlankLines(text);
+  // Layout tables leave stray empty lines between the real ones; a person's own paragraphs (plain text) keep theirs.
+  const lines = text.split("\n");
+  const kept = isHtml ? lines.filter((line) => line.trim() !== "") : lines;
+  return dropRepeatedLines(joinSpacedDigits(kept))
+    .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

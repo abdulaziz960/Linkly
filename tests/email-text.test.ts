@@ -23,4 +23,16 @@ describe("emailBodyToText", () => {
     expect(emailBodyToText(undefined)).toBe("");
     expect(emailBodyToText("إذا كان 3 < 5 فهذا صحيح")).toBe("إذا كان 3 < 5 فهذا صحيح");
   });
+
+  it("reads a one-time-code email as short lines: no blank line between each, the repeated preheader once, the code as one number", () => {
+    const html = `<div style="display:none">استخدم هذا الرمز لإكمال تسجيل الدخول</div><table><tr><td><div>رمز تسجيل الدخول لمنصة شركاء سلة</div></td></tr><tr><td><div>استخدم هذا الرمز لإكمال تسجيل الدخول</div></td></tr><tr><td><div>مرحباً Linkly SA،</div></td></tr><tr><td><div>رمز الدخول لمرة واحدة الخاص بك:</div></td></tr><tr><td><div><span>4</span></div></td><td><div><span>0</span></div></td><td><div><span>8</span></div></td><td><div><span>7</span></div></td></tr><tr><td><div>الرمز صالح لمدة 5 دقائق</div></td></tr></table>`;
+    expect(emailBodyToText(html)).toBe(["رمز تسجيل الدخول لمنصة شركاء سلة", "استخدم هذا الرمز لإكمال تسجيل الدخول", "مرحباً Linkly SA،", "رمز الدخول لمرة واحدة الخاص بك:", "4087", "الرمز صالح لمدة 5 دقائق"].join("\n"));
+  });
+
+  it("tightens an email already stored with a blank line between every line, but not a person's own paragraphs", () => {
+    const stored = ["رمز تسجيل الدخول لمنصة شركاء سلة", "استخدم هذا الرمز لإكمال تسجيل الدخول", "رمز الدخول لمرة واحدة لمنصة شركاء سلة", "استخدم هذا الرمز لإكمال تسجيل الدخول", "مرحباً Linkly SA،"].join("\n\n");
+    expect(emailBodyToText(stored)).toBe(["رمز تسجيل الدخول لمنصة شركاء سلة", "استخدم هذا الرمز لإكمال تسجيل الدخول", "رمز الدخول لمرة واحدة لمنصة شركاء سلة", "مرحباً Linkly SA،"].join("\n"));
+    const letter = "السلام عليكم ورحمة الله\nأرجو إفادتي بحالة الطلب\n\nشكرًا لكم\n\nمحمد";
+    expect(emailBodyToText(letter)).toBe(letter);
+  });
 });
