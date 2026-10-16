@@ -349,6 +349,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     if (params.has("youtube")) return "youtube";
     if (params.has("linkedin")) return "linkedin";
     if (params.has("snapchat")) return "snapchat";
+    if (params.has("x")) return "x";
     return "whatsapp";
   });
   const [loading, setLoading] = useState(true);
@@ -391,15 +392,35 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     // silently dropping the result behind the closed overview.
     if (typeof window === "undefined") return false;
     const params = new URLSearchParams(window.location.search);
-    return params.has("meta") || params.has("gmail") || params.has("youtube") || params.has("linkedin") || params.has("snapchat");
+    return params.has("meta") || params.has("gmail") || params.has("youtube") || params.has("linkedin") || params.has("snapchat") || params.has("x");
   });
+  useEffect(() => {
+    // The X connect/callback routes land back here with ?x=<result>: say what happened instead of dropping it silently.
+    if (typeof window === "undefined") return;
+    const result = new URLSearchParams(window.location.search).get("x");
+    if (!result) return;
+    const messages: Record<string, { type: "success" | "error"; text: string }> = {
+      connected: { type: "success", text: t("تم ربط حساب X بنجاح.", "X account connected.") },
+      "connected-realtime-pending": { type: "success", text: t("تم ربط حساب X. استقبال الرسائل الفورية يحتاج تفعيلًا إضافيًا من X، ويعمل الاستقبال الدوري في هذه الأثناء.", "X account connected. Real-time delivery needs extra activation from X; periodic sync works meanwhile.") },
+      "missing-app-keys": { type: "error", text: t("ربط X غير مفعّل بعد على الخادم (مفاتيح تطبيق X ناقصة). تواصل مع الدعم.", "Connecting X is not enabled on the server yet (the X app keys are missing). Please contact support.") },
+      forbidden: { type: "error", text: t("لا تملك صلاحية ربط X.", "You do not have permission to connect X.") },
+      "plan-upgrade-needed": { type: "error", text: t("قناة X غير متاحة في باقتك الحالية. رقِّ باقتك لاستخدامها.", "The X channel is not included in your plan. Upgrade to use it.") },
+      "invalid-callback": { type: "error", text: t("انتهت جلسة الربط أو الرابط غير صالح. حاول الربط من جديد.", "The connection session expired or the link is invalid. Try connecting again.") },
+      "token-failed": { type: "error", text: t("رفض X طلب الربط. تأكد من رابط الرجوع (Callback URL) في تطبيق X ثم حاول من جديد.", "X rejected the connection. Check the Callback URL in the X app, then try again.") },
+      "account-failed": { type: "error", text: t("تعذر قراءة بيانات حساب X بعد الموافقة. حاول من جديد.", "Could not read the X account after approval. Try again.") }
+    };
+    const message = messages[result];
+    if (message) setSaveFeedback(message);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     // Strip the one-time OAuth callback params (meta=..., channel=email,
     // gmail=connected) once they've been read above - otherwise reloading
     // or simply revisiting this URL keeps reopening the same modal forever.
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
-    if (!url.searchParams.has("meta") && !url.searchParams.has("gmail") && !url.searchParams.has("youtube") && !url.searchParams.has("linkedin") && !url.searchParams.has("snapchat")) return;
+    if (!url.searchParams.has("meta") && !url.searchParams.has("gmail") && !url.searchParams.has("youtube") && !url.searchParams.has("linkedin") && !url.searchParams.has("snapchat") && !url.searchParams.has("x")) return;
+    url.searchParams.delete("x");
     url.searchParams.delete("meta");
     url.searchParams.delete("gmail");
     url.searchParams.delete("youtube");
@@ -1202,12 +1223,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }
 
   async function connectXAccount() {
-    if (!settings.appId.trim() || !settings.configId.trim()) {
-      window.alert(t("احفظ OAuth 2.0 Client ID و Client Secret لتطبيق Linkly أولًا، وبعدها اضغط ربط X.", "Save the OAuth 2.0 Client ID and Client Secret for the Linkly app first, then click Connect X."));
-      setWizardStep(4);
-      return;
-    }
-
+    // No key check here: the server uses the platform's own X app (X_CLIENT_ID / X_CLIENT_SECRET) when it has one, and
+    // sends back ?x=missing-app-keys, which is explained above, when neither the platform nor the workspace has keys.
     await persistSettings();
     window.location.assign(new URL("/api/x/connect", window.location.origin).toString());
   }
