@@ -65,7 +65,9 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   { ar: "حملات متكررة بجدولة", en: "Scheduled recurring campaigns", cells: [no, no, yes, yes, yes] },
   { ar: "تقسيم العملاء", en: "Customer segments", view: "segments", cells: [no, note("بالوسوم", "By tags"), note("متقدم (تفاعل الحملات)", "Advanced (campaign engagement)"), note("متقدم", "Advanced"), note("متقدم", "Advanced")] },
   { ar: "إرسال أحداث التحويل لمنصات الإعلانات (تحسين الحملات)", en: "Conversion events to ad platforms (campaign optimisation)", cells: [no, no, note("ميتا فقط", "Meta only"), note("ميتا وسناب شات وتيك توك", "Meta, Snapchat and TikTok"), note("ميتا وسناب شات وتيك توك", "Meta, Snapchat and TikTok")] },
-  { ar: "ربط المتاجر (سلة، زد، شوبيفاي)", en: "Store integrations (Salla, Zid, Shopify)", cells: [no, no, no, yes, yes] },
+  { ar: "تكامل سلة (منتجات وطلبات وكوبونات)", en: "Salla integration (products, orders, coupons)", cells: [no, no, no, yes, yes] },
+  { ar: "تكامل زد (منتجات وطلبات وكوبونات)", en: "Zid integration (products, orders, coupons)", cells: [no, no, no, yes, yes] },
+  { ar: "تكامل شوبيفاي (منتجات وطلبات)", en: "Shopify integration (products and orders)", cells: [no, no, no, yes, yes] },
   { ar: "إرسال أقرب فرع للعميل حسب موقعه", en: "Send the customer their nearest branch", view: "branches", cells: [no, note("حتى 30 فرعًا", "Up to 30 branches"), note("حتى 65 فرعًا", "Up to 65 branches"), note("حتى 100 فرع", "Up to 100 branches"), note("غير محدود", "Unlimited")] },
   { ar: "كتالوج المنتجات والشراء من واتساب", en: "Product catalog and buying on WhatsApp", view: "catalog", cells: [no, no, no, note("حتى 300 منتج", "Up to 300 products"), note("غير محدود", "Unlimited")] },
 

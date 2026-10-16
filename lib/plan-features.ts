@@ -50,16 +50,16 @@ export const planFeatures: Record<string, PlanFeatures> = {
     audience: { ar: "الأنسب لفريق يحتاج أتمتة وتقسيم جمهور ومساعد AI.", en: "Best for a team that needs automation, audience segments, and an AI Assistant." },
     featured: true,
     items: {
-      ar: ["كل مزايا العادية", "فرق متعددة وأتمتة وقواعد تحويل", "مساعد AI (50 طلبًا يوميًا) وقاعدة معرفة (50 مدخلًا)", "حملات متكررة وتقسيم جمهور بتفاعل الحملات", "إرسال أقرب فرع للعميل (حتى 65 فرعًا)", "تصعيد بمدة قابلة للتعديل ومركز عمليات", "تقارير أداء وSLA"],
-      en: ["Everything in Regular", "Multiple teams, automation and routing rules", "AI assistant (50 requests/day) and knowledge base (50 entries)", "Recurring campaigns and campaign-engagement segments", "Nearest-branch reply (up to 65 branches)", "Adjustable escalation and operations center", "Performance and SLA reports"]
+      ar: ["كل مزايا العادية", "فرق متعددة وأتمتة وقواعد تحويل", "مساعد AI (50 طلبًا يوميًا) وقاعدة معرفة (50 مدخلًا)", "حملات متكررة وتقسيم جمهور بتفاعل الحملات", "إرسال أقرب فرع للعميل (حتى 65 فرعًا)", "تصعيد بمدة قابلة للتعديل ومركز عمليات", "تحسين الحملات الإعلانية بإرسال أحداث التحويل إلى ميتا", "تقارير أداء وSLA"],
+      en: ["Everything in Regular", "Multiple teams, automation and routing rules", "AI assistant (50 requests/day) and knowledge base (50 entries)", "Recurring campaigns and campaign-engagement segments", "Nearest-branch reply (up to 65 branches)", "Adjustable escalation and operations center", "Better ad campaigns by sending conversion events to Meta", "Performance and SLA reports"]
     }
   },
   "باقة المؤسسات الكبيرة": {
     shortName: { ar: "المؤسسات الكبيرة", en: "Large Enterprises" },
     audience: { ar: "الأنسب لفرق متعددة تحتاج قنوات أكثر وواجهات تكامل.", en: "Best for multiple teams that need more channels and integrations." },
     items: {
-      ar: ["كل مزايا المؤسسات الصغيرة", "كتالوج المنتجات والشراء من واتساب (حتى 300 منتج)", "مساعد AI (100 طلب يوميًا) وقاعدة معرفة (200 مدخل)", "إرسال أقرب فرع للعميل (حتى 100 فرع)", "واجهة API وWebhooks وتكاملات", "تصدير Excel ودعم أولوية"],
-      en: ["Everything in Small Enterprises", "Product catalog and buying on WhatsApp (up to 300 products)", "AI assistant (100 requests/day) and knowledge base (200 entries)", "Nearest-branch reply (up to 100 branches)", "Developer API, webhooks and integrations", "Excel export and priority support"]
+      ar: ["كل مزايا المؤسسات الصغيرة", "كتالوج المنتجات والشراء من واتساب (حتى 300 منتج)", "مساعد AI (100 طلب يوميًا) وقاعدة معرفة (200 مدخل)", "إرسال أقرب فرع للعميل (حتى 100 فرع)", "ربط متاجر سلة وزد وشوبيفاي: مزامنة المنتجات والطلبات والكوبونات", "إرسال أحداث التحويل إلى ميتا وسناب شات وتيك توك لتحسين الحملات", "واجهة API وWebhooks وتكاملات", "تصدير Excel ودعم أولوية"],
+      en: ["Everything in Small Enterprises", "Product catalog and buying on WhatsApp (up to 300 products)", "AI assistant (100 requests/day) and knowledge base (200 entries)", "Nearest-branch reply (up to 100 branches)", "Salla, Zid and Shopify store integrations: products, orders and coupons", "Conversion events to Meta, Snapchat and TikTok to optimise campaigns", "Developer API, webhooks and integrations", "Excel export and priority support"]
     }
   },
   "باقة الشركات": {
@@ -67,8 +67,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     custom: true,
     audience: { ar: "تواصل معنا واختر المزايا والقنوات والحدود التي تحتاجها، ونصدر لك عرض سعر خاص بما طلبته.", en: "Contact us, pick the features, channels and limits you need, and we'll send you a quote for exactly that." },
     items: {
-      ar: ["عدد المستخدمين الذي تحتاجه", "كل القنوات: واتساب وإنستقرام وتيليجرام وفيسبوك وجيميل وتيك توك ويوتيوب ولينكدإن وسناب وSMS وغيرها", "رسائل تسويقية وحملات متكررة بلا حدود", "1,000 بريد تسويقي شهريًا أو حسب الاتفاق", "شرائح عملاء متقدمة وتقارير وتصدير Excel", "أتمتة وبوت بخطوات وعقد بلا حدود", "كتالوج المنتجات والشراء من واتساب بعدد تحدده", "الفروع وإرسال أقرب فرع بعدد تحدده", "قاعدة المعرفة ومساعد AI بحدود تناسبك", "التصعيد التلقائي للمحادثات", "واجهة API وWebhooks وتكاملات", "علامة تجارية مخصّصة (White-label)", "مدير حساب مخصص ودعم VIP فوري"],
-      en: ["As many users as you need", "Every channel: WhatsApp, Instagram, Telegram, Facebook, Gmail, TikTok, YouTube, LinkedIn, Snapchat, SMS and more", "Unlimited marketing messages and recurring campaigns", "1,000 promotional emails/month or by agreement", "Advanced customer segments, reports and Excel export", "Automation and bots with unlimited steps and nodes", "Product catalog and buying on WhatsApp, sized to you", "Branches and nearest-branch replies, sized to you", "Knowledge base and AI assistant with limits that fit you", "Automatic conversation escalation", "Developer API, webhooks and integrations", "Custom white-label branding", "Dedicated account manager and instant VIP support"]
+      ar: ["عدد المستخدمين الذي تحتاجه", "كل القنوات: واتساب وإنستقرام وتيليجرام وفيسبوك وجيميل وتيك توك ويوتيوب ولينكدإن وسناب وSMS وغيرها", "رسائل تسويقية وحملات متكررة بلا حدود", "1,000 بريد تسويقي شهريًا أو حسب الاتفاق", "شرائح عملاء متقدمة وتقارير وتصدير Excel", "أتمتة وبوت بخطوات وعقد بلا حدود", "كتالوج المنتجات والشراء من واتساب بعدد تحدده", "الفروع وإرسال أقرب فرع بعدد تحدده", "قاعدة المعرفة ومساعد AI بحدود تناسبك", "التصعيد التلقائي للمحادثات", "ربط متاجر سلة وزد وشوبيفاي", "إرسال أحداث التحويل إلى ميتا وسناب شات وتيك توك", "واجهة API وWebhooks وتكاملات", "علامة تجارية مخصّصة (White-label)", "مدير حساب مخصص ودعم VIP فوري"],
+      en: ["As many users as you need", "Every channel: WhatsApp, Instagram, Telegram, Facebook, Gmail, TikTok, YouTube, LinkedIn, Snapchat, SMS and more", "Unlimited marketing messages and recurring campaigns", "1,000 promotional emails/month or by agreement", "Advanced customer segments, reports and Excel export", "Automation and bots with unlimited steps and nodes", "Product catalog and buying on WhatsApp, sized to you", "Branches and nearest-branch replies, sized to you", "Knowledge base and AI assistant with limits that fit you", "Automatic conversation escalation", "Salla, Zid and Shopify store integrations", "Conversion events to Meta, Snapchat and TikTok", "Developer API, webhooks and integrations", "Custom white-label branding", "Dedicated account manager and instant VIP support"]
     }
   }
 };

@@ -52,10 +52,10 @@ describe("the comparison table matches what is enforced", () => {
     const { COMPARISON_ROWS } = await import("../lib/plan-comparison");
     const { PLAN_ORDER, isAdEventsAllowed, isStoreIntegrationAllowed } = await import("../lib/plan-access");
     const eventsRow = COMPARISON_ROWS.find((row) => row.en.startsWith("Conversion events"))!;
-    const storesRow = COMPARISON_ROWS.find((row) => row.en.startsWith("Store integrations"))!;
+    const storeRows = ["Salla integration", "Zid integration", "Shopify integration"].map((name) => COMPARISON_ROWS.find((row) => row.en.startsWith(name))!);
     PLAN_ORDER.forEach((plan, index) => {
       expect(eventsRow.cells![index] !== false, `events ${plan}`).toBe(isAdEventsAllowed(plan, "meta"));
-      expect(storesRow.cells![index] !== false, `stores ${plan}`).toBe(isStoreIntegrationAllowed(plan));
+      for (const row of storeRows) expect(row.cells![index] !== false, `${row.en} ${plan}`).toBe(isStoreIntegrationAllowed(plan));
     });
     expect(isAdEventsAllowed("باقة المؤسسات الصغيرة", "snapchat")).toBe(false);
     expect(isAdEventsAllowed("باقة المؤسسات الكبيرة", "tiktok")).toBe(true);
