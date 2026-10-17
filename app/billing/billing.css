@@ -531,3 +531,21 @@
 .pay-promo-applied button { margin-top: 8px; background: transparent; color: #b91c1c; padding: 4px 0; }
 .pay-promo dl { margin: 8px 0 0; display: grid; gap: 4px; }
 .pay-promo dl div { display: flex; justify-content: space-between; }
+
+.billing-main-header {
+  direction: rtl;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+}
+.billing-main-header .billing-header-brand { justify-self: start; }
+.billing-main-header .billing-lang-toggle { justify-self: center; }
+.billing-main-header .billing-back { justify-self: end; text-align: left; font-size: 14px; }
+@media (max-width: 700px) {
+  .billing-main-header { grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; }
+  .billing-main-header .billing-header-brand { grid-column: 1; grid-row: 1; gap: 6px; font-size: 19px; }
+  .billing-main-header .billing-header-brand img { width: 48px; }
+  .billing-main-header .billing-back { grid-column: 2; grid-row: 1; font-size: 12px; }
+  .billing-main-header .billing-lang-toggle { grid-column: 1 / -1; grid-row: 2; }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import InboxBackLink from "../dashboard/components/InboxBackLink";
 import Image from "next/image";
 import { useState } from "react";
 import BillingClient from "./BillingClient";
@@ -11,7 +11,6 @@ type Subscription = { plan: string; status: string; billingCycle?: string; creat
 
 const copy = {
   ar: {
-    backToDashboard: "→ العودة للوحة العميل",
     stepLabel: "الخطوة 3 من 3",
     heading: "اختر الباقة المناسبة لفريقك",
     subheading: "اشتراك شهري مرن، ويمكنك تغيير الباقة لاحقًا.",
@@ -33,7 +32,6 @@ const copy = {
     blockedRenewalLapsed: "انتهت فترة اشتراكك المدفوعة ولم يتم التجديد. جدّد باقتك لمتابعة استخدام حسابك - بياناتك محفوظة بالكامل."
   },
   en: {
-    backToDashboard: "→ Back to dashboard",
     stepLabel: "Step 3 of 3",
     heading: "Choose the right plan for your team",
     subheading: "A flexible monthly subscription — you can change your plan later.",
@@ -138,13 +136,13 @@ export default function BillingPageClient({
 
   return (
     <main className="billing-page" dir={lang === "ar" ? "rtl" : "ltr"}>
-      <header className="billing-header">
-        <Link href="/dashboard">{text.backToDashboard}</Link>
+      <header className="billing-header billing-main-header">
+        <div className="billing-header-brand"><Image src={branding.logoDataUrl} alt={branding.name} width={64} height={35} unoptimized={branding.logoDataUrl.startsWith("data:")} /><b>{branding.name}</b></div>
         <div className="billing-lang-toggle">
           <button type="button" aria-pressed={lang === "ar"} className={lang === "ar" ? "active" : ""} onClick={() => setLang("ar")}>العربية</button>
           <button type="button" aria-pressed={lang === "en"} className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>English</button>
         </div>
-        <div><Image src={branding.logoDataUrl} alt="" width={64} height={35} unoptimized={branding.logoDataUrl.startsWith("data:")} /><b>{branding.name}</b></div>
+        <InboxBackLink language={lang} className="billing-back" />
       </header>
       <section className="billing-hero">
         <span>{text.stepLabel}</span>

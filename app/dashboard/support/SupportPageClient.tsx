@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import InboxBackLink from "../components/InboxBackLink";
 import Image from "next/image";
 import { useStoredLanguage } from "../../useStoredLanguage";
 import { statusLabel, priorityLabel, categoryLabel, statusBadgeClass, priorityBadgeClass } from "../../../lib/support-labels";
@@ -81,13 +82,11 @@ export default function SupportPageClient() {
   return (
     <main className="support-page" dir={isEnglish ? "ltr" : "rtl"}>
       <header className="support-header">
-        <Link href="/dashboard" className="support-back">
-          {isEnglish ? "← Back to dashboard" : "→ العودة للوحة العميل"}
-        </Link>
         <div className="support-header-brand">
-          <Image src="/assets/linkly-logo.png" alt="" width={56} height={31} />
+          <Image src="/assets/linkly-logo.png" alt={isEnglish ? "Linkly logo" : "شعار لنكلي"} width={56} height={31} />
           <b>Linkly</b>
         </div>
+        <InboxBackLink language={isEnglish ? "en" : "ar"} className="support-back" />
       </header>
 
       <section className="support-hero">

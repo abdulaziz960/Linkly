@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
+import TutorialsLink from "./components/TutorialsLink";
 import PwaInstallButton from "./components/PwaInstallButton";
 import PwaInstallCoachmark from "./components/PwaInstallCoachmark";
 import PwaInstallPopup from "./components/PwaInstallPopup";
@@ -1427,6 +1428,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         <RenewalBanner subscription={subscription} visible={initialUser.role === "مالك الحساب"} language={language} />
         <WhatsAppPaymentBanner visible={whatsappPaymentIssue} payUrl={whatsappPayUrl} language={language} />
       <div className="dashboard-top-links" ref={topLinksRef}>
+        <TutorialsLink language={language} />
         <PwaInstallButton />
         {inboxTabsMode !== "employee" ? <NotificationBell notifications={notifications} onOpenNotification={handleOpenNotification} /> : null}
         <button

@@ -248,3 +248,9 @@
   .support-thread-sidebar { width: 100%; }
   .support-field-row { grid-template-columns: 1fr; }
 }
+
+/* Keep the logo on the right and the inbox link on the left in both languages. */
+.support-header { direction: rtl; gap: 16px; }
+.support-header-brand { flex-shrink: 0; }
+.support-back { text-align: left; }
+@media (max-width: 380px) { .support-back { font-size: 12px; } }

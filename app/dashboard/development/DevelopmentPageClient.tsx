@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import InboxBackLink from "../components/InboxBackLink";
 import Image from "next/image";
 import { useStoredLanguage } from "../../useStoredLanguage";
 import { developmentStatusLabel, developmentStatusBadgeClass } from "../../../lib/development";
@@ -62,13 +62,11 @@ export default function DevelopmentPageClient() {
   return (
     <main className="development-page" dir={isEnglish ? "ltr" : "rtl"}>
       <header className="development-header">
-        <Link href="/dashboard" className="development-back">
-          {isEnglish ? "← Back to dashboard" : "→ العودة للوحة العميل"}
-        </Link>
         <div className="development-header-brand">
-          <Image src="/assets/linkly-logo.png" alt="" width={56} height={31} />
+          <Image src="/assets/linkly-logo.png" alt={isEnglish ? "Linkly logo" : "شعار لنكلي"} width={56} height={31} />
           <b>Linkly</b>
         </div>
+        <InboxBackLink language={isEnglish ? "en" : "ar"} className="development-back" />
       </header>
 
       <section className="development-hero">

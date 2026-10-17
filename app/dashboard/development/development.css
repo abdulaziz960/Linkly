@@ -59,3 +59,9 @@
 @media (max-width: 860px) {
   .development-cards { grid-template-columns: 1fr; }
 }
+
+/* Keep the logo on the right and the inbox link on the left in both languages. */
+.development-header { direction: rtl; gap: 16px; }
+.development-header-brand { flex-shrink: 0; }
+.development-back { text-align: left; }
+@media (max-width: 380px) { .development-back { font-size: 12px; } }

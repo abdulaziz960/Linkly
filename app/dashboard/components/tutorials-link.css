@@ -1,0 +1,5 @@
+.tutorials-top-link{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex-shrink:0;min-height:42px;padding:0 14px;border-radius:13px;background:#11766f;color:#fff;font-size:14px;font-weight:800;text-decoration:none;box-shadow:0 0 0 1px #78d8cf80,0 3px 12px #178a8230;transition:background .15s,transform .15s}
+.tutorials-top-link:hover{background:#0f5f5a;transform:translateY(-1px)}
+.tutorials-top-link:focus-visible{outline:3px solid #fff;outline-offset:3px}
+@media(max-width:480px){.mobile-topbar .tutorials-top-link{padding:0 8px;gap:4px;font-size:12px;min-height:40px}.mobile-topbar .tutorials-top-link svg{width:18px}}
+@media(prefers-reduced-motion:reduce){.tutorials-top-link{transition:none}}

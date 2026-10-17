@@ -1,0 +1,26 @@
+/* A shared return action across the standalone Linkly pages. */
+.button.button.button {
+  direction: rtl;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1.5px solid #bcd8d3;
+  border-radius: 16px;
+  background: #f6fbfa;
+  color: #11766f;
+  font: 600 14px/1.6 var(--font-app), system-ui, sans-serif;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background .15s, border-color .15s;
+}
+.button svg { flex-shrink: 0; }
+.button.button.button:hover { background: #e1efed; border-color: #78d8cf; }
+.button.button.button:focus-visible { outline: 3px solid #178a82; outline-offset: 3px; }
+@media (max-width: 560px) {
+  .button.button.button { gap: 6px; padding: 9px 12px; font-size: 12px; border-radius: 14px; }
+  .button svg { width: 18px; height: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .button.button.button { transition: none; } }

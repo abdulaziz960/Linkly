@@ -1,5 +1,6 @@
 "use client";
 
+import TutorialsLink from "./TutorialsLink";
 import NotificationBell, { type NotificationItem } from "./NotificationBell";
 
 type MobileTopbarProps = {
@@ -17,6 +18,7 @@ export default function MobileTopbar({ title, language, menuOpen, onToggleMenu, 
     <header className="mobile-topbar">
       <button type="button" aria-label={language === "ar" ? "فتح القائمة" : "Open menu"} aria-expanded={menuOpen} aria-controls="dashboard-mobile-drawer" onClick={onToggleMenu}>☰</button>
       <b>{title}</b>
+      <TutorialsLink language={language} />
       {notifications && onOpenNotification ? <NotificationBell notifications={notifications} onOpenNotification={onOpenNotification} /> : null}
       <button type="button" className="mobile-topbar-account" aria-label={language === "ar" ? "الملف الشخصي" : "Profile"} onClick={onOpenProfile}>{language === "ar" ? "حسابي" : "Account"}</button>
     </header>
