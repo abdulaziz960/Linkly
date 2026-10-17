@@ -31,13 +31,13 @@ test("tutorial center: sign-in, visible entry, search, playback, chapters and mo
   await search.fill("لايوجدهذاالشرح");
   await expect(page.getByRole("heading", { name: "ما لقينا شرحًا بهذا البحث" })).toBeVisible();
   await page.getByRole("button", { name: "عرض الكل", exact: true }).click();
-  await page.getByRole("button", { name: "الردود والأتمتة", exact: true }).click();
+  await page.getByRole("combobox", { name: "تصفّح حسب الموضوع" }).selectOption("الردود والأتمتة");
   await expect(page.locator(".tutorials-card")).toHaveCount(guides.filter((guide) => guide.category === "الردود والأتمتة").length);
-  await page.getByRole("button", { name: "الرد الآلي بالتفصيل", exact: true }).click();
+  await page.getByRole("combobox", { name: "تصفّح حسب الموضوع" }).selectOption("الرد الآلي بالتفصيل");
   await page.getByRole("button", { name: /الرد الآلي: شرح الأزرار/ }).click();
   await expect(page.locator(".tutorials-instructions li")).toHaveCount(guides.find(guide => guide.id === "bot")!.steps.length);
   await page.getByRole("button", { name: /انتقل إلى الخطوة 9:/ }).click();
-  await page.getByRole("button", { name: "API والمطورون", exact: true }).click();
+  await page.getByRole("combobox", { name: "تصفّح حسب الموضوع" }).selectOption("API والمطورون");
   await page.getByRole("button", { name: /API: طلب حقيقي وقراءة النتيجة/ }).click();
   await expect(page.locator(".tutorials-code")).toContainText("Authorization: Bearer YOUR_API_KEY");
   await expect(page.locator(".tutorials-video-note")).toContainText("بالأسهم بدون صوت");

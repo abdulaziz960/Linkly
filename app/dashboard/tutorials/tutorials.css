@@ -80,12 +80,13 @@
 .tutorials-search { display: grid; gap: 6px; width: 350px; max-width: 100%; font-size: 12px; color: var(--tutorial-muted); }
 .tutorials-search input { width: 100%; min-width: 0; padding: 13px 17px; border: 1px solid var(--tutorial-line); border-radius: 12px; background: #fff; color: var(--tutorial-ink); }
 .tutorials-search input::placeholder { color: #667873; }
-.tutorials-categories { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 26px 0 10px; }
-.tutorials-categories button, .tutorials-empty button { border: 1px solid var(--tutorial-line); background: #fff; border-radius: 10px; padding: 9px 17px; color: var(--tutorial-muted); font-size: 13px; }
-.tutorials-categories button { min-width: 0; min-height: 50px; padding: 10px 12px; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.5; }
-.tutorials-categories button:hover { background: #eefbf9; }
-.tutorials-categories button:focus-visible { outline: 3px solid var(--tutorial-brand); outline-offset: 3px; }
-.tutorials-categories button[aria-pressed=true] { color: #fff; background: var(--tutorial-brand-hover); border-color: var(--tutorial-brand); }
+.tutorials-category-filter { display: grid; gap: 8px; width: 340px; max-width: 100%; margin: 26px 0 10px; color: var(--tutorial-muted); font-size: 13px; font-weight: 600; }
+.tutorials-category-select { position: relative; display: flex; align-items: center; color: var(--tutorial-brand-hover); }
+.tutorials-category-select select { appearance: none; width: 100%; min-width: 0; min-height: 50px; padding: 12px 16px 12px 44px; border: 1px solid var(--tutorial-line); border-radius: 12px; background: #fff; color: var(--tutorial-brand-hover); font-weight: 600; cursor: pointer; }
+.tutorials-category-select svg { position: absolute; left: 16px; pointer-events: none; }
+.tutorials-category-select select:hover { border-color: var(--tutorial-brand); }
+.tutorials-category-select select:focus-visible { outline: 3px solid var(--tutorial-brand); outline-offset: 3px; }
+.tutorials-empty button { border: 1px solid var(--tutorial-line); background: #fff; border-radius: 10px; padding: 9px 17px; color: var(--tutorial-muted); font-size: 13px; }
 .tutorials-result-count { font-size: 12px; color: var(--tutorial-muted); }
 .tutorials-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .tutorials-card { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--tutorial-line); border-radius: 16px; padding: 0; text-align: start; background: #fff; color: inherit; transition: box-shadow .15s, border-color .15s; }
@@ -136,9 +137,7 @@
   .tutorials-library-heading { align-items: stretch; flex-direction: column; gap: 16px; }
   .tutorials-search { width: 100%; }
   .tutorials-grid { grid-template-columns: 1fr; }
-  .tutorials-categories { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .tutorials-categories button:last-child:nth-child(odd) { grid-column: 1 / -1; }
-  .tutorials-categories button { padding: 8px 12px; font-size: 12px; }
+  .tutorials-category-filter { width: 100%; }
   .tutorials-footer { align-items: start; flex-direction: column; padding: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { .tutorials-card { transition: none; } }
