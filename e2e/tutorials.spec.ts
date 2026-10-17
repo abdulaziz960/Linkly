@@ -16,6 +16,7 @@ test("tutorial center: sign-in, visible entry, search, playback, chapters and mo
   await expect(page.getByRole("heading", { name: /كل ميزة/ })).toBeVisible();
   await expect(page.locator(".tutorials-card")).toHaveCount(guides.length);
   await expect(page.locator(".tutorials-header").getByRole("link", { name: "تواصل مع الدعم", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog")).not.toBeVisible();
   expect(guides.every(guide => guide.steps[0].kind === "navigation")).toBe(true);
   const search = page.getByRole("searchbox");
   await search.fill("سلة");
@@ -26,8 +27,11 @@ test("tutorial center: sign-in, visible entry, search, playback, chapters and mo
   await expect(page.getByRole("link", { name: "افتح صفحة الإعداد" })).toHaveAttribute("href", "/dashboard?view=integrations");
   await page.locator("video").evaluate(async (video: HTMLVideoElement) => { await video.play(); });
   await expect.poll(() => page.locator("video").evaluate((video: HTMLVideoElement) => video.currentTime)).toBeGreaterThan(0);
+  await page.locator(".tutorials-step-details summary").click();
   await page.getByRole("button", { name: /انتقل إلى الخطوة 3/ }).click();
   await expect.poll(() => page.locator("video").evaluate((video: HTMLVideoElement) => video.currentTime)).toBeGreaterThanOrEqual(guides.find((guide) => guide.id === "salla")!.steps[2].start);
+  await page.getByRole("button", { name: "إغلاق الشرح" }).click();
+  await expect(page.locator("video").evaluate((video: HTMLVideoElement) => video.paused)).resolves.toBe(true);
   await search.fill("لايوجدهذاالشرح");
   await expect(page.getByRole("heading", { name: "ما لقينا شرحًا بهذا البحث" })).toBeVisible();
   await page.getByRole("button", { name: "عرض الكل", exact: true }).click();
@@ -36,7 +40,10 @@ test("tutorial center: sign-in, visible entry, search, playback, chapters and mo
   await page.getByRole("combobox", { name: "تصفّح حسب الموضوع" }).selectOption("الرد الآلي بالتفصيل");
   await page.getByRole("button", { name: /الرد الآلي: شرح الأزرار/ }).click();
   await expect(page.locator(".tutorials-instructions li")).toHaveCount(guides.find(guide => guide.id === "bot")!.steps.length);
+  await page.locator(".tutorials-step-details summary").click();
   await page.getByRole("button", { name: /انتقل إلى الخطوة 9:/ }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).not.toBeVisible();
   await page.getByRole("combobox", { name: "تصفّح حسب الموضوع" }).selectOption("API والمطورون");
   await page.getByRole("button", { name: /API: طلب حقيقي وقراءة النتيجة/ }).click();
   await expect(page.locator(".tutorials-code")).toContainText("Authorization: Bearer YOUR_API_KEY");
@@ -54,6 +61,9 @@ test("tutorial center: sign-in, visible entry, search, playback, chapters and mo
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator("body").evaluate((body) => body.scrollWidth <= window.innerWidth)).resolves.toBeTruthy();
+  await page.screenshot({ path: "test-results/tutorials-mobile-player.png" });
+  await page.getByRole("button", { name: "إغلاق الشرح" }).click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
   await page.screenshot({ path: "test-results/tutorials-mobile.png", fullPage: true });
   await page.goto("/dashboard?view=inbox");
   await expect(page.locator(".mobile-topbar .tutorials-top-link")).toBeVisible();
