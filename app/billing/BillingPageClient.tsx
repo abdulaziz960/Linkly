@@ -57,7 +57,8 @@ const copy = {
 function formatDate(value: string | undefined, lang: "ar" | "en") {
   if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
+  // A trial's start was saved as already-formatted text ("7 أكتوبر 2026، 3:30 م"), which Date cannot read: show it as saved.
+  if (Number.isNaN(date.getTime())) return value.split(/[،,]/)[0].trim();
   return new Intl.DateTimeFormat(lang === "ar" ? "ar-SA-u-nu-latn" : "en-US", { dateStyle: "medium", timeZone: "Asia/Riyadh" }).format(date);
 }
 
