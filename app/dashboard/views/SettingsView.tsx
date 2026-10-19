@@ -1901,7 +1901,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
         <div className="settings-onboarding-main">
           {renderWizardContent()}
-          {!isConnected && !isTelegram && !isX ? (
+          {!isConnected && !isTelegram && !isX && !(isTikTok && wizardStep === 3) ? (
             <div className="settings-onboarding-actions">
               {wizardStep !== 4 && !((isGoogleMaps || isYoutube || isLinkedin || isSnapchat || isWhatsApp || isInstagram || isFacebook) && wizardStep === 3) ? <button className="btn primary" type="button" onClick={() => {
                 if (wizardStep === 3 && isGoogleMaps) {
@@ -2006,7 +2006,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           ) : null}
 
           {!isGoogleMaps && !isYoutube && !isLinkedin && !isSnapchat && !isWebsite && !isGmail ? <div className="settings-fields">
-            {!isWhatsApp && !isX && !isTelegram && !isEmail ? <label>
+            {!isWhatsApp && !isX && !isTelegram && !isEmail && !isTikTok ? <label>
               {t("اسم النشاط التجاري", "Business name")}
               <input value={settings.businessName} onChange={(event) => updateField("businessName", event.target.value)} />
             </label> : null}
