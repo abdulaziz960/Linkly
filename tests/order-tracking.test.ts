@@ -20,6 +20,7 @@ describe("order tracking", () => {
   it("parses track requests", () => {
     expect(parseTrackRequest("تتبع طلبي")).toEqual({ match: true, number: "" });
     expect(parseTrackRequest("تتبع ORD-CF449CC2")).toEqual({ match: true, number: "ORDCF449CC2" });
+    expect(parseTrackRequest("ORD-28E862CE")).toEqual({ match: true, number: "ORD28E862CE" });
     expect(parseTrackRequest("أبي أتتبع شي ثاني")).toEqual({ match: false, number: "" });
   });
 });

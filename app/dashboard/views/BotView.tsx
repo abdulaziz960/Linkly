@@ -14,7 +14,7 @@ type BotListOption = { id: string; label: string; next: string | null };
 
 type BotNodeContent =
   | { kind: "message"; text: string; next: string | null }
-  | { kind: "list"; text: string; options: BotListOption[] }
+  | { kind: "list"; text: string; options: BotListOption[]; navOptions?: boolean }
   | { kind: "team"; teamName: string }
   | { kind: "employee"; employeeName: string }
   | { kind: "close"; text: string }
@@ -1031,6 +1031,11 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                       </div>
                       <small className="field-hint">{t("اختر الخطوة التالية لكل خيار، أو اربطها بالسحب من المخطط.", "Choose the next step for each option, or connect it by dragging on the diagram.")}</small>
                     </label>
+                    <label className="automation-switch">
+                      <input type="checkbox" checked={Boolean(draftContent.navOptions)} onChange={(event) => setDraftContent({ ...draftContent, navOptions: event.target.checked })} />
+                      <span>{t("إضافة خياري «رجوع» و«القائمة الرئيسية»", "Add \"Back\" and \"Main menu\" options")}</span>
+                    </label>
+                    <small className="field-hint">{t("يضيف للعميل خيارين في هذه القائمة، ويظهران له أيضًا بعد أي رد يصله منها ليرجع للقائمة السابقة أو الأولى. القائمة الأولى في المحادثة لا يظهر فيها الخياران.", "Adds two options to this menu, and shows them again after any answer from it so the customer can go back to the previous or first menu. The first menu of a conversation doesn't show them.")}</small>
                   </>
                 ) : null}
 

@@ -115,18 +115,28 @@ export async function hasTrackableOrders(tenantId: string, conversationId: strin
 }
 
 const TRACK_WORDS = /^\s*(تتبع|تتبّع|track)\s*(طلبي|الطلب|طلب|order)?\s*(#?\s*(ORD-?[0-9A-F]{4,}))?\s*$/i;
+const BARE_ORDER_NUMBER = /^\s*#?\s*(ORD-?[0-9A-F]{6,})\s*$/i;
 
 /** Whether a customer's text asks for their order's status ("تتبع طلبي" / "تتبع ORD-XXXX"); returns the order number they gave, if any. */
 export function parseTrackRequest(text: string): { match: boolean; number: string } {
+  const bare = BARE_ORDER_NUMBER.exec(text || "");
+  if (bare) return { match: true, number: bare[1].replace(/-/g, "").toUpperCase() };
   const m = TRACK_WORDS.exec(text || "");
   if (!m) return { match: false, number: "" };
   return { match: true, number: (m[4] || "").replace(/-/g, "").toUpperCase() };
 }
 
-/** The reply to "تتبع طلبي": only orders of this very conversation. Null when the customer has no orders here (the bot then stays out of it). */
+/** The reply to "تتبع طلبي": the orders of this conversation, plus the ones placed with the very phone number chatting. Null when there are none (the bot then stays out of it). */
 export async function buildCustomerTrackingReply(tenantId: string, conversationId: string, number: string): Promise<string | null> {
   await ensureCatalogSchema();
-  const orders = await prisma.catalogOrder.findMany({ where: { tenantId, conversationId, status: { in: TRACKABLE } }, orderBy: { createdAt: "desc" }, take: 20 });
+  const conversation = await prisma.conversation.findUnique({ where: { id: conversationId }, include: { customer: true } });
+  const digits = (conversation?.customer.phone || "").replace(/\D/g, "");
+  const last9 = digits.length >= 9 ? digits.slice(-9) : "";
+  const orders = await prisma.catalogOrder.findMany({
+    where: { tenantId, status: { in: TRACKABLE }, OR: [{ conversationId }, ...(last9 ? [{ customerPhone: { contains: last9 } }] : [])] },
+    orderBy: { createdAt: "desc" },
+    take: 20
+  });
   if (!orders.length) return null;
   const picked = number ? orders.filter((order) => shortOrderNumber(order.id).replace(/-/g, "") === number) : orders.slice(0, 3);
   if (!picked.length) return "لم نجد طلبًا بهذا الرقم. تأكد من الرقم الموجود في إيصالك.";
@@ -134,4 +144,14 @@ export async function buildCustomerTrackingReply(tenantId: string, conversationI
   return picked
     .map((order) => buildTrackingMessage(order.id, tracking.get(order.id) ?? { stage: "preparing", carrier: "", trackingNumber: "", trackingUrl: "" }))
     .join("\n\n");
+}
+
+const BARE_PHONE = /^\s*(?:\+?966|0)?(5\d{8})\s*$/;
+
+/** A message that is just a Saudi mobile number: true only when it is the number of the customer chatting (nobody can look up someone else's orders). */
+export async function isOwnPhoneMessage(conversationId: string, text: string): Promise<boolean> {
+  const match = BARE_PHONE.exec((text || "").replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x660)));
+  if (!match) return false;
+  const conversation = await prisma.conversation.findUnique({ where: { id: conversationId }, include: { customer: true } });
+  return (conversation?.customer.phone || "").replace(/\D/g, "").endsWith(match[1]);
 }

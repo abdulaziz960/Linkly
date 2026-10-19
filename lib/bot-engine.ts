@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
+import { getMenuTrail, pushMenu, setMenuTrail } from "./bot-trail";
 import { isWhatsAppReplyWindowExpired, sendWhatsAppTextMessage, sendWhatsAppInteractiveMessage, sendWhatsAppUploadedMedia } from "./whatsapp-send";
 import { loadAutomationMedia } from "./automation-media";
 import { sendTelegramTextMessage } from "./telegram-send";
@@ -28,7 +29,7 @@ export type BotListOption = { id: string; label: string; next: string | null };
 // where a branch silently went nowhere because the target name didn't match.
 export type BotNodeContent =
   | { kind: "message"; text: string; next: string | null }
-  | { kind: "list"; text: string; options: BotListOption[] }
+  | { kind: "list"; text: string; options: BotListOption[]; navOptions?: boolean }
   | { kind: "team"; teamName: string }
   | { kind: "employee"; employeeName: string }
   | { kind: "close"; text: string }
@@ -94,6 +95,8 @@ const TEAM_NODE_TYPE = "تحويل لفريق";
 const EMPLOYEE_NODE_TYPE = "تحويل لموظف";
 const CLOSE_NODE_TYPE = "إغلاق المحادثة";
 const KNOWLEDGE_BASE_NODE_TYPE = "رد من قاعدة المعرفة";
+const NAV_BACK = "رجوع";
+const NAV_MAIN = "القائمة الرئيسية";
 const AI_REPLY_NODE_TYPE = "رد AI تلقائي";
 const CATALOG_NODE_TYPE = "عرض الكتالوج";
 const TRACK_ORDER_NODE_TYPE = "تتبع الطلب";
@@ -523,7 +526,14 @@ async function executeFrom(
     }
 
     if (LIST_NODE_TYPES.has(node.type) && node.content.kind === "list") {
-      await sendBotList(channel, node, ctx);
+      // A menu with "رجوع" / "القائمة الرئيسية" gets those two rows - except the main menu itself, which has nowhere to go back to.
+      const trail = await getMenuTrail(ctx.conversationId);
+      const withNav = Boolean(node.content.navOptions) && trail.length > 0 && trail[0] !== node.id;
+      const shown: BotNode = withNav
+        ? { ...node, content: { ...node.content, options: [...node.content.options, { id: "__nav_back", label: NAV_BACK, next: null }, { id: "__nav_main", label: NAV_MAIN, next: null }] } }
+        : node;
+      await sendBotList(channel, shown, ctx);
+      await pushMenu(ctx.conversationId, node.id);
       await prisma.conversation.update({
         where: { id: ctx.conversationId },
         data: { botWaitingNodeId: node.id }
@@ -628,6 +638,52 @@ async function executeFrom(
     where: { id: ctx.conversationId },
     data: { botWaitingNodeId: "" }
   });
+
+  // The flow ended after an answer that came from a menu with navigation: offer the way back.
+  const trail = await getMenuTrail(ctx.conversationId);
+  const origin = trail.length ? byId.get(trail[trail.length - 1]) : undefined;
+  if (origin?.content.kind === "list" && origin.content.navOptions && trail.length > 0 && trail[0] !== origin.id) {
+    const prompt = "هل تحتاج شيئًا آخر؟";
+    if (channel === "whatsapp") {
+      if (!(await isWhatsAppReplyWindowExpired(ctx.conversationId, false))) {
+        await sendWhatsAppInteractiveMessage({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: prompt, options: [NAV_BACK, NAV_MAIN], kind: "button", listButtonLabel: "اختر", displayText: prompt, author: BOT_AUTHOR });
+      }
+    } else {
+      await sendBotText(channel, { ...ctx, text: `${prompt}\nاكتب: ${NAV_BACK} أو ${NAV_MAIN}` });
+    }
+  }
+}
+
+/** "رجوع" / "القائمة الرئيسية": re-shows the previous menu or the first one. True when the reply was a navigation request. */
+async function handleMenuNav(
+  channel: BotChannel,
+  nodes: BotNode[],
+  conversation: { id: string; botWaitingNodeId: string },
+  ctx: Parameters<typeof executeFrom>[3]
+): Promise<boolean> {
+  const text = (ctx.incomingText || "").trim();
+  if (text !== NAV_BACK && text !== NAV_MAIN) return false;
+  const trail = await getMenuTrail(conversation.id);
+  if (!trail.length) return false;
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const current = byId.get(trail[trail.length - 1]);
+  if (!current || current.content.kind !== "list" || !current.content.navOptions) return false;
+
+  let target = trail[0];
+  let rest: string[] = [];
+  if (text === NAV_BACK) {
+    // Waiting at that very menu: back means the one before it. After an answer: back re-shows that menu.
+    const before = conversation.botWaitingNodeId === current.id ? trail.slice(0, -1) : trail;
+    if (before.length) {
+      target = before[before.length - 1];
+      rest = before.slice(0, -1);
+    }
+  }
+  if (!byId.has(target)) return false;
+  await setMenuTrail(conversation.id, rest);
+  await prisma.conversation.update({ where: { id: conversation.id }, data: { botWaitingNodeId: "" } });
+  await executeFrom(channel, nodes, target, ctx);
+  return true;
 }
 
 /** Marker for a catalog opened by a catalog template's button (no bot flow involved). */
@@ -647,9 +703,10 @@ export async function runChannelBot(
 
   // "تتبع طلبي": the customer's own orders (this conversation only), answered at any point of the chat.
   if (!input.replyId && input.incomingText) {
-    const { parseTrackRequest, buildCustomerTrackingReply } = await import("./order-tracking");
+    const { parseTrackRequest, buildCustomerTrackingReply, isOwnPhoneMessage } = await import("./order-tracking");
     const track = parseTrackRequest(input.incomingText);
-    if (track.match) {
+    const ownPhone = !track.match && (await isOwnPhoneMessage(input.conversationId, input.incomingText));
+    if (track.match || ownPhone) {
       const reply = await buildCustomerTrackingReply(tenantId, input.conversationId, track.number);
       if (reply) {
         await sendBotText(channel, { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, text: reply });
@@ -702,9 +759,12 @@ export async function runChannelBot(
       data: { botRanAt: new Date().toISOString() }
     });
     if (claimed.count === 0) return;
+    await setMenuTrail(input.conversationId, []);
     await executeFrom(channel, nodes, nodes[0].id, ctx);
     return;
   }
+
+  if (conversation.botRanAt && (await handleMenuNav(channel, nodes, { id: conversation.id, botWaitingNodeId: conversation.botWaitingNodeId }, ctx))) return;
 
   if (conversation.botWaitingNodeId) {
     const waitingId = conversation.botWaitingNodeId;
