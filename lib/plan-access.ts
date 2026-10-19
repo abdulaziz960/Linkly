@@ -189,7 +189,7 @@ export const GRANT_LIMIT_KIND: Partial<Record<ViewKey, PlanLimitKind>> = { catal
 export const GRANT_BOT_STEPS: Partial<Record<ViewKey, string[]>> = {
   ai: ["رد AI تلقائي"],
   knowledgeBase: ["رد من قاعدة المعرفة"],
-  catalog: ["عرض الكتالوج"],
+  catalog: ["عرض الكتالوج", "تتبع الطلب"],
   branches: ["أقرب فرع"],
   teams: ["تحويل لفريق"]
 };

@@ -96,6 +96,7 @@ const CLOSE_NODE_TYPE = "إغلاق المحادثة";
 const KNOWLEDGE_BASE_NODE_TYPE = "رد من قاعدة المعرفة";
 const AI_REPLY_NODE_TYPE = "رد AI تلقائي";
 const CATALOG_NODE_TYPE = "عرض الكتالوج";
+const TRACK_ORDER_NODE_TYPE = "تتبع الطلب";
 const BRANCH_NODE_TYPE = "أقرب فرع";
 const MEDIA_NODE_TYPES: Record<string, "image" | "video" | "document"> = { "إرسال صورة": "image", "إرسال فيديو": "video", "إرسال مستند": "document" };
 
@@ -483,6 +484,15 @@ async function executeFrom(
 
     if (node.type === MESSAGE_NODE_TYPE && node.content.kind === "message") {
       await sendBotText(channel, { ...ctx, text: node.content.text });
+      currentId = node.content.next;
+      continue;
+    }
+
+    // "تتبع الطلب": the status of the customer's own orders; the step's text is what they get when they have none.
+    if (node.type === TRACK_ORDER_NODE_TYPE && node.content.kind === "message") {
+      const { buildCustomerTrackingReply } = await import("./order-tracking");
+      const reply = await buildCustomerTrackingReply(ctx.tenantId, ctx.conversationId, "");
+      await sendBotText(channel, { ...ctx, text: reply ?? (node.content.text.trim() || "لا توجد طلبات سابقة لك في هذه المحادثة.") });
       currentId = node.content.next;
       continue;
     }

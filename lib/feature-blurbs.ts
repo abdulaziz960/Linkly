@@ -99,6 +99,7 @@ export const BOT_STEP_BLURBS: Record<string, FeatureBlurb> = {
   "رد AI تلقائي": VIEW_BLURBS.ai!,
   "رد من قاعدة المعرفة": VIEW_BLURBS.knowledgeBase!,
   "عرض الكتالوج": VIEW_BLURBS.catalog!,
+  "تتبع الطلب": VIEW_BLURBS.catalog!,
   "أقرب فرع": VIEW_BLURBS.branches!,
   "إرسال قائمة طويلة": { ar: { text: "قائمة اختيارات طويلة (حتى 10 خيارات) يضغط منها العميل بدل أن يكتب.", points: ["خيارات أكثر من القائمة القصيرة", "كل خيار يقود لخطوة"] }, en: { text: "A long choice list (up to 10 options) the customer taps instead of typing.", points: ["More options than the short list", "Each option leads to a step"] } },
   "تحويل لفريق": VIEW_BLURBS.teams!

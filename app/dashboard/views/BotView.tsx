@@ -55,7 +55,7 @@ type ReadyStep = {
   kind?: "flow" | "step";
 };
 
-const nodeTypes = ["إرسال رسالة", "إرسال صورة", "إرسال فيديو", "إرسال مستند", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "رد من قاعدة المعرفة", "رد AI تلقائي", "عرض الكتالوج", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
+const nodeTypes = ["إرسال رسالة", "إرسال صورة", "إرسال فيديو", "إرسال مستند", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "رد من قاعدة المعرفة", "رد AI تلقائي", "عرض الكتالوج", "تتبع الطلب", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
 const LIST_NODE_TYPES = new Set(["إرسال قائمة قصيرة", "إرسال قائمة طويلة"]);
 const TERMINAL_NODE_TYPES = new Set(["تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"]);
 
@@ -69,6 +69,7 @@ const nodeTypeLabelsEn: Record<string, string> = {
   "رد من قاعدة المعرفة": "Knowledge Base reply",
   "رد AI تلقائي": "Automatic AI reply",
   "عرض الكتالوج": "Show the catalog",
+  "تتبع الطلب": "Track the order",
   "أقرب فرع": "Nearest branch",
   "تحويل لفريق": "Transfer to a team",
   "تحويل لموظف": "Transfer to an employee",
@@ -850,10 +851,11 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
                     <textarea
                       value={draftContent.text}
                       onChange={(event) => setDraftContent({ kind: "message", next: draftContent.next, text: event.target.value })}
-                      placeholder={t("اكتب الرسالة التي ستُرسل للعميل", "Write the message that will be sent to the customer")}
+                      placeholder={nodeType === "تتبع الطلب" ? t("مثال: ما لقينا طلبات لك. تقدر تتصفح منتجاتنا", "Example: We found no orders for you. Feel free to browse our products") : t("اكتب الرسالة التي ستُرسل للعميل", "Write the message that will be sent to the customer")}
                       rows={4}
                       required
                     />
+                    {nodeType === "تتبع الطلب" ? <small className="field-hint">{t("يرسل للعميل حالة طلباته (قيد التجهيز، تم الشحن، رقم الشحنة…). هذا النص يُرسل فقط إن لم يكن له أي طلب. تحدّث حالة الشحنة من «الكتالوج ← الطلبات».", "Sends the customer the status of their orders (preparing, shipped, tracking number…). This text is only sent when they have no orders. Update shipments from \"Catalog → Orders\".")}</small> : null}
                   </label>
                 ) : null}
 
