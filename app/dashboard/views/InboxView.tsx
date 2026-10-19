@@ -952,7 +952,7 @@ export default function InboxView({
             label={t("غير مقروء", "Unread")}
             onClick={() => onChangeFilter("unread")}
           />
-          {tabsMode === "supervisor" ? (
+          {tabsMode !== "owner" ? (
             <FilterButton
               active={filter === "closed"}
               count={counts.closed}

@@ -853,7 +853,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       assigned: channelFilteredConversations.filter((conversation) => conversation.status === "assigned").length,
       unassigned: channelFilteredConversations.filter((conversation) => conversation.status === "unassigned").length,
       closed: channelFilteredConversations.filter((conversation) => conversation.status === "closed").length,
-      mine: channelFilteredConversations.filter((conversation) => conversation.assignee === initialUser.name).length,
+      mine: channelFilteredConversations.filter((conversation) => conversation.assignee === initialUser.name && conversation.status !== "closed").length,
       unread: channelFilteredConversations.filter((conversation) => (conversation.unread || 0) > 0).length,
       escalated: channelFilteredConversations.filter((conversation) => conversation.isEscalated).length
     };
@@ -881,7 +881,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
     return channelFilteredConversations.filter((conversation) => {
       const matchesFilter = filter === "all"
-        || (filter === "mine" ? conversation.assignee === initialUser.name
+        || (filter === "mine" ? conversation.assignee === initialUser.name && conversation.status !== "closed"
           : filter === "unread" ? (conversation.unread || 0) > 0
           : filter === "escalated" ? Boolean(conversation.isEscalated)
           : conversation.status === filter);
