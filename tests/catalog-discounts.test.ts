@@ -139,6 +139,10 @@ describe("a discount code in the chat cart", () => {
     expect(cart).toContain("الخصم (SAVE10): -40 ر.س");
     expect(cart).toContain("الإجمالي: 360 ر.س");
     expect(cart).not.toMatch(/[\u{1F300}-\u{1FAFF}✅➕⚠]/u);
+    // with a code on the cart there is no "I have a discount code" button any more, and the way to drop it is told
+    const applied = sent.at(-1)?.input as { bodyText: string; buttons: Array<{ id: string }> };
+    expect(applied.buttons.map((b) => b.id)).toEqual(["cart_pay", "cat_back"]);
+    expect(applied.bodyText).toContain("حذف الكود");
 
     // paying charges the discounted total, records the code, and takes one use
     invoices.length = 0;

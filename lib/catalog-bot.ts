@@ -317,10 +317,11 @@ async function purchaseSingle(ctx: CatalogCtx, productId: string) {
 
 const CART_HELP = "لتعديل الكمية اكتب: *تعديل 1 3* (رقم المنتج ثم الكمية)\nللحذف اكتب: *حذف 1*\nلتفريغ السلة اكتب: *تفريغ السلة*";
 
-function cartButtons() {
+/** Once a code is applied the "I have a discount code" button goes away: one code per order. */
+function cartButtons(codeApplied: boolean) {
   return [
     { id: ID_CART_PAY, title: "إتمام الدفع" },
-    { id: ID_CART_CODE, title: "لدي كود خصم" },
+    ...(codeApplied ? [] : [{ id: ID_CART_CODE, title: "لدي كود خصم" }]),
     { id: ID_BACK, title: "متابعة التسوق" }
   ];
 }
@@ -339,10 +340,10 @@ async function showCart(ctx: CatalogCtx, prefix = "") {
   const detailed = `${head}${formatCart(cart)}${droppedNote}`;
   const body = detailed.length > CART_DETAILED_MAX_CHARS ? `${head}${formatCart(cart, { compact: true })}${droppedNote}` : detailed;
   if (ctx.channel !== "whatsapp") {
-    await ctx.sendText(`${body}\n\n${CART_HELP}\nلإدخال كود خصم اكتب: كود + الكود\nللدفع اكتب: إتمام الدفع\nلمتابعة التسوق اكتب: المنتجات`);
+    await ctx.sendText(`${body}\n\n${CART_HELP}\n${cart.discount ? "لإلغاء كود الخصم اكتب: حذف الكود" : "لإدخال كود خصم اكتب: كود + الكود"}\nللدفع اكتب: إتمام الدفع\nلمتابعة التسوق اكتب: المنتجات`);
     return;
   }
-  const sent = await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: `${body}\n\n${CART_HELP}`, buttons: cartButtons(), displayText: body, author: AUTHOR });
+  const sent = await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: `${body}\n\n${CART_HELP}${cart.discount ? "\nلإلغاء كود الخصم اكتب: *حذف الكود*" : ""}`, buttons: cartButtons(Boolean(cart.discount)), displayText: body, author: AUTHOR });
   if (!sent.ok) await ctx.sendText(`${body}\n\n${CART_HELP}\nللدفع اكتب: إتمام الدفع`);
 }
 
