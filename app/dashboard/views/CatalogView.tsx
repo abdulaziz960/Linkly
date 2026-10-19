@@ -272,6 +272,26 @@ export default function CatalogView() {
 
   const trackingLabel = (stage?: "preparing" | "shipped" | "delivered") => stage === "shipped" ? t("تم الشحن", "Shipped") : stage === "delivered" ? t("تم التسليم", "Delivered") : stage === "preparing" ? t("قيد التجهيز", "Preparing") : t("لم يُحدَّث", "Not updated");
 
+  /** The status dropdown: "preparing" saves that shipping stage, "shipped" asks for the shipment details, the rest are order statuses. */
+  async function changeOrderFlow(order: Order, value: string) {
+    if (value === "shipped") {
+      openTracking(order);
+      setTrackForm((current) => ({ ...current, stage: "shipped" }));
+      return;
+    }
+    if (value === "preparing") {
+      const result = await api<{ notified: boolean }>(`/api/catalog/orders/${order.id}/tracking`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage: "preparing", carrier: order.tracking?.carrier ?? "" })
+      });
+      setNotice(result.ok ? { type: "success", message: result.data?.notified ? t("تم التحديث وإشعار العميل", "Updated and the customer was notified") : t("تم التحديث (لم يصل إشعار للعميل)", "Updated (the customer wasn't notified)") } : { type: "error", message: result.error || t("تعذر التحديث", "Could not update") });
+      await load();
+      return;
+    }
+    await changeOrderStatus(order, value as Order["status"]);
+  }
+
   async function changeOrderStatus(order: Order, status: Order["status"]) {
     await api(`/api/catalog/orders/${order.id}`, {
       method: "PATCH",
@@ -408,10 +428,15 @@ export default function CatalogView() {
                     <td data-label={t("المبلغ", "Amount")}>{order.total} {t("ر.س", "SAR")}</td>
                     <td data-label={t("الحالة", "Status")}>
                       <CustomSelect
-                        value={order.status}
+                        value={order.status === "paid" && order.tracking && order.tracking.stage !== "delivered" ? order.tracking.stage : order.status}
                         ariaLabel={t("حالة الطلب", "Order status")}
-                        onChange={(value) => void changeOrderStatus(order, value as Order["status"])}
-                        options={orderStatuses.map((status) => ({ value: status, label: statusLabel(status) }))}
+                        onChange={(value) => void changeOrderFlow(order, value)}
+                        options={[
+                          ...orderStatuses.filter((status) => status !== "fulfilled" && status !== "cancelled").map((status) => ({ value: status, label: statusLabel(status) })),
+                          { value: "preparing", label: t("قيد التجهيز", "Preparing") },
+                          { value: "shipped", label: t("تم الشحن", "Shipped") },
+                          ...orderStatuses.filter((status) => status === "fulfilled" || status === "cancelled").map((status) => ({ value: status, label: statusLabel(status) }))
+                        ]}
                       />
                     </td>
                     <td data-label={t("الشحن", "Shipping")}>
