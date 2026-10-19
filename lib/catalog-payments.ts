@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { getMerchantGatewayKeyForVerification, getOrderItems, restockOrder, type OrderStatus } from "./catalog";
+import { getOrderDiscounts } from "./catalog-discounts";
 import { sendWhatsAppTextMessage } from "./whatsapp-send";
 import { shortOrderNumber } from "./order-number";
 
@@ -43,7 +44,7 @@ export function buildPaidOrderMessage(order: {
   quantity: number;
   total: number;
   currency: string;
-}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number }>): string {
+}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number }>, discount?: { code: string; amount: number }): string {
   const name = usableCustomerName(order.customerName, order.customerPhone) || usableCustomerName(fallbackName, order.customerPhone);
   const amount = Number.isInteger(order.total) ? String(order.total) : order.total.toFixed(2);
   const currency = order.currency === "SAR" ? "ر.س" : order.currency;
@@ -54,6 +55,7 @@ export function buildPaidOrderMessage(order: {
     ...(items && items.length > 0
       ? ["المنتجات:", ...items.map((item) => `\u200f• ${item.productName}\n\u200f   الكمية: ${item.quantity}`)]
       : [`المنتج: ${order.productName}`, ...(order.quantity > 1 ? [`الكمية: ${order.quantity}`] : [])]),
+    ...(discount ? [`الخصم (${discount.code}): -${Number.isInteger(discount.amount) ? discount.amount : discount.amount.toFixed(2)} ${currency}`] : []),
     `المبلغ المدفوع: ${amount} ${currency}`,
     ...(arabicDate(paidAtIso) ? [`التاريخ: ${arabicDate(paidAtIso)}`] : []),
     "",
@@ -194,6 +196,7 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
 
   if (next === "paid" && order.conversationId) {
     const orderItems = (await getOrderItems([order.id])).get(order.id);
+    const orderDiscount = (await getOrderDiscounts([order.id])).get(order.id);
     // The bot keeps a conversation "closed" while it handles it - a paid
     // order needs a human to fulfil it, so put it in the agents' queue.
     await prisma.conversation.updateMany({ where: { id: order.conversationId, status: "closed" }, data: { status: "unassigned", assignee: "بدون موظف" } });
@@ -203,7 +206,7 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
         tenantId: order.tenantId,
         conversationId: order.conversationId,
         to: conversation.customer.phone,
-        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name, orderItems),
+        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name, orderItems, orderDiscount),
         author: "الرد الآلي"
       }).catch((error) => console.error("Order paid confirmation failed", error));
 
@@ -225,7 +228,8 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
           total: order.total,
           currency: order.currency,
           paidAtIso: new Date().toISOString(),
-          items: orderItems?.map((item) => ({ name: item.productName, quantity: item.quantity, unitPrice: item.unitPrice }))
+          items: orderItems?.map((item) => ({ name: item.productName, quantity: item.quantity, unitPrice: item.unitPrice })),
+          discount: orderDiscount ? { code: orderDiscount.code, amount: orderDiscount.amount } : undefined
         });
         await sendWhatsAppUploadedMedia({
           tenantId: order.tenantId,

@@ -67,6 +67,33 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     quantity INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY (order_id, line_no)
   )`,
+  // Discount codes a merchant creates (percent or fixed amount) for customers to apply in the chat cart.
+  `CREATE TABLE IF NOT EXISTS catalog_discounts (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    code TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'percent',
+    value DOUBLE PRECISION NOT NULL DEFAULT 0,
+    min_order DOUBLE PRECISION NOT NULL DEFAULT 0,
+    max_uses INTEGER NOT NULL DEFAULT 0,
+    used_count INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS catalog_discounts_tenant_code_idx ON catalog_discounts(tenant_id, code)`,
+  // The code a customer applied to the cart in a conversation, and the code (and amount) an order was placed with.
+  `CREATE TABLE IF NOT EXISTS catalog_cart_discounts (
+    conversation_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    code TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS catalog_order_discounts (
+    order_id TEXT PRIMARY KEY,
+    discount_id TEXT NOT NULL,
+    code TEXT NOT NULL,
+    amount DOUBLE PRECISION NOT NULL
+  )`,
   // The cart a customer is filling in a conversation, plus the product whose quantity we are waiting for.
   `CREATE TABLE IF NOT EXISTS catalog_carts (
     conversation_id TEXT PRIMARY KEY,

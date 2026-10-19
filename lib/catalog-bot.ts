@@ -11,7 +11,8 @@ import {
   reserveCartStock,
   type CatalogProduct
 } from "./catalog";
-import { addToCart, CART_DETAILED_MAX_CHARS, clearCart, clearPendingProduct, formatCart, formatMoney, formatOrderLines, getCart, maxUnitsFor, removeLine, resolveCart, setLineQuantity, setPendingProduct } from "./catalog-cart";
+import { addToCart, applyDiscountCode, CART_DETAILED_MAX_CHARS, clearCart, clearPendingProduct, formatCart, formatMoney, formatOrderSummary, getCart, maxUnitsFor, PENDING_DISCOUNT, removeDiscountCode, removeLine, resolveCart, setLineQuantity, setPendingProduct } from "./catalog-cart";
+import { redeemDiscount, releaseDiscountUse } from "./catalog-discounts";
 import { createMerchantInvoice, shortOrderNumber } from "./catalog-payments";
 import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, setCheckoutState } from "./catalog-zid";
 import { createZidOrder } from "./zid-checkout";
@@ -51,7 +52,7 @@ const ID_CART_ADD = "cartadd_";
 const ID_CART_QTY = "cartqty_";
 const ID_CART_VIEW = "cart_view";
 const ID_CART_PAY = "cart_pay";
-const ID_CART_CLEAR = "cart_clear";
+const ID_CART_CODE = "cart_code";
 /** In the Zid checkout state, the product id that means "the whole cart". */
 const CART_CHECKOUT = "__cart__";
 const CARDS_PER_PAGE = 10;
@@ -144,7 +145,7 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
     bodyText: hasMore ? "هل تريد رؤية المزيد من المنتجات؟" : "هل تحتاج مساعدة؟",
     buttons: [
       ...(hasMore ? [{ id: `${ID_MORE}${offset + CARDS_PER_PAGE}`, title: "عرض المزيد" }] : []),
-      ...(cartUnits > 0 ? [{ id: ID_CART_VIEW, title: `🛒 السلة (${cartUnits})` }] : []),
+      ...(cartUnits > 0 ? [{ id: ID_CART_VIEW, title: `السلة (${cartUnits})` }] : []),
       { id: ID_AGENT, title: "التحدث مع موظف" }
     ],
     displayText: hasMore ? "هل تريد رؤية المزيد من المنتجات؟" : "هل تحتاج مساعدة؟",
@@ -169,7 +170,7 @@ async function showProduct(ctx: CatalogCtx, product: CatalogProduct) {
   const image = whatsappImageUrl(product);
   // Three buttons is WhatsApp's limit: add to the cart (any quantity), buy this one now, or back to all products.
   const nav = [{ id: ID_BACK, title: "كل المنتجات" }];
-  const cartButton = { id: `${ID_CART_ADD}${product.id}`, title: "🛒 أضف للسلة" };
+  const cartButton = { id: `${ID_CART_ADD}${product.id}`, title: "أضف للسلة" };
 
   const orderButton = { id: `${ID_ORDER}${product.id}`, title: paymentOn ? "اشترِ الآن" : "تقديم طلب" };
 
@@ -285,13 +286,13 @@ async function purchase(ctx: CatalogCtx, productId: string) {
 
 // ---------- the cart ----------
 
-const CART_HELP = "✏️ لتعديل الكمية اكتب: *تعديل 1 3* (رقم المنتج ثم الكمية)\n🗑 للحذف اكتب: *حذف 1*";
+const CART_HELP = "لتعديل الكمية اكتب: *تعديل 1 3* (رقم المنتج ثم الكمية)\nللحذف اكتب: *حذف 1*\nلتفريغ السلة اكتب: *تفريغ السلة*";
 
 function cartButtons() {
   return [
-    { id: ID_CART_PAY, title: "✅ إتمام الدفع" },
-    { id: ID_BACK, title: "➕ متابعة التسوق" },
-    { id: ID_CART_CLEAR, title: "🗑 تفريغ السلة" }
+    { id: ID_CART_PAY, title: "إتمام الدفع" },
+    { id: ID_CART_CODE, title: "لدي كود خصم" },
+    { id: ID_BACK, title: "متابعة التسوق" }
   ];
 }
 
@@ -299,17 +300,17 @@ function cartButtons() {
 async function showCart(ctx: CatalogCtx, prefix = "") {
   const cart = await resolveCart(ctx.tenantId, ctx.conversationId);
   if (!cart.lines.length) {
-    await ctx.sendText(`${prefix}${prefix ? "\n\n" : ""}🛒 سلتك فارغة حاليًا.`);
+    await ctx.sendText(`${prefix}${prefix ? "\n\n" : ""}سلتك فارغة حاليًا.`);
     await sendCatalogMenu(ctx, "اختر منتجًا لإضافته:");
     return;
   }
-  const droppedNote = cart.dropped.length ? `\n\n⚠️ لم يعد متوفرًا وتمت إزالته: ${cart.dropped.join("، ")}` : "";
+  const droppedNote = `${cart.dropped.length ? `\n\nلم يعد متوفرًا وتمت إزالته: ${cart.dropped.join("، ")}` : ""}${cart.discountNote ? `\n\nتم إلغاء كود الخصم (${cart.discountNote})` : ""}`;
   const head = prefix ? `${prefix}\n\n` : "";
   // A long cart would exceed WhatsApp's message limit: show one short line per product instead.
   const detailed = `${head}${formatCart(cart)}${droppedNote}`;
   const body = detailed.length > CART_DETAILED_MAX_CHARS ? `${head}${formatCart(cart, { compact: true })}${droppedNote}` : detailed;
   if (ctx.channel !== "whatsapp") {
-    await ctx.sendText(`${body}\n\n${CART_HELP}\nللدفع اكتب: إتمام الدفع\nلتفريغ السلة اكتب: تفريغ السلة\nلمتابعة التسوق اكتب: المنتجات`);
+    await ctx.sendText(`${body}\n\n${CART_HELP}\nلإدخال كود خصم اكتب: كود + الكود\nللدفع اكتب: إتمام الدفع\nلمتابعة التسوق اكتب: المنتجات`);
     return;
   }
   const sent = await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: `${body}\n\n${CART_HELP}`, buttons: cartButtons(), displayText: body, author: AUTHOR });
@@ -351,17 +352,48 @@ async function addPendingToCart(ctx: CatalogCtx, productId: string, quantity: nu
   }
   const product = await getProduct(ctx.tenantId, productId);
   const note = result.capped ? `\n(الكمية المتاحة من هذا المنتج ${result.quantity} فقط)` : "";
-  await showCart(ctx, `✅ تمت إضافة ${product ? `«${product.name}»` : "المنتج"} إلى السلة${note}`);
+  await showCart(ctx, `تمت إضافة ${product ? `«${product.name}»` : "المنتج"} إلى السلة${note}`);
 }
 
 /** One line for the conversation's internal note: "name ×qty، name ×qty". */
+/** "I have a discount code": the next message the customer sends is the code. */
+async function askDiscountCode(ctx: CatalogCtx) {
+  const zid = await getZidCatalogMode(ctx.tenantId);
+  if (zid.connected) {
+    await ctx.sendText("أكواد الخصم غير متاحة حاليًا. يمكنك إتمام الطلب من السلة.");
+    return;
+  }
+  const cart = await resolveCart(ctx.tenantId, ctx.conversationId);
+  if (!cart.lines.length) {
+    await showCart(ctx);
+    return;
+  }
+  await setPendingProduct(ctx.tenantId, ctx.conversationId, PENDING_DISCOUNT);
+  await ctx.sendText("اكتب كود الخصم الآن.\n(أو اكتب «إلغاء» للرجوع إلى السلة)");
+}
+
+/** A code came in (typed after the button, or as "كود XXXX"): apply it and show the cart with the discount. */
+async function applyCodeAndShow(ctx: CatalogCtx, code: string) {
+  const zid = await getZidCatalogMode(ctx.tenantId);
+  if (zid.connected) {
+    await clearPendingProduct(ctx.tenantId, ctx.conversationId);
+    await ctx.sendText("أكواد الخصم غير متاحة حاليًا. يمكنك إتمام الطلب من السلة.");
+    return;
+  }
+  const result = await applyDiscountCode(ctx.tenantId, ctx.conversationId, code);
+  if (!result.ok) {
+    // Stay waiting for a code: the customer may have mistyped it.
+    await ctx.sendText(`${result.reason}.\nجرّب كودًا آخر، أو اكتب «إلغاء» للرجوع إلى السلة.`);
+    return;
+  }
+  await clearPendingProduct(ctx.tenantId, ctx.conversationId);
+  await showCart(ctx, `تم تطبيق الكود ${result.code}، وفّرت ${formatMoney(result.amount)}`);
+}
+
 function notesLine(cart: Awaited<ReturnType<typeof resolveCart>>) {
   return cart.lines.map((line) => `${line.product.name} ×${line.quantity}`).join("، ");
 }
 
-function cartOrderSummary(cart: Awaited<ReturnType<typeof resolveCart>>) {
-  return formatOrderLines(cart);
-}
 
 /** "Complete payment": one order for the whole cart and one payment link for its total. */
 async function checkoutCart(ctx: CatalogCtx) {
@@ -371,10 +403,16 @@ async function checkoutCart(ctx: CatalogCtx) {
     return;
   }
 
+  // A code that stopped working (used up by someone else, expired...) changes the total: show it before charging.
+  if (cart.discountNote) {
+    await showCart(ctx, `تم إلغاء كود الخصم (${cart.discountNote}).\nراجع إجمالي سلتك قبل الدفع.`);
+    return;
+  }
+
   // Less stock than they asked for: change the quantity, show the cart, and let them confirm again.
   if (cart.adjusted.length) {
     for (const change of cart.adjusted) await setLineQuantity(ctx.tenantId, ctx.conversationId, change.position, change.to);
-    await showCart(ctx, `⚠️ تغيّرت الكمية المتاحة:\n${cart.adjusted.map((change) => `${change.name}: من ${change.from} إلى ${change.to}`).join("\n")}`);
+    await showCart(ctx, `تغيّرت الكمية المتاحة:\n${cart.adjusted.map((change) => `${change.name}: من ${change.from} إلى ${change.to}`).join("\n")}`);
     return;
   }
 
@@ -382,12 +420,19 @@ async function checkoutCart(ctx: CatalogCtx) {
   const zid = await getZidCatalogMode(ctx.tenantId);
   if (zid.connected && zid.ready && cart.lines.every((line) => isZidProduct(line.product))) {
     await setCheckoutState(ctx.tenantId, ctx.conversationId, { productId: CART_CHECKOUT, step: "city", city: "" });
-    await ctx.sendText(`ممتاز 👌 لتجهيز طلبك أحتاج عنوان التوصيل.\nما اسم *مدينتك*؟\n(اكتب «إلغاء» للإيقاف)`);
+    await ctx.sendText(`لتجهيز طلبك أحتاج عنوان التوصيل.\nما اسم *مدينتك*؟\n(اكتب «إلغاء» للإيقاف)`);
     return;
   }
 
+  // The discount code is taken first (its last use can go to someone else), and given back if the stock then fails.
+  if (cart.discount && !(await redeemDiscount(ctx.tenantId, cart.discount.id))) {
+    await removeDiscountCode(ctx.tenantId, ctx.conversationId);
+    await showCart(ctx, `كود الخصم (${cart.discount.code}) لم يعد متاحًا، وتم إلغاؤه من السلة.`);
+    return;
+  }
   const reserved = await reserveCartStock(ctx.tenantId, cart.lines);
   if (!reserved.ok) {
+    if (cart.discount) await releaseDiscountUse(ctx.tenantId, cart.discount.id);
     await ctx.sendText(`عذرًا، نفدت الكمية من «${reserved.productName}» للتو. عدّل سلتك ثم أعد المحاولة.`);
     await showCart(ctx);
     return;
@@ -404,9 +449,10 @@ async function checkoutCart(ctx: CatalogCtx) {
     customerName,
     customerPhone,
     lines: cart.lines.map((line) => ({ product: line.product, quantity: line.quantity })),
-    status: gatewayKey ? "awaiting_payment" : "new"
+    status: gatewayKey ? "awaiting_payment" : "new",
+    discount: cart.discount
   });
-  const itemsText = cartOrderSummary(cart);
+  const orderText = formatOrderSummary(cart);
   const totalText = formatMoney(order.total, order.currency);
 
   if (gatewayKey) {
@@ -424,7 +470,7 @@ async function checkoutCart(ctx: CatalogCtx) {
       await prisma.catalogOrder.update({ where: { id: order.id }, data: { paymentId: invoice.id, paymentUrl: invoice.url, updatedAt: new Date().toISOString() } });
       await clearCart(ctx.conversationId);
       await addOrderNote(ctx.conversationId, `طلب جديد بانتظار الدفع (${cart.units} قطعة): ${notesLine(cart)} - ${totalText}`);
-      await ctx.sendText(`تم تجهيز طلبك ✅\nرقم الطلب: ${shortOrderNumber(order.id)}\n${itemsText}\n\n*الإجمالي: ${totalText}*\n\nلإتمام الدفع بأمان اضغط على الرابط:\n${invoice.url}`);
+      await ctx.sendText(`تم تجهيز طلبك\nرقم الطلب: ${shortOrderNumber(order.id)}\n\n${orderText}\n\nلإتمام الدفع بأمان اضغط على الرابط:\n${invoice.url}`);
       return;
     } catch {
       // The merchant's key/account is the likely culprit - fall through to a human follow-up.
@@ -435,7 +481,7 @@ async function checkoutCart(ctx: CatalogCtx) {
   await clearCart(ctx.conversationId);
   await reopenForStaff(ctx.conversationId);
   await addOrderNote(ctx.conversationId, `طلب جديد يحتاج متابعة (${cart.units} قطعة): ${notesLine(cart)} - ${totalText}`);
-  await ctx.sendText(`تم استلام طلبك ✅\n${itemsText}\n\n*الإجمالي: ${totalText}*\n\nسيتواصل معك أحد موظفينا قريبًا لإتمام الطلب.`);
+  await ctx.sendText(`تم استلام طلبك\n\n${orderText}\n\nسيتواصل معك أحد موظفينا قريبًا لإتمام الطلب.`);
 }
 
 /** Next step of the address questions: the city, then the address, then the order is created in Zid. */
@@ -539,14 +585,14 @@ async function finishZidCartCheckout(ctx: CatalogCtx, city: string, addressLine:
     lines: cart.lines.map((line) => ({ product: line.product, quantity: line.quantity })),
     status: created.ok && created.paymentLink ? "awaiting_payment" : "new"
   });
-  const itemsText = cartOrderSummary(cart);
+  const orderText = formatOrderSummary(cart);
   const totalText = formatMoney(order.total, order.currency);
 
   if (created.ok && created.paymentLink) {
     await prisma.catalogOrder.update({ where: { id: order.id }, data: { paymentId: `zid-${created.orderId}`, paymentUrl: created.paymentLink, updatedAt: new Date().toISOString() } });
     await clearCart(ctx.conversationId);
     await addOrderNote(ctx.conversationId, `طلب جديد في متجر زد (${created.code}) بانتظار الدفع (${cart.units} قطعة): ${notesLine(cart)} - ${totalText}`);
-    await ctx.sendText(`تم تجهيز طلبك ✅\nرقم الطلب: ${created.code}\n${itemsText}\n\n*الإجمالي: ${totalText}*\n\nلإتمام الدفع بأمان اضغط على الرابط:\n${created.paymentLink}`);
+    await ctx.sendText(`تم تجهيز طلبك\nرقم الطلب: ${created.code}\n\n${orderText}\n\nلإتمام الدفع بأمان اضغط على الرابط:\n${created.paymentLink}`);
     return true;
   }
 
@@ -554,7 +600,7 @@ async function finishZidCartCheckout(ctx: CatalogCtx, city: string, addressLine:
   await clearCart(ctx.conversationId);
   await reopenForStaff(ctx.conversationId);
   await addOrderNote(ctx.conversationId, `طلب يحتاج متابعة (تعذر إنشاؤه في زد${created.ok ? "" : `: ${created.message}`}): ${notesLine(cart)} - ${totalText}\nالمدينة: ${city}\nالعنوان: ${addressLine}`);
-  await ctx.sendText(`تم استلام طلبك ✅\n${itemsText}\n\n*الإجمالي: ${totalText}*\n\nسيتواصل معك أحد موظفينا قريبًا لإتمام الطلب.`);
+  await ctx.sendText(`تم استلام طلبك\n\n${orderText}\n\nسيتواصل معك أحد موظفينا قريبًا لإتمام الطلب.`);
   return true;
 }
 
@@ -596,10 +642,8 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
     await checkoutCart(ctx);
     return "handled";
   }
-  if (id === ID_CART_CLEAR) {
-    await clearCart(ctx.conversationId);
-    await ctx.sendText("تم تفريغ السلة 🗑");
-    await sendCatalogMenu(ctx, intro);
+  if (id === ID_CART_CODE) {
+    await askDiscountCode(ctx);
     return "handled";
   }
 
@@ -626,8 +670,18 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   const text = reply.text.trim();
   if (!text) return "ignored";
 
-  // Waiting for a quantity: a number is the quantity (never a product pick).
   const cartState = await getCart(ctx.conversationId);
+  // Waiting for a discount code: whatever they send is the code (or "cancel").
+  if (cartState.pendingProductId === PENDING_DISCOUNT) {
+    if (/^(إلغاء|الغاء|cancel)$/i.test(text)) {
+      await clearPendingProduct(ctx.tenantId, ctx.conversationId);
+      await showCart(ctx);
+      return "handled";
+    }
+    await applyCodeAndShow(ctx, text);
+    return "handled";
+  }
+  // Waiting for a quantity: a number is the quantity (never a product pick).
   if (cartState.pendingProductId) {
     if (/^\d{1,2}$/.test(text) && Number(text) >= 1) {
       await addPendingToCart(ctx, cartState.pendingProductId, Number(text));
@@ -648,7 +702,17 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   }
   if (/^(?:تفريغ السلة|افراغ السلة|إفراغ السلة|clear cart)$/i.test(text)) {
     await clearCart(ctx.conversationId);
-    await ctx.sendText("تم تفريغ السلة 🗑");
+    await ctx.sendText("تم تفريغ السلة.");
+    return "handled";
+  }
+  const codeCommand = text.match(/^(?:كود|خصم|كوبون|code|coupon)\s+(\S+)$/i);
+  if (codeCommand) {
+    await applyCodeAndShow(ctx, codeCommand[1]);
+    return "handled";
+  }
+  if (/^(?:حذف الكود|إلغاء الكود|الغاء الكود|remove code)$/i.test(text)) {
+    await removeDiscountCode(ctx.tenantId, ctx.conversationId);
+    await showCart(ctx, "تم إلغاء كود الخصم.");
     return "handled";
   }
   const remove = text.match(/^(?:حذف|احذف|remove)\s+(\d{1,2})$/i);

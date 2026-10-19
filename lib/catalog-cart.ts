@@ -4,10 +4,13 @@
 
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
-import { formatPrice, getProduct, isProductAvailable, type CatalogProduct } from "./catalog";
+import { getProduct, isProductAvailable, type CatalogProduct } from "./catalog";
+import { evaluateDiscount, findDiscountByCode, getCartCode, normalizeCode, setCartCode } from "./catalog-discounts";
 
 export const MAX_UNITS_PER_LINE = 99;
 export const MAX_CART_LINES = 20;
+/** The pending marker meaning "the next message is a discount code", not a product waiting for its quantity. */
+export const PENDING_DISCOUNT = "__discount__";
 
 export type CartLine = { productId: string; quantity: number };
 export type Cart = { lines: CartLine[]; pendingProductId: string };
@@ -108,11 +111,26 @@ export async function removeLine(tenantId: string, conversationId: string, posit
 export async function clearCart(conversationId: string) {
   await ensureTables();
   await prisma.$executeRaw`DELETE FROM catalog_carts WHERE conversation_id = ${conversationId}`;
+  await prisma.$executeRaw`DELETE FROM catalog_cart_discounts WHERE conversation_id = ${conversationId}`;
 }
 
 export type ResolvedCartLine = { product: CatalogProduct; quantity: number; lineTotal: number };
 export type CartAdjustment = { position: number; name: string; from: number; to: number };
-export type ResolvedCart = { lines: ResolvedCartLine[]; total: number; currency: string; units: number; dropped: string[]; adjusted: CartAdjustment[] };
+export type ResolvedCart = {
+  lines: ResolvedCartLine[];
+  /** Before any discount code. */
+  subtotal: number;
+  /** What the customer pays: the subtotal minus the discount. */
+  total: number;
+  currency: string;
+  units: number;
+  dropped: string[];
+  adjusted: CartAdjustment[];
+  /** The applied code and what it takes off (absent when none, or when it no longer works). */
+  discount?: { id: string; code: string; amount: number };
+  /** Why a code that was applied stopped working (expired, minimum no longer met, used up...). */
+  discountNote?: string;
+};
 
 /** The cart with current prices; a product removed or sold out since it was added is dropped (and named). */
 export async function resolveCart(tenantId: string, conversationId: string): Promise<ResolvedCart> {
@@ -131,8 +149,44 @@ export async function resolveCart(tenantId: string, conversationId: string): Pro
     if (quantity < line.quantity) adjusted.push({ position: index + 1, name: product.name, from: line.quantity, to: quantity });
     lines.push({ product, quantity, lineTotal: Math.round(product.price * quantity * 100) / 100 });
   }
-  const total = Math.round(lines.reduce((sum, line) => sum + line.lineTotal, 0) * 100) / 100;
-  return { lines, total, currency: lines[0]?.product.currency ?? "SAR", units: lines.reduce((sum, line) => sum + line.quantity, 0), dropped, adjusted };
+  const subtotal = Math.round(lines.reduce((sum, line) => sum + line.lineTotal, 0) * 100) / 100;
+
+  let discount: ResolvedCart["discount"];
+  let discountNote: string | undefined;
+  const code = lines.length ? await getCartCode(conversationId) : "";
+  if (code) {
+    const found = await findDiscountByCode(tenantId, code);
+    const check = found ? evaluateDiscount(found, subtotal) : ({ ok: false, reason: "هذا الكود لم يعد متاحًا" } as const);
+    if (found && check.ok) {
+      discount = { id: found.id, code: found.code, amount: check.amount };
+    } else {
+      discountNote = `${code}: ${check.ok ? "" : check.reason}`;
+      await setCartCode(tenantId, conversationId, "");
+    }
+  }
+
+  const total = Math.round((subtotal - (discount?.amount ?? 0)) * 100) / 100;
+  return { lines, subtotal, total, currency: lines[0]?.product.currency ?? "SAR", units: lines.reduce((sum, line) => sum + line.quantity, 0), dropped, adjusted, discount, discountNote };
+}
+
+export type ApplyCodeResult = { ok: true; code: string; amount: number } | { ok: false; reason: string };
+
+/** The customer typed a code: check it against the cart as it is now, and keep it on the cart when it works. */
+export async function applyDiscountCode(tenantId: string, conversationId: string, rawCode: string): Promise<ApplyCodeResult> {
+  const code = normalizeCode(rawCode);
+  if (!code) return { ok: false, reason: "اكتب الكود" };
+  const cart = await resolveCart(tenantId, conversationId);
+  if (!cart.lines.length) return { ok: false, reason: "سلتك فارغة، أضف منتجًا أولًا" };
+  const found = await findDiscountByCode(tenantId, code);
+  if (!found) return { ok: false, reason: "هذا الكود غير صحيح" };
+  const check = evaluateDiscount(found, cart.subtotal);
+  if (!check.ok) return check;
+  await setCartCode(tenantId, conversationId, found.code);
+  return { ok: true, code: found.code, amount: check.amount };
+}
+
+export async function removeDiscountCode(tenantId: string, conversationId: string) {
+  await setCartCode(tenantId, conversationId, "");
 }
 
 /** Forces right-to-left reading for a line that starts with Latin letters or digits (a brand name, a quantity). */
@@ -150,7 +204,6 @@ function shortName(name: string, max: number) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-const NUMBER_EMOJI = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
 const RULE = "──────────";
 /** WhatsApp button messages allow a body of 1024 characters: a long cart switches to short lines before that. */
 export const CART_DETAILED_MAX_CHARS = 850;
@@ -161,11 +214,10 @@ export const CART_DETAILED_MAX_CHARS = 850;
  * the order of a right-to-left line. A cart too long for one message uses one short line per product.
  */
 export function formatCart(cart: ResolvedCart, options: { compact?: boolean } = {}): string {
-  if (!cart.lines.length) return "🛒 سلتك فارغة حاليًا.";
-  const total = `🧾 *الإجمالي: ${formatMoney(cart.total, cart.currency)}*`;
+  if (!cart.lines.length) return "سلتك فارغة حاليًا.";
 
   const blocks = cart.lines.map((line, index) => {
-    const marker = NUMBER_EMOJI[index] ?? `${index + 1})`;
+    const marker = `${index + 1})`;
     const lineTotal = formatMoney(line.lineTotal, line.product.currency);
     if (options.compact) return `${RLM}${marker} ${shortName(line.product.name, 34)}${RLM} ×${line.quantity} — ${lineTotal}`;
     return [
@@ -176,7 +228,15 @@ export function formatCart(cart: ResolvedCart, options: { compact?: boolean } = 
     ].join("\n");
   });
 
-  return ["🛒 *سلتك*", RULE, blocks.join(options.compact ? "\n" : "\n\n"), RULE, total].join("\n");
+  const totals = cart.discount
+    ? [
+        `${RLM}المجموع قبل الخصم: ${formatMoney(cart.subtotal, cart.currency)}`,
+        `${RLM}الخصم (${cart.discount.code}): -${formatMoney(cart.discount.amount, cart.currency)}`,
+        `${RLM}*الإجمالي: ${formatMoney(cart.total, cart.currency)}*`
+      ]
+    : [`${RLM}*الإجمالي: ${formatMoney(cart.total, cart.currency)}*`];
+
+  return ["*سلتك*", RULE, blocks.join(options.compact ? "\n" : "\n\n"), RULE, ...totals].join("\n");
 }
 
 /** The same lines for a placed order's message: name, quantity and the line total. */
@@ -184,4 +244,16 @@ export function formatOrderLines(cart: ResolvedCart): string {
   return cart.lines
     .map((line) => `${RLM}• *${shortName(line.product.name, 70)}*\n${RLM}   الكمية: ${line.quantity} — ${formatMoney(line.lineTotal, line.product.currency)}`)
     .join("\n");
+}
+
+/** A placed order's message body: the lines, then the totals (with the discount when a code was used). */
+export function formatOrderSummary(cart: ResolvedCart): string {
+  const totals = cart.discount
+    ? [
+        `${RLM}المجموع قبل الخصم: ${formatMoney(cart.subtotal, cart.currency)}`,
+        `${RLM}الخصم (${cart.discount.code}): -${formatMoney(cart.discount.amount, cart.currency)}`,
+        `${RLM}*الإجمالي: ${formatMoney(cart.total, cart.currency)}*`
+      ]
+    : [`${RLM}*الإجمالي: ${formatMoney(cart.total, cart.currency)}*`];
+  return `${formatOrderLines(cart)}\n\n${totals.join("\n")}`;
 }

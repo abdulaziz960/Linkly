@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../i18n";
 import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
 import CustomSelect from "../../components/CustomSelect";
+import DiscountCodesPanel from "../components/DiscountCodesPanel";
 
 type Product = {
   id: string;
@@ -80,7 +81,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; d
 
 export default function CatalogView() {
   const { t } = useLanguage();
-  const [tab, setTab] = useState<"products" | "orders" | "settings">("products");
+  const [tab, setTab] = useState<"products" | "orders" | "discounts" | "settings">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
@@ -280,6 +281,7 @@ export default function CatalogView() {
           <div className="row-actions">
             <button className={tab === "products" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("products")}>{t("المنتجات", "Products")} ({products.length})</button>
             <button className={tab === "orders" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("orders")}>{t("الطلبات", "Orders")} ({orders.length})</button>
+            <button className={tab === "discounts" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("discounts")}>{t("أكواد الخصم", "Discount codes")}</button>
             <button className={tab === "settings" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("settings")}>{t("الدفع والمزامنة", "Payment & sync")}</button>
           </div>
         </div>
@@ -368,6 +370,8 @@ export default function CatalogView() {
           </div>
         </div>
       ) : null}
+
+      {tab === "discounts" ? <DiscountCodesPanel zidConnected={Boolean(settings?.zidConnected)} /> : null}
 
       {tab === "settings" ? (
         <>

@@ -69,11 +69,11 @@ describe("the cart", () => {
     expect(resolved.units).toBe(10);
     expect(resolved.total).toBe(5 * 20 + 5 * 35.5);
     const text = formatCart(resolved);
-    expect(text).toContain("1️⃣ *شاي*");
+    expect(text).toContain("1) *شاي*");
     expect(text).toContain("الكمية: 5");
     expect(text).toContain("سعر القطعة: 20 ر.س");
     expect(text).toContain("المجموع: 100 ر.س");
-    expect(text).toContain("2️⃣ *قهوة*");
+    expect(text).toContain("2) *قهوة*");
     expect(text).toContain("المجموع: 177.50 ر.س");
     expect(text).toContain("الإجمالي: 277.50 ر.س");
 
@@ -125,7 +125,8 @@ describe("the cart in the chat", () => {
     expect(shown.bodyText).toContain("*شاي*");
     expect(shown.bodyText).toContain("الكمية: 2");
     expect(shown.bodyText).toContain("الإجمالي: 40 ر.س");
-    expect(shown.buttons.map((b) => b.id)).toEqual(["cart_pay", "cat_back", "cart_clear"]);
+    expect(shown.buttons.map((b) => b.id)).toEqual(["cart_pay", "cart_code", "cat_back"]);
+    expect(shown.buttons.map((b) => (b as { id: string; title?: string }).title).join("")).not.toMatch(/[\u{1F300}-\u{1FAFF}\u2705\u2795]/u);
 
     // a second product, quantity typed as a number (not taken as a product pick)
     await handleCatalogReply(c, { id: `cartadd_${coffee.id}`, text: "" }, "");
@@ -234,7 +235,7 @@ describe("how the cart reads", () => {
     expect(formatMoney(439130)).toBe("439,130 ر.س");
     expect(formatMoney(87826.5)).toBe("87,826.50 ر.س");
     const product = { id: "p", name: "ميتسوبيشي - MITSUBISHI اوتلاندر 2026", price: 87826, currency: "SAR" } as never;
-    const text = formatCart({ lines: [{ product, quantity: 5, lineTotal: 439130 }], total: 439130, currency: "SAR", units: 5, dropped: [], adjusted: [] });
+    const text = formatCart({ lines: [{ product, quantity: 5, lineTotal: 439130 }], subtotal: 439130, total: 439130, currency: "SAR", units: 5, dropped: [], adjusted: [] });
     const lines = text.split("\n");
     // the name has a line to itself; quantity and amounts are on short lines of their own
     expect(lines.some((line) => line.includes("*ميتسوبيشي - MITSUBISHI اوتلاندر 2026*") && !/\d{3}/.test(line.replace("2026", "")))).toBe(true);
@@ -249,7 +250,7 @@ describe("how the cart reads", () => {
   it("falls back to one short line per product when the cart is too long for one message", async () => {
     const { formatCart, CART_DETAILED_MAX_CHARS } = await import("../lib/catalog-cart");
     const lines = Array.from({ length: 12 }, (_, i) => ({ product: { id: `p${i}`, name: `منتج رقم ${i + 1} باسم طويل جدًا لاختبار الطول`, price: 1000, currency: "SAR" } as never, quantity: 2, lineTotal: 2000 }));
-    const cart = { lines, total: 24000, currency: "SAR", units: 24, dropped: [], adjusted: [] };
+    const cart = { lines, subtotal: 24000, total: 24000, currency: "SAR", units: 24, dropped: [], adjusted: [] };
     expect(formatCart(cart).length).toBeGreaterThan(CART_DETAILED_MAX_CHARS);
     const compact = formatCart(cart, { compact: true });
     expect(compact.length).toBeLessThan(CART_DETAILED_MAX_CHARS + 300);

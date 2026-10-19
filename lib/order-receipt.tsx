@@ -28,6 +28,8 @@ export type ReceiptData = {
   paidAtIso: string;
   /** The lines of a cart order; absent for an order of one product. */
   items?: Array<{ name: string; quantity: number; unitPrice: number }>;
+  /** The discount code used: `total` is already after it. */
+  discount?: { code: string; amount: number };
 };
 
 const PAGE_PX = { width: 1240, height: 1754 }; // A5 at ~212 dpi
@@ -82,6 +84,7 @@ export async function renderReceiptPng(data: ReceiptData): Promise<Buffer> {
           ["المنتج", trim(data.productName, 34)],
           ...(data.quantity > 1 ? ([["الكمية", String(data.quantity)], ["سعر الوحدة", money(data.unitPrice, data.currency)]] as Array<[string, string]>) : [])
         ] as Array<[string, string]>)),
+    ...(data.discount ? ([["الخصم", `-${money(data.discount.amount, data.currency)} (${trim(data.discount.code, 14)})`]] as Array<[string, string]>) : []),
     ["التاريخ", receiptDate(data.paidAtIso)],
     ["حالة الدفع", "مدفوع"]
   ];

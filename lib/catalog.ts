@@ -1,6 +1,7 @@
 import { assertWithinPlanLimit } from "./plan-access-server";
 import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
+import { getOrderDiscounts, recordOrderDiscount, releaseOrderDiscount } from "./catalog-discounts";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { decryptSecret, encryptSecret } from "./secret-storage";
@@ -73,6 +74,8 @@ export type CatalogOrderRow = {
   updatedAt: string;
   /** The products of an order placed from the chat cart (absent for an order bought from a single product). */
   items?: OrderItem[];
+  /** The discount code the order was placed with, and what it took off (the total is already after it). */
+  discount?: { code: string; amount: number };
 };
 
 export type OrderItem = { productId: string; productName: string; unitPrice: number; quantity: number };
@@ -510,8 +513,13 @@ export async function createOrder(input: {
 export async function listOrders(tenantId: string, limit = 200): Promise<CatalogOrderRow[]> {
   await ensureSchema();
   const rows = await prisma.catalogOrder.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: limit });
-  const items = await getOrderItems(rows.map((row) => row.id));
-  return rows.map((row) => ({ ...toOrder(row), ...(items.has(row.id) ? { items: items.get(row.id) } : {}) }));
+  const ids = rows.map((row) => row.id);
+  const [items, discounts] = await Promise.all([getOrderItems(ids), getOrderDiscounts(ids)]);
+  return rows.map((row) => ({
+    ...toOrder(row),
+    ...(items.has(row.id) ? { items: items.get(row.id) } : {}),
+    ...(discounts.has(row.id) ? { discount: { code: discounts.get(row.id)!.code, amount: discounts.get(row.id)!.amount } } : {})
+  }));
 }
 
 type ItemRow = { order_id: string; product_id: string; product_name: string; unit_price: number; quantity: number | bigint };
@@ -544,12 +552,15 @@ export async function createCartOrder(input: {
   customerPhone: string;
   lines: Array<{ product: CatalogProduct; quantity: number }>;
   status: OrderStatus;
+  /** A discount code already taken (redeemed) for this order: the total is the subtotal minus its amount. */
+  discount?: { id: string; code: string; amount: number };
 }): Promise<CatalogOrderRow> {
   await ensureSchema();
   if (!input.lines.length) throw new Error("A cart order needs at least one line");
   const lines = input.lines.map((line) => ({ product: line.product, quantity: Math.max(1, Math.floor(line.quantity)) }));
   const units = lines.reduce((sum, line) => sum + line.quantity, 0);
-  const total = Math.round(lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0) * 100) / 100;
+  const subtotal = Math.round(lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0) * 100) / 100;
+  const total = Math.round((subtotal - (input.discount?.amount ?? 0)) * 100) / 100;
   const now = new Date().toISOString();
   const id = `ord-${randomUUID()}`;
   const names = lines.map((line) => line.product.name).join("، ");
@@ -563,7 +574,7 @@ export async function createCartOrder(input: {
       customerPhone: input.customerPhone.slice(0, 40),
       productId: lines[0].product.id,
       productName: names.length > MAX_NAME ? `${names.slice(0, MAX_NAME - 1)}…` : names,
-      unitPrice: Math.round((total / units) * 100) / 100,
+      unitPrice: Math.round((subtotal / units) * 100) / 100,
       quantity: units,
       total,
       currency: lines[0].product.currency,
@@ -575,7 +586,12 @@ export async function createCartOrder(input: {
   for (const [index, line] of lines.entries()) {
     await prisma.$executeRaw`INSERT INTO catalog_order_items (order_id, line_no, product_id, product_name, unit_price, quantity) VALUES (${id}, ${index + 1}, ${line.product.id}, ${line.product.name}, ${line.product.price}, ${line.quantity})`;
   }
-  return { ...toOrder(row), items: lines.map((line) => ({ productId: line.product.id, productName: line.product.name, unitPrice: line.product.price, quantity: line.quantity })) };
+  if (input.discount) await recordOrderDiscount(id, input.discount);
+  return {
+    ...toOrder(row),
+    items: lines.map((line) => ({ productId: line.product.id, productName: line.product.name, unitPrice: line.product.price, quantity: line.quantity })),
+    ...(input.discount ? { discount: { code: input.discount.code, amount: input.discount.amount } } : {})
+  };
 }
 
 /**
@@ -603,6 +619,8 @@ export async function restockOrderUnits(tenantId: string, productId: string, qua
 
 /** Gives a cancelled order's units back: line by line for a cart order, the single product otherwise. */
 export async function restockOrder(order: { id: string; tenantId: string; productId: string; quantity: number }) {
+  // The discount code the order used is given back with the stock.
+  await releaseOrderDiscount(order.tenantId, order.id).catch((error) => console.error("Releasing a discount code failed", error));
   const items = (await getOrderItems([order.id])).get(order.id);
   if (items?.length) {
     for (const item of items) await restockOrderUnits(order.tenantId, item.productId, item.quantity);

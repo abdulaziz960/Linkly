@@ -84,7 +84,7 @@ describe("catalog bot cards (WhatsApp)", () => {
     expect(sent[0].input.url).toBe(product.productUrl);
     expect(String(sent[0].input.bodyText)).toContain("وصف المنتج");
     expect(sent[1].kind).toBe("buttons");
-    expect((sent[1].input.buttons as Array<{ id: string; title: string }>).map((b) => b.title)).toEqual(["🛒 أضف للسلة", "تقديم طلب", "كل المنتجات"]);
+    expect((sent[1].input.buttons as Array<{ id: string; title: string }>).map((b) => b.title)).toEqual(["أضف للسلة", "تقديم طلب", "كل المنتجات"]);
     expect((sent[1].input.buttons as Array<{ id: string }>)[0].id).toBe(`cartadd_${product.id}`);
     expect((sent[1].input.buttons as Array<{ id: string }>)[1].id).toBe(`buy_${product.id}`);
 
