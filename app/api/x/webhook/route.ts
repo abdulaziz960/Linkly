@@ -3,6 +3,7 @@ import { createHmac } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrationSettings } from "../../../../lib/database";
 import { storeXMessage } from "../../../../lib/x-inbox";
+import { xCustomerLabel } from "../../../../lib/x-handles";
 import { runChannelBot } from "../../../../lib/bot-engine";
 import { verifyPrefixedHmac } from "../../../../lib/webhook-security";
 import { getXPlatformCredentials } from "../../../../lib/x-platform";
@@ -23,6 +24,7 @@ type XReferencedPost = {
 type ParsedXEvent = {
   xUserId: string;
   name?: string;
+  handle?: string;
   text: string;
   direction: "in" | "out";
   messageId?: string;
@@ -73,8 +75,11 @@ function buildUserMap(includes: Record<string, any>, dmUsers?: Record<string, an
 }
 
 function getName(userMap: Map<string, XUser>, userId: string) {
-  const user = userMap.get(userId);
-  return user?.username ? `@${user.username}` : user?.name;
+  return xCustomerLabel(userMap.get(userId)).name;
+}
+
+function getHandle(userMap: Map<string, XUser>, userId: string) {
+  return xCustomerLabel(userMap.get(userId)).handle;
 }
 
 function getPostUrl(username: string | undefined, postId: string) {
@@ -110,6 +115,7 @@ function parseDmEvents(body: Record<string, any>, ownUserId: string): ParsedXEve
     return [{
       xUserId,
       name: getName(userMap, xUserId),
+      handle: getHandle(userMap, xUserId),
       text,
       direction: senderId && senderId === ownUserId ? "out" : "in",
       messageId: String(event.id || legacyMessage?.message_data?.id || `${xUserId}-${Date.now()}`),
@@ -142,6 +148,7 @@ function parsePostEvents(body: Record<string, any>, includes: Record<string, any
     return [{
       xUserId: authorId,
       name: getName(userMap, authorId),
+      handle: getHandle(userMap, authorId),
       text: `منشن/رد: ${text}`,
       direction: "in",
       messageId: postId ? `post-${postId}` : `${authorId}-${Date.now()}`,

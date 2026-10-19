@@ -1,4 +1,5 @@
 import { emailBodyToText } from "./email-text";
+import { getXHandles } from "./x-handles";
 import { prisma } from "./prisma";
 import { isInlineDataUrl, messageAttachmentPath } from "./message-attachments";
 import { ensureAiSchema } from "./ai-schema";
@@ -3156,6 +3157,9 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
     // no leads yet
   }
 
+  // X customers: their @handle, shown under the display name.
+  const xHandles = conversations.some((conversation) => conversation.channel === "x") ? await getXHandles(tenantId) : new Map<string, string>();
+
   return conversations.map((conversation) => {
     const messages = conversation.messages.map<Message>((message) => ({
       id: message.id,
@@ -3209,6 +3213,7 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       channel: (conversation.channel || "whatsapp") as Conversation["channel"],
       customer: conversation.customer.name,
       phone: conversation.customer.phone,
+      handle: conversation.channel === "x" ? xHandles.get(conversation.customer.phone) : undefined,
       initial: conversation.customer.initial,
       lastMessage: conversation.lastMessage,
       status: conversation.status as Conversation["status"],

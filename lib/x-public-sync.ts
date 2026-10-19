@@ -2,6 +2,7 @@ import { getIntegrationSettings } from "./database";
 import { fetchXWithAutoRefresh, getXApiErrorMessage, XApiError } from "./x-api";
 import { storeXMessage } from "./x-inbox";
 import { prisma } from "./prisma";
+import { xCustomerLabel } from "./x-handles";
 
 type XReferencedPost = {
   type?: "replied_to" | "quoted" | "retweeted" | string;
@@ -33,8 +34,7 @@ type XMentionsResponse = {
 };
 
 function displayName(user?: XUser) {
-  if (!user) return undefined;
-  return user.username ? `@${user.username}` : user.name;
+  return xCustomerLabel(user).name;
 }
 
 function sourceLabel(post: XPost) {
@@ -157,6 +157,7 @@ export async function syncXMentionsForTenant(tenantId: string) {
       xUserId: authorId,
       recipientId: authorId,
       name: displayName(users.get(authorId)),
+      handle: xCustomerLabel(users.get(authorId)).handle,
       text: post.text || "منشور وارد من X",
       direction: "in",
       messageId: `post-${post.id}`,

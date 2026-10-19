@@ -7,11 +7,14 @@ import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 import { shouldStartConversationClosed } from "./bot-engine";
 import { maybeRecordRatingReply, sendRatingThanks } from "./conversation-rating";
 import { firstChar } from "./first-char";
+import { saveXHandle } from "./x-handles";
 
 type StoreXMessageInput = {
   tenantId?: string;
   xUserId: string;
   name?: string;
+  /** The customer's @handle, shown under their name in the conversation. */
+  handle?: string;
   text: string;
   direction: "in" | "out";
   messageId?: string;
@@ -63,6 +66,8 @@ export async function storeXMessage(input: StoreXMessageInput) {
   const customerId = scopedId(tenantId, identity);
   const conversationId = scopedId(tenantId, identity);
   const messageId = input.messageId ? `x-${input.messageId}` : `x-${input.direction}-${identity}-${Date.now()}`;
+
+  if (input.handle) await saveXHandle(tenantId, xUserId, input.handle).catch(() => {});
 
   const existing = await prisma.message.findUnique({ where: { id: messageId } });
   if (existing) return existing;

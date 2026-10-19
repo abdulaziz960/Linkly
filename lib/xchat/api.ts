@@ -3,6 +3,7 @@
 
 import type { IntegrationSettings } from "../../app/dashboard/types";
 import { fetchXWithAutoRefresh, getXApiErrorMessage, XApiError } from "../x-api";
+import { xCustomerLabel } from "../x-handles";
 import type { XChatRegistration, XChatSigningKey } from "./engine";
 
 const BASE = "https://api.x.com/2";
@@ -100,9 +101,8 @@ export async function listConversationEvents(settings: IntegrationSettings, conv
   return { events: result.data ?? [], keyEvents: result.meta?.conversation_key_events ?? [] };
 }
 
-/** The customer's display name (@handle) for the inbox; encrypted events carry only the sender's numeric id. */
-export async function getXUserName(settings: IntegrationSettings, userId: string): Promise<string | undefined> {
+/** The customer's profile name and @handle for the inbox; encrypted events carry only the sender's numeric id. */
+export async function getXUserLabel(settings: IntegrationSettings, userId: string): Promise<{ name?: string; handle?: string }> {
   const result = await call<{ data?: { name?: string; username?: string } }>(settings, `/users/${encodeURIComponent(userId)}?user.fields=name,username`);
-  const user = result.data;
-  return user?.username ? `@${user.username}` : user?.name || undefined;
+  return xCustomerLabel(result.data);
 }

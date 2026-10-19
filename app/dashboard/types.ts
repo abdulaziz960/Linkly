@@ -68,6 +68,8 @@ export type Conversation = {
   channel: ConversationChannel;
   customer: string;
   phone: string;
+  /** X customers: their @handle, shown under the display name. */
+  handle?: string;
   initial: string;
   lastMessage: string;
   status: ConversationStatus;

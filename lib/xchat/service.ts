@@ -4,7 +4,7 @@
 import { getIntegrationSettings } from "../database";
 import { storeXMessage } from "../x-inbox";
 import { XApiError } from "../x-api";
-import { registerPublicKey, getUserPublicKeys, getXUserName, listConversations, listConversationEvents, toSigningKey } from "./api";
+import { registerPublicKey, getUserPublicKeys, getXUserLabel, listConversations, listConversationEvents, toSigningKey } from "./api";
 import { engineFromKeys, generateAccountKeys, type XChatSigningKey } from "./engine";
 import { getXChatKeys, getXChatKeyStatus, saveXChatKeys } from "./keystore";
 import { getLastEventId, isNewerId, setLastEventId } from "./state";
@@ -66,10 +66,10 @@ export async function syncXChatForTenant(tenantId: string): Promise<XChatSyncRes
     return signingKeys.get(userId) ?? [];
   };
 
-  const names = new Map<string, string | undefined>();
-  const nameFor = async (userId: string) => {
-    if (!names.has(userId)) names.set(userId, await getXUserName(settings, userId).catch(() => undefined));
-    return names.get(userId);
+  const labels = new Map<string, { name?: string; handle?: string }>();
+  const labelFor = async (userId: string) => {
+    if (!labels.has(userId)) labels.set(userId, await getXUserLabel(settings, userId).catch(() => ({})));
+    return labels.get(userId) ?? {};
   };
 
   try {
@@ -101,10 +101,12 @@ export async function syncXChatForTenant(tenantId: string): Promise<XChatSyncRes
         if (isNewerId(eventId, newest)) newest = eventId;
         const senderId = String(event.senderId ?? "");
         if (!senderId || senderId === ownUserId) continue;
+        const label = await labelFor(senderId);
         await storeXMessage({
           tenantId,
           xUserId: senderId,
-          name: await nameFor(senderId),
+          name: label.name,
+          handle: label.handle,
           text: event.content.text.trim(),
           direction: "in",
           messageId: `chat-${eventId}`,

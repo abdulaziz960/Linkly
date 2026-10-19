@@ -3,6 +3,7 @@ import { fetchXWithAutoRefresh, getXApiErrorMessage, XApiError } from "./x-api";
 import { storeXMessage } from "./x-inbox";
 import { prisma } from "./prisma";
 import { syncXChatForTenant } from "./xchat/service";
+import { xCustomerLabel } from "./x-handles";
 
 type XDmEvent = {
   id?: string;
@@ -29,8 +30,11 @@ type XDmEventsResponse = {
 };
 
 function getUserName(users: Map<string, XUser>, id: string) {
-  const user = users.get(id);
-  return user?.username ? `@${user.username}` : user?.name;
+  return xCustomerLabel(users.get(id)).name;
+}
+
+function getUserHandle(users: Map<string, XUser>, id: string) {
+  return xCustomerLabel(users.get(id)).handle;
 }
 
 // Mentions/public replies are synced exclusively by lib/x-public-sync.ts
@@ -149,6 +153,7 @@ export async function syncXTenant(settings: IntegrationSettings) {
     tenantId,
     xUserId: String(event.sender_id),
     name: getUserName(users, String(event.sender_id)),
+    handle: getUserHandle(users, String(event.sender_id)),
     text: event.text || "رسالة واردة من X",
     direction: "in",
     messageId: event.id,

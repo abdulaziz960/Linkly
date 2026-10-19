@@ -1198,6 +1198,7 @@ export default function InboxView({
               {getChannelLabel(activeConversation, language)}
             </small>
              <b>{activeConversation.customer}</b>
+             {activeConversation.handle ? <small className="chat-customer-handle" dir="ltr">{activeConversation.handle}</small> : null}
              <span className={`chat-status-label ${activeConversation.status}`}>{statusLabel(activeConversation.status, language)}</span>
            </button>
           <label>
@@ -1740,6 +1741,12 @@ export default function InboxView({
                   </dt>
                   <dd dir="ltr">{activeConversation.phone}</dd>
                 </div>
+                {activeConversation.handle ? (
+                  <div>
+                    <dt>{t("اسم المستخدم", "Username")}</dt>
+                    <dd dir="ltr">{activeConversation.handle}</dd>
+                  </div>
+                ) : null}
                 <div>
                   <dt>{t("حالة العميل المحتمل", "Lead status")}</dt>
                   <dd><LeadStatusControl conversationId={activeConversation.id} /></dd>

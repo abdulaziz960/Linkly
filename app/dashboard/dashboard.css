@@ -1082,6 +1082,12 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   font: inherit;
 }
 
+.chat-customer-handle {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .chat-customer .channel-badge {
   font-size: 11px;
 }
