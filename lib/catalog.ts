@@ -1,5 +1,6 @@
 import { assertWithinPlanLimit } from "./plan-access-server";
 import { randomUUID } from "crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { decryptSecret, encryptSecret } from "./secret-storage";
@@ -70,7 +71,11 @@ export type CatalogOrderRow = {
   paymentUrl: string;
   createdAt: string;
   updatedAt: string;
+  /** The products of an order placed from the chat cart (absent for an order bought from a single product). */
+  items?: OrderItem[];
 };
+
+export type OrderItem = { productId: string; productName: string; unitPrice: number; quantity: number };
 
 const MAX_NAME = 120;
 const MAX_DESCRIPTION = 2000;
@@ -505,7 +510,90 @@ export async function createOrder(input: {
 export async function listOrders(tenantId: string, limit = 200): Promise<CatalogOrderRow[]> {
   await ensureSchema();
   const rows = await prisma.catalogOrder.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: limit });
-  return rows.map(toOrder);
+  const items = await getOrderItems(rows.map((row) => row.id));
+  return rows.map((row) => ({ ...toOrder(row), ...(items.has(row.id) ? { items: items.get(row.id) } : {}) }));
+}
+
+type ItemRow = { order_id: string; product_id: string; product_name: string; unit_price: number; quantity: number | bigint };
+
+/** The lines of the orders that were placed from the chat cart, by order id (orders without lines are absent). */
+export async function getOrderItems(orderIds: string[]): Promise<Map<string, OrderItem[]>> {
+  const result = new Map<string, OrderItem[]>();
+  if (!orderIds.length) return result;
+  await ensureSchema();
+  for (let start = 0; start < orderIds.length; start += 200) {
+    const batch = orderIds.slice(start, start + 200);
+    const rows = await prisma.$queryRaw<ItemRow[]>`SELECT order_id, product_id, product_name, unit_price, quantity FROM catalog_order_items WHERE order_id IN (${Prisma.join(batch)}) ORDER BY order_id, line_no`;
+    for (const row of rows) {
+      const list = result.get(row.order_id) ?? [];
+      list.push({ productId: row.product_id, productName: row.product_name, unitPrice: Number(row.unit_price), quantity: Number(row.quantity) });
+      result.set(row.order_id, list);
+    }
+  }
+  return result;
+}
+
+/**
+ * An order placed from the chat cart: one order (one payment) holding every line. The row shows the whole
+ * (names joined, total units, total price) and the lines live in catalog_order_items.
+ */
+export async function createCartOrder(input: {
+  tenantId: string;
+  conversationId: string;
+  customerName: string;
+  customerPhone: string;
+  lines: Array<{ product: CatalogProduct; quantity: number }>;
+  status: OrderStatus;
+}): Promise<CatalogOrderRow> {
+  await ensureSchema();
+  if (!input.lines.length) throw new Error("A cart order needs at least one line");
+  const lines = input.lines.map((line) => ({ product: line.product, quantity: Math.max(1, Math.floor(line.quantity)) }));
+  const units = lines.reduce((sum, line) => sum + line.quantity, 0);
+  const total = Math.round(lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0) * 100) / 100;
+  const now = new Date().toISOString();
+  const id = `ord-${randomUUID()}`;
+  const names = lines.map((line) => line.product.name).join("، ");
+
+  const row = await prisma.catalogOrder.create({
+    data: {
+      id,
+      tenantId: input.tenantId,
+      conversationId: input.conversationId,
+      customerName: input.customerName.slice(0, 120),
+      customerPhone: input.customerPhone.slice(0, 40),
+      productId: lines[0].product.id,
+      productName: names.length > MAX_NAME ? `${names.slice(0, MAX_NAME - 1)}…` : names,
+      unitPrice: Math.round((total / units) * 100) / 100,
+      quantity: units,
+      total,
+      currency: lines[0].product.currency,
+      status: input.status,
+      createdAt: now,
+      updatedAt: now
+    }
+  });
+  for (const [index, line] of lines.entries()) {
+    await prisma.$executeRaw`INSERT INTO catalog_order_items (order_id, line_no, product_id, product_name, unit_price, quantity) VALUES (${id}, ${index + 1}, ${line.product.id}, ${line.product.name}, ${line.product.price}, ${line.quantity})`;
+  }
+  return { ...toOrder(row), items: lines.map((line) => ({ productId: line.product.id, productName: line.product.name, unitPrice: line.product.price, quantity: line.quantity })) };
+}
+
+/**
+ * Takes the units of every tracked-stock line at once. If any line cannot be covered, whatever was already taken
+ * goes back and the product that failed is named - so two customers can never both buy the last unit.
+ */
+export async function reserveCartStock(tenantId: string, lines: Array<{ product: CatalogProduct; quantity: number }>): Promise<{ ok: true } | { ok: false; productName: string }> {
+  const taken: Array<{ id: string; quantity: number }> = [];
+  for (const line of lines) {
+    if (line.product.stock <= 0) continue;
+    const result = await prisma.product.updateMany({ where: { id: line.product.id, tenantId, stock: { gte: line.quantity } }, data: { stock: { decrement: line.quantity } } });
+    if (result.count === 0) {
+      for (const back of taken) await prisma.product.updateMany({ where: { id: back.id, tenantId }, data: { stock: { increment: back.quantity } } });
+      return { ok: false, productName: line.product.name };
+    }
+    taken.push({ id: line.product.id, quantity: line.quantity });
+  }
+  return { ok: true };
 }
 
 /** Gives a cancelled order's units back to products that track stock (stock >= 0). */
@@ -513,11 +601,21 @@ export async function restockOrderUnits(tenantId: string, productId: string, qua
   await prisma.product.updateMany({ where: { id: productId, tenantId, stock: { gte: 0 } }, data: { stock: { increment: quantity } } });
 }
 
+/** Gives a cancelled order's units back: line by line for a cart order, the single product otherwise. */
+export async function restockOrder(order: { id: string; tenantId: string; productId: string; quantity: number }) {
+  const items = (await getOrderItems([order.id])).get(order.id);
+  if (items?.length) {
+    for (const item of items) await restockOrderUnits(order.tenantId, item.productId, item.quantity);
+    return;
+  }
+  await restockOrderUnits(order.tenantId, order.productId, order.quantity);
+}
+
 export async function updateOrderStatus(tenantId: string, id: string, status: OrderStatus): Promise<boolean> {
   await ensureSchema();
   const existing = await prisma.catalogOrder.findFirst({ where: { tenantId, id } });
   if (!existing) return false;
   await prisma.catalogOrder.update({ where: { id }, data: { status, updatedAt: new Date().toISOString() } });
-  if (status === "cancelled" && existing.status !== "cancelled") await restockOrderUnits(tenantId, existing.productId, existing.quantity);
+  if (status === "cancelled" && existing.status !== "cancelled") await restockOrder(existing);
   return true;
 }

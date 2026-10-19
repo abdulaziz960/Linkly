@@ -56,7 +56,25 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     updated_at TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS catalog_orders_tenant_id_created_at_idx ON catalog_orders(tenant_id, created_at)`,
-  `CREATE INDEX IF NOT EXISTS catalog_orders_payment_id_idx ON catalog_orders(payment_id)`
+  `CREATE INDEX IF NOT EXISTS catalog_orders_payment_id_idx ON catalog_orders(payment_id)`,
+  // The lines of an order placed from the chat cart (an order bought straight from one product has none: its own row is the line).
+  `CREATE TABLE IF NOT EXISTS catalog_order_items (
+    order_id TEXT NOT NULL,
+    line_no INTEGER NOT NULL,
+    product_id TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    unit_price DOUBLE PRECISION NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (order_id, line_no)
+  )`,
+  // The cart a customer is filling in a conversation, plus the product whose quantity we are waiting for.
+  `CREATE TABLE IF NOT EXISTS catalog_carts (
+    conversation_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    items_json TEXT NOT NULL DEFAULT '[]',
+    pending_product_id TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+  )`
 ];
 
 export async function ensureCatalogSchema() {

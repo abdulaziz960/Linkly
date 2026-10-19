@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
-import { getMerchantGatewayKeyForVerification, restockOrderUnits, type OrderStatus } from "./catalog";
+import { getMerchantGatewayKeyForVerification, getOrderItems, restockOrder, type OrderStatus } from "./catalog";
 import { sendWhatsAppTextMessage } from "./whatsapp-send";
 import { shortOrderNumber } from "./order-number";
 
@@ -43,7 +43,7 @@ export function buildPaidOrderMessage(order: {
   quantity: number;
   total: number;
   currency: string;
-}, paidAtIso: string, fallbackName = ""): string {
+}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number }>): string {
   const name = usableCustomerName(order.customerName, order.customerPhone) || usableCustomerName(fallbackName, order.customerPhone);
   const amount = Number.isInteger(order.total) ? String(order.total) : order.total.toFixed(2);
   const currency = order.currency === "SAR" ? "ر.س" : order.currency;
@@ -51,8 +51,9 @@ export function buildPaidOrderMessage(order: {
     name ? `شكرًا لك ${name}، تم استلام دفعك ✅` : "تم استلام دفعك ✅",
     "",
     `رقم الطلب: ${shortOrderNumber(order.id)}`,
-    `المنتج: ${order.productName}`,
-    ...(order.quantity > 1 ? [`الكمية: ${order.quantity}`] : []),
+    ...(items && items.length > 0
+      ? ["المنتجات:", ...items.map((item) => `• ${item.productName} × ${item.quantity}`)]
+      : [`المنتج: ${order.productName}`, ...(order.quantity > 1 ? [`الكمية: ${order.quantity}`] : [])]),
     `المبلغ المدفوع: ${amount} ${currency}`,
     ...(arabicDate(paidAtIso) ? [`التاريخ: ${arabicDate(paidAtIso)}`] : []),
     "",
@@ -189,9 +190,10 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
   });
   if (claimed.count === 0) return { httpStatus: 200, body: { ok: true, status: next } };
 
-  if (next === "cancelled") await restockOrderUnits(order.tenantId, order.productId, order.quantity);
+  if (next === "cancelled") await restockOrder(order);
 
   if (next === "paid" && order.conversationId) {
+    const orderItems = (await getOrderItems([order.id])).get(order.id);
     // The bot keeps a conversation "closed" while it handles it - a paid
     // order needs a human to fulfil it, so put it in the agents' queue.
     await prisma.conversation.updateMany({ where: { id: order.conversationId, status: "closed" }, data: { status: "unassigned", assignee: "بدون موظف" } });
@@ -201,7 +203,7 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
         tenantId: order.tenantId,
         conversationId: order.conversationId,
         to: conversation.customer.phone,
-        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name),
+        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name, orderItems),
         author: "الرد الآلي"
       }).catch((error) => console.error("Order paid confirmation failed", error));
 
@@ -222,7 +224,8 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
           unitPrice: order.unitPrice,
           total: order.total,
           currency: order.currency,
-          paidAtIso: new Date().toISOString()
+          paidAtIso: new Date().toISOString(),
+          items: orderItems?.map((item) => ({ name: item.productName, quantity: item.quantity, unitPrice: item.unitPrice }))
         });
         await sendWhatsAppUploadedMedia({
           tenantId: order.tenantId,

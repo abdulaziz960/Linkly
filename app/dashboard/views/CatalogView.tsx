@@ -32,6 +32,8 @@ type Order = {
   status: "new" | "awaiting_payment" | "paid" | "cancelled" | "fulfilled";
   paymentUrl: string;
   createdAt: string;
+  /** The products of an order placed from the chat cart. */
+  items?: Array<{ productId: string; productName: string; unitPrice: number; quantity: number }>;
 };
 
 type Settings = {
@@ -344,7 +346,11 @@ export default function CatalogView() {
                   <tr key={order.id}>
                     <td>{new Date(order.createdAt).toLocaleString("ar-SA-u-nu-latn", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Riyadh" })}</td>
                     <td data-label={t("العميل", "Customer")}>{order.customerName || "-"}<br /><small dir="ltr">{order.customerPhone}</small></td>
-                    <td data-label={t("المنتج", "Product")}>{order.productName}{order.quantity > 1 ? ` × ${order.quantity}` : ""}</td>
+                    <td data-label={t("المنتج", "Product")}>
+                      {order.items?.length
+                        ? order.items.map((item) => <div key={item.productId}>{item.productName} × {item.quantity}</div>)
+                        : <>{order.productName}{order.quantity > 1 ? ` × ${order.quantity}` : ""}</>}
+                    </td>
                     <td data-label={t("المبلغ", "Amount")}>{order.total} {t("ر.س", "SAR")}</td>
                     <td data-label={t("الحالة", "Status")}>
                       <CustomSelect

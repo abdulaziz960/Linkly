@@ -67,8 +67,10 @@ export type ZidOrderInput = {
   phone: string;
   city: string;
   addressLine: string;
-  sku: string;
-  quantity: number;
+  sku?: string;
+  quantity?: number;
+  /** Several products at once (a cart); when present they replace sku/quantity. */
+  lines?: Array<{ sku: string; quantity: number }>;
   shippingMethodId: number;
   paymentMethodId: number;
   linkValidHours: number;
@@ -104,7 +106,7 @@ export function buildZidOrderBody(input: ZidOrderInput, now = new Date()): Recor
     },
     is_gift: false,
     is_gifted_consignee_notifiable: false,
-    products: [{ sku: input.sku, quantity: Math.max(1, Math.floor(input.quantity)) }],
+    products: (input.lines?.length ? input.lines : [{ sku: input.sku ?? "", quantity: input.quantity ?? 1 }]).map((line) => ({ sku: line.sku, quantity: Math.max(1, Math.floor(line.quantity)) })),
     shipping_method: { type: "delivery", id: input.shippingMethodId },
     payment_method: { id: input.paymentMethodId, payment_link_configs: { expiryDateTime: expires } },
     customer_comment: null,

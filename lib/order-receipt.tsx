@@ -26,6 +26,8 @@ export type ReceiptData = {
   total: number;
   currency: string;
   paidAtIso: string;
+  /** The lines of a cart order; absent for an order of one product. */
+  items?: Array<{ name: string; quantity: number; unitPrice: number }>;
 };
 
 const PAGE_PX = { width: 1240, height: 1754 }; // A5 at ~212 dpi
@@ -56,6 +58,15 @@ function receiptDate(iso: string) {
   return new Intl.DateTimeFormat("ar-SA-u-nu-latn-ca-gregory", { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Riyadh" }).format(date);
 }
 
+const MAX_RECEIPT_ITEM_ROWS = 7;
+
+/** One row per product of a cart order ("name × quantity" and the line total); a long cart ends with "and N more". */
+export function receiptItemRows(items: Array<{ name: string; quantity: number; unitPrice: number }>, currency: string): Array<[string, string]> {
+  const rows: Array<[string, string]> = items.slice(0, MAX_RECEIPT_ITEM_ROWS).map((item) => [`${trim(item.name, 22)} × ${item.quantity}`, money(Math.round(item.unitPrice * item.quantity * 100) / 100, currency)]);
+  if (items.length > MAX_RECEIPT_ITEM_ROWS) rows.push(["…", `و${items.length - MAX_RECEIPT_ITEM_ROWS} منتجات أخرى`]);
+  return rows;
+}
+
 export async function renderReceiptPng(data: ReceiptData): Promise<Buffer> {
   const [regular, black] = await Promise.all([
     readFile(path.join(process.cwd(), "public/fonts/tajawal/Tajawal-Medium.ttf")),
@@ -65,8 +76,12 @@ export async function renderReceiptPng(data: ReceiptData): Promise<Buffer> {
   const rows: Array<[string, string]> = [
     ["رقم الطلب", shortOrderNumber(data.orderId)],
     ["العميل", trim(data.customerName || "—", 34)],
-    ["المنتج", trim(data.productName, 34)],
-    ...(data.quantity > 1 ? ([["الكمية", String(data.quantity)], ["سعر الوحدة", money(data.unitPrice, data.currency)]] as Array<[string, string]>) : []),
+    ...(data.items && data.items.length > 0
+      ? receiptItemRows(data.items, data.currency)
+      : ([
+          ["المنتج", trim(data.productName, 34)],
+          ...(data.quantity > 1 ? ([["الكمية", String(data.quantity)], ["سعر الوحدة", money(data.unitPrice, data.currency)]] as Array<[string, string]>) : [])
+        ] as Array<[string, string]>)),
     ["التاريخ", receiptDate(data.paidAtIso)],
     ["حالة الدفع", "مدفوع"]
   ];
