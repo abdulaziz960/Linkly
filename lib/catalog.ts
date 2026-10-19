@@ -2,6 +2,7 @@ import { assertWithinPlanLimit } from "./plan-access-server";
 import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import { getOrderDiscounts, recordOrderDiscount, releaseOrderDiscount } from "./catalog-discounts";
+import { getOrderTracking, type OrderTracking } from "./order-tracking";
 import { getOrderShipping, recordOrderShipping, type OrderShipping } from "./catalog-shipping";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
@@ -79,6 +80,8 @@ export type CatalogOrderRow = {
   discount?: { code: string; amount: number };
   /** Where the order goes and the delivery fee (already in the total). */
   shipping?: OrderShipping;
+  /** The shipment the staff entered (absent until they do). */
+  tracking?: OrderTracking;
 };
 
 export type OrderItem = { productId: string; productName: string; unitPrice: number; quantity: number };
@@ -517,10 +520,11 @@ export async function listOrders(tenantId: string, limit = 200): Promise<Catalog
   await ensureSchema();
   const rows = await prisma.catalogOrder.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: limit });
   const ids = rows.map((row) => row.id);
-  const [items, discounts, shipping] = await Promise.all([getOrderItems(ids), getOrderDiscounts(ids), getOrderShipping(ids)]);
+  const [items, discounts, shipping, tracking] = await Promise.all([getOrderItems(ids), getOrderDiscounts(ids), getOrderShipping(ids), getOrderTracking(ids)]);
   return rows.map((row) => ({
     ...toOrder(row),
     ...(shipping.has(row.id) ? { shipping: shipping.get(row.id) } : {}),
+    ...(tracking.has(row.id) ? { tracking: tracking.get(row.id) } : {}),
     ...(items.has(row.id) ? { items: items.get(row.id) } : {}),
     ...(discounts.has(row.id) ? { discount: { code: discounts.get(row.id)!.code, amount: discounts.get(row.id)!.amount } } : {})
   }));

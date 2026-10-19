@@ -635,6 +635,19 @@ export async function runChannelBot(
 ) {
   const tenantId = input.tenantId || "tenant-demo";
 
+  // "تتبع طلبي": the customer's own orders (this conversation only), answered at any point of the chat.
+  if (!input.replyId && input.incomingText) {
+    const { parseTrackRequest, buildCustomerTrackingReply } = await import("./order-tracking");
+    const track = parseTrackRequest(input.incomingText);
+    if (track.match) {
+      const reply = await buildCustomerTrackingReply(tenantId, input.conversationId, track.number);
+      if (reply) {
+        await sendBotText(channel, { tenantId, conversationId: input.conversationId, recipientId: input.recipientId, text: reply });
+        return;
+      }
+    }
+  }
+
   // A catalog opened from a catalog template works even when no bot flow is set up.
   const catalogSession = await prisma.conversation.findFirst({ where: { id: input.conversationId, botWaitingNodeId: CATALOG_TEMPLATE_WAITING }, select: { id: true } });
   if (catalogSession) {

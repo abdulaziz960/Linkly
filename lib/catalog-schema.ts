@@ -108,6 +108,15 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     created_at TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS catalog_shipping_methods_tenant_idx ON catalog_shipping_methods(tenant_id)`,
+  // Shipment tracking the staff enter by hand: the stage, the carrier, its tracking number and (optionally) a link.
+  `CREATE TABLE IF NOT EXISTS catalog_order_tracking (
+    order_id TEXT PRIMARY KEY,
+    stage TEXT NOT NULL DEFAULT 'preparing',
+    carrier TEXT NOT NULL DEFAULT '',
+    tracking_number TEXT NOT NULL DEFAULT '',
+    tracking_url TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+  )`,
   // Where an order goes and what the delivery cost.
   `CREATE TABLE IF NOT EXISTS catalog_order_shipping (
     order_id TEXT PRIMARY KEY,

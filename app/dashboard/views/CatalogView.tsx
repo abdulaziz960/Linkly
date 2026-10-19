@@ -41,6 +41,7 @@ type Order = {
   /** Delivery chosen for the order (the fee is in the total). */
   shipping?: { methodName: string; city: string; address: string; fee: number; eta: string };
   discount?: { code: string; amount: number };
+  tracking?: { stage: "preparing" | "shipped" | "delivered"; carrier: string; trackingNumber: string; trackingUrl: string; updatedAt: string };
 };
 
 type Settings = {
@@ -105,6 +106,10 @@ export default function CatalogView() {
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [trackOrder, setTrackOrder] = useState<Order | null>(null);
+  const [trackForm, setTrackForm] = useState({ stage: "preparing", carrier: "", trackingNumber: "", trackingUrl: "" });
+  const [trackSaving, setTrackSaving] = useState(false);
+  const [trackError, setTrackError] = useState("");
 
   const load = useCallback(async () => {
     const [productsResult, ordersResult, settingsResult] = await Promise.all([
@@ -235,6 +240,38 @@ export default function CatalogView() {
     await load();
   }
 
+  function openTracking(order: Order) {
+    setTrackError("");
+    setTrackForm({
+      stage: order.tracking?.stage ?? "preparing",
+      carrier: order.tracking?.carrier ?? order.shipping?.methodName ?? "",
+      trackingNumber: order.tracking?.trackingNumber ?? "",
+      trackingUrl: order.tracking?.trackingUrl ?? ""
+    });
+    setTrackOrder(order);
+  }
+
+  async function saveTracking() {
+    if (!trackOrder) return;
+    setTrackSaving(true);
+    setTrackError("");
+    const result = await api<{ notified: boolean }>(`/api/catalog/orders/${trackOrder.id}/tracking`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(trackForm)
+    });
+    setTrackSaving(false);
+    if (!result.ok) {
+      setTrackError(result.error || t("تعذر حفظ الشحن", "Could not save shipping"));
+      return;
+    }
+    setTrackOrder(null);
+    setNotice({ type: "success", message: result.data?.notified ? t("تم الحفظ وإشعار العميل", "Saved and the customer was notified") : t("تم الحفظ (لم يصل إشعار للعميل - ربما انتهت نافذة الـ 24 ساعة)", "Saved (the customer wasn't notified - the 24h window may have closed)") });
+    await load();
+  }
+
+  const trackingLabel = (stage?: "preparing" | "shipped" | "delivered") => stage === "shipped" ? t("تم الشحن", "Shipped") : stage === "delivered" ? t("تم التسليم", "Delivered") : stage === "preparing" ? t("قيد التجهيز", "Preparing") : t("لم يُحدَّث", "Not updated");
+
   async function changeOrderStatus(order: Order, status: Order["status"]) {
     await api(`/api/catalog/orders/${order.id}`, {
       method: "PATCH",
@@ -354,7 +391,7 @@ export default function CatalogView() {
           <div className="panel-body table-wrap">
             <input className="catalog-search" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder={t("ابحث برقم الطلب (مثل ORD-CF449CC2) أو اسم العميل أو جواله", "Search by order number (e.g. ORD-CF449CC2), customer or phone")} aria-label={t("بحث في الطلبات", "Search orders")} />
             <table className="mobile-card-table">
-              <thead><tr><th>{t("رقم الطلب", "Order no.")}</th><th>{t("التاريخ", "Date")}</th><th>{t("العميل", "Customer")}</th><th>{t("المنتج", "Product")}</th><th>{t("المبلغ", "Amount")}</th><th>{t("الحالة", "Status")}</th></tr></thead>
+              <thead><tr><th>{t("رقم الطلب", "Order no.")}</th><th>{t("التاريخ", "Date")}</th><th>{t("العميل", "Customer")}</th><th>{t("المنتج", "Product")}</th><th>{t("المبلغ", "Amount")}</th><th>{t("الحالة", "Status")}</th><th>{t("الشحن", "Shipping")}</th></tr></thead>
               <tbody>
                 {filteredOrders.map((order) => (
                   <tr key={order.id}>
@@ -377,9 +414,18 @@ export default function CatalogView() {
                         options={orderStatuses.map((status) => ({ value: status, label: statusLabel(status) }))}
                       />
                     </td>
+                    <td data-label={t("الشحن", "Shipping")}>
+                      {order.status === "paid" || order.status === "fulfilled" ? (
+                        <>
+                          <span className={order.tracking?.stage === "delivered" ? "state ok" : "state muted"}>{trackingLabel(order.tracking?.stage)}</span>
+                          {order.tracking?.trackingNumber ? <div><small dir="ltr">{order.tracking.trackingNumber}</small></div> : null}
+                          <button className="btn soft" type="button" onClick={() => openTracking(order)}>{t("تحديث الشحن", "Update shipping")}</button>
+                        </>
+                      ) : "-"}
+                    </td>
                   </tr>
                 ))}
-                {!filteredOrders.length ? <tr><td colSpan={6}>{loading ? t("جاري التحميل...", "Loading...") : orders.length ? t("لا توجد طلبات تطابق بحثك.", "No orders match your search.") : t("لا توجد طلبات بعد.", "No orders yet.")}</td></tr> : null}
+                {!filteredOrders.length ? <tr><td colSpan={7}>{loading ? t("جاري التحميل...", "Loading...") : orders.length ? t("لا توجد طلبات تطابق بحثك.", "No orders match your search.") : t("لا توجد طلبات بعد.", "No orders yet.")}</td></tr> : null}
               </tbody>
             </table>
           </div>
@@ -500,6 +546,29 @@ export default function CatalogView() {
 # حذف منتج: DELETE https://linklysa.io/api/v1/products/sku-1001`}</pre>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {trackOrder ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setTrackOrder(null)}>
+          <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("شحن الطلب", "Order shipping")} onClick={(event) => event.stopPropagation()} onSubmit={(event) => { event.preventDefault(); void saveTracking(); }}>
+            <header className="modal-head"><button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setTrackOrder(null)}>×</button><h2>{t("شحن الطلب", "Order shipping")} <span dir="ltr">{shortOrderNumber(trackOrder.id)}</span></h2></header>
+            <div className="account-modal-body form-grid">
+              <label className="reengagement-field"><span>{t("المرحلة", "Stage")}</span>
+                <CustomSelect value={trackForm.stage} ariaLabel={t("مرحلة الشحن", "Shipping stage")} onChange={(value) => setTrackForm({ ...trackForm, stage: value })} options={[{ value: "preparing", label: t("قيد التجهيز", "Preparing") }, { value: "shipped", label: t("تم الشحن", "Shipped") }, { value: "delivered", label: t("تم التسليم", "Delivered") }]} />
+              </label>
+              {trackForm.stage === "shipped" ? (
+                <>
+                  <label className="reengagement-field"><span>{t("شركة الشحن", "Carrier")}</span><input value={trackForm.carrier} onChange={(event) => setTrackForm({ ...trackForm, carrier: event.target.value })} /></label>
+                  <label className="reengagement-field"><span>{t("رقم الشحنة", "Tracking number")}</span><input dir="ltr" value={trackForm.trackingNumber} onChange={(event) => setTrackForm({ ...trackForm, trackingNumber: event.target.value })} /></label>
+                  <label className="reengagement-field"><span>{t("رابط التتبع (اختياري)", "Tracking link (optional)")}</span><input type="url" dir="ltr" value={trackForm.trackingUrl} onChange={(event) => setTrackForm({ ...trackForm, trackingUrl: event.target.value })} placeholder="https://" /></label>
+                </>
+              ) : null}
+              <p className="muted-copy">{t("يصل العميل إشعار في الواتساب عند الحفظ، وبإمكانه كتابة «تتبع طلبي» في أي وقت.", "The customer gets a WhatsApp message when you save, and can type \"تتبع طلبي\" any time.")}</p>
+              {trackError ? <p className="form-error">{trackError}</p> : null}
+            </div>
+            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setTrackOrder(null)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={trackSaving}>{trackSaving ? t("جاري الحفظ", "Saving") : t("حفظ وإشعار العميل", "Save and notify")}</button></footer>
+          </form>
         </div>
       ) : null}
 
