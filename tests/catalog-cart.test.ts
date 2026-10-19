@@ -69,9 +69,13 @@ describe("the cart", () => {
     expect(resolved.units).toBe(10);
     expect(resolved.total).toBe(5 * 20 + 5 * 35.5);
     const text = formatCart(resolved);
-    expect(text).toContain("1) شاي × 5");
-    expect(text).toContain("2) قهوة × 5");
-    expect(text).toContain("الإجمالي");
+    expect(text).toContain("1️⃣ *شاي*");
+    expect(text).toContain("الكمية: 5");
+    expect(text).toContain("سعر القطعة: 20 ر.س");
+    expect(text).toContain("المجموع: 100 ر.س");
+    expect(text).toContain("2️⃣ *قهوة*");
+    expect(text).toContain("المجموع: 177.50 ر.س");
+    expect(text).toContain("الإجمالي: 277.50 ر.س");
 
     expect(await setLineQuantity(tenantId, cid, 1, 3)).toBe(true);
     expect((await resolveCart(tenantId, cid)).lines[0].quantity).toBe(3);
@@ -118,8 +122,9 @@ describe("the cart in the chat", () => {
     sent.length = 0;
     await handleCatalogReply(c, { id: "cartqty_2", text: "" }, "");
     const shown = sent[0].input as { bodyText: string; buttons: Array<{ id: string }> };
-    expect(shown.bodyText).toContain("شاي × 2");
-    expect(shown.bodyText).toContain("الإجمالي: 40");
+    expect(shown.bodyText).toContain("*شاي*");
+    expect(shown.bodyText).toContain("الكمية: 2");
+    expect(shown.bodyText).toContain("الإجمالي: 40 ر.س");
     expect(shown.buttons.map((b) => b.id)).toEqual(["cart_pay", "cat_back", "cart_clear"]);
 
     // a second product, quantity typed as a number (not taken as a product pick)
@@ -127,14 +132,16 @@ describe("the cart in the chat", () => {
     sent.length = 0;
     await handleCatalogReply(c, { text: "3" }, "");
     const second = (sent[0].input as { bodyText: string }).bodyText;
-    expect(second).toContain("شاي × 2");
-    expect(second).toContain("قهوة × 3");
-    expect(second).toContain(`الإجمالي: ${40 + 3 * 35.5}`);
+    expect(second).toContain("*شاي*");
+    expect(second).toContain("*قهوة*");
+    expect(second).toContain("الكمية: 3");
+    expect(second).toContain("الإجمالي: 146.50 ر.س");
+    expect(second).not.toContain("✅ تمت إضافة «شاي»"); // the added product is the coffee
 
     // edit and delete by text
     sent.length = 0;
     await handleCatalogReply(c, { text: "تعديل 1 4" }, "");
-    expect((sent[0].input as { bodyText: string }).bodyText).toContain("شاي × 4");
+    expect((sent[0].input as { bodyText: string }).bodyText).toContain("الكمية: 4");
     sent.length = 0;
     await handleCatalogReply(c, { text: "حذف 2" }, "");
     expect((sent[0].input as { bodyText: string }).bodyText).not.toContain("قهوة");
@@ -143,8 +150,9 @@ describe("the cart in the chat", () => {
     await saveCatalogSettings(tenantId, { paymentEnabled: true, gatewaySecretKey: "sk_test_abcdefghijklmnop1234" });
     await handleCatalogReply(c, { id: "cart_pay", text: "" }, "");
     const reply = texts.at(-1) ?? "";
-    expect(reply).toContain("شاي × 4");
-    expect(reply).toContain("الإجمالي: 80");
+    expect(reply).toContain("*شاي*");
+    expect(reply).toContain("الكمية: 4 — 80 ر.س");
+    expect(reply).toContain("الإجمالي: 80 ر.س");
     expect(reply).toContain("https://pay.example/inv-1");
 
     const orders = await prisma.catalogOrder.findMany({ where: { conversationId: cid } });
@@ -196,7 +204,7 @@ describe("the cart in the chat", () => {
     const shown = (sent[0].input as { bodyText: string }).bodyText;
     expect(shown).toContain("تغيّرت الكمية المتاحة");
     expect(shown).toContain("قهوة: من 4 إلى 2");
-    expect(shown).toContain("قهوة × 2");
+    expect(shown).toContain("الكمية: 2");
     expect(await prisma.catalogOrder.count({ where: { conversationId: cid } })).toBe(0);
     expect((await prisma.product.findUnique({ where: { id: coffee.id } }))?.stock).toBe(2);
   });
@@ -220,6 +228,35 @@ describe("the cart in the chat", () => {
   });
 });
 
+describe("how the cart reads", () => {
+  it("puts big prices in groups of three and keeps a brand name apart from the numbers", async () => {
+    const { formatMoney, formatCart } = await import("../lib/catalog-cart");
+    expect(formatMoney(439130)).toBe("439,130 ر.س");
+    expect(formatMoney(87826.5)).toBe("87,826.50 ر.س");
+    const product = { id: "p", name: "ميتسوبيشي - MITSUBISHI اوتلاندر 2026", price: 87826, currency: "SAR" } as never;
+    const text = formatCart({ lines: [{ product, quantity: 5, lineTotal: 439130 }], total: 439130, currency: "SAR", units: 5, dropped: [], adjusted: [] });
+    const lines = text.split("\n");
+    // the name has a line to itself; quantity and amounts are on short lines of their own
+    expect(lines.some((line) => line.includes("*ميتسوبيشي - MITSUBISHI اوتلاندر 2026*") && !/\d{3}/.test(line.replace("2026", "")))).toBe(true);
+    expect(text).toContain("الكمية: 5");
+    expect(text).toContain("سعر القطعة: 87,826 ر.س");
+    expect(text).toContain("المجموع: 439,130 ر.س");
+    expect(text).toContain("الإجمالي: 439,130 ر.س");
+    // every line starts right-to-left so a Latin brand cannot flip it
+    expect(lines.filter((line) => line.includes("الكمية")).every((line) => line.startsWith("\u200f"))).toBe(true);
+  });
+
+  it("falls back to one short line per product when the cart is too long for one message", async () => {
+    const { formatCart, CART_DETAILED_MAX_CHARS } = await import("../lib/catalog-cart");
+    const lines = Array.from({ length: 12 }, (_, i) => ({ product: { id: `p${i}`, name: `منتج رقم ${i + 1} باسم طويل جدًا لاختبار الطول`, price: 1000, currency: "SAR" } as never, quantity: 2, lineTotal: 2000 }));
+    const cart = { lines, total: 24000, currency: "SAR", units: 24, dropped: [], adjusted: [] };
+    expect(formatCart(cart).length).toBeGreaterThan(CART_DETAILED_MAX_CHARS);
+    const compact = formatCart(cart, { compact: true });
+    expect(compact.length).toBeLessThan(CART_DETAILED_MAX_CHARS + 300);
+    expect(compact).toContain("×2 — 2,000 ر.س");
+  });
+});
+
 describe("a cart order after payment", () => {
   it("lists every product in the paid message and in the receipt rows", async () => {
     const { buildPaidOrderMessage } = await import("../lib/catalog-payments");
@@ -227,8 +264,8 @@ describe("a cart order after payment", () => {
     const items = [{ productName: "شاي", quantity: 4, unitPrice: 20 }, { productName: "قهوة", quantity: 1, unitPrice: 35.5 }];
     const message = buildPaidOrderMessage({ id: "ord-abcdef123456", customerName: "سارة", customerPhone: "966500000001", productName: "شاي، قهوة", quantity: 5, total: 115.5, currency: "SAR" }, new Date().toISOString(), "", items);
     expect(message).toContain("المنتجات:");
-    expect(message).toContain("• شاي × 4");
-    expect(message).toContain("• قهوة × 1");
+    expect(message).toContain("• شاي\n\u200f   الكمية: 4");
+    expect(message).toContain("• قهوة\n\u200f   الكمية: 1");
     expect(message).not.toContain("المنتج: ");
 
     const rows = receiptItemRows(items.map((item) => ({ name: item.productName, quantity: item.quantity, unitPrice: item.unitPrice })), "SAR");

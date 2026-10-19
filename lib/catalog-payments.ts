@@ -52,7 +52,7 @@ export function buildPaidOrderMessage(order: {
     "",
     `رقم الطلب: ${shortOrderNumber(order.id)}`,
     ...(items && items.length > 0
-      ? ["المنتجات:", ...items.map((item) => `• ${item.productName} × ${item.quantity}`)]
+      ? ["المنتجات:", ...items.map((item) => `\u200f• ${item.productName}\n\u200f   الكمية: ${item.quantity}`)]
       : [`المنتج: ${order.productName}`, ...(order.quantity > 1 ? [`الكمية: ${order.quantity}`] : [])]),
     `المبلغ المدفوع: ${amount} ${currency}`,
     ...(arabicDate(paidAtIso) ? [`التاريخ: ${arabicDate(paidAtIso)}`] : []),

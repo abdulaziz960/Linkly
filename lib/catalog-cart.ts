@@ -135,9 +135,53 @@ export async function resolveCart(tenantId: string, conversationId: string): Pro
   return { lines, total, currency: lines[0]?.product.currency ?? "SAR", units: lines.reduce((sum, line) => sum + line.quantity, 0), dropped, adjusted };
 }
 
-/** The cart as the customer reads it: each product with its quantity and price, then the total. */
-export function formatCart(cart: ResolvedCart): string {
+/** Forces right-to-left reading for a line that starts with Latin letters or digits (a brand name, a quantity). */
+const RLM = "\u200f";
+
+/** An amount with thousands separators ("439,130 ر.س"): big prices stay readable. */
+export function formatMoney(amount: number, currency = "SAR"): string {
+  const rounded = Math.round(amount * 100) / 100;
+  const text = rounded.toLocaleString("en-US", { minimumFractionDigits: Number.isInteger(rounded) ? 0 : 2, maximumFractionDigits: 2 });
+  return currency === "SAR" ? `${text} ر.س` : `${text} ${currency}`;
+}
+
+function shortName(name: string, max: number) {
+  const text = name.replace(/\s+/g, " ").trim();
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+const NUMBER_EMOJI = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
+const RULE = "──────────";
+/** WhatsApp button messages allow a body of 1024 characters: a long cart switches to short lines before that. */
+export const CART_DETAILED_MAX_CHARS = 850;
+
+/**
+ * The cart as the customer reads it. Each product is its own block - its name on a line by itself, then the
+ * quantity and the amounts on short lines of their own - so an English brand name next to numbers cannot scramble
+ * the order of a right-to-left line. A cart too long for one message uses one short line per product.
+ */
+export function formatCart(cart: ResolvedCart, options: { compact?: boolean } = {}): string {
   if (!cart.lines.length) return "🛒 سلتك فارغة حاليًا.";
-  const rows = cart.lines.map((line, index) => `${index + 1}) ${line.product.name} × ${line.quantity} = ${formatPrice(line.lineTotal, line.product.currency)}`);
-  return [`🛒 *سلتك*`, ...rows, "", `*الإجمالي: ${formatPrice(cart.total, cart.currency)}*`].join("\n");
+  const total = `🧾 *الإجمالي: ${formatMoney(cart.total, cart.currency)}*`;
+
+  const blocks = cart.lines.map((line, index) => {
+    const marker = NUMBER_EMOJI[index] ?? `${index + 1})`;
+    const lineTotal = formatMoney(line.lineTotal, line.product.currency);
+    if (options.compact) return `${RLM}${marker} ${shortName(line.product.name, 34)}${RLM} ×${line.quantity} — ${lineTotal}`;
+    return [
+      `${RLM}${marker} *${shortName(line.product.name, 70)}*`,
+      `${RLM}      الكمية: ${line.quantity}`,
+      ...(line.quantity > 1 ? [`${RLM}      سعر القطعة: ${formatMoney(line.product.price, line.product.currency)}`] : []),
+      `${RLM}      المجموع: ${lineTotal}`
+    ].join("\n");
+  });
+
+  return ["🛒 *سلتك*", RULE, blocks.join(options.compact ? "\n" : "\n\n"), RULE, total].join("\n");
+}
+
+/** The same lines for a placed order's message: name, quantity and the line total. */
+export function formatOrderLines(cart: ResolvedCart): string {
+  return cart.lines
+    .map((line) => `${RLM}• *${shortName(line.product.name, 70)}*\n${RLM}   الكمية: ${line.quantity} — ${formatMoney(line.lineTotal, line.product.currency)}`)
+    .join("\n");
 }

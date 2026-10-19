@@ -11,7 +11,7 @@ import {
   reserveCartStock,
   type CatalogProduct
 } from "./catalog";
-import { addToCart, clearCart, clearPendingProduct, formatCart, getCart, maxUnitsFor, removeLine, resolveCart, setLineQuantity, setPendingProduct, type ResolvedCart } from "./catalog-cart";
+import { addToCart, CART_DETAILED_MAX_CHARS, clearCart, clearPendingProduct, formatCart, formatMoney, formatOrderLines, getCart, maxUnitsFor, removeLine, resolveCart, setLineQuantity, setPendingProduct } from "./catalog-cart";
 import { createMerchantInvoice, shortOrderNumber } from "./catalog-payments";
 import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, setCheckoutState } from "./catalog-zid";
 import { createZidOrder } from "./zid-checkout";
@@ -285,7 +285,7 @@ async function purchase(ctx: CatalogCtx, productId: string) {
 
 // ---------- the cart ----------
 
-const CART_HELP = "لتعديل كمية منتج اكتب: تعديل 1 3 (رقم المنتج ثم الكمية)\nولحذف منتج اكتب: حذف 1";
+const CART_HELP = "✏️ لتعديل الكمية اكتب: *تعديل 1 3* (رقم المنتج ثم الكمية)\n🗑 للحذف اكتب: *حذف 1*";
 
 function cartButtons() {
   return [
@@ -304,7 +304,10 @@ async function showCart(ctx: CatalogCtx, prefix = "") {
     return;
   }
   const droppedNote = cart.dropped.length ? `\n\n⚠️ لم يعد متوفرًا وتمت إزالته: ${cart.dropped.join("، ")}` : "";
-  const body = `${prefix}${prefix ? "\n\n" : ""}${formatCart(cart)}${droppedNote}`;
+  const head = prefix ? `${prefix}\n\n` : "";
+  // A long cart would exceed WhatsApp's message limit: show one short line per product instead.
+  const detailed = `${head}${formatCart(cart)}${droppedNote}`;
+  const body = detailed.length > CART_DETAILED_MAX_CHARS ? `${head}${formatCart(cart, { compact: true })}${droppedNote}` : detailed;
   if (ctx.channel !== "whatsapp") {
     await ctx.sendText(`${body}\n\n${CART_HELP}\nللدفع اكتب: إتمام الدفع\nلتفريغ السلة اكتب: تفريغ السلة\nلمتابعة التسوق اكتب: المنتجات`);
     return;
@@ -348,11 +351,16 @@ async function addPendingToCart(ctx: CatalogCtx, productId: string, quantity: nu
   }
   const product = await getProduct(ctx.tenantId, productId);
   const note = result.capped ? `\n(الكمية المتاحة من هذا المنتج ${result.quantity} فقط)` : "";
-  await showCart(ctx, `تمت الإضافة إلى السلة ✅${note}\n${product ? `${product.name} × ${result.quantity}` : ""}`.trim());
+  await showCart(ctx, `✅ تمت إضافة ${product ? `«${product.name}»` : "المنتج"} إلى السلة${note}`);
 }
 
-function cartOrderSummary(cart: ResolvedCart) {
-  return cart.lines.map((line) => `• ${line.product.name} × ${line.quantity}`).join("\n");
+/** One line for the conversation's internal note: "name ×qty، name ×qty". */
+function notesLine(cart: Awaited<ReturnType<typeof resolveCart>>) {
+  return cart.lines.map((line) => `${line.product.name} ×${line.quantity}`).join("، ");
+}
+
+function cartOrderSummary(cart: Awaited<ReturnType<typeof resolveCart>>) {
+  return formatOrderLines(cart);
 }
 
 /** "Complete payment": one order for the whole cart and one payment link for its total. */
@@ -399,7 +407,7 @@ async function checkoutCart(ctx: CatalogCtx) {
     status: gatewayKey ? "awaiting_payment" : "new"
   });
   const itemsText = cartOrderSummary(cart);
-  const totalText = formatPrice(order.total, order.currency);
+  const totalText = formatMoney(order.total, order.currency);
 
   if (gatewayKey) {
     try {
@@ -415,7 +423,7 @@ async function checkoutCart(ctx: CatalogCtx) {
       });
       await prisma.catalogOrder.update({ where: { id: order.id }, data: { paymentId: invoice.id, paymentUrl: invoice.url, updatedAt: new Date().toISOString() } });
       await clearCart(ctx.conversationId);
-      await addOrderNote(ctx.conversationId, `طلب جديد بانتظار الدفع (${cart.units} قطعة): ${itemsText.replace(/\n/g, "، ")} - ${totalText}`);
+      await addOrderNote(ctx.conversationId, `طلب جديد بانتظار الدفع (${cart.units} قطعة): ${notesLine(cart)} - ${totalText}`);
       await ctx.sendText(`تم تجهيز طلبك ✅\nرقم الطلب: ${shortOrderNumber(order.id)}\n${itemsText}\n\n*الإجمالي: ${totalText}*\n\nلإتمام الدفع بأمان اضغط على الرابط:\n${invoice.url}`);
       return;
     } catch {
@@ -426,7 +434,7 @@ async function checkoutCart(ctx: CatalogCtx) {
 
   await clearCart(ctx.conversationId);
   await reopenForStaff(ctx.conversationId);
-  await addOrderNote(ctx.conversationId, `طلب جديد يحتاج متابعة (${cart.units} قطعة): ${itemsText.replace(/\n/g, "، ")} - ${totalText}`);
+  await addOrderNote(ctx.conversationId, `طلب جديد يحتاج متابعة (${cart.units} قطعة): ${notesLine(cart)} - ${totalText}`);
   await ctx.sendText(`تم استلام طلبك ✅\n${itemsText}\n\n*الإجمالي: ${totalText}*\n\nسيتواصل معك أحد موظفينا قريبًا لإتمام الطلب.`);
 }
 
@@ -532,12 +540,12 @@ async function finishZidCartCheckout(ctx: CatalogCtx, city: string, addressLine:
     status: created.ok && created.paymentLink ? "awaiting_payment" : "new"
   });
   const itemsText = cartOrderSummary(cart);
-  const totalText = formatPrice(order.total, order.currency);
+  const totalText = formatMoney(order.total, order.currency);
 
   if (created.ok && created.paymentLink) {
     await prisma.catalogOrder.update({ where: { id: order.id }, data: { paymentId: `zid-${created.orderId}`, paymentUrl: created.paymentLink, updatedAt: new Date().toISOString() } });
     await clearCart(ctx.conversationId);
-    await addOrderNote(ctx.conversationId, `طلب جديد في متجر زد (${created.code}) بانتظار الدفع (${cart.units} قطعة): ${itemsText.replace(/\n/g, "، ")} - ${totalText}`);
+    await addOrderNote(ctx.conversationId, `طلب جديد في متجر زد (${created.code}) بانتظار الدفع (${cart.units} قطعة): ${notesLine(cart)} - ${totalText}`);
     await ctx.sendText(`تم تجهيز طلبك ✅\nرقم الطلب: ${created.code}\n${itemsText}\n\n*الإجمالي: ${totalText}*\n\nلإتمام الدفع بأمان اضغط على الرابط:\n${created.paymentLink}`);
     return true;
   }
@@ -545,7 +553,7 @@ async function finishZidCartCheckout(ctx: CatalogCtx, city: string, addressLine:
   console.error("Zid cart order creation failed", created.ok ? "no payment link" : created.message);
   await clearCart(ctx.conversationId);
   await reopenForStaff(ctx.conversationId);
-  await addOrderNote(ctx.conversationId, `طلب يحتاج متابعة (تعذر إنشاؤه في زد${created.ok ? "" : `: ${created.message}`}): ${itemsText.replace(/\n/g, "، ")} - ${totalText}\nالمدينة: ${city}\nالعنوان: ${addressLine}`);
+  await addOrderNote(ctx.conversationId, `طلب يحتاج متابعة (تعذر إنشاؤه في زد${created.ok ? "" : `: ${created.message}`}): ${notesLine(cart)} - ${totalText}\nالمدينة: ${city}\nالعنوان: ${addressLine}`);
   await ctx.sendText(`تم استلام طلبك ✅\n${itemsText}\n\n*الإجمالي: ${totalText}*\n\nسيتواصل معك أحد موظفينا قريبًا لإتمام الطلب.`);
   return true;
 }
