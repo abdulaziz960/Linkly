@@ -391,7 +391,7 @@ export default function CatalogView() {
       {tab === "discounts" ? <DiscountCodesPanel zidConnected={Boolean(settings?.zidConnected)} /> : null}
 
       {tab === "settings" ? (
-        <>
+        <div className="catalog-settings">
           {notice ? <p className={`automation-feedback ${notice.type}`} role="status">{notice.message}</p> : null}
 
           {settings?.zidConnected ? (
@@ -406,65 +406,81 @@ export default function CatalogView() {
           ) : (
             <>
           <div className="panel">
-            <div className="panel-head"><h2>{t("الدفع من الواتساب", "Pay from WhatsApp")}</h2></div>
+            <div className="panel-head"><h2>{t("طرق الدفع", "Payment methods")}</h2></div>
             <div className="panel-body">
-              <p>{t("عند التفعيل، يحصل العميل بعد اختيار المنتج على رابط دفع آمن داخل المحادثة. الدفع يتم عبر حساب ميسر الخاص بك أنت، والمبلغ يصل مباشرة لحسابك - لنكلي لا يستلم ولا يحتفظ بأي مبالغ.", "When enabled, the customer gets a secure payment link in the chat after choosing a product. Payment goes through YOUR OWN Moyasar account and the money lands directly with you - Linkly never receives or holds any funds.")}</p>
-              <p className="muted-copy">{t("عند الإيقاف، يُسجَّل الطلب ويتواصل معه موظف لإتمام الدفع والتسليم.", "When off, the order is recorded and an employee follows up to complete payment and delivery.")}</p>
-              {canManagePayment ? (
-                <>
-                  <label className="automation-switch">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(settings?.paymentEnabled)}
-                      disabled={!settings?.hasGatewayKey}
-                      aria-label={t("تفعيل الدفع", "Enable payment")}
-                      onChange={(event) => void saveSettings({ paymentEnabled: event.target.checked }, event.target.checked ? t("تم تفعيل الدفع", "Payment enabled") : t("تم إيقاف الدفع", "Payment disabled"))}
-                    />
-                    <span>{settings?.paymentEnabled ? t("الدفع مفعّل", "Payment on") : t("الدفع متوقف", "Payment off")}</span>
-                  </label>
-                  <label className="reengagement-field">
-                    <span>{t("المفتاح السري من ميسر (Secret Key)", "Moyasar Secret Key")}</span>
-                    <input type="password" autoComplete="off" value={gatewayKey} onChange={(event) => setGatewayKey(event.target.value)} placeholder={settings?.hasGatewayKey ? "••••••••••••" : "sk_live_..."} dir="ltr" />
-                    <small>
-                      {settings?.hasGatewayKey
-                        ? t(`مفتاح محفوظ (${settings.gatewayKeyMode === "live" ? "وضع حقيقي" : "وضع تجريبي"}). اكتب مفتاحًا جديدًا لاستبداله.`, `Key saved (${settings.gatewayKeyMode === "live" ? "live mode" : "test mode"}). Enter a new one to replace it.`)
-                        : t("من لوحة ميسر ← الإعدادات ← مفاتيح API. يُخزَّن مشفّرًا ولا يظهر مرة أخرى.", "From the Moyasar dashboard → Settings → API keys. Stored encrypted and never shown again.")}
-                    </small>
-                  </label>
-                  <div className="row-actions">
-                    <button className="btn primary" type="button" disabled={!gatewayKey.trim()} onClick={async () => { if (await saveSettings({ gatewaySecretKey: gatewayKey.trim() }, t("تم حفظ مفتاح الدفع", "Payment key saved"))) setGatewayKey(""); }}>{t("حفظ المفتاح", "Save key")}</button>
-                    {settings?.hasGatewayKey ? <button className="btn danger" type="button" onClick={() => { if (window.confirm(t("حذف مفتاح الدفع وإيقاف الدفع؟", "Remove the payment key and turn payment off?"))) void saveSettings({ clearGatewayKey: true }, t("تم حذف المفتاح", "Key removed")); }}>{t("حذف المفتاح", "Remove key")}</button> : null}
+              <p className="muted-copy">{t("الدفع يتم عبر حساباتك أنت، والمبلغ يصل مباشرة لك - لنكلي لا يستلم ولا يحتفظ بأي مبالغ. فعّل ما يناسبك، وعند إيقاف الجميع يُسجَّل الطلب ويتواصل معه موظف.", "Payments go through YOUR own accounts and the money lands directly with you - Linkly never holds funds. Turn on what suits you; when all are off the order is recorded and an employee follows up.")}</p>
+              <div className="pay-grid">
+                <div className="pay-card">
+                  <div className="pay-card-head">
+                    <div className="pay-card-title">
+                      <h3>{t("ميسر (بطاقات / مدى / Apple Pay)", "Moyasar (cards / mada / Apple Pay)")}</h3>
+                      <small>{t("رابط دفع آمن داخل المحادثة", "Secure payment link in the chat")}</small>
+                    </div>
+                    {!settings?.hasGatewayKey ? <span className="pay-pill off">{t("غير مربوط", "Not set up")}</span> : settings.paymentEnabled ? <span className={`pay-pill ${settings.gatewayKeyMode === "live" ? "on" : "test"}`}>{settings.gatewayKeyMode === "live" ? t("مفعّل", "On") : t("مفعّل (تجريبي)", "On (test)")}</span> : <span className="pay-pill off">{t("متوقف", "Off")}</span>}
                   </div>
-                </>
-              ) : (
-                <p className="muted-copy">{t("إعدادات الدفع متاحة لمالك الحساب فقط.", "Payment settings are available to the account owner only.")}</p>
-              )}
+                  {canManagePayment ? (
+                    <>
+                      <label className="pay-switch">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(settings?.paymentEnabled)}
+                          disabled={!settings?.hasGatewayKey}
+                          aria-label={t("تفعيل الدفع", "Enable payment")}
+                          onChange={(event) => void saveSettings({ paymentEnabled: event.target.checked }, event.target.checked ? t("تم تفعيل الدفع", "Payment enabled") : t("تم إيقاف الدفع", "Payment disabled"))}
+                        />
+                        <span>{settings?.paymentEnabled ? t("ظاهر لعملائك عند الدفع", "Shown to customers at checkout") : t("غير ظاهر لعملائك", "Not shown to customers")}</span>
+                      </label>
+                      <div className="pay-fields">
+                        <label className="reengagement-field">
+                          <span>{t("المفتاح السري (Secret Key)", "Secret Key")}</span>
+                          <input type="password" autoComplete="off" value={gatewayKey} onChange={(event) => setGatewayKey(event.target.value)} placeholder={settings?.hasGatewayKey ? "••••••••••••" : "sk_live_..."} dir="ltr" />
+                          <small>
+                            {settings?.hasGatewayKey
+                              ? t(`مفتاح محفوظ (${settings.gatewayKeyMode === "live" ? "وضع حقيقي" : "وضع تجريبي"}). اكتب مفتاحًا جديدًا لاستبداله.`, `Key saved (${settings.gatewayKeyMode === "live" ? "live mode" : "test mode"}). Enter a new one to replace it.`)
+                              : t("من لوحة ميسر ← الإعدادات ← مفاتيح API. يُخزَّن مشفّرًا.", "From the Moyasar dashboard → Settings → API keys. Stored encrypted.")}
+                          </small>
+                        </label>
+                      </div>
+                      <div className="pay-card-foot">
+                        <button className="btn primary" type="button" disabled={!gatewayKey.trim()} onClick={async () => { if (await saveSettings({ gatewaySecretKey: gatewayKey.trim() }, t("تم حفظ مفتاح الدفع", "Payment key saved"))) setGatewayKey(""); }}>{t("حفظ المفتاح", "Save key")}</button>
+                        {settings?.hasGatewayKey ? <button className="btn danger" type="button" onClick={() => { if (window.confirm(t("حذف مفتاح الدفع وإيقاف الدفع؟", "Remove the payment key and turn payment off?"))) void saveSettings({ clearGatewayKey: true }, t("تم حذف المفتاح", "Key removed")); }}>{t("حذف المفتاح", "Remove key")}</button> : null}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="pay-hint">{t("إعدادات الدفع متاحة لمالك الحساب فقط.", "Payment settings are available to the account owner only.")}</p>
+                  )}
+                </div>
+
+                <PaymentProvidersPanel canManage={canManagePayment} />
+              </div>
             </div>
           </div>
-
-          <PaymentProvidersPanel canManage={canManagePayment} />
 
           <div className="panel">
             <div className="panel-head"><h2>{t("مزامنة المنتجات من موقعك", "Sync products from your website")}</h2></div>
             <div className="panel-body">
-              <p>{t("ضع رابط ملف المنتجات في موقعك (JSON أو XML أو CSV - مثل ملف Google Merchant)، وسيسحب لنكلي المنتجات ويحدّثها تلقائيًا. المنتجات التي تُحذف من الملف تُخفى من الكتالوج.", "Enter your website's product file URL (JSON, XML or CSV - e.g. a Google Merchant feed) and Linkly pulls and refreshes the products automatically. Products removed from the file are hidden from the catalog.")}</p>
-              <label className="reengagement-field">
-                <span>{t("رابط ملف المنتجات", "Product feed URL")}</span>
-                <input type="url" value={feedUrl} onChange={(event) => setFeedUrl(event.target.value)} placeholder="https://example.com/products.json" dir="ltr" />
-              </label>
-              <label className="reengagement-field">
-                <span>{t("مدة التحديث التلقائي", "Auto-refresh interval")}</span>
-                <CustomSelect value={String(feedInterval)} options={intervalOptions} onChange={(value) => setFeedInterval(Number(value))} />
-              </label>
-              <div className="row-actions">
-                <button className="btn primary" type="button" onClick={() => void saveSettings({ feedUrl: feedUrl.trim(), feedIntervalMinutes: feedInterval }, t("تم حفظ إعدادات المزامنة", "Sync settings saved"))}>{t("حفظ", "Save")}</button>
-                <button className="btn soft" type="button" disabled={syncing || !settings?.feedUrl} onClick={() => void syncNow()}>{syncing ? t("جاري المزامنة...", "Syncing...") : t("مزامنة الآن", "Sync now")}</button>
+              <p className="muted-copy">{t("ضع رابط ملف المنتجات في موقعك (JSON أو XML أو CSV - مثل ملف Google Merchant)، وسيسحب لنكلي المنتجات ويحدّثها تلقائيًا. المنتجات التي تُحذف من الملف تُخفى من الكتالوج.", "Enter your website's product file URL (JSON, XML or CSV - e.g. a Google Merchant feed) and Linkly pulls and refreshes the products automatically. Products removed from the file are hidden from the catalog.")}</p>
+              <div className="pay-card" style={{ marginTop: 14 }}>
+                <div className="pay-fields" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+                  <label className="reengagement-field">
+                    <span>{t("رابط ملف المنتجات", "Product feed URL")}</span>
+                    <input type="url" value={feedUrl} onChange={(event) => setFeedUrl(event.target.value)} placeholder="https://example.com/products.json" dir="ltr" />
+                  </label>
+                  <label className="reengagement-field">
+                    <span>{t("مدة التحديث التلقائي", "Auto-refresh interval")}</span>
+                    <CustomSelect value={String(feedInterval)} options={intervalOptions} onChange={(value) => setFeedInterval(Number(value))} />
+                  </label>
+                </div>
+                <div className="pay-card-foot">
+                  <button className="btn primary" type="button" onClick={() => void saveSettings({ feedUrl: feedUrl.trim(), feedIntervalMinutes: feedInterval }, t("تم حفظ إعدادات المزامنة", "Sync settings saved"))}>{t("حفظ", "Save")}</button>
+                  <button className="btn soft" type="button" disabled={syncing || !settings?.feedUrl} onClick={() => void syncNow()}>{syncing ? t("جاري المزامنة...", "Syncing...") : t("مزامنة الآن", "Sync now")}</button>
+                </div>
+                {settings?.feedLastSyncedAt ? (
+                  <p className={settings.feedLastStatus === "error" ? "form-error" : "pay-hint"}>
+                    {t("آخر مزامنة:", "Last sync:")} {new Date(settings.feedLastSyncedAt).toLocaleString("ar-SA-u-nu-latn", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh" })} - {settings.feedLastMessage}
+                  </p>
+                ) : null}
               </div>
-              {settings?.feedLastSyncedAt ? (
-                <p className={settings.feedLastStatus === "error" ? "form-error" : "muted-copy"}>
-                  {t("آخر مزامنة:", "Last sync:")} {new Date(settings.feedLastSyncedAt).toLocaleString("ar-SA-u-nu-latn", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh" })} - {settings.feedLastMessage}
-                </p>
-              ) : null}
             </div>
           </div>
 
@@ -484,7 +500,7 @@ export default function CatalogView() {
 # حذف منتج: DELETE https://linklysa.io/api/v1/products/sku-1001`}</pre>
             </div>
           </div>
-        </>
+        </div>
       ) : null}
 
       {guideOpen ? <CatalogIntegrationGuide onClose={() => setGuideOpen(false)} /> : null}

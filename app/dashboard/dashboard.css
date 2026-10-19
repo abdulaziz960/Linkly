@@ -11827,3 +11827,119 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .reports-hub-tabs {
   margin: 20px 24px 0;
 }
+
+/* ---- Catalog: payment & sync settings as cards ---- */
+.catalog-settings {
+  display: grid;
+  gap: 18px;
+  max-width: 1240px;
+  margin-inline: auto;
+}
+
+.pay-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.pay-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.pay-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pay-card-title {
+  display: grid;
+  gap: 3px;
+}
+
+.pay-card-title h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.pay-card-title small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pay-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pay-pill.on { background: #dff3e8; color: #14804a; }
+.pay-pill.off { background: #eef2f1; color: #5b716c; }
+.pay-pill.test { background: #fff1d6; color: #8a5a00; }
+
+.pay-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.pay-switch input { width: 18px; height: 18px; accent-color: #249154; }
+.pay-switch input:disabled { cursor: not-allowed; }
+
+.pay-fields { display: grid; gap: 12px; }
+
+.pay-fields .reengagement-field {
+  max-width: none;
+  margin-top: 0;
+  gap: 5px;
+}
+
+.pay-fields .reengagement-field > span { font-size: 13px; font-weight: 800; }
+
+.pay-fields input[type="password"],
+.pay-fields input[type="text"],
+.pay-fields input:not([type]) {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.pay-fields input:focus { outline: 2px solid var(--brand-200, #b9ddd8); outline-offset: 1px; }
+
+.pay-card-foot { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.pay-hint {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-soft, #f1f8f6);
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.pay-feedback { grid-column: 1 / -1; }

@@ -72,81 +72,97 @@ export default function PaymentProvidersPanel({ canManage }: { canManage: boolea
   if (!loaded || storeConnected) return null;
   const tabbyStatus = statuses.find((status) => status.provider === "tabby");
   const tamaraStatus = statuses.find((status) => status.provider === "tamara");
+  const pill = (status: Status | undefined) => {
+    if (!status?.configured) return <span className="pay-pill off">{t("غير مربوط", "Not set up")}</span>;
+    if (!status.enabled) return <span className="pay-pill off">{t("متوقف", "Off")}</span>;
+    return <span className={`pay-pill ${status.testMode ? "test" : "on"}`}>{status.testMode ? t("مفعّل (تجريبي)", "On (test)") : t("مفعّل", "On")}</span>;
+  };
 
   return (
-    <div className="panel">
-      <div className="panel-head"><h2>{t("طرق دفع إضافية: تابي وتمارا", "More payment methods: Tabby and Tamara")}</h2></div>
-      <div className="panel-body">
-        <p>{t("فعّل التقسيط لعملائك. عند إتمام الدفع، إن كانت أكثر من طريقة مفعّلة (مع البطاقة) يختار العميل طريقته من أزرار في واتساب. يمكنك تفعيل كل طريقة أو إيقافها متى شئت.", "Offer instalments. At checkout, if more than one method is on (cards included) the customer picks from WhatsApp buttons. You can switch each method on or off at any time.")}</p>
-        <p className="muted-copy">{t("تحتاج حساب تاجر معتمد لدى تابي ولدى تمارا. نحتفظ بالمفاتيح مشفّرة ولا تظهر مرة أخرى.", "You need an approved merchant account with Tabby and with Tamara. Keys are stored encrypted and never shown again.")}</p>
-        {message ? <p className={`automation-feedback ${message.type}`} role="status">{message.text}</p> : null}
-        {!canManage ? <p className="muted-copy">{t("إعدادات الدفع متاحة لمالك الحساب فقط.", "Payment settings are available to the account owner only.")}</p> : null}
-      </div>
+    <>
+      {message ? <p className={`automation-feedback pay-feedback ${message.type}`} role="status">{message.text}</p> : null}
 
-      <div className="panel-body">
-        <h3>{t("تابي (Tabby)", "Tabby")}</h3>
-        <label className="automation-switch">
+      <div className="pay-card">
+        <div className="pay-card-head">
+          <div className="pay-card-title">
+            <h3>{t("تابي (Tabby)", "Tabby")}</h3>
+            <small>{t("قسّم المشتريات على دفعات", "Split purchases into instalments")}</small>
+          </div>
+          {pill(tabbyStatus)}
+        </div>
+        <label className="pay-switch">
           <input type="checkbox" checked={Boolean(tabbyStatus?.enabled)} disabled={!canManage || !tabbyStatus?.configured || saving === "tabby"} aria-label={t("تفعيل تابي", "Enable Tabby")} onChange={(event) => void save("tabby", { enabled: event.target.checked }, event.target.checked ? t("تم تفعيل تابي", "Tabby is on") : t("تم إيقاف تابي", "Tabby is off"))} />
-          <span>{tabbyStatus?.enabled ? t("تابي مفعّل", "Tabby on") : t("تابي متوقف", "Tabby off")}{tabbyStatus?.configured && tabbyStatus.testMode ? ` · ${t("وضع تجريبي", "test mode")}` : ""}</span>
+          <span>{tabbyStatus?.enabled ? t("ظاهر لعملائك عند الدفع", "Shown to customers at checkout") : t("غير ظاهر لعملائك", "Not shown to customers")}</span>
         </label>
         {canManage ? (
           <>
-            <label className="reengagement-field">
-              <span>{t("المفتاح السري (Secret Key)", "Secret Key")}</span>
-              <input type="password" dir="ltr" autoComplete="off" value={tabby.secretKey} onChange={(event) => setTabby({ ...tabby, secretKey: event.target.value })} placeholder={tabbyStatus?.configured ? "••••••••••••" : "sk_test_..."} />
-              <small>{tabbyStatus?.configured ? t("مفتاح محفوظ. اكتب مفتاحًا جديدًا لاستبداله.", "Key saved. Type a new key to replace it.") : t("من لوحة تابي. يبدأ بـ sk_ (أو sk_test_ للتجربة).", "From the Tabby dashboard. Starts with sk_ (sk_test_ for testing).")}</small>
-            </label>
-            <label className="reengagement-field">
-              <span>{t("المفتاح العام (Public Key)", "Public Key")}</span>
-              <input dir="ltr" autoComplete="off" value={tabby.publicKey} onChange={(event) => setTabby({ ...tabby, publicKey: event.target.value })} placeholder={tabbyStatus?.hasPublicKey ? t("محفوظ. اكتب مفتاحًا جديدًا لاستبداله", "Saved. Type a new one to replace it") : "pk_test_..."} />
-              <small>{t("يبدأ بـ pk_ (أو pk_test_). لا يلزم لقبول الدفع، ونحفظه لعرض إعلانات تابي في المحادثة لاحقًا.", "Starts with pk_ (pk_test_). Not needed to take payments; saved for Tabby on-site messaging later.")}</small>
-            </label>
-            <label className="reengagement-field">
-              <span>{t("رمز التاجر (Merchant Code)", "Merchant Code")}</span>
-              <input dir="ltr" autoComplete="off" value={tabby.merchantCode} onChange={(event) => setTabby({ ...tabby, merchantCode: event.target.value })} placeholder="your_merchant_code" />
-              <small>{t("الرمز الذي سلّمه لك تابي لفرعك.", "The code Tabby gave your branch.")}</small>
-            </label>
-            <div className="row-actions">
+            <div className="pay-fields">
+              <label className="reengagement-field">
+                <span>{t("المفتاح السري (Secret Key)", "Secret Key")}</span>
+                <input type="password" dir="ltr" autoComplete="off" value={tabby.secretKey} onChange={(event) => setTabby({ ...tabby, secretKey: event.target.value })} placeholder={tabbyStatus?.configured ? "••••••••••••" : "sk_test_..."} />
+                <small>{tabbyStatus?.configured ? t("محفوظ. اكتب مفتاحًا جديدًا لاستبداله.", "Saved. Type a new key to replace it.") : t("يبدأ بـ sk_ (أو sk_test_ للتجربة).", "Starts with sk_ (sk_test_ for testing).")}</small>
+              </label>
+              <label className="reengagement-field">
+                <span>{t("المفتاح العام (Public Key)", "Public Key")}</span>
+                <input dir="ltr" autoComplete="off" value={tabby.publicKey} onChange={(event) => setTabby({ ...tabby, publicKey: event.target.value })} placeholder={tabbyStatus?.hasPublicKey ? t("محفوظ", "Saved") : "pk_test_..."} />
+                <small>{t("اختياري: لعرض إعلانات تابي لاحقًا.", "Optional: for Tabby messaging later.")}</small>
+              </label>
+              <label className="reengagement-field">
+                <span>{t("رمز التاجر (Merchant Code)", "Merchant Code")}</span>
+                <input dir="ltr" autoComplete="off" value={tabby.merchantCode} onChange={(event) => setTabby({ ...tabby, merchantCode: event.target.value })} placeholder="your_merchant_code" />
+                <small>{t("الرمز الذي سلّمه لك تابي لفرعك.", "The code Tabby gave your branch.")}</small>
+              </label>
+            </div>
+            <div className="pay-card-foot">
               <button className="btn primary" type="button" disabled={saving === "tabby" || (!tabby.secretKey.trim() && !tabbyStatus?.configured) || !tabby.merchantCode.trim()} onClick={() => void save("tabby", { secretKey: tabby.secretKey.trim(), publicKey: tabby.publicKey.trim(), merchantCode: tabby.merchantCode.trim(), enabled: true }, t("تم حفظ تابي وتفعيله", "Tabby saved and turned on")).then((ok) => { if (ok) setTabby((current) => ({ ...current, secretKey: "", publicKey: "" })); })}>{saving === "tabby" ? t("جاري التحقق...", "Checking...") : t("حفظ وتفعيل", "Save and turn on")}</button>
-              {tabbyStatus?.configured ? <button className="btn danger" type="button" onClick={() => void remove("tabby")}>{t("حذف الإعدادات", "Remove")}</button> : null}
+              {tabbyStatus?.configured ? <button className="btn danger" type="button" onClick={() => void remove("tabby")}>{t("حذف", "Remove")}</button> : null}
             </div>
           </>
         ) : null}
       </div>
 
-      <div className="panel-body">
-        <h3>{t("تمارا (Tamara)", "Tamara")}</h3>
-        <label className="automation-switch">
+      <div className="pay-card">
+        <div className="pay-card-head">
+          <div className="pay-card-title">
+            <h3>{t("تمارا (Tamara)", "Tamara")}</h3>
+            <small>{t("ادفع على دفعات مع تمارا", "Pay in instalments with Tamara")}</small>
+          </div>
+          {pill(tamaraStatus)}
+        </div>
+        <label className="pay-switch">
           <input type="checkbox" checked={Boolean(tamaraStatus?.enabled)} disabled={!canManage || !tamaraStatus?.configured || saving === "tamara"} aria-label={t("تفعيل تمارا", "Enable Tamara")} onChange={(event) => void save("tamara", { enabled: event.target.checked }, event.target.checked ? t("تم تفعيل تمارا", "Tamara is on") : t("تم إيقاف تمارا", "Tamara is off"))} />
-          <span>{tamaraStatus?.enabled ? t("تمارا مفعّلة", "Tamara on") : t("تمارا متوقفة", "Tamara off")}{tamaraStatus?.configured && tamaraStatus.testMode ? ` · ${t("وضع تجريبي", "sandbox")}` : ""}</span>
+          <span>{tamaraStatus?.enabled ? t("ظاهرة لعملائك عند الدفع", "Shown to customers at checkout") : t("غير ظاهرة لعملائك", "Not shown to customers")}</span>
         </label>
         {canManage ? (
           <>
-            <label className="reengagement-field">
-              <span>{t("رمز الواجهة (API Token)", "API Token")}</span>
-              <input type="password" dir="ltr" autoComplete="off" value={tamara.apiToken} onChange={(event) => setTamara({ ...tamara, apiToken: event.target.value })} placeholder={tamaraStatus?.configured ? "••••••••••••" : ""} />
-              <small>{tamaraStatus?.configured ? t("رمز محفوظ. اكتب رمزًا جديدًا لاستبداله.", "Token saved. Type a new one to replace it.") : t("من حساب تمارا للتجار (Partners Portal).", "From your Tamara merchant account (Partners Portal).")}</small>
-            </label>
-            <label className="reengagement-field">
-              <span>{t("المفتاح العام (Public Key) — اختياري", "Public Key — optional")}</span>
-              <input dir="ltr" autoComplete="off" value={tamara.publicKey} onChange={(event) => setTamara({ ...tamara, publicKey: event.target.value })} placeholder={tamaraStatus?.hasPublicKey ? t("محفوظ. اكتب مفتاحًا جديدًا لاستبداله", "Saved. Type a new one to replace it") : ""} />
-              <small>{t("لا يلزم لقبول الدفع، ونحفظه لعرض ودجات تمارا في المحادثة لاحقًا.", "Not needed to take payments; saved for Tamara widgets later.")}</small>
-            </label>
-            <label className="reengagement-field">
-              <span>{t("رمز الإشعارات (Notification Token) — اختياري", "Notification Token — optional")}</span>
-              <input type="password" dir="ltr" autoComplete="off" value={tamara.notificationToken} onChange={(event) => setTamara({ ...tamara, notificationToken: event.target.value })} />
-            </label>
-            <label className="automation-switch">
-              <input type="checkbox" checked={tamara.sandbox} onChange={(event) => setTamara({ ...tamara, sandbox: event.target.checked })} />
-              <span>{t("بيئة تجريبية (Sandbox)", "Sandbox (testing)")}</span>
-            </label>
-            <div className="row-actions">
+            <div className="pay-fields">
+              <label className="reengagement-field">
+                <span>{t("رمز الواجهة (API Token)", "API Token")}</span>
+                <input type="password" dir="ltr" autoComplete="off" value={tamara.apiToken} onChange={(event) => setTamara({ ...tamara, apiToken: event.target.value })} placeholder={tamaraStatus?.configured ? "••••••••••••" : ""} />
+                <small>{tamaraStatus?.configured ? t("محفوظ. اكتب رمزًا جديدًا لاستبداله.", "Saved. Type a new one to replace it.") : t("من حساب تمارا للتجار (Partners Portal).", "From your Tamara merchant account.")}</small>
+              </label>
+              <label className="reengagement-field">
+                <span>{t("المفتاح العام (Public Key)", "Public Key")}</span>
+                <input dir="ltr" autoComplete="off" value={tamara.publicKey} onChange={(event) => setTamara({ ...tamara, publicKey: event.target.value })} placeholder={tamaraStatus?.hasPublicKey ? t("محفوظ", "Saved") : ""} />
+                <small>{t("اختياري: لعرض ودجات تمارا لاحقًا.", "Optional: for Tamara widgets later.")}</small>
+              </label>
+              <label className="reengagement-field">
+                <span>{t("رمز الإشعارات (Notification Token)", "Notification Token")}</span>
+                <input type="password" dir="ltr" autoComplete="off" value={tamara.notificationToken} onChange={(event) => setTamara({ ...tamara, notificationToken: event.target.value })} />
+                <small>{t("اختياري.", "Optional.")}</small>
+              </label>
+              <label className="pay-switch">
+                <input type="checkbox" checked={tamara.sandbox} onChange={(event) => setTamara({ ...tamara, sandbox: event.target.checked })} />
+                <span>{t("بيئة تجريبية (Sandbox)", "Sandbox (testing)")}</span>
+              </label>
+            </div>
+            <div className="pay-card-foot">
               <button className="btn primary" type="button" disabled={saving === "tamara" || (!tamara.apiToken.trim() && !tamaraStatus?.configured)} onClick={() => void save("tamara", { apiToken: tamara.apiToken.trim(), publicKey: tamara.publicKey.trim(), notificationToken: tamara.notificationToken.trim(), sandbox: tamara.sandbox, enabled: true }, t("تم حفظ تمارا وتفعيلها", "Tamara saved and turned on")).then((ok) => { if (ok) setTamara((current) => ({ ...current, apiToken: "", publicKey: "", notificationToken: "" })); })}>{saving === "tamara" ? t("جاري التحقق...", "Checking...") : t("حفظ وتفعيل", "Save and turn on")}</button>
-              {tamaraStatus?.configured ? <button className="btn danger" type="button" onClick={() => void remove("tamara")}>{t("حذف الإعدادات", "Remove")}</button> : null}
+              {tamaraStatus?.configured ? <button className="btn danger" type="button" onClick={() => void remove("tamara")}>{t("حذف", "Remove")}</button> : null}
             </div>
           </>
         ) : null}
       </div>
-    </div>
+    </>
   );
 }
