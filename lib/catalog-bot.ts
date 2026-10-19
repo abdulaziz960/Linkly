@@ -214,7 +214,36 @@ async function addOrderNote(conversationId: string, text: string) {
   }).catch((error) => console.error("Failed to log catalog order note", error));
 }
 
+/**
+ * "Buy now" / "submit an order" on a product. For the platform's own catalog the product goes into the cart (one
+ * unit, unless it is already there) and the cart opens, so the customer can change the quantity, enter a discount
+ * code and then pay. A workspace connected to a Zid store keeps the direct single-product order (the store owns
+ * prices, coupons and payment there).
+ */
 async function purchase(ctx: CatalogCtx, productId: string) {
+  const zid = await getZidCatalogMode(ctx.tenantId);
+  if (zid.connected) {
+    await purchaseSingle(ctx, productId);
+    return;
+  }
+  const product = await getProduct(ctx.tenantId, productId);
+  if (!product || !isProductAvailable(product)) {
+    await ctx.sendText("عذرًا، هذا المنتج لم يعد متوفرًا حاليًا.");
+    await sendCatalogMenu(ctx, "يمكنك اختيار منتج آخر:");
+    return;
+  }
+  const cart = await getCart(ctx.conversationId);
+  if (!cart.lines.some((line) => line.productId === product.id)) {
+    const added = await addToCart(ctx.tenantId, ctx.conversationId, product.id, 1);
+    if (!added.ok) {
+      await ctx.sendText(added.reason === "cart-full" ? "وصلت سلتك للحد الأقصى من المنتجات. أتمّ الطلب أو احذف منتجًا." : "عذرًا، هذا المنتج لم يعد متوفرًا حاليًا.");
+      return;
+    }
+  }
+  await showCart(ctx, `أضفنا «${product.name}» إلى سلتك. أتمّ الدفع من الزر، أو غيّر الكمية، أو أدخل كود خصم.`);
+}
+
+async function purchaseSingle(ctx: CatalogCtx, productId: string) {
   const product = await getProduct(ctx.tenantId, productId);
   if (!product || !isProductAvailable(product)) {
     await ctx.sendText("عذرًا، هذا المنتج لم يعد متوفرًا حاليًا.");

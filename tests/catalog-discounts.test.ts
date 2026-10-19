@@ -184,6 +184,36 @@ describe("a discount code in the chat cart", () => {
     expect(lastBody()).toContain("الإجمالي: 200 ر.س");
   });
 
+  it("lets a customer who taps 'buy now' use a code too: the product goes into the cart, which opens", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { createDiscount } = await import("../lib/catalog-discounts");
+    const { handleCatalogReply } = await import("../lib/catalog-bot");
+    const product = (await prisma.product.findMany({ where: { tenantId } }))[0];
+    await createDiscount(tenantId, { code: "NOWCODE", kind: "percent", value: 25 });
+    const cid = "disc-buynow";
+    await prisma.customer.create({ data: { id: `cust-${cid}`, name: "عميل", phone: "966500000003", initial: "ع", tenantId } });
+    await prisma.conversation.create({ data: { id: cid, customerId: `cust-${cid}`, channel: "whatsapp", lastMessage: "x", status: "closed", assignee: "بدون موظف", lastActivityAt: new Date().toISOString(), tenantId } });
+    const { ctx: c } = ctx(cid);
+
+    sent.length = 0;
+    invoices.length = 0;
+    await handleCatalogReply(c, { id: `buy_${product.id}`, text: "" }, "");
+    const shown = sent.at(-1)?.input as { bodyText: string; buttons: Array<{ id: string }> };
+    expect(shown.bodyText).toContain("أضفنا «ساعة» إلى سلتك");
+    expect(shown.buttons.map((b) => b.id)).toEqual(["cart_pay", "cart_code", "cat_back"]);
+    expect(invoices).toHaveLength(0); // nothing is charged yet
+    expect(await prisma.catalogOrder.count({ where: { conversationId: cid } })).toBe(0);
+
+    // pressing "buy now" again does not add a second unit
+    await handleCatalogReply(c, { id: `buy_${product.id}`, text: "" }, "");
+    expect(String((sent.at(-1)?.input as { bodyText: string }).bodyText)).toContain("الكمية: 1");
+
+    await handleCatalogReply(c, { text: "كود nowcode" }, "");
+    expect(String((sent.at(-1)?.input as { bodyText: string }).bodyText)).toContain("الإجمالي: 150 ر.س");
+    await handleCatalogReply(c, { id: "cart_pay", text: "" }, "");
+    expect(invoices).toEqual([{ amount: 150 }]);
+  });
+
   it("gives the last use of a code to one customer only", async () => {
     const { createDiscount, findDiscountByCode } = await import("../lib/catalog-discounts");
     const { addToCart } = await import("../lib/catalog-cart");
