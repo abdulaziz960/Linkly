@@ -246,14 +246,20 @@ export function formatOrderLines(cart: ResolvedCart): string {
     .join("\n");
 }
 
-/** A placed order's message body: the lines, then the totals (with the discount when a code was used). */
-export function formatOrderSummary(cart: ResolvedCart): string {
-  const totals = cart.discount
-    ? [
-        `${RLM}المجموع قبل الخصم: ${formatMoney(cart.subtotal, cart.currency)}`,
-        `${RLM}الخصم (${cart.discount.code}): -${formatMoney(cart.discount.amount, cart.currency)}`,
-        `${RLM}*الإجمالي: ${formatMoney(cart.total, cart.currency)}*`
-      ]
-    : [`${RLM}*الإجمالي: ${formatMoney(cart.total, cart.currency)}*`];
-  return `${formatOrderLines(cart)}\n\n${totals.join("\n")}`;
+/** The delivery chosen for an order, as the summary shows it. */
+export type ShippingQuote = { methodName: string; city: string; fee: number; eta?: string };
+
+/** A placed order's message body: the lines, then the totals (with the discount and the delivery when there are any). */
+export function formatOrderSummary(cart: ResolvedCart, shipping?: ShippingQuote): string {
+  const rows: string[] = [];
+  if (cart.discount) {
+    rows.push(`${RLM}المجموع قبل الخصم: ${formatMoney(cart.subtotal, cart.currency)}`);
+    rows.push(`${RLM}الخصم (${cart.discount.code}): -${formatMoney(cart.discount.amount, cart.currency)}`);
+  }
+  if (shipping) {
+    rows.push(`${RLM}التوصيل (${shipping.methodName} - ${shipping.city}): ${shipping.fee > 0 ? formatMoney(shipping.fee, cart.currency) : "مجاني"}`);
+  }
+  const total = Math.round((cart.total + (shipping?.fee ?? 0)) * 100) / 100;
+  rows.push(`${RLM}*الإجمالي: ${formatMoney(total, cart.currency)}*`);
+  return `${formatOrderLines(cart)}\n\n${rows.join("\n")}`;
 }

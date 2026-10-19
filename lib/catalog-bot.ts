@@ -11,8 +11,10 @@ import {
   reserveCartStock,
   type CatalogProduct
 } from "./catalog";
-import { addToCart, applyDiscountCode, CART_DETAILED_MAX_CHARS, clearCart, clearPendingProduct, formatCart, formatMoney, formatOrderSummary, getCart, maxUnitsFor, PENDING_DISCOUNT, removeDiscountCode, removeLine, resolveCart, setLineQuantity, setPendingProduct } from "./catalog-cart";
+import { addToCart, applyDiscountCode, CART_DETAILED_MAX_CHARS, clearCart, clearPendingProduct, formatCart, formatMoney, formatOrderSummary, getCart, maxUnitsFor, PENDING_DISCOUNT, removeDiscountCode, removeLine, resolveCart, setLineQuantity, setPendingProduct, type ShippingQuote } from "./catalog-cart";
 import { redeemDiscount, releaseDiscountUse } from "./catalog-discounts";
+import { clearCheckoutFlow, getCheckoutFlow, setCheckoutFlow, type CheckoutFlow } from "./catalog-checkout-flow";
+import { getShippingMethod, hasConnectedStore, listShippingMethods, methodsForCity, servedCities, shippingFee, type ShippingMethod } from "./catalog-shipping";
 import { createMerchantInvoice, shortOrderNumber } from "./catalog-payments";
 import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, setCheckoutState } from "./catalog-zid";
 import { createZidOrder } from "./zid-checkout";
@@ -53,6 +55,9 @@ const ID_CART_QTY = "cartqty_";
 const ID_CART_VIEW = "cart_view";
 const ID_CART_PAY = "cart_pay";
 const ID_CART_CODE = "cart_code";
+const ID_SHIP = "ship_";
+const ID_SHIP_CONFIRM = "ship_confirm";
+const ID_SHIP_EDIT = "ship_edit";
 /** In the Zid checkout state, the product id that means "the whole cart". */
 const CART_CHECKOUT = "__cart__";
 const CARDS_PER_PAGE = 10;
@@ -454,6 +459,193 @@ async function checkoutCart(ctx: CatalogCtx) {
     return;
   }
 
+  // The platform's own catalog, no store connected: with delivery options set up, the customer says where the order goes first.
+  if (!zid.connected && !(await hasConnectedStore(ctx.tenantId))) {
+    const methods = await listShippingMethods(ctx.tenantId, { activeOnly: true });
+    if (methods.length) {
+      await startShippingFlow(ctx, methods);
+      return;
+    }
+  }
+
+  await finalizeCartOrder(ctx, cart, undefined);
+}
+
+// ---------- delivery questions ----------
+
+type Delivery = { method: ShippingMethod; city: string; address: string };
+
+function describeMethod(method: ShippingMethod, productsTotal: number) {
+  const fee = shippingFee(method, productsTotal);
+  return `${method.name}: ${fee > 0 ? formatMoney(fee) : "مجاني"}${method.eta ? ` (${method.eta})` : ""}`;
+}
+
+async function startShippingFlow(ctx: CatalogCtx, methods: ShippingMethod[]) {
+  await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "city", data: {} });
+  const served = servedCities(methods);
+  const list = served && served.length && served.length <= 15 ? `\nالمدن المتاحة: ${served.join("، ")}` : "";
+  await ctx.sendText(`لتجهيز طلبك أحتاج وجهة التوصيل.\nما اسم *مدينتك*؟${list}\n(اكتب «إلغاء» للرجوع إلى السلة)`);
+}
+
+/** Products total the delivery threshold is judged on: after any discount. */
+function productsTotal(cart: Awaited<ReturnType<typeof resolveCart>>) {
+  return Math.round((cart.subtotal - (cart.discount?.amount ?? 0)) * 100) / 100;
+}
+
+async function askAddress(ctx: CatalogCtx, flow: CheckoutFlow, method: ShippingMethod, cart: Awaited<ReturnType<typeof resolveCart>>) {
+  await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "address", data: { ...flow.data, methodId: method.id } });
+  await ctx.sendText(`سنوصل طلبك إلى ${flow.data.city} عبر ${describeMethod(method, productsTotal(cart))}.\nاكتب *عنوانك* بالتفصيل (الحي والشارع ورقم المبنى).`);
+}
+
+async function showDeliverySummary(ctx: CatalogCtx, delivery: Delivery, cart: Awaited<ReturnType<typeof resolveCart>>) {
+  const quote: ShippingQuote = { methodName: delivery.method.name, city: delivery.city, fee: shippingFee(delivery.method, productsTotal(cart)), eta: delivery.method.eta };
+  const body = `*ملخص الطلب*\n${formatOrderSummary(cart, quote)}\n\nالعنوان: ${delivery.address}${delivery.method.eta ? `\nمدة التوصيل: ${delivery.method.eta}` : ""}`;
+  if (ctx.channel !== "whatsapp") {
+    await ctx.sendText(`${body}\n\nللتأكيد اكتب: تأكيد\nلتغيير العنوان اكتب: تعديل العنوان\nللإلغاء اكتب: إلغاء`);
+    return;
+  }
+  const sent = await sendWhatsAppIdButtons({
+    tenantId: ctx.tenantId,
+    conversationId: ctx.conversationId,
+    to: ctx.recipientId,
+    bodyText: body,
+    buttons: [{ id: ID_SHIP_CONFIRM, title: "تأكيد وإتمام الدفع" }, { id: ID_SHIP_EDIT, title: "تعديل العنوان" }],
+    displayText: body,
+    author: AUTHOR
+  });
+  if (!sent.ok) await ctx.sendText(`${body}\n\nللتأكيد اكتب: تأكيد\nلتغيير العنوان اكتب: تعديل العنوان`);
+}
+
+/** Resolves the delivery the flow collected against what is configured now (an option may have been removed meanwhile). */
+async function deliveryFromFlow(ctx: CatalogCtx, flow: CheckoutFlow): Promise<Delivery | null> {
+  const { city, methodId, address } = flow.data;
+  if (!city || !methodId || !address) return null;
+  const method = await getShippingMethod(ctx.tenantId, methodId);
+  if (!method || !method.active || !methodsForCity([method], city).length) return null;
+  return { method, city, address };
+}
+
+/**
+ * One answer of the delivery questions. Returns false when the message is not for the flow (so normal handling goes on).
+ * A tap on something else abandons the flow (done by the caller).
+ */
+async function continueShippingFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: { id?: string; text: string }): Promise<boolean> {
+  const id = reply.id || "";
+  const text = reply.text.trim();
+
+  if (!id && /^(إلغاء|الغاء|cancel)$/i.test(text)) {
+    await clearCheckoutFlow(ctx.conversationId);
+    await showCart(ctx);
+    return true;
+  }
+
+  const cart = await resolveCart(ctx.tenantId, ctx.conversationId);
+  if (!cart.lines.length) {
+    await clearCheckoutFlow(ctx.conversationId);
+    await showCart(ctx);
+    return true;
+  }
+  const methods = await listShippingMethods(ctx.tenantId, { activeOnly: true });
+  if (!methods.length) {
+    // Delivery was switched off meanwhile: carry on without it.
+    await clearCheckoutFlow(ctx.conversationId);
+    await finalizeCartOrder(ctx, cart, undefined);
+    return true;
+  }
+
+  if (flow.step === "city") {
+    if (!text || id) return false;
+    if (text.length > 60) {
+      await ctx.sendText("اكتب اسم المدينة فقط، مثل: الرياض");
+      return true;
+    }
+    const matches = methodsForCity(methods, text);
+    if (!matches.length) {
+      const served = servedCities(methods);
+      await ctx.sendText(`نعتذر، لا يتوفر التوصيل إلى «${text}» حاليًا.${served && served.length ? `\nالمدن المتاحة: ${served.slice(0, 15).join("، ")}${served.length > 15 ? "، وغيرها" : ""}` : ""}\nاكتب مدينة أخرى، أو «إلغاء» للرجوع إلى السلة.`);
+      return true;
+    }
+    const withCity: CheckoutFlow = { step: "city", data: { city: text } };
+    if (matches.length === 1) {
+      await askAddress(ctx, withCity, matches[0], cart);
+      return true;
+    }
+    await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "method", data: withCity.data });
+    const total = productsTotal(cart);
+    const options = matches.map((method, index) => `${index + 1}) ${describeMethod(method, total)}`).join("\n");
+    if (ctx.channel === "whatsapp" && matches.length <= 3) {
+      const body = `اختر طريقة التوصيل إلى ${text}:\n${options}`;
+      const sent = await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttons: matches.map((method) => ({ id: `${ID_SHIP}${method.id}`, title: method.name.slice(0, 20) })), displayText: body, author: AUTHOR });
+      if (!sent.ok) await ctx.sendText(`${body}\nاكتب رقم الخيار.`);
+    } else {
+      await ctx.sendText(`اختر طريقة التوصيل إلى ${text}:\n${options}\nاكتب رقم الخيار.`);
+    }
+    return true;
+  }
+
+  if (flow.step === "method") {
+    const matches = methodsForCity(methods, flow.data.city ?? "");
+    const picked = id.startsWith(ID_SHIP) && id !== ID_SHIP_CONFIRM && id !== ID_SHIP_EDIT
+      ? matches.find((method) => method.id === id.slice(ID_SHIP.length))
+      : /^\d{1,2}$/.test(text) ? matches[Number(text) - 1] : undefined;
+    if (!picked) {
+      await ctx.sendText("اختر طريقة التوصيل من الأزرار، أو اكتب رقم الخيار.");
+      return true;
+    }
+    await askAddress(ctx, flow, picked, cart);
+    return true;
+  }
+
+  if (flow.step === "address") {
+    if (id || !text) return false;
+    if (text.length < 6) {
+      await ctx.sendText("اكتب العنوان بالتفصيل (الحي والشارع ورقم المبنى).");
+      return true;
+    }
+    const next: CheckoutFlow = { step: "confirm", data: { ...flow.data, address: text.slice(0, 300) } };
+    await setCheckoutFlow(ctx.tenantId, ctx.conversationId, next);
+    const delivery = await deliveryFromFlow(ctx, next);
+    if (!delivery) {
+      await startShippingFlow(ctx, methods);
+      return true;
+    }
+    await showDeliverySummary(ctx, delivery, cart);
+    return true;
+  }
+
+  // step "confirm"
+  if (id === ID_SHIP_EDIT || /^(تعديل العنوان|تغيير العنوان|تعديل)$/i.test(text)) {
+    await startShippingFlow(ctx, methods);
+    return true;
+  }
+  if (id === ID_SHIP_CONFIRM || /^(تأكيد|تاكيد|أكد|اكد|نعم|confirm|ok)$/i.test(text)) {
+    const delivery = await deliveryFromFlow(ctx, flow);
+    if (!delivery) {
+      await ctx.sendText("تغيّرت خيارات التوصيل. لنُعد اختيار التوصيل.");
+      await startShippingFlow(ctx, methods);
+      return true;
+    }
+    await clearCheckoutFlow(ctx.conversationId);
+    await finalizeCartOrder(ctx, cart, delivery);
+    return true;
+  }
+  await ctx.sendText("للمتابعة اضغط «تأكيد وإتمام الدفع»، أو اكتب «تعديل العنوان»، أو «إلغاء».");
+  return true;
+}
+
+/** The order itself: the code's use, the stock, the order row, then the payment link (or a person to follow up). */
+async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeof resolveCart>>, delivery: Delivery | undefined) {
+  if (cart.discountNote) {
+    await showCart(ctx, `تم إلغاء كود الخصم (${cart.discountNote}).\nراجع إجمالي سلتك قبل الدفع.`);
+    return;
+  }
+  if (cart.adjusted.length) {
+    for (const change of cart.adjusted) await setLineQuantity(ctx.tenantId, ctx.conversationId, change.position, change.to);
+    await showCart(ctx, `تغيّرت الكمية المتاحة:\n${cart.adjusted.map((change) => `${change.name}: من ${change.from} إلى ${change.to}`).join("\n")}`);
+    return;
+  }
+  const quote: ShippingQuote | undefined = delivery ? { methodName: delivery.method.name, city: delivery.city, fee: shippingFee(delivery.method, productsTotal(cart)), eta: delivery.method.eta } : undefined;
+
   // The discount code is taken first (its last use can go to someone else), and given back if the stock then fails.
   if (cart.discount && !(await redeemDiscount(ctx.tenantId, cart.discount.id))) {
     await removeDiscountCode(ctx.tenantId, ctx.conversationId);
@@ -471,7 +663,7 @@ async function checkoutCart(ctx: CatalogCtx) {
   const conversation = await prisma.conversation.findUnique({ where: { id: ctx.conversationId }, include: { customer: true } });
   const customerName = conversation?.customer.name || "";
   const customerPhone = conversation?.customer.phone || "";
-  const gatewayKey = zid.connected ? "" : await getMerchantGatewayKey(ctx.tenantId);
+  const gatewayKey = await getMerchantGatewayKey(ctx.tenantId);
 
   const order = await createCartOrder({
     tenantId: ctx.tenantId,
@@ -480,10 +672,12 @@ async function checkoutCart(ctx: CatalogCtx) {
     customerPhone,
     lines: cart.lines.map((line) => ({ product: line.product, quantity: line.quantity })),
     status: gatewayKey ? "awaiting_payment" : "new",
-    discount: cart.discount
+    discount: cart.discount,
+    shipping: delivery && quote ? { methodName: delivery.method.name, city: delivery.city, address: delivery.address, fee: quote.fee, eta: delivery.method.eta } : undefined
   });
-  const orderText = formatOrderSummary(cart);
+  const orderText = `${formatOrderSummary(cart, quote)}${delivery ? `\n\nالعنوان: ${delivery.address}` : ""}`;
   const totalText = formatMoney(order.total, order.currency);
+  const where = delivery ? ` | التوصيل: ${delivery.method.name} إلى ${delivery.city} - ${delivery.address}` : "";
 
   if (gatewayKey) {
     try {
@@ -499,7 +693,7 @@ async function checkoutCart(ctx: CatalogCtx) {
       });
       await prisma.catalogOrder.update({ where: { id: order.id }, data: { paymentId: invoice.id, paymentUrl: invoice.url, updatedAt: new Date().toISOString() } });
       await clearCart(ctx.conversationId);
-      await addOrderNote(ctx.conversationId, `طلب جديد بانتظار الدفع (${cart.units} قطعة): ${notesLine(cart)} - ${totalText}`);
+      await addOrderNote(ctx.conversationId, `طلب جديد بانتظار الدفع (${cart.units} قطعة): ${notesLine(cart)} - ${totalText}${where}`);
       await ctx.sendText(`تم تجهيز طلبك\nرقم الطلب: ${shortOrderNumber(order.id)}\n\n${orderText}\n\nلإتمام الدفع بأمان اضغط على الرابط:\n${invoice.url}`);
       return;
     } catch {
@@ -510,7 +704,7 @@ async function checkoutCart(ctx: CatalogCtx) {
 
   await clearCart(ctx.conversationId);
   await reopenForStaff(ctx.conversationId);
-  await addOrderNote(ctx.conversationId, `طلب جديد يحتاج متابعة (${cart.units} قطعة): ${notesLine(cart)} - ${totalText}`);
+  await addOrderNote(ctx.conversationId, `طلب جديد يحتاج متابعة (${cart.units} قطعة): ${notesLine(cart)} - ${totalText}${where}`);
   await ctx.sendText(`تم استلام طلبك\n\n${orderText}\n\nسيتواصل معك أحد موظفينا قريبًا لإتمام الطلب.`);
 }
 
@@ -642,6 +836,17 @@ async function finishZidCartCheckout(ctx: CatalogCtx, city: string, addressLine:
  */
 export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; text: string }, intro: string): Promise<"handled" | "agent" | "ignored"> {
   const id = reply.id || "";
+
+  // Answering the delivery questions of a checkout (city, delivery option, address, confirmation).
+  const flow = await getCheckoutFlow(ctx.conversationId);
+  if (flow) {
+    if (!id || id.startsWith(ID_SHIP)) {
+      if (await continueShippingFlow(ctx, flow, reply)) return "handled";
+    } else {
+      // A tap on anything else abandons a half-finished checkout.
+      await clearCheckoutFlow(ctx.conversationId);
+    }
+  }
 
   // Answering the address questions of a Zid checkout.
   if (!id) {

@@ -94,6 +94,37 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     code TEXT NOT NULL,
     amount DOUBLE PRECISION NOT NULL
   )`,
+  // Delivery options the merchant offers: a shipping company (or the merchant's own delivery), its price, an optional
+  // free-shipping threshold, an estimate and the cities it serves ('[]' = every city).
+  `CREATE TABLE IF NOT EXISTS catalog_shipping_methods (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    price DOUBLE PRECISION NOT NULL DEFAULT 0,
+    free_over DOUBLE PRECISION NOT NULL DEFAULT 0,
+    eta TEXT NOT NULL DEFAULT '',
+    cities_json TEXT NOT NULL DEFAULT '[]',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS catalog_shipping_methods_tenant_idx ON catalog_shipping_methods(tenant_id)`,
+  // Where an order goes and what the delivery cost.
+  `CREATE TABLE IF NOT EXISTS catalog_order_shipping (
+    order_id TEXT PRIMARY KEY,
+    method_name TEXT NOT NULL,
+    city TEXT NOT NULL,
+    address TEXT NOT NULL DEFAULT '',
+    fee DOUBLE PRECISION NOT NULL DEFAULT 0,
+    eta TEXT NOT NULL DEFAULT ''
+  )`,
+  // The questions of a checkout in progress (city, delivery option, address, payment method).
+  `CREATE TABLE IF NOT EXISTS catalog_checkout_flow (
+    conversation_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    step TEXT NOT NULL,
+    data_json TEXT NOT NULL DEFAULT '{}',
+    expires_at TEXT NOT NULL
+  )`,
   // The cart a customer is filling in a conversation, plus the product whose quantity we are waiting for.
   `CREATE TABLE IF NOT EXISTS catalog_carts (
     conversation_id TEXT PRIMARY KEY,

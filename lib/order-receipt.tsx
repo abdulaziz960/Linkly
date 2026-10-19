@@ -30,6 +30,8 @@ export type ReceiptData = {
   items?: Array<{ name: string; quantity: number; unitPrice: number }>;
   /** The discount code used: `total` is already after it. */
   discount?: { code: string; amount: number };
+  /** Delivery: `total` already includes its fee. */
+  shipping?: { name: string; city: string; fee: number };
 };
 
 const PAGE_PX = { width: 1240, height: 1754 }; // A5 at ~212 dpi
@@ -85,6 +87,7 @@ export async function renderReceiptPng(data: ReceiptData): Promise<Buffer> {
           ...(data.quantity > 1 ? ([["الكمية", String(data.quantity)], ["سعر الوحدة", money(data.unitPrice, data.currency)]] as Array<[string, string]>) : [])
         ] as Array<[string, string]>)),
     ...(data.discount ? ([["الخصم", `-${money(data.discount.amount, data.currency)} (${trim(data.discount.code, 14)})`]] as Array<[string, string]>) : []),
+    ...(data.shipping ? ([["التوصيل", `${trim(data.shipping.name, 18)} - ${trim(data.shipping.city, 14)}`], ["رسوم التوصيل", data.shipping.fee > 0 ? money(data.shipping.fee, data.currency) : "مجاني"]] as Array<[string, string]>) : []),
     ["التاريخ", receiptDate(data.paidAtIso)],
     ["حالة الدفع", "مدفوع"]
   ];

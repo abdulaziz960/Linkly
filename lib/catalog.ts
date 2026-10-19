@@ -2,6 +2,7 @@ import { assertWithinPlanLimit } from "./plan-access-server";
 import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import { getOrderDiscounts, recordOrderDiscount, releaseOrderDiscount } from "./catalog-discounts";
+import { getOrderShipping, recordOrderShipping, type OrderShipping } from "./catalog-shipping";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { decryptSecret, encryptSecret } from "./secret-storage";
@@ -76,6 +77,8 @@ export type CatalogOrderRow = {
   items?: OrderItem[];
   /** The discount code the order was placed with, and what it took off (the total is already after it). */
   discount?: { code: string; amount: number };
+  /** Where the order goes and the delivery fee (already in the total). */
+  shipping?: OrderShipping;
 };
 
 export type OrderItem = { productId: string; productName: string; unitPrice: number; quantity: number };
@@ -514,9 +517,10 @@ export async function listOrders(tenantId: string, limit = 200): Promise<Catalog
   await ensureSchema();
   const rows = await prisma.catalogOrder.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: limit });
   const ids = rows.map((row) => row.id);
-  const [items, discounts] = await Promise.all([getOrderItems(ids), getOrderDiscounts(ids)]);
+  const [items, discounts, shipping] = await Promise.all([getOrderItems(ids), getOrderDiscounts(ids), getOrderShipping(ids)]);
   return rows.map((row) => ({
     ...toOrder(row),
+    ...(shipping.has(row.id) ? { shipping: shipping.get(row.id) } : {}),
     ...(items.has(row.id) ? { items: items.get(row.id) } : {}),
     ...(discounts.has(row.id) ? { discount: { code: discounts.get(row.id)!.code, amount: discounts.get(row.id)!.amount } } : {})
   }));
@@ -554,13 +558,15 @@ export async function createCartOrder(input: {
   status: OrderStatus;
   /** A discount code already taken (redeemed) for this order: the total is the subtotal minus its amount. */
   discount?: { id: string; code: string; amount: number };
+  /** Delivery: its fee is added to the total (the discount applies to the products only). */
+  shipping?: OrderShipping;
 }): Promise<CatalogOrderRow> {
   await ensureSchema();
   if (!input.lines.length) throw new Error("A cart order needs at least one line");
   const lines = input.lines.map((line) => ({ product: line.product, quantity: Math.max(1, Math.floor(line.quantity)) }));
   const units = lines.reduce((sum, line) => sum + line.quantity, 0);
   const subtotal = Math.round(lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0) * 100) / 100;
-  const total = Math.round((subtotal - (input.discount?.amount ?? 0)) * 100) / 100;
+  const total = Math.round((subtotal - (input.discount?.amount ?? 0) + (input.shipping?.fee ?? 0)) * 100) / 100;
   const now = new Date().toISOString();
   const id = `ord-${randomUUID()}`;
   const names = lines.map((line) => line.product.name).join("، ");
@@ -587,10 +593,12 @@ export async function createCartOrder(input: {
     await prisma.$executeRaw`INSERT INTO catalog_order_items (order_id, line_no, product_id, product_name, unit_price, quantity) VALUES (${id}, ${index + 1}, ${line.product.id}, ${line.product.name}, ${line.product.price}, ${line.quantity})`;
   }
   if (input.discount) await recordOrderDiscount(id, input.discount);
+  if (input.shipping) await recordOrderShipping(id, input.shipping);
   return {
     ...toOrder(row),
     items: lines.map((line) => ({ productId: line.product.id, productName: line.product.name, unitPrice: line.product.price, quantity: line.quantity })),
-    ...(input.discount ? { discount: { code: input.discount.code, amount: input.discount.amount } } : {})
+    ...(input.discount ? { discount: { code: input.discount.code, amount: input.discount.amount } } : {}),
+    ...(input.shipping ? { shipping: input.shipping } : {})
   };
 }
 

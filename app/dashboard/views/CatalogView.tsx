@@ -5,6 +5,7 @@ import { useLanguage } from "../i18n";
 import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
 import CustomSelect from "../../components/CustomSelect";
 import DiscountCodesPanel from "../components/DiscountCodesPanel";
+import ShippingPanel from "../components/ShippingPanel";
 
 type Product = {
   id: string;
@@ -35,6 +36,9 @@ type Order = {
   createdAt: string;
   /** The products of an order placed from the chat cart. */
   items?: Array<{ productId: string; productName: string; unitPrice: number; quantity: number }>;
+  /** Delivery chosen for the order (the fee is in the total). */
+  shipping?: { methodName: string; city: string; address: string; fee: number; eta: string };
+  discount?: { code: string; amount: number };
 };
 
 type Settings = {
@@ -81,7 +85,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; d
 
 export default function CatalogView() {
   const { t } = useLanguage();
-  const [tab, setTab] = useState<"products" | "orders" | "discounts" | "settings">("products");
+  const [tab, setTab] = useState<"products" | "orders" | "shipping" | "discounts" | "settings">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
@@ -281,6 +285,7 @@ export default function CatalogView() {
           <div className="row-actions">
             <button className={tab === "products" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("products")}>{t("المنتجات", "Products")} ({products.length})</button>
             <button className={tab === "orders" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("orders")}>{t("الطلبات", "Orders")} ({orders.length})</button>
+            <button className={tab === "shipping" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("shipping")}>{t("الشحن", "Shipping")}</button>
             <button className={tab === "discounts" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("discounts")}>{t("أكواد الخصم", "Discount codes")}</button>
             <button className={tab === "settings" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("settings")}>{t("الدفع والمزامنة", "Payment & sync")}</button>
           </div>
@@ -352,6 +357,8 @@ export default function CatalogView() {
                       {order.items?.length
                         ? order.items.map((item) => <div key={item.productId}>{item.productName} × {item.quantity}</div>)
                         : <>{order.productName}{order.quantity > 1 ? ` × ${order.quantity}` : ""}</>}
+                      {order.discount ? <div><small>{t("كود الخصم", "Code")}: {order.discount.code} (-{order.discount.amount})</small></div> : null}
+                      {order.shipping ? <div><small>{t("التوصيل", "Delivery")}: {order.shipping.methodName} → {order.shipping.city} ({order.shipping.fee > 0 ? `${order.shipping.fee} ${t("ر.س", "SAR")}` : t("مجاني", "free")})<br />{order.shipping.address}</small></div> : null}
                     </td>
                     <td data-label={t("المبلغ", "Amount")}>{order.total} {t("ر.س", "SAR")}</td>
                     <td data-label={t("الحالة", "Status")}>
@@ -370,6 +377,8 @@ export default function CatalogView() {
           </div>
         </div>
       ) : null}
+
+      {tab === "shipping" ? <ShippingPanel /> : null}
 
       {tab === "discounts" ? <DiscountCodesPanel zidConnected={Boolean(settings?.zidConnected)} /> : null}
 
