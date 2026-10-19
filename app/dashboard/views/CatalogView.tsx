@@ -428,7 +428,7 @@ export default function CatalogView() {
                     <td data-label={t("المبلغ", "Amount")}>{order.total} {t("ر.س", "SAR")}</td>
                     <td data-label={t("الحالة", "Status")}>
                       <CustomSelect
-                        value={order.status === "paid" && order.tracking && order.tracking.stage !== "delivered" ? order.tracking.stage : order.status}
+                        value={(order.status === "paid" || order.status === "new") && order.tracking && order.tracking.stage !== "delivered" ? order.tracking.stage : order.status}
                         ariaLabel={t("حالة الطلب", "Order status")}
                         onChange={(value) => void changeOrderFlow(order, value)}
                         options={[
@@ -440,7 +440,7 @@ export default function CatalogView() {
                       />
                     </td>
                     <td data-label={t("الشحن", "Shipping")}>
-                      {order.status === "paid" || order.status === "fulfilled" ? (
+                      {order.status === "paid" || order.status === "fulfilled" || order.status === "new" ? (
                         <>
                           <span className={order.tracking?.stage === "delivered" ? "state ok" : "state muted"}>{trackingLabel(order.tracking?.stage)}</span>
                           {order.tracking?.trackingNumber ? <div><small dir="ltr">{order.tracking.trackingNumber}</small></div> : null}
