@@ -200,6 +200,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const lastFullLoadAtRef = useRef(0);
   const seenInboundMessageIdsRef = useRef<Set<string> | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("inbox");
+  // The saved/URL view is restored in an effect after the first paint; hold the content back until then so a reload never flashes the inbox first.
+  const [navRestored, setNavRestored] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -779,11 +781,18 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     }
 
     restoredNavigationRef.current = true;
+    setNavRestored(true);
     // This is a one-time restore gated by restoredNavigationRef, not a
     // reactive sync - intentionally excluding handleOpenConversationByPhone
     // (and the other closures already omitted above) from the deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowedViews, initialUser.role, employees.length]);
+
+  useEffect(() => {
+    // Never leave the page blank if the restore is still waiting (e.g. the employees request failed).
+    const timer = window.setTimeout(() => setNavRestored(true), 2500);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!restoredNavigationRef.current || typeof window === "undefined") return;
@@ -1526,7 +1535,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         <PwaInstallCoachmark />
         <PwaInstallPopup />
 
-        {activeView === "inbox" ? (
+        {!navRestored ? null : activeView === "inbox" ? (
           <InboxView
             activeConversation={activeConversation}
             assigneeOptions={[...employees.map((employee) => employee.name), "بدون موظف"]}
