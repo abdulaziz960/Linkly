@@ -34,6 +34,7 @@ const displayFont = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://linklysa.io"),
+  other: { "facebook-domain-verification": "5zqlre1wi0at60zdrudd9mivjatjed" },
   title: { default: "Linkly — صندوق واحد لمحادثات عملائك", template: "%s | Linkly" },
   description: "منصة سعودية تجمع محادثات واتساب وإنستغرام وتيليجرام والبريد وتيك توك في صندوق واحد لفريقك.",
   applicationName: "Linkly",
