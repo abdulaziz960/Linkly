@@ -7,6 +7,7 @@ import CustomSelect from "../../components/CustomSelect";
 import DiscountCodesPanel from "../components/DiscountCodesPanel";
 import ShippingPanel from "../components/ShippingPanel";
 import PaymentProvidersPanel from "../components/PaymentProvidersPanel";
+import { orderMatchesQuery, shortOrderNumber } from "../../../lib/order-number";
 
 type Product = {
   id: string;
@@ -93,6 +94,7 @@ export default function CatalogView() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [orderSearch, setOrderSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [formError, setFormError] = useState("");
@@ -137,6 +139,9 @@ export default function CatalogView() {
     if (!query) return products;
     return products.filter((product) => [product.name, product.category, product.sku].join(" ").toLowerCase().includes(query));
   }, [products, search]);
+
+  // Orders: search by order number ("ORD-CF449CC2", or a part of it), customer name, phone or product.
+  const filteredOrders = useMemo(() => orders.filter((order) => orderMatchesQuery(order, orderSearch)), [orders, orderSearch]);
 
   function openForm(product?: Product) {
     setFormError("");
@@ -347,11 +352,13 @@ export default function CatalogView() {
         <div className="panel">
           <div className="panel-head"><h2>{t("الطلبات", "Orders")}</h2></div>
           <div className="panel-body table-wrap">
+            <input className="catalog-search" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder={t("ابحث برقم الطلب (مثل ORD-CF449CC2) أو اسم العميل أو جواله", "Search by order number (e.g. ORD-CF449CC2), customer or phone")} aria-label={t("بحث في الطلبات", "Search orders")} />
             <table className="mobile-card-table">
-              <thead><tr><th>{t("التاريخ", "Date")}</th><th>{t("العميل", "Customer")}</th><th>{t("المنتج", "Product")}</th><th>{t("المبلغ", "Amount")}</th><th>{t("الحالة", "Status")}</th></tr></thead>
+              <thead><tr><th>{t("رقم الطلب", "Order no.")}</th><th>{t("التاريخ", "Date")}</th><th>{t("العميل", "Customer")}</th><th>{t("المنتج", "Product")}</th><th>{t("المبلغ", "Amount")}</th><th>{t("الحالة", "Status")}</th></tr></thead>
               <tbody>
-                {orders.map((order) => (
+                {filteredOrders.map((order) => (
                   <tr key={order.id}>
+                    <td data-label={t("رقم الطلب", "Order no.")} dir="ltr"><b>{shortOrderNumber(order.id)}</b></td>
                     <td>{new Date(order.createdAt).toLocaleString("ar-SA-u-nu-latn", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Riyadh" })}</td>
                     <td data-label={t("العميل", "Customer")}>{order.customerName || "-"}<br /><small dir="ltr">{order.customerPhone}</small></td>
                     <td data-label={t("المنتج", "Product")}>
@@ -372,7 +379,7 @@ export default function CatalogView() {
                     </td>
                   </tr>
                 ))}
-                {!orders.length ? <tr><td colSpan={5}>{loading ? t("جاري التحميل...", "Loading...") : t("لا توجد طلبات بعد.", "No orders yet.")}</td></tr> : null}
+                {!filteredOrders.length ? <tr><td colSpan={6}>{loading ? t("جاري التحميل...", "Loading...") : orders.length ? t("لا توجد طلبات تطابق بحثك.", "No orders match your search.") : t("لا توجد طلبات بعد.", "No orders yet.")}</td></tr> : null}
               </tbody>
             </table>
           </div>
