@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { buildCustomerTrackingReply, hasTrackableOrders } from "./order-tracking";
 import { getAppOrigin } from "./app-url";
 import {
   createCartOrder,
@@ -56,6 +57,7 @@ const ID_AGENT = "cat_agent";
 const ID_CART_ADD = "cartadd_";
 const ID_CART_QTY = "cartqty_";
 const ID_CART_VIEW = "cart_view";
+const ID_TRACK = "track_order";
 const ID_CART_PAY = "cart_pay";
 const ID_CART_CODE = "cart_code";
 const ID_SHIP = "ship_";
@@ -100,7 +102,7 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
     return false;
   }
 
-  const textList = () => `${body}\n${products.map((product, index) => `${offset + index + 1}. ${productLine(product)}`).join("\n")}\n\nللإضافة إلى السلة اكتب: سلة + اسم المنتج، ولعرض السلة اكتب: السلة`;
+  const textList = () => `${body}\n${products.map((product, index) => `${offset + index + 1}. ${productLine(product)}`).join("\n")}\n\nللإضافة إلى السلة اكتب: سلة + اسم المنتج، ولعرض السلة اكتب: السلة\nولمتابعة طلبك اكتب: تتبع طلبي`;
 
   if (ctx.channel !== "whatsapp") {
     await ctx.sendText(textList());
@@ -147,16 +149,21 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
   }
 
   const cartUnits = (await getCart(ctx.conversationId)).lines.reduce((sum, line) => sum + line.quantity, 0);
+  const hasOrders = await hasTrackableOrders(ctx.tenantId, ctx.conversationId);
+  const menuButtons = [
+    ...(hasMore ? [{ id: `${ID_MORE}${offset + CARDS_PER_PAGE}`, title: "عرض المزيد" }] : []),
+    ...(cartUnits > 0 ? [{ id: ID_CART_VIEW, title: `السلة (${cartUnits})` }] : []),
+    ...(hasOrders ? [{ id: ID_TRACK, title: "تتبع طلبي" }] : []),
+    { id: ID_AGENT, title: "التحدث مع موظف" }
+  ];
+  // WhatsApp allows three buttons: the order tracking gives way to the others when there's no room.
+  const fitted = menuButtons.length > 3 ? menuButtons.filter((button) => button.id !== ID_TRACK) : menuButtons;
   await sendWhatsAppIdButtons({
     tenantId: ctx.tenantId,
     conversationId: ctx.conversationId,
     to: ctx.recipientId,
     bodyText: hasMore ? "هل تريد رؤية المزيد من المنتجات؟" : "هل تحتاج مساعدة؟",
-    buttons: [
-      ...(hasMore ? [{ id: `${ID_MORE}${offset + CARDS_PER_PAGE}`, title: "عرض المزيد" }] : []),
-      ...(cartUnits > 0 ? [{ id: ID_CART_VIEW, title: `السلة (${cartUnits})` }] : []),
-      { id: ID_AGENT, title: "التحدث مع موظف" }
-    ],
+    buttons: fitted,
     displayText: hasMore ? "هل تريد رؤية المزيد من المنتجات؟" : "هل تحتاج مساعدة؟",
     author: AUTHOR
   });
@@ -1002,6 +1009,11 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   if (id) await clearPendingProduct(ctx.tenantId, ctx.conversationId);
   if (id.startsWith(ID_CART_ADD)) {
     await askQuantity(ctx, id.slice(ID_CART_ADD.length));
+    return "handled";
+  }
+  if (id === ID_TRACK) {
+    const reply = await buildCustomerTrackingReply(ctx.tenantId, ctx.conversationId, "");
+    await ctx.sendText(reply ?? "لا توجد طلبات سابقة لك في هذه المحادثة.");
     return "handled";
   }
   if (id === ID_CART_VIEW) {

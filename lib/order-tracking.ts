@@ -106,6 +106,14 @@ export async function saveOrderTracking(
   return { ok: true, tracking: { ...data, updatedAt: now }, notified };
 }
 
+const TRACKABLE = ["new", "paid", "fulfilled"];
+
+/** Whether this conversation has an order the customer can ask about. */
+export async function hasTrackableOrders(tenantId: string, conversationId: string): Promise<boolean> {
+  await ensureCatalogSchema();
+  return (await prisma.catalogOrder.count({ where: { tenantId, conversationId, status: { in: TRACKABLE } } })) > 0;
+}
+
 const TRACK_WORDS = /^\s*(تتبع|تتبّع|track)\s*(طلبي|الطلب|طلب|order)?\s*(#?\s*(ORD-?[0-9A-F]{4,}))?\s*$/i;
 
 /** Whether a customer's text asks for their order's status ("تتبع طلبي" / "تتبع ORD-XXXX"); returns the order number they gave, if any. */
@@ -118,7 +126,7 @@ export function parseTrackRequest(text: string): { match: boolean; number: strin
 /** The reply to "تتبع طلبي": only orders of this very conversation. Null when the customer has no orders here (the bot then stays out of it). */
 export async function buildCustomerTrackingReply(tenantId: string, conversationId: string, number: string): Promise<string | null> {
   await ensureCatalogSchema();
-  const orders = await prisma.catalogOrder.findMany({ where: { tenantId, conversationId, status: { in: ["paid", "fulfilled"] } }, orderBy: { createdAt: "desc" }, take: 20 });
+  const orders = await prisma.catalogOrder.findMany({ where: { tenantId, conversationId, status: { in: TRACKABLE } }, orderBy: { createdAt: "desc" }, take: 20 });
   if (!orders.length) return null;
   const picked = number ? orders.filter((order) => shortOrderNumber(order.id).replace(/-/g, "") === number) : orders.slice(0, 3);
   if (!picked.length) return "لم نجد طلبًا بهذا الرقم. تأكد من الرقم الموجود في إيصالك.";
