@@ -61,7 +61,7 @@ export function buildPaidOrderMessage(order: {
     `المبلغ المدفوع: ${amount} ${currency}`,
     ...(arabicDate(paidAtIso) ? [`التاريخ: ${arabicDate(paidAtIso)}`] : []),
     "",
-    "سنتواصل معك قريبًا لإتمام الطلب."
+    "سنتواصل معك إن احتجنا لشيء آخر."
   ];
   return lines.join("\n");
 }
@@ -196,6 +196,15 @@ export async function processOrderPaymentCallback(orderId: string): Promise<{ ht
  * delivered twice sends the confirmation (and the receipt) a single time. The caller has already verified
  * the payment with the provider.
  */
+/** The name on the receipt: the company's name, else the workspace's brand name - never the internal workspace id. */
+async function receiptMerchantName(tenantId: string): Promise<string> {
+  const { getTenantCompanyName } = await import("./subscriptions");
+  const company = await getTenantCompanyName(tenantId);
+  if (company && company !== tenantId && !/^tenant-/i.test(company)) return company;
+  const { getTenantBranding } = await import("./tenant-branding");
+  return (await getTenantBranding(tenantId)).name || "Linkly";
+}
+
 async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.catalogOrder.findUniqueOrThrow>>, next: OrderStatus): Promise<{ httpStatus: number; body: { ok: boolean; status?: string } }> {
   const claimed = await prisma.catalogOrder.updateMany({
     where: { id: order.id, status: { not: next } },
@@ -225,13 +234,12 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
       // The payment receipt as a PDF, right after the text confirmation. Best-effort:
       // a failure here must never undo or repeat the confirmation above.
       try {
-        const [{ renderReceiptPdf }, { sendWhatsAppUploadedMedia }, { getTenantCompanyName }] = await Promise.all([
+        const [{ renderReceiptPdf }, { sendWhatsAppUploadedMedia }] = await Promise.all([
           import("./order-receipt"),
-          import("./whatsapp-send"),
-          import("./subscriptions")
+          import("./whatsapp-send")
         ]);
         const pdf = await renderReceiptPdf({
-          merchantName: await getTenantCompanyName(order.tenantId),
+          merchantName: await receiptMerchantName(order.tenantId),
           orderId: order.id,
           customerName: order.customerName || conversation.customer.name,
           productName: order.productName,

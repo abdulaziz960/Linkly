@@ -52,8 +52,10 @@ function trim(value: string, max: number) {
 }
 
 function money(amount: number, currency: string) {
-  const value = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
-  return `${value} ${currency === "SAR" ? "ر.س" : currency}`;
+  const rounded = Math.round(amount * 100) / 100;
+  const value = rounded.toLocaleString("en-US", { minimumFractionDigits: Number.isInteger(rounded) ? 0 : 2, maximumFractionDigits: 2 });
+  // "ر.س" (the dotted abbreviation) comes out reversed in the renderer: the word reads right.
+  return `${value} ${currency === "SAR" ? "ريال" : currency}`;
 }
 
 function receiptDate(iso: string) {
@@ -71,52 +73,75 @@ export function receiptItemRows(items: Array<{ name: string; quantity: number; u
   return rows;
 }
 
+const COLORS = { brand: "#0f6b5c", brandSoft: "#eaf3f1", ink: "#10231f", muted: "#5b716c", line: "#e3ecea", good: "#14804a" };
+
 export async function renderReceiptPng(data: ReceiptData): Promise<Buffer> {
   const [regular, black] = await Promise.all([
     readFile(path.join(process.cwd(), "public/fonts/tajawal/Tajawal-Medium.ttf")),
     readFile(path.join(process.cwd(), "public/fonts/tajawal/Tajawal-Black.ttf"))
   ]);
 
-  const rows: Array<[string, string]> = [
-    ["رقم الطلب", shortOrderNumber(data.orderId)],
-    ["العميل", trim(data.customerName || "—", 34)],
-    ...(data.items && data.items.length > 0
-      ? receiptItemRows(data.items, data.currency)
-      : ([
-          ["المنتج", trim(data.productName, 34)],
-          ...(data.quantity > 1 ? ([["الكمية", String(data.quantity)], ["سعر الوحدة", money(data.unitPrice, data.currency)]] as Array<[string, string]>) : [])
-        ] as Array<[string, string]>)),
-    ...(data.discount ? ([["الخصم", `-${money(data.discount.amount, data.currency)} (${trim(data.discount.code, 14)})`]] as Array<[string, string]>) : []),
-    ...(data.shipping ? ([["التوصيل", `${trim(data.shipping.name, 18)} - ${trim(data.shipping.city, 14)}`], ["رسوم التوصيل", data.shipping.fee > 0 ? money(data.shipping.fee, data.currency) : "مجاني"]] as Array<[string, string]>) : []),
-    ["التاريخ", receiptDate(data.paidAtIso)],
-    ["حالة الدفع", "مدفوع"]
-  ];
+  const lines = data.items && data.items.length > 0
+    ? data.items.map((item) => ({ name: item.name, quantity: item.quantity, unitPrice: item.unitPrice }))
+    : [{ name: data.productName, quantity: data.quantity, unitPrice: data.unitPrice }];
+  const shown = lines.slice(0, 7);
+  const hidden = lines.length - shown.length;
+  const productsTotal = Math.round(lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0) * 100) / 100;
+  const shippingFee = data.shipping?.fee ?? 0;
+  const discountAmount = data.discount?.amount ?? 0;
+
+  // One row of the receipt: the amount on the left, what it is for on the right (the renderer lays a row out left to right).
+  const row = (label: string, value: string, options: { color?: string; bold?: boolean; sub?: string; small?: boolean } = {}) => (
+    <div key={label} style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: "20px 0", borderBottom: `2px solid ${COLORS.line}` }}>
+      <div style={{ display: "flex", fontSize: 38, fontWeight: options.bold ? 900 : 500, color: options.color ?? COLORS.ink }}>{rtl(value)}</div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+        <div style={{ display: "flex", fontSize: options.small ? 32 : 36, color: options.small ? COLORS.ink : COLORS.muted, fontWeight: options.small ? 900 : 500 }}>{rtl(label)}</div>
+        {options.sub ? <div style={{ display: "flex", fontSize: 28, color: COLORS.muted, marginTop: 4 }}>{rtl(options.sub)}</div> : null}
+      </div>
+    </div>
+  );
 
   const element = (
-    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#ffffff", color: "#10231f", fontFamily: "Tajawal", direction: "rtl", padding: 90 }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", paddingBottom: 40, borderBottom: "4px solid #0f6b5c" }}>
-        <div style={{ display: "flex", fontSize: 76, fontWeight: 900 }}>{rtl(trim(data.merchantName, 28))}</div>
-        <div style={{ display: "flex", fontSize: 44, marginTop: 14, color: "#0f6b5c", fontWeight: 900 }}>{rtl("إيصال دفع")}</div>
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#ffffff", color: COLORS.ink, fontFamily: "Tajawal", direction: "rtl" }}>
+      <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", background: COLORS.brand, padding: "70px 80px" }}>
+        <div style={{ display: "flex", justifyContent: "center", flexShrink: 0, minWidth: 250, padding: "12px 34px", borderRadius: 999, background: "#ffffff", color: COLORS.brand, fontSize: 36, fontWeight: 900, whiteSpace: "nowrap" }}>{rtl("إيصال دفع")}</div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+          <div style={{ display: "flex", fontSize: 64, fontWeight: 900, color: "#ffffff" }}>{rtl(trim(data.merchantName, 24))}</div>
+          <div style={{ display: "flex", fontSize: 32, color: "#cfe7e2", marginTop: 8 }}>{rtl(`رقم الطلب ${shortOrderNumber(data.orderId)}`)}</div>
+        </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", marginTop: 56 }}>
-        {rows.map(([label, value]) => (
-          <div key={label} style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", direction: "rtl", padding: "28px 0", borderBottom: "2px solid #e3ecea" }}>
-            {/* The renderer lays a row out left-to-right: details first (left), the item's name last (right). */}
-            <div style={{ display: "flex", fontSize: 42, fontWeight: 900 }}>{rtl(value)}</div>
-            <div style={{ display: "flex", fontSize: 40, color: "#5b716c" }}>{rtl(label)}</div>
+      <div style={{ display: "flex", flexDirection: "column", padding: "40px 80px 0" }}>
+        {row("العميل", trim(data.customerName || "—", 30))}
+        {row("التاريخ", receiptDate(data.paidAtIso))}
+        {data.shipping ? row("التوصيل إلى", trim(data.shipping.city, 20), { sub: trim(data.shipping.name, 24) }) : null}
+
+        <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 34, padding: "16px 24px", borderRadius: 16, background: COLORS.brandSoft }}>
+          <div style={{ display: "flex", fontSize: 30, fontWeight: 900, color: COLORS.brand }}>{rtl("المجموع")}</div>
+          <div style={{ display: "flex", fontSize: 30, fontWeight: 900, color: COLORS.brand }}>{rtl("المنتج")}</div>
+        </div>
+        {shown.map((line) => row(trim(line.name, 38), money(Math.round(line.unitPrice * line.quantity * 100) / 100, data.currency), { bold: true, small: true, sub: `${line.quantity} × ${money(line.unitPrice, data.currency)}` }))}
+        {hidden > 0 ? row(`و${hidden} منتجات أخرى`, "…") : null}
+
+        <div style={{ display: "flex", flexDirection: "column", marginTop: 26 }}>
+          {discountAmount > 0 || shippingFee > 0 || data.shipping ? row("المجموع قبل الخصم والتوصيل", money(productsTotal, data.currency)) : null}
+          {data.discount ? row(`الخصم (${trim(data.discount.code, 14)})`, `-${money(discountAmount, data.currency)}`, { color: COLORS.good, bold: true }) : null}
+          {data.shipping ? row("رسوم التوصيل", shippingFee > 0 ? money(shippingFee, data.currency) : "مجاني") : null}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 34, padding: "34px 40px", borderRadius: 24, background: COLORS.brand }}>
+          <div style={{ display: "flex", fontSize: 64, fontWeight: 900, color: "#ffffff" }}>{rtl(money(data.total, data.currency))}</div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+            <div style={{ display: "flex", fontSize: 42, fontWeight: 900, color: "#ffffff" }}>{rtl("المبلغ المدفوع")}</div>
+            <div style={{ display: "flex", fontSize: 28, color: "#cfe7e2", marginTop: 4 }}>{rtl("تم استلام الدفع")}</div>
           </div>
-        ))}
+        </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", direction: "rtl", marginTop: 56, padding: "38px 40px", borderRadius: 28, background: "#eaf3f1" }}>
-        <div style={{ display: "flex", fontSize: 64, fontWeight: 900, color: "#0f6b5c" }}>{rtl(money(data.total, data.currency))}</div>
-        <div style={{ display: "flex", fontSize: 46, fontWeight: 900 }}>{rtl("المبلغ المدفوع")}</div>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginTop: "auto", color: "#5b716c", fontSize: 32 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "auto", padding: "0 80px 70px", color: COLORS.muted, fontSize: 30 }}>
+        <div style={{ display: "flex", fontSize: 40, fontWeight: 900, color: COLORS.brand, marginBottom: 14 }}>{rtl("شكرًا لتسوقك معنا")}</div>
         <div style={{ display: "flex" }}>{rtl("هذا إيصال دفع إلكتروني وليس فاتورة ضريبية.")}</div>
-        <div style={{ display: "flex", marginTop: 8 }}>{rtl("صدر عبر Linkly")}</div>
+        <div style={{ display: "flex", marginTop: 6 }}>{rtl("صدر عبر Linkly")}</div>
       </div>
     </div>
   );

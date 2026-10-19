@@ -268,9 +268,12 @@ describe("a cart order after payment", () => {
     expect(message).toContain("• شاي\n\u200f   الكمية: 4");
     expect(message).toContain("• قهوة\n\u200f   الكمية: 1");
     expect(message).not.toContain("المنتج: ");
+    // the closing line no longer promises a call: it says the shop will reach out only if something else is needed
+    expect(message).toContain("سنتواصل معك إن احتجنا لشيء آخر.");
+    expect(message).not.toContain("لإتمام الطلب");
 
     const rows = receiptItemRows(items.map((item) => ({ name: item.productName, quantity: item.quantity, unitPrice: item.unitPrice })), "SAR");
-    expect(rows).toEqual([["شاي × 4", "80 ر.س"], ["قهوة × 1", "35.50 ر.س"]]);
+    expect(rows).toEqual([["شاي × 4", "80 ريال"], ["قهوة × 1", "35.50 ريال"]]);
     const many = receiptItemRows(Array.from({ length: 10 }, (_, i) => ({ name: `م${i}`, quantity: 1, unitPrice: 1 })), "SAR");
     expect(many).toHaveLength(8);
     expect(many.at(-1)).toEqual(["…", "و3 منتجات أخرى"]);
