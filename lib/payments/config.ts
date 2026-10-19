@@ -11,6 +11,8 @@ export type TabbyConfig = {
   secretKey: string;
   /** The code Tabby gave the merchant's branch. */
   merchantCode: string;
+  /** The public key (pk_...): saved with the others (for Tabby's on-site snippets); not needed to take a payment. */
+  publicKey?: string;
   /** Secret the merchant's webhook sends back in `X-Auth-Key`, made when the webhook is registered. */
   webhookSecret: string;
   /** The webhook URL already registered at Tabby (so saving again does not register a duplicate). */
@@ -20,6 +22,8 @@ export type TabbyConfig = {
 export type TamaraConfig = {
   /** The merchant's API token. */
   apiToken: string;
+  /** Tamara's public key (for its widgets); not needed to take a payment. */
+  publicKey?: string;
   /** Tamara's notification token (signs the notifications); optional. */
   notificationToken: string;
   /** Sandbox (testing) or production endpoint. */

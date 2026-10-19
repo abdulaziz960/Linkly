@@ -116,9 +116,10 @@ describe("saving Tabby and Tamara", () => {
     const { getProviderConfig } = await import("../lib/payments/config");
 
     expect(await saveTabby(tenantId, { secretKey: "not-a-key", merchantCode: "MC1", enabled: true })).toMatchObject({ ok: false });
+    expect(await saveTabby(tenantId, { secretKey: "sk_test_good", publicKey: "wrong", merchantCode: "MC1", enabled: true })).toMatchObject({ ok: false, error: expect.stringContaining("pk_") });
     expect(await saveTabby(tenantId, { secretKey: "sk_test_bad", merchantCode: "MC1", enabled: true })).toEqual({ ok: false, error: "مفتاح تابي أو رمز التاجر غير صحيح" });
 
-    const saved = await saveTabby(tenantId, { secretKey: "sk_test_good", merchantCode: "MC1", enabled: true });
+    const saved = await saveTabby(tenantId, { secretKey: "sk_test_good", publicKey: "pk_test_abc", merchantCode: "MC1", enabled: true });
     expect(saved).toMatchObject({ ok: true });
     const registration = calls.find((call) => call.url === "https://api.tabby.sa/api/v1/webhooks" && call.headers.authorization === "Bearer sk_test_good");
     expect(registration?.headers["x-merchant-code"]).toBe("MC1");
@@ -126,7 +127,9 @@ describe("saving Tabby and Tamara", () => {
     expect(registration?.body.header.title).toBe("X-Auth-Key");
     const stored = await getProviderConfig(tenantId, "tabby");
     expect(stored.config.webhookSecret).toBe(registration?.body.header.value);
+    expect(stored.config.publicKey).toBe("pk_test_abc");
     expect(JSON.stringify(saved)).not.toContain("sk_test_good");
+    expect(JSON.stringify(saved)).not.toContain("pk_test_abc"); // the public key is saved, never returned
 
     // saving the same keys again does not register a second webhook
     calls.length = 0;
@@ -136,14 +139,14 @@ describe("saving Tabby and Tamara", () => {
     expect(await saveTamara(tenantId, { apiToken: "bad-token", enabled: true })).toEqual({ ok: false, error: "رمز واجهة تمارا غير صحيح" });
     expect(await saveTamara(tenantId, { enabled: true })).toMatchObject({ ok: false, error: expect.stringContaining("API Token") });
     calls.length = 0;
-    expect(await saveTamara(tenantId, { apiToken: "tamara-token", sandbox: true, enabled: true })).toMatchObject({ ok: true });
+    expect(await saveTamara(tenantId, { apiToken: "tamara-token", publicKey: "tamara-public", sandbox: true, enabled: true })).toMatchObject({ ok: true });
     expect(calls[0].url).toBe("https://api-sandbox.tamara.co/webhooks");
     expect(calls[0].body).toMatchObject({ type: "order", url: `https://linklysa.io/api/catalog/payment-webhook/tamara?t=${tenantId}` });
     expect(calls[0].body.events).toContain("order_approved");
 
     const statuses = await getProviderStatuses(tenantId);
-    expect(statuses.find((s) => s.provider === "tabby")).toMatchObject({ enabled: true, configured: true, testMode: true, merchantCode: "MC1" });
-    expect(statuses.find((s) => s.provider === "tamara")).toMatchObject({ enabled: true, configured: true, testMode: true });
+    expect(statuses.find((s) => s.provider === "tabby")).toMatchObject({ enabled: true, configured: true, testMode: true, merchantCode: "MC1", hasPublicKey: true });
+    expect(statuses.find((s) => s.provider === "tamara")).toMatchObject({ enabled: true, configured: true, testMode: true, hasPublicKey: true });
     expect(JSON.stringify(statuses)).not.toContain("tamara-token");
   });
 });
