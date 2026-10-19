@@ -125,6 +125,15 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     data_json TEXT NOT NULL DEFAULT '{}',
     expires_at TEXT NOT NULL
   )`,
+  // Extra payment methods a merchant switches on (Tabby, Tamara): one row per method, its keys kept encrypted.
+  `CREATE TABLE IF NOT EXISTS catalog_payment_providers (
+    tenant_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    config_enc TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (tenant_id, provider)
+  )`,
   // The cart a customer is filling in a conversation, plus the product whose quantity we are waiting for.
   `CREATE TABLE IF NOT EXISTS catalog_carts (
     conversation_id TEXT PRIMARY KEY,

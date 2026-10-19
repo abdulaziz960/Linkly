@@ -4,12 +4,14 @@
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
 
-export type CheckoutStep = "city" | "method" | "address" | "confirm";
+export type CheckoutStep = "city" | "method" | "address" | "confirm" | "payment" | "email";
 
 export type CheckoutData = {
   city?: string;
   methodId?: string;
   address?: string;
+  /** The payment method chosen (while the email, Tabby's only extra question, is still to come). */
+  provider?: string;
 };
 
 export type CheckoutFlow = { step: CheckoutStep; data: CheckoutData };
@@ -40,7 +42,7 @@ export async function getCheckoutFlow(conversationId: string): Promise<CheckoutF
   } catch {
     data = {};
   }
-  const step: CheckoutStep = row.step === "method" || row.step === "address" || row.step === "confirm" ? row.step : "city";
+  const step: CheckoutStep = row.step === "method" || row.step === "address" || row.step === "confirm" || row.step === "payment" || row.step === "email" ? row.step : "city";
   return { step, data };
 }
 

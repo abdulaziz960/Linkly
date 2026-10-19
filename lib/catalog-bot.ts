@@ -9,11 +9,14 @@ import {
   isProductAvailable,
   listBotProducts,
   reserveCartStock,
+  updateOrderStatus,
   type CatalogProduct
 } from "./catalog";
 import { addToCart, applyDiscountCode, CART_DETAILED_MAX_CHARS, clearCart, clearPendingProduct, formatCart, formatMoney, formatOrderSummary, getCart, maxUnitsFor, PENDING_DISCOUNT, removeDiscountCode, removeLine, resolveCart, setLineQuantity, setPendingProduct, type ShippingQuote } from "./catalog-cart";
 import { redeemDiscount, releaseDiscountUse } from "./catalog-discounts";
 import { clearCheckoutFlow, getCheckoutFlow, setCheckoutFlow, type CheckoutFlow } from "./catalog-checkout-flow";
+import { customerPaymentHistory, listPaymentChoices, startExternalPayment } from "./payments/registry";
+import { PaymentProviderError, PROVIDER_BUTTON_LABELS, PROVIDER_LABELS, type ProviderKey } from "./payments/types";
 import { getShippingMethod, hasConnectedStore, listShippingMethods, methodsForCity, servedCities, shippingFee, type ShippingMethod } from "./catalog-shipping";
 import { createMerchantInvoice, shortOrderNumber } from "./catalog-payments";
 import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, setCheckoutState } from "./catalog-zid";
@@ -58,6 +61,7 @@ const ID_CART_CODE = "cart_code";
 const ID_SHIP = "ship_";
 const ID_SHIP_CONFIRM = "ship_confirm";
 const ID_SHIP_EDIT = "ship_edit";
+const ID_PAY = "pay_";
 /** In the Zid checkout state, the product id that means "the whole cart". */
 const CART_CHECKOUT = "__cart__";
 const CARDS_PER_PAGE = 10;
@@ -468,7 +472,7 @@ async function checkoutCart(ctx: CatalogCtx) {
     }
   }
 
-  await finalizeCartOrder(ctx, cart, undefined);
+  await proceedToPayment(ctx, cart, undefined);
 }
 
 // ---------- delivery questions ----------
@@ -546,10 +550,14 @@ async function continueShippingFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: 
     return true;
   }
   const methods = await listShippingMethods(ctx.tenantId, { activeOnly: true });
+
+  // The payment method and Tabby's email come after the delivery questions (or alone, when there is no delivery).
+  if (flow.step === "payment" || flow.step === "email") return continuePaymentFlow(ctx, flow, reply, cart);
+
   if (!methods.length) {
     // Delivery was switched off meanwhile: carry on without it.
     await clearCheckoutFlow(ctx.conversationId);
-    await finalizeCartOrder(ctx, cart, undefined);
+    await proceedToPayment(ctx, cart, undefined);
     return true;
   }
 
@@ -626,15 +634,106 @@ async function continueShippingFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: 
       return true;
     }
     await clearCheckoutFlow(ctx.conversationId);
-    await finalizeCartOrder(ctx, cart, delivery);
+    await proceedToPayment(ctx, cart, delivery);
     return true;
   }
   await ctx.sendText("للمتابعة اضغط «تأكيد وإتمام الدفع»، أو اكتب «تعديل العنوان»، أو «إلغاء».");
   return true;
 }
 
+// ---------- payment method ----------
+
+function flowDataFromDelivery(delivery: Delivery | undefined): CheckoutFlow["data"] {
+  return delivery ? { city: delivery.city, methodId: delivery.method.id, address: delivery.address } : {};
+}
+
+/**
+ * The payment method: with one method on, straight to it; with several, the customer picks (buttons); with none, the order
+ * goes to a person to follow up. `exclude` leaves out a method that just refused this purchase.
+ */
+async function proceedToPayment(ctx: CatalogCtx, cart: Awaited<ReturnType<typeof resolveCart>>, delivery: Delivery | undefined, exclude: ProviderKey[] = []) {
+  const choices = (await listPaymentChoices(ctx.tenantId)).filter((key) => !exclude.includes(key));
+  if (choices.length > 1) {
+    await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "payment", data: flowDataFromDelivery(delivery) });
+    await askPaymentMethod(ctx, cart, delivery, choices);
+    return;
+  }
+  await startPayment(ctx, cart, delivery, choices[0]);
+}
+
+async function askPaymentMethod(ctx: CatalogCtx, cart: Awaited<ReturnType<typeof resolveCart>>, delivery: Delivery | undefined, choices: ProviderKey[]) {
+  const fee = delivery ? shippingFee(delivery.method, productsTotal(cart)) : 0;
+  const total = Math.round((cart.total + fee) * 100) / 100;
+  const body = `اختر طريقة الدفع.\n*الإجمالي: ${formatMoney(total, cart.currency)}*`;
+  if (ctx.channel === "whatsapp" && choices.length <= 3) {
+    const sent = await sendWhatsAppIdButtons({
+      tenantId: ctx.tenantId,
+      conversationId: ctx.conversationId,
+      to: ctx.recipientId,
+      bodyText: body,
+      buttons: choices.map((key) => ({ id: `${ID_PAY}${key}`, title: PROVIDER_BUTTON_LABELS[key] })),
+      displayText: body,
+      author: AUTHOR
+    });
+    if (sent.ok) return;
+  }
+  await ctx.sendText(`${body}\n${choices.map((key, index) => `${index + 1}) ${PROVIDER_LABELS[key]}`).join("\n")}\nاكتب رقم الخيار، أو «إلغاء» للرجوع إلى السلة.`);
+}
+
+/** One answer of the payment questions: the method (a button or its number), then Tabby's email. */
+async function continuePaymentFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: { id?: string; text: string }, cart: Awaited<ReturnType<typeof resolveCart>>): Promise<boolean> {
+  const id = reply.id || "";
+  const text = reply.text.trim();
+  const delivery = (flow.data.methodId ? await deliveryFromFlow(ctx, flow) : undefined) ?? undefined;
+  if (flow.data.methodId && !delivery) {
+    // The delivery option vanished meanwhile: ask the delivery questions again.
+    const methods = await listShippingMethods(ctx.tenantId, { activeOnly: true });
+    if (methods.length) {
+      await ctx.sendText("تغيّرت خيارات التوصيل. لنُعد اختيار التوصيل.");
+      await startShippingFlow(ctx, methods);
+      return true;
+    }
+  }
+  const choices = await listPaymentChoices(ctx.tenantId);
+
+  if (flow.step === "payment") {
+    const picked: ProviderKey | undefined = id.startsWith(ID_PAY)
+      ? choices.find((key) => key === id.slice(ID_PAY.length))
+      : /^\d$/.test(text) ? choices[Number(text) - 1] : undefined;
+    if (!picked) {
+      await askPaymentMethod(ctx, cart, delivery, choices);
+      return true;
+    }
+    if (picked === "tabby") {
+      // Tabby asks for the buyer's email.
+      await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "email", data: { ...flow.data, provider: picked } });
+      await ctx.sendText("لإتمام الدفع عبر تابي اكتب *بريدك الإلكتروني*.\n(أو اكتب «إلغاء» للرجوع إلى السلة)");
+      return true;
+    }
+    await clearCheckoutFlow(ctx.conversationId);
+    await startPayment(ctx, cart, delivery, picked);
+    return true;
+  }
+
+  // step "email"
+  if (id || !text) return false;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(text) || text.length > 120) {
+    await ctx.sendText("اكتب بريدًا إلكترونيًا صحيحًا، مثل: name@example.com");
+    return true;
+  }
+  const provider = (flow.data.provider as ProviderKey | undefined) ?? "tabby";
+  await clearCheckoutFlow(ctx.conversationId);
+  await startPayment(ctx, cart, delivery, provider, text);
+  return true;
+}
+
+/** The method is known: place the order and give the customer its payment link (or hand it to a person). */
+async function startPayment(ctx: CatalogCtx, cart: Awaited<ReturnType<typeof resolveCart>>, delivery: Delivery | undefined, provider: ProviderKey | undefined, email?: string) {
+  await finalizeCartOrder(ctx, cart, delivery, provider, email);
+}
+
 /** The order itself: the code's use, the stock, the order row, then the payment link (or a person to follow up). */
-async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeof resolveCart>>, delivery: Delivery | undefined) {
+async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeof resolveCart>>, delivery: Delivery | undefined, provider?: ProviderKey, email?: string) {
   if (cart.discountNote) {
     await showCart(ctx, `تم إلغاء كود الخصم (${cart.discountNote}).\nراجع إجمالي سلتك قبل الدفع.`);
     return;
@@ -663,7 +762,7 @@ async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeo
   const conversation = await prisma.conversation.findUnique({ where: { id: ctx.conversationId }, include: { customer: true } });
   const customerName = conversation?.customer.name || "";
   const customerPhone = conversation?.customer.phone || "";
-  const gatewayKey = await getMerchantGatewayKey(ctx.tenantId);
+  const gatewayKey = provider === "moyasar" ? await getMerchantGatewayKey(ctx.tenantId) : "";
 
   const order = await createCartOrder({
     tenantId: ctx.tenantId,
@@ -671,13 +770,49 @@ async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeo
     customerName,
     customerPhone,
     lines: cart.lines.map((line) => ({ product: line.product, quantity: line.quantity })),
-    status: gatewayKey ? "awaiting_payment" : "new",
+    status: provider ? "awaiting_payment" : "new",
     discount: cart.discount,
     shipping: delivery && quote ? { methodName: delivery.method.name, city: delivery.city, address: delivery.address, fee: quote.fee, eta: delivery.method.eta } : undefined
   });
   const orderText = `${formatOrderSummary(cart, quote)}${delivery ? `\n\nالعنوان: ${delivery.address}` : ""}`;
   const totalText = formatMoney(order.total, order.currency);
   const where = delivery ? ` | التوصيل: ${delivery.method.name} إلى ${delivery.city} - ${delivery.address}` : "";
+
+  // Tabby / Tamara: a payment link from the provider. If it refuses this purchase, the order is cancelled (stock and code
+  // come back) and the customer is offered the other methods.
+  if (provider === "tabby" || provider === "tamara") {
+    const origin = getAppOrigin();
+    try {
+      const firstMessage = await prisma.message.findFirst({ where: { conversationId: ctx.conversationId }, orderBy: { createdAt: "asc" }, select: { createdAt: true } });
+      const created = await startExternalPayment(provider, {
+        tenantId: ctx.tenantId,
+        orderId: order.id,
+        amount: order.total,
+        currency: order.currency,
+        description: `${cart.lines.length > 1 ? `${cart.lines.length} منتجات` : cart.lines[0].product.name}`.slice(0, 120),
+        items: cart.lines.map((line) => ({ name: line.product.name, sku: line.product.sku, quantity: line.quantity, unitPrice: line.product.price })),
+        customer: { name: customerName, phone: customerPhone, email, registeredSince: firstMessage?.createdAt || new Date().toISOString(), history: await customerPaymentHistory(ctx.tenantId, customerPhone) },
+        discountAmount: cart.discount?.amount ?? 0,
+        discountName: cart.discount ? `كود ${cart.discount.code}` : "",
+        shippingFee: quote?.fee ?? 0,
+        shipping: delivery ? { city: delivery.city, address: delivery.address } : undefined,
+        urls: { success: `${origin}/order/thanks?o=${encodeURIComponent(order.id)}`, cancel: `${origin}/order/thanks`, failure: `${origin}/order/thanks` },
+        notificationUrl: `${origin}/api/catalog/payment-webhook/tamara?t=${encodeURIComponent(ctx.tenantId)}`
+      });
+      await prisma.catalogOrder.update({ where: { id: order.id }, data: { paymentId: created.storedId, paymentUrl: created.url, updatedAt: new Date().toISOString() } });
+      await clearCart(ctx.conversationId);
+      await addOrderNote(ctx.conversationId, `طلب جديد بانتظار الدفع عبر ${PROVIDER_LABELS[provider]} (${cart.units} قطعة): ${notesLine(cart)} - ${totalText}${where}`);
+      await ctx.sendText(`تم تجهيز طلبك\nرقم الطلب: ${shortOrderNumber(order.id)}\n\n${orderText}\n\nلإتمام الدفع عبر ${PROVIDER_LABELS[provider]} اضغط على الرابط:\n${created.url}`);
+      return;
+    } catch (error) {
+      await updateOrderStatus(ctx.tenantId, order.id, "cancelled");
+      const rejected = error instanceof PaymentProviderError && error.kind === "rejected";
+      await ctx.sendText(rejected ? `${(error as PaymentProviderError).message}` : `تعذّر تجهيز الدفع عبر ${PROVIDER_LABELS[provider]} الآن.`);
+      // Offer what is left; with nothing left a person follows up.
+      await proceedToPayment(ctx, cart, delivery, [provider]);
+      return;
+    }
+  }
 
   if (gatewayKey) {
     try {
@@ -840,7 +975,7 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   // Answering the delivery questions of a checkout (city, delivery option, address, confirmation).
   const flow = await getCheckoutFlow(ctx.conversationId);
   if (flow) {
-    if (!id || id.startsWith(ID_SHIP)) {
+    if (!id || id.startsWith(ID_SHIP) || id.startsWith(ID_PAY)) {
       if (await continueShippingFlow(ctx, flow, reply)) return "handled";
     } else {
       // A tap on anything else abandons a half-finished checkout.

@@ -6,6 +6,7 @@ import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
 import CustomSelect from "../../components/CustomSelect";
 import DiscountCodesPanel from "../components/DiscountCodesPanel";
 import ShippingPanel from "../components/ShippingPanel";
+import PaymentProvidersPanel from "../components/PaymentProvidersPanel";
 
 type Product = {
   id: string;
@@ -433,6 +434,8 @@ export default function CatalogView() {
               )}
             </div>
           </div>
+
+          <PaymentProvidersPanel canManage={canManagePayment} />
 
           <div className="panel">
             <div className="panel-head"><h2>{t("مزامنة المنتجات من موقعك", "Sync products from your website")}</h2></div>

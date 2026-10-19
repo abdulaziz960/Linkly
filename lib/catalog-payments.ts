@@ -167,6 +167,15 @@ export async function processOrderPaymentCallback(orderId: string): Promise<{ ht
     return applyOrderTransition(order, "paid");
   }
 
+  // Tabby / Tamara: ask the provider (never the delivery body) and move the payment forward (capture / authorise).
+  if (order.paymentId.startsWith("tabby-") || order.paymentId.startsWith("tamara-")) {
+    const { verifyExternalPayment } = await import("./payments/registry");
+    const verdict = await verifyExternalPayment(order);
+    if (verdict.state === "paid") return applyOrderTransition(order, "paid");
+    if (verdict.state === "failed") return applyOrderTransition(order, "cancelled");
+    return { httpStatus: 200, body: { ok: true, status: order.status } };
+  }
+
   const secretKey = await getMerchantGatewayKeyForVerification(order.tenantId);
   const invoice = await fetchMerchantInvoice(secretKey, order.paymentId);
   if (!invoice || invoice.orderId !== order.id) return { httpStatus: 200, body: { ok: true } };
