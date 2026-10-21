@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import { downloadBranchTemplate, parseBranchFile } from "../branch-import";
 
 type Branch = {
   id: string;
@@ -20,7 +21,7 @@ type BranchForm = { id: string; name: string; address: string; phone: string; wo
 const emptyForm: BranchForm = { id: "", name: "", address: "", phone: "", workingHours: "", mapUrl: "", latitude: "", longitude: "", active: true };
 
 export default function BranchesView() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -28,6 +29,8 @@ export default function BranchesView() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showCoords, setShowCoords] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importReport, setImportReport] = useState<{ added: number; errors: string[] } | null>(null);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/branches", { cache: "no-store" });
@@ -92,6 +95,37 @@ export default function BranchesView() {
     await load();
   }
 
+  async function importFile(file: File | undefined) {
+    if (!file) return;
+    setImporting(true);
+    setImportReport(null);
+    try {
+      const rows = await parseBranchFile(file);
+      if (!rows.length) {
+        setImportReport({ added: 0, errors: [t("لم نجد صفوفًا صالحة. استخدم النموذج وتأكد من عمود «اسم الفرع».", "No valid rows found. Use the template and keep the \"Branch name\" column.")] });
+        return;
+      }
+      let added = 0;
+      const errors: string[] = [];
+      for (const [index, row] of rows.entries()) {
+        const response = await fetch("/api/branches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...row, active: true }) });
+        const result = await response.json().catch(() => null);
+        if (result?.ok) added += 1;
+        else {
+          errors.push(t(`الصف ${index + 2}: ${result?.error || "تعذر الحفظ"}`, `Row ${index + 2}: ${result?.error || "Could not save"}`));
+          // A plan limit stops the rest: every further row would fail the same way.
+          if (response.status === 403) break;
+        }
+      }
+      setImportReport({ added, errors });
+      await load();
+    } catch {
+      setImportReport({ added: 0, errors: [t("تعذر قراءة الملف. استخدم ملف Excel (.xlsx) أو CSV.", "Could not read the file. Use an Excel (.xlsx) or CSV file.")] });
+    } finally {
+      setImporting(false);
+    }
+  }
+
   async function toggle(branch: Branch) {
     await fetch(`/api/branches/${branch.id}`, {
       method: "PATCH",
@@ -115,9 +149,23 @@ export default function BranchesView() {
         <div className="panel-head">
           <h2>{t("الفروع", "Branches")}</h2>
           <span />
-          <button className="btn primary" type="button" onClick={openNew}>{t("+ إضافة فرع", "+ Add branch")}</button>
+          <div className="row-actions">
+            <button className="btn soft" type="button" onClick={() => void downloadBranchTemplate(language)}>{t("تنزيل نموذج Excel", "Download Excel template")}</button>
+            <label className="btn soft" style={{ cursor: importing ? "wait" : "pointer" }}>
+              {importing ? t("جاري الاستيراد...", "Importing...") : t("رفع ملف الفروع", "Upload branches file")}
+              <input type="file" accept=".xlsx,.csv" hidden disabled={importing} onChange={(event) => { void importFile(event.target.files?.[0]); event.target.value = ""; }} />
+            </label>
+            <button className="btn primary" type="button" onClick={openNew}>{t("+ إضافة فرع", "+ Add branch")}</button>
+          </div>
         </div>
         <div className="panel-body">
+          {importReport ? (
+            <div className={importReport.errors.length ? "form-error" : "automation-feedback success"} role="status">
+              <b>{t(`تمت إضافة ${importReport.added} فرع`, `${importReport.added} branches added`)}</b>
+              {importReport.errors.slice(0, 8).map((message) => <div key={message}>{message}</div>)}
+              {importReport.errors.length > 8 ? <div>{t(`و${importReport.errors.length - 8} أخطاء أخرى`, `and ${importReport.errors.length - 8} more errors`)}</div> : null}
+            </div>
+          ) : null}
           <div className="branch-intro">
             <span className="branch-intro-icon" aria-hidden="true">📍</span>
             <p>{t("أضف فروعك ومواقعها. عند إضافة خطوة «أقرب فرع» في الرد الآلي، يطلب البوت من العميل مشاركة موقعه على واتساب ثم يرسل له أقرب فرع: الاسم والعنوان والمسافة ورابط الخريطة.", "Add your branches and their locations. With the \"Nearest branch\" auto-reply step, the bot asks the customer to share their WhatsApp location and replies with the closest branch: name, address, distance and map link.")}</p>
