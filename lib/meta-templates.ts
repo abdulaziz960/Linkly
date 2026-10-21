@@ -1,5 +1,6 @@
 import type { IntegrationSettings } from "../app/dashboard/types";
 import { prisma } from "./prisma";
+import { buildCarouselComponent, type CarouselCardInput } from "./template-carousel";
 
 type TemplateComponentData = {
   category: string;
@@ -22,6 +23,8 @@ type TemplateComponentData = {
   // purpose as bodyExamples, required by Meta whenever the button URL has
   // a placeholder.
   buttonUrlExample?: string;
+  // A media-card carousel template: the message body plus these cards (handles = Meta upload handles, one per card).
+  carousel?: { cards: CarouselCardInput[]; handles: string[] };
 };
 
 export type MetaTemplateResult =
@@ -101,6 +104,15 @@ function textExample(text: string, overrides?: Record<string, string>) {
 
 export function buildTemplateComponents(data: TemplateComponentData) {
   const components: Array<Record<string, unknown>> = [];
+
+  if (data.carousel) {
+    // A carousel template is the body plus the cards (no template-level header, footer or buttons).
+    const carouselBody = data.message.trim();
+    const carouselExample = textExample(carouselBody, data.bodyExamples);
+    components.push({ type: "BODY", text: carouselBody, ...(carouselExample ? { example: carouselExample } : {}) });
+    components.push(buildCarouselComponent(data.carousel.handles, data.carousel.cards));
+    return components;
+  }
 
   if (data.headerType === "TEXT" && data.headerText.trim()) {
     const headerPlaceholders = placeholderNames(data.headerText);

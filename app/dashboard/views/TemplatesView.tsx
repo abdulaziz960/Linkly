@@ -64,6 +64,9 @@ function templateStatusLabel(status: string, t: (ar: string, en: string) => stri
   return status;
 }
 
+type CarouselCardForm = { id: string; imageDataUrl: string; body: string; buttons: Array<{ text: string; url: string }> };
+const newCarouselCard = (): CarouselCardForm => ({ id: `card-${Math.random().toString(36).slice(2, 10)}`, imageDataUrl: "", body: "", buttons: [] });
+
 export default function TemplatesView({
   onRefreshData,
   templates,
@@ -100,12 +103,48 @@ export default function TemplatesView({
   );
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<TemplateFormState>(emptyForm);
+  // A multi-card (carousel) template is built from these cards; the buttons layout is shared by every card.
+  const [carouselMode, setCarouselMode] = useState(false);
+  const [carouselCards, setCarouselCards] = useState<CarouselCardForm[]>(() => [newCarouselCard(), newCarouselCard()]);
+  const [carouselLayout, setCarouselLayout] = useState<Array<"QUICK_REPLY" | "URL">>([]);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
   const [syncNotice, setSyncNotice] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
   const bodyPlaceholders = useMemo(() => extractPlaceholders(form.message), [form.message]);
+
+  function updateCard(id: string, patch: Partial<CarouselCardForm>) {
+    setCarouselCards((current) => current.map((card) => (card.id === id ? { ...card, ...patch } : card)));
+  }
+
+  function updateCardButton(id: string, slot: number, patch: Partial<{ text: string; url: string }>) {
+    setCarouselCards((current) => current.map((card) => {
+      if (card.id !== id) return card;
+      const buttons = [...card.buttons];
+      buttons[slot] = { ...(buttons[slot] || { text: "", url: "" }), ...patch };
+      return { ...card, buttons };
+    }));
+  }
+
+  function handleCardImage(id: string, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      setError(t("الصورة أكبر من 4 ميجابايت.", "The image is larger than 4 MB."));
+      event.target.value = "";
+      return;
+    }
+    setError("");
+    const reader = new FileReader();
+    reader.onload = () => updateCard(id, { imageDataUrl: String(reader.result || "") });
+    reader.readAsDataURL(file);
+  }
+
+  function startCarouselKind() {
+    setCarouselMode(true);
+    setForm((current) => ({ ...current, category: "MARKETING", type: "تسويق", name: isCatalogTemplateName(current.name) ? current.name.slice(CATALOG_TEMPLATE_PREFIX.length) : current.name, headerType: "NONE", footer: "", buttonType: "NONE" }));
+  }
 
   function handleHeaderImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -135,12 +174,20 @@ export default function TemplatesView({
 
   function openCreateForm() {
     setError("");
+    setCarouselMode(false);
+    setCarouselCards([newCarouselCard(), newCarouselCard()]);
+    setCarouselLayout([]);
     setForm(emptyForm);
     setFormOpen(true);
   }
 
   function openEditForm(template: MessageTemplate) {
     setError("");
+    if (template.carouselCards) {
+      setError(t("القوالب متعددة العرض لا تُعدَّل بعد إرسالها لمراجعة Meta. احذف القالب وأنشئه من جديد.", "Carousel templates can't be edited once sent for Meta's review. Delete it and create a new one."));
+      return;
+    }
+    setCarouselMode(false);
     setForm({
       name: template.name,
       message: template.message,
@@ -195,12 +242,26 @@ export default function TemplatesView({
       return;
     }
 
+    if (carouselMode && carouselCards.some((card) => !card.imageDataUrl || !card.body.trim())) {
+      setError(t("كل بطاقة تحتاج صورة ونصًا.", "Every card needs an image and a text."));
+      return;
+    }
+
     setSaving(true);
 
+    const carouselBody = carouselMode
+      ? {
+          carousel: carouselCards.map((card) => ({
+            imageDataUrl: card.imageDataUrl,
+            body: card.body,
+            buttons: carouselLayout.map((type, slot) => ({ type, text: card.buttons[slot]?.text || "", ...(type === "URL" ? { url: card.buttons[slot]?.url || "" } : {}) }))
+          }))
+        }
+      : {};
     const response = await fetch(form.editing ? `/api/templates/${encodeURIComponent(form.name)}` : "/api/templates", {
       method: form.editing ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form)
+      body: JSON.stringify({ ...form, ...carouselBody })
     });
     const payload = (await response.json()) as { ok: boolean; error?: string };
 
@@ -352,16 +413,15 @@ export default function TemplatesView({
                     <h3>{t("اختر نوع القالب", "Select template type")}</h3>
                   </div>
                   <div className="template-type-grid">
-                    <button type="button" className={`template-type-card ${isCatalogForm ? "" : "active"}`} aria-pressed={!isCatalogForm} disabled={form.editing} onClick={() => chooseTemplateKind(false)}>
+                    <button type="button" className={`template-type-card ${isCatalogForm || carouselMode ? "" : "active"}`} aria-pressed={!isCatalogForm && !carouselMode} disabled={form.editing} onClick={() => { setCarouselMode(false); chooseTemplateKind(false); }}>
                       <span className="template-type-icon">{DocIcon}</span>
                       {t("قياسي", "Standard")}
                     </button>
-                    <button type="button" className={`template-type-card ${isCatalogForm ? "active" : ""}`} aria-pressed={isCatalogForm} disabled={form.editing} onClick={() => chooseTemplateKind(true)}>
+                    <button type="button" className={`template-type-card ${isCatalogForm ? "active" : ""}`} aria-pressed={isCatalogForm} disabled={form.editing} onClick={() => { setCarouselMode(false); chooseTemplateKind(true); }}>
                       <span className="template-type-icon">{CatalogIcon}</span>
                       {t("كتالوج", "Catalog")}
                     </button>
-                    <button type="button" className="template-type-card" disabled title={t("قريبًا", "Coming soon")}>
-                      <span className="template-type-soon">{t("قريبًا", "Soon")}</span>
+                    <button type="button" className={`template-type-card ${carouselMode ? "active" : ""}`} aria-pressed={carouselMode} disabled={form.editing} onClick={startCarouselKind}>
                       <span className="template-type-icon">{CarouselIcon}</span>
                       {t("عرض متعدد", "Carousel")}
                     </button>
@@ -373,6 +433,7 @@ export default function TemplatesView({
                   </div>
                 </div>
 
+                {!carouselMode ? (
                 <div className="template-section">
                   <div className="template-section-head">
                     <h3>{t("عنوان القالب (اختياري)", "Header (optional)")}</h3>
@@ -433,6 +494,7 @@ export default function TemplatesView({
                     </div>
                   ) : null}
                 </div>
+                ) : null}
 
                 <div className="template-section">
                   <div className="template-section-head">
@@ -480,7 +542,56 @@ export default function TemplatesView({
                     </div>
                   ) : null}
                 </div>
+                {carouselMode ? (
+                  <div className="template-section">
+                    <div className="template-section-head">
+                      <h3>{t("بطاقات العرض المتعدد", "Carousel cards")}</h3>
+                      <small>{t("من 2 إلى 10 بطاقات. كل بطاقة صورة ونص (حتى 160 حرفًا) وزرّان كحد أقصى. للتسويق فقط.", "2 to 10 cards. Each has an image, a text (up to 160 characters) and up to two buttons. Marketing only.")}</small>
+                    </div>
+                    <div className="template-radio-row">
+                      <span className="field-hint">{t("أزرار البطاقات (نفسها في كل بطاقة):", "Card buttons (the same on every card):")}</span>
+                      {[0, 1].map((slot) => (
+                        <label key={slot} className="template-radio">
+                          <CustomSelect
+                            value={carouselLayout[slot] || ""}
+                            onChange={(value) => setCarouselLayout((current) => { const next = current.slice(0, slot); if (value) next[slot] = value as "QUICK_REPLY" | "URL"; return slot === 0 && !value ? [] : next.filter(Boolean); })}
+                            options={[{ value: "", label: t(`الزر ${slot + 1}: بدون`, `Button ${slot + 1}: none`) }, { value: "QUICK_REPLY", label: t(`الزر ${slot + 1}: رد سريع`, `Button ${slot + 1}: quick reply`) }, { value: "URL", label: t(`الزر ${slot + 1}: رابط`, `Button ${slot + 1}: link`) }]}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <div className="carousel-cards">
+                      {carouselCards.map((card, index) => (
+                        <div className="carousel-card-editor" key={card.id}>
+                          <div className="carousel-card-head">
+                            <b>{t(`البطاقة ${index + 1}`, `Card ${index + 1}`)}</b>
+                            {carouselCards.length > 2 ? <button type="button" className="btn soft" onClick={() => setCarouselCards((current) => current.filter((item) => item.id !== card.id))}>{t("حذف", "Remove")}</button> : null}
+                          </div>
+                          <div className="template-header-image">
+                            <label className="template-upload-btn">
+                              {card.imageDataUrl ? t("تغيير الصورة", "Change image") : t("اختر صورة (JPG أو PNG)", "Choose image (JPG or PNG)")}
+                              <input type="file" accept="image/jpeg,image/png" hidden onChange={(event) => handleCardImage(card.id, event)} />
+                            </label>
+                            {card.imageDataUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={card.imageDataUrl} alt="" className="template-header-image-preview" />
+                            ) : null}
+                          </div>
+                          <textarea rows={2} maxLength={160} value={card.body} onChange={(event) => updateCard(card.id, { body: event.target.value })} placeholder={t("نص البطاقة", "Card text")} />
+                          {carouselLayout.map((type, slot) => (
+                            <div className="carousel-card-button" key={slot}>
+                              <input maxLength={25} value={card.buttons[slot]?.text || ""} onChange={(event) => updateCardButton(card.id, slot, { text: event.target.value })} placeholder={t(`نص الزر ${slot + 1}`, `Button ${slot + 1} text`)} />
+                              {type === "URL" ? <input dir="ltr" value={card.buttons[slot]?.url || ""} onChange={(event) => updateCardButton(card.id, slot, { url: event.target.value })} placeholder="https://" /> : null}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                    {carouselCards.length < 10 ? <button type="button" className="btn soft" onClick={() => setCarouselCards((current) => [...current, newCarouselCard()])}>{t("+ إضافة بطاقة", "+ Add card")}</button> : null}
+                  </div>
+                ) : null}
 
+                {!carouselMode ? (
                 <div className="template-section">
                   <div className="template-section-head">
                     <h3>{t("تذييل الصفحة (اختياري)", "Footer (optional)")}</h3>
@@ -488,7 +599,9 @@ export default function TemplatesView({
                   </div>
                   <input value={form.footer} onChange={(event) => setForm((current) => ({ ...current, footer: event.target.value }))} placeholder={t("مثال: هذه رسالة آلية", "Example: This is an automated message")} />
                 </div>
+                ) : null}
 
+                {!carouselMode ? (
                 <div className="template-section">
                   <div className="template-section-head">
                     <h3>{t("الأزرار (اختياري)", "Buttons (optional)")}</h3>
@@ -580,6 +693,7 @@ export default function TemplatesView({
                     </label>
                   ) : null}
                 </div>
+                ) : null}
 
                 <div className="template-section">
                   <div className="template-meta-status">
@@ -592,7 +706,7 @@ export default function TemplatesView({
               </div>
               <div className="template-preview">
                 <span className="template-preview-label">{t("معاينة", "Preview")}</span>
-                <TemplatePreview form={form} language={language} t={t} />
+                <TemplatePreview form={form} language={language} t={t} carouselCards={carouselMode ? carouselCards : undefined} />
               </div>
             </div>
             <div className="template-modal-foot">
@@ -711,7 +825,7 @@ const ReplyArrowIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 17 4 12l5-5M4 12h11a4 4 0 0 1 0 8h-1" /></svg>
 );
 
-function TemplatePreview({ form, t }: { form: TemplateFormState; language: string; t: (ar: string, en: string) => string }) {
+function TemplatePreview({ form, t, carouselCards }: { form: TemplateFormState; language: string; t: (ar: string, en: string) => string; carouselCards?: CarouselCardForm[] }) {
   const now = new Intl.DateTimeFormat("ar-SA", { hour: "2-digit", minute: "2-digit", numberingSystem: "latn" }).format(new Date());
   return (
     <div className="template-phone-frame">
@@ -761,6 +875,19 @@ function TemplatePreview({ form, t }: { form: TemplateFormState; language: strin
           {form.buttonType !== "NONE" && form.buttonText ? <button type="button">{buttonIcon(form.buttonType)}{form.buttonText}</button> : null}
           <time>{now}</time>
         </div>
+        {carouselCards ? (
+          <div className="carousel-preview" aria-label={t("معاينة البطاقات", "Cards preview")}>
+            {carouselCards.map((card) => (
+              <div className="carousel-preview-card" key={card.id}>
+                {card.imageDataUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={card.imageDataUrl} alt="" />
+                ) : <div className="template-media">{t("صورة", "Image")}</div>}
+                <p>{card.body || t("نص البطاقة", "Card text")}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="template-phone-composer">
         {AttachIcon}

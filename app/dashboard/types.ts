@@ -154,6 +154,8 @@ export type MessageTemplate = {
   metaId?: string;
   syncedAt?: string;
   lastUsed?: string;
+  /** Set for a multi-card (carousel) template: how many cards it has. */
+  carouselCards?: number;
 };
 
 export type NavItem = {

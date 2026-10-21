@@ -6,6 +6,7 @@ import { userHasViewPermission } from "../../../lib/permissions-server";
 import { prisma } from "../../../lib/prisma";
 import { createMetaTemplate, isMetaWhatsAppConfigured } from "../../../lib/meta-templates";
 import { uploadMetaMedia } from "../../../lib/meta-media-upload";
+import { cleanCarouselInput, getCarouselCounts, saveCarouselCards } from "../../../lib/template-carousel";
 import { logAdminAction, getTenantCompanyName } from "../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../_utils/json";
 
@@ -16,7 +17,8 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
 
-  return jsonOk(await getTemplates(user.tenantId));
+  const [templates, carouselCounts] = await Promise.all([getTemplates(user.tenantId), getCarouselCounts(user.tenantId).catch(() => new Map<string, number>())]);
+  return jsonOk(templates.map((template) => (carouselCounts.has(template.name) ? { ...template, carouselCards: carouselCounts.get(template.name) } : template)));
 }
 
 export async function POST(request: NextRequest) {
@@ -40,6 +42,7 @@ export async function POST(request: NextRequest) {
     buttonUrl?: string;
     bodyExamples?: Record<string, string>;
     buttonUrlExample?: string;
+    carousel?: unknown;
   };
   const name = body.name?.trim();
   const message = body.message?.trim();
@@ -53,9 +56,24 @@ export async function POST(request: NextRequest) {
     return jsonError("أدخل WABA ID و Access Token في بيانات الربط قبل إنشاء قوالب واتساب.");
   }
 
-  const category = body.category || "MARKETING";
+  // A carousel (multi-card) template: marketing only, no template-level header/footer/buttons; each card's image is
+  // uploaded to Meta for review and a copy is kept for sends.
+  let carousel: { cards: Array<import("../../../lib/template-carousel").CarouselCardInput>; handles: string[] } | undefined;
+  if (body.carousel !== undefined) {
+    const cleaned = cleanCarouselInput(body.carousel);
+    if (!cleaned.ok) return jsonError(cleaned.error);
+    const handles: string[] = [];
+    for (const [position, card] of cleaned.cards.entries()) {
+      const upload = await uploadMetaMedia(integration.accessToken, card.imageDataUrl);
+      if (!upload.ok) return jsonError(`البطاقة ${position + 1}: ${upload.error}`);
+      handles.push(upload.handle);
+    }
+    carousel = { cards: cleaned.cards, handles };
+  }
+
+  const category = carousel ? "MARKETING" : body.category || "MARKETING";
   const language = body.language || "ar";
-  const headerType = body.headerType || "NONE";
+  const headerType = carousel ? "NONE" : body.headerType || "NONE";
   const headerText = body.headerText || "";
   const footer = body.footer || "";
   const buttonType = body.buttonType || "NONE";
@@ -90,10 +108,12 @@ export async function POST(request: NextRequest) {
     buttonPhone,
     buttonUrl,
     bodyExamples: body.bodyExamples,
-    buttonUrlExample: body.buttonUrlExample
+    buttonUrlExample: body.buttonUrlExample,
+    ...(carousel ? { carousel } : {})
   });
 
   if (!metaResult.ok) return jsonError(metaResult.error);
+  if (carousel) await saveCarouselCards(user.tenantId, name, carousel.cards);
 
   try {
     const template = await prisma.template.create({

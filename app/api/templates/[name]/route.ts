@@ -6,6 +6,7 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { deleteMetaTemplate, editMetaTemplate, isMetaWhatsAppConfigured } from "../../../../lib/meta-templates";
 import { uploadMetaMedia } from "../../../../lib/meta-media-upload";
+import { deleteCarouselCards, getCarouselCounts } from "../../../../lib/template-carousel";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -49,6 +50,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const existing = await prisma.template.findFirst({ where: { name: templateName, tenantId: user.tenantId } });
   if (!existing) return jsonError("القالب غير موجود", 404);
+  if ((await getCarouselCounts(user.tenantId).catch(() => new Map<string, number>())).has(templateName)) {
+    return jsonError("القوالب متعددة العرض لا تُعدَّل بعد إرسالها لمراجعة Meta. احذف القالب وأنشئه من جديد.");
+  }
 
   const category = body.category || "MARKETING";
   const headerType = body.headerType || "NONE";
@@ -151,6 +155,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   try {
     await prisma.template.delete({ where: { name_tenantId: { name: templateName, tenantId: user.tenantId } } });
+    await deleteCarouselCards(user.tenantId, templateName).catch(() => undefined);
     await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم حذف قالب واتساب "${templateName}" بواسطة ${user.name}.`, "تنبيه", "القوالب");
     return jsonOk({ name: templateName });
   } catch {

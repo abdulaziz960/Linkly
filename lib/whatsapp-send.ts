@@ -1,3 +1,4 @@
+import { buildCarouselSendComponent } from "./template-carousel";
 import { OUTBOUND_MEDIA_TIMEOUT_MS, outboundSignal } from "./outbound-timeout";
 import { prisma } from "./prisma";
 import { getIntegrationSettings } from "./database";
@@ -201,9 +202,12 @@ export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInp
     templateId: input.templateId,
     value: parameterText
   });
+  // A carousel template also needs its cards' images on every send.
+  const carouselComponent = await buildCarouselSendComponent(settings.tenantId, templateName).catch(() => null);
   const components = [
     ...(headerComponent ? [headerComponent] : []),
-    ...(parameters ? [{ type: "body", parameters }] : [])
+    ...(parameters ? [{ type: "body", parameters }] : []),
+    ...(carouselComponent ? [carouselComponent] : [])
   ];
 
   let response: Response;
