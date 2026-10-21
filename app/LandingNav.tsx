@@ -37,7 +37,7 @@ const copy = {
   }
 } as const;
 
-export default function LandingNav({ lang = "ar" }: { lang?: "ar" | "en" }) {
+export default function LandingNav({ lang = "ar", anchorBase = "", onSwitchLanguage }: { lang?: "ar" | "en"; anchorBase?: string; onSwitchLanguage?: () => void }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const text = copy[lang];
@@ -72,11 +72,11 @@ export default function LandingNav({ lang = "ar" }: { lang?: "ar" | "en" }) {
           <i /><i /><i />
         </button>
         <nav id="landing-navigation" ref={panelRef} className={open ? s.navOpen : ""} aria-label={text.navAria}>
-          <a href="#features" onClick={close}>{text.features}</a>
-          <a href="#how" onClick={close}>{text.how}</a>
-          <a href="#pricing" onClick={close}>{text.pricing}</a>
-          <a href="#faq" onClick={close}>{text.faq}</a>
-          <Link href={text.switchHref} onClick={close}>{text.switchLabel}</Link>
+          <a href={`${anchorBase}#features`} onClick={close}>{text.features}</a>
+          <a href={`${anchorBase}#how`} onClick={close}>{text.how}</a>
+          <a href={`${anchorBase}#pricing`} onClick={close}>{text.pricing}</a>
+          <a href={`${anchorBase}#faq`} onClick={close}>{text.faq}</a>
+          {onSwitchLanguage ? <button type="button" className={s.langSwitch} onClick={() => { close(); onSwitchLanguage(); }}>{text.switchLabel}</button> : <Link href={text.switchHref} onClick={close}>{text.switchLabel}</Link>}
           <Link className={s.mobileLogin} href="/login" onClick={close}>{text.login}</Link>
           <Link className={s.mobileNavCta} href="/signup" onClick={close}>{text.signup}</Link>
         </nav>

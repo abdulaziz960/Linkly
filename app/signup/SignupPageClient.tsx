@@ -2,8 +2,10 @@
 
 import type { BillingCycle } from "../../lib/billing-pricing";
 import Link from "next/link";
-import Image from "next/image";
 import SignupForm from "./SignupForm";
+import LandingNav from "../LandingNav";
+import SiteFooter from "../SiteFooter";
+import shell from "../page.module.css";
 import { useStoredLanguage } from "../useStoredLanguage";
 import { REOPEN_COOKIE_BANNER_EVENT } from "../CookieConsent";
 
@@ -28,7 +30,9 @@ const copy = {
     planNote: "ستجرّب هذه الباقة بمزاياها فقط خلال الفترة التجريبية، ويمكنك تجربة باقة أخرى من داخل لوحة التحكم. لا تُفعّل الباقة المدفوعة إلا بعد إتمام الدفع.",
     haveAccount: "لديك حساب؟",
     login: "تسجيل الدخول",
-    cookieSettings: "إعدادات الكوكيز"
+    cookieSettings: "إعدادات الكوكيز",
+    trustLabel: "لماذا لنكلي",
+    trust: ["بدون بطاقة بنكية", "إلغاء التجربة في أي وقت", "بياناتك محمية ومشفّرة"]
   },
   en: {
     kicker: "3-day free trial",
@@ -50,7 +54,9 @@ const copy = {
     planNote: "You'll try this plan with its own features during the trial, and can try another plan from inside the dashboard. A paid plan only activates after payment.",
     haveAccount: "Already have an account?",
     login: "Sign in",
-    cookieSettings: "Cookie settings"
+    cookieSettings: "Cookie settings",
+    trustLabel: "Why Linkly",
+    trust: ["No credit card needed", "Cancel the trial any time", "Your data is protected and encrypted"]
   }
 } as const;
 
@@ -59,34 +65,36 @@ export default function SignupPageClient({ selectedPlan, selectedBilling, plans,
   const text = copy[lang];
 
   return (
-    <main className="journey-page" dir={lang === "ar" ? "rtl" : "ltr"}>
-      <section className="journey-copy">
-        <div className="journey-lang-toggle">
-          <button type="button" aria-pressed={lang === "ar"} className={lang === "ar" ? "active" : ""} onClick={() => setLang("ar")}>العربية</button>
-          <button type="button" aria-pressed={lang === "en"} className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>English</button>
-        </div>
-        <Link className="journey-brand" href="/"><Image src="/assets/linkly-logo.png" alt="" width={72} height={40} />Linkly</Link>
-        <span className="journey-kicker">{text.kicker}</span>
-        <h1>{text.heroTitle}</h1>
-        <p>{text.heroCopy}</p>
-        <ol className="journey-steps">
-          {text.steps.map(([title, description], index) => (
-            <li key={title}><b>{index + 1}</b><span><strong>{title}</strong>{description}</span></li>
-          ))}
-        </ol>
-      </section>
-      <section className="journey-card">
-        <div><span>{text.stepLabel}</span><h2>{text.cardTitle}</h2><p>{text.cardCopy}</p></div>
-        {selectedPlan ? <div className="signup-selected-plan" data-testid="signup-selected-plan">
-          <span>{text.selectedPlan}</span>
-          <strong>{selectedPlan.name}</strong>
-          <small>{{ "شهري": text.billingMonthly, "ربع سنوي": text.billingQuarterly, "نصف سنوي": text.billingSemiannual, "سنوي": text.billingYearly }[selectedBilling]}</small>
-          <p>{text.planNote}</p>
-        </div> : null}
-        <SignupForm lang={lang} plans={plans} defaultPlanId={defaultPlanId} />
-        <small>{text.haveAccount} <Link href="/login">{text.login}</Link></small>
-        <small><button type="button" className="signup-cookie-settings" onClick={() => window.dispatchEvent(new Event(REOPEN_COOKIE_BANNER_EVENT))}>{text.cookieSettings}</button></small>
-      </section>
-    </main>
+    <div className={shell.page} dir={lang === "ar" ? "rtl" : "ltr"}>
+      <LandingNav lang={lang} anchorBase="/" onSwitchLanguage={() => setLang(lang === "ar" ? "en" : "ar")} />
+      <div className="journey-shell"><main className="journey-page">
+        <section className="journey-copy">
+          <span className="journey-kicker">{text.kicker}</span>
+          <h1>{text.heroTitle}</h1>
+          <p>{text.heroCopy}</p>
+          <ol className="journey-steps">
+            {text.steps.map(([title, description], index) => (
+              <li key={title}><b>{index + 1}</b><span><strong>{title}</strong>{description}</span></li>
+            ))}
+          </ol>
+          <ul className="journey-trust" aria-label={text.trustLabel}>
+            {text.trust.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        </section>
+        <section className="journey-card">
+          <div className="journey-card-head"><span>{text.stepLabel}</span><h2>{text.cardTitle}</h2><p>{text.cardCopy}</p></div>
+          {selectedPlan ? <div className="signup-selected-plan" data-testid="signup-selected-plan">
+            <span>{text.selectedPlan}</span>
+            <strong>{selectedPlan.name}</strong>
+            <small>{{ "شهري": text.billingMonthly, "ربع سنوي": text.billingQuarterly, "نصف سنوي": text.billingSemiannual, "سنوي": text.billingYearly }[selectedBilling]}</small>
+            <p>{text.planNote}</p>
+          </div> : null}
+          <SignupForm lang={lang} plans={plans} defaultPlanId={defaultPlanId} />
+          <small>{text.haveAccount} <Link href="/login">{text.login}</Link></small>
+          <small><button type="button" className="signup-cookie-settings" onClick={() => window.dispatchEvent(new Event(REOPEN_COOKIE_BANNER_EVENT))}>{text.cookieSettings}</button></small>
+        </section>
+      </main></div>
+      <SiteFooter lang={lang} />
+    </div>
   );
 }

@@ -2189,3 +2189,6 @@
     left: 2px;
   }
 }
+
+/* A button that looks like the nav's language link (used where switching language must stay on the current page). */
+.langSwitch { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
