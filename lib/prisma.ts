@@ -18,6 +18,14 @@ if (process.env.DATABASE_URL?.startsWith("postgres")) {
   if (!databaseUrl.searchParams.has("pool_timeout")) {
     databaseUrl.searchParams.set("pool_timeout", "20");
   }
+  // Cap the pool per instance. Uncapped, each Cloud Run instance opened ~12
+  // connections; four instances exhausted the Cloud SQL instance (max ~50 on
+  // 1.7 GB, some reserved for admins) and every query failed with P2037 "too
+  // many connections" (2026-10-21). 4 x maxScale 5, doubled while a deploy
+  // overlaps old and new instances, stays under it. DB_CONNECTION_LIMIT overrides.
+  if (!databaseUrl.searchParams.has("connection_limit")) {
+    databaseUrl.searchParams.set("connection_limit", process.env.DB_CONNECTION_LIMIT || "4");
+  }
   process.env.DATABASE_URL = databaseUrl.toString();
 
   // Outside production the app seeds demo fixtures and runs broad schema
