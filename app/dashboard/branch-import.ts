@@ -5,18 +5,18 @@ export type BranchImportRow = { name: string; address: string; phone: string; wo
 type Lang = "ar" | "en";
 
 const HEADERS: Record<Lang, string[]> = {
-  ar: ["اسم الفرع", "العنوان", "رقم الفرع", "ساعات الدوام", "رابط الخريطة"],
-  en: ["Branch name", "Address", "Branch phone", "Working hours", "Map link"]
+  ar: ["اسم الفرع", "المدينة", "رقم الفرع", "ساعات الدوام", "رابط الخريطة"],
+  en: ["Branch name", "City", "Branch phone", "Working hours", "Map link"]
 };
 
 const SAMPLE: Record<Lang, string[]> = {
-  ar: ["فرع الرياض - العليا", "الرياض، طريق العليا", "0500000000", "9 ص - 11 م", "https://maps.app.goo.gl/xxxxxxxx"],
-  en: ["Riyadh - Olaya", "Olaya Street, Riyadh", "0500000000", "9 AM - 11 PM", "https://maps.app.goo.gl/xxxxxxxx"]
+  ar: ["فرع العليا", "الرياض", "0500000000", "9 ص - 11 م", "https://maps.app.goo.gl/xxxxxxxx"],
+  en: ["Olaya branch", "Riyadh", "0500000000", "9 AM - 11 PM", "https://maps.app.goo.gl/xxxxxxxx"]
 };
 
 const ALIASES: Record<keyof BranchImportRow, string[]> = {
   name: ["اسم الفرع", "الاسم", "branch name", "name"],
-  address: ["العنوان", "address"],
+  address: ["المدينة", "العنوان", "city", "address"],
   phone: ["رقم الفرع", "الجوال", "رقم الجوال", "الهاتف", "branch phone", "phone"],
   workingHours: ["ساعات الدوام", "الدوام", "working hours", "hours"],
   mapUrl: ["رابط الخريطة", "رابط", "map link", "map url", "map"]

@@ -190,7 +190,7 @@ export default function BranchesView() {
               <thead>
                 <tr>
                   <th>{t("الفرع", "Branch")}</th>
-                  <th>{t("العنوان", "Address")}</th>
+                  <th>{t("المدينة", "City")}</th>
                   <th>{t("الدوام", "Hours")}</th>
                   <th>{t("الحالة", "Status")}</th>
                   <th>{t("إجراء", "Action")}</th>
@@ -205,7 +205,7 @@ export default function BranchesView() {
                         <span><b>{branch.name}</b>{branch.phone ? <small dir="ltr">{branch.phone}</small> : null}</span>
                       </span>
                     </td>
-                    <td data-label={t("العنوان", "Address")}>
+                    <td data-label={t("المدينة", "City")}>
                       <span className="branch-address">{branch.address || "-"}</span>
                       <a className="branch-map-link" href={mapHref(branch)} target="_blank" rel="noreferrer">{t("عرض على الخريطة ↗", "View on map ↗")}</a>
                     </td>
@@ -230,7 +230,7 @@ export default function BranchesView() {
             <header className="modal-head"><button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button><h2>{form.id ? t("تعديل فرع", "Edit branch") : t("إضافة فرع", "Add branch")}</h2></header>
             <div className="account-modal-body form-grid">
               <label><span>{t("اسم الفرع", "Branch name")}</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required maxLength={120} /></label>
-              <label><span>{t("العنوان", "Address")}</span><input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} maxLength={300} /></label>
+              <label><span>{t("المدينة", "City")}</span><input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} maxLength={300} /></label>
               <div className="split-fields">
                 <label><span>{t("رقم الفرع", "Branch phone")}</span><input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} maxLength={40} dir="ltr" /></label>
                 <label><span>{t("ساعات الدوام", "Working hours")}</span><input value={form.workingHours} onChange={(event) => setForm({ ...form, workingHours: event.target.value })} maxLength={200} placeholder={t("مثال: 9 ص - 10 م", "e.g. 9am - 10pm")} /></label>

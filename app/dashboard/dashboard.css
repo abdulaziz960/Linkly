@@ -395,7 +395,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   padding: 10px 14px;
   background: transparent;
   color: var(--text-secondary);
-  text-align: right;
+  text-align: start;
   font-weight: 800;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -447,7 +447,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   justify-content: flex-start;
   padding-inline: 12px;
   font-size: 13px;
-  text-align: right;
+  text-align: start;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
@@ -520,7 +520,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   align-items: center;
   gap: 10px;
   padding: 12px;
-  text-align: right;
+  text-align: start;
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
@@ -755,7 +755,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   grid-template-columns: 44px minmax(0, 1fr) 172px;
   gap: 12px;
   padding: 15px 14px;
-  text-align: right;
+  text-align: start;
 }
 
 .conversation-card:hover,
@@ -784,7 +784,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   padding: 4px 8px 8px;
   color: var(--ink);
   font-size: 13px;
-  text-align: right;
+  text-align: start;
 }
 
 .conversation-context-menu button {
@@ -795,7 +795,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   color: var(--text-secondary);
   font: inherit;
   font-weight: 800;
-  text-align: right;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -819,7 +819,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
-  text-align: right;
+  text-align: start;
 }
 
 .conversation-copy {
@@ -1075,7 +1075,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   display: grid;
   gap: 3px;
   justify-items: start;
-  text-align: right;
+  text-align: start;
 }
 
 .chat-customer b {
@@ -1352,7 +1352,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .template-editor h2,
 .template-editor p {
   margin: 0;
-  text-align: right;
+  text-align: start;
 }
 
 .template-editor p {
@@ -1553,7 +1553,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   font-size: 13px;
   font-weight: 850;
   cursor: pointer;
-  text-align: right;
+  text-align: start;
   transition: border-color .15s ease, background .15s ease;
 }
 
@@ -2065,7 +2065,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   color: var(--ink);
   padding: 6px 0;
   font-weight: 900;
-  text-align: right;
+  text-align: start;
 }
 
 .template-media {
@@ -2311,7 +2311,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   width: 100%;
   color: inherit;
   font: inherit;
-  text-align: right;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -3081,7 +3081,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   color: var(--ink);
   cursor: pointer;
   font-weight: 800;
-  text-align: right;
+  text-align: start;
 }
 
 .message-context-menu button:hover {
@@ -3571,7 +3571,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   background: transparent;
   padding: 10px;
   color: var(--ink);
-  text-align: right;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -3828,7 +3828,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   color: var(--ink);
   font: inherit;
   direction: rtl;
-  text-align: right;
+  text-align: start;
   resize: vertical;
 }
 
@@ -3846,7 +3846,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .table-wrap td {
   border-bottom: 1px solid var(--line);
   padding: 14px;
-  text-align: right;
+  text-align: start;
   vertical-align: middle;
   box-sizing: border-box;
 }
@@ -5174,7 +5174,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border-radius: 14px;
   background: var(--surface);
   padding: 28px;
-  text-align: right;
+  text-align: start;
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.06);
 }
 
@@ -5447,7 +5447,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   cursor: pointer;
   font: inherit;
   color: var(--text-secondary);
-  text-align: right;
+  text-align: start;
 }
 
 .engagement-tile b {
@@ -5485,7 +5485,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   font-weight: 700;
   color: var(--ink);
   cursor: pointer;
-  text-align: right;
+  text-align: start;
 }
 
 .campaign-engagement-card-meta {
@@ -6741,7 +6741,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .settings-rail button {
   border: 0;
   background: transparent;
-  text-align: right;
+  text-align: start;
   font: inherit;
   cursor: pointer;
   padding: 0;
@@ -6755,7 +6755,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   grid-template-columns: auto 1fr;
   align-items: center;
   gap: 18px;
-  text-align: right;
+  text-align: start;
 }
 
 .meta-setup h2 {
@@ -6811,7 +6811,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   display: grid;
   gap: 10px;
   justify-items: start;
-  text-align: right;
+  text-align: start;
 }
 
 .meta-step span {
@@ -7540,7 +7540,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   padding: 14px 16px;
   display: grid;
   gap: 5px;
-  text-align: right;
+  text-align: start;
 }
 
 .connected-channel-note b {
@@ -7573,7 +7573,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border-radius: 14px;
   background: var(--surface);
   padding: 14px 16px;
-  text-align: right;
+  text-align: start;
 }
 
 .channel-bot-picker span {
@@ -7786,7 +7786,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  text-align: right;
+  text-align: start;
   direction: rtl;
 }
 
@@ -7829,7 +7829,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  text-align: right;
+  text-align: start;
 }
 
 .google-business-summary div {
@@ -8004,7 +8004,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .page-card td {
   border-bottom: 1px solid var(--line);
   padding: 14px;
-  text-align: right;
+  text-align: start;
 }
 
 .page-card th {
@@ -11524,7 +11524,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border: 0;
   border-radius: 10px;
   background: transparent;
-  text-align: right;
+  text-align: start;
   cursor: pointer;
   overflow: visible !important;
   white-space: normal !important;

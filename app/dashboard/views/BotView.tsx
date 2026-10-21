@@ -150,6 +150,22 @@ const readyStepTextEn: Record<string, { title: string; description: string }> = 
   "customer-service-flow": { title: "Full customer service flow", description: "Welcome + services menu + order follow-up + hand over to support." }
 };
 
+// The ready steps' own customer-facing text in English, used when the dashboard is in English.
+const readyStepContentEn: Record<string, string> = {
+  "الترحيب": "Welcome",
+  "أهلًا وسهلًا بك 👋\nيسعدنا خدمتك، اختر من القائمة التالية ما يناسبك.": "Welcome 👋\nWe're happy to help - please choose from the menu below.",
+  "القائمة الرئيسية": "Main menu",
+  "كيف نقدر نساعدك؟": "How can we help you?",
+  "الخدمات والأسعار": "Services and prices",
+  "متابعة طلب": "Order follow-up",
+  "التحدث مع موظف": "Talk to an agent",
+  "يسعدنا توضيح الخدمات والأسعار المناسبة لك. اكتب الخدمة المطلوبة وسيتواصل معك الفريق بالتفاصيل.": "We'd be glad to explain our services and prices. Tell us which service you need and our team will get in touch with the details.",
+  "أرسل رقم الطلب أو رقم الجوال المسجل، وسيقوم الفريق بمتابعته معك.": "Send your order number or registered mobile number, and our team will follow it up with you.",
+  "تحويل للدعم": "Transfer to support",
+  "إنهاء المحادثة": "End conversation",
+  "شكرًا لتواصلك معنا، سعدنا بخدمتك 🌟": "Thank you for contacting us, it was a pleasure to help 🌟"
+};
+
 function nodeTypeLabel(type: string, t: (ar: string, en: string) => string) {
   return t(type, nodeTypeLabelsEn[type] || type);
 }
@@ -295,7 +311,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
         body: JSON.stringify({ nodes: nextNodes.map(({ id, type, title, content, x, y }) => ({ id, type, title, content, x, y })) })
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload?.ok) throw new Error(payload?.error || "تعذر حفظ الخطوات");
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || t("تعذر حفظ الخطوات", "Could not save the steps"));
       setNodes(payload.data || nextNodes);
       setFeedback({ type: "success", message: "تم حفظ مسار الرد الآلي تلقائيًا." });
       return true;
@@ -318,7 +334,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: next })
       });
-      if (!response.ok) throw new Error("تعذر تغيير حالة الرد الآلي");
+      if (!response.ok) throw new Error(t("تعذر تغيير حالة الرد الآلي", "Could not change the auto-reply status"));
       setFeedback({ type: "success", message: next ? "تم تشغيل الرد الآلي لهذه القناة." : "تم إيقاف الرد الآلي لهذه القناة." });
     } catch (error) {
       setEnabled(!next);
@@ -347,23 +363,23 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
     return item.nodes.map((node, index) => {
       let content: BotNodeContent;
       if (node.content.kind === "message") {
-        content = { kind: "message", text: node.content.text, next: node.content.nextKey ? idByKey.get(node.content.nextKey) || null : null };
+        content = { kind: "message", text: t(node.content.text, readyStepContentEn[node.content.text] ?? node.content.text), next: node.content.nextKey ? idByKey.get(node.content.nextKey) || null : null };
       } else if (node.content.kind === "list") {
         content = {
           kind: "list",
-          text: node.content.text,
-          options: node.content.options.map((option) => ({ id: crypto.randomUUID(), label: option.label, next: option.nextKey ? idByKey.get(option.nextKey) || null : null }))
+          text: t(node.content.text, readyStepContentEn[node.content.text] ?? node.content.text),
+          options: node.content.options.map((option) => ({ id: crypto.randomUUID(), label: t(option.label, readyStepContentEn[option.label] ?? option.label), next: option.nextKey ? idByKey.get(option.nextKey) || null : null }))
         };
       } else if (node.content.kind === "team") {
         content = { kind: "team", teamName: node.content.teamName === "__DEFAULT_TEAM__" ? teams[0]?.name || "" : node.content.teamName };
       } else {
-        content = { kind: "close", text: node.content.text };
+        content = { kind: "close", text: t(node.content.text, readyStepContentEn[node.content.text] ?? node.content.text) };
       }
 
       return {
         id: idByKey.get(node.key) as string,
         type: node.type,
-        title: uniqueTitle(node.title, reserved),
+        title: uniqueTitle(t(node.title, readyStepContentEn[node.title] ?? node.title), reserved),
         content,
         x: Math.max(START_POSITION.x + 300, baseX + (index % 3) * 320),
         y: Math.max(24, baseY + Math.floor(index / 3) * 210)
@@ -480,7 +496,7 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
 
   async function submitNode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const title = nodeTitle.trim() || nodeType;
+    const title = nodeTitle.trim() || nodeTypeLabel(nodeType, t);
     const content = draftContent.kind === "list" ? { ...draftContent, options: draftContent.options.filter((option) => option.label.trim()) } : draftContent;
     if (content.kind === "message" && !content.text.trim()) return;
     if (content.kind === "media" && !content.mediaId) {

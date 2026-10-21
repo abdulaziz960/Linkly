@@ -1,5 +1,6 @@
 "use client";
 
+import HtmlLangSync from "../HtmlLangSync";
 import { FormEvent, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -1440,6 +1441,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     <LanguageProvider language={language}>
     <PlanAccessProvider access={planAccess}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
+      {/* Modals and popovers render outside the shell, so the page itself must follow the language too. */}
+      <HtmlLangSync lang={language} dir={language === "en" ? "ltr" : "rtl"} />
       <div className="dashboard-top-banners">
         {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
         <RenewalBanner subscription={subscription} visible={initialUser.role === "مالك الحساب"} language={language} />

@@ -65,6 +65,9 @@ export default function LandingNav({ lang = "ar", anchorBase = "", onSwitchLangu
   }, [lang, onSwitchLanguage]);
 
   const close = () => setOpen(false);
+  const languageSwitch = onSwitchLanguage
+    ? <button type="button" className={s.langSwitch} onClick={() => { close(); onSwitchLanguage(); }}>{text.switchLabel}</button>
+    : <Link href={text.switchHref} onClick={close}>{text.switchLabel}</Link>;
 
   return (
     <header className={s.navbar}>
@@ -81,13 +84,14 @@ export default function LandingNav({ lang = "ar", anchorBase = "", onSwitchLangu
           <a href={`${anchorBase}#how`} onClick={close}>{text.how}</a>
           <a href={`${anchorBase}#pricing`} onClick={close}>{text.pricing}</a>
           <a href={`${anchorBase}#faq`} onClick={close}>{text.faq}</a>
-          {onSwitchLanguage ? <button type="button" className={s.langSwitch} onClick={() => { close(); onSwitchLanguage(); }}>{text.switchLabel}</button> : <Link href={text.switchHref} onClick={close}>{text.switchLabel}</Link>}
+          <span className={s.mobileLang}>{languageSwitch}</span>
           <Link className={s.mobileLogin} href="/login" onClick={close}>{text.login}</Link>
           <Link className={s.mobileNavCta} href="/signup" onClick={close}>{text.signup}</Link>
         </nav>
         <div className={s.navActions}>
           <Link href="/login">{text.login}</Link>
           <Link className={s.primary} href="/signup">{text.signup}</Link>
+          <span className={s.langCorner}>{languageSwitch}</span>
         </div>
       </div>
       {open ? <button className={s.navBackdrop} type="button" aria-label={text.menuClose} onClick={close} /> : null}
