@@ -3,6 +3,7 @@
 import CustomSelect from "../../components/CustomSelect";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import { ORDER_TEMPLATE_EXAMPLES, orderMessageProblem, suggestedOrderMessage, suggestedOrderTemplateName } from "../../../lib/store-template-suggestions";
 
 type OrderEvent = "created" | "processing" | "shipped" | "delivered" | "cancelled";
 type StatusGroup = "review" | "processing" | "shipped" | "delivered" | "cancelled" | "other";
@@ -37,6 +38,8 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" | "sho
   const [shopDomain, setShopDomain] = useState("");
   const [settings, setSettings] = useState<Settings | null>(null);
   const [templates, setTemplates] = useState<string[]>([]);
+  const [pendingTemplates, setPendingTemplates] = useState<string[]>([]);
+  const [suggestion, setSuggestion] = useState<Partial<Record<OrderEvent, { editing: boolean; text: string; busy: boolean; error: string }>>>({});
   const [section, setSection] = useState<Section>("connection");
   const [connection, setConnection] = useState<Connection | null>(null);
   const [available, setAvailable] = useState(false);
@@ -188,7 +191,11 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" | "sho
   const fieldLabel: React.CSSProperties = { display: "grid", gap: 6, fontWeight: 700, fontSize: 14 };
   const hint: React.CSSProperties = { fontWeight: 400, fontSize: 12.5, opacity: 0.7, lineHeight: 1.6 };
   const sectionTitle: React.CSSProperties = { margin: 0, fontSize: 15, fontWeight: 800 };
-  const templateOptions = [{ value: "", label: t("اختر قالبًا", "Choose a template") }, ...templates.map((name) => ({ value: name, label: name }))];
+  const templateOptions = [
+    { value: "", label: t("اختر قالبًا", "Choose a template") },
+    ...templates.map((name) => ({ value: name, label: name })),
+    ...pendingTemplates.filter((name) => !templates.includes(name)).map((name) => ({ value: name, label: `${name} (${t("قيد مراجعة Meta", "pending Meta review")})` }))
+  ];
 
   const cart = settings.abandonedCart;
   function setCart(patch: Partial<Settings["abandonedCart"]>) {
@@ -197,6 +204,43 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" | "sho
   function setOrder(event: OrderEvent, patch: Partial<{ enabled: boolean; template: string }>) {
     setSettings((current) => (current ? { ...current, orderNotifications: { ...current.orderNotifications, [event]: { ...current.orderNotifications[event], ...patch } } } : current));
   }
+  function patchSuggestion(event: OrderEvent, patch: Partial<{ editing: boolean; text: string; busy: boolean; error: string }>) {
+    setSuggestion((current) => ({ ...current, [event]: { editing: false, text: "", busy: false, error: "", ...current[event], ...patch } }));
+  }
+
+  async function submitSuggestion(event: OrderEvent, message: string) {
+    const problem = orderMessageProblem(message);
+    if (problem) {
+      patchSuggestion(event, { error: problem });
+      return;
+    }
+    patchSuggestion(event, { busy: true, error: "" });
+    const base = suggestedOrderTemplateName(store, event);
+    try {
+      for (const name of [base, `${base}_${Date.now().toString(36)}`]) {
+        const response = await fetch("/api/templates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, message: message.trim(), type: "خدمة", category: "UTILITY", language: "ar", bodyExamples: ORDER_TEMPLATE_EXAMPLES })
+        });
+        const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+        if (response.ok && result?.ok) {
+          setPendingTemplates((current) => [...current, name]);
+          setOrder(event, { template: name });
+          patchSuggestion(event, { busy: false, editing: false });
+          return;
+        }
+        if (!/مكرر/.test(result?.error || "")) {
+          patchSuggestion(event, { busy: false, error: result?.error || t("تعذر إرسال القالب إلى Meta", "Could not submit the template to Meta") });
+          return;
+        }
+      }
+      patchSuggestion(event, { busy: false, error: t("تعذر إرسال القالب: الاسم مستخدم.", "Could not submit: the name is already used.") });
+    } catch {
+      patchSuggestion(event, { busy: false, error: t("تعذر الاتصال بالخادم", "Could not reach the server") });
+    }
+  }
+
   const numberField = (value: number, onChange: (next: number) => void, min: number, max: number) => (
     <input dir="ltr" type="number" min={min} max={max} style={input} value={value} onFocus={(event) => event.currentTarget.select()} onChange={(event) => onChange(Number(event.target.value) || 0)} />
   );
@@ -368,6 +412,35 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" | "sho
                     <CustomSelect value={item.template} onChange={(value) => setOrder(event, { template: value })} options={templateOptions} />
                     {missing && !item.template ? <span style={{ ...hint, color: "#c0392b", opacity: 1 }}>{t("اختر قالبًا حتى يُرسل هذا الإشعار.", "Choose a template for this notification to be sent.")}</span> : null}
                   </label>
+                ) : null}
+                {item.enabled && !item.template ? (() => {
+                  const state = suggestion[event];
+                  const text = state?.editing ? state.text : suggestedOrderMessage(event);
+                  return (
+                    <div style={{ border: "1px dashed var(--line, #cfd9d6)", borderRadius: 12, padding: 12, display: "grid", gap: 10, background: "rgba(15,118,110,0.04)" }}>
+                      <strong style={{ fontSize: 13 }}>{t("قالب مقترح لهذه الحالة", "Suggested template for this status")}</strong>
+                      {state?.editing ? (
+                        <textarea style={{ ...input, minHeight: 110, padding: 10 }} value={state.text} onChange={(e) => patchSuggestion(event, { text: e.target.value, error: "" })} />
+                      ) : (
+                        <p style={{ margin: 0, lineHeight: 1.9, fontSize: 14 }}>{text}</p>
+                      )}
+                      <span style={hint}>{t("سيُرسل إلى Meta للمراجعة (فئة خدمة). يستغرق الاعتماد عادةً من دقائق إلى 24 ساعة، ويبدأ الإرسال بعد اعتماده.", "It is sent to Meta for review (utility). Approval usually takes minutes to 24 hours; sending starts once approved.")}</span>
+                      {state?.error ? <span style={{ ...hint, color: "#c0392b", opacity: 1 }}>{state.error}</span> : null}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button type="button" className="primary-action" disabled={state?.busy} onClick={() => void submitSuggestion(event, text)}>
+                          {state?.busy ? t("جارٍ الإرسال...", "Submitting...") : state?.editing ? t("إرسال للاعتماد", "Submit for approval") : t("اعتماد", "Approve")}
+                        </button>
+                        {state?.editing ? (
+                          <button type="button" className="soft-action" disabled={state.busy} onClick={() => patchSuggestion(event, { editing: false, error: "" })}>{t("إلغاء التعديل", "Cancel editing")}</button>
+                        ) : (
+                          <button type="button" className="soft-action" onClick={() => patchSuggestion(event, { editing: true, text, error: "" })}>{t("تعديل", "Edit")}</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })() : null}
+                {item.enabled && item.template && pendingTemplates.includes(item.template) ? (
+                  <span style={hint}>{t("أُرسل القالب إلى Meta وهو قيد المراجعة. اضغط «حفظ» لتثبيت الاختيار.", "The template was sent to Meta and is under review. Press Save to keep the selection.")}</span>
                 ) : null}
               </div>
             );
