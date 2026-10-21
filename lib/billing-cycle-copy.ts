@@ -1,4 +1,4 @@
-import { CYCLE_DISCOUNT_PERCENT, CYCLE_MONTHS, YEARLY_FREE_MONTHS, type BillingCycle } from "./billing-pricing";
+import { CYCLE_DISCOUNT_PERCENT, CYCLE_MONTHS, YEARLY_PAID_MONTHS, YEARLY_FREE_MONTHS, type BillingCycle } from "./billing-pricing";
 
 type Lang = "ar" | "en";
 
@@ -38,7 +38,10 @@ export function cycleBilledNote(cycle: BillingCycle, total: number, lang: Lang):
   return `Billed once as ${total} SAR every ${months} months`;
 }
 
-/** Price shown in big type: the per-month equivalent of a cycle's total. */
+/**
+ * Price shown in big type. The yearly cycle shows the plain monthly price (it pays 10 months and gets 2 free, so
+ * the total divided by the 10 paid months is the base price); the other cycles show the per-month equivalent.
+ */
 export function perMonthPrice(total: number, cycle: BillingCycle): number {
-  return Math.round(total / CYCLE_MONTHS[cycle]);
+  return Math.round(total / (cycle === "سنوي" ? YEARLY_PAID_MONTHS : CYCLE_MONTHS[cycle]));
 }
