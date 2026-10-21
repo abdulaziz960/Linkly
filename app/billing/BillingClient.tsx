@@ -15,6 +15,7 @@ const copy = {
     renewPlan: "تجديد هذه الباقة",
     activeUntil: (date: string) => `باقتك سارية حتى ${date}`,
     upgradePlan: "ترقية الباقة",
+    subscribePlan: "اشترك",
     genericError: "تعذر بدء الدفع",
     paymentNote: "🔒 الدفع الحقيقي يتم على صفحة Moyasar الآمنة. في وضع الاختبار تظهر محاكاة دفع ولن يُخصم أي مبلغ.",
     promoLabel: "كود الخصم",
@@ -35,6 +36,7 @@ const copy = {
     renewPlan: "Renew this plan",
     activeUntil: (date: string) => `Your plan is active until ${date}`,
     upgradePlan: "Upgrade plan",
+    subscribePlan: "Subscribe",
     genericError: "Could not start the payment",
     paymentNote: "🔒 Real payments happen on Moyasar's secure page. In test mode a simulated payment is shown and nothing is charged.",
     promoLabel: "Promo code",
@@ -52,6 +54,8 @@ const copy = {
 
 export default function BillingClient({ plans, currentPlan, currentSubscription = null, lang = "ar", isTestMode }: { plans: Plan[]; currentPlan: string; currentSubscription?: { plan?: string; status?: string; renewalAt?: string; billingCycle?: string } | null; lang?: "ar" | "en"; isTestMode: boolean }) {
   const text = copy[lang];
+  // A trial has nothing to upgrade or renew: every plan is a first subscription.
+  const onTrial = currentSubscription?.status === "تجربة";
   const [loading, setLoading] = useState(""); const [error, setError] = useState("");
   const { billingCycle, chooseBillingCycle } = useBillingCycle();
   // Discount codes are entered on the payment page itself (app/billing/pay), not here.
@@ -90,7 +94,7 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
         {billingCycle !== "شهري" ? <p className="plan-price-note">{cycleBilledNote(billingCycle, cycleTotal, lang)}</p> : null}
         <ul>{items.map((item) => <li key={item}>✓ {item}</li>)}</ul>
 
-        <button disabled={loading !== "" || renewalTooEarly} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : renewalTooEarly ? text.activeUntil(currentSubscription?.renewalAt || "") : isCurrent ? text.renewPlan : text.upgradePlan}</button>
+        <button disabled={loading !== "" || renewalTooEarly} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : renewalTooEarly ? text.activeUntil(currentSubscription?.renewalAt || "") : isCurrent && !onTrial ? text.renewPlan : onTrial ? text.subscribePlan : text.upgradePlan}</button>
       </article>;
     })}</div>
     {error ? <p className="billing-error">{error}</p> : null}

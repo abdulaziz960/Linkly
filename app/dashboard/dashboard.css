@@ -1275,7 +1275,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   height: min(940px, calc(100vh - 24px));
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   padding: 0;
   border-radius: 18px;
   overflow: hidden;
@@ -2090,10 +2090,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .template-modal-foot {
   border-top: 1px solid var(--line);
   background: var(--surface);
-  padding: 18px 48px;
+  padding: 14px 24px;
   display: flex;
   gap: 10px;
-  justify-content: center;
+  justify-content: flex-end;
 }
 
 .template-meta-status {

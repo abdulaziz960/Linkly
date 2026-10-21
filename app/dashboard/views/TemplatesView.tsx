@@ -299,7 +299,6 @@ export default function TemplatesView({
               </div>
               <div className="template-topbar-actions">
                 {form.editing ? <button className="btn soft" type="button" onClick={() => deleteTemplate(form)}>{t("حذف القالب", "Delete template")}</button> : null}
-                <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving") : form.editing ? t("حفظ", "Save") : t("إرسال إلى Meta", "Submit to Meta")}</button>
               </div>
             </div>
             <div className="template-modal-body">
@@ -585,6 +584,10 @@ export default function TemplatesView({
                 <span className="template-preview-label">{t("معاينة", "Preview")}</span>
                 <TemplatePreview form={form} language={language} t={t} />
               </div>
+            </div>
+            <div className="template-modal-foot">
+              <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
+              <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving") : form.editing ? t("حفظ", "Save") : t("إرسال إلى Meta", "Submit to Meta")}</button>
             </div>
           </form>
         </div>
