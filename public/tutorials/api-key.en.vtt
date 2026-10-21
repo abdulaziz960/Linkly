@@ -1,0 +1,21 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:07.000
+Choose the page from the sidebar
+From the sidebar choose “Settings & channels”, then open the “Developers” tab.
+
+00:00:07.000 --> 00:00:13.000
+Open Developers
+From Settings & channels choose “Developers”. This page needs a permission and a plan that supports the feature.
+
+00:00:13.000 --> 00:00:19.000
+Create a key with a clear name
+Write a name that explains the integration, then press “Create key”. The video uses a training key that is revoked after recording.
+
+00:00:19.000 --> 00:00:25.000
+Copy and hide the key
+The key shows only once. “Copy” copies it and “Hide” hides it from the screen. Don't put your key in the website interface or in public recordings.
+
+00:00:25.000 --> 00:00:31.000
+Revoke the key
+The “Revoke” button stops this key being accepted after you confirm. Update the connected system with a replacement key when needed.

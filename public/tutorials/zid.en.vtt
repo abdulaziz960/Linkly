@@ -1,0 +1,21 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:08.000
+Choose the page from the sidebar
+From the sidebar choose “Settings & channels”, then open the “Integrations” tab.
+
+00:00:08.000 --> 00:00:14.000
+Open Integrations
+Open Integrations, then the Zid settings. Connecting the store and connecting the WhatsApp channel are two separate steps; a WhatsApp connection alone does not connect the store.
+
+00:00:14.000 --> 00:00:20.000
+Connect the store
+From the connection tab we review the store status. “Not connected” means the store has not been linked to this account. If it says the app details are not configured, connecting is unavailable on this server until they are prepared; this does not mean WhatsApp is disconnected.
+
+00:00:20.000 --> 00:00:26.000
+Set up notifications
+Here we prepare order notifications and choose the templates. In the recorded account the store is not connected, so we only explain the setup; sending requires the store, WhatsApp and an approved template to be connected.
+
+00:00:26.000 --> 00:00:32.000
+Set up carts and test
+We open abandoned carts and review the delay, the number of reminders and the template. These are pre-launch settings; once the store is actually authorized we test with a sample cart and check that the message arrives.

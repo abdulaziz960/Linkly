@@ -1,0 +1,17 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:08.000
+Choose the page from the sidebar
+From the sidebar choose “Settings & channels”, then open the “Channels” tab.
+
+00:00:08.000 --> 00:00:14.000
+Choose Telegram
+Open Settings & channels, then choose Telegram from the channels.
+
+00:00:14.000 --> 00:00:20.000
+Add the bot token
+Prepare the bot token from your Telegram account and enter it in the channel setup field. Keep the token secret.
+
+00:00:20.000 --> 00:00:26.000
+Save and test
+Save the channel setup, send a message to the bot from another account and check that it appears in Conversations.

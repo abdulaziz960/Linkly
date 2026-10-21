@@ -1,0 +1,17 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:08.000
+Choose the page from the sidebar
+From the sidebar choose “Settings & channels”, then open the “Developers” tab.
+
+00:00:08.000 --> 00:00:14.000
+Prepare the customer data
+We use POST /api/v1/customers with name and phone in a valid Saudi number format. The number shown is a training number and no messages are sent to it.
+
+00:00:14.000 --> 00:00:20.000
+Run the request
+We send JSON with a training key, and show the server's real response with the customer ID, name and mobile.
+
+00:00:20.000 --> 00:00:26.000
+Check in Customers
+We choose Customers & tags from the sidebar, refresh the page to fetch the latest data, then search for the name “API test customer” to check that the record was really added to the training account.

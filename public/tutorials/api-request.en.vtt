@@ -1,0 +1,17 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:08.000
+Choose the page from the sidebar
+From the sidebar choose “Settings & channels”, then open the “Developers” tab.
+
+00:00:08.000 --> 00:00:14.000
+Open the documentation
+From the Developers tab open the full API documentation or the OpenAPI specification. The production base URL is https://linklysa.io/api/v1.
+
+00:00:14.000 --> 00:00:20.000
+Prepare the request
+We use GET /api/v1/customers?limit=5 with Authorization: Bearer YOUR_API_KEY. We keep the key on the server and never show it to users.
+
+00:00:20.000 --> 00:00:26.000
+Run the request and read the result
+We run the request against the local server with a training account. The HTTP code and the real response appear; ok: true means the request succeeded, and data holds the customers and the paging data.

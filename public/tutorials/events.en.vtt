@@ -1,0 +1,21 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:08.000
+Choose the page from the sidebar
+From the sidebar choose “Settings & channels”, then open the “Integrations” tab.
+
+00:00:08.000 --> 00:00:14.000
+Choose the ad platform
+Open Integrations, then the card of the ad platform you use.
+
+00:00:14.000 --> 00:00:20.000
+Complete the connection
+Connect the account with the required permissions. The connection options may differ by platform and by how widely its app is available.
+
+00:00:20.000 --> 00:00:26.000
+Open event mapping
+Choose the “Event mapping” tab and review the settings and the fields the platform requires before turning sending on.
+
+00:00:26.000 --> 00:00:32.000
+Test the result
+Run a test event and check that it arrives in the platform's events manager. Do not send real customer data during the test.

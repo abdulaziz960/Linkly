@@ -1,0 +1,21 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:06.000
+Choose the page from the sidebar
+From the sidebar choose “Automations”.
+
+00:00:06.000 --> 00:00:12.000
+Open Automations
+Go to Automations and start a new rule with a name that explains its purpose.
+
+00:00:12.000 --> 00:00:19.000
+Choose the trigger and conditions
+Set when the rule runs, then add suitable conditions such as the channel, the tag or the conversation status.
+
+00:00:19.000 --> 00:00:25.000
+Set the actions
+Add the action you need, such as sending a message or assigning a team. Review the order of the actions and the message contents.
+
+00:00:25.000 --> 00:00:34.000
+Test, then turn it on
+Use “Test a message” to check the rule. When it's ready choose “Run the rule after saving”, then “Save and run”.

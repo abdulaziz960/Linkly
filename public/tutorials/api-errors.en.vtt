@@ -1,0 +1,17 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:08.000
+Choose the page from the sidebar
+From the sidebar choose “Settings & channels”, then open the “Developers” tab.
+
+00:00:08.000 --> 00:00:14.000
+A request without a key
+We run a GET for customers without Authorization; the server returns HTTP 401 because the key is missing or incorrect.
+
+00:00:14.000 --> 00:00:20.000
+A request with missing data
+We run a POST for customers with a training key and an empty body; the server returns HTTP 400 and explains that phone and name are required.
+
+00:00:20.000 --> 00:00:26.000
+Review the limits and fix the request
+Use Bearer with a single space and then the correct key, and send the required fields. On 429 wait for the Retry-After duration; we don't use up the request limit in this recording.

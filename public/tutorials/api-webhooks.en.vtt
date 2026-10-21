@@ -1,0 +1,21 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:08.000
+Choose the page from the sidebar
+From the sidebar choose “Settings & channels”, then open the “Developers” tab.
+
+00:00:08.000 --> 00:00:14.000
+Set the receiving URL
+From Developers open the Webhooks section. Enter a public HTTPS URL that belongs to your system, not a dashboard page link.
+
+00:00:14.000 --> 00:00:24.000
+Choose the events
+Choose “Message received”, “Conversation closed” or “New lead” according to what the integration needs, then press “Add webhook” in your real account after preparing the receiver.
+
+00:00:24.000 --> 00:00:31.000
+Managing the webhook
+In the registered row you will see the pause/enable, delivery log and delete buttons. The recording shows a local training example and doesn't connect to an external receiver.
+
+00:00:31.000 --> 00:00:37.000
+The signature and the delivery log
+Your system receives the signing secret on creation; store it safely and verify the HMAC signature as the documentation describes. Review the HTTP code, the result and the time in the delivery log.
