@@ -259,7 +259,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .dashboard-sidebar {
   grid-column: 2;
   grid-row: 2;
-  direction: rtl;
+  direction: inherit;
   position: sticky;
   top: var(--top-banners-h, 0px);
   display: flex;
@@ -611,7 +611,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .dashboard-main {
   grid-column: 1;
   grid-row: 2;
-  direction: rtl;
+  direction: inherit;
   min-width: 0;
 }
 
@@ -776,7 +776,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border-radius: 8px;
   background: var(--surface);
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
-  direction: rtl;
+  direction: inherit;
 }
 
 .conversation-context-menu b {
@@ -1172,7 +1172,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border-radius: 22px;
   background: var(--surface);
   box-shadow: 0 28px 80px rgba(15, 23, 42, 0.24);
-  direction: rtl;
+  direction: inherit;
 }
 
 .account-modal .modal-head {
@@ -1430,7 +1430,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .template-editor select {
-  direction: rtl;
+  direction: inherit;
   padding-left: 36px;
   background-color: var(--surface-soft);
 }
@@ -3828,7 +3828,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  direction: rtl;
+  direction: inherit;
   text-align: start;
   resize: vertical;
 }
@@ -4900,7 +4900,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .balance-metric {
-  direction: rtl;
+  direction: inherit;
   min-height: 120px;
   display: grid;
   place-items: center;
@@ -4967,7 +4967,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .transactions-toolbar > * {
-  direction: rtl;
+  direction: inherit;
 }
 
 .transactions-toolbar .btn {
@@ -7788,7 +7788,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   text-align: start;
-  direction: rtl;
+  direction: inherit;
 }
 
 .telegram-steps div {
@@ -8658,7 +8658,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   z-index: 420;
   top: 18px;
   right: calc(var(--dashboard-sidebar-width) + 14px);
-  direction: rtl;
+  direction: inherit;
   width: min(310px, calc(100vw - 116px));
   padding: 12px;
   border: 1px solid #9fc9c3;
@@ -8759,7 +8759,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border-radius: 9px;
   background: #123330;
   color: #f3faf9;
-  direction: rtl;
+  direction: inherit;
   box-shadow: 0 8px 24px rgba(10, 30, 28, 0.2);
   font-size: 12px;
   font-weight: 700;
@@ -11496,7 +11496,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border: 1px solid var(--line);
   border-radius: 14px;
   box-shadow: var(--shadow);
-  direction: rtl;
+  direction: inherit;
 }
 
 .notification-bell-panel-head {

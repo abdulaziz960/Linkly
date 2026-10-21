@@ -1,1092 +1,1564 @@
 [
- {
-  "id": "whatsapp",
-  "title": "Connect the WhatsApp channel",
-  "category": "Channels",
-  "description": "Connect your business number through Meta's window and start receiving customer conversations.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Open Channels",
-    "body": "From Settings & channels open the Channels tab, then choose WhatsApp."
-   },
-   {
-    "title": "Start the Meta connection",
-    "body": "Press the connect button and sign in with the Meta account that has permission to manage your business."
-   },
-   {
-    "title": "Choose the business and number",
-    "body": "Follow Meta's window to choose the business portfolio, the WhatsApp account and the phone number, and complete the required verification."
-   },
-   {
-    "title": "Check the connection",
-    "body": "Go back to Channels and check the connection status. Send a message from another number and confirm it appears in Conversations."
-   }
-  ]
- },
- {
-  "id": "salla",
-  "title": "Connect Salla and set up WhatsApp notifications",
-  "category": "Integrations",
-  "description": "Learn the store connection requirements and where to set up order and abandoned-cart notifications. Completing the connection needs the app set up and the store's authorization.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Integrations” tab."
-   },
-   {
-    "title": "Open Integrations",
-    "body": "Open Integrations, then the Salla settings. Connecting the store and connecting the WhatsApp channel are two separate steps; a WhatsApp connection alone does not connect the store."
-   },
-   {
-    "title": "Connect the store",
-    "body": "From the connection tab we review the store status. “Not connected” means the store has not been linked to this account. If it says the app details are not configured, connecting is unavailable on this server until they are prepared; this does not mean WhatsApp is disconnected."
-   },
-   {
-    "title": "Set up notifications",
-    "body": "Here we prepare order notifications and choose the templates. In the recorded account the store is not connected, so we only explain the setup; sending requires the store, WhatsApp and an approved template to be connected."
-   },
-   {
-    "title": "Set up carts and test",
-    "body": "We open abandoned carts and review the delay, the number of reminders and the template. These are pre-launch settings; once the store is actually authorized we test with a sample cart and check that the message arrives."
-   }
-  ]
- },
- {
-  "id": "zid",
-  "title": "Connect Zid and set up WhatsApp notifications",
-  "category": "Integrations",
-  "description": "Learn the store connection requirements and where to set up order and abandoned-cart notifications. Completing the connection needs the app set up and the store's authorization.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Integrations” tab."
-   },
-   {
-    "title": "Open Integrations",
-    "body": "Open Integrations, then the Zid settings. Connecting the store and connecting the WhatsApp channel are two separate steps; a WhatsApp connection alone does not connect the store."
-   },
-   {
-    "title": "Connect the store",
-    "body": "From the connection tab we review the store status. “Not connected” means the store has not been linked to this account. If it says the app details are not configured, connecting is unavailable on this server until they are prepared; this does not mean WhatsApp is disconnected."
-   },
-   {
-    "title": "Set up notifications",
-    "body": "Here we prepare order notifications and choose the templates. In the recorded account the store is not connected, so we only explain the setup; sending requires the store, WhatsApp and an approved template to be connected."
-   },
-   {
-    "title": "Set up carts and test",
-    "body": "We open abandoned carts and review the delay, the number of reminders and the template. These are pre-launch settings; once the store is actually authorized we test with a sample cart and check that the message arrives."
-   }
-  ]
- },
- {
-  "id": "shopify",
-  "title": "Connect Shopify and set up WhatsApp notifications",
-  "category": "Integrations",
-  "description": "Learn the store connection requirements and where to set up order and abandoned-cart notifications. Completing the connection needs the app set up and the store's authorization.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Integrations” tab."
-   },
-   {
-    "title": "Open Integrations",
-    "body": "Open Integrations, then the Shopify settings. Connecting the store and connecting the WhatsApp channel are two separate steps; a WhatsApp connection alone does not connect the store."
-   },
-   {
-    "title": "Connect the store",
-    "body": "From the connection tab we review the store status. “Not connected” means the store has not been linked to this account. If it says the app details are not configured, connecting is unavailable on this server until they are prepared; this does not mean WhatsApp is disconnected."
-   },
-   {
-    "title": "Set up notifications",
-    "body": "Here we prepare order notifications and choose the templates. In the recorded account the store is not connected, so we only explain the setup; sending requires the store, WhatsApp and an approved template to be connected."
-   },
-   {
-    "title": "Set up carts and test",
-    "body": "We open abandoned carts and review the delay, the number of reminders and the template. These are pre-launch settings; once the store is actually authorized we test with a sample cart and check that the message arrives."
-   }
-  ]
- },
- {
-  "id": "events",
-  "title": "Connect ad events",
-  "category": "Integrations",
-  "description": "Send conversation results to your connected ad platform.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Integrations” tab."
-   },
-   {
-    "title": "Choose the ad platform",
-    "body": "Open Integrations, then the card of the ad platform you use."
-   },
-   {
-    "title": "Complete the connection",
-    "body": "Connect the account with the required permissions. The connection options may differ by platform and by how widely its app is available."
-   },
-   {
-    "title": "Open event mapping",
-    "body": "Choose the “Event mapping” tab and review the settings and the fields the platform requires before turning sending on."
-   },
-   {
-    "title": "Test the result",
-    "body": "Run a test event and check that it arrives in the platform's events manager. Do not send real customer data during the test."
-   }
-  ]
- },
- {
-  "id": "bot",
-  "title": "Auto-reply: buttons and builder tools explained",
-  "category": "Auto-reply in detail",
-  "description": "Get hands-on with choosing the channel, the library, the diagram and the edit, save and run tools.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Auto Reply”."
-   },
-   {
-    "title": "Choosing the channel",
-    "body": "The WhatsApp, Telegram, Instagram and other buttons change the channel whose flow you are editing; each channel has its own flow and its own on/off switch."
-   },
-   {
-    "title": "Library filter: All and Steps",
-    "body": "“All” shows every card, and “Steps” shows the single steps such as the welcome and the services menu."
-   },
-   {
-    "title": "Full flows filter",
-    "body": "“Full flows” shows templates made of several linked steps. The + button on a card adds it straight to the diagram."
-   },
-   {
-    "title": "Add a ready-made flow",
-    "body": "We press + on “Full customer service flow”. The welcome, menu, prices, order follow-up and transfer steps appear already linked."
-   },
-   {
-    "title": "Zoom out, zoom in and re-center",
-    "body": "The − button zooms the diagram out, the + button zooms it in, and the ⌖ button restores the default zoom and position. These buttons don't change the steps' content."
-   },
-   {
-    "title": "Edit a step",
-    "body": "Press a step card on the diagram to open its form. The step name only shows on the diagram, while the message text is what the customer sees."
-   },
-   {
-    "title": "Change the type and the link",
-    "body": "The “Step type” list sets the action. “Link to step” sets what follows; you can also link by dragging from the dot on the step's side to the step you want."
-   },
-   {
-    "title": "Add and remove an option",
-    "body": "In a list step write the question and the options. “Add option” creates a row, and × deletes the option. Each option has its own list to link the next step."
-   },
-   {
-    "title": "Move-step arrows",
-    "body": "The left, right, up and down buttons move the step's position. You can also move the card by dragging it on the diagram."
-   },
-   {
-    "title": "Save the change and close",
-    "body": "“Save changes” saves the step's content. “Close” or × closes the window. Check the save-success message before you carry on."
-   },
-   {
-    "title": "Delete the step",
-    "body": "“Delete step” removes the step from the flow; review the flow and its links afterwards. We show it here on an extra training step only."
-   },
-   {
-    "title": "Turning on and off",
-    "body": "The “Auto-reply off/on” switch turns the selected channel's flow on or off. Test from another account before turning it on for customers."
-   }
-  ]
- },
- {
-  "id": "automations",
-  "title": "Create and run an automation",
-  "category": "Replies & automation",
-  "description": "Choose the trigger, conditions and actions, then test the rule before turning it on.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Automations”."
-   },
-   {
-    "title": "Open Automations",
-    "body": "Go to Automations and start a new rule with a name that explains its purpose."
-   },
-   {
-    "title": "Choose the trigger and conditions",
-    "body": "Set when the rule runs, then add suitable conditions such as the channel, the tag or the conversation status."
-   },
-   {
-    "title": "Set the actions",
-    "body": "Add the action you need, such as sending a message or assigning a team. Review the order of the actions and the message contents."
-   },
-   {
-    "title": "Test, then turn it on",
-    "body": "Use “Test a message” to check the rule. When it's ready choose “Run the rule after saving”, then “Save and run”."
-   }
-  ]
- },
- {
-  "id": "inbox",
-  "title": "Managing conversations",
-  "category": "Conversations & customers",
-  "description": "Receive messages and organize customer follow-up.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Conversations”."
-   },
-   {
-    "title": "Choose the conversation",
-    "body": "Open Conversations and pick the channel or search for the customer you need."
-   },
-   {
-    "title": "Review and reply",
-    "body": "Read the message history and the customer's details, then write your reply and send it through the available channel."
-   },
-   {
-    "title": "Organize the follow-up",
-    "body": "Use assignment, status and tags according to your permissions, and check that the changes were saved."
-   }
-  ]
- },
- {
-  "id": "quick-replies",
-  "title": "Set up quick replies",
-  "category": "Replies & automation",
-  "description": "Save your team's time with ready replies for repeated questions.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Quick replies”."
-   },
-   {
-    "title": "Open Quick replies",
-    "body": "Choose Quick replies from the menu and start adding a reply."
-   },
-   {
-    "title": "Write the reply",
-    "body": "Set a clear title, the reply text and the right team if the option is available."
-   },
-   {
-    "title": "Save and use",
-    "body": "Save the reply, then open a conversation and try picking it from the quick replies before sending."
-   }
-  ]
- },
- {
-  "id": "templates",
-  "title": "Create WhatsApp templates",
-  "category": "Replies & automation",
-  "description": "Prepare message templates and follow their approval before using them.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Templates”."
-   },
-   {
-    "title": "Open Templates",
-    "body": "Connect WhatsApp first, then go to Templates."
-   },
-   {
-    "title": "Prepare the content",
-    "body": "Start creating a template and fill in the name, language, category, content and any required variables."
-   },
-   {
-    "title": "Follow the approval",
-    "body": "Send the template for review and follow its status; use it for sending once it is approved."
-   }
-  ]
- },
- {
-  "id": "knowledge",
-  "title": "Knowledge base and AI assistant",
-  "category": "Replies & automation",
-  "description": "Give the assistant your business information, questions and answers.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “AI assistant & knowledge base”, then open the “Knowledge Base” tab."
-   },
-   {
-    "title": "Add knowledge",
-    "body": "Open the knowledge base and add your business information and accurate questions and answers."
-   },
-   {
-    "title": "Review the content",
-    "body": "Delete outdated information and complete missing answers; the assistant relies on this knowledge."
-   },
-   {
-    "title": "Set up the assistant",
-    "body": "Open the AI assistant settings and review the available options, then try customer questions to check the answers."
-   }
-  ]
- },
- {
-  "id": "campaigns",
-  "title": "Send a WhatsApp campaign",
-  "category": "Marketing",
-  "description": "Prepare the campaign audience and template, and review the details before sending.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Campaigns”."
-   },
-   {
-    "title": "Prepare the channel and template",
-    "body": "Make sure WhatsApp is connected and that there is an approved template suited to the campaign."
-   },
-   {
-    "title": "Create the campaign",
-    "body": "Open Campaigns, add a campaign and choose the audience, the template and its variables according to the available options."
-   },
-   {
-    "title": "Review before sending",
-    "body": "Review the audience's consent, the content, the count and the cost or balance shown before you confirm sending, then follow the results."
-   }
-  ]
- },
- {
-  "id": "contacts",
-  "title": "Managing customers and tags",
-  "category": "Conversations & customers",
-  "description": "Organize customer data to make searching and follow-up easier.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Customers, leads & tags”."
-   },
-   {
-    "title": "Open Customers",
-    "body": "From the menu open Customers and search for the contact you need or add a customer."
-   },
-   {
-    "title": "Review the data",
-    "body": "Fill in the name, contact details and the available data accurately."
-   },
-   {
-    "title": "Organize with tags",
-    "body": "From Tags prepare clear categories and use them to follow conversations and to segment your audience."
-   }
-  ]
- },
- {
-  "id": "teams",
-  "title": "Employees, teams and permissions",
-  "category": "Account management",
-  "description": "Distribute your team's work and set each employee's permissions.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Employees & permissions”, then open the “Employees & permissions” tab."
-   },
-   {
-    "title": "Open Employees",
-    "body": "Go to Employees & permissions with an account that has management permission."
-   },
-   {
-    "title": "Add team members",
-    "body": "Add the employee, set their details and permissions according to their tasks, then save."
-   },
-   {
-    "title": "Organize teams",
-    "body": "Go to Teams, arrange the members and the conversation distribution, and test access with an employee account."
-   }
-  ]
- },
- {
-  "id": "hours",
-  "title": "Set work hours",
-  "category": "Account management",
-  "description": "Set when teams are available to serve customers.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Employees & permissions”, then open the “Work hours” tab."
-   },
-   {
-    "title": "Open Work hours",
-    "body": "From Employees & teams open the Work hours tab."
-   },
-   {
-    "title": "Set the schedule",
-    "body": "Choose the team, the working days and the start and end times according to the available fields."
-   },
-   {
-    "title": "Save and review",
-    "body": "Save the changes and check the schedule shown, and review any replies or automations tied to out-of-hours."
-   }
-  ]
- },
- {
-  "id": "pipeline",
-  "title": "Follow up on leads",
-  "category": "Conversations & customers",
-  "description": "Track the progress of opportunities and connect external lead sources.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Leads”."
-   },
-   {
-    "title": "Open Leads",
-    "body": "Go to Leads to review the opportunities and their stages."
-   },
-   {
-    "title": "Follow the opportunity",
-    "body": "Open the customer, review the conversation and update the stage to match the real outcome."
-   },
-   {
-    "title": "Connect the external source",
-    "body": "When needed, open “Connect an external platform” and use the URL, header and body shown. Keep the connection keys secret."
-   }
-  ]
- },
- {
-  "id": "reports",
-  "title": "Reports and operations center",
-  "category": "Account management",
-  "description": "Track conversation metrics and team performance.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Reports & operations”."
-   },
-   {
-    "title": "Open Reports",
-    "body": "Choose Reports and set the period and the available filters."
-   },
-   {
-    "title": "Review the metrics",
-    "body": "Compare the conversation and team results and open the linked conversations to understand the details."
-   },
-   {
-    "title": "Follow operations",
-    "body": "Go to the operations center to review current work and act according to your permission."
-   }
-  ]
- },
- {
-  "id": "catalog",
-  "title": "Catalog and branches",
-  "category": "Account management",
-  "description": "Organize your products, branches and their data.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Catalog & branches”."
-   },
-   {
-    "title": "Open the Catalog",
-    "body": "From the menu choose the Catalog and review the existing products."
-   },
-   {
-    "title": "Add products",
-    "body": "Add the product data, the price, the image and the required fields, or use import if it is available."
-   },
-   {
-    "title": "Review the branches",
-    "body": "Go to Branches and complete their data, then check that the products and branches were saved correctly."
-   }
-  ]
- },
- {
-  "id": "segments",
-  "title": "Customer segments",
-  "category": "Marketing",
-  "description": "Create audience segments with the right conditions.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Customer segments”."
-   },
-   {
-    "title": "Open Customer segments",
-    "body": "Choose Customer segments and start creating a segment."
-   },
-   {
-    "title": "Set the conditions",
-    "body": "Set the segment's conditions such as tags and the available data, and review the matching customers."
-   },
-   {
-    "title": "Save the segment",
-    "body": "Save it with a clear name and check that the audience matches before using it in your campaign."
-   }
-  ]
- },
- {
-  "id": "email",
-  "title": "Email promotions",
-  "category": "Marketing",
-  "description": "Prepare an email offer and review its audience and content.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Email promotions”."
-   },
-   {
-    "title": "Open Email promotions",
-    "body": "From the menu choose Email promotions and review the options for creating an offer."
-   },
-   {
-    "title": "Prepare the content and audience",
-    "body": "Write the subject and content and choose the right recipients among those who agreed to be contacted."
-   },
-   {
-    "title": "Review before confirming",
-    "body": "Review the email, the links, the audience and any cost shown before you confirm sending."
-   }
-  ]
- },
- {
-  "id": "developers",
-  "title": "Connecting systems and developer tools",
-  "category": "Integrations",
-  "description": "Find the integration tools and documentation available to your account.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab."
-   },
-   {
-    "title": "Open Developers",
-    "body": "From Settings & channels open the Developers tab."
-   },
-   {
-    "title": "Review the documentation",
-    "body": "Review the integration tools, the documentation and the endpoints shown before setting up your external system."
-   },
-   {
-    "title": "Test the connection",
-    "body": "Test with sample data and check the results; do not share connection keys in messages or recordings."
-   }
-  ]
- },
- {
-  "id": "branding",
-  "title": "Customize your branding",
-  "category": "Account management",
-  "description": "Update your business name, logo and colors.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Branding”."
-   },
-   {
-    "title": "Open Branding",
-    "body": "Choose Branding with an account that has the right permission."
-   },
-   {
-    "title": "Update the identity",
-    "body": "Review the name, upload the right logo and choose the color from the available settings."
-   },
-   {
-    "title": "Save and review",
-    "body": "Save the change and check how it appears in the interface."
-   }
-  ]
- },
- {
-  "id": "instagram",
-  "title": "Connect Instagram",
-  "category": "Channels",
-  "description": "Add an Instagram channel to your account to follow customer conversations.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Choose the channel",
-    "body": "Open Settings & channels, then Channels, and choose Instagram."
-   },
-   {
-    "title": "Complete the authorization",
-    "body": "Press connect and complete the sign-in and authorization in the provider's window. Choose the account or page you need and grant the required permissions."
-   },
-   {
-    "title": "Check the result",
-    "body": "Go back to Channels and review the connection status, then test receiving a message from another account. Availability of the connection may vary with the service's settings."
-   }
-  ]
- },
- {
-  "id": "facebook",
-  "title": "Connect Facebook",
-  "category": "Channels",
-  "description": "Add a Facebook channel to your account to follow customer conversations.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Choose the channel",
-    "body": "Open Settings & channels, then Channels, and choose Facebook."
-   },
-   {
-    "title": "Complete the authorization",
-    "body": "Press connect and complete the sign-in and authorization in the provider's window. Choose the account or page you need and grant the required permissions."
-   },
-   {
-    "title": "Check the result",
-    "body": "Go back to Channels and review the connection status, then test receiving a message from another account. Availability of the connection may vary with the service's settings."
-   }
-  ]
- },
- {
-  "id": "gmail",
-  "title": "Connect Gmail",
-  "category": "Channels",
-  "description": "Add a Gmail channel to your account to follow customer conversations.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Choose the channel",
-    "body": "Open Settings & channels, then Channels, and choose Gmail."
-   },
-   {
-    "title": "Complete the authorization",
-    "body": "Press connect and complete the sign-in and authorization in the provider's window. Choose the account or page you need and grant the required permissions."
-   },
-   {
-    "title": "Check the result",
-    "body": "Go back to Channels and review the connection status, then test receiving a message from another account. Availability of the connection may vary with the service's settings."
-   }
-  ]
- },
- {
-  "id": "x",
-  "title": "Connect X",
-  "category": "Channels",
-  "description": "Add an X channel to follow customer conversations from your account.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Choose the channel",
-    "body": "From Settings & channels open Channels and choose X."
-   },
-   {
-    "title": "Complete the authorization",
-    "body": "Press connect and complete the sign-in in the provider's window. Choose the business account or page you need and grant the permissions shown. If the connection isn't available, contact support."
-   },
-   {
-    "title": "Review the connection and test",
-    "body": "Go back to Channels and check the connection. Test receiving a message or a comment, depending on the channel type and its permissions."
-   }
-  ]
- },
- {
-  "id": "google-maps",
-  "title": "Google Maps channel status",
-  "category": "Channels",
-  "description": "Learn where the channel is and its current availability.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Open Channels",
-    "body": "From Settings & channels open Channels."
-   },
-   {
-    "title": "Review the channel status",
-    "body": "The Google Maps card shows the status “Coming soon” in the current interface; there is no connection you can run from the card right now."
-   },
-   {
-    "title": "Follow the connection's availability",
-    "body": "When the channel becomes available its options will appear on the page. Contact support to learn its availability for your account."
-   }
-  ]
- },
- {
-  "id": "tiktok",
-  "title": "Connect TikTok",
-  "category": "Channels",
-  "description": "Add a TikTok channel to follow customer conversations from your account.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Choose the channel",
-    "body": "From Settings & channels open Channels and choose TikTok."
-   },
-   {
-    "title": "Complete the authorization",
-    "body": "Press connect and complete the sign-in in the provider's window. Choose the business account or page you need and grant the permissions shown. If the connection isn't available, contact support."
-   },
-   {
-    "title": "Review the connection and test",
-    "body": "Go back to Channels and check the connection. Test receiving a message or a comment, depending on the channel type and its permissions."
-   }
-  ]
- },
- {
-  "id": "youtube",
-  "title": "Connect YouTube",
-  "category": "Channels",
-  "description": "Add a YouTube channel to follow customer conversations from your account.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Choose the channel",
-    "body": "From Settings & channels open Channels and choose YouTube."
-   },
-   {
-    "title": "Complete the authorization",
-    "body": "Press connect and complete the sign-in in the provider's window. Choose the business account or page you need and grant the permissions shown. If the connection isn't available, contact support."
-   },
-   {
-    "title": "Review the connection and test",
-    "body": "Go back to Channels and check the connection. Test receiving a message or a comment, depending on the channel type and its permissions."
-   }
-  ]
- },
- {
-  "id": "linkedin",
-  "title": "LinkedIn channel status",
-  "category": "Channels",
-  "description": "Learn where the channel is and its current availability.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Open Channels",
-    "body": "From Settings & channels open Channels."
-   },
-   {
-    "title": "Review the channel status",
-    "body": "The LinkedIn card shows the status “Coming soon” in the current interface; there is no connection you can run from the card right now."
-   },
-   {
-    "title": "Follow the connection's availability",
-    "body": "When the channel becomes available its options will appear on the page. Contact support to learn its availability for your account."
-   }
-  ]
- },
- {
-  "id": "telegram",
-  "title": "Connect Telegram",
-  "category": "Channels",
-  "description": "Prepare the bot token and connect the Telegram channel.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Choose Telegram",
-    "body": "Open Settings & channels, then choose Telegram from the channels."
-   },
-   {
-    "title": "Add the bot token",
-    "body": "Prepare the bot token from your Telegram account and enter it in the channel setup field. Keep the token secret."
-   },
-   {
-    "title": "Save and test",
-    "body": "Save the channel setup, send a message to the bot from another account and check that it appears in Conversations."
-   }
-  ]
- },
- {
-  "id": "website",
-  "title": "Connect website chat",
-  "category": "Channels",
-  "description": "Add the chat widget to your business website.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Choose the website channel",
-    "body": "Open Settings & channels, then choose the website channel."
-   },
-   {
-    "title": "Prepare the chat widget",
-    "body": "Follow the available chat widget settings and copy the embed code from the page."
-   },
-   {
-    "title": "Add the code and test",
-    "body": "Add the widget code to your website, then open the site as a visitor, send a test message and check that it arrives."
-   }
-  ]
- },
- {
-  "id": "sms",
-  "title": "SMS channel status",
-  "category": "Channels",
-  "description": "Learn where the channel is and its current availability.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab."
-   },
-   {
-    "title": "Open Channels",
-    "body": "From Settings & channels open Channels."
-   },
-   {
-    "title": "Review the channel status",
-    "body": "The SMS card shows the status “Coming soon” in the current interface; there is no connection you can run from the card right now."
-   },
-   {
-    "title": "Follow the connection's availability",
-    "body": "When the channel becomes available its options will appear on the page. Contact support to learn its availability for your account."
-   }
-  ]
- },
- {
-  "id": "bot-build",
-  "title": "Build a full auto-reply from scratch",
-  "category": "Auto-reply in detail",
-  "description": "We build a welcome message and an options list, and connect each option to the right reply or team.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Auto Reply”."
-   },
-   {
-    "title": "Start with a custom step",
-    "body": "Choose WhatsApp, then press “Custom step”. We will build the flow manually instead of using a ready template."
-   },
-   {
-    "title": "Write the welcome",
-    "body": "Choose “Send a message”. Name the step “Store welcome” and write: Welcome, how can we help you? Then press “Add step”."
-   },
-   {
-    "title": "Add the prices reply",
-    "body": "Add a new message step named “Prices”, write the service details, then save it."
-   },
-   {
-    "title": "Add the transfer to support",
-    "body": "Add a step of type “Transfer to a team” and choose the customer service team. Prepare the team first from the Teams page if it doesn't appear."
-   },
-   {
-    "title": "Create the options list",
-    "body": "Add “Send a short list”, write the customer's question, then a “Prices” option and a “Talk to support” option."
-   },
-   {
-    "title": "Link each option",
-    "body": "From the first option's link list choose “Prices”, and from the second option's link choose the support transfer step, then add the step."
-   },
-   {
-    "title": "Link the welcome to the list",
-    "body": "Open the welcome step, choose the list in “Link to step”, then save the change."
-   },
-   {
-    "title": "Review and turn on",
-    "body": "Review the arrows, the options and the customer-facing texts, then turn on the auto-reply switch for the channel. The account in the video is a training account and doesn't send to real customers."
-   }
-  ]
- },
- {
-  "id": "bot-types",
-  "title": "Every auto-reply step type",
-  "category": "Auto-reply in detail",
-  "description": "A hands-on look at all thirteen types and the fields specific to each.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Auto Reply”."
-   },
-   {
-    "title": "Send a message",
-    "body": "Write the step name and the message text, and set what follows from “Link to step”."
-   },
-   {
-    "title": "Send an image",
-    "body": "Upload an image from the file field, add an optional caption, then choose what follows."
-   },
-   {
-    "title": "Send a video",
-    "body": "Upload a video that suits the channel and the limit shown, add a description, then what follows."
-   },
-   {
-    "title": "Send a document",
-    "body": "Upload the document you need and add a caption if you want, then link it to a next step."
-   },
-   {
-    "title": "Send a short list",
-    "body": "Write the question and add the options; each option has a text and a next step. Use the number the channel accepts."
-   },
-   {
-    "title": "Send a long list",
-    "body": "Use it for more options and link each option to its path. Review the channel's limits before publishing."
-   },
-   {
-    "title": "Knowledge Base reply",
-    "body": "Prepare the questions and answers in the knowledge base. Write the no-match reply and link a follow-up step when needed."
-   },
-   {
-    "title": "Automatic AI reply",
-    "body": "Requires your account's AI provider key and a knowledge base. It sends the reply automatically; link a hand-over to an employee for when there is no answer."
-   },
-   {
-    "title": "Show the catalog",
-    "body": "Add the products from the Catalog and set the intro message. The next step is used when an employee is requested or there are no products."
-   },
-   {
-    "title": "Nearest branch",
-    "body": "Prepare the branch data and write the location request message. The bot sends the nearest branch according to the customer's location."
-   },
-   {
-    "title": "Transfer to a team",
-    "body": "Choose an existing team. This is a final step that moves the conversation to the team with no automatic follow-up afterwards."
-   },
-   {
-    "title": "Transfer to an employee",
-    "body": "Choose the specific employee. Prepare the employee and their permissions first; this is a final step."
-   },
-   {
-    "title": "Close the conversation",
-    "body": "You can write an optional closing message and then close the conversation. Don't link it to a next step."
-   }
-  ]
- },
- {
-  "id": "api-key",
-  "title": "API: creating and managing the key",
-  "category": "API & developers",
-  "description": "Learn how to create, copy, hide and revoke an API key.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab."
-   },
-   {
-    "title": "Open Developers",
-    "body": "From Settings & channels choose “Developers”. This page needs a permission and a plan that supports the feature."
-   },
-   {
-    "title": "Create a key with a clear name",
-    "body": "Write a name that explains the integration, then press “Create key”. The video uses a training key that is revoked after recording."
-   },
-   {
-    "title": "Copy and hide the key",
-    "body": "The key shows only once. “Copy” copies it and “Hide” hides it from the screen. Don't put your key in the website interface or in public recordings."
-   },
-   {
-    "title": "Revoke the key",
-    "body": "The “Revoke” button stops this key being accepted after you confirm. Update the connected system with a replacement key when needed."
-   }
-  ]
- },
- {
-  "id": "api-request",
-  "title": "API: a real request and reading the result",
-  "category": "API & developers",
-  "description": "We test reading customers with a training key and see the server's actual response.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab."
-   },
-   {
-    "title": "Open the documentation",
-    "body": "From the Developers tab open the full API documentation or the OpenAPI specification. The production base URL is https://linklysa.io/api/v1."
-   },
-   {
-    "title": "Prepare the request",
-    "body": "We use GET /api/v1/customers?limit=5 with Authorization: Bearer YOUR_API_KEY. We keep the key on the server and never show it to users."
-   },
-   {
-    "title": "Run the request and read the result",
-    "body": "We run the request against the local server with a training account. The HTTP code and the real response appear; ok: true means the request succeeded, and data holds the customers and the paging data."
-   }
-  ],
-  "code": "curl \"https://linklysa.io/api/v1/customers?limit=5\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY\""
- },
- {
-  "id": "api-errors",
-  "title": "API: authentication and validation errors",
-  "category": "API & developers",
-  "description": "See real responses for a request without a key and a customer request with missing data.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab."
-   },
-   {
-    "title": "A request without a key",
-    "body": "We run a GET for customers without Authorization; the server returns HTTP 401 because the key is missing or incorrect."
-   },
-   {
-    "title": "A request with missing data",
-    "body": "We run a POST for customers with a training key and an empty body; the server returns HTTP 400 and explains that phone and name are required."
-   },
-   {
-    "title": "Review the limits and fix the request",
-    "body": "Use Bearer with a single space and then the correct key, and send the required fields. On 429 wait for the Retry-After duration; we don't use up the request limit in this recording."
-   }
-  ]
- },
- {
-  "id": "api-webhooks",
-  "title": "API: setting up webhooks and their buttons",
-  "category": "API & developers",
-  "description": "Choose the events and learn about the receiving URL, the signature and the delivery log.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab."
-   },
-   {
-    "title": "Set the receiving URL",
-    "body": "From Developers open the Webhooks section. Enter a public HTTPS URL that belongs to your system, not a dashboard page link."
-   },
-   {
-    "title": "Choose the events",
-    "body": "Choose “Message received”, “Conversation closed” or “New lead” according to what the integration needs, then press “Add webhook” in your real account after preparing the receiver."
-   },
-   {
-    "title": "Managing the webhook",
-    "body": "In the registered row you will see the pause/enable, delivery log and delete buttons. The recording shows a local training example and doesn't connect to an external receiver."
-   },
-   {
-    "title": "The signature and the delivery log",
-    "body": "Your system receives the signing secret on creation; store it safely and verify the HMAC signature as the documentation describes. Review the HTTP code, the result and the time in the delivery log."
-   }
-  ]
- },
- {
-  "id": "api-customer",
-  "title": "API: add a customer and verify it in the interface",
-  "category": "API & developers",
-  "description": "Send a real POST with training data and see the customer on the Customers page.",
-  "steps": [
-   {
-    "title": "Choose the page from the sidebar",
-    "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab."
-   },
-   {
-    "title": "Prepare the customer data",
-    "body": "We use POST /api/v1/customers with name and phone in a valid Saudi number format. The number shown is a training number and no messages are sent to it."
-   },
-   {
-    "title": "Run the request",
-    "body": "We send JSON with a training key, and show the server's real response with the customer ID, name and mobile."
-   },
-   {
-    "title": "Check in Customers",
-    "body": "We choose Customers & tags from the sidebar, refresh the page to fetch the latest data, then search for the name “API test customer” to check that the record was really added to the training account."
-   }
-  ],
-  "code": "curl -X POST \"https://linklysa.io/api/v1/customers\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"name\":\"Customer name\",\"phone\":\"9665XXXXXXXX\"}'"
- }
+  {
+    "id": "whatsapp",
+    "title": "Connect the WhatsApp channel",
+    "category": "Channels",
+    "view": "settings",
+    "description": "Connect your business number through Meta's window and start receiving customer conversations.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Channels",
+        "body": "From Settings & channels open the Channels tab, then choose WhatsApp.",
+        "start": 8
+      },
+      {
+        "title": "Start the Meta connection",
+        "body": "Press the connect button and sign in with the Meta account that has permission to manage your business.",
+        "start": 14
+      },
+      {
+        "title": "Choose the business and number",
+        "body": "Follow Meta's window to choose the business portfolio, the WhatsApp account and the phone number, and complete the required verification.",
+        "start": 20
+      },
+      {
+        "title": "Check the connection",
+        "body": "Go back to Channels and check the connection status. Send a message from another number and confirm it appears in Conversations.",
+        "start": 26
+      }
+    ],
+    "duration": 32,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "salla",
+    "title": "Connect Salla and set up WhatsApp notifications",
+    "category": "Integrations",
+    "view": "integrations",
+    "description": "Learn the store connection requirements and where to set up order and abandoned-cart notifications. Completing the connection needs the app set up and the store's authorization.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Integrations” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Integrations",
+        "body": "Open Integrations, then the Salla settings. Connecting the store and connecting the WhatsApp channel are two separate steps; a WhatsApp connection alone does not connect the store.",
+        "start": 8
+      },
+      {
+        "title": "Connect the store",
+        "body": "From the connection tab we review the store status. “Not connected” means the store has not been linked to this account. If it says the app details are not configured, connecting is unavailable on this server until they are prepared; this does not mean WhatsApp is disconnected.",
+        "start": 14
+      },
+      {
+        "title": "Set up notifications",
+        "body": "Here we prepare order notifications and choose the templates. In the recorded account the store is not connected, so we only explain the setup; sending requires the store, WhatsApp and an approved template to be connected.",
+        "start": 20
+      },
+      {
+        "title": "Set up carts and test",
+        "body": "We open abandoned carts and review the delay, the number of reminders and the template. These are pre-launch settings; once the store is actually authorized we test with a sample cart and check that the message arrives.",
+        "start": 26
+      }
+    ],
+    "duration": 32,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "zid",
+    "title": "Connect Zid and set up WhatsApp notifications",
+    "category": "Integrations",
+    "view": "integrations",
+    "description": "Learn the store connection requirements and where to set up order and abandoned-cart notifications. Completing the connection needs the app set up and the store's authorization.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Integrations” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Integrations",
+        "body": "Open Integrations, then the Zid settings. Connecting the store and connecting the WhatsApp channel are two separate steps; a WhatsApp connection alone does not connect the store.",
+        "start": 8
+      },
+      {
+        "title": "Connect the store",
+        "body": "From the connection tab we review the store status. “Not connected” means the store has not been linked to this account. If it says the app details are not configured, connecting is unavailable on this server until they are prepared; this does not mean WhatsApp is disconnected.",
+        "start": 14
+      },
+      {
+        "title": "Set up notifications",
+        "body": "Here we prepare order notifications and choose the templates. In the recorded account the store is not connected, so we only explain the setup; sending requires the store, WhatsApp and an approved template to be connected.",
+        "start": 20
+      },
+      {
+        "title": "Set up carts and test",
+        "body": "We open abandoned carts and review the delay, the number of reminders and the template. These are pre-launch settings; once the store is actually authorized we test with a sample cart and check that the message arrives.",
+        "start": 26
+      }
+    ],
+    "duration": 32,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "shopify",
+    "title": "Connect Shopify and set up WhatsApp notifications",
+    "category": "Integrations",
+    "view": "integrations",
+    "description": "Learn the store connection requirements and where to set up order and abandoned-cart notifications. Completing the connection needs the app set up and the store's authorization.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Integrations” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Integrations",
+        "body": "Open Integrations, then the Shopify settings. Connecting the store and connecting the WhatsApp channel are two separate steps; a WhatsApp connection alone does not connect the store.",
+        "start": 8
+      },
+      {
+        "title": "Connect the store",
+        "body": "From the connection tab we review the store status. “Not connected” means the store has not been linked to this account. If it says the app details are not configured, connecting is unavailable on this server until they are prepared; this does not mean WhatsApp is disconnected.",
+        "start": 14
+      },
+      {
+        "title": "Set up notifications",
+        "body": "Here we prepare order notifications and choose the templates. In the recorded account the store is not connected, so we only explain the setup; sending requires the store, WhatsApp and an approved template to be connected.",
+        "start": 20
+      },
+      {
+        "title": "Set up carts and test",
+        "body": "We open abandoned carts and review the delay, the number of reminders and the template. These are pre-launch settings; once the store is actually authorized we test with a sample cart and check that the message arrives.",
+        "start": 26
+      }
+    ],
+    "duration": 32,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "events",
+    "title": "Connect ad events",
+    "category": "Integrations",
+    "view": "integrations",
+    "description": "Send conversation results to your connected ad platform.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Integrations” tab.",
+        "start": 0
+      },
+      {
+        "title": "Choose the ad platform",
+        "body": "Open Integrations, then the card of the ad platform you use.",
+        "start": 8
+      },
+      {
+        "title": "Complete the connection",
+        "body": "Connect the account with the required permissions. The connection options may differ by platform and by how widely its app is available.",
+        "start": 14
+      },
+      {
+        "title": "Open event mapping",
+        "body": "Choose the “Event mapping” tab and review the settings and the fields the platform requires before turning sending on.",
+        "start": 20
+      },
+      {
+        "title": "Test the result",
+        "body": "Run a test event and check that it arrives in the platform's events manager. Do not send real customer data during the test.",
+        "start": 26
+      }
+    ],
+    "duration": 32,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "bot",
+    "title": "Auto-reply: buttons and builder tools explained",
+    "category": "Auto-reply in detail",
+    "view": "bot",
+    "description": "Get hands-on with choosing the channel, the library, the diagram and the edit, save and run tools.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Auto-reply”.",
+        "start": 0
+      },
+      {
+        "title": "Choosing the channel",
+        "body": "The WhatsApp, Telegram, Instagram and other buttons change the channel whose flow you are editing; each channel has its own flow and its own on/off switch.",
+        "start": 6
+      },
+      {
+        "title": "Library filter: All and Steps",
+        "body": "“All” shows every card, and “Steps” shows the single steps such as the welcome and the services menu.",
+        "start": 12
+      },
+      {
+        "title": "Full flows filter",
+        "body": "“Full flows” shows templates made of several linked steps. The + button on a card adds it straight to the diagram.",
+        "start": 18
+      },
+      {
+        "title": "Add a ready-made flow",
+        "body": "We press + on “Full customer service flow”. The welcome, menu, prices, order follow-up and transfer steps appear already linked.",
+        "start": 24
+      },
+      {
+        "title": "Zoom out, zoom in and re-center",
+        "body": "The − button zooms the diagram out, the + button zooms it in, and the ⌖ button restores the default zoom and position. These buttons don't change the steps' content.",
+        "start": 30
+      },
+      {
+        "title": "Edit a step",
+        "body": "Press a step card on the diagram to open its form. The step name only shows on the diagram, while the message text is what the customer sees.",
+        "start": 38
+      },
+      {
+        "title": "Change the type and the link",
+        "body": "The “Step type” list sets the action. “Link to step” sets what follows; you can also link by dragging from the dot on the step's side to the step you want.",
+        "start": 44
+      },
+      {
+        "title": "Add and remove an option",
+        "body": "In a list step write the question and the options. “Add option” creates a row, and × deletes the option. Each option has its own list to link the next step.",
+        "start": 52
+      },
+      {
+        "title": "Move-step arrows",
+        "body": "The left, right, up and down buttons move the step's position. You can also move the card by dragging it on the diagram.",
+        "start": 63
+      },
+      {
+        "title": "Save the change and close",
+        "body": "“Save changes” saves the step's content. “Close” or × closes the window. Check the save-success message before you carry on.",
+        "start": 71
+      },
+      {
+        "title": "Delete the step",
+        "body": "“Delete step” removes the step from the flow; review the flow and its links afterwards. We show it here on an extra training step only.",
+        "start": 77
+      },
+      {
+        "title": "Turning on and off",
+        "body": "The “Auto-reply off/on” switch turns the selected channel's flow on or off. Test from another account before turning it on for customers.",
+        "start": 89
+      }
+    ],
+    "duration": 95,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "automations",
+    "title": "Create and run an automation",
+    "category": "Replies & automation",
+    "view": "automations",
+    "description": "Choose the trigger, conditions and actions, then test the rule before turning it on.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Automations”.",
+        "start": 0
+      },
+      {
+        "title": "Open Automations",
+        "body": "Go to Automations and start a new rule with a name that explains its purpose.",
+        "start": 6
+      },
+      {
+        "title": "Choose the trigger and conditions",
+        "body": "Set when the rule runs, then add suitable conditions such as the channel, the tag or the conversation status.",
+        "start": 12
+      },
+      {
+        "title": "Set the actions",
+        "body": "Add the action you need, such as sending a message or assigning a team. Review the order of the actions and the message contents.",
+        "start": 19
+      },
+      {
+        "title": "Test, then turn it on",
+        "body": "Use “Test a message” to check the rule. When it's ready choose “Run the rule after saving”, then “Save and run”.",
+        "start": 25
+      }
+    ],
+    "duration": 34,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "inbox",
+    "title": "Managing conversations",
+    "category": "Conversations & customers",
+    "view": "inbox",
+    "description": "Receive messages and organize customer follow-up.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Conversations”.",
+        "start": 0
+      },
+      {
+        "title": "Choose the conversation",
+        "body": "Open Conversations and pick the channel or search for the customer you need.",
+        "start": 6
+      },
+      {
+        "title": "Review and reply",
+        "body": "Read the message history and the customer's details, then write your reply and send it through the available channel.",
+        "start": 12
+      },
+      {
+        "title": "Organize the follow-up",
+        "body": "Use assignment, status and tags according to your permissions, and check that the changes were saved.",
+        "start": 18
+      }
+    ],
+    "duration": 24,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "quick-replies",
+    "title": "Set up quick replies",
+    "category": "Replies & automation",
+    "view": "quickReplies",
+    "description": "Save your team's time with ready replies for repeated questions.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Quick replies”.",
+        "start": 0
+      },
+      {
+        "title": "Open Quick replies",
+        "body": "Choose Quick replies from the menu and start adding a reply.",
+        "start": 6
+      },
+      {
+        "title": "Write the reply",
+        "body": "Set a clear title, the reply text and the right team if the option is available.",
+        "start": 12
+      },
+      {
+        "title": "Save and use",
+        "body": "Save the reply, then open a conversation and try picking it from the quick replies before sending.",
+        "start": 18
+      }
+    ],
+    "duration": 25,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "templates",
+    "title": "Create WhatsApp templates",
+    "category": "Replies & automation",
+    "view": "templates",
+    "description": "Prepare message templates and follow their approval before using them.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Templates”.",
+        "start": 0
+      },
+      {
+        "title": "Open Templates",
+        "body": "Connect WhatsApp first, then go to Templates.",
+        "start": 6
+      },
+      {
+        "title": "Prepare the content",
+        "body": "Start creating a template and fill in the name, language, category, content and any required variables.",
+        "start": 12
+      },
+      {
+        "title": "Follow the approval",
+        "body": "Send the template for review and follow its status; use it for sending once it is approved.",
+        "start": 18
+      }
+    ],
+    "duration": 25,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "knowledge",
+    "title": "Knowledge base and AI assistant",
+    "category": "Replies & automation",
+    "view": "knowledgeBase",
+    "description": "Give the assistant your business information, questions and answers.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “AI assistant & knowledge base”, then open the “Knowledge Base” tab.",
+        "start": 0
+      },
+      {
+        "title": "Add knowledge",
+        "body": "Open the knowledge base and add your business information and accurate questions and answers.",
+        "start": 8
+      },
+      {
+        "title": "Review the content",
+        "body": "Delete outdated information and complete missing answers; the assistant relies on this knowledge.",
+        "start": 14
+      },
+      {
+        "title": "Set up the assistant",
+        "body": "Open the AI assistant settings and review the available options, then try customer questions to check the answers.",
+        "start": 20
+      }
+    ],
+    "duration": 27,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "campaigns",
+    "title": "Send a WhatsApp campaign",
+    "category": "Marketing",
+    "view": "campaigns",
+    "description": "Prepare the campaign audience and template, and review the details before sending.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Campaigns”.",
+        "start": 0
+      },
+      {
+        "title": "Prepare the channel and template",
+        "body": "Make sure WhatsApp is connected and that there is an approved template suited to the campaign.",
+        "start": 6
+      },
+      {
+        "title": "Create the campaign",
+        "body": "Open Campaigns, add a campaign and choose the audience, the template and its variables according to the available options.",
+        "start": 12
+      },
+      {
+        "title": "Review before sending",
+        "body": "Review the audience's consent, the content, the count and the cost or balance shown before you confirm sending, then follow the results.",
+        "start": 18
+      }
+    ],
+    "duration": 24,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "contacts",
+    "title": "Managing customers and tags",
+    "category": "Conversations & customers",
+    "view": "contacts",
+    "description": "Organize customer data to make searching and follow-up easier.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Customers, leads & tags”.",
+        "start": 0
+      },
+      {
+        "title": "Open Customers",
+        "body": "From the menu open Customers and search for the contact you need or add a customer.",
+        "start": 6
+      },
+      {
+        "title": "Review the data",
+        "body": "Fill in the name, contact details and the available data accurately.",
+        "start": 12
+      },
+      {
+        "title": "Organize with tags",
+        "body": "From Tags prepare clear categories and use them to follow conversations and to segment your audience.",
+        "start": 18
+      }
+    ],
+    "duration": 24,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "teams",
+    "title": "Employees, teams and permissions",
+    "category": "Account management",
+    "view": "employees",
+    "description": "Distribute your team's work and set each employee's permissions.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Team, permissions & hours”, then open the “Employees & permissions” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Employees",
+        "body": "Go to Employees & permissions with an account that has management permission.",
+        "start": 8
+      },
+      {
+        "title": "Add team members",
+        "body": "Add the employee, set their details and permissions according to their tasks, then save.",
+        "start": 14
+      },
+      {
+        "title": "Organize teams",
+        "body": "Go to Teams, arrange the members and the conversation distribution, and test access with an employee account.",
+        "start": 20
+      }
+    ],
+    "duration": 26,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "hours",
+    "title": "Set work hours",
+    "category": "Account management",
+    "view": "workHours",
+    "description": "Set when teams are available to serve customers.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Team, permissions & hours”, then open the “Work hours” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Work hours",
+        "body": "From Employees & teams open the Work hours tab.",
+        "start": 7
+      },
+      {
+        "title": "Set the schedule",
+        "body": "Choose the team, the working days and the start and end times according to the available fields.",
+        "start": 13
+      },
+      {
+        "title": "Save and review",
+        "body": "Save the changes and check the schedule shown, and review any replies or automations tied to out-of-hours.",
+        "start": 19
+      }
+    ],
+    "duration": 25,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "pipeline",
+    "title": "Follow up on leads",
+    "category": "Conversations & customers",
+    "view": "pipeline",
+    "description": "Track the progress of opportunities and connect external lead sources.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Customers, leads & tags”, then open the “Leads” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Leads",
+        "body": "Go to Leads to review the opportunities and their stages.",
+        "start": 8
+      },
+      {
+        "title": "Follow the opportunity",
+        "body": "Open the customer, review the conversation and update the stage to match the real outcome.",
+        "start": 14
+      },
+      {
+        "title": "Connect the external source",
+        "body": "When needed, open “Connect an external platform” and use the URL, header and body shown. Keep the connection keys secret.",
+        "start": 20
+      }
+    ],
+    "duration": 26,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "reports",
+    "title": "Reports and operations center",
+    "category": "Account management",
+    "view": "reports",
+    "description": "Track conversation metrics and team performance.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Reports & operations”.",
+        "start": 0
+      },
+      {
+        "title": "Open Reports",
+        "body": "Choose Reports and set the period and the available filters.",
+        "start": 6
+      },
+      {
+        "title": "Review the metrics",
+        "body": "Compare the conversation and team results and open the linked conversations to understand the details.",
+        "start": 12
+      },
+      {
+        "title": "Follow operations",
+        "body": "Go to the operations center to review current work and act according to your permission.",
+        "start": 18
+      }
+    ],
+    "duration": 24,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "catalog",
+    "title": "Catalog and branches",
+    "category": "Account management",
+    "view": "catalog",
+    "description": "Organize your products, branches and their data.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Catalog & branches”.",
+        "start": 0
+      },
+      {
+        "title": "Open the Catalog",
+        "body": "From the menu choose the Catalog and review the existing products.",
+        "start": 6
+      },
+      {
+        "title": "Add products",
+        "body": "Add the product data, the price, the image and the required fields, or use import if it is available.",
+        "start": 12
+      },
+      {
+        "title": "Review the branches",
+        "body": "Go to Branches and complete their data, then check that the products and branches were saved correctly.",
+        "start": 18
+      }
+    ],
+    "duration": 26,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "segments",
+    "title": "Customer segments",
+    "category": "Marketing",
+    "view": "segments",
+    "description": "Create audience segments with the right conditions.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Customer Segments”.",
+        "start": 0
+      },
+      {
+        "title": "Open Customer segments",
+        "body": "Choose Customer segments and start creating a segment.",
+        "start": 6
+      },
+      {
+        "title": "Set the conditions",
+        "body": "Set the segment's conditions such as tags and the available data, and review the matching customers.",
+        "start": 12
+      },
+      {
+        "title": "Save the segment",
+        "body": "Save it with a clear name and check that the audience matches before using it in your campaign.",
+        "start": 18
+      }
+    ],
+    "duration": 24,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "email",
+    "title": "Email promotions",
+    "category": "Marketing",
+    "view": "emailPromotions",
+    "description": "Prepare an email offer and review its audience and content.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Email Promotions”.",
+        "start": 0
+      },
+      {
+        "title": "Open Email promotions",
+        "body": "From the menu choose Email promotions and review the options for creating an offer.",
+        "start": 6
+      },
+      {
+        "title": "Prepare the content and audience",
+        "body": "Write the subject and content and choose the right recipients among those who agreed to be contacted.",
+        "start": 12
+      },
+      {
+        "title": "Review before confirming",
+        "body": "Review the email, the links, the audience and any cost shown before you confirm sending.",
+        "start": 18
+      }
+    ],
+    "duration": 24,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "developers",
+    "title": "Connecting systems and developer tools",
+    "category": "Integrations",
+    "view": "developers",
+    "description": "Find the integration tools and documentation available to your account.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Developers",
+        "body": "From Settings & channels open the Developers tab.",
+        "start": 8
+      },
+      {
+        "title": "Review the documentation",
+        "body": "Review the integration tools, the documentation and the endpoints shown before setting up your external system.",
+        "start": 14
+      },
+      {
+        "title": "Test the connection",
+        "body": "Test with sample data and check the results; do not share connection keys in messages or recordings.",
+        "start": 20
+      }
+    ],
+    "duration": 26,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "branding",
+    "title": "Customize your branding",
+    "category": "Account management",
+    "view": "branding",
+    "description": "Update your business name, logo and colors.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Branding”.",
+        "start": 0
+      },
+      {
+        "title": "Open Branding",
+        "body": "Choose Branding with an account that has the right permission.",
+        "start": 6
+      },
+      {
+        "title": "Update the identity",
+        "body": "Review the name, upload the right logo and choose the color from the available settings.",
+        "start": 12
+      },
+      {
+        "title": "Save and review",
+        "body": "Save the change and check how it appears in the interface.",
+        "start": 18
+      }
+    ],
+    "duration": 24,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "instagram",
+    "title": "Connect Instagram",
+    "category": "Channels",
+    "view": "settings",
+    "description": "Add an Instagram channel to your account to follow customer conversations.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Choose the channel",
+        "body": "Open Settings & channels, then Channels, and choose Instagram.",
+        "start": 8
+      },
+      {
+        "title": "Complete the authorization",
+        "body": "Press connect and complete the sign-in and authorization in the provider's window. Choose the account or page you need and grant the required permissions.",
+        "start": 14
+      },
+      {
+        "title": "Check the result",
+        "body": "Go back to Channels and review the connection status, then test receiving a message from another account. Availability of the connection may vary with the service's settings.",
+        "start": 20
+      }
+    ],
+    "duration": 26,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "facebook",
+    "title": "Connect Facebook",
+    "category": "Channels",
+    "view": "settings",
+    "description": "Add a Facebook channel to your account to follow customer conversations.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Choose the channel",
+        "body": "Open Settings & channels, then Channels, and choose Facebook.",
+        "start": 8
+      },
+      {
+        "title": "Complete the authorization",
+        "body": "Press connect and complete the sign-in and authorization in the provider's window. Choose the account or page you need and grant the required permissions.",
+        "start": 14
+      },
+      {
+        "title": "Check the result",
+        "body": "Go back to Channels and review the connection status, then test receiving a message from another account. Availability of the connection may vary with the service's settings.",
+        "start": 20
+      }
+    ],
+    "duration": 26,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "gmail",
+    "title": "Connect Gmail",
+    "category": "Channels",
+    "view": "settings",
+    "description": "Add a Gmail channel to your account to follow customer conversations.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Choose the channel",
+        "body": "Open Settings & channels, then Channels, and choose Gmail.",
+        "start": 8
+      },
+      {
+        "title": "Complete the authorization",
+        "body": "Press connect and complete the sign-in and authorization in the provider's window. Choose the account or page you need and grant the required permissions.",
+        "start": 14
+      },
+      {
+        "title": "Check the result",
+        "body": "Go back to Channels and review the connection status, then test receiving a message from another account. Availability of the connection may vary with the service's settings.",
+        "start": 20
+      }
+    ],
+    "duration": 26,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "x",
+    "title": "Connect X",
+    "category": "Channels",
+    "view": "settings",
+    "description": "Add an X channel to follow customer conversations from your account.",
+    "duration": 26,
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Choose the channel",
+        "body": "From Settings & channels open Channels and choose X.",
+        "start": 8
+      },
+      {
+        "title": "Complete the authorization",
+        "body": "Press connect and complete the sign-in in the provider's window. Choose the business account or page you need and grant the permissions shown. If the connection isn't available, contact support.",
+        "start": 14
+      },
+      {
+        "title": "Review the connection and test",
+        "body": "Go back to Channels and check the connection. Test receiving a message or a comment, depending on the channel type and its permissions.",
+        "start": 20
+      }
+    ],
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "google-maps",
+    "title": "Google Maps channel status",
+    "category": "Channels",
+    "view": "settings",
+    "description": "Learn where the channel is and its current availability.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Channels",
+        "body": "From Settings & channels open Channels.",
+        "start": 7
+      },
+      {
+        "title": "Review the channel status",
+        "body": "The Google Maps card shows the status “Coming soon” in the current interface; there is no connection you can run from the card right now.",
+        "start": 13
+      },
+      {
+        "title": "Follow the connection's availability",
+        "body": "When the channel becomes available its options will appear on the page. Contact support to learn its availability for your account.",
+        "start": 19
+      }
+    ],
+    "duration": 25,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "tiktok",
+    "title": "Connect TikTok",
+    "category": "Channels",
+    "view": "settings",
+    "description": "Add a TikTok channel to follow customer conversations from your account.",
+    "duration": 26,
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Choose the channel",
+        "body": "From Settings & channels open Channels and choose TikTok.",
+        "start": 8
+      },
+      {
+        "title": "Complete the authorization",
+        "body": "Press connect and complete the sign-in in the provider's window. Choose the business account or page you need and grant the permissions shown. If the connection isn't available, contact support.",
+        "start": 14
+      },
+      {
+        "title": "Review the connection and test",
+        "body": "Go back to Channels and check the connection. Test receiving a message or a comment, depending on the channel type and its permissions.",
+        "start": 20
+      }
+    ],
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "youtube",
+    "title": "Connect YouTube",
+    "category": "Channels",
+    "view": "settings",
+    "description": "Add a YouTube channel to follow customer conversations from your account.",
+    "duration": 26,
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Choose the channel",
+        "body": "From Settings & channels open Channels and choose YouTube.",
+        "start": 8
+      },
+      {
+        "title": "Complete the authorization",
+        "body": "Press connect and complete the sign-in in the provider's window. Choose the business account or page you need and grant the permissions shown. If the connection isn't available, contact support.",
+        "start": 14
+      },
+      {
+        "title": "Review the connection and test",
+        "body": "Go back to Channels and check the connection. Test receiving a message or a comment, depending on the channel type and its permissions.",
+        "start": 20
+      }
+    ],
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "linkedin",
+    "title": "LinkedIn channel status",
+    "category": "Channels",
+    "view": "settings",
+    "description": "Learn where the channel is and its current availability.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Channels",
+        "body": "From Settings & channels open Channels.",
+        "start": 7
+      },
+      {
+        "title": "Review the channel status",
+        "body": "The LinkedIn card shows the status “Coming soon” in the current interface; there is no connection you can run from the card right now.",
+        "start": 13
+      },
+      {
+        "title": "Follow the connection's availability",
+        "body": "When the channel becomes available its options will appear on the page. Contact support to learn its availability for your account.",
+        "start": 19
+      }
+    ],
+    "duration": 25,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "telegram",
+    "title": "Connect Telegram",
+    "description": "Prepare the bot token and connect the Telegram channel.",
+    "category": "Channels",
+    "view": "settings",
+    "duration": 26,
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Choose Telegram",
+        "body": "Open Settings & channels, then choose Telegram from the channels.",
+        "start": 8
+      },
+      {
+        "title": "Add the bot token",
+        "body": "Prepare the bot token from your Telegram account and enter it in the channel setup field. Keep the token secret.",
+        "start": 14
+      },
+      {
+        "title": "Save and test",
+        "body": "Save the channel setup, send a message to the bot from another account and check that it appears in Conversations.",
+        "start": 20
+      }
+    ],
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "website",
+    "title": "Connect website chat",
+    "description": "Add the chat widget to your business website.",
+    "category": "Channels",
+    "view": "settings",
+    "duration": 26,
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Choose the website channel",
+        "body": "Open Settings & channels, then choose the website channel.",
+        "start": 8
+      },
+      {
+        "title": "Prepare the chat widget",
+        "body": "Follow the available chat widget settings and copy the embed code from the page.",
+        "start": 14
+      },
+      {
+        "title": "Add the code and test",
+        "body": "Add the widget code to your website, then open the site as a visitor, send a test message and check that it arrives.",
+        "start": 20
+      }
+    ],
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "sms",
+    "title": "SMS channel status",
+    "category": "Channels",
+    "view": "settings",
+    "description": "Learn where the channel is and its current availability.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Channels” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Channels",
+        "body": "From Settings & channels open Channels.",
+        "start": 8
+      },
+      {
+        "title": "Review the channel status",
+        "body": "The SMS card shows the status “Coming soon” in the current interface; there is no connection you can run from the card right now.",
+        "start": 14
+      },
+      {
+        "title": "Follow the connection's availability",
+        "body": "When the channel becomes available its options will appear on the page. Contact support to learn its availability for your account.",
+        "start": 20
+      }
+    ],
+    "duration": 26,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "bot-build",
+    "title": "Build a full auto-reply from scratch",
+    "category": "Auto-reply in detail",
+    "view": "bot",
+    "description": "We build a welcome message and an options list, and connect each option to the right reply or team.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Auto-reply”.",
+        "start": 0
+      },
+      {
+        "title": "Start with a custom step",
+        "body": "Choose WhatsApp, then press “Custom step”. We will build the flow manually instead of using a ready template.",
+        "start": 6
+      },
+      {
+        "title": "Write the welcome",
+        "body": "Choose “Send a message”. Name the step “Store welcome” and write: Welcome, how can we help you? Then press “Add step”.",
+        "start": 12
+      },
+      {
+        "title": "Add the prices reply",
+        "body": "Add a new message step named “Prices”, write the service details, then save it.",
+        "start": 18
+      },
+      {
+        "title": "Add the transfer to support",
+        "body": "Add a step of type “Transfer to a team” and choose the customer service team. Prepare the team first from the Teams page if it doesn't appear.",
+        "start": 27
+      },
+      {
+        "title": "Create the options list",
+        "body": "Add “Send a short list”, write the customer's question, then a “Prices” option and a “Talk to support” option.",
+        "start": 41
+      },
+      {
+        "title": "Link each option",
+        "body": "From the first option's link list choose “Prices”, and from the second option's link choose the support transfer step, then add the step.",
+        "start": 55
+      },
+      {
+        "title": "Link the welcome to the list",
+        "body": "Open the welcome step, choose the list in “Link to step”, then save the change.",
+        "start": 67
+      },
+      {
+        "title": "Review and turn on",
+        "body": "Review the arrows, the options and the customer-facing texts, then turn on the auto-reply switch for the channel. The account in the video is a training account and doesn't send to real customers.",
+        "start": 77
+      }
+    ],
+    "duration": 83,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "bot-types",
+    "title": "Every auto-reply step type",
+    "category": "Auto-reply in detail",
+    "view": "bot",
+    "description": "A hands-on look at all thirteen types and the fields specific to each.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Auto-reply”.",
+        "start": 0
+      },
+      {
+        "title": "Send a message",
+        "body": "Write the step name and the message text, and set what follows from “Link to step”.",
+        "start": 6
+      },
+      {
+        "title": "Send an image",
+        "body": "Upload an image from the file field, add an optional caption, then choose what follows.",
+        "start": 12
+      },
+      {
+        "title": "Send a video",
+        "body": "Upload a video that suits the channel and the limit shown, add a description, then what follows.",
+        "start": 25
+      },
+      {
+        "title": "Send a document",
+        "body": "Upload the document you need and add a caption if you want, then link it to a next step.",
+        "start": 38
+      },
+      {
+        "title": "Send a short list",
+        "body": "Write the question and add the options; each option has a text and a next step. Use the number the channel accepts.",
+        "start": 51
+      },
+      {
+        "title": "Send a long list",
+        "body": "Use it for more options and link each option to its path. Review the channel's limits before publishing.",
+        "start": 68
+      },
+      {
+        "title": "Knowledge Base reply",
+        "body": "Prepare the questions and answers in the knowledge base. Write the no-match reply and link a follow-up step when needed.",
+        "start": 85
+      },
+      {
+        "title": "Automatic AI reply",
+        "body": "Requires your account's AI provider key and a knowledge base. It sends the reply automatically; link a hand-over to an employee for when there is no answer.",
+        "start": 99
+      },
+      {
+        "title": "Show the catalog",
+        "body": "Add the products from the Catalog and set the intro message. The next step is used when an employee is requested or there are no products.",
+        "start": 109
+      },
+      {
+        "title": "Nearest branch",
+        "body": "Prepare the branch data and write the location request message. The bot sends the nearest branch according to the customer's location.",
+        "start": 122
+      },
+      {
+        "title": "Transfer to a team",
+        "body": "Choose an existing team. This is a final step that moves the conversation to the team with no automatic follow-up afterwards.",
+        "start": 135
+      },
+      {
+        "title": "Transfer to an employee",
+        "body": "Choose the specific employee. Prepare the employee and their permissions first; this is a final step.",
+        "start": 149
+      },
+      {
+        "title": "Close the conversation",
+        "body": "You can write an optional closing message and then close the conversation. Don't link it to a next step.",
+        "start": 163
+      }
+    ],
+    "duration": 175,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "api-key",
+    "title": "API: creating and managing the key",
+    "category": "API & developers",
+    "view": "developers",
+    "description": "Learn how to create, copy, hide and revoke an API key.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open Developers",
+        "body": "From Settings & channels choose “Developers”. This page needs a permission and a plan that supports the feature.",
+        "start": 8
+      },
+      {
+        "title": "Create a key with a clear name",
+        "body": "Write a name that explains the integration, then press “Create key”. The video uses a training key that is revoked after recording.",
+        "start": 14
+      },
+      {
+        "title": "Copy and hide the key",
+        "body": "The key shows only once. “Copy” copies it and “Hide” hides it from the screen. Don't put your key in the website interface or in public recordings.",
+        "start": 20
+      },
+      {
+        "title": "Revoke the key",
+        "body": "The “Revoke” button stops this key being accepted after you confirm. Update the connected system with a replacement key when needed.",
+        "start": 26
+      }
+    ],
+    "duration": 32,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "api-request",
+    "title": "API: a real request and reading the result",
+    "category": "API & developers",
+    "view": "developers",
+    "description": "We test reading customers with a training key and see the server's actual response.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab.",
+        "start": 0
+      },
+      {
+        "title": "Open the documentation",
+        "body": "From the Developers tab open the full API documentation or the OpenAPI specification. The production base URL is https://linklysa.io/api/v1.",
+        "start": 8
+      },
+      {
+        "title": "Prepare the request",
+        "body": "We use GET /api/v1/customers?limit=5 with Authorization: Bearer YOUR_API_KEY. We keep the key on the server and never show it to users.",
+        "start": 14
+      },
+      {
+        "title": "Run the request and read the result",
+        "body": "We run the request against the local server with a training account. The HTTP code and the real response appear; ok: true means the request succeeded, and data holds the customers and the paging data.",
+        "start": 20
+      }
+    ],
+    "duration": 26,
+    "code": "curl \"https://linklysa.io/api/v1/customers?limit=5\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY\"",
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "api-errors",
+    "title": "API: authentication and validation errors",
+    "category": "API & developers",
+    "view": "developers",
+    "description": "See real responses for a request without a key and a customer request with missing data.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab.",
+        "start": 0
+      },
+      {
+        "title": "A request without a key",
+        "body": "We run a GET for customers without Authorization; the server returns HTTP 401 because the key is missing or incorrect.",
+        "start": 8
+      },
+      {
+        "title": "A request with missing data",
+        "body": "We run a POST for customers with a training key and an empty body; the server returns HTTP 400 and explains that phone and name are required.",
+        "start": 14
+      },
+      {
+        "title": "Review the limits and fix the request",
+        "body": "Use Bearer with a single space and then the correct key, and send the required fields. On 429 wait for the Retry-After duration; we don't use up the request limit in this recording.",
+        "start": 20
+      }
+    ],
+    "duration": 26,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "api-webhooks",
+    "title": "API: setting up webhooks and their buttons",
+    "category": "API & developers",
+    "view": "developers",
+    "description": "Choose the events and learn about the receiving URL, the signature and the delivery log.",
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab.",
+        "start": 0
+      },
+      {
+        "title": "Set the receiving URL",
+        "body": "From Developers open the Webhooks section. Enter a public HTTPS URL that belongs to your system, not a dashboard page link.",
+        "start": 8
+      },
+      {
+        "title": "Choose the events",
+        "body": "Choose “Message received”, “Conversation closed” or “New lead” according to what the integration needs, then press “Add webhook” in your real account after preparing the receiver.",
+        "start": 14
+      },
+      {
+        "title": "Managing the webhook",
+        "body": "In the registered row you will see the pause/enable, delivery log and delete buttons. The recording shows a local training example and doesn't connect to an external receiver.",
+        "start": 24
+      },
+      {
+        "title": "The signature and the delivery log",
+        "body": "Your system receives the signing secret on creation; store it safely and verify the HMAC signature as the documentation describes. Review the HTTP code, the result and the time in the delivery log.",
+        "start": 31
+      }
+    ],
+    "duration": 37,
+    "format": "practical",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  },
+  {
+    "id": "api-customer",
+    "title": "API: add a customer and verify it in the interface",
+    "category": "API & developers",
+    "view": "developers",
+    "description": "Send a real POST with training data and see the customer on the Customers page.",
+    "format": "practical",
+    "duration": 26,
+    "steps": [
+      {
+        "kind": "navigation",
+        "title": "Choose the page from the sidebar",
+        "body": "From the sidebar choose “Settings & channels”, then open the “Developers” tab.",
+        "start": 0
+      },
+      {
+        "title": "Prepare the customer data",
+        "body": "We use POST /api/v1/customers with name and phone in a valid Saudi number format. The number shown is a training number and no messages are sent to it.",
+        "start": 8
+      },
+      {
+        "title": "Run the request",
+        "body": "We send JSON with a training key, and show the server's real response with the customer ID, name and mobile.",
+        "start": 14
+      },
+      {
+        "title": "Check in Customers",
+        "body": "We choose Customers & tags from the sidebar, refresh the page to fetch the latest data, then search for the name “API test customer” to check that the record was really added to the training account.",
+        "start": 20
+      }
+    ],
+    "code": "curl -X POST \"https://linklysa.io/api/v1/customers\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"name\":\"Customer name\",\"phone\":\"9665XXXXXXXX\"}'",
+    "narrated": false,
+    "visualArrows": true,
+    "frameLayout": "full-screen"
+  }
 ]

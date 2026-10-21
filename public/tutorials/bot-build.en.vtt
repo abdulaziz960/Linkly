@@ -2,7 +2,7 @@ WEBVTT
 
 00:00:00.000 --> 00:00:06.000
 Choose the page from the sidebar
-From the sidebar choose “Auto Reply”.
+From the sidebar choose “Auto-reply”.
 
 00:00:06.000 --> 00:00:12.000
 Start with a custom step
@@ -12,26 +12,26 @@ Choose WhatsApp, then press “Custom step”. We will build the flow manually i
 Write the welcome
 Choose “Send a message”. Name the step “Store welcome” and write: Welcome, how can we help you? Then press “Add step”.
 
-00:00:18.000 --> 00:00:26.000
+00:00:18.000 --> 00:00:27.000
 Add the prices reply
 Add a new message step named “Prices”, write the service details, then save it.
 
-00:00:26.000 --> 00:00:40.000
+00:00:27.000 --> 00:00:41.000
 Add the transfer to support
 Add a step of type “Transfer to a team” and choose the customer service team. Prepare the team first from the Teams page if it doesn't appear.
 
-00:00:40.000 --> 00:00:53.000
+00:00:41.000 --> 00:00:55.000
 Create the options list
 Add “Send a short list”, write the customer's question, then a “Prices” option and a “Talk to support” option.
 
-00:00:53.000 --> 00:01:05.000
+00:00:55.000 --> 00:01:07.000
 Link each option
 From the first option's link list choose “Prices”, and from the second option's link choose the support transfer step, then add the step.
 
-00:01:05.000 --> 00:01:15.000
+00:01:07.000 --> 00:01:17.000
 Link the welcome to the list
 Open the welcome step, choose the list in “Link to step”, then save the change.
 
-00:01:15.000 --> 00:01:21.000
+00:01:17.000 --> 00:01:23.000
 Review and turn on
 Review the arrows, the options and the customer-facing texts, then turn on the auto-reply switch for the channel. The account in the video is a training account and doesn't send to real customers.

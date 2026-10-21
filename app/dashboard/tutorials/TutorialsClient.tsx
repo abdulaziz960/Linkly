@@ -39,7 +39,7 @@ const copy = {
     speed: "Playback speed", slow: "Slow 0.75×", normal: "Normal 1×", fast: "Fast 1.25×", fullscreen: "Enlarge video ⛶",
     fullscreenFail: "Use the full-screen button inside the video player, or open the clip directly.", videoLabel: (title: string) => `Guide: ${title}`,
     noVideo: "Your browser doesn't support video playback. You can read the steps below.", openVideo: "Open the video", videoFailed: "The clip couldn't be played.", openVideoDirect: "Open the video directly", orSteps: "or follow the written steps.",
-    videoNote: "Full-screen, arrow-guided and silent, starting from the sidebar. The recordings show the Arabic interface. Pause or enlarge the clip to apply each step.",
+    videoNote: "Full-screen, arrow-guided and silent, starting from the sidebar. Pause or enlarge the clip to apply each step.",
     seconds: "s", steps: "Steps to apply", stepsCount: (n: number) => `${n} steps`, goStep: (n: number, title: string) => `Go to step ${n}: ${title}`,
     openSetup: "Open the setup page", permissionsNote: "Opening and running the settings depends on your account's permissions and plan.",
     library: "Tutorials library", whatToLearn: "What do you want to learn today?", search: "Search for a feature or integration", searchPlaceholder: "Search: WhatsApp, Salla, auto-reply…",
@@ -72,7 +72,11 @@ export default function TutorialsClient() {
   const player = useRef<HTMLVideoElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const active = guides.find((guide) => guide.id === activeId) ?? guides[0];
-  const meta = guidesAr.find((guide) => guide.id === active.id) ?? guidesAr[0];
+  // An English recording carries its own duration and step times; until one exists the Arabic recording (with English captions) is used.
+  const hasEnglishVideo = (guide: { duration?: number }) => en && Boolean(guide.duration);
+  const recorded = hasEnglishVideo(active as { duration?: number });
+  const meta = (recorded ? active : guidesAr.find((guide) => guide.id === active.id) ?? guidesAr[0]) as typeof guidesAr[number];
+  const videoSuffix = recorded ? ".en" : "";
   const codeExample = "code" in active ? active.code : undefined;
   const filtered = guides.filter((guide) => (category === ALL || keyOf(guide.id) === category) && normalize(`${guide.title} ${guide.description} ${guide.category} ${guide.steps.map((step) => step.body).join(" ")}`).includes(normalize(query.trim())));
   const captionsSrc = en ? "en" : "ar";
@@ -108,21 +112,21 @@ export default function TutorialsClient() {
       {["salla", "zid", "shopify"].includes(active.id) ? <p className="tutorials-prerequisite" role="note"><strong>{text.beforeConnecting}</strong> {text.storeNote}</p> : null}
       <div className="tutorials-video-wrap">
         <div className="tutorials-player-toolbar"><label className="tutorials-speed">{text.speed}<select defaultValue="1" key={active.id} onChange={(event) => { if (player.current) player.current.playbackRate = Number(event.target.value); }}><option value="0.75">{text.slow}</option><option value="1">{text.normal}</option><option value="1.25">{text.fast}</option></select></label><button type="button" onClick={() => { const video = player.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null; if (video?.requestFullscreen) void video.requestFullscreen().catch(() => setPlayerNotice(text.fullscreenFail)); else video?.webkitEnterFullscreen?.(); }}>{text.fullscreen}</button></div>
-        <video key={`${active.id}-${lang}`} ref={player} controls muted playsInline preload="none" poster={`/tutorials/${active.id}.jpg?v=fullscreen4`} aria-label={text.videoLabel(active.title)} onError={() => setVideoError(true)} onTimeUpdate={() => setCurrentStep(Math.max(0, meta.steps.findLastIndex((step) => step.start <= (player.current?.currentTime ?? 0))))}>
-          <source src={`/tutorials/${active.id}.mp4?v=fullscreen4`} type="video/mp4" />
+        <video key={`${active.id}-${lang}`} ref={player} controls muted playsInline preload="none" poster={`/tutorials/${active.id}${videoSuffix}.jpg?v=fullscreen4`} aria-label={text.videoLabel(active.title)} onError={() => setVideoError(true)} onTimeUpdate={() => setCurrentStep(Math.max(0, meta.steps.findLastIndex((step) => step.start <= (player.current?.currentTime ?? 0))))}>
+          <source src={`/tutorials/${active.id}${videoSuffix}.mp4?v=fullscreen4`} type="video/mp4" />
           <track kind="captions" src={`/tutorials/${active.id}${en ? ".en" : ""}.vtt?v=fullscreen4`} srcLang={captionsSrc} label={en ? "English" : "العربية"} default={en} />
           {text.noVideo}
         </video>
-        {playerNotice ? <p role="status">{playerNotice} <a href={`/tutorials/${active.id}.mp4`}>{text.openVideo}</a></p> : null}
-        {videoError ? <p role="alert">{text.videoFailed} <a href={`/tutorials/${active.id}.mp4`}>{text.openVideoDirect}</a> {text.orSteps}</p> : null}
-        <p className="tutorials-video-note">{text.videoNote}</p>
+        {playerNotice ? <p role="status">{playerNotice} <a href={`/tutorials/${active.id}${videoSuffix}.mp4`}>{text.openVideo}</a></p> : null}
+        {videoError ? <p role="alert">{text.videoFailed} <a href={`/tutorials/${active.id}${videoSuffix}.mp4`}>{text.openVideoDirect}</a> {text.orSteps}</p> : null}
+        <p className="tutorials-video-note">{text.videoNote}{en && !recorded ? " This clip shows the Arabic interface; the captions and steps are in English." : ""}</p>
       </div>
       <div className="tutorials-instructions"><span className="tutorials-eyebrow tutorials-phrase-list"><span>{active.category}</span><span>{meta.duration} {text.seconds}</span></span><p>{active.description}</p><details key={active.id} className="tutorials-step-details"><summary>{text.steps} <span>{text.stepsCount(active.steps.length)}</span></summary><ol>{active.steps.map((step, index) => <li key={step.title} className={index === currentStep ? "is-current" : ""}><button type="button" onClick={() => seek(index)} aria-label={text.goStep(index + 1, step.title)} aria-current={index === currentStep ? "step" : undefined}><span>{index + 1}</span><b>{step.title}</b></button><p>{step.body}</p></li>)}</ol></details>{codeExample ? <pre className="tutorials-code" dir="ltr"><code>{codeExample}</code></pre> : null}<Link className="tutorials-primary" href={`/dashboard?view=${meta.view}`}>{text.openSetup} <span aria-hidden="true">{en ? "→" : "←"}</span></Link><small>{text.permissionsNote}</small></div>
     </section></dialog>
     <section id="tutorial-library" className="tutorials-library" aria-labelledby="library-title"><div className="tutorials-library-heading"><div><span className="tutorials-eyebrow">{text.library}</span><h2 id="library-title">{text.whatToLearn}</h2></div><label className="tutorials-search"><span>{text.search}</span><input type="search" placeholder={text.searchPlaceholder} value={query} onChange={(event) => setQuery(event.target.value)} /></label></div>
       <label className="tutorials-category-filter"><span>{text.browse}</span><span className="tutorials-category-select"><select value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((item) => <option key={item} value={item}>{item === ALL ? text.allGuides : categoryLabel(guidesAr.find((guide) => guide.category === item)?.id ?? "")}</option>)}</select><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></span></label>
       <p className="tutorials-result-count" role="status">{text.count(filtered.length)}</p>
-      <div className="tutorials-grid">{filtered.map((guide, index) => <button type="button" key={guide.id} className={`tutorials-card ${active.id === guide.id ? "is-selected" : ""}`} aria-haspopup="dialog" aria-pressed={active.id === guide.id} onClick={() => selectGuide(guide)}><div className={`tutorials-card-art tone-${index % 3}`}><Image src={`/tutorials/${guide.id}.jpg?v=fullscreen4`} alt="" fill sizes="(max-width: 560px) 100vw, (max-width: 850px) 50vw, 33vw" unoptimized /><span>{guide.category}</span><i aria-hidden="true">▶</i><small>{guidesAr.find((item) => item.id === guide.id)?.duration} {text.seconds}</small></div><div className="tutorials-card-copy"><h3>{guide.title}</h3><p>{guide.description}</p><span>{active.id === guide.id ? text.selected : text.watch} <span aria-hidden="true">{en ? "→" : "←"}</span></span></div></button>)}</div>
+      <div className="tutorials-grid">{filtered.map((guide, index) => <button type="button" key={guide.id} className={`tutorials-card ${active.id === guide.id ? "is-selected" : ""}`} aria-haspopup="dialog" aria-pressed={active.id === guide.id} onClick={() => selectGuide(guide)}><div className={`tutorials-card-art tone-${index % 3}`}><Image src={`/tutorials/${guide.id}${hasEnglishVideo(guide as { duration?: number }) ? ".en" : ""}.jpg?v=fullscreen4`} alt="" fill sizes="(max-width: 560px) 100vw, (max-width: 850px) 50vw, 33vw" unoptimized /><span>{guide.category}</span><i aria-hidden="true">▶</i><small>{(hasEnglishVideo(guide as { duration?: number }) ? (guide as { duration?: number }).duration : guidesAr.find((item) => item.id === guide.id)?.duration)} {text.seconds}</small></div><div className="tutorials-card-copy"><h3>{guide.title}</h3><p>{guide.description}</p><span>{active.id === guide.id ? text.selected : text.watch} <span aria-hidden="true">{en ? "→" : "←"}</span></span></div></button>)}</div>
       {filtered.length === 0 ? <div className="tutorials-empty"><h3>{text.emptyTitle}</h3><p>{text.emptyText}</p><button type="button" onClick={() => { setQuery(""); setCategory(ALL); }}>{text.showAll}</button></div> : null}
     </section>
     <footer className="tutorials-footer"><div><h2>{text.helpTitle}</h2><p>{text.helpText}</p></div><Link href="/dashboard/support" className="tutorials-primary">{text.contactSupport}</Link></footer>

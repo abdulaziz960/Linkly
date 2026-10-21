@@ -2,56 +2,56 @@ WEBVTT
 
 00:00:00.000 --> 00:00:06.000
 Choose the page from the sidebar
-From the sidebar choose “Auto Reply”.
+From the sidebar choose “Auto-reply”.
 
 00:00:06.000 --> 00:00:12.000
 Send a message
 Write the step name and the message text, and set what follows from “Link to step”.
 
-00:00:12.000 --> 00:00:24.000
+00:00:12.000 --> 00:00:25.000
 Send an image
 Upload an image from the file field, add an optional caption, then choose what follows.
 
-00:00:24.000 --> 00:00:36.000
+00:00:25.000 --> 00:00:38.000
 Send a video
 Upload a video that suits the channel and the limit shown, add a description, then what follows.
 
-00:00:36.000 --> 00:00:48.000
+00:00:38.000 --> 00:00:51.000
 Send a document
 Upload the document you need and add a caption if you want, then link it to a next step.
 
-00:00:48.000 --> 00:01:04.000
+00:00:51.000 --> 00:01:08.000
 Send a short list
 Write the question and add the options; each option has a text and a next step. Use the number the channel accepts.
 
-00:01:04.000 --> 00:01:20.000
+00:01:08.000 --> 00:01:25.000
 Send a long list
 Use it for more options and link each option to its path. Review the channel's limits before publishing.
 
-00:01:20.000 --> 00:01:33.000
+00:01:25.000 --> 00:01:39.000
 Knowledge Base reply
 Prepare the questions and answers in the knowledge base. Write the no-match reply and link a follow-up step when needed.
 
-00:01:33.000 --> 00:01:43.000
+00:01:39.000 --> 00:01:49.000
 Automatic AI reply
 Requires your account's AI provider key and a knowledge base. It sends the reply automatically; link a hand-over to an employee for when there is no answer.
 
-00:01:43.000 --> 00:01:56.000
+00:01:49.000 --> 00:02:02.000
 Show the catalog
 Add the products from the Catalog and set the intro message. The next step is used when an employee is requested or there are no products.
 
-00:01:56.000 --> 00:02:08.000
+00:02:02.000 --> 00:02:15.000
 Nearest branch
 Prepare the branch data and write the location request message. The bot sends the nearest branch according to the customer's location.
 
-00:02:08.000 --> 00:02:22.000
+00:02:15.000 --> 00:02:29.000
 Transfer to a team
 Choose an existing team. This is a final step that moves the conversation to the team with no automatic follow-up afterwards.
 
-00:02:22.000 --> 00:02:36.000
+00:02:29.000 --> 00:02:43.000
 Transfer to an employee
 Choose the specific employee. Prepare the employee and their permissions first; this is a final step.
 
-00:02:36.000 --> 00:02:47.000
+00:02:43.000 --> 00:02:55.000
 Close the conversation
 You can write an optional closing message and then close the conversation. Don't link it to a next step.

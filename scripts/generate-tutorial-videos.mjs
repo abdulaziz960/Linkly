@@ -11,11 +11,16 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { performDemo } from './tutorial-demo-actions.mjs';
 import { navigationStep, openTutorialPage } from './tutorial-navigation.mjs';
+import { LANG, tr } from './tutorial-i18n.mjs';
 const run=promisify(execFile);
 const base=process.env.TUTORIAL_BASE_URL||'http://localhost:3217';
 if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw Error('Only localhost recording is supported');
-const dataPath='app/dashboard/tutorials/guides.json';
-const guides=JSON.parse(await readFile(dataPath,'utf8'));
+const arabicPath='app/dashboard/tutorials/guides.json';
+// English recordings (TUTORIAL_LANG=en) read the English texts and write their own metadata and files (*.en.mp4 / *.en.vtt).
+const dataPath=LANG==='en'?'app/dashboard/tutorials/guides.en.json':arabicPath;
+const SUFFIX=LANG==='en'?'.en':'';
+const arabicGuides=JSON.parse(await readFile(arabicPath,'utf8'));
+const guides=JSON.parse(await readFile(dataPath,'utf8')).map(g=>{const a=arabicGuides.find(x=>x.id===g.id);return LANG==='en'?{...a,...g,steps:g.steps.map((step,i)=>({...a.steps[i],...step}))}:g;});
 const onlyIndex=process.argv.indexOf('--only');
 const only=onlyIndex<0?null:process.argv[onlyIndex+1].split(',');
 const output=path.resolve('public/tutorials');
@@ -23,24 +28,26 @@ const temp=await mkdtemp(path.join(tmpdir(),'linkly-arrows-'));
 const browser=await chromium.launch();
 async function configure(context){
  await context.route('**/*',async(route)=>{const url=new URL(route.request().url());if(url.origin===new URL(base).origin||['data:','blob:'].includes(url.protocol))await route.continue();else await route.abort();});
- await context.addInitScript(()=>{localStorage.setItem('linkly-analytics-consent','rejected');sessionStorage.setItem('linkly-pwa-install-popup-dismissed','1');window.open=()=>null;});
+ await context.addInitScript((LANG)=>{localStorage.setItem('linkly-analytics-consent','rejected');localStorage.setItem('audiencew-language',LANG);sessionStorage.setItem('linkly-pwa-install-popup-dismissed','1');window.open=()=>null;},LANG);
 }
 const auth=await browser.newContext();await configure(auth);
 const login=await auth.newPage();
-await login.goto(base+'/login');await login.locator('input[name="email"]').fill('owner@browser.test');await login.locator('input[name="password"]').fill('Browser-only-Password-927!');await login.getByRole('button',{name:'تسجيل الدخول',exact:true}).click();await login.waitForURL(url=>url.pathname==='/dashboard');
+await login.goto(base+'/login');await login.locator('input[name="email"]').fill('owner@browser.test');await login.locator('input[name="password"]').fill('Browser-only-Password-927!');await login.getByRole('button',{name:tr('تسجيل الدخول'),exact:true}).click();await login.waitForURL(url=>url.pathname==='/dashboard');
 const identity=await (await auth.request.get(base+'/api/auth/me')).json();
 if(identity.user?.id!=='browser-owner'||identity.user?.tenantId!=='browser-workspace')throw Error('Not the isolated browser-test account');
 const storageState=await auth.storageState();
 const keyResult=await (await auth.request.post(base+'/api/developer/keys',{data:{name:'silent-tutorial-only'}})).json();
 if(!keyResult.data?.rawKey)throw Error('Cannot create test API key');
 const api={base,key:keyResult.data.rawKey};
+// The bot guides pick a team: make sure the isolated workspace has one (named like the demo expects).
+try{const teams=await (await auth.request.get(base+'/api/teams')).json();const wanted=tr('خدمة العملاء');if(!(teams.data??[]).some(t=>t.name===wanted)){let staff=(await (await auth.request.get(base+'/api/employees')).json()).data??[];if(!staff.length){await auth.request.post(base+'/api/employees',{data:{name:'Support Agent',email:'support-agent@browser.test',role:'موظف دعم',status:'متصل',permissions:'المحادثات فقط'}});staff=(await (await auth.request.get(base+'/api/employees')).json()).data??[];}const member=staff[0];if(member)await auth.request.post(base+'/api/teams',{data:{name:wanted,lead:member.name,routing:'يدوي',memberIds:[member.id]}});}}catch(error){console.error('Team setup skipped: '+error.message);}
 const stamp=s=>{const ms=Math.round(s*1000);return `${String(Math.floor(ms/3600000)).padStart(2,'0')}:${String(Math.floor(ms/60000)%60).padStart(2,'0')}:${String(Math.floor(ms/1000)%60).padStart(2,'0')}.${String(ms%1000).padStart(3,'0')}`;};
 async function caption(guide,step,index){
- await page.evaluate(({title,index,total})=>{
-  document.querySelector('#tutorial-caption')?.remove();const el=document.createElement('div');el.id='tutorial-caption';el.dir='rtl';
+ await page.evaluate(({title,index,total,dir})=>{
+  document.querySelector('#tutorial-caption')?.remove();const el=document.createElement('div');el.id='tutorial-caption';el.dir=dir;
   el.style.cssText='position:fixed;bottom:16px;left:16px;max-width:calc(100vw - 140px);padding:10px 16px;border-radius:12px;background:#103e34ed;color:white;font:600 19px/1.7 Arial,sans-serif;pointer-events:none;z-index:2147483645;box-shadow:0 3px 12px #0002';
   el.textContent=`${index+1} / ${total} • ${title}`;document.body.append(el);
- },{title:step.title,index,total:guide.steps.length});
+ },{title:step.title,index,total:guide.steps.length,dir:LANG==='en'?'ltr':'rtl'});
 }
 let page,lastTarget;
 async function capture(target){
@@ -108,9 +115,9 @@ try{
    }
    const concat=path.join(temp,guide.id+'.txt');await writeFile(concat,segments.map(file=>`file '${file}'`).join('\n'));
    const movie=path.join(temp,guide.id+'-final.mp4');await run(ffmpeg,['-hide_banner','-loglevel','error','-y','-f','concat','-safe','0','-i',concat,'-c','copy','-movflags','+faststart',movie]);
-   const delivery=path.join(output,guide.id+'.'+process.pid+'.tmp');await writeFile(delivery,await readFile(movie));await rename(delivery,path.join(output,guide.id+'.mp4'));await run(ffmpeg,['-hide_banner','-loglevel','error','-y','-filter_complex_threads','1','-filter_threads','1','-threads','2','-ss','1.3','-i',segments[0],'-frames:v','1','-q:v','2',path.join(output,guide.id+'.jpg')]);
+   const delivery=path.join(output,guide.id+'.'+process.pid+'.tmp');await writeFile(delivery,await readFile(movie));await rename(delivery,path.join(output,guide.id+SUFFIX+'.mp4'));await run(ffmpeg,['-hide_banner','-loglevel','error','-y','-filter_complex_threads','1','-filter_threads','1','-threads','2','-ss','1.3','-i',segments[0],'-frames:v','1','-q:v','2',path.join(output,guide.id+SUFFIX+'.jpg')]);
    guide.duration=elapsed;guide.narrated=false;guide.visualArrows=true;guide.frameLayout="full-screen";
-   await writeFile(path.join(output,guide.id+'.vtt'),'WEBVTT\n\n'+guide.steps.map((s,i)=>`${stamp(s.start)} --> ${stamp(guide.steps[i+1]?.start??elapsed)}\n${s.title}\n${s.body}\n`).join('\n'));
+   await writeFile(path.join(output,guide.id+SUFFIX+'.vtt'),'WEBVTT\n\n'+guide.steps.map((s,i)=>`${stamp(s.start)} --> ${stamp(guide.steps[i+1]?.start??elapsed)}\n${s.title}\n${s.body}\n`).join('\n'));
    const lock=path.join(tmpdir(),'linkly-tutorial-metadata.lock');
    while(true){try{await mkdir(lock);break;}catch(e){if(e.code!=='EEXIST')throw e;await new Promise(resolve=>setTimeout(resolve,100));}}
    try{const latest=JSON.parse(await readFile(dataPath,'utf8'));const position=latest.findIndex(g=>g.id===guide.id);latest[position]=guide;const staging=dataPath+'.'+process.pid+'.tmp';await writeFile(staging,JSON.stringify(latest,null,2)+'\n');await rename(staging,dataPath);}finally{await rm(lock,{recursive:true,force:true});}
@@ -118,7 +125,7 @@ try{
   }catch(error){failures.push(guide.id);console.error(`FAILED ${guide.id}: ${error.message}`);if(context)await context.close();}
  }
 }finally{
- const keys=await (await auth.request.get(base+'/api/developer/keys')).json();for(const key of keys.data??[])if(key.id===keyResult.data.id||key.name==='تكامل تدريبي للفيديو')await auth.request.delete(base+'/api/developer/keys/'+key.id);
+ const keys=await (await auth.request.get(base+'/api/developer/keys')).json();for(const key of keys.data??[])if(key.id===keyResult.data.id||key.name===tr('تكامل تدريبي للفيديو'))await auth.request.delete(base+'/api/developer/keys/'+key.id);
  await auth.request.patch(base+'/api/bot/settings?channel=whatsapp',{data:{enabled:false}});await browser.close();if(!failures.length)await rm(temp,{recursive:true,force:true});else console.error('Diagnostics: '+temp);
 }
 if(failures.length){console.error('Incomplete: '+failures.join(','));process.exitCode=1;}
