@@ -4,7 +4,15 @@
 
 export type BillingCycle = "شهري" | "ربع سنوي" | "نصف سنوي" | "سنوي";
 
+/** Every cycle the system can still price and renew (existing subscribers may be on the quarterly/semi-annual ones). */
 export const BILLING_CYCLES: readonly BillingCycle[] = ["شهري", "ربع سنوي", "نصف سنوي", "سنوي"];
+
+/** The cycles offered for a new purchase: monthly and yearly only. */
+export const SELLABLE_BILLING_CYCLES: readonly BillingCycle[] = ["شهري", "سنوي"];
+
+export function isSellableBillingCycle(value: unknown): value is BillingCycle {
+  return typeof value === "string" && (SELLABLE_BILLING_CYCLES as readonly string[]).includes(value);
+}
 
 /** Length of one paid period, in months, per billing cycle. */
 export const CYCLE_MONTHS: Record<BillingCycle, number> = { "شهري": 1, "ربع سنوي": 3, "نصف سنوي": 6, "سنوي": 12 };
@@ -20,7 +28,7 @@ export const YEARLY_FREE_MONTHS = 2;
 export const CYCLE_SLUGS: Record<BillingCycle, string> = { "شهري": "monthly", "ربع سنوي": "quarterly", "نصف سنوي": "semiannual", "سنوي": "yearly" };
 
 export function cycleFromSlug(slug: unknown): BillingCycle {
-  return BILLING_CYCLES.find((cycle) => CYCLE_SLUGS[cycle] === slug) ?? "شهري";
+  return SELLABLE_BILLING_CYCLES.find((cycle) => CYCLE_SLUGS[cycle] === slug) ?? "شهري";
 }
 
 export function isBillingCycle(value: unknown): value is BillingCycle {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
-import { BILLING_CYCLES, CYCLE_SLUGS, priceForCycle } from "../lib/billing-pricing";
+import { SELLABLE_BILLING_CYCLES, CYCLE_SLUGS, priceForCycle } from "../lib/billing-pricing";
 import { perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../lib/billing-cycle-copy";
 import { useBillingCycle } from "./useBillingCycle";
 import { useReducedMotion } from "./landing/motion";
@@ -76,7 +76,7 @@ function AnimatedPrice({ value }: { value: number }) {
 export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonly Plan[]; lang?: "ar" | "en" }) {
   const { billingCycle, chooseBillingCycle } = useBillingCycle();
   const text = copy[lang];
-  const cycleIndex = BILLING_CYCLES.indexOf(billingCycle);
+  const cycleIndex = SELLABLE_BILLING_CYCLES.indexOf(billingCycle);
   const multiMonth = billingCycle !== "شهري";
   const frame = useRef(0);
 
@@ -97,7 +97,7 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
   return <>
     <div className={c.pgToggle} role="tablist" data-index={cycleIndex}>
       <span className={c.pgToggleThumb} aria-hidden="true" />
-      {BILLING_CYCLES.map((cycle) => {
+      {SELLABLE_BILLING_CYCLES.map((cycle) => {
         const badge = cycleSaveBadge(cycle, lang);
         return <button type="button" role="tab" key={cycle} aria-selected={cycle === billingCycle} onClick={() => chooseBillingCycle(cycle)}>
           {cycleTabLabel(cycle, lang)}{badge ? <span className={c.pgSave}>{badge}</span> : null}

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { BILLING_CYCLES, isSamePlanRenewalTooEarly, priceForCycle } from "../../lib/billing-pricing";
+import { SELLABLE_BILLING_CYCLES, isSamePlanRenewalTooEarly, priceForCycle } from "../../lib/billing-pricing";
 import { perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../../lib/billing-cycle-copy";
 import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
 import { useBillingCycle } from "../useBillingCycle";
@@ -70,7 +70,7 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
 
   return <section>
     <div className="billing-cycle-toggle" role="tablist">
-      {BILLING_CYCLES.map((cycle) => {
+      {SELLABLE_BILLING_CYCLES.map((cycle) => {
         const badge = cycleSaveBadge(cycle, lang);
         return <button type="button" role="tab" key={cycle} aria-selected={billingCycle === cycle} className={billingCycle === cycle ? "active" : ""} onClick={() => chooseBillingCycle(cycle)}>{cycleTabLabel(cycle, lang)}{badge ? <span className="billing-cycle-badge">{badge}</span> : null}</button>;
       })}

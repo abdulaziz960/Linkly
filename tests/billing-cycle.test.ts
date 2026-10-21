@@ -217,8 +217,15 @@ describe("multi-month billing cycles", () => {
     expect(isBillingCycle("ربع سنوي")).toBe(true);
     expect(isBillingCycle("نصف سنوي")).toBe(true);
     expect([CYCLE_MONTHS["شهري"], CYCLE_MONTHS["ربع سنوي"], CYCLE_MONTHS["نصف سنوي"], CYCLE_MONTHS["سنوي"]]).toEqual([1, 3, 6, 12]);
-    expect(cycleFromSlug("quarterly")).toBe("ربع سنوي");
-    expect(cycleFromSlug("semiannual")).toBe("نصف سنوي");
+    // Quarterly and semi-annual are no longer sold: their URL slugs fall back to monthly, but existing subscribers still price/renew.
+    expect(cycleFromSlug("yearly")).toBe("سنوي");
+    expect(cycleFromSlug("quarterly")).toBe("شهري");
+    expect(cycleFromSlug("semiannual")).toBe("شهري");
     expect(cycleFromSlug("nonsense")).toBe("شهري");
+    const { isSellableBillingCycle } = await import("../lib/billing-pricing");
+    expect(isSellableBillingCycle("شهري")).toBe(true);
+    expect(isSellableBillingCycle("سنوي")).toBe(true);
+    expect(isSellableBillingCycle("ربع سنوي")).toBe(false);
+    expect(isSellableBillingCycle("نصف سنوي")).toBe(false);
   });
 });

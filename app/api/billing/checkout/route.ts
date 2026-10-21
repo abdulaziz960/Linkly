@@ -7,7 +7,7 @@ import { buildPaymentMetadata, isMoyasarConfigured } from "../../../../lib/moyas
 import { PAYMENT_GATEWAY, PAYMENT_STATUS } from "../../../../lib/payment-status";
 import { computeProrationCredit } from "../../../../lib/subscriptions";
 import { planFeatures } from "../../../../lib/plan-features";
-import { isBillingCycle, isSamePlanRenewalTooEarly, priceForCycle, RENEWAL_WINDOW_DAYS, type BillingCycle } from "../../../../lib/billing-pricing";
+import { isBillingCycle, isSellableBillingCycle, isSamePlanRenewalTooEarly, priceForCycle, RENEWAL_WINDOW_DAYS, type BillingCycle } from "../../../../lib/billing-pricing";
 import { reservePromoCodeUsage, releasePromoCodeUsage, promoCodeErrorMessage, type PromoCodeErrorCode } from "../../../../lib/promo-codes";
 
 export const runtime = "nodejs";
@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "سجّل الدخول أولًا" }, { status: 401 });
   if (user.role !== "مالك الحساب") return NextResponse.json({ error: "إدارة الاشتراك متاحة لمالك الحساب" }, { status: 403 });
   const { planId, billingCycle: requestedBillingCycle, promoCode } = await request.json().catch(() => ({ planId: "" })) as { planId?: string; billingCycle?: unknown; promoCode?: string };
-  const billingCycle: BillingCycle = isBillingCycle(requestedBillingCycle) ? requestedBillingCycle : "شهري";
+  if (requestedBillingCycle !== undefined && !isSellableBillingCycle(requestedBillingCycle)) return NextResponse.json({ error: "دورة الدفع غير متاحة. اختر شهري أو سنوي." }, { status: 400 });
+  const billingCycle: BillingCycle = isSellableBillingCycle(requestedBillingCycle) ? requestedBillingCycle : "شهري";
   await ensureSchema();
   const subscription = await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
   const plan = await prisma.plan.findFirst({
