@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import type { Conversation, Employee } from "../types";
+import { Fragment, FormEvent, useMemo, useState } from "react";
+import type { Conversation, Employee, Team } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import { sanitizeCsvCell } from "../../../lib/csv-export";
@@ -83,16 +83,36 @@ function employeeOverallRating(employee: Employee, conversations: Conversation[]
   return { average: Math.round(average * 10) / 10, count: rated.length };
 }
 
+function formatLoginDate(iso: string, language: "ar" | "en") {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(language === "ar" ? "ar-SA-u-nu-latn" : "en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh" }).format(date);
+}
+
 export default function EmployeesView({
   employees,
   conversations,
+  teams = [],
   onRefreshData
 }: {
   employees: Employee[];
   conversations: Conversation[];
+  teams?: Team[];
   onRefreshData: () => Promise<void>;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const [search, setSearch] = useState("");
+  const [expandedId, setExpandedId] = useState("");
+  const teamsByEmployee = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const team of teams) for (const memberId of team.memberIds) map.set(memberId, [...(map.get(memberId) || []), team.name]);
+    return map;
+  }, [teams]);
+  const visibleEmployees = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return query ? employees.filter((employee) => employee.name.toLowerCase().includes(query) || employee.email.toLowerCase().includes(query)) : employees;
+  }, [employees, search]);
   const emptyForm = useMemo<EmployeeFormState>(
     () => ({
       name: "",
@@ -279,8 +299,11 @@ export default function EmployeesView({
     <section className="page-stack">
       <div className="panel">
         <div className="panel-head">
-          <h2>{t("الموظفين", "Employees")}</h2>
-          <span />
+          <h2>{t("المستخدمون والموظفون", "Users & employees")}</h2>
+          <label className="user-search">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.5" /><path d="m16 16 4 4" /></svg>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث بالاسم أو البريد...", "Search by name or email...")} aria-label={t("بحث", "Search")} />
+          </label>
           <button className="btn soft" type="button" onClick={exportEmployees}>{t("تصدير", "Export")}</button>
           <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة موظف", "Add Employee")}</button>
         </div>
@@ -297,6 +320,7 @@ export default function EmployeesView({
               <tr>
                 <th>{t("الموظف", "Employee")}</th>
                 <th>{t("الدور", "Role")}</th>
+                <th>{t("الفرق", "Teams")}</th>
                 <th>{t("الحالة", "Status")}</th>
                 <th>{t("الصلاحيات", "Permissions")}</th>
                 <th>{t("التقييم", "Rating")}</th>
@@ -304,15 +328,18 @@ export default function EmployeesView({
               </tr>
             </thead>
             <tbody>
-              {employees.map((employee) => {
+              {visibleEmployees.map((employee) => {
                 const rating = employeeOverallRating(employee, conversations);
+                const expanded = expandedId === employee.id;
                 return (
-                <tr key={employee.id}>
+                <Fragment key={employee.id}>
+                <tr className={expanded ? "is-expanded" : ""}>
                   <td data-label={t("الموظف", "Employee")}>
                     <b>{employee.name}</b>
                     <span className="table-subtitle">{employee.email}</span>
                   </td>
                   <td data-label={t("الدور", "Role")}>{employeeRoleLabel(employee.role, t)}</td>
+                  <td data-label={t("الفرق", "Teams")}>{(teamsByEmployee.get(employee.id) || []).join("، ") || "-"}</td>
                   <td data-label={t("الحالة", "Status")}>
                     {employee.disabled ? (
                       <span className="state danger">{t("معطّل", "Disabled")}</span>
@@ -330,6 +357,7 @@ export default function EmployeesView({
                   <td data-label={t("الصلاحيات", "Permissions")}><span className="permissions-cell" title={employee.permissions}>{employee.permissions}</span></td>
                   <td data-label={t("التقييم", "Rating")}>{rating ? <span className="employee-rating">⭐ {rating.average} <small>({rating.count})</small></span> : <span className="table-subtitle">{t("غير متاح", "N/A")}</span>}</td>
                   <td data-label={t("إجراء", "Action")} className="row-actions">
+                    <button className="btn soft" type="button" aria-expanded={expanded} onClick={() => setExpandedId(expanded ? "" : employee.id)}>{expanded ? t("إخفاء التفاصيل", "Hide details") : t("التفاصيل", "Details")}</button>
                     <button className="btn soft" type="button" onClick={() => openEditForm(employee)}>{t("تعديل", "Edit")}</button>
                     {employee.role !== "مالك الحساب" ? (
                       <button
@@ -347,8 +375,21 @@ export default function EmployeesView({
                     ) : null}
                   </td>
                 </tr>
+                {expanded ? (
+                  <tr className="user-detail-row">
+                    <td colSpan={7}>
+                      <dl className="user-detail-grid">
+                        <div><dt>{t("آخر IP دخول", "Last login IP")}</dt><dd dir="ltr">{employee.lastLoginIp || "-"}</dd></div>
+                        <div><dt>{t("تاريخ آخر دخول", "Last login")}</dt><dd dir="ltr">{formatLoginDate(employee.lastLoginAt || "", language) || "-"}</dd></div>
+                        <div><dt>{t("الحساب", "Account")}</dt><dd>{employee.hasAccount ? <span className="state ok">{t("مفعّل", "Activated")}</span> : <span className="state warn">{t("بانتظار التفعيل", "Pending activation")}</span>}</dd></div>
+                      </dl>
+                    </td>
+                  </tr>
+                ) : null}
+                </Fragment>
                 );
               })}
+              {!visibleEmployees.length ? <tr><td colSpan={7}><div className="campaign-empty"><strong>{t("لا يوجد مستخدمون مطابقون", "No matching users")}</strong></div></td></tr> : null}
             </tbody>
           </table>
         </div>

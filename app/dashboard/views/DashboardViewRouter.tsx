@@ -166,7 +166,7 @@ export default function DashboardViewRouter({
         initialKey={view}
         ariaLabel="الموظفون والفرق"
         tabs={[
-          { viewKey: "employees", label: "الموظفون والصلاحيات", available: view === "employees" || canViewEmployees, content: <EmployeesView employees={employees} conversations={conversations} onRefreshData={onRefreshData} /> },
+          { viewKey: "employees", label: "الموظفون والصلاحيات", available: view === "employees" || canViewEmployees, content: <EmployeesView employees={employees} conversations={conversations} teams={teams} onRefreshData={onRefreshData} /> },
           { viewKey: "teams", label: "الفرق", available: view === "teams" || canViewTeams, content: <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} /> },
           { viewKey: "workHours", label: "ساعات العمل", available: view === "workHours" || canViewWorkHours, content: <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} /> }
         ]}
