@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
   let headerMediaHandle = "";
   let headerMediaDataUrl = "";
-  if ((headerType === "IMAGE" || headerType === "VIDEO") && body.headerMediaDataUrl) {
+  if ((headerType === "IMAGE" || headerType === "VIDEO" || headerType === "DOCUMENT") && body.headerMediaDataUrl) {
     const uploadResult = await uploadMetaMedia(integration.accessToken, body.headerMediaDataUrl);
     if (!uploadResult.ok) return jsonError(uploadResult.error);
     headerMediaHandle = uploadResult.handle;

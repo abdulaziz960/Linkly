@@ -110,6 +110,12 @@ export default function TemplatesView({
   function handleHeaderImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (form.headerType === "DOCUMENT" && file.size > 5 * 1024 * 1024) {
+      setError(t("ملف PDF أكبر من 5 ميجابايت.", "The PDF is larger than 5 MB."));
+      event.target.value = "";
+      return;
+    }
+    setError("");
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = String(reader.result || "");
@@ -389,25 +395,27 @@ export default function TemplatesView({
                       <input type="radio" name="headerType" checked={form.headerType === "VIDEO"} onChange={() => setForm((current) => ({ ...current, headerType: "VIDEO" }))} />
                       {t("فيديو", "Video")}
                     </label>
-                    <label className="template-radio disabled" title={t("قريبًا", "Coming soon")}>
-                      <input type="radio" name="headerType" disabled />
-                      {t("مستند", "Document")}
+                    <label className="template-radio">
+                      <input type="radio" name="headerType" checked={form.headerType === "DOCUMENT"} onChange={() => setForm((current) => ({ ...current, headerType: "DOCUMENT", headerMedia: current.headerType === "DOCUMENT" ? current.headerMedia : "", headerMediaDataUrl: current.headerType === "DOCUMENT" ? current.headerMediaDataUrl : "" }))} />
+                      {t("مستند (PDF)", "Document (PDF)")}
                     </label>
                   </div>
                   {form.headerType === "TEXT" ? (
                     <input value={form.headerText} onChange={(event) => setForm((current) => ({ ...current, headerText: event.target.value }))} placeholder={t("مثال: عرض اليوم فقط!", "Example: Today only!")} />
                   ) : null}
-                  {form.headerType === "IMAGE" || form.headerType === "VIDEO" ? (
+                  {form.headerType === "IMAGE" || form.headerType === "VIDEO" || form.headerType === "DOCUMENT" ? (
                     <div className="template-header-image">
                       <label className="template-upload-btn">
-                        {form.headerType === "IMAGE" ? t("اختر صورة", "Choose image") : t("اختر فيديو", "Choose video")}
-                        <input type="file" accept={form.headerType === "IMAGE" ? "image/*" : "video/*"} onChange={handleHeaderImageChange} hidden />
+                        {form.headerType === "IMAGE" ? t("اختر صورة", "Choose image") : form.headerType === "DOCUMENT" ? t("اختر ملف PDF", "Choose a PDF file") : t("اختر فيديو", "Choose video")}
+                        <input type="file" accept={form.headerType === "IMAGE" ? "image/jpeg,image/png" : form.headerType === "DOCUMENT" ? "application/pdf" : "video/mp4,video/3gpp"} onChange={handleHeaderImageChange} hidden />
                       </label>
                       {form.headerMedia.startsWith("data:") ? (
                         <div className="template-header-media-preview-wrap">
                           {form.headerType === "IMAGE" ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={form.headerMedia} alt="" className="template-header-image-preview" />
+                          ) : form.headerType === "DOCUMENT" ? (
+                            <div className="template-media">{t("ملف PDF مرفق", "PDF attached")}</div>
                           ) : (
                             <video src={form.headerMedia} className="template-header-image-preview" controls />
                           )}
@@ -417,7 +425,9 @@ export default function TemplatesView({
                         <small className="field-hint">
                           {form.headerType === "IMAGE"
                             ? t("الصورة مطلوبة كمثال يُرسل لمراجعة Meta", "An image is required as an example for Meta's review")
-                            : t("الفيديو مطلوب كمثال يُرسل لمراجعة Meta", "A video is required as an example for Meta's review")}
+                            : form.headerType === "DOCUMENT"
+                              ? t("ملف PDF مطلوب كمثال يُرسل لمراجعة Meta ويصل العميل مع كل رسالة (حتى 5 ميجابايت).", "A PDF is required as an example for Meta's review and is sent to the customer with every message (up to 5 MB).")
+                              : t("الفيديو مطلوب كمثال يُرسل لمراجعة Meta", "A video is required as an example for Meta's review")}
                         </small>
                       )}
                     </div>
@@ -744,6 +754,7 @@ function TemplatePreview({ form, t }: { form: TemplateFormState; language: strin
               <div className="template-media">{t("فيديو القالب", "Template video")}</div>
             )
           ) : null}
+          {form.headerType === "DOCUMENT" ? <div className="template-media">{form.headerMedia.startsWith("data:") ? t("ملف PDF مرفق", "PDF attached") : t("مستند القالب", "Template document")}</div> : null}
           {form.headerType === "TEXT" && form.headerText ? <b>{form.headerText}</b> : null}
           <p>{form.message || t("اكتب محتوى القالب هنا", "Write the template content here")}</p>
           {form.footer ? <small>{form.footer}</small> : null}

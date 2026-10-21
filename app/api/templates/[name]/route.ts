@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
@@ -68,11 +69,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return jsonError("أدخل WABA ID و Access Token في بيانات الربط قبل تعديل قوالب واتساب.");
     }
 
-    if ((headerType === "IMAGE" || headerType === "VIDEO") && body.headerMediaDataUrl) {
+    if ((headerType === "IMAGE" || headerType === "VIDEO" || headerType === "DOCUMENT") && body.headerMediaDataUrl) {
       const uploadResult = await uploadMetaMedia(integration.accessToken, body.headerMediaDataUrl);
       if (!uploadResult.ok) return jsonError(uploadResult.error);
       headerMediaHandle = uploadResult.handle;
-    } else if (headerType === "IMAGE" || headerType === "VIDEO") {
+    } else if (headerType === "IMAGE" || headerType === "VIDEO" || headerType === "DOCUMENT") {
       headerMediaHandle = existing.headerMedia || "";
     }
 
@@ -110,6 +111,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         headerType,
         headerText,
         headerMedia: headerMediaHandle,
+        // A new file also needs its own copy and link token: sends hand Meta our URL, not the upload handle.
+        ...((headerType === "IMAGE" || headerType === "VIDEO" || headerType === "DOCUMENT") && body.headerMediaDataUrl ? { headerMediaDataUrl: body.headerMediaDataUrl, mediaToken: randomUUID() } : {}),
         footer,
         buttonType,
         buttonText,

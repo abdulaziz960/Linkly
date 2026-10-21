@@ -142,7 +142,7 @@ export type MessageTemplate = {
   category?: "MARKETING" | "UTILITY" | "AUTHENTICATION";
   language?: string;
   status?: "معتمد" | "قيد المراجعة" | "مرفوض";
-  headerType?: "NONE" | "TEXT" | "IMAGE" | "VIDEO";
+  headerType?: "NONE" | "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT";
   headerText?: string;
   headerMedia?: string;
   hasHeaderMediaSaved?: boolean;

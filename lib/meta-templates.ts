@@ -118,6 +118,10 @@ export function buildTemplateComponents(data: TemplateComponentData) {
     components.push({ type: "HEADER", format: "VIDEO", example: { header_handle: [data.headerMediaHandle.trim()] } });
   }
 
+  if (data.headerType === "DOCUMENT" && data.headerMediaHandle.trim()) {
+    components.push({ type: "HEADER", format: "DOCUMENT", example: { header_handle: [data.headerMediaHandle.trim()] } });
+  }
+
   const bodyText = data.message.trim();
   const bodyExample = textExample(bodyText, data.bodyExamples);
   components.push({ type: "BODY", text: bodyText, ...(bodyExample ? { example: bodyExample } : {}) });
@@ -159,8 +163,8 @@ export async function createMetaTemplate(
   integration: IntegrationSettings,
   input: { name: string } & TemplateComponentData
 ): Promise<MetaTemplateResult> {
-  if (input.headerType === "DOCUMENT") {
-    return { ok: false, error: "رفع عنوان مستند للقالب غير مدعوم حاليًا. اختر عنوان نصي أو صورة أو فيديو أو بدون عنوان." };
+  if (input.headerType === "DOCUMENT" && !input.headerMediaHandle.trim()) {
+    return { ok: false, error: "ارفع ملف PDF للعنوان أولًا." };
   }
   if (input.headerType === "IMAGE" && !input.headerMediaHandle.trim()) {
     return { ok: false, error: "ارفع صورة العنوان أولًا." };
@@ -202,8 +206,8 @@ export async function editMetaTemplate(
   metaId: string,
   input: TemplateComponentData
 ): Promise<MetaTemplateResult> {
-  if (input.headerType === "DOCUMENT") {
-    return { ok: false, error: "رفع عنوان مستند للقالب غير مدعوم حاليًا. اختر عنوان نصي أو صورة أو فيديو أو بدون عنوان." };
+  if (input.headerType === "DOCUMENT" && !input.headerMediaHandle.trim()) {
+    return { ok: false, error: "ارفع ملف PDF للعنوان أولًا." };
   }
   if (input.headerType === "IMAGE" && !input.headerMediaHandle.trim()) {
     return { ok: false, error: "ارفع صورة العنوان أولًا." };
