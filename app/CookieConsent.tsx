@@ -243,21 +243,21 @@ export default function CookieConsent() {
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}
-              style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "inherit", fontWeight: 700, cursor: "pointer" }}
+              style={{ minHeight: 44, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "inherit", fontWeight: 700, cursor: "pointer" }}
             >
               {text.settingsTitle}
             </button>
             <button
               type="button"
               onClick={() => choose("rejected")}
-              style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "inherit", fontWeight: 700, cursor: "pointer" }}
+              style={{ minHeight: 44, padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "inherit", fontWeight: 700, cursor: "pointer" }}
             >
               {text.reject}
             </button>
             <button
               type="button"
               onClick={() => choose("accepted")}
-              style={{ padding: "8px 16px", borderRadius: 10, border: 0, background: "#106b65", color: "#fff", fontWeight: 700, cursor: "pointer" }}
+              style={{ minHeight: 44, padding: "8px 16px", borderRadius: 10, border: 0, background: "#106b65", color: "#fff", fontWeight: 700, cursor: "pointer" }}
             >
               {text.accept}
             </button>

@@ -1924,6 +1924,7 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
+  min-height: 44px;
   padding: 10px 14px;
   border: 0;
   border-radius: 999px;
@@ -2119,6 +2120,29 @@
   margin-top: auto;
   justify-content: center;
 }
+/* The features past the first six fold here; the comparison table under the cards has every detail. */
+.pgMore {
+  margin: -14px 0 22px;
+}
+.pgMore summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--dark);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+.pgMore summary::-webkit-details-marker { display: none; }
+.pgMore summary::after { content: "⌄"; font-size: 16px; line-height: 1; transition: rotate 0.2s ease; }
+.pgMore[open] summary::after { rotate: 180deg; }
+.pgMore summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
+.pgMoreClose { display: none; }
+.pgMore[open] .pgMoreClose { display: inline; }
+.pgMore[open] .pgMoreOpen { display: none; }
+.pgMore ul { margin: 6px 0 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .pgToggleThumb,
@@ -2142,10 +2166,63 @@
     min-height: 0;
     padding: 24px 20px 20px;
   }
+  /* The "most popular" badge and the yearly ribbon sit at the top edge: keep the title clear of them. */
+  .pgCard:has(.pgPopular, .pgRibbon) {
+    padding-top: 54px;
+  }
   .pgAmount {
     font-size: 44px;
   }
   .pgCard:hover {
     translate: none;
+  }
+}
+
+/* Marks the animated mock-ups as illustrations, not screenshots of a real account. */
+.demoBadge {
+  position: absolute;
+  z-index: 5;
+  inset-block-start: 10px;
+  inset-inline-end: 10px;
+  padding: 4px 10px;
+  border: 1px solid #bcd8d3;
+  border-radius: 999px;
+  background: #ffffffe6;
+  color: #106b65;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.4;
+  pointer-events: none;
+}
+.soonTag {
+  margin-inline-start: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #fff4d6;
+  color: #7a4b00;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* Touch targets: every control on the page is at least 44x44 px (these come last so no earlier media query shrinks them). */
+.node,
+.hubNode {
+  min-width: 44px;
+  min-height: 44px;
+}
+.storySteps h3 button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.assignButton,
+.resolveButton {
+  min-height: 44px;
+}
+
+/* Same for the masked dot-grid backdrops on phones and tablets (and for anyone asking for less motion). */
+@media (max-width: 980px), (prefers-reduced-motion: reduce) {
+  .dotGrid::before {
+    animation: none;
   }
 }

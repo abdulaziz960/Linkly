@@ -26,6 +26,8 @@ export default function HeroVideo() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [mode, setMode] = useState<Mode>("silent");
   const [requested, setRequested] = useState(false);
+  // The visitor's own pause; the loop then stays still even when it scrolls back into view.
+  const [paused, setPaused] = useState(false);
   const [saveData] = useState(() => (typeof navigator === "undefined" ? false : saveDataOn()));
 
   // Autoplay only for visitors who did not ask for less motion / less data; anyone can press play.
@@ -35,12 +37,18 @@ export default function HeroVideo() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (inView && active) void video.play().catch(() => undefined);
+    if (inView && active && !paused) void video.play().catch(() => undefined);
     else video.pause();
-  }, [inView, active, mode]);
+  }, [inView, active, mode, paused]);
 
   function start() {
     setRequested(true);
+    setPaused(false);
+  }
+
+  function togglePause() {
+    setRequested(true);
+    setPaused((current) => !current);
   }
 
   function toggleSound() {
@@ -57,13 +65,15 @@ export default function HeroVideo() {
           className={styles.video}
           poster={POSTER}
           playsInline
-          autoPlay
+          autoPlay={!paused}
           muted={mode === "silent"}
           loop={mode === "silent"}
           controls={mode === "sound"}
           preload="none"
           aria-label="فيديو تعريفي بمنصة لنكلي"
           onEnded={() => setMode("silent")}
+          onPause={(event) => { if (mode === "sound" && !event.currentTarget.ended) setPaused(true); }}
+          onPlay={() => setPaused(false)}
         >
           {mode === "silent" ? (
             <>
@@ -76,16 +86,33 @@ export default function HeroVideo() {
         </video>
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className={styles.video} src={POSTER} alt="لقطة من فيديو لنكلي: كل محادثاتك بمكان واحد" loading="lazy" width={1920} height={1080} />
+        <img
+          className={styles.video}
+          src={POSTER}
+          srcSet={`${BASE}/linkly-hero-poster-640.webp 640w, ${BASE}/linkly-hero-poster-1280.webp 1280w, ${POSTER} 1920w`}
+          sizes="(max-width: 1100px) 100vw, 1040px"
+          alt="لقطة من فيديو لنكلي: كل محادثاتك بمكان واحد"
+          loading="lazy"
+          decoding="async"
+          width={1920}
+          height={1080}
+        />
       )}
       {!active ? (
         <button type="button" className={styles.play} onClick={start} aria-label="تشغيل الفيديو">
           <span aria-hidden="true">▶</span>
         </button>
       ) : null}
-      <button type="button" className={styles.sound} onClick={toggleSound} aria-pressed={mode === "sound"}>
-        {mode === "sound" ? "كتم الصوت" : "تشغيل الصوت"}
-      </button>
+      <div className={styles.controls}>
+        {active && mode === "silent" ? (
+          <button type="button" className={styles.sound} onClick={togglePause} aria-pressed={paused}>
+            {paused ? "تشغيل الفيديو" : "إيقاف الفيديو"}
+          </button>
+        ) : null}
+        <button type="button" className={styles.sound} onClick={toggleSound} aria-pressed={mode === "sound"}>
+          {mode === "sound" ? "كتم الصوت" : "تشغيل الصوت"}
+        </button>
+      </div>
     </div>
   );
 }

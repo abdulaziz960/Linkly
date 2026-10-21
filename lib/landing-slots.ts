@@ -5,14 +5,11 @@ export type LandingSlot = { label: string; text: string; multiline: boolean };
 
 export const LANDING_SLOTS: Record<"ar" | "en", LandingSlot[]> = {
   ar: [
-    { label: "الواجهة العلوية: الشارة الصغيرة", text: "منصة واحدة لكل فريقك", multiline: false },
+    { label: "الواجهة العلوية: الشارة الصغيرة", text: "صندوق وارد موحّد لفرق خدمة العملاء والمبيعات", multiline: false },
     { label: "الواجهة العلوية: العنوان الرئيسي (H1) - الجزء الأول", text: "رد أسرع على عملائك ", multiline: false },
     { label: "الواجهة العلوية: العنوان الرئيسي (H1) - الجزء المميز", text: "ولا تضيع ولا محادثة", multiline: false },
-    { label: "الواجهة العلوية: الوصف", text: "واتساب وإنستغرام وفيسبوك وتيليجرام والبريد وغيرها من منصات التواصل — فريقك يرد ويوزّع ويتابع من صندوق وارد واحد.", multiline: true },
+    { label: "الواجهة العلوية: الوصف", text: "لنكلي يجمع محادثات واتساب وإنستغرام وفيسبوك وتيليجرام والبريد في مكان واحد؛ فريقك يرد ويوزّع المحادثات ويتابعها دون أن يضيع عميل.", multiline: true },
     { label: "الواجهة العلوية: زر البدء", text: "ابدأ تجربتك مجانًا", multiline: false },
-    { label: "قسم المشكلة - الشارة", text: "المشكلة", multiline: false },
-    { label: "قسم المشكلة - العنوان (H2)", text: "قنوات متعددة. عشرات المحادثات. فريق واحد يحاول يلحق عليها.", multiline: true },
-    { label: "قسم المشكلة - الوصف", text: "التنقل بين التطبيقات والجوالات يبطئ الرد ويخفي المسؤول ويجعل متابعة العميل تعتمد على الذاكرة.", multiline: true },
     { label: "قسم المنتج - الشارة", text: "المنتج", multiline: false },
     { label: "قسم المنتج - العنوان (H2)", text: "واجهة واحدة ترى فيها ما يحتاجه الفريق الآن", multiline: true },
     { label: "قسم المنتج - الوصف", text: "من أول رسالة إلى الإغلاق، تبقى المحادثة والعميل والمسؤول والخطوة التالية في نفس السياق.", multiline: true },
@@ -41,14 +38,11 @@ export const LANDING_SLOTS: Record<"ar" | "en", LandingSlot[]> = {
     { label: "الدعوة الختامية: ملاحظة تحت الزر", text: "بدون بطاقة دفع", multiline: false },
   ],
   en: [
-    { label: "Hero: eyebrow", text: "One workspace for your whole team", multiline: false },
+    { label: "Hero: eyebrow", text: "A shared inbox for customer service and sales teams", multiline: false },
     { label: "Hero: headline (H1) - first part", text: "Reply faster to customers ", multiline: false },
     { label: "Hero: headline (H1) - highlighted part", text: "and never lose a conversation", multiline: false },
-    { label: "Hero: description", text: "WhatsApp, Instagram, Facebook, Telegram, email and more of your messaging platforms — your team replies, routes and follows up from one inbox.", multiline: true },
+    { label: "Hero: description", text: "Linkly brings your WhatsApp, Instagram, Facebook, Telegram and email conversations into one place, so your team replies, routes and follows up without losing a customer.", multiline: true },
     { label: "Hero: start button", text: "Start your free trial", multiline: false },
-    { label: "Section: Problem - kicker", text: "THE PROBLEM", multiline: false },
-    { label: "Section: Problem - heading (H2)", text: "Multiple channels. Dozens of conversations. One team trying to keep up.", multiline: true },
-    { label: "Section: Problem - description", text: "Switching between apps and phones slows down replies, hides who owns what, and makes follow-up depend on memory.", multiline: true },
     { label: "Section: Product - kicker", text: "THE PRODUCT", multiline: false },
     { label: "Section: Product - heading (H2)", text: "One interface showing exactly what your team needs right now", multiline: true },
     { label: "Section: Product - description", text: "From the first message to close, the conversation, customer, owner and next step all stay in the same context.", multiline: true },

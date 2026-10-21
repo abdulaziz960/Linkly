@@ -9,20 +9,22 @@ test("Switch pricing between monthly and yearly", async ({ page }) => {
   await expect(pricing.getByRole("tab", { name: /Yearly/ })).toHaveAttribute("aria-selected", "true");
   // Plans always show a per-month price; the yearly cycle adds the one-off total as a note.
   await expect(pricing).toContainText("Save 597 SAR");
-  await expect(pricing).toContainText("Billed once for 12 months: 1791 SAR");
+  // Exact per-month equivalent (1791 / 12), with the yearly total under it.
+  await expect(pricing.locator("article").first()).toContainText("149.25");
+  await expect(pricing).toContainText("1,791 SAR total · billed yearly");
   await expect(page).toHaveURL(/billing=yearly/);
   await pricing.getByRole("tab", { name: "Monthly" }).focus();
   await page.keyboard.press("Enter");
   await expect(pricing.getByRole("tab", { name: "Monthly" })).toHaveAttribute("aria-selected", "true");
   await expect(pricing).toContainText("/ month");
-  await expect(pricing).not.toContainText("Billed once for");
+  await expect(pricing).not.toContainText("billed yearly");
 });
 
 test("Switch pricing to yearly billing from the URL", async ({ page }) => {
   await page.goto("/en?billing=yearly#pricing");
   const pricing = page.locator("#pricing");
   await expect(pricing.getByRole("tab", { name: /Yearly/ })).toHaveAttribute("aria-selected", "true");
-  await expect(pricing).toContainText("Billed once for 12 months: 1791 SAR");
+  await expect(pricing).toContainText("1,791 SAR total · billed yearly");
 });
 
 test("Proceed from pricing to sign up with the selected plan and billing cycle", async ({ page }) => {
@@ -49,7 +51,7 @@ test("Account billing shows the same yearly price and cycle", async ({ page }) =
   await page.goto("/billing?billing=yearly");
   // "سنوي" alone also matches "ربع سنوي" and "نصف سنوي".
   await expect(page.getByRole("tab", { name: /^سنوي/ })).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".plan-grid")).toContainText("تُدفع دفعة واحدة عن 12 شهرًا بقيمة 1791 ريال");
+  await expect(page.locator(".plan-grid")).toContainText("الإجمالي 1,791 ريال · يُدفع سنويًا");
   await expect(page.locator(".plan-grid")).toContainText("ر.س / الشهر");
 });
 

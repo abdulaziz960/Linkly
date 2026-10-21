@@ -1,7 +1,20 @@
 .wrap { margin-top: 64px; }
-.head { text-align: center; margin-bottom: 24px; }
-.head h3 { margin: 0 0 6px; font-size: clamp(22px, 3vw, 30px); }
-.head p { margin: 0; color: #4c635f; }
+.toggle { list-style: none; display: grid; justify-items: center; gap: 16px; cursor: pointer; margin-bottom: 20px; }
+.toggle::-webkit-details-marker { display: none; }
+.head { display: grid; gap: 6px; text-align: center; }
+.title { font-size: clamp(22px, 3vw, 30px); font-weight: 900; color: #101b18; line-height: 1.3; }
+.sub { color: #4c635f; }
+.toggleButton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 24px; border: 1.5px solid #178a82; border-radius: 999px; color: #106b65; font-weight: 800; background: #fff; transition: background-color 0.2s ease; }
+.toggleButton::after { content: "⌄"; font-size: 18px; line-height: 1; transition: transform 0.2s ease; }
+.wrap[open] .toggleButton::after { transform: rotate(180deg); }
+.toggle:hover .toggleButton { background: #eef7f5; }
+.toggle:focus-visible { outline: none; }
+.toggle:focus-visible .toggleButton { outline: 3px solid #178a82; outline-offset: 3px; }
+.whenOpen { display: none; }
+.wrap[open] .whenOpen { display: inline; }
+.wrap[open] .whenClosed { display: none; }
+.swipe { display: none; margin: 0 0 10px; text-align: center; color: #4c635f; font-size: 13px; font-weight: 700; }
+.capability { display: block; margin-top: 2px; color: #4c635f; font-size: 12px; font-weight: 600; }
 .scroll {
   /* clip (not auto): a scroll container would make the header stick inside the box instead of under the page's top bar. */
   overflow-x: clip;
@@ -11,7 +24,7 @@
   box-shadow: 0 1px 2px #101b180f, 0 24px 60px #0d2a2714;
   -webkit-overflow-scrolling: touch;
 }
-.table { width: 100%; min-width: 860px; border-collapse: separate; border-spacing: 0; text-align: center; }
+.table { width: 100%; min-width: 860px; font-size: 14px; border-collapse: separate; border-spacing: 0; text-align: center; }
 .table th, .table td { padding: 13px 14px; border-bottom: 1px solid #e4f0ed; vertical-align: middle; transition: background-color 0.2s ease; }
 .table thead th { position: sticky; top: 73px; z-index: 2; background: #ffffffeb; backdrop-filter: blur(10px); border-bottom: 2px solid #bcd8d3; padding-block: 20px; }
 .planName { display: block; font-size: 15px; font-weight: 900; color: #101b18; }
@@ -47,6 +60,13 @@
 
 /* Narrow screens need the sideways scroll; the header then sticks inside the table box. */
 @media (max-width: 899px) {
-  .scroll { overflow-x: auto; }
+  .scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+  .scroll:focus-visible { outline: 3px solid #178a82; outline-offset: 2px; }
   .table thead th { top: 0; }
+  .swipe { display: block; }
+  /* Narrower plan columns so a phone shows the feature name and two plans at once. */
+  .table { min-width: 690px; font-size: 13px; }
+  .table th, .table td { padding: 11px 10px; }
+  .featureCol { min-width: 140px; max-width: 160px; border-inline-end: 1px solid #e4f0ed; }
+  .price b { font-size: 18px; }
 }

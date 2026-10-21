@@ -236,6 +236,16 @@ describe("savings ribbon", () => {
     const { priceForCycle } = await import("../lib/billing-pricing");
     expect(cycleSavings(199, priceForCycle(199, "سنوي"), "سنوي")).toBe(597); // 2388 - 1791
     expect(cycleSavings(199, 199, "شهري")).toBe(0);
+    const { perMonthPrice, formatPrice, cycleBilledNote } = await import("../lib/billing-cycle-copy");
+    // The monthly equivalent is exact to the halala: 1791 / 12 = 149.25, not 149.
+    expect(perMonthPrice(priceForCycle(199, "سنوي"), "سنوي")).toBe(149.25);
+    expect(perMonthPrice(priceForCycle(349, "سنوي"), "سنوي")).toBe(261.75);
+    expect(perMonthPrice(199, "شهري")).toBe(199);
+    expect(formatPrice(149.25)).toBe("149.25");
+    expect(formatPrice(199)).toBe("199");
+    expect(formatPrice(1791)).toBe("1,791");
+    expect(cycleBilledNote("سنوي", 1791, "ar")).toBe("الإجمالي 1,791 ريال · يُدفع سنويًا");
+    expect(cycleBilledNote("سنوي", 1791, "en")).toBe("1,791 SAR total · billed yearly");
     expect(cycleSavingsLabel(597, "ar")).toBe("وفر 597 ريال");
   });
 });

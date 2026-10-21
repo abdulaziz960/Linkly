@@ -147,6 +147,7 @@ function LiveInbox({ lang, focus, inView }: { lang: Lang; focus: number; inView:
             type="button"
             className={c.inboxRow}
             aria-pressed={index === active}
+            aria-label={`${item.customer}: ${item.text}`}
             onClick={() => {
               takeOver();
               setActive(index);
@@ -280,6 +281,7 @@ export default function ProductStory({ lang, steps }: { lang: Lang; steps: reado
         ))}
       </ol>
       <div className={c.storyStage}>
+        <span className={c.demoBadge}>{lang === "ar" ? "عرض توضيحي" : "Interactive demo"}</span>
         <LiveInbox lang={lang} focus={focus} inView={inView} />
       </div>
     </div>

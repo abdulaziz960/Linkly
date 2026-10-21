@@ -43,6 +43,7 @@
 .brand {
   display: inline-flex;
   align-items: center;
+  min-height: 44px;
   gap: 10px;
   color: var(--ink);
   font-size: 21px;
@@ -62,7 +63,10 @@
 .navActions > a:first-child {
   color: #475569;
   font-weight: 600;
-  padding: 9px 11px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 11px;
   border-radius: 9px;
 }
 .navInner nav a:hover,
@@ -160,7 +164,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 18px;
+  min-height: 44px;
+  margin-top: 8px;
   color: var(--dark);
   font-weight: 700;
   font-size: 15px;
@@ -999,6 +1004,10 @@
   margin-bottom: 4px;
 }
 .footer nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-block: -6px;
   color: var(--muted);
 }
 .footer > small {
@@ -1028,8 +1037,8 @@
     display: grid;
     place-content: center;
     gap: 4px;
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     margin-inline-start: auto;
     border: 1px solid var(--line);
     border-radius: 10px;
@@ -1320,7 +1329,7 @@
     font-size: 30px;
   }
   .footer {
-    padding-bottom: 92px;
+    padding-bottom: calc(92px + env(safe-area-inset-bottom));
   }
   .footer > div {
     grid-template-columns: 1fr 1fr;
@@ -1334,7 +1343,7 @@
     z-index: 60;
     right: 20px;
     left: 20px;
-    bottom: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
     min-height: 52px;
     align-items: center;
     justify-content: center;
@@ -1746,6 +1755,7 @@
   font-size: 15px;
 }
 .metaSetupLink {
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2192,3 +2202,65 @@
 
 /* A button that looks like the nav's language link (used where switching language must stay on the current page). */
 .langSwitch { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+
+/* "What do the prices cover?" under the plan cards (app/PricingNotes.tsx). */
+.pricingNotes {
+  max-width: 980px;
+  margin: 40px auto 0;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: #fff;
+}
+.pricingNotes h3 {
+  margin: 0 0 18px;
+  font-size: 20px;
+}
+.pricingNotes dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 28px;
+  margin: 0;
+}
+.pricingNotes dt {
+  margin-bottom: 6px;
+  color: var(--ink);
+  font-weight: 800;
+}
+.pricingNotes dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.85;
+}
+@media (max-width: 700px) {
+  .pricingNotes {
+    padding: 20px;
+  }
+  .pricingNotes dl {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Under the channel hub: store integrations and the channels the hub doesn't show. */
+.integrationsNote {
+  display: grid;
+  gap: 8px;
+  max-width: 900px;
+  margin: 28px auto 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.9;
+  text-align: center;
+}
+.integrationsNote p { margin: 0; }
+.integrationsNote b { color: var(--ink); }
+.integrationsNote a { color: var(--dark); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Phones and tablets: the blurred aurora stays still. Animating a 46px blur re-rasterises it on every
+   frame, which kept low-end phones busy for the whole visit (Lighthouse main-thread trace). */
+@media (max-width: 980px) {
+  .heroAurora {
+    animation: none;
+  }
+}

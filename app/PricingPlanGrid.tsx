@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { SELLABLE_BILLING_CYCLES, CYCLE_SLUGS, priceForCycle } from "../lib/billing-pricing";
-import { cycleSavings, cycleSavingsLabel, perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../lib/billing-cycle-copy";
+import { cycleSavings, cycleSavingsLabel, formatPrice, perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../lib/billing-cycle-copy";
 import { useBillingCycle } from "./useBillingCycle";
 import { useReducedMotion } from "./landing/motion";
 import s from "./page.module.css";
@@ -25,15 +25,24 @@ const copy = {
     currency: "ريال",
     popular: "الأنسب لمعظم الفرق",
     customPrice: "حسب احتياجك",
-    customNote: "بدون سعر ثابت · عرض سعر خاص بعد التواصل"
+    customNote: "بدون سعر ثابت · عرض سعر خاص بعد التواصل",
+    more: (count: number) => `عرض كل المزايا (${count} إضافية)`,
+    less: "إخفاء المزايا الإضافية",
+    cycles: "دورة الفوترة"
   },
   en: {
     currency: "SAR",
     popular: "Best for most teams",
     customPrice: "Tailored to you",
-    customNote: "No fixed price · a custom quote after you contact us"
+    customNote: "No fixed price · a custom quote after you contact us",
+    more: (count: number) => `Show all features (${count} more)`,
+    less: "Hide the extra features",
+    cycles: "Billing cycle"
   }
 } as const;
+
+/** Features shown on a card before the rest fold under "show all" - the comparison table has the full detail. */
+const VISIBLE_ITEMS = 6;
 
 // Counts from the previous price to the new one when the billing cycle flips.
 // The real value is always in the DOM for screen readers; the tween is visual only.
@@ -54,7 +63,7 @@ function AnimatedPrice({ value }: { value: number }) {
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / 520);
       const eased = 1 - Math.pow(1 - t, 3);
-      setShown(Math.round(origin + (value - origin) * eased));
+      setShown(t < 1 ? Math.round(origin + (value - origin) * eased) : value);
       if (t < 1) frame = requestAnimationFrame(tick);
       else from.current = value;
     };
@@ -67,8 +76,8 @@ function AnimatedPrice({ value }: { value: number }) {
 
   return (
     <>
-      <b aria-hidden="true" className={c.pgAmount}>{shown}</b>
-      <span className={c.srOnly}>{value}</span>
+      <b aria-hidden="true" className={c.pgAmount}>{formatPrice(shown)}</b>
+      <span className={c.srOnly}>{formatPrice(value)}</span>
     </>
   );
 }
@@ -95,7 +104,7 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
   };
 
   return <>
-    <div className={c.pgToggle} role="tablist" data-index={cycleIndex}>
+    <div className={c.pgToggle} role="tablist" aria-label={text.cycles} data-index={cycleIndex}>
       <span className={c.pgToggleThumb} aria-hidden="true" />
       {SELLABLE_BILLING_CYCLES.map((cycle) => {
         const badge = cycleSaveBadge(cycle, lang);
@@ -129,7 +138,11 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
         </div>
         <p className={c.pgNote} data-show={multiMonth || undefined} aria-hidden={!multiMonth}>{multiMonth ? cycleBilledNote(billingCycle, cycleTotal, lang) : ""}</p>
         </>}
-        <ul>{p.items.map((item, ii) => <li key={item} style={{ "--i": ii } as CSSProperties}><span className={c.pgCheck} aria-hidden="true">✓</span>{item}</li>)}</ul>
+        <ul>{p.items.slice(0, VISIBLE_ITEMS).map((item, ii) => <li key={item} style={{ "--i": ii } as CSSProperties}><span className={c.pgCheck} aria-hidden="true">✓</span>{item}</li>)}</ul>
+        {p.items.length > VISIBLE_ITEMS ? <details className={c.pgMore}>
+          <summary><span className={c.pgMoreOpen}>{text.more(p.items.length - VISIBLE_ITEMS)}</span><span className={c.pgMoreClose}>{text.less}</span></summary>
+          <ul>{p.items.slice(VISIBLE_ITEMS).map((item) => <li key={item}><span className={c.pgCheck} aria-hidden="true">✓</span>{item}</li>)}</ul>
+        </details> : null}
         <Link className={`${featured ? s.primaryLarge : s.planButton} ${c.pgCta}`} href={p.custom ? (lang === "en" ? "/en/contact" : "/contact") : `/signup?plan=${encodeURIComponent(p.id)}${multiMonth ? `&billing=${CYCLE_SLUGS[billingCycle]}` : ""}`}>{p.cta}</Link>
       </article>;
     })}</div>

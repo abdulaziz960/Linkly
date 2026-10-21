@@ -19,6 +19,19 @@ import { isUnlimitedMessageQuota, messageQuotaLabel } from "./message-quota";
 import { isViewLockedForPlan } from "./plan-access";
 import { emailPromotionCreditsForPlan, emailPromotionCreditLabel } from "./plan-email-promotions";
 
+/** How a quote-based plan's limits read everywhere (plan card and comparison table alike). */
+export const BY_AGREEMENT = { ar: "حسب الاتفاق", en: "By agreement" } as const;
+
+/**
+ * "3 users" with the right plural in both languages. Arabic: 1 مستخدم واحد,
+ * 2 مستخدمان, 3-10 مستخدمين, 11+ مستخدم. `upTo` prefixes حتى / Up to.
+ */
+export function usersLabel(count: number, lang: "ar" | "en", upTo = false): string {
+  if (lang === "en") return `${upTo ? "Up to " : ""}${count} ${count === 1 ? "user" : "users"}`;
+  const noun = count === 1 ? "مستخدم واحد" : count === 2 ? "مستخدمان" : count >= 3 && count <= 10 ? `${count} مستخدمين` : `${count} مستخدم`;
+  return upTo ? `حتى ${noun}` : noun;
+}
+
 export type PlanFeatures = {
   shortName: { ar: string; en: string };
   audience: { ar: string; en: string };
@@ -33,8 +46,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     shortName: { ar: "الأفراد", en: "Individuals" },
     audience: { ar: "الأنسب لصاحب عمل يبدأ لحاله ويحتاج يرتب رسائل واتساب.", en: "Best for a solo business owner who needs their WhatsApp messages organized." },
     items: {
-      ar: ["رد آلي بسيط جدًا (حتى 6 خطوات)", "وسوم وردود سريعة", "رسالة ترحيب لفتح المحادثة بعد 24 ساعة", "تقرير أساسي"],
-      en: ["Very simple auto-reply (up to 6 steps)", "Tags and quick replies", "Welcome message to re-open a chat after 24h", "Basic report"]
+      ar: ["رد آلي بسيط جدًا (حتى 6 خطوات)", "وسوم وردود سريعة", "قالب واتساب معتمد لمتابعة العميل بعد نافذة الـ24 ساعة", "تقرير أساسي"],
+      en: ["Very simple auto-reply (up to 6 steps)", "Tags and quick replies", "Approved WhatsApp template to follow up after the 24-hour window", "Basic report"]
     }
   },
   "الباقة العادية": {
@@ -58,8 +71,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     shortName: { ar: "المؤسسات الكبيرة", en: "Large Enterprises" },
     audience: { ar: "الأنسب لفرق متعددة تحتاج قنوات أكثر وواجهات تكامل.", en: "Best for multiple teams that need more channels and integrations." },
     items: {
-      ar: ["كل مزايا المؤسسات الصغيرة", "كتالوج المنتجات والشراء من واتساب (حتى 300 منتج)", "مساعد AI (100 طلب يوميًا) وقاعدة معرفة (200 مدخل)", "إرسال أقرب فرع للعميل (حتى 100 فرع)", "ربط متاجر سلة وزد وشوبيفاي: مزامنة المنتجات والطلبات والكوبونات", "إرسال أحداث التحويل إلى ميتا وسناب شات وتيك توك لتحسين الحملات", "واجهة API وWebhooks وتكاملات", "تصدير Excel ودعم أولوية"],
-      en: ["Everything in Small Enterprises", "Product catalog and buying on WhatsApp (up to 300 products)", "AI assistant (100 requests/day) and knowledge base (200 entries)", "Nearest-branch reply (up to 100 branches)", "Salla, Zid and Shopify store integrations: products, orders and coupons", "Conversion events to Meta, Snapchat and TikTok to optimise campaigns", "Developer API, webhooks and integrations", "Excel export and priority support"]
+      ar: ["كل مزايا المؤسسات الصغيرة", "كتالوج المنتجات والشراء من واتساب (حتى 300 منتج)", "مساعد AI (100 طلب يوميًا) وقاعدة معرفة (200 مدخل)", "إرسال أقرب فرع للعميل (حتى 100 فرع)", "ربط متاجر سلة وزد: مزامنة المنتجات والطلبات والكوبونات (شوبيفاي قريبًا)", "إرسال أحداث التحويل إلى ميتا وسناب شات وتيك توك لتحسين الحملات", "واجهة API وWebhooks وتكاملات", "تصدير Excel ودعم أولوية"],
+      en: ["Everything in Small Enterprises", "Product catalog and buying on WhatsApp (up to 300 products)", "AI assistant (100 requests/day) and knowledge base (200 entries)", "Nearest-branch reply (up to 100 branches)", "Salla and Zid store integrations: products, orders and coupons (Shopify coming soon)", "Conversion events to Meta, Snapchat and TikTok to optimise campaigns", "Developer API, webhooks and integrations", "Excel export and priority support"]
     }
   },
   "باقة الشركات": {
@@ -67,8 +80,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     custom: true,
     audience: { ar: "تواصل معنا واختر المزايا والقنوات والحدود التي تحتاجها، ونصدر لك عرض سعر خاص بما طلبته.", en: "Contact us, pick the features, channels and limits you need, and we'll send you a quote for exactly that." },
     items: {
-      ar: ["عدد المستخدمين الذي تحتاجه", "كل القنوات: واتساب وإنستقرام وتيليجرام وفيسبوك وجيميل وتيك توك ويوتيوب ولينكدإن وسناب وSMS وغيرها", "رسائل تسويقية وحملات متكررة بلا حدود", "1,000 بريد تسويقي شهريًا أو حسب الاتفاق", "شرائح عملاء متقدمة وتقارير وتصدير Excel", "أتمتة وبوت بخطوات وعقد بلا حدود", "كتالوج المنتجات والشراء من واتساب بعدد تحدده", "الفروع وإرسال أقرب فرع بعدد تحدده", "قاعدة المعرفة ومساعد AI بحدود تناسبك", "التصعيد التلقائي للمحادثات", "ربط متاجر سلة وزد وشوبيفاي", "إرسال أحداث التحويل إلى ميتا وسناب شات وتيك توك", "واجهة API وWebhooks وتكاملات", "علامة تجارية مخصّصة (White-label)", "مدير حساب مخصص ودعم VIP فوري"],
-      en: ["As many users as you need", "Every channel: WhatsApp, Instagram, Telegram, Facebook, Gmail, TikTok, YouTube, LinkedIn, Snapchat, SMS and more", "Unlimited marketing messages and recurring campaigns", "1,000 promotional emails/month or by agreement", "Advanced customer segments, reports and Excel export", "Automation and bots with unlimited steps and nodes", "Product catalog and buying on WhatsApp, sized to you", "Branches and nearest-branch replies, sized to you", "Knowledge base and AI assistant with limits that fit you", "Automatic conversation escalation", "Salla, Zid and Shopify store integrations", "Conversion events to Meta, Snapchat and TikTok", "Developer API, webhooks and integrations", "Custom white-label branding", "Dedicated account manager and instant VIP support"]
+      ar: ["عدد المستخدمين حسب الاتفاق", "كل القنوات المتاحة: واتساب وإنستقرام وتيليجرام وفيسبوك وجيميل ويوتيوب ولينكدإن وسناب وSMS وغيرها", "رسائل تسويقية وحملات متكررة بلا حدود", "1,000 بريد تسويقي شهريًا أو حسب الاتفاق", "شرائح عملاء متقدمة وتقارير وتصدير Excel", "أتمتة وبوت بخطوات وعقد بلا حدود", "كتالوج المنتجات والشراء من واتساب بعدد تحدده", "الفروع وإرسال أقرب فرع بعدد تحدده", "قاعدة المعرفة ومساعد AI بحدود تناسبك", "التصعيد التلقائي للمحادثات", "ربط متاجر سلة وزد (شوبيفاي قريبًا)", "إرسال أحداث التحويل إلى ميتا وسناب شات وتيك توك", "واجهة API وWebhooks وتكاملات", "علامة تجارية مخصّصة (White-label)", "مدير حساب مخصص ودعم VIP فوري"],
+      en: ["Number of users by agreement", "Every available channel: WhatsApp, Instagram, Telegram, Facebook, Gmail, YouTube, LinkedIn, Snapchat, SMS and more", "Unlimited marketing messages and recurring campaigns", "1,000 promotional emails/month or by agreement", "Advanced customer segments, reports and Excel export", "Automation and bots with unlimited steps and nodes", "Product catalog and buying on WhatsApp, sized to you", "Branches and nearest-branch replies, sized to you", "Knowledge base and AI assistant with limits that fit you", "Automatic conversation escalation", "Salla and Zid store integrations (Shopify coming soon)", "Conversion events to Meta, Snapchat and TikTok", "Developer API, webhooks and integrations", "Custom white-label branding", "Dedicated account manager and instant VIP support"]
     }
   }
 };
@@ -85,7 +98,7 @@ export type PlanNumbers = {
 
 /** The three numeric bullets (users, channels, message quota), always built fresh from the live Plan row. */
 export function buildPlanDynamicItems(plan: PlanNumbers, lang: "ar" | "en", options: { skipQuota?: boolean } = {}): string[] {
-  const usersLine = lang === "ar" ? `حتى ${plan.employeeLimit} مستخدم` : `Up to ${plan.employeeLimit} users`;
+  const usersLine = usersLabel(plan.employeeLimit, lang, true);
 
   const parsedChannels = parseAllowedChannels(plan.allowedChannels);
   const channelsLine = parsedChannels === "*" || parsedChannels.length === 0
@@ -96,9 +109,11 @@ export function buildPlanDynamicItems(plan: PlanNumbers, lang: "ar" | "en", opti
 
   const messageQuotaLine = isUnlimitedMessageQuota(plan.messageQuota)
     ? (lang === "ar" ? "رسائل تسويقية غير محدودة" : "Unlimited marketing messages")
-    : lang === "ar" ? `${messageQuotaLabel(plan.messageQuota, "ar")} رسالة تسويقية شهريًا` : `${messageQuotaLabel(plan.messageQuota, "en")} marketing messages/month`;
-  const emailCreditsLine = emailPromotionCreditsForPlan(plan.name || "", plan.emailQuota)
-    ? emailPromotionCreditLabel(plan.name || "", lang, plan.emailQuota)
+    // Western digits in both languages, like every other number on the pricing cards.
+    : lang === "ar" ? `${messageQuotaLabel(plan.messageQuota, "en")} رسالة تسويقية شهريًا` : `${messageQuotaLabel(plan.messageQuota, "en")} marketing messages/month`;
+  const emailCredits = emailPromotionCreditsForPlan(plan.name || "", plan.emailQuota);
+  const emailCreditsLine = emailCredits
+    ? (lang === "ar" ? `${messageQuotaLabel(emailCredits, "en")} بريد تسويقي شهريًا` : emailPromotionCreditLabel(plan.name || "", lang, plan.emailQuota))
     : "";
 
   // A plan that has no campaigns section has no marketing messages to promise.

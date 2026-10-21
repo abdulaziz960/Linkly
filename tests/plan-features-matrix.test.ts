@@ -86,7 +86,7 @@ describe("the comparison table matches what is enforced", () => {
     const { liveCell } = await import("../lib/plan-comparison");
     const individuals = { name: "باقة الأفراد", monthlyPrice: 199, employeeLimit: 1, allowedChannels: "whatsapp", messageQuota: 1000, aiDailyLimit: 0 };
     const small = { name: "باقة المؤسسات الصغيرة", monthlyPrice: 599, employeeLimit: 6, allowedChannels: "whatsapp,instagram", messageQuota: 5000, aiDailyLimit: 50 };
-    expect(liveCell("users", small)).toMatchObject({ ar: "6 مستخدم" });
+    expect(liveCell("users", small)).toMatchObject({ ar: "6 مستخدمين", en: "6 users" });
     const regular = { name: "الباقة العادية", monthlyPrice: 349, employeeLimit: 3, allowedChannels: "whatsapp,instagram", messageQuota: 3000, aiDailyLimit: 0 };
     expect(liveCell("ai", individuals)).toBe(false);
     // The regular plan has the AI assistant, but only with the customer's own key.
@@ -99,6 +99,41 @@ describe("the comparison table matches what is enforced", () => {
     expect(channelCell("instagram", individuals)).toBe(false);
     expect(channelCell("instagram", small)).toBe(true);
     expect(channelCell("x", { ...small, allowedChannels: "*" })).toBe(true);
+  });
+
+  it("shows a channel that can't be connected yet as coming soon, never as a check mark", async () => {
+    const { channelCell, CHANNEL_CAPABILITY } = await import("../lib/plan-comparison");
+    const large = { name: "باقة المؤسسات الكبيرة", monthlyPrice: 899, employeeLimit: 8, allowedChannels: "whatsapp,tiktok", messageQuota: 1200, aiDailyLimit: 100 };
+    expect(channelCell("tiktok", large)).toMatchObject({ ar: "قريبًا", en: "Coming soon" });
+    expect(channelCell("tiktok", { ...large, allowedChannels: "whatsapp" })).toBe(false);
+    expect(CHANNEL_CAPABILITY.sms?.ar).toBe("إرسال فقط");
+  });
+
+  it("the quote-based plan reads the same in its card and in the table", async () => {
+    const { liveCell, COMPARISON_ROWS } = await import("../lib/plan-comparison");
+    const { getPlanDisplayItems, BY_AGREEMENT } = await import("../lib/plan-features");
+    const custom = { name: "باقة الشركات", monthlyPrice: 1599, employeeLimit: 100, allowedChannels: "*", messageQuota: -1, aiDailyLimit: 300 };
+    // Unlimited (-1) marketing messages are included, not "not included".
+    expect(liveCell("campaigns", custom)).toMatchObject({ ar: "رسائل غير محدودة" });
+    expect(getPlanDisplayItems(custom, "ar").some((item) => item.includes("بلا حدود") && item.includes("رسائل تسويقية"))).toBe(true);
+    // Users and AI are set per customer: no plan-row default (100 users, 300/day) is shown as a promise.
+    expect(liveCell("users", custom)).toEqual(BY_AGREEMENT);
+    expect(liveCell("ai", custom)).toEqual(BY_AGREEMENT);
+    expect(getPlanDisplayItems(custom, "ar")[0]).toContain("حسب الاتفاق");
+    for (const name of ["Knowledge base", "Send the customer their nearest branch", "Product catalog and buying on WhatsApp"]) {
+      expect(COMPARISON_ROWS.find((row) => row.en === name)?.cells?.[4], name).toEqual(BY_AGREEMENT);
+    }
+  });
+
+  it("writes user counts with the right plural", async () => {
+    const { usersLabel } = await import("../lib/plan-features");
+    expect(usersLabel(1, "ar", true)).toBe("حتى مستخدم واحد");
+    expect(usersLabel(2, "ar")).toBe("مستخدمان");
+    expect(usersLabel(3, "ar", true)).toBe("حتى 3 مستخدمين");
+    expect(usersLabel(10, "ar")).toBe("10 مستخدمين");
+    expect(usersLabel(11, "ar")).toBe("11 مستخدم");
+    expect(usersLabel(1, "en", true)).toBe("Up to 1 user");
+    expect(usersLabel(8, "en")).toBe("8 users");
   });
 });
 

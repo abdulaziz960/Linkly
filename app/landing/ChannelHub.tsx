@@ -88,6 +88,7 @@ export default function ChannelHub({ lang, descriptions }: { lang: Lang; descrip
   return (
     <div className={c.hub} ref={hubRef}>
       <div className={c.hubDiagram}>
+        <span className={c.demoBadge}>{lang === "ar" ? "عرض توضيحي" : "Interactive demo"}</span>
         <svg viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true">
           <circle cx={CENTER} cy={CENTER} r={RADIUS} className={c.hubOrbit} />
           {HUB_CHANNELS.map((channel) => (
@@ -142,6 +143,7 @@ export default function ChannelHub({ lang, descriptions }: { lang: Lang; descrip
             <header>
               <span className={c.hubPanelIcon}><ChannelGlyph channel={channel} /></span>
               <h3>{channelLabel(channel, lang)}</h3>
+              {channel === "tiktok" ? <span className={c.soonTag}>{lang === "ar" ? "قريبًا" : "Coming soon"}</span> : null}
             </header>
             <p>{descriptions[channel]}</p>
             {active === channel ? (

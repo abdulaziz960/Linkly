@@ -116,6 +116,7 @@ export default function HeroScene({ lang }: { lang: Lang }) {
   return (
     <figure ref={sceneRef} className={c.scene} aria-label={t.label} data-dir={lang === "ar" ? "rtl" : "ltr"}>
       <span className={c.sceneGlow} aria-hidden="true" />
+      <span className={c.demoBadge}>{lang === "ar" ? "عرض توضيحي" : "Interactive demo"}</span>
       <div className={c.stage}>
         <svg className={c.links} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" preserveAspectRatio="none">
           {HUB_CHANNELS.map((channel) => (

@@ -47,8 +47,8 @@ export const VIEW_BLURBS: Partial<Record<ViewKey, FeatureBlurb>> = {
     en: { text: "Receive external leads or track them inside Linkly from first inquiry to close.", points: ["Zapier webhook connection", "Clear table and stages per lead", "Unit value and close rates"] }
   },
   templates: {
-    ar: { text: "أنشئ قوالب رسائل واتساب المعتمدة لإعادة فتح المحادثات والحملات.", points: ["قوالب بصور وأزرار", "إعادة فتح محادثة بعد 24 ساعة", "تُستخدم في الحملات"] },
-    en: { text: "Create approved WhatsApp message templates to re-open chats and run campaigns.", points: ["Templates with images and buttons", "Re-open a chat after 24 hours", "Used in campaigns"] }
+    ar: { text: "أنشئ قوالب رسائل واتساب المعتمدة لإعادة فتح المحادثات والحملات.", points: ["قوالب بصور وأزرار", "متابعة العميل بعد نافذة الـ24 ساعة", "تُستخدم في الحملات"] },
+    en: { text: "Create approved WhatsApp message templates to re-open chats and run campaigns.", points: ["Templates with images and buttons", "Follow up after the 24-hour window", "Used in campaigns"] }
   },
   workHours: {
     ar: { text: "حدّد ساعات دوامك وأرسل رداً تلقائيًا للعملاء خارج الدوام.", points: ["جدول لكل فريق", "رد تلقائي خارج الدوام", "يوقف التصعيد خارج الدوام"] },

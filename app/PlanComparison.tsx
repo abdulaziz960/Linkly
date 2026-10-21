@@ -1,12 +1,13 @@
-import { COMPARISON_ROWS, channelCell, liveCell, orderComparisonPlans, type ComparisonCell, type ComparisonPlan } from "../lib/plan-comparison";
+import { CHANNEL_CAPABILITY, COMPARISON_ROWS, channelCell, liveCell, orderComparisonPlans, type ComparisonCell, type ComparisonPlan } from "../lib/plan-comparison";
 import { planFeatures } from "../lib/plan-features";
+import ComparisonPrice from "./ComparisonPrice";
 import s from "./PlanComparison.module.css";
 
 type Props = { plans: Array<ComparisonPlan & { id: string }>; lang: "ar" | "en" };
 
 const copy = {
-  ar: { title: "قارن بين الباقات والمزايا", sub: "كل ما تتضمنه كل باقة، في مكان واحد.", feature: "الميزة", currency: "ريال", month: "/ الشهر", included: "مشمول", notIncluded: "غير مشمول" },
-  en: { title: "Compare plans and features", sub: "Everything each plan includes, in one place.", feature: "Feature", currency: "SAR", month: "/ month", included: "Included", notIncluded: "Not included" }
+  ar: { title: "قارن بين الباقات والمزايا", sub: "كل ما تتضمنه كل باقة، في مكان واحد.", open: "عرض المقارنة الكاملة بين الباقات", close: "إخفاء المقارنة", swipe: "اسحب الجدول جانبيًا لرؤية كل الباقات", feature: "الميزة", included: "مشمول", notIncluded: "غير مشمول", onRequest: "حسب الطلب" },
+  en: { title: "Compare plans and features", sub: "Everything each plan includes, in one place.", open: "Show the full plan comparison", close: "Hide the comparison", swipe: "Swipe the table sideways to see every plan", feature: "Feature", included: "Included", notIncluded: "Not included", onRequest: "On request" }
 } as const;
 
 function Cell({ cell, lang }: { cell: ComparisonCell; lang: "ar" | "en" }) {
@@ -16,19 +17,23 @@ function Cell({ cell, lang }: { cell: ComparisonCell; lang: "ar" | "en" }) {
   return <span className={s.note}>{cell[lang]}</span>;
 }
 
-/** Feature-by-plan comparison table for the landing page (rows come from lib/plan-comparison.ts; numbers from the live plans). */
+/** Feature-by-plan comparison table for the landing page (rows come from lib/plan-comparison.ts; numbers from the live plans). Collapsed by default so the plan cards stay the summary. */
 export default function PlanComparison({ plans, lang }: Props) {
   const text = copy[lang];
   const ordered = orderComparisonPlans(plans);
   if (ordered.length < 2) return null;
 
   return (
-    <div className={s.wrap} id="compare">
-      <div className={s.head}>
-        <h3>{text.title}</h3>
-        <p>{text.sub}</p>
-      </div>
-      <div className={s.scroll}>
+    <details className={s.wrap} id="compare">
+      <summary className={s.toggle}>
+        <span className={s.head}>
+          <span className={s.title}>{text.title}</span>
+          <span className={s.sub}>{text.sub}</span>
+        </span>
+        <span className={s.toggleButton}><span className={s.whenClosed}>{text.open}</span><span className={s.whenOpen}>{text.close}</span></span>
+      </summary>
+      <p className={s.swipe}>{text.swipe} <span aria-hidden="true">{lang === "ar" ? "←" : "→"}</span></p>
+      <div className={s.scroll} tabIndex={0} role="region" aria-label={text.title}>
         <table className={s.table}>
           <thead>
             <tr>
@@ -36,7 +41,7 @@ export default function PlanComparison({ plans, lang }: Props) {
               {ordered.map((plan) => (
                 <th scope="col" key={plan.id} className={planFeatures[plan.name]?.featured ? s.featured : undefined}>
                   <span className={s.planName}>{planFeatures[plan.name]?.shortName[lang] ?? plan.name}</span>
-                  <span className={s.price}>{planFeatures[plan.name]?.custom ? <b>{lang === "ar" ? "حسب الطلب" : "On request"}</b> : <><b>{plan.monthlyPrice}</b> {text.currency} <small>{text.month}</small></>}</span>
+                  <span className={s.price}>{planFeatures[plan.name]?.custom ? <b>{text.onRequest}</b> : <ComparisonPrice monthlyPrice={plan.monthlyPrice} lang={lang} />}</span>
                 </th>
               ))}
             </tr>
@@ -46,7 +51,10 @@ export default function PlanComparison({ plans, lang }: Props) {
               <tr key={row.en} className={s.group}><th colSpan={ordered.length + 1} scope="colgroup">{row[lang]}</th></tr>
             ) : (
               <tr key={row.en}>
-                <th scope="row" className={s.featureCol}>{row[lang]}</th>
+                <th scope="row" className={s.featureCol}>
+                  {row[lang]}
+                  {row.channel && CHANNEL_CAPABILITY[row.channel] ? <small className={s.capability}>{CHANNEL_CAPABILITY[row.channel]![lang]}</small> : null}
+                </th>
                 {ordered.map((plan, index) => (
                   <td key={plan.id} className={planFeatures[plan.name]?.featured ? s.featured : undefined}>
                     <Cell cell={row.channel ? channelCell(row.channel, plan) : row.live ? liveCell(row.live, plan) : row.cells?.[index] ?? false} lang={lang} />
@@ -57,6 +65,6 @@ export default function PlanComparison({ plans, lang }: Props) {
           </tbody>
         </table>
       </div>
-    </div>
+    </details>
   );
 }

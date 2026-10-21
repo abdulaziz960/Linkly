@@ -26,20 +26,35 @@ export function cyclePriceSuffix(cycle: BillingCycle, lang: Lang): string {
   return lang === "ar" ? "/ الشهر" : "/ month";
 }
 
+/**
+ * A riyal amount for display: thousands separators, and two decimals only
+ * when the amount has a fraction (199 -> "199", 149.25 -> "149.25",
+ * 1791 -> "1,791"). Western digits on both pages, like the rest of the site.
+ */
+export function formatPrice(amount: number): string {
+  const whole = Number.isInteger(amount);
+  return amount.toLocaleString("en-US", { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 });
+}
+
 /** One-line note under the price of a multi-month cycle. */
 export function cycleBilledNote(cycle: BillingCycle, total: number, lang: Lang): string {
   const months = CYCLE_MONTHS[cycle];
+  const amount = formatPrice(total);
   if (lang === "ar") {
-    if (cycle === "سنوي") return `تُدفع دفعة واحدة عن 12 شهرًا بقيمة ${total} ريال`;
-    return `تُدفع دفعة واحدة بقيمة ${total} ريال كل ${months} أشهر`;
+    if (cycle === "سنوي") return `الإجمالي ${amount} ريال · يُدفع سنويًا`;
+    return `يُدفع دفعة واحدة بقيمة ${amount} ريال كل ${months} أشهر`;
   }
-  if (cycle === "سنوي") return `Billed once for 12 months: ${total} SAR`;
-  return `Billed once as ${total} SAR every ${months} months`;
+  if (cycle === "سنوي") return `${amount} SAR total · billed yearly`;
+  return `Billed once as ${amount} SAR every ${months} months`;
 }
 
-/** Price shown in big type: the per-month equivalent of a cycle's total. */
+/**
+ * Price shown in big type: the exact per-month equivalent of a cycle's
+ * total, to the halala (1791 / 12 = 149.25) - never rounded to a whole
+ * riyal, so the monthly figure times 12 is the yearly charge.
+ */
 export function perMonthPrice(total: number, cycle: BillingCycle): number {
-  return Math.round(total / CYCLE_MONTHS[cycle]);
+  return Math.round((total / CYCLE_MONTHS[cycle]) * 100) / 100;
 }
 
 /** What a multi-month cycle saves against paying month by month, in riyals (0 for the monthly cycle). */
@@ -49,5 +64,5 @@ export function cycleSavings(monthlyPrice: number, total: number, cycle: Billing
 
 /** Text of the red corner ribbon, e.g. "وفر 597 ريال". */
 export function cycleSavingsLabel(amount: number, lang: Lang): string {
-  return lang === "ar" ? `وفر ${amount} ريال` : `Save ${amount} SAR`;
+  return lang === "ar" ? `وفر ${formatPrice(amount)} ريال` : `Save ${formatPrice(amount)} SAR`;
 }
