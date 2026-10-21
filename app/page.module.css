@@ -1432,8 +1432,8 @@
 .finalCta p {
   color: #d7f0ec;
 }
-.mobileLogin,
-.mobileNavCta {
+.navInner nav .mobileLogin,
+.navInner nav .mobileNavCta {
   display: none;
 }
 .heroMetrics {
@@ -1527,14 +1527,14 @@
   .menu[aria-expanded="true"] i:last-child {
     transform: translateY(-6px) rotate(-45deg);
   }
-  .mobileLogin,
-  .mobileNavCta {
+  .navInner nav .mobileLogin,
+  .navInner nav .mobileNavCta {
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 48px;
   }
-  .mobileNavCta {
+  .navInner nav .mobileNavCta {
     background: var(--dark);
     color: #fff !important;
     margin-top: 4px;
