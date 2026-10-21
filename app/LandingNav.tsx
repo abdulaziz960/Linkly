@@ -55,9 +55,14 @@ export default function LandingNav({ lang = "ar", anchorBase = "", onSwitchLangu
 
   // Remember the landing page's language so login/signup and the rest of the
   // journey (via useStoredLanguage) pick it up instead of resetting to Arabic.
+  // Only on the landing pages, whose language is fixed by the URL: a page that
+  // switches language itself (signup, via onSwitchLanguage) stores it through
+  // useStoredLanguage. Writing here too would run first (child effects before
+  // the parent's) and overwrite the saved choice with the initial "ar".
   useEffect(() => {
+    if (onSwitchLanguage) return;
     window.localStorage.setItem("audiencew-language", lang);
-  }, [lang]);
+  }, [lang, onSwitchLanguage]);
 
   const close = () => setOpen(false);
 
