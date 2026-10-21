@@ -2093,8 +2093,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   padding: 14px 24px;
   display: flex;
   gap: 10px;
-  justify-content: flex-end;
+  /* The buttons sit at the right edge in both languages (flex-start is the right in Arabic, flex-end in English). */
+  justify-content: flex-start;
 }
+[dir="ltr"] .template-modal-foot { justify-content: flex-end; }
 
 .template-meta-status {
   border: 1px solid var(--line);

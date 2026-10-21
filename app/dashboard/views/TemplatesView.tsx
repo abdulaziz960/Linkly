@@ -710,7 +710,7 @@ export default function TemplatesView({
               </div>
             </div>
             <div className="template-modal-foot">
-              <button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
+              <button className="btn soft close-red" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
               <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving") : form.editing ? t("حفظ", "Save") : t("إرسال إلى Meta", "Submit to Meta")}</button>
             </div>
           </form>
