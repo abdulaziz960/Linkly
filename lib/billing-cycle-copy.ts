@@ -1,4 +1,4 @@
-import { CYCLE_DISCOUNT_PERCENT, CYCLE_MONTHS, YEARLY_PAID_MONTHS, YEARLY_FREE_MONTHS, type BillingCycle } from "./billing-pricing";
+import { CYCLE_DISCOUNT_PERCENT, CYCLE_MONTHS, type BillingCycle } from "./billing-pricing";
 
 type Lang = "ar" | "en";
 
@@ -15,7 +15,6 @@ export function cycleTabLabel(cycle: BillingCycle, lang: Lang): string {
 /** Badge shown on the tab, or "" for the monthly cycle. */
 export function cycleSaveBadge(cycle: BillingCycle, lang: Lang): string {
   if (cycle === "شهري") return "";
-  if (cycle === "سنوي") return lang === "ar" ? `${YEARLY_FREE_MONTHS} شهرين مجانًا` : `${YEARLY_FREE_MONTHS} months free`;
   const percent = CYCLE_DISCOUNT_PERCENT[cycle];
   return lang === "ar" ? `وفر ${percent}٪` : `Save ${percent}%`;
 }
@@ -31,17 +30,14 @@ export function cyclePriceSuffix(cycle: BillingCycle, lang: Lang): string {
 export function cycleBilledNote(cycle: BillingCycle, total: number, lang: Lang): string {
   const months = CYCLE_MONTHS[cycle];
   if (lang === "ar") {
-    if (cycle === "سنوي") return `12 شهرًا تُحسب 10 + شهرين مجانًا · تُدفع دفعة واحدة ${total} ريال`;
+    if (cycle === "سنوي") return `خصم ${CYCLE_DISCOUNT_PERCENT[cycle]}٪ · تُدفع دفعة واحدة عن 12 شهرًا بقيمة ${total} ريال`;
     return `تُدفع دفعة واحدة بقيمة ${total} ريال كل ${months} أشهر`;
   }
-  if (cycle === "سنوي") return `12 months for the price of 10 (2 free) · billed once as ${total} SAR`;
+  if (cycle === "سنوي") return `${CYCLE_DISCOUNT_PERCENT[cycle]}% off · billed once for 12 months: ${total} SAR`;
   return `Billed once as ${total} SAR every ${months} months`;
 }
 
-/**
- * Price shown in big type. The yearly cycle shows the plain monthly price (it pays 10 months and gets 2 free, so
- * the total divided by the 10 paid months is the base price); the other cycles show the per-month equivalent.
- */
+/** Price shown in big type: the per-month equivalent of a cycle's total. */
 export function perMonthPrice(total: number, cycle: BillingCycle): number {
-  return Math.round(total / (cycle === "سنوي" ? YEARLY_PAID_MONTHS : CYCLE_MONTHS[cycle]));
+  return Math.round(total / CYCLE_MONTHS[cycle]);
 }

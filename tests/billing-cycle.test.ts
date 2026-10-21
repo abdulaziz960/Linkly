@@ -35,15 +35,15 @@ afterEach(() => {
 });
 
 describe("billing-pricing helpers", () => {
-  it("discounts the annual price 20% off 12x the monthly price", async () => {
+  it("discounts the annual price 25% off 12x the monthly price", async () => {
     const { computeYearlyPrice, priceForCycle } = await import("../lib/billing-pricing");
-    expect(computeYearlyPrice(199)).toBe(1990); // 12 months for the price of 10
-    expect(computeYearlyPrice(279)).toBe(2790);
+    expect(computeYearlyPrice(199)).toBe(1791); // 12 months, 25% off
+    expect(computeYearlyPrice(279)).toBe(2511);
     expect(priceForCycle(199, "ربع سنوي")).toBe(478); // 3 months, 20% off
     expect(priceForCycle(199, "نصف سنوي")).toBe(776); // 6 months, 35% off
     expect(priceForCycle(199, "شهري")).toBe(199);
     expect(priceForCycle(199, "شهري")).toBe(199);
-    expect(priceForCycle(199, "سنوي")).toBe(1990);
+    expect(priceForCycle(199, "سنوي")).toBe(1791);
   });
 
   it("only recognizes the two known cycle strings", async () => {
@@ -111,8 +111,8 @@ describe("self-serve checkout with billingCycle=سنوي", () => {
 
     const payment = await prisma.subscriptionPayment.findUnique({ where: { id: payload.paymentId! } });
     expect(payment?.billingCycle).toBe("سنوي");
-    expect(payment?.amount).toBe(1990); // 199*12*0.8 rounded
-    expect(payment?.listPrice).toBe(1990);
+    expect(payment?.amount).toBe(1791); // 199*12*0.75 rounded
+    expect(payment?.listPrice).toBe(1791);
   });
 
   it("keeps a separate pending row per billing cycle instead of reusing the other cycle's stale one", async () => {
@@ -186,7 +186,7 @@ describe("auto-renewal charges the discounted annual price for a yearly subscrib
     await prisma.subscription.create({
       data: {
         id: `sub-${autorenewTenant}`, tenantId: autorenewTenant, companyName: "Yearly Co", ownerName: "Owner", ownerEmail: "owner@yearly-autorenew.example",
-        plan: "باقة اختبار التجديد السنوي", status: "نشط", employeeLimit: 3, amount: 1990, billingCycle: "سنوي",
+        plan: "باقة اختبار التجديد السنوي", status: "نشط", employeeLimit: 3, amount: 1791, billingCycle: "سنوي",
         renewalAt: new Date(Date.now() - 60_000).toISOString(), createdAt: now, updatedAt: now,
         autoRenewEnabled: 1, savedCardToken: "tok_test_yearly", savedCardLast4: "4242", savedCardBrand: "visa", autoRenewFailCount: 0
       }
@@ -196,7 +196,7 @@ describe("auto-renewal charges the discounted annual price for a yearly subscrib
     });
 
     vi.stubGlobal("fetch", vi.fn(async () =>
-      new Response(JSON.stringify({ id: "pay_autorenew_yearly", status: "paid", amount: 199000, currency: "SAR", source: { type: "token", token: "tok_test_yearly", company: "visa" } }), { status: 200 })
+      new Response(JSON.stringify({ id: "pay_autorenew_yearly", status: "paid", amount: 179100, currency: "SAR", source: { type: "token", token: "tok_test_yearly", company: "visa" } }), { status: 200 })
     ));
 
     const result = await attemptAutoRenewals("https://app.example");
@@ -207,7 +207,7 @@ describe("auto-renewal charges the discounted annual price for a yearly subscrib
     expect(renewalYear).toBeGreaterThanOrEqual(new Date().getUTCFullYear() + 1);
 
     const payment = await prisma.subscriptionPayment.findFirst({ where: { tenantId: autorenewTenant, initiatedBy: "system" } });
-    expect(payment).toMatchObject({ status: "مكتمل", amount: 1990, billingCycle: "سنوي" });
+    expect(payment).toMatchObject({ status: "مكتمل", amount: 1791, billingCycle: "سنوي" });
   });
 });
 
