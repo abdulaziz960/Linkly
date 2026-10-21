@@ -3,8 +3,8 @@
   --muted: #64748b;
   --soft: #f8fafc;
   --line: #e2e8f0;
-  --brand: #7c3aed;
-  --dark: #5b21b6;
+  --brand: #178a82;
+  --dark: #106b65;
   --green: #16a34a;
   --r: 18px;
   --rs: 11px;
@@ -72,7 +72,7 @@
 .navInner nav a:hover,
 .navActions > a:first-child:hover {
   color: var(--dark);
-  background: #f5f3ff;
+  background: #e8f5f2;
 }
 .navActions {
   display: flex;
@@ -100,7 +100,7 @@
   padding: 0 24px;
   color: #fff;
   background: var(--dark);
-  box-shadow: 0 10px 24px #7c3aed33;
+  box-shadow: 0 10px 24px #178a8233;
 }
 .primary:hover,
 .primaryLarge:hover {
@@ -128,9 +128,9 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border: 1px solid #ede9fe;
+  border: 1px solid #d7f0ec;
   border-radius: 999px;
-  background: #f5f3ff;
+  background: #e8f5f2;
   color: var(--dark);
   font-size: 14px;
   font-weight: 700;
@@ -311,7 +311,7 @@
 }
 .conversationsTitle small {
   color: var(--dark);
-  background: #f5f3ff;
+  background: #e8f5f2;
   padding: 4px 6px;
   border-radius: 999px;
   font-size: 9px;
@@ -330,7 +330,7 @@
   border-radius: 10px;
   display: grid;
   place-items: center;
-  background: #ede9fe;
+  background: #d7f0ec;
   color: var(--dark);
   font-style: normal;
   font-weight: 800;
@@ -351,7 +351,7 @@
   font-size: 8px;
 }
 .conversations .selected {
-  background: #faf5ff;
+  background: #f1faf8;
 }
 .chat {
   display: flex;
@@ -403,7 +403,7 @@
 }
 .reply {
   align-self: flex-end;
-  background: #ede9fe;
+  background: #d7f0ec;
   color: #4c1d95;
 }
 .chat > div small {
@@ -509,7 +509,7 @@
   place-items: center;
   font-style: normal;
   font-weight: 900;
-  background: #ede9fe;
+  background: #d7f0ec;
   color: var(--dark);
 }
 .channelMarks i:first-child,
@@ -519,7 +519,7 @@
 }
 .channelMarks i:nth-child(2),
 .channelsGrid article:nth-child(2) i {
-  background: #fce7f3;
+  background: #e1efed;
   color: #be185d;
 }
 .channelMarks i:nth-child(3),
@@ -718,7 +718,7 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: #f5f3ff;
+  background: #e8f5f2;
   color: var(--brand);
   font-style: normal;
   font-size: 20px;
@@ -835,7 +835,7 @@
 }
 .featured {
   border-color: var(--brand) !important;
-  box-shadow: 0 20px 50px #7c3aed1f;
+  box-shadow: 0 20px 50px #178a821f;
   transform: translateY(-10px);
 }
 .popular {
@@ -844,7 +844,7 @@
   left: 18px;
   padding: 6px 9px;
   border-radius: 999px;
-  background: #f5f3ff;
+  background: #e8f5f2;
   color: var(--dark);
   font-size: 11px;
   font-weight: 800;
@@ -960,7 +960,7 @@
   margin: 9px 0;
 }
 .finalCta p {
-  color: #ede9fe;
+  color: #d7f0ec;
   font-size: 18px;
   margin: 0;
 }
@@ -2275,4 +2275,12 @@
 @media (max-width: 980px) {
   .langCorner { display: none; }
   .mobileLang { display: block; }
+}
+
+/* The mobile menu's sign-up button keeps its dark fill and white text while pressed or focused (the generic nav-link hover tint made it wash out). */
+.navInner nav .mobileNavCta:hover,
+.navInner nav .mobileNavCta:focus-visible,
+.navInner nav .mobileNavCta:active {
+  background: var(--dark);
+  color: #fff !important;
 }
