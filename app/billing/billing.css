@@ -293,6 +293,18 @@
   border: 2px solid var(--brand);
   transform: translateY(-8px);
 }
+.plan-ribbon {
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  padding: 8px 16px;
+  border-start-end-radius: 24px;
+  border-end-start-radius: 16px;
+  background: #d93636;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
 .recommended {
   position: absolute;
   top: -15px;

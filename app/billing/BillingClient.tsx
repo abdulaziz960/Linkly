@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { SELLABLE_BILLING_CYCLES, isSamePlanRenewalTooEarly, priceForCycle } from "../../lib/billing-pricing";
-import { perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../../lib/billing-cycle-copy";
+import { cycleSavings, cycleSavingsLabel, perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../../lib/billing-cycle-copy";
 import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
 import { useBillingCycle } from "../useBillingCycle";
 
@@ -83,6 +83,7 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
       const isCurrent = currentPlan === plan.name;
       const renewalTooEarly = isCurrent && isSamePlanRenewalTooEarly(currentSubscription, plan.name, billingCycle);
       return <article className={`plan-card ${featured ? "featured" : ""}`} key={plan.id}>
+        {billingCycle !== "شهري" && cycleSavings(plan.monthlyPrice, cycleTotal, billingCycle) > 0 ? <span className="plan-ribbon">{cycleSavingsLabel(cycleSavings(plan.monthlyPrice, cycleTotal, billingCycle), lang)}</span> : null}
         {isCurrent ? <span className="current-badge">{text.currentPlanBadge}</span> : featured ? <span className="recommended">{text.recommended}</span> : null}
         <h2>{plan.name}</h2>
         <div className="plan-price"><b>{displayedPrice}</b><span>{lang === "ar" ? "ر.س" : "SAR"} {cyclePriceSuffix(billingCycle, lang)}</span></div>

@@ -30,14 +30,24 @@ export function cyclePriceSuffix(cycle: BillingCycle, lang: Lang): string {
 export function cycleBilledNote(cycle: BillingCycle, total: number, lang: Lang): string {
   const months = CYCLE_MONTHS[cycle];
   if (lang === "ar") {
-    if (cycle === "سنوي") return `خصم ${CYCLE_DISCOUNT_PERCENT[cycle]}٪ · تُدفع دفعة واحدة عن 12 شهرًا بقيمة ${total} ريال`;
+    if (cycle === "سنوي") return `تُدفع دفعة واحدة عن 12 شهرًا بقيمة ${total} ريال`;
     return `تُدفع دفعة واحدة بقيمة ${total} ريال كل ${months} أشهر`;
   }
-  if (cycle === "سنوي") return `${CYCLE_DISCOUNT_PERCENT[cycle]}% off · billed once for 12 months: ${total} SAR`;
+  if (cycle === "سنوي") return `Billed once for 12 months: ${total} SAR`;
   return `Billed once as ${total} SAR every ${months} months`;
 }
 
 /** Price shown in big type: the per-month equivalent of a cycle's total. */
 export function perMonthPrice(total: number, cycle: BillingCycle): number {
   return Math.round(total / CYCLE_MONTHS[cycle]);
+}
+
+/** What a multi-month cycle saves against paying month by month, in riyals (0 for the monthly cycle). */
+export function cycleSavings(monthlyPrice: number, total: number, cycle: BillingCycle): number {
+  return Math.max(0, Math.round(monthlyPrice * CYCLE_MONTHS[cycle]) - total);
+}
+
+/** Text of the red corner ribbon, e.g. "وفر 597 ريال". */
+export function cycleSavingsLabel(amount: number, lang: Lang): string {
+  return lang === "ar" ? `وفر ${amount} ريال` : `Save ${amount} SAR`;
 }

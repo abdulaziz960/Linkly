@@ -229,3 +229,13 @@ describe("multi-month billing cycles", () => {
     expect(isSellableBillingCycle("نصف سنوي")).toBe(false);
   });
 });
+
+describe("savings ribbon", () => {
+  it("shows what the yearly cycle saves against 12 monthly payments", async () => {
+    const { cycleSavings, cycleSavingsLabel } = await import("../lib/billing-cycle-copy");
+    const { priceForCycle } = await import("../lib/billing-pricing");
+    expect(cycleSavings(199, priceForCycle(199, "سنوي"), "سنوي")).toBe(597); // 2388 - 1791
+    expect(cycleSavings(199, 199, "شهري")).toBe(0);
+    expect(cycleSavingsLabel(597, "ar")).toBe("وفر 597 ريال");
+  });
+});

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { SELLABLE_BILLING_CYCLES, CYCLE_SLUGS, priceForCycle } from "../lib/billing-pricing";
-import { perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../lib/billing-cycle-copy";
+import { cycleSavings, cycleSavingsLabel, perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../lib/billing-cycle-copy";
 import { useBillingCycle } from "./useBillingCycle";
 import { useReducedMotion } from "./landing/motion";
 import s from "./page.module.css";
@@ -116,6 +116,7 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
         style={{ transitionDelay: `${pi * 90}ms` }}
       >
         {featured ? <span className={c.pgPopular}>{text.popular}</span> : null}
+        {!p.custom && multiMonth && cycleSavings(monthlyPrice, cycleTotal, billingCycle) > 0 ? <span className={c.pgRibbon}>{cycleSavingsLabel(cycleSavings(monthlyPrice, cycleTotal, billingCycle), lang)}</span> : null}
         <h3>{p.name}</h3>
         <p className={c.pgAudience}>{p.audience}</p>
         {p.custom ? <>
