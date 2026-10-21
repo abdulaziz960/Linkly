@@ -1,3 +1,4 @@
+import { useLanguage } from "../i18n";
 import type {
   AutomationRule,
   Campaign,
@@ -104,14 +105,15 @@ export default function DashboardViewRouter({
   canViewBranches = false,
   view
 }: DashboardViewRouterProps) {
+  const { t } = useLanguage();
   if (view === "operations" || view === "reports") {
     return (
       <ViewTabs
         initialKey={view}
-        ariaLabel="التقارير والعمليات"
+        ariaLabel={t("التقارير والعمليات", "Reports and operations")}
         tabs={[
-          { viewKey: "operations", label: "الآن (مركز العمليات)", lockLabel: "مركز العمليات", available: view === "operations" || canViewOperations, content: <OperationsView conversations={conversations} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
-          { viewKey: "reports", label: "التقارير", available: view === "reports" || canViewReports, content: <ReportsView conversations={conversations} employees={employees} teams={teams} workSchedules={workSchedules} onOpenConversation={onOpenConversation} /> }
+          { viewKey: "operations", label: t("الآن (مركز العمليات)", "Now (Operations Center)"), lockLabel: t("مركز العمليات", "Operations Center"), available: view === "operations" || canViewOperations, content: <OperationsView conversations={conversations} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
+          { viewKey: "reports", label: t("التقارير", "Reports"), available: view === "reports" || canViewReports, content: <ReportsView conversations={conversations} employees={employees} teams={teams} workSchedules={workSchedules} onOpenConversation={onOpenConversation} /> }
         ]}
       />
     );
@@ -120,11 +122,11 @@ export default function DashboardViewRouter({
     return (
       <ViewTabs
         initialKey={view}
-        ariaLabel="العملاء والعملاء المحتملون والوسوم"
+        ariaLabel={t("العملاء والعملاء المحتملون والوسوم", "Customers, leads and tags")}
         tabs={[
-          { viewKey: "contacts", label: "العملاء", available: view === "contacts" || canViewContacts, content: <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
-          { viewKey: "pipeline", label: "العملاء المحتملون", available: view === "pipeline" || canViewPipeline, content: <PipelineView conversations={conversations} automationRules={automationRules} templates={templates} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
-          { viewKey: "tags", label: "الوسوم", available: view === "tags" || canViewTags, content: <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> }
+          { viewKey: "contacts", label: t("العملاء", "Customers"), available: view === "contacts" || canViewContacts, content: <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
+          { viewKey: "pipeline", label: t("العملاء المحتملون", "Leads"), available: view === "pipeline" || canViewPipeline, content: <PipelineView conversations={conversations} automationRules={automationRules} templates={templates} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
+          { viewKey: "tags", label: t("الوسوم", "Tags"), available: view === "tags" || canViewTags, content: <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> }
         ]}
       />
     );
@@ -134,11 +136,11 @@ export default function DashboardViewRouter({
     return (
       <ViewTabs
         initialKey={view}
-        ariaLabel="مساعد AI وقاعدة المعرفة"
-        note={<p className="muted-copy" style={{ margin: "10px 24px 0" }}>المساعد وخطوة «رد AI تلقائي» لا يجيبان إلا من قاعدة المعرفة، فأضف فيها أسئلتك وأجوبتك أولًا.</p>}
+        ariaLabel={t("مساعد AI وقاعدة المعرفة", "AI assistant and knowledge base")}
+        note={<p className="muted-copy" style={{ margin: "10px 24px 0" }}>{t("المساعد وخطوة «رد AI تلقائي» لا يجيبان إلا من قاعدة المعرفة، فأضف فيها أسئلتك وأجوبتك أولًا.", "The assistant and the \"Automatic AI reply\" step only answer from the knowledge base, so add your questions and answers there first.")}</p>}
         tabs={[
-          { viewKey: "knowledgeBase", label: "قاعدة المعرفة", available: view === "knowledgeBase" || canViewKnowledgeBase, content: <KnowledgeBaseView /> },
-          { viewKey: "ai", label: "إعدادات المساعد", available: view === "ai" || canViewAi, content: <AiSettingsView /> }
+          { viewKey: "knowledgeBase", label: t("قاعدة المعرفة", "Knowledge Base"), available: view === "knowledgeBase" || canViewKnowledgeBase, content: <KnowledgeBaseView /> },
+          { viewKey: "ai", label: t("إعدادات المساعد", "Assistant settings"), available: view === "ai" || canViewAi, content: <AiSettingsView /> }
         ]}
       />
     );
@@ -164,11 +166,11 @@ export default function DashboardViewRouter({
     return (
       <ViewTabs
         initialKey={view}
-        ariaLabel="الموظفون والفرق"
+        ariaLabel={t("الموظفون والفرق", "Employees and teams")}
         tabs={[
-          { viewKey: "employees", label: "الموظفون والصلاحيات", available: view === "employees" || canViewEmployees, content: <EmployeesView employees={employees} conversations={conversations} teams={teams} onRefreshData={onRefreshData} /> },
-          { viewKey: "teams", label: "الفرق", available: view === "teams" || canViewTeams, content: <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} /> },
-          { viewKey: "workHours", label: "ساعات العمل", available: view === "workHours" || canViewWorkHours, content: <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} /> }
+          { viewKey: "employees", label: t("الموظفون والصلاحيات", "Employees & permissions"), available: view === "employees" || canViewEmployees, content: <EmployeesView employees={employees} conversations={conversations} teams={teams} onRefreshData={onRefreshData} /> },
+          { viewKey: "teams", label: t("الفرق", "Teams"), available: view === "teams" || canViewTeams, content: <TeamsView employees={employees} teams={teams} onRefreshData={onRefreshData} /> },
+          { viewKey: "workHours", label: t("ساعات العمل", "Work hours"), available: view === "workHours" || canViewWorkHours, content: <WorkHoursView teams={teams} workSchedules={workSchedules} onRefreshData={onRefreshData} /> }
         ]}
       />
     );
@@ -177,11 +179,11 @@ export default function DashboardViewRouter({
     return (
       <ViewTabs
         initialKey={view}
-        ariaLabel="الإعدادات والربط"
+        ariaLabel={t("الإعدادات والربط", "Settings and connections")}
         tabs={[
-          { viewKey: "settings", label: "القنوات", available: view === "settings" || canViewSettings, content: <SettingsView onIntegrationChange={onIntegrationChange} /> },
-          { viewKey: "integrations", label: "التكاملات", available: view === "integrations" || canViewIntegrations, content: <IntegrationsView /> },
-          { viewKey: "developers", label: "المطورون", available: view === "developers" || canViewDevelopers, content: <DevelopersView /> }
+          { viewKey: "settings", label: t("القنوات", "Channels"), available: view === "settings" || canViewSettings, content: <SettingsView onIntegrationChange={onIntegrationChange} /> },
+          { viewKey: "integrations", label: t("التكاملات", "Integrations"), available: view === "integrations" || canViewIntegrations, content: <IntegrationsView /> },
+          { viewKey: "developers", label: t("المطورون", "Developers"), available: view === "developers" || canViewDevelopers, content: <DevelopersView /> }
         ]}
       />
     );
@@ -190,10 +192,10 @@ export default function DashboardViewRouter({
     return (
       <ViewTabs
         initialKey={view}
-        ariaLabel="الكتالوج والفروع"
+        ariaLabel={t("الكتالوج والفروع", "Catalog and branches")}
         tabs={[
-          { viewKey: "catalog", label: "الكتالوج", available: view === "catalog" || canViewCatalog, content: <CatalogView /> },
-          { viewKey: "branches", label: "الفروع", available: view === "branches" || canViewBranches, content: <BranchesView /> }
+          { viewKey: "catalog", label: t("الكتالوج", "Catalog"), available: view === "catalog" || canViewCatalog, content: <CatalogView /> },
+          { viewKey: "branches", label: t("الفروع", "Branches"), available: view === "branches" || canViewBranches, content: <BranchesView /> }
         ]}
       />
     );

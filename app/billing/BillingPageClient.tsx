@@ -1,5 +1,6 @@
 "use client";
 
+import { planDisplayName } from "../../lib/plan-features";
 import InboxBackLink from "../dashboard/components/InboxBackLink";
 import Image from "next/image";
 import { useState } from "react";
@@ -152,7 +153,7 @@ export default function BillingPageClient({
         {blockedReason ? <div className="current-plan blocked">{blockedReason}</div> : null}
         {subscription ? (
           <div className="current-plan">
-            {text.currentPlan} <b>{subscription.plan}</b>
+            {text.currentPlan} <b>{planDisplayName(subscription.plan, lang)}</b>
             <em>{cancelledAt ? text.cancelled : subscriptionStatusLabel(subscription.status, lang)}</em>
             {subscription.createdAt ? <span className="current-plan-date">{text.startDate}: {formatDate(subscription.createdAt, lang)}</span> : null}
             {subscription.renewalAt ? (

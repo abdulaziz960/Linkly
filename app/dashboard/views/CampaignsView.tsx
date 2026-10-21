@@ -186,14 +186,14 @@ export default function CampaignsView({
       const response = await fetch("/api/campaigns/balance");
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.ok) {
-        setBalanceLoadError(body?.error || `تعذر تحميل الرصيد (${response.status})`);
+        setBalanceLoadError(body?.error || t(`تعذر تحميل الرصيد (${response.status})`, `Could not load the balance (${response.status})`));
       } else {
         setBalance(body.data?.balance ?? 0);
         setLastTopUpAmount(body.data?.lastTopUpAmount ?? 0);
         setBalanceTransactions(body.data?.transactions ?? []);
       }
     } catch {
-      setBalanceLoadError("تعذر الاتصال بالسيرفر لتحميل الرصيد");
+      setBalanceLoadError(t("تعذر الاتصال بالسيرفر لتحميل الرصيد", "Could not reach the server to load the balance"));
     }
     setBalanceLoading(false);
   }

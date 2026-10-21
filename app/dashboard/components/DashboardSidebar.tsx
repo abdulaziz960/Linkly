@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
+import { planDisplayName } from "../../../lib/plan-features";
 import Link from "next/link";
 import PwaInstallButton from "./PwaInstallButton";
 import { getChannelName } from "../../channel-names";
@@ -72,6 +73,7 @@ function DashboardNavIcon({ view }: { view: ViewKey }) {
 
   return <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[view]}</svg>;
 }
+
 
 export default function DashboardSidebar({
   activeView,
@@ -238,7 +240,7 @@ export default function DashboardSidebar({
       </div>
       <div className="tenant-card">
         <b>{isEnglish ? "Account" : "حساب العميل"}</b>
-        <span>{planName || (isEnglish ? "No plan selected" : "لم يتم تحديد الباقة")}</span>
+        <span>{planName ? planDisplayName(planName, isEnglish ? "en" : "ar") : (isEnglish ? "No plan selected" : "لم يتم تحديد الباقة")}</span>
       </div>
       <nav className="dashboard-nav">
         <button

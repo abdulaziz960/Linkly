@@ -302,7 +302,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
 
       <div className="panel">
         <div className="panel-head">
-          <h2><span className="segment-section-badge">١</span> {t("أداء الحملات - كل العملاء", "Campaign performance - all customers")} <span className="segment-section-tag">{t("تلقائي", "Automatic")}</span></h2>
+          <h2><span className="segment-section-badge">{t("١", "1")}</span> {t("أداء الحملات - كل العملاء", "Campaign performance - all customers")} <span className="segment-section-tag">{t("تلقائي", "Automatic")}</span></h2>
         </div>
         <div className="panel-body">
           <p className="muted-copy">{t("تصنيف تلقائي لكل عملائك عبر جميع الحملات مجتمعة - إذا تفاعل عميل مع أكثر من حملة، تُحتسب أفضل حالة تفاعل له. حدد فترة زمنية لتضييق النتائج ثم احفظها كمجموعة باسم تختاره لاستخدامها لاحقًا بحملة جديدة.", "An automatic breakdown of every customer across all your campaigns combined - a customer active in more than one campaign counts under their single best engagement. Narrow by date range, then save the result as a named group to reuse in a new campaign.")}</p>
@@ -365,7 +365,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
 
       <div className="panel campaign-classification-panel">
         <div className="panel-head">
-          <h2><span className="segment-section-badge">٢</span> {t("تصنيف حسب الحملات", "Classification by campaign")} <span className="segment-section-tag">{t("تلقائي", "Automatic")}</span></h2>
+          <h2><span className="segment-section-badge">{t("٢", "2")}</span> {t("تصنيف حسب الحملات", "Classification by campaign")} <span className="segment-section-tag">{t("تلقائي", "Automatic")}</span></h2>
         </div>
         <div className="panel-body">
           <p className="muted-copy">{t("كل حملة أرسلتها تظهر هنا تلقائيًا مع تصنيف عملائها حسب تفاعلهم - اضغط على الحملة لعرض القوائم وإرسال رسالة مباشرة لأي عميل.", "Every campaign you've sent appears here automatically, with its recipients classified by engagement - click a campaign to see the lists and message any customer directly.")}</p>
@@ -387,7 +387,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
 
       <div className="panel segments-manual-panel">
         <div className="panel-head">
-          <h2><span className="segment-section-badge">٣</span> {t("المجموعات المحفوظة", "Saved groups")} <span className="segment-section-tag segment-section-tag-manual">{t("يدوي", "Manual")}</span></h2>
+          <h2><span className="segment-section-badge">{t("٣", "3")}</span> {t("المجموعات المحفوظة", "Saved groups")} <span className="segment-section-tag segment-section-tag-manual">{t("يدوي", "Manual")}</span></h2>
           <span />
           <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة تقسيم", "Add segment")}</button>
         </div>

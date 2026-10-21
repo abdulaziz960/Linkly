@@ -139,6 +139,17 @@ const readySteps: ReadyStep[] = [
   }
 ];
 
+// English card text for the ready-made steps library (the steps' own message text stays in the customers' language).
+const readyStepTextEn: Record<string, { title: string; description: string }> = {
+  welcome: { title: "Welcome message", description: "A short greeting that tells the customer the reply is instant." },
+  "main-menu": { title: "Services menu", description: "Three ready options that guide the customer to the right path." },
+  pricing: { title: "Services and prices", description: "A ready reply that shows your services, then invites the customer to get in touch." },
+  "order-status": { title: "Order follow-up", description: "Asks the customer for their order number clearly." },
+  transfer: { title: "Hand over to an agent", description: "Moves the conversation straight to the customer service team." },
+  close: { title: "End the conversation", description: "A closing message, then the conversation is closed." },
+  "customer-service-flow": { title: "Full customer service flow", description: "Welcome + services menu + order follow-up + hand over to support." }
+};
+
 function nodeTypeLabel(type: string, t: (ar: string, en: string) => string) {
   return t(type, nodeTypeLabelsEn[type] || type);
 }
@@ -708,11 +719,11 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
               >
                 <span className="bot-library-icon" aria-hidden="true">{item.icon}</span>
                 <div>
-                  <b>{item.title}</b>
-                  <small>{item.description}</small>
+                  <b>{t(item.title, readyStepTextEn[item.id]?.title || item.title)}</b>
+                  <small>{t(item.description, readyStepTextEn[item.id]?.description || item.description)}</small>
                   {item.kind === "flow" ? <em>{t(`${item.nodes.length} خطوات مترابطة`, `${item.nodes.length} linked steps`)}</em> : <em>{nodeTypeLabel(item.nodes[0].type, t)}</em>}
                 </div>
-                <button type="button" disabled={saving} onClick={() => void insertReadyStep(item)} aria-label={t(`إضافة ${item.title}`, `Add ${item.title}`)}>＋</button>
+                <button type="button" disabled={saving} onClick={() => void insertReadyStep(item)} aria-label={t(`إضافة ${item.title}`, `Add ${readyStepTextEn[item.id]?.title || item.title}`)}>＋</button>
               </article>
             ))}
           </div>

@@ -137,3 +137,11 @@ export function getPlanDisplayItems(plan: PlanNumbers & { name: string }, lang: 
   const tail = customItems.length ? customItems : (planFeatures[plan.name]?.items[lang] ?? fallbackTailItems(lang));
   return [...dynamic, ...tail];
 }
+
+/** A plan's name for the UI language: the stored plan rows carry Arabic names, so English shows the English short name. */
+export function planDisplayName(name: string, lang: "ar" | "en"): string {
+  if (lang === "ar") return name;
+  const entry = planFeatures[name];
+  if (!entry) return name;
+  return entry.custom ? entry.shortName.en : `${entry.shortName.en} plan`;
+}

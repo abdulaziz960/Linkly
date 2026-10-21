@@ -67,6 +67,12 @@ export function parsePermissions(permissions: string) {
   return permissions ? [permissions] : [];
 }
 
+/** The permissions string ("الكل", "المحادثات فقط" or "a + b") as readable text in the UI language. */
+export function permissionsText(permissions: string, t: (ar: string, en: string) => string) {
+  if (permissions === "الكل") return t("الكل", "All");
+  return parsePermissions(permissions).map((permission) => permissionLabel(permission, t)).join(t(" + ", " + "));
+}
+
 export function formatPermissions(permissions: string[]) {
   if (permissions.length === permissionOptions.length) return "الكل";
   if (permissions.length === 1) return `${permissions[0]} فقط`;
@@ -354,7 +360,7 @@ export default function EmployeesView({
                       <span className={employee.status === "متصل" ? "state online" : employee.status === "مشغول" ? "state busy" : "state offline"}>{employeeStatusLabel(employee.status, t)}</span>
                     )}
                   </td>
-                  <td data-label={t("الصلاحيات", "Permissions")}><span className="permissions-cell" title={employee.permissions}>{employee.permissions}</span></td>
+                  <td data-label={t("الصلاحيات", "Permissions")}><span className="permissions-cell" title={permissionsText(employee.permissions, t)}>{permissionsText(employee.permissions, t)}</span></td>
                   <td data-label={t("التقييم", "Rating")}>{rating ? <span className="employee-rating">⭐ {rating.average} <small>({rating.count})</small></span> : <span className="table-subtitle">{t("غير متاح", "N/A")}</span>}</td>
                   <td data-label={t("إجراء", "Action")} className="row-actions">
                     <button className="btn soft" type="button" aria-expanded={expanded} onClick={() => setExpandedId(expanded ? "" : employee.id)}>{expanded ? t("إخفاء التفاصيل", "Hide details") : t("التفاصيل", "Details")}</button>

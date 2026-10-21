@@ -127,18 +127,18 @@ const MAX_PROFILE_LOGO_SOURCE_BYTES = 5 * 1024 * 1024;
 
 async function prepareProfileLogo(file: File) {
   if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-    throw new Error("يرجى اختيار صورة PNG أو JPG أو WebP.");
+    throw new Error("LOGO_TYPE");
   }
-  if (file.size > MAX_PROFILE_LOGO_SOURCE_BYTES) throw new Error("حجم الصورة يجب ألا يتجاوز 5 ميجابايت.");
+  if (file.size > MAX_PROFILE_LOGO_SOURCE_BYTES) throw new Error("LOGO_SIZE");
 
   const bitmap = await createImageBitmap(file);
   try {
-    if (bitmap.width > 8000 || bitmap.height > 8000) throw new Error("أبعاد الصورة كبيرة جدًا.");
+    if (bitmap.width > 8000 || bitmap.height > 8000) throw new Error("LOGO_DIMENSIONS");
     const canvas = document.createElement("canvas");
     canvas.width = 256;
     canvas.height = 256;
     const context = canvas.getContext("2d");
-    if (!context) throw new Error("تعذر تجهيز الصورة.");
+    if (!context) throw new Error("LOGO_PREPARE");
     const scale = Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
     const width = Math.max(1, Math.round(bitmap.width * scale));
     const height = Math.max(1, Math.round(bitmap.height * scale));
@@ -506,7 +506,15 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     try {
       setDraftProfileLogo(await prepareProfileLogo(file));
     } catch (error) {
-      setProfileFeedback({ type: "error", message: error instanceof Error ? error.message : "تعذر تجهيز الشعار." });
+      const code = error instanceof Error ? error.message : "";
+      const messages: Record<string, [string, string]> = {
+        LOGO_TYPE: ["يرجى اختيار صورة PNG أو JPG أو WebP.", "Please choose a PNG, JPG or WebP image."],
+        LOGO_SIZE: ["حجم الصورة يجب ألا يتجاوز 5 ميجابايت.", "The image must not exceed 5 MB."],
+        LOGO_DIMENSIONS: ["أبعاد الصورة كبيرة جدًا.", "The image dimensions are too large."],
+        LOGO_PREPARE: ["تعذر تجهيز الصورة.", "Could not prepare the image."]
+      };
+      const [ar, en] = messages[code] ?? ["تعذر تجهيز الشعار.", "Could not prepare the logo."];
+      setProfileFeedback({ type: "error", message: t(ar, en) });
     } finally {
       if (profileLogoInputRef.current) profileLogoInputRef.current.value = "";
     }

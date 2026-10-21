@@ -289,8 +289,8 @@ export default function AutomationsView({
       {
         id: "route-new",
         icon: "↗",
-        title: "توزيع المحادثات الجديدة",
-        description: "حوّل أي محادثة غير مسندة إلى فريقك مباشرة.",
+        title: t("توزيع المحادثات الجديدة", "Route new conversations"),
+        description: t("حوّل أي محادثة غير مسندة إلى فريقك مباشرة.", "Send any unassigned conversation straight to your team."),
         form: { ...emptyForm, name: "توزيع المحادثات الجديدة", description: "إسناد المحادثات غير المسندة للفريق تلقائيًا", trigger: "تم فتح محادثة", conditions: [{ field: "حالة المحادثة", operator: "يساوي", value: "غير مسندة" }], actions: [{ type: "إسناد إلى فريق", target: firstTeam }] },
         available: teams.length > 0,
         requirement: t("أنشئ فريقًا أولًا", "Create a team first")
@@ -298,8 +298,8 @@ export default function AutomationsView({
       {
         id: "tag-keyword",
         icon: "◇",
-        title: "وسم حسب كلمة مفتاحية",
-        description: "أضف وسمًا عندما يكتب العميل كلمة تحددها.",
+        title: t("وسم حسب كلمة مفتاحية", "Tag by keyword"),
+        description: t("أضف وسمًا عندما يكتب العميل كلمة تحددها.", "Add a tag when the customer writes a word you choose."),
         form: { ...emptyForm, name: "تصنيف العملاء تلقائيًا", description: "إضافة وسم حسب محتوى الرسالة", trigger: "تم إنشاء رسالة", conditions: [{ field: "الرسالة تحتوي على", operator: "يحتوي", value: "سعر" }], actions: [{ type: "إضافة وسم", target: firstTag }] },
         available: tags.length > 0,
         requirement: t("أنشئ وسمًا أولًا", "Create a tag first")
@@ -307,8 +307,8 @@ export default function AutomationsView({
       {
         id: "send-template",
         icon: "✉",
-        title: "إرسال رد جاهز",
-        description: "أرسل قالبًا مناسبًا فور وصول سؤال متكرر.",
+        title: t("إرسال رد جاهز", "Send a ready reply"),
+        description: t("أرسل قالبًا مناسبًا فور وصول سؤال متكرر.", "Send a suitable template as soon as a common question arrives."),
         form: { ...emptyForm, name: "الرد على الأسئلة المتكررة", description: "إرسال قالب تلقائي حسب رسالة العميل", trigger: "رد العميل", conditions: [{ field: "الرسالة تحتوي على", operator: "يحتوي", value: "الأسعار" }], actions: [{ type: "إرسال قالب", target: firstTemplate }] },
         available: templates.length > 0,
         requirement: t("أنشئ قالبًا أولًا", "Create a template first")
@@ -316,8 +316,8 @@ export default function AutomationsView({
       {
         id: "close-thanks",
         icon: "✓",
-        title: "إغلاق المحادثة المكتملة",
-        description: "أغلق المحادثة بعد تأكيد العميل انتهاء الطلب.",
+        title: t("إغلاق المحادثة المكتملة", "Close finished conversations"),
+        description: t("أغلق المحادثة بعد تأكيد العميل انتهاء الطلب.", "Close the conversation after the customer confirms the request is done."),
         form: { ...emptyForm, name: "إغلاق المحادثة المكتملة", description: "إغلاق المحادثة بعد رسالة الشكر", trigger: "رد العميل", conditions: [{ field: "الرسالة تحتوي على", operator: "يحتوي", value: "شكراً" }], actions: [{ type: "إغلاق المحادثة", target: "لا يحتاج اختيار" }] }
       }
     ];
