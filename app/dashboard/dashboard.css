@@ -8389,6 +8389,11 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   background: var(--brand-950);
   flex-wrap: wrap;
 }
+/* English layout: the sidebar is on the left, so the top links bar sits at the right end. */
+.dashboard-shell.lang-en .dashboard-top-links {
+  align-self: end;
+  margin: 0 20px 0 0;
+}
 .dashboard-top-links .sidebar-billing-link {
   position: relative;
   display: inline-flex;
