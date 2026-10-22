@@ -5,6 +5,7 @@ import { useLanguage } from "../i18n";
 import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
 import CustomSelect from "../../components/CustomSelect";
 import DiscountCodesPanel from "../components/DiscountCodesPanel";
+import LoyaltyPanel from "../components/LoyaltyPanel";
 import ShippingPanel from "../components/ShippingPanel";
 import PaymentProvidersPanel from "../components/PaymentProvidersPanel";
 import { orderMatchesQuery, shortOrderNumber } from "../../../lib/order-number";
@@ -88,7 +89,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; d
 
 export default function CatalogView() {
   const { t } = useLanguage();
-  const [tab, setTab] = useState<"products" | "orders" | "shipping" | "discounts" | "settings">("products");
+  const [tab, setTab] = useState<"products" | "orders" | "shipping" | "discounts" | "loyalty" | "settings">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
@@ -350,6 +351,7 @@ export default function CatalogView() {
             <button className={tab === "orders" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("orders")}>{t("الطلبات", "Orders")} ({orders.length})</button>
             <button className={tab === "shipping" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("shipping")}>{t("الشحن", "Shipping")}</button>
             <button className={tab === "discounts" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("discounts")}>{t("أكواد الخصم", "Discount codes")}</button>
+            <button className={tab === "loyalty" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("loyalty")}>{t("الولاء", "Loyalty")}</button>
             <button className={tab === "settings" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("settings")}>{t("الدفع والمزامنة", "Payment & sync")}</button>
           </div>
         </div>
@@ -460,6 +462,8 @@ export default function CatalogView() {
       {tab === "shipping" ? <ShippingPanel /> : null}
 
       {tab === "discounts" ? <DiscountCodesPanel zidConnected={Boolean(settings?.zidConnected)} /> : null}
+
+      {tab === "loyalty" ? <LoyaltyPanel /> : null}
 
       {tab === "settings" ? (
         <div className="catalog-settings">

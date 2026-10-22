@@ -5,6 +5,7 @@ import { getOrderDiscounts } from "./catalog-discounts";
 import { getOrderShipping, type OrderShipping } from "./catalog-shipping";
 import { sendWhatsAppTextMessage } from "./whatsapp-send";
 import { shortOrderNumber } from "./order-number";
+import { loyaltyMessageFor, recordPaidOrderForLoyalty } from "./loyalty";
 
 /**
  * Payments for catalog orders go through the MERCHANT'S OWN Moyasar
@@ -266,6 +267,21 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
       } catch (error) {
         console.error("Order receipt PDF failed", error);
       }
+    }
+  }
+
+  // Loyalty: this paid WhatsApp order counts toward the customer's reward. Best-effort, after everything above.
+  if (next === "paid") {
+    try {
+      const loyaltyOrder = { id: order.id, tenantId: order.tenantId, customerName: order.customerName, customerPhone: order.customerPhone, paymentId: order.paymentId, conversationId: order.conversationId };
+      const outcome = await recordPaidOrderForLoyalty(loyaltyOrder);
+      const text = await loyaltyMessageFor(loyaltyOrder, outcome);
+      if (text && order.conversationId) {
+        const conversation = await prisma.conversation.findUnique({ where: { id: order.conversationId }, include: { customer: true } });
+        if (conversation) await sendWhatsAppTextMessage({ tenantId: order.tenantId, conversationId: order.conversationId, to: conversation.customer.phone, text, author: "الرد الآلي" });
+      }
+    } catch (error) {
+      console.error("Loyalty notification failed", error);
     }
   }
 

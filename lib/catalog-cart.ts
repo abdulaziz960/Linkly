@@ -6,6 +6,7 @@ import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
 import { getProduct, isProductAvailable, type CatalogProduct } from "./catalog";
 import { evaluateDiscount, findDiscountByCode, getCartCode, normalizeCode, setCartCode } from "./catalog-discounts";
+import { loyaltyCodeBelongsToOther } from "./loyalty";
 
 export const MAX_UNITS_PER_LINE = 99;
 export const MAX_CART_LINES = 20;
@@ -179,6 +180,9 @@ export async function applyDiscountCode(tenantId: string, conversationId: string
   if (!cart.lines.length) return { ok: false, reason: "سلتك فارغة، أضف منتجًا أولًا" };
   const found = await findDiscountByCode(tenantId, code);
   if (!found) return { ok: false, reason: "هذا الكود غير صحيح" };
+  // A loyalty code is personal: only the customer it was made for can use it.
+  const owner = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, select: { customer: { select: { phone: true } } } });
+  if (owner && (await loyaltyCodeBelongsToOther(tenantId, found.code, owner.customer.phone))) return { ok: false, reason: "هذا الكود خاص بعميل آخر" };
   const check = evaluateDiscount(found, cart.subtotal);
   if (!check.ok) return check;
   await setCartCode(tenantId, conversationId, found.code);

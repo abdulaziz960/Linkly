@@ -96,6 +96,46 @@ export const CATALOG_SCHEMA_STATEMENTS = [
   )`,
   // Delivery options the merchant offers: a shipping company (or the merchant's own delivery), its price, an optional
   // free-shipping threshold, an estimate and the cities it serves ('[]' = every city).
+  // Loyalty for orders placed and paid in WhatsApp: the program, each customer's progress, the orders already counted and the rewards given.
+  `CREATE TABLE IF NOT EXISTS loyalty_settings (
+    tenant_id TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    goal INTEGER NOT NULL DEFAULT 4,
+    reward_kind TEXT NOT NULL DEFAULT 'percent',
+    reward_value DOUBLE PRECISION NOT NULL DEFAULT 20,
+    product_id TEXT NOT NULL DEFAULT '',
+    valid_days INTEGER NOT NULL DEFAULT 30,
+    notify_progress INTEGER NOT NULL DEFAULT 1,
+    progress_text TEXT NOT NULL DEFAULT '',
+    reward_text TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT ''
+  )`,
+  `CREATE TABLE IF NOT EXISTS loyalty_progress (
+    tenant_id TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    orders_in_cycle INTEGER NOT NULL DEFAULT 0,
+    total_orders INTEGER NOT NULL DEFAULT 0,
+    rewards_given INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (tenant_id, phone)
+  )`,
+  `CREATE TABLE IF NOT EXISTS loyalty_counted_orders (
+    order_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    counted_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS loyalty_rewards (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    code TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    expires_at TEXT NOT NULL DEFAULT '',
+    order_id TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS loyalty_rewards_tenant_idx ON loyalty_rewards(tenant_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS catalog_shipping_methods (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,

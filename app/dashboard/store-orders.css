@@ -314,3 +314,87 @@
   gap: 2px;
   font-size: 13px;
 }
+
+/* Loyalty program (components/LoyaltyPanel.tsx). */
+.loyalty-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.loyalty-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.loyalty-card h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.loyalty-card label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.loyalty-card input:not([type="checkbox"]),
+.loyalty-card select,
+.loyalty-card textarea {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+}
+
+.loyalty-card textarea {
+  min-height: 84px;
+}
+
+.loyalty-card .loyalty-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.loyalty-card input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.loyalty-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.loyalty-table {
+  display: grid;
+  gap: 8px;
+}
+
+.loyalty-table > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .loyalty-grid,
+  .loyalty-table > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
