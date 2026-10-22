@@ -45,7 +45,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   const limit = await consumeRateLimit("store-shipment", requestIdentifier(request, user.id), 30, 10 * 60 * 1000);
   if (!limit.allowed) return jsonError("محاولات كثيرة. حاول مرة أخرى بعد قليل", 429);
 
-  const body = (await request.json().catch(() => null)) as { courierId?: string; branchId?: string; paymentMethod?: string; shipTo?: Partial<Record<keyof ShipTo, string>>; packages?: ShipmentPackage[]; reference?: string } | null;
+  const body = (await request.json().catch(() => null)) as { courierId?: string; branchId?: string; paymentMethod?: string; shipTo?: Partial<Record<keyof ShipTo, string>>; packages?: ShipmentPackage[]; reference?: string; replaceExisting?: boolean } | null;
   const courierId = String(body?.courierId ?? "").trim();
   if (!/^\d+$/.test(courierId)) return jsonError("اختر شركة الشحن");
   if (!/^[A-Za-z0-9_-]+$/.test(id)) return jsonError("رقم الطلب غير صالح");
@@ -63,7 +63,13 @@ export async function POST(request: NextRequest, { params }: Params) {
   }));
   if (!packages.length) return jsonError("لا توجد منتجات في الشحنة");
 
-  const payload = buildShipmentPayload({ courierId, orderId: id, paymentMethod, shipTo, packages, branchId: body?.branchId && /^\d+$/.test(body.branchId) ? body.branchId : undefined });
+  // A shipment that already has a tracking number is live with a carrier; only an explicit confirmation may create another.
+  if (body?.replaceExisting !== true) {
+    const current = await prepareSallaShipment(user.tenantId, id);
+    if (current.draft?.existing?.trackingNumber) return jsonError("هذا الطلب فيه شحنة منشأة برقم تتبع. أكّد إنشاء شحنة جديدة من النموذج إن كنت تريد ذلك.", 409);
+  }
+
+  const payload = buildShipmentPayload({ courierId, orderId: id, paymentMethod, shipTo, packages, branchId: body?.branchId && /^\d+$/.test(body.branchId) ? body.branchId : undefined, overwritePending: body?.replaceExisting === true });
   const result = await createSallaShipment(user.tenantId, payload);
   if (!result.ok) return jsonError(result.error, result.status >= 500 ? 502 : 400);
 

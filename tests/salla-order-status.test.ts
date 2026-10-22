@@ -64,3 +64,17 @@ describe("salla shipments", () => {
     expect(parseSallaBranches({ data: [{ id: 3, name: "الرياض" }] })).toEqual([{ id: "3", name: "الرياض" }]);
   });
 });
+
+describe("salla shipment duplicates", () => {
+  it("flags an order that already has a shipment", () => {
+    const withShipment = buildShipmentDraft({ id: 5, shipments: [{ tracking_number: "TRK1", courier_name: "أرامكس" }], items: [] });
+    expect(withShipment?.existing).toEqual({ company: "أرامكس", trackingNumber: "TRK1", trackingUrl: "" });
+    expect(buildShipmentDraft({ id: 6, items: [] })?.existing).toBeNull();
+  });
+
+  it("asks Salla to overwrite a pending shipment only when told to", () => {
+    const base = { courierId: "1", orderId: "5", paymentMethod: "cod" as const, shipTo: buildShipmentDraft({ id: 5, items: [] })!.shipTo, packages: [] };
+    expect(buildShipmentPayload(base)).not.toHaveProperty("overwrite_exists_pending");
+    expect(buildShipmentPayload({ ...base, overwritePending: true })).toMatchObject({ overwrite_exists_pending: true });
+  });
+});

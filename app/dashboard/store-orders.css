@@ -156,3 +156,32 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.shipment-existing {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+}
+
+.shipment-existing .shipment-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.shipment-existing .shipment-confirm input {
+  min-height: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.store-order-ship {
+  color: #0f766e;
+  font-weight: 700;
+}

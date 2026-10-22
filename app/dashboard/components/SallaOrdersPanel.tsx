@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import SallaShipmentForm from "./SallaShipmentForm";
 
-type Order = { id: string; reference: string; statusSlug: string; statusLabel: string; customerName: string; customerPhone: string; total: number; currency: string };
+type Order = { id: string; reference: string; statusSlug: string; statusLabel: string; customerName: string; customerPhone: string; total: number; currency: string; trackingNumber?: string; shippingCompany?: string };
 type Status = { slug: string; label: string };
 
 /** Recent Salla orders with a status switcher; Salla then notifies the customer on WhatsApp through the order notifications. */
@@ -85,6 +85,7 @@ export default function SallaOrdersPanel() {
               <b dir="ltr">#{order.reference}</b>
               <span>{order.customerName || t("عميل", "Customer")}{order.customerPhone ? ` · ${order.customerPhone}` : ""}</span>
               <small>{order.total ? `${order.total.toLocaleString("en-US")} ${order.currency}` : ""}</small>
+              {order.shippingCompany || order.trackingNumber ? <small className="store-order-ship">🚚 {order.shippingCompany}{order.trackingNumber ? ` · ${order.trackingNumber}` : ""}</small> : null}
             </div>
             <span className="store-order-status">{order.statusLabel || order.statusSlug}</span>
             <div className="store-order-actions">

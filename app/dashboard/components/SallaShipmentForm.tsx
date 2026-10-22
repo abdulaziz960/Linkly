@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 
 type ShipTo = Record<"name" | "email" | "phone" | "country" | "city" | "address_line" | "street_number" | "block" | "short_address" | "building_number" | "additional_number" | "postal_code" | "lat" | "lng", string>;
-type Draft = { orderId: string; reference: string; paymentMethod: "cod" | "pre_paid"; shipTo: ShipTo; packages: Array<{ name: string; sku: string; price: number; quantity: number; weight: number }>; missing: Array<keyof ShipTo> };
+type Draft = { orderId: string; reference: string; paymentMethod: "cod" | "pre_paid"; shipTo: ShipTo; packages: Array<{ name: string; sku: string; price: number; quantity: number; weight: number }>; missing: Array<keyof ShipTo>; existing: { company: string; trackingNumber: string; trackingUrl: string } | null };
 type Company = { id: string; name: string; type: string };
 type Branch = { id: string; name: string };
 type Created = { id: string; trackingNumber: string; trackingUrl: string; status: string };
@@ -22,6 +22,7 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
+  const [replace, setReplace] = useState(false);
 
   const labels: Record<keyof ShipTo, string> = {
     name: t("اسم المستلم", "Recipient name"),
@@ -72,7 +73,7 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
       const response = await fetch(`/api/store-integrations/salla/orders/${encodeURIComponent(orderId)}/shipment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ courierId, branchId, paymentMethod: payment, shipTo, packages: draft.packages, reference })
+        body: JSON.stringify({ courierId, branchId, paymentMethod: payment, shipTo, packages: draft.packages, reference, replaceExisting: replace })
       });
       const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; data?: Created } | null;
       if (!response.ok || !result?.ok) {
@@ -103,6 +104,17 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
       {!draft && !error ? <span>{t("جارٍ تجهيز الشحنة...", "Preparing the shipment...")}</span> : null}
       {draft && shipTo ? (
         <>
+          {draft.existing ? (
+            <div className="shipment-existing">
+              <b>{t("هذا الطلب فيه شحنة منشأة بالفعل.", "This order already has a shipment.")}</b>
+              <span>{draft.existing.company ? `${t("الشركة:", "Company:")} ${draft.existing.company}` : ""}{draft.existing.trackingNumber ? ` · ${t("رقم التتبع:", "Tracking:")} ${draft.existing.trackingNumber}` : ` · ${t("بدون رقم تتبع بعد (معلّقة)", "no tracking number yet (pending)")}`}</span>
+              {draft.existing.trackingUrl ? <a href={draft.existing.trackingUrl} target="_blank" rel="noopener noreferrer">{t("رابط التتبع", "Tracking link")} ↗</a> : null}
+              <label className="shipment-confirm">
+                <input type="checkbox" checked={replace} onChange={(event) => setReplace(event.target.checked)} />
+                {draft.existing.trackingNumber ? t("أريد إنشاء شحنة جديدة رغم وجود هذه (قد تتكرر رسوم الشحن)", "Create a new shipment anyway (shipping may be charged twice)") : t("أريد استبدال الشحنة المعلّقة بشحنة جديدة", "Replace the pending shipment with a new one")}
+              </label>
+            </div>
+          ) : null}
           <label>
             {t("شركة الشحن (المفعّلة في متجرك)", "Shipping company (activated in your store)")}
             <select value={courierId} onChange={(event) => setCourierId(event.target.value)}>
@@ -145,7 +157,7 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
       ) : null}
       {error ? <span className="store-orders-error">{error}</span> : null}
       <div className="store-order-actions">
-        <button type="button" className="primary-action" disabled={busy || !draft || !courierId} onClick={() => void submit()}>{busy ? t("جارٍ الإرسال...", "Sending...") : t("إنشاء الشحنة", "Create shipment")}</button>
+        <button type="button" className="primary-action" disabled={busy || !draft || !courierId || Boolean(draft.existing && !replace)} onClick={() => void submit()}>{busy ? t("جارٍ الإرسال...", "Sending...") : t("إنشاء الشحنة", "Create shipment")}</button>
         <button type="button" className="soft-action" disabled={busy} onClick={onClose}>{t("إلغاء", "Cancel")}</button>
       </div>
     </div>

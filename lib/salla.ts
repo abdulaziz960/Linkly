@@ -351,6 +351,8 @@ export type ShipmentDraft = {
   packages: ShipmentPackage[];
   /** Required ship_to fields that the order did not carry; the employee fills them before sending. */
   missing: Array<keyof ShipTo>;
+  /** A shipment the order already has (company and/or tracking); creating another would duplicate it. */
+  existing: { company: string; trackingNumber: string; trackingUrl: string } | null;
 };
 
 const REQUIRED_SHIP_TO: Array<keyof ShipTo> = ["name", "email", "phone", "country", "city", "address_line", "street_number", "block", "short_address", "building_number", "additional_number", "postal_code"];
@@ -395,9 +397,14 @@ export function buildShipmentDraft(raw: unknown): ShipmentDraft | null {
       weight: num(entry.weight) || 1
     };
   });
+  const summary = normalizeSallaOrder(raw);
+  const existing = summary && (summary.trackingNumber || summary.shippingCompany || summary.trackingUrl)
+    ? { company: summary.shippingCompany, trackingNumber: summary.trackingNumber, trackingUrl: summary.trackingUrl }
+    : null;
   return {
     orderId: id,
     reference: str(order.reference_id) || id,
+    existing,
     paymentMethod: str(order.payment_method).toLowerCase() === "cod" ? "cod" : "pre_paid",
     shipTo,
     packages,
@@ -406,7 +413,7 @@ export function buildShipmentDraft(raw: unknown): ShipmentDraft | null {
 }
 
 /** Pure: the POST /shipments body from a draft the employee confirmed. */
-export function buildShipmentPayload(input: { courierId: string; orderId: string; paymentMethod: "cod" | "pre_paid"; shipTo: ShipTo; packages: ShipmentPackage[]; branchId?: string }): Record<string, unknown> {
+export function buildShipmentPayload(input: { courierId: string; orderId: string; paymentMethod: "cod" | "pre_paid"; shipTo: ShipTo; packages: ShipmentPackage[]; branchId?: string; overwritePending?: boolean }): Record<string, unknown> {
   const { shipTo } = input;
   const lat = Number(shipTo.lat);
   const lng = Number(shipTo.lng);
@@ -415,6 +422,7 @@ export function buildShipmentPayload(input: { courierId: string; orderId: string
     shipment_type: "shipment",
     payment_method: input.paymentMethod,
     order_id: Number(input.orderId) || input.orderId,
+    ...(input.overwritePending ? { overwrite_exists_pending: true } : {}),
     packages: input.packages.map((item) => ({ name: item.name, sku: item.sku, price: item.price, quantity: item.quantity, weight: item.weight })),
     ship_from: input.branchId ? { type: "branch", branch_id: Number(input.branchId) || input.branchId } : { type: "branch" },
     ship_to: {
