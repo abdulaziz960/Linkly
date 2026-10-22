@@ -12057,3 +12057,13 @@ html[dir="ltr"] .notification-bell-panel {
 .wa-card .wa-card-actions > * {
   flex: 0 0 auto;
 }
+
+.wa-card.wa-card-wide {
+  grid-column: 1 / -1;
+}
+
+.wa-card .wa-card-note {
+  font-size: 13px;
+  line-height: 1.8;
+  opacity: 0.8;
+}

@@ -7,6 +7,7 @@ import { useLanguage } from "../i18n";
 import { usePlanAccess } from "../plan-access-context";
 import WhatsAppDisplayName from "../components/WhatsAppDisplayName";
 import BusinessVerificationCard from "../components/BusinessVerificationCard";
+import WhatsAppPaymentCard from "../components/WhatsAppPaymentCard";
 import { isValidChannelKey, type ChannelKey } from "../../../lib/channel-catalog";
 import { channelNames } from "../../channel-names";
 
@@ -2020,7 +2021,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               {t("رقم واتساب", "WhatsApp number")}
               <input dir="ltr" value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} readOnly={isWhatsApp} placeholder={t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete")} />
             </label> : null}
-            {isWhatsApp && settings.status === "connected" ? <div className="wa-card-grid"><WhatsAppDisplayName /><BusinessVerificationCard /></div> : null}
+            {isWhatsApp && settings.status === "connected" ? <div className="wa-card-grid"><WhatsAppDisplayName /><BusinessVerificationCard /><WhatsAppPaymentCard /></div> : null}
             <label>
               {t("حالة الربط", "Connection status")}
               <div className={`connection-status-box ${settings.status}`}>
