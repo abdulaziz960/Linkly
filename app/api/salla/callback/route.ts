@@ -26,7 +26,13 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code") || "";
   if (!state || state.tenantId !== user.tenantId) return closeWith(request, "تعذر التحقق من طلب الربط. حاول مرة أخرى.");
   if (user.role !== "مالك الحساب") return closeWith(request, "ربط المتجر متاح لمالك الحساب فقط.");
-  if (!code) return closeWith(request, "لم تتم الموافقة على الربط.");
+  if (!code) {
+    // Salla answers with error / error_description when it refuses (for example a scope that is not enabled for the app).
+    const reason = [request.nextUrl.searchParams.get("error"), request.nextUrl.searchParams.get("error_description")].filter(Boolean).join(": ").slice(0, 200);
+    console.error("Salla authorization refused", { reason });
+    const hint = /scope/i.test(reason) ? " فعّل الصلاحيات المطلوبة في صفحة تطبيق سلة وتأكد أن SALLA_SCOPES يطابقها." : "";
+    return closeWith(request, reason ? `رفضت سلة الربط (${reason}).${hint}` : "لم تتم الموافقة على الربط.");
+  }
 
   const tokens = await exchangeSallaCode(code, `${getAppOrigin(request)}/api/salla/callback`);
   if ("error" in tokens) return closeWith(request, tokens.error);
