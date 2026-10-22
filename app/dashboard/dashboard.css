@@ -11995,6 +11995,7 @@ html[dir="ltr"] .notification-bell-panel {
   outline: 2px solid #1d4ed8;
   outline-offset: 2px;
   border-radius: 3px;
+}
 
 /* WhatsApp channel settings: display name and business verification cards sit side by side. */
 .wa-card-grid {
