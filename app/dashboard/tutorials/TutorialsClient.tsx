@@ -51,21 +51,28 @@ const copy = {
 
 const normalize = (value: string) => value.normalize("NFKD").replace(/[\u064B-\u065F\u0670ـ]/g, "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").toLowerCase();
 
-export default function TutorialsClient() {
+export default function TutorialsClient({ allowedViews }: { allowedViews?: string[] }) {
   const [lang] = useStoredLanguage("ar");
   const text = copy[lang];
   useEffect(() => {
     document.title = lang === "en" ? "Tutorials center | Linkly" : "مركز الشروحات | Linkly";
   }, [lang]);
   const en = lang === "en";
-  const guides = (en ? guidesEn : guidesAr) as unknown as typeof guidesAr;
-  const categories = [ALL, ...new Set(guidesAr.map((guide) => guide.category))];
+  // Employees only see the guides for sections they can open; the owner (and anyone with every view) sees all of them.
+  const visible = (guide: { id: string }) => {
+    if (!allowedViews) return true;
+    const view = guidesAr.find((item) => item.id === guide.id)?.view;
+    return !view || allowedViews.includes(view);
+  };
+  const guidesAll = guidesAr.filter(visible) as typeof guidesAr;
+  const guides = ((en ? guidesEn : guidesAr) as unknown as typeof guidesAr).filter(visible);
+  const categories = [ALL, ...new Set(guidesAll.map((guide) => guide.category))];
   // The category as shown in the UI language (the Arabic one is the filter key).
   const categoryLabel = (guideId: string) => guides.find((guide) => guide.id === guideId)?.category ?? "";
-  const keyOf = (guideId: string) => guidesAr.find((guide) => guide.id === guideId)?.category ?? "";
+  const keyOf = (guideId: string) => guidesAll.find((guide) => guide.id === guideId)?.category ?? "";
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState(ALL);
-  const [activeId, setActiveId] = useState(guidesAr[0].id);
+  const [activeId, setActiveId] = useState(guidesAll[0]?.id ?? "");
   const [videoError, setVideoError] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [playerNotice, setPlayerNotice] = useState("");
@@ -124,7 +131,7 @@ export default function TutorialsClient() {
       <div className="tutorials-instructions"><span className="tutorials-eyebrow tutorials-phrase-list"><span>{active.category}</span><span>{meta.duration} {text.seconds}</span></span><p>{active.description}</p><details key={active.id} className="tutorials-step-details"><summary>{text.steps} <span>{text.stepsCount(active.steps.length)}</span></summary><ol>{active.steps.map((step, index) => <li key={step.title} className={index === currentStep ? "is-current" : ""}><button type="button" onClick={() => seek(index)} aria-label={text.goStep(index + 1, step.title)} aria-current={index === currentStep ? "step" : undefined}><span>{index + 1}</span><b>{step.title}</b></button><p>{step.body}</p></li>)}</ol></details>{codeExample ? <pre className="tutorials-code" dir="ltr"><code>{codeExample}</code></pre> : null}<Link className="tutorials-primary" href={`/dashboard?view=${meta.view}`}>{text.openSetup} <span aria-hidden="true">{en ? "→" : "←"}</span></Link><small>{text.permissionsNote}</small></div>
     </section></dialog>
     <section id="tutorial-library" className="tutorials-library" aria-labelledby="library-title"><div className="tutorials-library-heading"><div><span className="tutorials-eyebrow">{text.library}</span><h2 id="library-title">{text.whatToLearn}</h2></div><label className="tutorials-search"><span>{text.search}</span><input type="search" placeholder={text.searchPlaceholder} value={query} onChange={(event) => setQuery(event.target.value)} /></label></div>
-      <label className="tutorials-category-filter"><span>{text.browse}</span><span className="tutorials-category-select"><select value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((item) => <option key={item} value={item}>{item === ALL ? text.allGuides : categoryLabel(guidesAr.find((guide) => guide.category === item)?.id ?? "")}</option>)}</select><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></span></label>
+      <label className="tutorials-category-filter"><span>{text.browse}</span><span className="tutorials-category-select"><select value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((item) => <option key={item} value={item}>{item === ALL ? text.allGuides : categoryLabel(guidesAll.find((guide) => guide.category === item)?.id ?? "")}</option>)}</select><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></span></label>
       <p className="tutorials-result-count" role="status">{text.count(filtered.length)}</p>
       <div className="tutorials-grid">{filtered.map((guide, index) => <button type="button" key={guide.id} className={`tutorials-card ${active.id === guide.id ? "is-selected" : ""}`} aria-haspopup="dialog" aria-pressed={active.id === guide.id} onClick={() => selectGuide(guide)}><div className={`tutorials-card-art tone-${index % 3}`}><Image src={`/tutorials/${guide.id}${hasEnglishVideo(guide as { duration?: number }) ? ".en" : ""}.jpg?v=fullscreen4`} alt="" fill sizes="(max-width: 560px) 100vw, (max-width: 850px) 50vw, 33vw" unoptimized /><span>{guide.category}</span><i aria-hidden="true">▶</i><small>{(hasEnglishVideo(guide as { duration?: number }) ? (guide as { duration?: number }).duration : guidesAr.find((item) => item.id === guide.id)?.duration)} {text.seconds}</small></div><div className="tutorials-card-copy"><h3>{guide.title}</h3><p>{guide.description}</p><span>{active.id === guide.id ? text.selected : text.watch} <span aria-hidden="true">{en ? "→" : "←"}</span></span></div></button>)}</div>
       {filtered.length === 0 ? <div className="tutorials-empty"><h3>{text.emptyTitle}</h3><p>{text.emptyText}</p><button type="button" onClick={() => { setQuery(""); setCategory(ALL); }}>{text.showAll}</button></div> : null}

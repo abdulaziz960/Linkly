@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
-import { prisma } from "../../../../../lib/prisma";
+import { canAccessConversation } from "../../../../../lib/permissions-server";
 import { ensureTikTokThumbnail, getAdSource } from "../../../../../lib/ad-source";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
@@ -11,8 +11,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
   const { id } = await params;
-  const owned = await prisma.conversation.findFirst({ where: { id, tenantId: user.tenantId }, select: { id: true } });
-  if (!owned) return jsonError("المحادثة غير موجودة", 404);
+  if (!(await canAccessConversation(user, id))) return jsonError("المحادثة غير موجودة", 404);
   const stored = await getAdSource(user.tenantId, id);
   const source = stored ? await ensureTikTokThumbnail(user.tenantId, id, stored) : null;
   // The raw payload is for diagnosis only and is not sent to the browser.

@@ -259,7 +259,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .dashboard-sidebar {
   grid-column: 2;
   grid-row: 2;
-  direction: inherit;
+  direction: rtl;
   position: sticky;
   top: var(--top-banners-h, 0px);
   display: flex;
@@ -611,7 +611,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .dashboard-main {
   grid-column: 1;
   grid-row: 2;
-  direction: inherit;
+  direction: rtl;
   min-width: 0;
 }
 
@@ -776,7 +776,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border-radius: 8px;
   background: var(--surface);
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
-  direction: inherit;
+  direction: rtl;
 }
 
 .conversation-context-menu b {
@@ -1172,7 +1172,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border-radius: 22px;
   background: var(--surface);
   box-shadow: 0 28px 80px rgba(15, 23, 42, 0.24);
-  direction: inherit;
+  direction: rtl;
 }
 
 .account-modal .modal-head {
@@ -1430,7 +1430,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .template-editor select {
-  direction: inherit;
+  direction: rtl;
   padding-left: 36px;
   background-color: var(--surface-soft);
 }
@@ -3828,7 +3828,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  direction: inherit;
+  direction: rtl;
   text-align: start;
   resize: vertical;
 }
@@ -4900,7 +4900,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .balance-metric {
-  direction: inherit;
+  direction: rtl;
   min-height: 120px;
   display: grid;
   place-items: center;
@@ -4967,7 +4967,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 }
 
 .transactions-toolbar > * {
-  direction: inherit;
+  direction: rtl;
 }
 
 .transactions-toolbar .btn {
@@ -7788,7 +7788,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   text-align: start;
-  direction: inherit;
+  direction: rtl;
 }
 
 .telegram-steps div {
@@ -8658,7 +8658,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   z-index: 420;
   top: 18px;
   right: calc(var(--dashboard-sidebar-width) + 14px);
-  direction: inherit;
+  direction: rtl;
   width: min(310px, calc(100vw - 116px));
   padding: 12px;
   border: 1px solid #9fc9c3;
@@ -8759,7 +8759,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border-radius: 9px;
   background: #123330;
   color: #f3faf9;
-  direction: inherit;
+  direction: rtl;
   box-shadow: 0 8px 24px rgba(10, 30, 28, 0.2);
   font-size: 12px;
   font-weight: 700;
@@ -11496,7 +11496,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
   border: 1px solid var(--line);
   border-radius: 14px;
   box-shadow: var(--shadow);
-  direction: inherit;
+  direction: rtl;
 }
 
 .notification-bell-panel-head {
@@ -11960,3 +11960,17 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .carousel-preview-card { flex: 0 0 120px; border-radius: 10px; background: #fff; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.12); font-size: 11px; }
 .carousel-preview-card img, .carousel-preview-card .template-media { width: 100%; height: 76px; object-fit: cover; }
 .carousel-preview-card p { margin: 0; padding: 6px 8px; color: #333; line-height: 1.5; }
+
+/* Arabic forces RTL on these (the shell itself is LTR); English flips them back. */
+html[dir="ltr"] .conversation-context-menu,
+html[dir="ltr"] .account-modal,
+html[dir="ltr"] .template-editor select,
+html[dir="ltr"] .off-hours-message-field textarea,
+html[dir="ltr"] .balance-metric,
+html[dir="ltr"] .transactions-toolbar > *,
+html[dir="ltr"] .telegram-steps,
+html[dir="ltr"] .sidebar-search-popover,
+html[dir="ltr"] .sidebar-tooltip-portal,
+html[dir="ltr"] .notification-bell-panel {
+  direction: ltr;
+}

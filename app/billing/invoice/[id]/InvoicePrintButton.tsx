@@ -1,9 +1,9 @@
 "use client";
 
-export default function InvoicePrintButton() {
+export default function InvoicePrintButton({ lang = "ar" }: { lang?: "ar" | "en" }) {
   return (
     <button type="button" onClick={() => window.print()}>
-      تنزيل PDF / طباعة
+      {lang === "en" ? "Download PDF / Print" : "تنزيل PDF / طباعة"}
     </button>
   );
 }

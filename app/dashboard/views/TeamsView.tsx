@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import type { Employee, Team } from "../types";
 import { useLanguage } from "../i18n";
+import { billingLabel } from "../../../lib/billing-labels";
 import CustomSelect from "../../components/CustomSelect";
 
 function routingLabel(routing: string, t: (ar: string, en: string) => string) {
@@ -27,7 +28,7 @@ export default function TeamsView({
   onRefreshData: () => Promise<void>;
   teams: Team[];
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const emptyTeamForm = useMemo<TeamFormState>(
     () => ({
@@ -224,7 +225,7 @@ export default function TeamsView({
                       <b>{employee.name}</b>
                       <span>{employee.email}</span>
                     </div>
-                    <em>{employee.role}</em>
+                    <em>{billingLabel(employee.role, language)}</em>
                   </div>
                 ))}
                 {!membersOpen.memberIds.length ? <p className="muted-copy">{t("لا يوجد أعضاء مضافين لهذا الفريق.", "No members have been added to this team.")}</p> : null}
