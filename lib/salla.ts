@@ -473,24 +473,32 @@ export async function createSallaShipment(tenantId: string, payload: Record<stri
   return { ok: false, status: response.status, error: [message || "رفضت سلة إنشاء الشحنة", detail].filter(Boolean).join(" — ") };
 }
 
+const COUNTRY_CODE_BY_PREFIX: Record<string, string> = { "966": "SA", "971": "AE", "965": "KW", "973": "BH", "968": "OM", "974": "QA", "962": "JO", "20": "EG" };
+
+export type LocationIds = { countryId?: string; cityId?: string; districtId?: string };
+
 /** Pure: the PUT /orders/{id} body that changes the recipient and the delivery address (items and status are not touched). */
-export function buildOrderUpdatePayload(shipTo: ShipTo): Record<string, unknown> {
-  const digits = shipTo.phone.replace(/\D/g, "");
-  const prefix = digits.startsWith("966") ? "966" : "";
-  const local = prefix ? digits.slice(prefix.length) : digits;
+export function buildOrderUpdatePayload(shipTo: ShipTo, ids: LocationIds = {}): Record<string, unknown> {
+  const digits = shipTo.phone.replace(/\D/g, "").replace(/^00/, "");
+  const prefix = Object.keys(COUNTRY_CODE_BY_PREFIX).find((code) => digits.startsWith(code)) ?? "";
   const lat = Number(shipTo.lat);
   const lng = Number(shipTo.lng);
+  const asId = (value?: string) => (value && /^\d+$/.test(value) ? Number(value) : undefined);
+  const country = asId(ids.countryId);
+  const city = asId(ids.cityId);
+  const district = asId(ids.districtId);
   return {
     receiver: {
       name: shipTo.name,
       ...(shipTo.email ? { email: shipTo.email } : {}),
-      ...(local ? { phone: local, country_code: prefix ? `+${prefix}` : undefined } : {})
+      ...(digits ? { phone: digits } : {}),
+      ...(prefix ? { country_code: COUNTRY_CODE_BY_PREFIX[prefix] } : {})
     },
     shipping: {
       ship_to: {
-        country: shipTo.country,
-        city: shipTo.city,
-        district: shipTo.block,
+        ...(country !== undefined ? { country } : {}),
+        ...(city !== undefined ? { city } : {}),
+        ...(district !== undefined ? { district } : {}),
         address_line: shipTo.address_line,
         street_number: shipTo.street_number,
         short_address: shipTo.short_address,
@@ -512,10 +520,10 @@ export async function getSallaOrderDraft(tenantId: string, orderId: string): Pro
 }
 
 /** Changes the recipient and delivery address of an order in Salla. Salla refuses most changes once the order is completed. */
-export async function updateSallaOrderAddress(tenantId: string, orderId: string, shipTo: ShipTo): Promise<{ ok: boolean; status: number; error: string }> {
+export async function updateSallaOrderAddress(tenantId: string, orderId: string, shipTo: ShipTo, ids: LocationIds = {}): Promise<{ ok: boolean; status: number; error: string }> {
   const id = orderId.trim();
   if (!/^[A-Za-z0-9_-]+$/.test(id)) return { ok: false, status: 400, error: "رقم الطلب غير صالح" };
-  const response = await sallaRequest(tenantId, "PUT", `/orders/${encodeURIComponent(id)}`, buildOrderUpdatePayload(shipTo));
+  const response = await sallaRequest(tenantId, "PUT", `/orders/${encodeURIComponent(id)}`, buildOrderUpdatePayload(shipTo, ids));
   if (response.ok) {
     forgetRecentSallaOrders(tenantId);
     return { ok: true, status: response.status, error: "" };
@@ -630,4 +638,31 @@ export async function sallaOrdersForCustomer(tenantId: string, phone: string): P
 /** Forgets the cached orders of a workspace (after the team changed one) so the next view is fresh. */
 export function forgetRecentSallaOrders(tenantId: string): void {
   recentOrdersCache.delete(tenantId);
+}
+
+export type SallaLocation = { id: string; name: string; nameEn: string; code: string };
+
+/** Pure: a countries / cities / districts list into id and names. */
+export function parseSallaLocations(payload: unknown): SallaLocation[] {
+  const data = obj(payload).data;
+  if (!Array.isArray(data)) return [];
+  return data
+    .map((item) => obj(item))
+    .filter((entry) => str(entry.id))
+    .map((entry) => ({ id: str(entry.id), name: str(entry.name) || str(entry.name_ar) || str(entry.name_en), nameEn: str(entry.name_en) || str(entry.name), code: str(entry.code) || str(entry.country_code) || str(entry.iso_code) }));
+}
+
+/** Countries, a country's cities, or a city's districts, all pages (Salla's lists are paginated at 60). */
+export async function listSallaLocations(tenantId: string, kind: "countries" | "cities" | "districts", parent = ""): Promise<{ ok: boolean; status: number; items: SallaLocation[] }> {
+  if (kind !== "countries" && !/^\d+$/.test(parent)) return { ok: false, status: 400, items: [] };
+  const path = kind === "countries" ? "/countries" : kind === "cities" ? `/countries/${parent}/cities` : `/cities/${parent}/districts`;
+  const items: SallaLocation[] = [];
+  for (let page = 1; page <= 15; page += 1) {
+    const response = await sallaGet(tenantId, `${path}?per_page=60&page=${page}`);
+    if (!response.ok) return { ok: false, status: response.status, items: [] };
+    const batch = parseSallaLocations(response.payload);
+    items.push(...batch);
+    if (batch.length < 60) break;
+  }
+  return { ok: true, status: 200, items };
 }

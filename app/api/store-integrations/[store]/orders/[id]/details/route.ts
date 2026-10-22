@@ -45,13 +45,13 @@ export async function PUT(request: NextRequest, { params }: Params) {
   const limit = await consumeRateLimit("store-order-edit", requestIdentifier(request, user.id), 40, 10 * 60 * 1000);
   if (!limit.allowed) return jsonError("محاولات كثيرة. حاول مرة أخرى بعد قليل", 429);
 
-  const body = (await request.json().catch(() => null)) as { shipTo?: Partial<Record<keyof ShipTo, string>>; reference?: string } | null;
+  const body = (await request.json().catch(() => null)) as { shipTo?: Partial<Record<keyof ShipTo, string>>; reference?: string; countryId?: string; cityId?: string; districtId?: string } | null;
   const shipTo = {} as ShipTo;
   for (const key of SHIP_TO_KEYS) shipTo[key] = String(body?.shipTo?.[key] ?? "").trim().slice(0, 300);
   const missing = (["name", "phone", "country", "city", "address_line"] as Array<keyof ShipTo>).filter((key) => !shipTo[key]);
   if (missing.length) return jsonError(`أكمل البيانات: ${missing.join("، ")}`);
 
-  const result = await updateSallaOrderAddress(user.tenantId, id, shipTo);
+  const result = await updateSallaOrderAddress(user.tenantId, id, shipTo, { countryId: body?.countryId, cityId: body?.cityId, districtId: body?.districtId });
   if (!result.ok) return jsonError(result.error, result.status >= 500 ? 502 : 400);
 
   await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم تعديل عنوان ومستلم طلب سلة ${body?.reference || id} بواسطة ${user.name}.`, "معلومة", "المتجر");

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import SallaLocationFields, { type LocationChoice } from "./SallaLocationFields";
 import { shipToProblems, splitCoordinates } from "../../../lib/salla-ship-to";
 
 type ShipTo = Record<"name" | "email" | "phone" | "country" | "city" | "address_line" | "street_number" | "block" | "short_address" | "building_number" | "additional_number" | "postal_code" | "lat" | "lng", string>;
@@ -152,10 +153,14 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
           </label>
           {draft.missing.length ? <span className="store-orders-error">{t("بعض بيانات العنوان ناقصة في الطلب، أكملها قبل الإرسال.", "Some address details are missing from the order. Fill them in before sending.")}</span> : null}
           <div className="shipment-grid">
-            {(Object.keys(labels) as Array<keyof ShipTo>).map((key) => (
+            <SallaLocationFields
+              current={{ country: shipTo.country, city: shipTo.city, district: shipTo.block }}
+              onChange={(choice: LocationChoice) => setShipTo((value) => (value ? { ...value, country: choice.countryCode || choice.country || value.country, city: choice.city || value.city, block: choice.district || value.block } : value))}
+            />
+            {(Object.keys(labels) as Array<keyof ShipTo>).filter((key) => key !== "country" && key !== "city" && key !== "block").map((key) => (
               <label key={key} className={draft.missing.includes(key) ? "is-missing" : ""}>
                 {labels[key]}
-                <input value={shipTo[key]} dir={key === "name" || key === "address_line" || key === "city" || key === "block" ? undefined : "ltr"} onChange={(event) => {
+                <input value={shipTo[key]} dir={key === "name" || key === "address_line" ? undefined : "ltr"} onChange={(event) => {
                   const pair = key === "lat" || key === "lng" ? splitCoordinates(event.target.value) : null;
                   setShipTo(pair ? { ...shipTo, lat: pair.lat, lng: pair.lng } : { ...shipTo, [key]: event.target.value });
                 }} />
