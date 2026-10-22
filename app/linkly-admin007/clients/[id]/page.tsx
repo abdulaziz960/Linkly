@@ -15,6 +15,7 @@ import { ProfileChannels, ProfileConversations, ProfileTickets, ProfileTimeline,
 import { getAdminActionLogs } from "../../../../lib/admin-audit";
 import { Badge, EmptyState, LinkButton, Section, StatCard } from "../../ds/primitives";
 import { formatNumber, getRenewalAlert } from "../../utils";
+import { formatRenewalDate } from "../clients-data";
 import { LOG_TONE, PAYMENT_TONE, billingSummary, newestFirst } from "./profile-data";
 import { guardPage } from "../../guard";
 
@@ -157,7 +158,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
         <StatCard label="الباقة" value={client.plan} hint={`الدورة: ${client.billingCycle}`} icon="layers" />
         <StatCard
           label="التجديد"
-          value={client.renewalAt || "غير محدد"}
+          value={formatRenewalDate(client.renewalAt, true)}
           hint={renewal?.label || "الحالة طبيعية"}
           icon="calendar"
           tone={renewal ? (renewal.tier === "overdue" ? "danger" : "warning") : "neutral"}

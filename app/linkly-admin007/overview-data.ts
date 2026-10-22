@@ -101,7 +101,7 @@ const monthLabel = (key: number) =>
 
 const renewalTime = (subscription: SubscriptionRow) => {
   if (!subscription.renewalAt) return null;
-  const date = new Date(`${subscription.renewalAt}T00:00:00`);
+  const date = new Date(subscription.renewalAt.includes("T") ? subscription.renewalAt : `${subscription.renewalAt}T00:00:00`);
   return Number.isNaN(date.getTime()) ? null : date.getTime();
 };
 

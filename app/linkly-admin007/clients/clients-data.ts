@@ -58,11 +58,11 @@ export function clientCounts(clients: SubscriptionRow[]) {
   };
 }
 
-/** Renewal/trial-end values are a plain date for paid plans but a full ISO timestamp for trials; show just the date. */
-export function formatRenewalDate(value: string): string {
+/** Renewal/trial-end values are a plain date for paid plans but a full ISO timestamp for trials. */
+export function formatRenewalDate(value: string, withTime = false): string {
   if (!value) return "غير محدد";
   if (!value.includes("T")) return value;
   const time = Date.parse(value);
   if (!Number.isFinite(time)) return value;
-  return new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", { dateStyle: "medium", timeZone: "Asia/Riyadh" }).format(time);
+  return new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", withTime ? { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh" } : { dateStyle: "medium", timeZone: "Asia/Riyadh" }).format(time);
 }

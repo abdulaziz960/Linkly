@@ -46,7 +46,7 @@ export function parseTimestamp(rawValue: string) {
 
 function parseRenewalDate(renewalAt: string) {
   if (!renewalAt) return null;
-  const date = new Date(`${renewalAt}T00:00:00`);
+  const date = new Date(renewalAt.includes("T") ? renewalAt : `${renewalAt}T00:00:00`);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
