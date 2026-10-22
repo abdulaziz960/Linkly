@@ -81,7 +81,11 @@ export default function HeroVideo() {
               <source src={`${BASE}/linkly-hero.mp4`} type="video/mp4" />
             </>
           ) : (
-            <source src={`${BASE}/linkly-hero-sound.mp4`} type="video/mp4" />
+            <>
+              <source src={`${BASE}/linkly-hero-sound.mp4`} type="video/mp4" />
+              {/* Arabic captions of the narration (script and timing from the film project, 14 Oct 2026). */}
+              <track kind="captions" src={`${BASE}/linkly-hero-sound.ar.vtt`} srcLang="ar" label="العربية" default />
+            </>
           )}
         </video>
       ) : (
