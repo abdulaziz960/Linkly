@@ -24,7 +24,8 @@ test("the channels page never shows a connected channel as 'Connect' while statu
   await page.getByRole("navigation").getByRole("button", { name: "الإعدادات والربط", exact: true }).click();
   const whatsappCard = page.locator(".channel-connect-card", { hasText: "واتساب" }).first();
   await expect(whatsappCard.getByRole("button", { name: "جاري التحقق…" })).toBeDisabled();
-  await expect(page.locator(".channel-connect-card button", { hasText: /^ربط$/ })).toHaveCount(0);
+  // Every card waiting on that answer is neutral (Gmail's status comes from its own request, so it may already be known).
+  await expect(page.locator(".channel-connect-card:not(:has-text('جيميل')) button", { hasText: /^ربط$/ })).toHaveCount(0);
 
   release();
   await expect(whatsappCard.getByRole("button", { name: "متصل — إدارة" })).toBeVisible();
