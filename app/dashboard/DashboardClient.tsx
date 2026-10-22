@@ -193,6 +193,9 @@ async function fetchQuickRepliesWithSuggestions() {
   return fetchData<QuickReply[]>("/api/quick-replies");
 }
 
+/** Views whose own header is an H1 (BotView, AutomationsView, CampaignsView, EmailPromotionsView, ReportsView). */
+const VIEWS_WITH_OWN_H1 = new Set<ViewKey>(["bot", "automations", "campaigns", "emailPromotions", "reports"]);
+
 export default function DashboardClient({ initialUser, subscription, invoices, campaignBalance, planAccess }: DashboardClientProps) {
   const router = useRouter();
   const restoredNavigationRef = useRef(false);
@@ -233,6 +236,15 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  // The drawer only exists below the sidebar breakpoint (dashboard.css, max-width: 1180px). Crossing it
+  // (rotating a tablet, resizing a window) closes it, so an open drawer never carries over to a layout
+  // where it is hidden while still locking the page's scroll and trapping focus.
+  useEffect(() => {
+    const drawerLayout = window.matchMedia("(max-width: 1180px)");
+    const onChange = () => setMenuOpen(false);
+    drawerLayout.addEventListener("change", onChange);
+    return () => drawerLayout.removeEventListener("change", onChange);
+  }, []);
   const [profileOpen, setProfileOpen] = useState(false);
   const [language, setLanguage] = useState<"ar" | "en">("ar");
   const t = (ar: string, en: string) => (language === "en" ? en : ar);
@@ -1439,6 +1451,9 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     setProfileOpen(true);
   }
 
+  // The current view's name: the mobile top bar shows it, and it is the page's H1 for views without their own.
+  const currentViewTitle = (activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : (activeView === "ai" || activeView === "knowledgeBase") && allowedViews.includes("ai") && allowedViews.includes("knowledgeBase") ? (language === "en" ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة") : (activeView === "contacts" || activeView === "tags" || activeView === "pipeline") && allowedViews.includes("contacts") && (allowedViews.includes("tags") || allowedViews.includes("pipeline") || lockedViewsForUser.includes("pipeline")) ? (language === "en" ? "Customers, leads & tags" : "العملاء والعملاء المحتملون والوسوم") : (activeView === "teams" || activeView === "employees" || activeView === "workHours") && allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours")) ? (language === "en" ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل") : (activeView === "catalog" || activeView === "branches") && (allowedViews.includes("catalog") || allowedViews.includes("branches")) ? (language === "en" ? "Catalog & branches" : "الكتالوج والفروع") : (activeView === "integrations" || activeView === "developers") && allowedViews.includes("settings") ? (language === "en" ? navItemLabelsEn.settings : viewTitles.settings) : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView];
+
   return (
     <LanguageProvider language={language}>
     <PlanAccessProvider access={planAccess}>
@@ -1536,8 +1551,10 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       />
 
       <main className="dashboard-main">
+        {/* One H1 per page: views with a visible title of their own render it; the rest get this one. */}
+        {VIEWS_WITH_OWN_H1.has(activeView) ? null : <h1 className="visually-hidden">{currentViewTitle}</h1>}
         <MobileTopbar
-          title={(activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : (activeView === "ai" || activeView === "knowledgeBase") && allowedViews.includes("ai") && allowedViews.includes("knowledgeBase") ? (language === "en" ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة") : (activeView === "contacts" || activeView === "tags" || activeView === "pipeline") && allowedViews.includes("contacts") && (allowedViews.includes("tags") || allowedViews.includes("pipeline") || lockedViewsForUser.includes("pipeline")) ? (language === "en" ? "Customers, leads & tags" : "العملاء والعملاء المحتملون والوسوم") : (activeView === "teams" || activeView === "employees" || activeView === "workHours") && allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours")) ? (language === "en" ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل") : (activeView === "catalog" || activeView === "branches") && (allowedViews.includes("catalog") || allowedViews.includes("branches")) ? (language === "en" ? "Catalog & branches" : "الكتالوج والفروع") : (activeView === "integrations" || activeView === "developers") && allowedViews.includes("settings") ? (language === "en" ? navItemLabelsEn.settings : viewTitles.settings) : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView]}
+          title={currentViewTitle}
           language={language}
           menuOpen={menuOpen}
           onToggleMenu={() => setMenuOpen((value) => !value)}

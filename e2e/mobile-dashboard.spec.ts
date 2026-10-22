@@ -124,3 +124,37 @@ test("dashboard fits mobile viewports and its drawer remains usable", async ({ p
   expect(errors).toEqual([]);
   expect(findings, findings.join("\n")).toEqual([]);
 });
+
+test("an open drawer closes when the layout crosses the desktop breakpoint, and every view has one H1", async ({ page }) => {
+  test.setTimeout(120000);
+  await skipPwaInstallPopup(page);
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto("/login");
+  const cookieNotice = page.getByRole("dialog", { name: "إشعار الكوكيز" });
+  if (await cookieNotice.isVisible()) await cookieNotice.getByRole("button", { name: "رفض", exact: true }).click();
+  await page.locator('input[name="email"]').fill("owner@browser.test");
+  await page.locator('input[name="password"]').fill("Browser-only-Password-927!");
+  await page.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
+  await expect(page).toHaveURL(/dashboard/);
+
+  // Open on a phone, then widen to desktop: the drawer state must not carry over (scroll lock, focus trap).
+  await page.locator(".mobile-topbar button").first().click();
+  await expect(page.locator(".dashboard-shell")).toHaveClass(/menu-open/);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.locator(".dashboard-shell")).not.toHaveClass(/menu-open/);
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+  // Back to tablet and phone: still closed, nothing covers the content.
+  for (const width of [768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator(".dashboard-shell")).not.toHaveClass(/menu-open/);
+    await expect(page.locator(".dashboard-menu-backdrop")).toHaveCount(0);
+  }
+
+  // Exactly one H1, named after the view (hidden for views whose header has none of its own).
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (const [label, heading] of [["المحادثات", "المحادثات"], ["الرد الآلي", "الرد الآلي"], ["الحملات", null]] as const) {
+    await page.getByRole("navigation").getByRole("button", { name: label, exact: true }).click();
+    await expect(page.locator("h1")).toHaveCount(1);
+    if (heading) await expect(page.locator("h1")).toHaveText(heading);
+  }
+});
