@@ -57,3 +57,13 @@ export async function requireOwner(options: { allowExpired?: boolean } = {}) {
   if (!user || user.role !== "مالك الحساب") return null;
   return user;
 }
+
+/** Whether this user may touch the conversation: same workspace, and for non-owners only conversations assigned to them (or their team). */
+export async function canAccessConversation(user: SessionUser, conversationId: string): Promise<boolean> {
+  const assigneeNames = await getVisibleAssigneeNames(user, await getEmployeeForUser(user));
+  const found = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId: user.tenantId, ...(assigneeNames ? { assignee: { in: assigneeNames } } : {}) },
+    select: { id: true }
+  });
+  return Boolean(found);
+}

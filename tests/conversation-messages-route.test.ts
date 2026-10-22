@@ -54,6 +54,7 @@ vi.mock("../lib/auth", () => ({
 }));
 
 vi.mock("../lib/prisma", () => ({ prisma: database.prisma }));
+vi.mock("../lib/permissions-server", () => ({ canAccessConversation: vi.fn(async () => true) }));
 
 import { POST } from "../app/api/conversations/[id]/messages/route";
 

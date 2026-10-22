@@ -2,6 +2,7 @@ import { friendlyWhatsAppError } from "../../../../../lib/whatsapp-billing";
 import { outboundSignal, OUTBOUND_MEDIA_TIMEOUT_MS } from "../../../../../lib/outbound-timeout";
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
+import { canAccessConversation } from "../../../../../lib/permissions-server";
 import { convertAudioToMp3 } from "../../../../../lib/audio-conversion";
 import { conversationMessageDelivery } from "../../../../../lib/conversation-message-delivery";
 import { getIntegrationSettings } from "../../../../../lib/database";
@@ -425,6 +426,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
         ? ["audio/aac", "audio/mp4", "audio/mpeg", "audio/amr", "audio/ogg", "audio/webm", "audio/wav", "audio/x-wav"]
         : ["application/pdf", "text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
     if (!allowedMimeTypes.includes(mimeType)) return jsonError("نوع المرفق غير مدعوم");
+  }
+
+  // An existing conversation that is not visible to this employee is off limits; only brand-new ones are created on the fly.
+  if (user.role !== "مالك الحساب" && (await prisma.conversation.findFirst({ where: { id, tenantId: user.tenantId }, select: { id: true } })) && !(await canAccessConversation(user, id))) {
+    return jsonError("المحادثة غير موجودة", 404);
   }
 
   const conversation = await findOrCreateConversation(id, user.tenantId, body.conversation);
