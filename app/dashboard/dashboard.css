@@ -12067,3 +12067,46 @@ html[dir="ltr"] .notification-bell-panel {
   line-height: 1.8;
   opacity: 0.8;
 }
+
+/* Company name in the profile window (components/CompanyNameField.tsx). */
+.company-name-field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.company-name-field > span,
+.company-name-field label > span {
+  grid-column: 1 / -1;
+  display: block;
+  color: var(--muted);
+  font-weight: 900;
+}
+.company-name-field b {
+  overflow-wrap: anywhere;
+}
+.company-name-field .company-name-edit {
+  min-height: 40px;
+}
+.company-name-field.editing {
+  grid-template-columns: 1fr;
+}
+.company-name-field label {
+  display: grid;
+  gap: 6px;
+}
+.company-name-field input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+}
+.company-name-actions {
+  display: flex;
+  gap: 8px;
+}

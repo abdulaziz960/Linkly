@@ -1213,6 +1213,7 @@ export async function syncAllSubscriptionOwners(): Promise<number> {
 }
 
 type UpdateSubscriptionInput = {
+  companyName?: string;
   plan?: string;
   status?: string;
   employeeLimit?: number;
@@ -1226,6 +1227,13 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
   const existing = await prisma.subscription.findUnique({ where: { tenantId } });
   if (!existing) throw new Error("الاشتراك غير موجود");
   if (input.renewalAt !== undefined && !isValidRenewalAt(input.renewalAt)) throw new Error("تاريخ التجديد غير صالح");
+  let companyName = existing.companyName;
+  if (input.companyName !== undefined) {
+    const { normalizeCompanyName } = await import("./company-name");
+    const checked = normalizeCompanyName(input.companyName);
+    if ("error" in checked) throw new Error(checked.error);
+    companyName = checked.name;
+  }
 
   // Switching the plan name alone leaves employeeLimit/amount stale unless
   // the caller also happens to pass them - look the target plan up so an
@@ -1259,6 +1267,7 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
   const updated = await prisma.subscription.update({
     where: { tenantId },
     data: {
+      companyName,
       plan: input.plan ?? existing.plan,
       status: derivedStatus ?? existing.status,
       employeeLimit: derivedEmployeeLimit ?? existing.employeeLimit,
@@ -1270,6 +1279,9 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
   });
 
   const changes: string[] = [];
+  if (companyName !== existing.companyName) {
+    changes.push(`اسم الشركة من "${existing.companyName}" إلى "${companyName}"`);
+  }
   if (derivedEmployeeLimit !== undefined && derivedEmployeeLimit !== existing.employeeLimit) {
     changes.push(`حد المستخدمين من ${existing.employeeLimit} إلى ${derivedEmployeeLimit}`);
   }

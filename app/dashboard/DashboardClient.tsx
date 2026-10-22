@@ -12,6 +12,7 @@ import PwaInstallButton from "./components/PwaInstallButton";
 import PwaInstallCoachmark from "./components/PwaInstallCoachmark";
 import PwaInstallPopup from "./components/PwaInstallPopup";
 import NotificationBell from "./components/NotificationBell";
+import CompanyNameField from "./components/CompanyNameField";
 import { navItemLabelsEn, viewTitles } from "./data/navigation";
 import { DELETED_MESSAGE_TEXT, LanguageProvider } from "./i18n";
 import { PlanAccessProvider } from "./plan-access-context";
@@ -265,6 +266,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [invoiceToDate, setInvoiceToDate] = useState("");
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  // The owner can rename the company from the profile window; the delete confirmation follows the new name.
+  const [companyName, setCompanyName] = useState(subscription?.companyName || "");
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [passwordFormOpen, setPasswordFormOpen] = useState(false);
@@ -1687,6 +1690,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                       {draftProfileLogo ? <button className="btn soft" type="button" onClick={() => setDraftProfileLogo("")}>{t("حذف الشعار", "Remove logo")}</button> : null}
                     </div>
                   </div>
+                  <CompanyNameField name={companyName} canEdit={initialUser.role === "مالك الحساب"} language={language} onSaved={(name) => { setCompanyName(name); setWorkspaces((list) => list.map((workspace) => workspace.active ? { ...workspace, companyName: name } : workspace)); }} />
                   <div className="account-info-grid">
                     <div><span>{t("البريد الإلكتروني", "Email")}</span><b>{initialUser.email}</b></div>
                     <div><span>{t("الدور", "Role")}</span><b>{billingLabel(initialUser.role, language)}</b></div>
@@ -1892,7 +1896,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                       ) : (
                         <div className="danger-zone-confirm">
                           <label>
-                            {t(`للتأكيد، اكتب اسم الشركة بالضبط: ${subscription?.companyName || ""}`, `To confirm, type the company name exactly: ${subscription?.companyName || ""}`)}
+                            {t(`للتأكيد، اكتب اسم الشركة بالضبط: ${companyName}`, `To confirm, type the company name exactly: ${companyName}`)}
                             <input type="text" value={deleteConfirmText} onChange={(event) => setDeleteConfirmText(event.target.value)} disabled={deleting} />
                           </label>
                           {deleteError ? <p className="form-error">{deleteError}</p> : null}
@@ -1901,7 +1905,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                             <button
                               className="btn danger"
                               type="button"
-                              disabled={deleting || !subscription?.companyName || deleteConfirmText.trim() !== subscription.companyName}
+                              disabled={deleting || !companyName || deleteConfirmText.trim() !== companyName}
                               onClick={() => void handleDeleteAccount()}
                             >
                               {deleting ? t("جارٍ الحذف...", "Deleting...") : t("تأكيد الحذف النهائي", "Confirm permanent deletion")}

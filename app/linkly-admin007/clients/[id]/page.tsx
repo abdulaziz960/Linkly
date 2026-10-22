@@ -18,6 +18,7 @@ import { formatNumber, getRenewalAlert } from "../../utils";
 import { formatRenewalDate } from "../clients-data";
 import { LOG_TONE, PAYMENT_TONE, billingSummary, newestFirst } from "./profile-data";
 import { guardPage } from "../../guard";
+import CompanyNameEditor from "./CompanyNameEditor";
 
 const STATUS_TONE = { نشط: "success", تجربة: "warning", متوقف: "danger" } as const;
 
@@ -149,6 +150,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
           <p>{client.ownerName} · <bdi dir="ltr">{client.ownerEmail}</bdi></p>
         </div>
         <div className="ds-section-actions">
+          <CompanyNameEditor tenantId={client.tenantId} companyName={client.companyName} />
           <LinkButton href={`/linkly-admin007/logs?client=${client.tenantId}`} variant="outline" icon="scroll">السجل الكامل</LinkButton>
           <LinkButton href={`/linkly-admin007/payments?client=${client.tenantId}`} variant="outline" icon="card">كل المدفوعات</LinkButton>
         </div>
