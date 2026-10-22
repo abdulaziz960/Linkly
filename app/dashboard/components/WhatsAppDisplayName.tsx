@@ -4,11 +4,22 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import { displayNameProblem, type DisplayNameInfo, type DisplayNameStatus } from "../../../lib/whatsapp-display-name";
 
+/** Meta returns its errors in English; show the common ones in the UI language. */
+function localizeMetaError(message: string, ar: boolean): string {
+  if (!ar || /[\u0600-\u06FF]/.test(message)) return message;
+  if (/already in progress|wait for the current/i.test(message)) return "يوجد طلب تغيير اسم قيد المراجعة لدى Meta. انتظر اكتمال مراجعته قبل طلب اسم آخر.";
+  if (/not (been )?approved|violat|policy|guideline/i.test(message)) return "الاسم لا يلتزم بسياسة أسماء العرض في Meta. راجع الشروط أعلاه وجرّب اسمًا آخر.";
+  if (/permission|access token|OAuth|expired/i.test(message)) return "لا تملك صلاحية تعديل الاسم، أو انتهت صلاحية الربط. أعد ربط واتساب.";
+  if (/rate limit|too many/i.test(message)) return "محاولات كثيرة. حاول مرة أخرى لاحقًا.";
+  return `تعذر تنفيذ الطلب من Meta: ${message}`;
+}
+
 const TONE: Record<DisplayNameStatus, string> = { approved: "#15803d", pending: "#b45309", declined: "#c0392b", expired: "#c0392b", none: "#64748b" };
 
 /** Shows the WhatsApp display name with Meta's review state and lets the owner submit a new one to Meta. */
 export default function WhatsAppDisplayName() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const ar = language !== "en";
   const [info, setInfo] = useState<DisplayNameInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -30,7 +41,7 @@ export default function WhatsAppDisplayName() {
       const response = await fetch("/api/whatsapp/display-name", { cache: "no-store" });
       const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; data?: DisplayNameInfo } | null;
       if (response.ok && result?.ok && result.data) setInfo(result.data);
-      else setNote({ ok: false, text: result?.error || t("تعذر جلب حالة الاسم من Meta", "Could not load the name status from Meta") });
+      else setNote({ ok: false, text: result?.error ? localizeMetaError(result.error, ar) : t("تعذر جلب حالة الاسم من Meta", "Could not load the name status from Meta") });
     } catch {
       setNote({ ok: false, text: t("تعذر الاتصال بالخادم", "Could not reach the server") });
     } finally {
@@ -55,7 +66,7 @@ export default function WhatsAppDisplayName() {
       const response = await fetch("/api/whatsapp/display-name", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: draft.trim() }) });
       const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; data?: DisplayNameInfo } | null;
       if (!response.ok || !result?.ok) {
-        setNote({ ok: false, text: result?.error || t("رفضت Meta الطلب", "Meta rejected the request") });
+        setNote({ ok: false, text: result?.error ? localizeMetaError(result.error, ar) : t("رفضت Meta الطلب", "Meta rejected the request") });
         return;
       }
       setEditing(false);
@@ -84,12 +95,18 @@ export default function WhatsAppDisplayName() {
         <div style={{ fontSize: 13, lineHeight: 1.7 }}>
           {t("الاسم المطلوب:", "Requested name:")} <b>{pendingRequest.requestedName}</b>{" "}
           <span style={{ fontWeight: 800, color: TONE[pendingRequest.requestedStatus] }}>● {label[pendingRequest.requestedStatus]}</span>
+          {pendingRequest.requestedStatus === "pending" ? <div style={{ fontSize: 12.5, opacity: 0.75 }}>{t("لا يمكن طلب اسم آخر قبل اكتمال المراجعة.", "You can’t request another name until the review finishes.")}</div> : null}
         </div>
       ) : null}
       {editing ? (
         <div style={{ display: "grid", gap: 8 }}>
           <input value={draft} onChange={(event) => { setDraft(event.target.value); setNote(null); }} maxLength={75} placeholder={t("اسم العرض الجديد", "New display name")} style={{ minHeight: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--line, #cfd9d6)", font: "inherit" }} />
-          <span style={{ fontSize: 12.5, opacity: 0.7, lineHeight: 1.6 }}>{t("يجب أن يمثل اسم نشاطك التجاري الفعلي، بدون روابط أو إيموجي أو أسماء عامة. تقرر Meta القبول.", "It must represent your actual business: no links, emoji or generic names. Meta decides whether to approve it.")}</span>
+          <ul style={{ margin: 0, paddingInlineStart: 18, fontSize: 12.5, lineHeight: 1.8, opacity: 0.8 }}>
+            <li>{t("اسم نشاطك التجاري الفعلي كما في موقعك أو سجلك التجاري.", "Your real business name, as on your website or registration.")}</li>
+            <li>{t("بدون روابط أو إيموجي أو أرقام هواتف أو رموز خاصة.", "No links, emoji, phone numbers or special symbols.")}</li>
+            <li>{t("لا اسمًا عامًا مثل «متجر» أو «شركة»، ولا كلمتي Meta وWhatsApp.", "Not a generic name like “Store” or “Company”, and not containing Meta or WhatsApp.")}</li>
+            <li>{t("تقرر Meta القبول، وتستغرق المراجعة حتى يومين عمل.", "Meta decides; review takes up to two business days.")}</li>
+          </ul>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" className="primary-action" disabled={busy} onClick={() => void submit()}>{busy ? t("جارٍ الإرسال...", "Submitting...") : t("إرسال إلى Meta", "Submit to Meta")}</button>
             <button type="button" className="soft-action" disabled={busy} onClick={() => { setEditing(false); setNote(null); }}>{t("إلغاء", "Cancel")}</button>
@@ -97,7 +114,7 @@ export default function WhatsAppDisplayName() {
         </div>
       ) : (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button type="button" className="soft-action" onClick={() => { setDraft(info?.verifiedName || ""); setEditing(true); setNote(null); }}>{t("تعديل اسم العرض", "Edit display name")}</button>
+          {pendingRequest?.requestedStatus === "pending" ? null : <button type="button" className="soft-action" onClick={() => { setDraft(info?.verifiedName || ""); setEditing(true); setNote(null); }}>{t("تعديل اسم العرض", "Edit display name")}</button>}
           <button type="button" className="soft-action" disabled={loading} onClick={() => void load()}>{t("تحديث الحالة", "Refresh status")}</button>
         </div>
       )}
