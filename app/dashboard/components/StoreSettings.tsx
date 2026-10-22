@@ -11,7 +11,7 @@ type StatusGroup = "review" | "processing" | "shipped" | "delivered" | "cancelle
 type Connection = { status: "connected" | "disconnected"; merchantName: string; merchantId: string };
 type Settings = {
   orderNotifications: Record<OrderEvent, { enabled: boolean; template: string }>;
-  orderLookup: { enabled: boolean; requirePhoneMatch: boolean; verifyWithLastDigits: boolean; askDigitsText: string; texts: Record<StatusGroup, string>; notFoundText: string; askNumberText: string };
+  orderLookup: { enabled: boolean; requirePhoneMatch: boolean; verifyWithLastDigits: boolean; askDigitsText: string; texts: Record<StatusGroup, string>; notFoundText: string; askNumberText: string; intentTexts: Record<"cancel" | "modify" | "return", string> };
   abandonedCart: {
     enabled: boolean;
     delayMinutes: number;
@@ -429,6 +429,14 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" | "sho
               {t("إذا سأل بدون رقم الطلب", "When they ask without an order number")}
               <textarea style={{ ...input, minHeight: 64, padding: 10 }} value={settings.orderLookup.askNumberText} onChange={(event) => setSettings({ ...settings, orderLookup: { ...settings.orderLookup, askNumberText: event.target.value } })} />
             </label>
+            <h4 style={sectionTitle}>{t("إذا طلب العميل إلغاء الطلب أو تعديله أو إرجاعه", "When the customer asks to cancel, change or return an order")}</h4>
+            <span style={hint}>{t("لا ينفّذ الرد الآلي أي إجراء بنفسه: يرد بهذه الرسائل، ويضيف وسمًا للمحادثة («طلب إلغاء» أو «طلب تعديل» أو «طلب إرجاع») ويعيد فتحها للفريق مع ملاحظة داخلية بحالة الطلب. استخدم {{order}} لرقم الطلب.", "The bot does not act on its own: it replies with these messages, tags the conversation (“Cancel request”, “Change request” or “Return request”), reopens it for the team and adds an internal note with the order status. Use {{order}} for the order number.")}</span>
+            {([["cancel", t("طلب إلغاء", "Cancel request")], ["modify", t("طلب تعديل", "Change request")], ["return", t("طلب إرجاع أو استبدال", "Return or exchange request")]] as const).map(([key, label]) => (
+              <label key={key} style={fieldLabel}>
+                {label}
+                <textarea style={{ ...input, minHeight: 64, padding: 10 }} value={settings.orderLookup.intentTexts[key]} onChange={(event) => setSettings({ ...settings, orderLookup: { ...settings.orderLookup, intentTexts: { ...settings.orderLookup.intentTexts, [key]: event.target.value } } })} />
+              </label>
+            ))}
           </section>
         </>
       ) : section === "orders" ? (

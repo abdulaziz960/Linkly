@@ -1,3 +1,4 @@
+import { DEFAULT_INTENT_TEXTS, type OrderIntent } from "./order-intent";
 import { prisma } from "./prisma";
 
 /**
@@ -40,6 +41,8 @@ export type OrderLookupSettings = {
   texts: Record<StatusGroup, string>;
   notFoundText: string;
   askNumberText: string;
+  /** Replies when the customer asks to cancel, change or return an order (placeholder: {{order}}). */
+  intentTexts: Record<OrderIntent, string>;
 };
 
 export type StoreSettings = {
@@ -90,7 +93,8 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
     askDigitsText: "للتحقق من الطلب، أرسل آخر 4 أرقام من الجوال المسجّل في الطلب.",
     texts: DEFAULT_LOOKUP_TEXTS,
     notFoundText: "ما قدرنا نلاقي الطلب بهذا الرقم على جوالك. سيتواصل معك أحد موظفينا للمساعدة.",
-    askNumberText: "تمام، أرسل لي رقم طلبك وأتحقق لك من حالته."
+    askNumberText: "تمام، أرسل لي رقم طلبك وأتحقق لك من حالته.",
+    intentTexts: DEFAULT_INTENT_TEXTS
   },
   orderNotifications: {
     created: { enabled: false, template: "" },
@@ -182,7 +186,12 @@ export function normalizeStoreSettings(input: unknown): StoreSettings {
     askDigitsText: freeText(lookupSource.askDigitsText, defaults.orderLookup.askDigitsText),
     texts,
     notFoundText: freeText(lookupSource.notFoundText, defaults.orderLookup.notFoundText),
-    askNumberText: freeText(lookupSource.askNumberText, defaults.orderLookup.askNumberText)
+    askNumberText: freeText(lookupSource.askNumberText, defaults.orderLookup.askNumberText),
+    intentTexts: {
+      cancel: freeText(record(lookupSource.intentTexts).cancel, DEFAULT_INTENT_TEXTS.cancel),
+      modify: freeText(record(lookupSource.intentTexts).modify, DEFAULT_INTENT_TEXTS.modify),
+      return: freeText(record(lookupSource.intentTexts).return, DEFAULT_INTENT_TEXTS.return)
+    }
   };
 
   const cart = record(source.abandonedCart);

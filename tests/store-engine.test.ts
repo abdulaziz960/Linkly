@@ -288,4 +288,41 @@ describe("answering 'where is my order' in the chat", () => {
     // Off by default / not connected: never answers.
     expect(await handleOrderInquiry({ tenantId: "ten-none", conversationId: "c4", phone: "966500000111", text: "وين طلبي 100245" })).toBe(false);
   });
+
+  it("a request to cancel acknowledges, tags, reopens and notes the order status without touching the order", async () => {
+    await connect("ten-intent", "m-9");
+    const { saveStoreSettings, DEFAULT_STORE_SETTINGS } = await import("../lib/store-settings");
+    await saveStoreSettings("ten-intent", "salla", { orderLookup: { enabled: true } });
+    mockSalla();
+    const { prisma } = await import("../lib/prisma");
+    await prisma.customer.create({ data: { id: "cust-intent", name: "سارة", phone: "966500000111", initial: "س", tenantId: "ten-intent" } });
+    await prisma.conversation.create({ data: { id: "conv-intent", customerId: "cust-intent", channel: "whatsapp", lastMessage: "x", status: "closed", assignee: "أحمد", lastActivityAt: new Date().toISOString(), tenantId: "ten-intent" } });
+    const { handleOrderInquiry } = await import("../lib/store-engine");
+
+    expect(await handleOrderInquiry({ tenantId: "ten-intent", conversationId: "conv-intent", phone: "966500000111", text: "ابغى الغي الطلب رقم 100245" })).toBe(true);
+    const reply = String((sendBotText.mock.calls[0][1] as { text: string }).text);
+    expect(reply).toBe(DEFAULT_STORE_SETTINGS.orderLookup.intentTexts.cancel.replace("{{order}}", "الطلب رقم 100245"));
+
+    expect(await prisma.conversationTag.findFirst({ where: { conversationId: "conv-intent", tagName: "طلب إلغاء" } })).not.toBeNull();
+    expect(await prisma.tag.findFirst({ where: { tenantId: "ten-intent", name: "طلب إلغاء" } })).not.toBeNull();
+    expect((await prisma.conversation.findUnique({ where: { id: "conv-intent" } }))?.status).toBe("unassigned");
+    const note = await prisma.message.findFirst({ where: { conversationId: "conv-intent", sourceType: "system_order_intent" } });
+    expect(note?.text).toContain("إلغاء");
+    expect(note?.text).toContain("100245");
+    expect(note?.text).toContain("جاري التوصيل");
+  });
+
+  it("does not reveal another customer's order status in the note", async () => {
+    await connect("ten-intent2", "m-10");
+    const { saveStoreSettings } = await import("../lib/store-settings");
+    await saveStoreSettings("ten-intent2", "salla", { orderLookup: { enabled: true } });
+    mockSalla();
+    const { prisma } = await import("../lib/prisma");
+    await prisma.customer.create({ data: { id: "cust-intent2", name: "آخر", phone: "966500000999", initial: "آ", tenantId: "ten-intent2" } });
+    await prisma.conversation.create({ data: { id: "conv-intent2", customerId: "cust-intent2", channel: "whatsapp", lastMessage: "x", status: "unassigned", assignee: "بدون موظف", lastActivityAt: new Date().toISOString(), tenantId: "ten-intent2" } });
+    const { handleOrderInquiry } = await import("../lib/store-engine");
+    expect(await handleOrderInquiry({ tenantId: "ten-intent2", conversationId: "conv-intent2", phone: "966500000999", text: "الغاء الطلب 100245" })).toBe(true);
+    const note = await prisma.message.findFirst({ where: { conversationId: "conv-intent2", sourceType: "system_order_intent" } });
+    expect(note?.text).not.toContain("جاري التوصيل");
+  });
 });
