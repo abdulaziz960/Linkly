@@ -32,3 +32,36 @@ export function orderMessageProblem(message: string): string {
   if (text.length > 1000) return "النص طويل جدًا (الحد 1000 حرف).";
   return "";
 }
+
+/** Cart reminders send {{1}} name, {{2}} cart total, {{3}} checkout link, {{4}} discount code (only meaningful on the last reminder). */
+export const CART_TEMPLATE_EXAMPLES = { "1": "محمد", "2": "250", "3": "https://example.com/cart", "4": "SAVE10" };
+
+export type CartReminderStep = 1 | 2 | 3;
+
+/** The last reminder may carry the discount code; earlier ones never use {{4}} since the code is empty there. */
+export function suggestedCartMessage(step: CartReminderStep, isLast: boolean, withDiscount: boolean): string {
+  if (isLast && withDiscount) {
+    return "مرحبًا {{1}}، هذا آخر تذكير لسلتك بقيمة {{2}} ريال. استخدم كود الخصم {{4}} عند إكمال طلبك من هنا: {{3}} ونتشرف بخدمتك.";
+  }
+  if (step === 1) return "أهلًا {{1}}، لاحظنا أنك تركت سلتك بقيمة {{2}} ريال في متجرنا. تقدر تكمل طلبك بسهولة من هنا: {{3}} ونحن جاهزون لخدمتك.";
+  if (step === 2) return "مرحبًا {{1}}، سلتك بقيمة {{2}} ريال ما زالت بانتظارك والكميات قد تنفد. أكمل طلبك من هنا: {{3}} وإذا احتجت أي مساعدة تواصل معنا.";
+  return "أهلًا {{1}}، هذا تذكير أخير بسلتك بقيمة {{2}} ريال. أكمل طلبك من هنا: {{3}} ونسعد بخدمتك دائمًا.";
+}
+
+export function suggestedCartTemplateName(store: string, step: CartReminderStep, withDiscount: boolean): string {
+  return `${store}_cart_${step}${withDiscount ? "_discount" : ""}`.toLowerCase().replace(/[^a-z0-9_]/g, "_");
+}
+
+/** Cart messages need {{1}}-{{3}}; {{4}} (discount code) is optional. Returns an Arabic problem or "". */
+export function cartMessageProblem(message: string): string {
+  const text = message.trim();
+  if (!text) return "نص القالب مطلوب";
+  const found = new Set([...text.matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map((match) => match[1]));
+  for (const index of ["1", "2", "3"]) {
+    if (!found.has(index)) return `يجب أن يحتوي النص على {{${index}}}.`;
+  }
+  if ([...found].some((index) => Number(index) > 4)) return "المتغيرات المسموحة من {{1}} إلى {{4}} فقط.";
+  if (/^\{\{\d+\}\}/.test(text) || /\{\{\d+\}\}$/.test(text)) return "لا يقبل Meta أن يبدأ النص أو ينتهي بمتغير. أضف كلمة قبله أو بعده.";
+  if (text.length > 1000) return "النص طويل جدًا (الحد 1000 حرف).";
+  return "";
+}

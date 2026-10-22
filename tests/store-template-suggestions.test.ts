@@ -20,3 +20,30 @@ describe("store order template suggestions", () => {
     expect(orderMessageProblem("أهلًا {{1}} {{2}} {{3}} {{4}}")).toMatch(/ينتهي/);
   });
 });
+
+import { cartMessageProblem, suggestedCartMessage, suggestedCartTemplateName } from "../lib/store-template-suggestions";
+
+describe("cart reminder template suggestions", () => {
+  it("every suggestion is valid for Meta", () => {
+    for (const step of [1, 2, 3] as const) {
+      expect(cartMessageProblem(suggestedCartMessage(step, false, false))).toBe("");
+      expect(cartMessageProblem(suggestedCartMessage(step, true, false))).toBe("");
+      expect(cartMessageProblem(suggestedCartMessage(step, true, true))).toBe("");
+    }
+  });
+
+  it("only the last reminder with a discount code uses {{4}}", () => {
+    expect(suggestedCartMessage(1, false, true)).not.toContain("{{4}}");
+    expect(suggestedCartMessage(2, true, false)).not.toContain("{{4}}");
+    expect(suggestedCartMessage(2, true, true)).toContain("{{4}}");
+  });
+
+  it("names templates per store, step and discount", () => {
+    expect(suggestedCartTemplateName("salla", 2, false)).toBe("salla_cart_2");
+    expect(suggestedCartTemplateName("zid", 3, true)).toBe("zid_cart_3_discount");
+  });
+
+  it("flags missing variables", () => {
+    expect(cartMessageProblem("أهلًا {{1}} سلتك {{2}} تابع")).toMatch(/\{\{3\}\}/);
+  });
+});
