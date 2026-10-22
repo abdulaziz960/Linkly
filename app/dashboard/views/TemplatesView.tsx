@@ -17,6 +17,8 @@ type TemplateFormState = {
   headerText: string;
   headerMedia: string;
   headerMediaDataUrl: string;
+  /** The saved copy's public address (what Meta fetches on every send); empty when there is no copy. */
+  headerMediaUrl: string;
   footer: string;
   buttonType: NonNullable<MessageTemplate["buttonType"]>;
   buttonText: string;
@@ -89,6 +91,7 @@ export default function TemplatesView({
       headerText: "",
       headerMedia: "",
       headerMediaDataUrl: "",
+      headerMediaUrl: "",
       footer: "",
       buttonType: "NONE",
       buttonText: "",
@@ -149,8 +152,14 @@ export default function TemplatesView({
   function handleHeaderImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (form.headerType === "DOCUMENT" && file.size > 5 * 1024 * 1024) {
-      setError(t("ملف PDF أكبر من 5 ميجابايت.", "The PDF is larger than 5 MB."));
+    const limitMb = form.headerType === "VIDEO" ? 16 : 5;
+    if (file.size > limitMb * 1024 * 1024) {
+      setError(t(`حجم الملف (${(file.size / 1024 / 1024).toFixed(1)} ميجابايت) أكبر من الحد المسموح في واتساب (${limitMb} ميجابايت). صغّره ثم أعد المحاولة.`, `The file (${(file.size / 1024 / 1024).toFixed(1)} MB) is larger than WhatsApp's ${limitMb} MB limit. Make it smaller and try again.`));
+      event.target.value = "";
+      return;
+    }
+    if (form.headerType === "IMAGE" && file.type && !["image/jpeg", "image/png"].includes(file.type)) {
+      setError(t("صيغة الصورة غير مدعومة. استخدم JPG أو PNG.", "Unsupported image format. Use JPG or PNG."));
       event.target.value = "";
       return;
     }
@@ -161,6 +170,27 @@ export default function TemplatesView({
       setForm((current) => ({ ...current, headerMedia: dataUrl, headerMediaDataUrl: dataUrl }));
     };
     reader.readAsDataURL(file);
+  }
+
+  const [savingMedia, setSavingMedia] = useState(false);
+  // Attaches the chosen file to the existing template without touching Meta (no resubmission, no new review).
+  async function saveMediaOnly() {
+    if (!form.headerMedia.startsWith("data:")) return;
+    setSavingMedia(true);
+    setError("");
+    const response = await fetch(`/api/templates/${encodeURIComponent(form.name)}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ headerMediaDataUrl: form.headerMedia })
+    }).catch(() => null);
+    const payload = (await response?.json().catch(() => null)) as { ok?: boolean; data?: { headerMediaUrl?: string }; error?: string } | null;
+    setSavingMedia(false);
+    if (!response?.ok || !payload?.ok || !payload.data?.headerMediaUrl) {
+      setError(payload?.error || t("تعذر حفظ الملف", "Could not save the file"));
+      return;
+    }
+    setForm((current) => ({ ...current, headerMedia: "", headerMediaDataUrl: "", headerMediaUrl: payload.data?.headerMediaUrl || "" }));
+    await onRefreshData();
   }
 
   function handleRemoveHeaderMedia() {
@@ -199,6 +229,7 @@ export default function TemplatesView({
       headerText: template.headerText || "",
       headerMedia: template.headerMedia || "",
       headerMediaDataUrl: "",
+      headerMediaUrl: template.headerMediaUrl || "",
       footer: template.footer || "",
       buttonType: template.buttonType || "NONE",
       buttonText: template.buttonText || "",
@@ -339,6 +370,11 @@ export default function TemplatesView({
                     <td data-label={t("القالب", "Template")}>
                       <b>{template.name}</b>
                       <span className="table-subtitle" title={template.message}>{template.message}</span>
+                      {["IMAGE", "VIDEO", "DOCUMENT"].includes(template.headerType || "") && !template.hasHeaderMediaSaved ? (
+                        <button type="button" className="state warn template-media-missing" onClick={() => openEditForm(template)}>
+                          {t("⚠ الملف غير محفوظ للإرسال - اضغط لإضافته", "⚠ File not saved for sending - click to add it")}
+                        </button>
+                      ) : null}
                     </td>
                     <td data-label={t("الفئة", "Category")}>{template.category || (template.type === "تسويق" ? "MARKETING" : "UTILITY")}</td>
                     <td data-label={t("اللغة", "Language")}>{template.language}</td>
@@ -470,6 +506,25 @@ export default function TemplatesView({
                         {form.headerType === "IMAGE" ? t("اختر صورة", "Choose image") : form.headerType === "DOCUMENT" ? t("اختر ملف PDF", "Choose a PDF file") : t("اختر فيديو", "Choose video")}
                         <input type="file" accept={form.headerType === "IMAGE" ? "image/jpeg,image/png" : form.headerType === "DOCUMENT" ? "application/pdf" : "video/mp4,video/3gpp"} onChange={handleHeaderImageChange} hidden />
                       </label>
+                      {!form.headerMedia.startsWith("data:") && form.headerMediaUrl ? (
+                        <div className="template-header-media-preview-wrap">
+                          {form.headerType === "IMAGE" ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={form.headerMediaUrl} alt="" className="template-header-image-preview" />
+                          ) : form.headerType === "DOCUMENT" ? (
+                            <a className="template-media" href={form.headerMediaUrl} target="_blank" rel="noopener noreferrer">{t("ملف PDF محفوظ - فتح", "Saved PDF - open")}</a>
+                          ) : (
+                            <video src={form.headerMediaUrl} className="template-header-image-preview" controls />
+                          )}
+                          <small className="field-hint">{t("هذا الملف محفوظ ويُرسل مع كل رسالة من هذا القالب. اختر ملفاً جديداً لتغييره.", "This file is saved and sent with every message from this template. Choose a new file to change it.")}</small>
+                        </div>
+                      ) : null}
+                      {form.editing && !form.headerMediaUrl && !form.headerMedia.startsWith("data:") ? (
+                        <p className="form-error" role="alert">{t("لا توجد نسخة محفوظة من الملف لهذا القالب، فلن يُرسل مع الرسائل. اختر الملف ثم اضغط «حفظ الملف للإرسال»، دون إعادة مراجعة من Meta.", "No copy of the file is saved for this template, so it will not be sent with messages. Choose the file, then press “Save file for sending” - no new Meta review.")}</p>
+                      ) : null}
+                      {form.editing && !form.headerMediaUrl && form.headerMedia.startsWith("data:") ? (
+                        <button type="button" className="btn primary" disabled={savingMedia} onClick={() => void saveMediaOnly()}>{savingMedia ? t("جاري الحفظ…", "Saving…") : t("حفظ الملف للإرسال", "Save file for sending")}</button>
+                      ) : null}
                       {form.headerMedia.startsWith("data:") ? (
                         <div className="template-header-media-preview-wrap">
                           {form.headerType === "IMAGE" ? (
@@ -856,9 +911,9 @@ function TemplatePreview({ form, t, carouselCards }: { form: TemplateFormState; 
         </p>
         <div className="template-bubble">
           {form.headerType === "IMAGE" ? (
-            form.headerMedia.startsWith("data:") ? (
+            form.headerMedia.startsWith("data:") || form.headerMediaUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={form.headerMedia} alt="" className="template-media-image" />
+              <img src={form.headerMedia.startsWith("data:") ? form.headerMedia : form.headerMediaUrl} alt="" className="template-media-image" />
             ) : (
               <div className="template-media">{t("صورة القالب", "Template image")}</div>
             )

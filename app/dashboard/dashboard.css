@@ -12256,3 +12256,17 @@ html[dir="ltr"] .notification-bell-panel {
   object-fit: contain;
   background: #f0f2f5;
 }
+
+/* A template whose header file has no saved copy (so it can't be sent): a warning in the list that opens the editor. */
+.template-media-missing {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 0 12px;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-align: start;
+}

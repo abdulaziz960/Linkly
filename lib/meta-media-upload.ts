@@ -25,6 +25,27 @@ const ALLOWED_MEDIA_MIME_TYPES = new Set([
   "application/pdf"
 ]);
 
+// WhatsApp's own header-media limits: images 5 MB, video 16 MB, documents (kept at 5 MB here, like the editor).
+export const HEADER_MEDIA_MAX_BYTES: Record<string, number> = {
+  "image/jpeg": 5 * 1024 * 1024,
+  "image/png": 5 * 1024 * 1024,
+  "video/mp4": 16 * 1024 * 1024,
+  "video/3gpp": 16 * 1024 * 1024,
+  "application/pdf": 5 * 1024 * 1024
+};
+
+/** Checks a data: URL against the allowed types and size limits; returns an Arabic error or null. */
+export function validateHeaderMediaDataUrl(dataUrl: string): { error: string } | { mimeType: string; bytes: number } {
+  const match = /^data:([a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
+  if (!match) return { error: "صيغة الملف غير صالحة" };
+  const mimeType = match[1].toLowerCase();
+  if (!ALLOWED_MEDIA_MIME_TYPES.has(mimeType)) return { error: "صيغة الملف غير مدعومة. الصور بصيغة JPG أو PNG، والفيديو MP4، والمستند PDF." };
+  const bytes = Math.floor((match[2].length * 3) / 4);
+  const limit = HEADER_MEDIA_MAX_BYTES[mimeType];
+  if (bytes > limit) return { error: `حجم الملف (${(bytes / 1024 / 1024).toFixed(1)} ميجابايت) أكبر من الحد المسموح (${Math.round(limit / 1024 / 1024)} ميجابايت). صغّره ثم أعد المحاولة.` };
+  return { mimeType, bytes };
+}
+
 function formatMetaError(error: MetaError | undefined, fallback: string) {
   if (!error?.message) return fallback;
   const codePart = error.code !== undefined ? ` (code ${error.code}${error.error_subcode ? `/${error.error_subcode}` : ""})` : "";
@@ -40,8 +61,9 @@ export async function uploadMetaMedia(accessToken: string, dataUrl: string): Pro
   const match = /^data:([a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
   if (!match) return { ok: false, error: "صيغة الملف غير صالحة" };
 
-  const mimeType = match[1].toLowerCase();
-  if (!ALLOWED_MEDIA_MIME_TYPES.has(mimeType)) return { ok: false, error: "صيغة الملف غير مدعومة" };
+  const checked = validateHeaderMediaDataUrl(dataUrl);
+  if ("error" in checked) return { ok: false, error: checked.error };
+  const mimeType = checked.mimeType;
   const buffer = Buffer.from(match[2], "base64");
 
   const sessionResponse = await fetch(

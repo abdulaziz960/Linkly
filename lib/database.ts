@@ -3322,6 +3322,9 @@ export async function getTemplates(tenantId?: string): Promise<MessageTemplate[]
     // whether a reusable copy is saved, so the campaign form knows whether
     // an upload is required before this template can be used.
     hasHeaderMediaSaved: Boolean(template.headerMediaDataUrl),
+    // The saved copy's public address (the same one Meta fetches when a message is sent), so the editor and the
+    // list can show the real image instead of a placeholder.
+    headerMediaUrl: template.headerMediaDataUrl && template.mediaToken ? `/api/whatsapp/template-media/${template.mediaToken}` : "",
     footer: template.footer,
     buttonType: template.buttonType as MessageTemplate["buttonType"],
     buttonText: template.buttonText,

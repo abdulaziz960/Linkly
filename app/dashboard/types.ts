@@ -146,6 +146,7 @@ export type MessageTemplate = {
   headerText?: string;
   headerMedia?: string;
   hasHeaderMediaSaved?: boolean;
+  headerMediaUrl?: string;
   footer?: string;
   buttonType?: "NONE" | "QUICK_REPLY" | "URL" | "PHONE";
   buttonText?: string;
