@@ -5,6 +5,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "re
 import type { IntegrationSettings } from "../types";
 import { useLanguage } from "../i18n";
 import { usePlanAccess } from "../plan-access-context";
+import WhatsAppDisplayName from "../components/WhatsAppDisplayName";
 import { isValidChannelKey, type ChannelKey } from "../../../lib/channel-catalog";
 import { channelNames } from "../../channel-names";
 
@@ -2014,6 +2015,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               {isZapier ? t("اسم تدفق العملاء", "Lead flow name") : isEmail ? t("اسم قناة البريد", "Email channel name") : isX ? t("اسم حساب X", "X account name") : isTikTok ? t("اسم حساب TikTok", "TikTok account name") : isSms ? t("اسم قناة SMS", "SMS channel name") : isTelegram ? t("اسم بوت Telegram", "Telegram bot name") : isFacebook ? t("اسم صفحة Facebook", "Facebook page name") : isInstagram ? t("اسم حساب Instagram", "Instagram account name") : t("حساب واتساب للأعمال", "WhatsApp Business account")}
               <input value={settings.wabaName} onChange={(event) => updateField("wabaName", event.target.value)} readOnly={isWhatsApp || isX} placeholder={isWhatsApp ? t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete") : isX ? t("يظهر بعد اكتمال الربط بـX", "Appears once the connection with X is complete") : undefined} />
             </label>
+            {isWhatsApp && settings.status === "connected" ? <WhatsAppDisplayName /> : null}
             {!isInstagram && !isFacebook && !isTelegram && !isX && !isEmail && !isTikTok && !isSms ? <label>
               {t("رقم واتساب", "WhatsApp number")}
               <input dir="ltr" value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} readOnly={isWhatsApp} placeholder={t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete")} />
