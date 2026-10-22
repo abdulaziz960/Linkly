@@ -201,7 +201,7 @@ async function accessTokenFor(tenantId: string, forceRefresh = false): Promise<s
   return refreshed.accessToken;
 }
 
-async function sallaRequest(tenantId: string, method: "GET" | "POST", path: string, body?: unknown): Promise<{ ok: boolean; status: number; payload: Json }> {
+async function sallaRequest(tenantId: string, method: "GET" | "POST" | "PUT", path: string, body?: unknown): Promise<{ ok: boolean; status: number; payload: Json }> {
   let token = await accessTokenFor(tenantId);
   if (!token) return { ok: false, status: 401, payload: {} };
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -468,4 +468,55 @@ export async function createSallaShipment(tenantId: string, payload: Record<stri
   const message = str(obj(response.payload.error).message) || str(response.payload.message);
   if (response.status === 401 || response.status === 403) return { ok: false, status: response.status, error: "صلاحيات الربط ناقصة: أعد ربط متجر سلة ووافق على صلاحية الشحن." };
   return { ok: false, status: response.status, error: [message || "رفضت سلة إنشاء الشحنة", detail].filter(Boolean).join(" — ") };
+}
+
+/** Pure: the PUT /orders/{id} body that changes the recipient and the delivery address (items and status are not touched). */
+export function buildOrderUpdatePayload(shipTo: ShipTo): Record<string, unknown> {
+  const digits = shipTo.phone.replace(/\D/g, "");
+  const prefix = digits.startsWith("966") ? "966" : "";
+  const local = prefix ? digits.slice(prefix.length) : digits;
+  const lat = Number(shipTo.lat);
+  const lng = Number(shipTo.lng);
+  return {
+    receiver: {
+      name: shipTo.name,
+      ...(shipTo.email ? { email: shipTo.email } : {}),
+      ...(local ? { phone: local, country_code: prefix ? `+${prefix}` : undefined } : {})
+    },
+    shipping: {
+      ship_to: {
+        country: shipTo.country,
+        city: shipTo.city,
+        district: shipTo.block,
+        address_line: shipTo.address_line,
+        street_number: shipTo.street_number,
+        short_address: shipTo.short_address,
+        building_number: shipTo.building_number,
+        additional_number: shipTo.additional_number,
+        postal_code: shipTo.postal_code,
+        ...(shipTo.lat && shipTo.lng && Number.isFinite(lat) && Number.isFinite(lng) ? { geo_coordinates: { lat, lng } } : {})
+      }
+    }
+  };
+}
+
+export async function getSallaOrderDraft(tenantId: string, orderId: string): Promise<{ ok: boolean; status: number; draft: ShipmentDraft | null }> {
+  const id = orderId.trim();
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) return { ok: false, status: 400, draft: null };
+  const detail = await sallaGet(tenantId, `/orders/${encodeURIComponent(id)}`);
+  if (!detail.ok) return { ok: false, status: detail.status, draft: null };
+  return { ok: true, status: 200, draft: buildShipmentDraft(detail.payload.data) };
+}
+
+/** Changes the recipient and delivery address of an order in Salla. Salla refuses most changes once the order is completed. */
+export async function updateSallaOrderAddress(tenantId: string, orderId: string, shipTo: ShipTo): Promise<{ ok: boolean; status: number; error: string }> {
+  const id = orderId.trim();
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) return { ok: false, status: 400, error: "رقم الطلب غير صالح" };
+  const response = await sallaRequest(tenantId, "PUT", `/orders/${encodeURIComponent(id)}`, buildOrderUpdatePayload(shipTo));
+  if (response.ok) return { ok: true, status: response.status, error: "" };
+  if (response.status === 401 || response.status === 403) return { ok: false, status: response.status, error: "صلاحيات الربط ناقصة: أعد ربط متجر سلة ووافق على صلاحية تعديل الطلبات." };
+  const errors = obj(response.payload.error).fields ?? obj(response.payload).errors;
+  const detail = errors && typeof errors === "object" ? Object.entries(obj(errors)).map(([field, message]) => `${field}: ${Array.isArray(message) ? message.join("، ") : str(message)}`).slice(0, 4).join(" | ") : "";
+  const message = str(obj(response.payload.error).message) || str(response.payload.message);
+  return { ok: false, status: response.status, error: [message || "رفضت سلة تعديل الطلب (غالبًا لأنه مكتمل)", detail].filter(Boolean).join(" — ") };
 }

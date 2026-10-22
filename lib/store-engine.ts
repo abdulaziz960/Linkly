@@ -1,7 +1,9 @@
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { sendBotText } from "./bot-engine";
 import { sendWhatsAppTemplate } from "./campaign-engine";
 import { prisma } from "./prisma";
+import { INTENT_NOTE_LABEL, INTENT_TAGS, detectOrderIntent, type OrderIntent } from "./order-intent";
+import { formatMessageTime } from "./time";
 import { findSallaOrderByReference, parseSallaWebhook, type StoreCart, type StoreEvent, type StoreOrder } from "./salla";
 import { createZidCoupon, fetchZidCart, fetchZidOrder, findZidOrderByReference, parseZidWebhook, uniqueCouponCode } from "./zid";
 import { findShopifyOrderByReference, parseShopifyWebhook } from "./shopify";
@@ -434,6 +436,44 @@ async function bumpPendingVerification(conversationId: string): Promise<void> {
   await prisma.$executeRaw`UPDATE store_order_verification SET attempts = attempts + 1 WHERE conversation_id = ${conversationId}`;
 }
 
+
+/**
+ * The customer asked to cancel, change or return an order. The bot never does that itself: it acknowledges, tags the
+ * conversation, reopens it for the team and leaves an internal note with the order's current status.
+ */
+async function flagOrderIntent(input: { tenantId: string; conversationId: string; intent: OrderIntent; reference: string; order: StoreOrder | null }): Promise<void> {
+  const tagName = INTENT_TAGS[input.intent];
+  try {
+    const existing = await prisma.tag.findFirst({ where: { tenantId: input.tenantId, name: tagName }, select: { id: true } });
+    if (!existing) {
+      await prisma.tag.create({ data: { id: `tag-${randomUUID()}`, name: tagName, color: "#dc2626", description: "يُضاف تلقائيًا عندما يطلب العميل إلغاء أو تعديل أو إرجاع طلبه", tenantId: input.tenantId } });
+    }
+    await prisma.conversationTag.upsert({
+      where: { conversationId_tagName: { conversationId: input.conversationId, tagName } },
+      create: { conversationId: input.conversationId, tagName },
+      update: {}
+    });
+    await prisma.conversation.updateMany({ where: { id: input.conversationId, status: "closed" }, data: { status: "unassigned", assignee: "بدون موظف" } });
+    const now = new Date();
+    const order = input.reference ? `الطلب رقم ${input.reference}` : "طلبه";
+    const statusPart = input.order ? ` (حالته الحالية في المتجر: ${input.order.statusLabel || input.order.statusSlug})` : "";
+    await prisma.message.create({
+      data: {
+        id: `sys-intent-${randomUUID()}`,
+        conversationId: input.conversationId,
+        direction: "note",
+        text: `العميل يطلب ${INTENT_NOTE_LABEL[input.intent]} ${order}${statusPart}. لم يُنفَّذ أي إجراء تلقائيًا؛ نفّذه من «إدارة الطلبات» في إعدادات المتجر أو من لوحة المتجر.`,
+        time: formatMessageTime(now),
+        createdAt: now.toISOString(),
+        author: "",
+        sourceType: "system_order_intent"
+      }
+    });
+  } catch (error) {
+    console.error("Order intent flagging failed", error);
+  }
+}
+
 export async function handleOrderInquiry(input: { tenantId: string; conversationId: string; phone: string; text: string }): Promise<boolean> {
   try {
     const text = input.text.trim();
@@ -445,8 +485,9 @@ export async function handleOrderInquiry(input: { tenantId: string; conversation
     if (pending && digitsOnly) return answerPendingVerification(input, pending, digitsOnly);
 
     const reference = extractOrderReference(text);
+    const intent = detectOrderIntent(text);
     const asking = looksLikeOrderQuestion(text);
-    if (!asking && !(reference && /طلب|order/i.test(text))) return false;
+    if (!intent && !asking && !(reference && /طلب|order/i.test(text))) return false;
 
     // The store this workspace connected (Salla first, then Zid).
     let store: StoreKey | null = null;
@@ -461,6 +502,15 @@ export async function handleOrderInquiry(input: { tenantId: string; conversation
     if (!settings.orderLookup.enabled) return false;
 
     const send = (message: string) => sendBotText("whatsapp", { tenantId: input.tenantId, conversationId: input.conversationId, recipientId: input.phone, text: message, author: "الرد الآلي" });
+
+    if (intent) {
+      // Only the status of an order that belongs to this phone is shown to the team; the customer gets the acknowledgement either way.
+      const found = reference ? await findStoreOrderByReference(store, input.tenantId, reference) : null;
+      const own = found && samePhone(found.customerPhone, input.phone) ? found : null;
+      await send(settings.orderLookup.intentTexts[intent].replace(/\{\{\s*order\s*\}\}/g, reference ? `الطلب رقم ${reference}` : "طلبك"));
+      await flagOrderIntent({ tenantId: input.tenantId, conversationId: input.conversationId, intent, reference, order: own });
+      return true;
+    }
 
     if (!reference) {
       await send(settings.orderLookup.askNumberText);

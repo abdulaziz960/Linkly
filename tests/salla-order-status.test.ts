@@ -78,3 +78,20 @@ describe("salla shipment duplicates", () => {
     expect(buildShipmentPayload({ ...base, overwritePending: true })).toMatchObject({ overwrite_exists_pending: true });
   });
 });
+
+import { buildOrderUpdatePayload } from "../lib/salla";
+
+describe("salla order address update", () => {
+  it("builds the PUT /orders body from the corrected recipient and address", () => {
+    const shipTo = buildShipmentDraft({
+      id: 1, customer: { first_name: "محمد", mobile_code: "+966", mobile: "500000111", email: "m@example.com" },
+      shipping: { address: { country: "SA", city: "جدة", street: "شارع التحلية", block: "الروضة", postal_code: "23432", short_address: "JJJJ1111", building_number: "1111", additional_number: "2222", street_number: "5", geo_coordinates: { lat: 21.5, lng: 39.2 } } },
+      items: []
+    })!.shipTo;
+    const body = buildOrderUpdatePayload(shipTo) as { receiver: Record<string, unknown>; shipping: { ship_to: Record<string, unknown> } };
+    expect(body.receiver).toMatchObject({ name: "محمد", phone: "500000111", country_code: "+966", email: "m@example.com" });
+    expect(body.shipping.ship_to).toMatchObject({ city: "جدة", district: "الروضة", address_line: "شارع التحلية", postal_code: "23432", geo_coordinates: { lat: 21.5, lng: 39.2 } });
+    expect(body).not.toHaveProperty("items");
+    expect(body).not.toHaveProperty("status");
+  });
+});
