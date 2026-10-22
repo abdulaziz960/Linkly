@@ -6,7 +6,7 @@ import { useLanguage } from "../i18n";
 type Product = { id: string; name: string; sku: string; price: number; currency: string };
 type Line = Product & { quantity: number };
 type Branch = { id: string; name: string };
-type Created = { id: string; reference: string; customerUrl: string };
+type Created = { id: string; reference: string; customerUrl: string; whatsapp: { sent: boolean; reason: string } | null };
 
 const METHODS = ["mada", "credit_card", "bank", "cod"] as const;
 
@@ -27,6 +27,7 @@ export default function SallaNewOrderForm({ onClose, onCreated }: { onClose: () 
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sendWhatsApp, setSendWhatsApp] = useState(true);
 
   const methodLabel: Record<string, string> = {
     mada: t("مدى", "Mada"),
@@ -72,7 +73,7 @@ export default function SallaNewOrderForm({ onClose, onCreated }: { onClose: () 
       const response = await fetch("/api/store-integrations/salla/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customer, products: lines.map((line) => ({ id: line.id, quantity: line.quantity })), acceptedMethods: methods, delivery: { method: delivery, branchId }, couponCode: coupon })
+        body: JSON.stringify({ customer, products: lines.map((line) => ({ id: line.id, quantity: line.quantity })), acceptedMethods: methods, delivery: { method: delivery, branchId }, couponCode: coupon, sendWhatsApp })
       });
       const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; data?: Created } | null;
       if (!response.ok || !result?.ok || !result.data) {
@@ -92,9 +93,18 @@ export default function SallaNewOrderForm({ onClose, onCreated }: { onClose: () 
     return (
       <div className="shipment-form">
         <b className="store-order-ok">{t(`تم إنشاء الطلب #${created.reference} في سلة.`, `Order #${created.reference} created in Salla.`)}</b>
+        {created.whatsapp ? (
+          created.whatsapp.sent
+            ? <span className="store-order-ok">{t("أُرسل رابط الدفع للعميل على واتساب.", "The payment link was sent to the customer on WhatsApp.")}</span>
+            : <span className="store-orders-error">{created.whatsapp.reason === "window-expired"
+              ? t("لم يُرسل الرابط تلقائيًا: انتهت نافذة الـ24 ساعة لهذا العميل. انسخه وأرسله بقالب معتمد أو بعد أن يراسلك.", "The link was not sent automatically: this customer's 24-hour window has expired. Copy it and send it with an approved template or once they message you.")
+              : created.whatsapp.reason === "no-conversation"
+                ? t("لم يُرسل الرابط تلقائيًا: لا توجد محادثة واتساب سابقة مع هذا الرقم. انسخ الرابط وأرسله للعميل.", "The link was not sent automatically: there is no earlier WhatsApp conversation with this number. Copy it and send it to the customer.")
+                : t("تعذر إرسال الرابط على واتساب. انسخه وأرسله للعميل.", "Could not send the link on WhatsApp. Copy it and send it to the customer.")}</span>
+        ) : null}
         {created.customerUrl ? (
           <>
-            <span className="store-orders-hint">{t("أرسل هذا الرابط للعميل ليدفع ويكمل الطلب:", "Send this link to the customer to pay and complete the order:")}</span>
+            <span className="store-orders-hint">{t("رابط الطلب والدفع لدى العميل:", "The customer's order and payment link:")}</span>
             <input readOnly dir="ltr" value={created.customerUrl} onFocus={(event) => event.currentTarget.select()} />
             <div className="store-order-actions">
               <button type="button" className="primary-action" onClick={() => { void navigator.clipboard?.writeText(created.customerUrl).then(() => setCopied(true)).catch(() => null); }}>{copied ? t("تم النسخ", "Copied") : t("نسخ الرابط", "Copy link")}</button>
@@ -172,6 +182,10 @@ export default function SallaNewOrderForm({ onClose, onCreated }: { onClose: () 
           </select>
         </label>
       ) : null}
+      <label className="shipment-confirm">
+        <input type="checkbox" checked={sendWhatsApp} onChange={(event) => setSendWhatsApp(event.target.checked)} />
+        {t("أرسل رابط الدفع للعميل تلقائيًا على واتساب (يتطلب محادثة سابقة خلال آخر 24 ساعة)", "Send the payment link to the customer on WhatsApp automatically (needs a conversation within the last 24 hours)")}
+      </label>
       <label>{t("كود الخصم (اختياري)", "Coupon code (optional)")}<input dir="ltr" value={coupon} onChange={(event) => setCoupon(event.target.value)} /></label>
       <span className="store-orders-hint">{t("يُنشأ الطلب بحالة «بانتظار الدفع» ويدفعه العميل من رابط سلة. التوصيل للعنوان يلزم تحديده من سلة أو عبر «تعديل العنوان والمستلم» بعد إنشاء الطلب.", "The order is created as pending payment and the customer pays through Salla's link. Home delivery has to be set in Salla or with “Edit address & recipient” after creating the order.")}</span>
       {error ? <span className="store-orders-error">{error}</span> : null}

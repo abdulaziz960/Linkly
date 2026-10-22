@@ -5,6 +5,7 @@ import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 import { consumeRateLimit, requestIdentifier } from "../../../../../lib/rate-limit";
 import { SALLA_PAYMENT_METHODS, buildNewOrderPayload, createSallaOrder, listSallaOrders, listSallaStatuses, type SallaPaymentMethod } from "../../../../../lib/salla";
 import { logAdminAction, getTenantCompanyName } from "../../../../../lib/subscriptions";
+import { orderLinkText, sendOrderLinkOnWhatsApp, type OrderLinkResult } from "../../../../../lib/salla-order-link";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 export const runtime = "nodejs";
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     acceptedMethods?: string[];
     delivery?: { method?: string; branchId?: string };
     couponCode?: string;
+    sendWhatsApp?: boolean;
   } | null;
   const customer = { name: String(body?.customer?.name ?? "").trim().slice(0, 120), mobile: String(body?.customer?.mobile ?? "").trim().slice(0, 30), email: String(body?.customer?.email ?? "").trim().slice(0, 200) };
   if (!customer.name || !customer.email || !/^\+?\d{8,15}$/.test(customer.mobile.replace(/[\s-]/g, ""))) return jsonError("أكمل بيانات العميل: الاسم والجوال والبريد الإلكتروني");
@@ -64,5 +66,9 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!result.ok) return jsonError(result.error, result.status >= 500 ? 502 : 400);
 
   await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم إنشاء طلب سلة ${result.order?.reference || ""} للعميل ${customer.name} بواسطة ${user.name}.`, "معلومة", "المتجر");
-  return jsonOk(result.order);
+  let whatsapp: OrderLinkResult | null = null;
+  if (body?.sendWhatsApp === true && result.order?.customerUrl) {
+    whatsapp = await sendOrderLinkOnWhatsApp({ tenantId: user.tenantId, phone: customer.mobile, text: orderLinkText({ name: customer.name, reference: result.order.reference, url: result.order.customerUrl }), author: user.name });
+  }
+  return jsonOk({ ...result.order, whatsapp });
 }
