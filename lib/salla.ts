@@ -1,5 +1,8 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { readStoreTokens, saveStoreTokens } from "./store-connections";
+import type { ShipTo } from "./salla-ship-to";
+export { shipToProblems, splitCoordinates } from "./salla-ship-to";
+export type { ShipTo } from "./salla-ship-to";
 
 /**
  * Salla adapter: OAuth, the Admin API (orders) and webhooks, normalised into the shapes the
@@ -330,23 +333,6 @@ export function parseSallaBranches(payload: unknown): SallaBranch[] {
   return data.map((item) => obj(item)).filter((entry) => str(entry.id)).map((entry) => ({ id: str(entry.id), name: str(entry.name) || str(entry.id) }));
 }
 
-export type ShipTo = {
-  name: string;
-  email: string;
-  phone: string;
-  country: string;
-  city: string;
-  address_line: string;
-  street_number: string;
-  block: string;
-  short_address: string;
-  building_number: string;
-  additional_number: string;
-  postal_code: string;
-  lat: string;
-  lng: string;
-};
-
 export type ShipmentPackage = { name: string; sku: string; price: number; quantity: number; weight: number };
 
 export type ShipmentDraft = {
@@ -361,7 +347,7 @@ export type ShipmentDraft = {
   existing: { company: string; trackingNumber: string; trackingUrl: string } | null;
 };
 
-const REQUIRED_SHIP_TO: Array<keyof ShipTo> = ["name", "email", "phone", "country", "city", "address_line", "street_number", "block", "short_address", "building_number", "additional_number", "postal_code"];
+const REQUIRED_SHIP_TO: Array<keyof ShipTo> = ["name", "email", "phone", "country", "city", "address_line", "street_number", "block", "short_address", "building_number", "additional_number", "postal_code", "lat", "lng"];
 
 /** Pure: Salla's order detail into a shipment draft (best effort; every field read is defensive). */
 export function buildShipmentDraft(raw: unknown): ShipmentDraft | null {

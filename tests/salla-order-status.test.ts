@@ -28,7 +28,7 @@ describe("salla order status management", () => {
   });
 });
 
-import { buildShipmentDraft, buildShipmentPayload, parseSallaBranches, parseSallaShippingCompanies } from "../lib/salla";
+import { buildShipmentDraft, buildShipmentPayload, parseSallaBranches, parseSallaShippingCompanies, shipToProblems, splitCoordinates } from "../lib/salla";
 
 describe("salla shipments", () => {
   const order = {
@@ -147,5 +147,26 @@ describe("salla shipment items", () => {
   it("reads items whose price is only given as a line total", () => {
     const draft = buildShipmentDraft({ id: 3, items: [{ name: "قهوة", quantity: 2, amounts: { total: { amount: 80 } } }] });
     expect(draft?.packages).toEqual([{ name: "قهوة", sku: "", price: 40, quantity: 2, weight: 1 }]);
+  });
+});
+
+describe("salla ship_to validation", () => {
+  const base = { name: "a", email: "", phone: "", country: "SA", city: "الرياض", address_line: "x", street_number: "", block: "", short_address: "RHMA3184", building_number: "", additional_number: "", postal_code: "", lat: "24.7", lng: "46.6" };
+
+  it("accepts a complete address", () => {
+    expect(shipToProblems(base)).toEqual([]);
+  });
+
+  it("flags a bad short address and missing coordinates", () => {
+    expect(shipToProblems({ ...base, short_address: "RH12" })[0]).toMatch(/4 أحرف/);
+    expect(shipToProblems({ ...base, short_address: "" })[0]).toMatch(/مطلوب/);
+    expect(shipToProblems({ ...base, lat: "", lng: "" })[0]).toMatch(/الإحداثيات/);
+    expect(shipToProblems({ ...base, lat: "200", lng: "46" })[0]).toMatch(/غير صحيحة/);
+  });
+
+  it("splits coordinates pasted from Google Maps", () => {
+    expect(splitCoordinates("24.7136, 46.6753")).toEqual({ lat: "24.7136", lng: "46.6753" });
+    expect(splitCoordinates("24.7136،46.6753")).toEqual({ lat: "24.7136", lng: "46.6753" });
+    expect(splitCoordinates("24.7136")).toBeNull();
   });
 });

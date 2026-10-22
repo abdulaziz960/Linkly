@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import { shipToProblems, splitCoordinates } from "../../../lib/salla-ship-to";
 
 type ShipTo = Record<"name" | "email" | "phone" | "country" | "city" | "address_line" | "street_number" | "block" | "short_address" | "building_number" | "additional_number" | "postal_code" | "lat" | "lng", string>;
 type Draft = { orderId: string; reference: string; paymentMethod: "cod" | "pre_paid"; shipTo: ShipTo; packages: Array<{ name: string; sku: string; price: number; quantity: number; weight: number }>; missing: Array<keyof ShipTo>; existing: { company: string; trackingNumber: string; trackingUrl: string } | null };
@@ -68,6 +69,11 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
 
   async function submit() {
     if (!draft || !shipTo) return;
+    const problems = shipToProblems(shipTo);
+    if (problems.length) {
+      setError(problems.join(" — "));
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -120,8 +126,8 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
             {t("شركة الشحن (المفعّلة في متجرك)", "Shipping company (activated in your store)")}
             <select value={courierId} onChange={(event) => setCourierId(event.target.value)}>
               <option value="">{t("اختر شركة الشحن", "Choose a shipping company")}</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>{company.name}{company.type === "manual" ? ` (${t("يدوي", "manual")})` : ""}</option>
+              {[...companies].sort((a, b) => (a.type === b.type ? 0 : a.type === "api" ? -1 : 1)).map((company) => (
+                <option key={company.id} value={company.id}>{company.name}{company.type === "manual" ? ` (${t("يدوي، قد لا يدعم الإنشاء الآلي", "manual, may not support API creation")})` : ""}</option>
               ))}
             </select>
           </label>
@@ -149,10 +155,14 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
             {(Object.keys(labels) as Array<keyof ShipTo>).map((key) => (
               <label key={key} className={draft.missing.includes(key) ? "is-missing" : ""}>
                 {labels[key]}
-                <input value={shipTo[key]} dir={key === "name" || key === "address_line" || key === "city" || key === "block" ? undefined : "ltr"} onChange={(event) => setShipTo({ ...shipTo, [key]: event.target.value })} />
+                <input value={shipTo[key]} dir={key === "name" || key === "address_line" || key === "city" || key === "block" ? undefined : "ltr"} onChange={(event) => {
+                  const pair = key === "lat" || key === "lng" ? splitCoordinates(event.target.value) : null;
+                  setShipTo(pair ? { ...shipTo, lat: pair.lat, lng: pair.lng } : { ...shipTo, [key]: event.target.value });
+                }} />
               </label>
             ))}
           </div>
+          <span className="store-orders-hint">{t("الإحداثيات: افتح موقع العميل في خرائط جوجل، انسخ الرقمين (مثل 24.7136, 46.6753) والصقهما في خانة خط العرض وسيُقسَّمان تلقائيًا. العنوان المختصر: 4 أحرف إنجليزية ثم 4 أرقام مثل RHMA3184.", "Coordinates: open the customer's location in Google Maps, copy the two numbers (such as 24.7136, 46.6753) and paste them into the latitude field; they are split automatically. Short address: 4 letters then 4 digits, such as RHMA3184.")}</span>
           <span className="store-orders-hint">{t(`عدد المنتجات في الشحنة: ${draft.packages.length}`, `Items in the shipment: ${draft.packages.length}`)}</span>
           {draft.packages.length ? (
             <div className="shipment-packages">
