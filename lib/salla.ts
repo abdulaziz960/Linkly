@@ -478,8 +478,9 @@ const COUNTRY_CODE_BY_PREFIX: Record<string, string> = { "966": "SA", "971": "AE
 export type LocationIds = { countryId?: string; cityId?: string; districtId?: string };
 
 /** Pure: the PUT /orders/{id} body that changes the recipient and the delivery address (items and status are not touched). */
-export function buildOrderUpdatePayload(shipTo: ShipTo, ids: LocationIds = {}): Record<string, unknown> {
+export function buildOrderUpdatePayload(shipTo: ShipTo, ids: LocationIds = {}, options: { phone?: string; receiverFields?: Array<"name" | "email" | "phone"> } = {}): Record<string, unknown> {
   const digits = shipTo.phone.replace(/\D/g, "").replace(/^00/, "");
+  const fields = options.receiverFields ?? ["name", "email", "phone"];
   const prefix = Object.keys(COUNTRY_CODE_BY_PREFIX).find((code) => digits.startsWith(code)) ?? "";
   const lat = Number(shipTo.lat);
   const lng = Number(shipTo.lng);
@@ -487,13 +488,13 @@ export function buildOrderUpdatePayload(shipTo: ShipTo, ids: LocationIds = {}): 
   const country = asId(ids.countryId);
   const city = asId(ids.cityId);
   const district = asId(ids.districtId);
+  const receiver = {
+      ...(fields.includes("name") ? { name: shipTo.name } : {}),
+      ...(fields.includes("email") && shipTo.email ? { email: shipTo.email } : {}),
+      ...(fields.includes("phone") && digits ? { phone: options.phone ?? digits, ...(prefix ? { country_code: COUNTRY_CODE_BY_PREFIX[prefix] } : {}) } : {})
+  };
   return {
-    receiver: {
-      name: shipTo.name,
-      ...(shipTo.email ? { email: shipTo.email } : {}),
-      ...(digits ? { phone: digits } : {}),
-      ...(prefix ? { country_code: COUNTRY_CODE_BY_PREFIX[prefix] } : {})
-    },
+    ...(Object.keys(receiver).length ? { receiver } : {}),
     shipping: {
       ship_to: {
         ...(country !== undefined ? { country } : {}),
@@ -520,10 +521,25 @@ export async function getSallaOrderDraft(tenantId: string, orderId: string): Pro
 }
 
 /** Changes the recipient and delivery address of an order in Salla. Salla refuses most changes once the order is completed. */
-export async function updateSallaOrderAddress(tenantId: string, orderId: string, shipTo: ShipTo, ids: LocationIds = {}): Promise<{ ok: boolean; status: number; error: string }> {
+/** The ways Salla's documentation shows a phone: with the country prefix, without it, with a leading zero, with a plus. */
+export function phoneVariants(phone: string): string[] {
+  const digits = phone.replace(/\D/g, "").replace(/^00/, "");
+  if (!digits) return [];
+  const prefix = Object.keys(COUNTRY_CODE_BY_PREFIX).find((code) => digits.startsWith(code));
+  const local = prefix ? digits.slice(prefix.length).replace(/^0+/, "") : digits.replace(/^0+/, "");
+  return [...new Set([digits, local, `0${local}`, `+${prefix ?? ""}${local}`])];
+}
+
+export async function updateSallaOrderAddress(tenantId: string, orderId: string, shipTo: ShipTo, ids: LocationIds = {}, original?: ShipTo): Promise<{ ok: boolean; status: number; error: string }> {
   const id = orderId.trim();
   if (!/^[A-Za-z0-9_-]+$/.test(id)) return { ok: false, status: 400, error: "رقم الطلب غير صالح" };
-  const response = await sallaRequest(tenantId, "PUT", `/orders/${encodeURIComponent(id)}`, buildOrderUpdatePayload(shipTo, ids));
+  // Only the receiver fields that were changed are sent: Salla validates the phone strictly, so an untouched phone is left out.
+  const receiverFields = (["name", "email", "phone"] as const).filter((key) => (key === "phone" ? shipTo.phone.replace(/\D/g, "") !== (original?.phone ?? "").replace(/\D/g, "") : shipTo[key] !== (original?.[key] ?? "")) || !original);
+  const variants = receiverFields.includes("phone") ? phoneVariants(shipTo.phone) : [""];
+  let response = await sallaRequest(tenantId, "PUT", `/orders/${encodeURIComponent(id)}`, buildOrderUpdatePayload(shipTo, ids, { receiverFields, phone: variants[0] || undefined }));
+  for (let index = 1; !response.ok && response.status === 422 && JSON.stringify(response.payload).includes("receiver.phone") && index < variants.length; index += 1) {
+    response = await sallaRequest(tenantId, "PUT", `/orders/${encodeURIComponent(id)}`, buildOrderUpdatePayload(shipTo, ids, { receiverFields, phone: variants[index] }));
+  }
   if (response.ok) {
     forgetRecentSallaOrders(tenantId);
     return { ok: true, status: response.status, error: "" };

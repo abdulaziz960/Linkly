@@ -12,6 +12,7 @@ const TEXT_KEYS = ["name", "email", "phone", "address_line", "street_number", "s
 export default function SallaOrderEditForm({ orderId, reference, onClose }: { orderId: string; reference: string; onClose: () => void }) {
   const { t } = useLanguage();
   const [shipTo, setShipTo] = useState<ShipTo | null>(null);
+  const [original, setOriginal] = useState<ShipTo | null>(null);
   const [ids, setIds] = useState({ countryId: "", cityId: "", districtId: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,7 +39,10 @@ export default function SallaOrderEditForm({ orderId, reference, onClose }: { or
       .then((result: { ok?: boolean; error?: string; data?: { shipTo: ShipTo } }) => {
         if (cancelled) return;
         if (!result?.ok || !result.data) setError(result?.error || t("تعذر جلب بيانات الطلب", "Could not load the order"));
-        else setShipTo(result.data.shipTo);
+        else {
+          setShipTo(result.data.shipTo);
+          setOriginal(result.data.shipTo);
+        }
       })
       .catch(() => !cancelled && setError(t("تعذر الاتصال بالخادم", "Could not reach the server")));
     return () => {
@@ -55,7 +59,7 @@ export default function SallaOrderEditForm({ orderId, reference, onClose }: { or
       const response = await fetch(`/api/store-integrations/salla/orders/${encodeURIComponent(orderId)}/details`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shipTo, reference, ...ids })
+        body: JSON.stringify({ shipTo, reference, original, ...ids })
       });
       const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (!response.ok || !result?.ok) {

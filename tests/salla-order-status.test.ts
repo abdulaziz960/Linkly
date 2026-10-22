@@ -79,7 +79,7 @@ describe("salla shipment duplicates", () => {
   });
 });
 
-import { buildOrderUpdatePayload, parseSallaLocations } from "../lib/salla";
+import { buildOrderUpdatePayload, parseSallaLocations, phoneVariants } from "../lib/salla";
 
 describe("salla order address update", () => {
   const shipTo = buildShipmentDraft({
@@ -180,5 +180,18 @@ describe("salla ship_to validation", () => {
     expect(splitCoordinates("24.7136, 46.6753")).toEqual({ lat: "24.7136", lng: "46.6753" });
     expect(splitCoordinates("24.7136،46.6753")).toEqual({ lat: "24.7136", lng: "46.6753" });
     expect(splitCoordinates("24.7136")).toBeNull();
+  });
+});
+
+describe("salla receiver phone", () => {
+  it("offers the phone in the formats Salla's docs show", () => {
+    expect(phoneVariants("+966 50 543 3297")).toEqual(["966505433297", "505433297", "0505433297", "+966505433297"]);
+    expect(phoneVariants("")).toEqual([]);
+  });
+
+  it("leaves the receiver out when none of its fields changed, and a changed phone uses the chosen variant", () => {
+    const shipTo = buildShipmentDraft({ id: 1, customer: { first_name: "a", mobile_code: "+966", mobile: "505433297" }, items: [] })!.shipTo;
+    expect(buildOrderUpdatePayload(shipTo, {}, { receiverFields: [] })).not.toHaveProperty("receiver");
+    expect(buildOrderUpdatePayload(shipTo, {}, { receiverFields: ["phone"], phone: "505433297" })).toMatchObject({ receiver: { phone: "505433297", country_code: "SA" } });
   });
 });
