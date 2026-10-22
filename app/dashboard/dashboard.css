@@ -11979,3 +11979,41 @@ html[dir="ltr"] .notification-bell-panel {
 .dashboard-shell.lang-en .dashboard-main {
   border-radius: 0 22px 22px 0;
 }
+
+/* WhatsApp channel settings: display name and business verification cards sit side by side. */
+.wa-card-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.wa-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.wa-card > strong {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.wa-card .soft-action,
+.wa-card .primary-action {
+  min-height: 38px;
+  padding: 0 16px;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+@media (max-width: 900px) {
+  .wa-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

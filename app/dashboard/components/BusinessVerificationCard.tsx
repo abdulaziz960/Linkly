@@ -37,7 +37,7 @@ export default function BusinessVerificationCard() {
   const state = data?.state ?? "unknown";
 
   return (
-    <div style={{ display: "grid", gap: 10, border: "1px solid var(--line, #cfd9d6)", borderRadius: 12, padding: 14 }}>
+    <div className="wa-card">
       <strong style={{ fontSize: 14 }}>{t("التوثيق التجاري (Business Verification)", "Business Verification")}</strong>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <span style={{ fontSize: 13, fontWeight: 800, color: TONE[state] }}>● {loading && !data ? t("جارٍ التحميل...", "Loading...") : label[state]}</span>

@@ -71,7 +71,7 @@ export default function WhatsAppDisplayName() {
   const pendingRequest = info && info.requestedName && info.requestedName !== info.verifiedName && info.requestedStatus !== "none" ? info : null;
 
   return (
-    <div style={{ display: "grid", gap: 10, border: "1px solid var(--line, #cfd9d6)", borderRadius: 12, padding: 14 }}>
+    <div className="wa-card">
       <strong style={{ fontSize: 14 }}>{t("اسم العرض في واتساب", "WhatsApp display name")}</strong>
       {loading && !info ? <span style={{ fontSize: 13, opacity: 0.7 }}>{t("جارٍ التحميل...", "Loading...")}</span> : null}
       {info ? (
