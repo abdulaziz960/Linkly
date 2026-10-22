@@ -18,5 +18,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
   }
   const outcome = await handleSallaWebhook(body);
+  console.info("Salla webhook handled", { event: (body as { event?: string } | null)?.event ?? "", detail: outcome.detail ?? "", status: outcome.status });
   return NextResponse.json({ ok: outcome.handled, detail: outcome.detail }, { status: outcome.status });
 }
