@@ -832,6 +832,8 @@ function TemplatePreview({ form, t, carouselCards }: { form: TemplateFormState; 
     <span className="template-phone-btn volume-up" />
     <span className="template-phone-btn volume-down" />
     <span className="template-phone-btn power" />
+    <span className="template-phone-btn action" />
+    <span className="template-phone-btn camera-control" />
     <div className="template-phone">
       <span className="template-phone-island" />
       <div className="template-phone-status">
