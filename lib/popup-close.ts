@@ -14,5 +14,5 @@
  */
 export function popupCloseHtml(origin: string, bodyMessage: string, postMessagePayload: unknown, fallbackPath: string) {
   const fallbackUrl = `${origin}${fallbackPath}`;
-  return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الربط</title></head><body><p>${bodyMessage}</p><script>if(window.opener){try{window.opener.postMessage(${JSON.stringify(postMessagePayload)},${JSON.stringify(origin)});}catch(e){}}try{window.close();}catch(e){}setTimeout(function(){window.location.href=${JSON.stringify(fallbackUrl)};},400);</script></body></html>`;
+  return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الربط</title></head><body><p>${bodyMessage}</p><script>if(window.opener){try{window.opener.postMessage(${JSON.stringify(postMessagePayload && typeof postMessagePayload === "object" ? { ...(postMessagePayload as Record<string, unknown>), message: bodyMessage } : postMessagePayload)},${JSON.stringify(origin)});}catch(e){}}try{window.close();}catch(e){}setTimeout(function(){window.location.href=${JSON.stringify(fallbackUrl)};},400);</script></body></html>`;
 }

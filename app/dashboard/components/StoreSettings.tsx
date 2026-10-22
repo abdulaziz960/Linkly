@@ -57,6 +57,7 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" | "sho
   const [loadingCheckout, setLoadingCheckout] = useState(false);
   const [syncNote, setSyncNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [connectNote, setConnectNote] = useState("");
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   async function loadConnection() {
@@ -128,7 +129,12 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" | "sho
     void loadConnection();
     void loadProductSync();
     function onMessage(event: MessageEvent) {
-      if (event.origin === window.location.origin && (event.data as { type?: string } | null)?.type === "linkly:store-connected") void loadConnection();
+      const data = event.data as { type?: string; message?: string } | null;
+      if (event.origin === window.location.origin && data?.type === "linkly:store-connected") {
+        // The connect window closes itself, so its result (success or the reason it failed) is shown here.
+        setConnectNote(typeof data.message === "string" ? data.message : "");
+        void loadConnection();
+      }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
@@ -300,6 +306,7 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" | "sho
       {section === "connection" ? (
         <section style={box}>
           <h4 style={sectionTitle}>{store === "salla" ? t("ربط متجر سلة", "Connect your Salla store") : store === "shopify" ? t("ربط متجر شوبيفاي", "Connect your Shopify store") : t("ربط متجر زد", "Connect your Zid store")}</h4>
+          {connectNote ? <p className="meta-test-feedback" style={{ margin: 0, lineHeight: 1.8 }}>{connectNote}</p> : null}
           {connection?.status === "connected" ? (
             <p style={{ margin: 0, fontWeight: 700 }}>{t("متصل", "Connected")}{connection.merchantName ? ` — ${connection.merchantName}` : ""}</p>
           ) : (
