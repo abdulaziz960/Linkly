@@ -1,7 +1,7 @@
 import { emailBodyToText } from "./email-text";
 import { getXHandles } from "./x-handles";
 import { prisma } from "./prisma";
-import { isInlineDataUrl, messageAttachmentPath } from "./message-attachments";
+import { messageAttachmentPath } from "./message-attachments";
 import { ensureAiSchema } from "./ai-schema";
 import { ensureCatalogSchema } from "./catalog-schema";
 import { ensureBranchesSchema } from "./branches-schema";
@@ -3132,10 +3132,27 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       // webhook events with periodic mention/DM polling that can insert an
       // older tweet after a newer message already exists, which surfaced as
       // messages rendering out of time order in the thread.
-      messages: { orderBy: { createdAt: "asc" } },
+      // The body of an inline attachment (a base64 data: URL, often megabytes per photo or voice note) is never
+      // read here: the list only carries a short path to it (messageAttachmentPath), so loading it from the
+      // database on every inbox build moved hundreds of megabytes to send a couple. Its kind comes from
+      // attachmentKinds below instead.
+      messages: { orderBy: { createdAt: "asc" }, omit: { attachmentUrl: true } },
       tags: true
     }
   });
+
+  // For every message with an attachment: "" (no address), "inline" (a data: URL, served from its own path) or
+  // the plain address. One light query - an inline body is reduced to the word "inline" inside the database.
+  const attachmentKinds = new Map<string, string>();
+  if (conversations.some((conversation) => conversation.messages.some((message) => message.attachmentType))) {
+    const rows = await prisma.$queryRaw<Array<{ id: string; kind: string }>>`
+      SELECT m.id AS id,
+             CASE WHEN m.attachment_url = '' THEN '' WHEN m.attachment_url LIKE 'data:%' THEN 'inline' ELSE m.attachment_url END AS kind
+      FROM messages m
+      INNER JOIN conversations c ON c.id = m.conversation_id
+      WHERE c.tenant_id = ${tenantId} AND m.attachment_type <> ''`;
+    for (const row of rows) attachmentKinds.set(row.id, row.kind);
+  }
 
   const now = Date.now();
   const dayInMs = 24 * 60 * 60 * 1000;
@@ -3170,10 +3187,10 @@ export async function getConversations(tenantId = "tenant-demo", assigneeName?: 
       time: message.time,
       createdAt: message.createdAt || undefined,
       author: message.author || undefined,
-      attachment: message.attachmentType && message.attachmentUrl ? {
+      attachment: message.attachmentType && attachmentKinds.get(message.id) ? {
         type: message.attachmentType as NonNullable<Message["attachment"]>["type"],
         // Inline base64 media is served from its own URL instead of riding along with every refresh.
-        url: isInlineDataUrl(message.attachmentUrl) ? messageAttachmentPath(conversation.id, message.id) : message.attachmentUrl,
+        url: attachmentKinds.get(message.id) === "inline" ? messageAttachmentPath(conversation.id, message.id) : attachmentKinds.get(message.id) as string,
         name: message.attachmentName || message.text,
         mimeType: message.attachmentMime || undefined
       } : undefined,
