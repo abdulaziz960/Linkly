@@ -50,7 +50,7 @@ export default function BusinessVerificationCard() {
         </ul>
       ) : null}
       {data?.error ? <span style={{ fontSize: 12.5, color: "#c0392b" }}>{data.error}</span> : null}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div className="wa-card-actions">
         {state !== "verified" && data?.url ? <a className="primary-action" href={data.url} target="_blank" rel="noopener noreferrer">{t("فتح صفحة التوثيق في Meta", "Open verification in Meta")}</a> : null}
         <button type="button" className="soft-action" disabled={loading} onClick={() => void load()}>{t("تحديث الحالة", "Refresh status")}</button>
       </div>

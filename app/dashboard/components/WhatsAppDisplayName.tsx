@@ -107,13 +107,13 @@ export default function WhatsAppDisplayName() {
             <li>{t("لا اسمًا عامًا مثل «متجر» أو «شركة»، ولا كلمتي Meta وWhatsApp.", "Not a generic name like “Store” or “Company”, and not containing Meta or WhatsApp.")}</li>
             <li>{t("تقرر Meta القبول، وتستغرق المراجعة حتى يومين عمل.", "Meta decides; review takes up to two business days.")}</li>
           </ul>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="wa-card-actions">
             <button type="button" className="primary-action" disabled={busy} onClick={() => void submit()}>{busy ? t("جارٍ الإرسال...", "Submitting...") : t("إرسال إلى Meta", "Submit to Meta")}</button>
             <button type="button" className="soft-action" disabled={busy} onClick={() => { setEditing(false); setNote(null); }}>{t("إلغاء", "Cancel")}</button>
           </div>
         </div>
       ) : (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="wa-card-actions">
           {pendingRequest?.requestedStatus === "pending" ? null : <button type="button" className="soft-action" onClick={() => { setDraft(info?.verifiedName || ""); setEditing(true); setNote(null); }}>{t("تعديل اسم العرض", "Edit display name")}</button>}
           <button type="button" className="soft-action" disabled={loading} onClick={() => void load()}>{t("تحديث الحالة", "Refresh status")}</button>
         </div>

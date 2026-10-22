@@ -2012,15 +2012,15 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
               {t("اسم النشاط التجاري", "Business name")}
               <input value={settings.businessName} onChange={(event) => updateField("businessName", event.target.value)} />
             </label> : null}
-            {isWhatsApp && settings.status === "connected" ? null : <label>
+            <label>
               {isZapier ? t("اسم تدفق العملاء", "Lead flow name") : isEmail ? t("اسم قناة البريد", "Email channel name") : isX ? t("اسم حساب X", "X account name") : isTikTok ? t("اسم حساب TikTok", "TikTok account name") : isSms ? t("اسم قناة SMS", "SMS channel name") : isTelegram ? t("اسم بوت Telegram", "Telegram bot name") : isFacebook ? t("اسم صفحة Facebook", "Facebook page name") : isInstagram ? t("اسم حساب Instagram", "Instagram account name") : t("حساب واتساب للأعمال", "WhatsApp Business account")}
               <input value={settings.wabaName} onChange={(event) => updateField("wabaName", event.target.value)} readOnly={isWhatsApp || isX} placeholder={isWhatsApp ? t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete") : isX ? t("يظهر بعد اكتمال الربط بـX", "Appears once the connection with X is complete") : undefined} />
-            </label>}
-            {isWhatsApp && settings.status === "connected" ? <div className="wa-card-grid"><WhatsAppDisplayName /><BusinessVerificationCard /></div> : null}
+            </label>
             {!isInstagram && !isFacebook && !isTelegram && !isX && !isEmail && !isTikTok && !isSms ? <label>
               {t("رقم واتساب", "WhatsApp number")}
               <input dir="ltr" value={settings.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} readOnly={isWhatsApp} placeholder={t("يظهر بعد اكتمال الربط من Meta", "Appears once the connection with Meta is complete")} />
             </label> : null}
+            {isWhatsApp && settings.status === "connected" ? <div className="wa-card-grid"><WhatsAppDisplayName /><BusinessVerificationCard /></div> : null}
             <label>
               {t("حالة الربط", "Connection status")}
               <div className={`connection-status-box ${settings.status}`}>
