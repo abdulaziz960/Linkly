@@ -8,6 +8,7 @@ import { usePlanAccess } from "../plan-access-context";
 import WhatsAppDisplayName from "../components/WhatsAppDisplayName";
 import BusinessVerificationCard from "../components/BusinessVerificationCard";
 import WhatsAppPaymentCard from "../components/WhatsAppPaymentCard";
+import WhatsAppGrowthGuide from "../components/WhatsAppGrowthGuide";
 import { isValidChannelKey, type ChannelKey } from "../../../lib/channel-catalog";
 import { channelNames } from "../../channel-names";
 
@@ -317,6 +318,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const { t } = useLanguage();
   const { isChannelLocked, promptForChannel } = usePlanAccess();
   // "Check the connection": asks Meta why WhatsApp sending may be refused (see lib/whatsapp-diagnose.ts).
+  const [growthGuideOpen, setGrowthGuideOpen] = useState(false);
   const [diagnose, setDiagnose] = useState<{ loading: boolean; error: string; result: { ok: boolean; advice: string; checks: Array<{ id: string; label: string; status: "ok" | "fail" | "warn"; detail: string }> } | null } | null>(null);
   async function runWhatsAppDiagnose() {
     setDiagnose({ loading: true, error: "", result: null });
@@ -1817,6 +1819,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                     {channel.id === "whatsapp" && connected ? (
                       <button type="button" className="channel-diagnose-btn" onClick={() => void runWhatsAppDiagnose()}>{t("فحص الربط", "Check connection")}</button>
                     ) : null}
+                    {channel.id === "whatsapp" && connected ? (
+                      <button type="button" className="channel-diagnose-btn" onClick={() => setGrowthGuideOpen(true)}>{t("دليل رفع الحد والتوثيق", "Limits & verification guide")}</button>
+                    ) : null}
                   </div>
                 </div>
               );
@@ -1838,6 +1843,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
           </div>
         </div>
       </div>
+
+      {growthGuideOpen ? <WhatsAppGrowthGuide onClose={() => setGrowthGuideOpen(false)} businessId={overviewStatuses.whatsapp?.businessName} wabaId={overviewStatuses.whatsapp?.wabaId} /> : null}
 
       {diagnose ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setDiagnose(null)}>
