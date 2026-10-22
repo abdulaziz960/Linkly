@@ -1649,7 +1649,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                       </span>
                       <div>
                         <b>{initialUser.name}</b>
-                      <span>{initialUser.role}</span>
+                      <span>{billingLabel(initialUser.role, language)}</span>
                       <em className={draftStatus === "متصل" ? "online" : draftStatus === "مشغول" ? "busy" : "offline"}>{statusLabel(draftStatus, t)}</em>
                     </div>
                   </div>
@@ -1672,7 +1672,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                   </div>
                   <div className="account-info-grid">
                     <div><span>{t("البريد الإلكتروني", "Email")}</span><b>{initialUser.email}</b></div>
-                    <div><span>{t("الدور", "Role")}</span><b>{initialUser.role}</b></div>
+                    <div><span>{t("الدور", "Role")}</span><b>{billingLabel(initialUser.role, language)}</b></div>
                     <div><span>{t("الباقة", "Plan")}</span><b>{subscription?.plan ? planDisplayName(subscription.plan, language) : t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
                     <div><span>{t("حالة ربط واتساب", "WhatsApp connection")}</span><b>{integrationStatus === "connected" ? t("متصل", "Connected") : integrationStatus === "pending" ? t("قيد الإعداد", "Pending setup") : t("لم يتم الربط بعد", "Not connected yet")}</b></div>
                   </div>
@@ -1690,7 +1690,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                             onClick={() => void handleSwitchWorkspace(workspace.tenantId)}
                           >
                             <span>{workspace.companyName || workspace.tenantId}</span>
-                            <small>{workspace.role}</small>
+                            <small>{billingLabel(workspace.role, language)}</small>
                             {workspace.active ? <em>{t("الحالية", "Current")}</em> : switchingWorkspaceId === workspace.tenantId ? <em>{t("جاري التبديل…", "Switching…")}</em> : null}
                           </button>
                         ))}
@@ -1865,7 +1865,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     {twoFactorError ? <p className="form-error">{twoFactorError}</p> : null}
                   </div>
                   <div><span>{t("آخر دخول", "Last sign-in")}</span><b>{initialUser.lastLoginAt ? formatDateTime(initialUser.lastLoginAt) : t("لا توجد بيانات بعد", "No data yet")}</b></div>
-                  <div><span>{t("الصلاحيات", "Permissions")}</span><b>{initialUser.role}</b></div>
+                  <div><span>{t("الصلاحيات", "Permissions")}</span><b>{billingLabel(initialUser.role, language)}</b></div>
                   {initialUser.role === "مالك الحساب" ? (
                     <div className="danger-zone">
                       <b>{t("منطقة الخطر", "Danger zone")}</b>

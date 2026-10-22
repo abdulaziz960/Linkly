@@ -15,7 +15,11 @@ const EN_LABELS: Record<string, string> = {
   "شهري": "Monthly",
   "ربع سنوي": "Quarterly",
   "نصف سنوي": "Semi-annual",
-  "سنوي": "Yearly"
+  "سنوي": "Yearly",
+  // Employee roles
+  "مالك الحساب": "Account owner",
+  "مشرف": "Supervisor",
+  "موظف دعم": "Support Agent"
 };
 
 /** English label for a stored Arabic status/cycle value; unknown values pass through unchanged. */

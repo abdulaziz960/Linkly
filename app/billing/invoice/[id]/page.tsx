@@ -163,7 +163,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
         </div>
 
         <div className="invoice-actions">
-          <InvoicePrintButton />
+          <InvoicePrintButton lang={en ? "en" : "ar"} />
           <Link className="secondary" href="/dashboard">{en ? "Back to dashboard" : "العودة للوحة التحكم"}</Link>
         </div>
       </div>
