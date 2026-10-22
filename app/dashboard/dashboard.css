@@ -11997,78 +11997,6 @@ html[dir="ltr"] .notification-bell-panel {
   border-radius: 3px;
 }
 
-/* WhatsApp channel settings: display name and business verification cards sit side by side. */
-.wa-card-grid {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  align-items: stretch;
-}
-
-.wa-card {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
-}
-
-.wa-card > strong {
-  font-size: 15px;
-  font-weight: 900;
-}
-
-.wa-card .soft-action,
-.wa-card .primary-action {
-  min-height: 38px;
-  padding: 0 16px;
-  font-size: 13px;
-  text-decoration: none;
-}
-
-@media (max-width: 900px) {
-  .wa-card-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.wa-card a.primary-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 0 18px;
-  border-radius: 10px;
-  color: #fff;
-  font-weight: 800;
-  line-height: 1.2;
-  text-align: center;
-  text-decoration: none;
-}
-
-.wa-card .wa-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.wa-card .wa-card-actions > * {
-  flex: 0 0 auto;
-}
-
-.wa-card.wa-card-wide {
-  grid-column: 1 / -1;
-}
-
-.wa-card .wa-card-note {
-  font-size: 13px;
-  line-height: 1.8;
-  opacity: 0.8;
-}
-
 /* Company name in the profile window (components/CompanyNameField.tsx). */
 .company-name-field {
   display: grid;
@@ -12110,58 +12038,6 @@ html[dir="ltr"] .notification-bell-panel {
 .company-name-actions {
   display: flex;
   gap: 8px;
-
-.wa-guide {
-  display: grid;
-  gap: 18px;
-}
-
-.wa-guide h3 {
-  margin: 0 0 8px;
-  font-size: 15px;
-  font-weight: 900;
-}
-
-.wa-guide ul {
-  margin: 0;
-  padding-inline-start: 20px;
-  display: grid;
-  gap: 8px;
-  font-size: 13.5px;
-  line-height: 1.8;
-}
-
-.wa-guide-note {
-  margin: 0;
-  padding: 12px 14px;
-  border: 1px solid #fed7aa;
-  border-radius: 12px;
-  background: #fff7ed;
-  color: #9a3412;
-  font-size: 13px;
-  line-height: 1.8;
-}
-
-.wa-guide-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.wa-guide-links a {
-  padding: 7px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--brand-700, #0f766e);
-  font-size: 12.5px;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.wa-guide-links a:hover {
-  background: #eef7f5;
 }
 
 /* Channel cards while their status is still loading: neutral, not "Connect" (SettingsView overview). */

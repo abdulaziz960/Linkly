@@ -1,5 +1,6 @@
 import DashboardClient from "./DashboardClient";
 import "./dashboard.css";
+import "./wa-settings.css";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../lib/auth";
 import { getSubscriptionForTenant, getInvoicesForTenant } from "../../lib/subscriptions";
