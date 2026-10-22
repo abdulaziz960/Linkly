@@ -1,7 +1,23 @@
 import type { Instrumentation } from "next";
 
 export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs") await import("./sentry.server.config");
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./sentry.server.config");
+    // Prepare the database before the first request: the schema bootstrap (dozens of statements) used to run
+    // on the first request after every deploy, so every user's first calls took ~3 s. Cloud Run only sends
+    // traffic once the server is listening, which happens after this returns. Bounded, and never fatal: if the
+    // database is slow or unreachable the server still starts and the first request retries as before.
+    if (process.env.NODE_ENV === "production" && process.env.DATABASE_URL) {
+      const started = Date.now();
+      try {
+        const { ensureSchema } = await import("./lib/database");
+        await Promise.race([ensureSchema(), new Promise((resolve) => setTimeout(resolve, 25_000))]);
+        console.log(`[startup] database ready in ${Date.now() - started} ms`);
+      } catch (error) {
+        console.error("[startup] database preparation failed; the first request will retry it", error);
+      }
+    }
+  }
   if (process.env.NEXT_RUNTIME === "edge") await import("./sentry.edge.config");
 }
 
