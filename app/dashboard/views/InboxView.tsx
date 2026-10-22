@@ -5,6 +5,7 @@ import LeadStatusControl from "../components/LeadStatusControl";
 import { ChangeEvent, CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import FilterButton from "../components/FilterButton";
 import CustomSelect from "../../components/CustomSelect";
+import LinkifiedText from "../components/LinkifiedText";
 import type {
   ChatPanel,
   ComposerMode,
@@ -1332,7 +1333,7 @@ export default function InboxView({
                   {item.attachment?.type === "audio" && !isDeletedMessageText(item.text) ? (
                     <span>{`${item.text}: ${item.attachment.name}`}</span>
                   ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد" || item.text === "مستند" || item.text === item.attachment.name) ? null : (
-                    <span>{isDeletedMessageText(item.text) ? t("تم حذف هذه الرسالة", "This message was deleted") : formatEmailContent(item.text)}</span>
+                    <span>{isDeletedMessageText(item.text) ? t("تم حذف هذه الرسالة", "This message was deleted") : <LinkifiedText text={formatEmailContent(item.text)} />}</span>
                   )}
                   {item.source && activeConversation.channel !== "email" && item.source.type !== "x_dm" ? (
                     item.source.url ? (

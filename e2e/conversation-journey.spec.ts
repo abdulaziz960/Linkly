@@ -26,7 +26,8 @@ test("WhatsApp CTA → signed inbound webhook → Inbox → AI draft → Pipelin
   const payload = JSON.stringify({ object: "whatsapp_business_account", entry: [{ id: "browser-waba", changes: [{ field: "messages", value: {
     metadata: { phone_number_id: "browser-number-id" },
     contacts: [{ wa_id: "966555000099", profile: { name: "عميل اختبار الرحلة" } }],
-    messages: [{ id: "browser-inbound-1", from: "966555000099", timestamp: String(Math.floor(Date.now() / 1000)), type: "text", text: { body: whatsAppText } }]
+    messages: [{ id: "browser-inbound-1", from: "966555000099", timestamp: String(Math.floor(Date.now() / 1000)), type: "text", text: { body: whatsAppText } },
+      { id: "browser-inbound-2", from: "966555000099", timestamp: String(Math.floor(Date.now() / 1000) + 1), type: "text", text: { body: "موقعنا: https://maps.app.goo.gl/2a5WoxRVNwrC1Ly9A" } }]
   } }] }] });
   const signature = createHmac("sha256", "browser-test-meta-secret").update(payload).digest("hex");
   const inbound = await request.post("/api/meta/webhook", { data: payload, headers: {
@@ -42,6 +43,11 @@ test("WhatsApp CTA → signed inbound webhook → Inbox → AI draft → Pipelin
   await expect(page.getByText("عميل اختبار الرحلة", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: /^عميل اختبار الرحلة،/ }).click();
   await expect(page.locator("body")).not.toContainText("[REF:");
+  // A web address in a message is a real link that opens in a new tab.
+  const mapLink = page.locator(".message-bubble a.message-link", { hasText: "maps.app.goo.gl" });
+  await expect(mapLink).toHaveAttribute("href", "https://maps.app.goo.gl/2a5WoxRVNwrC1Ly9A");
+  await expect(mapLink).toHaveAttribute("target", "_blank");
+  await expect(mapLink).toHaveCSS("color", "rgb(29, 78, 216)");
 
   // External model output is deterministic here; the server AI adapter is
   // covered separately by the API integration suite.

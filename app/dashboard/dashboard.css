@@ -11979,3 +11979,20 @@ html[dir="ltr"] .notification-bell-panel {
 .dashboard-shell.lang-en .dashboard-main {
   border-radius: 0 22px 22px 0;
 }
+
+/* Web addresses inside conversation messages (components/LinkifiedText.tsx). */
+.message-bubble .message-link {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.message-bubble .message-link:hover {
+  color: #1e40af;
+}
+.message-bubble .message-link:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
