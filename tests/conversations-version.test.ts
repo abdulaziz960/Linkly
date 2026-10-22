@@ -71,4 +71,32 @@ describe("GET /api/conversations/version", () => {
     await prisma.conversationTag.create({ data: { conversationId: "conv-v", tagName: "مهم" } }).catch(() => undefined);
     expect((await version()).version).not.toBe(afterAttach);
   });
+
+  it("GET /api/conversations answers an unchanged inbox from memory and rebuilds the moment something changes", async () => {
+    const { GET } = await import("../app/api/conversations/route");
+    const { prisma } = await import("../lib/prisma");
+    const fetchInbox = async (etag?: string) => GET(new NextRequest("https://linklysa.io/api/conversations", { headers: etag ? { "if-none-match": etag } : {} }));
+    const first = await fetchInbox();
+    expect(first.status).toBe(200);
+    const etag = first.headers.get("etag") as string;
+    const firstBody = await first.text();
+
+    // Nothing changed: same answer, and a 304 for a client that already holds it.
+    const again = await fetchInbox();
+    expect(again.status).toBe(200);
+    expect(await again.text()).toBe(firstBody);
+    expect((await fetchInbox(etag)).status).toBe(304);
+
+    // A new message shows in the very next request (no waiting for the cache to age out).
+    await prisma.message.create({ data: { id: "m-cache", conversationId: "conv-v", direction: "in", text: "رسالة بعد التخزين المؤقت", time: "10:09", createdAt: new Date(Date.now() + 5000).toISOString() } });
+    const changed = await fetchInbox(etag);
+    expect(changed.status).toBe(200);
+    expect(await changed.text()).toContain("رسالة بعد التخزين المؤقت");
+
+    // So does a tag swapped for another one (same number of tags).
+    await prisma.conversationTag.deleteMany({ where: { conversationId: "conv-v" } });
+    await prisma.conversationTag.create({ data: { conversationId: "conv-v", tagName: "عاجل" } });
+    const afterTag = await fetchInbox();
+    expect(await afterTag.text()).toContain("عاجل");
+  });
 });

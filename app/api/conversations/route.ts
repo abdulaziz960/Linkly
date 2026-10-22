@@ -8,6 +8,7 @@ import { normalizeWhatsAppPhone } from "../../../lib/whatsapp-inbox";
 import { processDueAutomations } from "../../../lib/automation-engine";
 import { jsonError, jsonOk } from "../_utils/json";
 import { firstChar } from "../../../lib/first-char";
+import { inboxFingerprint } from "../../../lib/conversations-version";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,14 @@ async function assigneeScopeFor(user: { role: string; email: string; tenantId: s
   return getVisibleAssigneeNames(user, employee);
 }
 
+// The last inbox built for each (workspace, visible-assignees) pair, kept while the cheap fingerprint
+// (lib/conversations-version.ts) says nothing changed: an unchanged inbox is answered from memory instead of
+// being rebuilt (about 2 MB, hundreds of milliseconds) on every poll of every open tab. Entries older than
+// MAX_AGE_MS are rebuilt regardless, which also refreshes the time-based fields (the 24-hour window).
+const MAX_AGE_MS = 30_000;
+const MAX_ENTRIES = 200;
+const builtInboxes = new Map<string, { version: string; etag: string; body: string; at: number }>();
+
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return jsonError("غير مصرح", 401);
@@ -27,6 +36,16 @@ export async function GET(request: NextRequest) {
     console.error("Automation queue processing failed", error);
   });
   const assigneeNames = await assigneeScopeFor(user);
+
+  const cacheKey = `${user.tenantId}|${Array.isArray(assigneeNames) ? [...assigneeNames].sort().join(",") : assigneeNames ?? "*"}`;
+  const version = await inboxFingerprint(user.tenantId, assigneeNames);
+  const cached = builtInboxes.get(cacheKey);
+  if (cached && cached.version === version && Date.now() - cached.at < MAX_AGE_MS) {
+    const headers = { ETag: cached.etag, "Cache-Control": "private, no-store" };
+    if (request.headers.get("if-none-match") === cached.etag) return new Response(null, { status: 304, headers });
+    return new Response(cached.body, { status: 200, headers: { ...headers, "Content-Type": "application/json" } });
+  }
+
   const body = JSON.stringify({ ok: true, data: await getConversations(user.tenantId, assigneeNames) });
 
   // The dashboard re-fetches this every few seconds and the body is the whole
@@ -36,6 +55,8 @@ export async function GET(request: NextRequest) {
   // no-store keeps the browser from writing private conversations to its disk
   // cache; the dashboard sends If-None-Match itself and keeps the last copy in memory.
   const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
+  if (builtInboxes.size >= MAX_ENTRIES) builtInboxes.clear();
+  builtInboxes.set(cacheKey, { version, etag, body, at: Date.now() });
   const headers = { ETag: etag, "Cache-Control": "private, no-store" };
   if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
   return new Response(body, { status: 200, headers: { ...headers, "Content-Type": "application/json" } });
