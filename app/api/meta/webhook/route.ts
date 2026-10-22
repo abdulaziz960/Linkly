@@ -5,6 +5,7 @@ import { getIntegrationSettings } from "../../../../lib/database";
 import { storeFacebookMessage } from "../../../../lib/facebook-inbox";
 import { captureLinkAdSource } from "../../../../lib/wa-links";
 import { handleOrderInquiry } from "../../../../lib/store-engine";
+import { handleLoyaltyInquiry } from "../../../../lib/loyalty-inquiry";
 import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
 import { runWhatsAppBot, runChannelBot, startTemplateCatalog } from "../../../../lib/bot-engine";
 import { captureAdSource } from "../../../../lib/ad-source";
@@ -531,6 +532,11 @@ export async function POST(request: NextRequest) {
           if (message.button?.text && await isCatalogTemplateButton(whatsappAccount.tenantId, message.button.text)) {
             await startTemplateCatalog("whatsapp", { tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, recipientId: message.from });
             await mediaTask;
+            savedMessages.push(message.id || message.from);
+            continue;
+          }
+          // A customer asking about their loyalty progress or reward gets it from the loyalty program, not the bot flow.
+          if (text && !message.interactive && await handleLoyaltyInquiry({ tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, phone: message.from, text })) {
             savedMessages.push(message.id || message.from);
             continue;
           }

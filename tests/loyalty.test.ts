@@ -108,3 +108,26 @@ describe("counting WhatsApp orders", () => {
     expect(await loyaltyCodeBelongsToOther("t-own", "NOT-A-LOYALTY-CODE", "966522222222")).toBe(false);
   });
 });
+
+describe("loyalty questions from the customer", () => {
+  it("recognises questions about progress and rewards, not order questions", async () => {
+    const { looksLikeLoyaltyQuestion } = await import("../lib/loyalty");
+    for (const text of ["كم بقي لي على المكافأة؟", "وش رصيدي في الولاء", "نقاطي", "كم باقي لي", "عندي مكافأة؟", "my loyalty", "برنامج الولاء كيف؟"]) expect(looksLikeLoyaltyQuestion(text)).toBe(true);
+    for (const text of ["كم باقي من القهوة", "كم بقي عندكم من المنتج", "وين طلبي", "السلام عليكم", "كم سعر القهوة", "ابغى طلب", ""]) expect(looksLikeLoyaltyQuestion(text)).toBe(false);
+    expect(looksLikeLoyaltyQuestion("ولاء ".repeat(60))).toBe(false);
+  });
+
+  it("answers with progress and the customer's usable code only", async () => {
+    const { saveLoyaltySettings, recordPaidOrderForLoyalty, loyaltyStatusText } = await import("../lib/loyalty");
+    await saveLoyaltySettings("t-ask", { enabled: true, goal: 2, rewardKind: "percent", rewardValue: 30 });
+    await recordPaidOrderForLoyalty(order("t-ask", "a1"));
+    const middle = await loyaltyStatusText("t-ask", "966500000111", "سارة");
+    expect(middle).toContain("1 من 2");
+    expect(middle).not.toContain("WAFA-");
+
+    const reward = (await recordPaidOrderForLoyalty(order("t-ask", "a2"))).reward!;
+    const after = await loyaltyStatusText("t-ask", "0500000111", "سارة");
+    expect(after).toContain(reward.code);
+    expect(await loyaltyStatusText("t-ask", "966599999999")).not.toContain(reward.code);
+  });
+});

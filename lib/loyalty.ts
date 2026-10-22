@@ -231,3 +231,44 @@ export async function resetLoyaltyCycle(tenantId: string, phone: string): Promis
   await ensureTables();
   await prisma.$executeRaw`UPDATE loyalty_progress SET orders_in_cycle = 0, updated_at = ${new Date().toISOString()} WHERE tenant_id = ${tenantId} AND phone = ${loyaltyPhone(phone)}`;
 }
+
+const LOYALTY_WORDS = /(ولاء|نقاطي|نقاط|رصيدي|مكافا|(كم\s*)?(بقي|باقي|باقى)\s*(لي|علي|عندي)|كود\s*الخصم\s*(حقي|الي|اللي|عندي)|loyalty|my\s*rewards?|my\s*points)/i;
+
+/** Pure: whether a customer's message asks about their loyalty progress or reward (short messages only). */
+export function looksLikeLoyaltyQuestion(text: string): boolean {
+  const value = text
+    .replace(/[ً-ٰٟـ]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .trim();
+  if (!value || value.length > 120) return false;
+  // "مكافأة" loses its hamza above, so the stem is matched without it; an order question is never a loyalty question.
+  if (/(وين|فين)\s*(طلب|شحن)/.test(value)) return false;
+  return LOYALTY_WORDS.test(value.replace(/مكافات/g, "مكافا").replace(/مكافاه/g, "مكافا"));
+}
+
+/** The customer's unused, unexpired reward codes. */
+export async function activeRewardsFor(tenantId: string, phone: string, now = new Date()): Promise<IssuedReward[]> {
+  await ensureTables();
+  const today = now.toISOString().slice(0, 10);
+  const rows = await prisma.$queryRaw<Array<{ phone: string; code: string; description: string; expires_at: string }>>`
+    SELECT r.phone, r.code, r.description, r.expires_at FROM loyalty_rewards r
+    JOIN catalog_discounts d ON d.tenant_id = r.tenant_id AND d.code = r.code
+    WHERE r.tenant_id = ${tenantId} AND d.active = 1 AND (d.max_uses = 0 OR d.used_count < d.max_uses) AND (r.expires_at = '' OR r.expires_at >= ${today})
+    ORDER BY r.created_at DESC LIMIT 20`;
+  return rows.filter((row) => samePhoneDigits(row.phone, phone)).map((row) => ({ code: row.code, description: row.description, expiresAt: row.expires_at }));
+}
+
+/** The reply to "how many do I have left?": progress in the current cycle and any reward code still usable. */
+export async function loyaltyStatusText(tenantId: string, phone: string, name = ""): Promise<string> {
+  const settings = await getLoyaltySettings(tenantId);
+  const rows = await prisma.$queryRaw<Array<{ phone: string; orders_in_cycle: number | bigint }>>`SELECT phone, orders_in_cycle FROM loyalty_progress WHERE tenant_id = ${tenantId} AND phone = ${loyaltyPhone(phone)} LIMIT 1`;
+  const done = rows[0] ? Number(rows[0].orders_in_cycle) : 0;
+  const product = settings.rewardKind === "free_product" && settings.productId ? await prisma.product.findFirst({ where: { id: settings.productId, tenantId } }) : null;
+  const reward = rewardLabel(settings, product?.name ?? "");
+  const parts = [renderLoyaltyText("أهلًا {name}، في برنامج الولاء أكملت {done} من {goal} طلبات، وبقي {left} للحصول على {reward}.", { name, done, goal: settings.goal, reward })];
+  const active = await activeRewardsFor(tenantId, phone);
+  for (const item of active) parts.push(`لديك مكافأة جاهزة: ${item.description}، كود الخصم ${item.code}${item.expiresAt ? ` (صالح حتى ${item.expiresAt})` : ""}.`);
+  return parts.join("\n\n");
+}
