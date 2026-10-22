@@ -12163,3 +12163,12 @@ html[dir="ltr"] .notification-bell-panel {
 .wa-guide-links a:hover {
   background: #eef7f5;
 }
+
+/* Channel cards while their status is still loading: neutral, not "Connect" (SettingsView overview). */
+.channel-connect-card button.checking,
+.channel-connect-card button.checking:hover {
+  border: 1px solid var(--line);
+  background: var(--surface-soft, #f5f7f7);
+  color: var(--muted);
+  cursor: progress;
+}

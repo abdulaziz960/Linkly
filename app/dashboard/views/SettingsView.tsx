@@ -393,6 +393,9 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [channelBotLoading, setChannelBotLoading] = useState(false);
   const [showWebhookToken, setShowWebhookToken] = useState(false);
   const [overviewStatuses, setOverviewStatuses] = useState<Partial<Record<ChannelId, IntegrationSettings>>>({});
+  // Until the statuses arrive, a card can't say "Connect": a connected channel would briefly look disconnected.
+  const [overviewLoaded, setOverviewLoaded] = useState(false);
+  const [emailStatusLoaded, setEmailStatusLoaded] = useState(false);
   const [wizardModalOpen, setWizardModalOpen] = useState(() => {
     // Popups fall back to a full-page redirect when window.opener isn't
     // available, so land straight on the connected-channel modal instead of
@@ -522,29 +525,32 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     fetch("/api/email/integration")
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => setOauthEmailStatus(data))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setEmailStatusLoaded(true));
   }, []);
 
   // Overview list at the top of the page ("القنوات المربوطة") needs the
   // connection status of every channel at once, not just the one currently
   // selected in the wizard below — fetch them all in parallel on mount.
+  // One request for every channel (the endpoint's ?channels= mode) instead of one per channel.
   useEffect(() => {
     let cancelled = false;
-    Promise.all(
-      channels.map((channel) =>
-        fetch(`/api/settings/integration?channel=${apiChannel(channel.id)}`)
-          .then((response) => (response.ok ? response.json() : null))
-          .then((data: IntegrationSettings | null) => [channel.id, data] as const)
-          .catch(() => [channel.id, null] as const)
-      )
-    ).then((entries) => {
-      if (cancelled) return;
-      const map: Partial<Record<ChannelId, IntegrationSettings>> = {};
-      entries.forEach(([id, data]) => {
-        if (data) map[id] = data;
+    const names = [...new Set(channels.map((channel) => apiChannel(channel.id)))];
+    fetch(`/api/settings/integration?channels=${names.join(",")}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { channels?: Record<string, IntegrationSettings> } | null) => {
+        if (cancelled) return;
+        const map: Partial<Record<ChannelId, IntegrationSettings>> = {};
+        channels.forEach((channel) => {
+          const settings = data?.channels?.[apiChannel(channel.id)];
+          if (settings) map[channel.id] = settings;
+        });
+        setOverviewStatuses((current) => ({ ...current, ...map }));
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setOverviewLoaded(true);
       });
-      setOverviewStatuses(map);
-    });
     return () => {
       cancelled = true;
     };
@@ -1804,6 +1810,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 );
               }
               const connected = isChannelConnected(channel.id);
+              const checking = channel.id === "gmail" ? !emailStatusLoaded : !overviewLoaded;
               const handle = connected ? channelHandle(channel.id) : undefined;
               return (
                 <div className="channel-connect-card" key={channel.id}>
@@ -1813,8 +1820,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   <b>{channel.title}</b>
                   {handle ? <span className="channel-connect-handle" dir="ltr">{handle}</span> : <small>{channel.description}</small>}
                   <div className="channel-connect-actions">
-                    <button type="button" className={connected ? "connected" : ""} onClick={() => connected ? goToChannelSetup(channel.id) : connectChannel(channel.id)}>
-                      {connected ? t("متصل — إدارة", "Connected — manage") : t("ربط", "Connect")}
+                    <button type="button" className={checking ? "checking" : connected ? "connected" : ""} disabled={checking} aria-busy={checking || undefined} onClick={() => connected ? goToChannelSetup(channel.id) : connectChannel(channel.id)}>
+                      {checking ? t("جاري التحقق…", "Checking…") : connected ? t("متصل — إدارة", "Connected — manage") : t("ربط", "Connect")}
                     </button>
                     {channel.id === "whatsapp" && connected ? (
                       <button type="button" className="channel-diagnose-btn" onClick={() => void runWhatsAppDiagnose()}>{t("فحص الربط", "Check connection")}</button>

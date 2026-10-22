@@ -114,7 +114,10 @@ const smsRequiredConnectionFields: Array<{ field: IntegrationField; label: strin
 ];
 
 function getIntegrationChannel(request: NextRequest): IntegrationChannel {
-  const channel = request.nextUrl.searchParams.get("channel");
+  return toIntegrationChannel(request.nextUrl.searchParams.get("channel"));
+}
+
+function toIntegrationChannel(channel: string | null): IntegrationChannel {
   if (channel === "instagram" || channel === "facebook" || channel === "telegram" || channel === "x" || channel === "google_maps" || channel === "email" || channel === "website" || channel === "tiktok" || channel === "sms" || channel === "youtube" || channel === "linkedin" || channel === "snapchat" || channel === "meta_leads") return channel;
   return "whatsapp";
 }
@@ -456,6 +459,19 @@ export async function GET(request: NextRequest) {
   const channel = getIntegrationChannel(request);
   if (!(await userHasViewPermission(user, "settings"))) {
     return NextResponse.json({ message: "لا تملك صلاحية الوصول لهذه الميزة" }, { status: 403 });
+  }
+
+  // ?channels=whatsapp,instagram,... : every channel's settings in one request (the channels overview),
+  // instead of one request per channel with its own sign-in and permission check.
+  const many = request.nextUrl.searchParams.get("channels");
+  if (many) {
+    // Only real channel names; anything else would silently fall back to WhatsApp in toIntegrationChannel.
+    const requested = [...new Set(many.split(",").map((value) => value.trim()).filter((value) => value && toIntegrationChannel(value) === value))].slice(0, 20);
+    const entries = await Promise.all(requested.map(async (name) => {
+      const key = toIntegrationChannel(name);
+      return [name, serializeSettings(await getIntegrationSettings(key, user.tenantId), key)] as const;
+    }));
+    return NextResponse.json({ channels: Object.fromEntries(entries) });
   }
 
   const settings = await getIntegrationSettings(channel, user.tenantId);
