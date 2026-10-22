@@ -5,6 +5,7 @@ import { getPasswordValidationError, verifyPassword } from "../../../../lib/pass
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
 import { prisma } from "../../../../lib/prisma";
 import { getTenantCompanyName, logAdminAction } from "../../../../lib/subscriptions";
+import { invalidateUserCache } from "../../../../lib/tenant-subscription-row";
 
 export const runtime = "nodejs";
 
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
     where: { id: user.id },
     data: { passwordHash: hashPassword(newPassword), sessionVersion: { increment: 1 } }
   });
+  invalidateUserCache();
 
   if (user.isPlatformAdmin !== 1) {
     await logAdminAction(

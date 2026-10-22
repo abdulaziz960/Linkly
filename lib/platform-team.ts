@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { sendActivationEmail } from "./email";
+import { invalidateUserCache } from "./tenant-subscription-row";
 
 function nowTimestamp() {
   return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
@@ -82,6 +83,7 @@ export async function revokePlatformAdmin(id: string, requestingUserId: string) 
   if (!target || target.isPlatformAdmin !== 1) throw new Error("العضو غير موجود");
 
   await prisma.userAccount.update({ where: { id }, data: { isPlatformAdmin: 0 } });
+  invalidateUserCache();
 }
 
 /**
@@ -106,6 +108,7 @@ export async function setPlatformAdminDisabled(id: string, disabled: boolean, re
     where: { id },
     data: disabled ? { disabled: 1, sessionVersion: { increment: 1 } } : { disabled: 0 }
   });
+  invalidateUserCache();
 }
 
 /** Signs a member out everywhere by invalidating all their session tokens. */
@@ -115,4 +118,5 @@ export async function revokePlatformAdminSessions(id: string, requestingUserId: 
   const target = await prisma.userAccount.findUnique({ where: { id } });
   if (!target || target.isPlatformAdmin !== 1) throw new Error("العضو غير موجود");
   await prisma.userAccount.update({ where: { id }, data: { sessionVersion: { increment: 1 } } });
+  invalidateUserCache();
 }

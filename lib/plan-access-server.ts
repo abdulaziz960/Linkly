@@ -14,6 +14,7 @@ import {
   type PlanLimitKind
 } from "./plan-access";
 import { getTenantGrants } from "./plan-grants";
+import { getTenantSubscriptionRow } from "./tenant-subscription-row";
 import type { ViewKey } from "../app/dashboard/types";
 
 /**
@@ -22,19 +23,18 @@ import type { ViewKey } from "../app/dashboard/types";
  * never lock a paying customer out.
  */
 export async function getTenantTrialState(tenantId: string): Promise<boolean> {
-  const subscription = await prisma.subscription.findUnique({ where: { tenantId }, select: { status: true } });
-  return subscription?.status === "تجربة";
+  return (await getTenantSubscriptionRow(tenantId))?.status === "تجربة";
 }
 
 export async function getTenantPlanName(tenantId: string): Promise<string | null> {
-  const subscription = await prisma.subscription.findUnique({ where: { tenantId }, select: { plan: true } });
-  return subscription?.plan ?? null;
+  return (await getTenantSubscriptionRow(tenantId))?.plan ?? null;
 }
 
 export async function isViewLockedForTenant(tenantId: string, view: ViewKey): Promise<boolean> {
-  const grants = await getTenantGrants(tenantId);
+  // The grants and the plan are independent lookups: run them together.
+  const [grants, planName] = await Promise.all([getTenantGrants(tenantId), getTenantPlanName(tenantId)]);
   if (view === REAL_ESTATE_PROJECTS_VIEW && !grants.views.includes(REAL_ESTATE_PROJECTS_VIEW)) return true;
-  if (!isViewLockedForPlan(await getTenantPlanName(tenantId), view)) return false;
+  if (!isViewLockedForPlan(planName, view)) return false;
   // Locked by the plan - unless the platform team unlocked this page for this workspace.
   return !grants.views.includes(view);
 }

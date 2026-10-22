@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { cachedFor, invalidateShortCache, SHORT_CACHE_TTL_MS } from "./short-cache";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { encodeGrantKeys, grantableForPlan, NO_GRANTS, parseGrantKeys, type Grants } from "./plan-access";
@@ -7,8 +8,11 @@ import type { ViewKey } from "../app/dashboard/types";
 /** Everything the platform team unlocked for this workspace beyond its plan. */
 export async function getTenantGrants(tenantId: string): Promise<Grants> {
   await ensureSchema();
-  const rows = await prisma.tenantFeatureGrant.findMany({ where: { tenantId }, select: { viewKey: true } });
-  return rows.length ? parseGrantKeys(rows.map((row) => row.viewKey)) : NO_GRANTS;
+  // Read by every plan check, so shared for a few seconds (lib/short-cache.ts); setTenantGrants drops it at once.
+  return cachedFor(`grants:${tenantId}`, SHORT_CACHE_TTL_MS, async () => {
+    const rows = await prisma.tenantFeatureGrant.findMany({ where: { tenantId }, select: { viewKey: true } });
+    return rows.length ? parseGrantKeys(rows.map((row) => row.viewKey)) : NO_GRANTS;
+  });
 }
 
 /** The unlocked pages only (kept for callers that only care about pages). */
@@ -24,6 +28,7 @@ export async function listTenantGrants(tenantId: string): Promise<ViewKey[]> {
  */
 export async function setTenantGrants(tenantId: string, requested: string[], grantedBy: string, planName: string | null, allowedChannelsRaw: string | null = null): Promise<Grants> {
   await ensureSchema();
+  invalidateShortCache(`grants:${tenantId}`);
   const grantable = grantableForPlan(planName, allowedChannelsRaw);
   const asked = parseGrantKeys(requested);
   const wanted: Grants = {

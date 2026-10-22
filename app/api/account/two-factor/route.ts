@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
 import { prisma } from "../../../../lib/prisma";
+import { invalidateUserCache } from "../../../../lib/tenant-subscription-row";
 
 export const runtime = "nodejs";
 
@@ -34,6 +35,7 @@ export async function PATCH(request: NextRequest) {
   if (typeof body.enabled !== "boolean") return NextResponse.json({ error: "قيمة غير صالحة" }, { status: 400 });
 
   await prisma.userAccount.update({ where: { id: user.id }, data: { twoFactorEnabled: body.enabled ? 1 : 0 } });
+  invalidateUserCache();
 
   return NextResponse.json({ ok: true, enabled: body.enabled });
 }

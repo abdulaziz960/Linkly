@@ -26,6 +26,7 @@ import { decryptSecret, encryptSecret, hasIntegrationEncryptionKey, integrationS
 import { automationRules } from "../app/dashboard/data/automations";
 import { textSimilarity, SIMILARITY_CLUSTER_THRESHOLD } from "./text-similarity";
 import { templates } from "../app/dashboard/data/templates";
+import { cachedFor, SHORT_CACHE_TTL_MS } from "./short-cache";
 import type {
   AutomationRule,
   Campaign,
@@ -3755,7 +3756,9 @@ export async function getAdminLogs(): Promise<AdminLog[]> {
 
 export async function getUserAccountById(id: string): Promise<UserAccount | null> {
   await ensureSeeded();
-  return prisma.userAccount.findUnique({ where: { id } });
+  // Read on every authenticated request, so shared for a few seconds (lib/short-cache.ts). Disabling an
+  // account or bumping its session version takes effect everywhere within that time, and at once on this instance.
+  return cachedFor(`user:${id}`, SHORT_CACHE_TTL_MS, () => prisma.userAccount.findUnique({ where: { id } }));
 }
 
 export async function verifyUserCredentials(email: string, password: string): Promise<Omit<UserAccount, "passwordHash"> | null> {

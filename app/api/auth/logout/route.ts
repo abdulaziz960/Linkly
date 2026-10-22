@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "../../../../lib/prisma";
 import { authCookieName, verifySessionToken } from "../../../../lib/auth";
+import { invalidateUserCache } from "../../../../lib/tenant-subscription-row";
 
 export async function POST() {
   const session = verifySessionToken((await cookies()).get(authCookieName)?.value);
@@ -12,6 +13,7 @@ export async function POST() {
       where: { id: session.userId, sessionVersion: session.sessionVersion },
       data: { sessionVersion: { increment: 1 } }
     });
+    invalidateUserCache();
   }
   const response = NextResponse.json({ ok: true });
   response.cookies.set(authCookieName, "", {

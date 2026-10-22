@@ -13,6 +13,7 @@ import { isUnlimitedMessageQuota, UNLIMITED_MESSAGE_CREDIT } from "./message-quo
 import { emailPromotionCreditsForPlan } from "./plan-email-promotions";
 import { ensureEmailPromotionsSchema } from "./email-promotions-schema";
 import { isValidRenewalAt } from "./subscription-access";
+import { invalidateTenantSubscriptionRow, invalidateUserCache } from "./tenant-subscription-row";
 
 /** Length of one paid subscription period, in months, per billing cycle. */
 export const SUBSCRIPTION_PERIOD_MONTHS: Record<BillingCycle, number> = CYCLE_MONTHS;
@@ -450,6 +451,7 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
   });
 
   if (!result) return { activated: false };
+  invalidateTenantSubscriptionRow(payment.tenantId);
   return { activated: true, periodStart: result.periodStart, periodEnd: result.periodEnd, previousPlan: result.previousPlan, newPlan: payment.planName };
 }
 
@@ -1278,6 +1280,7 @@ export async function updateSubscription(tenantId: string, input: UpdateSubscrip
     }
   });
 
+  invalidateTenantSubscriptionRow(tenantId);
   const changes: string[] = [];
   if (companyName !== existing.companyName) {
     changes.push(`اسم الشركة من "${existing.companyName}" إلى "${companyName}"`);
@@ -1355,6 +1358,8 @@ export async function deleteTenant(tenantId: string) {
     prisma.userAccount.deleteMany({ where: { tenantId } }),
     prisma.subscription.delete({ where: { tenantId } })
   ]);
+  invalidateUserCache();
+  invalidateTenantSubscriptionRow(tenantId);
 
   // Everything else that belongs to the tenant (credentials, knowledge base, catalog, logs...).
   // Each table is cleaned independently and best-effort: the tenant itself is already gone above,

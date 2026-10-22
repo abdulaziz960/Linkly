@@ -5,6 +5,7 @@ import { hashPassword } from "../../../../lib/database";
 import { getPasswordValidationError } from "../../../../lib/passwords";
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
 import { prisma } from "../../../../lib/prisma";
+import { invalidateUserCache } from "../../../../lib/tenant-subscription-row";
 
 export const runtime = "nodejs";
 
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
     }
   });
 
+  invalidateUserCache();
   await prisma.employeeInvite.deleteMany({ where: { email: invite.email } });
 
   const { passwordHash: _passwordHash, ...safeUser } = user;

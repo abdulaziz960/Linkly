@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { ensureSchema } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
+import { invalidateTenantSubscriptionRow } from "../../../../lib/tenant-subscription-row";
 import { cancelShopifySubscription, isShopifyBilled } from "../../../../lib/shopify-billing";
 
 export const runtime = "nodejs";
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
     where: { tenantId: user.tenantId },
     data: { cancelledAt: action === "cancel" ? new Date().toISOString() : "", updatedAt: new Date().toISOString() }
   });
+  invalidateTenantSubscriptionRow(user.tenantId);
 
   return NextResponse.json({ subscription: updated });
 }

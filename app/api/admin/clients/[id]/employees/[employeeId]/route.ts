@@ -6,6 +6,7 @@ import { getSubscriptionForTenant, logAdminAction, syncSubscriptionOwner } from 
 import { changeDetails, recordAdminAction } from "../../../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../../../_utils/json";
 import { isTrustedOrigin } from "../../../../../../../lib/origin-guard";
+import { invalidateUserCache } from "../../../../../../../lib/tenant-subscription-row";
 
 export const runtime = "nodejs";
 
@@ -85,6 +86,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       return tx.employee.findFirstOrThrow({ where: { id: employeeId, tenantId } });
     });
+    invalidateUserCache();
 
     const fieldChanges = [
       name !== existingEmployee.name ? `الاسم إلى "${name}"` : null,

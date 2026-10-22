@@ -6,6 +6,7 @@ import { prisma } from "./prisma";
 import { getClientIp } from "./rate-limit";
 import { getTenantCompanyName, logAdminAction } from "./subscriptions";
 import { computeSubscriptionAccess } from "./subscription-access";
+import { getTenantSubscriptionRow } from "./tenant-subscription-row";
 
 export const authCookieName = "audiencew_session";
 
@@ -128,10 +129,7 @@ export function subscriptionGraceDays(): number | null {
 }
 
 export async function getSubscriptionAccess(tenantId: string) {
-  const subscription = await prisma.subscription.findUnique({
-    where: { tenantId },
-    select: { status: true, renewalAt: true }
-  });
+  const subscription = await getTenantSubscriptionRow(tenantId);
   if (!subscription) return { expired: false, overdue: false };
   const access = computeSubscriptionAccess(subscription, Date.now(), subscriptionGraceDays());
   return { expired: access.expired, overdue: access.overdue, status: subscription.status, renewalAt: subscription.renewalAt, invalidRenewalDate: access.invalidRenewalDate };

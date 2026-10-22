@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
+import { invalidateUserCache } from "../../../../lib/tenant-subscription-row";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
     where: { id: user.id },
     data: { tenantId: membership.tenantId, role: membership.role }
   });
+  invalidateUserCache();
 
   return jsonOk({ tenantId: membership.tenantId, role: membership.role });
 }

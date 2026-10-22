@@ -6,6 +6,7 @@ import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
 import { isValidEmail } from "../../../../lib/validation";
 import { logAdminAction, getTenantCompanyName, syncSubscriptionOwner } from "../../../../lib/subscriptions";
+import { invalidateUserCache } from "../../../../lib/tenant-subscription-row";
 
 type RouteContext = {
   params: Promise<{
@@ -121,6 +122,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       return tx.employee.findFirstOrThrow({ where: { id, tenantId: user.tenantId } });
     });
+    // Role, name, email and the disabled flag live on the cached login account too.
+    invalidateUserCache();
 
     if (body.disabled !== undefined) {
       await logAdminAction(
