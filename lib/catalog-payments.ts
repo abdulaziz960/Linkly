@@ -3,6 +3,7 @@ import { ensureSchema } from "./database";
 import { getMerchantGatewayKeyForVerification, getOrderItems, restockOrder, type OrderStatus } from "./catalog";
 import { getOrderDiscounts } from "./catalog-discounts";
 import { getOrderShipping, type OrderShipping } from "./catalog-shipping";
+import { getOrderPickup, pickupText, type OrderPickup } from "./catalog-pickup";
 import { sendWhatsAppTextMessage } from "./whatsapp-send";
 import { shortOrderNumber } from "./order-number";
 import { loyaltyMessageFor, recordPaidOrderForLoyalty } from "./loyalty";
@@ -46,7 +47,7 @@ export function buildPaidOrderMessage(order: {
   quantity: number;
   total: number;
   currency: string;
-}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number }>, discount?: { code: string; amount: number }, shipping?: OrderShipping): string {
+}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number }>, discount?: { code: string; amount: number }, shipping?: OrderShipping, pickup?: OrderPickup): string {
   const name = usableCustomerName(order.customerName, order.customerPhone) || usableCustomerName(fallbackName, order.customerPhone);
   const amount = Number.isInteger(order.total) ? String(order.total) : order.total.toFixed(2);
   const currency = order.currency === "SAR" ? "ر.س" : order.currency;
@@ -59,6 +60,7 @@ export function buildPaidOrderMessage(order: {
       : [`المنتج: ${order.productName}`, ...(order.quantity > 1 ? [`الكمية: ${order.quantity}`] : [])]),
     ...(discount ? [`الخصم (${discount.code}): -${Number.isInteger(discount.amount) ? discount.amount : discount.amount.toFixed(2)} ${currency}`] : []),
     ...(shipping ? [`التوصيل: ${shipping.methodName} إلى ${shipping.city}`, `رسوم التوصيل: ${shipping.fee > 0 ? `${Number.isInteger(shipping.fee) ? shipping.fee : shipping.fee.toFixed(2)} ${currency}` : "مجاني"}`] : []),
+    ...(pickup ? [pickupText(pickup)] : []),
     `المبلغ المدفوع: ${amount} ${currency}`,
     ...(arabicDate(paidAtIso) ? [`التاريخ: ${arabicDate(paidAtIso)}`] : []),
     "",
@@ -219,6 +221,7 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
     const orderItems = (await getOrderItems([order.id])).get(order.id);
     const orderDiscount = (await getOrderDiscounts([order.id])).get(order.id);
     const orderShipping = (await getOrderShipping([order.id])).get(order.id);
+    const orderPickup = (await getOrderPickup([order.id])).get(order.id);
     // The bot keeps a conversation "closed" while it handles it - a paid
     // order needs a human to fulfil it, so put it in the agents' queue.
     await prisma.conversation.updateMany({ where: { id: order.conversationId, status: "closed" }, data: { status: "unassigned", assignee: "بدون موظف" } });
@@ -228,7 +231,7 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
         tenantId: order.tenantId,
         conversationId: order.conversationId,
         to: conversation.customer.phone,
-        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name, orderItems, orderDiscount, orderShipping),
+        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name, orderItems, orderDiscount, orderShipping, orderPickup),
         author: "الرد الآلي"
       }).catch((error) => console.error("Order paid confirmation failed", error));
 
@@ -251,7 +254,8 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
           paidAtIso: new Date().toISOString(),
           items: orderItems?.map((item) => ({ name: item.productName, quantity: item.quantity, unitPrice: item.unitPrice })),
           discount: orderDiscount ? { code: orderDiscount.code, amount: orderDiscount.amount } : undefined,
-          shipping: orderShipping ? { name: orderShipping.methodName, city: orderShipping.city, fee: orderShipping.fee } : undefined
+          shipping: orderShipping ? { name: orderShipping.methodName, city: orderShipping.city, fee: orderShipping.fee } : undefined,
+          pickup: orderPickup ? pickupText(orderPickup) : undefined
         });
         await sendWhatsAppUploadedMedia({
           tenantId: order.tenantId,

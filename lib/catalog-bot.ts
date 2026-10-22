@@ -24,6 +24,7 @@ import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, 
 import { createZidOrder } from "./zid-checkout";
 import { formatMessageTime } from "./time";
 import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons, sendWhatsAppRowList } from "./whatsapp-send";
+import { clearPickupChoice, cleanCarDetails, cleanPlate, getPickupChoice, getPickupSettings, pickupText, recordOrderPickup, setPickupChoice, type PickupSettings } from "./catalog-pickup";
 import { clearOptionFlow, getOptionFlow, groupsForProduct, resolveSelection, setOptionFlow, type OptionFlow, type OptionGroup } from "./catalog-options";
 
 /**
@@ -56,6 +57,12 @@ const ID_ORDER = ID_BUY; // "اطلب الآن" reuses the buy flow (staff follo
 const ID_BACK = "cat_back";
 const ID_AGENT = "cat_agent";
 const ID_CART_ADD = "cartadd_";
+const ID_FUL_DELIVERY = "ful_delivery";
+const ID_FUL_PICKUP = "ful_pickup";
+const ID_PICK_STORE = "pk_store";
+const ID_PICK_CAR = "pk_car";
+const ID_PICK_CONFIRM = "pk_confirm";
+const ID_PICK_EDIT = "pk_edit";
 const ID_OPT = "opt_";
 const ID_OPT_DONE = "opt_done";
 const ID_OPT_SKIP = "opt_skip";
@@ -617,9 +624,19 @@ async function checkoutCart(ctx: CatalogCtx) {
     return;
   }
 
-  // The platform's own catalog, no store connected: with delivery options set up, the customer says where the order goes first.
+  // The platform's own catalog, no store connected: with delivery or pickup set up, the customer says how the order reaches them first.
+  await clearPickupChoice(ctx.conversationId);
   if (!zid.connected && !(await hasConnectedStore(ctx.tenantId))) {
     const methods = await listShippingMethods(ctx.tenantId, { activeOnly: true });
+    const pickup = await getPickupSettings(ctx.tenantId);
+    if (pickup.enabled && methods.length) {
+      await askFulfillment(ctx);
+      return;
+    }
+    if (pickup.enabled) {
+      await startPickupFlow(ctx, pickup);
+      return;
+    }
     if (methods.length) {
       await startShippingFlow(ctx, methods);
       return;
@@ -707,6 +724,7 @@ async function continueShippingFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: 
 
   // The payment method and Tabby's email come after the delivery questions (or alone, when there is no delivery).
   if (flow.step === "payment" || flow.step === "email") return continuePaymentFlow(ctx, flow, reply, cart);
+  if (flow.step === "fulfillment" || flow.step === "pickup_kind" || flow.step === "plate" || flow.step === "car_details" || flow.step === "pickup_confirm") return continuePickupFlow(ctx, flow, reply, cart);
 
   if (!methods.length) {
     // Delivery was switched off meanwhile: carry on without it.
@@ -792,6 +810,139 @@ async function continueShippingFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: 
     return true;
   }
   await ctx.sendText("للمتابعة اضغط «تأكيد وإتمام الدفع»، أو اكتب «تعديل العنوان»، أو «إلغاء».");
+  return true;
+}
+
+// ---------- pickup (from the store or from the car) ----------
+
+/** Both delivery and pickup are on: the customer picks how the order reaches them. */
+async function askFulfillment(ctx: CatalogCtx) {
+  await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "fulfillment", data: {} });
+  const body = "كيف تريد استلام طلبك؟";
+  if (ctx.channel !== "whatsapp") {
+    await ctx.sendText(`${body}\n1) توصيل\n2) استلام من المحل\nاكتب رقم الخيار، أو «إلغاء» للرجوع إلى السلة.`);
+    return;
+  }
+  const sent = await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttons: [{ id: ID_FUL_DELIVERY, title: "توصيل" }, { id: ID_FUL_PICKUP, title: "استلام من المحل" }], displayText: body, author: AUTHOR });
+  if (!sent.ok) await ctx.sendText(`${body}\n1) توصيل\n2) استلام من المحل`);
+}
+
+/** Pickup chosen (or the only way): from the store or the car when both are on; the car asks for the plate. */
+async function startPickupFlow(ctx: CatalogCtx, settings: PickupSettings) {
+  if (settings.inStore && settings.curbside) {
+    await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "pickup_kind", data: {} });
+    const body = `كيف تريد الاستلام؟${settings.note ? `\n${settings.note}` : ""}`;
+    if (ctx.channel !== "whatsapp") {
+      await ctx.sendText(`${body}\n1) من السيارة\n2) بنفسي من المحل\nاكتب رقم الخيار، أو «إلغاء».`);
+      return;
+    }
+    const sent = await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttons: [{ id: ID_PICK_CAR, title: "من السيارة" }, { id: ID_PICK_STORE, title: "بنفسي من المحل" }], displayText: body, author: AUTHOR });
+    if (!sent.ok) await ctx.sendText(`${body}\n1) من السيارة\n2) بنفسي من المحل`);
+    return;
+  }
+  await choosePickupKind(ctx, settings.curbside ? "car" : "store", settings);
+}
+
+async function choosePickupKind(ctx: CatalogCtx, kind: "store" | "car", settings: PickupSettings) {
+  if (kind === "car") {
+    await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "plate", data: { pickupKind: "car" } });
+    await ctx.sendText("اكتب *رقم لوحة سيارتك* ليخرج لك الموظف الطلب.\nمثال: أ ب ج 1234\n(اكتب «إلغاء» للرجوع إلى السلة)");
+    return;
+  }
+  await askPickupConfirm(ctx, { step: "pickup_confirm", data: { pickupKind: "store" } }, settings);
+}
+
+async function askPickupConfirm(ctx: CatalogCtx, flow: CheckoutFlow, settings: PickupSettings) {
+  await setCheckoutFlow(ctx.tenantId, ctx.conversationId, flow);
+  const cart = await resolveCart(ctx.tenantId, ctx.conversationId);
+  const pickup = { kind: (flow.data.pickupKind === "car" ? "car" : "store") as "car" | "store", plate: flow.data.plate ?? "", carDetails: flow.data.carDetails ?? "" };
+  const body = `*ملخص الطلب*\n${formatOrderSummary(cart)}\n\n${pickupText(pickup)}${settings.note ? `\n${settings.note}` : ""}`;
+  if (ctx.channel !== "whatsapp") {
+    await ctx.sendText(`${body}\n\nللتأكيد اكتب: تأكيد\nلتغيير طريقة الاستلام اكتب: تعديل\nللإلغاء اكتب: إلغاء`);
+    return;
+  }
+  const sent = await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttons: [{ id: ID_PICK_CONFIRM, title: "تأكيد وإتمام الدفع" }, { id: ID_PICK_EDIT, title: "تعديل" }], displayText: body, author: AUTHOR });
+  if (!sent.ok) await ctx.sendText(`${body}\n\nللتأكيد اكتب: تأكيد\nللتعديل اكتب: تعديل`);
+}
+
+/** One answer of the pickup questions. Returns false when the message is not for the flow. */
+async function continuePickupFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: { id?: string; text: string }, cart: Awaited<ReturnType<typeof resolveCart>>): Promise<boolean> {
+  const id = reply.id || "";
+  const text = reply.text.trim();
+  const settings = await getPickupSettings(ctx.tenantId);
+  if (!settings.enabled) {
+    // Pickup was switched off meanwhile: back to the usual checkout.
+    await clearCheckoutFlow(ctx.conversationId);
+    await checkoutCart(ctx);
+    return true;
+  }
+
+  if (flow.step === "fulfillment") {
+    const wantsDelivery = id === ID_FUL_DELIVERY || (!id && /^(1|توصيل)$/.test(text));
+    const wantsPickup = id === ID_FUL_PICKUP || (!id && /^(2|استلام|استلام من المحل)$/.test(text));
+    if (wantsDelivery) {
+      const methods = await listShippingMethods(ctx.tenantId, { activeOnly: true });
+      if (methods.length) await startShippingFlow(ctx, methods);
+      else await startPickupFlow(ctx, settings);
+      return true;
+    }
+    if (wantsPickup) {
+      await startPickupFlow(ctx, settings);
+      return true;
+    }
+    await askFulfillment(ctx);
+    return true;
+  }
+
+  if (flow.step === "pickup_kind") {
+    if (id === ID_PICK_CAR || (!id && text === "1")) {
+      await choosePickupKind(ctx, "car", settings);
+      return true;
+    }
+    if (id === ID_PICK_STORE || (!id && text === "2")) {
+      await choosePickupKind(ctx, "store", settings);
+      return true;
+    }
+    await startPickupFlow(ctx, settings);
+    return true;
+  }
+
+  if (flow.step === "plate") {
+    if (id || !text) return false;
+    const plate = cleanPlate(text);
+    if (!plate) {
+      await ctx.sendText("اكتب رقم اللوحة بشكل صحيح، مثل: أ ب ج 1234");
+      return true;
+    }
+    if (settings.askCarDetails) {
+      await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "car_details", data: { ...flow.data, plate } });
+      await ctx.sendText("اكتب *لون ونوع سيارتك* لنعرفها بسهولة.\nمثال: كامري بيضاء\n(أو اكتب «تخطي»)");
+      return true;
+    }
+    await askPickupConfirm(ctx, { step: "pickup_confirm", data: { ...flow.data, plate } }, settings);
+    return true;
+  }
+
+  if (flow.step === "car_details") {
+    if (id || !text) return false;
+    const details = /^(تخطي|تخطى|skip)$/i.test(text) ? "" : cleanCarDetails(text);
+    await askPickupConfirm(ctx, { step: "pickup_confirm", data: { ...flow.data, carDetails: details } }, settings);
+    return true;
+  }
+
+  // step "pickup_confirm"
+  if (id === ID_PICK_EDIT || (!id && /^(تعديل|تغيير|تعديل الاستلام)$/i.test(text))) {
+    await startPickupFlow(ctx, settings);
+    return true;
+  }
+  if (id === ID_PICK_CONFIRM || (!id && /^(تأكيد|تاكيد|أكد|اكد|نعم|confirm|ok)$/i.test(text))) {
+    const kind = flow.data.pickupKind === "car" ? "car" : "store";
+    await setPickupChoice(ctx.tenantId, ctx.conversationId, { kind, plate: kind === "car" ? flow.data.plate ?? "" : "", carDetails: kind === "car" ? flow.data.carDetails ?? "" : "" });
+    await clearCheckoutFlow(ctx.conversationId);
+    await proceedToPayment(ctx, cart, undefined);
+    return true;
+  }
+  await ctx.sendText("للمتابعة اضغط «تأكيد وإتمام الدفع»، أو اكتب «تعديل»، أو «إلغاء».");
   return true;
 }
 
@@ -918,6 +1069,7 @@ async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeo
   const customerPhone = conversation?.customer.phone || "";
   const gatewayKey = provider === "moyasar" ? await getMerchantGatewayKey(ctx.tenantId) : "";
 
+  const pickup = delivery ? null : await getPickupChoice(ctx.conversationId);
   const order = await createCartOrder({
     tenantId: ctx.tenantId,
     conversationId: ctx.conversationId,
@@ -928,9 +1080,10 @@ async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeo
     discount: cart.discount,
     shipping: delivery && quote ? { methodName: delivery.method.name, city: delivery.city, address: delivery.address, fee: quote.fee, eta: delivery.method.eta } : undefined
   });
-  const orderText = `${formatOrderSummary(cart, quote)}${delivery ? `\n\nالعنوان: ${delivery.address}` : ""}`;
+  if (pickup) await recordOrderPickup(order.id, pickup);
+  const orderText = `${formatOrderSummary(cart, quote)}${delivery ? `\n\nالعنوان: ${delivery.address}` : pickup ? `\n\n${pickupText(pickup)}` : ""}`;
   const totalText = formatMoney(order.total, order.currency);
-  const where = delivery ? ` | التوصيل: ${delivery.method.name} إلى ${delivery.city} - ${delivery.address}` : "";
+  const where = delivery ? ` | التوصيل: ${delivery.method.name} إلى ${delivery.city} - ${delivery.address}` : pickup ? ` | ${pickupText(pickup)}` : "";
 
   // Tabby / Tamara: a payment link from the provider. If it refuses this purchase, the order is cancelled (stock and code
   // come back) and the customer is offered the other methods.
@@ -1139,7 +1292,7 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   // Answering the delivery questions of a checkout (city, delivery option, address, confirmation).
   const flow = await getCheckoutFlow(ctx.conversationId);
   if (flow) {
-    if (!id || id.startsWith(ID_SHIP) || id.startsWith(ID_PAY)) {
+    if (!id || id.startsWith(ID_SHIP) || id.startsWith(ID_PAY) || id.startsWith("ful_") || id.startsWith("pk_")) {
       if (await continueShippingFlow(ctx, flow, reply)) return "handled";
     } else {
       // A tap on anything else abandons a half-finished checkout.

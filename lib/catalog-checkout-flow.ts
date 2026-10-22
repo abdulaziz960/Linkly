@@ -4,7 +4,7 @@
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
 
-export type CheckoutStep = "city" | "method" | "address" | "confirm" | "payment" | "email";
+export type CheckoutStep = "city" | "method" | "address" | "confirm" | "payment" | "email" | "fulfillment" | "pickup_kind" | "plate" | "car_details" | "pickup_confirm";
 
 export type CheckoutData = {
   city?: string;
@@ -12,6 +12,10 @@ export type CheckoutData = {
   address?: string;
   /** The payment method chosen (while the email, Tabby's only extra question, is still to come). */
   provider?: string;
+  /** Pickup: from the store or the car, and what the customer told us about the car. */
+  pickupKind?: string;
+  plate?: string;
+  carDetails?: string;
 };
 
 export type CheckoutFlow = { step: CheckoutStep; data: CheckoutData };
@@ -42,7 +46,8 @@ export async function getCheckoutFlow(conversationId: string): Promise<CheckoutF
   } catch {
     data = {};
   }
-  const step: CheckoutStep = row.step === "method" || row.step === "address" || row.step === "confirm" || row.step === "payment" || row.step === "email" ? row.step : "city";
+  const steps: CheckoutStep[] = ["method", "address", "confirm", "payment", "email", "fulfillment", "pickup_kind", "plate", "car_details", "pickup_confirm"];
+  const step: CheckoutStep = steps.includes(row.step as CheckoutStep) ? (row.step as CheckoutStep) : "city";
   return { step, data };
 }
 

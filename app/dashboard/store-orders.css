@@ -398,3 +398,92 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Product options editor (components/ProductOptionsEditor.tsx). */
+.options-editor .account-modal-body {
+  display: grid;
+  gap: 14px;
+}
+
+.options-group-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.options-group-row > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.options-group-row small,
+.options-group-row span {
+  font-size: 12.5px;
+  opacity: 0.8;
+}
+
+.options-group-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.options-form {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.04);
+}
+
+.options-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.options-form input:not([type="checkbox"]),
+.options-form select {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+}
+
+.options-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.options-form .options-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.options-form input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.options-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.options-rows > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px auto;
+  gap: 8px;
+}

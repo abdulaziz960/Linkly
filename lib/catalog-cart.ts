@@ -127,6 +127,7 @@ export async function clearCart(conversationId: string) {
   await ensureTables();
   await prisma.$executeRaw`DELETE FROM catalog_carts WHERE conversation_id = ${conversationId}`;
   await prisma.$executeRaw`DELETE FROM catalog_cart_discounts WHERE conversation_id = ${conversationId}`;
+  await prisma.$executeRaw`DELETE FROM catalog_pickup_choice WHERE conversation_id = ${conversationId}`;
 }
 
 /** `product` is the product as the customer configured it: its name carries the chosen options and its price includes their extras. */

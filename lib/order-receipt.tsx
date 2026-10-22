@@ -32,6 +32,8 @@ export type ReceiptData = {
   discount?: { code: string; amount: number };
   /** Delivery: `total` already includes its fee. */
   shipping?: { name: string; city: string; fee: number };
+  /** Pickup instead of delivery, as a line ("استلام من السيارة — رقم اللوحة: ..."). */
+  pickup?: string;
 };
 
 const PAGE_PX = { width: 1240, height: 1754 }; // A5 at ~212 dpi
@@ -115,6 +117,7 @@ export async function renderReceiptPng(data: ReceiptData): Promise<Buffer> {
         {row("العميل", trim(data.customerName || "—", 30))}
         {row("التاريخ", receiptDate(data.paidAtIso))}
         {data.shipping ? row("التوصيل إلى", trim(data.shipping.city, 20), { sub: trim(data.shipping.name, 24) }) : null}
+        {data.pickup ? row("الاستلام", trim(data.pickup, 44)) : null}
 
         <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 34, padding: "16px 24px", borderRadius: 16, background: COLORS.brandSoft }}>
           <div style={{ display: "flex", fontSize: 30, fontWeight: 900, color: COLORS.brand }}>{rtl("المجموع")}</div>

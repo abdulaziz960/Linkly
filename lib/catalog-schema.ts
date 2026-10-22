@@ -96,6 +96,30 @@ export const CATALOG_SCHEMA_STATEMENTS = [
   )`,
   // Delivery options the merchant offers: a shipping company (or the merchant's own delivery), its price, an optional
   // free-shipping threshold, an estimate and the cities it serves ('[]' = every city).
+  // Pickup instead of delivery: what the merchant offers (in store, from the car), the customer's pending choice in the chat and the choice stored with a placed order.
+  `CREATE TABLE IF NOT EXISTS catalog_pickup_settings (
+    tenant_id TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    in_store INTEGER NOT NULL DEFAULT 1,
+    curbside INTEGER NOT NULL DEFAULT 1,
+    ask_car_details INTEGER NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT ''
+  )`,
+  `CREATE TABLE IF NOT EXISTS catalog_pickup_choice (
+    conversation_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    plate TEXT NOT NULL DEFAULT '',
+    car_details TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS catalog_order_pickup (
+    order_id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    plate TEXT NOT NULL DEFAULT '',
+    car_details TEXT NOT NULL DEFAULT ''
+  )`,
   // Choices a customer makes on a product before it goes into the cart (size, extras...): groups of options, some with an extra price.
   // product_id '' = the group applies to every product.
   `CREATE TABLE IF NOT EXISTS catalog_option_groups (

@@ -6,6 +6,8 @@ import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
 import CustomSelect from "../../components/CustomSelect";
 import DiscountCodesPanel from "../components/DiscountCodesPanel";
 import LoyaltyPanel from "../components/LoyaltyPanel";
+import ProductOptionsEditor from "../components/ProductOptionsEditor";
+import PickupSettingsCard from "../components/PickupSettingsCard";
 import ShippingPanel from "../components/ShippingPanel";
 import PaymentProvidersPanel from "../components/PaymentProvidersPanel";
 import { orderMatchesQuery, shortOrderNumber } from "../../../lib/order-number";
@@ -41,6 +43,7 @@ type Order = {
   items?: Array<{ productId: string; productName: string; unitPrice: number; quantity: number }>;
   /** Delivery chosen for the order (the fee is in the total). */
   shipping?: { methodName: string; city: string; address: string; fee: number; eta: string };
+  pickup?: { kind: "store" | "car"; plate: string; carDetails: string };
   discount?: { code: string; amount: number };
   tracking?: { stage: "preparing" | "shipped" | "delivered"; carrier: string; trackingNumber: string; trackingUrl: string; updatedAt: string };
 };
@@ -89,6 +92,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; d
 
 export default function CatalogView() {
   const { t } = useLanguage();
+  const [optionsFor, setOptionsFor] = useState<{ id: string; name: string } | null>(null);
   const [tab, setTab] = useState<"products" | "orders" | "shipping" | "discounts" | "loyalty" | "settings">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -362,6 +366,7 @@ export default function CatalogView() {
           <div className="panel-head">
             <h2>{t("المنتجات", "Products")}</h2>
             <span />
+            <button className="btn soft" type="button" onClick={() => setOptionsFor({ id: "", name: "" })}>{t("خيارات لكل المنتجات", "Options for all products")}</button>
             <button className="btn primary" type="button" onClick={() => openForm()}>{t("إضافة منتج", "Add product")}</button>
           </div>
           <div className="panel-body table-wrap">
@@ -395,6 +400,7 @@ export default function CatalogView() {
                     <td data-label={t("الحالة", "Status")}><span className={product.active ? "state ok" : "state muted"}>{product.active ? t("ظاهر", "Visible") : t("مخفي", "Hidden")}</span></td>
                     <td className="row-actions" data-label={t("إجراء", "Action")}>
                       <button className="btn soft" type="button" onClick={() => openForm(product)}>{t("تعديل", "Edit")}</button>
+                      <button className="btn soft" type="button" onClick={() => setOptionsFor({ id: product.id, name: product.name })}>{t("الخيارات", "Options")}</button>
                       <button className="btn soft" type="button" onClick={() => toggleActive(product)}>{product.active ? t("إخفاء", "Hide") : t("إظهار", "Show")}</button>
                       <button className="btn danger" type="button" onClick={() => removeProduct(product)}>{t("حذف", "Delete")}</button>
                     </td>
@@ -422,9 +428,10 @@ export default function CatalogView() {
                     <td data-label={t("العميل", "Customer")}>{order.customerName || "-"}<br /><small dir="ltr">{order.customerPhone}</small></td>
                     <td data-label={t("المنتج", "Product")}>
                       {order.items?.length
-                        ? order.items.map((item) => <div key={item.productId}>{item.productName} × {item.quantity}</div>)
+                        ? order.items.map((item, index) => <div key={`${item.productId}-${index}`}>{item.productName} × {item.quantity}</div>)
                         : <>{order.productName}{order.quantity > 1 ? ` × ${order.quantity}` : ""}</>}
                       {order.discount ? <div><small>{t("كود الخصم", "Code")}: {order.discount.code} (-{order.discount.amount})</small></div> : null}
+                      {order.pickup ? <div><small>{order.pickup.kind === "car" ? t("استلام من السيارة", "Car pickup") : t("استلام من المحل", "Store pickup")}{order.pickup.plate ? ` — ${t("اللوحة", "Plate")}: ${order.pickup.plate}` : ""}{order.pickup.carDetails ? ` — ${order.pickup.carDetails}` : ""}</small></div> : null}
                       {order.shipping ? <div><small>{t("التوصيل", "Delivery")}: {order.shipping.methodName} → {order.shipping.city} ({order.shipping.fee > 0 ? `${order.shipping.fee} ${t("ر.س", "SAR")}` : t("مجاني", "free")})<br />{order.shipping.address}</small></div> : null}
                     </td>
                     <td data-label={t("المبلغ", "Amount")}>{order.total} {t("ر.س", "SAR")}</td>
@@ -459,11 +466,13 @@ export default function CatalogView() {
         </div>
       ) : null}
 
-      {tab === "shipping" ? <ShippingPanel /> : null}
+      {tab === "shipping" ? <><PickupSettingsCard /><ShippingPanel /></> : null}
 
       {tab === "discounts" ? <DiscountCodesPanel zidConnected={Boolean(settings?.zidConnected)} /> : null}
 
       {tab === "loyalty" ? <LoyaltyPanel /> : null}
+
+      {optionsFor ? <ProductOptionsEditor productId={optionsFor.id} productName={optionsFor.name} onClose={() => setOptionsFor(null)} /> : null}
 
       {tab === "settings" ? (
         <div className="catalog-settings">
