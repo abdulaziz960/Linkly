@@ -41,6 +41,8 @@ import DashboardViewRouter from "./views/DashboardViewRouter";
 import InboxView from "./views/InboxView";
 import { allViewKeys, computeAllowedViews, canSeeAllConversations as sharedCanSeeAllConversations } from "../../lib/permissions";
 import { formatDateTime } from "../../lib/time";
+import { billingLabel } from "../../lib/billing-labels";
+import { planDisplayName } from "../../lib/plan-features";
 import { playNewMessageChime } from "./notification-sound";
 import { requestNotificationPermissionOnce, showNewMessageNotification } from "./notification-browser";
 import TrialCountdownBanner from "./TrialCountdownBanner";
@@ -1671,7 +1673,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                   <div className="account-info-grid">
                     <div><span>{t("البريد الإلكتروني", "Email")}</span><b>{initialUser.email}</b></div>
                     <div><span>{t("الدور", "Role")}</span><b>{initialUser.role}</b></div>
-                    <div><span>{t("الباقة", "Plan")}</span><b>{subscription?.plan || t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
+                    <div><span>{t("الباقة", "Plan")}</span><b>{subscription?.plan ? planDisplayName(subscription.plan, language) : t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
                     <div><span>{t("حالة ربط واتساب", "WhatsApp connection")}</span><b>{integrationStatus === "connected" ? t("متصل", "Connected") : integrationStatus === "pending" ? t("قيد الإعداد", "Pending setup") : t("لم يتم الربط بعد", "Not connected yet")}</b></div>
                   </div>
                   {workspaces.length > 1 ? (
@@ -1743,8 +1745,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                 <>
                   <div className="profile-detail-panel">
                     <div><span>{t("الباقة الحالية", "Current plan")}</span><b>{subscription?.plan || t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
-                    <div><span>{t("حالة الاشتراك", "Subscription status")}</span><b>{subscription?.status || t("—", "—")}</b></div>
-                    <div><span>{t("تجديد الاشتراك", "Renewal")}</span><b>{subscription?.billingCycle || t("—", "—")}{subscription?.renewalAt ? ` · ${formatDateTime(subscription.renewalAt)}` : ""}</b></div>
+                    <div><span>{t("حالة الاشتراك", "Subscription status")}</span><b>{billingLabel(subscription?.status, language)}</b></div>
+                    <div><span>{t("تجديد الاشتراك", "Renewal")}</span><b>{billingLabel(subscription?.billingCycle, language)}{subscription?.renewalAt ? ` · ${formatDateTime(subscription.renewalAt, language)}` : ""}</b></div>
                     {!planAccess.lockedViews.includes("campaigns") ? <div><span>{t("رصيد الحملات", "Campaign balance")}</span><b>{t(`${campaignBalance.toLocaleString("ar")} رسالة متاحة`, `${campaignBalance.toLocaleString("en-US")} messages available`)}</b></div> : null}
                   </div>
                   <div className="invoice-list">
@@ -1765,7 +1767,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                       ) : null}
                       <a
                         className="btn soft"
-                        href={`/billing/invoices/print${invoiceFromDate || invoiceToDate ? `?${[invoiceFromDate ? `from=${invoiceFromDate}` : "", invoiceToDate ? `to=${invoiceToDate}` : ""].filter(Boolean).join("&")}` : ""}`}
+                        href={`/billing/invoices/print${invoiceFromDate || invoiceToDate || language === "en" ? `?${[invoiceFromDate ? `from=${invoiceFromDate}` : "", invoiceToDate ? `to=${invoiceToDate}` : "", language === "en" ? "lang=en" : ""].filter(Boolean).join("&")}` : ""}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -1785,13 +1787,13 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                         <div className="invoice-row" key={invoice.id}>
                           <div>
                             <b>{invoice.source === "اشتراك" ? t("اشتراك", "Subscription") : t("شحن رسائل حملات", "Campaign top-up")}</b>
-                            <span>{formatDateTime(invoice.createdAt)}</span>
+                            <span>{formatDateTime(invoice.createdAt, language)}</span>
                           </div>
                           <div className="invoice-row-amount">
                             <b>{t(`${invoice.amount.toLocaleString("ar")} ر.س`, `${invoice.amount.toLocaleString("en-US")} SAR`)}</b>
-                            <span className={`invoice-status ${invoice.status === "مكتمل" ? "paid" : "pending"}`}>{invoice.status}</span>
+                            <span className={`invoice-status ${invoice.status === "مكتمل" ? "paid" : "pending"}`}>{billingLabel(invoice.status, language)}</span>
                           </div>
-                          <a className="invoice-print-link" href={`/billing/invoice/${invoice.id}`} target="_blank" rel="noopener noreferrer">
+                          <a className="invoice-print-link" href={`/billing/invoice/${invoice.id}${language === "en" ? "?lang=en" : ""}`} target="_blank" rel="noopener noreferrer">
                             {t("طباعة", "Print")}
                           </a>
                         </div>

@@ -4,6 +4,8 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { getInvoicesForTenant, getSubscriptionForTenant } from "../../../../lib/subscriptions";
 import { getTenantBranding } from "../../../../lib/tenant-branding";
 import InvoicePrintButton from "../../invoice/[id]/InvoicePrintButton";
+import { billingLabel } from "../../../../lib/billing-labels";
+import { planDisplayName } from "../../../../lib/plan-features";
 import "../../invoice/invoice.css";
 
 export const metadata = { title: { absolute: "كشف الفواتير | Linkly" } };
@@ -16,11 +18,14 @@ function formatDateOnly(value: string) {
   return `${day}/${month}/${date.getFullYear()}`;
 }
 
-export default async function InvoicesStatementPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+export default async function InvoicesStatementPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; lang?: string }> }) {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) redirect("/login");
 
-  const { from, to } = await searchParams;
+  const { from, to, lang: langParam } = await searchParams;
+  const en = langParam === "en";
+  const bi = (ar: string, english: string) => (en ? english : <>{ar} <em>{english}</em></>);
+  const cur = en ? "SAR" : "ر.س";
   const [subscription, allInvoices, branding] = await Promise.all([
     getSubscriptionForTenant(user.tenantId),
     getInvoicesForTenant(user.tenantId),
@@ -47,7 +52,7 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
   const clientName = subscription?.companyName || user.tenantId;
 
   return (
-    <main className="invoice-page" style={accentStyle}>
+    <main className="invoice-page" style={accentStyle} dir={en ? "ltr" : undefined}>
       <div className="invoice-card">
         <div className="invoice-head">
           <div className="invoice-brand">
@@ -57,41 +62,41 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
             <h1>{branding.name}</h1>
           </div>
           <div className="invoice-title">
-            <strong>كشف الفواتير</strong>
-            <span className="invoice-sub">Invoice statement</span>
+            <strong>{en ? "Invoice statement" : "كشف الفواتير"}</strong>
+            {en ? null : <span className="invoice-sub">Invoice statement</span>}
           </div>
         </div>
 
         <div className="invoice-meta cols-3">
           <div>
-            <span className="invoice-label">الفترة <em>Period</em></span>
+            <span className="invoice-label">{bi("الفترة", "Period")}</span>
             <b dir="ltr">{periodLabel}</b>
           </div>
           <div>
-            <span className="invoice-label">تاريخ الإصدار <em>Issued</em></span>
+            <span className="invoice-label">{bi("تاريخ الإصدار", "Issued")}</span>
             <b dir="ltr">{formatDateOnly(new Date().toISOString())}</b>
           </div>
           <div>
-            <span className="invoice-label">عدد الفواتير <em>Invoices</em></span>
+            <span className="invoice-label">{bi("عدد الفواتير", "Invoices")}</span>
             <b dir="ltr">{invoices.length.toLocaleString("en-US")}</b>
           </div>
         </div>
 
         <div className="invoice-billed">
-          <span className="invoice-label">صادر إلى <em>Billed to</em></span>
+          <span className="invoice-label">{bi("صادر إلى", "Billed to")}</span>
           <b>{clientName}</b>
         </div>
 
         {invoices.length === 0 ? (
-          <p className="invoice-not-found">لا توجد فواتير في هذه الفترة.</p>
+          <p className="invoice-not-found">{en ? "No invoices in this period." : "لا توجد فواتير في هذه الفترة."}</p>
         ) : (
           <table className="invoice-table">
             <thead>
               <tr>
-                <th>التاريخ <em>Date</em></th>
-                <th>الوصف <em>Description</em></th>
-                <th>الحالة <em>Status</em></th>
-                <th className="num">المبلغ <em>Amount</em></th>
+                <th>{bi("التاريخ", "Date")}</th>
+                <th>{bi("الوصف", "Description")}</th>
+                <th>{bi("الحالة", "Status")}</th>
+                <th className="num">{bi("المبلغ", "Amount")}</th>
               </tr>
             </thead>
             <tbody>
@@ -99,10 +104,10 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
                 <tr key={invoice.id}>
                   <td dir="ltr" style={{ textAlign: "start", whiteSpace: "nowrap" }}>{formatDateOnly(invoice.createdAt)}</td>
                   <td>
-                    <b>{invoice.source === "اشتراك" ? `اشتراك - ${invoice.planName || "باقة"}` : "شحن رسائل حملات"}</b>
+                    <b>{invoice.source === "اشتراك" ? en ? `Subscription - ${invoice.planName ? planDisplayName(invoice.planName, "en") : "plan"}` : `اشتراك - ${invoice.planName || "باقة"}` : en ? "Campaign message top-up" : "شحن رسائل حملات"}</b>
                   </td>
-                  <td>{invoice.status}</td>
-                  <td className="num"><span dir="ltr">{invoice.amount.toLocaleString("en-US")}</span> ر.س</td>
+                  <td>{billingLabel(invoice.status, en ? "en" : "ar")}</td>
+                  <td className="num"><span dir="ltr">{invoice.amount.toLocaleString("en-US")}</span> {cur}</td>
                 </tr>
               ))}
             </tbody>
@@ -112,15 +117,15 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
         <div className="invoice-totals">
           <div className="invoice-totals-box">
             <div className="invoice-total-paid">
-              <span>إجمالي المدفوع <em>Total paid</em></span>
-              <b><span dir="ltr">{totalPaid.toLocaleString("en-US")}</span> ر.س</b>
+              <span>{bi("إجمالي المدفوع", "Total paid")}</span>
+              <b><span dir="ltr">{totalPaid.toLocaleString("en-US")}</span> {cur}</b>
             </div>
           </div>
         </div>
 
         <div className="invoice-actions">
           <InvoicePrintButton />
-          <Link className="secondary" href="/dashboard">العودة للوحة التحكم</Link>
+          <Link className="secondary" href="/dashboard">{en ? "Back to dashboard" : "العودة للوحة التحكم"}</Link>
         </div>
       </div>
     </main>
