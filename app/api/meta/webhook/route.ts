@@ -9,7 +9,7 @@ import { storeInstagramMessage } from "../../../../lib/instagram-inbox";
 import { runWhatsAppBot, runChannelBot, startTemplateCatalog } from "../../../../lib/bot-engine";
 import { captureAdSource } from "../../../../lib/ad-source";
 import { isCatalogTemplateButton } from "../../../../lib/catalog-template";
-import { storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
+import { attachWhatsAppMedia, storeWhatsAppMessage } from "../../../../lib/whatsapp-inbox";
 import { handleMarketingOptOutKeyword } from "../../../../lib/marketing-optout";
 import { handleMetaLeadgenEvent } from "../../../../lib/meta-leads";
 import { prisma } from "../../../../lib/prisma";
@@ -491,7 +491,15 @@ export async function POST(request: NextRequest) {
 
         const contact = contacts.find((item: Record<string, any>) => item.wa_id === message.from);
         const text = getMessageText(message);
-        const attachment = await getIncomingAttachment(message, whatsappAccount.accessToken);
+        // The file is downloaded from Meta (and a voice note converted) in parallel with everything else: the
+        // message is stored and shown right away, and the file is attached to it when it arrives.
+        const hasMedia = Boolean(message.audio || message.image || message.sticker || message.document);
+        const attachmentPromise = hasMedia
+          ? getIncomingAttachment(message, whatsappAccount.accessToken).catch((error) => {
+              console.error("Incoming media download failed", error);
+              return undefined;
+            })
+          : Promise.resolve(undefined);
 
         const stored = await storeWhatsAppMessage({
           phone: message.from,
@@ -501,9 +509,12 @@ export async function POST(request: NextRequest) {
           tenantId: whatsappAccount.tenantId,
           messageId: message.id,
           receivedAt: message.timestamp ? new Date(Number(message.timestamp) * 1000) : undefined,
-          attachment,
           replyToMessageId: message.context?.id
         });
+        const mediaTask = attachmentPromise.then(async (attachment) => {
+          if (!attachment || !stored.isNew) return;
+          await attachWhatsAppMedia({ tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, messageId: stored.message.id, attachment });
+        }).catch((error) => console.error("Attaching incoming media failed", error));
 
         if (stored.isNew) {
           // Which ad opened this conversation (Meta click-to-WhatsApp referral, or a TikTok click id).
@@ -519,11 +530,13 @@ export async function POST(request: NextRequest) {
           // A tap on a catalog template's button opens the dashboard catalog directly.
           if (message.button?.text && await isCatalogTemplateButton(whatsappAccount.tenantId, message.button.text)) {
             await startTemplateCatalog("whatsapp", { tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, recipientId: message.from });
+            await mediaTask;
             savedMessages.push(message.id || message.from);
             continue;
           }
           // A customer asking where their order is gets the answer from the connected store (Salla), not the bot flow.
           if (text && !message.interactive && await handleOrderInquiry({ tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, phone: message.from, text })) {
+            await mediaTask;
             savedMessages.push(message.id || message.from);
             continue;
           }
@@ -543,6 +556,7 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        await mediaTask;
         savedMessages.push(message.id || message.from);
       }
     }

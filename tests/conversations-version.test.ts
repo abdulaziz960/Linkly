@@ -63,7 +63,12 @@ describe("GET /api/conversations/version", () => {
     const afterStatus = (await version()).version;
     expect(afterStatus).not.toBe(afterRead);
 
+    // A file attached to a message after it was stored (incoming media is downloaded in parallel) moves it too.
+    await prisma.message.update({ where: { id: "m2" }, data: { attachmentType: "image", attachmentUrl: "data:image/jpeg;base64,AAAA", attachmentName: "a.jpg", attachmentMime: "image/jpeg" } });
+    const afterAttach = (await version()).version;
+    expect(afterAttach).not.toBe(afterStatus);
+
     await prisma.conversationTag.create({ data: { conversationId: "conv-v", tagName: "مهم" } }).catch(() => undefined);
-    expect((await version()).version).not.toBe(afterStatus);
+    expect((await version()).version).not.toBe(afterAttach);
   });
 });

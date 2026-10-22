@@ -247,6 +247,34 @@ export async function storeWhatsAppMessage(input: StoreWhatsAppMessageInput) {
 }
 
 /**
+ * Adds a downloaded attachment to a message that was already stored without it. The webhook stores an
+ * incoming media message at once (so it shows in the inbox right away) and downloads the file from Meta in
+ * parallel; this fills the file in when it arrives. Audio is then transcribed, as it was when the file was
+ * stored with the message.
+ */
+export async function attachWhatsAppMedia(input: {
+  tenantId: string;
+  conversationId: string;
+  messageId: string;
+  attachment: NonNullable<StoreWhatsAppMessageInput["attachment"]>;
+}) {
+  const updated = await prisma.message.updateMany({
+    where: { id: input.messageId, attachmentUrl: "" },
+    data: {
+      attachmentType: input.attachment.type,
+      attachmentUrl: input.attachment.url,
+      attachmentName: input.attachment.name ?? "",
+      attachmentMime: input.attachment.mimeType ?? "",
+      metaMediaId: input.attachment.metaMediaId ?? ""
+    }
+  });
+  if (updated.count > 0 && input.attachment.type === "audio") {
+    await autoTranscribeVoiceMessage(input.tenantId, input.conversationId, input.messageId, input.attachment.url);
+  }
+  return updated.count > 0;
+}
+
+/**
  * Best-effort: transcribes a newly-arrived WhatsApp voice note immediately,
  * so the employee sees the text without pressing the manual "Transcribe to
  * text" button (app/dashboard/views/InboxView.tsx). Reuses the same

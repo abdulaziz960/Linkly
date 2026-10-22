@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const assignee = Array.isArray(assigneeNames) ? { in: assigneeNames } : assigneeNames;
   const conversationWhere = assignee ? { tenantId: user.tenantId, assignee } : { tenantId: user.tenantId };
 
-  const [conversations, messageGroups, transcripts, tags] = await Promise.all([
+  const [conversations, messageGroups, transcripts, attachments, tags] = await Promise.all([
     prisma.conversation.findMany({
       where: conversationWhere,
       select: { id: true, status: true, assignee: true, unread: true, windowExpired: true, lastActivityAt: true, lastMessage: true, rating: true, closedAt: true, pipelineStage: true, dealValue: true },
@@ -40,10 +40,12 @@ export async function GET(request: NextRequest) {
       _max: { createdAt: true }
     }),
     prisma.message.count({ where: { conversation: conversationWhere, transcript: { not: "" } } }),
+    // A file attached to a message after it was stored (incoming media is downloaded in parallel).
+    prisma.message.count({ where: { conversation: conversationWhere, attachmentType: { not: "" } } }),
     prisma.conversationTag.count({ where: { conversation: conversationWhere } })
   ]);
 
-  const fingerprint = JSON.stringify([conversations, messageGroups.map((group) => [group.deliveryStatus, group._count._all, group._max.createdAt]).sort(), transcripts, tags]);
+  const fingerprint = JSON.stringify([conversations, messageGroups.map((group) => [group.deliveryStatus, group._count._all, group._max.createdAt]).sort(), transcripts, attachments, tags]);
   const version = createHash("sha1").update(fingerprint).digest("base64url");
   return NextResponse.json({ ok: true, version }, { headers: { "Cache-Control": "private, no-store" } });
 }
