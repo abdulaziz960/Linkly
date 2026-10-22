@@ -96,6 +96,41 @@ export const CATALOG_SCHEMA_STATEMENTS = [
   )`,
   // Delivery options the merchant offers: a shipping company (or the merchant's own delivery), its price, an optional
   // free-shipping threshold, an estimate and the cities it serves ('[]' = every city).
+  // Choices a customer makes on a product before it goes into the cart (size, extras...): groups of options, some with an extra price.
+  // product_id '' = the group applies to every product.
+  `CREATE TABLE IF NOT EXISTS catalog_option_groups (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    product_id TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL,
+    required INTEGER NOT NULL DEFAULT 1,
+    multiple INTEGER NOT NULL DEFAULT 0,
+    max_choices INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS catalog_option_groups_tenant_idx ON catalog_option_groups(tenant_id, product_id)`,
+  `CREATE TABLE IF NOT EXISTS catalog_options (
+    id TEXT PRIMARY KEY,
+    group_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    price_delta DOUBLE PRECISION NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1
+  )`,
+  `CREATE INDEX IF NOT EXISTS catalog_options_group_idx ON catalog_options(group_id)`,
+  // Where a customer is in a product's choices (which group, what they picked so far); group_index = -1 means all answered, waiting for the quantity.
+  `CREATE TABLE IF NOT EXISTS catalog_option_flow (
+    conversation_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'cart',
+    group_index INTEGER NOT NULL DEFAULT 0,
+    chosen_json TEXT NOT NULL DEFAULT '[]',
+    expires_at TEXT NOT NULL
+  )`,
   // Loyalty for orders placed and paid in WhatsApp: the program, each customer's progress, the orders already counted and the rewards given.
   `CREATE TABLE IF NOT EXISTS loyalty_settings (
     tenant_id TEXT PRIMARY KEY,

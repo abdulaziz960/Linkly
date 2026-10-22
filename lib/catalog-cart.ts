@@ -7,13 +7,14 @@ import { ensureCatalogSchema } from "./catalog-schema";
 import { getProduct, isProductAvailable, type CatalogProduct } from "./catalog";
 import { evaluateDiscount, findDiscountByCode, getCartCode, normalizeCode, setCartCode } from "./catalog-discounts";
 import { loyaltyCodeBelongsToOther } from "./loyalty";
+import { groupsForProduct, optionsKey, resolveSelection } from "./catalog-options";
 
 export const MAX_UNITS_PER_LINE = 99;
 export const MAX_CART_LINES = 20;
 /** The pending marker meaning "the next message is a discount code", not a product waiting for its quantity. */
 export const PENDING_DISCOUNT = "__discount__";
 
-export type CartLine = { productId: string; quantity: number };
+export type CartLine = { productId: string; quantity: number; /** Ids of the options chosen on the product (size, extras...). */ options?: string[] };
 export type Cart = { lines: CartLine[]; pendingProductId: string };
 
 let ready: Promise<void> | null = null;
@@ -30,7 +31,10 @@ function parseLines(json: string): CartLine[] {
     const parsed = JSON.parse(json) as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .map((entry) => ({ productId: String((entry as CartLine)?.productId ?? ""), quantity: Math.floor(Number((entry as CartLine)?.quantity)) }))
+      .map((entry) => {
+        const options = Array.isArray((entry as CartLine)?.options) ? ((entry as CartLine).options as unknown[]).map(String).filter(Boolean).slice(0, 30) : [];
+        return { productId: String((entry as CartLine)?.productId ?? ""), quantity: Math.floor(Number((entry as CartLine)?.quantity)), ...(options.length ? { options } : {}) };
+      })
       .filter((line) => line.productId && Number.isFinite(line.quantity) && line.quantity >= 1)
       .slice(0, MAX_CART_LINES);
   } catch {
@@ -73,18 +77,28 @@ export function maxUnitsFor(product: Pick<CatalogProduct, "stock">): number {
 export type AddResult = { ok: true; quantity: number; capped: boolean } | { ok: false; reason: "unavailable" | "cart-full" };
 
 /** Adds units of a product; the same product twice becomes one line. A stock limit trims the quantity (and says so). */
-export async function addToCart(tenantId: string, conversationId: string, productId: string, quantity: number): Promise<AddResult> {
+export async function addToCart(tenantId: string, conversationId: string, productId: string, quantity: number, optionIds: string[] = []): Promise<AddResult> {
   const product = await getProduct(tenantId, productId);
   if (!product || !isProductAvailable(product)) return { ok: false, reason: "unavailable" };
+  // The options must satisfy the product's groups (a required one cannot be skipped).
+  const selection = resolveSelection(await groupsForProduct(tenantId, productId), optionIds);
+  if (!selection.ok) return { ok: false, reason: "unavailable" };
+  const chosen = selection.options.map((option) => option.id);
+  const key = optionsKey(chosen);
   const cart = await getCart(conversationId);
   const wanted = Math.max(1, Math.floor(quantity));
-  const existing = cart.lines.find((line) => line.productId === productId);
+  const sameLine = (line: CartLine) => line.productId === productId && optionsKey(line.options) === key;
+  const existing = cart.lines.find(sameLine);
   if (!existing && cart.lines.length >= MAX_CART_LINES) return { ok: false, reason: "cart-full" };
 
+  // Stock is per product, whatever the options: all the lines of the product count against it.
   const limit = maxUnitsFor(product);
-  const total = Math.min(limit, (existing?.quantity ?? 0) + wanted);
-  const capped = (existing?.quantity ?? 0) + wanted > limit;
-  const lines = existing ? cart.lines.map((line) => (line.productId === productId ? { ...line, quantity: total } : line)) : [...cart.lines, { productId, quantity: total }];
+  const others = cart.lines.filter((line) => line.productId === productId && !sameLine(line)).reduce((sum, line) => sum + line.quantity, 0);
+  const room = Math.max(0, limit - others);
+  const total = Math.min(room, (existing?.quantity ?? 0) + wanted);
+  if (total < 1) return { ok: false, reason: "unavailable" };
+  const capped = (existing?.quantity ?? 0) + wanted > room;
+  const lines = existing ? cart.lines.map((line) => (sameLine(line) ? { ...line, quantity: total } : line)) : [...cart.lines, { productId, quantity: total, ...(chosen.length ? { options: chosen } : {}) }];
   await saveCart(tenantId, conversationId, { lines, pendingProductId: "" });
   return { ok: true, quantity: total, capped };
 }
@@ -115,7 +129,8 @@ export async function clearCart(conversationId: string) {
   await prisma.$executeRaw`DELETE FROM catalog_cart_discounts WHERE conversation_id = ${conversationId}`;
 }
 
-export type ResolvedCartLine = { product: CatalogProduct; quantity: number; lineTotal: number };
+/** `product` is the product as the customer configured it: its name carries the chosen options and its price includes their extras. */
+export type ResolvedCartLine = { product: CatalogProduct; quantity: number; lineTotal: number; options?: string[] };
 export type CartAdjustment = { position: number; name: string; from: number; to: number };
 export type ResolvedCart = {
   lines: ResolvedCartLine[];
@@ -146,9 +161,19 @@ export async function resolveCart(tenantId: string, conversationId: string): Pro
       continue;
     }
     const quantity = Math.min(line.quantity, maxUnitsFor(product));
+    // The chosen options (size, extras) still have to fit the product's groups, as they are now.
+    let configured = product;
+    if (line.options?.length) {
+      const selection = resolveSelection(await groupsForProduct(tenantId, product.id), line.options);
+      if (!selection.ok) {
+        dropped.push(`${product.name} (تغيّرت خياراته)`);
+        continue;
+      }
+      configured = { ...product, name: `${product.name} (${selection.text})`, price: Math.round((product.price + selection.delta) * 100) / 100 };
+    }
     // Less stock than the customer asked for (someone bought it meanwhile): they must see it before paying.
-    if (quantity < line.quantity) adjusted.push({ position: index + 1, name: product.name, from: line.quantity, to: quantity });
-    lines.push({ product, quantity, lineTotal: Math.round(product.price * quantity * 100) / 100 });
+    if (quantity < line.quantity) adjusted.push({ position: index + 1, name: configured.name, from: line.quantity, to: quantity });
+    lines.push({ product: configured, quantity, lineTotal: Math.round(configured.price * quantity * 100) / 100, ...(line.options?.length ? { options: line.options } : {}) });
   }
   const subtotal = Math.round(lines.reduce((sum, line) => sum + line.lineTotal, 0) * 100) / 100;
 

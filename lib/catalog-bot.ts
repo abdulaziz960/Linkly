@@ -23,7 +23,8 @@ import { createMerchantInvoice, shortOrderNumber } from "./catalog-payments";
 import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, setCheckoutState } from "./catalog-zid";
 import { createZidOrder } from "./zid-checkout";
 import { formatMessageTime } from "./time";
-import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons } from "./whatsapp-send";
+import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons, sendWhatsAppRowList } from "./whatsapp-send";
+import { clearOptionFlow, getOptionFlow, groupsForProduct, resolveSelection, setOptionFlow, type OptionFlow, type OptionGroup } from "./catalog-options";
 
 /**
  * The in-chat shopping flow behind the bot's "عرض الكتالوج" step: browse the
@@ -55,6 +56,9 @@ const ID_ORDER = ID_BUY; // "اطلب الآن" reuses the buy flow (staff follo
 const ID_BACK = "cat_back";
 const ID_AGENT = "cat_agent";
 const ID_CART_ADD = "cartadd_";
+const ID_OPT = "opt_";
+const ID_OPT_DONE = "opt_done";
+const ID_OPT_SKIP = "opt_skip";
 const ID_CART_QTY = "cartqty_";
 const ID_CART_VIEW = "cart_view";
 const ID_TRACK = "track_order";
@@ -248,6 +252,11 @@ async function purchase(ctx: CatalogCtx, productId: string) {
     await sendCatalogMenu(ctx, "يمكنك اختيار منتج آخر:");
     return;
   }
+  // A product with choices (size, extras) asks them first, then goes into the cart.
+  if ((await groupsForProduct(ctx.tenantId, product.id)).length) {
+    await startProductChoices(ctx, product.id, "buy");
+    return;
+  }
   const cart = await getCart(ctx.conversationId);
   if (!cart.lines.some((line) => line.productId === product.id)) {
     const added = await addToCart(ctx.tenantId, ctx.conversationId, product.id, 1);
@@ -391,14 +400,152 @@ async function askQuantity(ctx: CatalogCtx, productId: string) {
 
 /** The quantity came in (a button or a typed number): put it in the cart and show the cart. */
 async function addPendingToCart(ctx: CatalogCtx, productId: string, quantity: number) {
-  const result = await addToCart(ctx.tenantId, ctx.conversationId, productId, quantity);
+  // The options the customer chose before being asked the quantity.
+  const flow = await getOptionFlow(ctx.conversationId);
+  const options = flow && flow.productId === productId && flow.groupIndex < 0 ? flow.chosen : [];
+  const result = await addToCart(ctx.tenantId, ctx.conversationId, productId, quantity, options);
+  await clearOptionFlow(ctx.conversationId);
   if (!result.ok) {
     await ctx.sendText(result.reason === "cart-full" ? "وصلت سلتك للحد الأقصى من المنتجات. أتمّ الطلب أو احذف منتجًا." : "عذرًا، هذا المنتج لم يعد متوفرًا حاليًا.");
     return;
   }
   const product = await getProduct(ctx.tenantId, productId);
+  const selection = options.length ? resolveSelection(await groupsForProduct(ctx.tenantId, productId), options) : null;
+  const label = product ? `«${product.name}${selection?.ok && selection.text ? ` (${selection.text})` : ""}»` : "المنتج";
   const note = result.capped ? `\n(الكمية المتاحة من هذا المنتج ${result.quantity} فقط)` : "";
-  await showCart(ctx, `تمت إضافة ${product ? `«${product.name}»` : "المنتج"} إلى السلة${note}`);
+  await showCart(ctx, `تمت إضافة ${label} إلى السلة${note}`);
+}
+
+// ---------- product choices (size, extras) ----------
+
+/** "Add to cart" / "buy now" on a product: its choices are asked one group after another; without any, straight to the quantity. */
+async function startProductChoices(ctx: CatalogCtx, productId: string, mode: "cart" | "buy") {
+  const product = await getProduct(ctx.tenantId, productId);
+  if (!product || !isProductAvailable(product)) {
+    await ctx.sendText("عذرًا، هذا المنتج لم يعد متوفرًا حاليًا.");
+    return;
+  }
+  const groups = await groupsForProduct(ctx.tenantId, productId);
+  if (!groups.length) {
+    if (mode === "buy") await purchase(ctx, productId);
+    else await askQuantity(ctx, productId);
+    return;
+  }
+  await setOptionFlow(ctx.tenantId, ctx.conversationId, { productId, mode, groupIndex: 0, chosen: [] });
+  await askOptionGroup(ctx, product, groups[0], [], "");
+}
+
+function optionPriceText(priceDelta: number) {
+  return priceDelta > 0 ? `+${formatMoney(priceDelta)}` : "";
+}
+
+/** The question of one group: a WhatsApp list or buttons (the extras of a "several" group are picked one at a time, then "done"). */
+async function askOptionGroup(ctx: CatalogCtx, product: CatalogProduct, group: OptionGroup, chosen: string[], note: string) {
+  const picked = group.options.filter((option) => chosen.includes(option.id));
+  const available = group.options.filter((option) => !chosen.includes(option.id));
+  const hint = group.multiple ? (group.maxChoices ? `اختر حتى ${group.maxChoices} ثم اضغط «تم».` : "اختر ما تريد ثم اضغط «تم».") : group.required ? "اختر واحدًا." : "اختر واحدًا أو اضغط «بدون».";
+  const body = `${note ? `${note}\n\n` : ""}*${product.name}*\n${group.name}${group.required ? "" : " (اختياري)"}\n${hint}${picked.length ? `\nاخترت: ${picked.map((option) => option.name).join("، ")}` : ""}`;
+  const rows = available.map((option) => ({ id: `${ID_OPT}${option.id}`, title: option.name, description: optionPriceText(option.priceDelta) || undefined }));
+  const finish = group.multiple ? { id: ID_OPT_DONE, title: "تم ✔" } : !group.required ? { id: ID_OPT_SKIP, title: "بدون" } : null;
+  if (finish) rows.push({ ...finish, description: undefined });
+
+  const numbered = () => `${body}\n${rows.map((row, index) => (row.id === ID_OPT_DONE || row.id === ID_OPT_SKIP ? `0) ${row.title}` : `${index + 1}) ${row.title}${row.description ? ` (${row.description})` : ""}`)).join("\n")}\nاكتب رقم الخيار، أو «إلغاء».`;
+  if (ctx.channel !== "whatsapp") {
+    await ctx.sendText(numbered());
+    return;
+  }
+  const common = { tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, author: AUTHOR };
+  const sent = rows.length <= 3
+    ? await sendWhatsAppIdButtons({ ...common, bodyText: body, buttons: rows.map((row) => ({ id: row.id, title: row.description ? `${row.title} ${row.description}` : row.title })), displayText: body })
+    : await sendWhatsAppRowList({ ...common, bodyText: body, buttonLabel: "اختر", rows, displayText: body });
+  if (!sent.ok) await ctx.sendText(numbered());
+}
+
+/** One answer of a product's choices. Returns false when the message is not for the flow. */
+async function continueProductChoices(ctx: CatalogCtx, flow: OptionFlow, reply: { id?: string; text: string }): Promise<boolean> {
+  const id = reply.id || "";
+  const text = reply.text.trim();
+  const product = await getProduct(ctx.tenantId, flow.productId);
+  const groups = product ? await groupsForProduct(ctx.tenantId, flow.productId) : [];
+  const group = groups[flow.groupIndex];
+  if (!product || !isProductAvailable(product) || !group) {
+    await clearOptionFlow(ctx.conversationId);
+    await ctx.sendText("تغيّرت خيارات هذا المنتج. اختره من جديد.");
+    return true;
+  }
+  if (!id && /^(إلغاء|الغاء|cancel)$/i.test(text)) {
+    await clearOptionFlow(ctx.conversationId);
+    await showProduct(ctx, product);
+    return true;
+  }
+
+  const inGroup = (ids: string[]) => group.options.filter((option) => ids.includes(option.id));
+  const available = group.options.filter((option) => !flow.chosen.includes(option.id));
+  let optionId = "";
+  let done = false;
+  if (id === ID_OPT_DONE || id === ID_OPT_SKIP) done = true;
+  else if (id.startsWith(ID_OPT)) optionId = id.slice(ID_OPT.length);
+  else if (!id && /^\d{1,2}$/.test(text)) {
+    if (Number(text) === 0) done = true;
+    else optionId = available[Number(text) - 1]?.id ?? "";
+  } else if (!id) {
+    // A typed name of an option works too.
+    optionId = available.find((option) => option.name === text)?.id ?? "";
+    if (!optionId && /^(تم|انتهيت|بدون)$/i.test(text)) done = true;
+  }
+
+  let chosen = flow.chosen;
+  if (done) {
+    if (group.required && inGroup(chosen).length === 0) {
+      await askOptionGroup(ctx, product, group, chosen, "اختر خيارًا واحدًا على الأقل.");
+      return true;
+    }
+    return advanceChoices(ctx, product, groups, flow, chosen);
+  }
+  if (!optionId || !available.some((option) => option.id === optionId)) {
+    await askOptionGroup(ctx, product, group, chosen, "اختر من الخيارات المعروضة.");
+    return true;
+  }
+  chosen = [...chosen, optionId];
+  if (group.multiple) {
+    const count = inGroup(chosen).length;
+    if ((group.maxChoices > 0 && count >= group.maxChoices) || count >= group.options.length) return advanceChoices(ctx, product, groups, flow, chosen);
+    await setOptionFlow(ctx.tenantId, ctx.conversationId, { ...flow, chosen });
+    await askOptionGroup(ctx, product, group, chosen, "");
+    return true;
+  }
+  return advanceChoices(ctx, product, groups, flow, chosen);
+}
+
+/** The group is answered: the next group, or - all answered - the quantity (or straight into the cart for "buy now"). */
+async function advanceChoices(ctx: CatalogCtx, product: CatalogProduct, groups: OptionGroup[], flow: OptionFlow, chosen: string[]): Promise<boolean> {
+  const next = flow.groupIndex + 1;
+  if (next < groups.length) {
+    await setOptionFlow(ctx.tenantId, ctx.conversationId, { ...flow, groupIndex: next, chosen });
+    await askOptionGroup(ctx, product, groups[next], chosen, "");
+    return true;
+  }
+  const selection = resolveSelection(groups, chosen);
+  if (!selection.ok) {
+    await clearOptionFlow(ctx.conversationId);
+    await ctx.sendText("تعذر تأكيد اختياراتك. اختر المنتج من جديد.");
+    return true;
+  }
+  if (flow.mode === "buy") {
+    const added = await addToCart(ctx.tenantId, ctx.conversationId, product.id, 1, chosen);
+    await clearOptionFlow(ctx.conversationId);
+    if (!added.ok) {
+      await ctx.sendText(added.reason === "cart-full" ? "وصلت سلتك للحد الأقصى من المنتجات. أتمّ الطلب أو احذف منتجًا." : "عذرًا، هذا المنتج لم يعد متوفرًا حاليًا.");
+      return true;
+    }
+    await showCart(ctx, `أضفنا «${product.name}${selection.text ? ` (${selection.text})` : ""}» إلى سلتك. أتمّ الدفع من الزر، أو غيّر الكمية، أو أدخل كود خصم.`);
+    return true;
+  }
+  // The quantity comes next; the choices wait in the flow (group_index -1) until it arrives.
+  await setOptionFlow(ctx.tenantId, ctx.conversationId, { ...flow, groupIndex: -1, chosen });
+  await ctx.sendText(`اخترت: ${selection.text || "بدون إضافات"}${selection.delta > 0 ? ` (+${formatMoney(selection.delta)})` : ""}`);
+  await askQuantity(ctx, product.id);
+  return true;
 }
 
 /** One line for the conversation's internal note: "name ×qty، name ×qty". */
@@ -979,6 +1126,16 @@ async function finishZidCartCheckout(ctx: CatalogCtx, city: string, addressLine:
 export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; text: string }, intro: string): Promise<"handled" | "agent" | "ignored"> {
   const id = reply.id || "";
 
+  // Answering a product's choices (size, extras). A tap on anything else abandons them (the quantity answer is part of the flow).
+  const optionFlow = await getOptionFlow(ctx.conversationId);
+  if (optionFlow) {
+    if (optionFlow.groupIndex >= 0 && (id.startsWith(ID_OPT) || !id)) {
+      if (await continueProductChoices(ctx, optionFlow, reply)) return "handled";
+    } else if (id && !id.startsWith(ID_OPT) && !id.startsWith(ID_CART_QTY)) {
+      await clearOptionFlow(ctx.conversationId);
+    }
+  }
+
   // Answering the delivery questions of a checkout (city, delivery option, address, confirmation).
   const flow = await getCheckoutFlow(ctx.conversationId);
   if (flow) {
@@ -1008,7 +1165,7 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   }
   if (id) await clearPendingProduct(ctx.tenantId, ctx.conversationId);
   if (id.startsWith(ID_CART_ADD)) {
-    await askQuantity(ctx, id.slice(ID_CART_ADD.length));
+    await startProductChoices(ctx, id.slice(ID_CART_ADD.length), "cart");
     return "handled";
   }
   if (id === ID_TRACK) {
@@ -1120,7 +1277,7 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
     ?? products.find((product) => product.name === needle || product.name.slice(0, 24) === needle);
   if (picked) {
     if (buy) await purchase(ctx, picked.id);
-    else if (addCommand) await askQuantity(ctx, picked.id);
+    else if (addCommand) await startProductChoices(ctx, picked.id, "cart");
     else await showProduct(ctx, picked);
     return "handled";
   }
