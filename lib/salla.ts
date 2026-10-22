@@ -150,7 +150,7 @@ export function sallaAuthorizeUrl(state: string, redirectUri: string): string {
   url.searchParams.set("client_id", process.env.SALLA_CLIENT_ID || "");
   url.searchParams.set("response_type", "code");
   url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("scope", process.env.SALLA_SCOPES || "offline_access orders.read_write customers.read");
+  url.searchParams.set("scope", process.env.SALLA_SCOPES || "offline_access orders.read_write shipping.read_write customers.read");
   url.searchParams.set("state", state);
   return url.toString();
 }
@@ -293,4 +293,171 @@ export async function updateSallaOrderStatus(tenantId: string, orderId: string, 
   const error = obj(response.payload.error);
   const message = str(error.message) || str(response.payload.message);
   return { ok: false, status: response.status, error: response.status === 401 || response.status === 403 ? "صلاحيات الربط ناقصة: أعد ربط متجر سلة ووافق على صلاحية تعديل الطلبات." : message || "رفضت سلة تغيير الحالة" };
+}
+
+export type SallaShippingCompany = { id: string; name: string; type: string };
+
+/** Pure: the store's shipping companies (those it has activated), with how each is linked (api or manual). */
+export function parseSallaShippingCompanies(payload: unknown): SallaShippingCompany[] {
+  const data = obj(payload).data;
+  if (!Array.isArray(data)) return [];
+  const result: SallaShippingCompany[] = [];
+  for (const item of data) {
+    const entry = obj(item);
+    const id = str(entry.id);
+    if (!id) continue;
+    result.push({ id, name: str(entry.name) || str(entry.company_name) || id, type: str(entry.activation_type) || "api" });
+  }
+  return result;
+}
+
+export async function listSallaShippingCompanies(tenantId: string): Promise<{ ok: boolean; status: number; companies: SallaShippingCompany[] }> {
+  const response = await sallaGet(tenantId, "/shipping/companies?per_page=60");
+  return { ok: response.ok, status: response.status, companies: parseSallaShippingCompanies(response.payload) };
+}
+
+export type SallaBranch = { id: string; name: string };
+
+export function parseSallaBranches(payload: unknown): SallaBranch[] {
+  const data = obj(payload).data;
+  if (!Array.isArray(data)) return [];
+  return data.map((item) => obj(item)).filter((entry) => str(entry.id)).map((entry) => ({ id: str(entry.id), name: str(entry.name) || str(entry.id) }));
+}
+
+export type ShipTo = {
+  name: string;
+  email: string;
+  phone: string;
+  country: string;
+  city: string;
+  address_line: string;
+  street_number: string;
+  block: string;
+  short_address: string;
+  building_number: string;
+  additional_number: string;
+  postal_code: string;
+  lat: string;
+  lng: string;
+};
+
+export type ShipmentPackage = { name: string; sku: string; price: number; quantity: number; weight: number };
+
+export type ShipmentDraft = {
+  orderId: string;
+  reference: string;
+  paymentMethod: "cod" | "pre_paid";
+  shipTo: ShipTo;
+  packages: ShipmentPackage[];
+  /** Required ship_to fields that the order did not carry; the employee fills them before sending. */
+  missing: Array<keyof ShipTo>;
+};
+
+const REQUIRED_SHIP_TO: Array<keyof ShipTo> = ["name", "email", "phone", "country", "city", "address_line", "street_number", "block", "short_address", "building_number", "additional_number", "postal_code"];
+
+/** Pure: Salla's order detail into a shipment draft (best effort; every field read is defensive). */
+export function buildShipmentDraft(raw: unknown): ShipmentDraft | null {
+  const order = obj(raw);
+  const id = str(order.id);
+  if (!id) return null;
+  const shipping = obj(order.shipping);
+  const address = { ...obj(order.ship_to), ...obj(shipping.address) };
+  const receiver = obj(order.receiver);
+  const customer = obj(order.customer);
+  const national = obj(address.national_address);
+  const geo = obj(address.geo_coordinates);
+  const customerName = [str(customer.first_name), str(customer.last_name)].filter(Boolean).join(" ") || str(customer.name);
+  const shipTo: ShipTo = {
+    name: str(address.name) || str(receiver.name) || customerName,
+    email: str(receiver.email) || str(customer.email),
+    phone: storePhone(receiver.country_code ?? address.country_code ?? customer.mobile_code, receiver.phone ?? address.phone ?? customer.mobile),
+    country: str(address.country_code) || str(address.country),
+    city: str(address.city),
+    address_line: str(address.street) || str(address.shipping_address) || str(address.description) || str(address.address_line),
+    street_number: str(address.street_number),
+    block: str(address.block) || str(address.district),
+    short_address: str(address.short_address) || str(national.short_address),
+    building_number: str(address.building_number) || str(national.building_number),
+    additional_number: str(address.additional_number) || str(national.additional_number),
+    postal_code: str(address.postal_code),
+    lat: str(geo.lat) || str(address.lat) || str(address.latitude),
+    lng: str(geo.lng) || str(address.lng) || str(address.longitude)
+  };
+  const items = Array.isArray(order.items) ? order.items : [];
+  const packages: ShipmentPackage[] = items.map((item) => {
+    const entry = obj(item);
+    const price = obj(entry.amounts).price_without_tax ?? entry.price ?? entry.amount;
+    return {
+      name: str(entry.name) || "منتج",
+      sku: str(entry.sku),
+      price: num(obj(price).amount ?? price),
+      quantity: Math.max(1, Math.floor(num(entry.quantity)) || 1),
+      weight: num(entry.weight) || 1
+    };
+  });
+  return {
+    orderId: id,
+    reference: str(order.reference_id) || id,
+    paymentMethod: str(order.payment_method).toLowerCase() === "cod" ? "cod" : "pre_paid",
+    shipTo,
+    packages,
+    missing: REQUIRED_SHIP_TO.filter((key) => !shipTo[key])
+  };
+}
+
+/** Pure: the POST /shipments body from a draft the employee confirmed. */
+export function buildShipmentPayload(input: { courierId: string; orderId: string; paymentMethod: "cod" | "pre_paid"; shipTo: ShipTo; packages: ShipmentPackage[]; branchId?: string }): Record<string, unknown> {
+  const { shipTo } = input;
+  const lat = Number(shipTo.lat);
+  const lng = Number(shipTo.lng);
+  return {
+    courier_id: Number(input.courierId) || input.courierId,
+    shipment_type: "shipment",
+    payment_method: input.paymentMethod,
+    order_id: Number(input.orderId) || input.orderId,
+    packages: input.packages.map((item) => ({ name: item.name, sku: item.sku, price: item.price, quantity: item.quantity, weight: item.weight })),
+    ship_from: input.branchId ? { type: "branch", branch_id: Number(input.branchId) || input.branchId } : { type: "branch" },
+    ship_to: {
+      name: shipTo.name,
+      email: shipTo.email,
+      phone: shipTo.phone,
+      country: shipTo.country,
+      city: shipTo.city,
+      address_line: shipTo.address_line,
+      street_number: shipTo.street_number,
+      block: shipTo.block,
+      short_address: shipTo.short_address,
+      building_number: shipTo.building_number,
+      additional_number: shipTo.additional_number,
+      postal_code: shipTo.postal_code,
+      ...(Number.isFinite(lat) && Number.isFinite(lng) && shipTo.lat && shipTo.lng ? { geo_coordinates: { lat, lng } } : {})
+    }
+  };
+}
+
+export async function prepareSallaShipment(tenantId: string, orderId: string): Promise<{ ok: boolean; status: number; draft: ShipmentDraft | null; companies: SallaShippingCompany[]; branches: SallaBranch[] }> {
+  const id = orderId.trim();
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) return { ok: false, status: 400, draft: null, companies: [], branches: [] };
+  const [detail, companies, branches] = await Promise.all([
+    sallaGet(tenantId, `/orders/${encodeURIComponent(id)}`),
+    listSallaShippingCompanies(tenantId),
+    sallaGet(tenantId, "/branches?per_page=60")
+  ]);
+  if (!detail.ok) return { ok: false, status: detail.status, draft: null, companies: [], branches: [] };
+  return { ok: true, status: 200, draft: buildShipmentDraft(detail.payload.data), companies: companies.companies, branches: parseSallaBranches(branches.payload) };
+}
+
+export type CreatedShipment = { id: string; trackingNumber: string; trackingUrl: string; status: string };
+
+export async function createSallaShipment(tenantId: string, payload: Record<string, unknown>): Promise<{ ok: boolean; status: number; error: string; shipment?: CreatedShipment }> {
+  const response = await sallaRequest(tenantId, "POST", "/shipments", payload);
+  if (response.ok) {
+    const data = obj(response.payload.data);
+    return { ok: true, status: response.status, error: "", shipment: { id: str(data.id), trackingNumber: str(data.tracking_number) || str(data.tracking_no), trackingUrl: str(data.tracking_link) || str(data.tracking_url), status: str(data.status) } };
+  }
+  const errors = obj(response.payload.error).fields ?? obj(response.payload).errors;
+  const detail = errors && typeof errors === "object" ? Object.entries(obj(errors)).map(([field, message]) => `${field}: ${Array.isArray(message) ? message.join("، ") : str(message)}`).slice(0, 4).join(" | ") : "";
+  const message = str(obj(response.payload.error).message) || str(response.payload.message);
+  if (response.status === 401 || response.status === 403) return { ok: false, status: response.status, error: "صلاحيات الربط ناقصة: أعد ربط متجر سلة ووافق على صلاحية الشحن." };
+  return { ok: false, status: response.status, error: [message || "رفضت سلة إنشاء الشحنة", detail].filter(Boolean).join(" — ") };
 }

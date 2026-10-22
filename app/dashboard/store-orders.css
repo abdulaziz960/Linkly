@@ -108,3 +108,51 @@
     justify-content: stretch;
   }
 }
+
+.store-order-row > .shipment-form {
+  grid-column: 1 / -1;
+}
+
+.shipment-form {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.04);
+}
+
+.shipment-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.shipment-form select,
+.shipment-form input {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+}
+
+.shipment-form .is-missing input {
+  border-color: #c0392b;
+  background: #fff7f6;
+}
+
+.shipment-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 760px) {
+  .shipment-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
