@@ -150,7 +150,7 @@ export function sallaAuthorizeUrl(state: string, redirectUri: string): string {
   url.searchParams.set("client_id", process.env.SALLA_CLIENT_ID || "");
   url.searchParams.set("response_type", "code");
   url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("scope", process.env.SALLA_SCOPES || "offline_access orders.read_write shipping.read_write customers.read");
+  url.searchParams.set("scope", process.env.SALLA_SCOPES || "offline_access orders.read_write shipping.read_write customers.read products.read");
   url.searchParams.set("state", state);
   return url.toString();
 }
@@ -519,4 +519,72 @@ export async function updateSallaOrderAddress(tenantId: string, orderId: string,
   const detail = errors && typeof errors === "object" ? Object.entries(obj(errors)).map(([field, message]) => `${field}: ${Array.isArray(message) ? message.join("، ") : str(message)}`).slice(0, 4).join(" | ") : "";
   const message = str(obj(response.payload.error).message) || str(response.payload.message);
   return { ok: false, status: response.status, error: [message || "رفضت سلة تعديل الطلب (غالبًا لأنه مكتمل)", detail].filter(Boolean).join(" — ") };
+}
+
+export type SallaProduct = { id: string; name: string; sku: string; price: number; currency: string };
+
+/** Pure: Salla's products list into the few fields the order form shows. */
+export function parseSallaProducts(payload: unknown): SallaProduct[] {
+  const data = obj(payload).data;
+  if (!Array.isArray(data)) return [];
+  const result: SallaProduct[] = [];
+  for (const item of data) {
+    const entry = obj(item);
+    const id = str(entry.id);
+    if (!id) continue;
+    const price = obj(entry.price);
+    result.push({ id, name: str(entry.name) || id, sku: str(entry.sku), price: num(price.amount ?? entry.price), currency: str(price.currency) || "SAR" });
+  }
+  return result;
+}
+
+export async function searchSallaProducts(tenantId: string, query: string): Promise<{ ok: boolean; status: number; products: SallaProduct[] }> {
+  const keyword = query.trim().slice(0, 80);
+  const response = await sallaGet(tenantId, `/products?per_page=20${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ""}`);
+  return { ok: response.ok, status: response.status, products: parseSallaProducts(response.payload) };
+}
+
+export const SALLA_PAYMENT_METHODS = ["credit_card", "mada", "bank", "cod"] as const;
+export type SallaPaymentMethod = (typeof SALLA_PAYMENT_METHODS)[number];
+
+export type NewOrderInput = {
+  customer: { name: string; mobile: string; email: string };
+  products: Array<{ id: string; quantity: number }>;
+  acceptedMethods: SallaPaymentMethod[];
+  delivery: { method: "none" | "pickup"; branchId?: string };
+  couponCode?: string;
+};
+
+/** Pure: the POST /orders body for an order the customer pays through Salla's payment link (pending payment). */
+export function buildNewOrderPayload(input: NewOrderInput): Record<string, unknown> {
+  const digits = input.customer.mobile.replace(/\D/g, "");
+  const mobile = digits ? `+${digits.startsWith("00") ? digits.slice(2) : digits}` : "";
+  return {
+    customer: { name: input.customer.name.trim(), mobile, email: input.customer.email.trim() },
+    products: input.products.map((item) => ({ identifier_type: "id", identifier: Number(item.id) || item.id, quantity: Math.max(1, Math.floor(item.quantity) || 1) })),
+    payment: { status: "pending_payment", accepted_methods: input.acceptedMethods },
+    delivery_method: input.delivery.method === "pickup" ? "pickup" : null,
+    ...(input.delivery.method === "pickup" && input.delivery.branchId ? { branch_id: Number(input.delivery.branchId) || input.delivery.branchId } : {}),
+    ...(input.couponCode?.trim() ? { coupon_code: input.couponCode.trim() } : {})
+  };
+}
+
+export type CreatedOrder = { id: string; reference: string; customerUrl: string };
+
+export async function createSallaOrder(tenantId: string, payload: Record<string, unknown>): Promise<{ ok: boolean; status: number; error: string; order?: CreatedOrder }> {
+  const response = await sallaRequest(tenantId, "POST", "/orders", payload);
+  if (response.ok) {
+    const data = obj(response.payload.data);
+    return { ok: true, status: response.status, error: "", order: { id: str(data.id), reference: str(data.reference_id) || str(data.id), customerUrl: str(obj(data.urls).customer) } };
+  }
+  if (response.status === 401 || response.status === 403) return { ok: false, status: response.status, error: "صلاحيات الربط ناقصة: أعد ربط متجر سلة ووافق على صلاحيتي الطلبات والمنتجات." };
+  const errors = obj(response.payload.error).fields ?? obj(response.payload).errors;
+  const detail = errors && typeof errors === "object" ? Object.entries(obj(errors)).map(([field, message]) => `${field}: ${Array.isArray(message) ? message.join("، ") : str(message)}`).slice(0, 4).join(" | ") : "";
+  const message = str(obj(response.payload.error).message) || str(response.payload.message);
+  return { ok: false, status: response.status, error: [message || "رفضت سلة إنشاء الطلب", detail].filter(Boolean).join(" — ") };
+}
+
+export async function listSallaBranches(tenantId: string): Promise<SallaBranch[]> {
+  const response = await sallaGet(tenantId, "/branches?per_page=60");
+  return response.ok ? parseSallaBranches(response.payload) : [];
 }

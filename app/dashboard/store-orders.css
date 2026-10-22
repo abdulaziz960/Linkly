@@ -185,3 +185,71 @@
   color: #0f766e;
   font-weight: 700;
 }
+
+.new-order-results {
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.new-order-results button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: start;
+}
+
+.new-order-results button:hover {
+  background: #eef7f5;
+}
+
+.new-order-lines {
+  display: grid;
+  gap: 8px;
+}
+
+.new-order-lines > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 80px auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.new-order-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.new-order-methods legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.shipment-form input[type="checkbox"] {
+  min-height: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+}
+
+.new-order-methods label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

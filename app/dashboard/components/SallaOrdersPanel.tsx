@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import SallaShipmentForm from "./SallaShipmentForm";
 import SallaOrderEditForm from "./SallaOrderEditForm";
+import SallaNewOrderForm from "./SallaNewOrderForm";
 
 type Order = { id: string; reference: string; statusSlug: string; statusLabel: string; customerName: string; customerPhone: string; total: number; currency: string; trackingNumber?: string; shippingCompany?: string };
 type Status = { slug: string; label: string };
@@ -17,6 +18,7 @@ export default function SallaOrdersPanel() {
   const [loading, setLoading] = useState(true);
   const [choice, setChoice] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState("");
+  const [creating, setCreating] = useState(false);
   const [panel, setPanel] = useState<{ id: string; kind: "ship" | "edit" } | null>(null);
   const [note, setNote] = useState<{ id: string; ok: boolean; text: string } | null>(null);
 
@@ -74,8 +76,12 @@ export default function SallaOrdersPanel() {
     <section className="store-orders-panel">
       <div className="store-orders-head">
         <h4>{t("طلبات سلة", "Salla orders")}</h4>
-        <button type="button" className="soft-action" disabled={loading} onClick={() => void load()}>{loading ? t("جارٍ التحميل...", "Loading...") : t("تحديث", "Refresh")}</button>
+        <div className="store-order-actions">
+          <button type="button" className="primary-action" onClick={() => setCreating((value) => !value)}>{t("طلب جديد", "New order")}</button>
+          <button type="button" className="soft-action" disabled={loading} onClick={() => void load()}>{loading ? t("جارٍ التحميل...", "Loading...") : t("تحديث", "Refresh")}</button>
+        </div>
       </div>
+      {creating ? <SallaNewOrderForm onClose={() => setCreating(false)} onCreated={() => void load()} /> : null}
       <span className="store-orders-hint">{t("غيّر حالة الطلب من هنا وتُحدَّث في سلة مباشرة. يستقبل العميل إشعار واتساب حسب إعدادات «إشعارات الطلب».", "Change an order's status here and it updates in Salla right away. The customer is notified on WhatsApp per your “Order notifications” settings.")}</span>
       {error ? <p className="store-orders-error">{error}</p> : null}
       {orders && !orders.length && !error ? <p>{t("لا توجد طلبات.", "No orders.")}</p> : null}

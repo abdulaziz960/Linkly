@@ -95,3 +95,33 @@ describe("salla order address update", () => {
     expect(body).not.toHaveProperty("status");
   });
 });
+
+import { buildNewOrderPayload, parseSallaProducts } from "../lib/salla";
+
+describe("salla new order", () => {
+  it("builds a pending-payment order body with products by id", () => {
+    const body = buildNewOrderPayload({
+      customer: { name: " سارة ", mobile: "966500000111", email: "s@example.com" },
+      products: [{ id: "55", quantity: 2 }],
+      acceptedMethods: ["mada", "cod"],
+      delivery: { method: "none" },
+      couponCode: " SAVE10 "
+    });
+    expect(body).toEqual({
+      customer: { name: "سارة", mobile: "+966500000111", email: "s@example.com" },
+      products: [{ identifier_type: "id", identifier: 55, quantity: 2 }],
+      payment: { status: "pending_payment", accepted_methods: ["mada", "cod"] },
+      delivery_method: null,
+      coupon_code: "SAVE10"
+    });
+  });
+
+  it("adds the branch for pickup", () => {
+    const body = buildNewOrderPayload({ customer: { name: "a", mobile: "0096650000011", email: "a@b.co" }, products: [{ id: "1", quantity: 0 }], acceptedMethods: ["mada"], delivery: { method: "pickup", branchId: "9" } });
+    expect(body).toMatchObject({ delivery_method: "pickup", branch_id: 9, customer: { mobile: "+96650000011" }, products: [{ quantity: 1 }] });
+  });
+
+  it("parses the products list", () => {
+    expect(parseSallaProducts({ data: [{ id: 1, name: "قهوة", sku: "C1", price: { amount: 40, currency: "SAR" } }, { name: "بلا معرف" }] })).toEqual([{ id: "1", name: "قهوة", sku: "C1", price: 40, currency: "SAR" }]);
+  });
+});
