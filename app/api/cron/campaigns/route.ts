@@ -4,7 +4,7 @@ import { prisma } from "../../../../lib/prisma";
 import { processDueAutomations } from "../../../../lib/automation-engine";
 import { ensureSchema, getIntegrationSettings } from "../../../../lib/database";
 import { syncXTenant } from "../../../../lib/x-sync";
-import { reconcileStalePendingPayments, sendTrialEndingReminders, sendSubscriptionRenewalReminders, attemptAutoRenewals } from "../../../../lib/subscriptions";
+import { reconcileStalePendingPayments, sendTrialEndingReminders, sendSubscriptionRenewalReminders, attemptAutoRenewals, syncAllSubscriptionOwners } from "../../../../lib/subscriptions";
 import { sendLowBalanceAlerts } from "../../../../lib/campaign-balance-alerts";
 import { processDueConversationSummaries } from "../../../../lib/conversation-insights";
 import { sendReengagementReminders } from "../../../../lib/reengagement";
@@ -107,6 +107,11 @@ export async function GET(request: NextRequest) {
   ), 0);
 
   const paymentsReconciled = await reconcileStalePendingPayments();
+  // Owner details edited before the employee edit kept them in sync (once per server process).
+  const ownersSynced = await syncAllSubscriptionOwners().catch((error) => {
+    console.error("Owner details sync failed", error);
+    return 0;
+  });
   const shopifyBilling = await (async () => {
     const { settleStaleShopifyCheckouts, syncShopifyRenewals } = await import("../../../../lib/shopify-billing");
     return { checkouts: await settleStaleShopifyCheckouts(), renewals: await syncShopifyRenewals() };
@@ -161,5 +166,5 @@ export async function GET(request: NextRequest) {
     return null;
   });
 
-  return NextResponse.json({ ok: true, storeCartRemindersSent, zidProducts, orderPayments, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, shopifyBilling, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, webhookRetries, openerTemplates });
+  return NextResponse.json({ ok: true, storeCartRemindersSent, zidProducts, orderPayments, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, ownersSynced, shopifyBilling, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, webhookRetries, openerTemplates });
 }

@@ -1184,6 +1184,34 @@ export async function createTenantWithSubscription(input: CreateTenantInput) {
   return { subscription, inviteDelivery, created: true };
 }
 
+type OwnerSyncClient = Pick<typeof prisma, "employee" | "subscription">;
+
+/**
+ * Keeps the subscription's owner name and email (shown in the admin client page, search and alerts) equal
+ * to the workspace owner's current employee record. Called whenever an employee is edited (by the
+ * customer or the platform team), so renaming the owner or changing their email shows everywhere.
+ */
+export async function syncSubscriptionOwner(tenantId: string, client: OwnerSyncClient = prisma): Promise<boolean> {
+  const owner = await client.employee.findFirst({ where: { tenantId, role: "مالك الحساب" }, orderBy: { id: "asc" }, select: { name: true, email: true } });
+  if (!owner?.email) return false;
+  const changed = await client.subscription.updateMany({
+    where: { tenantId, OR: [{ ownerName: { not: owner.name } }, { ownerEmail: { not: owner.email } }] },
+    data: { ownerName: owner.name, ownerEmail: owner.email, updatedAt: nowTimestamp() }
+  });
+  return changed.count > 0;
+}
+
+let ownersSyncedThisProcess = false;
+/** One pass over every workspace, once per server process: corrects owner details edited before the sync existed. */
+export async function syncAllSubscriptionOwners(): Promise<number> {
+  if (ownersSyncedThisProcess) return 0;
+  ownersSyncedThisProcess = true;
+  const subscriptions = await prisma.subscription.findMany({ select: { tenantId: true } });
+  let fixed = 0;
+  for (const { tenantId } of subscriptions) if (await syncSubscriptionOwner(tenantId)) fixed += 1;
+  return fixed;
+}
+
 type UpdateSubscriptionInput = {
   plan?: string;
   status?: string;

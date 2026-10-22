@@ -5,7 +5,7 @@ import { isOwnerEquivalentGrant } from "../../../../lib/permissions";
 import { prisma } from "../../../../lib/prisma";
 import { jsonError, jsonOk } from "../../_utils/json";
 import { isValidEmail } from "../../../../lib/validation";
-import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
+import { logAdminAction, getTenantCompanyName, syncSubscriptionOwner } from "../../../../lib/subscriptions";
 
 type RouteContext = {
   params: Promise<{
@@ -91,6 +91,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         where: { email: existingEmployee.email, tenantId: user.tenantId },
         data: { name, email, role }
       });
+
+      // The owner's name and email are also kept on the subscription (admin client page, search, alerts).
+      if (role === "مالك الحساب" || existingEmployee.role === "مالك الحساب") await syncSubscriptionOwner(user.tenantId, tx);
 
       // disabled/sessionVersion are account-wide lockout state (see the
       // UserAccount.disabled comment), not per-workspace - a multi-workspace

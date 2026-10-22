@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../../../../lib/admin-auth";
 import { prisma } from "../../../../../../../lib/prisma";
 import { isValidEmail } from "../../../../../../../lib/validation";
-import { getSubscriptionForTenant, logAdminAction } from "../../../../../../../lib/subscriptions";
+import { getSubscriptionForTenant, logAdminAction, syncSubscriptionOwner } from "../../../../../../../lib/subscriptions";
 import { changeDetails, recordAdminAction } from "../../../../../../../lib/admin-audit";
 import { jsonError, jsonOk } from "../../../../../_utils/json";
 import { isTrustedOrigin } from "../../../../../../../lib/origin-guard";
@@ -79,6 +79,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         where: { email: existingEmployee.email, tenantId },
         data: { name, email, role }
       });
+
+      // The owner's name and email are also kept on the subscription (admin client page, search, alerts).
+      if (role === "مالك الحساب" || existingEmployee.role === "مالك الحساب") await syncSubscriptionOwner(tenantId, tx);
 
       return tx.employee.findFirstOrThrow({ where: { id: employeeId, tenantId } });
     });
