@@ -237,6 +237,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  // The last inbox fingerprint seen (app/api/conversations/version).
+  const inboxVersionRef = useRef("");
   // The drawer only exists below the sidebar breakpoint (dashboard.css, max-width: 1180px). Crossing it
   // (rotating a tablet, resizing a window) closes it, so an open drawer never carries over to a layout
   // where it is hidden while still locking the page's scroll and trapping focus.
@@ -694,15 +696,41 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     // reload at most once a minute, and on returning to the tab if it has been a while.
     const FULL_REFRESH_MS = 60_000;
     const RETURN_REFRESH_MS = 20_000;
+    // The inbox is only downloaded when a tiny fingerprint says it changed (or every 30 s regardless, which
+    // also covers the time-based fields); the fingerprint is checked every second.
+    const INBOX_SAFETY_MS = 30_000;
+    const CHECK_MS = 1000;
+    let lastInboxLoadAt = Date.now();
+    let checking = false;
     const refresh = (fullAfterMs: number) => {
       if (document.visibilityState !== "visible" || loadDashboardDataInFlightRef.current) return;
+      lastInboxLoadAt = Date.now();
       if (Date.now() - lastFullLoadAtRef.current >= fullAfterMs) void loadDashboardData();
       else void loadDashboardData({ live: true });
     };
-    const poll = () => refresh(FULL_REFRESH_MS);
+    const poll = async () => {
+      if (document.visibilityState !== "visible" || loadDashboardDataInFlightRef.current || checking) return;
+      if (Date.now() - lastFullLoadAtRef.current >= FULL_REFRESH_MS || Date.now() - lastInboxLoadAt >= INBOX_SAFETY_MS) {
+        refresh(FULL_REFRESH_MS);
+        return;
+      }
+      checking = true;
+      try {
+        const response = await fetch("/api/conversations/version", { cache: "no-store" });
+        if (!response.ok) return refresh(FULL_REFRESH_MS);
+        const { version } = (await response.json()) as { version?: string };
+        if (version && version === inboxVersionRef.current) return;
+        inboxVersionRef.current = version || "";
+        refresh(FULL_REFRESH_MS);
+      } catch {
+        refresh(FULL_REFRESH_MS);
+      } finally {
+        checking = false;
+      }
+    };
     const onReturn = () => refresh(RETURN_REFRESH_MS);
 
-    const intervalId = window.setInterval(poll, 3000);
+    const intervalId = window.setInterval(poll, CHECK_MS);
 
     window.addEventListener("focus", onReturn);
     document.addEventListener("visibilitychange", onReturn);
