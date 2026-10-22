@@ -9,6 +9,8 @@ import { computeProrationCredit } from "../../../../lib/subscriptions";
 import { planFeatures } from "../../../../lib/plan-features";
 import { isBillingCycle, isSellableBillingCycle, isSamePlanRenewalTooEarly, priceForCycle, RENEWAL_WINDOW_DAYS, type BillingCycle } from "../../../../lib/billing-pricing";
 import { reservePromoCodeUsage, releasePromoCodeUsage, promoCodeErrorMessage, type PromoCodeErrorCode } from "../../../../lib/promo-codes";
+import { isShopifyBilled, startShopifyCheckout } from "../../../../lib/shopify-billing";
+import { getAppOrigin } from "../../../../lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -49,6 +51,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+  }
+  // A workspace created by installing Linkly from Shopify pays through Shopify Billing (lib/shopify-billing.ts),
+  // never through Moyasar; the owner is sent to Shopify's approval page.
+  if (await isShopifyBilled(user.tenantId)) {
+    if (promoCode) return NextResponse.json({ error: "أكواد الخصم غير متاحة للدفع عبر شوبيفاي" }, { status: 400 });
+    const shopify = await startShopifyCheckout({ tenantId: user.tenantId, userId: user.id, plan, billingCycle, returnOrigin: getAppOrigin(request) });
+    if ("error" in shopify) return NextResponse.json({ error: shopify.error }, { status: shopify.status });
+    return NextResponse.json({ paymentUrl: shopify.confirmationUrl, gateway: "shopify" });
   }
   const proration = computeProrationCredit({
     now: new Date(),

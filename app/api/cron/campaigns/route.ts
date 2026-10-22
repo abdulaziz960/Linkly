@@ -107,6 +107,13 @@ export async function GET(request: NextRequest) {
   ), 0);
 
   const paymentsReconciled = await reconcileStalePendingPayments();
+  const shopifyBilling = await (async () => {
+    const { settleStaleShopifyCheckouts, syncShopifyRenewals } = await import("../../../../lib/shopify-billing");
+    return { checkouts: await settleStaleShopifyCheckouts(), renewals: await syncShopifyRenewals() };
+  })().catch((error) => {
+    console.error("Shopify billing sync failed", error);
+    return null;
+  });
   const autoRenewals = await attemptAutoRenewals(baseUrl()).catch((error) => {
     console.error("Subscription auto-renewals failed", error);
     return { charged: 0, failed: 0 };
@@ -154,5 +161,5 @@ export async function GET(request: NextRequest) {
     return null;
   });
 
-  return NextResponse.json({ ok: true, storeCartRemindersSent, zidProducts, orderPayments, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, webhookRetries, openerTemplates });
+  return NextResponse.json({ ok: true, storeCartRemindersSent, zidProducts, orderPayments, tenantsProcessed: tenantIds.length, xTenantsProcessed: xTenantIds.length, xSynced, paymentsReconciled, shopifyBilling, autoRenewals, trialReminders, renewalReminders, lowBalanceAlerts, reengagementReminders, escalations, productFeeds, webhookRetries, openerTemplates });
 }

@@ -25,7 +25,13 @@ export async function GET(request: NextRequest) {
   if (params.get("hmac") && !verifyShopifyQuery(params)) return closeWith(request, "تعذر التحقق من طلب التثبيت من شوبيفاي.");
 
   const user = await getCurrentUser();
-  if (!user) return closeWith(request, "سجّل الدخول إلى لنكلي أولًا، ثم اربط المتجر من: التكاملات ← شوبيفاي ← ربط المتجر.");
+  if (!user) {
+    // Shopify's own (signed) install link with nobody signed in to Linkly: the install opens the workspace
+    // (lib/shopify-install.ts). Without the signature this is just a visitor, who signs in first.
+    const installShop = params.get("hmac") ? normalizeShopDomain(params.get("shop") || "") : "";
+    if (installShop && shopifyConfigured()) return startAuthorization(request, installShop, { install: "1", shop: installShop });
+    return closeWith(request, "سجّل الدخول إلى لنكلي أولًا، ثم اربط المتجر من: التكاملات ← شوبيفاي ← ربط المتجر.");
+  }
   if (user.role !== "مالك الحساب") return closeWith(request, "ربط المتجر متاح لمالك الحساب فقط.");
   {
     const blocked = await storeIntegrationBlockedMessage(user.tenantId);
@@ -36,7 +42,11 @@ export async function GET(request: NextRequest) {
   const shop = normalizeShopDomain(params.get("shop") || "");
   if (!shop) return closeWith(request, "أدخل نطاق المتجر بالشكل: my-store.myshopify.com");
 
-  const state = createOAuthState("shopify", { tenantId: user.tenantId, shop });
+  return startAuthorization(request, shop, { tenantId: user.tenantId, shop });
+}
+
+function startAuthorization(request: NextRequest, shop: string, values: Record<string, string>) {
+  const state = createOAuthState("shopify", values);
   const response = NextResponse.redirect(shopifyAuthorizeUrl(shop, state.state, shopifyRedirectUri(getAppOrigin(request))));
   response.cookies.set("linkly_shopify_state", state.nonce, {
     httpOnly: true,

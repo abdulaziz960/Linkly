@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
     featureItemsAr?: string;
     featureItemsEn?: string;
     emailQuota?: number;
+    shopifyMonthlyUsd?: number;
   };
 
   try {
@@ -47,6 +48,10 @@ export async function POST(request: NextRequest) {
       featureItemsEn: body.featureItemsEn,
       emailQuota: body.emailQuota
     });
+    if (Number(body.shopifyMonthlyUsd) > 0) {
+      const { setShopifyPlanPrice } = await import("../../../../lib/shopify-billing");
+      await setShopifyPlanPrice(plan.id, Number(body.shopifyMonthlyUsd));
+    }
     await recordAdminAction(admin, "create-plan", { type: "plan", id: plan.id }, JSON.stringify({ name: body.name, monthlyPrice: body.monthlyPrice }));
     return jsonOk(plan);
   } catch (error) {

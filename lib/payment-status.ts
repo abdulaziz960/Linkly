@@ -30,6 +30,7 @@ export const ALL_PAYMENT_STATUSES: PaymentStatus[] = Object.values(PAYMENT_STATU
 export const PAYMENT_GATEWAY = {
   moyasar: "moyasar",
   stripe: "stripe",
+  shopify: "shopify",
   manual: "manual",
   test: "test"
 } as const;

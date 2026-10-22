@@ -206,6 +206,7 @@ export default function PlansView({ plans, subscriberCounts }: Props) {
                 <input data-autofocus={!isEdit || undefined} className="ds-input" required readOnly={isEdit} placeholder="مثال: باقة الأعمال" value={draft.name} onChange={(event) => setField("name", event.target.value)} />
               </label>
               <label className="ds-field">السعر الشهري (ر.س)<input data-autofocus={isEdit || undefined} className="ds-input" type="number" dir="ltr" onFocus={(event) => event.currentTarget.select()} min="0" required value={draft.monthlyPrice} onChange={(event) => setField("monthlyPrice", event.target.value)} /></label>
+              <label className="ds-field">سعر شوبيفاي الشهري (دولار)<input className="ds-input" type="number" dir="ltr" step="0.01" onFocus={(event) => event.currentTarget.select()} min="0" value={draft.shopifyMonthlyUsd} onChange={(event) => setField("shopifyMonthlyUsd", event.target.value)} /><small>للحسابات القادمة من متجر شوبيفاي. 0 = غير متاحة عبر شوبيفاي.</small></label>
               <label className="ds-field">حد المستخدمين<input className="ds-input" type="number" dir="ltr" onFocus={(event) => event.currentTarget.select()} min="1" required value={draft.employeeLimit} onChange={(event) => setField("employeeLimit", event.target.value)} /></label>
               <label className="ds-field">
                 حد مساعد AI اليومي

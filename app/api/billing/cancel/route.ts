@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { ensureSchema } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
+import { cancelShopifySubscription, isShopifyBilled } from "../../../../lib/shopify-billing";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,15 @@ export async function POST(request: NextRequest) {
   if (!subscription) return NextResponse.json({ error: "الاشتراك غير موجود" }, { status: 404 });
   if (subscription.status !== "نشط") {
     return NextResponse.json({ error: "الإلغاء متاح فقط للاشتراكات المدفوعة النشطة" }, { status: 400 });
+  }
+
+  // Shopify charges by itself, so a cancel must reach Shopify; a cancelled Shopify subscription can't be
+  // resumed - the owner subscribes again instead.
+  if (await isShopifyBilled(user.tenantId)) {
+    if (action === "resume") return NextResponse.json({ error: "اشترك من جديد من الباقات أدناه لاستئناف الاشتراك عبر شوبيفاي" }, { status: 400 });
+    const result = await cancelShopifySubscription(user.tenantId);
+    if ("error" in result) return NextResponse.json({ error: result.error }, { status: 502 });
+    return NextResponse.json({ subscription: await prisma.subscription.findUnique({ where: { tenantId: user.tenantId } }) });
   }
 
   const updated = await prisma.subscription.update({

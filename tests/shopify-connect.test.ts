@@ -75,4 +75,19 @@ describe("GET /api/shopify/connect", () => {
     const response = await GET(connect("shop=my-store"));
     expect(await response.text()).toContain("سجّل الدخول إلى لنكلي أولًا");
   });
+
+  it("starts an install (that opens a workspace) from Shopify's signed link when nobody is signed in", async () => {
+    currentUser = null;
+    const { GET } = await import("../app/api/shopify/connect/route");
+    const fields: Record<string, string> = { shop: "new-shop.myshopify.com", timestamp: "1700000000" };
+    const message = Object.keys(fields).sort().map((key) => `${key}=${fields[key]}`).join("&");
+    const hmac = createHmac("sha256", SECRET).update(message).digest("hex");
+    const response = await GET(connect(new URLSearchParams({ ...fields, hmac }).toString()));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location") || "");
+    expect(location.origin).toBe("https://new-shop.myshopify.com");
+    const nonce = /linkly_shopify_state=([^;]+)/.exec(response.headers.get("set-cookie") || "")?.[1];
+    const { verifyOAuthState } = await import("../lib/oauth-state");
+    expect(verifyOAuthState(location.searchParams.get("state"), "shopify", nonce)).toEqual({ install: "1", shop: "new-shop.myshopify.com" });
+  });
 });

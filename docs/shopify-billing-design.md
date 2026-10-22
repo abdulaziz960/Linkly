@@ -1,7 +1,22 @@
 # Shopify public distribution + Shopify Billing: design
 
-Status: design only, nothing implemented. Decision taken: subscriptions for
-Shopify-installed workspaces are charged through Shopify Billing.
+Status: subscription billing and install-first onboarding implemented
+(2026-10-22). Not yet done: one-time charges for message top-ups through
+Shopify (appPurchaseOneTimeCreate), the App Store listing, and the new public app.
+
+Decisions (2026-10-22): plans are priced in US dollars, set per plan in the admin
+plans page; an install with no Linkly account opens one automatically; existing
+Moyasar customers who link a store stay on Moyasar; trial is 3 days.
+
+Implementation map:
+- lib/shopify-billing.ts - tables (shopify_billing, shopify_plan_prices), checkout,
+  confirmation from Shopify's record, webhook, cancel, uninstall, renewals.
+- lib/shopify-pricing.ts - USD price math (client-safe).
+- lib/shopify-install.ts - install with nobody signed in (create / reinstall / existing email).
+- app/api/billing/checkout (routes Shopify-billed workspaces), app/api/billing/shopify/return,
+  app/api/billing/cancel (cancels in Shopify too), app/api/shopify/{connect,callback,webhook},
+  app/shopify/welcome, cron step in app/api/cron/campaigns.
+- tests/shopify-billing.test.ts and the connect/callback tests.
 
 ## 1. Goal
 Any merchant can install Linkly from Shopify (public distribution). Linkly

@@ -3,6 +3,7 @@ import { getVisibleSubscriptions } from "../../../lib/admin-hidden-clients";
 import AdminPageHeader from "../AdminPageHeader";
 import PlansView from "./PlansView";
 import { guardPage } from "../guard";
+import { getShopifyPlanPrices } from "../../../lib/shopify-billing";
 
 // The three pre-2026 plans are kept in the database on purpose (lib/database.ts
 // deactivates them rather than deleting, so an old subscriber's plan name keeps
@@ -13,7 +14,8 @@ const RETIRED_PLAN_NAMES = new Set(["باقة البداية", "باقة الن�
 export default async function AdminPlansPage() {
   const denied = await guardPage("billing");
   if (denied) return denied;
-  const [plans, subscriptions] = await Promise.all([getPlans(), getVisibleSubscriptions()]);
+  const [allPlans, subscriptions, shopifyPrices] = await Promise.all([getPlans(), getVisibleSubscriptions(), getShopifyPlanPrices()]);
+  const plans = allPlans.map((plan) => ({ ...plan, shopifyMonthlyUsd: shopifyPrices[plan.id] || 0 }));
 
   const subscriberCounts = new Map<string, number>();
   for (const subscription of subscriptions) {

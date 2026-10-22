@@ -16,6 +16,7 @@ export type PlanDraft = {
   featureItemsAr: string;
   featureItemsEn: string;
   emailQuota: string;
+  shopifyMonthlyUsd: string;
   channels: AllowedChannels;
   active: boolean;
 };
@@ -31,6 +32,7 @@ export const EMPTY_PLAN_DRAFT: PlanDraft = {
   featureItemsAr: "",
   featureItemsEn: "",
   emailQuota: "0",
+  shopifyMonthlyUsd: "0",
   channels: "*",
   active: true
 };
@@ -47,6 +49,7 @@ export function draftFromPlan(plan: PlanRow): PlanDraft {
     messageQuota: unlimited ? "0" : String(plan.messageQuota),
     messageUnlimited: unlimited,
     emailQuota: String(emailPromotionCreditsForPlan(plan.name, plan.emailQuota)),
+    shopifyMonthlyUsd: String(plan.shopifyMonthlyUsd || 0),
     featureItemsAr: plan.featureItemsAr || defaultFeatures?.ar.join("\n") || "",
     featureItemsEn: plan.featureItemsEn || defaultFeatures?.en.join("\n") || "",
     channels: parseAllowedChannels(plan.allowedChannels || "*"),
@@ -65,6 +68,7 @@ export function validatePlanDraft(draft: PlanDraft, mode: "create" | "edit"): st
   if (!isNonNegative(Number(draft.aiDailyLimit)) || !isNonNegative(Number(draft.aiMonthlyLimit))) return "حدود الذكاء الاصطناعي يجب ألا تقل عن صفر.";
   if (!draft.messageUnlimited && !isNonNegative(Number(draft.messageQuota))) return "حصة الرسائل التسويقية يجب ألا تقل عن صفر.";
   if (!isNonNegative(Number(draft.emailQuota))) return "حد رسائل البريد يجب ألا يقل عن صفر.";
+  if (!isNonNegative(Number(draft.shopifyMonthlyUsd))) return "سعر شوبيفاي يجب ألا يقل عن صفر.";
   if (Array.isArray(draft.channels) && draft.channels.length === 0) return "اختر قناة واحدة على الأقل، أو فعّل «كل القنوات».";
   return null;
 }
@@ -79,7 +83,8 @@ export function planPayload(draft: PlanDraft, mode: "create" | "edit") {
     messageQuota: draft.messageUnlimited ? UNLIMITED_MESSAGE_QUOTA : Number(draft.messageQuota),
     featureItemsAr: draft.featureItemsAr,
     featureItemsEn: draft.featureItemsEn,
-    emailQuota: Number(draft.emailQuota)
+    emailQuota: Number(draft.emailQuota),
+    shopifyMonthlyUsd: Number(draft.shopifyMonthlyUsd)
   };
   return mode === "create" ? { name: draft.name.trim(), ...base } : { ...base, active: draft.active };
 }

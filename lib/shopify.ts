@@ -17,7 +17,7 @@ export const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION?.trim() || "2
 /** Orders (and the checkouts that become abandoned carts) need read_orders; customers for names and phones. */
 const DEFAULT_SCOPES = "read_orders,read_customers";
 
-export const SHOPIFY_WEBHOOK_TOPICS = ["orders/create", "orders/updated", "checkouts/create", "checkouts/update", "app/uninstalled"] as const;
+export const SHOPIFY_WEBHOOK_TOPICS = ["orders/create", "orders/updated", "checkouts/create", "checkouts/update", "app/uninstalled", "app_subscriptions/update"] as const;
 
 type Json = Record<string, unknown>;
 
@@ -249,6 +249,15 @@ export async function fetchShopifyShop(shop: string, token: string): Promise<{ d
   const domain = str(data.myshopify_domain) || shop;
   if (!result.ok || !isShopifyShopDomain(domain)) return null;
   return { domain, name: str(data.name) || domain };
+}
+
+/** The shop's details used to open a Linkly account on install (owner name and the shop's email). */
+export async function fetchShopifyShopOwner(shop: string, token: string): Promise<{ domain: string; name: string; email: string; owner: string } | null> {
+  const result = await shopifyRequest(shop, token, "/shop.json");
+  const data = obj(result.payload.shop);
+  const domain = str(data.myshopify_domain) || shop;
+  if (!result.ok || !isShopifyShopDomain(domain)) return null;
+  return { domain, name: str(data.name) || domain, email: str(data.email).toLowerCase(), owner: str(data.shop_owner) || str(data.name) || domain };
 }
 
 /** Subscribes the shop to the events the engine reads. Returns how many topics are now registered. */

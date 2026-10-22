@@ -62,6 +62,8 @@ export type PlanRow = {
   featureItemsAr: string;
   featureItemsEn: string;
   emailQuota?: number;
+  // US-dollar monthly price for workspaces billed through Shopify (lib/shopify-billing.ts); 0 = not offered there.
+  shopifyMonthlyUsd?: number;
   sortOrder: number;
   active: number;
   createdAt: string;

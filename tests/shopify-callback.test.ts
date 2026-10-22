@@ -5,7 +5,10 @@ import { NextRequest } from "next/server";
 const SECRET = "shpss_callback_secret";
 const user = { id: "u1", name: "Owner", role: "مالك الحساب", tenantId: "tenant-shopify-callback" };
 
-vi.mock("../lib/auth", () => ({ getCurrentUser: vi.fn(async () => user) }));
+let signedIn: typeof user | null = user;
+vi.mock("../lib/auth", () => ({ getCurrentUser: vi.fn(async () => signedIn) }));
+const installFromShopify = vi.fn(async () => "created");
+vi.mock("../lib/shopify-install", () => ({ installFromShopify }));
 
 const saveStoreTokens = vi.fn(async () => undefined);
 const findTenantByMerchant = vi.fn(async (): Promise<string | null> => null);
@@ -26,6 +29,8 @@ beforeEach(() => {
   saveStoreTokens.mockClear();
   findTenantByMerchant.mockReset();
   findTenantByMerchant.mockResolvedValue(null);
+  signedIn = user;
+  installFromShopify.mockClear();
 });
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -63,7 +68,7 @@ describe("GET /api/shopify/callback", () => {
     expect(html).toContain("تم ربط متجر شوبيفاي بنجاح");
     expect(saveStoreTokens).toHaveBeenCalledWith(expect.objectContaining({ tenantId: user.tenantId, store: "shopify", accessToken: "shpat_new", merchantId: "cb-store.myshopify.com", merchantName: "CB Store" }));
     const webhookCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes("/webhooks.json"));
-    expect(webhookCalls).toHaveLength(5);
+    expect(webhookCalls).toHaveLength(6);
     expect(JSON.parse(String(webhookCalls[0][1].body)).webhook.address).toBe("https://linklysa.io/api/shopify/webhook");
   });
 
@@ -99,5 +104,25 @@ describe("GET /api/shopify/callback", () => {
     const { GET } = await import("../app/api/shopify/callback/route");
     const html = await (await GET(await callbackRequest())).text();
     expect(html).toContain("تم ربط متجر شوبيفاي بنجاح");
+  });
+
+  it("an install started without a sign-in opens the workspace and lands on the welcome page", async () => {
+    signedIn = null;
+    const { createOAuthState } = await import("../lib/oauth-state");
+    const shop = "install-store.myshopify.com";
+    const state = createOAuthState("shopify", { install: "1", shop });
+    const fields: Record<string, string> = { code: "install-code", shop, state: state.state, timestamp: "1700000000" };
+    const message = Object.keys(fields).sort().map((key) => `${key}=${fields[key]}`).join("&");
+    const hmac = createHmac("sha256", SECRET).update(message).digest("hex");
+    const { GET } = await import("../app/api/shopify/callback/route");
+    const response = await GET(new NextRequest(`https://linklysa.io/api/shopify/callback?${new URLSearchParams({ ...fields, hmac })}`, { headers: { cookie: `linkly_shopify_state=${state.nonce}` } }));
+    expect(response.headers.get("location")).toBe("https://linklysa.io/shopify/welcome?status=created");
+    expect(installFromShopify).toHaveBeenCalledWith(shop, "install-code", "https://linklysa.io");
+
+    // Without the browser's state cookie nothing is installed.
+    installFromShopify.mockClear();
+    const forged = await GET(new NextRequest(`https://linklysa.io/api/shopify/callback?${new URLSearchParams({ ...fields, hmac })}`, { headers: { cookie: "linkly_shopify_state=other" } }));
+    expect(forged.headers.get("location")).toBe("https://linklysa.io/login");
+    expect(installFromShopify).not.toHaveBeenCalled();
   });
 });

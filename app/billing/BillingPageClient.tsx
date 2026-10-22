@@ -10,6 +10,12 @@ import { useStoredLanguage } from "../useStoredLanguage";
 type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number; allowedChannels: string; messageQuota: number };
 type Subscription = { plan: string; status: string; billingCycle?: string; createdAt?: string; renewalAt?: string; cancelledAt?: string; autoRenewEnabled?: number; savedCardLast4?: string; savedCardBrand?: string } | null;
 
+/** After Shopify's approval page (app/api/billing/shopify/return). */
+const shopifyResultText: Record<"ar" | "en", Record<string, string>> = {
+  ar: { paid: "تم تفعيل اشتراكك عبر شوبيفاي.", pending: "لم يكتمل التأكيد من شوبيفاي بعد. سنفعّل الاشتراك تلقائيًا فور الموافقة.", declined: "لم تتم الموافقة على الاشتراك في شوبيفاي.", failed: "تعذر التحقق من الاشتراك في شوبيفاي. إن تمت الموافقة فسيُفعّل تلقائيًا خلال دقائق." },
+  en: { paid: "Your subscription is active through Shopify.", pending: "Shopify hasn't confirmed yet. We'll activate the subscription as soon as it's approved.", declined: "The subscription wasn't approved in Shopify.", failed: "We couldn't verify the subscription with Shopify. If you approved it, it will activate within minutes." }
+};
+
 const copy = {
   ar: {
     stepLabel: "الخطوة 3 من 3",
@@ -76,13 +82,17 @@ export default function BillingPageClient({
   subscription,
   expired,
   isTestMode,
-  branding
+  branding,
+  shopifyPrices = null,
+  shopifyResult = ""
 }: {
   plans: Plan[];
   subscription: Subscription;
   expired: boolean;
   isTestMode: boolean;
   branding: { name: string; logoDataUrl: string };
+  shopifyPrices?: Record<string, number> | null;
+  shopifyResult?: string;
 }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
@@ -184,7 +194,8 @@ export default function BillingPageClient({
           </div>
         ) : null}
       </section>
-      <BillingClient plans={plans} currentPlan={subscription?.plan || ""} currentSubscription={subscription} lang={lang} isTestMode={isTestMode} />
+      {shopifyResult && shopifyResultText[lang][shopifyResult] ? <p className={shopifyResult === "paid" ? "billing-success" : "billing-error"} role="status">{shopifyResultText[lang][shopifyResult]}</p> : null}
+      <BillingClient plans={plans} currentPlan={subscription?.plan || ""} currentSubscription={subscription} lang={lang} isTestMode={isTestMode} shopifyPrices={shopifyPrices} />
     </main>
   );
 }

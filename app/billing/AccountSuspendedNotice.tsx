@@ -34,11 +34,14 @@ const copy = {
 export default function AccountSuspendedNotice({
   branding,
   subscription,
-  plans
+  plans,
+  shopifyPrices = null
 }: {
   branding: { name: string; logoDataUrl: string };
   subscription: Subscription | null;
   plans: Plan[];
+  /** Set for a workspace that pays through Shopify: the amount is then on Shopify's page, not in riyals here. */
+  shopifyPrices?: Record<string, number> | null;
 }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const router = useRouter();
@@ -60,10 +63,15 @@ export default function AccountSuspendedNotice({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ planId: plan.id, billingCycle: subscription?.billingCycle || "شهري" })
     });
-    const payload = await response.json().catch(() => ({})) as { paymentId?: string; error?: string };
-    if (!response.ok || !payload.paymentId) {
+    const payload = await response.json().catch(() => ({})) as { paymentId?: string; paymentUrl?: string; error?: string };
+    if (!response.ok || (!payload.paymentId && !payload.paymentUrl)) {
       setLoading(false);
       setError(payload.error || text.error);
+      return;
+    }
+    // Shopify-billed workspaces approve the charge on Shopify's own page.
+    if (payload.paymentUrl) {
+      location.href = payload.paymentUrl;
       return;
     }
     router.push(`/billing/pay/${payload.paymentId}`);
@@ -89,7 +97,7 @@ export default function AccountSuspendedNotice({
         </div>
         <h1>{text.heading}</h1>
         <p>{isTrial ? text.trialBody : text.body}</p>
-        {subscription && subscription.amount > 0 ? (
+        {subscription && subscription.amount > 0 && !shopifyPrices ? (
           <div className="suspended-due">{text.due}: <b>{subscription.amount.toLocaleString(lang === "ar" ? "ar-SA" : "en-US")} {lang === "ar" ? "ر.س" : "SAR"}</b></div>
         ) : null}
         {error ? <p className="suspended-error" role="alert">{error}</p> : null}

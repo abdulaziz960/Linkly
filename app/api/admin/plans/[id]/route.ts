@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
 import { getPlans, updatePlan } from "../../../../../lib/plans";
+import { setShopifyPlanPrice } from "../../../../../lib/shopify-billing";
 import { changeDetails, recordAdminAction } from "../../../../../lib/admin-audit";
 import { sanitizeAllowedChannelsInput } from "../../../../../lib/channel-catalog";
 import { jsonError, jsonOk } from "../../../_utils/json";
@@ -26,12 +27,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     featureItemsAr?: string;
     featureItemsEn?: string;
     emailQuota?: number;
+    shopifyMonthlyUsd?: number;
   };
 
   try {
     const previous = (await getPlans()).find((plan) => plan.id === id);
+    const { shopifyMonthlyUsd, ...planFields } = body;
+    if (shopifyMonthlyUsd !== undefined) {
+      if (!Number.isFinite(Number(shopifyMonthlyUsd)) || Number(shopifyMonthlyUsd) < 0) return jsonError("سعر شوبيفاي غير صالح", 400);
+      await setShopifyPlanPrice(id, Number(shopifyMonthlyUsd));
+    }
     const plan = await updatePlan(id, {
-      ...body,
+      ...planFields,
       // Omitted entirely (e.g. an unrelated "active" toggle) must leave the
       // existing restriction untouched, not silently reset it to
       // unrestricted - only sanitize when the field was actually sent.

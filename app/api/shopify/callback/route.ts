@@ -4,6 +4,7 @@ import { verifyOAuthState } from "../../../../lib/oauth-state";
 import { getAppOrigin } from "../../../../lib/app-url";
 import { popupCloseHtml } from "../../../../lib/popup-close";
 import { findTenantByMerchant } from "../../../../lib/store-connections";
+import { installFromShopify } from "../../../../lib/shopify-install";
 import {
   exchangeShopifyCode,
   fetchShopifyShop,
@@ -27,14 +28,24 @@ function closeWith(request: NextRequest, message: string) {
 /** Shopify sends the owner back here, signed, with a code that becomes the shop's access token. */
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
 
   // Three checks, all of which must hold: Shopify signed this redirect, it is the flow this browser
   // started (state + cookie), and it is for the shop that flow named.
   if (!verifyShopifyQuery(params)) return closeWith(request, "تعذر التحقق من توقيع شوبيفاي. حاول مرة أخرى.");
   const state = verifyOAuthState(params.get("state"), "shopify", request.cookies.get("linkly_shopify_state")?.value);
   const shop = normalizeShopDomain(params.get("shop") || "");
+
+  // An install from Shopify with nobody signed in (started by the connect route): opens the workspace.
+  if (state?.install === "1") {
+    if (!shop || state.shop !== shop || !params.get("code")) return closeWith(request, "تعذر التحقق من طلب التثبيت. حاول مرة أخرى.");
+    const outcome = await installFromShopify(shop, params.get("code") || "", getAppOrigin(request));
+    const response = NextResponse.redirect(new URL(`/shopify/welcome?status=${outcome}`, getAppOrigin(request)));
+    response.cookies.delete("linkly_shopify_state");
+    return response;
+  }
+
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   if (!state || state.tenantId !== user.tenantId || !shop || state.shop !== shop) return closeWith(request, "تعذر التحقق من طلب الربط. حاول مرة أخرى.");
   if (user.role !== "مالك الحساب") return closeWith(request, "ربط المتجر متاح لمالك الحساب فقط.");
   const code = params.get("code") || "";

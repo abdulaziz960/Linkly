@@ -305,7 +305,13 @@ export async function handleShopifyWebhook(topic: string, shop: string, body: un
   if (!tenantId) return { handled: false, status: 202, detail: "unknown shop" };
   if (topic === "app/uninstalled") {
     await disconnectStore(tenantId, "shopify");
+    const { handleShopifyUninstallBilling } = await import("./shopify-billing");
+    await handleShopifyUninstallBilling(tenantId);
     return { handled: true, status: 200, detail: "disconnected" };
+  }
+  if (topic === "app_subscriptions/update") {
+    const { handleAppSubscriptionWebhook } = await import("./shopify-billing");
+    return { handled: true, status: 200, detail: await handleAppSubscriptionWebhook(shop, body) };
   }
   const event = parseShopifyWebhook(topic, shop, body);
   const detail = await applyStoreEvent(tenantId, "shopify", event);

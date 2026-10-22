@@ -5,6 +5,8 @@ import { SELLABLE_BILLING_CYCLES, isSamePlanRenewalTooEarly, priceForCycle } fro
 import { cycleSavings, cycleSavingsLabel, formatPrice, perMonthPrice, cycleBilledNote, cyclePriceSuffix, cycleSaveBadge, cycleTabLabel } from "../../lib/billing-cycle-copy";
 import { planFeatures, getPlanDisplayItems } from "../../lib/plan-features";
 import { useBillingCycle } from "../useBillingCycle";
+import { formatUsd, shopifyPriceForCycle } from "../../lib/shopify-pricing";
+import { CYCLE_MONTHS } from "../../lib/billing-pricing";
 
 type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number; allowedChannels: string; messageQuota: number };
 
@@ -19,6 +21,10 @@ const copy = {
     subscribePlan: "اشترك",
     genericError: "تعذر بدء الدفع",
     paymentNote: "🔒 الدفع الحقيقي يتم على صفحة Moyasar الآمنة. في وضع الاختبار تظهر محاكاة دفع ولن يُخصم أي مبلغ.",
+    shopifyNote: "يُضاف الاشتراك إلى فاتورة متجرك في شوبيفاي، وتوافق عليه من صفحة شوبيفاي. يتجدد تلقائيًا ويمكنك إلغاؤه في أي وقت.",
+    shopifyUnavailable: "غير متاحة عبر شوبيفاي بعد",
+    shopifyYearly: (total: string) => `الإجمالي ${total} · يُدفع سنويًا عبر شوبيفاي`,
+    save: (amount: string) => `وفر ${amount}`,
     promoLabel: "كود الخصم",
     promoPlaceholder: "أدخل كود الخصم",
     promoApply: "تطبيق",
@@ -40,6 +46,10 @@ const copy = {
     subscribePlan: "Subscribe",
     genericError: "Could not start the payment",
     paymentNote: "🔒 Real payments happen on Moyasar's secure page. In test mode a simulated payment is shown and nothing is charged.",
+    shopifyNote: "The subscription is added to your Shopify bill and you approve it on Shopify's page. It renews automatically and you can cancel any time.",
+    shopifyUnavailable: "Not available through Shopify yet",
+    shopifyYearly: (total: string) => `${total} total · billed yearly through Shopify`,
+    save: (amount: string) => `Save ${amount}`,
     promoLabel: "Promo code",
     promoPlaceholder: "Enter discount code",
     promoApply: "Apply",
@@ -53,7 +63,7 @@ const copy = {
   }
 } as const;
 
-export default function BillingClient({ plans, currentPlan, currentSubscription = null, lang = "ar", isTestMode }: { plans: Plan[]; currentPlan: string; currentSubscription?: { plan?: string; status?: string; renewalAt?: string; billingCycle?: string } | null; lang?: "ar" | "en"; isTestMode: boolean }) {
+export default function BillingClient({ plans, currentPlan, currentSubscription = null, lang = "ar", isTestMode, shopifyPrices = null }: { plans: Plan[]; currentPlan: string; currentSubscription?: { plan?: string; status?: string; renewalAt?: string; billingCycle?: string } | null; lang?: "ar" | "en"; isTestMode: boolean; shopifyPrices?: Record<string, number> | null }) {
   const text = copy[lang];
   // A trial has nothing to upgrade or renew: every plan is a first subscription.
   const onTrial = currentSubscription?.status === "تجربة";
@@ -87,18 +97,30 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
       const featured = Boolean(planFeatures[plan.name]?.featured);
       const isCurrent = currentPlan === plan.name;
       const renewalTooEarly = isCurrent && isSamePlanRenewalTooEarly(currentSubscription, plan.name, billingCycle);
+      // Shopify-billed workspaces see and pay the plan's US-dollar price (set per plan in the admin).
+      const monthlyUsd = shopifyPrices ? shopifyPrices[plan.id] || 0 : 0;
+      const usdTotal = shopifyPrices ? shopifyPriceForCycle(monthlyUsd, billingCycle) : 0;
+      const usdSavings = shopifyPrices ? Math.round((monthlyUsd * CYCLE_MONTHS[billingCycle] - usdTotal) * 100) / 100 : 0;
+      const unavailable = Boolean(shopifyPrices) && monthlyUsd <= 0;
       return <article className={`plan-card ${featured ? "featured" : ""}`} key={plan.id}>
-        {billingCycle !== "شهري" && cycleSavings(plan.monthlyPrice, cycleTotal, billingCycle) > 0 ? <span className="plan-ribbon">{cycleSavingsLabel(cycleSavings(plan.monthlyPrice, cycleTotal, billingCycle), lang)}</span> : null}
+        {shopifyPrices
+          ? (billingCycle !== "شهري" && usdSavings > 0 ? <span className="plan-ribbon">{text.save(formatUsd(usdSavings))}</span> : null)
+          : (billingCycle !== "شهري" && cycleSavings(plan.monthlyPrice, cycleTotal, billingCycle) > 0 ? <span className="plan-ribbon">{cycleSavingsLabel(cycleSavings(plan.monthlyPrice, cycleTotal, billingCycle), lang)}</span> : null)}
         {isCurrent ? <span className="current-badge">{text.currentPlanBadge}</span> : featured ? <span className="recommended">{text.recommended}</span> : null}
         <h2>{planDisplayName(plan.name, lang)}</h2>
-        <div className="plan-price"><b>{formatPrice(displayedPrice)}</b><span>{lang === "ar" ? "ر.س" : "SAR"} {cyclePriceSuffix(billingCycle, lang)}</span></div>
-        {billingCycle !== "شهري" ? <p className="plan-price-note">{cycleBilledNote(billingCycle, cycleTotal, lang)}</p> : null}
+        {shopifyPrices ? <>
+          <div className="plan-price"><b>{unavailable ? "—" : formatUsd(Math.round((usdTotal / CYCLE_MONTHS[billingCycle]) * 100) / 100)}</b><span>{cyclePriceSuffix(billingCycle, lang)}</span></div>
+          {billingCycle !== "شهري" && !unavailable ? <p className="plan-price-note">{text.shopifyYearly(formatUsd(usdTotal))}</p> : null}
+        </> : <>
+          <div className="plan-price"><b>{formatPrice(displayedPrice)}</b><span>{lang === "ar" ? "ر.س" : "SAR"} {cyclePriceSuffix(billingCycle, lang)}</span></div>
+          {billingCycle !== "شهري" ? <p className="plan-price-note">{cycleBilledNote(billingCycle, cycleTotal, lang)}</p> : null}
+        </>}
         <ul>{items.map((item) => <li key={item}>✓ {item}</li>)}</ul>
 
-        <button disabled={loading !== "" || renewalTooEarly} onClick={() => checkout(plan.id)}>{loading === plan.id ? text.preparingPayment : renewalTooEarly ? text.activeUntil(currentSubscription?.renewalAt || "") : isCurrent && !onTrial ? text.renewPlan : onTrial ? text.subscribePlan : text.upgradePlan}</button>
+        <button disabled={loading !== "" || renewalTooEarly || unavailable} onClick={() => checkout(plan.id)}>{unavailable ? text.shopifyUnavailable : loading === plan.id ? text.preparingPayment : renewalTooEarly ? text.activeUntil(currentSubscription?.renewalAt || "") : isCurrent && !onTrial ? text.renewPlan : onTrial ? text.subscribePlan : text.upgradePlan}</button>
       </article>;
     })}</div>
     {error ? <p className="billing-error">{error}</p> : null}
-    {isTestMode ? <p className="payment-note">{text.paymentNote}</p> : null}
+    {shopifyPrices ? <p className="payment-note">{text.shopifyNote}</p> : isTestMode ? <p className="payment-note">{text.paymentNote}</p> : null}
   </section>;
 }

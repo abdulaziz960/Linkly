@@ -5,6 +5,7 @@ import { getActivePlans, getPlanByName } from "../../lib/plans";
 import { getSubscriptionForTenant } from "../../lib/subscriptions";
 import { isMoyasarLiveMode } from "../../lib/moyasar";
 import { getTenantBranding } from "../../lib/tenant-branding";
+import { getShopifyPlanPrices, isShopifyBilled } from "../../lib/shopify-billing";
 
 export const dynamic = "force-dynamic";
 import BillingPageClient from "./BillingPageClient";
@@ -14,7 +15,7 @@ import "./billing.css";
 
 export const metadata = { title: { absolute: "الباقات والاشتراك | Linkly" } };
 
-export default async function BillingPage({ searchParams }: { searchParams: Promise<{ expired?: string }> }) {
+export default async function BillingPage({ searchParams }: { searchParams: Promise<{ expired?: string; shopify?: string }> }) {
   const user = await getCurrentUser({ allowExpired: true });
   if (!user) redirect("/login?next=/billing");
   if (user.role !== "مالك الحساب") {
@@ -27,7 +28,9 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     }
     redirect("/dashboard");
   }
-  const [plans, subscription, { expired }, branding] = await Promise.all([getActivePlans(), getSubscriptionForTenant(user.tenantId), searchParams, getTenantBranding(user.tenantId)]);
+  const [plans, subscription, { expired, shopify: shopifyResult }, branding] = await Promise.all([getActivePlans(), getSubscriptionForTenant(user.tenantId), searchParams, getTenantBranding(user.tenantId)]);
+  // A workspace opened from a Shopify install pays through Shopify, in US dollars (lib/shopify-billing.ts).
+  const shopifyPrices = await isShopifyBilled(user.tenantId) ? await getShopifyPlanPrices() : null;
   // A genuinely expired/suspended owner gets the hard full-screen lock, not
   // the normal plan-browsing page with just a soft banner on top - they
   // can't use the dashboard at all right now, so the page should say so
@@ -39,7 +42,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     const currentPlan = subscription && !plans.some((plan) => plan.name === subscription.plan)
       ? await getPlanByName(subscription.plan)
       : null;
-    return <AccountSuspendedNotice branding={branding} subscription={subscription} plans={currentPlan ? [...plans, currentPlan] : plans} />;
+    return <AccountSuspendedNotice branding={branding} subscription={subscription} plans={currentPlan ? [...plans, currentPlan] : plans} shopifyPrices={shopifyPrices} />;
   }
-  return <BillingPageClient plans={plans.filter((plan) => !planFeatures[plan.name]?.custom || plan.name === subscription?.plan)} subscription={subscription} expired={expired === "1"} isTestMode={!isMoyasarLiveMode()} branding={branding} />;
+  return <BillingPageClient plans={plans.filter((plan) => !planFeatures[plan.name]?.custom || plan.name === subscription?.plan)} subscription={subscription} expired={expired === "1"} isTestMode={!isMoyasarLiveMode()} branding={branding} shopifyPrices={shopifyPrices} shopifyResult={shopifyResult || ""} />;
 }
