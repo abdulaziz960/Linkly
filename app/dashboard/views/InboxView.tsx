@@ -6,6 +6,7 @@ import { ChangeEvent, CSSProperties, FormEvent, useEffect, useMemo, useRef, useS
 import FilterButton from "../components/FilterButton";
 import CustomSelect from "../../components/CustomSelect";
 import LinkifiedText from "../components/LinkifiedText";
+import MediaViewer, { type ViewerItem } from "../components/MediaViewer";
 import type {
   ChatPanel,
   ComposerMode,
@@ -320,6 +321,12 @@ export default function InboxView({
   onSetMobileChatOpen
 }: InboxViewProps) {
   const { t, language } = useLanguage();
+  // The conversation's images and files, in order, for the media viewer (opened from any of them).
+  const viewerItems = useMemo(() => activeConversation.messages
+    .filter((message) => message.attachment && message.attachment.type !== "audio" && !isDeletedMessageText(message.text))
+    .map((message) => ({ id: message.id, url: message.attachment!.url, name: message.attachment!.name, type: message.attachment!.type as ViewerItem["type"], mimeType: message.attachment!.mimeType })), [activeConversation.messages]);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const openViewer = (messageId: string) => setViewerIndex(Math.max(0, viewerItems.findIndex((entry) => entry.id === messageId)));
   const imageInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -1238,6 +1245,7 @@ export default function InboxView({
           <div className="chat-panel">
             <AdSourceBanner conversationId={activeConversation.id} />
             <div className="messages" ref={messagesContainerRef}>
+              {viewerIndex !== null && viewerItems.length ? <MediaViewer items={viewerItems} startIndex={viewerIndex} language={language === "en" ? "en" : "ar"} onClose={() => setViewerIndex(null)} /> : null}
               {activeConversation.messages.map((item) => (
                 item.source?.type === "system_assignment" || item.source?.type === "system_escalation" ? (
                   <div className="message-system-line" key={item.id}>
@@ -1293,14 +1301,16 @@ export default function InboxView({
                       <>
                         {/* Provider and user attachments can be data/blob URLs, which next/image does not support. */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          className={item.attachment.type === "sticker" ? "message-attachment-sticker" : "message-attachment-image"}
-                          src={item.attachment.url}
-                          alt={item.attachment.name}
-                        />
+                        <button type="button" className="message-attachment-open" onClick={() => openViewer(item.id)} aria-label={t(`عرض الصورة: ${item.attachment.name}`, `View image: ${item.attachment.name}`)}>
+                          <img
+                            className={item.attachment.type === "sticker" ? "message-attachment-sticker" : "message-attachment-image"}
+                            src={item.attachment.url}
+                            alt={item.attachment.name}
+                          />
+                        </button>
                       </>
                     ) : item.attachment.type === "document" ? (
-                      <a className="message-attachment-document" href={item.attachment.url} download={item.attachment.name}>
+                      <a className="message-attachment-document" href={item.attachment.url} download={item.attachment.name} onClick={(event) => { event.preventDefault(); openViewer(item.id); }}>
                         <span aria-hidden="true">📄</span>
                         <b>{item.attachment.name}</b>
                         <small>{t("فتح المستند", "Open document")}</small>

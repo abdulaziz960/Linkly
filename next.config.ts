@@ -18,7 +18,7 @@ const contentSecurityPolicy = [
   // Clarity is configured in GTM and is loaded only after analytics consent.
   // Microsoft rotates its collector subdomains and also uses c.bing.com.
   "connect-src 'self' https://graph.facebook.com https://www.facebook.com https://connect.facebook.net https://www.googletagmanager.com https://tagassistant.google.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://stats.g.doubleclick.net https://api.moyasar.com https://*.sentry.io https://*.ingest.sentry.io https://www.clarity.ms https://*.clarity.ms https://c.bing.com",
-  "frame-src https://www.facebook.com https://web.facebook.com https://business.facebook.com https://www.googletagmanager.com https://tagassistant.google.com",
+  "frame-src blob: https://www.facebook.com https://web.facebook.com https://business.facebook.com https://www.googletagmanager.com https://tagassistant.google.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

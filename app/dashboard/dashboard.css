@@ -12048,3 +12048,155 @@ html[dir="ltr"] .notification-bell-panel {
   color: var(--muted);
   cursor: progress;
 }
+
+/* Media viewer for conversation images and files (components/MediaViewer.tsx). */
+.media-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: rgba(8, 15, 14, 0.92);
+  color: #fff;
+}
+.media-viewer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.media-viewer-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.media-viewer-title b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.media-viewer-title span {
+  flex: none;
+  color: #b9cbc8;
+  font-size: 13px;
+}
+.media-viewer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.media-viewer-actions button,
+.media-viewer-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+.media-viewer-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.media-viewer-actions :is(button, a):focus-visible,
+.media-viewer-nav:focus-visible {
+  outline: 3px solid #5eead4;
+  outline-offset: 2px;
+}
+.media-viewer-close {
+  font-size: 24px;
+}
+.media-viewer-stage {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 64px;
+}
+.media-viewer-stage[data-zoomed] {
+  place-items: start;
+}
+.media-viewer-stage img {
+  max-width: 100%;
+  max-height: calc(100vh - 110px);
+  object-fit: contain;
+  cursor: zoom-in;
+  user-select: none;
+}
+.media-viewer-stage[data-zoomed] img {
+  cursor: zoom-out;
+}
+.media-viewer-stage iframe {
+  width: min(100%, 1000px);
+  height: calc(100vh - 110px);
+  border: 0;
+  border-radius: 10px;
+  background: #fff;
+}
+.media-viewer-file {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 420px;
+  padding: 28px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+.media-viewer-file > span {
+  font-size: 44px;
+}
+.media-viewer-file p,
+.media-viewer-note {
+  margin: 0;
+  color: #cfdcda;
+}
+.media-viewer-nav {
+  position: fixed;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  translate: 0 -50%;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+.media-viewer-nav.prev { inset-inline-start: 10px; }
+.media-viewer-nav.next { inset-inline-end: 10px; }
+.media-viewer-nav:hover { background: rgba(255, 255, 255, 0.24); }
+@media (max-width: 640px) {
+  .media-viewer-bar { flex-wrap: wrap; }
+  .media-viewer-stage { padding: 8px; }
+  .media-viewer-nav { top: auto; bottom: 14px; translate: none; }
+}
+
+/* The inline image / document in a message opens the viewer. */
+.message-attachment-open {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  border-radius: 10px;
+}
+.message-attachment-open:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
