@@ -3,6 +3,7 @@
 import CustomSelect from "../../components/CustomSelect";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import SallaOrdersPanel from "./SallaOrdersPanel";
 import { ORDER_TEMPLATE_EXAMPLES, orderMessageProblem, suggestedOrderMessage, suggestedOrderTemplateName } from "../../../lib/store-template-suggestions";
 
 type OrderEvent = "created" | "processing" | "shipped" | "delivered" | "cancelled";
@@ -29,7 +30,7 @@ type Settings = {
 
 const ORDER_EVENTS: OrderEvent[] = ["created", "processing", "shipped", "delivered", "cancelled"];
 
-type Section = "connection" | "orders" | "lookup" | "carts" | "checkout";
+type Section = "connection" | "orders" | "lookup" | "carts" | "checkout" | "manage";
 const STATUS_GROUPS: StatusGroup[] = ["review", "processing", "shipped", "delivered", "cancelled", "other"];
 
 /** Salla / Zid: which notifications go out and how abandoned carts are followed up. Stored now; sending starts once the store is connected. */
@@ -255,6 +256,7 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" | "sho
 
       <div className="pipeline-tabs" role="tablist" style={{ marginTop: 0, flexWrap: "wrap" }}>
         <button type="button" role="tab" aria-selected={section === "connection"} onClick={() => setSection("connection")}>{t("الربط", "Connection")}</button>
+        {store === "salla" ? <button type="button" role="tab" aria-selected={section === "manage"} onClick={() => setSection("manage")}>{t("إدارة الطلبات", "Manage orders")}</button> : null}
         <button type="button" role="tab" aria-selected={section === "orders"} onClick={() => setSection("orders")}>{t("إشعارات الطلب", "Order notifications")}</button>
         <button type="button" role="tab" aria-selected={section === "lookup"} onClick={() => setSection("lookup")}>{t("استعلام الطلبات", "Order lookup")}</button>
         <button type="button" role="tab" aria-selected={section === "carts"} onClick={() => setSection("carts")}>{t("السلات المتروكة", "Abandoned carts")}</button>
@@ -311,6 +313,8 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" | "sho
           ) : null}
           <span style={hint}>{t("بعد الربط تصل أحداث الطلبات والسلات المتروكة تلقائيًا، وتُطبَّق الإعدادات في التبويبات الأخرى.", "After connecting, order and abandoned-cart events arrive automatically and the settings in the other tabs apply.")}</span>
         </section>
+      ) : section === "manage" && store === "salla" ? (
+        <SallaOrdersPanel />
       ) : section === "checkout" ? (
         <section style={box}>
           <h4 style={sectionTitle}>{t("الشراء من واتساب → طلب في زد", "Buying from WhatsApp → an order in Zid")}</h4>

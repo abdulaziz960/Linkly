@@ -1,0 +1,110 @@
+/* Salla orders management panel (components/SallaOrdersPanel.tsx). */
+.store-orders-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.store-orders-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.store-orders-head h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.store-orders-hint {
+  font-size: 12.5px;
+  line-height: 1.7;
+  opacity: 0.75;
+}
+
+.store-orders-error {
+  margin: 0;
+  color: #c0392b;
+  font-size: 13px;
+}
+
+.store-order-ok {
+  color: #15803d;
+  font-size: 13px;
+}
+
+.store-orders-list {
+  display: grid;
+  gap: 10px;
+}
+
+.store-order-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) auto minmax(0, 1.6fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.store-order-row > .store-order-ok,
+.store-order-row > .store-orders-error {
+  grid-column: 1 / -1;
+}
+
+.store-order-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.store-order-main span,
+.store-order-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+  opacity: 0.8;
+}
+
+.store-order-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef7f5;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.store-order-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.store-order-actions select {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .store-order-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .store-order-actions {
+    justify-content: stretch;
+  }
+}
