@@ -2,6 +2,7 @@
 
 import AdSourceBanner from "../components/AdSourceBanner";
 import LeadStatusControl from "../components/LeadStatusControl";
+import ConversationStoreOrders from "../components/ConversationStoreOrders";
 import { ChangeEvent, CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import FilterButton from "../components/FilterButton";
 import CustomSelect from "../../components/CustomSelect";
@@ -1756,6 +1757,11 @@ export default function InboxView({
                   <div>
                     <dt>{t("اسم المستخدم", "Username")}</dt>
                     <dd dir="ltr">{activeConversation.handle}</dd>
+                  </div>
+                ) : null}
+                {activeConversation.channel === "whatsapp" ? (
+                  <div>
+                    <ConversationStoreOrders conversationId={activeConversation.id} />
                   </div>
                 ) : null}
                 <div>

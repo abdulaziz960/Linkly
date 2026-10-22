@@ -125,3 +125,20 @@ describe("salla new order", () => {
     expect(parseSallaProducts({ data: [{ id: 1, name: "قهوة", sku: "C1", price: { amount: 40, currency: "SAR" } }, { name: "بلا معرف" }] })).toEqual([{ id: "1", name: "قهوة", sku: "C1", price: 40, currency: "SAR" }]);
   });
 });
+
+import { ordersForPhone, type StoreOrder } from "../lib/salla";
+
+describe("salla orders for a customer's phone", () => {
+  const make = (id: string, phone: string): StoreOrder => ({ id, reference: id, statusSlug: "in_progress", statusLabel: "قيد التنفيذ", customerName: "x", customerPhone: phone, total: 10, currency: "SAR", trackingNumber: "", trackingUrl: "", shippingCompany: "" });
+
+  it("matches on the last 9 digits regardless of the country prefix", () => {
+    const orders = [make("1", "966500000111"), make("2", "966500000222"), make("3", "500000111")];
+    expect(ordersForPhone(orders, "+966 50 000 0111").map((order) => order.id)).toEqual(["1", "3"]);
+  });
+
+  it("returns nothing for short or missing phones and respects the limit", () => {
+    expect(ordersForPhone([make("1", "966500000111")], "123")).toEqual([]);
+    const many = Array.from({ length: 8 }, (_, index) => make(String(index), "966500000111"));
+    expect(ordersForPhone(many, "966500000111", 5)).toHaveLength(5);
+  });
+});

@@ -253,3 +253,58 @@
   align-items: center;
   gap: 8px;
 }
+
+/* Customer's store orders in the conversation side panel (components/ConversationStoreOrders.tsx). */
+.conversation-store-orders {
+  display: grid;
+  gap: 8px;
+}
+
+.conversation-store-orders > strong {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.conversation-store-order {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.conversation-store-order-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.conversation-store-order small {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.conversation-store-order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.conversation-store-order-actions select {
+  flex: 1 1 100%;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.conversation-store-order-actions button {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}

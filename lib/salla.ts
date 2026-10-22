@@ -289,7 +289,10 @@ export async function updateSallaOrderStatus(tenantId: string, orderId: string, 
   const cleanSlug = slug.trim();
   if (!/^[A-Za-z0-9_-]+$/.test(id) || !/^[a-z0-9_-]+$/i.test(cleanSlug)) return { ok: false, status: 400, error: "بيانات غير صالحة" };
   const response = await sallaRequest(tenantId, "POST", `/orders/${encodeURIComponent(id)}/status`, { slug: cleanSlug });
-  if (response.ok) return { ok: true, status: response.status, error: "" };
+  if (response.ok) {
+    forgetRecentSallaOrders(tenantId);
+    return { ok: true, status: response.status, error: "" };
+  }
   const error = obj(response.payload.error);
   const message = str(error.message) || str(response.payload.message);
   return { ok: false, status: response.status, error: response.status === 401 || response.status === 403 ? "صلاحيات الربط ناقصة: أعد ربط متجر سلة ووافق على صلاحية تعديل الطلبات." : message || "رفضت سلة تغيير الحالة" };
@@ -460,6 +463,7 @@ export type CreatedShipment = { id: string; trackingNumber: string; trackingUrl:
 export async function createSallaShipment(tenantId: string, payload: Record<string, unknown>): Promise<{ ok: boolean; status: number; error: string; shipment?: CreatedShipment }> {
   const response = await sallaRequest(tenantId, "POST", "/shipments", payload);
   if (response.ok) {
+    forgetRecentSallaOrders(tenantId);
     const data = obj(response.payload.data);
     return { ok: true, status: response.status, error: "", shipment: { id: str(data.id), trackingNumber: str(data.tracking_number) || str(data.tracking_no), trackingUrl: str(data.tracking_link) || str(data.tracking_url), status: str(data.status) } };
   }
@@ -513,7 +517,10 @@ export async function updateSallaOrderAddress(tenantId: string, orderId: string,
   const id = orderId.trim();
   if (!/^[A-Za-z0-9_-]+$/.test(id)) return { ok: false, status: 400, error: "رقم الطلب غير صالح" };
   const response = await sallaRequest(tenantId, "PUT", `/orders/${encodeURIComponent(id)}`, buildOrderUpdatePayload(shipTo));
-  if (response.ok) return { ok: true, status: response.status, error: "" };
+  if (response.ok) {
+    forgetRecentSallaOrders(tenantId);
+    return { ok: true, status: response.status, error: "" };
+  }
   if (response.status === 401 || response.status === 403) return { ok: false, status: response.status, error: "صلاحيات الربط ناقصة: أعد ربط متجر سلة ووافق على صلاحية تعديل الطلبات." };
   const errors = obj(response.payload.error).fields ?? obj(response.payload).errors;
   const detail = errors && typeof errors === "object" ? Object.entries(obj(errors)).map(([field, message]) => `${field}: ${Array.isArray(message) ? message.join("، ") : str(message)}`).slice(0, 4).join(" | ") : "";
@@ -574,6 +581,7 @@ export type CreatedOrder = { id: string; reference: string; customerUrl: string 
 export async function createSallaOrder(tenantId: string, payload: Record<string, unknown>): Promise<{ ok: boolean; status: number; error: string; order?: CreatedOrder }> {
   const response = await sallaRequest(tenantId, "POST", "/orders", payload);
   if (response.ok) {
+    forgetRecentSallaOrders(tenantId);
     const data = obj(response.payload.data);
     return { ok: true, status: response.status, error: "", order: { id: str(data.id), reference: str(data.reference_id) || str(data.id), customerUrl: str(obj(data.urls).customer) } };
   }
@@ -587,4 +595,40 @@ export async function createSallaOrder(tenantId: string, payload: Record<string,
 export async function listSallaBranches(tenantId: string): Promise<SallaBranch[]> {
   const response = await sallaGet(tenantId, "/branches?per_page=60");
   return response.ok ? parseSallaBranches(response.payload) : [];
+}
+
+const RECENT_ORDERS_TTL_MS = 60_000;
+const recentOrdersCache = new Map<string, { at: number; orders: StoreOrder[] }>();
+
+/** The store's latest orders (a few pages), kept for a minute so opening conversations does not hit Salla every time. */
+async function recentSallaOrders(tenantId: string): Promise<{ ok: boolean; status: number; orders: StoreOrder[] }> {
+  const cached = recentOrdersCache.get(tenantId);
+  if (cached && Date.now() - cached.at < RECENT_ORDERS_TTL_MS) return { ok: true, status: 200, orders: cached.orders };
+  const orders: StoreOrder[] = [];
+  for (let page = 1; page <= 3; page += 1) {
+    const listed = await listSallaOrders(tenantId, page, 50);
+    if (!listed.ok) return { ok: false, status: listed.status, orders: [] };
+    orders.push(...listed.orders);
+    if (listed.orders.length < 50) break;
+  }
+  recentOrdersCache.set(tenantId, { at: Date.now(), orders });
+  if (recentOrdersCache.size > 200) recentOrdersCache.delete(recentOrdersCache.keys().next().value as string);
+  return { ok: true, status: 200, orders };
+}
+
+/** Pure: the orders whose phone is this phone (matched on the last 9 digits), newest first as Salla lists them. */
+export function ordersForPhone(orders: StoreOrder[], phone: string, limit = 5): StoreOrder[] {
+  const last9 = phone.replace(/\D/g, "").slice(-9);
+  if (last9.length < 9) return [];
+  return orders.filter((order) => order.customerPhone.replace(/\D/g, "").slice(-9) === last9).slice(0, limit);
+}
+
+export async function sallaOrdersForCustomer(tenantId: string, phone: string): Promise<{ ok: boolean; status: number; orders: StoreOrder[] }> {
+  const recent = await recentSallaOrders(tenantId);
+  return { ok: recent.ok, status: recent.status, orders: recent.ok ? ordersForPhone(recent.orders, phone) : [] };
+}
+
+/** Forgets the cached orders of a workspace (after the team changed one) so the next view is fresh. */
+export function forgetRecentSallaOrders(tenantId: string): void {
+  recentOrdersCache.delete(tenantId);
 }
