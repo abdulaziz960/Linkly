@@ -394,12 +394,15 @@ export function buildShipmentDraft(raw: unknown): ShipmentDraft | null {
   const items = Array.isArray(order.items) ? order.items : [];
   const packages: ShipmentPackage[] = items.map((item) => {
     const entry = obj(item);
-    const price = obj(entry.amounts).price_without_tax ?? entry.price ?? entry.amount;
+    const amounts = obj(entry.amounts);
+    const quantity = Math.max(1, Math.floor(num(entry.quantity)) || 1);
+    const unit = amounts.price_without_tax ?? amounts.price ?? entry.price ?? entry.amount;
+    const unitPrice = num(obj(unit).amount ?? unit) || num(obj(amounts.total).amount ?? amounts.total) / quantity;
     return {
-      name: str(entry.name) || "منتج",
-      sku: str(entry.sku),
-      price: num(obj(price).amount ?? price),
-      quantity: Math.max(1, Math.floor(num(entry.quantity)) || 1),
+      name: str(entry.name) || str(obj(entry.product).name) || "منتج",
+      sku: str(entry.sku) || str(obj(entry.product).sku),
+      price: Number.isFinite(unitPrice) ? unitPrice : 0,
+      quantity,
       weight: num(entry.weight) || 1
     };
   });
@@ -458,7 +461,14 @@ export async function prepareSallaShipment(tenantId: string, orderId: string): P
     sallaGet(tenantId, "/branches?per_page=60")
   ]);
   if (!detail.ok) return { ok: false, status: detail.status, draft: null, companies: [], branches: [] };
-  return { ok: true, status: 200, draft: buildShipmentDraft(detail.payload.data), companies: companies.companies, branches: parseSallaBranches(branches.payload) };
+  let draft = buildShipmentDraft(detail.payload.data);
+  if (draft && !draft.packages.length) {
+    // Salla's order detail does not always carry the items; they have their own list.
+    const items = await sallaGet(tenantId, `/orders/items?order_id=${encodeURIComponent(id)}&per_page=50`);
+    const listed = items.ok && Array.isArray(items.payload.data) ? items.payload.data : [];
+    if (listed.length) draft = buildShipmentDraft({ ...obj(detail.payload.data), items: listed });
+  }
+  return { ok: true, status: 200, draft, companies: companies.companies, branches: parseSallaBranches(branches.payload) };
 }
 
 export type CreatedShipment = { id: string; trackingNumber: string; trackingUrl: string; status: string };

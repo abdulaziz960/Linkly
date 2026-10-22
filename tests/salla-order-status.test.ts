@@ -142,3 +142,10 @@ describe("salla orders for a customer's phone", () => {
     expect(ordersForPhone(many, "966500000111", 5)).toHaveLength(5);
   });
 });
+
+describe("salla shipment items", () => {
+  it("reads items whose price is only given as a line total", () => {
+    const draft = buildShipmentDraft({ id: 3, items: [{ name: "قهوة", quantity: 2, amounts: { total: { amount: 80 } } }] });
+    expect(draft?.packages).toEqual([{ name: "قهوة", sku: "", price: 40, quantity: 2, weight: 1 }]);
+  });
+});

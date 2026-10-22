@@ -23,6 +23,7 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
   const [replace, setReplace] = useState(false);
+  const [manual, setManual] = useState({ name: "", quantity: "1", price: "", weight: "1" });
 
   const labels: Record<keyof ShipTo, string> = {
     name: t("اسم المستلم", "Recipient name"),
@@ -153,11 +154,29 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
             ))}
           </div>
           <span className="store-orders-hint">{t(`عدد المنتجات في الشحنة: ${draft.packages.length}`, `Items in the shipment: ${draft.packages.length}`)}</span>
+          {draft.packages.length ? (
+            <div className="shipment-packages">
+              {draft.packages.map((item, index) => (
+                <small key={`${item.name}-${index}`}>{item.name} × {item.quantity}{item.price ? ` · ${item.price.toLocaleString("en-US")}` : ""}</small>
+              ))}
+            </div>
+          ) : (
+            <div className="shipment-grid">
+              <span className="store-orders-error" style={{ gridColumn: "1 / -1" }}>{t("لم ترجع سلة منتجات هذا الطلب. أضف المنتج يدويًا (اسم وكمية وسعر ووزن بالكيلو).", "Salla returned no items for this order. Add the item manually (name, quantity, price and weight in kg).")}</span>
+              <label>{t("اسم المنتج", "Item name")}<input value={manual.name} onChange={(event) => setManual({ ...manual, name: event.target.value })} /></label>
+              <label>{t("الكمية", "Quantity")}<input dir="ltr" value={manual.quantity} onChange={(event) => setManual({ ...manual, quantity: event.target.value })} /></label>
+              <label>{t("السعر", "Price")}<input dir="ltr" value={manual.price} onChange={(event) => setManual({ ...manual, price: event.target.value })} /></label>
+              <label>{t("الوزن (كجم)", "Weight (kg)")}<input dir="ltr" value={manual.weight} onChange={(event) => setManual({ ...manual, weight: event.target.value })} /></label>
+              <button type="button" className="soft-action" disabled={!manual.name.trim()} onClick={() => {
+                setDraft({ ...draft, packages: [{ name: manual.name.trim(), sku: "", price: Number(manual.price) || 0, quantity: Math.max(1, Math.floor(Number(manual.quantity)) || 1), weight: Number(manual.weight) > 0 ? Number(manual.weight) : 1 }] });
+              }}>{t("إضافة المنتج", "Add item")}</button>
+            </div>
+          )}
         </>
       ) : null}
       {error ? <span className="store-orders-error">{error}</span> : null}
       <div className="store-order-actions">
-        <button type="button" className="primary-action" disabled={busy || !draft || !courierId || Boolean(draft.existing && !replace)} onClick={() => void submit()}>{busy ? t("جارٍ الإرسال...", "Sending...") : t("إنشاء الشحنة", "Create shipment")}</button>
+        <button type="button" className="primary-action" disabled={busy || !draft || !draft.packages.length || !courierId || Boolean(draft.existing && !replace)} onClick={() => void submit()}>{busy ? t("جارٍ الإرسال...", "Sending...") : t("إنشاء الشحنة", "Create shipment")}</button>
         <button type="button" className="soft-action" disabled={busy} onClick={onClose}>{t("إلغاء", "Cancel")}</button>
       </div>
     </div>

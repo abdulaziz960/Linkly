@@ -308,3 +308,9 @@
   padding: 0 12px;
   font-size: 12.5px;
 }
+
+.shipment-packages {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
