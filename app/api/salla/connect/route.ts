@@ -9,6 +9,7 @@ import { sallaAuthorizeUrl, sallaConfigured } from "../../../../lib/salla";
 export const runtime = "nodejs";
 
 function closeWith(request: NextRequest, message: string) {
+  console.warn("Salla connect window closing:", message);
   return new NextResponse(
     popupCloseHtml(getAppOrigin(request), message, { type: "linkly:store-connected" }, "/dashboard?view=integrations"),
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }

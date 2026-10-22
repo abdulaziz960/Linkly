@@ -165,7 +165,10 @@ async function tokenRequest(params: Record<string, string>): Promise<TokenResult
   const body = new URLSearchParams({ client_id: process.env.SALLA_CLIENT_ID || "", client_secret: process.env.SALLA_CLIENT_SECRET || "", ...params });
   const response = await fetch(SALLA_TOKEN_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" }, body, signal: AbortSignal.timeout(10000) });
   const payload = await response.json().catch(() => null) as { access_token?: string; refresh_token?: string; expires_in?: number; error_description?: string; message?: string } | null;
-  if (!response.ok || !payload?.access_token) return { error: payload?.error_description || payload?.message || "تعذر الحصول على رمز الوصول من سلة" };
+  if (!response.ok || !payload?.access_token) {
+    console.error("Salla token request failed", { grant: params.grant_type, status: response.status, error: payload?.error_description || payload?.message || "" });
+    return { error: payload?.error_description || payload?.message || "تعذر الحصول على رمز الوصول من سلة" };
+  }
   const seconds = typeof payload.expires_in === "number" && payload.expires_in > 0 ? payload.expires_in : 14 * 24 * 3600;
   return { accessToken: payload.access_token, refreshToken: payload.refresh_token || "", expiresAt: new Date(Date.now() + seconds * 1000).toISOString() };
 }

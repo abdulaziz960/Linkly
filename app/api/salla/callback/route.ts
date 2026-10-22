@@ -9,6 +9,7 @@ import { saveStoreTokens } from "../../../../lib/store-connections";
 export const runtime = "nodejs";
 
 function closeWith(request: NextRequest, message: string) {
+  console.warn("Salla connect window closing:", message);
   const response = new NextResponse(
     popupCloseHtml(getAppOrigin(request), message, { type: "linkly:store-connected" }, "/dashboard?view=integrations"),
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }
