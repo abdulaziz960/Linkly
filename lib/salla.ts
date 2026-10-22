@@ -150,7 +150,7 @@ export function sallaAuthorizeUrl(state: string, redirectUri: string): string {
   url.searchParams.set("client_id", process.env.SALLA_CLIENT_ID || "");
   url.searchParams.set("response_type", "code");
   url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("scope", process.env.SALLA_SCOPES || "offline_access orders.read customers.read");
+  url.searchParams.set("scope", process.env.SALLA_SCOPES || "offline_access orders.read_write customers.read");
   url.searchParams.set("state", state);
   return url.toString();
 }
@@ -201,11 +201,16 @@ async function accessTokenFor(tenantId: string, forceRefresh = false): Promise<s
   return refreshed.accessToken;
 }
 
-async function sallaGet(tenantId: string, path: string): Promise<{ ok: boolean; status: number; payload: Json }> {
+async function sallaRequest(tenantId: string, method: "GET" | "POST", path: string, body?: unknown): Promise<{ ok: boolean; status: number; payload: Json }> {
   let token = await accessTokenFor(tenantId);
   if (!token) return { ok: false, status: 401, payload: {} };
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const response = await fetch(`${SALLA_API}${path}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
+    const response = await fetch(`${SALLA_API}${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json", ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      signal: AbortSignal.timeout(10000)
+    });
     if (response.status === 401 && attempt === 0) {
       const fresh = await accessTokenFor(tenantId, true);
       if (!fresh) return { ok: false, status: 401, payload: {} };
@@ -216,6 +221,10 @@ async function sallaGet(tenantId: string, path: string): Promise<{ ok: boolean; 
     return { ok: response.ok, status: response.status, payload };
   }
   return { ok: false, status: 401, payload: {} };
+}
+
+function sallaGet(tenantId: string, path: string) {
+  return sallaRequest(tenantId, "GET", path);
 }
 
 /** The order the customer calls by this number, or null (not found, store not connected, API error). */
@@ -229,4 +238,59 @@ export async function findSallaOrderByReference(tenantId: string, reference: str
   // The list view may omit the shipment; the detail view has it.
   const detail = await sallaGet(tenantId, `/orders/${encodeURIComponent(summary.id)}`);
   return normalizeSallaOrder(detail.payload.data) ?? summary;
+}
+
+export type SallaStatus = { slug: string; label: string };
+
+/** Salla's standard order statuses, used when the statuses list cannot be fetched. */
+export const DEFAULT_SALLA_STATUSES: SallaStatus[] = [
+  { slug: "under_review", label: "قيد المراجعة" },
+  { slug: "in_progress", label: "قيد التنفيذ" },
+  { slug: "completed", label: "مكتمل" },
+  { slug: "delivering", label: "قيد التوصيل" },
+  { slug: "delivered", label: "تم التوصيل" },
+  { slug: "shipped", label: "تم الشحن" },
+  { slug: "canceled", label: "ملغي" },
+  { slug: "restored", label: "مسترجع" }
+];
+
+/** Pure: Salla's statuses list into slug/label pairs (custom statuses without a slug are skipped). */
+export function parseSallaStatuses(payload: unknown): SallaStatus[] {
+  const data = obj(payload).data;
+  if (!Array.isArray(data)) return [];
+  const seen = new Set<string>();
+  const result: SallaStatus[] = [];
+  for (const item of data) {
+    const entry = obj(item);
+    const slug = str(entry.slug);
+    if (!slug || seen.has(slug)) continue;
+    seen.add(slug);
+    result.push({ slug, label: str(entry.name) || slug });
+  }
+  return result;
+}
+
+export async function listSallaStatuses(tenantId: string): Promise<SallaStatus[]> {
+  const response = await sallaGet(tenantId, "/orders/statuses");
+  const parsed = response.ok ? parseSallaStatuses(response.payload) : [];
+  return parsed.length ? parsed : DEFAULT_SALLA_STATUSES;
+}
+
+export async function listSallaOrders(tenantId: string, page = 1, perPage = 20): Promise<{ ok: boolean; status: number; orders: StoreOrder[] }> {
+  const response = await sallaGet(tenantId, `/orders?page=${Math.max(1, Math.floor(page))}&per_page=${Math.min(50, Math.max(1, Math.floor(perPage)))}`);
+  const data = Array.isArray(response.payload.data) ? response.payload.data : [];
+  const orders = data.map((item) => normalizeSallaOrder(item)).filter((order): order is StoreOrder => order !== null);
+  return { ok: response.ok, status: response.status, orders };
+}
+
+/** Changes the order's status in Salla. Salla then sends order.status.updated, which drives the WhatsApp notification. */
+export async function updateSallaOrderStatus(tenantId: string, orderId: string, slug: string): Promise<{ ok: boolean; status: number; error: string }> {
+  const id = orderId.trim();
+  const cleanSlug = slug.trim();
+  if (!/^[A-Za-z0-9_-]+$/.test(id) || !/^[a-z0-9_-]+$/i.test(cleanSlug)) return { ok: false, status: 400, error: "بيانات غير صالحة" };
+  const response = await sallaRequest(tenantId, "POST", `/orders/${encodeURIComponent(id)}/status`, { slug: cleanSlug });
+  if (response.ok) return { ok: true, status: response.status, error: "" };
+  const error = obj(response.payload.error);
+  const message = str(error.message) || str(response.payload.message);
+  return { ok: false, status: response.status, error: response.status === 401 || response.status === 403 ? "صلاحيات الربط ناقصة: أعد ربط متجر سلة ووافق على صلاحية تعديل الطلبات." : message || "رفضت سلة تغيير الحالة" };
 }
