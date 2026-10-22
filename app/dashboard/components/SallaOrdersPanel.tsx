@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import SallaShipmentForm from "./SallaShipmentForm";
+import SallaOrderEditForm from "./SallaOrderEditForm";
 
 type Order = { id: string; reference: string; statusSlug: string; statusLabel: string; customerName: string; customerPhone: string; total: number; currency: string; trackingNumber?: string; shippingCompany?: string };
 type Status = { slug: string; label: string };
@@ -16,7 +17,7 @@ export default function SallaOrdersPanel() {
   const [loading, setLoading] = useState(true);
   const [choice, setChoice] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState("");
-  const [shippingId, setShippingId] = useState("");
+  const [panel, setPanel] = useState<{ id: string; kind: "ship" | "edit" } | null>(null);
   const [note, setNote] = useState<{ id: string; ok: boolean; text: string } | null>(null);
 
   async function load() {
@@ -98,9 +99,11 @@ export default function SallaOrdersPanel() {
               <button type="button" className="primary-action" disabled={busyId === order.id || !choice[order.id] || choice[order.id] === order.statusSlug} onClick={() => void apply(order)}>
                 {busyId === order.id ? t("جارٍ التحديث...", "Updating...") : t("تحديث الحالة", "Update status")}
               </button>
-              <button type="button" className="soft-action" onClick={() => setShippingId(shippingId === order.id ? "" : order.id)}>{t("إنشاء شحنة", "Create shipment")}</button>
+              <button type="button" className="soft-action" onClick={() => setPanel(panel?.id === order.id && panel.kind === "ship" ? null : { id: order.id, kind: "ship" })}>{t("إنشاء شحنة", "Create shipment")}</button>
+              <button type="button" className="soft-action" onClick={() => setPanel(panel?.id === order.id && panel.kind === "edit" ? null : { id: order.id, kind: "edit" })}>{t("تعديل العنوان والمستلم", "Edit address & recipient")}</button>
             </div>
-            {shippingId === order.id ? <SallaShipmentForm orderId={order.id} reference={order.reference} onClose={() => setShippingId("")} /> : null}
+            {panel?.id === order.id && panel.kind === "ship" ? <SallaShipmentForm orderId={order.id} reference={order.reference} onClose={() => setPanel(null)} /> : null}
+            {panel?.id === order.id && panel.kind === "edit" ? <SallaOrderEditForm orderId={order.id} reference={order.reference} onClose={() => setPanel(null)} /> : null}
             {note?.id === order.id ? <span className={note.ok ? "store-order-ok" : "store-orders-error"}>{note.text}</span> : null}
           </div>
         ))}
