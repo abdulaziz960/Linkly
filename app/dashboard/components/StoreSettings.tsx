@@ -39,7 +39,7 @@ type Section = "connection" | "orders" | "lookup" | "carts" | "checkout" | "mana
 const STATUS_GROUPS: StatusGroup[] = ["review", "processing", "shipped", "delivered", "cancelled", "other"];
 
 /** Salla / Zid: which notifications go out and how abandoned carts are followed up. Stored now; sending starts once the store is connected. */
-export default function StoreSettings({ store }: { store: "salla" | "zid" | "shopify" }) {
+export default function StoreSettings({ store, onSaved }: { store: "salla" | "zid" | "shopify"; onSaved?: () => void }) {
   const { t } = useLanguage();
   const [shopDomain, setShopDomain] = useState("");
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -181,6 +181,8 @@ export default function StoreSettings({ store }: { store: "salla" | "zid" | "sho
       setSettings(result.data.settings);
       setWarnings(result.data.warnings);
       setFeedback({ type: "success", text: t("تم الحفظ", "Saved") });
+      // Close the window after a moment so the confirmation is seen.
+      if (onSaved) window.setTimeout(onSaved, 900);
     } catch {
       setFeedback({ type: "error", text: t("تعذر الاتصال بالخادم", "Could not reach the server") });
     } finally {

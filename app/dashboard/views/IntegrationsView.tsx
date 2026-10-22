@@ -283,7 +283,7 @@ export default function IntegrationsView() {
               <h2>{storeOpen === "salla" ? t("سلة", "Salla") : storeOpen === "shopify" ? t("شوبيفاي", "Shopify") : t("زد", "Zid")}</h2>
             </header>
             <div className="account-modal-body">
-              <StoreSettings store={storeOpen} />
+              <StoreSettings store={storeOpen} onSaved={() => { setStoreOpen(null); loadStoreConnections(); }} />
             </div>
           </div>
         </div>
