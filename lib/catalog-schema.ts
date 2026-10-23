@@ -96,6 +96,18 @@ export const CATALOG_SCHEMA_STATEMENTS = [
   )`,
   // Delivery options the merchant offers: a shipping company (or the merchant's own delivery), its price, an optional
   // free-shipping threshold, an estimate and the cities it serves ('[]' = every city).
+  // How long an order takes to prepare: the merchant's usual time (told to the customer when the order is paid) and the time set for one order.
+  `CREATE TABLE IF NOT EXISTS catalog_prep_settings (
+    tenant_id TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    default_minutes INTEGER NOT NULL DEFAULT 30,
+    updated_at TEXT NOT NULL DEFAULT ''
+  )`,
+  `CREATE TABLE IF NOT EXISTS catalog_order_prep (
+    order_id TEXT PRIMARY KEY,
+    minutes INTEGER NOT NULL,
+    set_at TEXT NOT NULL
+  )`,
   // Pickup instead of delivery: what the merchant offers (in store, from the car), the customer's pending choice in the chat and the choice stored with a placed order.
   `CREATE TABLE IF NOT EXISTS catalog_pickup_settings (
     tenant_id TEXT PRIMARY KEY,

@@ -1,14 +1,17 @@
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
 import { shortOrderNumber } from "./order-number";
+import { cleanPrepMinutes, getOrderPrep, prepSentence, setOrderPrep } from "./catalog-prep";
+import { getOrderPickup, type OrderPickup } from "./catalog-pickup";
 
-export const TRACKING_STAGES = ["preparing", "shipped", "delivered"] as const;
+export const TRACKING_STAGES = ["preparing", "ready", "shipped", "delivered"] as const;
 export type TrackingStage = typeof TRACKING_STAGES[number];
 
 export type OrderTracking = { stage: TrackingStage; carrier: string; trackingNumber: string; trackingUrl: string; updatedAt: string };
 
 export const STAGE_LABELS: Record<TrackingStage, string> = {
   preparing: "قيد التجهيز",
+  ready: "جاهز للاستلام",
   shipped: "تم الشحن",
   delivered: "تم التسليم"
 };
@@ -33,7 +36,7 @@ export async function getOrderTracking(orderIds: string[]): Promise<Map<string, 
   return result;
 }
 
-export type TrackingInput = { stage?: unknown; carrier?: unknown; trackingNumber?: unknown; trackingUrl?: unknown };
+export type TrackingInput = { stage?: unknown; carrier?: unknown; trackingNumber?: unknown; trackingUrl?: unknown; /** Minutes the order will take (for the "preparing" stage). */ prepMinutes?: unknown };
 
 export function cleanTrackingInput(input: TrackingInput): { ok: true; data: { stage: TrackingStage; carrier: string; trackingNumber: string; trackingUrl: string } } | { ok: false; error: string } {
   const stage = String(input.stage ?? "");
@@ -46,9 +49,16 @@ export function cleanTrackingInput(input: TrackingInput): { ok: true; data: { st
   return { ok: true, data: { stage: stage as TrackingStage, carrier, trackingNumber, trackingUrl } };
 }
 
+/** What the message can add: how long the order takes to prepare, and how it is picked up (for "ready"). */
+export type TrackingExtras = { prepMinutes?: number; pickup?: OrderPickup };
+
 /** The message the customer gets when the stage changes (or when they ask for their order's status). */
-export function buildTrackingMessage(orderId: string, tracking: Pick<OrderTracking, "stage" | "carrier" | "trackingNumber" | "trackingUrl">): string {
+export function buildTrackingMessage(orderId: string, tracking: Pick<OrderTracking, "stage" | "carrier" | "trackingNumber" | "trackingUrl">, extras: TrackingExtras = {}): string {
   const lines = [`طلبك ${shortOrderNumber(orderId)}`, `الحالة: ${STAGE_LABELS[tracking.stage]}`];
+  if (tracking.stage === "preparing" && extras.prepMinutes) lines.push(`⏱ ${prepSentence(extras.prepMinutes)}`);
+  if (tracking.stage === "ready") {
+    lines.push(extras.pickup?.kind === "car" ? `سيخرج لك الموظف طلبك إلى سيارتك${extras.pickup.plate ? ` (${extras.pickup.plate})` : ""}.` : extras.pickup?.kind === "store" ? "تفضل بالاستلام من المحل." : "طلبك جاهز، تفضل بالاستلام.");
+  }
   if (tracking.stage === "shipped") {
     if (tracking.carrier) lines.push(`شركة الشحن: ${tracking.carrier}`);
     if (tracking.trackingNumber) lines.push(`رقم الشحنة: ${tracking.trackingNumber}`);
@@ -77,13 +87,18 @@ export async function saveOrderTracking(
   const previous = (await getOrderTracking([orderId])).get(orderId);
   const now = new Date().toISOString();
   const data = cleaned.data;
+  // The time set for this order (kept with it); otherwise the one the order already has (the merchant's usual time given at payment).
+  const typedMinutes = cleanPrepMinutes(input.prepMinutes);
+  if (data.stage === "preparing" && typedMinutes) await setOrderPrep(orderId, typedMinutes);
+  const prepMinutes = data.stage === "preparing" ? typedMinutes ?? (await getOrderPrep([orderId])).get(orderId) : undefined;
+  const pickup = data.stage === "ready" ? (await getOrderPickup([orderId])).get(orderId) : undefined;
   await prisma.$executeRaw`DELETE FROM catalog_order_tracking WHERE order_id = ${orderId}`;
   await prisma.$executeRaw`INSERT INTO catalog_order_tracking (order_id, stage, carrier, tracking_number, tracking_url, updated_at) VALUES (${orderId}, ${data.stage}, ${data.carrier}, ${data.trackingNumber}, ${data.trackingUrl}, ${now})`;
   if (data.stage === "delivered" && order.status !== "fulfilled") {
     await prisma.catalogOrder.update({ where: { id: orderId }, data: { status: "fulfilled", updatedAt: now } });
   }
 
-  const changed = !previous || previous.stage !== data.stage || previous.trackingNumber !== data.trackingNumber || previous.trackingUrl !== data.trackingUrl || previous.carrier !== data.carrier;
+  const changed = !previous || previous.stage !== data.stage || previous.trackingNumber !== data.trackingNumber || previous.trackingUrl !== data.trackingUrl || previous.carrier !== data.carrier || (data.stage === "preparing" && Boolean(typedMinutes));
   let notified = false;
   if (changed && order.conversationId) {
     try {
@@ -94,7 +109,7 @@ export async function saveOrderTracking(
           tenantId,
           conversationId: order.conversationId,
           to: conversation.customer.phone,
-          text: buildTrackingMessage(orderId, data),
+          text: buildTrackingMessage(orderId, data, { prepMinutes, pickup }),
           author: "الرد الآلي"
         });
         notified = true;

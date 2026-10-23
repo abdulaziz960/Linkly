@@ -4,6 +4,7 @@ import { getMerchantGatewayKeyForVerification, getOrderItems, restockOrder, type
 import { getOrderDiscounts } from "./catalog-discounts";
 import { getOrderShipping, type OrderShipping } from "./catalog-shipping";
 import { getOrderPickup, pickupText, type OrderPickup } from "./catalog-pickup";
+import { getPrepSettings, prepSentence, setOrderPrep } from "./catalog-prep";
 import { sendWhatsAppTextMessage } from "./whatsapp-send";
 import { shortOrderNumber } from "./order-number";
 import { loyaltyMessageFor, recordPaidOrderForLoyalty } from "./loyalty";
@@ -47,7 +48,7 @@ export function buildPaidOrderMessage(order: {
   quantity: number;
   total: number;
   currency: string;
-}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number }>, discount?: { code: string; amount: number }, shipping?: OrderShipping, pickup?: OrderPickup): string {
+}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number }>, discount?: { code: string; amount: number }, shipping?: OrderShipping, pickup?: OrderPickup, prepMinutes?: number): string {
   const name = usableCustomerName(order.customerName, order.customerPhone) || usableCustomerName(fallbackName, order.customerPhone);
   const amount = Number.isInteger(order.total) ? String(order.total) : order.total.toFixed(2);
   const currency = order.currency === "SAR" ? "ر.س" : order.currency;
@@ -63,6 +64,7 @@ export function buildPaidOrderMessage(order: {
     ...(pickup ? [pickupText(pickup)] : []),
     `المبلغ المدفوع: ${amount} ${currency}`,
     ...(arabicDate(paidAtIso) ? [`التاريخ: ${arabicDate(paidAtIso)}`] : []),
+    ...(prepMinutes ? ["", `⏱ ${prepSentence(prepMinutes)}`] : []),
     "",
     "سنتواصل معك إن احتجنا لشيء آخر."
   ];
@@ -222,6 +224,10 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
     const orderDiscount = (await getOrderDiscounts([order.id])).get(order.id);
     const orderShipping = (await getOrderShipping([order.id])).get(order.id);
     const orderPickup = (await getOrderPickup([order.id])).get(order.id);
+    // The merchant's usual preparation time, told to the customer now and kept with the order.
+    const prepSettings = await getPrepSettings(order.tenantId);
+    const prepMinutes = prepSettings.enabled ? prepSettings.defaultMinutes : undefined;
+    if (prepMinutes) await setOrderPrep(order.id, prepMinutes).catch((error) => console.error("Order prep time failed", error));
     // The bot keeps a conversation "closed" while it handles it - a paid
     // order needs a human to fulfil it, so put it in the agents' queue.
     await prisma.conversation.updateMany({ where: { id: order.conversationId, status: "closed" }, data: { status: "unassigned", assignee: "بدون موظف" } });
@@ -231,7 +237,7 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
         tenantId: order.tenantId,
         conversationId: order.conversationId,
         to: conversation.customer.phone,
-        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name, orderItems, orderDiscount, orderShipping, orderPickup),
+        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name, orderItems, orderDiscount, orderShipping, orderPickup, prepMinutes),
         author: "الرد الآلي"
       }).catch((error) => console.error("Order paid confirmation failed", error));
 

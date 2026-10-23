@@ -8,6 +8,7 @@ import DiscountCodesPanel from "../components/DiscountCodesPanel";
 import LoyaltyPanel from "../components/LoyaltyPanel";
 import ProductOptionsEditor from "../components/ProductOptionsEditor";
 import PickupSettingsCard from "../components/PickupSettingsCard";
+import PrepTimeCard from "../components/PrepTimeCard";
 import ShippingPanel from "../components/ShippingPanel";
 import PaymentProvidersPanel from "../components/PaymentProvidersPanel";
 import { orderMatchesQuery, shortOrderNumber } from "../../../lib/order-number";
@@ -44,8 +45,9 @@ type Order = {
   /** Delivery chosen for the order (the fee is in the total). */
   shipping?: { methodName: string; city: string; address: string; fee: number; eta: string };
   pickup?: { kind: "store" | "car"; plate: string; carDetails: string };
+  prepMinutes?: number;
   discount?: { code: string; amount: number };
-  tracking?: { stage: "preparing" | "shipped" | "delivered"; carrier: string; trackingNumber: string; trackingUrl: string; updatedAt: string };
+  tracking?: { stage: "preparing" | "ready" | "shipped" | "delivered"; carrier: string; trackingNumber: string; trackingUrl: string; updatedAt: string };
 };
 
 type Settings = {
@@ -112,7 +114,8 @@ export default function CatalogView() {
   const [syncing, setSyncing] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [trackOrder, setTrackOrder] = useState<Order | null>(null);
-  const [trackForm, setTrackForm] = useState({ stage: "preparing", carrier: "", trackingNumber: "", trackingUrl: "" });
+  const [trackForm, setTrackForm] = useState({ stage: "preparing", carrier: "", trackingNumber: "", trackingUrl: "", prepMinutes: "" });
+  const [prepDefault, setPrepDefault] = useState(30);
   const [trackSaving, setTrackSaving] = useState(false);
   const [trackError, setTrackError] = useState("");
 
@@ -251,7 +254,8 @@ export default function CatalogView() {
       stage: order.tracking?.stage ?? "preparing",
       carrier: order.tracking?.carrier ?? order.shipping?.methodName ?? "",
       trackingNumber: order.tracking?.trackingNumber ?? "",
-      trackingUrl: order.tracking?.trackingUrl ?? ""
+      trackingUrl: order.tracking?.trackingUrl ?? "",
+      prepMinutes: order.prepMinutes ? String(order.prepMinutes) : String(prepDefault)
     });
     setTrackOrder(order);
   }
@@ -275,7 +279,7 @@ export default function CatalogView() {
     await load();
   }
 
-  const trackingLabel = (stage?: "preparing" | "shipped" | "delivered") => stage === "shipped" ? t("تم الشحن", "Shipped") : stage === "delivered" ? t("تم التسليم", "Delivered") : stage === "preparing" ? t("قيد التجهيز", "Preparing") : t("لم يُحدَّث", "Not updated");
+  const trackingLabel = (stage?: "preparing" | "ready" | "shipped" | "delivered") => stage === "ready" ? t("جاهز للاستلام", "Ready for pickup") : stage === "shipped" ? t("تم الشحن", "Shipped") : stage === "delivered" ? t("تم التسليم", "Delivered") : stage === "preparing" ? t("قيد التجهيز", "Preparing") : t("لم يُحدَّث", "Not updated");
 
   /** The status dropdown: "preparing" saves that shipping stage, "shipped" asks for the shipment details, the rest are order statuses. */
   async function changeOrderFlow(order: Order, value: string) {
@@ -285,10 +289,16 @@ export default function CatalogView() {
       return;
     }
     if (value === "preparing") {
+      // "Preparing" asks how long it will take (the customer is told).
+      openTracking(order);
+      setTrackForm((current) => ({ ...current, stage: "preparing" }));
+      return;
+    }
+    if (value === "ready") {
       const result = await api<{ notified: boolean }>(`/api/catalog/orders/${order.id}/tracking`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage: "preparing", carrier: order.tracking?.carrier ?? "" })
+        body: JSON.stringify({ stage: "ready", carrier: order.tracking?.carrier ?? "" })
       });
       setNotice(result.ok ? { type: "success", message: result.data?.notified ? t("تم التحديث وإشعار العميل", "Updated and the customer was notified") : t("تم التحديث (لم يصل إشعار للعميل)", "Updated (the customer wasn't notified)") } : { type: "error", message: result.error || t("تعذر التحديث", "Could not update") });
       await load();
@@ -413,6 +423,8 @@ export default function CatalogView() {
         </div>
       ) : null}
 
+      {tab === "orders" ? <PrepTimeCard onLoaded={(minutes) => setPrepDefault(minutes)} /> : null}
+
       {tab === "orders" ? (
         <div className="panel">
           <div className="panel-head"><h2>{t("الطلبات", "Orders")}</h2></div>
@@ -443,6 +455,7 @@ export default function CatalogView() {
                         options={[
                           ...orderStatuses.filter((status) => status !== "fulfilled" && status !== "cancelled").map((status) => ({ value: status, label: statusLabel(status) })),
                           { value: "preparing", label: t("قيد التجهيز", "Preparing") },
+                          { value: "ready", label: t("جاهز للاستلام", "Ready for pickup") },
                           { value: "shipped", label: t("تم الشحن", "Shipped") },
                           ...orderStatuses.filter((status) => status === "fulfilled" || status === "cancelled").map((status) => ({ value: status, label: statusLabel(status) }))
                         ]}
@@ -593,8 +606,11 @@ export default function CatalogView() {
             <header className="modal-head"><button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setTrackOrder(null)}>×</button><h2>{t("شحن الطلب", "Order shipping")} <span dir="ltr">{shortOrderNumber(trackOrder.id)}</span></h2></header>
             <div className="account-modal-body form-grid">
               <label className="reengagement-field"><span>{t("المرحلة", "Stage")}</span>
-                <CustomSelect value={trackForm.stage} ariaLabel={t("مرحلة الشحن", "Shipping stage")} onChange={(value) => setTrackForm({ ...trackForm, stage: value })} options={[{ value: "preparing", label: t("قيد التجهيز", "Preparing") }, { value: "shipped", label: t("تم الشحن", "Shipped") }, { value: "delivered", label: t("تم التسليم", "Delivered") }]} />
+                <CustomSelect value={trackForm.stage} ariaLabel={t("مرحلة الشحن", "Shipping stage")} onChange={(value) => setTrackForm({ ...trackForm, stage: value })} options={[{ value: "preparing", label: t("قيد التجهيز", "Preparing") }, { value: "ready", label: t("جاهز للاستلام", "Ready for pickup") }, { value: "shipped", label: t("تم الشحن", "Shipped") }, { value: "delivered", label: t("تم التسليم", "Delivered") }]} />
               </label>
+              {trackForm.stage === "preparing" ? (
+                <label className="reengagement-field"><span>{t("وقت التجهيز بالدقائق (يصل العميل إشعار به)", "Preparation time in minutes (the customer is told)")}</span><input type="number" min={1} max={1440} dir="ltr" value={trackForm.prepMinutes} onChange={(event) => setTrackForm({ ...trackForm, prepMinutes: event.target.value })} /></label>
+              ) : null}
               {trackForm.stage === "shipped" ? (
                 <>
                   <label className="reengagement-field"><span>{t("شركة الشحن", "Carrier")}</span><input value={trackForm.carrier} onChange={(event) => setTrackForm({ ...trackForm, carrier: event.target.value })} /></label>
