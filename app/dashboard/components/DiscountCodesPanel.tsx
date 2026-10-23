@@ -7,7 +7,7 @@ import CustomSelect from "../../components/CustomSelect";
 type Discount = {
   id: string;
   code: string;
-  kind: "percent" | "fixed";
+  kind: "percent" | "fixed" | "free_item";
   value: number;
   minOrder: number;
   maxUses: number;
@@ -110,7 +110,7 @@ export default function DiscountCodesPanel({ zidConnected = false }: { zidConnec
     await load();
   }
 
-  const describe = (discount: Discount) => (discount.kind === "percent" ? `${discount.value}%` : `${discount.value} ${t("ر.س", "SAR")}`);
+  const describe = (discount: Discount) => (discount.kind === "free_item" ? t("منتج مجاني", "Free item") : discount.kind === "percent" ? `${discount.value}%` : `${discount.value} ${t("ر.س", "SAR")}`);
   const expiry = (discount: Discount) => (discount.expiresAt ? new Date(discount.expiresAt).toLocaleDateString("ar-SA-u-nu-latn", { dateStyle: "medium", timeZone: "Asia/Riyadh" }) : t("بلا انتهاء", "No expiry"));
 
   // A line under the form that shows what the customer would get, so a wrong value is seen before saving.

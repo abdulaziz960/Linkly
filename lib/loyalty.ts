@@ -69,7 +69,8 @@ export function cleanLoyaltySettings(input: unknown): LoyaltySettings {
   const kind: LoyaltyRewardKind = source.rewardKind === "fixed" || source.rewardKind === "free_product" ? source.rewardKind : "percent";
   const goal = Math.min(50, Math.max(1, Math.floor(Number(source.goal)) || DEFAULT_LOYALTY.goal));
   const rawValue = Number(source.rewardValue);
-  const value = Number.isFinite(rawValue) && rawValue > 0 ? rawValue : DEFAULT_LOYALTY.rewardValue;
+  // For a free product the value is the highest price it may have (0 = no limit); otherwise it is the discount.
+  const value = kind === "free_product" ? (Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 0) : Number.isFinite(rawValue) && rawValue > 0 ? rawValue : DEFAULT_LOYALTY.rewardValue;
   return {
     enabled: source.enabled === true,
     goal,
@@ -113,7 +114,7 @@ export function renderLoyaltyText(template: string, values: { name?: string; don
 
 /** Pure: how the reward is described to the customer. */
 export function rewardLabel(settings: Pick<LoyaltySettings, "rewardKind" | "rewardValue">, productName = ""): string {
-  if (settings.rewardKind === "free_product") return productName ? `${productName} مجانًا` : "منتج مجاني";
+  if (settings.rewardKind === "free_product") return productName ? `${productName} مجانًا` : "منتج مجاني من اختيارك";
   if (settings.rewardKind === "fixed") return `خصم ${settings.rewardValue} ر.س`;
   return `خصم ${settings.rewardValue}%`;
 }
@@ -135,20 +136,27 @@ async function issueReward(tenantId: string, phone: string, orderId: string, set
   let value = settings.rewardValue;
   let minOrder = 0;
   let productName = "";
+  let discountKind: "percent" | "fixed" | "free_item" = kind;
   if (settings.rewardKind === "free_product") {
-    const product = settings.productId ? await prisma.product.findFirst({ where: { id: settings.productId, tenantId, active: 1 } }) : null;
-    if (!product) return null;
-    kind = "fixed";
-    value = product.price;
-    minOrder = product.price;
-    productName = product.name;
+    if (settings.productId) {
+      // A chosen product: a code worth its price, usable once that much is in the order.
+      const product = await prisma.product.findFirst({ where: { id: settings.productId, tenantId, active: 1 } });
+      if (!product) return null;
+      value = product.price;
+      minOrder = product.price;
+      productName = product.name;
+    } else {
+      // Any product the customer picks: the dearest item of the order is free, up to the merchant's limit.
+      discountKind = "free_item";
+      value = settings.rewardValue;
+    }
   }
   const expires = expiryDate(settings.validDays);
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const code = randomLoyaltyCode();
-    const created = await createDiscount(tenantId, { code, kind, value, minOrder, maxUses: 1, expiresAt: expires });
+    const created = await createDiscount(tenantId, { code, kind: discountKind, value, minOrder, maxUses: 1, expiresAt: expires });
     if (!created.ok) continue;
-    const description = rewardLabel(settings, productName);
+    const description = rewardLabel(settings, productName) + (discountKind === "free_item" && settings.rewardValue > 0 ? ` (حتى ${settings.rewardValue} ر.س)` : "");
     await prisma.$executeRaw`INSERT INTO loyalty_rewards (id, tenant_id, phone, code, description, expires_at, order_id, created_at) VALUES (${`lr-${randomUUID()}`}, ${tenantId}, ${loyaltyPhone(phone)}, ${code}, ${description}, ${expires}, ${orderId}, ${new Date().toISOString()})`;
     return { code, description, expiresAt: expires };
   }

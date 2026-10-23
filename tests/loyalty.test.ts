@@ -131,3 +131,45 @@ describe("loyalty questions from the customer", () => {
     expect(await loyaltyStatusText("t-ask", "966599999999")).not.toContain(reward.code);
   });
 });
+
+describe("a free product of the customer's choice", () => {
+  it("issues a free-item code with the merchant's price limit and evaluates it on the cart", async () => {
+    const { saveLoyaltySettings, recordPaidOrderForLoyalty, listLoyalty } = await import("../lib/loyalty");
+    const { listDiscounts, evaluateDiscount } = await import("../lib/catalog-discounts");
+    await saveLoyaltySettings("t-any", { enabled: true, goal: 1, rewardKind: "free_product", productId: "", rewardValue: 30 });
+    const result = await recordPaidOrderForLoyalty(order("t-any", "any1"));
+    expect(result.reward?.description).toContain("منتج مجاني من اختيارك");
+    expect(result.reward?.description).toContain("حتى 30");
+    const code = (await listDiscounts("t-any"))[0];
+    expect(code).toMatchObject({ kind: "free_item", value: 30, maxUses: 1, minOrder: 0 });
+    expect((await listLoyalty("t-any")).rewards).toHaveLength(1);
+
+    // The dearest single item is free, up to the limit, and the customer still pays at least 1
+    expect(evaluateDiscount(code, 100, Date.now(), [20, 45, 35])).toEqual({ ok: true, amount: 30 });
+    expect(evaluateDiscount(code, 40, Date.now(), [25, 15])).toEqual({ ok: true, amount: 25 });
+    expect(evaluateDiscount(code, 12, Date.now(), [12])).toEqual({ ok: true, amount: 11 });
+    expect(evaluateDiscount({ ...code, value: 0 }, 100, Date.now(), [20, 45, 35])).toEqual({ ok: true, amount: 45 });
+  });
+
+  it("applies in the cart as the dearest item", async () => {
+    const { saveLoyaltySettings, recordPaidOrderForLoyalty } = await import("../lib/loyalty");
+    const { applyDiscountCode, addToCart, resolveCart } = await import("../lib/catalog-cart");
+    const { createProduct, cleanProductInput } = await import("../lib/catalog");
+    const { prisma } = await import("../lib/prisma");
+    await saveLoyaltySettings("t-any2", { enabled: true, goal: 1, rewardKind: "free_product", productId: "", rewardValue: 0 });
+    const reward = (await recordPaidOrderForLoyalty(order("t-any2", "any2", "966577777777"))).reward!;
+    const cheap = cleanProductInput({ name: "شاي", price: 8 });
+    const dear = cleanProductInput({ name: "وجبة", price: 40 });
+    if (!cheap.ok || !dear.ok) throw new Error("product");
+    const a = await createProduct("t-any2", cheap.data);
+    const b = await createProduct("t-any2", dear.data);
+    await prisma.customer.create({ data: { id: "c-any2", name: "سارة", phone: "966577777777", initial: "س", tenantId: "t-any2" } });
+    await prisma.conversation.create({ data: { id: "v-any2", customerId: "c-any2", channel: "whatsapp", lastMessage: "x", status: "assigned", assignee: "أ", lastActivityAt: new Date().toISOString(), tenantId: "t-any2" } });
+    await addToCart("t-any2", "v-any2", a.id, 2);
+    await addToCart("t-any2", "v-any2", b.id, 1);
+    expect(await applyDiscountCode("t-any2", "v-any2", reward.code)).toMatchObject({ ok: true, amount: 40 });
+    const cart = await resolveCart("t-any2", "v-any2");
+    expect(cart.subtotal).toBe(56);
+    expect(cart.total).toBe(16);
+  });
+});

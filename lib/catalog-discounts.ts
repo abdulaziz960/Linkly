@@ -7,7 +7,8 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
 
-export type DiscountKind = "percent" | "fixed";
+/** "free_item": the dearest single item in the cart is free, up to `value` (0 = no limit); what a loyalty "any free product" reward uses. */
+export type DiscountKind = "percent" | "fixed" | "free_item";
 
 export type Discount = {
   id: string;
@@ -43,7 +44,7 @@ function toDiscount(row: Row): Discount {
   return {
     id: row.id,
     code: row.code,
-    kind: row.kind === "fixed" ? "fixed" : "percent",
+    kind: row.kind === "fixed" ? "fixed" : row.kind === "free_item" ? "free_item" : "percent",
     value: Number(row.value),
     minOrder: Number(row.min_order),
     maxUses: Number(row.max_uses),
@@ -64,9 +65,9 @@ export type DiscountInput = { code?: unknown; kind?: unknown; value?: unknown; m
 export function cleanDiscountInput(input: DiscountInput): { ok: true; data: { code: string; kind: DiscountKind; value: number; minOrder: number; maxUses: number; expiresAt: string } } | { ok: false; error: string } {
   const code = normalizeCode(String(input.code ?? ""));
   if (!/^[A-Z0-9؀-ۿ_-]{3,20}$/.test(code)) return { ok: false, error: "الكود من 3 إلى 20 حرفًا أو رقمًا (بدون مسافات)" };
-  const kind: DiscountKind = input.kind === "fixed" ? "fixed" : "percent";
+  const kind: DiscountKind = input.kind === "fixed" ? "fixed" : input.kind === "free_item" ? "free_item" : "percent";
   const value = Number(input.value);
-  if (!Number.isFinite(value) || value <= 0) return { ok: false, error: "قيمة الخصم غير صحيحة" };
+  if (!Number.isFinite(value) || value < 0 || (value === 0 && kind !== "free_item")) return { ok: false, error: "قيمة الخصم غير صحيحة" };
   if (kind === "percent" && value > MAX_PERCENT) return { ok: false, error: `نسبة الخصم لا تتجاوز ${MAX_PERCENT}%` };
   if (kind === "fixed" && value > 1_000_000) return { ok: false, error: "قيمة الخصم كبيرة جدًا" };
   const minOrder = input.minOrder === undefined || input.minOrder === "" || input.minOrder === null ? 0 : Number(input.minOrder);
@@ -130,12 +131,19 @@ export async function deleteDiscount(tenantId: string, id: string): Promise<bool
 export type DiscountCheck = { ok: true; amount: number } | { ok: false; reason: string };
 
 /** Whether the code works for this subtotal right now, and how much it takes off (never below MIN_PAYABLE paid). */
-export function evaluateDiscount(discount: Discount, subtotal: number, now = Date.now()): DiscountCheck {
+export function evaluateDiscount(discount: Discount, subtotal: number, now = Date.now(), unitPrices: number[] = []): DiscountCheck {
   if (!discount.active) return { ok: false, reason: "هذا الكود غير مفعّل" };
   if (discount.expiresAt && Date.parse(discount.expiresAt) < now) return { ok: false, reason: "انتهت صلاحية هذا الكود" };
   if (discount.maxUses > 0 && discount.usedCount >= discount.maxUses) return { ok: false, reason: "تم استخدام هذا الكود الحد الأقصى من المرات" };
   if (discount.minOrder > 0 && subtotal < discount.minOrder) return { ok: false, reason: `هذا الكود يتطلب طلبًا لا يقل عن ${discount.minOrder}` };
-  const raw = discount.kind === "percent" ? (subtotal * discount.value) / 100 : discount.value;
+  let raw: number;
+  if (discount.kind === "free_item") {
+    // The dearest single item is free (up to the limit, when there is one).
+    const dearest = unitPrices.length ? Math.max(...unitPrices) : 0;
+    raw = discount.value > 0 ? Math.min(dearest, discount.value) : dearest;
+  } else {
+    raw = discount.kind === "percent" ? (subtotal * discount.value) / 100 : discount.value;
+  }
   const capped = Math.min(raw, Math.max(0, subtotal - MIN_PAYABLE));
   const amount = Math.round(capped * 100) / 100;
   if (amount <= 0) return { ok: false, reason: "لا ينطبق هذا الكود على هذا الطلب" };

@@ -183,7 +183,7 @@ export async function resolveCart(tenantId: string, conversationId: string): Pro
   const code = lines.length ? await getCartCode(conversationId) : "";
   if (code) {
     const found = await findDiscountByCode(tenantId, code);
-    const check = found ? evaluateDiscount(found, subtotal) : ({ ok: false, reason: "هذا الكود لم يعد متاحًا" } as const);
+    const check = found ? evaluateDiscount(found, subtotal, Date.now(), lines.map((line) => line.product.price)) : ({ ok: false, reason: "هذا الكود لم يعد متاحًا" } as const);
     if (found && check.ok) {
       discount = { id: found.id, code: found.code, amount: check.amount };
     } else {
@@ -209,7 +209,7 @@ export async function applyDiscountCode(tenantId: string, conversationId: string
   // A loyalty code is personal: only the customer it was made for can use it.
   const owner = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, select: { customer: { select: { phone: true } } } });
   if (owner && (await loyaltyCodeBelongsToOther(tenantId, found.code, owner.customer.phone))) return { ok: false, reason: "هذا الكود خاص بعميل آخر" };
-  const check = evaluateDiscount(found, cart.subtotal);
+  const check = evaluateDiscount(found, cart.subtotal, Date.now(), cart.lines.map((line) => line.product.price));
   if (!check.ok) return check;
   await setCartCode(tenantId, conversationId, found.code);
   return { ok: true, code: found.code, amount: check.amount };

@@ -86,12 +86,19 @@ export default function LoyaltyPanel() {
             </select>
           </label>
           {settings.rewardKind === "free_product" ? (
-            <label>{t("المنتج المجاني", "Free product")}
-              <select value={settings.productId} onChange={(event) => set({ productId: event.target.value })}>
-                <option value="">{t("اختر المنتج", "Choose a product")}</option>
-                {products.map((product) => <option key={product.id} value={product.id}>{product.name} ({product.price})</option>)}
-              </select>
-            </label>
+            <>
+              <label>{t("المنتج المجاني", "Free product")}
+                <select value={settings.productId} onChange={(event) => set({ productId: event.target.value })}>
+                  <option value="">{t("أي منتج يختاره العميل", "Any product the customer chooses")}</option>
+                  {products.map((product) => <option key={product.id} value={product.id}>{product.name} ({product.price})</option>)}
+                </select>
+              </label>
+              {!settings.productId ? (
+                <label>{t("أقصى سعر للمنتج المجاني (0 = بلا حد)", "Highest price of the free item (0 = no limit)")}
+                  <input type="number" min={0} dir="ltr" value={settings.rewardValue} onChange={(event) => set({ rewardValue: Math.max(0, Number(event.target.value) || 0) })} />
+                </label>
+              ) : null}
+            </>
           ) : (
             <label>{settings.rewardKind === "percent" ? t("نسبة الخصم (حتى 90%)", "Discount percent (up to 90%)") : t("مبلغ الخصم (ر.س)", "Discount amount (SAR)")}
               <input type="number" min={1} dir="ltr" value={settings.rewardValue} onChange={(event) => set({ rewardValue: Number(event.target.value) || 1 })} />
@@ -101,7 +108,9 @@ export default function LoyaltyPanel() {
             <input type="number" min={1} max={365} dir="ltr" value={settings.validDays} onChange={(event) => set({ validDays: Number(event.target.value) || 1 })} />
           </label>
         </div>
-        {settings.rewardKind === "free_product" ? <p className="muted-copy">{t("المنتج المجاني يُمنح ككود بقيمة سعر المنتج. أقل مبلغ يدفعه العميل ريال واحد لأن بوابة الدفع لا تقبل دفعة صفر.", "The free product is given as a code worth the product's price. The customer pays at least 1 SAR because the payment gateway does not accept a zero payment.")}</p> : null}
+        {settings.rewardKind === "free_product" ? <p className="muted-copy">{settings.productId
+          ? t("المنتج المجاني يُمنح ككود بقيمة سعر المنتج. أقل مبلغ يدفعه العميل ريال واحد لأن بوابة الدفع لا تقبل دفعة صفر.", "The free product is given as a code worth the product's price. The customer pays at least 1 SAR because the payment gateway does not accept a zero payment.")
+          : t("«أي منتج»: يضع العميل ما يريد في السلة ويطبّق الكود فيصير **أغلى منتج (قطعة واحدة)** في السلة مجانيًا، بحد أقصى للسعر إن حددته. أقل مبلغ يدفعه العميل ريال واحد.", "“Any product”: the customer fills the cart and applies the code, and the dearest single item in the cart is free, up to the price limit if you set one. The customer pays at least 1 SAR.")}</p> : null}
         <label className="loyalty-check">
           <input type="checkbox" checked={settings.notifyProgress} onChange={(event) => set({ notifyProgress: event.target.checked })} />
           {t("أرسل للعميل إشعار تقدّمه بعد كل طلب مدفوع", "Tell the customer their progress after every paid order")}

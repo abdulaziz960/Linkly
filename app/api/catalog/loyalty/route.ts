@@ -37,9 +37,10 @@ export async function PUT(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as unknown;
   if (!body || typeof body !== "object") return jsonError("طلب غير صالح", 400);
   const wanted = cleanLoyaltySettings(body);
-  if (wanted.enabled && wanted.rewardKind === "free_product") {
-    const product = wanted.productId ? await prisma.product.findFirst({ where: { id: wanted.productId, tenantId: auth.user.tenantId, active: 1 }, select: { id: true } }) : null;
-    if (!product) return jsonError("اختر منتجًا نشطًا للمكافأة المجانية", 400);
+  // A chosen product has to exist; with none chosen the customer picks any product.
+  if (wanted.enabled && wanted.rewardKind === "free_product" && wanted.productId) {
+    const product = await prisma.product.findFirst({ where: { id: wanted.productId, tenantId: auth.user.tenantId, active: 1 }, select: { id: true } });
+    if (!product) return jsonError("المنتج المختار غير موجود أو غير نشط", 400);
   }
   const settings = await saveLoyaltySettings(auth.user.tenantId, wanted);
   await logAdminAction(auth.user.tenantId, await getTenantCompanyName(auth.user.tenantId), `تم تحديث برنامج الولاء (${settings.enabled ? "مفعّل" : "متوقف"}، ${settings.goal} طلبات) بواسطة ${auth.user.name}.`, "معلومة", "الكتالوج");
