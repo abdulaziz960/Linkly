@@ -104,6 +104,15 @@ describe("branches with their own stock", () => {
     const { listOrders, updateOrderStatus } = await import("../lib/catalog");
     expect((await listOrders(tenantId))[0].branchName).toBe("فرع الشمال");
 
+    // the branch is named in the tracking message, the "paid" message and the receipt data
+    const { buildTrackingMessage, buildCustomerTrackingReply } = await import("../lib/order-tracking");
+    expect(buildTrackingMessage("ord-x1234567", { stage: "preparing", carrier: "", trackingNumber: "", trackingUrl: "" }, { branch: "فرع الشمال" })).toContain("الفرع: فرع الشمال");
+    expect(buildTrackingMessage("ord-x1234567", { stage: "preparing", carrier: "", trackingNumber: "", trackingUrl: "" })).not.toContain("الفرع");
+    const { buildPaidOrderMessage } = await import("../lib/catalog-payments");
+    expect(buildPaidOrderMessage({ id: order!.id, customerName: "", customerPhone: "", productName: "x", quantity: 1, total: 10, currency: "SAR" }, new Date().toISOString(), "", undefined, undefined, undefined, undefined, undefined, "فرع الشمال")).toContain("الفرع: فرع الشمال");
+    await prisma.catalogOrder.update({ where: { id: order!.id }, data: { status: "paid" } });
+    expect(await buildCustomerTrackingReply(tenantId, "conv-branch", "")).toContain("الفرع: فرع الشمال");
+
     // cancelling gives the units back to the branch
     await updateOrderStatus(tenantId, order!.id, "cancelled");
     expect((await b.getBranchStock(tenantId, north.id)).get(tea.id)).toBe(3);

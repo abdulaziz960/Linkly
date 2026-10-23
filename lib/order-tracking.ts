@@ -1,3 +1,4 @@
+import { getOrderBranches } from "./catalog-branches";
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
 import { shortOrderNumber } from "./order-number";
@@ -50,11 +51,12 @@ export function cleanTrackingInput(input: TrackingInput): { ok: true; data: { st
 }
 
 /** What the message can add: how long the order takes to prepare, and how it is picked up (for "ready"). */
-export type TrackingExtras = { prepMinutes?: number; pickup?: OrderPickup };
+export type TrackingExtras = { prepMinutes?: number; pickup?: OrderPickup; branch?: string };
 
 /** The message the customer gets when the stage changes (or when they ask for their order's status). */
 export function buildTrackingMessage(orderId: string, tracking: Pick<OrderTracking, "stage" | "carrier" | "trackingNumber" | "trackingUrl">, extras: TrackingExtras = {}): string {
   const lines = [`طلبك ${shortOrderNumber(orderId)}`, `الحالة: ${STAGE_LABELS[tracking.stage]}`];
+  if (extras.branch) lines.push(`الفرع: ${extras.branch}`);
   if (tracking.stage === "preparing" && extras.prepMinutes) lines.push(`⏱ ${prepSentence(extras.prepMinutes)}`);
   if (tracking.stage === "ready") {
     lines.push(extras.pickup?.kind === "car" ? `سيخرج لك الموظف طلبك إلى سيارتك${extras.pickup.plate ? ` (${extras.pickup.plate})` : ""}.` : extras.pickup?.kind === "store" ? "تفضل بالاستلام من المحل." : "طلبك جاهز، تفضل بالاستلام.");
@@ -109,7 +111,7 @@ export async function saveOrderTracking(
           tenantId,
           conversationId: order.conversationId,
           to: conversation.customer.phone,
-          text: buildTrackingMessage(orderId, data, { prepMinutes, pickup }),
+          text: buildTrackingMessage(orderId, data, { prepMinutes, pickup, branch: (await getOrderBranches([orderId])).get(orderId)?.name }),
           author: "الرد الآلي"
         });
         notified = true;
@@ -156,8 +158,9 @@ export async function buildCustomerTrackingReply(tenantId: string, conversationI
   const picked = number ? orders.filter((order) => shortOrderNumber(order.id).replace(/-/g, "") === number) : orders.slice(0, 3);
   if (!picked.length) return "لم نجد طلبًا بهذا الرقم. تأكد من الرقم الموجود في إيصالك.";
   const tracking = await getOrderTracking(picked.map((order) => order.id));
+  const branches = await getOrderBranches(picked.map((order) => order.id));
   return picked
-    .map((order) => buildTrackingMessage(order.id, tracking.get(order.id) ?? { stage: "preparing", carrier: "", trackingNumber: "", trackingUrl: "" }))
+    .map((order) => buildTrackingMessage(order.id, tracking.get(order.id) ?? { stage: "preparing", carrier: "", trackingNumber: "", trackingUrl: "" }, { branch: branches.get(order.id)?.name }))
     .join("\n\n");
 }
 

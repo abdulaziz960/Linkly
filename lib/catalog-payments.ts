@@ -3,6 +3,7 @@ import { ensureSchema } from "./database";
 import { getMerchantGatewayKeyForVerification, getOrderItems, restockOrder, type OrderStatus } from "./catalog";
 import { getOrderDiscounts } from "./catalog-discounts";
 import { getOrderShipping, type OrderShipping } from "./catalog-shipping";
+import { getOrderBranches } from "./catalog-branches";
 import { getOrderPickup, pickupText, type OrderPickup } from "./catalog-pickup";
 import { getPrepSettings, prepSentence, setOrderPrep } from "./catalog-prep";
 import { optionLines } from "./catalog-options";
@@ -49,7 +50,7 @@ export function buildPaidOrderMessage(order: {
   quantity: number;
   total: number;
   currency: string;
-}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number; options?: import("./catalog-options").OptionDetail[] }>, discount?: { code: string; amount: number }, shipping?: OrderShipping, pickup?: OrderPickup, prepMinutes?: number): string {
+}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number; options?: import("./catalog-options").OptionDetail[] }>, discount?: { code: string; amount: number }, shipping?: OrderShipping, pickup?: OrderPickup, prepMinutes?: number, branchName?: string): string {
   const name = usableCustomerName(order.customerName, order.customerPhone) || usableCustomerName(fallbackName, order.customerPhone);
   const amount = Number.isInteger(order.total) ? String(order.total) : order.total.toFixed(2);
   const currency = order.currency === "SAR" ? "ر.س" : order.currency;
@@ -63,6 +64,7 @@ export function buildPaidOrderMessage(order: {
     ...(discount ? [`الخصم (${discount.code}): -${Number.isInteger(discount.amount) ? discount.amount : discount.amount.toFixed(2)} ${currency}`] : []),
     ...(shipping ? [`التوصيل: ${shipping.methodName} إلى ${shipping.city}`, `رسوم التوصيل: ${shipping.fee > 0 ? `${Number.isInteger(shipping.fee) ? shipping.fee : shipping.fee.toFixed(2)} ${currency}` : "مجاني"}`] : []),
     ...(pickup ? [pickupText(pickup)] : []),
+    ...(branchName ? [`الفرع: ${branchName}`] : []),
     `المبلغ المدفوع: ${amount} ${currency}`,
     ...(arabicDate(paidAtIso) ? [`التاريخ: ${arabicDate(paidAtIso)}`] : []),
     ...(prepMinutes ? ["", `⏱ ${prepSentence(prepMinutes)}`] : []),
@@ -225,6 +227,7 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
     const orderDiscount = (await getOrderDiscounts([order.id])).get(order.id);
     const orderShipping = (await getOrderShipping([order.id])).get(order.id);
     const orderPickup = (await getOrderPickup([order.id])).get(order.id);
+    const orderBranch = (await getOrderBranches([order.id])).get(order.id)?.name;
     // The merchant's usual preparation time, told to the customer now and kept with the order.
     const prepSettings = await getPrepSettings(order.tenantId);
     const prepMinutes = prepSettings.enabled ? prepSettings.defaultMinutes : undefined;
@@ -238,7 +241,7 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
         tenantId: order.tenantId,
         conversationId: order.conversationId,
         to: conversation.customer.phone,
-        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name, orderItems, orderDiscount, orderShipping, orderPickup, prepMinutes),
+        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name, orderItems, orderDiscount, orderShipping, orderPickup, prepMinutes, orderBranch),
         author: "الرد الآلي"
       }).catch((error) => console.error("Order paid confirmation failed", error));
 
@@ -262,7 +265,8 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
           items: orderItems?.map((item) => ({ name: item.options?.length ? `${item.productName} (${item.options.map((option) => option.name).join("، ")})` : item.productName, quantity: item.quantity, unitPrice: item.unitPrice })),
           discount: orderDiscount ? { code: orderDiscount.code, amount: orderDiscount.amount } : undefined,
           shipping: orderShipping ? { name: orderShipping.methodName, city: orderShipping.city, fee: orderShipping.fee } : undefined,
-          pickup: orderPickup ? pickupText(orderPickup) : undefined
+          pickup: orderPickup ? pickupText(orderPickup) : undefined,
+          branch: orderBranch
         });
         await sendWhatsAppUploadedMedia({
           tenantId: order.tenantId,
