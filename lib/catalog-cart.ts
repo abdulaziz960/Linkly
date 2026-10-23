@@ -2,6 +2,7 @@
 // quantities and a total, and then pays for in one go. One cart per conversation, kept in a raw-SQL lazy table
 // (tagged templates: SQLite and Postgres) so a half-filled cart survives between messages.
 
+import { getBranchChoice, getBranchStock } from "./catalog-branches";
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
 import { getProduct, isProductAvailable, type CatalogProduct } from "./catalog";
@@ -128,6 +129,7 @@ export async function clearCart(conversationId: string) {
   await prisma.$executeRaw`DELETE FROM catalog_carts WHERE conversation_id = ${conversationId}`;
   await prisma.$executeRaw`DELETE FROM catalog_cart_discounts WHERE conversation_id = ${conversationId}`;
   await prisma.$executeRaw`DELETE FROM catalog_pickup_choice WHERE conversation_id = ${conversationId}`;
+  await prisma.$executeRaw`DELETE FROM catalog_branch_choice WHERE conversation_id = ${conversationId}`;
 }
 
 /** `product` is the product as the customer configured it: its name carries the chosen options and its price includes their extras. */
@@ -164,8 +166,12 @@ export async function resolveCart(tenantId: string, conversationId: string): Pro
   const lines: ResolvedCartLine[] = [];
   const dropped: string[] = [];
   const adjusted: CartAdjustment[] = [];
+  // At checkout the customer has picked a branch: its stock (not the product's own) limits the quantities.
+  const branch = cart.lines.length ? await getBranchChoice(tenantId, conversationId) : null;
+  const branchStock = branch ? await getBranchStock(tenantId, branch.id, [...new Set(cart.lines.map((line) => line.productId))]) : null;
   for (const [index, line] of cart.lines.entries()) {
-    const product = await getProduct(tenantId, line.productId);
+    const found = await getProduct(tenantId, line.productId);
+    const product = found && branchStock ? { ...found, stock: branchStock.get(found.id) ?? -1 } : found;
     if (!product || !isProductAvailable(product)) {
       dropped.push(product?.name ?? "منتج");
       continue;

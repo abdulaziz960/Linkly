@@ -8,6 +8,7 @@ import { getOrderPickup, type OrderPickup } from "./catalog-pickup";
 import { getOrderPrep } from "./catalog-prep";
 import { getProductNamesEn } from "./catalog-product-names";
 import { removeProductImages } from "./catalog-product-image";
+import { getOrderBranches, restockBranch } from "./catalog-branches";
 import type { OptionDetail } from "./catalog-options";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
@@ -89,6 +90,8 @@ export type CatalogOrderRow = {
   tracking?: OrderTracking;
   /** Pickup instead of delivery: from the store or the car (with its plate). */
   pickup?: OrderPickup;
+  /** The branch the customer chose at checkout (its stock was used). */
+  branchName?: string;
   /** Minutes the order takes to prepare, as told to the customer. */
   prepMinutes?: number;
 };
@@ -540,13 +543,14 @@ export async function listOrders(tenantId: string, limit = 200): Promise<Catalog
   await ensureSchema();
   const rows = await prisma.catalogOrder.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: limit });
   const ids = rows.map((row) => row.id);
-  const [items, discounts, shipping, tracking, pickup, prep] = await Promise.all([getOrderItems(ids), getOrderDiscounts(ids), getOrderShipping(ids), getOrderTracking(ids), getOrderPickup(ids), getOrderPrep(ids)]);
+  const [items, discounts, shipping, tracking, pickup, prep, branches] = await Promise.all([getOrderItems(ids), getOrderDiscounts(ids), getOrderShipping(ids), getOrderTracking(ids), getOrderPickup(ids), getOrderPrep(ids), getOrderBranches(ids)]);
   const namesEn = await getProductNamesEn(tenantId, [...items.values()].flat().map((item) => item.productId));
   return rows.map((row) => ({
     ...toOrder(row),
     ...(shipping.has(row.id) ? { shipping: shipping.get(row.id) } : {}),
     ...(pickup.has(row.id) ? { pickup: pickup.get(row.id) } : {}),
     ...(prep.has(row.id) ? { prepMinutes: prep.get(row.id) } : {}),
+    ...(branches.has(row.id) ? { branchName: branches.get(row.id)!.name } : {}),
     ...(tracking.has(row.id) ? { tracking: tracking.get(row.id) } : {}),
     ...(items.has(row.id) ? { items: items.get(row.id)!.map((item) => (namesEn.get(item.productId) ? { ...item, productNameEn: namesEn.get(item.productId) } : item)) } : {}),
     ...(discounts.has(row.id) ? { discount: { code: discounts.get(row.id)!.code, amount: discounts.get(row.id)!.amount } } : {})
@@ -669,6 +673,12 @@ export async function restockOrder(order: { id: string; tenantId: string; produc
   // The discount code the order used is given back with the stock.
   await releaseOrderDiscount(order.tenantId, order.id).catch((error) => console.error("Releasing a discount code failed", error));
   const items = (await getOrderItems([order.id])).get(order.id);
+  // An order taken from a branch's stock gives the units back to that branch.
+  const branch = (await getOrderBranches([order.id])).get(order.id);
+  if (branch) {
+    for (const item of items ?? [{ productId: order.productId, quantity: order.quantity }]) await restockBranch(order.tenantId, branch.id, item.productId, item.quantity);
+    return;
+  }
   if (items?.length) {
     for (const item of items) await restockOrderUnits(order.tenantId, item.productId, item.quantity);
     return;

@@ -25,6 +25,7 @@ import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, 
 import { createZidOrder } from "./zid-checkout";
 import { formatMessageTime } from "./time";
 import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons, sendWhatsAppRowList } from "./whatsapp-send";
+import { clearBranchChoice, getBranchChoice, getBranchStock, listBranches, recordOrderBranch, reserveBranchStock, setBranchChoice, shortfalls, type Branch } from "./catalog-branches";
 import { clearPickupChoice, cleanCarDetails, cleanPlate, getPickupChoice, getPickupSettings, pickupText, recordOrderPickup, setPickupChoice, type PickupSettings } from "./catalog-pickup";
 import { clearOptionFlow, getOptionFlow, groupsForProduct, resolveSelection, setOptionFlow, type OptionFlow, type OptionGroup } from "./catalog-options";
 
@@ -77,6 +78,7 @@ const ID_SHIP = "ship_";
 const ID_SHIP_CONFIRM = "ship_confirm";
 const ID_SHIP_EDIT = "ship_edit";
 const ID_PAY = "pay_";
+const ID_BRANCH = "br_";
 /** In the Zid checkout state, the product id that means "the whole cart". */
 const CART_CHECKOUT = "__cart__";
 const CARDS_PER_PAGE = 9; // a WhatsApp list holds 10 rows: nine products and a "show more" row
@@ -99,7 +101,6 @@ function productLine(product: CatalogProduct) {
 function productDetails(product: CatalogProduct) {
   const parts = [`*${product.name}*`, `السعر: ${formatPrice(product.price, product.currency)}`];
   if (product.description) parts.push(product.description.slice(0, 600));
-  if (product.stock > 0 && product.stock <= 5) parts.push(`متبقي ${product.stock} فقط`);
   return parts.join("\n");
 }
 
@@ -618,8 +619,82 @@ async function checkoutCart(ctx: CatalogCtx) {
     return;
   }
 
-  // The platform's own catalog, no store connected: with delivery or pickup set up, the customer says how the order reaches them first.
+  // The platform's own catalog, no store connected: with branches, the customer picks the branch the order comes from first.
   await clearPickupChoice(ctx.conversationId);
+  await clearBranchChoice(ctx.conversationId);
+  if (!zid.connected && !(await hasConnectedStore(ctx.tenantId))) {
+    const branches = await listBranches(ctx.tenantId, { activeOnly: true });
+    if (branches.length === 1) {
+      const missing = await branchShortfalls(ctx.tenantId, branches[0], cart);
+      if (missing.length) {
+        await ctx.sendText(`عذرًا، لا يتوفر حاليًا بالكمية المطلوبة:\n${missing.map((name) => `• ${name}`).join("\n")}\nعدّل سلتك ثم أعد المحاولة.`);
+        await showCart(ctx);
+        return;
+      }
+      await setBranchChoice(ctx.tenantId, ctx.conversationId, branches[0].id);
+      await continueCheckoutAfterBranch(ctx, await resolveCart(ctx.tenantId, ctx.conversationId));
+      return;
+    }
+    if (branches.length > 1) {
+      await askBranch(ctx, branches, "");
+      return;
+    }
+  }
+  await continueCheckoutAfterBranch(ctx, cart);
+}
+
+/** The names of the cart's products the branch cannot cover (no numbers: the customer never sees the stock). */
+async function branchShortfalls(tenantId: string, branch: Branch, cart: Awaited<ReturnType<typeof resolveCart>>): Promise<string[]> {
+  const lines = cart.lines.map((line) => ({ productId: line.product.id, name: line.baseName ?? line.product.name, quantity: line.quantity }));
+  const stock = await getBranchStock(tenantId, branch.id, [...new Set(lines.map((line) => line.productId))]);
+  return shortfalls(lines, stock).map((entry) => entry.name);
+}
+
+async function askBranch(ctx: CatalogCtx, branches: Branch[], note: string) {
+  await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "branch", data: {} });
+  const body = `${note ? `${note}\n\n` : ""}من أي فرع تريد استلام طلبك؟`;
+  const numbered = () => `${body}\n${branches.map((branch, index) => `${index + 1}) ${branch.name}${branch.address ? ` - ${branch.address}` : ""}`).join("\n")}\nاكتب رقم الفرع، أو «إلغاء» للرجوع إلى السلة.`;
+  if (ctx.channel !== "whatsapp") {
+    await ctx.sendText(numbered());
+    return;
+  }
+  const shown = branches.slice(0, 10);
+  const sent = shown.length <= 3
+    ? await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttons: shown.map((branch) => ({ id: `${ID_BRANCH}${branch.id}`, title: branch.name.slice(0, 20) })), displayText: body, author: AUTHOR })
+    : await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttonLabel: "اختر الفرع", rows: shown.map((branch) => ({ id: `${ID_BRANCH}${branch.id}`, title: branch.name, description: branch.address || undefined })), displayText: body, author: AUTHOR });
+  if (!sent.ok) await ctx.sendText(numbered());
+}
+
+async function continueBranchFlow(ctx: CatalogCtx, reply: { id?: string; text: string }, cart: Awaited<ReturnType<typeof resolveCart>>): Promise<boolean> {
+  const branches = await listBranches(ctx.tenantId, { activeOnly: true });
+  if (!branches.length) {
+    await clearCheckoutFlow(ctx.conversationId);
+    await continueCheckoutAfterBranch(ctx, cart);
+    return true;
+  }
+  const id = reply.id || "";
+  const text = reply.text.trim();
+  const picked = id.startsWith(ID_BRANCH)
+    ? branches.find((branch) => branch.id === id.slice(ID_BRANCH.length))
+    : /^\d{1,2}$/.test(text) ? branches[Number(text) - 1] : branches.find((branch) => branch.name === text);
+  if (!picked) {
+    await askBranch(ctx, branches, "اختر فرعًا من القائمة.");
+    return true;
+  }
+  const missing = await branchShortfalls(ctx.tenantId, picked, cart);
+  if (missing.length) {
+    await askBranch(ctx, branches, `لا يتوفر في فرع «${picked.name}» بالكمية المطلوبة:\n${missing.map((name) => `• ${name}`).join("\n")}\nاختر فرعًا آخر، أو اكتب «إلغاء» لتعديل السلة.`);
+    return true;
+  }
+  await setBranchChoice(ctx.tenantId, ctx.conversationId, picked.id);
+  await clearCheckoutFlow(ctx.conversationId);
+  await continueCheckoutAfterBranch(ctx, await resolveCart(ctx.tenantId, ctx.conversationId));
+  return true;
+}
+
+/** After the branch (or when there are none): delivery, pickup or straight to payment. */
+async function continueCheckoutAfterBranch(ctx: CatalogCtx, cart: Awaited<ReturnType<typeof resolveCart>>) {
+  const zid = await getZidCatalogMode(ctx.tenantId);
   if (!zid.connected && !(await hasConnectedStore(ctx.tenantId))) {
     const methods = await listShippingMethods(ctx.tenantId, { activeOnly: true });
     const pickup = await getPickupSettings(ctx.tenantId);
@@ -717,6 +792,7 @@ async function continueShippingFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: 
   const methods = await listShippingMethods(ctx.tenantId, { activeOnly: true });
 
   // The payment method and Tabby's email come after the delivery questions (or alone, when there is no delivery).
+  if (flow.step === "branch") return continueBranchFlow(ctx, reply, cart);
   if (flow.step === "payment" || flow.step === "email") return continuePaymentFlow(ctx, flow, reply, cart);
   if (flow.step === "fulfillment" || flow.step === "pickup_kind" || flow.step === "plate" || flow.step === "car_details" || flow.step === "pickup_confirm") return continuePickupFlow(ctx, flow, reply, cart);
 
@@ -1050,7 +1126,11 @@ async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeo
     await showCart(ctx, `كود الخصم (${cart.discount.code}) لم يعد متاحًا، وتم إلغاؤه من السلة.`);
     return;
   }
-  const reserved = await reserveCartStock(ctx.tenantId, cart.lines);
+  // From the branch's own stock when the customer picked one, otherwise the products' stock.
+  const branch = await getBranchChoice(ctx.tenantId, ctx.conversationId);
+  const reserved = branch
+    ? await reserveBranchStock(ctx.tenantId, branch.id, cart.lines.map((line) => ({ productId: line.product.id, name: line.baseName ?? line.product.name, quantity: line.quantity })))
+    : await reserveCartStock(ctx.tenantId, cart.lines);
   if (!reserved.ok) {
     if (cart.discount) await releaseDiscountUse(ctx.tenantId, cart.discount.id);
     await ctx.sendText(`عذرًا، نفدت الكمية من «${reserved.productName}» للتو. عدّل سلتك ثم أعد المحاولة.`);
@@ -1075,9 +1155,10 @@ async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeo
     shipping: delivery && quote ? { methodName: delivery.method.name, city: delivery.city, address: delivery.address, fee: quote.fee, eta: delivery.method.eta } : undefined
   });
   if (pickup) await recordOrderPickup(order.id, pickup);
-  const orderText = `${formatOrderSummary(cart, quote)}${delivery ? `\n\nالعنوان: ${delivery.address}` : pickup ? `\n\n${pickupText(pickup)}` : ""}`;
+  if (branch) await recordOrderBranch(ctx.tenantId, order.id, branch);
+  const orderText = `${formatOrderSummary(cart, quote)}${delivery ? `\n\nالعنوان: ${delivery.address}` : pickup ? `\n\n${pickupText(pickup)}` : ""}${branch ? `\nالفرع: ${branch.name}` : ""}`;
   const totalText = formatMoney(order.total, order.currency);
-  const where = delivery ? ` | التوصيل: ${delivery.method.name} إلى ${delivery.city} - ${delivery.address}` : pickup ? ` | ${pickupText(pickup)}` : "";
+  const where = `${delivery ? ` | التوصيل: ${delivery.method.name} إلى ${delivery.city} - ${delivery.address}` : pickup ? ` | ${pickupText(pickup)}` : ""}${branch ? ` | الفرع: ${branch.name}` : ""}`;
 
   // Tabby / Tamara: a payment link from the provider. If it refuses this purchase, the order is cancelled (stock and code
   // come back) and the customer is offered the other methods.
@@ -1286,7 +1367,7 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   // Answering the delivery questions of a checkout (city, delivery option, address, confirmation).
   const flow = await getCheckoutFlow(ctx.conversationId);
   if (flow) {
-    if (!id || id.startsWith(ID_SHIP) || id.startsWith(ID_PAY) || id.startsWith("ful_") || id.startsWith("pk_")) {
+    if (!id || id.startsWith(ID_SHIP) || id.startsWith(ID_PAY) || id.startsWith("ful_") || id.startsWith("pk_") || id.startsWith(ID_BRANCH)) {
       if (await continueShippingFlow(ctx, flow, reply)) return "handled";
     } else {
       // A tap on anything else abandons a half-finished checkout.

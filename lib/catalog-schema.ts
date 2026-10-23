@@ -157,6 +157,35 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     active INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE INDEX IF NOT EXISTS catalog_options_group_idx ON catalog_options(group_id)`,
+  // Branches: each keeps its own stock per product; the customer picks one at checkout and the order is taken from it.
+  `CREATE TABLE IF NOT EXISTS catalog_branches (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    name_en TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS catalog_branch_stock (
+    branch_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    stock INTEGER NOT NULL,
+    PRIMARY KEY (branch_id, product_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS catalog_branch_choice (
+    conversation_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    branch_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS catalog_order_branch (
+    order_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    branch_id TEXT NOT NULL,
+    branch_name TEXT NOT NULL
+  )`,
   // The categories a merchant registers; a product picks one from this list.
   `CREATE TABLE IF NOT EXISTS catalog_categories (
     tenant_id TEXT NOT NULL,

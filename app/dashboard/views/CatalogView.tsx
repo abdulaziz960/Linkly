@@ -5,6 +5,7 @@ import { useLanguage } from "../i18n";
 import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
 import CustomSelect from "../../components/CustomSelect";
 import DiscountCodesPanel from "../components/DiscountCodesPanel";
+import BranchesPanel from "../components/BranchesPanel";
 import LoyaltyPanel from "../components/LoyaltyPanel";
 import ProductOptionsEditor from "../components/ProductOptionsEditor";
 import { optionLines, type OptionDetail } from "../../../lib/catalog-option-text";
@@ -47,6 +48,7 @@ type Order = {
   /** Delivery chosen for the order (the fee is in the total). */
   shipping?: { methodName: string; city: string; address: string; fee: number; eta: string };
   pickup?: { kind: "store" | "car"; plate: string; carDetails: string };
+  branchName?: string;
   prepMinutes?: number;
   discount?: { code: string; amount: number };
   tracking?: { stage: "preparing" | "ready" | "shipped" | "delivered"; carrier: string; trackingNumber: string; trackingUrl: string; updatedAt: string };
@@ -119,7 +121,7 @@ async function resizeToJpeg(file: File): Promise<string> {
 export default function CatalogView() {
   const { t, language } = useLanguage();
   const [optionsFor, setOptionsFor] = useState<{ id: string; name: string } | null>(null);
-  const [tab, setTab] = useState<"products" | "categories" | "orders" | "shipping" | "discounts" | "loyalty" | "settings">("products");
+  const [tab, setTab] = useState<"products" | "categories" | "branches" | "orders" | "shipping" | "discounts" | "loyalty" | "settings">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
@@ -434,6 +436,7 @@ export default function CatalogView() {
           <div className="row-actions">
             <button className={tab === "products" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("products")}>{t("المنتجات", "Products")} ({products.length})</button>
             <button className={tab === "categories" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("categories")}>{t("التصنيفات", "Categories")} ({categories.length})</button>
+            <button className={tab === "branches" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("branches")}>{t("الفروع", "Branches")}</button>
             <button className={tab === "orders" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("orders")}>{t("الطلبات", "Orders")} ({orders.length})</button>
             <button className={tab === "shipping" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("shipping")}>{t("الشحن", "Shipping")}</button>
             <button className={tab === "discounts" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("discounts")}>{t("أكواد الخصم", "Discount codes")}</button>
@@ -529,6 +532,8 @@ export default function CatalogView() {
         </div>
       ) : null}
 
+      {tab === "branches" ? <BranchesPanel /> : null}
+
       {tab === "orders" ? <PrepTimeCard onLoaded={(minutes) => setPrepDefault(minutes)} /> : null}
 
       {tab === "orders" ? (
@@ -549,6 +554,7 @@ export default function CatalogView() {
                         ? order.items.map((item, index) => <div key={`${item.productId}-${index}`}>{language === "en" && item.productNameEn ? item.productNameEn : item.productName} × {item.quantity}{item.options?.length ? <div className="order-item-options">{optionLines(item.options, language === "en" ? "en" : "ar").map((line) => <small key={line}>{line}</small>)}</div> : null}</div>)
                         : <>{order.productName}{order.quantity > 1 ? ` × ${order.quantity}` : ""}</>}
                       {order.discount ? <div><small>{t("كود الخصم", "Code")}: {order.discount.code} (-{order.discount.amount})</small></div> : null}
+                      {order.branchName ? <div><small>{t("الفرع", "Branch")}: {order.branchName}</small></div> : null}
                       {order.pickup ? <div><small>{order.pickup.kind === "car" ? t("استلام من السيارة", "Car pickup") : t("استلام من المحل", "Store pickup")}{order.pickup.plate ? ` — ${t("اللوحة", "Plate")}: ${order.pickup.plate}` : ""}{order.pickup.carDetails ? ` — ${order.pickup.carDetails}` : ""}</small></div> : null}
                       {order.shipping ? <div><small>{t("التوصيل", "Delivery")}: {order.shipping.methodName} → {order.shipping.city} ({order.shipping.fee > 0 ? `${order.shipping.fee} ${t("ر.س", "SAR")}` : t("مجاني", "free")})<br />{order.shipping.address}</small></div> : null}
                     </td>

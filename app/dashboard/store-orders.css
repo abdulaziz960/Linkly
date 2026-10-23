@@ -511,3 +511,14 @@
 .category-card-text small { color: var(--muted, #64748b); }
 .store-order-actions .store-status-select, .conversation-store-order-actions .store-status-select { min-width: 150px; width: auto; }
 .catalog-photo-field { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; grid-column: 1 / -1; }
+
+.branch-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 14px 0; padding: 14px; border: 1px solid var(--line); border-radius: 14px; }
+.branch-form label { display: flex; flex-direction: column; gap: 6px; }
+.branch-active { flex-direction: row !important; align-items: center; gap: 8px !important; }
+.branch-form-actions { display: flex; gap: 8px; align-items: end; }
+.branch-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.category-card.selected { border-color: var(--brand, #127a70); }
+.branch-stock { margin-top: 20px; }
+.branch-stock-table { width: 100%; border-collapse: collapse; }
+.branch-stock-table th, .branch-stock-table td { padding: 8px 10px; text-align: start; border-bottom: 1px solid var(--line); }
+.branch-stock-table input { width: 110px; }

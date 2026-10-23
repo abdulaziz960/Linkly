@@ -4,7 +4,7 @@
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
 
-export type CheckoutStep = "city" | "method" | "address" | "confirm" | "payment" | "email" | "fulfillment" | "pickup_kind" | "plate" | "car_details" | "pickup_confirm";
+export type CheckoutStep = "city" | "method" | "address" | "confirm" | "payment" | "email" | "fulfillment" | "pickup_kind" | "plate" | "car_details" | "pickup_confirm" | "branch";
 
 export type CheckoutData = {
   city?: string;
@@ -46,7 +46,7 @@ export async function getCheckoutFlow(conversationId: string): Promise<CheckoutF
   } catch {
     data = {};
   }
-  const steps: CheckoutStep[] = ["method", "address", "confirm", "payment", "email", "fulfillment", "pickup_kind", "plate", "car_details", "pickup_confirm"];
+  const steps: CheckoutStep[] = ["method", "address", "confirm", "payment", "email", "fulfillment", "pickup_kind", "plate", "car_details", "pickup_confirm", "branch"];
   const step: CheckoutStep = steps.includes(row.step as CheckoutStep) ? (row.step as CheckoutStep) : "city";
   return { step, data };
 }
