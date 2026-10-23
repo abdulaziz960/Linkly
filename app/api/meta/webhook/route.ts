@@ -458,6 +458,19 @@ export async function POST(request: NextRequest) {
           console.error("Failed to persist WhatsApp delivery status", error);
         }
 
+        // A delivered/read receipt overrides an earlier "failed" status for the same message
+        // (statuses can arrive out of order), so the recipient is no longer reported as not received.
+        if (status.status === "delivered" || status.status === "read") {
+          try {
+            await prisma.campaignRecipient.updateMany({
+              where: { messageId: status.id, tenantId: whatsappAccount.tenantId, deliveryFailed: 1 },
+              data: { deliveryFailed: 0, deliveryError: "" }
+            });
+          } catch (error) {
+            console.error("Failed to clear campaign recipient delivery failure", error);
+          }
+        }
+
         if (status.status === "read") {
           try {
             await prisma.campaignRecipient.updateMany({

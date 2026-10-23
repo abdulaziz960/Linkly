@@ -42,7 +42,8 @@ export async function GET(_request: Request, context: RouteContext) {
       phone: recipient.phone,
       name: recipient.name,
       status: recipient.status,
-      error: recipient.error,
+      // The send error, or the reason WhatsApp gave later when it reported the message as undelivered.
+      error: recipient.error || recipient.deliveryError,
       date: recipient.sentAt || recipient.createdAt,
       readAt: recipient.readAt,
       clickedAt: recipient.clickedAt,

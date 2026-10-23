@@ -17,10 +17,12 @@ export type EngagementBucket = "notReceived" | "notOpened" | "opened" | "clicked
  * counted anywhere.
  */
 export function engagementBucketFor(recipient: { status: string; readAt: string; clickedAt: string; deliveryFailed?: number | boolean }): EngagementBucket | null {
+  // A read receipt or a tracked click proves the customer got the message, whatever a failure flag says
+  // (a late/contradictory "failed" status, or a send our side recorded as failed after Meta had accepted it).
+  if (recipient.clickedAt) return "clicked";
+  if (recipient.readAt) return "opened";
   if (recipient.status === "فشل الإرسال") return "notReceived";
   if (recipient.status !== "تم الإرسال") return null;
   if (recipient.deliveryFailed) return "notReceived";
-  if (recipient.clickedAt) return "clicked";
-  if (recipient.readAt) return "opened";
   return "notOpened";
 }
