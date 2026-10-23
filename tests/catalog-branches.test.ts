@@ -73,6 +73,10 @@ describe("branches with their own stock", () => {
     await prisma.conversation.deleteMany({});
     const south = await b.saveBranch(tenantId, { name: "فرع الجنوب" });
     if (!south.ok) throw new Error("branch");
+    // the map link of the branch: https only, shown after the order is placed
+    expect((await b.saveBranch(tenantId, { id: (await b.listBranches(tenantId)).find((x) => x.name === "فرع الشمال")!.id, name: "فرع الشمال", mapUrl: "http://maps.example/1" })).ok).toBe(false);
+    const withMap = await b.saveBranch(tenantId, { id: (await b.listBranches(tenantId)).find((x) => x.name === "فرع الشمال")!.id, name: "فرع الشمال", mapUrl: "https://maps.app.goo.gl/north" });
+    expect(withMap.ok && withMap.branch.mapUrl).toBe("https://maps.app.goo.gl/north");
     const tea = (await prisma.product.findMany({ where: { tenantId, name: "شاي" } }))[0];
     await b.setBranchStock(tenantId, south.branch.id, tea.id, 0);
     const north = (await b.listBranches(tenantId)).find((x) => x.name === "فرع الشمال")!;
@@ -100,6 +104,7 @@ describe("branches with their own stock", () => {
     await handleCatalogReply(c, { id: `br_${north.id}`, text: "" }, "");
     const order = await prisma.catalogOrder.findFirst({ where: { tenantId } });
     expect(order).toBeTruthy();
+    expect(texts.join("\n")).toContain("موقع الفرع: https://maps.app.goo.gl/north");
     expect((await b.getBranchStock(tenantId, north.id)).get(tea.id)).toBe(1);
     const { listOrders, updateOrderStatus } = await import("../lib/catalog");
     expect((await listOrders(tenantId))[0].branchName).toBe("فرع الشمال");
@@ -109,7 +114,7 @@ describe("branches with their own stock", () => {
     expect(buildTrackingMessage("ord-x1234567", { stage: "preparing", carrier: "", trackingNumber: "", trackingUrl: "" }, { branch: "فرع الشمال" })).toContain("الفرع: فرع الشمال");
     expect(buildTrackingMessage("ord-x1234567", { stage: "preparing", carrier: "", trackingNumber: "", trackingUrl: "" })).not.toContain("الفرع");
     const { buildPaidOrderMessage } = await import("../lib/catalog-payments");
-    expect(buildPaidOrderMessage({ id: order!.id, customerName: "", customerPhone: "", productName: "x", quantity: 1, total: 10, currency: "SAR" }, new Date().toISOString(), "", undefined, undefined, undefined, undefined, undefined, "فرع الشمال")).toContain("الفرع: فرع الشمال");
+    expect(buildPaidOrderMessage({ id: order!.id, customerName: "", customerPhone: "", productName: "x", quantity: 1, total: 10, currency: "SAR" }, new Date().toISOString(), "", undefined, undefined, undefined, undefined, undefined, { name: "فرع الشمال", mapUrl: "https://maps.app.goo.gl/north" })).toContain("موقع الفرع: https://maps.app.goo.gl/north");
     await prisma.catalogOrder.update({ where: { id: order!.id }, data: { status: "paid" } });
     expect(await buildCustomerTrackingReply(tenantId, "conv-branch", "")).toContain("الفرع: فرع الشمال");
 

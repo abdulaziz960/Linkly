@@ -50,7 +50,7 @@ export function buildPaidOrderMessage(order: {
   quantity: number;
   total: number;
   currency: string;
-}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number; options?: import("./catalog-options").OptionDetail[] }>, discount?: { code: string; amount: number }, shipping?: OrderShipping, pickup?: OrderPickup, prepMinutes?: number, branchName?: string): string {
+}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number; options?: import("./catalog-options").OptionDetail[] }>, discount?: { code: string; amount: number }, shipping?: OrderShipping, pickup?: OrderPickup, prepMinutes?: number, branch?: string | { name: string; mapUrl?: string }): string {
   const name = usableCustomerName(order.customerName, order.customerPhone) || usableCustomerName(fallbackName, order.customerPhone);
   const amount = Number.isInteger(order.total) ? String(order.total) : order.total.toFixed(2);
   const currency = order.currency === "SAR" ? "ر.س" : order.currency;
@@ -64,7 +64,7 @@ export function buildPaidOrderMessage(order: {
     ...(discount ? [`الخصم (${discount.code}): -${Number.isInteger(discount.amount) ? discount.amount : discount.amount.toFixed(2)} ${currency}`] : []),
     ...(shipping ? [`التوصيل: ${shipping.methodName} إلى ${shipping.city}`, `رسوم التوصيل: ${shipping.fee > 0 ? `${Number.isInteger(shipping.fee) ? shipping.fee : shipping.fee.toFixed(2)} ${currency}` : "مجاني"}`] : []),
     ...(pickup ? [pickupText(pickup)] : []),
-    ...(branchName ? [`الفرع: ${branchName}`] : []),
+    ...(branch ? [`الفرع: ${typeof branch === "string" ? branch : branch.name}`, ...(typeof branch !== "string" && branch.mapUrl ? [`موقع الفرع: ${branch.mapUrl}`] : [])] : []),
     `المبلغ المدفوع: ${amount} ${currency}`,
     ...(arabicDate(paidAtIso) ? [`التاريخ: ${arabicDate(paidAtIso)}`] : []),
     ...(prepMinutes ? ["", `⏱ ${prepSentence(prepMinutes)}`] : []),
@@ -227,7 +227,8 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
     const orderDiscount = (await getOrderDiscounts([order.id])).get(order.id);
     const orderShipping = (await getOrderShipping([order.id])).get(order.id);
     const orderPickup = (await getOrderPickup([order.id])).get(order.id);
-    const orderBranch = (await getOrderBranches([order.id])).get(order.id)?.name;
+    const orderBranchInfo = (await getOrderBranches([order.id])).get(order.id);
+    const orderBranch = orderBranchInfo?.name;
     // The merchant's usual preparation time, told to the customer now and kept with the order.
     const prepSettings = await getPrepSettings(order.tenantId);
     const prepMinutes = prepSettings.enabled ? prepSettings.defaultMinutes : undefined;
@@ -241,7 +242,7 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
         tenantId: order.tenantId,
         conversationId: order.conversationId,
         to: conversation.customer.phone,
-        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name, orderItems, orderDiscount, orderShipping, orderPickup, prepMinutes, orderBranch),
+        text: buildPaidOrderMessage(order, new Date().toISOString(), conversation.customer.name, orderItems, orderDiscount, orderShipping, orderPickup, prepMinutes, orderBranchInfo),
         author: "الرد الآلي"
       }).catch((error) => console.error("Order paid confirmation failed", error));
 

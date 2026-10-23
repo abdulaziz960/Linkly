@@ -180,6 +180,12 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     branch_id TEXT NOT NULL,
     created_at TEXT NOT NULL
   )`,
+  // A branch's map link (shown to the customer once the order is placed); apart from catalog_branches so that table never needs an ALTER.
+  `CREATE TABLE IF NOT EXISTS catalog_branch_links (
+    branch_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    map_url TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS catalog_order_branch (
     order_id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,

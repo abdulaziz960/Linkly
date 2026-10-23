@@ -1156,7 +1156,7 @@ async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeo
   });
   if (pickup) await recordOrderPickup(order.id, pickup);
   if (branch) await recordOrderBranch(ctx.tenantId, order.id, branch);
-  const orderText = `${formatOrderSummary(cart, quote)}${delivery ? `\n\nالعنوان: ${delivery.address}` : pickup ? `\n\n${pickupText(pickup)}` : ""}${branch ? `\nالفرع: ${branch.name}` : ""}`;
+  const orderText = `${formatOrderSummary(cart, quote)}${delivery ? `\n\nالعنوان: ${delivery.address}` : pickup ? `\n\n${pickupText(pickup)}` : ""}${branch ? `\nالفرع: ${branch.name}${branch.mapUrl ? `\nموقع الفرع: ${branch.mapUrl}` : ""}` : ""}`;
   const totalText = formatMoney(order.total, order.currency);
   const where = `${delivery ? ` | التوصيل: ${delivery.method.name} إلى ${delivery.city} - ${delivery.address}` : pickup ? ` | ${pickupText(pickup)}` : ""}${branch ? ` | الفرع: ${branch.name}` : ""}`;
 

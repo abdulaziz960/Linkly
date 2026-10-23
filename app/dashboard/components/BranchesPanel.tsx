@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 
-type Branch = { id: string; name: string; nameEn: string; address: string; active: boolean };
+type Branch = { id: string; name: string; nameEn: string; address: string; mapUrl: string; active: boolean };
 type StockRow = { id: string; name: string; stock: number };
 
 async function call<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; data?: T; error?: string }> {
@@ -17,7 +17,7 @@ async function call<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; 
   }
 }
 
-const emptyDraft = { id: "", name: "", nameEn: "", address: "", active: true };
+const emptyDraft = { id: "", name: "", nameEn: "", address: "", mapUrl: "", active: true };
 
 /** Branches: the customer picks one at checkout and the order is taken from that branch's own stock. */
 export default function BranchesPanel() {
@@ -98,6 +98,7 @@ export default function BranchesPanel() {
             <label>{t("اسم الفرع", "Branch name")}<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} maxLength={80} /></label>
             <label>{t("الاسم بالإنجليزية (اختياري)", "English name (optional)")}<input dir="ltr" value={draft.nameEn} onChange={(event) => setDraft({ ...draft, nameEn: event.target.value })} maxLength={80} /></label>
             <label>{t("العنوان أو الحي (اختياري)", "Address or area (optional)")}<input value={draft.address} onChange={(event) => setDraft({ ...draft, address: event.target.value })} maxLength={200} /></label>
+            <label>{t("رابط موقع الفرع على الخرائط (اختياري)", "Branch map link (optional)")}<input dir="ltr" type="url" value={draft.mapUrl} onChange={(event) => setDraft({ ...draft, mapUrl: event.target.value })} placeholder="https://maps.google.com/..." maxLength={500} /></label>
             <label className="branch-active"><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} />{t("الفرع يستقبل الطلبات", "Branch accepts orders")}</label>
             <div className="branch-form-actions">
               <button className="btn primary" type="button" disabled={busy || !draft.name.trim()} onClick={() => void save()}>{t("حفظ", "Save")}</button>
@@ -117,7 +118,7 @@ export default function BranchesPanel() {
                 </div>
                 <div className="branch-actions">
                   <button className="btn soft" type="button" onClick={() => void openStock(branch.id)}>{t("المخزون", "Stock")}</button>
-                  <button className="btn soft" type="button" onClick={() => { setDraft({ id: branch.id, name: branch.name, nameEn: branch.nameEn, address: branch.address, active: branch.active }); setEditing(true); }}>{t("تعديل", "Edit")}</button>
+                  <button className="btn soft" type="button" onClick={() => { setDraft({ id: branch.id, name: branch.name, nameEn: branch.nameEn, address: branch.address, mapUrl: branch.mapUrl, active: branch.active }); setEditing(true); }}>{t("تعديل", "Edit")}</button>
                   <button className="btn soft danger" type="button" onClick={() => void remove(branch)}>{t("حذف", "Delete")}</button>
                 </div>
               </div>

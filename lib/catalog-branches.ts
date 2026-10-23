@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
 
-export type Branch = { id: string; name: string; nameEn: string; address: string; active: boolean };
+export type Branch = { id: string; name: string; nameEn: string; address: string; mapUrl: string; active: boolean };
 
 const CHOICE_MINUTES = 30;
 const MAX_BRANCHES = 50;
@@ -21,7 +21,25 @@ function ensureTables() {
 }
 
 type BranchRow = { id: string; name: string; name_en: string; address: string; active: number | bigint };
-const toBranch = (row: BranchRow): Branch => ({ id: row.id, name: row.name, nameEn: row.name_en, address: row.address, active: Number(row.active) === 1 });
+const toBranch = (row: BranchRow, mapUrl = ""): Branch => ({ id: row.id, name: row.name, nameEn: row.name_en, address: row.address, mapUrl, active: Number(row.active) === 1 });
+
+/** A map link is kept only when it is an https address. */
+export function cleanMapUrl(value: unknown): string {
+  const text = typeof value === "string" ? value.trim().slice(0, 500) : "";
+  try {
+    return new URL(text).protocol === "https:" ? text : "";
+  } catch {
+    return "";
+  }
+}
+
+async function mapUrls(tenantId: string, ids: string[]): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (!ids.length) return result;
+  const rows = await prisma.$queryRaw<Array<{ branch_id: string; map_url: string }>>`SELECT branch_id, map_url FROM catalog_branch_links WHERE tenant_id = ${tenantId} AND branch_id IN (${Prisma.join(ids)})`;
+  for (const row of rows) result.set(row.branch_id, row.map_url);
+  return result;
+}
 
 function clean(value: unknown, max: number) {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
@@ -30,37 +48,49 @@ function clean(value: unknown, max: number) {
 export async function listBranches(tenantId: string, options: { activeOnly?: boolean } = {}): Promise<Branch[]> {
   await ensureTables();
   const rows = await prisma.$queryRaw<BranchRow[]>`SELECT id, name, name_en, address, active FROM catalog_branches WHERE tenant_id = ${tenantId} ORDER BY created_at ASC`;
-  const branches = rows.map(toBranch);
+  const urls = await mapUrls(tenantId, rows.map((row) => row.id));
+  const branches = rows.map((row) => toBranch(row, urls.get(row.id) ?? ""));
   return options.activeOnly ? branches.filter((branch) => branch.active) : branches;
 }
 
 export async function getBranch(tenantId: string, id: string): Promise<Branch | null> {
   await ensureTables();
   const rows = await prisma.$queryRaw<BranchRow[]>`SELECT id, name, name_en, address, active FROM catalog_branches WHERE tenant_id = ${tenantId} AND id = ${id} LIMIT 1`;
-  return rows[0] ? toBranch(rows[0]) : null;
+  return rows[0] ? toBranch(rows[0], (await mapUrls(tenantId, [rows[0].id])).get(rows[0].id) ?? "") : null;
 }
 
-export async function saveBranch(tenantId: string, input: { id?: unknown; name?: unknown; nameEn?: unknown; address?: unknown; active?: unknown }): Promise<{ ok: true; branch: Branch } | { ok: false; error: string }> {
+export async function saveBranch(tenantId: string, input: { id?: unknown; name?: unknown; nameEn?: unknown; address?: unknown; mapUrl?: unknown; active?: unknown }): Promise<{ ok: true; branch: Branch } | { ok: false; error: string }> {
   const name = clean(input.name, 80);
   if (!name) return { ok: false, error: "اكتب اسم الفرع" };
   const nameEn = clean(input.nameEn, 80);
   const address = clean(input.address, 200);
+  const rawMap = typeof input.mapUrl === "string" ? input.mapUrl.trim() : "";
+  const mapUrl = cleanMapUrl(rawMap);
+  if (rawMap && !mapUrl) return { ok: false, error: "رابط الموقع يجب أن يبدأ بـ https" };
   const active = input.active === false || input.active === 0 ? 0 : 1;
   await ensureTables();
   const existing = typeof input.id === "string" && input.id ? await getBranch(tenantId, input.id) : null;
   if (existing) {
     await prisma.$executeRaw`UPDATE catalog_branches SET name = ${name}, name_en = ${nameEn}, address = ${address}, active = ${active} WHERE tenant_id = ${tenantId} AND id = ${existing.id}`;
-    return { ok: true, branch: { id: existing.id, name, nameEn, address, active: active === 1 } };
+    await setMapUrl(tenantId, existing.id, mapUrl);
+    return { ok: true, branch: { id: existing.id, name, nameEn, address, mapUrl, active: active === 1 } };
   }
   if ((await listBranches(tenantId)).length >= MAX_BRANCHES) return { ok: false, error: "وصلت للحد الأقصى من الفروع" };
   const id = `br-${randomUUID().slice(0, 12)}`;
   await prisma.$executeRaw`INSERT INTO catalog_branches (id, tenant_id, name, name_en, address, active, created_at) VALUES (${id}, ${tenantId}, ${name}, ${nameEn}, ${address}, ${active}, ${new Date().toISOString()})`;
-  return { ok: true, branch: { id, name, nameEn, address, active: active === 1 } };
+  await setMapUrl(tenantId, id, mapUrl);
+  return { ok: true, branch: { id, name, nameEn, address, mapUrl, active: active === 1 } };
+}
+
+async function setMapUrl(tenantId: string, branchId: string, mapUrl: string) {
+  await prisma.$executeRaw`DELETE FROM catalog_branch_links WHERE tenant_id = ${tenantId} AND branch_id = ${branchId}`;
+  if (mapUrl) await prisma.$executeRaw`INSERT INTO catalog_branch_links (branch_id, tenant_id, map_url) VALUES (${branchId}, ${tenantId}, ${mapUrl})`;
 }
 
 export async function deleteBranch(tenantId: string, id: string) {
   await ensureTables();
   await prisma.$executeRaw`DELETE FROM catalog_branch_stock WHERE tenant_id = ${tenantId} AND branch_id = ${id}`;
+  await prisma.$executeRaw`DELETE FROM catalog_branch_links WHERE tenant_id = ${tenantId} AND branch_id = ${id}`;
   await prisma.$executeRaw`DELETE FROM catalog_branches WHERE tenant_id = ${tenantId} AND id = ${id}`;
 }
 
@@ -149,14 +179,16 @@ export async function recordOrderBranch(tenantId: string, orderId: string, branc
   await prisma.$executeRaw`INSERT INTO catalog_order_branch (order_id, tenant_id, branch_id, branch_name) VALUES (${orderId}, ${tenantId}, ${branch.id}, ${branch.name})`;
 }
 
-export async function getOrderBranches(orderIds: string[]): Promise<Map<string, { id: string; name: string }>> {
-  const result = new Map<string, { id: string; name: string }>();
+export async function getOrderBranches(orderIds: string[]): Promise<Map<string, { id: string; name: string; mapUrl: string }>> {
+  const result = new Map<string, { id: string; name: string; mapUrl: string }>();
   if (!orderIds.length) return result;
   await ensureTables();
   for (let start = 0; start < orderIds.length; start += 200) {
     const batch = orderIds.slice(start, start + 200);
     const rows = await prisma.$queryRaw<Array<{ order_id: string; branch_id: string; branch_name: string }>>`SELECT order_id, branch_id, branch_name FROM catalog_order_branch WHERE order_id IN (${Prisma.join(batch)})`;
-    for (const row of rows) result.set(row.order_id, { id: row.branch_id, name: row.branch_name });
+    const links = rows.length ? await prisma.$queryRaw<Array<{ branch_id: string; map_url: string }>>`SELECT branch_id, map_url FROM catalog_branch_links WHERE branch_id IN (${Prisma.join([...new Set(rows.map((row) => row.branch_id))])})` : [];
+    const urls = new Map(links.map((link) => [link.branch_id, link.map_url]));
+    for (const row of rows) result.set(row.order_id, { id: row.branch_id, name: row.branch_name, mapUrl: urls.get(row.branch_id) ?? "" });
   }
   return result;
 }
