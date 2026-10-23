@@ -9,6 +9,7 @@ import {
   getProduct,
   isProductAvailable,
   listBotProducts,
+  listBotCategories,
   reserveCartStock,
   updateOrderStatus,
   type CatalogProduct
@@ -53,6 +54,7 @@ export const CATALOG_DEFAULT_INTRO = "أهلًا بك 👋 تصفّح منتجا
 const ID_PRODUCT = "prod_";
 const ID_BUY = "buy_";
 const ID_MORE = "cat_more_";
+const ID_LIST = "catl_"; // catl_<offset>:<category> - a page of products (category "*" = all, "other" = uncategorised)
 const ID_ORDER = ID_BUY; // "اطلب الآن" reuses the buy flow (staff follow-up when payment is off)
 const ID_BACK = "cat_back";
 const ID_AGENT = "cat_agent";
@@ -77,7 +79,7 @@ const ID_SHIP_EDIT = "ship_edit";
 const ID_PAY = "pay_";
 /** In the Zid checkout state, the product id that means "the whole cart". */
 const CART_CHECKOUT = "__cart__";
-const CARDS_PER_PAGE = 10;
+const CARDS_PER_PAGE = 9; // a WhatsApp list holds 10 rows: nine products and a "show more" row
 
 /**
  * WhatsApp message images must be JPEG or PNG - a WebP link (very common on
@@ -101,10 +103,36 @@ function productDetails(product: CatalogProduct) {
   return parts.join("\n");
 }
 
-export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0): Promise<boolean> {
+function listRowFor(product: CatalogProduct) {
+  const price = formatPrice(product.price, product.currency);
+  // The row title is cut at 24 characters, so a longer name continues in the description next to the price.
+  const description = product.name.length > 24 ? `${price} · ${product.name}` : price;
+  return { id: `${ID_PRODUCT}${product.id}`, title: product.name, description: description.slice(0, 72) };
+}
+
+export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0, category?: string): Promise<boolean> {
   const body = intro.trim() || CATALOG_DEFAULT_INTRO;
-  // One extra row tells us whether a "show more" button is needed.
-  const fetched = await listBotProducts(ctx.tenantId, offset + CARDS_PER_PAGE + 1);
+
+  // WhatsApp with more than one category: the customer picks a category first.
+  if (ctx.channel === "whatsapp" && category === undefined) {
+    const categories = await listBotCategories(ctx.tenantId);
+    if (categories.length > 1) {
+      const rows = categories.slice(0, 9).map((entry) => ({
+        id: `${ID_LIST}0:${entry.name || "other"}`.slice(0, 200),
+        title: entry.name || "أخرى",
+        description: `${entry.count} ${entry.count === 1 ? "منتج" : "منتجات"}`
+      }));
+      rows.push({ id: `${ID_LIST}0:*`, title: "كل المنتجات", description: "" });
+      const sent = await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttonLabel: "الأقسام", rows, displayText: body, author: AUTHOR });
+      if (sent.ok) {
+        await sendMenuFooter(ctx, false);
+        return true;
+      }
+    }
+  }
+
+  // One extra row tells us whether a "show more" row is needed.
+  const fetched = await listBotProducts(ctx.tenantId, offset + CARDS_PER_PAGE + 1, category);
   const products = fetched.slice(offset, offset + CARDS_PER_PAGE);
   const hasMore = fetched.length > offset + CARDS_PER_PAGE;
 
@@ -120,65 +148,31 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
     return true;
   }
 
-  // WhatsApp: each product is a card - image on top, name and price, and a
-  // "details" button. (Meta's native catalog messages need a Meta Commerce
-  // catalog; image-header button messages work on any Cloud API number.)
-  if (offset === 0) await ctx.sendText(body);
-  let sentCards = 0;
-  for (const product of products) {
-    const caption = `*${product.name}*\n${formatPrice(product.price, product.currency)}`;
-    const card = await sendWhatsAppIdButtons({
-      tenantId: ctx.tenantId,
-      conversationId: ctx.conversationId,
-      to: ctx.recipientId,
-      bodyText: caption,
-      buttons: [{ id: `${ID_PRODUCT}${product.id}`, title: "عرض التفاصيل" }],
-      displayText: caption,
-      headerImageUrl: whatsappImageUrl(product),
-      author: AUTHOR
-    });
-    // A bad image link makes Meta reject the header - retry as a text-only card.
-    if (!card.ok && product.imageUrl) {
-      const plain = await sendWhatsAppIdButtons({
-        tenantId: ctx.tenantId,
-        conversationId: ctx.conversationId,
-        to: ctx.recipientId,
-        bodyText: caption,
-        buttons: [{ id: `${ID_PRODUCT}${product.id}`, title: "عرض التفاصيل" }],
-        displayText: caption,
-        author: AUTHOR
-      });
-      if (plain.ok) sentCards += 1;
-    } else if (card.ok) {
-      sentCards += 1;
-    }
-  }
-
-  if (sentCards === 0) {
+  // WhatsApp: one list - name and price per row; tapping a row opens the product card (image, description, buttons).
+  // (Rows cannot carry images; Meta's native catalog messages need a Meta Commerce catalog.)
+  const rows = products.map(listRowFor);
+  if (hasMore) rows.push({ id: `${ID_LIST}${offset + CARDS_PER_PAGE}:${category ?? "*"}`.slice(0, 200), title: "عرض المزيد", description: "" });
+  const listBody = category && category !== "*" ? `${category === "other" ? "أخرى" : category}\n${body}` : body;
+  const sent = await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: offset === 0 ? listBody : "المزيد من المنتجات:", buttonLabel: "عرض المنتجات", rows, displayText: textList(), author: AUTHOR });
+  if (!sent.ok) {
     await ctx.sendText(textList());
     return true;
   }
+  await sendMenuFooter(ctx, hasMore);
+  return true;
+}
 
+/** The cart / tracking / staff buttons that follow the product list. */
+async function sendMenuFooter(ctx: CatalogCtx, hasMore: boolean) {
   const cartUnits = (await getCart(ctx.conversationId)).lines.reduce((sum, line) => sum + line.quantity, 0);
   const hasOrders = await hasTrackableOrders(ctx.tenantId, ctx.conversationId);
   const menuButtons = [
-    ...(hasMore ? [{ id: `${ID_MORE}${offset + CARDS_PER_PAGE}`, title: "عرض المزيد" }] : []),
     ...(cartUnits > 0 ? [{ id: ID_CART_VIEW, title: `السلة (${cartUnits})` }] : []),
     ...(hasOrders ? [{ id: ID_TRACK, title: "تتبع طلبي" }] : []),
     { id: ID_AGENT, title: "التحدث مع موظف" }
   ];
-  // WhatsApp allows three buttons: the order tracking gives way to the others when there's no room.
-  const fitted = menuButtons.length > 3 ? menuButtons.filter((button) => button.id !== ID_TRACK) : menuButtons;
-  await sendWhatsAppIdButtons({
-    tenantId: ctx.tenantId,
-    conversationId: ctx.conversationId,
-    to: ctx.recipientId,
-    bodyText: hasMore ? "هل تريد رؤية المزيد من المنتجات؟" : "هل تحتاج مساعدة؟",
-    buttons: fitted,
-    displayText: hasMore ? "هل تريد رؤية المزيد من المنتجات؟" : "هل تحتاج مساعدة؟",
-    author: AUTHOR
-  });
-  return true;
+  const text = hasMore ? "اختر من القائمة أعلاه أو اضغط «عرض المزيد»." : "هل تحتاج مساعدة؟";
+  await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: text, buttons: menuButtons, displayText: text, author: AUTHOR });
 }
 
 async function showProduct(ctx: CatalogCtx, product: CatalogProduct) {
@@ -1340,6 +1334,11 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   }
 
   if (id === ID_AGENT) return "agent";
+  if (id.startsWith(ID_LIST)) {
+    const [offsetText, ...rest] = id.slice(ID_LIST.length).split(":");
+    await sendCatalogMenu(ctx, intro, Math.max(0, Number(offsetText) || 0), rest.join(":") || "*");
+    return "handled";
+  }
   if (id.startsWith(ID_MORE)) {
     await sendCatalogMenu(ctx, intro, Math.max(0, Number(id.slice(ID_MORE.length)) || 0));
     return "handled";

@@ -8,7 +8,8 @@ const tenantId = "tenant-catalog-image";
 vi.mock("../lib/url-safety", () => ({ isPubliclyRoutableUrl: vi.fn(async (url: string) => !url.includes("private.local")) }));
 vi.mock("../lib/whatsapp-send", () => ({
   sendWhatsAppIdButtons: vi.fn(async (input: Record<string, unknown>) => { sent.push(input); return { ok: true }; }),
-  sendWhatsAppCtaUrl: vi.fn(async () => ({ ok: true }))
+  sendWhatsAppCtaUrl: vi.fn(async (input: Record<string, unknown>) => { sent.push(input); return { ok: true }; }),
+  sendWhatsAppRowList: vi.fn(async (input: Record<string, unknown>) => { sent.push(input); return { ok: true }; })
 }));
 const sent: Array<Record<string, unknown>> = [];
 
@@ -41,9 +42,11 @@ describe("WhatsApp-safe product images", () => {
   it("routes WebP images through the JPEG converter and leaves JPEG/PNG direct", async () => {
     const webp = await addProduct("https://shop.example.com/uploads/car.webp");
     const jpg = await addProduct("https://shop.example.com/uploads/car.jpg?v=2");
-    const { sendCatalogMenu } = await import("../lib/catalog-bot");
+    const { handleCatalogReply } = await import("../lib/catalog-bot");
     sent.length = 0;
-    await sendCatalogMenu({ channel: "whatsapp", tenantId, conversationId: "c", recipientId: "966500000000", sendText: async () => {} }, "hi");
+    const c = { channel: "whatsapp" as const, tenantId, conversationId: "c", recipientId: "966500000000", sendText: async () => {} };
+    await handleCatalogReply(c, { id: `prod_${webp.id}`, text: "" }, "hi");
+    await handleCatalogReply(c, { id: `prod_${jpg.id}`, text: "" }, "hi");
     const urls = sent.map((m) => m.headerImageUrl).filter(Boolean) as string[];
     expect(urls.some((u) => u.includes(`/api/catalog/image/${webp.id}`))).toBe(true);
     expect(urls).toContain("https://shop.example.com/uploads/car.jpg?v=2");

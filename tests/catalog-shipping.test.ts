@@ -9,7 +9,8 @@ const sent: Array<{ input: Record<string, unknown> }> = [];
 const invoices: Array<{ amount: number }> = [];
 vi.mock("../lib/whatsapp-send", () => ({
   sendWhatsAppIdButtons: vi.fn(async (input: Record<string, unknown>) => { sent.push({ input }); return { ok: true }; }),
-  sendWhatsAppCtaUrl: vi.fn(async (input: Record<string, unknown>) => { sent.push({ input }); return { ok: true }; })
+  sendWhatsAppCtaUrl: vi.fn(async (input: Record<string, unknown>) => { sent.push({ input }); return { ok: true }; }),
+  sendWhatsAppRowList: vi.fn(async (input: Record<string, unknown>) => { sent.push({ input }); return { ok: true }; })
 }));
 vi.mock("../lib/catalog-payments", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/catalog-payments")>()),

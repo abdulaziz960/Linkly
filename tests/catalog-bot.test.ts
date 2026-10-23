@@ -5,10 +5,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 const testDbPath = join(process.cwd(), "tests", ".tmp-catalog-bot.db");
 const tenantId = "tenant-catalog-bot";
 
-const sent: Array<{ kind: "buttons" | "cta"; input: Record<string, unknown> }> = [];
+const sent: Array<{ kind: "buttons" | "cta" | "list"; input: Record<string, unknown> }> = [];
 vi.mock("../lib/whatsapp-send", () => ({
   sendWhatsAppIdButtons: vi.fn(async (input: Record<string, unknown>) => { sent.push({ kind: "buttons", input }); return { ok: true }; }),
-  sendWhatsAppCtaUrl: vi.fn(async (input: Record<string, unknown>) => { sent.push({ kind: "cta", input }); return { ok: true }; })
+  sendWhatsAppCtaUrl: vi.fn(async (input: Record<string, unknown>) => { sent.push({ kind: "cta", input }); return { ok: true }; }),
+  sendWhatsAppRowList: vi.fn(async (input: Record<string, unknown>) => { sent.push({ kind: "list", input }); return { ok: true }; })
 }));
 
 beforeAll(() => {
@@ -51,24 +52,47 @@ function ctx() {
 }
 
 describe("catalog bot cards (WhatsApp)", () => {
-  it("sends image cards (10 per page) with a show-more button, then pages on request", async () => {
+  it("sends one list (name and price per row, 9 per page) with a show-more row, then pages on request", async () => {
     await seed(12, true);
     const { sendCatalogMenu, handleCatalogReply } = await import("../lib/catalog-bot");
-    const { ctx: c, texts } = ctx();
+    const { ctx: c } = ctx();
 
     sent.length = 0;
     await sendCatalogMenu(c, "تفضل");
-    const cards = sent.filter((m) => m.kind === "buttons" && (m.input.buttons as Array<{ id: string }>)[0].id.startsWith("prod_"));
-    expect(cards).toHaveLength(10);
-    expect(cards.every((m) => m.input.headerImageUrl === "https://example.com/a.jpg")).toBe(true);
-    expect(texts[0]).toBe("تفضل");
-    const footer = sent.at(-1)!.input.buttons as Array<{ id: string }>;
-    expect(footer.map((b) => b.id)).toContain("cat_more_10");
+    const lists = sent.filter((m) => m.kind === "list");
+    expect(lists).toHaveLength(1);
+    const rows = lists[0].input.rows as Array<{ id: string; title: string; description?: string }>;
+    expect(rows).toHaveLength(10);
+    expect(rows[0].id.startsWith("prod_")).toBe(true);
+    expect(rows[0].description).toContain("1");
+    expect(rows[9].id).toBe("catl_9:*");
 
     sent.length = 0;
-    await handleCatalogReply(c, { id: "cat_more_10", text: "" }, "تفضل");
-    expect(sent.filter((m) => (m.input.buttons as Array<{ id: string }>)[0].id.startsWith("prod_"))).toHaveLength(2);
-    expect((sent.at(-1)!.input.buttons as Array<{ id: string }>).some((b) => b.id.startsWith("cat_more_"))).toBe(false);
+    await handleCatalogReply(c, { id: "catl_9:*", text: "" }, "تفضل");
+    const next = sent.find((m) => m.kind === "list")!.input.rows as Array<{ id: string }>;
+    expect(next).toHaveLength(3);
+    expect(next.some((row) => row.id.startsWith("catl_"))).toBe(false);
+  });
+
+  it("asks the category first when there are several, then lists that category", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { sendCatalogMenu, handleCatalogReply } = await import("../lib/catalog-bot");
+    const { ctx: c } = ctx();
+    const products = await prisma.product.findMany({ where: { tenantId }, orderBy: { name: "asc" }, take: 4 });
+    await prisma.product.update({ where: { id: products[0].id }, data: { category: "مشروبات" } });
+    await prisma.product.update({ where: { id: products[1].id }, data: { category: "وجبات" } });
+
+    sent.length = 0;
+    await sendCatalogMenu(c, "تفضل");
+    const rows = sent.find((m) => m.kind === "list")!.input.rows as Array<{ id: string; title: string }>;
+    expect(rows.map((row) => row.title)).toEqual(expect.arrayContaining(["مشروبات", "وجبات", "أخرى", "كل المنتجات"]));
+
+    sent.length = 0;
+    await handleCatalogReply(c, { id: "catl_0:مشروبات", text: "" }, "تفضل");
+    const only = sent.find((m) => m.kind === "list")!.input.rows as Array<{ id: string }>;
+    expect(only).toHaveLength(1);
+    expect(only[0].id).toBe(`prod_${products[0].id}`);
+    await prisma.product.updateMany({ where: { tenantId }, data: { category: "" } });
   });
 
   it("with payment off a product shows its page button then the order buttons; with payment on it offers buy", async () => {

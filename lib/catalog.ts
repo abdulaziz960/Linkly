@@ -232,14 +232,22 @@ export async function listProductsForDashboard(tenantId: string) {
 }
 
 /** The products the bot offers: active, in stock, newest-first, one WhatsApp list's worth. */
-export async function listBotProducts(tenantId: string, limit = 10): Promise<CatalogProduct[]> {
+/** `category`: undefined/"*" = all, "other" = products without a category, otherwise the category name. */
+export async function listBotProducts(tenantId: string, limit = 10, category?: string): Promise<CatalogProduct[]> {
   await ensureSchema();
   const rows = await prisma.product.findMany({
-    where: { tenantId, active: 1, NOT: { stock: 0 } },
+    where: { tenantId, active: 1, NOT: { stock: 0 }, ...(category && category !== "*" ? { category: category === "other" ? "" : category } : {}) },
     orderBy: { createdAt: "desc" },
     take: limit
   });
   return rows.map(toProduct);
+}
+
+/** The categories of the products the bot can show, with how many each holds ("" is the uncategorised group). */
+export async function listBotCategories(tenantId: string): Promise<Array<{ name: string; count: number }>> {
+  await ensureSchema();
+  const groups = await prisma.product.groupBy({ by: ["category"], where: { tenantId, active: 1, NOT: { stock: 0 } }, _count: { _all: true } });
+  return groups.map((group) => ({ name: group.category, count: group._count._all })).sort((a, b) => b.count - a.count);
 }
 
 export async function getProduct(tenantId: string, id: string): Promise<CatalogProduct | null> {
