@@ -1,4 +1,5 @@
 import { friendlyWhatsAppError } from "../../../../../lib/whatsapp-billing";
+import { graphFetch } from "../../../../../lib/demo-mode";
 import { outboundSignal, OUTBOUND_MEDIA_TIMEOUT_MS } from "../../../../../lib/outbound-timeout";
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
@@ -155,7 +156,7 @@ async function uploadWhatsAppMedia(phoneNumberId: string, accessToken: string, a
   formData.set("type", mimeType);
   formData.set("file", new Blob([new Uint8Array(parsed.buffer)], { type: mimeType }), attachment.name);
 
-  const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/media`, {
+  const response = await graphFetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/media`, {
     method: "POST",
     signal: outboundSignal(OUTBOUND_MEDIA_TIMEOUT_MS),
     headers: {
@@ -1107,7 +1108,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           }
         };
 
-    const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+    const response = await graphFetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST",
       signal: outboundSignal(),
       headers: {

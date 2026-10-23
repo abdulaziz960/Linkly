@@ -157,6 +157,28 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     active INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE INDEX IF NOT EXISTS catalog_options_group_idx ON catalog_options(group_id)`,
+  // Demo workspaces (the reviewer link): one row per temporary workspace, deleted after expires_at.
+  `CREATE TABLE IF NOT EXISTS demo_workspaces (
+    tenant_id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+  )`,
+  // The fake Salla store of a demo workspace.
+  `CREATE TABLE IF NOT EXISTS demo_salla_orders (
+    tenant_id TEXT NOT NULL,
+    id TEXT NOT NULL,
+    reference TEXT NOT NULL,
+    status_slug TEXT NOT NULL,
+    customer_name TEXT NOT NULL,
+    customer_phone TEXT NOT NULL,
+    total REAL NOT NULL,
+    items_json TEXT NOT NULL,
+    address_json TEXT NOT NULL,
+    company TEXT NOT NULL DEFAULT '',
+    tracking_number TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (tenant_id, id)
+  )`,
   // Branches: each keeps its own stock per product; the customer picks one at checkout and the order is taken from it.
   `CREATE TABLE IF NOT EXISTS catalog_branches (
     id TEXT PRIMARY KEY,

@@ -1,4 +1,5 @@
 import { buildCarouselSendComponent } from "./template-carousel";
+import { graphFetch } from "./demo-mode";
 import { OUTBOUND_MEDIA_TIMEOUT_MS, outboundSignal } from "./outbound-timeout";
 import { prisma } from "./prisma";
 import { getIntegrationSettings } from "./database";
@@ -212,7 +213,7 @@ export async function sendWhatsAppTemplateMessage(input: SendWhatsAppTemplateInp
 
   let response: Response;
   try {
-    response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+    response = await graphFetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST",
       signal: outboundSignal(),
       headers: {
@@ -284,7 +285,7 @@ export async function sendWhatsAppTextMessage(input: SendWhatsAppTextInput) {
 
   let response: Response;
   try {
-    response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+    response = await graphFetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST",
       signal: outboundSignal(),
       headers: {
@@ -445,7 +446,7 @@ export async function sendWhatsAppInteractiveMessage(input: SendWhatsAppInteract
         }
       };
 
-  const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+  const response = await graphFetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
     method: "POST",
     signal: outboundSignal(),
     headers: {
@@ -530,7 +531,7 @@ async function sendWhatsAppCustomMessage(input: SendWhatsAppCustomInput) {
 
   let response: Response;
   try {
-    response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+    response = await graphFetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST",
       signal: outboundSignal(),
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -739,7 +740,7 @@ export async function sendWhatsAppUploadedMedia(input: {
     form.set("messaging_product", "whatsapp");
     form.set("type", input.mimeType);
     form.set("file", new Blob([new Uint8Array(bytes)], { type: input.mimeType }), input.fileName);
-    const upload = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/media`, {
+    const upload = await graphFetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/media`, {
       method: "POST",
       signal: outboundSignal(OUTBOUND_MEDIA_TIMEOUT_MS),
       headers: { Authorization: `Bearer ${accessToken}` },

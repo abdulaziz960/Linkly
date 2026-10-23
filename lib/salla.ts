@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { readStoreTokens, saveStoreTokens } from "./store-connections";
+import { isDemoTenant } from "./demo-mode";
+import { demoSallaRequest } from "./demo-salla";
 import type { ShipTo } from "./salla-ship-to";
 export { shipToProblems, splitCoordinates } from "./salla-ship-to";
 export type { ShipTo } from "./salla-ship-to";
@@ -208,6 +210,8 @@ async function accessTokenFor(tenantId: string, forceRefresh = false): Promise<s
 }
 
 async function sallaRequest(tenantId: string, method: "GET" | "POST" | "PUT", path: string, body?: unknown): Promise<{ ok: boolean; status: number; payload: Json }> {
+  // A demo workspace has a fake store: nothing leaves for Salla.
+  if (await isDemoTenant(tenantId)) return demoSallaRequest(tenantId, method, path, body);
   let token = await accessTokenFor(tenantId);
   if (!token) return { ok: false, status: 401, payload: {} };
   for (let attempt = 0; attempt < 2; attempt += 1) {

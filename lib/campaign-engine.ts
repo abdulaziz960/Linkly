@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { graphFetch } from "./demo-mode";
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema, getIntegrationSettings } from "./database";
@@ -273,7 +274,7 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
     components.push({ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: trackingCode }] });
   }
 
-  const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+  const response = await graphFetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({
