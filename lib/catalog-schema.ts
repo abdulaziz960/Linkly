@@ -157,6 +157,12 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     active INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE INDEX IF NOT EXISTS catalog_options_group_idx ON catalog_options(group_id)`,
+  // The English name of a product (shown when the dashboard is in English); the product itself keeps one name.
+  `CREATE TABLE IF NOT EXISTS catalog_product_names_en (
+    product_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    name_en TEXT NOT NULL DEFAULT ''
+  )`,
   // Optional English names of option groups and options (shown when the dashboard is in English); keyed by the group or option id.
   `CREATE TABLE IF NOT EXISTS catalog_option_names_en (
     ref_id TEXT PRIMARY KEY,

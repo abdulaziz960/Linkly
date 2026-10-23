@@ -278,3 +278,23 @@ describe("how the chosen options read", () => {
     expect(message).toContain("الحجم: كبير");
   });
 });
+
+describe("the English name of a product", () => {
+  it("is kept apart from the product and reaches the order lines", async () => {
+    const { getProductNamesEn, setProductNameEn, cleanEnglishName } = await import("../lib/catalog-product-names");
+    const { createCartOrder, listOrders } = await import("../lib/catalog");
+    const { addToCart, resolveCart } = await import("../lib/catalog-cart");
+    const product = await seedProduct("شاورما دجاج", 18);
+    expect(cleanEnglishName("  Chicken   Shawarma ")).toBe("Chicken Shawarma");
+    await setProductNameEn(tenantId, product.id, "Chicken Shawarma");
+    expect((await getProductNamesEn(tenantId, [product.id])).get(product.id)).toBe("Chicken Shawarma");
+    await addToCart(tenantId, "cart-en", product.id, 2);
+    const cart = await resolveCart(tenantId, "cart-en");
+    const order = await createCartOrder({ tenantId, conversationId: "cart-en", customerName: "سارة", customerPhone: "966500000111", lines: cart.lines.map((line) => ({ product: line.product, quantity: line.quantity, baseName: line.baseName, optionDetails: line.optionDetails })), status: "new" });
+    const listed = (await listOrders(tenantId)).find((entry) => entry.id === order.id);
+    expect(listed?.items?.[0]).toMatchObject({ productName: "شاورما دجاج", productNameEn: "Chicken Shawarma" });
+    // Cleared by saving it empty
+    await setProductNameEn(tenantId, product.id, "");
+    expect((await getProductNamesEn(tenantId, [product.id])).size).toBe(0);
+  });
+});

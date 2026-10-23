@@ -16,6 +16,7 @@ import { orderMatchesQuery, shortOrderNumber } from "../../../lib/order-number";
 
 type Product = {
   id: string;
+  nameEn?: string;
   externalId: string;
   source: "manual" | "api" | "feed";
   name: string;
@@ -42,7 +43,7 @@ type Order = {
   paymentUrl: string;
   createdAt: string;
   /** The products of an order placed from the chat cart. */
-  items?: Array<{ productId: string; productName: string; unitPrice: number; quantity: number; options?: OptionDetail[] }>;
+  items?: Array<{ productId: string; productName: string; productNameEn?: string; unitPrice: number; quantity: number; options?: OptionDetail[] }>;
   /** Delivery chosen for the order (the fee is in the total). */
   shipping?: { methodName: string; city: string; address: string; fee: number; eta: string };
   pickup?: { kind: "store" | "car"; plate: string; carDetails: string };
@@ -66,6 +67,7 @@ type Settings = {
 };
 
 type ProductForm = {
+  nameEn: string;
   id?: string;
   name: string;
   price: string;
@@ -78,7 +80,7 @@ type ProductForm = {
   active: boolean;
 };
 
-const emptyForm: ProductForm = { name: "", price: "", category: "", sku: "", stock: "", imageUrl: "", productUrl: "", description: "", active: true };
+const emptyForm: ProductForm = { nameEn: "", name: "", price: "", category: "", sku: "", stock: "", imageUrl: "", productUrl: "", description: "", active: true };
 
 const orderStatuses: Array<Order["status"]> = ["new", "awaiting_payment", "paid", "fulfilled", "cancelled"];
 
@@ -161,6 +163,7 @@ export default function CatalogView() {
     setFormError("");
     setForm(product ? {
       id: product.id,
+      nameEn: product.nameEn ?? "",
       name: product.name,
       price: String(product.price),
       category: product.category,
@@ -401,7 +404,7 @@ export default function CatalogView() {
                       <span className="catalog-product-cell">
                         <input type="checkbox" aria-label={t("تحديد المنتج", "Select product")} checked={selected.has(product.id)} onChange={() => toggleSelected(product.id)} />
                         {product.imageUrl ? <img src={product.imageUrl} alt="" width={40} height={40} className="catalog-thumb" /> : <span className="catalog-thumb catalog-thumb-empty" aria-hidden="true">▣</span>}
-                        <b>{product.name}</b>
+                        <b>{language === "en" && product.nameEn ? product.nameEn : product.name}</b>
                       </span>
                     </td>
                     <td data-label={t("السعر", "Price")}>{product.price} {t("ر.س", "SAR")}</td>
@@ -441,7 +444,7 @@ export default function CatalogView() {
                     <td data-label={t("العميل", "Customer")}>{order.customerName || "-"}<br /><small dir="ltr">{order.customerPhone}</small></td>
                     <td data-label={t("المنتج", "Product")}>
                       {order.items?.length
-                        ? order.items.map((item, index) => <div key={`${item.productId}-${index}`}>{item.productName} × {item.quantity}{item.options?.length ? <div className="order-item-options">{optionLines(item.options, language === "en" ? "en" : "ar").map((line) => <small key={line}>{line}</small>)}</div> : null}</div>)
+                        ? order.items.map((item, index) => <div key={`${item.productId}-${index}`}>{language === "en" && item.productNameEn ? item.productNameEn : item.productName} × {item.quantity}{item.options?.length ? <div className="order-item-options">{optionLines(item.options, language === "en" ? "en" : "ar").map((line) => <small key={line}>{line}</small>)}</div> : null}</div>)
                         : <>{order.productName}{order.quantity > 1 ? ` × ${order.quantity}` : ""}</>}
                       {order.discount ? <div><small>{t("كود الخصم", "Code")}: {order.discount.code} (-{order.discount.amount})</small></div> : null}
                       {order.pickup ? <div><small>{order.pickup.kind === "car" ? t("استلام من السيارة", "Car pickup") : t("استلام من المحل", "Store pickup")}{order.pickup.plate ? ` — ${t("اللوحة", "Plate")}: ${order.pickup.plate}` : ""}{order.pickup.carDetails ? ` — ${order.pickup.carDetails}` : ""}</small></div> : null}
@@ -635,6 +638,7 @@ export default function CatalogView() {
             <header className="modal-head"><button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button><h2>{form.id ? t("تعديل منتج", "Edit product") : t("إضافة منتج", "Add product")}</h2></header>
             <div className="account-modal-body form-grid">
               <label><span>{t("اسم المنتج", "Name")}</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required maxLength={120} /></label>
+              <label><span>{t("الاسم بالإنجليزية (اختياري، يظهر عند تشغيل اللوحة بالإنجليزية)", "English name (optional, shown when the dashboard is in English)")}</span><input dir="ltr" value={form.nameEn} onChange={(event) => setForm({ ...form, nameEn: event.target.value })} maxLength={120} /></label>
               <div className="split-fields">
                 <label><span>{t("السعر (ر.س)", "Price (SAR)")}</span><input type="number" min={0} step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /></label>
                 <label><span>{t("المخزون (اتركه فارغًا لعدم التتبع)", "Stock (blank = not tracked)")}</span><input type="number" min={0} value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} /></label>

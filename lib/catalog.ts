@@ -6,6 +6,7 @@ import { getOrderTracking, type OrderTracking } from "./order-tracking";
 import { getOrderShipping, recordOrderShipping, type OrderShipping } from "./catalog-shipping";
 import { getOrderPickup, type OrderPickup } from "./catalog-pickup";
 import { getOrderPrep } from "./catalog-prep";
+import { getProductNamesEn } from "./catalog-product-names";
 import type { OptionDetail } from "./catalog-options";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
@@ -91,7 +92,7 @@ export type CatalogOrderRow = {
   prepMinutes?: number;
 };
 
-export type OrderItem = { productId: string; productName: string; unitPrice: number; quantity: number; /** The options chosen on this line (size, extras), apart from the product name. */ options?: OptionDetail[] };
+export type OrderItem = { productId: string; productName: string; unitPrice: number; quantity: number; /** The options chosen on this line (size, extras), apart from the product name. */ options?: OptionDetail[]; /** The product's English name, when the merchant gave one. */ productNameEn?: string };
 
 const MAX_NAME = 120;
 const MAX_DESCRIPTION = 2000;
@@ -528,13 +529,14 @@ export async function listOrders(tenantId: string, limit = 200): Promise<Catalog
   const rows = await prisma.catalogOrder.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: limit });
   const ids = rows.map((row) => row.id);
   const [items, discounts, shipping, tracking, pickup, prep] = await Promise.all([getOrderItems(ids), getOrderDiscounts(ids), getOrderShipping(ids), getOrderTracking(ids), getOrderPickup(ids), getOrderPrep(ids)]);
+  const namesEn = await getProductNamesEn(tenantId, [...items.values()].flat().map((item) => item.productId));
   return rows.map((row) => ({
     ...toOrder(row),
     ...(shipping.has(row.id) ? { shipping: shipping.get(row.id) } : {}),
     ...(pickup.has(row.id) ? { pickup: pickup.get(row.id) } : {}),
     ...(prep.has(row.id) ? { prepMinutes: prep.get(row.id) } : {}),
     ...(tracking.has(row.id) ? { tracking: tracking.get(row.id) } : {}),
-    ...(items.has(row.id) ? { items: items.get(row.id) } : {}),
+    ...(items.has(row.id) ? { items: items.get(row.id)!.map((item) => (namesEn.get(item.productId) ? { ...item, productNameEn: namesEn.get(item.productId) } : item)) } : {}),
     ...(discounts.has(row.id) ? { discount: { code: discounts.get(row.id)!.code, amount: discounts.get(row.id)!.amount } } : {})
   }));
 }

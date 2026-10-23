@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
 import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { cleanProductInput, deleteProduct, setProductActive, updateProduct, type ProductInput } from "../../../../../lib/catalog";
+import { setProductNameEn } from "../../../../../lib/catalog-product-names";
 import { logAdminAction, getTenantCompanyName } from "../../../../../lib/subscriptions";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
@@ -15,7 +16,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!user) return jsonError("غير مصرح", 401);
   if (!(await userHasViewPermission(user, "catalog"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
-  const body = (await request.json().catch(() => null)) as (ProductInput & { onlyActive?: boolean }) | null;
+  const body = (await request.json().catch(() => null)) as (ProductInput & { onlyActive?: boolean; nameEn?: unknown }) | null;
   if (!body) return jsonError("طلب غير صالح", 400);
 
   // Quick show/hide toggle from the list, without re-sending every field.
@@ -29,6 +30,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!cleaned.ok) return jsonError(cleaned.error, 400);
   const product = await updateProduct(user.tenantId, id, cleaned.data);
   if (!product) return jsonError("المنتج غير موجود", 404);
+  if (typeof body.nameEn === "string") await setProductNameEn(user.tenantId, id, body.nameEn);
   return jsonOk(product);
 }
 
