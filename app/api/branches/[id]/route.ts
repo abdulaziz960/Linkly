@@ -1,3 +1,4 @@
+import { deleteBranchStock } from "../../../../lib/catalog-branches";
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
@@ -34,6 +35,7 @@ export async function DELETE(_request: NextRequest, context: { params: Promise<{
 
   const { id } = await context.params;
   if (!(await deleteBranch(user.tenantId, id))) return jsonError("الفرع غير موجود", 404);
+  await deleteBranchStock(user.tenantId, id);
   await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم حذف فرع بواسطة ${user.name}.`, "تنبيه", "الفروع");
   return jsonOk({ deleted: true });
 }

@@ -31,14 +31,31 @@ async function makeProduct(name: string) {
   return createProduct(tenantId, clean.data);
 }
 
+type SavedBranch = { ok: true; branch: { id: string; name: string; mapUrl: string } };
+
+/** Branches live on the Branches page (the `branches` table); the catalog only reads them. */
+async function addBranch(input: { name: string; address?: string; mapUrl?: string }): Promise<SavedBranch> {
+  const { prisma } = await import("../lib/prisma");
+  const { ensureBranchesSchema } = await import("../lib/branches-schema");
+  await ensureBranchesSchema();
+  const id = `br-${Math.random().toString(36).slice(2, 10)}`;
+  const now = new Date().toISOString();
+  await prisma.$executeRaw`INSERT INTO branches (id, tenant_id, name, address, latitude, longitude, map_url, active, created_at, updated_at) VALUES (${id}, ${tenantId}, ${input.name}, ${input.address ?? ""}, 24.7, 46.6, ${input.mapUrl ?? ""}, 1, ${now}, ${now})`;
+  return { ok: true, branch: { id, name: input.name, mapUrl: input.mapUrl ?? "" } };
+}
+
+async function setMap(id: string, mapUrl: string) {
+  const { prisma } = await import("../lib/prisma");
+  await prisma.$executeRaw`UPDATE branches SET map_url = ${mapUrl} WHERE id = ${id}`;
+}
+
 describe("branches with their own stock", () => {
   it("saves branches, keeps stock per branch, and reserves / restocks it", async () => {
     const { ensureSchema } = await import("../lib/database");
     await ensureSchema();
     const b = await import("../lib/catalog-branches");
-    expect((await b.saveBranch(tenantId, { name: " " })).ok).toBe(false);
-    const north = await b.saveBranch(tenantId, { name: "فرع الشمال" });
-    const south = await b.saveBranch(tenantId, { name: "فرع الجنوب", address: "حي النخيل" });
+    const north = await addBranch({ name: "فرع الشمال" });
+    const south = await addBranch({ name: "فرع الجنوب", address: "حي النخيل" });
     if (!north.ok || !south.ok) throw new Error("branch");
     const tea = await makeProduct("شاي");
     const cake = await makeProduct("كيك");
@@ -61,7 +78,9 @@ describe("branches with their own stock", () => {
     expect(b.shortfalls([{ productId: tea.id, name: "شاي", quantity: 2 }], await b.getBranchStock(tenantId, south.branch.id))).toEqual([{ name: "شاي", wanted: 2, available: 0 }]);
     expect(b.shortfalls([{ productId: cake.id, name: "كيك", quantity: 9 }], await b.getBranchStock(tenantId, south.branch.id))).toEqual([]);
 
-    await b.deleteBranch(tenantId, south.branch.id);
+    const { prisma: db } = await import("../lib/prisma");
+    await db.$executeRaw`DELETE FROM branches WHERE id = ${south.branch.id}`;
+    await b.deleteBranchStock(tenantId, south.branch.id);
     expect((await b.listBranches(tenantId)).map((x) => x.name)).toEqual(["فرع الشمال"]);
   });
 
@@ -71,12 +90,12 @@ describe("branches with their own stock", () => {
     const { addToCart } = await import("../lib/catalog-cart");
     const { handleCatalogReply } = await import("../lib/catalog-bot");
     await prisma.conversation.deleteMany({});
-    const south = await b.saveBranch(tenantId, { name: "فرع الجنوب" });
+    const south = await addBranch({ name: "فرع الجنوب" });
     if (!south.ok) throw new Error("branch");
     // the map link of the branch: https only, shown after the order is placed
-    expect((await b.saveBranch(tenantId, { id: (await b.listBranches(tenantId)).find((x) => x.name === "فرع الشمال")!.id, name: "فرع الشمال", mapUrl: "http://maps.example/1" })).ok).toBe(false);
-    const withMap = await b.saveBranch(tenantId, { id: (await b.listBranches(tenantId)).find((x) => x.name === "فرع الشمال")!.id, name: "فرع الشمال", mapUrl: "https://maps.app.goo.gl/north" });
-    expect(withMap.ok && withMap.branch.mapUrl).toBe("https://maps.app.goo.gl/north");
+    const northId = (await b.listBranches(tenantId)).find((x) => x.name === "فرع الشمال")!.id;
+    await setMap(northId, "https://maps.app.goo.gl/north");
+    expect((await b.getBranch(tenantId, northId))?.mapUrl).toBe("https://maps.app.goo.gl/north");
     const tea = (await prisma.product.findMany({ where: { tenantId, name: "شاي" } }))[0];
     await b.setBranchStock(tenantId, south.branch.id, tea.id, 0);
     const north = (await b.listBranches(tenantId)).find((x) => x.name === "فرع الشمال")!;
