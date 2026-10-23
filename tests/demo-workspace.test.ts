@@ -44,6 +44,11 @@ describe("demo workspaces", () => {
     expect(await isDemoTenant(first.tenantId)).toBe(true);
     expect(await isDemoTenant("some-real-tenant")).toBe(false);
 
+    // demo workspaces never show in the admin panel's client lists
+    const { getHiddenTenantIds } = await import("../lib/admin-hidden-clients");
+    const hidden = await getHiddenTenantIds();
+    expect(hidden.has(first.tenantId) && hidden.has(second.tenantId)).toBe(true);
+
     // each workspace starts with its own conversations, products and an owner that can sign in by the link only
     for (const workspace of [first, second]) {
       expect(await prisma.conversation.count({ where: { tenantId: workspace.tenantId } })).toBe(5);
@@ -130,6 +135,7 @@ describe("demo workspaces", () => {
     vi.stubEnv("DEMO_REVIEWER_PASSWORD", "a-long-test-password-123");
 
     expect(await ensureReviewerWorkspace()).toBe("created");
+    expect((await (await import("../lib/admin-hidden-clients")).getHiddenTenantIds()).has(REVIEWER_TENANT_ID)).toBe(true);
     const user = await verifyUserCredentials("reviewer@demo.linklysa.io", "a-long-test-password-123");
     expect(user?.tenantId).toBe(REVIEWER_TENANT_ID);
     expect(await verifyUserCredentials("reviewer@demo.linklysa.io", "wrong-password-123")).toBeNull();

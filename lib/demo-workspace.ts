@@ -12,6 +12,7 @@ import { saveStoreTokens } from "./store-connections";
 import { seedDemoSallaOrders } from "./demo-salla";
 import { DEMO_DAYS, forgetDemoTenant } from "./demo-mode";
 import { deleteTenant } from "./subscriptions";
+import { setClientsHidden } from "./admin-hidden-clients";
 import { formatMessageTime } from "./time";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -126,6 +127,8 @@ export async function createDemoWorkspace(options: CreateOptions = {}): Promise<
 
   await prisma.$executeRaw`INSERT INTO demo_workspaces (tenant_id, created_at, expires_at) VALUES (${tenantId}, ${now}, ${expiresAt})`;
   forgetDemoTenant(tenantId);
+  // Test/demo workspaces stay out of the admin panel's client lists, counts and notifications.
+  await setClientsHidden([tenantId], true, "demo");
 
   // A "connected" WhatsApp number whose id starts with demo-: sends are answered locally (graphFetch), never by Meta.
   await getIntegrationSettings("whatsapp", tenantId);
@@ -188,7 +191,7 @@ const REVIEWER_RESET_HOURS = 24;
 export async function ensureReviewerWorkspace(options: { force?: boolean; now?: Date } = {}): Promise<"created" | "reset" | "kept" | "not-configured"> {
   const email = process.env.DEMO_REVIEWER_EMAIL?.trim().toLowerCase() ?? "";
   const password = process.env.DEMO_REVIEWER_PASSWORD ?? "";
-  if (!email.includes("@") || password.length < 12) return "not-configured";
+  if (!email.includes("@") || password.length < 8) return "not-configured";
   await ensureCatalogSchema();
   const now = options.now ?? new Date();
   const existing = await prisma.$queryRaw<Array<{ created_at: string }>>`SELECT created_at FROM demo_workspaces WHERE tenant_id = ${REVIEWER_TENANT_ID} LIMIT 1`;
