@@ -4,6 +4,7 @@ import {
   buildPlanAccess,
   isAdEventsAllowed,
   isStoreIntegrationAllowed,
+  type StoreName,
   isViewLockedForPlan,
   limitReachedMessage,
   planLimit,
@@ -72,7 +73,7 @@ export async function adEventsBlockedMessage(tenantId: string, platform: AdEvent
 }
 
 /** An upgrade message when the plan does not include linking an online store, else null. */
-export async function storeIntegrationBlockedMessage(tenantId: string): Promise<string | null> {
-  const allowed = isStoreIntegrationAllowed(await getTenantPlanName(tenantId), await getTenantGrants(tenantId));
+export async function storeIntegrationBlockedMessage(tenantId: string, store: StoreName = "zid"): Promise<string | null> {
+  const allowed = isStoreIntegrationAllowed(await getTenantPlanName(tenantId), await getTenantGrants(tenantId), store);
   return allowed ? null : upgradeMessageForStoreIntegration();
 }

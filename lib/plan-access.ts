@@ -39,8 +39,10 @@ export type PlanRestriction = {
   reportsExcel: boolean;
   /** Ad platforms this plan may send conversion events to (campaign optimisation). */
   adEvents: AdEventPlatform[];
-  /** Linking an online store (Salla, Zid, Shopify). */
+  /** Linking an online store: Zid and Shopify (Salla is open to every plan). */
   storeIntegrations: boolean;
+  /** The ad-platform cards of the integrations page (Lead Gen receiving and conversion events). */
+  adIntegrations: boolean;
 };
 
 export const INDIVIDUALS_PLAN = "باقة الأفراد";
@@ -52,13 +54,14 @@ export const ENTERPRISE_PLAN = "باقة الشركات";
 /** Cheapest first - an upgrade prompt points to the first plan that has what's locked. */
 export const PLAN_ORDER = [INDIVIDUALS_PLAN, REGULAR_PLAN, SMALL_ORG_PLAN, LARGE_ORG_PLAN, ENTERPRISE_PLAN];
 
-const INDIVIDUALS_VIEWS: ViewKey[] = ["inbox", "contacts", "tags", "quickReplies", "bot", "reports", "settings", "employees"];
+// "integrations" (Salla only for plans below Large - see adIntegrations) and "templates" (the order messages Salla sends need them) are in every plan.
+const INDIVIDUALS_VIEWS: ViewKey[] = ["inbox", "contacts", "tags", "quickReplies", "bot", "reports", "settings", "employees", "integrations", "templates"];
 // The regular plan opens the AI assistant too, but only with the customer's OWN API key: the Linkly-managed
 // AI (our key, our cost) stays a small-enterprises feature - it needs a positive aiDailyLimit on the Plan row, which this plan doesn't have.
 export const REAL_ESTATE_PROJECTS_VIEW: ViewKey = "pipeline";
-const REGULAR_VIEWS: ViewKey[] = [...INDIVIDUALS_VIEWS, "teams", "workHours", "templates", "campaigns", "emailPromotions", "segments", "ai", "branches"];
+const REGULAR_VIEWS: ViewKey[] = [...INDIVIDUALS_VIEWS, "teams", "workHours", "campaigns", "emailPromotions", "segments", "ai", "branches"];
 const SMALL_ORG_VIEWS: ViewKey[] = [...REGULAR_VIEWS, "automations", "knowledgeBase", "operations"];
-const LARGE_ORG_VIEWS: ViewKey[] = [...SMALL_ORG_VIEWS, "developers", "integrations", "catalog"];
+const LARGE_ORG_VIEWS: ViewKey[] = [...SMALL_ORG_VIEWS, "developers", "catalog"];
 
 // What the AI-free bot may use. AI and Knowledge Base steps arrive with the AI assistant (small enterprises); the catalog step with the catalog (large).
 const BOT_STEPS_BASIC = ["إرسال رسالة", "إرسال صورة", "إرسال فيديو", "إرسال مستند", "إرسال قائمة قصيرة", "إرسال قائمة طويلة", "أقرب فرع", "تحويل لفريق", "تحويل لموظف", "إغلاق المحادثة"];
@@ -82,7 +85,8 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     advancedSegments: false,
     reportsExcel: false,
     adEvents: [],
-    storeIntegrations: false
+    storeIntegrations: false,
+    adIntegrations: false
   },
   [REGULAR_PLAN]: {
     views: REGULAR_VIEWS,
@@ -96,7 +100,8 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     advancedSegments: false,
     reportsExcel: false,
     adEvents: [],
-    storeIntegrations: false
+    storeIntegrations: false,
+    adIntegrations: false
   },
   [SMALL_ORG_PLAN]: {
     views: SMALL_ORG_VIEWS,
@@ -109,7 +114,8 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     advancedSegments: true,
     reportsExcel: false,
     adEvents: ["meta"],
-    storeIntegrations: false
+    storeIntegrations: false,
+    adIntegrations: false
   },
   [LARGE_ORG_PLAN]: {
     views: LARGE_ORG_VIEWS,
@@ -122,7 +128,8 @@ export const RESTRICTED_PLANS: Record<string, PlanRestriction> = {
     advancedSegments: true,
     reportsExcel: true,
     adEvents: ["meta", "snapchat", "tiktok"],
-    storeIntegrations: true
+    storeIntegrations: true,
+    adIntegrations: true
   }
 };
 
@@ -347,9 +354,19 @@ export function isAdEventsAllowed(planName: string | null | undefined, platform:
   return !restriction || grants.features.includes("adEvents") || restriction.adEvents.includes(platform);
 }
 
-export function isStoreIntegrationAllowed(planName: string | null | undefined, grants: Grants = NO_GRANTS): boolean {
+export type StoreName = "salla" | "zid" | "shopify";
+
+/** Salla can be linked on every plan; Zid and Shopify only where the plan includes store integrations. */
+export function isStoreIntegrationAllowed(planName: string | null | undefined, grants: Grants = NO_GRANTS, store: StoreName = "zid"): boolean {
+  if (store === "salla") return true;
   const restriction = getPlanRestriction(planName);
   return !restriction || grants.features.includes("storeIntegrations") || restriction.storeIntegrations;
+}
+
+/** The ad-platform part of the integrations page (Lead Gen receiving, conversion events). */
+export function isAdIntegrationsAllowed(planName: string | null | undefined, grants: Grants = NO_GRANTS): boolean {
+  const restriction = getPlanRestriction(planName);
+  return !restriction || grants.features.includes("adEvents") || restriction.adIntegrations;
 }
 
 export function upgradeMessageForAdEvents(platform: AdEventPlatform): string {
@@ -359,7 +376,7 @@ export function upgradeMessageForAdEvents(platform: AdEventPlatform): string {
 
 export function upgradeMessageForStoreIntegration(): string {
   const target = PLAN_ORDER.find((name) => (RESTRICTED_PLANS[name] ? RESTRICTED_PLANS[name].storeIntegrations : true)) ?? ENTERPRISE_PLAN;
-  return `ربط المتاجر (سلة، زد، شوبيفاي) غير متاح في باقتك الحالية، وهو متاح بدءًا من ${target}. رقِّ باقتك للاستمتاع بالمزايا.`;
+  return `ربط متجر زد وشوبيفاي غير متاح في باقتك الحالية، وهو متاح بدءًا من ${target}. (ربط سلة متاح في كل الباقات.) رقِّ باقتك للاستمتاع بالمزايا.`;
 }
 
 export function isViewLockedForPlan(planName: string | null | undefined, view: ViewKey): boolean {
@@ -388,6 +405,8 @@ export type PlanAccessData = {
   reportsExcel: boolean;
   /** Still on the free trial - the upgrade popup then offers to try the plan instead of paying. */
   isTrial: boolean;
+  /** The integrations page shows the ad platforms too (otherwise only the Salla store card). */
+  adIntegrations: boolean;
 };
 
 export function buildPlanAccess(planName: string | null | undefined, allowedChannelsRaw: string | null | undefined, isTrial = false, grants: Grants = NO_GRANTS): PlanAccessData {
@@ -406,7 +425,8 @@ export function buildPlanAccess(planName: string | null | undefined, allowedChan
     botMaxSteps: grants.numbers.botMaxSteps ?? (restriction && !unlimitedBot ? restriction.botMaxSteps : null),
     basicReports: (restriction?.basicReports ?? false) && !grants.features.includes("fullReports"),
     reportsExcel: (restriction?.reportsExcel ?? true) || grants.features.includes("reportsExcel"),
-    isTrial
+    isTrial,
+    adIntegrations: isAdIntegrationsAllowed(planName, grants)
   };
 }
 

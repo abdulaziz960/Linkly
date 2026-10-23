@@ -36,10 +36,11 @@ describe("plan access: individuals plan", () => {
   it("opens only the WhatsApp-basics sections and locks the rest", async () => {
     const { lockedViewsForPlan, isViewLockedForPlan } = await import("../lib/plan-access");
     const locked = lockedViewsForPlan("باقة الأفراد");
-    for (const view of ["campaigns", "automations", "ai", "knowledgeBase", "catalog", "branches", "pipeline", "segments", "templates", "developers", "integrations", "branding", "teams", "workHours"] as const) {
+    for (const view of ["campaigns", "automations", "ai", "knowledgeBase", "catalog", "branches", "pipeline", "segments", "developers", "branding", "teams", "workHours"] as const) {
       expect(locked).toContain(view);
     }
-    for (const view of ["inbox", "contacts", "tags", "quickReplies", "bot", "reports", "settings"] as const) {
+    // Integrations (Salla only below the large plan) and templates (the order messages need them) are open to every plan.
+    for (const view of ["inbox", "contacts", "tags", "quickReplies", "bot", "reports", "settings", "integrations", "templates"] as const) {
       expect(isViewLockedForPlan("باقة الأفراد", view)).toBe(false);
     }
     // The enterprise plan and unknown/custom plans stay fully open.
@@ -57,13 +58,13 @@ describe("plan access: individuals plan", () => {
     }
     // Regular: campaigns/templates/teams yes; real-estate projects, automations, catalog, API no.
     for (const view of ["campaigns", "templates", "teams", "workHours", "ai", "branches"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(false);
-    for (const view of ["pipeline", "knowledgeBase", "automations", "operations", "catalog", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(true);
+    for (const view of ["pipeline", "knowledgeBase", "automations", "operations", "catalog", "developers", "branding"] as const) expect(isViewLockedForPlan("الباقة العادية", view)).toBe(true);
     // The regular plan opens the AI assistant (with the customer's own key); the individuals plan does not.
     expect(isViewLockedForPlan("الباقة العادية", "ai")).toBe(false);
     expect(isViewLockedForPlan("باقة الأفراد", "ai")).toBe(true);
     // Small enterprises add AI, automations and branches but not the catalog or the developer API.
     for (const view of ["ai", "knowledgeBase", "automations", "operations", "branches"] as const) expect(isViewLockedForPlan("باقة المؤسسات الصغيرة", view)).toBe(false);
-    for (const view of ["catalog", "developers", "integrations", "branding"] as const) expect(isViewLockedForPlan("باقة المؤسسات الصغيرة", view)).toBe(true);
+    for (const view of ["catalog", "developers", "branding"] as const) expect(isViewLockedForPlan("باقة المؤسسات الصغيرة", view)).toBe(true);
     // Large enterprises add the catalog and the API; only white-label branding stays enterprise.
     expect(isViewLockedForPlan("باقة المؤسسات الكبيرة", "catalog")).toBe(false);
     expect(isViewLockedForPlan("باقة المؤسسات الكبيرة", "developers")).toBe(false);

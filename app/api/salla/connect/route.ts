@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.redirect(new URL("/login", getAppOrigin(request)));
   if (user.role !== "مالك الحساب") return closeWith(request, "ربط المتجر متاح لمالك الحساب فقط.");
   {
-    const blocked = await storeIntegrationBlockedMessage(user.tenantId);
+    const blocked = await storeIntegrationBlockedMessage(user.tenantId, "salla");
     if (blocked) return closeWith(request, blocked);
   }
   if (!sallaConfigured()) return closeWith(request, "ربط سلة غير مفعّل بعد على الخادم (بيانات التطبيق ناقصة).");

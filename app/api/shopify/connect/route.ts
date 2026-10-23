@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   }
   if (user.role !== "مالك الحساب") return closeWith(request, "ربط المتجر متاح لمالك الحساب فقط.");
   {
-    const blocked = await storeIntegrationBlockedMessage(user.tenantId);
+    const blocked = await storeIntegrationBlockedMessage(user.tenantId, "shopify");
     if (blocked) return closeWith(request, blocked);
   }
   if (!shopifyConfigured()) return closeWith(request, "ربط شوبيفاي غير مفعّل بعد على الخادم (بيانات التطبيق ناقصة).");

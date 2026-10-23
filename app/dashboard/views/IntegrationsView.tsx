@@ -9,6 +9,7 @@ import QuickWelcomeTemplate from "../components/QuickWelcomeTemplate";
 import StoreSettings from "../components/StoreSettings";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import { usePlanAccess } from "../plan-access-context";
 import { ChannelIcon } from "./SettingsView";
 import type { IntegrationSettings } from "../types";
 
@@ -210,8 +211,13 @@ export default function IntegrationsView() {
   const current = platforms.find((platform) => platform.id === open) ?? null;
   const currentSettings = open ? settingsByChannel[leadChannelOf[open]] : undefined;
 
+  // Plans below the large one link Salla only: the ad platforms stay a large-plan feature.
+  const adIntegrations = usePlanAccess().access.adIntegrations;
+
   return (
     <section className="page-stack settings-page">
+      {adIntegrations ? (
+      <>
       <div className="channels-overview-head">
         <div>
           <h2>{t("التكاملات", "Integrations")}</h2>
@@ -246,11 +252,13 @@ export default function IntegrationsView() {
           );
         })}
       </div>
+      </>
+      ) : null}
 
-      <div className="channels-overview-head" style={{ marginTop: 8 }}>
+      <div className="channels-overview-head" style={{ marginTop: adIntegrations ? 8 : 0 }}>
         <div>
-          <h2>{t("المتاجر الإلكترونية", "E-commerce stores")}</h2>
-          <p>{t("اربط متجرك في سلة أو زد أو شوبيفاي لمتابعة طلبات العملاء وسلاتهم المتروكة من محادثات واتساب.", "Connect your Salla, Zid or Shopify store to follow customers' orders and abandoned carts from WhatsApp conversations.")}</p>
+          <h2>{adIntegrations ? t("المتاجر الإلكترونية", "E-commerce stores") : t("متجر سلة", "Salla store")}</h2>
+          <p>{adIntegrations ? t("اربط متجرك في سلة أو زد أو شوبيفاي لمتابعة طلبات العملاء وسلاتهم المتروكة من محادثات واتساب.", "Connect your Salla, Zid or Shopify store to follow customers' orders and abandoned carts from WhatsApp conversations.") : t("اربط متجرك في سلة لمتابعة طلبات العملاء وسلاتهم المتروكة من محادثات واتساب.", "Connect your Salla store to follow customers' orders and abandoned carts from WhatsApp conversations.")}</p>
         </div>
       </div>
 
@@ -259,7 +267,7 @@ export default function IntegrationsView() {
           { id: "salla", logo: "/brands/salla.png", title: t("سلة", "Salla"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") },
           { id: "zid", logo: "/brands/zid.svg", title: t("زد", "Zid"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") },
           { id: "shopify", logo: "/brands/shopify.svg", title: t("شوبيفاي", "Shopify"), description: t("طلبات المتجر والعملاء والسلات المتروكة، وإشعارات الطلب على واتساب.", "Store orders, customers and abandoned carts, with order updates on WhatsApp.") }
-        ].map((store) => (
+        ].filter((store) => adIntegrations || store.id === "salla").map((store) => (
           <div key={store.id} className="meta-test-card">
             <div>
               <span className="channel-icon" aria-hidden="true" style={{ display: "grid", placeItems: "center", background: "var(--surface-soft, #f3f7f6)" }}>

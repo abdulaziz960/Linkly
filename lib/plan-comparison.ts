@@ -90,19 +90,19 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   { ar: "التقارير", en: "Reports", view: "reports", cells: [note("أساسي", "Basic"), note("أساسي", "Basic"), note("كامل (موظفون وفرق وSLA)", "Full (agents, teams, SLA)"), note("كامل + تصدير Excel", "Full + Excel export"), note("كامل + تصدير Excel", "Full + Excel export")] },
 
   { ar: "التسويق والمبيعات", en: "Marketing and sales", heading: true },
-  { ar: "القوالب", en: "Templates", view: "templates", cells: [no, yes, yes, yes, yes] },
+  { ar: "القوالب", en: "Templates", view: "templates", cells: [yes, yes, yes, yes, yes] },
   { ar: "الحملات التسويقية", en: "Marketing campaigns", view: "campaigns", live: "campaigns" },
   { ar: "حملات متكررة بجدولة", en: "Scheduled recurring campaigns", cells: [no, no, yes, yes, yes] },
   { ar: "تقسيم العملاء", en: "Customer segments", view: "segments", cells: [no, note("بالوسوم", "By tags"), note("متقدم (تفاعل الحملات)", "Advanced (campaign engagement)"), note("متقدم", "Advanced"), note("متقدم", "Advanced")] },
   { ar: "إرسال أحداث التحويل لمنصات الإعلانات (تحسين الحملات)", en: "Conversion events to ad platforms (campaign optimisation)", cells: [no, no, note("ميتا فقط", "Meta only"), note("ميتا وسناب شات وتيك توك", "Meta, Snapchat and TikTok"), note("ميتا وسناب شات وتيك توك", "Meta, Snapchat and TikTok")] },
-  { ar: "تكامل سلة (منتجات وطلبات وكوبونات)", en: "Salla integration (products, orders, coupons)", cells: [no, no, no, yes, yes] },
+  { ar: "تكامل سلة: الطلبات والسلات المتروكة وإشعارات واتساب", en: "Salla integration: orders, abandoned carts and WhatsApp updates", cells: [yes, yes, yes, yes, yes] },
   { ar: "تكامل زد (منتجات وطلبات وكوبونات)", en: "Zid integration (products, orders, coupons)", cells: [no, no, no, SOON, SOON] },
   { ar: "تكامل شوبيفاي (منتجات وطلبات)", en: "Shopify integration (products and orders)", cells: [no, no, no, SOON, SOON] },
   { ar: "إرسال أقرب فرع للعميل حسب موقعه", en: "Send the customer their nearest branch", view: "branches", cells: [no, note("حتى 30 فرعًا", "Up to 30 branches"), note("حتى 65 فرعًا", "Up to 65 branches"), note("حتى 100 فرع", "Up to 100 branches"), BY_AGREEMENT] },
   { ar: "كتالوج المنتجات والشراء من واتساب", en: "Product catalog and buying on WhatsApp", view: "catalog", cells: [no, no, no, note("حتى 300 منتج", "Up to 300 products"), BY_AGREEMENT] },
 
   { ar: "للمطورين والمؤسسات", en: "Developers and enterprise", heading: true },
-  { ar: "التكاملات", en: "Integrations", view: "integrations", cells: [no, no, no, yes, yes] },
+  { ar: "تكاملات منصات الإعلانات (استقبال العملاء المحتملين)", en: "Ad-platform integrations (receiving leads)", cells: [no, no, no, yes, yes] },
   { ar: "واجهة API وWebhooks", en: "API and webhooks", view: "developers", cells: [no, no, no, yes, yes] },
   { ar: "علامة تجارية مخصّصة (White-label)", en: "Custom white-label branding", view: "branding", cells: [no, no, no, no, yes] }
 ];

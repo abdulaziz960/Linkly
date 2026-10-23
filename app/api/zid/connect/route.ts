@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   if (!user) return closeWith(request, "سجّل الدخول إلى لنكلي أولًا، ثم اربط المتجر من: التكاملات ← زد ← ربط المتجر.");
   if (user.role !== "مالك الحساب") return closeWith(request, "ربط المتجر متاح لمالك الحساب فقط.");
   {
-    const blocked = await storeIntegrationBlockedMessage(user.tenantId);
+    const blocked = await storeIntegrationBlockedMessage(user.tenantId, "zid");
     if (blocked) return closeWith(request, blocked);
   }
   if (!zidConfigured()) return closeWith(request, "ربط زد غير مفعّل بعد على الخادم (بيانات التطبيق ناقصة).");

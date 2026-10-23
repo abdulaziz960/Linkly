@@ -52,10 +52,10 @@ describe("the comparison table matches what is enforced", () => {
     const { COMPARISON_ROWS } = await import("../lib/plan-comparison");
     const { PLAN_ORDER, isAdEventsAllowed, isStoreIntegrationAllowed } = await import("../lib/plan-access");
     const eventsRow = COMPARISON_ROWS.find((row) => row.en.startsWith("Conversion events"))!;
-    const storeRows = ["Salla integration", "Zid integration", "Shopify integration"].map((name) => COMPARISON_ROWS.find((row) => row.en.startsWith(name))!);
+    const storeRows = [["Salla integration", "salla"], ["Zid integration", "zid"], ["Shopify integration", "shopify"]].map(([name, store]) => ({ row: COMPARISON_ROWS.find((item) => item.en.startsWith(name))!, store: store as "salla" | "zid" | "shopify" }));
     PLAN_ORDER.forEach((plan, index) => {
       expect(eventsRow.cells![index] !== false, `events ${plan}`).toBe(isAdEventsAllowed(plan, "meta"));
-      for (const row of storeRows) expect(row.cells![index] !== false, `${row.en} ${plan}`).toBe(isStoreIntegrationAllowed(plan));
+      for (const { row, store } of storeRows) expect(row.cells![index] !== false, `${row.en} ${plan}`).toBe(isStoreIntegrationAllowed(plan, undefined, store));
     });
     expect(isAdEventsAllowed("باقة المؤسسات الصغيرة", "snapchat")).toBe(false);
     expect(isAdEventsAllowed("باقة المؤسسات الكبيرة", "tiktok")).toBe(true);
@@ -71,8 +71,10 @@ describe("the comparison table matches what is enforced", () => {
     expect(await adEventsBlockedMessage("t-ev-small", "snapchat")).toContain("سناب شات");
     expect(await adEventsBlockedMessage("t-ev-small", "snapchat", true)).toBeNull();
     expect(await adEventsBlockedMessage("t-ev-large", "tiktok")).toBeNull();
-    expect(await storeIntegrationBlockedMessage("t-ev-small")).toContain("باقة المؤسسات الكبيرة");
-    expect(await storeIntegrationBlockedMessage("t-ev-large")).toBeNull();
+    // Salla links on every plan; Zid and Shopify only on the large plan.
+    expect(await storeIntegrationBlockedMessage("t-ev-small", "salla")).toBeNull();
+    expect(await storeIntegrationBlockedMessage("t-ev-small", "zid")).toContain("باقة المؤسسات الكبيرة");
+    expect(await storeIntegrationBlockedMessage("t-ev-large", "zid")).toBeNull();
   });
 
   it("a grant opens ad events and stores for one workspace", async () => {
