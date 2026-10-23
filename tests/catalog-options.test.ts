@@ -53,8 +53,8 @@ describe("option groups", () => {
   it("checks a selection against the groups and adds up the extra price", async () => {
     const { resolveSelection } = await import("../lib/catalog-options");
     const groups = [
-      { id: "g1", productId: "p", name: "الحجم", required: true, multiple: false, maxChoices: 1, sortOrder: 0, options: [{ id: "s", groupId: "g1", name: "صغير", priceDelta: 0, sortOrder: 0 }, { id: "l", groupId: "g1", name: "كبير", priceDelta: 5, sortOrder: 1 }] },
-      { id: "g2", productId: "p", name: "إضافات", required: false, multiple: true, maxChoices: 2, sortOrder: 1, options: [{ id: "c", groupId: "g2", name: "جبنة", priceDelta: 3, sortOrder: 0 }, { id: "x", groupId: "g2", name: "صوص", priceDelta: 2, sortOrder: 1 }, { id: "z", groupId: "g2", name: "بصل", priceDelta: 0, sortOrder: 2 }] }
+      { id: "g1", nameEn: "", productId: "p", name: "الحجم", required: true, multiple: false, maxChoices: 1, sortOrder: 0, options: [{ id: "s", groupId: "g1", name: "صغير", nameEn: "", priceDelta: 0, sortOrder: 0 }, { id: "l", groupId: "g1", name: "كبير", nameEn: "", priceDelta: 5, sortOrder: 1 }] },
+      { id: "g2", nameEn: "", productId: "p", name: "إضافات", required: false, multiple: true, maxChoices: 2, sortOrder: 1, options: [{ id: "c", groupId: "g2", name: "جبنة", nameEn: "", priceDelta: 3, sortOrder: 0 }, { id: "x", groupId: "g2", name: "صوص", nameEn: "", priceDelta: 2, sortOrder: 1 }, { id: "z", groupId: "g2", name: "بصل", nameEn: "", priceDelta: 0, sortOrder: 2 }] }
     ];
     expect(resolveSelection(groups, ["l", "c", "x"])).toMatchObject({ ok: true, delta: 10, text: "كبير، جبنة، صوص" });
     expect(resolveSelection(groups, [])).toMatchObject({ ok: false, reason: "missing", groupName: "الحجم" });
@@ -94,9 +94,15 @@ describe("options in the cart and the order", () => {
     expect(cart.lines[1].product.name).toBe("برجر (عادي)");
     expect(cart.subtotal).toBe(144);
 
-    const order = await createCartOrder({ tenantId, conversationId: "cart-1", customerName: "سارة", customerPhone: "966500000111", lines: cart.lines.map((line) => ({ product: line.product, quantity: line.quantity })), status: "new" });
+    const order = await createCartOrder({ tenantId, conversationId: "cart-1", customerName: "سارة", customerPhone: "966500000111", lines: cart.lines.map((line) => ({ product: line.product, quantity: line.quantity, baseName: line.baseName, optionDetails: line.optionDetails })), status: "new" });
     expect(order.total).toBe(144);
-    expect(order.items?.[0]).toMatchObject({ productName: "برجر (كبير، جبنة)", unitPrice: 38, quantity: 3 });
+    // The order line keeps the product's own name; the options sit apart, with their group names
+    expect(order.items?.[0]).toMatchObject({ productName: "برجر", unitPrice: 38, quantity: 3 });
+    expect(order.items?.[0].options?.map((option) => `${option.group}: ${option.name}`)).toEqual(["الحجم: كبير", "إضافات: جبنة"]);
+    const { listOrders } = await import("../lib/catalog");
+    const stored = (await listOrders(tenantId)).find((entry) => entry.id === order.id);
+    expect(stored?.items?.[0].options).toHaveLength(2);
+    expect(stored?.productName).toBe("برجر، برجر");
   });
 
   it("drops a line whose options were removed since it was added", async () => {
@@ -224,5 +230,51 @@ describe("groups for every product", () => {
     expect(saved.ok).toBe(true);
     expect((await groupsForProduct(tenantId, a.id)).map((g) => g.name)).toContain("السكر");
     expect((await groupsForProduct(tenantId, b.id)).map((g) => g.name)).toContain("السكر");
+  });
+});
+
+describe("how the chosen options read", () => {
+  const details = [
+    { group: "الحجم", groupEn: "Size", name: "كبير", nameEn: "Large", delta: 0 },
+    { group: "الإضافات", groupEn: "Extras", name: "جبن", nameEn: "Cheese", delta: 3 },
+    { group: "الإضافات", groupEn: "Extras", name: "صوص", nameEn: "", delta: 2.5 }
+  ];
+
+  it("one line per group, extras with their price, in Arabic or English", async () => {
+    const { optionLines } = await import("../lib/catalog-option-text");
+    expect(optionLines(details)).toEqual(["الحجم: كبير", "الإضافات: جبن (+3 ر.س)، صوص (+2.5 ر.س)"]);
+    // English uses the English names where they were given and falls back to the Arabic one
+    expect(optionLines(details, "en")).toEqual(["Size: Large", "Extras: Cheese (+3 SAR), صوص (+2.5 SAR)"]);
+    expect(optionLines([])).toEqual([]);
+  });
+
+  it("shows them under the product in the cart, the order summary and the payment message", async () => {
+    const { saveGroup, groupsForProduct } = await import("../lib/catalog-options");
+    const { addToCart, resolveCart, formatCart, formatOrderSummary } = await import("../lib/catalog-cart");
+    const { createCartOrder } = await import("../lib/catalog");
+    const { buildPaidOrderMessage } = await import("../lib/catalog-payments");
+    const car = await seedProduct("كامري 2026", 100);
+    const saved = await saveGroup(tenantId, { productId: car.id, name: "الحجم", nameEn: "Size", required: true, options: [{ name: "كبير", nameEn: "Large", priceDelta: 10 }] });
+    if (!saved.ok) throw new Error(saved.error);
+    const extras = await saveGroup(tenantId, { productId: car.id, name: "الإضافات", required: false, multiple: true, options: [{ name: "جبن", priceDelta: 3 }] });
+    if (!extras.ok) throw new Error(extras.error);
+    // English names are saved and loaded back
+    const groups = (await groupsForProduct(tenantId, car.id)).filter((group) => group.productId === car.id);
+    expect(groups[0]).toMatchObject({ name: "الحجم", nameEn: "Size" });
+    expect(groups[0].options[0]).toMatchObject({ name: "كبير", nameEn: "Large" });
+
+    await addToCart(tenantId, "cart-fmt", car.id, 1, [groups[0].options[0].id, groups[1].options[0].id]);
+    const cart = await resolveCart(tenantId, "cart-fmt");
+    const text = formatCart(cart);
+    expect(text).toContain("*كامري 2026*");
+    expect(text).toContain("الحجم: كبير");
+    expect(text).toContain("الإضافات: جبن (+3 ر.س)");
+    expect(text).not.toContain("(كبير، جبن)");
+    expect(formatOrderSummary(cart)).toContain("الحجم: كبير");
+
+    const order = await createCartOrder({ tenantId, conversationId: "cart-fmt", customerName: "سارة", customerPhone: "966500000111", lines: cart.lines.map((line) => ({ product: line.product, quantity: line.quantity, baseName: line.baseName, optionDetails: line.optionDetails })), status: "paid" });
+    const message = buildPaidOrderMessage({ id: order.id, customerName: "سارة", customerPhone: "966500000111", productName: "x", quantity: 1, total: order.total, currency: "SAR" }, "2026-10-23T10:00:00Z", "", order.items);
+    expect(message).toContain("• كامري 2026");
+    expect(message).toContain("الحجم: كبير");
   });
 });

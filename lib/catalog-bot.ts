@@ -1075,7 +1075,7 @@ async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeo
     conversationId: ctx.conversationId,
     customerName,
     customerPhone,
-    lines: cart.lines.map((line) => ({ product: line.product, quantity: line.quantity })),
+    lines: cart.lines.map((line) => ({ product: line.product, quantity: line.quantity, baseName: line.baseName, optionDetails: line.optionDetails })),
     status: provider ? "awaiting_payment" : "new",
     discount: cart.discount,
     shipping: delivery && quote ? { methodName: delivery.method.name, city: delivery.city, address: delivery.address, fee: quote.fee, eta: delivery.method.eta } : undefined

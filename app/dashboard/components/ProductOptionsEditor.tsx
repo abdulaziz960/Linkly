@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 
-type Option = { id: string; name: string; priceDelta: number };
-type Group = { id: string; productId: string; name: string; required: boolean; multiple: boolean; maxChoices: number; options: Option[] };
-type Draft = { id: string; name: string; required: boolean; multiple: boolean; maxChoices: string; options: Array<{ id: string; name: string; priceDelta: string }> };
+type Option = { id: string; name: string; nameEn: string; priceDelta: number };
+type Group = { id: string; productId: string; name: string; nameEn: string; required: boolean; multiple: boolean; maxChoices: number; options: Option[] };
+type Draft = { id: string; name: string; nameEn: string; required: boolean; multiple: boolean; maxChoices: string; options: Array<{ id: string; name: string; nameEn: string; priceDelta: string }> };
 
-const EMPTY: Draft = { id: "", name: "", required: true, multiple: false, maxChoices: "0", options: [{ id: "", name: "", priceDelta: "" }, { id: "", name: "", priceDelta: "" }] };
+const EMPTY: Draft = { id: "", name: "", nameEn: "", required: true, multiple: false, maxChoices: "0", options: [{ id: "", name: "", nameEn: "", priceDelta: "" }, { id: "", name: "", nameEn: "", priceDelta: "" }] };
 
 /** The choices a customer answers before a product goes into the cart (size, extras...), for one product or for every product. */
 export default function ProductOptionsEditor({ productId, productName, onClose }: { productId: string; productName: string; onClose: () => void }) {
@@ -30,7 +30,7 @@ export default function ProductOptionsEditor({ productId, productName, onClose }
 
   function edit(group: Group) {
     setNote(null);
-    setDraft({ id: group.id, name: group.name, required: group.required, multiple: group.multiple, maxChoices: String(group.maxChoices), options: group.options.map((option) => ({ id: option.id, name: option.name, priceDelta: option.priceDelta ? String(option.priceDelta) : "" })) });
+    setDraft({ id: group.id, name: group.name, nameEn: group.nameEn ?? "", required: group.required, multiple: group.multiple, maxChoices: String(group.maxChoices), options: group.options.map((option) => ({ id: option.id, name: option.name, nameEn: option.nameEn ?? "", priceDelta: option.priceDelta ? String(option.priceDelta) : "" })) });
   }
 
   async function save() {
@@ -41,7 +41,7 @@ export default function ProductOptionsEditor({ productId, productName, onClose }
       const response = await fetch("/api/catalog/options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: draft.id, productId, name: draft.name, required: draft.required, multiple: draft.multiple, maxChoices: Number(draft.maxChoices) || 0, options: draft.options.map((option) => ({ id: option.id, name: option.name, priceDelta: option.priceDelta })) })
+        body: JSON.stringify({ id: draft.id, productId, name: draft.name, nameEn: draft.nameEn, required: draft.required, multiple: draft.multiple, maxChoices: Number(draft.maxChoices) || 0, options: draft.options.map((option) => ({ id: option.id, name: option.name, nameEn: option.nameEn, priceDelta: option.priceDelta })) })
       });
       const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (!response.ok || !result?.ok) {
@@ -93,9 +93,14 @@ export default function ProductOptionsEditor({ productId, productName, onClose }
 
           {draft ? (
             <div className="options-form">
-              <label>{t("اسم المجموعة (مثل: الحجم، الإضافات)", "Group name (such as Size, Extras)")}
-                <input value={draft.name} maxLength={40} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-              </label>
+              <div className="options-form-row">
+                <label>{t("اسم المجموعة (مثل: الحجم، الإضافات)", "Group name (such as Size, Extras)")}
+                  <input value={draft.name} maxLength={40} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+                </label>
+                <label>{t("الاسم بالإنجليزية (اختياري، يظهر عند تشغيل اللوحة بالإنجليزية)", "English name (optional, shown when the dashboard is in English)")}
+                  <input dir="ltr" value={draft.nameEn} maxLength={40} onChange={(event) => setDraft({ ...draft, nameEn: event.target.value })} />
+                </label>
+              </div>
               <div className="options-form-row">
                 <label>{t("نوع الاختيار", "Choice type")}
                   <select value={draft.multiple ? "multiple" : "single"} onChange={(event) => setDraft({ ...draft, multiple: event.target.value === "multiple" })}>
@@ -117,11 +122,12 @@ export default function ProductOptionsEditor({ productId, productName, onClose }
                 {draft.options.map((option, index) => (
                   <div key={index}>
                     <input placeholder={t("اسم الخيار", "Option name")} value={option.name} maxLength={40} onChange={(event) => setOption(index, { name: event.target.value })} />
+                    <input placeholder={t("English", "English")} dir="ltr" value={option.nameEn} maxLength={40} onChange={(event) => setOption(index, { nameEn: event.target.value })} />
                     <input placeholder={t("سعر إضافي", "Extra price")} type="number" min={0} dir="ltr" value={option.priceDelta} onChange={(event) => setOption(index, { priceDelta: event.target.value })} />
                     <button type="button" className="soft-action" onClick={() => setDraft({ ...draft, options: draft.options.filter((_, at) => at !== index) })}>×</button>
                   </div>
                 ))}
-                {draft.options.length < 9 ? <button type="button" className="soft-action" onClick={() => setDraft({ ...draft, options: [...draft.options, { id: "", name: "", priceDelta: "" }] })}>{t("+ خيار", "+ Option")}</button> : null}
+                {draft.options.length < 9 ? <button type="button" className="soft-action" onClick={() => setDraft({ ...draft, options: [...draft.options, { id: "", name: "", nameEn: "", priceDelta: "" }] })}>{t("+ خيار", "+ Option")}</button> : null}
               </div>
               {note && !note.ok ? <span className="store-orders-error">{note.text}</span> : null}
               <div className="store-order-actions">

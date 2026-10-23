@@ -7,6 +7,7 @@ import CustomSelect from "../../components/CustomSelect";
 import DiscountCodesPanel from "../components/DiscountCodesPanel";
 import LoyaltyPanel from "../components/LoyaltyPanel";
 import ProductOptionsEditor from "../components/ProductOptionsEditor";
+import { optionLines, type OptionDetail } from "../../../lib/catalog-option-text";
 import PickupSettingsCard from "../components/PickupSettingsCard";
 import PrepTimeCard from "../components/PrepTimeCard";
 import ShippingPanel from "../components/ShippingPanel";
@@ -41,7 +42,7 @@ type Order = {
   paymentUrl: string;
   createdAt: string;
   /** The products of an order placed from the chat cart. */
-  items?: Array<{ productId: string; productName: string; unitPrice: number; quantity: number }>;
+  items?: Array<{ productId: string; productName: string; unitPrice: number; quantity: number; options?: OptionDetail[] }>;
   /** Delivery chosen for the order (the fee is in the total). */
   shipping?: { methodName: string; city: string; address: string; fee: number; eta: string };
   pickup?: { kind: "store" | "car"; plate: string; carDetails: string };
@@ -93,7 +94,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; d
 }
 
 export default function CatalogView() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [optionsFor, setOptionsFor] = useState<{ id: string; name: string } | null>(null);
   const [tab, setTab] = useState<"products" | "orders" | "shipping" | "discounts" | "loyalty" | "settings">("products");
   const [products, setProducts] = useState<Product[]>([]);
@@ -440,7 +441,7 @@ export default function CatalogView() {
                     <td data-label={t("العميل", "Customer")}>{order.customerName || "-"}<br /><small dir="ltr">{order.customerPhone}</small></td>
                     <td data-label={t("المنتج", "Product")}>
                       {order.items?.length
-                        ? order.items.map((item, index) => <div key={`${item.productId}-${index}`}>{item.productName} × {item.quantity}</div>)
+                        ? order.items.map((item, index) => <div key={`${item.productId}-${index}`}>{item.productName} × {item.quantity}{item.options?.length ? <div className="order-item-options">{optionLines(item.options, language === "en" ? "en" : "ar").map((line) => <small key={line}>{line}</small>)}</div> : null}</div>)
                         : <>{order.productName}{order.quantity > 1 ? ` × ${order.quantity}` : ""}</>}
                       {order.discount ? <div><small>{t("كود الخصم", "Code")}: {order.discount.code} (-{order.discount.amount})</small></div> : null}
                       {order.pickup ? <div><small>{order.pickup.kind === "car" ? t("استلام من السيارة", "Car pickup") : t("استلام من المحل", "Store pickup")}{order.pickup.plate ? ` — ${t("اللوحة", "Plate")}: ${order.pickup.plate}` : ""}{order.pickup.carDetails ? ` — ${order.pickup.carDetails}` : ""}</small></div> : null}

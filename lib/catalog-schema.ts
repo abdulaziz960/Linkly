@@ -157,6 +157,18 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     active INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE INDEX IF NOT EXISTS catalog_options_group_idx ON catalog_options(group_id)`,
+  // Optional English names of option groups and options (shown when the dashboard is in English); keyed by the group or option id.
+  `CREATE TABLE IF NOT EXISTS catalog_option_names_en (
+    ref_id TEXT PRIMARY KEY,
+    name_en TEXT NOT NULL DEFAULT ''
+  )`,
+  // The options chosen on an order's line (as names at the time of the order), kept apart from the product name.
+  `CREATE TABLE IF NOT EXISTS catalog_order_item_options (
+    order_id TEXT NOT NULL,
+    line_no INTEGER NOT NULL,
+    options_json TEXT NOT NULL,
+    PRIMARY KEY (order_id, line_no)
+  )`,
   // Where a customer is in a product's choices (which group, what they picked so far); group_index = -1 means all answered, waiting for the quantity.
   `CREATE TABLE IF NOT EXISTS catalog_option_flow (
     conversation_id TEXT PRIMARY KEY,

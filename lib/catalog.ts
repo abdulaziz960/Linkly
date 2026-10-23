@@ -6,6 +6,7 @@ import { getOrderTracking, type OrderTracking } from "./order-tracking";
 import { getOrderShipping, recordOrderShipping, type OrderShipping } from "./catalog-shipping";
 import { getOrderPickup, type OrderPickup } from "./catalog-pickup";
 import { getOrderPrep } from "./catalog-prep";
+import type { OptionDetail } from "./catalog-options";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { decryptSecret, encryptSecret } from "./secret-storage";
@@ -90,7 +91,7 @@ export type CatalogOrderRow = {
   prepMinutes?: number;
 };
 
-export type OrderItem = { productId: string; productName: string; unitPrice: number; quantity: number };
+export type OrderItem = { productId: string; productName: string; unitPrice: number; quantity: number; /** The options chosen on this line (size, extras), apart from the product name. */ options?: OptionDetail[] };
 
 const MAX_NAME = 120;
 const MAX_DESCRIPTION = 2000;
@@ -538,7 +539,7 @@ export async function listOrders(tenantId: string, limit = 200): Promise<Catalog
   }));
 }
 
-type ItemRow = { order_id: string; product_id: string; product_name: string; unit_price: number; quantity: number | bigint };
+type ItemRow = { order_id: string; product_id: string; product_name: string; unit_price: number; quantity: number | bigint; line_no: number | bigint };
 
 /** The lines of the orders that were placed from the chat cart, by order id (orders without lines are absent). */
 export async function getOrderItems(orderIds: string[]): Promise<Map<string, OrderItem[]>> {
@@ -547,10 +548,21 @@ export async function getOrderItems(orderIds: string[]): Promise<Map<string, Ord
   await ensureSchema();
   for (let start = 0; start < orderIds.length; start += 200) {
     const batch = orderIds.slice(start, start + 200);
-    const rows = await prisma.$queryRaw<ItemRow[]>`SELECT order_id, product_id, product_name, unit_price, quantity FROM catalog_order_items WHERE order_id IN (${Prisma.join(batch)}) ORDER BY order_id, line_no`;
+    const optionRows = await prisma.$queryRaw<Array<{ order_id: string; line_no: number | bigint; options_json: string }>>`SELECT order_id, line_no, options_json FROM catalog_order_item_options WHERE order_id IN (${Prisma.join(batch)})`;
+    const optionsByLine = new Map<string, OptionDetail[]>();
+    for (const row of optionRows) {
+      try {
+        const parsed = JSON.parse(row.options_json) as OptionDetail[];
+        if (Array.isArray(parsed)) optionsByLine.set(`${row.order_id}#${Number(row.line_no)}`, parsed);
+      } catch {
+        // A damaged record just shows no options.
+      }
+    }
+    const rows = await prisma.$queryRaw<ItemRow[]>`SELECT order_id, product_id, product_name, unit_price, quantity, line_no FROM catalog_order_items WHERE order_id IN (${Prisma.join(batch)}) ORDER BY order_id, line_no`;
     for (const row of rows) {
       const list = result.get(row.order_id) ?? [];
-      list.push({ productId: row.product_id, productName: row.product_name, unitPrice: Number(row.unit_price), quantity: Number(row.quantity) });
+      const options = optionsByLine.get(`${row.order_id}#${Number(row.line_no)}`);
+      list.push({ productId: row.product_id, productName: row.product_name, unitPrice: Number(row.unit_price), quantity: Number(row.quantity), ...(options?.length ? { options } : {}) });
       result.set(row.order_id, list);
     }
   }
@@ -566,7 +578,7 @@ export async function createCartOrder(input: {
   conversationId: string;
   customerName: string;
   customerPhone: string;
-  lines: Array<{ product: CatalogProduct; quantity: number }>;
+  lines: Array<{ product: CatalogProduct; quantity: number; /** The product's own name (the order line keeps the options apart). */ baseName?: string; optionDetails?: OptionDetail[] }>;
   status: OrderStatus;
   /** A discount code already taken (redeemed) for this order: the total is the subtotal minus its amount. */
   discount?: { id: string; code: string; amount: number };
@@ -575,13 +587,13 @@ export async function createCartOrder(input: {
 }): Promise<CatalogOrderRow> {
   await ensureSchema();
   if (!input.lines.length) throw new Error("A cart order needs at least one line");
-  const lines = input.lines.map((line) => ({ product: line.product, quantity: Math.max(1, Math.floor(line.quantity)) }));
+  const lines = input.lines.map((line) => ({ product: line.product, quantity: Math.max(1, Math.floor(line.quantity)), baseName: line.baseName ?? line.product.name, optionDetails: line.optionDetails ?? [] }));
   const units = lines.reduce((sum, line) => sum + line.quantity, 0);
   const subtotal = Math.round(lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0) * 100) / 100;
   const total = Math.round((subtotal - (input.discount?.amount ?? 0) + (input.shipping?.fee ?? 0)) * 100) / 100;
   const now = new Date().toISOString();
   const id = `ord-${randomUUID()}`;
-  const names = lines.map((line) => line.product.name).join("، ");
+  const names = lines.map((line) => line.baseName).join("، ");
 
   const row = await prisma.catalogOrder.create({
     data: {
@@ -602,13 +614,14 @@ export async function createCartOrder(input: {
     }
   });
   for (const [index, line] of lines.entries()) {
-    await prisma.$executeRaw`INSERT INTO catalog_order_items (order_id, line_no, product_id, product_name, unit_price, quantity) VALUES (${id}, ${index + 1}, ${line.product.id}, ${line.product.name}, ${line.product.price}, ${line.quantity})`;
+    await prisma.$executeRaw`INSERT INTO catalog_order_items (order_id, line_no, product_id, product_name, unit_price, quantity) VALUES (${id}, ${index + 1}, ${line.product.id}, ${line.baseName}, ${line.product.price}, ${line.quantity})`;
+    if (line.optionDetails.length) await prisma.$executeRaw`INSERT INTO catalog_order_item_options (order_id, line_no, options_json) VALUES (${id}, ${index + 1}, ${JSON.stringify(line.optionDetails)})`;
   }
   if (input.discount) await recordOrderDiscount(id, input.discount);
   if (input.shipping) await recordOrderShipping(id, input.shipping);
   return {
     ...toOrder(row),
-    items: lines.map((line) => ({ productId: line.product.id, productName: line.product.name, unitPrice: line.product.price, quantity: line.quantity })),
+    items: lines.map((line) => ({ productId: line.product.id, productName: line.baseName, unitPrice: line.product.price, quantity: line.quantity, ...(line.optionDetails.length ? { options: line.optionDetails } : {}) })),
     ...(input.discount ? { discount: { code: input.discount.code, amount: input.discount.amount } } : {}),
     ...(input.shipping ? { shipping: input.shipping } : {})
   };

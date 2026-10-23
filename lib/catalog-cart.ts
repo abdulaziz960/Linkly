@@ -7,7 +7,7 @@ import { ensureCatalogSchema } from "./catalog-schema";
 import { getProduct, isProductAvailable, type CatalogProduct } from "./catalog";
 import { evaluateDiscount, findDiscountByCode, getCartCode, normalizeCode, setCartCode } from "./catalog-discounts";
 import { loyaltyCodeBelongsToOther } from "./loyalty";
-import { groupsForProduct, optionsKey, resolveSelection } from "./catalog-options";
+import { describeSelection, groupsForProduct, optionLines, optionsKey, resolveSelection, type OptionDetail } from "./catalog-options";
 
 export const MAX_UNITS_PER_LINE = 99;
 export const MAX_CART_LINES = 20;
@@ -131,7 +131,16 @@ export async function clearCart(conversationId: string) {
 }
 
 /** `product` is the product as the customer configured it: its name carries the chosen options and its price includes their extras. */
-export type ResolvedCartLine = { product: CatalogProduct; quantity: number; lineTotal: number; options?: string[] };
+export type ResolvedCartLine = {
+  product: CatalogProduct;
+  quantity: number;
+  lineTotal: number;
+  options?: string[];
+  /** The product's own name, without the chosen options. */
+  baseName?: string;
+  /** The chosen options with their group names (empty for a product without choices). */
+  optionDetails?: OptionDetail[];
+};
 export type CartAdjustment = { position: number; name: string; from: number; to: number };
 export type ResolvedCart = {
   lines: ResolvedCartLine[];
@@ -164,17 +173,21 @@ export async function resolveCart(tenantId: string, conversationId: string): Pro
     const quantity = Math.min(line.quantity, maxUnitsFor(product));
     // The chosen options (size, extras) still have to fit the product's groups, as they are now.
     let configured = product;
+    let optionDetails: OptionDetail[] = [];
     if (line.options?.length) {
-      const selection = resolveSelection(await groupsForProduct(tenantId, product.id), line.options);
+      const groups = await groupsForProduct(tenantId, product.id);
+      const selection = resolveSelection(groups, line.options);
       if (!selection.ok) {
         dropped.push(`${product.name} (تغيّرت خياراته)`);
         continue;
       }
+      optionDetails = describeSelection(groups, line.options);
+      // The configured product keeps the options in its name for the places that only know a name (payment descriptions).
       configured = { ...product, name: `${product.name} (${selection.text})`, price: Math.round((product.price + selection.delta) * 100) / 100 };
     }
     // Less stock than the customer asked for (someone bought it meanwhile): they must see it before paying.
     if (quantity < line.quantity) adjusted.push({ position: index + 1, name: configured.name, from: line.quantity, to: quantity });
-    lines.push({ product: configured, quantity, lineTotal: Math.round(configured.price * quantity * 100) / 100, ...(line.options?.length ? { options: line.options } : {}) });
+    lines.push({ product: configured, quantity, lineTotal: Math.round(configured.price * quantity * 100) / 100, ...(line.options?.length ? { options: line.options } : {}), baseName: product.name, optionDetails });
   }
   const subtotal = Math.round(lines.reduce((sum, line) => sum + line.lineTotal, 0) * 100) / 100;
 
@@ -251,7 +264,8 @@ export function formatCart(cart: ResolvedCart, options: { compact?: boolean } = 
     const lineTotal = formatMoney(line.lineTotal, line.product.currency);
     if (options.compact) return `${RLM}${marker} ${shortName(line.product.name, 34)}${RLM} ×${line.quantity} — ${lineTotal}`;
     return [
-      `${RLM}${marker} *${shortName(line.product.name, 70)}*`,
+      `${RLM}${marker} *${shortName(line.baseName ?? line.product.name, 70)}*`,
+      ...optionLines(line.optionDetails ?? []).map((text) => `${RLM}      ${text}`),
       `${RLM}      الكمية: ${line.quantity}`,
       ...(line.quantity > 1 ? [`${RLM}      سعر القطعة: ${formatMoney(line.product.price, line.product.currency)}`] : []),
       `${RLM}      المجموع: ${lineTotal}`
@@ -272,7 +286,7 @@ export function formatCart(cart: ResolvedCart, options: { compact?: boolean } = 
 /** The same lines for a placed order's message: name, quantity and the line total. */
 export function formatOrderLines(cart: ResolvedCart): string {
   return cart.lines
-    .map((line) => `${RLM}• *${shortName(line.product.name, 70)}*\n${RLM}   الكمية: ${line.quantity} — ${formatMoney(line.lineTotal, line.product.currency)}`)
+    .map((line) => [`${RLM}• *${shortName(line.baseName ?? line.product.name, 70)}*`, ...optionLines(line.optionDetails ?? []).map((text) => `${RLM}   ${text}`), `${RLM}   الكمية: ${line.quantity} — ${formatMoney(line.lineTotal, line.product.currency)}`].join("\n"))
     .join("\n");
 }
 

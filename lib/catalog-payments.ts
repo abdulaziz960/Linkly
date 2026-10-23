@@ -5,6 +5,7 @@ import { getOrderDiscounts } from "./catalog-discounts";
 import { getOrderShipping, type OrderShipping } from "./catalog-shipping";
 import { getOrderPickup, pickupText, type OrderPickup } from "./catalog-pickup";
 import { getPrepSettings, prepSentence, setOrderPrep } from "./catalog-prep";
+import { optionLines } from "./catalog-options";
 import { sendWhatsAppTextMessage } from "./whatsapp-send";
 import { shortOrderNumber } from "./order-number";
 import { loyaltyMessageFor, recordPaidOrderForLoyalty } from "./loyalty";
@@ -48,7 +49,7 @@ export function buildPaidOrderMessage(order: {
   quantity: number;
   total: number;
   currency: string;
-}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number }>, discount?: { code: string; amount: number }, shipping?: OrderShipping, pickup?: OrderPickup, prepMinutes?: number): string {
+}, paidAtIso: string, fallbackName = "", items?: Array<{ productName: string; quantity: number; unitPrice: number; options?: import("./catalog-options").OptionDetail[] }>, discount?: { code: string; amount: number }, shipping?: OrderShipping, pickup?: OrderPickup, prepMinutes?: number): string {
   const name = usableCustomerName(order.customerName, order.customerPhone) || usableCustomerName(fallbackName, order.customerPhone);
   const amount = Number.isInteger(order.total) ? String(order.total) : order.total.toFixed(2);
   const currency = order.currency === "SAR" ? "ر.س" : order.currency;
@@ -57,7 +58,7 @@ export function buildPaidOrderMessage(order: {
     "",
     `رقم الطلب: ${shortOrderNumber(order.id)}`,
     ...(items && items.length > 0
-      ? ["المنتجات:", ...items.map((item) => `\u200f• ${item.productName}\n\u200f   الكمية: ${item.quantity}`)]
+      ? ["المنتجات:", ...items.map((item) => [`\u200f• ${item.productName}`, ...optionLines(item.options ?? []).map((text) => `\u200f   ${text}`), `\u200f   الكمية: ${item.quantity}`].join("\n"))]
       : [`المنتج: ${order.productName}`, ...(order.quantity > 1 ? [`الكمية: ${order.quantity}`] : [])]),
     ...(discount ? [`الخصم (${discount.code}): -${Number.isInteger(discount.amount) ? discount.amount : discount.amount.toFixed(2)} ${currency}`] : []),
     ...(shipping ? [`التوصيل: ${shipping.methodName} إلى ${shipping.city}`, `رسوم التوصيل: ${shipping.fee > 0 ? `${Number.isInteger(shipping.fee) ? shipping.fee : shipping.fee.toFixed(2)} ${currency}` : "مجاني"}`] : []),
@@ -258,7 +259,7 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
           total: order.total,
           currency: order.currency,
           paidAtIso: new Date().toISOString(),
-          items: orderItems?.map((item) => ({ name: item.productName, quantity: item.quantity, unitPrice: item.unitPrice })),
+          items: orderItems?.map((item) => ({ name: item.options?.length ? `${item.productName} (${item.options.map((option) => option.name).join("، ")})` : item.productName, quantity: item.quantity, unitPrice: item.unitPrice })),
           discount: orderDiscount ? { code: orderDiscount.code, amount: orderDiscount.amount } : undefined,
           shipping: orderShipping ? { name: orderShipping.methodName, city: orderShipping.city, fee: orderShipping.fee } : undefined,
           pickup: orderPickup ? pickupText(orderPickup) : undefined

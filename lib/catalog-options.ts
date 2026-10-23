@@ -5,13 +5,16 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
+import type { OptionDetail } from "./catalog-option-text";
+export { optionLines, type OptionDetail } from "./catalog-option-text";
 
 export const MAX_OPTIONS_PER_GROUP = 9;
 export const MAX_GROUPS_PER_PRODUCT = 8;
 
-export type CatalogOption = { id: string; groupId: string; name: string; priceDelta: number; sortOrder: number };
+export type CatalogOption = { id: string; groupId: string; name: string; /** "" when no English name was given. */ nameEn: string; priceDelta: number; sortOrder: number };
 export type OptionGroup = {
   id: string;
+  nameEn: string;
   /** "" = every product. */
   productId: string;
   name: string;
@@ -35,12 +38,21 @@ function ensureTables() {
 type GroupRow = { id: string; product_id: string; name: string; required: number | bigint; multiple: number | bigint; max_choices: number | bigint; sort_order: number | bigint };
 type OptionRow = { id: string; group_id: string; name: string; price_delta: number; sort_order: number | bigint };
 
-function toGroup(row: GroupRow, options: CatalogOption[]): OptionGroup {
-  return { id: row.id, productId: row.product_id, name: row.name, required: Number(row.required) === 1, multiple: Number(row.multiple) === 1, maxChoices: Number(row.max_choices), sortOrder: Number(row.sort_order), options };
+function toGroup(row: GroupRow, options: CatalogOption[], nameEn = ""): OptionGroup {
+  return { id: row.id, nameEn, productId: row.product_id, name: row.name, required: Number(row.required) === 1, multiple: Number(row.multiple) === 1, maxChoices: Number(row.max_choices), sortOrder: Number(row.sort_order), options };
 }
 
 function toOption(row: OptionRow): CatalogOption {
-  return { id: row.id, groupId: row.group_id, name: row.name, priceDelta: Number(row.price_delta), sortOrder: Number(row.sort_order) };
+  return { id: row.id, groupId: row.group_id, name: row.name, nameEn: "", priceDelta: Number(row.price_delta), sortOrder: Number(row.sort_order) };
+}
+
+async function englishNames(ids: string[]): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (!ids.length) return result;
+  const { Prisma } = await import("@prisma/client");
+  const rows = await prisma.$queryRaw<Array<{ ref_id: string; name_en: string }>>`SELECT ref_id, name_en FROM catalog_option_names_en WHERE ref_id IN (${Prisma.join(ids)})`;
+  for (const row of rows) result.set(row.ref_id, row.name_en);
+  return result;
 }
 
 async function optionsOf(groupIds: string[]): Promise<Map<string, CatalogOption[]>> {
@@ -49,7 +61,15 @@ async function optionsOf(groupIds: string[]): Promise<Map<string, CatalogOption[
     const rows = await prisma.$queryRaw<OptionRow[]>`SELECT id, group_id, name, price_delta, sort_order FROM catalog_options WHERE group_id = ${id} AND active = 1 ORDER BY sort_order ASC, name ASC`;
     map.set(id, rows.map(toOption));
   }
+  // The English names of the options come in one query.
+  const names = await englishNames([...map.values()].flat().map((option) => option.id));
+  for (const options of map.values()) for (const option of options) option.nameEn = names.get(option.id) ?? "";
   return map;
+}
+
+async function withEnglishGroups(rows: GroupRow[], options: Map<string, CatalogOption[]>): Promise<OptionGroup[]> {
+  const names = await englishNames(rows.map((row) => row.id));
+  return rows.map((row) => toGroup(row, options.get(row.id) ?? [], names.get(row.id) ?? ""));
 }
 
 /** The groups a customer answers for a product: the product's own and the ones for every product, each with its options; empty groups are skipped. */
@@ -57,7 +77,7 @@ export async function groupsForProduct(tenantId: string, productId: string): Pro
   await ensureTables();
   const rows = await prisma.$queryRaw<GroupRow[]>`SELECT id, product_id, name, required, multiple, max_choices, sort_order FROM catalog_option_groups WHERE tenant_id = ${tenantId} AND active = 1 AND (product_id = ${productId} OR product_id = '') ORDER BY sort_order ASC, created_at ASC`;
   const options = await optionsOf(rows.map((row) => row.id));
-  return rows.map((row) => toGroup(row, options.get(row.id) ?? [])).filter((group) => group.options.length > 0).slice(0, MAX_GROUPS_PER_PRODUCT);
+  return (await withEnglishGroups(rows, options)).filter((group) => group.options.length > 0).slice(0, MAX_GROUPS_PER_PRODUCT);
 }
 
 /** Every group of the workspace for the merchant's editor ("" = the ones for every product). */
@@ -67,11 +87,12 @@ export async function listGroups(tenantId: string, productId?: string): Promise<
     ? await prisma.$queryRaw<GroupRow[]>`SELECT id, product_id, name, required, multiple, max_choices, sort_order FROM catalog_option_groups WHERE tenant_id = ${tenantId} AND active = 1 ORDER BY sort_order ASC, created_at ASC`
     : await prisma.$queryRaw<GroupRow[]>`SELECT id, product_id, name, required, multiple, max_choices, sort_order FROM catalog_option_groups WHERE tenant_id = ${tenantId} AND active = 1 AND product_id = ${productId} ORDER BY sort_order ASC, created_at ASC`;
   const options = await optionsOf(rows.map((row) => row.id));
-  return rows.map((row) => toGroup(row, options.get(row.id) ?? []));
+  return withEnglishGroups(rows, options);
 }
 
 export type GroupInput = {
   id?: unknown;
+  nameEn?: unknown;
   productId?: unknown;
   name?: unknown;
   required?: unknown;
@@ -81,7 +102,7 @@ export type GroupInput = {
   options?: unknown;
 };
 
-export type CleanGroup = { id: string; productId: string; name: string; required: boolean; multiple: boolean; maxChoices: number; sortOrder: number; options: Array<{ id: string; name: string; priceDelta: number }> };
+export type CleanGroup = { id: string; productId: string; name: string; nameEn: string; required: boolean; multiple: boolean; maxChoices: number; sortOrder: number; options: Array<{ id: string; name: string; nameEn: string; priceDelta: number }> };
 
 /** Pure: a group from the merchant's form into a valid one, or an Arabic error. */
 export function cleanGroupInput(input: GroupInput): { ok: true; data: CleanGroup } | { ok: false; error: string } {
@@ -99,7 +120,7 @@ export function cleanGroupInput(input: GroupInput): { ok: true; data: CleanGroup
     seen.add(key);
     const delta = entry.priceDelta === undefined || entry.priceDelta === "" || entry.priceDelta === null ? 0 : Number(entry.priceDelta);
     if (!Number.isFinite(delta) || delta < 0 || delta > 100_000) return { ok: false, error: `السعر الإضافي لـ «${optionName}» غير صحيح` };
-    options.push({ id: typeof entry.id === "string" && entry.id ? entry.id : "", name: optionName, priceDelta: Math.round(delta * 100) / 100 });
+    options.push({ id: typeof entry.id === "string" && entry.id ? entry.id : "", name: optionName, nameEn: String(entry.nameEn ?? "").trim().slice(0, 40), priceDelta: Math.round(delta * 100) / 100 });
   }
   if (!options.length) return { ok: false, error: "أضف خيارًا واحدًا على الأقل" };
   if (options.length > MAX_OPTIONS_PER_GROUP) return { ok: false, error: `الحد الأقصى ${MAX_OPTIONS_PER_GROUP} خيارات في المجموعة الواحدة` };
@@ -111,6 +132,7 @@ export function cleanGroupInput(input: GroupInput): { ok: true; data: CleanGroup
       id: typeof input.id === "string" ? input.id : "",
       productId: typeof input.productId === "string" ? input.productId.trim().slice(0, 100) : "",
       name,
+      nameEn: String(input.nameEn ?? "").trim().slice(0, 40),
       required: input.required !== false,
       multiple,
       maxChoices,
@@ -146,10 +168,20 @@ export async function saveGroup(tenantId: string, input: GroupInput): Promise<{ 
     if (found.length) await prisma.$executeRaw`UPDATE catalog_options SET name = ${option.name}, price_delta = ${option.priceDelta}, sort_order = ${index}, active = 1 WHERE id = ${optionId}`;
     else await prisma.$executeRaw`INSERT INTO catalog_options (id, group_id, tenant_id, name, price_delta, sort_order, active) VALUES (${optionId}, ${id}, ${tenantId}, ${option.name}, ${option.priceDelta}, ${index}, 1)`;
   }
+  await setEnglishName(id, data.nameEn);
+  const keptIds = [...keep];
+  for (const [index, option] of data.options.entries()) {
+    if (keptIds[index]) await setEnglishName(keptIds[index], option.nameEn);
+  }
   const existing = await prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM catalog_options WHERE group_id = ${id} AND active = 1`;
   for (const row of existing) if (!keep.has(row.id)) await prisma.$executeRaw`UPDATE catalog_options SET active = 0 WHERE id = ${row.id}`;
   const group = (await listGroups(tenantId)).find((entry) => entry.id === id);
   return group ? { ok: true, group } : { ok: false, error: "تعذر حفظ المجموعة" };
+}
+
+async function setEnglishName(refId: string, nameEn: string) {
+  await prisma.$executeRaw`DELETE FROM catalog_option_names_en WHERE ref_id = ${refId}`;
+  if (nameEn) await prisma.$executeRaw`INSERT INTO catalog_option_names_en (ref_id, name_en) VALUES (${refId}, ${nameEn})`;
 }
 
 export async function deleteGroup(tenantId: string, id: string): Promise<boolean> {
@@ -218,3 +250,16 @@ export async function clearOptionFlow(conversationId: string) {
   await ensureTables();
   await prisma.$executeRaw`DELETE FROM catalog_option_flow WHERE conversation_id = ${conversationId}`;
 }
+
+/** Pure: the chosen options with their group names, in the order the groups are asked. */
+export function describeSelection(groups: OptionGroup[], chosenIds: string[]): OptionDetail[] {
+  const chosen = new Set(chosenIds);
+  const details: OptionDetail[] = [];
+  for (const group of groups) {
+    for (const option of group.options) {
+      if (chosen.has(option.id)) details.push({ group: group.name, groupEn: group.nameEn, name: option.name, nameEn: option.nameEn, delta: option.priceDelta });
+    }
+  }
+  return details;
+}
+
