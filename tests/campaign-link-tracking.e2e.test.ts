@@ -329,10 +329,8 @@ describe("Campaign link-click tracking end-to-end", () => {
     // Now correctly reclassified as never received, not merely unopened.
     expect(engagementBucketFor(recipientAfterFailure)).toBe("notReceived");
 
-    // A later "read" event for the same message must never override a
-    // confirmed delivery failure - WhatsApp doesn't send both for the same
-    // message, but the bucket logic itself must still treat deliveryFailed
-    // as authoritative if it somehow did.
-    expect(engagementBucketFor({ ...recipientAfterFailure, readAt: "2026-09-14T10:00:00.000Z" })).toBe("notReceived");
+    // A read receipt (or click) is proof the message arrived, so it overrides a failure flag
+    // (see campaign-engagement-bucket.test.ts); a failure alone stays "notReceived".
+    expect(engagementBucketFor({ ...recipientAfterFailure, readAt: "2026-09-14T10:00:00.000Z" })).toBe("opened");
   });
 });
