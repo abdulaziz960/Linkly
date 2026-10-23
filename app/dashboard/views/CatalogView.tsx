@@ -95,6 +95,27 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; d
   }
 }
 
+/** Shrinks a photo to at most 1024 px and encodes it as JPEG small enough for the upload route. */
+async function resizeToJpeg(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("canvas");
+  context.fillStyle = "#fff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  let quality = 0.85;
+  let dataUrl = canvas.toDataURL("image/jpeg", quality);
+  while (dataUrl.length > 1.2 * 1024 * 1024 && quality > 0.4) {
+    quality -= 0.15;
+    dataUrl = canvas.toDataURL("image/jpeg", quality);
+  }
+  return dataUrl;
+}
+
 export default function CatalogView() {
   const { t, language } = useLanguage();
   const [optionsFor, setOptionsFor] = useState<{ id: string; name: string } | null>(null);
@@ -110,6 +131,8 @@ export default function CatalogView() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [showUrlField, setShowUrlField] = useState(false);
   const [gatewayKey, setGatewayKey] = useState("");
   const [feedUrl, setFeedUrl] = useState("");
   const [feedInterval, setFeedInterval] = useState(360);
@@ -161,6 +184,8 @@ export default function CatalogView() {
 
   function openForm(product?: Product) {
     setFormError("");
+    setPhoto(null);
+    setShowUrlField(false);
     setForm(product ? {
       id: product.id,
       nameEn: product.nameEn ?? "",
@@ -181,7 +206,7 @@ export default function CatalogView() {
     event.preventDefault();
     setSaving(true);
     setFormError("");
-    const body = { ...form, stock: form.stock.trim() === "" ? -1 : Number(form.stock) };
+    const body = { ...form, imageUrl: photo ? "" : form.imageUrl, stock: form.stock.trim() === "" ? -1 : Number(form.stock) };
     const result = await api<Product>(form.id ? `/api/catalog/products/${form.id}` : "/api/catalog/products", {
       method: form.id ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
@@ -192,8 +217,25 @@ export default function CatalogView() {
       setFormError(result.error || t("تعذر الحفظ", "Could not save"));
       return;
     }
+    const savedId = form.id ?? result.data?.id;
+    if (photo && savedId) {
+      const uploaded = await api(`/api/catalog/products/${savedId}/image`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl: photo }) });
+      if (!uploaded.ok) {
+        setNotice({ type: "error", message: uploaded.error || t("تم حفظ المنتج لكن تعذر رفع الصورة", "Product saved but the photo could not be uploaded") });
+      }
+    }
     setFormOpen(false);
     await load();
+  }
+
+  async function pickPhoto(file: File | undefined) {
+    if (!file) return;
+    setFormError("");
+    try {
+      setPhoto(await resizeToJpeg(file));
+    } catch {
+      setFormError(t("تعذر قراءة الصورة. اختر ملف JPG أو PNG أو WebP.", "Could not read the image. Choose a JPG, PNG or WebP file."));
+    }
   }
 
   async function toggleActive(product: Product) {
@@ -647,7 +689,14 @@ export default function CatalogView() {
                 <label><span>{t("التصنيف", "Category")}</span><input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} maxLength={80} /></label>
                 <label><span>{t("الرمز (SKU)", "SKU")}</span><input value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} maxLength={80} dir="ltr" /></label>
               </div>
-              <label><span>{t("رابط الصورة (https)", "Image URL (https)")}</span><input type="url" value={form.imageUrl} onChange={(event) => setForm({ ...form, imageUrl: event.target.value })} placeholder="https://..." dir="ltr" /></label>
+              <div className="catalog-photo-field">
+                <span>{t("صورة المنتج", "Product photo")}</span>
+                {photo || form.imageUrl ? <img src={photo || form.imageUrl} alt="" width={96} height={96} className="catalog-thumb" /> : null}
+                <input type="file" accept="image/*" onChange={(event) => void pickPhoto(event.target.files?.[0])} />
+                {photo || form.imageUrl ? <button className="btn soft" type="button" onClick={() => { setPhoto(null); setForm({ ...form, imageUrl: "" }); }}>{t("إزالة الصورة", "Remove photo")}</button> : null}
+                <button className="btn soft" type="button" onClick={() => setShowUrlField(!showUrlField)}>{t("أو استخدم رابط صورة", "Or use an image link")}</button>
+                {showUrlField ? <input type="url" value={photo ? "" : form.imageUrl} onChange={(event) => { setPhoto(null); setForm({ ...form, imageUrl: event.target.value }); }} placeholder="https://..." dir="ltr" /> : null}
+              </div>
               <label><span>{t("رابط صفحة المنتج في موقعك (اختياري)", "Product page URL on your site (optional)")}</span><input type="url" value={form.productUrl} onChange={(event) => setForm({ ...form, productUrl: event.target.value })} placeholder="https://..." dir="ltr" /></label>
               <label><span>{t("الوصف", "Description")}</span><textarea rows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} maxLength={2000} /></label>
               <label className="automation-switch"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /><span>{form.active ? t("ظاهر للعملاء", "Visible to customers") : t("مخفي", "Hidden")}</span></label>

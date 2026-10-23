@@ -157,6 +157,13 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     active INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE INDEX IF NOT EXISTS catalog_options_group_idx ON catalog_options(group_id)`,
+  // A product photo the merchant uploaded (a JPEG data URL, already resized by the dashboard); served publicly so WhatsApp can fetch it.
+  `CREATE TABLE IF NOT EXISTS catalog_product_images (
+    product_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    data_url TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
   // The English name of a product (shown when the dashboard is in English); the product itself keeps one name.
   `CREATE TABLE IF NOT EXISTS catalog_product_names_en (
     product_id TEXT PRIMARY KEY,

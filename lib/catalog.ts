@@ -7,6 +7,7 @@ import { getOrderShipping, recordOrderShipping, type OrderShipping } from "./cat
 import { getOrderPickup, type OrderPickup } from "./catalog-pickup";
 import { getOrderPrep } from "./catalog-prep";
 import { getProductNamesEn } from "./catalog-product-names";
+import { removeProductImages } from "./catalog-product-image";
 import type { OptionDetail } from "./catalog-options";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
@@ -146,7 +147,7 @@ export function cleanProductInput(raw: ProductInput): { ok: true; data: CleanPro
   if (price > MAX_PRICE) return { ok: false, error: "السعر مرتفع جدًا" };
 
   const imageUrl = text(raw.imageUrl, MAX_URL);
-  if (imageUrl && !isHttpUrl(imageUrl, true)) return { ok: false, error: "رابط الصورة يجب أن يبدأ بـ https" };
+  if (imageUrl && !isHttpUrl(imageUrl, true) && !(isHttpUrl(imageUrl, false) && imageUrl.includes("/api/catalog/product-image/"))) return { ok: false, error: "رابط الصورة يجب أن يبدأ بـ https" };
 
   const productUrl = text(raw.productUrl, MAX_URL);
   if (productUrl && !isHttpUrl(productUrl, false)) return { ok: false, error: "رابط المنتج غير صالح" };
@@ -311,6 +312,7 @@ export async function deleteProduct(tenantId: string, idOrExternalId: string): P
   });
   if (!row) return false;
   await prisma.product.delete({ where: { id: row.id } });
+  await removeProductImages(tenantId, [row.id]).catch(() => undefined);
   return true;
 }
 
@@ -320,6 +322,7 @@ export async function deleteProducts(tenantId: string, ids: string[]): Promise<n
   const unique = Array.from(new Set(ids.filter((id) => typeof id === "string" && id)));
   if (!unique.length) return 0;
   const result = await prisma.product.deleteMany({ where: { tenantId, id: { in: unique } } });
+  await removeProductImages(tenantId, unique).catch(() => undefined);
   return result.count;
 }
 
@@ -327,6 +330,7 @@ export async function deleteProducts(tenantId: string, ids: string[]): Promise<n
 export async function deleteAllProducts(tenantId: string): Promise<number> {
   await ensureSchema();
   const result = await prisma.product.deleteMany({ where: { tenantId } });
+  await removeProductImages(tenantId).catch(() => undefined);
   return result.count;
 }
 
