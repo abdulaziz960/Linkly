@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { ensureSchema } from "../../../../lib/database";
 import { prisma } from "../../../../lib/prisma";
 import { invalidateTenantSubscriptionRow } from "../../../../lib/tenant-subscription-row";
+import { isSallaBilled } from "../../../../lib/salla-billing";
 import { cancelShopifySubscription, isShopifyBilled } from "../../../../lib/shopify-billing";
 
 export const runtime = "nodejs";
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "الإلغاء متاح فقط للاشتراكات المدفوعة النشطة" }, { status: 400 });
   }
 
+  if (await isSallaBilled(user.tenantId)) return NextResponse.json({ error: "اشتراكك يُدار ويُدفع من سلة. لتغيير الباقة أو التجديد أو الإلغاء افتح لوحة متجرك في سلة ← التطبيقات ← Linkly." }, { status: 400 });
   // Shopify charges by itself, so a cancel must reach Shopify; a cancelled Shopify subscription can't be
   // resumed - the owner subscribes again instead.
   if (await isShopifyBilled(user.tenantId)) {

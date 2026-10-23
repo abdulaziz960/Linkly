@@ -196,6 +196,21 @@ export async function fetchSallaMerchant(accessToken: string): Promise<{ id: str
   }
 }
 
+/** Who authorized the app (Easy Mode install): the merchant's owner email and name, to create their workspace. */
+export async function fetchSallaInstaller(accessToken: string): Promise<{ merchantId: string; merchantName: string; email: string; name: string } | null> {
+  try {
+    const response = await fetch(SALLA_USER_URL, { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
+    const payload = await response.json().catch(() => null) as { data?: Json } | null;
+    const data = obj(payload?.data);
+    const merchant = obj(data.merchant);
+    const merchantId = str(merchant.id) || str(data.merchant_id);
+    if (!response.ok || !merchantId) return null;
+    return { merchantId, merchantName: str(merchant.name) || str(merchant.username) || str(data.name), email: str(data.email).toLowerCase() || str(merchant.email).toLowerCase(), name: str(data.name) || str(merchant.name) };
+  } catch {
+    return null;
+  }
+}
+
 /** A valid access token for the workspace, refreshed (and saved) when it is about to expire. */
 async function accessTokenFor(tenantId: string, forceRefresh = false): Promise<string | null> {
   const tokens = await readStoreTokens(tenantId, "salla");

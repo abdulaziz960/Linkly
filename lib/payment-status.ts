@@ -31,6 +31,7 @@ export const PAYMENT_GATEWAY = {
   moyasar: "moyasar",
   stripe: "stripe",
   shopify: "shopify",
+  salla: "salla",
   manual: "manual",
   test: "test"
 } as const;

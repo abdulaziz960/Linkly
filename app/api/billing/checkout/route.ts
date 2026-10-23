@@ -9,6 +9,7 @@ import { computeProrationCredit } from "../../../../lib/subscriptions";
 import { planFeatures } from "../../../../lib/plan-features";
 import { isBillingCycle, isSellableBillingCycle, isSamePlanRenewalTooEarly, priceForCycle, RENEWAL_WINDOW_DAYS, type BillingCycle } from "../../../../lib/billing-pricing";
 import { reservePromoCodeUsage, releasePromoCodeUsage, promoCodeErrorMessage, type PromoCodeErrorCode } from "../../../../lib/promo-codes";
+import { isSallaBilled } from "../../../../lib/salla-billing";
 import { isShopifyBilled, startShopifyCheckout } from "../../../../lib/shopify-billing";
 import { getAppOrigin } from "../../../../lib/app-url";
 
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
       );
     }
   }
+  if (await isSallaBilled(user.tenantId)) return NextResponse.json({ error: "اشتراكك يُدار ويُدفع من سلة. لتغيير الباقة أو التجديد أو الإلغاء افتح لوحة متجرك في سلة ← التطبيقات ← Linkly." }, { status: 400 });
   // A workspace created by installing Linkly from Shopify pays through Shopify Billing (lib/shopify-billing.ts),
   // never through Moyasar; the owner is sent to Shopify's approval page.
   if (await isShopifyBilled(user.tenantId)) {

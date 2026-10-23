@@ -650,7 +650,7 @@ export async function reconcileStalePendingPayments(staleAfterMs = 24 * 60 * 60 
 
   const stalePayments = await prisma.subscriptionPayment.findMany({
     // Shopify checkouts are settled from Shopify's own record (settleStaleShopifyCheckouts in lib/shopify-billing.ts).
-    where: { status: PAYMENT_STATUS.pending, createdAt: { lt: cutoff }, gateway: { not: PAYMENT_GATEWAY.shopify } },
+    where: { status: PAYMENT_STATUS.pending, createdAt: { lt: cutoff }, gateway: { notIn: [PAYMENT_GATEWAY.shopify, PAYMENT_GATEWAY.salla] } },
     take: 50
   });
   for (const payment of stalePayments) await reconcileOne("subscription", payment);
@@ -809,6 +809,8 @@ export async function sendSubscriptionRenewalReminders(baseUrl: string) {
     // Shopify renews these by itself (lib/shopify-billing.ts), so there is nothing to pay manually.
     const { isShopifyBilled } = await import("./shopify-billing");
     if (await isShopifyBilled(subscription.tenantId)) continue;
+    // Salla bills these itself and tells us when a period renews.
+    if (await (await import("./salla-billing")).isSallaBilled(subscription.tenantId)) continue;
 
     const owner = await prisma.userAccount.findFirst({
       where: { tenantId: subscription.tenantId, role: "مالك الحساب" },

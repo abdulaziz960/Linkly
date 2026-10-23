@@ -69,9 +69,28 @@ export default function IntegrationsView() {
     });
   }
 
+  const [sallaPending, setSallaPending] = useState<{ merchantName: string } | null>(null);
+
   useEffect(() => {
     loadStoreConnections();
+    // A store installed from Salla with this owner's email waits for a confirmation here.
+    fetch("/api/salla/claim", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((result: { pending?: { merchantName?: string } | null }) => setSallaPending(result?.pending ? { merchantName: result.pending.merchantName || "" } : null))
+      .catch(() => null);
   }, []);
+
+  async function claimSalla() {
+    const response = await fetch("/api/salla/claim", { method: "POST" });
+    const result = await response.json().catch(() => ({})) as { error?: string };
+    if (response.ok) {
+      setSallaPending(null);
+      loadStoreConnections();
+      setNotice({ type: "success", message: t("تم ربط متجر سلة بحسابك.", "Your Salla store is now linked to your account.") });
+    } else {
+      setNotice({ type: "error", message: result.error || t("تعذر الربط.", "Could not link the store.") });
+    }
+  }
 
   function loadTemplates() {
     fetch("/api/templates")
@@ -253,6 +272,14 @@ export default function IntegrationsView() {
         })}
       </div>
       </>
+      ) : null}
+
+      {sallaPending ? (
+        <div className="account-note" role="status" style={{ marginBottom: 12 }}>
+          <b>{t("متجر سلة بانتظار الربط", "A Salla store is waiting to be linked")}</b>
+          <p>{t(`ثبّت أحدهم تطبيق Linkly من متجر سلة${sallaPending.merchantName ? ` (${sallaPending.merchantName})` : ""} باستخدام بريدك. اربطه بهذا الحساب؟ يبقى الدفع على اشتراكك الحالي في Linkly.`, `Linkly was installed from a Salla store${sallaPending.merchantName ? ` (${sallaPending.merchantName})` : ""} using your email. Link it to this account? Billing stays on your current Linkly subscription.`)}</p>
+          <button className="btn primary" type="button" onClick={claimSalla}>{t("ربط المتجر", "Link the store")}</button>
+        </div>
       ) : null}
 
       <div className="channels-overview-head" style={{ marginTop: adIntegrations ? 8 : 0 }}>

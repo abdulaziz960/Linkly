@@ -46,8 +46,8 @@ export const planFeatures: Record<string, PlanFeatures> = {
     shortName: { ar: "الأفراد", en: "Individuals" },
     audience: { ar: "الأنسب لصاحب عمل يبدأ لحاله ويحتاج يرتب رسائل واتساب.", en: "Best for a solo business owner who needs their WhatsApp messages organized." },
     items: {
-      ar: ["رد آلي بسيط جدًا (حتى 6 خطوات)", "وسوم وردود سريعة", "قالب واتساب معتمد لمتابعة العميل بعد نافذة الـ24 ساعة", "ربط متجر سلة: الطلبات والسلات المتروكة وإشعارات واتساب", "تقرير أساسي"],
-      en: ["Very simple auto-reply (up to 6 steps)", "Tags and quick replies", "Approved WhatsApp template to follow up after the 24-hour window", "Salla store link: orders, abandoned carts and WhatsApp updates", "Basic report"]
+      ar: ["رد آلي بسيط جدًا (حتى 6 خطوات)", "وسوم وردود سريعة", "قالب واتساب معتمد لمتابعة العميل بعد نافذة الـ24 ساعة", "ربط متجر سلة: الطلبات والسلات المتروكة وإشعارات واتساب", "إشعارات واتساب لكل حالة طلب وشحنة", "استرجاع السلات المتروكة برسالة واتساب", "متابعة الطلبات والشحن من داخل المحادثة", "تقرير أساسي"],
+      en: ["Very simple auto-reply (up to 6 steps)", "Tags and quick replies", "Approved WhatsApp template to follow up after the 24-hour window", "Salla store link: orders, abandoned carts and WhatsApp updates", "WhatsApp notifications for every order and shipment status", "Abandoned-cart recovery by WhatsApp message", "Track orders and shipping from inside the chat", "Basic report"]
     }
   },
   "الباقة العادية": {

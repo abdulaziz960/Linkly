@@ -6,6 +6,8 @@ import { getSubscriptionForTenant } from "../../lib/subscriptions";
 import { isMoyasarLiveMode } from "../../lib/moyasar";
 import { getTenantBranding } from "../../lib/tenant-branding";
 import { getShopifyPlanPrices, isShopifyBilled } from "../../lib/shopify-billing";
+import { isSallaBilled } from "../../lib/salla-billing";
+import SallaManagedNotice from "./SallaManagedNotice";
 
 export const dynamic = "force-dynamic";
 import BillingPageClient from "./BillingPageClient";
@@ -29,6 +31,10 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     redirect("/dashboard");
   }
   const [plans, subscription, { expired, shopify: shopifyResult }, branding] = await Promise.all([getActivePlans(), getSubscriptionForTenant(user.tenantId), searchParams, getTenantBranding(user.tenantId)]);
+  // A workspace opened from Salla's app store is billed by Salla: nothing to buy here.
+  if (await isSallaBilled(user.tenantId)) {
+    return <SallaManagedNotice branding={branding} plan={subscription?.plan || ""} renewalAt={subscription?.renewalAt || ""} active={!user.subscriptionExpired} />;
+  }
   // A workspace opened from a Shopify install pays through Shopify, in US dollars (lib/shopify-billing.ts).
   const shopifyPrices = await isShopifyBilled(user.tenantId) ? await getShopifyPlanPrices() : null;
   // A genuinely expired/suspended owner gets the hard full-screen lock, not

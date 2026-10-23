@@ -294,11 +294,43 @@ function findStoreOrderByReference(store: StoreKey, tenantId: string, reference:
 // ---------- webhook entry ----------
 
 export async function handleSallaWebhook(body: unknown): Promise<WebhookOutcome> {
+  const raw = (body && typeof body === "object" ? body : {}) as { event?: unknown; merchant?: unknown; data?: unknown };
+  if (typeof raw.event === "string" && raw.event.startsWith("app.")) return handleSallaAppEvent(raw);
   const event = parseSallaWebhook(body);
   const tenantId = await findTenantByMerchant("salla", event.merchantId);
   if (!tenantId) return { handled: false, status: 202, detail: "unknown merchant" };
   const detail = await applyStoreEvent(tenantId, "salla", event);
   return { handled: true, status: 200, detail };
+}
+
+/** Salla's app lifecycle: the install's tokens, trial and subscription events, uninstall. */
+async function handleSallaAppEvent(payload: { event?: unknown; merchant?: unknown; data?: unknown }): Promise<WebhookOutcome> {
+  const event = String(payload.event);
+  const merchantRaw = payload.merchant;
+  const merchantId = typeof merchantRaw === "object" && merchantRaw ? String((merchantRaw as { id?: unknown }).id ?? "") : String(merchantRaw ?? "");
+  const data = (payload.data && typeof payload.data === "object" ? payload.data : {}) as Record<string, unknown>;
+  if (!merchantId) return { handled: false, status: 200, detail: "no merchant" };
+
+  if (event === "app.store.authorize") {
+    const { installFromSalla, sallaExpiryIso } = await import("./salla-install");
+    const accessToken = String(data.access_token ?? "");
+    if (!accessToken) return { handled: false, status: 200, detail: "no token" };
+    const outcome = await installFromSalla(merchantId, { accessToken, refreshToken: String(data.refresh_token ?? ""), expiresAt: sallaExpiryIso(data.expires) });
+    // A failed install is worth Salla's retries (they arrive every few minutes); the other outcomes are final.
+    return outcome === "error" ? { handled: false, status: 500, detail: "install failed" } : { handled: true, status: 200, detail: outcome };
+  }
+
+  const billing = await import("./salla-billing");
+  const tenantId = await findTenantByMerchant("salla", merchantId, { includeDisconnected: true });
+  if (!tenantId || !(await billing.isSallaBilled(tenantId))) {
+    // Before the install finished (events can overtake it) the event waits; a store billed by Linkly itself ignores them.
+    if (!tenantId) {
+      await billing.queueSallaEvent(merchantId, { event, data });
+      return { handled: true, status: 200, detail: "queued" };
+    }
+    return { handled: true, status: 200, detail: "not billed by salla" };
+  }
+  return { handled: true, status: 200, detail: await billing.applySallaAppEvent(tenantId, event, data) };
 }
 
 /** Shopify's orders / checkouts / uninstall events. The shop domain identifies the workspace. */
