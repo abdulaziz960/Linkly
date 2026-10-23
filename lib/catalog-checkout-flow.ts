@@ -16,6 +16,8 @@ export type CheckoutData = {
   pickupKind?: string;
   plate?: string;
   carDetails?: string;
+  /** The branch question asked while browsing (before the products), not at checkout. */
+  browse?: boolean;
 };
 
 export type CheckoutFlow = { step: CheckoutStep; data: CheckoutData };

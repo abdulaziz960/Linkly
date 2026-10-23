@@ -8,7 +8,7 @@ import { getOrderPickup, type OrderPickup } from "./catalog-pickup";
 import { getOrderPrep } from "./catalog-prep";
 import { getProductNamesEn } from "./catalog-product-names";
 import { removeProductImages } from "./catalog-product-image";
-import { getOrderBranches, restockBranch } from "./catalog-branches";
+import { getOrderBranches, getUnavailableAtBranch, restockBranch } from "./catalog-branches";
 import type { OptionDetail } from "./catalog-options";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
@@ -236,10 +236,12 @@ export async function listProductsForDashboard(tenantId: string) {
 
 /** The products the bot offers: active, in stock, newest-first, one WhatsApp list's worth. */
 /** `category`: undefined/"*" = all, "other" = products without a category, otherwise the category name. */
-export async function listBotProducts(tenantId: string, limit = 10, category?: string): Promise<CatalogProduct[]> {
+export async function listBotProducts(tenantId: string, limit = 10, category?: string, branchId?: string): Promise<CatalogProduct[]> {
   await ensureSchema();
+  // With a branch chosen its stock decides (a product switched off there is left out) and the product's own stock is not used.
+  const off = branchId ? await getUnavailableAtBranch(tenantId, branchId) : [];
   const rows = await prisma.product.findMany({
-    where: { tenantId, active: 1, NOT: { stock: 0 }, ...(category && category !== "*" ? { category: category === "other" ? "" : category } : {}) },
+    where: { tenantId, active: 1, ...(branchId ? (off.length ? { NOT: { id: { in: off } } } : {}) : { NOT: { stock: 0 } }), ...(category && category !== "*" ? { category: category === "other" ? "" : category } : {}) },
     orderBy: { createdAt: "desc" },
     take: limit
   });
@@ -247,9 +249,10 @@ export async function listBotProducts(tenantId: string, limit = 10, category?: s
 }
 
 /** The categories of the products the bot can show, with how many each holds ("" is the uncategorised group). */
-export async function listBotCategories(tenantId: string): Promise<Array<{ name: string; count: number }>> {
+export async function listBotCategories(tenantId: string, branchId?: string): Promise<Array<{ name: string; count: number }>> {
   await ensureSchema();
-  const groups = await prisma.product.groupBy({ by: ["category"], where: { tenantId, active: 1, NOT: { stock: 0 } }, _count: { _all: true } });
+  const off = branchId ? await getUnavailableAtBranch(tenantId, branchId) : [];
+  const groups = await prisma.product.groupBy({ by: ["category"], where: { tenantId, active: 1, ...(branchId ? (off.length ? { NOT: { id: { in: off } } } : {}) : { NOT: { stock: 0 } }) }, _count: { _all: true } });
   return groups.map((group) => ({ name: group.category, count: group._count._all })).sort((a, b) => b.count - a.count);
 }
 

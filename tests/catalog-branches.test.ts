@@ -123,3 +123,58 @@ describe("branches with their own stock", () => {
     expect((await b.getBranchStock(tenantId, north.id)).get(tea.id)).toBe(3);
   });
 });
+
+describe("choosing the branch before the products", () => {
+  it("asks the branch first, then lists only that branch's products, keeps the branch for checkout, and lets the customer change it", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const b = await import("../lib/catalog-branches");
+    const { sendCatalogMenu, handleCatalogReply } = await import("../lib/catalog-bot");
+    const branches = await b.listBranches(tenantId);
+    const north = branches.find((x) => x.name === "فرع الشمال")!;
+    const south = branches.find((x) => x.name === "فرع الجنوب")!;
+    const tea = (await prisma.product.findMany({ where: { tenantId, name: "شاي" } }))[0];
+    const cake = (await prisma.product.findMany({ where: { tenantId, name: "كيك" } }))[0];
+    await b.setBranchStock(tenantId, south.id, tea.id, 0); // tea is switched off at the south branch
+    await b.setBranchStock(tenantId, north.id, tea.id, 5);
+
+    const texts: string[] = [];
+    const c = { channel: "whatsapp" as const, tenantId, conversationId: "conv-browse", recipientId: "966500000001", sendText: async (t: string) => { texts.push(t); } };
+
+    // the branch comes first
+    sent.length = 0;
+    await sendCatalogMenu(c, "أهلًا");
+    expect(String(sent.at(-1)!.input.bodyText)).toContain("من أي فرع تريد الطلب");
+    expect(sent.some((m) => m.kind === "list" && (m.input.rows as Array<{ id: string }>).some((row) => row.id.startsWith("prod_")))).toBe(false);
+
+    // south: tea is not offered, cake is
+    sent.length = 0;
+    await handleCatalogReply(c, { id: `br_${south.id}`, text: "" }, "أهلًا");
+    const southRows = (sent.find((m) => m.kind === "list")!.input.rows as Array<{ id: string }>).map((row) => row.id);
+    expect(southRows).toContain(`prod_${cake.id}`);
+    expect(southRows).not.toContain(`prod_${tea.id}`);
+    expect(String(sent.find((m) => m.kind === "list")!.input.bodyText)).toContain("فرع الجنوب");
+    // the footer offers to change the branch
+    const footer = sent.at(-1)!.input.buttons as Array<{ id: string }>;
+    expect(footer.map((x) => x.id)).toContain("brchange");
+
+    // tea cannot be opened or added at south
+    texts.length = 0;
+    await handleCatalogReply(c, { id: `prod_${tea.id}`, text: "" }, "");
+    expect(texts.join("\n")).toContain("لم يعد متوفرًا");
+
+    // change to north: tea is back
+    sent.length = 0;
+    await handleCatalogReply(c, { id: "brchange", text: "" }, "");
+    expect(String(sent.at(-1)!.input.bodyText)).toContain("من أي فرع");
+    sent.length = 0;
+    await handleCatalogReply(c, { id: `br_${north.id}`, text: "" }, "");
+    expect((sent.find((m) => m.kind === "list")!.input.rows as Array<{ id: string }>).map((row) => row.id)).toContain(`prod_${tea.id}`);
+
+    // checkout does not ask the branch again
+    const { addToCart } = await import("../lib/catalog-cart");
+    await addToCart(tenantId, c.conversationId, tea.id, 1);
+    sent.length = 0;
+    await handleCatalogReply(c, { id: "cart_pay", text: "" }, "");
+    expect(sent.some((m) => String(m.input.bodyText ?? "").includes("من أي فرع"))).toBe(false);
+  });
+});

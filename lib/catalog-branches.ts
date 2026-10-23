@@ -8,7 +8,8 @@ import { ensureCatalogSchema } from "./catalog-schema";
 
 export type Branch = { id: string; name: string; nameEn: string; address: string; mapUrl: string; active: boolean };
 
-const CHOICE_MINUTES = 30;
+// The branch stays chosen while the customer browses and checks out; a new order asks again.
+const CHOICE_MINUTES = 12 * 60;
 const MAX_BRANCHES = 50;
 
 let ready: Promise<void> | null = null;
@@ -191,6 +192,13 @@ export async function getOrderBranches(orderIds: string[]): Promise<Map<string, 
     for (const row of rows) result.set(row.order_id, { id: row.branch_id, name: row.branch_name, mapUrl: urls.get(row.branch_id) ?? "" });
   }
   return result;
+}
+
+/** The ids of the products switched off at a branch (stock 0 there). */
+export async function getUnavailableAtBranch(tenantId: string, branchId: string): Promise<string[]> {
+  await ensureTables();
+  const rows = await prisma.$queryRaw<Array<{ product_id: string }>>`SELECT product_id FROM catalog_branch_stock WHERE tenant_id = ${tenantId} AND branch_id = ${branchId} AND stock = 0`;
+  return rows.map((row) => row.product_id);
 }
 
 /** The products of a cart that a branch cannot cover (out of stock there, or fewer units than asked). */

@@ -75,11 +75,19 @@ export function maxUnitsFor(product: Pick<CatalogProduct, "stock">): number {
   return product.stock > 0 ? Math.min(MAX_UNITS_PER_LINE, product.stock) : MAX_UNITS_PER_LINE;
 }
 
+/** The product as the customer sees it in this chat: with a branch chosen, that branch's stock (not the product's own) decides. */
+export async function forBranch(tenantId: string, conversationId: string, product: CatalogProduct): Promise<CatalogProduct> {
+  const branch = await getBranchChoice(tenantId, conversationId);
+  if (!branch) return product;
+  return { ...product, stock: (await getBranchStock(tenantId, branch.id, [product.id])).get(product.id) ?? -1 };
+}
+
 export type AddResult = { ok: true; quantity: number; capped: boolean } | { ok: false; reason: "unavailable" | "cart-full" };
 
 /** Adds units of a product; the same product twice becomes one line. A stock limit trims the quantity (and says so). */
 export async function addToCart(tenantId: string, conversationId: string, productId: string, quantity: number, optionIds: string[] = []): Promise<AddResult> {
-  const product = await getProduct(tenantId, productId);
+  const found = await getProduct(tenantId, productId);
+  const product = found ? await forBranch(tenantId, conversationId, found) : null;
   if (!product || !isProductAvailable(product)) return { ok: false, reason: "unavailable" };
   // The options must satisfy the product's groups (a required one cannot be skipped).
   const selection = resolveSelection(await groupsForProduct(tenantId, productId), optionIds);
@@ -114,7 +122,8 @@ export async function setLineQuantity(tenantId: string, conversationId: string, 
     await saveCart(tenantId, conversationId, { ...cart, lines: cart.lines.filter((_, at) => at !== index) });
     return true;
   }
-  const product = await getProduct(tenantId, cart.lines[index].productId);
+  const found = await getProduct(tenantId, cart.lines[index].productId);
+  const product = found ? await forBranch(tenantId, conversationId, found) : null;
   const limit = product ? maxUnitsFor(product) : MAX_UNITS_PER_LINE;
   await saveCart(tenantId, conversationId, { ...cart, lines: cart.lines.map((line, at) => (at === index ? { ...line, quantity: Math.min(limit, next) } : line)) });
   return true;

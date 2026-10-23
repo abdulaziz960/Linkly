@@ -14,7 +14,7 @@ import {
   updateOrderStatus,
   type CatalogProduct
 } from "./catalog";
-import { addToCart, applyDiscountCode, CART_DETAILED_MAX_CHARS, clearCart, clearPendingProduct, formatCart, formatMoney, formatOrderSummary, getCart, maxUnitsFor, PENDING_DISCOUNT, removeDiscountCode, removeLine, resolveCart, setLineQuantity, setPendingProduct, type ShippingQuote } from "./catalog-cart";
+import { addToCart, applyDiscountCode, CART_DETAILED_MAX_CHARS, clearCart, clearPendingProduct, formatCart, formatMoney, formatOrderSummary, forBranch, getCart, maxUnitsFor, PENDING_DISCOUNT, removeDiscountCode, removeLine, resolveCart, setLineQuantity, setPendingProduct, type ShippingQuote } from "./catalog-cart";
 import { redeemDiscount, releaseDiscountUse } from "./catalog-discounts";
 import { clearCheckoutFlow, getCheckoutFlow, setCheckoutFlow, type CheckoutFlow } from "./catalog-checkout-flow";
 import { customerPaymentHistory, listPaymentChoices, startExternalPayment } from "./payments/registry";
@@ -79,6 +79,7 @@ const ID_SHIP_CONFIRM = "ship_confirm";
 const ID_SHIP_EDIT = "ship_edit";
 const ID_PAY = "pay_";
 const ID_BRANCH = "br_";
+const ID_BRANCH_CHANGE = "brchange";
 /** In the Zid checkout state, the product id that means "the whole cart". */
 const CART_CHECKOUT = "__cart__";
 const CARDS_PER_PAGE = 9; // a WhatsApp list holds 10 rows: nine products and a "show more" row
@@ -111,12 +112,33 @@ function listRowFor(product: CatalogProduct) {
   return { id: `${ID_PRODUCT}${product.id}`, title: product.name, description: description.slice(0, 72) };
 }
 
+/** The branches the customer can order from: none when a store (Zid, Salla...) owns the catalog. */
+async function chatBranches(ctx: CatalogCtx): Promise<Branch[]> {
+  if ((await getZidCatalogMode(ctx.tenantId)).connected || (await hasConnectedStore(ctx.tenantId))) return [];
+  return listBranches(ctx.tenantId, { activeOnly: true });
+}
+
 export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0, category?: string): Promise<boolean> {
   const body = intro.trim() || CATALOG_DEFAULT_INTRO;
 
+  // With branches the customer says which one first, and then only that branch's products are shown.
+  const branches = await chatBranches(ctx);
+  let branch: Branch | null = null;
+  if (branches.length) {
+    branch = await getBranchChoice(ctx.tenantId, ctx.conversationId);
+    if (!branch && branches.length === 1) {
+      branch = branches[0];
+      await setBranchChoice(ctx.tenantId, ctx.conversationId, branch.id);
+    }
+    if (!branch) {
+      await askBranch(ctx, branches, intro.trim(), true);
+      return true;
+    }
+  }
+
   // WhatsApp with more than one category: the customer picks a category first.
   if (ctx.channel === "whatsapp" && category === undefined) {
-    const categories = await listBotCategories(ctx.tenantId);
+    const categories = await listBotCategories(ctx.tenantId, branch?.id);
     if (categories.length > 1) {
       const rows = categories.slice(0, 9).map((entry) => ({
         id: `${ID_LIST}0:${entry.name || "other"}`.slice(0, 200),
@@ -124,16 +146,16 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
         description: `${entry.count} ${entry.count === 1 ? "منتج" : "منتجات"}`
       }));
       rows.push({ id: `${ID_LIST}0:*`, title: "كل المنتجات", description: "" });
-      const sent = await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttonLabel: "الأقسام", rows, displayText: body, author: AUTHOR });
+      const sent = await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: `${branch && branches.length > 1 ? `📍 ${branch.name}\n` : ""}${body}`, buttonLabel: "الأقسام", rows, displayText: body, author: AUTHOR });
       if (sent.ok) {
-        await sendMenuFooter(ctx, false);
+        await sendMenuFooter(ctx, false, branches.length > 1);
         return true;
       }
     }
   }
 
   // One extra row tells us whether a "show more" row is needed.
-  const fetched = await listBotProducts(ctx.tenantId, offset + CARDS_PER_PAGE + 1, category);
+  const fetched = await listBotProducts(ctx.tenantId, offset + CARDS_PER_PAGE + 1, category, branch?.id);
   const products = fetched.slice(offset, offset + CARDS_PER_PAGE);
   const hasMore = fetched.length > offset + CARDS_PER_PAGE;
 
@@ -153,25 +175,28 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
   // (Rows cannot carry images; Meta's native catalog messages need a Meta Commerce catalog.)
   const rows = products.map(listRowFor);
   if (hasMore) rows.push({ id: `${ID_LIST}${offset + CARDS_PER_PAGE}:${category ?? "*"}`.slice(0, 200), title: "عرض المزيد", description: "" });
-  const listBody = category && category !== "*" ? `${category === "other" ? "أخرى" : category}\n${body}` : body;
+  const listBody = `${branch && branches.length > 1 ? `📍 ${branch.name}\n` : ""}${category && category !== "*" ? `${category === "other" ? "أخرى" : category}\n${body}` : body}`;
   const sent = await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: offset === 0 ? listBody : "المزيد من المنتجات:", buttonLabel: "عرض المنتجات", rows, displayText: textList(), author: AUTHOR });
   if (!sent.ok) {
     await ctx.sendText(textList());
     return true;
   }
-  await sendMenuFooter(ctx, hasMore);
+  await sendMenuFooter(ctx, hasMore, branches.length > 1);
   return true;
 }
 
 /** The cart / tracking / staff buttons that follow the product list. */
-async function sendMenuFooter(ctx: CatalogCtx, hasMore: boolean) {
+async function sendMenuFooter(ctx: CatalogCtx, hasMore: boolean, canChangeBranch = false) {
   const cartUnits = (await getCart(ctx.conversationId)).lines.reduce((sum, line) => sum + line.quantity, 0);
   const hasOrders = await hasTrackableOrders(ctx.tenantId, ctx.conversationId);
   const menuButtons = [
     ...(cartUnits > 0 ? [{ id: ID_CART_VIEW, title: `السلة (${cartUnits})` }] : []),
+    ...(canChangeBranch ? [{ id: ID_BRANCH_CHANGE, title: "تغيير الفرع" }] : []),
     ...(hasOrders ? [{ id: ID_TRACK, title: "تتبع طلبي" }] : []),
     { id: ID_AGENT, title: "التحدث مع موظف" }
   ];
+  // WhatsApp allows three buttons: the order tracking gives way first.
+  if (menuButtons.length > 3) menuButtons.splice(menuButtons.findIndex((button) => button.id === ID_TRACK), 1);
   const text = hasMore ? "اختر من القائمة أعلاه أو اضغط «عرض المزيد»." : "هل تحتاج مساعدة؟";
   await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: text, buttons: menuButtons, displayText: text, author: AUTHOR });
 }
@@ -248,7 +273,8 @@ async function purchase(ctx: CatalogCtx, productId: string) {
     await purchaseSingle(ctx, productId);
     return;
   }
-  const product = await getProduct(ctx.tenantId, productId);
+  const found = await getProduct(ctx.tenantId, productId);
+  const product = found ? await forBranch(ctx.tenantId, ctx.conversationId, found) : null;
   if (!product || !isProductAvailable(product)) {
     await ctx.sendText("عذرًا، هذا المنتج لم يعد متوفرًا حاليًا.");
     await sendCatalogMenu(ctx, "يمكنك اختيار منتج آخر:");
@@ -604,6 +630,12 @@ async function checkoutCart(ctx: CatalogCtx) {
     return;
   }
 
+  // A product that is no longer available (here or at the chosen branch) is named before charging for the rest.
+  if (cart.dropped.length) {
+    await showCart(ctx);
+    return;
+  }
+
   // Less stock than they asked for: change the quantity, show the cart, and let them confirm again.
   if (cart.adjusted.length) {
     for (const change of cart.adjusted) await setLineQuantity(ctx.tenantId, ctx.conversationId, change.position, change.to);
@@ -621,9 +653,25 @@ async function checkoutCart(ctx: CatalogCtx) {
 
   // The platform's own catalog, no store connected: with branches, the customer picks the branch the order comes from first.
   await clearPickupChoice(ctx.conversationId);
-  await clearBranchChoice(ctx.conversationId);
   if (!zid.connected && !(await hasConnectedStore(ctx.tenantId))) {
     const branches = await listBranches(ctx.tenantId, { activeOnly: true });
+    // The branch picked while browsing is kept: no second question when it can cover the cart.
+    const chosen = branches.length ? await getBranchChoice(ctx.tenantId, ctx.conversationId) : null;
+    if (chosen) {
+      const missing = await branchShortfalls(ctx.tenantId, chosen, cart);
+      if (!missing.length) {
+        await continueCheckoutAfterBranch(ctx, cart);
+        return;
+      }
+      if (branches.length > 1) {
+        await clearBranchChoice(ctx.conversationId);
+        await askBranch(ctx, branches, `لا يتوفر في فرع «${chosen.name}» بالكمية المطلوبة:\n${missing.map((name) => `• ${name}`).join("\n")}\nاختر فرعًا آخر، أو اكتب «إلغاء» لتعديل السلة.`);
+        return;
+      }
+      await ctx.sendText(`عذرًا، لا يتوفر حاليًا بالكمية المطلوبة:\n${missing.map((name) => `• ${name}`).join("\n")}\nعدّل سلتك ثم أعد المحاولة.`);
+      await showCart(ctx);
+      return;
+    }
     if (branches.length === 1) {
       const missing = await branchShortfalls(ctx.tenantId, branches[0], cart);
       if (missing.length) {
@@ -650,9 +698,9 @@ async function branchShortfalls(tenantId: string, branch: Branch, cart: Awaited<
   return shortfalls(lines, stock).map((entry) => entry.name);
 }
 
-async function askBranch(ctx: CatalogCtx, branches: Branch[], note: string) {
-  await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "branch", data: {} });
-  const body = `${note ? `${note}\n\n` : ""}من أي فرع تريد استلام طلبك؟`;
+async function askBranch(ctx: CatalogCtx, branches: Branch[], note: string, browse = false) {
+  await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "branch", data: browse ? { browse: true } : {} });
+  const body = `${note ? `${note}\n\n` : ""}${browse ? "من أي فرع تريد الطلب؟ سنعرض لك منتجات الفرع الذي تختاره." : "من أي فرع تريد استلام طلبك؟"}`;
   const numbered = () => `${body}\n${branches.map((branch, index) => `${index + 1}) ${branch.name}${branch.address ? ` - ${branch.address}` : ""}`).join("\n")}\nاكتب رقم الفرع، أو «إلغاء» للرجوع إلى السلة.`;
   if (ctx.channel !== "whatsapp") {
     await ctx.sendText(numbered());
@@ -663,6 +711,28 @@ async function askBranch(ctx: CatalogCtx, branches: Branch[], note: string) {
     ? await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttons: shown.map((branch) => ({ id: `${ID_BRANCH}${branch.id}`, title: branch.name.slice(0, 20) })), displayText: body, author: AUTHOR })
     : await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttonLabel: "اختر الفرع", rows: shown.map((branch) => ({ id: `${ID_BRANCH}${branch.id}`, title: branch.name, description: branch.address || undefined })), displayText: body, author: AUTHOR });
   if (!sent.ok) await ctx.sendText(numbered());
+}
+
+/** The branch question asked before the products: the pick is kept and the products of that branch are shown. */
+async function continueBrowseBranch(ctx: CatalogCtx, reply: { id?: string; text: string }): Promise<boolean> {
+  const branches = await listBranches(ctx.tenantId, { activeOnly: true });
+  const id = reply.id || "";
+  const text = reply.text.trim();
+  if (!id && /^(إلغاء|الغاء|cancel)$/i.test(text)) {
+    await clearCheckoutFlow(ctx.conversationId);
+    return false;
+  }
+  const picked = id.startsWith(ID_BRANCH)
+    ? branches.find((branch) => branch.id === id.slice(ID_BRANCH.length))
+    : /^\d{1,2}$/.test(text) ? branches[Number(text) - 1] : branches.find((branch) => branch.name === text);
+  if (!picked) {
+    await askBranch(ctx, branches, "اختر فرعًا من القائمة.", true);
+    return true;
+  }
+  await setBranchChoice(ctx.tenantId, ctx.conversationId, picked.id);
+  await clearCheckoutFlow(ctx.conversationId);
+  await sendCatalogMenu(ctx, "");
+  return true;
 }
 
 async function continueBranchFlow(ctx: CatalogCtx, reply: { id?: string; text: string }, cart: Awaited<ReturnType<typeof resolveCart>>): Promise<boolean> {
@@ -1366,6 +1436,10 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
 
   // Answering the delivery questions of a checkout (city, delivery option, address, confirmation).
   const flow = await getCheckoutFlow(ctx.conversationId);
+  // The branch question asked before the products (works with an empty cart).
+  if (flow?.step === "branch" && flow.data.browse && (!id || id.startsWith(ID_BRANCH))) {
+    if (await continueBrowseBranch(ctx, reply)) return "handled";
+  }
   if (flow) {
     if (!id || id.startsWith(ID_SHIP) || id.startsWith(ID_PAY) || id.startsWith("ful_") || id.startsWith("pk_") || id.startsWith(ID_BRANCH)) {
       if (await continueShippingFlow(ctx, flow, reply)) return "handled";
@@ -1415,6 +1489,19 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   }
 
   if (id === ID_AGENT) return "agent";
+  if (id === ID_BRANCH_CHANGE) {
+    const branches = await chatBranches(ctx);
+    if (branches.length > 1) await askBranch(ctx, branches, "", true);
+    else await sendCatalogMenu(ctx, intro);
+    return "handled";
+  }
+  // A tap on a branch from an older message: it becomes the branch of this chat.
+  if (id.startsWith(ID_BRANCH)) {
+    const picked = (await chatBranches(ctx)).find((branch) => branch.id === id.slice(ID_BRANCH.length));
+    if (picked) await setBranchChoice(ctx.tenantId, ctx.conversationId, picked.id);
+    await sendCatalogMenu(ctx, intro);
+    return "handled";
+  }
   if (id.startsWith(ID_LIST)) {
     const [offsetText, ...rest] = id.slice(ID_LIST.length).split(":");
     await sendCatalogMenu(ctx, intro, Math.max(0, Number(offsetText) || 0), rest.join(":") || "*");
@@ -1433,7 +1520,8 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
     return "handled";
   }
   if (id.startsWith(ID_PRODUCT)) {
-    const product = await getProduct(ctx.tenantId, id.slice(ID_PRODUCT.length));
+    const found = await getProduct(ctx.tenantId, id.slice(ID_PRODUCT.length));
+    const product = found ? await forBranch(ctx.tenantId, ctx.conversationId, found) : null;
     if (product && isProductAvailable(product)) await showProduct(ctx, product);
     else await ctx.sendText("عذرًا، هذا المنتج لم يعد متوفرًا حاليًا.");
     return "handled";
@@ -1501,7 +1589,7 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   }
 
   // Channels without tappable ids: "3" picks the 3rd listed product, "شراء <name>" buys, a name opens it.
-  const products = await listBotProducts(ctx.tenantId, 10);
+  const products = await listBotProducts(ctx.tenantId, 10, undefined, (await getBranchChoice(ctx.tenantId, ctx.conversationId))?.id);
   const buy = text.match(/^(?:شراء|اشتري|اشترِ|buy)\s+(.+)$/i);
   const addCommand = text.match(/^(?:سلة|أضف|اضف|add)\s+(.+)$/i);
   const needle = (buy ? buy[1] : addCommand ? addCommand[1] : text).trim();
