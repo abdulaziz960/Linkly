@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 import SallaOrderEditForm from "./SallaOrderEditForm";
 import SallaShipmentForm from "./SallaShipmentForm";
 
@@ -76,12 +77,7 @@ export default function ConversationStoreOrders({ conversationId }: { conversati
           ) : null}
           {data.canManage ? (
             <div className="conversation-store-order-actions">
-              <select value={choice[order.id] ?? order.statusSlug} onChange={(event) => setChoice((current) => ({ ...current, [order.id]: event.target.value }))} aria-label={t("الحالة الجديدة", "New status")}>
-                {!data.statuses.some((item) => item.slug === order.statusSlug) ? <option value={order.statusSlug}>{order.statusLabel || order.statusSlug}</option> : null}
-                {data.statuses.map((item) => (
-                  <option key={item.slug} value={item.slug}>{item.label}</option>
-                ))}
-              </select>
+              <CustomSelect className="store-status-select" ariaLabel={t("الحالة الجديدة", "New status")} value={choice[order.id] ?? order.statusSlug} onChange={(value) => setChoice((current) => ({ ...current, [order.id]: value }))} options={[...(!data.statuses.some((item) => item.slug === order.statusSlug) ? [{ value: order.statusSlug, label: order.statusLabel || order.statusSlug }] : []), ...data.statuses.map((item) => ({ value: item.slug, label: item.label }))]} />
               <button type="button" className="primary-action" disabled={busyId === order.id || !choice[order.id] || choice[order.id] === order.statusSlug} onClick={() => void applyStatus(order)}>{t("تحديث", "Update")}</button>
               <button type="button" className="soft-action" onClick={() => setPanel(panel?.id === order.id && panel.kind === "ship" ? null : { id: order.id, kind: "ship" })}>{t("شحنة", "Shipment")}</button>
               <button type="button" className="soft-action" onClick={() => setPanel(panel?.id === order.id && panel.kind === "edit" ? null : { id: order.id, kind: "edit" })}>{t("العنوان", "Address")}</button>

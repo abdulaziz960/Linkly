@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 import SallaShipmentForm from "./SallaShipmentForm";
 import SallaOrderEditForm from "./SallaOrderEditForm";
 import SallaNewOrderForm from "./SallaNewOrderForm";
@@ -96,12 +97,7 @@ export default function SallaOrdersPanel() {
             </div>
             <span className="store-order-status">{order.statusLabel || order.statusSlug}</span>
             <div className="store-order-actions">
-              <select value={choice[order.id] ?? order.statusSlug} onChange={(event) => setChoice((current) => ({ ...current, [order.id]: event.target.value }))} aria-label={t("الحالة الجديدة", "New status")}>
-                {!statuses.some((item) => item.slug === order.statusSlug) ? <option value={order.statusSlug}>{order.statusLabel || order.statusSlug}</option> : null}
-                {statuses.map((item) => (
-                  <option key={item.slug} value={item.slug}>{item.label}</option>
-                ))}
-              </select>
+              <CustomSelect className="store-status-select" ariaLabel={t("الحالة الجديدة", "New status")} value={choice[order.id] ?? order.statusSlug} onChange={(value) => setChoice((current) => ({ ...current, [order.id]: value }))} options={[...(!statuses.some((item) => item.slug === order.statusSlug) ? [{ value: order.statusSlug, label: order.statusLabel || order.statusSlug }] : []), ...statuses.map((item) => ({ value: item.slug, label: item.label }))]} />
               <button type="button" className="primary-action" disabled={busyId === order.id || !choice[order.id] || choice[order.id] === order.statusSlug} onClick={() => void apply(order)}>
                 {busyId === order.id ? t("جارٍ التحديث...", "Updating...") : t("تحديث الحالة", "Update status")}
               </button>

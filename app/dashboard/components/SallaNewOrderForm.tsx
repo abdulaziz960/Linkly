@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type Product = { id: string; name: string; sku: string; price: number; currency: string };
 type Line = Product & { quantity: number };
@@ -168,18 +169,12 @@ export default function SallaNewOrderForm({ onClose, onCreated }: { onClose: () 
 
       <label>
         {t("التوصيل", "Delivery")}
-        <select value={delivery} onChange={(event) => setDelivery(event.target.value as "none" | "pickup")}>
-          <option value="none">{t("بدون توصيل الآن (يُحدَّد لاحقًا من سلة)", "No delivery yet (set later in Salla)")}</option>
-          <option value="pickup">{t("استلام من الفرع", "Pickup from a branch")}</option>
-        </select>
+        <CustomSelect value={delivery} onChange={(value) => setDelivery(value as "none" | "pickup")} options={[{ value: "none", label: t("بدون توصيل الآن (يُحدَّد لاحقًا من سلة)", "No delivery yet (set later in Salla)") }, { value: "pickup", label: t("استلام من الفرع", "Pickup from a branch") }]} />
       </label>
       {delivery === "pickup" ? (
         <label>
           {t("الفرع", "Branch")}
-          <select value={branchId} onChange={(event) => setBranchId(event.target.value)}>
-            <option value="">{t("اختر الفرع", "Choose a branch")}</option>
-            {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-          </select>
+          <CustomSelect value={branchId} onChange={setBranchId} options={[{ value: "", label: t("اختر الفرع", "Choose a branch") }, ...branches.map((branch) => ({ value: branch.id, label: branch.name }))]} />
         </label>
       ) : null}
       <label className="shipment-confirm">

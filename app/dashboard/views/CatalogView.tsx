@@ -119,7 +119,7 @@ async function resizeToJpeg(file: File): Promise<string> {
 export default function CatalogView() {
   const { t, language } = useLanguage();
   const [optionsFor, setOptionsFor] = useState<{ id: string; name: string } | null>(null);
-  const [tab, setTab] = useState<"products" | "orders" | "shipping" | "discounts" | "loyalty" | "settings">("products");
+  const [tab, setTab] = useState<"products" | "categories" | "orders" | "shipping" | "discounts" | "loyalty" | "settings">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
@@ -433,6 +433,7 @@ export default function CatalogView() {
           <span />
           <div className="row-actions">
             <button className={tab === "products" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("products")}>{t("المنتجات", "Products")} ({products.length})</button>
+            <button className={tab === "categories" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("categories")}>{t("التصنيفات", "Categories")} ({categories.length})</button>
             <button className={tab === "orders" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("orders")}>{t("الطلبات", "Orders")} ({orders.length})</button>
             <button className={tab === "shipping" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("shipping")}>{t("الشحن", "Shipping")}</button>
             <button className={tab === "discounts" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("discounts")}>{t("أكواد الخصم", "Discount codes")}</button>
@@ -452,14 +453,6 @@ export default function CatalogView() {
           </div>
           <div className="panel-body table-wrap">
             <p className="muted-copy">{t("تظهر المنتجات النشطة للعملاء عبر خطوة \"عرض الكتالوج\" في الرد الآلي. يمكنك إضافتها يدويًا، أو مزامنتها تلقائيًا من موقعك (تبويب الدفع والمزامنة).", "Active products are shown to customers through the \"Show catalog\" step of the auto-reply. Add them by hand, or sync them automatically from your website (Payment & sync tab).")}</p>
-            <div className="catalog-categories">
-              <strong>{t("التصنيفات", "Categories")}</strong>
-              {categories.map((name) => (
-                <span className="catalog-category-chip" key={name}>{name}<button type="button" aria-label={t("حذف", "Delete")} onClick={() => void removeCategory(name)}>×</button></span>
-              ))}
-              <input value={newCategory} onChange={(event) => setNewCategory(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void addCategory(); } }} placeholder={t("تصنيف جديد", "New category")} maxLength={80} />
-              <button className="btn soft" type="button" onClick={() => void addCategory()}>{t("إضافة", "Add")}</button>
-            </div>
             <input className="catalog-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث بالاسم أو التصنيف أو الرمز", "Search by name, category or SKU")} />
             {notice ? <p className={`automation-feedback ${notice.type}`} role="status">{notice.message}</p> : null}
             {products.length > 0 ? (
@@ -498,6 +491,40 @@ export default function CatalogView() {
                 {!filteredProducts.length ? <tr><td colSpan={7}>{loading ? t("جاري التحميل...", "Loading...") : t("لا توجد منتجات بعد. أضف أول منتج أو اربط موقعك.", "No products yet. Add your first product or connect your website.")}</td></tr> : null}
               </tbody>
             </table>
+          </div>
+        </div>
+      ) : null}
+
+      {tab === "categories" ? (
+        <div className="panel">
+          <div className="panel-head">
+            <h2>{t("التصنيفات", "Categories")}</h2>
+            <span />
+          </div>
+          <div className="panel-body">
+            <p className="muted-copy">{t("سجّل تصنيفات منتجاتك هنا ثم اخترها من بطاقة المنتج. يرى العميل في واتساب قائمة بالأقسام ثم منتجات القسم الذي يختاره.", "Register your product categories here, then pick one on the product card. On WhatsApp customers see a list of sections, then the products of the one they choose.")}</p>
+            <div className="category-add">
+              <input value={newCategory} onChange={(event) => setNewCategory(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void addCategory(); } }} placeholder={t("اسم التصنيف الجديد", "New category name")} maxLength={80} aria-label={t("اسم التصنيف", "Category name")} />
+              <button className="btn primary" type="button" disabled={!newCategory.trim()} onClick={() => void addCategory()}>{t("إضافة تصنيف", "Add category")}</button>
+            </div>
+            {notice ? <p className={`automation-feedback ${notice.type}`} role="status">{notice.message}</p> : null}
+            {categories.length ? (
+              <div className="category-grid">
+                {categories.map((name) => {
+                  const count = products.filter((product) => product.category === name).length;
+                  return (
+                    <div className="category-card" key={name}>
+                      <span className="category-card-icon" aria-hidden="true">▦</span>
+                      <div className="category-card-text">
+                        <strong>{name}</strong>
+                        <small>{count} {t(count === 1 ? "منتج" : "منتجات", count === 1 ? "product" : "products")}</small>
+                      </div>
+                      <button className="btn soft danger" type="button" onClick={() => void removeCategory(name)}>{t("حذف", "Delete")}</button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : <p className="empty-note">{t("لا توجد تصنيفات بعد. أضف أول تصنيف من الأعلى.", "No categories yet. Add the first one above.")}</p>}
           </div>
         </div>
       ) : null}
@@ -719,10 +746,7 @@ export default function CatalogView() {
                 <label><span>{t("المخزون (اتركه فارغًا لعدم التتبع)", "Stock (blank = not tracked)")}</span><input type="number" min={0} value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} /></label>
               </div>
               <div className="split-fields">
-                <label><span>{t("التصنيف", "Category")}</span><select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
-                  <option value="">{t("بدون تصنيف", "No category")}</option>
-                  {[...new Set([...categories, form.category].filter(Boolean))].map((name) => <option key={name} value={name}>{name}</option>)}
-                </select></label>
+                <label><span>{t("التصنيف", "Category")}</span><CustomSelect value={form.category} onChange={(value) => setForm({ ...form, category: value })} options={[{ value: "", label: t("بدون تصنيف", "No category") }, ...[...new Set([...categories, form.category].filter(Boolean))].map((name) => ({ value: name, label: name }))]} /></label>
                 <label><span>{t("الرمز (SKU)", "SKU")}</span><input value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} maxLength={80} dir="ltr" /></label>
               </div>
               <div className="catalog-photo-field">

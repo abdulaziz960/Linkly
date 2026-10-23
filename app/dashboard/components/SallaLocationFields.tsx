@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type Location = { id: string; name: string; nameEn: string; code: string };
 export type LocationChoice = { countryId: string; cityId: string; districtId: string; country: string; countryCode: string; city: string; district: string };
@@ -93,33 +94,24 @@ export default function SallaLocationFields({ current, onChange }: { current: { 
     <>
       <label>
         {t("الدولة", "Country")}
-        <select value={choice.countryId} onChange={(event) => {
-          const item = countries.find((entry) => entry.id === event.target.value);
-          update({ ...EMPTY, countryId: event.target.value, country: item?.name ?? "", countryCode: item?.code ?? "" });
-        }}>
-          <option value="">{t("اختر الدولة", "Choose a country")}</option>
-          {countries.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
+        <CustomSelect value={choice.countryId} placeholder={t("اختر الدولة", "Choose a country")} onChange={(value) => {
+          const item = countries.find((entry) => entry.id === value);
+          update({ ...EMPTY, countryId: value, country: item?.name ?? "", countryCode: item?.code ?? "" });
+        }} options={[{ value: "", label: t("اختر الدولة", "Choose a country") }, ...countries.map((item) => ({ value: item.id, label: item.name }))]} />
       </label>
       <label>
         {t("المدينة", "City")}
-        <select value={choice.cityId} disabled={!choice.countryId} onChange={(event) => {
-          const item = cities.find((entry) => entry.id === event.target.value);
-          update({ ...choice, cityId: event.target.value, city: item?.name ?? "", districtId: "", district: "" });
-        }}>
-          <option value="">{t("اختر المدينة", "Choose a city")}</option>
-          {cities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
+        <CustomSelect value={choice.cityId} disabled={!choice.countryId} onChange={(value) => {
+          const item = cities.find((entry) => entry.id === value);
+          update({ ...choice, cityId: value, city: item?.name ?? "", districtId: "", district: "" });
+        }} options={[{ value: "", label: t("اختر المدينة", "Choose a city") }, ...cities.map((item) => ({ value: item.id, label: item.name }))]} />
       </label>
       <label>
         {t("الحي", "District")}
-        <select value={choice.districtId} disabled={!choice.cityId} onChange={(event) => {
-          const item = districts.find((entry) => entry.id === event.target.value);
-          update({ ...choice, districtId: event.target.value, district: item?.name ?? "" });
-        }}>
-          <option value="">{t("اختر الحي (اختياري)", "Choose a district (optional)")}</option>
-          {districts.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
+        <CustomSelect value={choice.districtId} disabled={!choice.cityId} onChange={(value) => {
+          const item = districts.find((entry) => entry.id === value);
+          update({ ...choice, districtId: value, district: item?.name ?? "" });
+        }} options={[{ value: "", label: t("اختر الحي (اختياري)", "Choose a district (optional)") }, ...districts.map((item) => ({ value: item.id, label: item.name }))]} />
       </label>
       {error ? <span className="store-orders-error" style={{ gridColumn: "1 / -1" }}>{error}</span> : null}
     </>

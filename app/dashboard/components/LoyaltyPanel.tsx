@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type Settings = { enabled: boolean; goal: number; rewardKind: "percent" | "fixed" | "free_product"; rewardValue: number; productId: string; validDays: number; notifyProgress: boolean; progressText: string; rewardText: string };
 type Customer = { phone: string; ordersInCycle: number; totalOrders: number; rewardsGiven: number; updatedAt: string };
@@ -79,19 +80,12 @@ export default function LoyaltyPanel() {
             <input type="number" min={1} max={50} dir="ltr" value={settings.goal} onChange={(event) => set({ goal: Number(event.target.value) || 1 })} />
           </label>
           <label>{t("نوع المكافأة", "Reward")}
-            <select value={settings.rewardKind} onChange={(event) => set({ rewardKind: event.target.value as Settings["rewardKind"] })}>
-              <option value="percent">{t("كود خصم بنسبة %", "Percentage discount code")}</option>
-              <option value="fixed">{t("كود خصم بمبلغ ثابت", "Fixed-amount discount code")}</option>
-              <option value="free_product">{t("منتج مجاني", "Free product")}</option>
-            </select>
+            <CustomSelect value={settings.rewardKind} onChange={(value) => set({ rewardKind: value as Settings["rewardKind"] })} options={[{ value: "percent", label: t("كود خصم بنسبة %", "Percentage discount code") }, { value: "fixed", label: t("كود خصم بمبلغ ثابت", "Fixed-amount discount code") }, { value: "free_product", label: t("منتج مجاني", "Free product") }]} />
           </label>
           {settings.rewardKind === "free_product" ? (
             <>
               <label>{t("المنتج المجاني", "Free product")}
-                <select value={settings.productId} onChange={(event) => set({ productId: event.target.value })}>
-                  <option value="">{t("أي منتج يختاره العميل", "Any product the customer chooses")}</option>
-                  {products.map((product) => <option key={product.id} value={product.id}>{product.name} ({product.price})</option>)}
-                </select>
+                <CustomSelect value={settings.productId} onChange={(value) => set({ productId: value })} options={[{ value: "", label: t("أي منتج يختاره العميل", "Any product the customer chooses") }, ...products.map((product) => ({ value: product.id, label: `${product.name} (${product.price})` }))]} />
               </label>
               {!settings.productId ? (
                 <label>{t("أقصى سعر للمنتج المجاني (0 = بلا حد)", "Highest price of the free item (0 = no limit)")}

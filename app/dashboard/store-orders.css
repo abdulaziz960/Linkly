@@ -501,8 +501,13 @@
   opacity: 0.85;
 }
 
-.catalog-categories { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
-.catalog-categories input { width: 160px; }
-.catalog-category-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--surface-soft, #f1f3f5); font-size: 13px; }
-.catalog-category-chip button { border: 0; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; color: inherit; }
+.category-add { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+.category-add input { flex: 1 1 220px; min-width: 0; }
+.category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 8px; }
+.category-card { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.category-card-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--surface-soft, #f1f3f5); font-size: 18px; flex-shrink: 0; }
+.category-card-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.category-card-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.category-card-text small { color: var(--muted, #64748b); }
+.store-order-actions .store-status-select, .conversation-store-order-actions .store-status-select { min-width: 150px; width: auto; }
 .catalog-photo-field { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; grid-column: 1 / -1; }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 import SallaLocationFields, { type LocationChoice } from "./SallaLocationFields";
 import { shipToProblems, splitCoordinates } from "../../../lib/salla-ship-to";
 
@@ -125,31 +126,18 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
           ) : null}
           <label>
             {t("شركة الشحن (المفعّلة في متجرك)", "Shipping company (activated in your store)")}
-            <select value={courierId} onChange={(event) => setCourierId(event.target.value)}>
-              <option value="">{t("اختر شركة الشحن", "Choose a shipping company")}</option>
-              {[...companies].sort((a, b) => (a.type === b.type ? 0 : a.type === "api" ? -1 : 1)).map((company) => (
-                <option key={company.id} value={company.id}>{company.name}{company.type === "manual" ? ` (${t("يدوي، قد لا يدعم الإنشاء الآلي", "manual, may not support API creation")})` : ""}</option>
-              ))}
-            </select>
+            <CustomSelect value={courierId} onChange={setCourierId} options={[{ value: "", label: t("اختر شركة الشحن", "Choose a shipping company") }, ...[...companies].sort((a, b) => (a.type === b.type ? 0 : a.type === "api" ? -1 : 1)).map((company) => ({ value: company.id, label: `${company.name}${company.type === "manual" ? ` (${t("يدوي، قد لا يدعم الإنشاء الآلي", "manual, may not support API creation")})` : ""}` }))]} />
           </label>
           {!companies.length ? <span className="store-orders-error">{t("لا توجد شركات شحن مفعّلة في متجرك. فعّلها من إعدادات الشحن في سلة.", "No shipping companies are activated in your store. Activate them in Salla's shipping settings.")}</span> : null}
           {branches.length > 1 ? (
             <label>
               {t("الفرع المرسِل", "Sending branch")}
-              <select value={branchId} onChange={(event) => setBranchId(event.target.value)}>
-                <option value="">{t("اختر الفرع", "Choose a branch")}</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>{branch.name}</option>
-                ))}
-              </select>
+              <CustomSelect value={branchId} onChange={setBranchId} options={[{ value: "", label: t("اختر الفرع", "Choose a branch") }, ...branches.map((branch) => ({ value: branch.id, label: branch.name }))]} />
             </label>
           ) : null}
           <label>
             {t("طريقة الدفع", "Payment")}
-            <select value={payment} onChange={(event) => setPayment(event.target.value as "cod" | "pre_paid")}>
-              <option value="pre_paid">{t("مدفوع مسبقًا", "Prepaid")}</option>
-              <option value="cod">{t("الدفع عند الاستلام", "Cash on delivery")}</option>
-            </select>
+            <CustomSelect value={payment} onChange={(value) => setPayment(value as "cod" | "pre_paid")} options={[{ value: "pre_paid", label: t("مدفوع مسبقًا", "Prepaid") }, { value: "cod", label: t("الدفع عند الاستلام", "Cash on delivery") }]} />
           </label>
           {draft.missing.length ? <span className="store-orders-error">{t("بعض بيانات العنوان ناقصة في الطلب، أكملها قبل الإرسال.", "Some address details are missing from the order. Fill them in before sending.")}</span> : null}
           <div className="shipment-grid">

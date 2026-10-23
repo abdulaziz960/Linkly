@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
+import CustomSelect from "../../components/CustomSelect";
 
 type Option = { id: string; name: string; nameEn: string; priceDelta: number };
 type Group = { id: string; productId: string; name: string; nameEn: string; required: boolean; multiple: boolean; maxChoices: number; options: Option[] };
@@ -103,10 +104,7 @@ export default function ProductOptionsEditor({ productId, productName, onClose }
               </div>
               <div className="options-form-row">
                 <label>{t("نوع الاختيار", "Choice type")}
-                  <select value={draft.multiple ? "multiple" : "single"} onChange={(event) => setDraft({ ...draft, multiple: event.target.value === "multiple" })}>
-                    <option value="single">{t("اختيار واحد", "One choice")}</option>
-                    <option value="multiple">{t("اختيار متعدد", "Several choices")}</option>
-                  </select>
+                  <CustomSelect value={draft.multiple ? "multiple" : "single"} onChange={(value) => setDraft({ ...draft, multiple: value === "multiple" })} options={[{ value: "single", label: t("اختيار واحد", "One choice") }, { value: "multiple", label: t("اختيار متعدد", "Several choices") }]} />
                 </label>
                 {draft.multiple ? (
                   <label>{t("أقصى عدد (0 = بلا حد)", "Maximum (0 = any)")}
