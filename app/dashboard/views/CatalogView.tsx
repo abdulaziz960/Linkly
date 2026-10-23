@@ -131,6 +131,8 @@ export default function CatalogView() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [newCategory, setNewCategory] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
   const [showUrlField, setShowUrlField] = useState(false);
   const [gatewayKey, setGatewayKey] = useState("");
@@ -146,11 +148,13 @@ export default function CatalogView() {
   const [trackError, setTrackError] = useState("");
 
   const load = useCallback(async () => {
-    const [productsResult, ordersResult, settingsResult] = await Promise.all([
+    const [productsResult, ordersResult, settingsResult, categoriesResult] = await Promise.all([
       api<Product[]>("/api/catalog/products"),
       api<Order[]>("/api/catalog/orders"),
-      api<Settings>("/api/catalog/settings")
+      api<Settings>("/api/catalog/settings"),
+      api<string[]>("/api/catalog/categories")
     ]);
+    if (categoriesResult.ok) setCategories(categoriesResult.data ?? []);
     if (productsResult.ok) setProducts(productsResult.data ?? []);
     if (ordersResult.ok) setOrders(ordersResult.data ?? []);
     if (settingsResult.ok && settingsResult.data) {
@@ -235,6 +239,27 @@ export default function CatalogView() {
       setPhoto(await resizeToJpeg(file));
     } catch {
       setFormError(t("تعذر قراءة الصورة. اختر ملف JPG أو PNG أو WebP.", "Could not read the image. Choose a JPG, PNG or WebP file."));
+    }
+  }
+
+  async function addCategory() {
+    const name = newCategory.trim();
+    if (!name) return;
+    const result = await api<string[]>("/api/catalog/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+    if (result.ok) {
+      setCategories(result.data ?? []);
+      setNewCategory("");
+    } else {
+      setNotice({ type: "error", message: result.error || t("تعذر إضافة التصنيف", "Could not add the category") });
+    }
+  }
+
+  async function removeCategory(name: string) {
+    if (!window.confirm(t(`حذف التصنيف «${name}»؟ ستصبح منتجاته بلا تصنيف.`, `Delete the category "${name}"? Its products will have no category.`))) return;
+    const result = await api<string[]>(`/api/catalog/categories?name=${encodeURIComponent(name)}`, { method: "DELETE" });
+    if (result.ok) {
+      setCategories(result.data ?? []);
+      await load();
     }
   }
 
@@ -427,6 +452,14 @@ export default function CatalogView() {
           </div>
           <div className="panel-body table-wrap">
             <p className="muted-copy">{t("تظهر المنتجات النشطة للعملاء عبر خطوة \"عرض الكتالوج\" في الرد الآلي. يمكنك إضافتها يدويًا، أو مزامنتها تلقائيًا من موقعك (تبويب الدفع والمزامنة).", "Active products are shown to customers through the \"Show catalog\" step of the auto-reply. Add them by hand, or sync them automatically from your website (Payment & sync tab).")}</p>
+            <div className="catalog-categories">
+              <strong>{t("التصنيفات", "Categories")}</strong>
+              {categories.map((name) => (
+                <span className="catalog-category-chip" key={name}>{name}<button type="button" aria-label={t("حذف", "Delete")} onClick={() => void removeCategory(name)}>×</button></span>
+              ))}
+              <input value={newCategory} onChange={(event) => setNewCategory(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void addCategory(); } }} placeholder={t("تصنيف جديد", "New category")} maxLength={80} />
+              <button className="btn soft" type="button" onClick={() => void addCategory()}>{t("إضافة", "Add")}</button>
+            </div>
             <input className="catalog-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث بالاسم أو التصنيف أو الرمز", "Search by name, category or SKU")} />
             {notice ? <p className={`automation-feedback ${notice.type}`} role="status">{notice.message}</p> : null}
             {products.length > 0 ? (
@@ -686,7 +719,10 @@ export default function CatalogView() {
                 <label><span>{t("المخزون (اتركه فارغًا لعدم التتبع)", "Stock (blank = not tracked)")}</span><input type="number" min={0} value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} /></label>
               </div>
               <div className="split-fields">
-                <label><span>{t("التصنيف", "Category")}</span><input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} maxLength={80} /></label>
+                <label><span>{t("التصنيف", "Category")}</span><select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
+                  <option value="">{t("بدون تصنيف", "No category")}</option>
+                  {[...new Set([...categories, form.category].filter(Boolean))].map((name) => <option key={name} value={name}>{name}</option>)}
+                </select></label>
                 <label><span>{t("الرمز (SKU)", "SKU")}</span><input value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} maxLength={80} dir="ltr" /></label>
               </div>
               <div className="catalog-photo-field">

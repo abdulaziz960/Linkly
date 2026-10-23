@@ -500,3 +500,9 @@
   font-size: 12px;
   opacity: 0.85;
 }
+
+.catalog-categories { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
+.catalog-categories input { width: 160px; }
+.catalog-category-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--surface-soft, #f1f3f5); font-size: 13px; }
+.catalog-category-chip button { border: 0; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; color: inherit; }
+.catalog-photo-field { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; grid-column: 1 / -1; }
