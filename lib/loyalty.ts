@@ -132,7 +132,7 @@ export type IssuedReward = { code: string; description: string; expiresAt: strin
 
 /** Creates the customer's reward as a single-use code; null when the reward cannot be made (for example the free product is gone). */
 async function issueReward(tenantId: string, phone: string, orderId: string, settings: LoyaltySettings): Promise<IssuedReward | null> {
-  let kind: "percent" | "fixed" = settings.rewardKind === "percent" ? "percent" : "fixed";
+  const kind: "percent" | "fixed" = settings.rewardKind === "percent" ? "percent" : "fixed";
   let value = settings.rewardValue;
   let minOrder = 0;
   let productName = "";
