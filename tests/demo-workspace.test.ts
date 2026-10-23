@@ -115,4 +115,39 @@ describe("demo workspaces", () => {
     expect(cookie).toContain(`Max-Age=${7 * 24 * 60 * 60}`);
     expect(await prisma.subscription.count()).toBe(before + 1);
   });
+
+  it("the standing reviewer account: off until configured, signs in with email and password, and is rebuilt clean on reset", async () => {
+    const { ensureReviewerWorkspace, REVIEWER_TENANT_ID } = await import("../lib/demo-workspace");
+    const { verifyUserCredentials } = await import("../lib/database");
+    const { getSubscriptionAccess } = await import("../lib/auth");
+    const { listSallaOrders, updateSallaOrderStatus } = await import("../lib/salla");
+    const { prisma } = await import("../lib/prisma");
+
+    expect(await ensureReviewerWorkspace()).toBe("not-configured");
+    vi.stubEnv("DEMO_REVIEWER_EMAIL", "Reviewer@Demo.LinklySA.io");
+    vi.stubEnv("DEMO_REVIEWER_PASSWORD", "short");
+    expect(await ensureReviewerWorkspace()).toBe("not-configured");
+    vi.stubEnv("DEMO_REVIEWER_PASSWORD", "a-long-test-password-123");
+
+    expect(await ensureReviewerWorkspace()).toBe("created");
+    const user = await verifyUserCredentials("reviewer@demo.linklysa.io", "a-long-test-password-123");
+    expect(user?.tenantId).toBe(REVIEWER_TENANT_ID);
+    expect(await verifyUserCredentials("reviewer@demo.linklysa.io", "wrong-password-123")).toBeNull();
+    expect((await getSubscriptionAccess(REVIEWER_TENANT_ID)).expired).toBe(false);
+    expect(await ensureReviewerWorkspace()).toBe("kept");
+
+    // what one reviewer changed is gone after a reset, and the same login keeps working
+    const order = (await listSallaOrders(REVIEWER_TENANT_ID)).orders.find((entry) => entry.statusSlug === "under_review")!;
+    await updateSallaOrderStatus(REVIEWER_TENANT_ID, order.id, "canceled");
+    await prisma.message.deleteMany({ where: { conversation: { tenantId: REVIEWER_TENANT_ID } } });
+    expect(await ensureReviewerWorkspace({ force: true })).toBe("reset");
+    expect((await listSallaOrders(REVIEWER_TENANT_ID)).orders.find((entry) => entry.id === order.id)?.statusSlug).toBe("under_review");
+    expect(await prisma.conversation.count({ where: { tenantId: REVIEWER_TENANT_ID } })).toBe(5);
+    expect((await verifyUserCredentials("reviewer@demo.linklysa.io", "a-long-test-password-123"))?.id).toBe(user?.id);
+
+    // the daily clean-up of expired demo workspaces never touches it
+    const { deleteExpiredDemoWorkspaces } = await import("../lib/demo-workspace");
+    await deleteExpiredDemoWorkspaces();
+    expect(await prisma.subscription.findUnique({ where: { tenantId: REVIEWER_TENANT_ID } })).not.toBeNull();
+  });
 });

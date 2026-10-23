@@ -3,6 +3,7 @@
 
 import { createHash, randomUUID, timingSafeEqual } from "crypto";
 import { Prisma } from "@prisma/client";
+import { hashPassword } from "./passwords";
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
 import { getIntegrationSettings, getTenantIntegrationId } from "./database";
@@ -57,27 +58,34 @@ async function pickDemoPlan(): Promise<{ name: string; employeeLimit: number }> 
 
 export type DemoWorkspace = { tenantId: string; userId: string; expiresAt: string };
 
+/** The one standing workspace reviewers sign into with an email and password (DEMO_REVIEWER_EMAIL / DEMO_REVIEWER_PASSWORD). */
+export const REVIEWER_TENANT_ID = "demo-ws-reviewer";
+const REVIEWER_YEARS = 10;
+
+type CreateOptions = { reviewer?: { email: string; passwordHash: string } };
+
 /** Creates a complete, separate demo workspace and its owner login (no password: the visitor is signed in by the link). */
-export async function createDemoWorkspace(): Promise<DemoWorkspace> {
+export async function createDemoWorkspace(options: CreateOptions = {}): Promise<DemoWorkspace> {
   await ensureCatalogSchema();
-  const code = randomUUID().replace(/-/g, "").slice(0, 10);
-  const tenantId = `demo-ws-${code}`;
+  const reviewer = options.reviewer;
+  const code = reviewer ? "reviewer" : randomUUID().replace(/-/g, "").slice(0, 10);
+  const tenantId = reviewer ? REVIEWER_TENANT_ID : `demo-ws-${code}`;
   const employeeId = `emp-${tenantId}`;
   const userId = `user-${tenantId}`;
-  const email = `demo-${code}@demo.linklysa.io`;
+  const email = reviewer ? reviewer.email : `demo-${code}@demo.linklysa.io`;
   const ownerName = "مراجع ديمو";
   const nowDate = new Date();
   const now = nowDate.toISOString();
-  const expiresAt = new Date(nowDate.getTime() + DEMO_DAYS * DAY_MS).toISOString();
+  const expiresAt = new Date(nowDate.getTime() + (reviewer ? REVIEWER_YEARS * 365 : DEMO_DAYS) * DAY_MS).toISOString();
   const plan = await pickDemoPlan();
 
   await prisma.$transaction(async (tx) => {
-    await tx.userAccount.create({ data: { id: userId, name: ownerName, email, passwordHash: "", role: "مالك الحساب", tenantId, createdAt: now } });
+    await tx.userAccount.create({ data: { id: userId, name: ownerName, email, passwordHash: reviewer?.passwordHash ?? "", role: "مالك الحساب", tenantId, createdAt: now } });
     await tx.employee.create({ data: { id: employeeId, name: ownerName, email, role: "مالك الحساب", status: "متصل", permissions: "الكل", initial: "م", tenantId, userId } });
     await tx.subscription.create({
       data: {
         id: `sub-${tenantId}`, tenantId, companyName: "متجر الأناقة (ديمو)", ownerName, ownerEmail: email,
-        plan: plan.name, status: "تجربة", employeeLimit: plan.employeeLimit, amount: 0, billingCycle: `ديمو ${DEMO_DAYS} أيام`,
+        plan: plan.name, status: reviewer ? "نشط" : "تجربة", employeeLimit: plan.employeeLimit, amount: 0, billingCycle: reviewer ? "حساب مراجعة" : `ديمو ${DEMO_DAYS} أيام`,
         renewalAt: expiresAt, createdAt: now, updatedAt: now
       }
     });
@@ -144,21 +152,53 @@ export async function deleteExpiredDemoWorkspaces(now = new Date()): Promise<num
   let removed = 0;
   for (const row of expired) {
     try {
-      await deleteTenant(row.tenant_id);
+      await removeDemoWorkspace(row.tenant_id);
     } catch (error) {
       console.error("Demo workspace delete failed", { tenantId: row.tenant_id, error });
       continue;
     }
-    for (const table of RAW_TABLES) {
-      try {
-        await prisma.$executeRaw(Prisma.sql`DELETE FROM ${Prisma.raw(table)} WHERE tenant_id = ${row.tenant_id}`);
-      } catch {
-        // A table that does not exist yet (or has no tenant_id) has nothing to remove.
-      }
-    }
-    await prisma.$executeRaw`DELETE FROM demo_workspaces WHERE tenant_id = ${row.tenant_id}`;
-    forgetDemoTenant(row.tenant_id);
     removed += 1;
   }
   return removed;
+}
+
+/** Removes one workspace of this kind completely (its rows, its raw-table rows, its demo marker). */
+async function removeDemoWorkspace(tenantId: string) {
+  await deleteTenant(tenantId);
+  // Messages whose conversation is already gone are not reached by deleteTenant; their ids carry the workspace id.
+  await prisma.message.deleteMany({ where: { id: { startsWith: `${tenantId}-conv-` } } });
+  for (const table of RAW_TABLES) {
+    try {
+      await prisma.$executeRaw(Prisma.sql`DELETE FROM ${Prisma.raw(table)} WHERE tenant_id = ${tenantId}`);
+    } catch {
+      // A table that does not exist yet (or has no tenant_id) has nothing to remove.
+    }
+  }
+  await prisma.$executeRaw`DELETE FROM demo_workspaces WHERE tenant_id = ${tenantId}`;
+  forgetDemoTenant(tenantId);
+}
+
+const REVIEWER_RESET_HOURS = 24;
+
+/**
+ * The standing reviewer account: created when missing, and rebuilt from scratch once a day (or on `force`) so that whatever one
+ * reviewer changed never reaches the next. Its email and password come from the server settings, never from the code.
+ * Returns what happened, or why nothing did.
+ */
+export async function ensureReviewerWorkspace(options: { force?: boolean; now?: Date } = {}): Promise<"created" | "reset" | "kept" | "not-configured"> {
+  const email = process.env.DEMO_REVIEWER_EMAIL?.trim().toLowerCase() ?? "";
+  const password = process.env.DEMO_REVIEWER_PASSWORD ?? "";
+  if (!email.includes("@") || password.length < 12) return "not-configured";
+  await ensureCatalogSchema();
+  const now = options.now ?? new Date();
+  const existing = await prisma.$queryRaw<Array<{ created_at: string }>>`SELECT created_at FROM demo_workspaces WHERE tenant_id = ${REVIEWER_TENANT_ID} LIMIT 1`;
+  if (existing[0] && !options.force && now.getTime() - Date.parse(existing[0].created_at) < REVIEWER_RESET_HOURS * 3_600_000) return "kept";
+  if (existing[0]) await removeDemoWorkspace(REVIEWER_TENANT_ID);
+  else {
+    // The email may belong to a leftover account of an earlier run: it must be free for the new one.
+    const stale = await prisma.userAccount.findUnique({ where: { email } });
+    if (stale && stale.tenantId !== REVIEWER_TENANT_ID) throw new Error("DEMO_REVIEWER_EMAIL belongs to another account");
+  }
+  await createDemoWorkspace({ reviewer: { email, passwordHash: hashPassword(password) } });
+  return existing[0] ? "reset" : "created";
 }
