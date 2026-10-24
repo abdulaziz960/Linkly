@@ -30,7 +30,7 @@ const baseMetadata: Metadata = {
   title: { absolute: "Linkly | One inbox for WhatsApp, Instagram and every channel — Saudi customer service platform" },
   description: "A Saudi platform that brings WhatsApp, Instagram, Facebook, Telegram and email conversations together, helping support and sales teams route and follow up from one place.",
   alternates: { canonical: "/en", languages: { "ar-SA": "/", en: "/en", "x-default": "/" } },
-  openGraph: { title: "Linkly | Every customer conversation in one place", description: "A shared inbox, conversation routing, automation and reports for your team.", locale: "en_US", alternateLocale: "ar_SA", url: "/en", type: "website" }
+  openGraph: { title: "Linkly | Every customer conversation in one place", description: "A shared inbox, conversation routing, automation and reports for your team.", locale: "en_US", alternateLocale: "ar_SA", url: "/en", type: "website", images: [{ url: "/opengraph-image?v=3", width: 1200, height: 630, alt: "Linkly" }] }
 };
 
 export async function generateMetadata(): Promise<Metadata> {

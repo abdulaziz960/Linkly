@@ -30,7 +30,7 @@ const baseMetadata: Metadata = {
   title: { absolute: "Linkly | صندوق موحّد لواتساب وإنستقرام والقنوات — منصة سعودية لخدمة العملاء" },
   description: "منصة سعودية تجمع محادثات واتساب وإنستقرام وفيسبوك وتيليجرام والبريد وتساعد فرق الخدمة والمبيعات على التوزيع والمتابعة من مكان واحد.",
   alternates: { canonical: "/", languages: { "ar-SA": "/", en: "/en", "x-default": "/" } },
-  openGraph: { title: "Linkly | كل محادثات عملائك في مكان واحد", description: "صندوق وارد موحد، توزيع للمحادثات، أتمتة وتقارير لفريقك.", locale: "ar_SA", alternateLocale: "en_US", url: "/", type: "website" }
+  openGraph: { title: "Linkly | كل محادثات عملائك في مكان واحد", description: "صندوق وارد موحد، توزيع للمحادثات، أتمتة وتقارير لفريقك.", locale: "ar_SA", alternateLocale: "en_US", url: "/", type: "website", images: [{ url: "/opengraph-image?v=3", width: 1200, height: 630, alt: "Linkly" }] }
 };
 
 export async function generateMetadata(): Promise<Metadata> {

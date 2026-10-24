@@ -11,7 +11,7 @@
  */
 
 const ORIGIN = "https://linklysa.io";
-const SHARE_IMAGE = `${ORIGIN}/opengraph-image`;
+const SHARE_IMAGE = `${ORIGIN}/opengraph-image?v=3`;
 
 export type PageSeoDefault = {
   metaTitle: string;
