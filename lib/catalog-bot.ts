@@ -27,7 +27,7 @@ import { formatMessageTime } from "./time";
 import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons, sendWhatsAppImageByUrl, sendWhatsAppRowList } from "./whatsapp-send";
 import { getMenuBusiness, getMenuImageVersion, menuImageUrl } from "./catalog-menu-image";
 import { clearBranchChoice, getBranchChoice, getBranchStock, listBranches, recordOrderBranch, reserveBranchStock, setBranchChoice, shortfalls, type Branch } from "./catalog-branches";
-import { clearFulfillmentChoice, clearPickupChoice, cleanCarDetails, cleanPlate, getFulfillmentChoice, getPickupChoice, getPickupSettings, pickupText, recordOrderPickup, setFulfillmentChoice, setPickupChoice, type PickupSettings } from "./catalog-pickup";
+import { clearPickupChoice, cleanCarDetails, cleanPlate, getPickupChoice, getPickupSettings, pickupText, recordOrderPickup, setPickupChoice, type PickupSettings } from "./catalog-pickup";
 import { clearOptionFlow, getOptionFlow, groupsForProduct, resolveSelection, setOptionFlow, type OptionFlow, type OptionGroup } from "./catalog-options";
 
 /**
@@ -121,12 +121,6 @@ async function chatBranches(ctx: CatalogCtx): Promise<Branch[]> {
 
 export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0, category?: string, withMenuImage = true): Promise<boolean> {
   const body = intro.trim() || CATALOG_DEFAULT_INTRO;
-
-  // Delivery and pickup are both on: the customer says which one first (then the branch, the menu and the products).
-  if (withMenuImage && offset === 0 && category === undefined && (await needsFulfillmentChoice(ctx))) {
-    await askFulfillment(ctx, true);
-    return true;
-  }
 
   // With branches the customer says which one first, and then only that branch's products are shown.
   const branches = await chatBranches(ctx);
@@ -784,10 +778,7 @@ async function continueCheckoutAfterBranch(ctx: CatalogCtx, cart: Awaited<Return
     const methods = await listShippingMethods(ctx.tenantId, { activeOnly: true });
     const pickup = await getPickupSettings(ctx.tenantId);
     if (pickup.enabled && methods.length) {
-      const early = await getFulfillmentChoice(ctx.conversationId);
-      if (early === "delivery") await startShippingFlow(ctx, methods);
-      else if (early === "pickup") await startPickupFlow(ctx, pickup);
-      else await askFulfillment(ctx);
+      await askFulfillment(ctx);
       return;
     }
     if (pickup.enabled) {
@@ -974,15 +965,8 @@ async function continueShippingFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: 
 // ---------- pickup (from the store or from the car) ----------
 
 /** Both delivery and pickup are on: the customer picks how the order reaches them. */
-async function needsFulfillmentChoice(ctx: CatalogCtx): Promise<boolean> {
-  if ((await getZidCatalogMode(ctx.tenantId)).connected || (await hasConnectedStore(ctx.tenantId))) return false;
-  const pickup = await getPickupSettings(ctx.tenantId);
-  if (!pickup.enabled || !(await listShippingMethods(ctx.tenantId, { activeOnly: true })).length) return false;
-  return !(await getFulfillmentChoice(ctx.conversationId));
-}
-
-async function askFulfillment(ctx: CatalogCtx, browse = false) {
-  await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "fulfillment", data: browse ? { browse: true } : {} });
+async function askFulfillment(ctx: CatalogCtx) {
+  await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "fulfillment", data: {} });
   const body = "كيف تريد استلام طلبك؟";
   if (ctx.channel !== "whatsapp") {
     await ctx.sendText(`${body}\n1) توصيل\n2) استلام من المحل\nاكتب رقم الخيار، أو «إلغاء» للرجوع إلى السلة.`);
@@ -1251,7 +1235,6 @@ async function finalizeCartOrder(ctx: CatalogCtx, cart: Awaited<ReturnType<typeo
   });
   if (pickup) await recordOrderPickup(order.id, pickup);
   if (branch) await recordOrderBranch(ctx.tenantId, order.id, branch);
-  await clearFulfillmentChoice(ctx.conversationId);
   const orderText = `${formatOrderSummary(cart, quote)}${delivery ? `\n\nالعنوان: ${delivery.address}` : pickup ? `\n\n${pickupText(pickup)}` : ""}${branch ? `\nالفرع: ${branch.name}${branch.mapUrl ? `\nموقع الفرع: ${branch.mapUrl}` : ""}` : ""}`;
   const totalText = formatMoney(order.total, order.currency);
   const where = `${delivery ? ` | التوصيل: ${delivery.method.name} إلى ${delivery.city} - ${delivery.address}` : pickup ? ` | ${pickupText(pickup)}` : ""}${branch ? ` | الفرع: ${branch.name}` : ""}`;
@@ -1466,23 +1449,6 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   // The branch question asked before the products (works with an empty cart).
   if (flow?.step === "branch" && flow.data.browse && (!id || id.startsWith(ID_BRANCH))) {
     if (await continueBrowseBranch(ctx, reply)) return "handled";
-  }
-  // Delivery or pickup, asked before the branch and the products.
-  if (flow?.step === "fulfillment" && flow.data.browse && (id === ID_FUL_DELIVERY || id === ID_FUL_PICKUP || (!id && /^(1|2|توصيل|استلام|استلام من المحل)$/.test(reply.text.trim())))) {
-    const delivery = id === ID_FUL_DELIVERY || (!id && /^(1|توصيل)$/.test(reply.text.trim()));
-    await setFulfillmentChoice(ctx.tenantId, ctx.conversationId, delivery ? "delivery" : "pickup");
-    await clearCheckoutFlow(ctx.conversationId);
-    await sendCatalogMenu(ctx, intro);
-    return "handled";
-  }
-  if (flow?.step === "fulfillment" && flow.data.browse && !id && /^(إلغاء|الغاء|cancel)$/i.test(reply.text.trim())) {
-    await clearCheckoutFlow(ctx.conversationId);
-    await ctx.sendText("تم الإلغاء. اكتب «الكتالوج» متى أردت الطلب.");
-    return "handled";
-  }
-  if (flow?.step === "fulfillment" && flow.data.browse && !id) {
-    await askFulfillment(ctx, true);
-    return "handled";
   }
   if (flow) {
     if (!id || id.startsWith(ID_SHIP) || id.startsWith(ID_PAY) || id.startsWith("ful_") || id.startsWith("pk_") || id.startsWith(ID_BRANCH)) {

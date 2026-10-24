@@ -100,31 +100,6 @@ export async function clearPickupChoice(conversationId: string) {
   await prisma.$executeRaw`DELETE FROM catalog_pickup_choice WHERE conversation_id = ${conversationId}`;
 }
 
-// ---- delivery or pickup, chosen up front ----
-
-export type FulfillmentKind = "delivery" | "pickup";
-const FULFILLMENT_HOURS = 12;
-
-export async function setFulfillmentChoice(tenantId: string, conversationId: string, kind: FulfillmentKind) {
-  await ensureTables();
-  await prisma.$executeRaw`DELETE FROM catalog_fulfillment_choice WHERE conversation_id = ${conversationId}`;
-  await prisma.$executeRaw`INSERT INTO catalog_fulfillment_choice (conversation_id, tenant_id, kind, created_at) VALUES (${conversationId}, ${tenantId}, ${kind}, ${new Date().toISOString()})`;
-}
-
-/** What the customer chose when the catalog opened (null when nothing, or when it was a while ago). */
-export async function getFulfillmentChoice(conversationId: string): Promise<FulfillmentKind | null> {
-  await ensureTables();
-  const rows = await prisma.$queryRaw<Array<{ kind: string; created_at: string }>>`SELECT kind, created_at FROM catalog_fulfillment_choice WHERE conversation_id = ${conversationId} LIMIT 1`;
-  const row = rows[0];
-  if (!row || Date.parse(row.created_at) < Date.now() - FULFILLMENT_HOURS * 3_600_000) return null;
-  return row.kind === "delivery" || row.kind === "pickup" ? row.kind : null;
-}
-
-export async function clearFulfillmentChoice(conversationId: string) {
-  await ensureTables();
-  await prisma.$executeRaw`DELETE FROM catalog_fulfillment_choice WHERE conversation_id = ${conversationId}`;
-}
-
 // ---- the choice stored with a placed order ----
 
 export async function recordOrderPickup(orderId: string, pickup: OrderPickup) {
