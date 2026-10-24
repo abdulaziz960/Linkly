@@ -126,6 +126,13 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     car_details TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
   )`,
+  // Delivery or pickup, asked when the catalog opens (before the branch and the products) and kept while the customer shops.
+  `CREATE TABLE IF NOT EXISTS catalog_fulfillment_choice (
+    conversation_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS catalog_order_pickup (
     order_id TEXT PRIMARY KEY,
     kind TEXT NOT NULL,

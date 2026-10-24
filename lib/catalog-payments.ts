@@ -222,6 +222,8 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
 
   if (next === "cancelled") await restockOrder(order);
 
+  if (next === "paid") void import("./catalog-order-alert").then((alert) => alert.notifyNewOrder(order, true));
+
   if (next === "paid" && order.conversationId) {
     const orderItems = (await getOrderItems([order.id])).get(order.id);
     const orderDiscount = (await getOrderDiscounts([order.id])).get(order.id);
