@@ -5,7 +5,6 @@ import { useLanguage } from "../i18n";
 import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
 import CustomSelect from "../../components/CustomSelect";
 import DiscountCodesPanel from "../components/DiscountCodesPanel";
-import BranchesPanel from "../components/BranchesPanel";
 import LoyaltyPanel from "../components/LoyaltyPanel";
 import ProductOptionsEditor from "../components/ProductOptionsEditor";
 import { optionLines, type OptionDetail } from "../../../lib/catalog-option-text";
@@ -121,7 +120,7 @@ async function resizeToJpeg(file: File): Promise<string> {
 export default function CatalogView() {
   const { t, language } = useLanguage();
   const [optionsFor, setOptionsFor] = useState<{ id: string; name: string } | null>(null);
-  const [tab, setTab] = useState<"products" | "categories" | "branches" | "orders" | "shipping" | "discounts" | "loyalty" | "settings">("products");
+  const [tab, setTab] = useState<"products" | "categories" | "orders" | "shipping" | "discounts" | "loyalty" | "settings">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
@@ -132,6 +131,9 @@ export default function CatalogView() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [formError, setFormError] = useState("");
+  // Where the product is sold: the branches of the Branches page, each with a switch and an optional quantity.
+  const [branchRows, setBranchRows] = useState<Array<{ id: string; name: string; available: boolean; stock: string }>>([]);
+  const [branchesLoaded, setBranchesLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState("");
@@ -206,6 +208,14 @@ export default function CatalogView() {
       active: product.active
     } : emptyForm);
     setFormOpen(true);
+    setBranchRows([]);
+    setBranchesLoaded(false);
+    // A new product has no id yet: its branches come from the page's list, all switched on.
+    const source = product ? api<Array<{ id: string; name: string; available: boolean; stock: number }>>(`/api/catalog/products/${product.id}/branches`) : api<Array<{ id: string; name: string }>>("/api/catalog/branches");
+    void source.then((result) => {
+      if (result.ok) setBranchRows((result.data ?? []).map((row) => ({ id: row.id, name: row.name, available: "available" in row ? Boolean(row.available) : true, stock: "stock" in row && typeof row.stock === "number" && row.stock >= 0 ? String(row.stock) : "" })));
+      setBranchesLoaded(true);
+    });
   }
 
   async function submitProduct(event: FormEvent<HTMLFormElement>) {
@@ -229,6 +239,10 @@ export default function CatalogView() {
       if (!uploaded.ok) {
         setNotice({ type: "error", message: uploaded.error || t("تم حفظ المنتج لكن تعذر رفع الصورة", "Product saved but the photo could not be uploaded") });
       }
+    }
+    if (savedId && branchRows.length) {
+      const saved = await api(`/api/catalog/products/${savedId}/branches`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ branches: branchRows.map((row) => ({ id: row.id, available: row.available, stock: row.stock.trim() === "" ? null : Number(row.stock) })) }) });
+      if (!saved.ok) setNotice({ type: "error", message: saved.error || t("تم حفظ المنتج لكن تعذر حفظ فروعه", "Product saved but its branches could not be saved") });
     }
     setFormOpen(false);
     await load();
@@ -436,7 +450,6 @@ export default function CatalogView() {
           <div className="row-actions">
             <button className={tab === "products" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("products")}>{t("المنتجات", "Products")} ({products.length})</button>
             <button className={tab === "categories" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("categories")}>{t("التصنيفات", "Categories")} ({categories.length})</button>
-            <button className={tab === "branches" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("branches")}>{t("الفروع", "Branches")}</button>
             <button className={tab === "orders" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("orders")}>{t("الطلبات", "Orders")} ({orders.length})</button>
             <button className={tab === "shipping" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("shipping")}>{t("الشحن", "Shipping")}</button>
             <button className={tab === "discounts" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("discounts")}>{t("أكواد الخصم", "Discount codes")}</button>
@@ -532,7 +545,6 @@ export default function CatalogView() {
         </div>
       ) : null}
 
-      {tab === "branches" ? <BranchesPanel /> : null}
 
       {tab === "orders" ? <PrepTimeCard onLoaded={(minutes) => setPrepDefault(minutes)} /> : null}
 
@@ -765,6 +777,16 @@ export default function CatalogView() {
               </div>
               <label><span>{t("رابط صفحة المنتج في موقعك (اختياري)", "Product page URL on your site (optional)")}</span><input type="url" value={form.productUrl} onChange={(event) => setForm({ ...form, productUrl: event.target.value })} placeholder="https://..." dir="ltr" /></label>
               <label><span>{t("الوصف", "Description")}</span><textarea rows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} maxLength={2000} /></label>
+              <div className="field-group">
+                <span>{t("الفروع المتوفر فيها هذا المنتج", "Branches where this product is available")}</span>
+                {branchRows.length ? branchRows.map((row, index) => (
+                  <div className="branch-pick" key={row.id}>
+                    <label className="automation-switch"><input type="checkbox" checked={row.available} onChange={(event) => setBranchRows(branchRows.map((item, i) => (i === index ? { ...item, available: event.target.checked } : item)))} /><span>{row.name}</span></label>
+                    {row.available ? <input type="number" min={1} dir="ltr" value={row.stock} placeholder={t("الكمية (اختياري)", "Quantity (optional)")} onChange={(event) => setBranchRows(branchRows.map((item, i) => (i === index ? { ...item, stock: event.target.value } : item)))} /> : null}
+                  </div>
+                )) : <small className="field-hint">{branchesLoaded ? t("لا توجد فروع. أضف فروعك من صفحة «الفروع» لتظهر هنا.", "No branches yet. Add them on the Branches page and they appear here.") : t("جاري تحميل الفروع...", "Loading branches...")}</small>}
+                {branchRows.length ? <small className="field-hint">{t("اترك الكمية فارغة إن لم تكن تحسب المخزون في الفرع. العميل لا يرى الكمية المتبقية.", "Leave the quantity empty if you do not count stock at the branch. Customers never see the remaining quantity.")}</small> : null}
+              </div>
               <label className="automation-switch"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /><span>{form.active ? t("ظاهر للعملاء", "Visible to customers") : t("مخفي", "Hidden")}</span></label>
               {formError ? <p className="form-error">{formError}</p> : null}
             </div>

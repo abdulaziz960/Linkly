@@ -197,3 +197,24 @@ describe("choosing the branch before the products", () => {
     expect(sent.some((m) => String(m.input.bodyText ?? "").includes("من أي فرع"))).toBe(false);
   });
 });
+
+describe("choosing the branches of a product", () => {
+  it("lists the Branches page's branches, switches a product off at one and counts it at another", async () => {
+    const b = await import("../lib/catalog-branches");
+    const tenant = "tenant-product-branches";
+    const { prisma } = await import("../lib/prisma");
+    const { ensureBranchesSchema } = await import("../lib/branches-schema");
+    await ensureBranchesSchema();
+    const now = new Date().toISOString();
+    for (const [id, name] of [["pb-1", "الرياض"], ["pb-2", "جدة"]]) {
+      await prisma.$executeRaw`INSERT INTO branches (id, tenant_id, name, latitude, longitude, active, created_at, updated_at) VALUES (${id}, ${tenant}, ${name}, 24.7, 46.6, 1, ${now}, ${now})`;
+    }
+    expect((await b.getProductBranches(tenant, "p-x")).map((x) => [x.name, x.available, x.stock])).toEqual([["الرياض", true, -1], ["جدة", true, -1]]);
+    await b.setProductBranches(tenant, "p-x", [{ id: "pb-1", available: true, stock: 7 }, { id: "pb-2", available: false, stock: null }, { id: "unknown", available: false, stock: null }]);
+    expect((await b.getProductBranches(tenant, "p-x")).map((x) => [x.name, x.available, x.stock])).toEqual([["الرياض", true, 7], ["جدة", false, -1]]);
+    expect(await b.getUnavailableAtBranch(tenant, "pb-2")).toEqual(["p-x"]);
+    // switching it back on without a count makes it available again
+    await b.setProductBranches(tenant, "p-x", [{ id: "pb-2", available: true, stock: null }]);
+    expect((await b.getProductBranches(tenant, "p-x"))[1]).toMatchObject({ available: true, stock: -1 });
+  });
+});

@@ -68,6 +68,32 @@ export async function setBranchStock(tenantId: string, branchId: string, product
   await prisma.$executeRaw`INSERT INTO catalog_branch_stock (branch_id, product_id, tenant_id, stock) VALUES (${branchId}, ${productId}, ${tenantId}, ${Math.floor(stock)})`;
 }
 
+export type ProductBranch = { id: string; name: string; available: boolean; stock: number };
+
+/**
+ * Where a product is sold: every branch with whether the product is available there and its quantity (-1 = not tracked).
+ * Stored in the branch stock table: a row of 0 means "not sold at this branch", no row means sold without a count.
+ */
+export async function getProductBranches(tenantId: string, productId: string): Promise<ProductBranch[]> {
+  const branches = await listBranches(tenantId);
+  if (!branches.length) return [];
+  const rows = await prisma.$queryRaw<Array<{ branch_id: string; stock: number | bigint }>>`SELECT branch_id, stock FROM catalog_branch_stock WHERE tenant_id = ${tenantId} AND product_id = ${productId}`;
+  const stock = new Map(rows.map((row) => [row.branch_id, Number(row.stock)]));
+  return branches.map((branch) => {
+    const value = stock.get(branch.id);
+    return { id: branch.id, name: branch.name, available: value === undefined || value > 0, stock: value === undefined || value <= 0 ? -1 : value };
+  });
+}
+
+export async function setProductBranches(tenantId: string, productId: string, items: Array<{ id: string; available: boolean; stock: number | null }>) {
+  const known = new Set((await listBranches(tenantId)).map((branch) => branch.id));
+  for (const item of items) {
+    if (!known.has(item.id)) continue;
+    if (!item.available) await setBranchStock(tenantId, item.id, productId, 0);
+    else await setBranchStock(tenantId, item.id, productId, item.stock !== null && item.stock > 0 ? item.stock : null);
+  }
+}
+
 /**
  * Takes the units of every tracked line at the branch at once; if any line cannot be covered, what was taken goes back and
  * the product that failed is named - two customers can never both buy the last unit.

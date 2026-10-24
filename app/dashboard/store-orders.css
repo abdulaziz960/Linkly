@@ -522,3 +522,5 @@
 .branch-stock-table { width: 100%; border-collapse: collapse; }
 .branch-stock-table th, .branch-stock-table td { padding: 8px 10px; text-align: start; border-bottom: 1px solid var(--line); }
 .branch-stock-table input { width: 110px; }
+.branch-pick { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+.branch-pick input[type="number"] { max-width: 180px; }
