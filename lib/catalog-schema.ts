@@ -240,6 +240,30 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     business TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  // How an order was paid (mada, card, Apple Pay, Tabby...), read from the provider when the payment is confirmed.
+  `CREATE TABLE IF NOT EXISTS catalog_order_payment_method (
+    order_id TEXT PRIMARY KEY,
+    method TEXT NOT NULL
+  )`,
+  // The cashier's shifts: opened with the cash in the drawer, closed with the cash counted.
+  `CREATE TABLE IF NOT EXISTS catalog_shifts (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    opened_at TEXT NOT NULL,
+    opened_by TEXT NOT NULL,
+    opening_cash DOUBLE PRECISION NOT NULL,
+    closed_at TEXT NOT NULL DEFAULT '',
+    closed_by TEXT NOT NULL DEFAULT '',
+    counted_cash DOUBLE PRECISION NOT NULL DEFAULT 0,
+    expected_cash DOUBLE PRECISION NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT ''
+  )`,
+  // Whether the end-of-day summary is sent to the owner (on unless switched off).
+  `CREATE TABLE IF NOT EXISTS catalog_daily_summary_settings (
+    tenant_id TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
   // The English name of a product (shown when the dashboard is in English); the product itself keeps one name.
   `CREATE TABLE IF NOT EXISTS catalog_product_names_en (
     product_id TEXT PRIMARY KEY,

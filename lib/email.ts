@@ -197,6 +197,13 @@ export async function sendLowBalanceEmail({ to, name, remaining, percent, topUpU
   return sendEmail({ to, subject: `رصيد رسائل حملاتك في ${branding.name} عند ${percent}%`, text: content.text, html: content.html });
 }
 
+/** The end-of-day sales summary sent to a workspace owner. */
+export async function sendDailySummaryEmail({ to, name, day, rows, dashboardUrl, branding = DEFAULT_EMAIL_BRANDING }: { to: string; name: string; day: string; rows: [string, string][]; dashboardUrl: string; branding?: EmailBranding }): Promise<boolean> {
+  const text = `مرحباً ${name}\n\nملخص مبيعات ${day} في ${branding.name}\n\n${rows.map(([label, value]) => `${label}: ${value}`).join("\n")}\n\nالتفاصيل: ${dashboardUrl}`;
+  const html = renderEmail({ brand: branding, heading: `ملخص مبيعات ${day}`, greetingName: name || undefined, rows, button: { label: "فتح التقرير الكامل", url: dashboardUrl } });
+  return sendEmail({ to, subject: `ملخص مبيعات ${day} في ${branding.name}`, text, html, idempotencyKey: `daily-summary-${day}-${to}` });
+}
+
 const ADMIN_NOTIFICATION_EMAIL = "info@linklysa.io";
 
 /** Shared "info@" team-inbox ping layout: a heading, a label/value table, and an optional free-text body (ticket/suggestion description). */

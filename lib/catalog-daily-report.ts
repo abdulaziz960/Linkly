@@ -2,6 +2,7 @@
 // A day is a calendar day in Saudi time (UTC+3), the market Linkly serves.
 
 import { listOrders, type CatalogOrderRow } from "./catalog";
+import { getPaymentMethods, type PaymentMethod } from "./catalog-payment-method";
 
 const RIYADH_OFFSET_MS = 3 * 3_600_000;
 
@@ -39,6 +40,10 @@ export type DailyReport = {
   average: number;
   byFulfillment: Array<{ key: "delivery" | "store" | "car" | "other"; count: number; total: number }>;
   byBranch: Array<{ name: string; count: number; total: number }>;
+  /** How the sales were paid: a method, "cash" (placed without online payment) or "unknown" (paid before methods were recorded). */
+  byPayment: Array<{ key: PaymentMethod | "cash" | "unknown"; count: number; total: number }>;
+  /** The day before, for the comparison (change = percent, null when yesterday had no sales). */
+  previous: { day: string; orderCount: number; sales: number; change: number | null };
   products: Array<{ name: string; quantity: number; total: number }>;
   orders: Array<{ id: string; time: string; customerName: string; customerPhone: string; total: number; status: string; fulfillment: string; branch: string }>;
 };
@@ -46,7 +51,7 @@ export type DailyReport = {
 const round = (value: number) => Math.round(value * 100) / 100;
 
 /** Pure: the orders of one day into the report. */
-export function buildDailyReport(day: string, orders: CatalogOrderRow[], branch = ""): DailyReport {
+export function buildDailyReport(day: string, orders: CatalogOrderRow[], branch = "", methods: Map<string, PaymentMethod> = new Map(), yesterday?: { orderCount: number; sales: number }): DailyReport {
   const scoped = branch ? orders.filter((order) => (order.branchName ?? "") === branch) : orders;
   const counted = scoped.filter((order) => order.status === "paid" || order.status === "fulfilled" || order.status === "new");
   const sum = (list: CatalogOrderRow[]) => round(list.reduce((total, order) => total + order.total, 0));
@@ -56,7 +61,11 @@ export function buildDailyReport(day: string, orders: CatalogOrderRow[], branch 
   const fulfillment = new Map<string, { count: number; total: number }>();
   const branches = new Map<string, { count: number; total: number }>();
   const products = new Map<string, { quantity: number; total: number }>();
+  const payments = new Map<string, { count: number; total: number }>();
   for (const order of counted) {
+    const method = order.status === "new" ? "cash" : methods.get(order.id) ?? "unknown";
+    const pay = payments.get(method) ?? { count: 0, total: 0 };
+    payments.set(method, { count: pay.count + 1, total: pay.total + order.total });
     const key = fulfillmentOf(order);
     const f = fulfillment.get(key) ?? { count: 0, total: 0 };
     fulfillment.set(key, { count: f.count + 1, total: f.total + order.total });
@@ -84,6 +93,8 @@ export function buildDailyReport(day: string, orders: CatalogOrderRow[], branch 
     deliveryFees: round(counted.reduce((total, order) => total + (order.shipping?.fee ?? 0), 0)),
     average: counted.length ? round(sales / counted.length) : 0,
     byFulfillment: [...fulfillment].map(([key, value]) => ({ key: key as DailyReport["byFulfillment"][number]["key"], count: value.count, total: round(value.total) })),
+    byPayment: [...payments].map(([key, value]) => ({ key: key as DailyReport["byPayment"][number]["key"], count: value.count, total: round(value.total) })).sort((a, b) => b.total - a.total),
+    previous: { day: previousDay(day), orderCount: yesterday?.orderCount ?? 0, sales: yesterday?.sales ?? 0, change: yesterday && yesterday.sales > 0 ? Math.round(((sales - yesterday.sales) / yesterday.sales) * 1000) / 10 : null },
     byBranch: [...branches].map(([name, value]) => ({ name, count: value.count, total: round(value.total) })),
     products: [...products].map(([name, value]) => ({ name, quantity: value.quantity, total: round(value.total) })).sort((a, b) => b.quantity - a.quantity),
     orders: [...scoped].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map((order) => ({
@@ -99,6 +110,13 @@ export function buildDailyReport(day: string, orders: CatalogOrderRow[], branch 
   };
 }
 
+export function previousDay(day: string): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) - 24 * 3_600_000).toISOString().slice(0, 10);
+}
+
 export async function dailyReport(tenantId: string, day: string, branch = ""): Promise<DailyReport> {
-  return buildDailyReport(day, await listOrders(tenantId, 5000, dayRange(day)), branch);
+  const [orders, before] = await Promise.all([listOrders(tenantId, 5000, dayRange(day)), listOrders(tenantId, 5000, dayRange(previousDay(day)))]);
+  const methods = await getPaymentMethods(orders.map((order) => order.id));
+  const yesterday = buildDailyReport(previousDay(day), before, branch);
+  return buildDailyReport(day, orders, branch, methods, { orderCount: yesterday.orderCount, sales: yesterday.sales });
 }

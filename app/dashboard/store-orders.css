@@ -539,3 +539,10 @@
 .daily-table td:not(:first-child) { text-align: end; white-space: nowrap; }
 @media (max-width: 900px) { .daily-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media print { .daily-report .panel-head button, .daily-filters { display: none; } }
+.shift-card { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); margin-bottom: 14px; display: grid; gap: 8px; }
+.shift-card h3 { margin: 0; }
+.shift-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.shift-row input { flex: 1; min-width: 160px; }
+.diff-short { color: #b42318; font-weight: 800; }
+.diff-over { color: #0f766e; font-weight: 800; }
+@media print { .shift-card, .daily-report .automation-switch { display: none; } }

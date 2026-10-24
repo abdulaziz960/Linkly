@@ -1,3 +1,4 @@
+import { methodFromMoyasarSource, methodFromPaymentId, recordPaymentMethod, type PaymentMethod } from "./catalog-payment-method";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { getMerchantGatewayKeyForVerification, getOrderItems, restockOrder, type OrderStatus } from "./catalog";
@@ -106,7 +107,7 @@ export async function createMerchantInvoice(input: {
   return { id: payload.id, url: payload.url };
 }
 
-export type MerchantInvoiceStatus = { id: string; status: string; amountHalalas: number; orderId: string };
+export type MerchantInvoiceStatus = { id: string; status: string; amountHalalas: number; orderId: string; method: PaymentMethod };
 
 export async function fetchMerchantInvoice(secretKey: string, invoiceId: string): Promise<MerchantInvoiceStatus | null> {
   if (!secretKey || !invoiceId) return null;
@@ -116,14 +117,15 @@ export async function fetchMerchantInvoice(secretKey: string, invoiceId: string)
   });
   if (!response.ok) return null;
   const payload = await response.json().catch(() => null) as {
-    id?: string; status?: string; amount?: number; metadata?: Record<string, unknown> | null;
+    id?: string; status?: string; amount?: number; metadata?: Record<string, unknown> | null; payments?: Array<{ status?: string; source?: { type?: string; company?: string } }>;
   } | null;
   if (!payload?.id || !payload.status) return null;
   return {
     id: payload.id,
     status: payload.status,
     amountHalalas: Number(payload.amount) || 0,
-    orderId: String(payload.metadata?.order_id ?? "")
+    orderId: String(payload.metadata?.order_id ?? ""),
+    method: methodFromMoyasarSource((payload.payments?.find((payment) => payment.status === "paid") ?? payload.payments?.[0])?.source)
   };
 }
 
@@ -172,6 +174,7 @@ export async function processOrderPaymentCallback(orderId: string): Promise<{ ht
   if (order.paymentId.startsWith("zid-")) {
     const { isZidOrderPaid } = await import("./zid-checkout");
     if (!(await isZidOrderPaid(order.tenantId, order.paymentId.slice(4)))) return { httpStatus: 200, body: { ok: true, status: order.status } };
+    await recordPaymentMethod(order.id, "zid").catch(() => null);
     return applyOrderTransition(order, "paid");
   }
 
@@ -179,7 +182,11 @@ export async function processOrderPaymentCallback(orderId: string): Promise<{ ht
   if (order.paymentId.startsWith("tabby-") || order.paymentId.startsWith("tamara-")) {
     const { verifyExternalPayment } = await import("./payments/registry");
     const verdict = await verifyExternalPayment(order);
-    if (verdict.state === "paid") return applyOrderTransition(order, "paid");
+    if (verdict.state === "paid") {
+      const method = methodFromPaymentId(order.paymentId);
+      if (method) await recordPaymentMethod(order.id, method).catch(() => null);
+      return applyOrderTransition(order, "paid");
+    }
     if (verdict.state === "failed") return applyOrderTransition(order, "cancelled");
     return { httpStatus: 200, body: { ok: true, status: order.status } };
   }
@@ -196,6 +203,7 @@ export async function processOrderPaymentCallback(orderId: string): Promise<{ ht
     return { httpStatus: 200, body: { ok: true, status: order.status } };
   }
 
+  if (next === "paid") await recordPaymentMethod(order.id, invoice.method).catch(() => null);
   return applyOrderTransition(order, next);
 }
 

@@ -47,3 +47,41 @@ describe("daily closing report", () => {
     expect(report).toMatchObject({ orderCount: 0, sales: 0, average: 0, orders: [] });
   });
 });
+
+describe("payment methods, the comparison and the summary", () => {
+  it("reads Moyasar and provider payments into methods", async () => {
+    const { methodFromMoyasarSource, methodFromPaymentId } = await import("../lib/catalog-payment-method");
+    expect(methodFromMoyasarSource({ type: "creditcard", company: "mada" })).toBe("mada");
+    expect(methodFromMoyasarSource({ type: "creditcard", company: "visa" })).toBe("card");
+    expect(methodFromMoyasarSource({ type: "applepay", company: "visa" })).toBe("applepay");
+    expect(methodFromMoyasarSource({ type: "stcpay" })).toBe("stcpay");
+    expect(methodFromMoyasarSource(undefined)).toBe("other");
+    expect(methodFromPaymentId("tabby-123")).toBe("tabby");
+    expect(methodFromPaymentId("tamara-9")).toBe("tamara");
+    expect(methodFromPaymentId("inv_1")).toBeNull();
+  });
+
+  it("splits the sales by payment method, compares with yesterday and builds the summary lines", async () => {
+    const { summaryRows } = await import("../lib/catalog-daily-summary");
+    const orders = [
+      order({ id: "ORD-1", total: 100, status: "paid" }),
+      order({ id: "ORD-2", total: 50, status: "paid" }),
+      order({ id: "ORD-3", total: 20, status: "new" }),
+      order({ id: "ORD-4", total: 30, status: "paid" })
+    ];
+    const methods = new Map([["ORD-1", "mada" as const], ["ORD-2", "applepay" as const]]);
+    const report = buildDailyReport("2026-01-10", orders, "", methods, { orderCount: 2, sales: 100 });
+    expect(report.byPayment).toEqual([
+      { key: "mada", count: 1, total: 100 },
+      { key: "applepay", count: 1, total: 50 },
+      { key: "unknown", count: 1, total: 30 },
+      { key: "cash", count: 1, total: 20 }
+    ]);
+    expect(report.previous).toMatchObject({ sales: 100, change: 100 });
+    expect(buildDailyReport("2026-01-10", orders, "", methods).previous.change).toBeNull();
+    const rows = summaryRows(report);
+    expect(rows[0]).toEqual(["إجمالي المبيعات", "200 ر.س"]);
+    expect(rows.find(([label]) => label === "مقارنة بالأمس")?.[1]).toContain("+100%");
+    expect(rows.some(([label]) => label === "الدفع: مدى")).toBe(true);
+  });
+});

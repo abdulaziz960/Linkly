@@ -19,9 +19,14 @@ type Report = {
   average: number;
   byFulfillment: Array<{ key: "delivery" | "store" | "car" | "other"; count: number; total: number }>;
   byBranch: Array<{ name: string; count: number; total: number }>;
+  byPayment: Array<{ key: string; count: number; total: number }>;
+  previous: { day: string; orderCount: number; sales: number; change: number | null };
   products: Array<{ name: string; quantity: number; total: number }>;
   orders: Array<{ id: string; time: string; customerName: string; customerPhone: string; total: number; status: string; fulfillment: string; branch: string }>;
 };
+
+type Shift = { id: string; openedAt: string; openedBy: string; openingCash: number; closedAt: string; closedBy: string; countedCash: number; expectedCash: number; difference: number; note: string };
+type ShiftState = { open: Shift | null; live: { sales: number; orderCount: number; cashToCollect: number; expectedCash: number; paidOnline: number } | null; recent: Shift[] };
 
 const todayLocal = () => new Date(Date.now() + 3 * 3_600_000).toISOString().slice(0, 10);
 
@@ -33,6 +38,11 @@ export default function DailyReportPanel() {
   const [branches, setBranches] = useState<string[]>([]);
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState("");
+  const [shifts, setShifts] = useState<ShiftState | null>(null);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [shiftError, setShiftError] = useState("");
+  const [summaryOn, setSummaryOn] = useState(true);
 
   const money = (value: number) => `${value.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${t("ر.س", "SAR")}`;
   const statusText = (status: string) => ({ paid: t("مدفوع", "Paid"), fulfilled: t("تم التسليم", "Fulfilled"), new: t("جديد - متابعة", "New - follow-up"), awaiting_payment: t("بانتظار الدفع", "Awaiting payment"), cancelled: t("ملغي", "Cancelled") } as Record<string, string>)[status] ?? status;
@@ -61,6 +71,41 @@ export default function DailyReportPanel() {
     }).catch(() => null);
   }, []);
 
+  const loadShifts = useCallback(async () => {
+    const response = await fetch("/api/catalog/shifts", { cache: "no-store" }).catch(() => null);
+    const payload = await response?.json().catch(() => null);
+    if (payload?.ok) setShifts(payload.data as ShiftState);
+  }, []);
+
+  useEffect(() => {
+    void loadShifts();
+    fetch("/api/catalog/daily-summary").then((response) => response.json()).then((payload: { ok?: boolean; data?: { enabled: boolean } }) => {
+      if (payload?.ok) setSummaryOn(Boolean(payload.data?.enabled));
+    }).catch(() => null);
+  }, [loadShifts]);
+
+  async function shiftAction(action: "open" | "close") {
+    setShiftError("");
+    const response = await fetch("/api/catalog/shifts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, amount, note }) });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) {
+      setShiftError(payload?.error || t("تعذر الحفظ", "Could not save"));
+      return;
+    }
+    setShifts(payload.data as ShiftState);
+    setAmount("");
+    setNote("");
+    void load();
+  }
+
+  async function toggleSummary(enabled: boolean) {
+    setSummaryOn(enabled);
+    await fetch("/api/catalog/daily-summary", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled }) }).catch(() => null);
+  }
+
+  const paymentText = (key: string) => ({ mada: t("مدى", "mada"), card: t("بطاقة", "Card"), applepay: "Apple Pay", stcpay: "STC Pay", samsungpay: "Samsung Pay", tabby: t("تابي", "Tabby"), tamara: t("تمارا", "Tamara"), zid: t("زد", "Zid"), cash: t("عند الاستلام", "On pickup"), unknown: t("غير مسجّلة", "Not recorded"), other: t("أخرى", "Other") } as Record<string, string>)[key] ?? key;
+  const dateTime = (iso: string) => new Date(iso).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Riyadh" });
+
   function downloadCsv() {
     if (!report) return;
     const cell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
@@ -85,6 +130,41 @@ export default function DailyReportPanel() {
         <button className="btn soft" type="button" onClick={() => window.print()}>{t("طباعة", "Print")}</button>
       </div>
       <div className="panel-body">
+        <section className="shift-card">
+          <h3>{t("وردية الكاشير", "Cashier shift")}</h3>
+          {shifts?.open ? (
+            <>
+              <p className="muted-copy">{t(`مفتوحة منذ ${dateTime(shifts.open.openedAt)} بواسطة ${shifts.open.openedBy} · النقد الافتتاحي ${money(shifts.open.openingCash)}`, `Open since ${dateTime(shifts.open.openedAt)} by ${shifts.open.openedBy} · opening cash ${money(shifts.open.openingCash)}`)}</p>
+              {shifts.live ? <p>{t(`مبيعات الوردية ${money(shifts.live.sales)} (${shifts.live.orderCount} طلب) · يُتوقع في الدرج ${money(shifts.live.expectedCash)}`, `Shift sales ${money(shifts.live.sales)} (${shifts.live.orderCount} orders) · expected in the drawer ${money(shifts.live.expectedCash)}`)}</p> : null}
+              <div className="shift-row">
+                <input type="number" min={0} step="0.01" dir="ltr" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={t("النقد المعدود في الدرج", "Cash counted in the drawer")} />
+                <input value={note} onChange={(event) => setNote(event.target.value)} maxLength={300} placeholder={t("ملاحظة (اختياري)", "Note (optional)")} />
+                <button className="btn primary" type="button" disabled={amount.trim() === ""} onClick={() => void shiftAction("close")}>{t("إقفال الوردية", "Close shift")}</button>
+              </div>
+            </>
+          ) : (
+            <div className="shift-row">
+              <input type="number" min={0} step="0.01" dir="ltr" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={t("النقد في الدرج عند الفتح", "Cash in the drawer at opening")} />
+              <button className="btn primary" type="button" disabled={amount.trim() === ""} onClick={() => void shiftAction("open")}>{t("فتح وردية", "Open shift")}</button>
+            </div>
+          )}
+          {shiftError ? <p className="form-error">{shiftError}</p> : null}
+          {shifts?.recent.length ? (
+            <table className="daily-table"><tbody>
+              {shifts.recent.slice(0, 5).map((shift) => (
+                <tr key={shift.id}>
+                  <td>{dateTime(shift.openedAt)} ← {dateTime(shift.closedAt)}<br /><small>{shift.closedBy}{shift.note ? ` · ${shift.note}` : ""}</small></td>
+                  <td>{t("المتوقع", "Expected")} {money(shift.expectedCash)}</td>
+                  <td>{t("المعدود", "Counted")} {money(shift.countedCash)}</td>
+                  <td className={shift.difference < 0 ? "diff-short" : shift.difference > 0 ? "diff-over" : ""}>{shift.difference === 0 ? t("مطابق", "Matches") : `${shift.difference > 0 ? "+" : ""}${shift.difference}`}</td>
+                </tr>
+              ))}
+            </tbody></table>
+          ) : null}
+        </section>
+
+        <label className="automation-switch"><input type="checkbox" checked={summaryOn} onChange={(event) => void toggleSummary(event.target.checked)} /><span>{t("أرسل لي ملخص المبيعات آخر اليوم (بريد وإشعار)", "Send me the day's sales summary in the evening (email and notification)")}</span></label>
+
         <div className="daily-filters">
           <label><span>{t("اليوم", "Day")}</span><input type="date" dir="ltr" value={day} max={todayLocal()} onChange={(event) => event.target.value && setDay(event.target.value)} /></label>
           {branches.length ? (
@@ -98,6 +178,7 @@ export default function DailyReportPanel() {
           <>
             <div className="daily-kpis">
               <article><span>{t("إجمالي المبيعات", "Total sales")}</span><strong>{money(report.sales)}</strong><small>{report.orderCount} {t("طلب", "orders")}</small></article>
+              <article><span>{t("مقارنة بالأمس", "Vs yesterday")}</span><strong className={report.previous.change === null ? "" : report.previous.change < 0 ? "diff-short" : "diff-over"}>{report.previous.change === null ? "-" : `${report.previous.change > 0 ? "+" : ""}${report.previous.change}%`}</strong><small>{t("أمس", "Yesterday")}: {money(report.previous.sales)} ({report.previous.orderCount})</small></article>
               <article><span>{t("مدفوع إلكترونيًا", "Paid online")}</span><strong>{money(report.paid)}</strong></article>
               <article><span>{t("يُحصَّل عند الاستلام / متابعة", "To collect / follow-up")}</span><strong>{money(report.followUp.total)}</strong><small>{report.followUp.count} {t("طلب", "orders")}</small></article>
               <article><span>{t("متوسط الطلب", "Average order")}</span><strong>{money(report.average)}</strong></article>
@@ -123,6 +204,13 @@ export default function DailyReportPanel() {
                   </tbody></table>
                 </section>
               ) : null}
+              <section>
+                <h3>{t("حسب طريقة الدفع", "By payment method")}</h3>
+                <table className="daily-table"><tbody>
+                  {report.byPayment.map((row) => <tr key={row.key}><td>{paymentText(row.key)}</td><td>{row.count}</td><td>{money(row.total)}</td></tr>)}
+                  {!report.byPayment.length ? <tr><td colSpan={3}>-</td></tr> : null}
+                </tbody></table>
+              </section>
               <section>
                 <h3>{t("الأصناف المباعة", "Items sold")}</h3>
                 <table className="daily-table"><tbody>
