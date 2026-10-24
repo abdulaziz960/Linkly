@@ -5,8 +5,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { ensureCatalogSchema } from "./catalog-schema";
 import { ensureBranchesSchema } from "./branches-schema";
+import { isBranchOpen } from "./branch-hours";
 
-export type Branch = { id: string; name: string; nameEn: string; address: string; mapUrl: string; active: boolean };
+export type Branch = { id: string; name: string; nameEn: string; address: string; mapUrl: string; active: boolean; workingHours: string };
 
 // The branch stays chosen while the customer browses and checks out; a new order asks again.
 const CHOICE_MINUTES = 12 * 60;
@@ -23,19 +24,19 @@ function ensureTables() {
 
 // The branches themselves are the ones on the Branches page (the `branches` table, with location, phone and hours);
 // the catalog only adds a stock per product on top of them and never creates or edits a branch.
-type BranchRow = { id: string; name: string; address: string; map_url: string; active: number | bigint };
-const toBranch = (row: BranchRow): Branch => ({ id: row.id, name: row.name, nameEn: "", address: row.address, mapUrl: row.map_url, active: Number(row.active) === 1 });
+type BranchRow = { id: string; name: string; address: string; map_url: string; working_hours: string; active: number | bigint };
+const toBranch = (row: BranchRow): Branch => ({ id: row.id, name: row.name, nameEn: "", address: row.address, mapUrl: row.map_url, active: Number(row.active) === 1, workingHours: row.working_hours ?? "" });
 
 export async function listBranches(tenantId: string, options: { activeOnly?: boolean } = {}): Promise<Branch[]> {
   await ensureTables();
-  const rows = await prisma.$queryRaw<BranchRow[]>`SELECT id, name, address, map_url, active FROM branches WHERE tenant_id = ${tenantId} ORDER BY created_at ASC`;
+  const rows = await prisma.$queryRaw<BranchRow[]>`SELECT id, name, address, map_url, working_hours, active FROM branches WHERE tenant_id = ${tenantId} ORDER BY created_at ASC`;
   const branches = rows.slice(0, MAX_BRANCHES).map(toBranch);
   return options.activeOnly ? branches.filter((branch) => branch.active) : branches;
 }
 
 export async function getBranch(tenantId: string, id: string): Promise<Branch | null> {
   await ensureTables();
-  const rows = await prisma.$queryRaw<BranchRow[]>`SELECT id, name, address, map_url, active FROM branches WHERE tenant_id = ${tenantId} AND id = ${id} LIMIT 1`;
+  const rows = await prisma.$queryRaw<BranchRow[]>`SELECT id, name, address, map_url, working_hours, active FROM branches WHERE tenant_id = ${tenantId} AND id = ${id} LIMIT 1`;
   return rows[0] ? toBranch(rows[0]) : null;
 }
 
@@ -140,7 +141,8 @@ export async function getBranchChoice(tenantId: string, conversationId: string):
     return null;
   }
   const branch = await getBranch(tenantId, row.branch_id);
-  return branch && branch.active ? branch : null;
+  // A branch that has closed since the customer picked it is asked about again.
+  return branch && branch.active && isBranchOpen(branch.workingHours) ? branch : null;
 }
 
 export async function clearBranchChoice(conversationId: string) {

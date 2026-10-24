@@ -6,6 +6,7 @@ import {
   createOrder,
   formatPrice,
   getMerchantGatewayKey,
+  getOrderItems,
   getProduct,
   isProductAvailable,
   listBotProducts,
@@ -25,6 +26,7 @@ import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, 
 import { createZidOrder } from "./zid-checkout";
 import { formatMessageTime } from "./time";
 import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons, sendWhatsAppImageByUrl, sendWhatsAppRowList } from "./whatsapp-send";
+import { isBranchOpen, openingTimeLabel } from "./branch-hours";
 import { getMenuBusiness, getMenuImageVersion, menuImageUrl } from "./catalog-menu-image";
 import { clearBranchChoice, getBranchChoice, getBranchStock, listBranches, recordOrderBranch, reserveBranchStock, setBranchChoice, shortfalls, type Branch } from "./catalog-branches";
 import { clearPickupChoice, cleanCarDetails, cleanPlate, getPickupChoice, getPickupSettings, pickupText, recordOrderPickup, setPickupChoice, type PickupSettings } from "./catalog-pickup";
@@ -73,6 +75,7 @@ const ID_OPT_SKIP = "opt_skip";
 const ID_CART_QTY = "cartqty_";
 const ID_CART_VIEW = "cart_view";
 const ID_TRACK = "track_order";
+const ID_REORDER = "reorder_last";
 const ID_CART_PAY = "cart_pay";
 const ID_CART_CODE = "cart_code";
 const ID_SHIP = "ship_";
@@ -123,7 +126,12 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
   const body = intro.trim() || CATALOG_DEFAULT_INTRO;
 
   // With branches the customer says which one first, and then only that branch's products are shown.
-  const branches = await chatBranches(ctx);
+  const allBranches = await chatBranches(ctx);
+  const branches = allBranches.filter((candidate) => isBranchOpen(candidate.workingHours));
+  if (allBranches.length && !branches.length) {
+    await askBranch(ctx, allBranches, "", true);
+    return true;
+  }
   let branch: Branch | null = null;
   if (branches.length) {
     branch = await getBranchChoice(ctx.tenantId, ctx.conversationId);
@@ -200,12 +208,15 @@ async function sendMenuFooter(ctx: CatalogCtx, hasMore: boolean, canChangeBranch
   const hasOrders = await hasTrackableOrders(ctx.tenantId, ctx.conversationId);
   const menuButtons = [
     ...(cartUnits > 0 ? [{ id: ID_CART_VIEW, title: `السلة (${cartUnits})` }] : []),
+    ...(cartUnits === 0 && hasOrders ? [{ id: ID_REORDER, title: "إعادة آخر طلب" }] : []),
     ...(canChangeBranch ? [{ id: ID_BRANCH_CHANGE, title: "تغيير الفرع" }] : []),
     ...(hasOrders ? [{ id: ID_TRACK, title: "تتبع طلبي" }] : []),
     { id: ID_AGENT, title: "التحدث مع موظف" }
   ];
-  // WhatsApp allows three buttons: the order tracking gives way first.
-  if (menuButtons.length > 3) menuButtons.splice(menuButtons.findIndex((button) => button.id === ID_TRACK), 1);
+  // WhatsApp allows three buttons: the order tracking gives way first, then the branch change.
+  for (const dropped of [ID_TRACK, ID_BRANCH_CHANGE]) {
+    if (menuButtons.length > 3) menuButtons.splice(menuButtons.findIndex((button) => button.id === dropped), 1);
+  }
   const text = hasMore ? "اختر من القائمة أعلاه أو اضغط «عرض المزيد»." : "هل تحتاج مساعدة؟";
   await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: text, buttons: menuButtons, displayText: text, author: AUTHOR });
 }
@@ -389,6 +400,28 @@ function cartButtons(codeApplied: boolean) {
 }
 
 /** Shows the cart: each product with its quantity, the total, and the next steps. */
+/** "إعادة آخر طلب": the lines of the customer's last order go into the cart again (options matched by name, what is gone is named). */
+async function reorderLast(ctx: CatalogCtx) {
+  const last = await prisma.catalogOrder.findFirst({ where: { tenantId: ctx.tenantId, conversationId: ctx.conversationId, status: { in: ["new", "paid", "fulfilled"] } }, orderBy: { createdAt: "desc" }, select: { id: true } });
+  const items = last ? (await getOrderItems([last.id])).get(last.id) ?? [] : [];
+  if (!items.length) {
+    await ctx.sendText("لا يوجد طلب سابق لإعادته.");
+    await sendCatalogMenu(ctx, "اختر منتجًا لإضافته:", 0, undefined, false);
+    return;
+  }
+  const missing: string[] = [];
+  for (const item of items) {
+    const groups = item.options?.length ? await groupsForProduct(ctx.tenantId, item.productId) : [];
+    const optionIds = (item.options ?? []).flatMap((detail) => {
+      const option = groups.find((group) => group.name === detail.group)?.options.find((candidate) => candidate.name === detail.name);
+      return option ? [option.id] : [];
+    });
+    const added = await addToCart(ctx.tenantId, ctx.conversationId, item.productId, item.quantity, optionIds);
+    if (!added.ok) missing.push(item.productName);
+  }
+  await showCart(ctx, `أضفنا طلبك السابق إلى السلة.${missing.length ? `\nلم يعد متوفرًا: ${missing.join("، ")}` : ""}`);
+}
+
 async function showCart(ctx: CatalogCtx, prefix = "") {
   const cart = await resolveCart(ctx.tenantId, ctx.conversationId);
   if (!cart.lines.length) {
@@ -663,7 +696,12 @@ async function checkoutCart(ctx: CatalogCtx) {
   // The platform's own catalog, no store connected: with branches, the customer picks the branch the order comes from first.
   await clearPickupChoice(ctx.conversationId);
   if (!zid.connected && !(await hasConnectedStore(ctx.tenantId))) {
-    const branches = await listBranches(ctx.tenantId, { activeOnly: true });
+    const allBranches = await listBranches(ctx.tenantId, { activeOnly: true });
+    const branches = allBranches.filter((candidate) => isBranchOpen(candidate.workingHours));
+    if (allBranches.length && !branches.length) {
+      await askBranch(ctx, allBranches, "");
+      return;
+    }
     // The branch picked while browsing is kept: no second question when it can cover the cart.
     const chosen = branches.length ? await getBranchChoice(ctx.tenantId, ctx.conversationId) : null;
     if (chosen) {
@@ -707,7 +745,17 @@ async function branchShortfalls(tenantId: string, branch: Branch, cart: Awaited<
   return shortfalls(lines, stock).map((entry) => entry.name);
 }
 
-async function askBranch(ctx: CatalogCtx, branches: Branch[], note: string, browse = false) {
+async function askBranch(ctx: CatalogCtx, allBranches: Branch[], note: string, browse = false) {
+  // Closed branches are left out of the list; the customer is told when they open.
+  const branches = allBranches.filter((branch) => isBranchOpen(branch.workingHours));
+  const closed = allBranches.filter((branch) => !isBranchOpen(branch.workingHours));
+  const closedLines = closed.map((branch) => `• ${branch.name}${openingTimeLabel(branch.workingHours) ? ` (يفتح ${openingTimeLabel(branch.workingHours)})` : ""}`);
+  if (!branches.length) {
+    await clearCheckoutFlow(ctx.conversationId);
+    await ctx.sendText(`عذرًا، جميع فروعنا مغلقة حاليًا.${closedLines.length ? `\n${closedLines.join("\n")}` : ""}\nيسعدنا خدمتك في أوقات الدوام.`);
+    return;
+  }
+  if (closedLines.length) note = `${note ? `${note}\n\n` : ""}مغلق الآن:\n${closedLines.join("\n")}`;
   await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "branch", data: browse ? { browse: true } : {} });
   const body = `${note ? `${note}\n\n` : ""}${browse ? "من أي فرع تريد الطلب؟ سنعرض لك منتجات الفرع الذي تختاره." : "من أي فرع تريد استلام طلبك؟"}`;
   const numbered = () => `${body}\n${branches.map((branch, index) => `${index + 1}) ${branch.name}${branch.address ? ` - ${branch.address}` : ""}`).join("\n")}\nاكتب رقم الفرع، أو «إلغاء» للرجوع إلى السلة.`;
@@ -733,9 +781,9 @@ async function continueBrowseBranch(ctx: CatalogCtx, reply: { id?: string; text:
   }
   const picked = id.startsWith(ID_BRANCH)
     ? branches.find((branch) => branch.id === id.slice(ID_BRANCH.length))
-    : /^\d{1,2}$/.test(text) ? branches[Number(text) - 1] : branches.find((branch) => branch.name === text);
-  if (!picked) {
-    await askBranch(ctx, branches, "اختر فرعًا من القائمة.", true);
+    : /^\d{1,2}$/.test(text) ? branches.filter((branch) => isBranchOpen(branch.workingHours))[Number(text) - 1] : branches.find((branch) => branch.name === text);
+  if (!picked || !isBranchOpen(picked.workingHours)) {
+    await askBranch(ctx, branches, picked ? `فرع «${picked.name}» مغلق الآن.` : "اختر فرعًا من القائمة.", true);
     return true;
   }
   await setBranchChoice(ctx.tenantId, ctx.conversationId, picked.id);
@@ -755,9 +803,9 @@ async function continueBranchFlow(ctx: CatalogCtx, reply: { id?: string; text: s
   const text = reply.text.trim();
   const picked = id.startsWith(ID_BRANCH)
     ? branches.find((branch) => branch.id === id.slice(ID_BRANCH.length))
-    : /^\d{1,2}$/.test(text) ? branches[Number(text) - 1] : branches.find((branch) => branch.name === text);
-  if (!picked) {
-    await askBranch(ctx, branches, "اختر فرعًا من القائمة.");
+    : /^\d{1,2}$/.test(text) ? branches.filter((branch) => isBranchOpen(branch.workingHours))[Number(text) - 1] : branches.find((branch) => branch.name === text);
+  if (!picked || !isBranchOpen(picked.workingHours)) {
+    await askBranch(ctx, branches, picked ? `فرع «${picked.name}» مغلق الآن.` : "اختر فرعًا من القائمة.");
     return true;
   }
   const missing = await branchShortfalls(ctx.tenantId, picked, cart);
@@ -1487,6 +1535,10 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
   }
   if (id === ID_CART_VIEW) {
     await showCart(ctx);
+    return "handled";
+  }
+  if (id === ID_REORDER) {
+    await reorderLast(ctx);
     return "handled";
   }
   if (id === ID_CART_PAY) {

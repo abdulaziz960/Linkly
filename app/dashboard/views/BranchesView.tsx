@@ -234,6 +234,7 @@ export default function BranchesView() {
               <div className="split-fields">
                 <label><span>{t("رقم الفرع", "Branch phone")}</span><input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} maxLength={40} dir="ltr" /></label>
                 <label><span>{t("ساعات الدوام", "Working hours")}</span><input value={form.workingHours} onChange={(event) => setForm({ ...form, workingHours: event.target.value })} maxLength={200} placeholder={t("مثال: 9 ص - 10 م", "e.g. 9am - 10pm")} /></label>
+                <small className="field-hint">{t("في الكتالوج يُخفى الفرع خارج هذه الساعات ويُخبَر العميل بموعد الفتح. اكتبها بصيغة «9 ص - 10 م» أو «09:00-22:00»؛ وإن تركتها فارغة يبقى الفرع مفتوحًا دائمًا.", "In the catalog the branch is hidden outside these hours and the customer is told when it opens. Write them like “9 am - 10 pm” or “09:00-22:00”; empty means always open.")}</small>
               </div>
               <label>
                 <span>{t("رابط الموقع من خرائط Google", "Google Maps link")}</span>
