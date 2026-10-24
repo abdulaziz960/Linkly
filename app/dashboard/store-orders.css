@@ -524,3 +524,6 @@
 .branch-stock-table input { width: 110px; }
 .branch-pick { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
 .branch-pick input[type="number"] { max-width: 180px; }
+.menu-image-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.menu-image-preview { width: 96px; height: 96px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); }
+.menu-image-card { margin-bottom: 16px; }

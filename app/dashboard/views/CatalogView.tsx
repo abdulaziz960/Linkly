@@ -97,9 +97,9 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; d
 }
 
 /** Shrinks a photo to at most 1024 px and encodes it as JPEG small enough for the upload route. */
-async function resizeToJpeg(file: File): Promise<string> {
+async function resizeToJpeg(file: File, maxSide = 1024, maxChars = 1.2 * 1024 * 1024): Promise<string> {
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(bitmap.width * scale));
   canvas.height = Math.max(1, Math.round(bitmap.height * scale));
@@ -110,7 +110,7 @@ async function resizeToJpeg(file: File): Promise<string> {
   context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   let quality = 0.85;
   let dataUrl = canvas.toDataURL("image/jpeg", quality);
-  while (dataUrl.length > 1.2 * 1024 * 1024 && quality > 0.4) {
+  while (dataUrl.length > maxChars && quality > 0.4) {
     quality -= 0.15;
     dataUrl = canvas.toDataURL("image/jpeg", quality);
   }
@@ -138,6 +138,35 @@ export default function CatalogView() {
   const [categories, setCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
+  const [menuImage, setMenuImage] = useState("");
+  const [menuBusy, setMenuBusy] = useState(false);
+
+  useEffect(() => {
+    void api<{ imageUrl: string }>("/api/catalog/menu-image").then((result) => {
+      if (result.ok) setMenuImage(result.data?.imageUrl ?? "");
+    });
+  }, []);
+
+  async function pickMenuImage(file: File | undefined) {
+    if (!file) return;
+    setMenuBusy(true);
+    try {
+      const dataUrl = await resizeToJpeg(file, 1600, 1.9 * 1024 * 1024);
+      const result = await api<{ imageUrl: string }>("/api/catalog/menu-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl }) });
+      if (result.ok) setMenuImage(result.data?.imageUrl ?? "");
+      else setNotice({ type: "error", message: result.error || t("تعذر رفع صورة المنيو", "Could not upload the menu picture") });
+    } catch {
+      setNotice({ type: "error", message: t("تعذر قراءة الصورة. اختر ملف JPG أو PNG أو WebP.", "Could not read the image. Choose a JPG, PNG or WebP file.") });
+    }
+    setMenuBusy(false);
+  }
+
+  async function removeMenuPicture() {
+    setMenuBusy(true);
+    const result = await api("/api/catalog/menu-image", { method: "DELETE" });
+    if (result.ok) setMenuImage("");
+    setMenuBusy(false);
+  }
   const [showUrlField, setShowUrlField] = useState(false);
   const [gatewayKey, setGatewayKey] = useState("");
   const [feedUrl, setFeedUrl] = useState("");
@@ -458,6 +487,20 @@ export default function CatalogView() {
           </div>
         </div>
       </div>
+
+      {tab === "products" ? (
+        <div className="panel menu-image-card">
+          <div className="panel-head"><h2>{t("صورة المنيو (للمطاعم)", "Menu picture (restaurants)")}</h2></div>
+          <div className="panel-body">
+            <p className="muted-copy">{t("ارفع صورة منيو المطعم كاملة. عند فتح العميل للكتالوج في واتساب تصله صورة المنيو أولًا، وتحتها قائمة الأصناف والأسعار.", "Upload the picture of the whole menu. When a customer opens the catalog on WhatsApp they get the menu picture first, with the list of items and prices below it.")}</p>
+            <div className="menu-image-row">
+              {menuImage ? <img src={menuImage} alt={t("صورة المنيو", "Menu picture")} className="menu-image-preview" /> : null}
+              <label className="btn soft">{menuBusy ? t("جاري الرفع...", "Uploading...") : menuImage ? t("استبدال الصورة", "Replace picture") : t("رفع صورة المنيو", "Upload menu picture")}<input type="file" accept="image/*" hidden disabled={menuBusy} onChange={(event) => { void pickMenuImage(event.target.files?.[0]); event.target.value = ""; }} /></label>
+              {menuImage ? <button className="btn soft danger" type="button" disabled={menuBusy} onClick={() => void removeMenuPicture()}>{t("إزالة", "Remove")}</button> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {tab === "products" ? (
         <div className="panel">

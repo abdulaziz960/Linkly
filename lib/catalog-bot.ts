@@ -24,7 +24,8 @@ import { createMerchantInvoice, shortOrderNumber } from "./catalog-payments";
 import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, setCheckoutState } from "./catalog-zid";
 import { createZidOrder } from "./zid-checkout";
 import { formatMessageTime } from "./time";
-import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons, sendWhatsAppRowList } from "./whatsapp-send";
+import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons, sendWhatsAppImageByUrl, sendWhatsAppRowList } from "./whatsapp-send";
+import { getMenuImageVersion, menuImageUrl } from "./catalog-menu-image";
 import { clearBranchChoice, getBranchChoice, getBranchStock, listBranches, recordOrderBranch, reserveBranchStock, setBranchChoice, shortfalls, type Branch } from "./catalog-branches";
 import { clearPickupChoice, cleanCarDetails, cleanPlate, getPickupChoice, getPickupSettings, pickupText, recordOrderPickup, setPickupChoice, type PickupSettings } from "./catalog-pickup";
 import { clearOptionFlow, getOptionFlow, groupsForProduct, resolveSelection, setOptionFlow, type OptionFlow, type OptionGroup } from "./catalog-options";
@@ -118,7 +119,7 @@ async function chatBranches(ctx: CatalogCtx): Promise<Branch[]> {
   return listBranches(ctx.tenantId, { activeOnly: true });
 }
 
-export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0, category?: string): Promise<boolean> {
+export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0, category?: string, withMenuImage = true): Promise<boolean> {
   const body = intro.trim() || CATALOG_DEFAULT_INTRO;
 
   // With branches the customer says which one first, and then only that branch's products are shown.
@@ -133,6 +134,14 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
     if (!branch) {
       await askBranch(ctx, branches, intro.trim(), true);
       return true;
+    }
+  }
+
+  // A restaurant's picture of the whole menu goes first, the list of items and prices follows it (only when the catalog opens).
+  if (withMenuImage && ctx.channel === "whatsapp" && offset === 0 && category === undefined) {
+    const version = await getMenuImageVersion(ctx.tenantId).catch(() => null);
+    if (version) {
+      await sendWhatsAppImageByUrl({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, imageUrl: menuImageUrl(getAppOrigin(), ctx.tenantId, version), caption: "قائمة الطعام", author: AUTHOR }).catch(() => null);
     }
   }
 
@@ -277,7 +286,7 @@ async function purchase(ctx: CatalogCtx, productId: string) {
   const product = found ? await forBranch(ctx.tenantId, ctx.conversationId, found) : null;
   if (!product || !isProductAvailable(product)) {
     await ctx.sendText("عذرًا، هذا المنتج لم يعد متوفرًا حاليًا.");
-    await sendCatalogMenu(ctx, "يمكنك اختيار منتج آخر:");
+    await sendCatalogMenu(ctx, "يمكنك اختيار منتج آخر:", 0, undefined, false);
     return;
   }
   // A product with choices (size, extras) asks them first, then goes into the cart.
@@ -300,7 +309,7 @@ async function purchaseSingle(ctx: CatalogCtx, productId: string) {
   const product = await getProduct(ctx.tenantId, productId);
   if (!product || !isProductAvailable(product)) {
     await ctx.sendText("عذرًا، هذا المنتج لم يعد متوفرًا حاليًا.");
-    await sendCatalogMenu(ctx, "يمكنك اختيار منتج آخر:");
+    await sendCatalogMenu(ctx, "يمكنك اختيار منتج آخر:", 0, undefined, false);
     return;
   }
 
@@ -384,7 +393,7 @@ async function showCart(ctx: CatalogCtx, prefix = "") {
   const cart = await resolveCart(ctx.tenantId, ctx.conversationId);
   if (!cart.lines.length) {
     await ctx.sendText(`${prefix}${prefix ? "\n\n" : ""}سلتك فارغة حاليًا.`);
-    await sendCatalogMenu(ctx, "اختر منتجًا لإضافته:");
+    await sendCatalogMenu(ctx, "اختر منتجًا لإضافته:", 0, undefined, false);
     return;
   }
   const droppedNote = `${cart.dropped.length ? `\n\nلم يعد متوفرًا وتمت إزالته: ${cart.dropped.join("، ")}` : ""}${cart.discountNote ? `\n\nتم إلغاء كود الخصم (${cart.discountNote})` : ""}`;

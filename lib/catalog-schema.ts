@@ -228,6 +228,12 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     data_url TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  // The picture of the whole menu (a restaurant's printed menu): sent to the customer when they open the catalog.
+  `CREATE TABLE IF NOT EXISTS catalog_menu_images (
+    tenant_id TEXT PRIMARY KEY,
+    data_url TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
   // The English name of a product (shown when the dashboard is in English); the product itself keeps one name.
   `CREATE TABLE IF NOT EXISTS catalog_product_names_en (
     product_id TEXT PRIMARY KEY,
