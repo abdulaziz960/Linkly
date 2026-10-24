@@ -124,6 +124,9 @@ describe("checkout with pickup", () => {
     const { handleCatalogReply } = await import("../lib/catalog-bot");
     const { ctx: c, texts } = ctx("conv-details");
     await handleCatalogReply(c, { id: "cart_pay", text: "" }, "");
+    // the same phone picked up by car in the first test, so its car is offered; a new one is chosen here
+    expect(buttonIds()).toEqual(["pk_saved", "pk_new"]);
+    await handleCatalogReply(c, { id: "pk_new", text: "" }, "");
     expect(texts.at(-1)).toContain("رقم لوحة");
     await handleCatalogReply(c, { text: "ABC 1234" }, "");
     expect(texts.at(-1)).toContain("لون ونوع");
@@ -133,6 +136,27 @@ describe("checkout with pickup", () => {
     const order = (await listOrders(tenantId)).find((entry) => entry.pickup?.plate === "ABC 1234");
     expect(order?.pickup).toMatchObject({ kind: "car", plate: "ABC 1234", carDetails: "كامري بيضاء" });
     expect(await getPickupChoice("conv-details")).toBeNull();
+  });
+
+  it("offers the car the customer used last time (kept by phone) or a new one", async () => {
+    const { savePickupSettings, getSavedCar } = await import("../lib/catalog-pickup");
+    await savePickupSettings(tenantId, { enabled: true, inStore: false, curbside: true, askCarDetails: true });
+    expect(await getSavedCar(tenantId, "+966 500 000 111")).toEqual({ plate: "ABC 1234", carDetails: "كامري بيضاء" });
+    await seed("conv-saved");
+    const { handleCatalogReply } = await import("../lib/catalog-bot");
+    const { listOrders } = await import("../lib/catalog");
+    const { ctx: c } = ctx("conv-saved");
+    sent.length = 0;
+    await handleCatalogReply(c, { id: "cart_pay", text: "" }, "");
+    expect(buttonIds()).toEqual(["pk_saved", "pk_new"]);
+    expect(String(sent.at(-1)!.input.bodyText)).toContain("ABC 1234");
+    expect(String(sent.at(-1)!.input.bodyText)).toContain("كامري بيضاء");
+    // using it goes straight to the confirmation with that car
+    await handleCatalogReply(c, { id: "pk_saved", text: "" }, "");
+    expect(buttonIds()).toEqual(["pk_confirm", "pk_edit"]);
+    expect(String(sent.at(-1)!.input.bodyText)).toContain("ABC 1234");
+    await handleCatalogReply(c, { id: "pk_confirm", text: "" }, "");
+    expect((await listOrders(tenantId)).filter((entry) => entry.pickup?.plate === "ABC 1234").length).toBeGreaterThanOrEqual(2);
   });
 
   it("cancel goes back to the cart, and pickup switched off falls back to the usual checkout", async () => {

@@ -30,7 +30,7 @@ import { distanceKm, formatDistance } from "./branches";
 import { isBranchOpen, openingTimeLabel } from "./branch-hours";
 import { getMenuBusiness, getMenuImageVersion, menuImageUrl } from "./catalog-menu-image";
 import { clearBranchChoice, getBranchChoice, getBranchStock, listBranches, recordOrderBranch, reserveBranchStock, setBranchChoice, shortfalls, type Branch } from "./catalog-branches";
-import { clearPickupChoice, cleanCarDetails, cleanPlate, getPickupChoice, getPickupSettings, pickupText, recordOrderPickup, setPickupChoice, type PickupSettings } from "./catalog-pickup";
+import { clearPickupChoice, cleanCarDetails, cleanPlate, getPickupChoice, getPickupSettings, getSavedCar, pickupText, recordOrderPickup, saveCar, setPickupChoice, type PickupSettings } from "./catalog-pickup";
 import { clearOptionFlow, getOptionFlow, groupsForProduct, resolveSelection, setOptionFlow, type OptionFlow, type OptionGroup } from "./catalog-options";
 
 /**
@@ -69,6 +69,8 @@ const ID_FUL_PICKUP = "ful_pickup";
 const ID_PICK_STORE = "pk_store";
 const ID_PICK_CAR = "pk_car";
 const ID_PICK_CONFIRM = "pk_confirm";
+const ID_PICK_SAVED = "pk_saved";
+const ID_PICK_NEW = "pk_new";
 const ID_PICK_EDIT = "pk_edit";
 const ID_OPT = "opt_";
 const ID_OPT_DONE = "opt_done";
@@ -146,12 +148,13 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
   let branch: Branch | null = null;
   if (branches.length) {
     branch = await getBranchChoice(ctx.tenantId, ctx.conversationId);
-    if (!branch && branches.length === 1) {
+    // A single branch needs no question; with several (even if only one is open now) the customer sees them all first.
+    if (!branch && branches.length === 1 && allBranches.length === 1) {
       branch = branches[0];
       await setBranchChoice(ctx.tenantId, ctx.conversationId, branch.id);
     }
     if (!branch) {
-      await askBranch(ctx, branches, intro.trim(), true);
+      await askBranch(ctx, allBranches, intro.trim(), true);
       return true;
     }
   }
@@ -174,9 +177,9 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
         description: `${entry.count} ${entry.count === 1 ? "منتج" : "منتجات"}`
       }));
       rows.push({ id: `${ID_LIST}0:*`, title: "كل المنتجات", description: "" });
-      const sent = await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: `${branch && branches.length > 1 ? `📍 ${branch.name}\n` : ""}${body}`, buttonLabel: "الأقسام", rows, displayText: body, author: AUTHOR });
+      const sent = await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: `${branch && allBranches.length > 1 ? `📍 ${branch.name}\n` : ""}${body}`, buttonLabel: "الأقسام", rows, displayText: body, author: AUTHOR });
       if (sent.ok) {
-        await sendMenuFooter(ctx, false, branches.length > 1);
+        await sendMenuFooter(ctx, false, allBranches.length > 1);
         return true;
       }
     }
@@ -203,13 +206,13 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
   // (Rows cannot carry images; Meta's native catalog messages need a Meta Commerce catalog.)
   const rows = products.map(listRowFor);
   if (hasMore) rows.push({ id: `${ID_LIST}${offset + CARDS_PER_PAGE}:${category ?? "*"}`.slice(0, 200), title: "عرض المزيد", description: "" });
-  const listBody = `${branch && branches.length > 1 ? `📍 ${branch.name}\n` : ""}${category && category !== "*" ? `${category === "other" ? "أخرى" : category}\n${body}` : body}`;
+  const listBody = `${branch && allBranches.length > 1 ? `📍 ${branch.name}\n` : ""}${category && category !== "*" ? `${category === "other" ? "أخرى" : category}\n${body}` : body}`;
   const sent = await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: offset === 0 ? listBody : "المزيد من المنتجات:", buttonLabel: "عرض المنتجات", rows, displayText: textList(), author: AUTHOR });
   if (!sent.ok) {
     await ctx.sendText(textList());
     return true;
   }
-  await sendMenuFooter(ctx, hasMore, branches.length > 1);
+  await sendMenuFooter(ctx, hasMore, allBranches.length > 1);
   return true;
 }
 
@@ -730,7 +733,7 @@ async function checkoutCart(ctx: CatalogCtx) {
       await showCart(ctx);
       return;
     }
-    if (branches.length === 1) {
+    if (branches.length === 1 && allBranches.length === 1) {
       const missing = await branchShortfalls(ctx.tenantId, branches[0], cart);
       if (missing.length) {
         await ctx.sendText(`عذرًا، لا يتوفر حاليًا بالكمية المطلوبة:\n${missing.map((name) => `• ${name}`).join("\n")}\nعدّل سلتك ثم أعد المحاولة.`);
@@ -741,8 +744,8 @@ async function checkoutCart(ctx: CatalogCtx) {
       await continueCheckoutAfterBranch(ctx, await resolveCart(ctx.tenantId, ctx.conversationId));
       return;
     }
-    if (branches.length > 1) {
-      await askBranch(ctx, branches, "");
+    if (allBranches.length > 1) {
+      await askBranch(ctx, allBranches, "");
       return;
     }
   }
@@ -959,7 +962,7 @@ async function continueShippingFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: 
   // The payment method and Tabby's email come after the delivery questions (or alone, when there is no delivery).
   if (flow.step === "branch") return continueBranchFlow(ctx, reply, cart);
   if (flow.step === "payment" || flow.step === "email") return continuePaymentFlow(ctx, flow, reply, cart);
-  if (flow.step === "fulfillment" || flow.step === "pickup_kind" || flow.step === "plate" || flow.step === "car_details" || flow.step === "pickup_confirm") return continuePickupFlow(ctx, flow, reply, cart);
+  if (flow.step === "fulfillment" || flow.step === "car_saved" || flow.step === "pickup_kind" || flow.step === "plate" || flow.step === "car_details" || flow.step === "pickup_confirm") return continuePickupFlow(ctx, flow, reply, cart);
 
   if (!methods.length) {
     // Delivery was switched off meanwhile: carry on without it.
@@ -1080,6 +1083,20 @@ async function startPickupFlow(ctx: CatalogCtx, settings: PickupSettings) {
 
 async function choosePickupKind(ctx: CatalogCtx, kind: "store" | "car", settings: PickupSettings) {
   if (kind === "car") {
+    // A customer who picked up by car before is offered the same car again (kept by phone number).
+    const phone = (await prisma.conversation.findUnique({ where: { id: ctx.conversationId }, include: { customer: true } }))?.customer.phone ?? "";
+    const saved = await getSavedCar(ctx.tenantId, phone);
+    if (saved) {
+      await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "car_saved", data: { pickupKind: "car", plate: saved.plate, carDetails: saved.carDetails } });
+      const body = `سيارتك المحفوظة:\nرقم اللوحة: ${saved.plate}${saved.carDetails ? `\nالسيارة: ${saved.carDetails}` : ""}\n\nهل تستلم بها أم تضيف سيارة جديدة؟`;
+      if (ctx.channel !== "whatsapp") {
+        await ctx.sendText(`${body}\n1) استخدام هذه السيارة\n2) إضافة سيارة جديدة`);
+        return;
+      }
+      const sent = await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttons: [{ id: ID_PICK_SAVED, title: "استخدام هذه السيارة" }, { id: ID_PICK_NEW, title: "إضافة سيارة جديدة" }], displayText: body, author: AUTHOR });
+      if (!sent.ok) await ctx.sendText(`${body}\n1) استخدام هذه السيارة\n2) إضافة سيارة جديدة`);
+      return;
+    }
     await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "plate", data: { pickupKind: "car" } });
     await ctx.sendText("اكتب *رقم لوحة سيارتك* ليخرج لك الموظف الطلب.\nمثال: أ ب ج 1234\n(اكتب «إلغاء» للرجوع إلى السلة)");
     return;
@@ -1142,6 +1159,20 @@ async function continuePickupFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: { 
     return true;
   }
 
+  if (flow.step === "car_saved") {
+    if (id === ID_PICK_SAVED || (!id && /^(1|نعم|نفسها|نفس السيارة)$/.test(text))) {
+      await askPickupConfirm(ctx, { step: "pickup_confirm", data: { ...flow.data, pickupKind: "car" } }, settings);
+      return true;
+    }
+    if (id === ID_PICK_NEW || (!id && /^(2|لا|سيارة أخرى|اخرى|أخرى)$/.test(text))) {
+      await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "plate", data: { pickupKind: "car" } });
+      await ctx.sendText("اكتب *رقم لوحة سيارتك* ليخرج لك الموظف الطلب.\nمثال: أ ب ج 1234\n(اكتب «إلغاء» للرجوع إلى السلة)");
+      return true;
+    }
+    await ctx.sendText("اختر «استخدام هذه السيارة» أو «إضافة سيارة جديدة»، أو اكتب «إلغاء».");
+    return true;
+  }
+
   if (flow.step === "plate") {
     if (id || !text) return false;
     const plate = cleanPlate(text);
@@ -1173,6 +1204,11 @@ async function continuePickupFlow(ctx: CatalogCtx, flow: CheckoutFlow, reply: { 
   if (id === ID_PICK_CONFIRM || (!id && /^(تأكيد|تاكيد|أكد|اكد|نعم|confirm|ok)$/i.test(text))) {
     const kind = flow.data.pickupKind === "car" ? "car" : "store";
     await setPickupChoice(ctx.tenantId, ctx.conversationId, { kind, plate: kind === "car" ? flow.data.plate ?? "" : "", carDetails: kind === "car" ? flow.data.carDetails ?? "" : "" });
+    // The car is remembered by the customer's phone for the next order.
+    if (kind === "car" && flow.data.plate) {
+      const phone = (await prisma.conversation.findUnique({ where: { id: ctx.conversationId }, include: { customer: true } }))?.customer.phone ?? "";
+      await saveCar(ctx.tenantId, phone, { plate: flow.data.plate, carDetails: flow.data.carDetails ?? "" }).catch(() => null);
+    }
     await clearCheckoutFlow(ctx.conversationId);
     await proceedToPayment(ctx, cart, undefined);
     return true;
@@ -1709,8 +1745,9 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
     return "handled";
   }
 
+  // Asking for the catalog again (even in the middle of a chat) starts over: with branches, the customer picks one again.
   if (/منتج|كتالوج|قائمة|المنتجات|menu|catalog/i.test(text)) {
-    await sendCatalogMenu(ctx, intro);
+    await openCatalog(ctx, intro);
     return "handled";
   }
 

@@ -100,6 +100,26 @@ export async function clearPickupChoice(conversationId: string) {
   await prisma.$executeRaw`DELETE FROM catalog_pickup_choice WHERE conversation_id = ${conversationId}`;
 }
 
+// ---- the customer's car, kept by phone number ----
+
+const digits = (phone: string) => phone.replace(/\D/g, "");
+
+export async function getSavedCar(tenantId: string, phone: string): Promise<{ plate: string; carDetails: string } | null> {
+  const key = digits(phone);
+  if (!key) return null;
+  await ensureTables();
+  const rows = await prisma.$queryRaw<Array<{ plate: string; car_details: string }>>`SELECT plate, car_details FROM catalog_saved_cars WHERE tenant_id = ${tenantId} AND phone = ${key} LIMIT 1`;
+  return rows[0] ? { plate: rows[0].plate, carDetails: rows[0].car_details } : null;
+}
+
+export async function saveCar(tenantId: string, phone: string, car: { plate: string; carDetails: string }) {
+  const key = digits(phone);
+  if (!key || !car.plate) return;
+  await ensureTables();
+  const now = new Date().toISOString();
+  await prisma.$executeRaw`INSERT INTO catalog_saved_cars (tenant_id, phone, plate, car_details, updated_at) VALUES (${tenantId}, ${key}, ${car.plate}, ${car.carDetails}, ${now}) ON CONFLICT (tenant_id, phone) DO UPDATE SET plate = ${car.plate}, car_details = ${car.carDetails}, updated_at = ${now}`;
+}
+
 // ---- the choice stored with a placed order ----
 
 export async function recordOrderPickup(orderId: string, pickup: OrderPickup) {

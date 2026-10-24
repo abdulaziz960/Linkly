@@ -264,6 +264,15 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     enabled INTEGER NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  // The car a customer picked up with last time, kept by phone number so the next order does not ask again.
+  `CREATE TABLE IF NOT EXISTS catalog_saved_cars (
+    tenant_id TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    plate TEXT NOT NULL,
+    car_details TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (tenant_id, phone)
+  )`,
   // The English name of a product (shown when the dashboard is in English); the product itself keeps one name.
   `CREATE TABLE IF NOT EXISTS catalog_product_names_en (
     product_id TEXT PRIMARY KEY,

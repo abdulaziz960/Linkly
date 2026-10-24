@@ -46,13 +46,16 @@ describe("branch hours in the chat", () => {
     const texts: string[] = [];
     const c = { channel: "whatsapp" as const, tenantId, conversationId: "conv-hours", recipientId: "966500000333", sendText: async (t: string) => { texts.push(t); } };
 
-    // 15:00 in Riyadh: the evening branch is closed, so only one is offered (as a button, with the closed one named)
+    // 15:00 in Riyadh: the evening branch is closed. The customer still sees the branches first (the open one to tap,
+    // the closed one named with when it opens) - nothing is picked for them while there are several.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(Date.UTC(2026, 0, 10, 12, 0)));
     sent.length = 0;
     await sendCatalogMenu(c, "");
-    // a single open branch is chosen for the customer, and the products follow
-    expect(sent.some((x) => x.kind === "list")).toBe(true);
+    expect(sent).toHaveLength(1);
+    expect(String(sent[0].input.bodyText)).toContain("مغلق الآن");
+    expect(String(sent[0].input.bodyText)).toContain("فرع المساء");
+    expect((sent[0].input.rows as Array<{ id: string }>).map((row) => row.id)).toEqual(["br_hr-1"]);
 
     // 18:30 UTC = 21:30 in Riyadh, both open; 20:30 UTC = 23:30, both closed
     vi.setSystemTime(new Date(Date.UTC(2026, 0, 10, 15, 30)));
@@ -155,5 +158,18 @@ describe("opening the catalog with branches", () => {
     expect((await getBranchChoice(t3, "conv-oc2"))?.id).toBe("oc-2");
     expect(texts.join("\n")).toContain("أقرب فرع لك: *فرع ٢*");
     expect(sent.some((x) => x.kind === "list")).toBe(true);
+  });
+
+  it("asks the branch again when the customer types for the catalog in the middle of a chat", async () => {
+    const { handleCatalogReply } = await import("../lib/catalog-bot");
+    const { setBranchChoice, getBranchChoice } = await import("../lib/catalog-branches");
+    const t3 = "tenant-open-catalog";
+    const c = { channel: "whatsapp" as const, tenantId: t3, conversationId: "conv-oc3", recipientId: "966500000777", sendText: async () => undefined };
+    await setBranchChoice(t3, "conv-oc3", "oc-1");
+    sent.length = 0;
+    expect(await handleCatalogReply(c, { text: "الكتالوج" }, "")).toBe("handled");
+    expect(sent[0].kind).toBe("list");
+    expect(String(sent[0].input.bodyText)).toContain("من أي فرع");
+    expect(await getBranchChoice(t3, "conv-oc3")).toBeNull();
   });
 });
