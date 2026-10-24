@@ -25,7 +25,8 @@ import { createMerchantInvoice, shortOrderNumber } from "./catalog-payments";
 import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, setCheckoutState } from "./catalog-zid";
 import { createZidOrder } from "./zid-checkout";
 import { formatMessageTime } from "./time";
-import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons, sendWhatsAppImageByUrl, sendWhatsAppRowList } from "./whatsapp-send";
+import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons, sendWhatsAppImageByUrl, sendWhatsAppLocationRequest, sendWhatsAppRowList } from "./whatsapp-send";
+import { distanceKm, formatDistance } from "./branches";
 import { isBranchOpen, openingTimeLabel } from "./branch-hours";
 import { getMenuBusiness, getMenuImageVersion, menuImageUrl } from "./catalog-menu-image";
 import { clearBranchChoice, getBranchChoice, getBranchStock, listBranches, recordOrderBranch, reserveBranchStock, setBranchChoice, shortfalls, type Branch } from "./catalog-branches";
@@ -84,6 +85,7 @@ const ID_SHIP_EDIT = "ship_edit";
 const ID_PAY = "pay_";
 const ID_BRANCH = "br_";
 const ID_BRANCH_CHANGE = "brchange";
+const ID_BRANCH_NEAREST = "brnearest";
 /** In the Zid checkout state, the product id that means "the whole cart". */
 const CART_CHECKOUT = "__cart__";
 const CARDS_PER_PAGE = 9; // a WhatsApp list holds 10 rows: nine products and a "show more" row
@@ -120,6 +122,15 @@ function listRowFor(product: CatalogProduct) {
 async function chatBranches(ctx: CatalogCtx): Promise<Branch[]> {
   if ((await getZidCatalogMode(ctx.tenantId)).connected || (await hasConnectedStore(ctx.tenantId))) return [];
   return listBranches(ctx.tenantId, { activeOnly: true });
+}
+
+/**
+ * The catalog opens: with branches the customer is asked which one to order from every time it opens (a branch picked
+ * earlier is not kept), and the list of branches shows each one's city / area.
+ */
+export async function openCatalog(ctx: CatalogCtx, intro: string): Promise<boolean> {
+  if ((await chatBranches(ctx)).length > 1) await clearBranchChoice(ctx.conversationId);
+  return sendCatalogMenu(ctx, intro);
 }
 
 export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0, category?: string, withMenuImage = true): Promise<boolean> {
@@ -763,11 +774,38 @@ async function askBranch(ctx: CatalogCtx, allBranches: Branch[], note: string, b
     await ctx.sendText(numbered());
     return;
   }
-  const shown = branches.slice(0, 10);
-  const sent = shown.length <= 3
-    ? await sendWhatsAppIdButtons({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttons: shown.map((branch) => ({ id: `${ID_BRANCH}${branch.id}`, title: branch.name.slice(0, 20) })), displayText: body, author: AUTHOR })
-    : await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttonLabel: "اختر الفرع", rows: shown.map((branch) => ({ id: `${ID_BRANCH}${branch.id}`, title: branch.name, description: branch.address || undefined })), displayText: body, author: AUTHOR });
+  const shown = branches.slice(0, branches.length > 1 ? 9 : 10);
+  // Always a list (not three buttons) so each branch can show its city / area under its name; with several branches the
+  // first row finds the nearest one from the customer's shared location.
+  const nearestRow = branches.length > 1 ? [{ id: ID_BRANCH_NEAREST, title: "📍 أقرب فرع", description: "شارك موقعك ونحدد لك الأقرب" }] : [];
+  const sent = await sendWhatsAppRowList({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, buttonLabel: "اختر الفرع", rows: [...nearestRow, ...shown.map((branch) => ({ id: `${ID_BRANCH}${branch.id}`, title: branch.name.slice(0, 24), description: (branch.address || undefined)?.slice(0, 72) }))], displayText: body, author: AUTHOR });
   if (!sent.ok) await ctx.sendText(numbered());
+}
+
+/** "أقرب فرع": the customer is asked to share their location (WhatsApp's one-tap prompt). */
+async function askNearestBranch(ctx: CatalogCtx, browse: boolean) {
+  await setCheckoutFlow(ctx.tenantId, ctx.conversationId, { step: "branch", data: { ...(browse ? { browse: true } : {}), nearest: true } });
+  const body = "شاركنا موقعك الحالي لنحدد لك أقرب فرع 📍";
+  const sent = await sendWhatsAppLocationRequest({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, bodyText: body, author: AUTHOR });
+  if (!sent.ok) await ctx.sendText(`${body}\n(اضغط 📎 ثم «الموقع» ثم أرسل موقعك الحالي، أو اكتب «إلغاء» لاختيار الفرع من القائمة)`);
+}
+
+/** The customer shared a location: the closest open branch becomes theirs and the order carries on. False = no location in the reply. */
+async function continueNearestBranch(ctx: CatalogCtx, flow: CheckoutFlow, reply: { id?: string; text: string; location?: { latitude: number; longitude: number } }): Promise<boolean> {
+  if (!reply.location) return false;
+  const open = (await listBranches(ctx.tenantId, { activeOnly: true })).filter((branch) => isBranchOpen(branch.workingHours));
+  if (!open.length) {
+    await askBranch(ctx, await listBranches(ctx.tenantId, { activeOnly: true }), "", Boolean(flow.data.browse));
+    return true;
+  }
+  const { latitude, longitude } = reply.location;
+  const best = open.map((branch) => ({ branch, km: distanceKm(latitude, longitude, branch.latitude, branch.longitude) })).sort((a, b) => a.km - b.km)[0];
+  await setBranchChoice(ctx.tenantId, ctx.conversationId, best.branch.id);
+  await clearCheckoutFlow(ctx.conversationId);
+  await ctx.sendText(`أقرب فرع لك: *${best.branch.name}*${best.branch.address ? ` - ${best.branch.address}` : ""}\nالمسافة التقريبية: ${formatDistance(best.km)}\nيمكنك تغيير الفرع في أي وقت من زر «تغيير الفرع».`);
+  if (flow.data.browse) await sendCatalogMenu(ctx, "");
+  else await checkoutCart(ctx);
+  return true;
 }
 
 /** The branch question asked before the products: the pick is kept and the products of that branch are shown. */
@@ -1479,7 +1517,7 @@ async function finishZidCartCheckout(ctx: CatalogCtx, city: string, addressLine:
  * understood, "ignored" for anything else (the bot stays quiet so a normal
  * chat with an employee isn't talked over).
  */
-export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; text: string }, intro: string): Promise<"handled" | "agent" | "ignored"> {
+export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; text: string; location?: { latitude: number; longitude: number } }, intro: string): Promise<"handled" | "agent" | "ignored"> {
   const id = reply.id || "";
 
   // Answering a product's choices (size, extras). A tap on anything else abandons them (the quantity answer is part of the flow).
@@ -1494,6 +1532,12 @@ export async function handleCatalogReply(ctx: CatalogCtx, reply: { id?: string; 
 
   // Answering the delivery questions of a checkout (city, delivery option, address, confirmation).
   const flow = await getCheckoutFlow(ctx.conversationId);
+  // "Nearest branch": the tap asks for a location; the location answers it.
+  if (id === ID_BRANCH_NEAREST) {
+    await askNearestBranch(ctx, Boolean(flow?.data.browse) || !(await getCart(ctx.conversationId)).lines.length);
+    return "handled";
+  }
+  if (flow?.step === "branch" && flow.data.nearest && (await continueNearestBranch(ctx, flow, reply))) return "handled";
   // The branch question asked before the products (works with an empty cart).
   if (flow?.step === "branch" && flow.data.browse && (!id || id.startsWith(ID_BRANCH))) {
     if (await continueBrowseBranch(ctx, reply)) return "handled";

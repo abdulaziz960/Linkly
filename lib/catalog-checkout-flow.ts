@@ -18,6 +18,8 @@ export type CheckoutData = {
   carDetails?: string;
   /** The branch question asked while browsing (before the products), not at checkout. */
   browse?: boolean;
+  /** The customer was asked to share a location to find the nearest branch. */
+  nearest?: boolean;
 };
 
 export type CheckoutFlow = { step: CheckoutStep; data: CheckoutData };

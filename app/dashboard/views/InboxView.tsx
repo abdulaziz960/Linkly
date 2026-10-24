@@ -387,6 +387,7 @@ export default function InboxView({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [moreTabsOpen, setMoreTabsOpen] = useState(false);
   const moreTabsRef = useRef<HTMLDivElement | null>(null);
+  const [moreTabsPos, setMoreTabsPos] = useState<CSSProperties>({});
 
   // The states menu closes on a click anywhere else or on Escape.
   useEffect(() => {
@@ -992,12 +993,18 @@ export default function InboxView({
                 aria-expanded={moreTabsOpen}
                 aria-haspopup="menu"
                 aria-label={t("عرض بقية الحالات", "Show more states")}
-                onClick={() => setMoreTabsOpen((current) => !current)}
+                onClick={(event) => {
+                  // The tabs row scrolls and clips what hangs below it, so the menu is placed on the page itself (fixed) under the arrow.
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const rtl = getComputedStyle(event.currentTarget).direction === "rtl";
+                  setMoreTabsPos({ position: "fixed", top: rect.bottom + 6, ...(rtl ? { right: Math.max(8, window.innerWidth - rect.right) } : { left: Math.max(8, rect.left) }) });
+                  setMoreTabsOpen((current) => !current);
+                }}
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
               </button>
               {moreTabsOpen ? (
-                <div className="conversation-more-menu" role="menu">
+                <div className="conversation-more-menu" role="menu" style={moreTabsPos}>
                   {([
                     ["unassigned", t("غير مسندة", "Unassigned"), counts.unassigned],
                     ["assigned", t("مسندة", "Assigned"), counts.assigned],

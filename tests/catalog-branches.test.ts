@@ -109,7 +109,7 @@ describe("branches with their own stock", () => {
     const asked = sent.at(-1)!;
     expect(String(asked.input.bodyText)).toContain("من أي فرع");
     const ids = (asked.kind === "buttons" ? (asked.input.buttons as Array<{ id: string }>) : (asked.input.rows as Array<{ id: string }>)).map((x) => x.id);
-    expect(ids).toEqual([`br_${north.id}`, `br_${south.branch.id}`]);
+    expect(ids).toEqual(["brnearest", `br_${north.id}`, `br_${south.branch.id}`]); // the first row finds the nearest branch from a shared location
 
     // the branch without the stock is refused, without any number, and the question comes again
     sent.length = 0;

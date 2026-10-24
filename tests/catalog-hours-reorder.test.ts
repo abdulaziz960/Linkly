@@ -10,7 +10,8 @@ vi.mock("../lib/whatsapp-send", () => ({
   sendWhatsAppIdButtons: vi.fn(async (input: Record<string, unknown>) => { sent.push({ kind: "buttons", input }); return { ok: true }; }),
   sendWhatsAppRowList: vi.fn(async (input: Record<string, unknown>) => { sent.push({ kind: "list", input }); return { ok: true }; }),
   sendWhatsAppCtaUrl: vi.fn(async () => ({ ok: true })),
-  sendWhatsAppImageByUrl: vi.fn(async () => ({ ok: true }))
+  sendWhatsAppImageByUrl: vi.fn(async () => ({ ok: true })),
+  sendWhatsAppLocationRequest: vi.fn(async (input: Record<string, unknown>) => { sent.push({ kind: "location-request", input }); return { ok: true }; })
 }));
 
 beforeAll(() => {
@@ -59,7 +60,7 @@ describe("branch hours in the chat", () => {
     await clearBranchChoice("conv-hours");
     sent.length = 0;
     await sendCatalogMenu(c, "");
-    expect(buttonIds()).toEqual(["br_hr-1", "br_hr-2"]);
+    expect(buttonIds()).toEqual(["brnearest", "br_hr-1", "br_hr-2"]);
 
     vi.setSystemTime(new Date(Date.UTC(2026, 0, 10, 20, 30)));
     await clearBranchChoice("conv-hours");
@@ -103,5 +104,56 @@ describe("reordering the last order", () => {
     const shown = String(sent.at(-1)!.input.bodyText);
     expect(shown).toContain("أضفنا طلبك السابق");
     expect(shown).toContain("لم يعد متوفرًا: بطاطس");
+  });
+});
+
+describe("opening the catalog with branches", () => {
+  it("asks which branch every time, as a list that shows each branch's city", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { openCatalog } = await import("../lib/catalog-bot");
+    const { setBranchChoice, getBranchChoice } = await import("../lib/catalog-branches");
+    const { createProduct, cleanProductInput } = await import("../lib/catalog");
+    const t3 = "tenant-open-catalog";
+    const clean = cleanProductInput({ name: "شاي", price: 5 });
+    if (!clean.ok) throw new Error(clean.error);
+    await createProduct(t3, clean.data);
+    const now = new Date().toISOString();
+    for (const [id, name, city] of [["oc-1", "فرع ١", "الرياض"], ["oc-2", "فرع ٢", "جدة"]]) {
+      await prisma.$executeRaw`INSERT INTO branches (id, tenant_id, name, address, latitude, longitude, active, created_at, updated_at) VALUES (${id}, ${t3}, ${name}, ${city}, 24.7, 46.6, 1, ${now}, ${now})`;
+    }
+    const c = { channel: "whatsapp" as const, tenantId: t3, conversationId: "conv-oc", recipientId: "966500000555", sendText: async () => undefined };
+    await setBranchChoice(t3, "conv-oc", "oc-1"); // picked earlier
+    sent.length = 0;
+    await openCatalog(c, "");
+    expect(sent).toHaveLength(1);
+    expect(sent[0].kind).toBe("list");
+    expect((sent[0].input.rows as unknown[]).slice(1)).toEqual([expect.objectContaining({ id: "br_oc-1", title: "فرع ١", description: "الرياض" }), expect.objectContaining({ id: "br_oc-2", title: "فرع ٢", description: "جدة" })]);
+    expect(await getBranchChoice(t3, "conv-oc")).toBeNull();
+  });
+
+  it("offers the nearest branch, asks for a location, and picks the closest one", async () => {
+    const { openCatalog, handleCatalogReply } = await import("../lib/catalog-bot");
+    const { getBranchChoice } = await import("../lib/catalog-branches");
+    const { prisma } = await import("../lib/prisma");
+    const t3 = "tenant-open-catalog";
+    // Riyadh (oc-1) and Jeddah (oc-2)
+    await prisma.$executeRaw`UPDATE branches SET latitude = 24.71, longitude = 46.67 WHERE id = 'oc-1'`;
+    await prisma.$executeRaw`UPDATE branches SET latitude = 21.54, longitude = 39.17 WHERE id = 'oc-2'`;
+    const texts: string[] = [];
+    const c = { channel: "whatsapp" as const, tenantId: t3, conversationId: "conv-oc2", recipientId: "966500000666", sendText: async (t: string) => { texts.push(t); } };
+    sent.length = 0;
+    await openCatalog(c, "");
+    expect((sent[0].input.rows as Array<{ id: string }>)[0].id).toBe("brnearest");
+
+    sent.length = 0;
+    await handleCatalogReply(c, { id: "brnearest", text: "" }, "");
+    expect(sent.map((x) => x.kind)).toEqual(["location-request"]);
+
+    // a customer standing near Jeddah gets the Jeddah branch, and the menu follows
+    sent.length = 0;
+    await handleCatalogReply(c, { text: "", location: { latitude: 21.5, longitude: 39.2 } }, "");
+    expect((await getBranchChoice(t3, "conv-oc2"))?.id).toBe("oc-2");
+    expect(texts.join("\n")).toContain("أقرب فرع لك: *فرع ٢*");
+    expect(sent.some((x) => x.kind === "list")).toBe(true);
   });
 });

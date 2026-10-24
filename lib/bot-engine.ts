@@ -14,7 +14,7 @@ import { findBestKbMatch, findKbContext } from "./knowledge-base";
 import { AI_NO_ANSWER } from "./ai-provider";
 import { runWorkspaceAi } from "./workspace-ai";
 import { logAssignmentMessage } from "./conversation-system-messages";
-import { handleCatalogReply, sendCatalogMenu, type CatalogCtx } from "./catalog-bot";
+import { handleCatalogReply, openCatalog, type CatalogCtx } from "./catalog-bot";
 import { handleBranchReply, startBranchStep, type BranchCtx, type Coordinates } from "./branch-bot";
 
 export type BotChannel = "whatsapp" | "telegram" | "instagram" | "facebook" | "x" | "website";
@@ -579,7 +579,7 @@ async function executeFrom(
     }
 
     if (node.type === CATALOG_NODE_TYPE && node.content.kind === "catalog") {
-      const shown = await sendCatalogMenu(catalogContext(channel, ctx), node.content.text);
+      const shown = await openCatalog(catalogContext(channel, ctx), node.content.text);
       if (shown) {
         await prisma.conversation.update({
           where: { id: ctx.conversationId },
@@ -691,7 +691,7 @@ export const CATALOG_TEMPLATE_WAITING = "__catalog_template__";
 
 /** The customer tapped a catalog template's button: show the catalog and keep answering its cards. */
 export async function startTemplateCatalog(channel: BotChannel, input: { tenantId: string; conversationId: string; recipientId: string }) {
-  const shown = await sendCatalogMenu(catalogContext(channel, input), "");
+  const shown = await openCatalog(catalogContext(channel, input), "");
   if (shown) await prisma.conversation.update({ where: { id: input.conversationId }, data: { botWaitingNodeId: CATALOG_TEMPLATE_WAITING } });
 }
 
@@ -801,7 +801,7 @@ export async function runChannelBot(
     }
 
     if (waitingNode.content.kind === "catalog") {
-      const outcome = await handleCatalogReply(catalogContext(channel, ctx), { id: input.replyId, text: input.incomingText || "" }, waitingNode.content.text);
+      const outcome = await handleCatalogReply(catalogContext(channel, ctx), { id: input.replyId, text: input.incomingText || "", location: input.location }, waitingNode.content.text);
       if (outcome !== "agent") return;
 
       const claimedHandoff = await prisma.conversation.updateMany({
