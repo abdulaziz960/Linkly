@@ -386,6 +386,21 @@ export default function InboxView({
   const [commentReplyText, setCommentReplyText] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [moreTabsOpen, setMoreTabsOpen] = useState(false);
+  const moreTabsRef = useRef<HTMLDivElement | null>(null);
+
+  // The states menu closes on a click anywhere else or on Escape.
+  useEffect(() => {
+    if (!moreTabsOpen) return;
+    const close = (event: MouseEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent ? event.key === "Escape" : !moreTabsRef.current?.contains(event.target as Node)) setMoreTabsOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [moreTabsOpen]);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | InboxPriority>("all");
@@ -970,39 +985,41 @@ export default function InboxView({
             />
           ) : null}
           {tabsMode === "owner" ? (
-            <button
-              type="button"
-              className={`conversation-tabs-toggle ${moreTabsOpen ? "open" : ""}`}
-              aria-expanded={moreTabsOpen}
-              aria-label={t("عرض بقية الحالات", "Show more states")}
-              onClick={() => setMoreTabsOpen((current) => !current)}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
-            </button>
+            <div className="conversation-more" ref={moreTabsRef}>
+              <button
+                type="button"
+                className={`conversation-tabs-toggle ${moreTabsOpen ? "open" : ""}`}
+                aria-expanded={moreTabsOpen}
+                aria-haspopup="menu"
+                aria-label={t("عرض بقية الحالات", "Show more states")}
+                onClick={() => setMoreTabsOpen((current) => !current)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+              </button>
+              {moreTabsOpen ? (
+                <div className="conversation-more-menu" role="menu">
+                  {([
+                    ["unassigned", t("غير مسندة", "Unassigned"), counts.unassigned],
+                    ["assigned", t("مسندة", "Assigned"), counts.assigned],
+                    ["closed", t("مغلقة", "Closed"), counts.closed]
+                  ] as const).map(([key, label, count]) => (
+                    <button key={key} type="button" role="menuitemradio" aria-checked={filter === key} className={filter === key ? "active" : ""} onClick={() => { onChangeFilter(key); setMoreTabsOpen(false); }}>
+                      <span>{label}</span>
+                      {count ? <b>{count}</b> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ) : null}
-          {tabsMode === "owner" && (moreTabsOpen || filter === "unassigned") ? (
-            <FilterButton
-              active={filter === "unassigned"}
-              count={counts.unassigned}
-              label={t("غير مسندة", "Unassigned")}
-              onClick={() => onChangeFilter("unassigned")}
-            />
+          {tabsMode === "owner" && filter === "unassigned" ? (
+            <FilterButton active count={counts.unassigned} label={t("غير مسندة", "Unassigned")} onClick={() => onChangeFilter("unassigned")} />
           ) : null}
-          {tabsMode === "owner" && (moreTabsOpen || filter === "assigned") ? (
-            <FilterButton
-              active={filter === "assigned"}
-              count={counts.assigned}
-              label={t("مسندة", "Assigned")}
-              onClick={() => onChangeFilter("assigned")}
-            />
+          {tabsMode === "owner" && filter === "assigned" ? (
+            <FilterButton active count={counts.assigned} label={t("مسندة", "Assigned")} onClick={() => onChangeFilter("assigned")} />
           ) : null}
-          {tabsMode === "owner" && (moreTabsOpen || filter === "closed") ? (
-            <FilterButton
-              active={filter === "closed"}
-              count={counts.closed}
-              label={t("مغلقة", "Closed")}
-              onClick={() => onChangeFilter("closed")}
-            />
+          {tabsMode === "owner" && filter === "closed" ? (
+            <FilterButton active count={counts.closed} label={t("مغلقة", "Closed")} onClick={() => onChangeFilter("closed")} />
           ) : null}
         </div>
         <div className="inbox-search-tools">
