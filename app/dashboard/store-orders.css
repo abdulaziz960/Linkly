@@ -527,3 +527,15 @@
 .menu-image-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .menu-image-preview { width: 96px; height: 96px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); }
 .menu-image-card { margin-bottom: 16px; }
+.daily-filters { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.daily-filters label { display: grid; gap: 4px; min-width: 180px; }
+.daily-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.daily-kpis article { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.daily-kpis span, .daily-kpis small { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
+.daily-kpis strong { display: block; margin: 6px 0 2px; font-size: 20px; }
+.daily-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.daily-table { width: 100%; border-collapse: collapse; }
+.daily-table td { padding: 8px 6px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.daily-table td:not(:first-child) { text-align: end; white-space: nowrap; }
+@media (max-width: 900px) { .daily-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media print { .daily-report .panel-head button, .daily-filters { display: none; } }

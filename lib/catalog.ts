@@ -542,9 +542,10 @@ export async function createOrder(input: {
   return toOrder(row);
 }
 
-export async function listOrders(tenantId: string, limit = 200): Promise<CatalogOrderRow[]> {
+/** The workspace's orders, newest first: the latest `limit`, or every order created within `range` (ISO timestamps, `to` excluded). */
+export async function listOrders(tenantId: string, limit = 200, range?: { from: string; to: string }): Promise<CatalogOrderRow[]> {
   await ensureSchema();
-  const rows = await prisma.catalogOrder.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: limit });
+  const rows = await prisma.catalogOrder.findMany({ where: { tenantId, ...(range ? { createdAt: { gte: range.from, lt: range.to } } : {}) }, orderBy: { createdAt: "desc" }, take: limit });
   const ids = rows.map((row) => row.id);
   const [items, discounts, shipping, tracking, pickup, prep, branches] = await Promise.all([getOrderItems(ids), getOrderDiscounts(ids), getOrderShipping(ids), getOrderTracking(ids), getOrderPickup(ids), getOrderPrep(ids), getOrderBranches(ids)]);
   const namesEn = await getProductNamesEn(tenantId, [...items.values()].flat().map((item) => item.productId));

@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../i18n";
 import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
 import CustomSelect from "../../components/CustomSelect";
+import DailyReportPanel from "../components/DailyReportPanel";
 import DiscountCodesPanel from "../components/DiscountCodesPanel";
 import LoyaltyPanel from "../components/LoyaltyPanel";
 import ProductOptionsEditor from "../components/ProductOptionsEditor";
@@ -118,7 +119,7 @@ async function resizeToJpeg(file: File, maxSide = 1024, maxChars = 1.2 * 1024 * 
 export default function CatalogView() {
   const { t, language } = useLanguage();
   const [optionsFor, setOptionsFor] = useState<{ id: string; name: string } | null>(null);
-  const [tab, setTab] = useState<"products" | "categories" | "orders" | "shipping" | "discounts" | "loyalty" | "settings">("products");
+  const [tab, setTab] = useState<"products" | "categories" | "orders" | "daily" | "shipping" | "discounts" | "loyalty" | "settings">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
@@ -500,6 +501,7 @@ export default function CatalogView() {
             <button className={tab === "products" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("products")}>{t("المنتجات", "Products")} ({products.length})</button>
             <button className={tab === "categories" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("categories")}>{t("التصنيفات", "Categories")} ({categories.length})</button>
             <button className={tab === "orders" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("orders")}>{t("الطلبات", "Orders")} ({orders.length})</button>
+            <button className={tab === "daily" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("daily")}>{t("إقفال اليوم", "Daily closing")}</button>
             <button className={tab === "shipping" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("shipping")}>{t("الشحن", "Shipping")}</button>
             <button className={tab === "discounts" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("discounts")}>{t("أكواد الخصم", "Discount codes")}</button>
             <button className={tab === "loyalty" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("loyalty")}>{t("الولاء", "Loyalty")}</button>
@@ -681,6 +683,8 @@ export default function CatalogView() {
           </div>
         </div>
       ) : null}
+
+      {tab === "daily" ? <DailyReportPanel /> : null}
 
       {tab === "shipping" ? <><PickupSettingsCard /><ShippingPanel /></> : null}
 
