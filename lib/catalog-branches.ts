@@ -25,7 +25,9 @@ function ensureTables() {
 // The branches themselves are the ones on the Branches page (the `branches` table, with location, phone and hours);
 // the catalog only adds a stock per product on top of them and never creates or edits a branch.
 type BranchRow = { id: string; name: string; address: string; map_url: string; working_hours: string; latitude: number; longitude: number; active: number | bigint };
-const toBranch = (row: BranchRow): Branch => ({ id: row.id, name: row.name, nameEn: "", address: row.address, mapUrl: row.map_url, active: Number(row.active) === 1, workingHours: row.working_hours ?? "", latitude: Number(row.latitude), longitude: Number(row.longitude) });
+/** The merchant's map link, or a Google Maps link to the branch's coordinates when none was given. */
+const mapLinkOf = (row: { map_url: string; latitude: number; longitude: number }) => row.map_url || `https://www.google.com/maps/search/?api=1&query=${Number(row.latitude)},${Number(row.longitude)}`;
+const toBranch = (row: BranchRow): Branch => ({ id: row.id, name: row.name, nameEn: "", address: row.address, mapUrl: mapLinkOf(row), active: Number(row.active) === 1, workingHours: row.working_hours ?? "", latitude: Number(row.latitude), longitude: Number(row.longitude) });
 
 export async function listBranches(tenantId: string, options: { activeOnly?: boolean } = {}): Promise<Branch[]> {
   await ensureTables();
@@ -165,8 +167,9 @@ export async function getOrderBranches(orderIds: string[]): Promise<Map<string, 
   for (let start = 0; start < orderIds.length; start += 200) {
     const batch = orderIds.slice(start, start + 200);
     const rows = await prisma.$queryRaw<Array<{ order_id: string; branch_id: string; branch_name: string }>>`SELECT order_id, branch_id, branch_name FROM catalog_order_branch WHERE order_id IN (${Prisma.join(batch)})`;
-    const links = rows.length ? await prisma.$queryRaw<Array<{ branch_id: string; map_url: string }>>`SELECT branch_id, map_url FROM catalog_branch_links WHERE branch_id IN (${Prisma.join([...new Set(rows.map((row) => row.branch_id))])})` : [];
-    const urls = new Map(links.map((link) => [link.branch_id, link.map_url]));
+    // The map link lives on the branch itself (the Branches page); the old catalog-only links are not used any more.
+    const links = rows.length ? await prisma.$queryRaw<Array<{ id: string; map_url: string; latitude: number; longitude: number }>>`SELECT id, map_url, latitude, longitude FROM branches WHERE id IN (${Prisma.join([...new Set(rows.map((row) => row.branch_id))])})` : [];
+    const urls = new Map(links.map((link) => [link.id, mapLinkOf(link)]));
     for (const row of rows) result.set(row.order_id, { id: row.branch_id, name: row.branch_name, mapUrl: urls.get(row.branch_id) ?? "" });
   }
   return result;

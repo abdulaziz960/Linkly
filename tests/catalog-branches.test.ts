@@ -124,6 +124,10 @@ describe("branches with their own stock", () => {
     const order = await prisma.catalogOrder.findFirst({ where: { tenantId } });
     expect(order).toBeTruthy();
     expect(texts.join("\n")).toContain("موقع الفرع: https://maps.app.goo.gl/north");
+    // the paid confirmation reads the map link from the order's branch, with a Google Maps link when none was typed
+    expect((await b.getOrderBranches([order!.id])).get(order!.id)?.mapUrl).toBe("https://maps.app.goo.gl/north");
+    await setMap(north.id, "");
+    expect((await b.getOrderBranches([order!.id])).get(order!.id)?.mapUrl).toBe("https://www.google.com/maps/search/?api=1&query=24.7,46.6");
     expect((await b.getBranchStock(tenantId, north.id)).get(tea.id)).toBe(1);
     const { listOrders, updateOrderStatus } = await import("../lib/catalog");
     expect((await listOrders(tenantId))[0].branchName).toBe("فرع الشمال");
