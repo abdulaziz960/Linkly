@@ -47,13 +47,13 @@ export const metadata: Metadata = {
     title: "Linkly — صندوق واحد لمحادثات عملائك",
     description: "اجمع قنوات خدمة العملاء في صندوق واحد واضح لفريقك.",
     url: "/",
-    images: [{ url: "/opengraph-image?v=2", width: 1200, height: 630, alt: "Linkly — صندوق موحد لمحادثات العملاء" }]
+    images: [{ url: "/opengraph-image?v=3", width: 1200, height: 630, alt: "Linkly — صندوق موحد لمحادثات العملاء" }]
   },
   twitter: {
     card: "summary_large_image",
     title: "Linkly — صندوق واحد لمحادثات عملائك",
     description: "اجمع قنوات خدمة العملاء في صندوق واحد واضح لفريقك.",
-    images: ["/opengraph-image?v=2"]
+    images: ["/opengraph-image?v=3"]
   }
 };
 
