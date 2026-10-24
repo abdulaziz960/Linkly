@@ -79,6 +79,45 @@ describe("paid catalog order", () => {
   }, 30_000);
 });
 
+describe("pickup order with a branch", () => {
+  it("sends the branch location and a line to head there, after the receipt", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { processOrderPaymentCallback } = await import("../lib/catalog-payments");
+    const { recordOrderBranch } = await import("../lib/catalog-branches");
+    const { ensureBranchesSchema } = await import("../lib/branches-schema");
+    const { recordOrderPickup } = await import("../lib/catalog-pickup");
+    await ensureBranchesSchema();
+    const now = new Date().toISOString();
+    await prisma.$executeRaw`INSERT INTO branches (id, tenant_id, name, address, latitude, longitude, map_url, active, created_at, updated_at) VALUES ('rb-1', ${tenantId}, 'فرع العليا', 'الرياض - العليا', 24.69, 46.68, '', 1, ${now}, ${now})`;
+    const id = "ord-bbbbbbbb-1111-4222-8333-444444444444";
+    await prisma.catalogOrder.create({
+      data: { id, tenantId, conversationId: "conv-rc", customerName: "سارة العتيبي", customerPhone: "966500001111", productId: "p1", productName: "قهوة", unitPrice: 20, quantity: 1, total: 20, currency: "SAR", status: "awaiting_payment", paymentId: "inv-branch", paymentUrl: "x", createdAt: now, updatedAt: now }
+    });
+    await recordOrderBranch(tenantId, id, { id: "rb-1", name: "فرع العليا" });
+    await recordOrderPickup(id, { kind: "car", plate: "ABC 123", carDetails: "" });
+
+    const sent: Array<{ url: string; body: any }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => {
+      const target = String(url);
+      if (target.includes("/invoices/inv-branch")) return new Response(JSON.stringify({ id: "inv-branch", status: "paid", amount: 2000, metadata: { order_id: id } }));
+      sent.push({ url: target, body: init.body instanceof FormData ? "form" : JSON.parse(String(init.body)) });
+      if (target.endsWith("/media")) return new Response(JSON.stringify({ id: "doc-b" }));
+      return new Response(JSON.stringify({ messages: [{ id: `wamid.b${sent.length}` }] }));
+    }));
+
+    await processOrderPaymentCallback(id);
+    const messages = sent.filter((call) => call.url.endsWith("/messages")).map((call) => call.body);
+    const types = messages.map((message) => message.type);
+    expect(types.slice(0, 2)).toEqual(["text", "document"]);
+    const head = messages.find((message) => message.type === "text" && String(message.text.body).includes("تفضّل بالتوجه"));
+    expect(head.text.body).toContain("فرع العليا");
+    expect(head.text.body).toContain("https://www.google.com/maps/search/?api=1&query=24.69,46.68");
+    expect(head.text.body).toContain("لوحتك");
+    const pin = messages.find((message) => message.type === "location");
+    expect(pin.location).toMatchObject({ latitude: 24.69, longitude: 46.68, name: "فرع العليا" });
+  }, 30_000);
+});
+
 describe("awaiting-payment reconcile", () => {
   it("confirms an order whose callback never arrived, and leaves unpaid ones alone", async () => {
     const { prisma } = await import("../lib/prisma");

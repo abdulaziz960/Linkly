@@ -160,17 +160,22 @@ export async function recordOrderBranch(tenantId: string, orderId: string, branc
   await prisma.$executeRaw`INSERT INTO catalog_order_branch (order_id, tenant_id, branch_id, branch_name) VALUES (${orderId}, ${tenantId}, ${branch.id}, ${branch.name})`;
 }
 
-export async function getOrderBranches(orderIds: string[]): Promise<Map<string, { id: string; name: string; mapUrl: string }>> {
-  const result = new Map<string, { id: string; name: string; mapUrl: string }>();
+export type OrderBranch = { id: string; name: string; mapUrl: string; latitude?: number; longitude?: number; address?: string };
+
+export async function getOrderBranches(orderIds: string[]): Promise<Map<string, OrderBranch>> {
+  const result = new Map<string, OrderBranch>();
   if (!orderIds.length) return result;
   await ensureTables();
   for (let start = 0; start < orderIds.length; start += 200) {
     const batch = orderIds.slice(start, start + 200);
     const rows = await prisma.$queryRaw<Array<{ order_id: string; branch_id: string; branch_name: string }>>`SELECT order_id, branch_id, branch_name FROM catalog_order_branch WHERE order_id IN (${Prisma.join(batch)})`;
     // The map link lives on the branch itself (the Branches page); the old catalog-only links are not used any more.
-    const links = rows.length ? await prisma.$queryRaw<Array<{ id: string; map_url: string; latitude: number; longitude: number }>>`SELECT id, map_url, latitude, longitude FROM branches WHERE id IN (${Prisma.join([...new Set(rows.map((row) => row.branch_id))])})` : [];
-    const urls = new Map(links.map((link) => [link.id, mapLinkOf(link)]));
-    for (const row of rows) result.set(row.order_id, { id: row.branch_id, name: row.branch_name, mapUrl: urls.get(row.branch_id) ?? "" });
+    const links = rows.length ? await prisma.$queryRaw<Array<{ id: string; map_url: string; latitude: number; longitude: number; address: string }>>`SELECT id, map_url, latitude, longitude, address FROM branches WHERE id IN (${Prisma.join([...new Set(rows.map((row) => row.branch_id))])})` : [];
+    const urls = new Map(links.map((link) => [link.id, link]));
+    for (const row of rows) {
+      const link = urls.get(row.branch_id);
+      result.set(row.order_id, { id: row.branch_id, name: row.branch_name, mapUrl: link ? mapLinkOf(link) : "", ...(link ? { latitude: Number(link.latitude), longitude: Number(link.longitude), address: link.address } : {}) });
+    }
   }
   return result;
 }

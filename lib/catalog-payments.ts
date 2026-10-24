@@ -293,6 +293,25 @@ async function applyOrderTransition(order: Awaited<ReturnType<typeof prisma.cata
       } catch (error) {
         console.error("Order receipt PDF failed", error);
       }
+
+      // A pickup order: send the branch's location once more, with a line telling the customer to head there.
+      if (orderBranchInfo && !orderShipping) {
+        try {
+          const { sendWhatsAppLocation } = await import("./whatsapp-send");
+          await sendWhatsAppTextMessage({
+            tenantId: order.tenantId,
+            conversationId: order.conversationId,
+            to: conversation.customer.phone,
+            text: `📍 تفضّل بالتوجه إلى فرع «${orderBranchInfo.name}» لاستلام طلبك.${orderPickup?.kind === "car" ? "\nعند وصولك أبلغنا برقم لوحتك وسيخرج لك الموظف الطلب إلى سيارتك." : ""}${orderBranchInfo.mapUrl ? `\nالموقع على الخريطة:\n${orderBranchInfo.mapUrl}` : ""}`,
+            author: "الرد الآلي"
+          });
+          if (orderBranchInfo.latitude !== undefined && orderBranchInfo.longitude !== undefined) {
+            await sendWhatsAppLocation({ tenantId: order.tenantId, conversationId: order.conversationId, to: conversation.customer.phone, latitude: orderBranchInfo.latitude, longitude: orderBranchInfo.longitude, name: orderBranchInfo.name, address: orderBranchInfo.address ?? "", author: "الرد الآلي" });
+          }
+        } catch (error) {
+          console.error("Branch location after payment failed", error);
+        }
+      }
     }
   }
 
