@@ -83,8 +83,6 @@ type ProductForm = {
 
 const emptyForm: ProductForm = { nameEn: "", name: "", price: "", category: "", sku: "", stock: "", imageUrl: "", productUrl: "", description: "", active: true };
 
-const orderStatuses: Array<Order["status"]> = ["new", "awaiting_payment", "paid", "fulfilled", "cancelled"];
-
 async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; data?: T; error?: string }> {
   try {
     const response = await fetch(url, init);
@@ -404,9 +402,22 @@ export default function CatalogView() {
     await load();
   }
 
-  const trackingLabel = (stage?: "preparing" | "ready" | "shipped" | "delivered") => stage === "ready" ? t("جاهز للاستلام", "Ready for pickup") : stage === "shipped" ? t("تم الشحن", "Shipped") : stage === "delivered" ? t("تم التسليم", "Delivered") : stage === "preparing" ? t("قيد التجهيز", "Preparing") : t("لم يُحدَّث", "Not updated");
+  /** The stage dropdown: "preparing" asks how long it takes, "shipped" asks for the shipment details, "ready" saves and tells the customer. */
+  /** The order's own stage (preparing, ready, shipped, delivered), apart from its payment status. */
+  async function changeOrderStage(order: Order, value: string) {
+    if (value === "delivered") {
+      const result = await api<{ notified: boolean }>(`/api/catalog/orders/${order.id}/tracking`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage: "delivered", carrier: order.tracking?.carrier ?? "" })
+      });
+      setNotice(result.ok ? { type: "success", message: result.data?.notified ? t("تم التحديث وإشعار العميل", "Updated and the customer was notified") : t("تم التحديث (لم يصل إشعار للعميل)", "Updated (the customer wasn't notified)") } : { type: "error", message: result.error || t("تعذر التحديث", "Could not update") });
+      await load();
+      return;
+    }
+    await changeOrderFlow(order, value);
+  }
 
-  /** The status dropdown: "preparing" saves that shipping stage, "shipped" asks for the shipment details, the rest are order statuses. */
   async function changeOrderFlow(order: Order, value: string) {
     if (value === "shipped") {
       openTracking(order);
@@ -611,7 +622,7 @@ export default function CatalogView() {
           <div className="panel-body table-wrap">
             <input className="catalog-search" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder={t("ابحث برقم الطلب (مثل ORD-CF449CC2) أو اسم العميل أو جواله", "Search by order number (e.g. ORD-CF449CC2), customer or phone")} aria-label={t("بحث في الطلبات", "Search orders")} />
             <table className="mobile-card-table">
-              <thead><tr><th>{t("رقم الطلب", "Order no.")}</th><th>{t("التاريخ", "Date")}</th><th>{t("العميل", "Customer")}</th><th>{t("المنتج", "Product")}</th><th>{t("المبلغ", "Amount")}</th><th>{t("الحالة", "Status")}</th><th>{t("الشحن", "Shipping")}</th></tr></thead>
+              <thead><tr><th>{t("رقم الطلب", "Order no.")}</th><th>{t("التاريخ", "Date")}</th><th>{t("العميل", "Customer")}</th><th>{t("المنتج", "Product")}</th><th>{t("المبلغ", "Amount")}</th><th>{t("الحالة", "Status")}</th><th>{t("حالة الطلب", "Order stage")}</th></tr></thead>
               <tbody>
                 {filteredOrders.map((order) => (
                   <tr key={order.id}>
@@ -630,24 +641,35 @@ export default function CatalogView() {
                     <td data-label={t("المبلغ", "Amount")}>{order.total} {t("ر.س", "SAR")}</td>
                     <td data-label={t("الحالة", "Status")}>
                       <CustomSelect
-                        value={(order.status === "paid" || order.status === "new") && order.tracking && order.tracking.stage !== "delivered" ? order.tracking.stage : order.status}
-                        ariaLabel={t("حالة الطلب", "Order status")}
-                        onChange={(value) => void changeOrderFlow(order, value)}
+                        value={order.status}
+                        ariaLabel={t("حالة الدفع", "Payment status")}
+                        onChange={(value) => void changeOrderStatus(order, value as Order["status"])}
                         options={[
-                          ...orderStatuses.filter((status) => status !== "fulfilled" && status !== "cancelled").map((status) => ({ value: status, label: statusLabel(status) })),
-                          { value: "preparing", label: t("قيد التجهيز", "Preparing") },
-                          { value: "ready", label: t("جاهز للاستلام", "Ready for pickup") },
-                          { value: "shipped", label: t("تم الشحن", "Shipped") },
-                          ...orderStatuses.filter((status) => status === "fulfilled" || status === "cancelled").map((status) => ({ value: status, label: statusLabel(status) }))
+                          { value: "paid", label: statusLabel("paid") },
+                          { value: "awaiting_payment", label: statusLabel("awaiting_payment") },
+                          { value: "cancelled", label: statusLabel("cancelled") },
+                          // An order that is "new" (placed without online payment) or "fulfilled" keeps showing that until it is changed.
+                          ...(order.status === "new" || order.status === "fulfilled" ? [{ value: order.status, label: statusLabel(order.status) }] : [])
                         ]}
                       />
                     </td>
-                    <td data-label={t("الشحن", "Shipping")}>
+                    <td data-label={t("حالة الطلب", "Order stage")}>
                       {order.status === "paid" || order.status === "fulfilled" || order.status === "new" ? (
                         <>
-                          <span className={order.tracking?.stage === "delivered" ? "state ok" : "state muted"}>{trackingLabel(order.tracking?.stage)}</span>
+                          <CustomSelect
+                            value={order.tracking?.stage ?? ""}
+                            ariaLabel={t("حالة الطلب", "Order stage")}
+                            onChange={(value) => void changeOrderStage(order, value)}
+                            options={[
+                              ...(order.tracking ? [] : [{ value: "", label: t("لم تُحدَّد", "Not set") }]),
+                              { value: "preparing", label: t("قيد التجهيز", "Preparing") },
+                              { value: "ready", label: t("جاهز للاستلام", "Ready for pickup") },
+                              { value: "shipped", label: t("تم الشحن", "Shipped") },
+                              { value: "delivered", label: t("تم التسليم", "Delivered") }
+                            ]}
+                          />
                           {order.tracking?.trackingNumber ? <div><small dir="ltr">{order.tracking.trackingNumber}</small></div> : null}
-                          <button className="btn soft" type="button" onClick={() => openTracking(order)}>{t("تحديث الشحن", "Update shipping")}</button>
+                          {order.tracking?.stage === "shipped" ? <button className="btn soft" type="button" onClick={() => openTracking(order)}>{t("بيانات الشحن", "Shipping details")}</button> : null}
                         </>
                       ) : "-"}
                     </td>
