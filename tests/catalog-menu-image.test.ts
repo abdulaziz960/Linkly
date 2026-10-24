@@ -43,7 +43,7 @@ describe("the menu picture", () => {
     if (!clean.ok) throw new Error(clean.error);
     await createProduct(tenantId, clean.data);
     const { sendCatalogMenu } = await import("../lib/catalog-bot");
-    const { saveMenuImage, getMenuImage, removeMenuImage } = await import("../lib/catalog-menu-image");
+    const { saveMenuImage, getMenuImage, removeMenuImage, setMenuBusiness, getMenuBusiness } = await import("../lib/catalog-menu-image");
     const c = { channel: "whatsapp" as const, tenantId, conversationId: "conv-menu", recipientId: "966500000001", sendText: async () => undefined };
 
     sent.length = 0;
@@ -53,6 +53,13 @@ describe("the menu picture", () => {
 
     expect((await saveMenuImage(tenantId, jpeg)).ok).toBe(true);
     expect((await getMenuImage(tenantId))?.length).toBeGreaterThan(300);
+    // without a chosen business type the picture is not used, even though one was uploaded
+    sent.length = 0;
+    await sendCatalogMenu(c, "أهلًا");
+    expect(sent.some((x) => x.kind === "image")).toBe(false);
+    expect(await setMenuBusiness(tenantId, "pharmacy")).toBe("");
+    expect(await setMenuBusiness(tenantId, "cafe")).toBe("cafe");
+    expect(await getMenuBusiness(tenantId)).toBe("cafe");
     sent.length = 0;
     await sendCatalogMenu(c, "أهلًا");
     expect(sent[0].kind).toBe("image");

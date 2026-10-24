@@ -25,7 +25,7 @@ import { clearCheckoutState, getCheckoutState, getZidCatalogMode, isZidProduct, 
 import { createZidOrder } from "./zid-checkout";
 import { formatMessageTime } from "./time";
 import { sendWhatsAppCtaUrl, sendWhatsAppIdButtons, sendWhatsAppImageByUrl, sendWhatsAppRowList } from "./whatsapp-send";
-import { getMenuImageVersion, menuImageUrl } from "./catalog-menu-image";
+import { getMenuBusiness, getMenuImageVersion, menuImageUrl } from "./catalog-menu-image";
 import { clearBranchChoice, getBranchChoice, getBranchStock, listBranches, recordOrderBranch, reserveBranchStock, setBranchChoice, shortfalls, type Branch } from "./catalog-branches";
 import { clearPickupChoice, cleanCarDetails, cleanPlate, getPickupChoice, getPickupSettings, pickupText, recordOrderPickup, setPickupChoice, type PickupSettings } from "./catalog-pickup";
 import { clearOptionFlow, getOptionFlow, groupsForProduct, resolveSelection, setOptionFlow, type OptionFlow, type OptionGroup } from "./catalog-options";
@@ -139,7 +139,7 @@ export async function sendCatalogMenu(ctx: CatalogCtx, intro: string, offset = 0
 
   // A restaurant's picture of the whole menu goes first, the list of items and prices follows it (only when the catalog opens).
   if (withMenuImage && ctx.channel === "whatsapp" && offset === 0 && category === undefined) {
-    const version = await getMenuImageVersion(ctx.tenantId).catch(() => null);
+    const version = (await getMenuBusiness(ctx.tenantId).catch(() => "")) ? await getMenuImageVersion(ctx.tenantId).catch(() => null) : null;
     if (version) {
       await sendWhatsAppImageByUrl({ tenantId: ctx.tenantId, conversationId: ctx.conversationId, to: ctx.recipientId, imageUrl: menuImageUrl(getAppOrigin(), ctx.tenantId, version), caption: "قائمة الطعام", author: AUTHOR }).catch(() => null);
     }

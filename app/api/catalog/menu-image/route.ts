@@ -3,7 +3,7 @@ import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { isTrustedOrigin } from "../../../../lib/origin-guard";
 import { getAppOrigin } from "../../../../lib/app-url";
-import { getMenuImageVersion, menuImageUrl, removeMenuImage, saveMenuImage } from "../../../../lib/catalog-menu-image";
+import { getMenuBusiness, getMenuImageVersion, menuImageUrl, removeMenuImage, saveMenuImage, setMenuBusiness } from "../../../../lib/catalog-menu-image";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -18,12 +18,21 @@ async function authorize(request: NextRequest | null) {
 
 async function current(request: NextRequest, tenantId: string) {
   const version = await getMenuImageVersion(tenantId);
-  return { imageUrl: version ? menuImageUrl(getAppOrigin(request), tenantId, version) : "" };
+  return { imageUrl: version ? menuImageUrl(getAppOrigin(request), tenantId, version) : "", business: await getMenuBusiness(tenantId) };
 }
 
 export async function GET(request: NextRequest) {
   const auth = await authorize(null);
   if (auth.error) return auth.error;
+  return jsonOk(await current(request, auth.user.tenantId));
+}
+
+/** { business } - restaurant, cafe, shop or offline switches the menu picture on; anything else switches it off. */
+export async function PUT(request: NextRequest) {
+  const auth = await authorize(request);
+  if (auth.error) return auth.error;
+  const body = (await request.json().catch(() => null)) as { business?: unknown } | null;
+  await setMenuBusiness(auth.user.tenantId, body?.business);
   return jsonOk(await current(request, auth.user.tenantId));
 }
 
@@ -40,5 +49,5 @@ export async function DELETE(request: NextRequest) {
   const auth = await authorize(request);
   if (auth.error) return auth.error;
   await removeMenuImage(auth.user.tenantId);
-  return jsonOk({ imageUrl: "" });
+  return jsonOk({ ...(await current(request, auth.user.tenantId)), imageUrl: "" });
 }

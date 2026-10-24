@@ -53,6 +53,25 @@ export async function getMenuImage(tenantId: string): Promise<Buffer | null> {
   return parsed?.ok ? parsed.bytes : null;
 }
 
+export const MENU_BUSINESS_TYPES = ["restaurant", "cafe", "shop", "offline"] as const;
+export type MenuBusinessType = (typeof MENU_BUSINESS_TYPES)[number];
+
+/** The business kind the merchant chose ("" = none): the menu picture exists only for these. */
+export async function getMenuBusiness(tenantId: string): Promise<MenuBusinessType | ""> {
+  await ensureTables();
+  const rows = await prisma.$queryRaw<Array<{ business: string }>>`SELECT business FROM catalog_business_type WHERE tenant_id = ${tenantId} LIMIT 1`;
+  const value = rows[0]?.business ?? "";
+  return (MENU_BUSINESS_TYPES as readonly string[]).includes(value) ? (value as MenuBusinessType) : "";
+}
+
+export async function setMenuBusiness(tenantId: string, business: unknown): Promise<MenuBusinessType | ""> {
+  await ensureTables();
+  const value = (MENU_BUSINESS_TYPES as readonly string[]).includes(String(business)) ? (business as MenuBusinessType) : "";
+  await prisma.$executeRaw`DELETE FROM catalog_business_type WHERE tenant_id = ${tenantId}`;
+  if (value) await prisma.$executeRaw`INSERT INTO catalog_business_type (tenant_id, business, updated_at) VALUES (${tenantId}, ${value}, ${new Date().toISOString()})`;
+  return value;
+}
+
 export async function removeMenuImage(tenantId: string) {
   await ensureTables();
   await prisma.$executeRaw`DELETE FROM catalog_menu_images WHERE tenant_id = ${tenantId}`;

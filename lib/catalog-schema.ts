@@ -234,6 +234,12 @@ export const CATALOG_SCHEMA_STATEMENTS = [
     data_url TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  // The kind of business the merchant says they run (restaurant, cafe, shop, offline); it switches on the menu picture.
+  `CREATE TABLE IF NOT EXISTS catalog_business_type (
+    tenant_id TEXT PRIMARY KEY,
+    business TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
   // The English name of a product (shown when the dashboard is in English); the product itself keeps one name.
   `CREATE TABLE IF NOT EXISTS catalog_product_names_en (
     product_id TEXT PRIMARY KEY,
