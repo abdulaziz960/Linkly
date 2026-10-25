@@ -51,7 +51,7 @@ export default function PayPromoBox({ endpoint, paymentId, appliedCode, subtotal
           <dl>
             <div><dt>السعر قبل الخصم</dt><dd>{subtotal.toLocaleString("en-US")} ر.س</dd></div>
             <div><dt>الخصم</dt><dd>-{discountAmount.toLocaleString("en-US")} ر.س</dd></div>
-            <div className="proration-final"><dt>المبلغ المطلوب</dt><dd>{total.toLocaleString("en-US")} ر.س</dd></div>
+            <div className="proration-final"><dt>المبلغ بعد الخصم (قبل الضريبة)</dt><dd>{total.toLocaleString("en-US")} ر.س</dd></div>
           </dl>
           <button type="button" disabled={busy} onClick={() => void send("")}>إزالة الكود</button>
         </div>

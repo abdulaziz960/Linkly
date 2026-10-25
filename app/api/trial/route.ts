@@ -1,3 +1,4 @@
+import { isValidVatNumber, normalizeVatNumber, saveTaxProfile } from "../../../lib/tax-profile";
 import { NextRequest } from "next/server";
 import { sendTrialSignupNotification } from "../../../lib/email";
 import { createTenantWithSubscription } from "../../../lib/subscriptions";
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     website?: string;
     termsAccepted?: boolean;
     planId?: string;
+    vatNumber?: string;
   } | null;
 
   const companyName = body?.companyName?.trim() || "";
@@ -74,6 +76,9 @@ export async function POST(request: NextRequest) {
     other: "نشاط آخر"
   };
   if (!businessTypeLabels[businessType]) return jsonError("اختر نوع نشاط صحيح", 400);
+  // Optional: the business's own VAT number for its invoices (kept only when it is a valid one).
+  const vatNumber = normalizeVatNumber(body?.vatNumber);
+  if (vatNumber && !isValidVatNumber(vatNumber)) return jsonError("الرقم الضريبي يتكون من 15 رقمًا ويبدأ وينتهي بالرقم 3، أو اتركه فارغًا", 400);
 
   const plans = await getActivePlans();
   // The plan the visitor chose on the pricing page is the one they trial (enterprise excluded).
@@ -101,6 +106,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (created && subscription) {
+      if (vatNumber) await saveTaxProfile(subscription.tenantId, { vatNumber, address: "" }).catch(() => null);
       // A notification failure must not turn a committed signup into an error.
       try {
         const sent = await sendTrialSignupNotification({ tenantId: subscription.tenantId, companyName, ownerName, ownerEmail: ownerEmail.toLowerCase() });

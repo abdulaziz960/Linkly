@@ -5,6 +5,9 @@ import { getInvoiceForTenant } from "../../../../lib/subscriptions";
 import { getTenantBranding } from "../../../../lib/tenant-branding";
 import InvoicePrintButton from "./InvoicePrintButton";
 import { planDisplayName } from "../../../../lib/plan-features";
+import { paymentTaxBreakdown, SELLER } from "../../../../lib/vat";
+import { getTaxProfile } from "../../../../lib/tax-profile";
+import { zatcaQrSvg } from "../../../../lib/zatca-qr";
 import "../invoice.css";
 
 export const metadata = { title: { absolute: "فاتورة | Linkly" } };
@@ -48,7 +51,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const en = (await searchParams).lang === "en";
   const bi = (ar: string, english: string) => (en ? english : <>{ar} <em>{english}</em></>);
   const cur = en ? "SAR" : "ر.س";
-  const [invoice, branding] = await Promise.all([getInvoiceForTenant(user.tenantId, id), getTenantBranding(user.tenantId)]);
+  const [invoice, branding, taxProfile] = await Promise.all([getInvoiceForTenant(user.tenantId, id), getTenantBranding(user.tenantId), getTaxProfile(user.tenantId)]);
 
   if (!invoice) {
     return (
@@ -78,7 +81,13 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const qty = isSubscription ? 1 : invoice.messages;
 
   const accentStyle = { "--inv-accent": branding.color } as React.CSSProperties;
-  const amountText = invoice.amount.toLocaleString("en-US");
+  // Tax lines: tax added on top of the price, or (for a payment made before tax was added) the tax inside the amount paid.
+  const tax = paymentTaxBreakdown(invoice);
+  const money = (value: number) => value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const taxed = tax.mode !== "none";
+  const amountText = money(taxed ? tax.net : tax.total);
+  // The QR code of a tax invoice (ZATCA format): only for an invoice that was actually paid.
+  const qrSvg = taxed && isPaid ? await zatcaQrSvg({ sellerName: SELLER.name, vatNumber: SELLER.vatNumber, timestamp: invoice.completedAt || invoice.createdAt, total: tax.total, vat: tax.vat }).catch(() => "") : "";
 
   return (
     <main className="invoice-page" style={accentStyle} dir={en ? "ltr" : undefined}>
@@ -91,8 +100,8 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             <h1>{branding.name}</h1>
           </div>
           <div className="invoice-title">
-            <strong>{en ? "Payment receipt" : "إيصال دفع"}</strong>
-            {en ? null : <span className="invoice-sub">Payment receipt</span>}
+            <strong>{taxed ? (en ? "Tax invoice" : "فاتورة ضريبية") : (en ? "Payment receipt" : "إيصال دفع")}</strong>
+            {en ? null : <span className="invoice-sub">{taxed ? "Tax invoice" : "Payment receipt"}</span>}
             <span className={`invoice-status-badge ${isPaid ? "paid" : "pending"}`}>
               {en ? (isPaid ? "Paid" : "Pending") : <>{isPaid ? "تم الدفع" : "قيد الانتظار"} <em>{isPaid ? "Paid" : "Pending"}</em></>}
             </span>
@@ -120,9 +129,20 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
           ) : null}
         </div>
 
-        <div className="invoice-billed">
+        {taxed ? (
+          <div className="invoice-billed invoice-seller">
+            <span className="invoice-label">{bi("البائع", "Seller")}</span>
+            <b>{SELLER.name}</b>
+            <small>{SELLER.address}</small>
+            <small>{bi("الرقم الضريبي", "VAT number")}: <span dir="ltr">{SELLER.vatNumber}</span> · {bi("السجل التجاري", "CR")}: <span dir="ltr">{SELLER.crNumber}</span></small>
+          </div>
+        ) : null}
+
+        <div className="invoice-billed invoice-seller">
           <span className="invoice-label">{bi("صادرة إلى", "Billed to")}</span>
           <b>{invoice.companyName}</b>
+          {taxed && taxProfile.address ? <small>{taxProfile.address}</small> : null}
+          {taxed && taxProfile.vatNumber ? <small>{bi("الرقم الضريبي", "VAT number")}: <span dir="ltr">{taxProfile.vatNumber}</span></small> : null}
         </div>
 
         <table className="invoice-table">
@@ -148,15 +168,23 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
         <div className="invoice-totals">
           <div className="invoice-totals-box">
             <div>
-              <span>{bi("المجموع الفرعي", "Subtotal")}</span>
+              <span>{taxed ? bi("المجموع قبل الضريبة", "Subtotal (excl. VAT)") : bi("المجموع الفرعي", "Subtotal")}</span>
               <b><span dir="ltr">{amountText}</span> {cur}</b>
             </div>
+            {taxed ? (
+              <div>
+                <span>{bi("ضريبة القيمة المضافة 15%", "VAT 15%")}</span>
+                <b><span dir="ltr">{money(tax.vat)}</span> {cur}</b>
+              </div>
+            ) : null}
             <div className="invoice-total-paid">
-              <span>{en ? (isPaid ? "Total paid" : "Total due") : <>{isPaid ? "الإجمالي المدفوع" : "الإجمالي المستحق"} <em>{isPaid ? "Total paid" : "Total due"}</em></>}</span>
-              <b><span dir="ltr">{amountText}</span> {cur}</b>
+              <span>{en ? (isPaid ? "Total paid" : "Total due") : <>{isPaid ? "الإجمالي المدفوع" : "الإجمالي المستحق"} <em>{isPaid ? "Total paid" : "Total due"}</em></>}{taxed ? (en ? " (incl. VAT)" : " (شامل الضريبة)") : ""}</span>
+              <b><span dir="ltr">{money(tax.total)}</span> {cur}</b>
             </div>
           </div>
         </div>
+
+        {qrSvg ? <div className="invoice-qr" dangerouslySetInnerHTML={{ __html: qrSvg }} aria-label={en ? "Invoice QR code" : "رمز الاستجابة السريعة للفاتورة"} /> : null}
 
         <div className="invoice-foot">
           {en ? <span>Thank you for subscribing to {branding.name}.</span> : <><span>شكرًا لاشتراكك في {branding.name}.</span><span>Thank you for your subscription</span></>}

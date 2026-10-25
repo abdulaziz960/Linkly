@@ -1,3 +1,4 @@
+import { grossHalalas } from "./vat";
 import { randomUUID } from "crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
@@ -377,7 +378,7 @@ export async function setSubscriptionPaymentPromo(user: PayPromoUser, paymentId:
     }
     await tx.subscriptionPayment.update({
       where: { id: payment.id },
-      data: { amount: applied.amount, amountHalalas: Math.round(applied.amount * 100), promoCode: applied.code, discountAmount: applied.discountAmount }
+      data: { amount: applied.amount, amountHalalas: grossHalalas(applied.amount), promoCode: applied.code, discountAmount: applied.discountAmount }
     });
   }).catch((error) => {
     if (!(error instanceof Error && error.message === "PROMO_REJECTED")) throw error;
@@ -412,7 +413,7 @@ export async function setCampaignPaymentPromo(user: PayPromoUser, paymentId: str
     }
     await tx.campaignPayment.update({
       where: { id: payment.id },
-      data: { amount: applied.amount, amountHalalas: Math.round(applied.amount * 100) }
+      data: { amount: applied.amount, amountHalalas: grossHalalas(applied.amount) }
     });
   }).catch((error) => {
     if (!(error instanceof Error && error.message === "PROMO_REJECTED")) throw error;

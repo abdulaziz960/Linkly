@@ -94,7 +94,8 @@ function ChargeDialogBody({ client, onClose }: { client: SubscriptionRow; onClos
               <option value="stripe">Stripe (وضع اختبار)</option>
             </select>
           </label>
-          <label className="ds-field">قيمة الفاتورة (ر.س)<input data-autofocus className="ds-input" type="number" min="1" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
+          <label className="ds-field">قيمة الفاتورة قبل الضريبة (ر.س)<input data-autofocus className="ds-input" type="number" min="1" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
+          {Number(amount) >= 1 ? <p className="ds-field-hint" style={{ margin: 0, fontSize: 12, color: "#64748b" }}>سيُطلب من العميل دفع {(Math.round(Number(amount) * 115) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س شاملة ضريبة القيمة المضافة 15%.</p> : null}
           {error ? <p className="ds-field-error" role="alert"><Icon name="alert" size={14} />{error}</p> : null}
         </form>
       )}

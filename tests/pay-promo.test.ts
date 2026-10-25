@@ -50,7 +50,7 @@ describe("discount code on the payment page", () => {
     const applied = await setSubscriptionPaymentPromo(user, "sub-pay-1", "general10");
     expect(applied).toMatchObject({ ok: true, amount: 180, discountAmount: 20, code: "GENERAL10" });
     let row = await prisma.subscriptionPayment.findUnique({ where: { id: "sub-pay-1" } });
-    expect(row).toMatchObject({ amount: 180, amountHalalas: 18000, promoCode: "GENERAL10", discountAmount: 20 });
+    expect(row).toMatchObject({ amount: 180, amountHalalas: 20700, promoCode: "GENERAL10", discountAmount: 20 }); // 180 + 15% VAT = 207
     expect((await prisma.discountCode.findUnique({ where: { code: "GENERAL10" } }))?.usedCount).toBe(1);
 
     // Swapping to a plan-bound code re-prices from the original price and frees the first code's use.
@@ -65,9 +65,11 @@ describe("discount code on the payment page", () => {
     row = await prisma.subscriptionPayment.findUnique({ where: { id: "sub-pay-1" } });
     expect(row?.promoCode).toBe("PLANONLY");
     expect(row?.amount).toBe(100);
+    expect(row?.amountHalalas).toBe(11500); // the discount comes off before the tax
 
     const removed = await setSubscriptionPaymentPromo(user, "sub-pay-1", "");
     expect(removed).toMatchObject({ ok: true, amount: 200, discountAmount: 0, code: "" });
+    expect((await prisma.subscriptionPayment.findUnique({ where: { id: "sub-pay-1" } }))?.amountHalalas).toBe(23000);
     expect((await prisma.discountCode.findUnique({ where: { code: "PLANONLY" } }))?.usedCount).toBe(0);
   });
 
@@ -83,7 +85,7 @@ describe("discount code on the payment page", () => {
 
     const ok = await setCampaignPaymentPromo(user, "pay-camp-1", "GENERAL10", 100);
     expect(ok).toMatchObject({ ok: true, amount: 90, discountAmount: 10 });
-    expect((await prisma.campaignPayment.findUnique({ where: { id: "pay-camp-1" } }))).toMatchObject({ amount: 90, amountHalalas: 9000 });
+    expect((await prisma.campaignPayment.findUnique({ where: { id: "pay-camp-1" } }))).toMatchObject({ amount: 90, amountHalalas: 10350 }); // 90 + 15% VAT = 103.50
     expect(await getPaymentPromoSummary("pay-camp-1")).toMatchObject({ code: "GENERAL10", originalAmount: 100, discountAmount: 10 });
 
     // Plan-bound and new-customer codes are subscription codes.

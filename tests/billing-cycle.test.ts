@@ -111,7 +111,8 @@ describe("self-serve checkout with billingCycle=سنوي", () => {
 
     const payment = await prisma.subscriptionPayment.findUnique({ where: { id: payload.paymentId! } });
     expect(payment?.billingCycle).toBe("سنوي");
-    expect(payment?.amount).toBe(1791); // 199*12*0.75 rounded
+    expect(payment?.amount).toBe(1791); // 199*12*0.75 rounded, the price without tax
+    expect(payment?.amountHalalas).toBe(205965); // 1791 + 15% VAT (268.65) = 2059.65 charged to the card
     expect(payment?.listPrice).toBe(1791);
   });
 
@@ -207,7 +208,7 @@ describe("auto-renewal charges the discounted annual price for a yearly subscrib
     expect(renewalYear).toBeGreaterThanOrEqual(new Date().getUTCFullYear() + 1);
 
     const payment = await prisma.subscriptionPayment.findFirst({ where: { tenantId: autorenewTenant, initiatedBy: "system" } });
-    expect(payment).toMatchObject({ status: "مكتمل", amount: 1791, billingCycle: "سنوي" });
+    expect(payment).toMatchObject({ status: "مكتمل", amount: 1791, amountHalalas: 205965, billingCycle: "سنوي" });
   });
 });
 

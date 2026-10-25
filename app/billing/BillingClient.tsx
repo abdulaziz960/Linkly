@@ -1,4 +1,5 @@
 "use client";
+import VatNote from "../VatNote";
 import { useState } from "react";
 import { planDisplayName } from "../../lib/plan-features";
 import { SELLABLE_BILLING_CYCLES, isSamePlanRenewalTooEarly, priceForCycle } from "../../lib/billing-pricing";
@@ -121,6 +122,7 @@ export default function BillingClient({ plans, currentPlan, currentSubscription 
       </article>;
     })}</div>
     {error ? <p className="billing-error">{error}</p> : null}
+    {shopifyPrices ? null : <VatNote lang={lang} />}
     {shopifyPrices ? <p className="payment-note">{text.shopifyNote}</p> : isTestMode ? <p className="payment-note">{text.paymentNote}</p> : null}
   </section>;
 }

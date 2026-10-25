@@ -1,3 +1,4 @@
+import { grossHalalas } from "../../../../../lib/vat";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
@@ -27,7 +28,8 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { tenantId?: string; amount?: number; gateway?: string } | null;
   const tenantId = body?.tenantId?.trim();
   const amount = Math.max(0, Math.round(Number(body?.amount) || 0));
-  const amountHalalas = amount * 100;
+  // `amount` is the invoice value without tax; 15% VAT is added to what the client is asked to pay.
+  const amountHalalas = grossHalalas(amount);
   const gateway = body?.gateway === "stripe" ? PAYMENT_GATEWAY.stripe : PAYMENT_GATEWAY.moyasar;
 
   if (!tenantId) return NextResponse.json({ ok: false, error: "الحساب مطلوب" }, { status: 400 });
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const session = await createStripeCheckoutSession({
-        amount,
+        amount: amountHalalas / 100,
         description: `${paymentDescription("subscription", { companyName: subscription.companyName, planName: subscription.plan })} [تجريبي]`,
         successUrl: `${origin}/api/admin/subscriptions/stripe-return?session_id={CHECKOUT_SESSION_ID}&paymentId=${paymentId}`,
         cancelUrl: `${origin}/linkly-admin007/payments`,

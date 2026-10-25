@@ -1,3 +1,4 @@
+import { grossHalalas } from "../../../../lib/vat";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getCurrentUser } from "../../../../lib/auth";
@@ -135,7 +136,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const amountHalalas = Math.round(finalChargeAmount * 100);
+  // The price is without tax: 15% is added to the total charged to the card (`amount` keeps the price without tax).
+  const amountHalalas = grossHalalas(finalChargeAmount);
   const stagedRow = {
     id: paymentId,
     tenantId: user.tenantId,

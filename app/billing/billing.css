@@ -570,3 +570,15 @@
   .billing-main-header .billing-back { grid-column: 2; grid-row: 1; font-size: 12px; }
   .billing-main-header .billing-lang-toggle { grid-column: 1 / -1; grid-row: 2; }
 }
+
+.pay-tax-profile { margin: 12px 0; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; text-align: start; }
+.pay-tax-profile summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; cursor: pointer; font-size: 14px; font-weight: 800; list-style: none; }
+.pay-tax-profile summary::-webkit-details-marker { display: none; }
+.pay-tax-profile summary small { color: #0f766e; font-weight: 700; }
+.pay-tax-profile summary::after { content: "+"; color: #64748b; font-size: 18px; font-weight: 700; }
+.pay-tax-profile[open] summary::after { content: "−"; }
+.pay-tax-profile form { display: grid; gap: 10px; padding: 0 14px 14px; }
+.pay-tax-profile label { display: grid; gap: 4px; font-size: 12px; font-weight: 700; color: #475569; }
+.pay-tax-profile input { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; }
+.pay-tax-profile button { justify-self: start; padding: 9px 16px; border: 0; border-radius: 10px; background: #0f766e; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.pay-tax-profile p { margin: 0; font-size: 12px; color: #64748b; }

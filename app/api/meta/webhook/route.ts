@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Provider webhook payloads are polymorphic and validated at each access boundary. */
+import { describeWhatsAppMessage } from "../../../../lib/whatsapp-inbound-text";
 import { NextRequest, NextResponse } from "next/server";
 import { convertAudioToMp3 } from "../../../../lib/audio-conversion";
 import { getIntegrationSettings } from "../../../../lib/database";
@@ -89,23 +90,7 @@ export async function GET(request: NextRequest) {
 }
 
 function getMessageText(message: Record<string, any>) {
-  if (message.text?.body) return message.text.body;
-  if (message.button?.text) return message.button.text;
-  if (message.interactive?.button_reply?.title) return message.interactive.button_reply.title;
-  if (message.interactive?.list_reply?.title) return message.interactive.list_reply.title;
-  if (message.image?.caption) return message.image.caption;
-  if (message.document?.caption) return message.document.caption;
-  if (message.document?.filename) return message.document.filename;
-  if (message.document) return "مستند وارد";
-  if (message.image) return "صورة واردة";
-  if (message.audio) return "رسالة صوتية واردة";
-  if (message.video) return "فيديو وارد";
-  if (message.sticker) return "ملصق وارد";
-  if (message.location && Number.isFinite(Number(message.location.latitude)) && Number.isFinite(Number(message.location.longitude))) {
-    const { latitude, longitude, name } = message.location;
-    return `📍 ${name ? `${name} - ` : "موقع مشارك - "}https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
-  }
-  return "رسالة واردة من WhatsApp";
+  return describeWhatsAppMessage(message).text;
 }
 
 function getInstagramText(message: Record<string, any>) {
@@ -529,6 +514,14 @@ export async function POST(request: NextRequest) {
           if (!attachment || !stored.isNew) return;
           await attachWhatsAppMedia({ tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, messageId: stored.message.id, attachment });
         }).catch((error) => console.error("Attaching incoming media failed", error));
+
+        if (stored.isNew && !describeWhatsAppMessage(message).conversational) {
+          // A type the Cloud API cannot show (a platform's verification code, a reaction...): stored with its label, no bot reply.
+          console.warn("WhatsApp inbound message without a readable body", { type: message.type, errors: message.errors?.map((error: Record<string, any>) => error.code) });
+          await mediaTask;
+          savedMessages.push(message.id || message.from);
+          continue;
+        }
 
         if (stored.isNew) {
           // Which ad opened this conversation (Meta click-to-WhatsApp referral, or a TikTok click id).

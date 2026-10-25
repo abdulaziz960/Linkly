@@ -1,3 +1,4 @@
+import VatNote from "./VatNote";
 import { CHANNEL_CAPABILITY, COMPARISON_ROWS, channelCell, liveCell, orderComparisonPlans, type ComparisonCell, type ComparisonPlan } from "../lib/plan-comparison";
 import { planFeatures } from "../lib/plan-features";
 import ComparisonPrice from "./ComparisonPrice";
@@ -65,6 +66,7 @@ export default function PlanComparison({ plans, lang }: Props) {
           </tbody>
         </table>
       </div>
+      <VatNote lang={lang} compact />
     </details>
   );
 }

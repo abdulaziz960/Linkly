@@ -18,6 +18,9 @@ vi.mock("../lib/subscriptions", () => ({
   createTenantWithSubscription: (...args: unknown[]) => createTenantWithSubscription(...args)
 }));
 
+const saveTaxProfile = vi.fn();
+vi.mock("../lib/tax-profile", async (importOriginal) => ({ ...(await importOriginal<typeof import("../lib/tax-profile")>()), saveTaxProfile: (...args: unknown[]) => saveTaxProfile(...args) }));
+
 import { POST } from "../app/api/trial/route";
 
 function request(body: unknown) {
@@ -39,8 +42,24 @@ const validBody = {
 describe("POST /api/trial", () => {
   beforeEach(() => {
     createTenantWithSubscription.mockReset();
+    saveTaxProfile.mockReset().mockResolvedValue({ ok: true });
     sendTrialSignupNotification.mockReset().mockResolvedValue(true);
     createTenantWithSubscription.mockResolvedValue({ created: true, subscription: { tenantId: "tenant-new" }, inviteDelivery: { sent: true, activationUrl: "", message: "" } });
+  });
+
+  it("keeps an optional VAT number from the signup form, and refuses a malformed one", async () => {
+    const bad = await POST(request({ ...validBody, termsAccepted: true, vatNumber: "12345" }));
+    expect(bad.status).toBe(400);
+    expect(createTenantWithSubscription).not.toHaveBeenCalled();
+
+    const ok = await POST(request({ ...validBody, termsAccepted: true, vatNumber: "٣١١٦٤٣٩٦٢٤٠٠٠٠٣" }));
+    expect(ok.status).toBe(200);
+    expect(saveTaxProfile).toHaveBeenCalledWith("tenant-new", { vatNumber: "311643962400003", address: "" });
+
+    saveTaxProfile.mockClear();
+    const none = await POST(request({ ...validBody, termsAccepted: true }));
+    expect(none.status).toBe(200);
+    expect(saveTaxProfile).not.toHaveBeenCalled();
   });
 
   it("refuses to create a trial account without accepting the terms", async () => {

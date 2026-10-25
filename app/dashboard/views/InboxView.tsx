@@ -1777,7 +1777,13 @@ export default function InboxView({
                                             ? t("معرّف نموذج سناب شات", "Snapchat lead form ID")
                                             : t("المعرف", "ID")}
                   </dt>
-                  <dd dir="ltr">{activeConversation.phone}</dd>
+                  <dd dir="ltr">{(() => {
+                    // A phone number is a link: tapping it dials the number (WhatsApp and SMS contacts only).
+                    const digits = String(activeConversation.phone || "").replace(/\D/g, "").replace(/^00/, "");
+                    return (activeConversation.channel === "whatsapp" || activeConversation.channel === "sms") && digits.length >= 8 && digits.length <= 15
+                      ? <a className="phone-call-link" href={`tel:+${digits}`} aria-label={t(`اتصال بالرقم ${activeConversation.phone}`, `Call ${activeConversation.phone}`)}>{activeConversation.phone}</a>
+                      : activeConversation.phone;
+                  })()}</dd>
                 </div>
                 {activeConversation.handle ? (
                   <div>
