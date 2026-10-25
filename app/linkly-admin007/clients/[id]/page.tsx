@@ -20,6 +20,8 @@ import { LOG_TONE, PAYMENT_TONE, billingSummary, newestFirst } from "./profile-d
 import { guardPage } from "../../guard";
 import CompanyNameEditor from "./CompanyNameEditor";
 import ClientTaxProfileEditor from "./ClientTaxProfileEditor";
+import ClientNextPlanEditor from "./ClientNextPlanEditor";
+import { getScheduledPlan } from "../../../../lib/scheduled-plan";
 
 const STATUS_TONE = { نشط: "success", تجربة: "warning", متوقف: "danger" } as const;
 
@@ -152,6 +154,7 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
         </div>
         <div className="ds-section-actions">
           <CompanyNameEditor tenantId={client.tenantId} companyName={client.companyName} />
+          <ClientNextPlanEditor tenantId={client.tenantId} currentPlan={client.plan} currentCycle={client.billingCycle} plans={(await prisma.plan.findMany({ where: { active: 1 }, orderBy: { monthlyPrice: "asc" }, select: { name: true } })).map((row) => row.name)} scheduled={await getScheduledPlan(client.tenantId)} />
           <ClientTaxProfileEditor tenantId={client.tenantId} />
           <LinkButton href={`/linkly-admin007/logs?client=${client.tenantId}`} variant="outline" icon="scroll">السجل الكامل</LinkButton>
           <LinkButton href={`/linkly-admin007/payments?client=${client.tenantId}`} variant="outline" icon="card">كل المدفوعات</LinkButton>

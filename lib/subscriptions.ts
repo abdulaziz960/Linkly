@@ -1,4 +1,5 @@
 import { grossHalalas } from "./vat";
+import { clearScheduledPlanIfPaid, getScheduledPlan } from "./scheduled-plan";
 import { isViewLockedForPlan } from "./plan-access";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { prisma } from "./prisma";
@@ -454,6 +455,8 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
 
   if (!result) return { activated: false };
   invalidateTenantSubscriptionRow(payment.tenantId);
+  // A plan change the team scheduled for this renewal is done once its plan is paid.
+  await clearScheduledPlanIfPaid(payment.tenantId, payment.planName).catch(() => null);
   return { activated: true, periodStart: result.periodStart, periodEnd: result.periodEnd, previousPlan: result.previousPlan, newPlan: payment.planName };
 }
 
@@ -884,7 +887,9 @@ export async function attemptAutoRenewals(baseUrl: string) {
   let failed = 0;
 
   for (const subscription of dueSubscriptions) {
-    const plan = await prisma.plan.findFirst({ where: { name: subscription.plan, active: 1 } });
+    // A plan change the platform team scheduled for this renewal wins over the current plan and cycle.
+    const scheduled = await getScheduledPlan(subscription.tenantId).catch(() => null);
+    const plan = await prisma.plan.findFirst({ where: { name: scheduled?.planName ?? subscription.plan, active: 1 } });
     if (!plan) {
       // A deactivated/renamed plan must fail loudly like any other charge
       // failure, not vanish silently - otherwise the subscription gets
@@ -917,7 +922,7 @@ export async function attemptAutoRenewals(baseUrl: string) {
     // (caught below), so only one of them ever reaches chargeSavedCard -
     // the actual guard against double-charging the saved card.
     const paymentId = `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}`;
-    const billingCycle: BillingCycle = isBillingCycle(subscription.billingCycle) ? subscription.billingCycle : "شهري";
+    const billingCycle: BillingCycle = scheduled?.billingCycle ?? (isBillingCycle(subscription.billingCycle) ? subscription.billingCycle : "شهري");
     const renewAmount = priceForCycle(plan.monthlyPrice, billingCycle);
     const amountHalalas = grossHalalas(renewAmount);
     try {

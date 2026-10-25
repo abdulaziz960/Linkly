@@ -7,6 +7,7 @@ import { isMoyasarLiveMode } from "../../lib/moyasar";
 import { getTenantBranding } from "../../lib/tenant-branding";
 import { getShopifyPlanPrices, isShopifyBilled } from "../../lib/shopify-billing";
 import { isSallaBilled } from "../../lib/salla-billing";
+import { getScheduledPlan } from "../../lib/scheduled-plan";
 import SallaManagedNotice from "./SallaManagedNotice";
 
 export const dynamic = "force-dynamic";
@@ -50,5 +51,5 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       : null;
     return <AccountSuspendedNotice branding={branding} subscription={subscription} plans={currentPlan ? [...plans, currentPlan] : plans} shopifyPrices={shopifyPrices} />;
   }
-  return <BillingPageClient plans={plans.filter((plan) => !planFeatures[plan.name]?.custom || plan.name === subscription?.plan)} subscription={subscription} expired={expired === "1"} isTestMode={!isMoyasarLiveMode()} branding={branding} shopifyPrices={shopifyPrices} shopifyResult={shopifyResult || ""} />;
+  return <BillingPageClient plans={plans.filter((plan) => !planFeatures[plan.name]?.custom || plan.name === subscription?.plan)} subscription={subscription} expired={expired === "1"} isTestMode={!isMoyasarLiveMode()} branding={branding} shopifyPrices={shopifyPrices} shopifyResult={shopifyResult || ""} scheduledPlan={await getScheduledPlan(user.tenantId).catch(() => null)} />;
 }

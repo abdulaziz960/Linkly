@@ -87,7 +87,8 @@ export default function BillingPageClient({
   isTestMode,
   branding,
   shopifyPrices = null,
-  shopifyResult = ""
+  shopifyResult = "",
+  scheduledPlan = null
 }: {
   plans: Plan[];
   subscription: Subscription;
@@ -96,6 +97,7 @@ export default function BillingPageClient({
   branding: { name: string; logoDataUrl: string };
   shopifyPrices?: Record<string, number> | null;
   shopifyResult?: string;
+  scheduledPlan?: { planName: string; billingCycle: string } | null;
 }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
@@ -198,6 +200,7 @@ export default function BillingPageClient({
           </div>
         ) : null}
       </section>
+      {scheduledPlan ? <p className="billing-success" role="status">{lang === "ar" ? `باقتك القادمة: ${planDisplayName(scheduledPlan.planName, "ar")} (${scheduledPlan.billingCycle}). سيكون التجديد القادم عليها، وتبقى باقتك الحالية كما هي حتى ذلك الحين. لتجديد الآن اختر هذه الباقة ودورة الفوترة.` : `Your next plan: ${planDisplayName(scheduledPlan.planName, "en")} (${scheduledPlan.billingCycle}). Your next renewal will be on it; your current plan stays as is until then. To renew now, choose this plan and billing cycle.`}</p> : null}
       {shopifyResult && shopifyResultText[lang][shopifyResult] ? <p className={shopifyResult === "paid" ? "billing-success" : "billing-error"} role="status">{shopifyResultText[lang][shopifyResult]}</p> : null}
       <BillingClient plans={plans} currentPlan={subscription?.plan || ""} currentSubscription={subscription} lang={lang} isTestMode={isTestMode} shopifyPrices={shopifyPrices} />
     </main>
