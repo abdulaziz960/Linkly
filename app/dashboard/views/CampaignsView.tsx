@@ -266,6 +266,11 @@ export default function CampaignsView({
   const [templateFilter, setTemplateFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [messageRate, setMessageRate] = useState(0.03);
+  const [rescheduling, setRescheduling] = useState<Campaign | null>(null);
+  const [rescheduleValue, setRescheduleValue] = useState("");
+  const [rescheduleError, setRescheduleError] = useState("");
+  const [rescheduleSaving, setRescheduleSaving] = useState(false);
   const [campaignSort, setCampaignSort] = useState("latest");
   const [campaignPageSize, setCampaignPageSize] = useState("10");
   const [campaignPage, setCampaignPage] = useState(1);
@@ -288,6 +293,7 @@ export default function CampaignsView({
       } else {
         setBalance(body.data?.balance ?? 0);
         setLastTopUpAmount(body.data?.lastTopUpAmount ?? 0);
+        if (typeof body.data?.messageRate === "number" && body.data.messageRate > 0) setMessageRate(body.data.messageRate);
         setBalanceTransactions(body.data?.transactions ?? []);
       }
     } catch {
@@ -374,6 +380,22 @@ export default function CampaignsView({
     if (campaignSort === "progress") return [...rows].sort((a, b) => Number.parseFloat(b.progress) - Number.parseFloat(a.progress));
     return [...rows].sort((a, b) => (campaignWhen(b)?.getTime() ?? 0) - (campaignWhen(a)?.getTime() ?? 0));
   }, [campaignSearch, campaignSort, campaignStatusFilter, kpiFilter, dateFrom, dateTo, channelFilter, templateFilter, campaigns]);
+  // Scheduled campaigns that have a send time, soonest first.
+  const upcomingCampaigns = useMemo(
+    () => campaigns
+      .filter((campaign) => campaign.status === "مجدولة" && parseStoredDate(campaign.scheduledAt))
+      .sort((a, b) => (parseStoredDate(a.scheduledAt)?.getTime() ?? 0) - (parseStoredDate(b.scheduledAt)?.getTime() ?? 0)),
+    [campaigns]
+  );
+  // Messages that still have to go out from campaigns that are sending or scheduled, against what the balance covers.
+  const queuedMessages = useMemo(
+    // A scheduled campaign without a send time is a saved draft, not something waiting for the balance.
+    () => campaigns.filter((campaign) => campaign.status === "قيد الإرسال" || (campaign.status === "مجدولة" && parseStoredDate(campaign.scheduledAt))).reduce((sum, campaign) => sum + statsOf(campaign).pending, 0),
+    [campaigns]
+  );
+  const marketingTemplates = useMemo(() => templates.filter((template) => template.type !== "خدمة" && (template.category === "MARKETING" || template.type === "تسويق")), [templates]);
+  const rejectedTemplates = marketingTemplates.filter((template) => template.status === "مرفوض");
+  const reviewTemplates = marketingTemplates.filter((template) => template.status === "قيد المراجعة");
   const templateOptions = useMemo(() => [...new Set(campaigns.map((campaign) => campaign.templateName).filter((name): name is string => Boolean(name)))], [campaigns]);
   const channelOptions = useMemo(() => [...new Set(campaigns.map((campaign) => campaign.channel || "whatsapp"))], [campaigns]);
   const campaignPagination = paginate(filteredCampaigns, campaignPage, Number(campaignPageSize));
@@ -563,7 +585,14 @@ export default function CampaignsView({
   }
 
   async function sendCampaignNow(campaign: Campaign) {
-    if (!(await confirmDialog(t(`إرسال حملة ${campaign.name} الآن إلى ${campaign.total.toLocaleString("en-US")} مستلم؟`, `Send the "${campaign.name}" campaign now to ${campaign.total.toLocaleString("en-US")} recipient(s)?`), { confirmLabel: t("إرسال الآن", "Send now"), cancelLabel: t("تراجع", "Cancel") }))) return;
+    const waiting = statsOf(campaign).pending || campaign.total;
+    if (!balanceLoading && !balanceLoadError && balance < waiting) {
+      const goOn = await confirmDialog(
+        t(`رصيدك (${balance.toLocaleString("en-US")} رسالة) لا يكفي لـ ${waiting.toLocaleString("en-US")} مستلم. سيتوقف الإرسال عند نفاد الرصيد وتبقى الأرقام الباقية بالانتظار. هل تريد الإرسال بالرصيد المتاح؟`, `Your balance (${balance.toLocaleString("en-US")} messages) does not cover ${waiting.toLocaleString("en-US")} recipients. Sending stops when it runs out and the rest wait. Send with the available balance?`),
+        { tone: "danger", title: t("الرصيد لا يكفي", "Not enough balance"), confirmLabel: t("إرسال بالرصيد المتاح", "Send with available balance"), cancelLabel: t("تراجع", "Cancel") }
+      );
+      if (!goOn) return;
+    } else if (!(await confirmDialog(t(`إرسال حملة ${campaign.name} الآن إلى ${campaign.total.toLocaleString("en-US")} مستلم؟`, `Send the "${campaign.name}" campaign now to ${campaign.total.toLocaleString("en-US")} recipient(s)?`), { confirmLabel: t("إرسال الآن", "Send now"), cancelLabel: t("تراجع", "Cancel") }))) return;
     const response = await fetch(`/api/campaigns/${campaign.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -664,6 +693,37 @@ export default function CampaignsView({
     downloadTextFile(`campaigns-${new Date().toISOString().slice(0, 10)}.csv`, buildCsv(header, rows));
   }
 
+  /** Opens the top-up window with at least the missing messages filled in (rounded up to a thousand). */
+  function openTopUp(missing = 0) {
+    if (missing > 0) setChargeMessages(String(Math.max(1000, Math.ceil(missing / 1000) * 1000)));
+    setChargeError("");
+    setChargeOpen(true);
+  }
+
+  function openReschedule(campaign: Campaign) {
+    const when = parseStoredDate(campaign.scheduledAt);
+    // The picker works in Riyadh time, like the create form.
+    const local = when ? new Date(when.getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 16) : "";
+    setRescheduleValue(local);
+    setRescheduleError("");
+    setRescheduling(campaign);
+  }
+
+  async function saveReschedule() {
+    if (!rescheduling) return;
+    setRescheduleSaving(true);
+    setRescheduleError("");
+    const response = await fetch(`/api/campaigns/${rescheduling.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scheduledAt: rescheduleValue }) });
+    const payload = await response.json().catch(() => null);
+    setRescheduleSaving(false);
+    if (!response.ok) {
+      setRescheduleError(payload?.error || t("تعذر تعديل الموعد", "Could not change the time"));
+      return;
+    }
+    setRescheduling(null);
+    await onRefreshData();
+  }
+
   async function createChargeRequest() {
     if (!chargeTier) return;
     setChargeError("");
@@ -701,9 +761,29 @@ export default function CampaignsView({
 
       {activeTab === "campaigns" ? (
         <>
+          {!balanceLoading && !balanceLoadError && queuedMessages > balance ? (
+            <div className="balance-low-banner critical" role="alert">
+              <span>⛔</span>
+              <div>
+                <strong>{t("رصيدك لا يكفي لكل الحملات المنتظرة", "Your balance does not cover every queued campaign")}</strong>
+                <p>{t(`بانتظار الإرسال ${queuedMessages.toLocaleString("en-US")} رسالة والرصيد ${balance.toLocaleString("en-US")}. ينقصك ${(queuedMessages - balance).toLocaleString("en-US")} رسالة.`, `${queuedMessages.toLocaleString("en-US")} messages are queued and the balance is ${balance.toLocaleString("en-US")}. You are short by ${(queuedMessages - balance).toLocaleString("en-US")}.`)}</p>
+              </div>
+              <button className="btn primary" type="button" onClick={() => openTopUp(queuedMessages - balance)}>{t("شحن الرصيد", "Top up balance")}</button>
+            </div>
+          ) : null}
           <section className="campaign-health-grid" aria-label={t("جاهزية الحملات", "Campaign readiness")}>
             <article className={whatsappConnected ? "is-ready" : "is-blocked"}><span>◉</span><div><b>{t("قناة الإرسال", "Sending channel")}</b><strong>{whatsappConnected ? t("واتساب متصل", "WhatsApp connected") : t("تحتاج ربط", "Connection required")}</strong></div></article>
-            <article className={approvedTemplates.length ? "is-ready" : "is-blocked"}><span>◇</span><div><b>{t("القوالب الجاهزة", "Ready templates")}</b><strong>{approvedTemplates.length} {t("قالب معتمد", "approved templates")}</strong></div></article>
+            <article className={approvedTemplates.length && !rejectedTemplates.length ? "is-ready" : "is-blocked"}>
+              <a className="campaign-health-link" href="/dashboard?view=templates" aria-label={t("فتح صفحة القوالب", "Open the templates page")}>
+                <span>◇</span>
+                <div>
+                  <b>{t("القوالب الجاهزة", "Ready templates")}</b>
+                  <strong>{approvedTemplates.length} {t("قالب معتمد", "approved templates")}</strong>
+                  {rejectedTemplates.length ? <small className="campaign-health-warn">{t(`${rejectedTemplates.length} قالب مرفوض من Meta — عدّله وأعد إرساله`, `${rejectedTemplates.length} template(s) rejected by Meta — edit and resubmit`)}</small> : null}
+                  {reviewTemplates.length ? <small className="campaign-health-note">{t(`${reviewTemplates.length} قالب قيد المراجعة`, `${reviewTemplates.length} template(s) under review`)}</small> : null}
+                </div>
+              </a>
+            </article>
             <article><span>↗</span><div><b>{t("نسبة الإرسال", "Send rate")}</b><strong>{campaignOverview.sendRate}%</strong><small dir="ltr">{campaignOverview.sent.toLocaleString("en-US")} / {campaignOverview.recipients.toLocaleString("en-US")}</small></div></article>
           </section>
           <section className="campaign-kpis" aria-label={t("ملخص الحملات", "Campaign summary")}>
@@ -769,6 +849,31 @@ export default function CampaignsView({
                   </div>
                 ))}
               </div>
+            </div>
+          ) : null}
+          {upcomingCampaigns.length ? (
+            <div className="campaign-board upcoming-board">
+              <div className="campaign-list-head"><div><h2>{t("الحملات المجدولة القادمة", "Upcoming scheduled campaigns")}</h2><p>{t("مرتبة بوقت الإرسال. عدّل الموعد أو ألغِ الحملة قبل أن تبدأ.", "Sorted by send time. Change the time or cancel a campaign before it starts.")}</p></div></div>
+              <ul className="upcoming-list">
+                {upcomingCampaigns.map((campaign) => {
+                  const when = parseStoredDate(campaign.scheduledAt);
+                  return (
+                    <li key={campaign.id}>
+                      <div>
+                        <b>{campaign.name}</b>
+                        <small>{campaign.templateName} · {statsOf(campaign).total.toLocaleString("en-US")} {t("مستلم", "recipients")}</small>
+                      </div>
+                      <div className="upcoming-when">
+                        {when ? <><strong>{formatFullDateTime(when, language === "en" ? "en" : "ar")}</strong><small>{formatRelativeTime(when, language === "en" ? "en" : "ar")}</small></> : null}
+                      </div>
+                      <div className="upcoming-actions">
+                        <button className="btn soft" type="button" onClick={() => openReschedule(campaign)}>{t("تعديل الموعد", "Change time")}</button>
+                        <button className="btn soft" type="button" onClick={() => stopCampaign(campaign)}>{t("إلغاء", "Cancel")}</button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           ) : null}
           <div className="campaign-board campaign-list-board">
@@ -917,6 +1022,20 @@ export default function CampaignsView({
           </div>
         </div>
       )}
+
+      {rescheduling ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setRescheduling(null)}>
+          <div className="account-modal form-modal reschedule-modal" role="dialog" aria-modal="true" aria-label={t("تعديل موعد الحملة", "Change the campaign time")} onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head"><button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setRescheduling(null)}>×</button><div><h2>{t("تعديل موعد الإرسال", "Change the send time")}</h2></div></header>
+            <div className="account-modal-body form-grid">
+              <p>{t(`الحملة: ${rescheduling.name}. الوقت بتوقيت الرياض.`, `Campaign: ${rescheduling.name}. Time is Riyadh time.`)}</p>
+              <label><span>{t("موعد الإرسال", "Send time")}</span><input type="datetime-local" value={rescheduleValue} onChange={(event) => setRescheduleValue(event.target.value)} /></label>
+              {rescheduleError ? <p className="form-error" role="alert">{rescheduleError}</p> : null}
+            </div>
+            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setRescheduling(null)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="button" disabled={rescheduleSaving || !rescheduleValue} onClick={saveReschedule}>{rescheduleSaving ? t("جارٍ الحفظ…", "Saving…") : t("حفظ الموعد", "Save time")}</button></footer>
+          </div>
+        </div>
+      ) : null}
 
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
@@ -1098,6 +1217,16 @@ export default function CampaignsView({
               <div className="campaign-phone"><div className="campaign-phone-bar"><span>{brandName}</span><i>•••</i></div><div className="campaign-phone-notice">{t("محادثة أعمال موثقة وآمنة", "Verified and secure business chat")}</div><div className="campaign-message-preview"><b>{form.name || t("اسم الحملة", "Campaign name")}</b><p>{approvedTemplates.find((template) => template.name === form.templateName)?.message || t("اختر قالباً معتمداً لتظهر معاينة نص الرسالة هنا.", "Choose an approved template to preview its message here.")}</p><time>3:34 PM</time></div></div>
               <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{recipientPreview === null ? "—" : recipientPreview.toLocaleString("en-US")}</dd></div><div><dt>{t("طريقة الإرسال", "Delivery")}</dt><dd>{form.scheduled ? t("مجدولة", "Scheduled") : t("فوري", "Immediate")}</dd></div>{form.recurring ? <div><dt>{t("التكرار", "Repeats")}</dt><dd>{t(recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.ar || "", recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.en || "")}</dd></div> : null}</dl>
             </aside>
+            {!form.id && recipientPreview ? (
+              <div className={`campaign-cost-estimate${!balanceLoading && !balanceLoadError && balance < recipientPreview ? " is-short" : ""}`} role={!balanceLoading && !balanceLoadError && balance < recipientPreview ? "alert" : "status"}>
+                <div>
+                  <strong>{t("التكلفة المتوقعة", "Estimated cost")}: <bdi dir="ltr">{sar(recipientPreview * messageRate)}</bdi> {t("ريال", "SAR")}</strong>
+                  <small>{t(`${recipientPreview.toLocaleString("en-US")} رسالة × ${messageRate.toFixed(3)} ريال`, `${recipientPreview.toLocaleString("en-US")} messages × ${messageRate.toFixed(3)} SAR`)} · {balanceLoading ? t("جارٍ قراءة الرصيد…", "Reading your balance…") : balanceLoadError ? t("تعذر قراءة الرصيد", "Could not read your balance") : t(`رصيدك ${balance.toLocaleString("en-US")} رسالة`, `your balance is ${balance.toLocaleString("en-US")} messages`)}</small>
+                  {!balanceLoading && !balanceLoadError && balance < recipientPreview ? <p>{t(`رصيدك لا يكفي. ينقصك ${(recipientPreview - balance).toLocaleString("en-US")} رسالة، وسيتوقف الإرسال عند نفاد الرصيد.`, `Your balance is not enough: you are short by ${(recipientPreview - balance).toLocaleString("en-US")} messages and sending stops when it runs out.`)}</p> : null}
+                </div>
+                {!balanceLoading && !balanceLoadError && balance < recipientPreview ? <button className="btn primary" type="button" onClick={() => { setFormOpen(false); setActiveTab("balance"); openTopUp(recipientPreview - balance); }}>{t("شحن الرصيد", "Top up balance")}</button> : null}
+              </div>
+            ) : null}
             <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && (!approvedTemplates.length || (form.audienceMode === "file" ? !campaignFile : !form.segmentId) || !recipientPreview || (needsHeaderMedia && !templateHasSavedMedia && !headerMediaFile)))}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : form.recurring ? t("جدولة حملة متكررة", "Schedule recurring campaign") : form.scheduled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الحملة", "Send campaign")}</button></footer>
           </form>
         </div>

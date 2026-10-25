@@ -84,6 +84,20 @@ describe("campaign row actions", () => {
     expect((await PATCH(patch(campaignId, { description: "جديد", tags: "a, b" }), context(campaignId))).status).toBe(200);
     expect(await prisma.campaign.findUnique({ where: { id: campaignId } })).toMatchObject({ description: "جديد", tags: "a,b" });
 
+    // Rescheduling: only scheduled campaigns, only to a valid time in the future (Riyadh wall-clock from the page).
+    const scheduledId = await prisma.$transaction((tx) => spawnCampaignOccurrence(tx, {
+      tenantId, name: "حملة مجدولة", templateName: "promo", language: "ar", headerMediaDataUrl: "",
+      recipients: [{ phone: "966500000011", name: "د" }], status: "مجدولة", scheduledAt: new Date(Date.now() + 86_400_000).toISOString()
+    }));
+    expect((await PATCH(patch(scheduledId, { scheduledAt: "2020-01-01T10:00" }), context(scheduledId))).status).toBe(400);
+    expect((await PATCH(patch(scheduledId, { scheduledAt: "not a time" }), context(scheduledId))).status).toBe(400);
+    const nextWeek = new Date(Date.now() + 7 * 86_400_000 + 3 * 3_600_000).toISOString().slice(0, 16);
+    expect((await PATCH(patch(scheduledId, { scheduledAt: nextWeek }), context(scheduledId))).status).toBe(200);
+    const moved = await prisma.campaign.findUnique({ where: { id: scheduledId } });
+    expect(new Date(moved?.scheduledAt ?? "").getTime()).toBeGreaterThan(Date.now() + 6 * 86_400_000);
+    expect(moved?.status).toBe("مجدولة");
+    expect((await PATCH(patch(campaignId, { scheduledAt: nextWeek }), context(campaignId))).status).toBe(400);
+
     // Duplicate: same audience and template, saved unsent with every recipient back in the queue.
     const response = await duplicate(new NextRequest(`http://localhost/api/campaigns/${campaignId}/duplicate`, { method: "POST" }), context(campaignId));
     expect(response.status).toBe(200);

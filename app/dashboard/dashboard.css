@@ -12327,3 +12327,21 @@ html[dir="ltr"] .notification-bell-panel {
 .row-menu-list button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; font-weight: 700; text-align: start; cursor: pointer; }
 .row-menu-list button:hover { background: var(--surface-soft, #f1f5f4); }
 .row-menu-list button.danger { color: #b42318; }
+
+/* Campaigns: templates link, upcoming list, cost estimate */
+.campaign-health-grid article > .campaign-health-link { grid-column: 1 / -1; }
+.campaign-health-link { display: grid; grid-template-columns: 42px 1fr; align-items: center; gap: 12px; color: inherit; text-decoration: none; }
+.campaign-health-link:hover strong { text-decoration: underline; }
+.campaign-health-warn { color: #b42318 !important; font-weight: 800 !important; }
+.campaign-health-note { color: #b54708 !important; font-weight: 800 !important; }
+.upcoming-list { display: grid; gap: 8px; margin: 0; padding: 0 20px 18px; list-style: none; }
+.upcoming-list li { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.upcoming-list b, .upcoming-list small, .upcoming-list strong { display: block; }
+.upcoming-list small { color: var(--muted); font-size: 13px; font-weight: 700; }
+.upcoming-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.campaign-cost-estimate { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 20px 12px; padding: 12px 14px; border: 1px solid #b7e4de; border-radius: 12px; background: #f0fdfa; }
+.campaign-cost-estimate.is-short { border-color: #f3c9c4; background: #fff6f5; }
+.campaign-cost-estimate strong, .campaign-cost-estimate small { display: block; }
+.campaign-cost-estimate small { color: var(--muted); font-size: 13px; font-weight: 700; }
+.campaign-cost-estimate p { margin: 6px 0 0; color: #7a271a; font-size: 14px; font-weight: 700; line-height: 1.7; }
+@media (max-width: 780px) { .upcoming-list li { grid-template-columns: 1fr; } .campaign-cost-estimate { flex-direction: column; align-items: stretch; } }

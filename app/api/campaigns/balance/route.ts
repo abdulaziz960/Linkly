@@ -1,6 +1,8 @@
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
+import { effectiveMessageRate } from "../../../../lib/campaign-metrics";
+import { DEFAULT_MESSAGE_RATE } from "../../../../lib/campaign-stats";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -38,5 +40,7 @@ export async function GET() {
     }))
   ].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
-  return jsonOk({ balance, lastTopUpAmount, transactions });
+  const messageRate = effectiveMessageRate(payments, DEFAULT_MESSAGE_RATE);
+
+  return jsonOk({ balance, lastTopUpAmount, messageRate, transactions });
 }

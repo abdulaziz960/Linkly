@@ -59,6 +59,15 @@ await prisma.campaign.create({ data: {
   id: "browser-campaign-draft", tenantId: "browser-workspace", name: "حملة مجدولة", templateName: "welcome", language: "ar",
   sent: 0, total: 2, progress: "0%", status: "مجدولة", updatedAt: campaignDate
 } });
+await prisma.campaign.create({ data: {
+  id: "browser-campaign-upcoming", tenantId: "browser-workspace", name: "حملة قادمة", templateName: "promo", language: "ar",
+  scheduledAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+  sent: 0, total: 3, progress: "0%", status: "مجدولة", updatedAt: campaignDate
+} });
+await prisma.campaignRecipient.createMany({ data: [0, 1, 2].map((index) => ({
+  id: `browser-cr-upcoming-${index}`, campaignId: "browser-campaign-upcoming", tenantId: "browser-workspace", phone: `96652000000${index}`,
+  name: `قادم ${index}`, status: "قيد الإرسال", createdAt: campaignDate
+})) });
 const recipientStates = [
   ["تم الإرسال", ""], ["تم الإرسال", ""], ["تم الإرسال", ""], ["تم الإرسال", ""], ["تم الإرسال", ""],
   ["فشل الإرسال", "(#131026) Message undeliverable"], ["فشل الإرسال", "ألغى العميل اشتراكه من رسائل الحملات"]

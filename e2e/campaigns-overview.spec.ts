@@ -66,3 +66,25 @@ test("campaigns table: real numbers, notes, the row menu and a typed delete conf
   await page.getByRole("menuitem", { name: "أرشفة" }).click();
   await expect(page.getByRole("row", { name: /حملة العرض الأخير/ })).toHaveCount(0);
 });
+
+test("upcoming campaigns are listed with a way to change the time, and a short balance is flagged", async ({ page }, testInfo) => {
+  await signIn(page);
+  await page.goto("/dashboard?view=campaigns");
+  const upcoming = page.locator(".upcoming-board");
+  await expect(upcoming).toContainText("حملة قادمة");
+  // The saved draft without a send time is not "upcoming".
+  await expect(upcoming).not.toContainText("حملة مجدولة");
+  // The balance of the test workspace is 0, so the 3 queued messages are not covered.
+  await expect(page.getByRole("alert").filter({ hasText: "رصيدك لا يكفي لكل الحملات المنتظرة" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("campaigns-upcoming.png") });
+
+  await upcoming.getByRole("button", { name: "تعديل الموعد" }).click();
+  const dialog = page.getByRole("dialog", { name: "تعديل موعد الحملة" });
+  await dialog.locator('input[type="datetime-local"]').fill("2020-01-01T10:00");
+  await dialog.getByRole("button", { name: "حفظ الموعد" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("المستقبل");
+  const later = new Date(Date.now() + 9 * 24 * 3600 * 1000 + 3 * 3600 * 1000).toISOString().slice(0, 16);
+  await dialog.locator('input[type="datetime-local"]').fill(later);
+  await dialog.getByRole("button", { name: "حفظ الموعد" }).click();
+  await expect(dialog).toBeHidden();
+});

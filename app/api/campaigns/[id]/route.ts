@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
-import { parseCampaignTags, processCampaignBatch } from "../../../../lib/campaign-engine";
+import { parseCampaignTags, parseRiyadhDateTime, processCampaignBatch } from "../../../../lib/campaign-engine";
 import { OPT_OUT_ERROR } from "../../../../lib/campaign-metrics";
 import { jsonError, jsonOk } from "../../_utils/json";
 
@@ -26,6 +26,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const existing = await prisma.campaign.findFirst({ where: { id, tenantId: user.tenantId } });
     if (!existing) return jsonError("تعذر تحديث الحملة", 404);
+
+    // Moving the send time of a scheduled campaign: a Riyadh wall-clock value from the page, in the future.
+    let rescheduledTo: string | undefined;
+    if (body.scheduledAt !== undefined && !body.sendNow) {
+      if (existing.status !== "مجدولة") return jsonError("يمكن تعديل موعد الحملات المجدولة فقط");
+      const when = parseRiyadhDateTime(body.scheduledAt);
+      if (!when) return jsonError("موعد الإرسال غير صحيح");
+      if (when.getTime() <= Date.now()) return jsonError("اختر موعداً في المستقبل");
+      rescheduledTo = when.toISOString();
+    }
 
     // Resuming a stopped campaign, or sending only the recipients that failed: both put recipients back in the queue.
     const resuming = body.status === "قيد الإرسال" && !body.sendNow && !body.retryFailed;
@@ -70,7 +80,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         description: body.description === undefined ? undefined : body.description.trim().slice(0, 300),
         tags: body.tags === undefined ? undefined : parseCampaignTags(body.tags),
         status: body.sendNow || body.retryFailed ? "قيد الإرسال" : body.status,
-        scheduledAt: body.sendNow ? "" : body.scheduledAt === undefined ? undefined : body.scheduledAt,
+        scheduledAt: body.sendNow ? "" : rescheduledTo,
         updatedAt: new Date().toISOString()
       }
     });
