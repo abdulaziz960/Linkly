@@ -5,7 +5,7 @@ import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { isTrustedOrigin } from "../../../../../lib/origin-guard";
 import { consumeRateLimit } from "../../../../../lib/rate-limit";
 import { logAdminAction, getTenantCompanyName } from "../../../../../lib/subscriptions";
-import { fetchDisplayName } from "../../../../../lib/whatsapp-display-name";
+import { fetchDisplayName, syncStoredDisplayName } from "../../../../../lib/whatsapp-display-name";
 import { reRegisterWhatsAppNumber } from "../../../../../lib/whatsapp-registration";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
@@ -35,5 +35,6 @@ export async function POST(request: NextRequest) {
 
   await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم تفعيل اسم العرض المعتمد لواتساب (تسجيل الرقم من جديد) بواسطة ${user.name}.`, "معلومة", "القنوات");
   const info = await fetchDisplayName(settings.phoneNumberId.trim(), settings.accessToken.trim());
+  if (info.ok && info.info.status === "approved") await syncStoredDisplayName(user.tenantId, info.info.verifiedName).catch(() => null);
   return jsonOk(info.ok ? info.info : null);
 }

@@ -59,4 +59,16 @@ describe("applying an approved display name", () => {
     expect(second.status).toBe("registered");
     expect(pins[0]).toBe("123456");
   });
+
+  it("keeps the account name saved on the connection in step with the approved display name", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { syncStoredDisplayName } = await import("../lib/whatsapp-display-name");
+    const now = new Date().toISOString();
+    await prisma.integrationSetting.create({ data: { id: "wa-sync", tenantId: "t-sync", provider: "whatsapp_cloud", status: "connected", businessName: "", wabaName: "ArabicaStarCoffee", phoneNumber: "", phoneNumberId: "pn-sync", wabaId: "w", appId: "", configId: "", verifyToken: "", accessToken: "", webhookUrl: "", updatedAt: now } });
+    expect(await syncStoredDisplayName("t-sync", "أرابيكا ستار")).toBe(true);
+    expect((await prisma.integrationSetting.findUnique({ where: { id: "wa-sync" } }))?.wabaName).toBe("أرابيكا ستار");
+    expect(await syncStoredDisplayName("t-sync", "أرابيكا ستار")).toBe(false); // already the same
+    expect(await syncStoredDisplayName("t-sync", "  ")).toBe(false); // nothing to follow
+    expect(await syncStoredDisplayName("t-other", "أي اسم")).toBe(false); // another workspace is untouched
+  });
 });

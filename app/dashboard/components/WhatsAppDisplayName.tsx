@@ -17,7 +17,7 @@ function localizeMetaError(message: string, ar: boolean): string {
 const TONE: Record<DisplayNameStatus, string> = { approved: "#15803d", pending: "#b45309", declined: "#c0392b", expired: "#c0392b", none: "#64748b" };
 
 /** Shows the WhatsApp display name with Meta's review state and lets the owner submit a new one to Meta. */
-export default function WhatsAppDisplayName() {
+export default function WhatsAppDisplayName({ onVerifiedName }: { onVerifiedName?: (name: string) => void } = {}) {
   const { t, language } = useLanguage();
   const ar = language !== "en";
   const [info, setInfo] = useState<DisplayNameInfo | null>(null);
@@ -42,7 +42,11 @@ export default function WhatsAppDisplayName() {
     try {
       const response = await fetch("/api/whatsapp/display-name", { cache: "no-store" });
       const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; data?: DisplayNameInfo } | null;
-      if (response.ok && result?.ok && result.data) setInfo(result.data);
+      if (response.ok && result?.ok && result.data) {
+        setInfo(result.data);
+        // The account-name field above this card follows the name Meta reports.
+        if (result.data.status === "approved" && result.data.verifiedName) onVerifiedName?.(result.data.verifiedName);
+      }
       else setNote({ ok: false, text: result?.error ? localizeMetaError(result.error, ar) : t("تعذر جلب حالة الاسم من Meta", "Could not load the name status from Meta") });
     } catch {
       setNote({ ok: false, text: t("تعذر الاتصال بالخادم", "Could not reach the server") });

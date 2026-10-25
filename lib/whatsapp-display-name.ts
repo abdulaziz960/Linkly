@@ -86,3 +86,19 @@ export async function requestDisplayName(phoneNumberId: string, accessToken: str
     return { ok: false, error: "تعذر الوصول إلى Meta" };
   }
 }
+
+/**
+ * The name saved on the connection (shown in Settings as the account name) is a snapshot taken when the number was
+ * connected. When Meta now reports a different approved name for the number, the snapshot follows it - otherwise the
+ * Settings screen keeps showing the old name after a change was approved and applied.
+ */
+export async function syncStoredDisplayName(tenantId: string, verifiedName: string): Promise<boolean> {
+  const name = verifiedName.trim();
+  if (!name) return false;
+  const { prisma } = await import("./prisma");
+  const updated = await prisma.integrationSetting.updateMany({
+    where: { tenantId, provider: "whatsapp_cloud", NOT: { wabaName: name } },
+    data: { wabaName: name, updatedAt: new Date().toISOString() }
+  });
+  return updated.count > 0;
+}
