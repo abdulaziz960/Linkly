@@ -88,3 +88,30 @@ test("upcoming campaigns are listed with a way to change the time, and a short b
   await dialog.getByRole("button", { name: "حفظ الموعد" }).click();
   await expect(dialog).toBeHidden();
 });
+
+test("campaigns table becomes cards on a phone without sideways scrolling", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page);
+  await page.goto("/dashboard?view=campaigns");
+  const card = page.locator(".campaigns-table tbody tr", { hasText: "حملة قادمة" });
+  await expect(card).toBeVisible();
+  await expect(page.locator(".campaigns-table thead")).toBeHidden();
+  await expect(card.locator("td[data-label='التكلفة']")).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("campaigns-mobile.png") });
+});
+
+test("a workspace without campaigns sees how to start, not an empty table", async ({ page }, testInfo) => {
+  await signIn(page);
+  for (const id of ["browser-campaign-done", "browser-campaign-draft", "browser-campaign-upcoming"]) {
+    const response = await page.request.delete(`/api/campaigns/${id}`);
+    expect(response.ok()).toBeTruthy();
+  }
+  await page.goto("/dashboard?view=campaigns");
+  await expect(page.getByRole("heading", { name: "ابدأ أول حملة واتساب" })).toBeVisible();
+  await expect(page.locator(".campaign-onboarding li")).toHaveCount(3);
+  await expect(page.locator(".campaigns-table")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("campaigns-empty.png") });
+});

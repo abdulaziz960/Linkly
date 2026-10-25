@@ -12345,3 +12345,41 @@ html[dir="ltr"] .notification-bell-panel {
 .campaign-cost-estimate small { color: var(--muted); font-size: 13px; font-weight: 700; }
 .campaign-cost-estimate p { margin: 6px 0 0; color: #7a271a; font-size: 14px; font-weight: 700; line-height: 1.7; }
 @media (max-width: 780px) { .upcoming-list li { grid-template-columns: 1fr; } .campaign-cost-estimate { flex-direction: column; align-items: stretch; } }
+
+/* Campaigns: progress fills from the reading start, loading, empty state, phone cards */
+.progress-bar { display: flex; justify-content: flex-start; }
+.progress-bar span { flex: 0 0 auto; min-width: 0; }
+.is-loading strong { color: transparent !important; border-radius: 8px; background: linear-gradient(90deg, rgba(120, 140, 138, .16), rgba(120, 140, 138, .32), rgba(120, 140, 138, .16)); background-size: 200% 100%; animation: skeleton-shimmer 1.2s ease-in-out infinite; user-select: none; }
+.campaign-list-board.is-loading tbody { opacity: .45; pointer-events: none; }
+.campaign-onboarding { padding: 28px 26px; text-align: center; }
+.campaign-onboarding h2 { margin: 0 0 6px; font-size: 22px; }
+.campaign-onboarding > p { margin: 0 0 18px; color: var(--muted); }
+.campaign-onboarding ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 auto 20px; padding: 0; max-width: 860px; list-style: none; counter-reset: step; }
+.campaign-onboarding li { position: relative; padding: 16px 14px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-soft, #f6faf9); text-align: start; counter-increment: step; }
+.campaign-onboarding li::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; margin-bottom: 8px; border-radius: 50%; background: #178a82; color: #fff; font-weight: 900; }
+.campaign-onboarding li b, .campaign-onboarding li span { display: block; }
+.campaign-onboarding li span { margin-top: 4px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.campaign-onboarding-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+.campaign-onboarding-actions small { color: var(--muted); font-size: 14px; font-weight: 700; }
+.row-menu { flex: 0 0 auto; }
+@media (max-width: 768px) {
+  .campaign-onboarding ol { grid-template-columns: 1fr; }
+  .campaigns-page .table-wrap { overflow: visible; }
+  .table-wrap .campaigns-table.mobile-card-table, .table-wrap .campaigns-table.mobile-card-table tbody { display: block; width: 100%; min-width: 0; }
+  .table-wrap .campaigns-table.mobile-card-table thead { display: none; }
+  .table-wrap .campaigns-table.mobile-card-table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr); margin-block: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+  .table-wrap .campaigns-table.mobile-card-table td { display: grid; grid-template-columns: minmax(84px, 34%) minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; padding: 7px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+  .table-wrap .campaigns-table.mobile-card-table td:last-child { border-bottom: 0; }
+  .table-wrap .campaigns-table.mobile-card-table td::before { content: attr(data-label); color: var(--muted); font-size: 13px; font-weight: 800; }
+  .table-wrap .campaigns-table.mobile-card-table td.select-col { display: flex; justify-content: flex-end; padding: 0 0 4px; border-bottom: 0; }
+  .table-wrap .campaigns-table.mobile-card-table td.select-col::before { content: none; }
+  .table-wrap .campaigns-table.mobile-card-table td:nth-child(2) { display: block; font-size: 15px; }
+  .table-wrap .campaigns-table.mobile-card-table td:nth-child(2)::before { content: none; }
+  .table-wrap .campaigns-table.mobile-card-table td.row-actions { display: flex; flex-wrap: wrap; align-items: center; }
+  .table-wrap .campaigns-table.mobile-card-table td.row-actions::before { flex: 0 0 100%; }
+  .table-wrap .campaigns-table.mobile-card-table td.row-actions > button { min-height: 44px; flex: 1 1 110px; }
+  .table-wrap .campaigns-table.mobile-card-table td[colspan] { display: block; }
+  .campaign-list-board table { min-width: 0; }
+  .campaign-list-board .progress-bar { width: 100%; }
+  .row-menu-list { inset-inline-end: auto; inset-inline-start: 0; }
+}

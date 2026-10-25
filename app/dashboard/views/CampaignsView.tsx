@@ -266,6 +266,7 @@ export default function CampaignsView({
   const [templateFilter, setTemplateFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [refreshState, setRefreshState] = useState<"idle" | "loading" | "error">("idle");
   const [messageRate, setMessageRate] = useState(0.03);
   const [rescheduling, setRescheduling] = useState<Campaign | null>(null);
   const [rescheduleValue, setRescheduleValue] = useState("");
@@ -606,6 +607,16 @@ export default function CampaignsView({
     await onRefreshData();
   }
 
+  async function refreshCampaigns() {
+    setRefreshState("loading");
+    try {
+      await onRefreshData();
+      setRefreshState("idle");
+    } catch {
+      setRefreshState("error");
+    }
+  }
+
   function toggleSelected(id: string) {
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -786,7 +797,15 @@ export default function CampaignsView({
             </article>
             <article><span>↗</span><div><b>{t("نسبة الإرسال", "Send rate")}</b><strong>{campaignOverview.sendRate}%</strong><small dir="ltr">{campaignOverview.sent.toLocaleString("en-US")} / {campaignOverview.recipients.toLocaleString("en-US")}</small></div></article>
           </section>
-          <section className="campaign-kpis" aria-label={t("ملخص الحملات", "Campaign summary")}>
+          {refreshState === "error" ? (
+            <div className="balance-low-banner critical" role="alert">
+              <span>⛔</span>
+              <div><strong>{t("تعذر تحديث بيانات الحملات", "Could not refresh the campaigns")}</strong><p>{t("الأرقام المعروضة قد تكون قديمة. تحقق من اتصالك ثم حاول من جديد.", "The numbers shown may be out of date. Check your connection and try again.")}</p></div>
+              <button className="btn primary" type="button" onClick={refreshCampaigns}>{t("إعادة المحاولة", "Try again")}</button>
+            </div>
+          ) : null}
+          {campaigns.length ? (<>
+          <section className={`campaign-kpis${refreshState === "loading" ? " is-loading" : ""}`} aria-busy={refreshState === "loading"} aria-label={t("ملخص الحملات", "Campaign summary")}>
             {([
               { key: "sent", label: t("تم إرسالها", "Sent"), value: campaignOverview.sent.toLocaleString("en-US"), note: t("رسالة عبر جميع الحملات", "messages across campaigns") },
               { key: "pending", label: t("بانتظار الإرسال", "Pending"), value: campaignOverview.remaining.toLocaleString("en-US"), note: t("ما زال في الطابور", "still in the queue") },
@@ -800,7 +819,7 @@ export default function CampaignsView({
               </article>
             ))}
           </section>
-          <section className="campaign-funnel" aria-label={t("مسار الرسائل", "Message funnel")}>
+          <section className={`campaign-funnel${refreshState === "loading" ? " is-loading" : ""}`} aria-busy={refreshState === "loading"} aria-label={t("مسار الرسائل", "Message funnel")}>
             {([
               { key: "sent", label: t("المُرسلة", "Sent"), value: campaignOverview.totals.sent, share: formatRate(campaignOverview.totals.sent, campaignOverview.totals.total), of: t("من الجمهور", "of audience") },
               { key: "delivered", label: t("وصلت", "Delivered"), value: campaignOverview.totals.delivered, share: formatRate(campaignOverview.totals.delivered, campaignOverview.totals.sent), of: t("من المُرسلة", "of sent") },
@@ -827,6 +846,7 @@ export default function CampaignsView({
               {campaignOverview.totals.failureReasons.map((reason) => `${t(failureReasonLabels[reason.key][0], failureReasonLabels[reason.key][1])} (${reason.count.toLocaleString("en-US")})`).join(" · ")}
             </p>
           ) : null}
+          </>) : null}
           {recurrences.length ? (
             <div className="campaign-board recurrence-board">
               <div className="campaign-list-head"><div><h2>🔁 {t("الحملات المتكررة", "Recurring campaigns")}</h2><p>{t("سلاسل ترسل نفس الملف المرفوع تلقائيًا كل فترة.", "Series that automatically resend the uploaded file on a schedule.")}</p></div></div>
@@ -876,8 +896,23 @@ export default function CampaignsView({
               </ul>
             </div>
           ) : null}
-          <div className="campaign-board campaign-list-board">
-            <div className="campaign-list-head"><div><h2>{t("كل الحملات", "All campaigns")}</h2><p>{t("تابع التنفيذ وافتح التقرير أو أوقف الحملة من نفس الصف.", "Track execution, open reports, or stop a campaign from the same row.")}</p></div><button className="reload" type="button" onClick={onRefreshData}>↻ {t("تحديث البيانات", "Refresh data")}</button></div>
+          {!campaigns.length ? (
+            <div className="campaign-board campaign-onboarding">
+              <h2>{t("ابدأ أول حملة واتساب", "Start your first WhatsApp campaign")}</h2>
+              <p>{t("ثلاث خطوات فقط، وتصل رسالتك إلى جمهورك.", "Three steps and your message reaches your audience.")}</p>
+              <ol>
+                <li><b>{t("اختر قالباً معتمداً", "Choose an approved template")}</b><span>{approvedTemplates.length ? t(`لديك ${approvedTemplates.length} قالب جاهز.`, `You have ${approvedTemplates.length} ready template(s).`) : t("لا يوجد قالب معتمد بعد، أنشئ قالباً وانتظر اعتماد Meta.", "No approved template yet: create one and wait for Meta's approval.")}</span></li>
+                <li><b>{t("ارفع جمهورك", "Add your audience")}</b><span>{t("ملف Excel أو CSV بأرقام العملاء، أو شريحة جاهزة من عملائك.", "An Excel or CSV file of numbers, or a ready segment of your customers.")}</span></li>
+                <li><b>{t("راجع وأرسل", "Review and send")}</b><span>{t("تظهر التكلفة المتوقعة قبل الإرسال، وتتابع النتائج من هذه الصفحة.", "The estimated cost shows before sending, and results are tracked on this page.")}</span></li>
+              </ol>
+              <div className="campaign-onboarding-actions">
+                <button className="btn primary" type="button" onClick={() => openForm()} disabled={!whatsappConnected || !approvedTemplates.length}>＋ {t("إنشاء حملة", "Create a campaign")}</button>
+                {!whatsappConnected ? <small>{t("اربط واتساب أولاً من صفحة القنوات.", "Connect WhatsApp first from the Channels page.")}</small> : !approvedTemplates.length ? <a className="btn soft" href="/dashboard?view=templates">{t("الذهاب إلى القوالب", "Go to templates")}</a> : null}
+              </div>
+            </div>
+          ) : (
+          <div className={`campaign-board campaign-list-board${refreshState === "loading" ? " is-loading" : ""}`} aria-busy={refreshState === "loading"}>
+            <div className="campaign-list-head"><div><h2>{t("كل الحملات", "All campaigns")}</h2><p>{t("تابع التنفيذ وافتح التقرير أو أوقف الحملة من نفس الصف.", "Track execution, open reports, or stop a campaign from the same row.")}</p></div><button className="reload" type="button" onClick={refreshCampaigns} disabled={refreshState === "loading"}>↻ {t("تحديث البيانات", "Refresh data")}</button></div>
             <div className="campaign-toolbar campaign-filterbar">
               <input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); }} placeholder={t("ابحث باسم الحملة أو الحالة…", "Search name or status…")} aria-label={t("بحث في الحملات", "Search campaigns")} />
               <CustomSelect value={campaignStatusFilter} onChange={(value) => { setCampaignStatusFilter(value); setCampaignPage(1); }} options={[{value:"all",label:t("كل الحالات","All statuses")},{value:"قيد الإرسال",label:t("قيد الإرسال","Sending")},{value:"مجدولة",label:t("مجدولة","Scheduled")},{value:"الحملة أنجزت",label:t("مكتملة","Completed")},{value:"ملغاة",label:t("ملغاة","Cancelled")},{value:"مؤرشفة",label:t("مؤرشفة","Archived")}]} />
@@ -958,6 +993,7 @@ export default function CampaignsView({
             </div>
             <Pagination currentPage={campaignPagination.page} totalPages={campaignPagination.totalPages} onPageChange={setCampaignPage} />
           </div>
+          )}
         </>
       ) : (
         <div className="balance-page">
