@@ -10,6 +10,8 @@ import { getMoyasarPublishableKey } from "../../../../lib/moyasar-publishable";
 import MoyasarPayForm from "./MoyasarPayForm";
 import PayPromoBox from "../PayPromoBox";
 import PayTaxSummary from "../PayTaxSummary";
+import TaxProfileCard from "../../TaxProfileCard";
+import { getTaxProfile } from "../../../../lib/tax-profile";
 import "../../billing.css";
 
 export const metadata = { title: { absolute: "إتمام الدفع | Linkly" } };
@@ -56,6 +58,7 @@ export default async function BillingPayPage({ params }: { params: Promise<{ pay
           <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س <small>(قبل الضريبة)</small></p>
         )}
         <PayTaxSummary payment={payment} />
+        <TaxProfileCard initial={await getTaxProfile(user.tenantId)} />
         <PayPromoBox
           endpoint="/api/billing/pay-promo"
           paymentId={payment.id}

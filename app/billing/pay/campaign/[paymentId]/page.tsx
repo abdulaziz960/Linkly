@@ -10,6 +10,8 @@ import { PAYMENT_STATUS } from "../../../../../lib/payment-status";
 import MoyasarPayForm from "../../[paymentId]/MoyasarPayForm";
 import PayPromoBox from "../../PayPromoBox";
 import PayTaxSummary from "../../PayTaxSummary";
+import TaxProfileCard from "../../../TaxProfileCard";
+import { getTaxProfile } from "../../../../../lib/tax-profile";
 import { getPaymentPromoSummary } from "../../../../../lib/promo-codes";
 import "../../../billing.css";
 
@@ -44,6 +46,7 @@ export default async function CampaignPayPage({ params }: { params: Promise<{ pa
         <h1>إتمام الدفع</h1>
         <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س <small>(قبل الضريبة)</small></p>
         <PayTaxSummary payment={payment} />
+        <TaxProfileCard initial={await getTaxProfile(user.tenantId)} />
         <PayPromoBox
           endpoint="/api/campaigns/balance/promo"
           paymentId={payment.id}

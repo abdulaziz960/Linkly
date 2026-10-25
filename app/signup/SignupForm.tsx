@@ -94,7 +94,7 @@ export default function SignupForm({ lang = "ar", plans, defaultPlanId }: { lang
     if (!form.get("businessType")) return setError(lang === "en" ? "Choose your business type." : "اختر نوع النشاط.");
     setLoading(true); setError("");
     const response = await fetch("/api/trial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-      companyName: form.get("companyName"), businessType: form.get("businessType"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), website: form.get("website"), termsAccepted, planId: form.get("planId")
+      companyName: form.get("companyName"), businessType: form.get("businessType"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), vatNumber: form.get("vatNumber"), website: form.get("website"), termsAccepted, planId: form.get("planId")
     }) });
     const payload = await response.json().catch(() => ({})) as {
       error?: string;
@@ -116,6 +116,7 @@ export default function SignupForm({ lang = "ar", plans, defaultPlanId }: { lang
     <label>{text.ownerName}<input name="ownerName" required maxLength={100} autoComplete="name" placeholder={text.ownerNamePlaceholder} /></label>
     <label>{text.email}<input name="ownerEmail" type="email" required maxLength={254} autoComplete="email" placeholder="name@company.sa" /></label>
     <label>{text.phone}<input name="phone" type="tel" required inputMode="tel" maxLength={30} autoComplete="tel" pattern="^(00966|\+966|966|0)?5\d{8}$" title={text.phonePlaceholder} placeholder={text.phonePlaceholder} /></label>
+    <label>{lang === "en" ? "VAT number (optional)" : "الرقم الضريبي للمنشأة (اختياري)"}<input name="vatNumber" dir="ltr" inputMode="numeric" maxLength={20} placeholder="3XXXXXXXXXXXXX3" /></label>
     <label className="signup-honeypot" aria-hidden="true">{text.website}<input name="website" tabIndex={-1} autoComplete="off" /></label>
     {plans.length ? <label>{text.plan}<CustomSelect name="planId" defaultValue={defaultPlanId} options={plans.map((plan) => ({ value: plan.id, label: plan.name }))} /></label> : null}
     <label className="signup-terms">

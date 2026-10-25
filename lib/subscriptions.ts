@@ -978,7 +978,7 @@ export async function attemptAutoRenewals(baseUrl: string) {
         await logAdminAction(
           subscription.tenantId,
           subscription.companyName,
-          `[auto-renew] تم تجديد الاشتراك تلقائيًا (${billingCycle}) بقيمة ${renewAmount} ر.س عبر البطاقة المحفوظة (••••${subscription.savedCardLast4}).`
+          `[auto-renew] تم تجديد الاشتراك تلقائيًا (${billingCycle}) بقيمة ${renewAmount} ر.س + ضريبة القيمة المضافة 15% (الإجمالي ${amountHalalas / 100} ر.س) عبر البطاقة المحفوظة (••••${subscription.savedCardLast4}).`
         );
       }
       continue;

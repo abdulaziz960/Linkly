@@ -2,11 +2,14 @@
 
 import { FormEvent, useState } from "react";
 
-/** The workspace's own VAT number and address, printed on every invoice Linkly issues to it. */
-export default function TaxProfileCard({ initial, lang }: { initial: { vatNumber: string; address: string }; lang: "ar" | "en" }) {
-  const ar = lang === "ar";
+/**
+ * On the payment page: "add your VAT number to the invoice" - optional, collapsed unless already filled. It saves the same
+ * workspace tax details every invoice reads (old and new), so it is asked once.
+ */
+export default function TaxProfileCard({ initial }: { initial: { vatNumber: string; address: string } }) {
   const [vatNumber, setVatNumber] = useState(initial.vatNumber);
   const [address, setAddress] = useState(initial.address);
+  const [saved, setSaved] = useState(initial.vatNumber);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -18,27 +21,31 @@ export default function TaxProfileCard({ initial, lang }: { initial: { vatNumber
     const payload = await response?.json().catch(() => null) as { ok?: boolean; error?: string; data?: { vatNumber: string; address: string } } | null;
     setBusy(false);
     if (!response || !response.ok || !payload?.ok) {
-      setMessage({ ok: false, text: payload?.error || (ar ? "تعذر الحفظ" : "Could not save") });
+      setMessage({ ok: false, text: payload?.error || "تعذر الحفظ" });
       return;
     }
     setVatNumber(payload.data?.vatNumber ?? vatNumber);
-    setMessage({ ok: true, text: ar ? "تم الحفظ. تظهر البيانات في فواتيرك." : "Saved. These details appear on your invoices." });
+    setSaved(payload.data?.vatNumber ?? vatNumber);
+    setMessage({ ok: true, text: "تم الحفظ، وسيظهر في فاتورتك." });
   }
 
   return (
-    <section className="tax-profile-card" aria-labelledby="tax-profile-title">
-      <h2 id="tax-profile-title">{ar ? "بيانات الفاتورة الضريبية" : "Tax invoice details"}</h2>
-      <p>{ar ? "إن كانت منشأتك مسجلة في ضريبة القيمة المضافة، أضف رقمك الضريبي وعنوانك لتظهر في فواتيرك." : "If your business is VAT-registered, add your VAT number and address so they appear on your invoices."}</p>
+    <details className="pay-tax-profile" open={Boolean(initial.vatNumber) ? false : undefined}>
+      <summary>
+        <span>أضف بيانات منشأتك الضريبية للفاتورة <small>(اختياري)</small></span>
+        {saved ? <small dir="ltr">{saved}</small> : null}
+      </summary>
       <form onSubmit={save}>
-        <label>{ar ? "الرقم الضريبي (15 رقمًا)" : "VAT number (15 digits)"}
+        <label>الرقم الضريبي (15 رقمًا)
           <input dir="ltr" inputMode="numeric" value={vatNumber} onChange={(event) => setVatNumber(event.target.value)} maxLength={20} placeholder="3XXXXXXXXXXXXX3" />
         </label>
-        <label>{ar ? "العنوان (اختياري)" : "Address (optional)"}
+        <label>عنوان المنشأة
           <input value={address} onChange={(event) => setAddress(event.target.value)} maxLength={300} />
         </label>
-        <button type="submit" disabled={busy}>{busy ? (ar ? "جاري الحفظ..." : "Saving...") : ar ? "حفظ" : "Save"}</button>
+        <button type="submit" disabled={busy}>{busy ? "جاري الحفظ..." : "حفظ"}</button>
+        <p>تظهر هذه البيانات في فواتيرك الضريبية، القديمة والجديدة.</p>
+        {message ? <p className={message.ok ? "billing-success" : "billing-error"} role="status">{message.text}</p> : null}
       </form>
-      {message ? <p className={message.ok ? "billing-success" : "billing-error"} role="status">{message.text}</p> : null}
-    </section>
+    </details>
   );
 }

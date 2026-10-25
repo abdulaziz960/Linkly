@@ -8,6 +8,8 @@ import { paymentStatementDescriptor } from "../../../../../lib/moyasar";
 import { getMoyasarPublishableKey } from "../../../../../lib/moyasar-publishable";
 import { PAYMENT_STATUS } from "../../../../../lib/payment-status";
 import PayTaxSummary from "../../PayTaxSummary";
+import TaxProfileCard from "../../../TaxProfileCard";
+import { getTaxProfile } from "../../../../../lib/tax-profile";
 import MoyasarPayForm from "../../[paymentId]/MoyasarPayForm";
 import "../../../billing.css";
 
@@ -34,6 +36,7 @@ export default async function EmailTopupPayPage({ params }: { params: Promise<{ 
         <h1>شراء رصيد البريد</h1>
         <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س <small>(قبل الضريبة)</small></p>
         <PayTaxSummary payment={payment} />
+        <TaxProfileCard initial={await getTaxProfile(user.tenantId)} />
         {publishableKey ? (
           <MoyasarPayForm
             key={payment.amountHalalas}
