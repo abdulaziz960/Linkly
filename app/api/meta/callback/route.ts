@@ -1,3 +1,4 @@
+import { subscribeInstagramWebhooks } from "../../../../lib/instagram-webhooks";
 import { NextRequest, NextResponse } from "next/server";
 import { ensureWhatsAppNumberRegistered } from "../../../../lib/whatsapp-registration";
 import { getIntegrationSettings } from "../../../../lib/database";
@@ -196,6 +197,7 @@ export async function GET(request: NextRequest) {
     const appId = techProviderInstagramAppId;
     const appSecret = process.env.INSTAGRAM_APP_SECRET || "";
     const redirectUri = `${getAppOrigin(request)}/api/meta/callback`;
+    let instagramSubscription: Awaited<ReturnType<typeof subscribeInstagramWebhooks>> | null = null;
 
     if (appId && appSecret) {
       const tokenForm = new URLSearchParams();
@@ -247,6 +249,7 @@ export async function GET(request: NextRequest) {
             }).format(new Date())
           }
         });
+        if (instagramId) instagramSubscription = await subscribeInstagramWebhooks(instagramId, longLivedAccessToken);
       } else {
         console.error("Instagram token exchange failed", tokenPayload);
       }
@@ -266,7 +269,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة إنستغرام بواسطة ${user.name}.`, "معلومة", "التكاملات");
+    // Without subscribing the account to the app's webhooks no message ever arrives, so it is part of connecting.
+    const subscribed = instagramSubscription;
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة إنستغرام بواسطة ${user.name}.${subscribed ? (subscribed.ok ? " فُعّل استقبال الرسائل." : ` تعذر تفعيل استقبال الرسائل: ${subscribed.error}`) : ""}`, subscribed && !subscribed.ok ? "تنبيه" : "معلومة", "التكاملات");
 
     const response = closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=instagram-callback&view=settings");
     response.cookies.delete("audiencew_meta_state");
