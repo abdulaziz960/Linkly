@@ -154,6 +154,44 @@ export async function ensureWhatsAppNumberRegistered(input: { tenantId: string; 
   }
 }
 
+/**
+ * Registers the number AGAIN even though it is already Connected. Meta applies an approved new display name only when the
+ * number is registered after the approval ("Register your number to start using it"), so ensureWhatsAppNumberRegistered -
+ * which stops as soon as the number is Connected - never applies it. `pin` is the two-step PIN the owner typed, when Meta
+ * asks for one; otherwise the PIN stored for the number (or the legacy one) is used.
+ */
+export async function reRegisterWhatsAppNumber(input: { tenantId: string; phoneNumberId: string; accessToken: string; pin?: string }): Promise<RegistrationState> {
+  const { tenantId, phoneNumberId, accessToken } = input;
+  const done = (status: RegistrationStatus, code: number, message: string): RegistrationState => ({ status, code, message, updatedAt: new Date().toISOString() });
+  if (!phoneNumberId || !accessToken) return done("unknown", 0, "لم يكتمل ربط الرقم بعد.");
+  try {
+    const existing = await readRow(phoneNumberId);
+    let storedPin = "";
+    try {
+      storedPin = existing?.pin_encrypted ? decryptSecret(existing.pin_encrypted) : "";
+    } catch {
+      storedPin = "";
+    }
+    const candidates = [...new Set([input.pin ?? "", storedPin, LEGACY_PIN].filter((pin) => /^\d{6}$/.test(pin)))];
+    let last = { code: 0, message: "" };
+    for (const pin of candidates) {
+      const result = await callRegister(phoneNumberId, accessToken, pin);
+      if (result.ok) {
+        await writeRow({ phoneNumberId, tenantId, status: "registered", code: 0, message: "تم تسجيل الرقم لدى Meta.", pin });
+        return done("registered", 0, "تم تسجيل الرقم لدى Meta.");
+      }
+      last = result;
+      if (result.code !== 133005) break;
+    }
+    const explained = explainRegistrationError(last.code, last.message);
+    await writeRow({ phoneNumberId, tenantId, status: explained.status, code: last.code, message: explained.text });
+    return done(explained.status, last.code, explained.text);
+  } catch (error) {
+    console.error("WhatsApp phone number re-registration errored", error);
+    return done("failed", 0, "تعذر الاتصال بـ Meta لتسجيل الرقم. حاول بعد قليل.");
+  }
+}
+
 /** Remembers a registration the customer completed by hand (with the PIN they chose). */
 export async function recordManualRegistration(input: { tenantId: string; phoneNumberId: string; pin: string }) {
   await writeRow({ phoneNumberId: input.phoneNumberId, tenantId: input.tenantId, status: "registered", code: 0, message: "تم تسجيل الرقم لدى Meta.", pin: input.pin });

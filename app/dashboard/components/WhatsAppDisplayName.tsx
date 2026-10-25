@@ -26,6 +26,8 @@ export default function WhatsAppDisplayName() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [needsPin, setNeedsPin] = useState(false);
+  const [pin, setPin] = useState("");
 
   const label: Record<DisplayNameStatus, string> = {
     approved: t("معتمد من Meta", "Approved by Meta"),
@@ -79,6 +81,33 @@ export default function WhatsAppDisplayName() {
     }
   }
 
+  /** Meta approved the new name; it takes effect once the number is registered again. */
+  async function applyApproved() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const response = await fetch("/api/whatsapp/display-name/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(needsPin ? { pin } : {}) });
+      const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (response.status === 409) {
+        setNeedsPin(true);
+        setNote({ ok: false, text: result?.error || t("أدخل رمز التحقق بخطوتين المكوّن من 6 أرقام.", "Enter your 6-digit two-step verification PIN.") });
+        return;
+      }
+      if (!response.ok || !result?.ok) {
+        setNote({ ok: false, text: result?.error || t("تعذر تفعيل الاسم", "Could not apply the name") });
+        return;
+      }
+      setNeedsPin(false);
+      setPin("");
+      setNote({ ok: true, text: t("تم تفعيل الاسم الجديد. قد يستغرق ظهوره للعملاء بعض الوقت.", "The new name is now in use. It can take a while to show to customers.") });
+      await load();
+    } catch {
+      setNote({ ok: false, text: t("تعذر الاتصال بالخادم", "Could not reach the server") });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const pendingRequest = info && info.requestedName && info.requestedName !== info.verifiedName && info.requestedStatus !== "none" ? info : null;
 
   return (
@@ -96,6 +125,15 @@ export default function WhatsAppDisplayName() {
           {t("الاسم المطلوب:", "Requested name:")} <b>{pendingRequest.requestedName}</b>{" "}
           <span style={{ fontWeight: 800, color: TONE[pendingRequest.requestedStatus] }}>● {label[pendingRequest.requestedStatus]}</span>
           {pendingRequest.requestedStatus === "pending" ? <div style={{ fontSize: 12.5, opacity: 0.75 }}>{t("لا يمكن طلب اسم آخر قبل اكتمال المراجعة.", "You can’t request another name until the review finishes.")}</div> : null}
+        </div>
+      ) : null}
+      {pendingRequest?.requestedStatus === "approved" ? (
+        <div style={{ display: "grid", gap: 8, padding: 12, borderRadius: 12, border: "1px solid #bbf7d0", background: "#f0fdf4" }}>
+          <span style={{ fontSize: 13, lineHeight: 1.7 }}>{t("اعتمدت Meta الاسم الجديد، لكنه لا يُستخدم قبل تسجيل الرقم من جديد. اضغط الزر ليبدأ العملاء برؤيته.", "Meta approved the new name, but it is used only after the number is registered again. Press the button to start using it.")}</span>
+          {needsPin ? <input value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" dir="ltr" placeholder="••••••" aria-label={t("رمز التحقق بخطوتين", "Two-step PIN")} style={{ minHeight: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--line, #cfd9d6)", font: "inherit", maxWidth: 200 }} /> : null}
+          <div className="wa-card-actions">
+            <button type="button" className="primary-action" disabled={busy || (needsPin && pin.length !== 6)} onClick={() => void applyApproved()}>{busy ? t("جارٍ التفعيل...", "Applying...") : t("تفعيل الاسم المعتمد", "Use the approved name")}</button>
+          </div>
         </div>
       ) : null}
       {editing ? (

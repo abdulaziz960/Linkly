@@ -121,7 +121,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
      heights must be summed, not max()'d, or this row is sized shorter than
      what's actually rendered and the overflow visually sinks into
      .dashboard-main below it. */
-  --top-banners-h: calc(var(--trial-banner-h, 0px) + var(--top-links-h, 0px) + var(--whatsapp-payment-banner-h, 0px));
+  --top-banners-h: max(var(--trial-banner-h, 0px), var(--top-links-h, 0px), var(--whatsapp-payment-banner-h, 0px));
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
@@ -8381,7 +8381,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
      cell as an independently-positioned sibling - the old grid/sticky
      placement let this bar's z-index cover a full-width banner underneath
      it whenever this pill grew wide enough (e.g. on narrow viewports). */
-  align-self: start;
+  align-self: flex-end;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -10196,8 +10196,12 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
    since grid-placement properties are inert on a non-grid-item child), so
    this wrapper is the only thing actually positioned against the shell's
    grid row. */
-.dashboard-top-banners{grid-column:1 / -1;grid-row:1;align-self:start;position:sticky;top:0;z-index:5;display:flex;flex-direction:column}
-.trial-countdown-banner{display:flex;align-items:flex-start;justify-content:center;padding:8px 12px;background:transparent;direction:rtl;overflow-x:auto}
+.dashboard-top-banners{grid-column:1 / -1;grid-row:1;align-self:start;position:sticky;top:0;z-index:5;display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-end}
+/* Arabic layout: the quick-links bar stays at the left end of the row, the countdown fills the rest. The countdown, renewal and WhatsApp-payment notices all sit in that one slot, side by side when more than one shows. */
+.dashboard-shell:not(.lang-en) .dashboard-top-banners{flex-direction:row-reverse}
+.dashboard-top-banners .dashboard-top-links{order:1}
+
+.trial-countdown-banner{flex:1 1 0;min-width:0;align-self:center;display:flex;align-items:flex-start;justify-content:center;padding:8px 12px;background:transparent;direction:rtl;overflow-x:auto}
 .dashboard-shell.lang-en .trial-countdown-banner{direction:ltr}
 .trial-countdown-pill{display:inline-flex;align-items:center;gap:9px;flex-shrink:0;max-width:100%;padding:6px 8px 6px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--brand-200);box-shadow:0 6px 18px rgba(15,23,42,.08);white-space:nowrap}
 .trial-countdown-icon{display:inline-flex;flex-shrink:0;font-size:13px;line-height:1}
@@ -10212,7 +10216,7 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 .trial-countdown-banner.expired .trial-countdown-text{color:var(--danger)}
 .trial-countdown-banner.expired .trial-countdown-cta{background:var(--danger)}
 .trial-countdown-banner.expired .trial-countdown-cta:hover{background:#991b1b}
-.whatsapp-payment-banner{display:flex;align-items:flex-start;justify-content:center;padding:8px 12px;background:transparent;direction:rtl;overflow-x:auto}
+.whatsapp-payment-banner{flex:1 1 0;min-width:0;align-self:center;display:flex;align-items:flex-start;justify-content:center;padding:8px 12px;background:transparent;direction:rtl;overflow-x:auto}
 .dashboard-shell.lang-en .whatsapp-payment-banner{direction:ltr}
 .whatsapp-payment-pill{display:inline-flex;align-items:center;gap:9px;max-width:100%;padding:6px 8px 6px 14px;border-radius:999px;background:#fef2f2;border:1px solid #fecaca;box-shadow:0 6px 18px rgba(15,23,42,.08)}
 .whatsapp-payment-icon{display:inline-flex;flex-shrink:0;font-size:13px;line-height:1;color:var(--danger)}
