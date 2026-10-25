@@ -10197,6 +10197,10 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
    this wrapper is the only thing actually positioned against the shell's
    grid row. */
 .dashboard-top-banners{grid-column:1 / -1;grid-row:1;align-self:start;position:sticky;top:0;z-index:5;display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-end}
+/* Arabic layout: the quick-links bar stays at the left end of the row, the countdown fills the rest. The payment banner (full width) goes on its own row below. */
+.dashboard-shell:not(.lang-en) .dashboard-top-banners{flex-direction:row-reverse}
+.dashboard-top-banners .dashboard-top-links{order:1}
+.dashboard-top-banners .whatsapp-payment-banner{order:2}
 .trial-countdown-banner{flex:1 1 0;min-width:0;align-self:center;display:flex;align-items:flex-start;justify-content:center;padding:8px 12px;background:transparent;direction:rtl;overflow-x:auto}
 .dashboard-shell.lang-en .trial-countdown-banner{direction:ltr}
 .trial-countdown-pill{display:inline-flex;align-items:center;gap:9px;flex-shrink:0;max-width:100%;padding:6px 8px 6px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--brand-200);box-shadow:0 6px 18px rgba(15,23,42,.08);white-space:nowrap}
