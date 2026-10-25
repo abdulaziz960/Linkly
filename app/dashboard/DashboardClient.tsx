@@ -9,11 +9,9 @@ import Image from "next/image";
 import Link from "next/link";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
-import TutorialsLink from "./components/TutorialsLink";
-import PwaInstallButton from "./components/PwaInstallButton";
 import PwaInstallCoachmark from "./components/PwaInstallCoachmark";
 import PwaInstallPopup from "./components/PwaInstallPopup";
-import NotificationBell from "./components/NotificationBell";
+import DashboardTopActions from "./components/DashboardTopActions";
 import CompanyNameField from "./components/CompanyNameField";
 import { navItemLabelsEn, viewTitles } from "./data/navigation";
 import { DELETED_MESSAGE_TEXT, LanguageProvider } from "./i18n";
@@ -238,6 +236,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // The desktop sidebar shows names by default; each person can fold it to icons, remembered per account.
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   // The last inbox fingerprint seen (app/api/conversations/version).
   const inboxVersionRef = useRef("");
@@ -393,8 +393,25 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     if (storedOwnerStatus === "متصل" || storedOwnerStatus === "مشغول" || storedOwnerStatus === "غير متصل") {
       setOwnerStatus(storedOwnerStatus);
     }
+    try {
+      if (window.localStorage.getItem(`linkly-sidebar-expanded:${initialUser.id}`) === "0") setSidebarExpanded(false);
+    } catch {
+      // Storage unavailable: the sidebar simply stays expanded.
+    }
     setPreferencesLoaded(true);
   }, [initialUser.id]);
+
+  function toggleSidebarExpanded() {
+    setSidebarExpanded((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(`linkly-sidebar-expanded:${initialUser.id}`, next ? "1" : "0");
+      } catch {
+        // The choice still applies for this visit.
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!preferencesLoaded) return;
@@ -1485,12 +1502,12 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   }
 
   // The current view's name: the mobile top bar shows it, and it is the page's H1 for views without their own.
-  const currentViewTitle = (activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : (activeView === "ai" || activeView === "knowledgeBase") && allowedViews.includes("ai") && allowedViews.includes("knowledgeBase") ? (language === "en" ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة") : (activeView === "contacts" || activeView === "tags" || activeView === "pipeline") && allowedViews.includes("contacts") && (allowedViews.includes("tags") || allowedViews.includes("pipeline") || lockedViewsForUser.includes("pipeline")) ? (language === "en" ? "Customers, leads & tags" : "العملاء والعملاء المحتملون والوسوم") : (activeView === "teams" || activeView === "employees" || activeView === "workHours") && allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours")) ? (language === "en" ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل") : (activeView === "catalog" || activeView === "branches") && (allowedViews.includes("catalog") || allowedViews.includes("branches")) ? (language === "en" ? "Catalog & branches" : "الكتالوج والفروع") : (activeView === "integrations" || activeView === "developers") && allowedViews.includes("settings") ? (language === "en" ? navItemLabelsEn.settings : viewTitles.settings) : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView];
+  const currentViewTitle = (activeView === "reports" || activeView === "operations") && allowedViews.includes("operations") && allowedViews.includes("reports") ? (language === "en" ? "Reports & operations" : "التقارير والعمليات") : (activeView === "ai" || activeView === "knowledgeBase") && allowedViews.includes("ai") && allowedViews.includes("knowledgeBase") ? (language === "en" ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة") : (activeView === "contacts" || activeView === "tags" || activeView === "pipeline") && allowedViews.includes("contacts") && (allowedViews.includes("tags") || allowedViews.includes("pipeline") || lockedViewsForUser.includes("pipeline")) ? (language === "en" ? "Customers, leads & tags" : "العملاء والعملاء المحتملون والوسوم") : (activeView === "teams" || activeView === "employees" || activeView === "workHours") && allowedViews.includes("employees") && (allowedViews.includes("teams") || allowedViews.includes("workHours")) ? (language === "en" ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل") : (activeView === "catalog" || activeView === "branches") && (allowedViews.includes("catalog") || allowedViews.includes("branches")) ? (language === "en" ? "Catalog & branches" : "الكتالوج والفروع") : (activeView === "integrations" || activeView === "developers" || activeView === "branding") && allowedViews.includes("settings") ? (language === "en" ? navItemLabelsEn.settings : viewTitles.settings) : language === "en" ? navItemLabelsEn[activeView] : viewTitles[activeView];
 
   return (
     <LanguageProvider language={language}>
     <PlanAccessProvider access={planAccess}>
-    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
+    <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""}${sidebarExpanded ? " sidebar-expanded" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       {/* The app's confirmation dialog and toasts (lib/ui-dialogs.ts) - every view's confirm/notify lands here. */}
       <DialogHost language={language === "en" ? "en" : "ar"} />
       {/* Modals and popovers render outside the shell, so the page itself must follow the language too. */}
@@ -1499,61 +1516,16 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         {subscription ? <TrialCountdownBanner status={subscription.status} renewalAt={subscription.renewalAt} language={language} /> : null}
         <RenewalBanner subscription={subscription} visible={initialUser.role === "مالك الحساب"} language={language} />
         <WhatsAppPaymentBanner visible={whatsappPaymentIssue} payUrl={whatsappPayUrl} language={language} />
-      <div className="dashboard-top-links" ref={topLinksRef}>
-        <TutorialsLink language={language} />
-        <PwaInstallButton />
-        {inboxTabsMode !== "employee" ? <NotificationBell notifications={notifications} onOpenNotification={handleOpenNotification} /> : null}
-        <button
-          type="button"
-          className="sidebar-billing-link is-profile"
-          onClick={openProfile}
-          data-tooltip={language === "en" ? "Profile" : "الملف الشخصي"}
-          aria-label={language === "en" ? "Profile" : "الملف الشخصي"}
-        >
-          {profileLogo ? (
-            <Image className="dashboard-top-links-photo" src={profileLogo} alt="" width={38} height={38} unoptimized />
-          ) : (
-            <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4.5 20c1-4.5 4-7 7.5-7s6.5 2.5 7.5 7" />
-            </svg>
-          )}
-        </button>
-        <Link
-          className="sidebar-billing-link is-support"
-          href="/dashboard/support"
-          data-tooltip={language === "en" ? "Support" : "الدعم الفني"}
-          aria-label={language === "en" ? "Support" : "الدعم الفني"}
-        >
-          <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2-2.4 3.6M12 17h.01" />
-          </svg>
-        </Link>
-        <Link
-          className="sidebar-billing-link is-development"
-          href="/dashboard/development"
-          data-tooltip={language === "en" ? "Development" : "تطوير المنصة"}
-          aria-label={language === "en" ? "Development" : "تطوير المنصة"}
-        >
-          <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M9 17l-5-5 5-5M15 7l5 5-5 5" />
-          </svg>
-        </Link>
-        {initialUser.role === "مالك الحساب" ? (
-          <Link
-            className="sidebar-billing-link is-billing"
-            href="/billing"
-            data-tooltip={language === "en" ? "Billing" : "الباقات"}
-            aria-label={language === "en" ? "Plans and billing" : "الباقات والاشتراك"}
-          >
-            <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3" y="5" width="18" height="14" rx="2.5" />
-              <path d="M3 10h18M7 15h4" />
-            </svg>
-          </Link>
-        ) : null}
-      </div>
+      <DashboardTopActions
+        containerRef={topLinksRef}
+        language={language}
+        showNotifications={inboxTabsMode !== "employee"}
+        notifications={notifications}
+        onOpenNotification={handleOpenNotification}
+        profileLogo={profileLogo}
+        onOpenProfile={openProfile}
+        isOwner={initialUser.role === "مالك الحساب"}
+      />
       </div>
       {menuOpen ? (
         <div
@@ -1577,6 +1549,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         branding={branding}
         language={language}
         mobileOpen={menuOpen}
+        expanded={sidebarExpanded}
+        onToggleExpanded={toggleSidebarExpanded}
         canManageBilling={initialUser.role === "مالك الحساب"}
         onClose={closeMenu}
         onOpenProfile={openProfile}
@@ -1678,6 +1652,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             canViewDevelopers={allowedViews.includes("developers")}
             canViewCatalog={allowedViews.includes("catalog")}
             canViewBranches={allowedViews.includes("branches")}
+            canViewBranding={allowedViews.includes("branding")}
+            canViewCampaigns={allowedViews.includes("campaigns")}
+            canViewEmailPromotions={allowedViews.includes("emailPromotions")}
+            canViewBot={allowedViews.includes("bot")}
+            canViewAutomations={allowedViews.includes("automations")}
             view={activeView}
           />
         )}

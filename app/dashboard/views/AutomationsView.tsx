@@ -1,5 +1,6 @@
 "use client";
 
+import PageHeader from "../components/PageHeader";
 import { confirmDialog } from "../../../lib/ui-dialogs";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -593,16 +594,15 @@ export default function AutomationsView({
 
   return (
     <section className="page-stack">
-      <div className="page-hero">
-        <div>
-          <h1>{t("الأتمتة", "Automation")}</h1>
-          <p>{t("خلّ المهام المتكررة تعمل وحدها: اختر متى تبدأ القاعدة، ثم حدد ما الذي تريد من Linkly تنفيذه.", "Let repetitive tasks run themselves: choose when the rule starts, then decide what Linkly should do.")}</p>
-        </div>
-        <div className="page-hero-actions">
+      <PageHeader
+        title={t("الأتمتة", "Automation")}
+        description={<p>{t("خلّ المهام المتكررة تعمل وحدها: اختر متى تبدأ القاعدة، ثم حدد ما الذي تريد من Linkly تنفيذه.", "Let repetitive tasks run themselves: choose when the rule starts, then decide what Linkly should do.")}</p>}
+        actionsClassName=""
+        actions={<>
           <button className="btn soft" type="button" onClick={openSimulator}>{t("🧪 تجربة رسالة", "🧪 Test a message")}</button>
           <button className="btn primary" type="button" onClick={() => openForm()}>{t("＋ إنشاء أتمتة", "＋ Create automation")}</button>
-        </div>
-      </div>
+        </>}
+      />
 
       {feedback && !formOpen ? <p className={`automation-feedback ${feedback.type}`} role="status">{feedback.message}</p> : null}
 

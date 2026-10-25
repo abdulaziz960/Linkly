@@ -8,9 +8,9 @@ const views = [
   ["inbox", "المحادثات"],
   ["contacts", "العملاء والعملاء المحتملون والوسوم"],
   ["pipeline", "العملاء والعملاء المحتملون والوسوم"],
-  ["campaigns", "الحملات"],
-  ["automations", "الأتمتة"],
-  ["bot", "الرد الآلي"],
+  ["campaigns", "الحملات والعروض البريدية"],
+  ["automations", "الرد الآلي والأتمتة"],
+  ["bot", "الرد الآلي والأتمتة"],
   ["reports", "التقارير والعمليات"],
   ["integrations", "الإعدادات والربط"],
   ["employees", "الموظفون والفرق وساعات العمل"]
@@ -48,6 +48,8 @@ test("dashboard fits mobile viewports and its drawer remains usable", async ({ p
         await page.getByRole("tab", { name: "العملاء المحتملون", exact: true }).click();
         await page.getByRole("tab", { name: "داخل المنصة" }).click();
       }
+      if (key === "automations") await page.getByRole("tab", { name: "الأتمتة", exact: true }).click();
+      if (key === "bot") await page.getByRole("tab", { name: "الرد الآلي", exact: true }).click();
       if (key === "bot" && width <= 720) {
         await expect(page.locator(".bot-step-library")).toBeVisible();
         await page.getByRole("tab", { name: "المخطط" }).click();
@@ -112,7 +114,8 @@ test("dashboard fits mobile viewports and its drawer remains usable", async ({ p
   if (captureDir) await page.screenshot({ path: join(captureDir, "320-contact-card.png"), fullPage: true });
 
   await menuButton.click();
-  await page.getByRole("navigation").getByRole("button", { name: "الرد الآلي", exact: true }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "الرد الآلي والأتمتة", exact: true }).click();
+  await page.getByRole("tab", { name: "الرد الآلي", exact: true }).click();
   await page.getByRole("button", { name: "إضافة رسالة ترحيب" }).click();
   await expect(page.getByRole("tab", { name: "المخطط" })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".bot-mobile-node-list")).toContainText("الترحيب");
@@ -156,7 +159,7 @@ test("an open drawer closes when the layout crosses the desktop breakpoint, and 
 
   // Exactly one H1, named after the view (hidden for views whose header has none of its own).
   await page.setViewportSize({ width: 1440, height: 900 });
-  for (const [label, heading] of [["المحادثات", "المحادثات"], ["الرد الآلي", "الرد الآلي"], ["الحملات", null]] as const) {
+  for (const [label, heading] of [["المحادثات", "المحادثات"], ["الرد الآلي والأتمتة", "الرد الآلي"], ["الحملات والعروض البريدية", null]] as const) {
     await page.getByRole("navigation").getByRole("button", { name: label, exact: true }).click();
     await expect(page.locator("h1")).toHaveCount(1);
     if (heading) await expect(page.locator("h1")).toHaveText(heading);

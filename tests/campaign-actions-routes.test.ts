@@ -76,6 +76,14 @@ describe("campaign row actions", () => {
     expect(byPhone["966500000003"]).toBe("فشل الإرسال");
     expect(byPhone["966500000001"]).toBe("تم الإرسال");
 
+    // The resend starts a background batch; let it finish so it cannot change the campaign under the next steps.
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const busy = await prisma.campaignRecipient.count({ where: { campaignId, status: { in: ["قيد الإرسال", "جارٍ الإرسال"] } } });
+      if (!busy) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
     // A running campaign cannot be archived.
     await prisma.campaign.update({ where: { id: campaignId }, data: { status: "قيد الإرسال" } });
     expect((await PATCH(patch(campaignId, { status: "مؤرشفة" }), context(campaignId))).status).toBe(400);

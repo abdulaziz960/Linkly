@@ -29,6 +29,9 @@ type DashboardSidebarProps = {
   selectedChannel: ConversationChannelFilter;
   language?: "ar" | "en";
   mobileOpen: boolean;
+  /** Desktop: names are visible next to the icons. Folded, only the icons show and hovering names them. */
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
   canManageBilling: boolean;
   onClose: () => void;
   onOpenProfile: () => void;
@@ -95,7 +98,9 @@ export default function DashboardSidebar({
   onClose,
   onOpenProfile,
   onChangeView,
-  onChangeChannel
+  onChangeChannel,
+  expanded = true,
+  onToggleExpanded
 }: DashboardSidebarProps) {
   const { promptForView } = usePlanAccess();
   const [navigationSearchOpen, setNavigationSearchOpen] = useState(false);
@@ -163,6 +168,8 @@ export default function DashboardSidebar({
     event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>,
     label: string
   ) => {
+    // With the names already on screen, a tooltip would only repeat them.
+    if (expanded) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     const top = Math.min(window.innerHeight - 24, Math.max(24, bounds.top + bounds.height / 2));
 
@@ -185,6 +192,8 @@ export default function DashboardSidebar({
       : item.key === "ai" && mergedAi ? (isEnglish ? "AI assistant & knowledge base" : "مساعد AI وقاعدة المعرفة")
       : item.key === "catalog" && catalogPair ? (isEnglish ? "Catalog & branches" : "الكتالوج والفروع")
       : item.key === "contacts" && (mergedContacts || leadsInContacts) ? (isEnglish ? "Customers, leads & tags" : "العملاء والعملاء المحتملون والوسوم")
+      : item.key === "campaigns" && partOf("emailPromotions", "campaigns") ? (isEnglish ? "Campaigns & email promotions" : "الحملات والعروض البريدية")
+      : item.key === "bot" && partOf("automations", "bot") ? (isEnglish ? "Auto reply & automations" : "الرد الآلي والأتمتة")
       : item.key === "employees" && mergedTeam ? (isEnglish ? "Team, permissions & hours" : "الموظفون والفرق وساعات العمل")
       : isEnglish ? navItemLabelsEn[item.key] : item.label;
   // A part that is merged into a page is not a sidebar entry of its own, allowed or plan-locked: when it is locked
@@ -198,7 +207,10 @@ export default function DashboardSidebar({
     (key === "teams" && partOf("teams", "employees")) ||
     (key === "workHours" && partOf("workHours", "employees")) ||
     (key === "integrations" && partOf("integrations", "settings")) ||
-    (key === "developers" && partOf("developers", "settings"));
+    (key === "developers" && partOf("developers", "settings")) ||
+    (key === "branding" && partOf("branding", "settings")) ||
+    (key === "emailPromotions" && partOf("emailPromotions", "campaigns")) ||
+    (key === "automations" && partOf("automations", "bot"));
   // Catalog and branches share one entry as soon as either is available (the other shows as a locked tab).
   const catalogPair = allowedViews.includes("catalog") || allowedViews.includes("branches");
   const navTarget = (item: { key: ViewKey }): ViewKey => (item.key === "catalog" && catalogPair && !allowedViews.includes("catalog") ? "branches" : item.key);
@@ -256,6 +268,7 @@ export default function DashboardSidebar({
           onBlur={hideSidebarTooltip}
         >
           <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m16.5 16.5 4 4" /></svg>
+          <span className="dashboard-nav-label">{isEnglish ? "Search menu" : "بحث في القائمة"}</span>
         </button>
         {navigationSearchOpen && typeof document !== "undefined"
           ? createPortal(
@@ -305,6 +318,19 @@ export default function DashboardSidebar({
           );
         })}
       </nav>
+      {onToggleExpanded ? (
+        <button
+          className="sidebar-collapse-toggle"
+          type="button"
+          aria-pressed={!expanded}
+          aria-label={expanded ? (isEnglish ? "Collapse the menu to icons" : "طيّ القائمة إلى أيقونات") : (isEnglish ? "Expand the menu" : "توسيع القائمة")}
+          title={expanded ? (isEnglish ? "Collapse the menu" : "طيّ القائمة") : (isEnglish ? "Expand the menu" : "توسيع القائمة")}
+          onClick={() => { hideSidebarTooltip(); onToggleExpanded(); }}
+        >
+          <svg className="dashboard-nav-icon" viewBox="0 0 24 24" aria-hidden="true">{(expanded !== isEnglish) ? <path d="m9 6 6 6-6 6" /> : <path d="m15 6-6 6 6 6" />}</svg>
+          <span className="dashboard-nav-label">{expanded ? (isEnglish ? "Collapse menu" : "طيّ القائمة") : ""}</span>
+        </button>
+      ) : null}
       <div className="dashboard-mobile-extras">
         <PwaInstallButton showLabel />
         <button type="button" onClick={() => { onClose(); onOpenProfile(); }}>{isEnglish ? "Profile" : "الملف الشخصي"}</button>

@@ -1,5 +1,6 @@
 "use client";
 
+import PageHeader from "../components/PageHeader";
 import { confirmDialog, notify } from "../../../lib/ui-dialogs";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -761,10 +762,13 @@ export default function CampaignsView({
 
   return (
     <section className="page-stack campaigns-page">
-      <header className="campaigns-hero">
-        <div><span>{t("مركز الحملات", "CAMPAIGN CENTER")}</span><h1>{t("حملات أوضح، من التجهيز حتى الإرسال", "Clear campaigns from setup to delivery")}</h1><p>{t("أنشئ جمهورك، اختر القالب، راجع التفاصيل ثم تابع التنفيذ من مكان واحد.", "Build your audience, choose a template, review details, and track execution in one place.")}</p></div>
-        <button className="btn primary campaign-create-cta" type="button" onClick={() => openForm()}>＋ {t("حملة جديدة", "New campaign")}</button>
-      </header>
+      <PageHeader
+        variant="campaigns"
+        eyebrow={t("مركز الحملات", "CAMPAIGN CENTER")}
+        title={t("حملات أوضح، من التجهيز حتى الإرسال", "Clear campaigns from setup to delivery")}
+        description={<p>{t("أنشئ جمهورك، اختر القالب، راجع التفاصيل ثم تابع التنفيذ من مكان واحد.", "Build your audience, choose a template, review details, and track execution in one place.")}</p>}
+        actions={<button className="btn primary campaign-create-cta" type="button" onClick={() => openForm()}>＋ {t("حملة جديدة", "New campaign")}</button>}
+      />
       <div className="section-tabs campaign-tabs">
         <button className={activeTab === "campaigns" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("campaigns")}>{t("نظرة الحملات", "Campaign overview")}</button>
         <button className={activeTab === "balance" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("balance")}>{t("الرصيد و الشحن", "Balance & Top-up")}</button>

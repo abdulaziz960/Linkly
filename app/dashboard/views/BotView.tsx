@@ -1,5 +1,6 @@
 "use client";
 
+import PageHeader from "../components/PageHeader";
 import { DragEvent, FormEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../i18n";
 import { usePlanAccess } from "../plan-access-context";
@@ -667,24 +668,25 @@ export default function BotView({ teams, employees }: { teams: Team[]; employees
 
   return (
     <section className="page-stack">
-      <div className="page-hero">
-        <div>
-          <h1>{t("الرد الآلي", "Auto Reply")}</h1>
+      <PageHeader
+        title={t("الرد الآلي", "Auto Reply")}
+        description={<>
           <p className="bot-desktop-intro">{t(
             'أنشئ روبوت محادثة يرحب بالعميل من أول رسالة، يعرض له الخيارات المناسبة، يرسل ردوداً جاهزة، ويحوّل المحادثة للفريق الصحيح عند الحاجة. اسحب أي خطوة لتحريكها، أو اضغط عليها لتعديلها. لربط خطوة بخطوة ثانية، اسحب من النقطة الصغيرة يمين الخطوة (أو يمين كل خيار بقائمة) لأي خطوة ثانية تبي تنتقل لها — بدون كتابة أي أسماء.',
             'Create a chatbot that welcomes the customer from the first message, shows them the right options, sends ready-made replies, and transfers the conversation to the right team when needed. Drag any step to move it, or click it to edit it. To link one step to another, drag from the small dot on the right of the step (or on the right of each list option) to any other step - no typing names.'
           )}</p>
           <p className="bot-mobile-intro">{t("أنشئ خطوات الرد الآلي واختر القناة، ثم راجع مسار المحادثة في المخطط.", "Create auto-reply steps, choose a channel, then review the conversation flow.")}</p>
           <details className="bot-mobile-help"><summary>{t("عرض التعليمات", "Show instructions")}</summary><p>{t("يمكنك إضافة الخطوات من المكتبة، وتعديلها أو ربطها بخطوة أخرى من قائمة الخطوات دون سحبها.", "Add steps from the library, then edit or connect them without dragging.")}</p></details>
-        </div>
-        <div className="bot-hero-actions">
+        </>}
+        actionsClassName="bot-hero-actions"
+        actions={<>
           <label className="bot-toggle">
             <input type="checkbox" checked={enabled} onChange={toggleEnabled} disabled={loading} />
             <span>{enabled ? t(`الرد الآلي مفعّل (${channelLabel})`, `Auto reply enabled (${channelLabel})`) : t(`الرد الآلي متوقف (${channelLabel})`, `Auto reply disabled (${channelLabel})`)}</span>
           </label>
           <button className="btn soft" type="button" onClick={openAddModal}>＋ {t("خطوة مخصصة", "Custom step")}</button>
-        </div>
-      </div>
+        </>}
+      />
 
       <div className="bot-mobile-sections" role="tablist" aria-label={t("أقسام الرد الآلي", "Auto-reply sections")}>
         <button type="button" role="tab" aria-selected={mobilePanel === "library"} onClick={() => setMobilePanel("library")}>{t("مكتبة الخطوات", "Step library")}</button>

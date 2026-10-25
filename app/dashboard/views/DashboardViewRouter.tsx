@@ -69,6 +69,11 @@ type DashboardViewRouterProps = {
   canViewDevelopers?: boolean;
   canViewCatalog?: boolean;
   canViewBranches?: boolean;
+  canViewBranding?: boolean;
+  canViewCampaigns?: boolean;
+  canViewEmailPromotions?: boolean;
+  canViewBot?: boolean;
+  canViewAutomations?: boolean;
   view: ViewKey;
 };
 
@@ -103,6 +108,11 @@ export default function DashboardViewRouter({
   canViewDevelopers = false,
   canViewCatalog = false,
   canViewBranches = false,
+  canViewBranding = false,
+  canViewCampaigns = false,
+  canViewEmailPromotions = false,
+  canViewBot = false,
+  canViewAutomations = false,
   view
 }: DashboardViewRouterProps) {
   const { t } = useLanguage();
@@ -131,7 +141,18 @@ export default function DashboardViewRouter({
       />
     );
   }
-  if (view === "bot") return <BotView teams={teams} employees={employees} />;
+  if (view === "bot" || view === "automations") {
+    return (
+      <ViewTabs
+        initialKey={view}
+        ariaLabel={t("الرد الآلي والأتمتة", "Auto reply and automations")}
+        tabs={[
+          { viewKey: "bot", label: t("الرد الآلي", "Auto reply"), available: view === "bot" || canViewBot, content: <BotView teams={teams} employees={employees} /> },
+          { viewKey: "automations", label: t("الأتمتة", "Automations"), available: view === "automations" || canViewAutomations, content: <AutomationsView automationRules={automationRules} employees={employees} tags={tags} teams={teams} templates={templates} onRefreshData={onRefreshData} /> }
+        ]}
+      />
+    );
+  }
   if (view === "ai" || view === "knowledgeBase") {
     return (
       <ViewTabs
@@ -145,20 +166,18 @@ export default function DashboardViewRouter({
       />
     );
   }
-  if (view === "automations") {
+  if (view === "campaigns" || view === "emailPromotions") {
     return (
-      <AutomationsView
-        automationRules={automationRules}
-        employees={employees}
-        tags={tags}
-        teams={teams}
-        templates={templates}
-        onRefreshData={onRefreshData}
+      <ViewTabs
+        initialKey={view}
+        ariaLabel={t("الحملات والعروض البريدية", "Campaigns and email promotions")}
+        tabs={[
+          { viewKey: "campaigns", label: t("حملات واتساب", "WhatsApp campaigns"), available: view === "campaigns" || canViewCampaigns, content: <CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} brandName={branding.name} onRefreshData={onRefreshData} /> },
+          { viewKey: "emailPromotions", label: t("العروض البريدية", "Email promotions"), available: view === "emailPromotions" || canViewEmailPromotions, content: <EmailPromotionsView customers={customers} conversations={conversations} tags={tags} /> }
+        ]}
       />
     );
   }
-  if (view === "campaigns") return <CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} brandName={branding.name} onRefreshData={onRefreshData} />;
-  if (view === "emailPromotions") return <EmailPromotionsView customers={customers} conversations={conversations} tags={tags} />;
   if (view === "segments") return <SegmentsView tags={tags} />;
   if (view === "templates") return <TemplatesView templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
@@ -175,7 +194,7 @@ export default function DashboardViewRouter({
       />
     );
   }
-  if (view === "settings" || view === "integrations" || view === "developers") {
+  if (view === "settings" || view === "integrations" || view === "developers" || view === "branding") {
     return (
       <ViewTabs
         initialKey={view}
@@ -183,7 +202,8 @@ export default function DashboardViewRouter({
         tabs={[
           { viewKey: "settings", label: t("القنوات", "Channels"), available: view === "settings" || canViewSettings, content: <SettingsView onIntegrationChange={onIntegrationChange} /> },
           { viewKey: "integrations", label: t("التكاملات", "Integrations"), available: view === "integrations" || canViewIntegrations, content: <IntegrationsView /> },
-          { viewKey: "developers", label: t("المطورون", "Developers"), available: view === "developers" || canViewDevelopers, content: <DevelopersView /> }
+          { viewKey: "developers", label: t("المطورون", "Developers"), available: view === "developers" || canViewDevelopers, content: <DevelopersView /> },
+          { viewKey: "branding", label: t("العلامة التجارية", "Branding"), available: view === "branding" || canViewBranding, content: <BrandingView onRefreshData={onRefreshData} /> }
         ]}
       />
     );
@@ -200,6 +220,5 @@ export default function DashboardViewRouter({
       />
     );
   }
-  if (view === "branding") return <BrandingView onRefreshData={onRefreshData} />;
   return null;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import PageHeader from "../components/PageHeader";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Conversation, Customer, EmailCampaignSummary, Tag } from "../types";
 import { useLanguage } from "../i18n";
@@ -280,14 +281,13 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
 
   return (
     <section className="page-stack campaigns-page">
-      <header className="campaigns-hero">
-        <div>
-          <span>{t("مركز البريد التسويقي", "EMAIL PROMOTION CENTER")}</span>
-          <h1>{t("عروض بريدية من ملف أو من عملاء المنصة", "Email promotions from files or platform customers")}</h1>
-          <p>{t("أنشئ حملات بريد تسويقية موجهة للعملاء الذين لديهم بريد صالح، مع تتبع الفتح والضغط وإلغاء الاشتراك.", "Create promotional email campaigns for customers with valid email addresses, including opens, clicks and unsubscribe tracking.")}</p>
-        </div>
-        <button className="btn primary campaign-create-cta" type="button" onClick={() => setOpen(true)}>＋ {t("حملة بريد جديدة", "New email campaign")}</button>
-      </header>
+      <PageHeader
+        variant="campaigns"
+        eyebrow={t("مركز البريد التسويقي", "EMAIL PROMOTION CENTER")}
+        title={t("عروض بريدية من ملف أو من عملاء المنصة", "Email promotions from files or platform customers")}
+        description={<p>{t("أنشئ حملات بريد تسويقية موجهة للعملاء الذين لديهم بريد صالح، مع تتبع الفتح والضغط وإلغاء الاشتراك.", "Create promotional email campaigns for customers with valid email addresses, including opens, clicks and unsubscribe tracking.")}</p>}
+        actions={<button className="btn primary campaign-create-cta" type="button" onClick={() => setOpen(true)}>＋ {t("حملة بريد جديدة", "New email campaign")}</button>}
+      />
 
       {feedback ? <p role="status" className="success-banner">{feedback}</p> : null}
       {error ? <p role="alert" className="error-banner">{error}</p> : null}
