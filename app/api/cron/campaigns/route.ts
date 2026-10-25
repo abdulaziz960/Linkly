@@ -80,10 +80,12 @@ export async function GET(request: NextRequest) {
   const tenantIds = [...new Set([...campaignTenants, ...emailCampaignTenants, ...recurringCampaignTenants, ...automationTenants, ...conversationSummaryTenants].map(({ tenantId }) => tenantId))];
   const xTenantIds = xTenants.map(({ tenantId }) => tenantId);
 
+  // One shared time budget for WhatsApp campaign sending, so the rest of the run still fits in maxDuration.
+  const campaignDeadline = Date.now() + 35_000;
   for (const tenantId of tenantIds) {
     await activateDueScheduledCampaigns(tenantId);
     await activateDueRecurringCampaigns(tenantId);
-    await processCampaignBatch(tenantId, 25);
+    await processCampaignBatch(tenantId, 500, { deadlineAt: campaignDeadline });
     await activateDueEmailCampaigns(tenantId);
     await processEmailCampaignBatch(tenantId, 25);
     await processDueAutomations(tenantId);

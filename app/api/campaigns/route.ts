@@ -33,7 +33,7 @@ export async function GET() {
 
   await activateDueScheduledCampaigns(user.tenantId).catch((error) => console.error("Campaign scheduling check failed", error));
   await activateDueRecurringCampaigns(user.tenantId).catch((error) => console.error("Recurring campaign check failed", error));
-  processCampaignBatch(user.tenantId).catch((error) => console.error("Campaign batch send failed", error));
+  processCampaignBatch(user.tenantId, 25, { deadlineAt: Date.now() + 10_000 }).catch((error) => console.error("Campaign batch send failed", error));
 
   return jsonOk(await getCampaigns(user.tenantId));
 }
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isScheduledFuture) {
-    processCampaignBatch(user.tenantId).catch((error) => console.error("Campaign batch send failed", error));
+    processCampaignBatch(user.tenantId, 300, { deadlineAt: Date.now() + 50_000 }).catch((error) => console.error("Campaign batch send failed", error));
   }
 
   const campaigns = await getCampaigns(user.tenantId);

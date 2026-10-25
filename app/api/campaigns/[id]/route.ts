@@ -50,7 +50,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const updated = await prisma.campaign.findFirst({ where: { id, tenantId: user.tenantId } });
 
     if (body.sendNow) {
-      processCampaignBatch(user.tenantId).catch((error) => console.error("Campaign send-now batch failed", error));
+      processCampaignBatch(user.tenantId, 300, { deadlineAt: Date.now() + 50_000 }).catch((error) => console.error("Campaign send-now batch failed", error));
     }
     return jsonOk(updated);
   } catch {

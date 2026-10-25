@@ -175,19 +175,33 @@ export async function addManualCampaignBalance(tenantId: string, messages: numbe
   return payment;
 }
 
+/** The per-campaign constants of a send, read once per batch instead of once per recipient. */
+export type PrefetchedSendContext = {
+  settings: Awaited<ReturnType<typeof getIntegrationSettings>>;
+  templateRecord: Awaited<ReturnType<typeof prisma.template.findFirst>>;
+};
+
+async function loadSendContext(tenantId: string, templateName: string): Promise<PrefetchedSendContext> {
+  const [settings, templateRecord] = await Promise.all([
+    getIntegrationSettings("whatsapp", tenantId),
+    prisma.template.findFirst({ where: { tenantId, name: templateName, status: "معتمد" } })
+  ]);
+  return { settings, templateRecord };
+}
+
 /**
  * `bodyValues` fills the body variables by position (1st variable = bodyValues[0], ...). Variables beyond the
  * list, or when it is omitted, get the recipient's name as before. Used by order and cart messages, whose
  * templates carry the order number, the status, a link...
  */
-export async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false, trackingCode = "", bodyValues: string[] = []) {
-  const settings = await getIntegrationSettings("whatsapp", tenantId);
+export async function sendWhatsAppTemplate(tenantId: string, to: string, templateName: string, language: string, recipientName = "", campaignId = "", campaignHasHeaderMedia = false, trackingCode = "", bodyValues: string[] = [], prefetched?: PrefetchedSendContext) {
+  const settings = prefetched?.settings ?? await getIntegrationSettings("whatsapp", tenantId);
   const phoneNumberId = settings.phoneNumberId?.trim();
   const accessToken = settings.accessToken?.trim();
   if (!phoneNumberId || !accessToken) return { ok: false as const, error: "واتساب غير مربوط لهذا الحساب" };
 
   const languageCode = language === "Arabic" || language === "العربية" || !language ? "ar" : language === "English" || language === "الإنجليزية" ? "en_US" : language;
-  const templateRecord = await prisma.template.findFirst({ where: { tenantId, name: templateName, status: "معتمد" } });
+  const templateRecord = prefetched?.templateRecord ?? await prisma.template.findFirst({ where: { tenantId, name: templateName, status: "معتمد" } });
   if (!templateRecord) return { ok: false as const, error: "قالب واتساب غير موجود أو غير معتمد" };
 
   const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://linklysa.io").replace(/\/$/, "");
@@ -298,7 +312,7 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
       hadIssueFlag: Boolean(settings.whatsappPaymentIssueAt),
       errorCode: whatsappSendErrorCode(payload)
     });
-    return { ok: false as const, error: payload?.error?.message || "تعذر الإرسال عبر واتساب" };
+    return { ok: false as const, error: payload?.error?.message || "تعذر الإرسال عبر واتساب", code: payload?.error?.code };
   }
   if (settings.whatsappPaymentIssueAt) {
     await recordWhatsAppSendOutcome({ tenantId: settings.tenantId, ok: true, hadIssueFlag: true });
@@ -473,28 +487,74 @@ export async function activateDueRecurringCampaigns(tenantId: string) {
   }
 }
 
+/** Meta's "too many messages" answers: stop for now and let the next run continue, instead of failing the recipients. */
+const RATE_LIMIT_CODES = new Set([130429, 80007]);
+/** How many sends of one tenant run at the same time. Well under Meta's per-number throughput. */
+const SEND_CONCURRENCY = 8;
+
+export type CampaignBatchOptions = {
+  /** Stop starting new sends after this moment (epoch ms): keeps a run inside the request's time limit. */
+  deadlineAt?: number;
+  concurrency?: number;
+};
+
 /**
- * Sends a small batch of still-pending recipients across this tenant's
- * active campaigns. It is called by the protected cron endpoint and the
- * dashboard polling fallback.
+ * Sends up to `batchSize` pending campaign recipients of one tenant, several at a time. It is called by the
+ * protected cron endpoint (a large batch under a time limit) and by the create / send-now routes.
  */
-export async function processCampaignBatch(tenantId: string, batchSize = 5) {
+export async function processCampaignBatch(tenantId: string, batchSize = 5, options: CampaignBatchOptions = {}) {
   await ensureSchema();
 
   const activeCampaigns = await prisma.campaign.findMany({ where: { tenantId, status: "قيد الإرسال" } });
   if (!activeCampaigns.length) return;
 
+  const deadlineAt = options.deadlineAt ?? Number.POSITIVE_INFINITY;
+  const concurrency = Math.max(1, options.concurrency ?? SEND_CONCURRENCY);
   let remainingBudget = batchSize;
+  let rateLimited = false;
 
   for (const campaign of activeCampaigns) {
-    if (remainingBudget <= 0) break;
+    if (remainingBudget <= 0 || rateLimited || Date.now() >= deadlineAt) break;
 
-    const pending = await prisma.campaignRecipient.findMany({
-      where: { campaignId: campaign.id, status: "قيد الإرسال" },
-      take: remainingBudget
-    });
+    // Settings and template are the same for every recipient of this campaign.
+    const context = await loadSendContext(tenantId, campaign.templateName);
+    let sawPending = false;
 
-    if (!pending.length) {
+    while (remainingBudget > 0 && !rateLimited && Date.now() < deadlineAt) {
+      const pending = await prisma.campaignRecipient.findMany({
+        where: { campaignId: campaign.id, status: "قيد الإرسال" },
+        take: Math.min(remainingBudget, concurrency * 4)
+      });
+      if (!pending.length) break;
+      sawPending = true;
+      remainingBudget -= pending.length;
+
+      // One query for the whole chunk: customers who replied STOP never get another campaign template.
+      const optedOutRows = await prisma.customer.findMany({
+        where: { tenantId, marketingOptOut: 1, phone: { in: pending.map((recipient) => recipient.phone) } },
+        select: { phone: true }
+      });
+      const optedOut = new Set(optedOutRows.map((row) => row.phone));
+
+      let cursor = 0;
+      let sentNow = 0;
+      const worker = async () => {
+        while (cursor < pending.length && !rateLimited && Date.now() < deadlineAt) {
+          const recipient = pending[cursor++];
+          const outcome = await sendToRecipient(recipient, campaign, tenantId, context, optedOut);
+          if (outcome === "sent") sentNow += 1;
+          if (outcome === "rate_limited") rateLimited = true;
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(concurrency, pending.length) }, worker));
+
+      // Recipients this chunk never started (deadline or rate limit) simply stay pending for the next run.
+      if (sentNow > 0) {
+        await prisma.campaign.update({ where: { id: campaign.id }, data: { sent: { increment: sentNow } } });
+      }
+    }
+
+    if (!sawPending) {
       const remainingCount = await prisma.campaignRecipient.count({ where: { campaignId: campaign.id, status: "قيد الإرسال" } });
       if (remainingCount === 0) {
         await prisma.campaign.update({
@@ -503,83 +563,6 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
         });
       }
       continue;
-    }
-
-    for (const recipient of pending) {
-      remainingBudget -= 1;
-      const claimed = await prisma.campaignRecipient.updateMany({
-        where: { id: recipient.id, tenantId, campaignId: campaign.id, status: "قيد الإرسال" },
-        data: { status: "جارٍ الإرسال" }
-      });
-      if (claimed.count !== 1) continue;
-
-      // Checked before spending any campaign credit - a customer who
-      // replied STOP (lib/marketing-optout.ts) must never receive another
-      // campaign template, regardless of which campaign or list they're on.
-      const optedOut = await prisma.customer.findFirst({
-        where: { tenantId, phone: recipient.phone, marketingOptOut: 1 },
-        select: { id: true }
-      });
-      if (optedOut) {
-        await prisma.campaignRecipient.update({
-          where: { id: recipient.id },
-          data: { status: "فشل الإرسال", error: "ألغى العميل اشتراكه من رسائل الحملات" }
-        });
-        continue;
-      }
-
-      const hasCredit = await reserveCampaignCredit(tenantId);
-      if (!hasCredit) {
-        await prisma.campaignRecipient.update({
-          where: { id: recipient.id },
-          data: { status: "فشل الإرسال", error: "الرصيد غير كافٍ" }
-        });
-        continue;
-      }
-
-      // With link tracking on, sendWhatsAppTemplate places this recipient's
-      // tracking code either on a dynamic URL button (when the template has
-      // one) or as the LAST body placeholder (any earlier one still gets
-      // their name, e.g. a template written as "{{1}} name ... {{2}} link").
-      const trackingCode = campaign.linkTrackingEnabled ? randomUUID().replace(/-/g, "") : "";
-
-      let result: Awaited<ReturnType<typeof sendWhatsAppTemplate>>;
-      try {
-        result = await sendWhatsAppTemplate(
-          tenantId,
-          recipient.phone,
-          campaign.templateName,
-          campaign.language || "ar",
-          recipient.name,
-          campaign.id,
-          Boolean(campaign.headerMediaDataUrl),
-          trackingCode
-        );
-      } catch {
-        await adjustCampaignBalance(tenantId, 1);
-        await prisma.campaignRecipient.update({
-          where: { id: recipient.id },
-          data: { status: "فشل الإرسال", error: "تعذر الاتصال بمزود واتساب" }
-        });
-        continue;
-      }
-
-      if (result.ok) {
-        await prisma.campaignRecipient.update({
-          where: { id: recipient.id },
-          data: { status: "تم الإرسال", messageId: result.messageId, sentAt: new Date().toISOString(), error: "", trackingCode }
-        });
-        await prisma.campaign.update({
-          where: { id: campaign.id },
-          data: { sent: { increment: 1 } }
-        });
-      } else {
-        await adjustCampaignBalance(tenantId, 1);
-        await prisma.campaignRecipient.update({
-          where: { id: recipient.id },
-          data: { status: "فشل الإرسال", error: result.error }
-        });
-      }
     }
 
     const updatedCampaign = await prisma.campaign.findUnique({ where: { id: campaign.id } });
@@ -597,4 +580,84 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5) {
       });
     }
   }
+}
+
+type SendOutcome = "sent" | "failed" | "skipped" | "rate_limited";
+
+async function sendToRecipient(
+  recipient: { id: string; phone: string; name: string },
+  campaign: { id: string; templateName: string; language: string | null; linkTrackingEnabled: boolean | number; headerMediaDataUrl: string | null },
+  tenantId: string,
+  context: PrefetchedSendContext,
+  optedOut: Set<string>
+): Promise<SendOutcome> {
+  const claimed = await prisma.campaignRecipient.updateMany({
+    where: { id: recipient.id, tenantId, campaignId: campaign.id, status: "قيد الإرسال" },
+    data: { status: "جارٍ الإرسال" }
+  });
+  if (claimed.count !== 1) return "skipped";
+
+  if (optedOut.has(recipient.phone)) {
+    await prisma.campaignRecipient.update({
+      where: { id: recipient.id },
+      data: { status: "فشل الإرسال", error: "ألغى العميل اشتراكه من رسائل الحملات" }
+    });
+    return "failed";
+  }
+
+  const hasCredit = await reserveCampaignCredit(tenantId);
+  if (!hasCredit) {
+    await prisma.campaignRecipient.update({
+      where: { id: recipient.id },
+      data: { status: "فشل الإرسال", error: "الرصيد غير كافٍ" }
+    });
+    return "failed";
+  }
+
+  // With link tracking on, sendWhatsAppTemplate places this recipient's tracking code either on a dynamic URL
+  // button (when the template has one) or as the LAST body placeholder (any earlier one still gets their name).
+  const trackingCode = campaign.linkTrackingEnabled ? randomUUID().replace(/-/g, "") : "";
+
+  let result: Awaited<ReturnType<typeof sendWhatsAppTemplate>>;
+  try {
+    result = await sendWhatsAppTemplate(
+      tenantId,
+      recipient.phone,
+      campaign.templateName,
+      campaign.language || "ar",
+      recipient.name,
+      campaign.id,
+      Boolean(campaign.headerMediaDataUrl),
+      trackingCode,
+      [],
+      context
+    );
+  } catch {
+    await adjustCampaignBalance(tenantId, 1);
+    await prisma.campaignRecipient.update({
+      where: { id: recipient.id },
+      data: { status: "فشل الإرسال", error: "تعذر الاتصال بمزود واتساب" }
+    });
+    return "failed";
+  }
+
+  if (result.ok) {
+    await prisma.campaignRecipient.update({
+      where: { id: recipient.id },
+      data: { status: "تم الإرسال", messageId: result.messageId, sentAt: new Date().toISOString(), error: "", trackingCode }
+    });
+    return "sent";
+  }
+
+  await adjustCampaignBalance(tenantId, 1);
+  if ("code" in result && typeof result.code === "number" && RATE_LIMIT_CODES.has(result.code)) {
+    // Meta asked us to slow down: the recipient goes back in the queue and the run stops.
+    await prisma.campaignRecipient.update({ where: { id: recipient.id }, data: { status: "قيد الإرسال", error: "" } });
+    return "rate_limited";
+  }
+  await prisma.campaignRecipient.update({
+    where: { id: recipient.id },
+    data: { status: "فشل الإرسال", error: result.error }
+  });
+  return "failed";
 }
