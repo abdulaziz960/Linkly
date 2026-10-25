@@ -15,6 +15,7 @@ import { attachWhatsAppMedia, storeWhatsAppMessage } from "../../../../lib/whats
 import { handleMarketingOptOutKeyword } from "../../../../lib/marketing-optout";
 import { handleMetaLeadgenEvent } from "../../../../lib/meta-leads";
 import { prisma } from "../../../../lib/prisma";
+import { markCampaignReply } from "../../../../lib/campaign-reply";
 import { recordWhatsAppSendOutcome } from "../../../../lib/whatsapp-billing";
 import { decryptSecret } from "../../../../lib/secret-storage";
 import { verifyPrefixedHmac } from "../../../../lib/webhook-security";
@@ -456,6 +457,18 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // The delivered receipt (a read receipt implies delivery) is the "delivered" step of the campaign funnel.
+        if (status.status === "delivered" || status.status === "read") {
+          try {
+            await prisma.campaignRecipient.updateMany({
+              where: { messageId: status.id, tenantId: whatsappAccount.tenantId, deliveredAt: "" },
+              data: { deliveredAt: new Date().toISOString() }
+            });
+          } catch (error) {
+            console.error("Failed to stamp campaign recipient delivered status", error);
+          }
+        }
+
         if (status.status === "read") {
           try {
             await prisma.campaignRecipient.updateMany({
@@ -487,6 +500,8 @@ export async function POST(request: NextRequest) {
 
       for (const message of messages) {
         if (!message.from) continue;
+        // A customer's message counts as a reply to the campaigns sent to them in the last 7 days.
+        markCampaignReply(whatsappAccount.tenantId, String(message.from)).catch((error) => console.error("Campaign reply stamp failed", error));
 
         const contact = contacts.find((item: Record<string, any>) => item.wa_id === message.from);
         const text = getMessageText(message);

@@ -310,6 +310,10 @@ model CampaignRecipient {
   // failure reason.
   deliveryFailed Int    @default(0) @map("delivery_failed")
   deliveryError  String @default("") @map("delivery_error")
+  // Stamped from the WhatsApp "delivered" receipt and from the customer's first reply after the send
+  // (app/api/meta/webhook/route.ts): the middle of the sent -> delivered -> read -> replied funnel.
+  deliveredAt String @default("") @map("delivered_at")
+  repliedAt   String @default("") @map("replied_at")
   createdAt  String @map("created_at")
 
   @@index([tenantId, status])
@@ -416,6 +420,23 @@ model CampaignBalance {
   updatedAt       String @map("updated_at")
 
   @@map("campaign_balances")
+}
+
+// The usage side of the campaign balance ledger: one running row per campaign ("usage-<campaignId>") holding the
+// messages it spent, as a negative number. Top-ups live in CampaignPayment; the ledger page shows both.
+model CampaignBalanceEntry {
+  id         String @id
+  tenantId   String @map("tenant_id")
+  campaignId String @default("") @map("campaign_id")
+  kind       String @default("usage")
+  messages   Int
+  note       String @default("")
+  createdAt  String @map("created_at")
+  updatedAt  String @map("updated_at")
+
+  @@index([tenantId, createdAt])
+  @@index([campaignId])
+  @@map("campaign_balance_entries")
 }
 
 model CampaignRecurrence {

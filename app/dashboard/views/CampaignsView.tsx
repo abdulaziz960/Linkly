@@ -10,6 +10,29 @@ import CustomSelect from "../../components/CustomSelect";
 import { formatDateTime } from "../../../lib/time";
 import CampaignEngagementReport from "../components/CampaignEngagementReport";
 import { firstChar } from "../../../lib/first-char";
+import { computeCampaignStats, formatRate, sumCampaignStats, type CampaignStats, type FailureReasonKey } from "../../../lib/campaign-metrics";
+
+type KpiFilter = "all" | "sent" | "pending" | "completed" | "active";
+
+const failureReasonLabels: Record<FailureReasonKey, [string, string]> = {
+  unregistered: ["رقم غير مسجّل بواتساب", "Number not on WhatsApp"],
+  rejected: ["رسالة مرفوضة", "Message rejected"],
+  outside_window: ["خارج نافذة 24 ساعة", "Outside the 24-hour window"],
+  insufficient_balance: ["رصيد غير كافٍ", "Insufficient balance"],
+  meta_limit: ["حد الإرسال من واتساب", "WhatsApp sending limit"],
+  recipient_blocked: ["العميل أوقف رسائل الأعمال", "Customer turned off business messages"],
+  other: ["أسباب أخرى", "Other reasons"]
+};
+
+/** Stats of a campaign, or the best that can be said from its stored counters when the server sent none. */
+function statsOf(campaign: Campaign): CampaignStats {
+  return campaign.stats ?? computeCampaignStats({
+    total: campaign.total,
+    statusCounts: [{ status: "تم الإرسال", count: campaign.sent }, { status: "قيد الإرسال", count: Math.max(0, campaign.total - campaign.sent) }]
+  });
+}
+
+const sar = (value: number) => value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const pageSizeOptions = [
   { value: "10", label: "10" },
@@ -166,10 +189,11 @@ export default function CampaignsView({
   const [balance, setBalance] = useState(0);
   const [lastTopUpAmount, setLastTopUpAmount] = useState(0);
   const [balanceTransactions, setBalanceTransactions] = useState<BalanceTransaction[]>([]);
-  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceLoading, setBalanceLoading] = useState(true);
   const [balanceLoadError, setBalanceLoadError] = useState("");
   const [campaignSearch, setCampaignSearch] = useState("");
   const [campaignStatusFilter, setCampaignStatusFilter] = useState("all");
+  const [kpiFilter, setKpiFilter] = useState<KpiFilter>("all");
   const [campaignSort, setCampaignSort] = useState("latest");
   const [campaignPageSize, setCampaignPageSize] = useState("10");
   const [campaignPage, setCampaignPage] = useState(1);
@@ -199,6 +223,12 @@ export default function CampaignsView({
     }
     setBalanceLoading(false);
   }
+
+  // Loaded as soon as the page opens (the balance is also needed for the warnings), and again on the balance tab.
+  useEffect(() => {
+    loadBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (activeTab === "balance") loadBalance();
@@ -243,7 +273,15 @@ export default function CampaignsView({
 
   const filteredCampaigns = useMemo(() => {
     const query = campaignSearch.trim().toLowerCase();
+    const matchesKpi = (campaign: Campaign) => {
+      if (kpiFilter === "sent") return campaign.sent > 0;
+      if (kpiFilter === "pending") return statsOf(campaign).pending > 0;
+      if (kpiFilter === "completed") return campaign.status === "الحملة أنجزت";
+      if (kpiFilter === "active") return campaign.status === "قيد الإرسال" || campaign.status === "مجدولة";
+      return true;
+    };
     const rows = campaigns.filter((campaign) => (
+      matchesKpi(campaign) &&
       (campaignStatusFilter === "all" || campaign.status === campaignStatusFilter) &&
       (!query || campaign.name.toLowerCase().includes(query) || campaign.status.toLowerCase().includes(query) || campaign.updatedAt.toLowerCase().includes(query) || `${campaign.sent}/${campaign.total}`.includes(query))
     ));
@@ -251,7 +289,7 @@ export default function CampaignsView({
     if (campaignSort === "sent") return [...rows].sort((a, b) => b.sent - a.sent);
     if (campaignSort === "progress") return [...rows].sort((a, b) => Number.parseFloat(b.progress) - Number.parseFloat(a.progress));
     return rows;
-  }, [campaignSearch, campaignSort, campaignStatusFilter, campaigns]);
+  }, [campaignSearch, campaignSort, campaignStatusFilter, kpiFilter, campaigns]);
   const campaignPagination = paginate(filteredCampaigns, campaignPage, Number(campaignPageSize));
   const filteredBalanceTransactions = useMemo(() => {
     const query = balanceSearch.trim().toLowerCase();
@@ -267,13 +305,15 @@ export default function CampaignsView({
   const balancePagination = paginate(filteredBalanceTransactions, balancePage, Number(balancePageSize));
   const usedCampaignMessages = useMemo(() => campaigns.reduce((total, campaign) => total + campaign.sent, 0), [campaigns]);
   const campaignOverview = useMemo(() => {
-    const recipients = campaigns.reduce((total, campaign) => total + campaign.total, 0);
-    const sent = campaigns.reduce((total, campaign) => total + campaign.sent, 0);
+    const totals = sumCampaignStats(campaigns.map(statsOf));
     return {
-      recipients,
-      sent,
-      remaining: Math.max(0, recipients - sent),
-      sendRate: recipients ? Math.round((sent / recipients) * 100) : 0,
+      totals,
+      recipients: totals.total,
+      sent: totals.sent,
+      // Only recipients really waiting in the queue: failed and opted-out ones are not "pending".
+      remaining: totals.pending,
+      sendRate: totals.sendRate,
+      cost: campaigns.reduce((sum, campaign) => sum + (campaign.cost ?? 0), 0),
       completed: campaigns.filter((campaign) => campaign.status === "الحملة أنجزت").length,
       active: campaigns.filter((campaign) => campaign.status === "قيد الإرسال" || campaign.status === "مجدولة").length
     };
@@ -489,14 +529,49 @@ export default function CampaignsView({
           <section className="campaign-health-grid" aria-label={t("جاهزية الحملات", "Campaign readiness")}>
             <article className={whatsappConnected ? "is-ready" : "is-blocked"}><span>◉</span><div><b>{t("قناة الإرسال", "Sending channel")}</b><strong>{whatsappConnected ? t("واتساب متصل", "WhatsApp connected") : t("تحتاج ربط", "Connection required")}</strong></div></article>
             <article className={approvedTemplates.length ? "is-ready" : "is-blocked"}><span>◇</span><div><b>{t("القوالب الجاهزة", "Ready templates")}</b><strong>{approvedTemplates.length} {t("قالب معتمد", "approved templates")}</strong></div></article>
-            <article><span>↗</span><div><b>{t("نسبة الإرسال", "Send rate")}</b><strong>{campaignOverview.sendRate}%</strong><small>{campaignOverview.sent.toLocaleString("en-US")} / {campaignOverview.recipients.toLocaleString("en-US")}</small></div></article>
+            <article><span>↗</span><div><b>{t("نسبة الإرسال", "Send rate")}</b><strong>{campaignOverview.sendRate}%</strong><small dir="ltr">{campaignOverview.sent.toLocaleString("en-US")} / {campaignOverview.recipients.toLocaleString("en-US")}</small></div></article>
           </section>
           <section className="campaign-kpis" aria-label={t("ملخص الحملات", "Campaign summary")}>
-            <article><span>{t("تم إرسالها", "Sent")}</span><strong>{campaignOverview.sent.toLocaleString("en-US")}</strong><small>{t("رسالة عبر جميع الحملات", "messages across campaigns")}</small></article>
-            <article><span>{t("بانتظار الإرسال", "Pending")}</span><strong>{campaignOverview.remaining.toLocaleString("en-US")}</strong><small>{t("من الجمهور المستهدف", "of the target audience")}</small></article>
-            <article><span>{t("حملات مكتملة", "Completed")}</span><strong>{campaignOverview.completed}</strong><small>{t("أنهت عملية الإرسال", "finished sending")}</small></article>
-            <article><span>{t("نشطة أو مجدولة", "Active or scheduled")}</span><strong>{campaignOverview.active}</strong><small>{t("تحتاج متابعة تشغيلية", "need operational follow-up")}</small></article>
+            {([
+              { key: "sent", label: t("تم إرسالها", "Sent"), value: campaignOverview.sent.toLocaleString("en-US"), note: t("رسالة عبر جميع الحملات", "messages across campaigns") },
+              { key: "pending", label: t("بانتظار الإرسال", "Pending"), value: campaignOverview.remaining.toLocaleString("en-US"), note: t("ما زال في الطابور", "still in the queue") },
+              { key: "completed", label: t("حملات مكتملة", "Completed"), value: String(campaignOverview.completed), note: t("أنهت عملية الإرسال", "finished sending") },
+              { key: "active", label: t("نشطة أو مجدولة", "Active or scheduled"), value: String(campaignOverview.active), note: t("تحتاج متابعة تشغيلية", "need operational follow-up") }
+            ] as Array<{ key: KpiFilter; label: string; value: string; note: string }>).map((card) => (
+              <article key={card.key} className={kpiFilter === card.key ? "is-active" : ""}>
+                <button type="button" aria-pressed={kpiFilter === card.key} onClick={() => { setKpiFilter((current) => (current === card.key ? "all" : card.key)); setCampaignPage(1); }}>
+                  <span>{card.label}</span><strong>{card.value}</strong><small>{card.note}</small>
+                </button>
+              </article>
+            ))}
           </section>
+          <section className="campaign-funnel" aria-label={t("مسار الرسائل", "Message funnel")}>
+            {([
+              { key: "sent", label: t("المُرسلة", "Sent"), value: campaignOverview.totals.sent, share: formatRate(campaignOverview.totals.sent, campaignOverview.totals.total), of: t("من الجمهور", "of audience") },
+              { key: "delivered", label: t("وصلت", "Delivered"), value: campaignOverview.totals.delivered, share: formatRate(campaignOverview.totals.delivered, campaignOverview.totals.sent), of: t("من المُرسلة", "of sent") },
+              { key: "read", label: t("قُرئت", "Read"), value: campaignOverview.totals.read, share: formatRate(campaignOverview.totals.read, campaignOverview.totals.sent), of: t("من المُرسلة", "of sent") },
+              { key: "replied", label: t("ردّ العميل", "Replied"), value: campaignOverview.totals.replied, share: formatRate(campaignOverview.totals.replied, campaignOverview.totals.sent), of: t("من المُرسلة", "of sent") },
+              { key: "failed", label: t("فشلت", "Failed"), value: campaignOverview.totals.failed, share: formatRate(campaignOverview.totals.failed, campaignOverview.totals.total), of: t("من الجمهور", "of audience") },
+              { key: "optedOut", label: t("ألغوا الاشتراك", "Opted out"), value: campaignOverview.totals.optedOut, share: formatRate(campaignOverview.totals.optedOut, campaignOverview.totals.total), of: t("من الجمهور", "of audience") }
+            ] as Array<{ key: string; label: string; value: number; share: number; of: string }>).map((step) => (
+              <article key={step.key} className={`funnel-${step.key}`}>
+                <span>{step.label}</span>
+                <strong>{step.value.toLocaleString("en-US")}</strong>
+                <small><bdi dir="ltr">{step.share}%</bdi> {step.of}</small>
+              </article>
+            ))}
+            <article className="funnel-cost">
+              <span>{t("تكلفة الإرسال", "Sending cost")}</span>
+              <strong><bdi dir="ltr">{sar(campaignOverview.cost)}</bdi> {t("ريال", "SAR")}</strong>
+              <small>{t("المُرسلة × سعر الرسالة", "sent × price per message")}</small>
+            </article>
+          </section>
+          {campaignOverview.totals.failureReasons.length ? (
+            <p className="campaign-failure-reasons">
+              <b>{t("أسباب الفشل:", "Why messages failed:")}</b>{" "}
+              {campaignOverview.totals.failureReasons.map((reason) => `${t(failureReasonLabels[reason.key][0], failureReasonLabels[reason.key][1])} (${reason.count.toLocaleString("en-US")})`).join(" · ")}
+            </p>
+          ) : null}
           {recurrences.length ? (
             <div className="campaign-board recurrence-board">
               <div className="campaign-list-head"><div><h2>🔁 {t("الحملات المتكررة", "Recurring campaigns")}</h2><p>{t("سلاسل ترسل نفس الملف المرفوع تلقائيًا كل فترة.", "Series that automatically resend the uploaded file on a schedule.")}</p></div></div>
@@ -531,13 +606,18 @@ export default function CampaignsView({
             </div>
             <div className="table-wrap">
               <table className="mobile-card-table">
-                <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("الإرسال", "Sending")}</th><th>{t("التقدم", "Progress")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th></tr></thead>
+                <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("الإرسال", "Sending")}</th><th>{t("التقدم", "Progress")}</th><th>{t("وصلت", "Delivered")}</th><th>{t("قُرئت", "Read")}</th><th>{t("ردّ", "Replied")}</th><th>{t("فشلت", "Failed")}</th><th>{t("التكلفة", "Cost")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th></tr></thead>
                 <tbody>
                   {campaignPagination.items.map((campaign) => (
                     <tr key={campaign.id}>
                       <td data-label={t("الحملة", "Campaign")}><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <Image src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" width={42} height={42} unoptimized onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : firstChar(campaign.name.trim()) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}</span></div></td>
-                      <td data-label={t("الإرسال", "Sending")}><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small></td>
+                      <td data-label={t("الإرسال", "Sending")}><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small>{statsOf(campaign).pending > 0 ? <small className="campaign-cell-note campaign-cell-pending"> · {statsOf(campaign).pending.toLocaleString("en-US")} {t("بالانتظار", "waiting")}</small> : null}</td>
                       <td data-label={t("التقدم", "Progress")}><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
+                      <td data-label={t("وصلت", "Delivered")}>{statsOf(campaign).delivered.toLocaleString("en-US")}</td>
+                      <td data-label={t("قُرئت", "Read")}>{statsOf(campaign).read.toLocaleString("en-US")}</td>
+                      <td data-label={t("ردّ", "Replied")}>{statsOf(campaign).replied.toLocaleString("en-US")}</td>
+                      <td data-label={t("فشلت", "Failed")}>{(statsOf(campaign).failed + statsOf(campaign).optedOut).toLocaleString("en-US")}</td>
+                      <td data-label={t("التكلفة", "Cost")}><bdi dir="ltr">{sar(campaign.cost ?? 0)}</bdi> {t("ريال", "SAR")}</td>
                       <td data-label={t("الحالة", "Status")}><span className={campaign.status === "ملغاة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
                       <td data-label={t("آخر تحديث", "Last update")}><span className="campaign-date">◴ {campaign.updatedAt}</span></td>
                       <td data-label={t("الإجراءات", "Actions")} className="row-actions campaign-row-actions">
@@ -549,7 +629,7 @@ export default function CampaignsView({
                       </td>
                     </tr>
                   ))}
-                  {!campaignPagination.items.length ? <tr><td colSpan={6}><div className="campaign-empty"><strong>{t("لا توجد حملات مطابقة", "No matching campaigns")}</strong><span>{t("غيّر البحث أو الحالة، أو أنشئ حملة جديدة.", "Adjust the filters or create a new campaign.")}</span></div></td></tr> : null}
+                  {!campaignPagination.items.length ? <tr><td colSpan={11}><div className="campaign-empty"><strong>{t("لا توجد حملات مطابقة", "No matching campaigns")}</strong><span>{t("غيّر البحث أو الحالة، أو أنشئ حملة جديدة.", "Adjust the filters or create a new campaign.")}</span></div></td></tr> : null}
                 </tbody>
               </table>
             </div>
@@ -558,7 +638,7 @@ export default function CampaignsView({
         </>
       ) : (
         <div className="balance-page">
-          {balanceLoadError ? <p className="form-error">{balanceLoadError}</p> : null}
+          {balanceLoadError ? <p className="form-error" role="alert">{balanceLoadError} <button className="btn soft" type="button" onClick={loadBalance}>{t("إعادة المحاولة", "Try again")}</button></p> : null}
           {(() => {
             if (!lastTopUpAmount) return null;
             const percentRemaining = (balance / lastTopUpAmount) * 100;
@@ -577,11 +657,11 @@ export default function CampaignsView({
           })()}
           <section className="campaign-balance-hero">
             <div><span>{t("رصيد الحملات", "CAMPAIGN BALANCE")}</span><h2>{t("تحكّم في رصيد الإرسال من مكان واحد", "Manage your sending balance in one place")}</h2><p>{t("اشحن الرصيد حسب احتياجك، ثم راقب كل عملية إضافة أو استخدام في السجل المالي أدناه.", "Top up as needed, then review every credit and usage entry in the ledger below.")}</p></div>
-            <div className="campaign-balance-total"><small>{t("الرصيد المتاح", "Available balance")}</small><strong>{balanceLoading ? "..." : balance.toLocaleString("en-US")}</strong><span>{t("رسالة", "messages")}</span><button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>＋ {t("شحن الرصيد", "Top up balance")}</button></div>
+            <div className="campaign-balance-total"><small>{t("الرصيد المتاح", "Available balance")}</small><strong aria-busy={balanceLoading}>{balanceLoading ? <span className="skeleton-number" role="status" aria-label={t("جارٍ التحميل", "Loading")} /> : balanceLoadError ? "—" : balance.toLocaleString("en-US")}</strong><span>{t("رسالة", "messages")}</span><button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>＋ {t("شحن الرصيد", "Top up balance")}</button></div>
           </section>
           <section className="balance-kpi-grid">
-            <article><span>{t("الاستخدام الكلي", "Total usage")}</span><strong>{usedCampaignMessages.toLocaleString("en-US")}</strong><small>{t("رسالة مستخدمة في الحملات", "messages used in campaigns")}</small></article>
-            <article><span>{t("المعاملات المسجلة", "Recorded transactions")}</span><strong>{balanceTransactions.length}</strong><small>{t("عمليات شحن واستخدام", "top-up and usage entries")}</small></article>
+            <article><span>{t("الاستخدام الكلي", "Total usage")}</span><strong>{campaignOverview.sent.toLocaleString("en-US")}</strong><small>{t("رسالة مستخدمة في الحملات", "messages used in campaigns")}</small></article>
+            <article><span>{t("المعاملات المسجلة", "Recorded transactions")}</span><strong>{balanceLoading ? <span className="skeleton-number" role="status" aria-label={t("جارٍ التحميل", "Loading")} /> : balanceTransactions.length}</strong><small>{t("عمليات شحن واستخدام", "top-up and usage entries")}</small></article>
             <article className="balance-pricing-card"><span>{t("التسعير حسب الحجم", "Volume pricing")}</span><strong>{t("ابتداءً من 0.012 ريال", "From SAR 0.012")}</strong><button type="button" onClick={() => setPricingOpen(true)}>{t("عرض جدول الأسعار", "View pricing table")} ←</button></article>
           </section>
 

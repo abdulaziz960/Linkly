@@ -1,3 +1,4 @@
+import { loadCampaignStats } from "./campaign-stats";
 import { emailBodyToText } from "./email-text";
 import { getXHandles } from "./x-handles";
 import { prisma } from "./prisma";
@@ -723,6 +724,21 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS click_count INTEGER NOT NULL DEFAULT 0`
   );
+  await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS delivered_at TEXT NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS replied_at TEXT NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balance_entries (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    campaign_id TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL DEFAULT 'usage',
+    messages INTEGER NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS campaign_balance_entries_tenant_id_created_at_idx ON campaign_balance_entries(tenant_id, created_at)`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS campaign_balance_entries_campaign_id_idx ON campaign_balance_entries(campaign_id)`);
+  await backfillCampaignBalanceEntries();
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS campaign_recipients_tracking_code_idx ON campaign_recipients(tracking_code)`
   );
@@ -1898,6 +1914,24 @@ async function runSchemaMigrations() {
   if (!campaignRecipientColumns.some((column) => column.name === "click_count")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN click_count INTEGER NOT NULL DEFAULT 0`);
   }
+  for (const columnName of ["delivered_at", "replied_at"]) {
+    if (!campaignRecipientColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
+    }
+  }
+  await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balance_entries (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    campaign_id TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL DEFAULT 'usage',
+    messages INTEGER NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS campaign_balance_entries_tenant_id_created_at_idx ON campaign_balance_entries(tenant_id, created_at)`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS campaign_balance_entries_campaign_id_idx ON campaign_balance_entries(campaign_id)`);
+  await backfillCampaignBalanceEntries();
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS campaign_recipients_tracking_code_idx ON campaign_recipients(tracking_code)`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balances (
     tenant_id TEXT PRIMARY KEY,
@@ -2623,6 +2657,14 @@ async function ensureDiscountCodesSchema() {
     throw error;
   });
   await discountCodesSchemaPromise;
+}
+
+/** One ledger row for every campaign that already sent messages before the usage ledger existed. Safe to repeat. */
+export async function backfillCampaignBalanceEntries() {
+  await prisma.$executeRawUnsafe(`INSERT INTO campaign_balance_entries (id, tenant_id, campaign_id, kind, messages, note, created_at, updated_at)
+SELECT 'usage-' || c.id, c.tenant_id, c.id, 'usage', -c.sent, c.name, c.updated_at, c.updated_at
+FROM campaigns c
+WHERE c.sent > 0 AND NOT EXISTS (SELECT 1 FROM campaign_balance_entries e WHERE e.id = 'usage-' || c.id)`);
 }
 
 export async function ensureSchema() {
@@ -3469,18 +3511,25 @@ export async function getAutomationRules(tenantId = "tenant-demo"): Promise<Auto
 export async function getCampaigns(tenantId = "tenant-demo"): Promise<Campaign[]> {
   await ensureSeeded();
   const rows = await prisma.campaign.findMany({ where: { tenantId } });
+  const statsByCampaign = await loadCampaignStats(tenantId, rows);
 
-  return rows.map((campaign) => ({
-    id: campaign.id,
-    name: campaign.name,
-    sent: campaign.sent,
-    total: campaign.total,
-    progress: campaign.progress,
-    status: campaign.status as Campaign["status"],
-    updatedAt: campaign.updatedAt,
-    hasHeaderMedia: Boolean(campaign.headerMediaDataUrl),
-    recurrenceId: campaign.recurrenceId || undefined
-  }));
+  return rows.map((campaign) => {
+    const real = statsByCampaign.get(campaign.id);
+    return {
+      id: campaign.id,
+      name: campaign.name,
+      // The recipient rows are the truth; the stored counters are only a fallback.
+      sent: real?.stats.sent ?? campaign.sent,
+      total: real?.stats.total ?? campaign.total,
+      progress: real ? `${real.stats.sendRate}%` : campaign.progress,
+      status: campaign.status as Campaign["status"],
+      updatedAt: campaign.updatedAt,
+      hasHeaderMedia: Boolean(campaign.headerMediaDataUrl),
+      recurrenceId: campaign.recurrenceId || undefined,
+      stats: real?.stats,
+      cost: real?.cost
+    };
+  });
 }
 
 export async function getWorkSchedules(tenantId = "tenant-demo"): Promise<WorkSchedule[]> {

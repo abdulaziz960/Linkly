@@ -1,3 +1,4 @@
+import type { CampaignStats } from "../../lib/campaign-metrics";
 export type ViewKey =
   | "inbox"
   | "operations"
@@ -283,6 +284,10 @@ export type Campaign = {
   updatedAt: string;
   hasHeaderMedia?: boolean;
   recurrenceId?: string;
+  /** Real counts read from the recipient rows (lib/campaign-stats.ts). */
+  stats?: CampaignStats;
+  /** Riyals spent on the messages this campaign sent. */
+  cost?: number;
 };
 
 export type EmailCampaignSummary = {

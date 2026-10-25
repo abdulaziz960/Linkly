@@ -12284,3 +12284,20 @@ html[dir="ltr"] .notification-bell-panel {
 
 /* A field whose content renders nothing (no store orders yet) leaves no empty box. */
 .profile-card dl > div:empty { display: none; }
+
+/* Campaign overview: clickable summary cards, the message funnel, loading skeletons */
+.campaign-kpis article { padding: 0; }
+.campaign-kpis article > button { display: block; width: 100%; min-height: 128px; padding: 17px; border: 0; background: transparent; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.campaign-kpis article:hover { border-color: #9fc9c3; }
+.campaign-kpis article.is-active { border-color: #178a82; box-shadow: 0 0 0 2px rgba(23, 138, 130, .18); }
+.campaign-funnel { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 11px; }
+.campaign-funnel article { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.campaign-funnel span, .campaign-funnel small { display: block; color: var(--muted); font-size: 13px; font-weight: 800; }
+.campaign-funnel strong { display: block; margin: 6px 0 4px; font-size: 23px; font-variant-numeric: tabular-nums; }
+.campaign-funnel .funnel-failed strong, .campaign-funnel .funnel-optedOut strong { color: #b42318; }
+.campaign-funnel .funnel-cost { background: #f0fdfa; border-color: #b7e4de; }
+.campaign-failure-reasons { margin: 0; padding: 10px 14px; border: 1px solid #f3c9c4; border-radius: 12px; background: #fff6f5; color: #7a271a; font-size: 14px; line-height: 1.8; }
+.campaign-cell-pending { color: #b54708; }
+.skeleton-number { display: inline-block; width: 96px; height: 1em; vertical-align: middle; border-radius: 8px; background: linear-gradient(90deg, rgba(120, 140, 138, .18), rgba(120, 140, 138, .34), rgba(120, 140, 138, .18)); background-size: 200% 100%; animation: skeleton-shimmer 1.2s ease-in-out infinite; }
+@keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton-number { animation: none; } }

@@ -6,6 +6,7 @@ import { ensureSchema, getIntegrationSettings } from "./database";
 import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
 import { recordWhatsAppSendOutcome, whatsappSendErrorCode } from "./whatsapp-billing";
 import type { Prisma } from "@prisma/client";
+import { formatRate } from "./campaign-metrics";
 
 export type ParsedRecipient = { phone: string; name: string };
 
@@ -321,7 +322,7 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
 }
 
 function recalcProgress(sent: number, total: number) {
-  return total > 0 ? `${Math.round((sent / total) * 100)}%` : "0%";
+  return `${formatRate(sent, total)}%`;
 }
 
 /** Flips scheduled campaigns whose time has come to "قيد الإرسال" so the batch processor picks them up. */
@@ -551,6 +552,7 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5, opti
       // Recipients this chunk never started (deadline or rate limit) simply stay pending for the next run.
       if (sentNow > 0) {
         await prisma.campaign.update({ where: { id: campaign.id }, data: { sent: { increment: sentNow } } });
+        await recordCampaignUsage(tenantId, campaign.id, campaign.name, sentNow);
       }
     }
 
@@ -580,6 +582,17 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5, opti
       });
     }
   }
+}
+
+/** Books the messages a campaign just spent on its running ledger row, so every deduction has a ledger entry. */
+async function recordCampaignUsage(tenantId: string, campaignId: string, campaignName: string, messages: number) {
+  const now = new Date().toISOString();
+  const id = `usage-${campaignId}`;
+  await prisma.campaignBalanceEntry.upsert({
+    where: { id },
+    create: { id, tenantId, campaignId, kind: "usage", messages: -messages, note: campaignName, createdAt: now, updatedAt: now },
+    update: { messages: { decrement: messages }, updatedAt: now }
+  }).catch((error) => console.error("Campaign usage ledger entry failed", error));
 }
 
 type SendOutcome = "sent" | "failed" | "skipped" | "rate_limited";

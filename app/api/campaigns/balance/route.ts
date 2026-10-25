@@ -13,22 +13,30 @@ export async function GET() {
   const balanceRow = await prisma.campaignBalance.findUnique({ where: { tenantId: user.tenantId } });
   const balance = balanceRow?.balance ?? 0;
   const lastTopUpAmount = balanceRow?.lastTopUpAmount ?? 0;
-  const payments = await prisma.campaignPayment.findMany({
-    where: { tenantId: user.tenantId },
-    orderBy: { createdAt: "desc" },
-    take: 100
-  });
+  const [payments, usageEntries] = await Promise.all([
+    prisma.campaignPayment.findMany({ where: { tenantId: user.tenantId }, orderBy: { createdAt: "desc" }, take: 100 }),
+    // The usage side of the ledger: one running row per campaign (lib/campaign-engine.ts keeps it).
+    prisma.campaignBalanceEntry.findMany({ where: { tenantId: user.tenantId }, orderBy: { updatedAt: "desc" }, take: 100 })
+  ]);
 
-  return jsonOk({
-    balance,
-    lastTopUpAmount,
-    transactions: payments.map((payment) => ({
+  const transactions = [
+    ...payments.map((payment) => ({
       id: payment.id,
       balance: payment.status === "مكتمل" ? payment.messages : 0,
       usage: `شحن رصيد - ${payment.messages.toLocaleString("en-US")} رسالة`,
       date: payment.completedAt || payment.createdAt,
       status: payment.status,
       cost: payment.amount
+    })),
+    ...usageEntries.map((entry) => ({
+      id: entry.id,
+      balance: entry.messages,
+      usage: `استخدام في حملة «${entry.note || "—"}» - ${Math.abs(entry.messages).toLocaleString("en-US")} رسالة`,
+      date: entry.updatedAt,
+      status: "مكتمل",
+      cost: 0
     }))
-  });
+  ].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+  return jsonOk({ balance, lastTopUpAmount, transactions });
 }
