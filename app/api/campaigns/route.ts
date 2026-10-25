@@ -14,6 +14,7 @@ import {
   parseRiyadhDateTime,
   spawnCampaignOccurrence,
   createRecurringCampaign,
+  parseCampaignTags,
   MAX_CAMPAIGN_FILE_BYTES,
   MAX_CAMPAIGN_MEDIA_BYTES
 } from "../../../lib/campaign-engine";
@@ -62,6 +63,8 @@ export async function POST(request: NextRequest) {
   // dashboard form hides the checkbox once "recurring" is checked.
   const linkTrackingEnabled = !recurring && formData.get("linkTrackingEnabled") === "true";
   const destinationUrl = String(formData.get("destinationUrl") || "").trim();
+  const description = String(formData.get("description") || "").trim().slice(0, 300);
+  const tags = parseCampaignTags(String(formData.get("tags") || ""));
 
   if (recurring && !ALLOWED_RECURRENCE_INTERVAL_DAYS.has(recurrenceIntervalDays)) {
     return jsonError("اختر فترة تكرار صحيحة");
@@ -175,7 +178,9 @@ export async function POST(request: NextRequest) {
       status: isScheduledFuture ? "مجدولة" : "قيد الإرسال",
       scheduledAt: isScheduledFuture && scheduledDate ? scheduledDate.toISOString() : "",
       linkTrackingEnabled,
-      destinationUrl
+      destinationUrl,
+      description,
+      tags
     }));
   }
 

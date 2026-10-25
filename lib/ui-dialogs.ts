@@ -17,6 +17,8 @@ export type ConfirmOptions = {
   cancelLabel?: string;
   /** "danger" styles the confirm button as destructive. Guessed from the wording when omitted (delete, remove, stop...). */
   tone?: "default" | "danger";
+  /** The person must type exactly this (for example the campaign's name) before the confirm button works. */
+  requireText?: string;
 };
 
 export type ConfirmRequest = { id: number; message: string; options: ConfirmOptions; resolve: (accepted: boolean) => void };

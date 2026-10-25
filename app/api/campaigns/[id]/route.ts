@@ -2,10 +2,13 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { prisma } from "../../../../lib/prisma";
-import { processCampaignBatch } from "../../../../lib/campaign-engine";
+import { parseCampaignTags, processCampaignBatch } from "../../../../lib/campaign-engine";
+import { OPT_OUT_ERROR } from "../../../../lib/campaign-metrics";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+const SETTABLE_STATUSES = new Set(["ملغاة", "قيد الإرسال", "مجدولة", "مؤرشفة", "الحملة أنجزت"]);
 
 export const runtime = "nodejs";
 
@@ -15,11 +18,33 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
   if (!(await userHasViewPermission(user, "campaigns"))) return jsonError("لا تملك صلاحية الوصول لهذه الميزة", 403);
 
-  const body = (await request.json()) as { name?: string; status?: string; sendNow?: boolean };
+  const body = (await request.json()) as { name?: string; status?: string; sendNow?: boolean; retryFailed?: boolean; description?: string; tags?: string; scheduledAt?: string };
+
+  if (body.status !== undefined && !SETTABLE_STATUSES.has(body.status)) return jsonError("حالة الحملة غير صحيحة");
+  if (body.name !== undefined && (!body.name.trim() || body.name.trim().length > 120)) return jsonError("اسم الحملة غير صحيح");
 
   try {
     const existing = await prisma.campaign.findFirst({ where: { id, tenantId: user.tenantId } });
     if (!existing) return jsonError("تعذر تحديث الحملة", 404);
+
+    // Resuming a stopped campaign, or sending only the recipients that failed: both put recipients back in the queue.
+    const resuming = body.status === "قيد الإرسال" && !body.sendNow && !body.retryFailed;
+    if (body.status === "مؤرشفة" && existing.status === "قيد الإرسال") return jsonError("أوقف الحملة أولاً ثم أرشفها");
+    if (body.retryFailed) {
+      const approved = await prisma.template.findFirst({ where: { tenantId: user.tenantId, name: existing.templateName, status: "معتمد" } });
+      if (!approved) return jsonError("قالب الحملة غير موجود أو غير معتمد من Meta", 400);
+      const retried = await prisma.campaignRecipient.updateMany({
+        where: { campaignId: id, tenantId: user.tenantId, status: "فشل الإرسال", NOT: { error: OPT_OUT_ERROR } },
+        data: { status: "قيد الإرسال", error: "" }
+      });
+      if (!retried.count) return jsonError("لا يوجد مستلمون فاشلون يمكن إعادة الإرسال لهم", 400);
+    }
+    if (resuming || body.retryFailed) {
+      const waiting = await prisma.campaignRecipient.count({ where: { campaignId: id, tenantId: user.tenantId, status: "قيد الإرسال" } });
+      if (!waiting) return jsonError("لا يوجد جمهور ينتظر الإرسال في هذه الحملة", 400);
+      const template = await prisma.template.findFirst({ where: { tenantId: user.tenantId, name: existing.templateName, status: "معتمد" } });
+      if (!template) return jsonError("قالب الحملة غير موجود أو غير معتمد من Meta", 400);
+    }
 
     if (body.sendNow) {
       const recipientCount = await prisma.campaignRecipient.count({
@@ -42,14 +67,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       where: { id, tenantId: user.tenantId },
       data: {
         name: body.name?.trim(),
-        status: body.sendNow ? "قيد الإرسال" : body.status,
-        scheduledAt: body.sendNow ? "" : undefined,
-        updatedAt: new Date().toLocaleString("en-US")
+        description: body.description === undefined ? undefined : body.description.trim().slice(0, 300),
+        tags: body.tags === undefined ? undefined : parseCampaignTags(body.tags),
+        status: body.sendNow || body.retryFailed ? "قيد الإرسال" : body.status,
+        scheduledAt: body.sendNow ? "" : body.scheduledAt === undefined ? undefined : body.scheduledAt,
+        updatedAt: new Date().toISOString()
       }
     });
     const updated = await prisma.campaign.findFirst({ where: { id, tenantId: user.tenantId } });
 
-    if (body.sendNow) {
+    if (body.sendNow || body.retryFailed || resuming) {
       processCampaignBatch(user.tenantId, 300, { deadlineAt: Date.now() + 50_000 }).catch((error) => console.error("Campaign send-now batch failed", error));
     }
     return jsonOk(updated);

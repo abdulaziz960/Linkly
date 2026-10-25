@@ -49,6 +49,29 @@ await prisma.integrationSetting.create({ data: {
   businessName: "Browser Workspace", wabaName: "Browser", phoneNumber: "966555000000", phoneNumberId: "browser-number-id",
   wabaId: "browser-waba", appId: "", verifyToken: "", accessToken: "", webhookUrl: "", updatedAt: new Date().toISOString()
 } });
+// Two campaigns for the campaigns page: one finished (with a failed and an opted-out recipient), one saved unsent.
+const campaignDate = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+await prisma.campaign.create({ data: {
+  id: "browser-campaign-done", tenantId: "browser-workspace", name: "حملة العرض الأخير", templateName: "promo", language: "ar",
+  sent: 5, total: 7, progress: "71.4%", status: "الحملة أنجزت", description: "عرض نهاية الأسبوع", tags: "vip,رمضان", updatedAt: campaignDate
+} });
+await prisma.campaign.create({ data: {
+  id: "browser-campaign-draft", tenantId: "browser-workspace", name: "حملة مجدولة", templateName: "welcome", language: "ar",
+  sent: 0, total: 2, progress: "0%", status: "مجدولة", updatedAt: campaignDate
+} });
+const recipientStates = [
+  ["تم الإرسال", ""], ["تم الإرسال", ""], ["تم الإرسال", ""], ["تم الإرسال", ""], ["تم الإرسال", ""],
+  ["فشل الإرسال", "(#131026) Message undeliverable"], ["فشل الإرسال", "ألغى العميل اشتراكه من رسائل الحملات"]
+];
+await prisma.campaignRecipient.createMany({ data: recipientStates.map(([status, error], index) => ({
+  id: `browser-cr-${index}`, campaignId: "browser-campaign-done", tenantId: "browser-workspace", phone: `96650000000${index}`,
+  name: `عميل ${index}`, status, error, messageId: status === "تم الإرسال" ? `wamid.${index}` : "", sentAt: status === "تم الإرسال" ? campaignDate : "",
+  deliveredAt: index < 4 ? campaignDate : "", readAt: index < 2 ? campaignDate : "", repliedAt: index < 1 ? campaignDate : "", createdAt: campaignDate
+})) });
+await prisma.campaignRecipient.createMany({ data: [0, 1].map((index) => ({
+  id: `browser-cr-draft-${index}`, campaignId: "browser-campaign-draft", tenantId: "browser-workspace", phone: `96651000000${index}`,
+  name: `مسودة ${index}`, status: "قيد الإرسال", createdAt: campaignDate
+})) });
 await prisma.$disconnect();
 run("node_modules/next/dist/bin/next", ["build"]);
 const server = spawn(process.execPath, [resolve("node_modules/next/dist/bin/next"), "start", "--port", "3217"], {

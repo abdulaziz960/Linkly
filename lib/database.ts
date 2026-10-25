@@ -724,6 +724,8 @@ async function runRequiredProductionMigrations() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS click_count INTEGER NOT NULL DEFAULT 0`
   );
+  await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS delivered_at TEXT NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS replied_at TEXT NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS campaign_balance_entries (
@@ -1913,6 +1915,12 @@ async function runSchemaMigrations() {
   }
   if (!campaignRecipientColumns.some((column) => column.name === "click_count")) {
     await prisma.$executeRawUnsafe(`ALTER TABLE campaign_recipients ADD COLUMN click_count INTEGER NOT NULL DEFAULT 0`);
+  }
+  const campaignNoteColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info(campaigns)`);
+  for (const columnName of ["description", "tags"]) {
+    if (!campaignNoteColumns.some((column) => column.name === columnName)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE campaigns ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
+    }
   }
   for (const columnName of ["delivered_at", "replied_at"]) {
     if (!campaignRecipientColumns.some((column) => column.name === columnName)) {
@@ -3527,7 +3535,13 @@ export async function getCampaigns(tenantId = "tenant-demo"): Promise<Campaign[]
       hasHeaderMedia: Boolean(campaign.headerMediaDataUrl),
       recurrenceId: campaign.recurrenceId || undefined,
       stats: real?.stats,
-      cost: real?.cost
+      cost: real?.cost,
+      channel: campaign.channel || "whatsapp",
+      templateName: campaign.templateName,
+      scheduledAt: campaign.scheduledAt || undefined,
+      sentAt: real?.firstSentAt || undefined,
+      description: campaign.description || undefined,
+      tags: campaign.tags ? campaign.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : undefined
     };
   });
 }

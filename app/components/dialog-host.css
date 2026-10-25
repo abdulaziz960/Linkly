@@ -29,6 +29,9 @@
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
+.ui-dialog-type { display: grid; gap: 6px; margin-top: 14px; font-size: 14px; color: #3f524f; }
+.ui-dialog-type input { min-height: 44px; padding: 0 12px; border: 1px solid #b9cdc9; border-radius: 10px; font: inherit; font-size: 15px; }
+.ui-dialog-confirm:disabled { opacity: .5; cursor: not-allowed; }
 .ui-dialog-actions {
   display: flex;
   justify-content: flex-end;

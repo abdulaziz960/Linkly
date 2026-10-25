@@ -4,14 +4,14 @@ import { campaignCost, computeCampaignStats, effectiveMessageRate, type Campaign
 /** What one message costs when the workspace has no completed top-up yet: the standard small-volume price. */
 export const DEFAULT_MESSAGE_RATE = 0.03;
 
-type FunnelRow = { campaign_id: string; delivered: unknown; read: unknown; replied: unknown; delivery_failed: unknown };
+type FunnelRow = { campaign_id: string; delivered: unknown; read: unknown; replied: unknown; delivery_failed: unknown; first_sent: string | null };
 
 /**
  * The real numbers of every campaign of a workspace, read from its recipient rows (not from the running counters
  * on the campaign, which can drift): one grouped query per question, whatever the number of campaigns.
  */
-export async function loadCampaignStats(tenantId: string, campaigns: Array<{ id: string; total: number }>): Promise<Map<string, { stats: CampaignStats; cost: number }>> {
-  const result = new Map<string, { stats: CampaignStats; cost: number }>();
+export async function loadCampaignStats(tenantId: string, campaigns: Array<{ id: string; total: number }>): Promise<Map<string, { stats: CampaignStats; cost: number; firstSentAt: string }>> {
+  const result = new Map<string, { stats: CampaignStats; cost: number; firstSentAt: string }>();
   if (!campaigns.length) return result;
 
   const [statusGroups, failureGroups, funnelRows, payments] = await Promise.all([
@@ -22,7 +22,8 @@ export async function loadCampaignStats(tenantId: string, campaigns: Array<{ id:
         SUM(CASE WHEN delivered_at <> '' THEN 1 ELSE 0 END) AS delivered,
         SUM(CASE WHEN read_at <> '' THEN 1 ELSE 0 END) AS read,
         SUM(CASE WHEN replied_at <> '' THEN 1 ELSE 0 END) AS replied,
-        SUM(CASE WHEN delivery_failed = 1 THEN 1 ELSE 0 END) AS delivery_failed
+        SUM(CASE WHEN delivery_failed = 1 THEN 1 ELSE 0 END) AS delivery_failed,
+        MIN(CASE WHEN sent_at <> '' THEN sent_at END) AS first_sent
       FROM campaign_recipients
       WHERE tenant_id = ${tenantId}
       GROUP BY campaign_id`,
@@ -43,7 +44,7 @@ export async function loadCampaignStats(tenantId: string, campaigns: Array<{ id:
       repliedCount: Number(row?.replied ?? 0),
       deliveryFailedCount: Number(row?.delivery_failed ?? 0)
     });
-    result.set(campaign.id, { stats, cost: campaignCost(stats.sent, rate) });
+    result.set(campaign.id, { stats, cost: campaignCost(stats.sent, rate), firstSentAt: row?.first_sent ?? "" });
   }
   return result;
 }

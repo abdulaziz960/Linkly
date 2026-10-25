@@ -2,12 +2,13 @@
 
 import { confirmDialog, notify } from "../../../lib/ui-dialogs";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import type { Campaign, MessageTemplate, Segment } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
-import { formatDateTime } from "../../../lib/time";
+import { formatDateTime, formatFullDateTime, formatRelativeTime, parseStoredDate } from "../../../lib/time";
+import { buildCsv } from "../../../lib/csv-export";
 import CampaignEngagementReport from "../components/CampaignEngagementReport";
 import { firstChar } from "../../../lib/first-char";
 import { computeCampaignStats, formatRate, sumCampaignStats, type CampaignStats, type FailureReasonKey } from "../../../lib/campaign-metrics";
@@ -30,6 +31,66 @@ function statsOf(campaign: Campaign): CampaignStats {
     total: campaign.total,
     statusCounts: [{ status: "تم الإرسال", count: campaign.sent }, { status: "قيد الإرسال", count: Math.max(0, campaign.total - campaign.sent) }]
   });
+}
+
+/** The moment a campaign is "about": when it started sending, else when it is due, else its last change. */
+function campaignWhen(campaign: Campaign): Date | null {
+  return parseStoredDate(campaign.sentAt) ?? parseStoredDate(campaign.scheduledAt) ?? parseStoredDate(campaign.updatedAt);
+}
+
+const channelLabels: Record<string, [string, string]> = { whatsapp: ["واتساب", "WhatsApp"], instagram: ["إنستغرام", "Instagram"], facebook: ["فيسبوك", "Facebook"], telegram: ["تيليجرام", "Telegram"] };
+
+/** A time as "قبل ساعتين" with the full date in the tooltip (older than a month: the date itself). */
+function DateCell({ value, language, empty = "—" }: { value: Date | null; language: "ar" | "en"; empty?: string }) {
+  const [now] = useState(() => Date.now());
+  if (!value) return <span className="campaign-date">{empty}</span>;
+  const full = formatFullDateTime(value, language);
+  const recent = Math.abs(now - value.getTime()) < 30 * 24 * 60 * 60 * 1000;
+  return <time className="campaign-date" dateTime={value.toISOString()} title={full}>{recent ? formatRelativeTime(value, language, now) : full}</time>;
+}
+
+function downloadTextFile(fileName: string, text: string) {
+  const blob = new Blob([`\ufeff${text}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+type RowMenuItem = { key: string; label: string; onSelect: () => void; danger?: boolean; hidden?: boolean };
+
+/** The "⋯" menu of a table row: closes on Escape, on an outside click, and returns focus to its button. */
+function RowMenu({ label, items }: { label: string; items: RowMenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDown(event: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") { setOpen(false); buttonRef.current?.focus(); }
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  const visible = items.filter((item) => !item.hidden);
+  return (
+    <div className="row-menu" ref={wrapRef}>
+      <button ref={buttonRef} className="row-menu-trigger" type="button" aria-haspopup="menu" aria-expanded={open} aria-label={label} onClick={() => setOpen((current) => !current)}>⋯</button>
+      {open ? (
+        <div className="row-menu-list" role="menu" aria-label={label}>
+          {visible.map((item) => (
+            <button key={item.key} type="button" role="menuitem" className={item.danger ? "danger" : ""} onClick={() => { setOpen(false); item.onSelect(); }}>{item.label}</button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 const sar = (value: number) => value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -55,6 +116,8 @@ type CampaignForm = {
   segmentId: string;
   linkTrackingEnabled: boolean;
   destinationUrl: string;
+  description: string;
+  tags: string;
 };
 
 type CampaignRecurrenceSummary = {
@@ -113,6 +176,7 @@ function campaignStatusLabel(status: string, t: (ar: string, en: string) => stri
   if (status === "قيد الإرسال") return t("قيد الإرسال", "Sending");
   if (status === "مجدولة") return t("مجدولة", "Scheduled");
   if (status === "ملغاة") return t("ملغاة", "Cancelled");
+  if (status === "مؤرشفة") return t("مؤرشفة", "Archived");
   return status;
 }
 
@@ -160,7 +224,9 @@ export default function CampaignsView({
       audienceMode: "file",
       segmentId: "",
       linkTrackingEnabled: false,
-      destinationUrl: ""
+      destinationUrl: "",
+      description: "",
+      tags: ""
     }),
     [defaultTemplateName]
   );
@@ -194,6 +260,12 @@ export default function CampaignsView({
   const [campaignSearch, setCampaignSearch] = useState("");
   const [campaignStatusFilter, setCampaignStatusFilter] = useState("all");
   const [kpiFilter, setKpiFilter] = useState<KpiFilter>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [channelFilter, setChannelFilter] = useState("all");
+  const [templateFilter, setTemplateFilter] = useState("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [campaignSort, setCampaignSort] = useState("latest");
   const [campaignPageSize, setCampaignPageSize] = useState("10");
   const [campaignPage, setCampaignPage] = useState(1);
@@ -280,16 +352,30 @@ export default function CampaignsView({
       if (kpiFilter === "active") return campaign.status === "قيد الإرسال" || campaign.status === "مجدولة";
       return true;
     };
+    const from = dateFrom ? new Date(`${dateFrom}T00:00:00+03:00`).getTime() : null;
+    const to = dateTo ? new Date(`${dateTo}T23:59:59+03:00`).getTime() : null;
+    const inRange = (campaign: Campaign) => {
+      if (from === null && to === null) return true;
+      const when = campaignWhen(campaign)?.getTime();
+      if (when === undefined) return false;
+      return (from === null || when >= from) && (to === null || when <= to);
+    };
     const rows = campaigns.filter((campaign) => (
       matchesKpi(campaign) &&
-      (campaignStatusFilter === "all" || campaign.status === campaignStatusFilter) &&
+      inRange(campaign) &&
+      (channelFilter === "all" || (campaign.channel || "whatsapp") === channelFilter) &&
+      (templateFilter === "all" || campaign.templateName === templateFilter) &&
+      // Archived campaigns stay out of the way unless the status filter asks for them.
+      (campaignStatusFilter === "مؤرشفة" ? campaign.status === "مؤرشفة" : campaign.status !== "مؤرشفة" && (campaignStatusFilter === "all" || campaign.status === campaignStatusFilter)) &&
       (!query || campaign.name.toLowerCase().includes(query) || campaign.status.toLowerCase().includes(query) || campaign.updatedAt.toLowerCase().includes(query) || `${campaign.sent}/${campaign.total}`.includes(query))
     ));
     if (campaignSort === "name") return [...rows].sort((a, b) => a.name.localeCompare(b.name));
     if (campaignSort === "sent") return [...rows].sort((a, b) => b.sent - a.sent);
     if (campaignSort === "progress") return [...rows].sort((a, b) => Number.parseFloat(b.progress) - Number.parseFloat(a.progress));
-    return rows;
-  }, [campaignSearch, campaignSort, campaignStatusFilter, kpiFilter, campaigns]);
+    return [...rows].sort((a, b) => (campaignWhen(b)?.getTime() ?? 0) - (campaignWhen(a)?.getTime() ?? 0));
+  }, [campaignSearch, campaignSort, campaignStatusFilter, kpiFilter, dateFrom, dateTo, channelFilter, templateFilter, campaigns]);
+  const templateOptions = useMemo(() => [...new Set(campaigns.map((campaign) => campaign.templateName).filter((name): name is string => Boolean(name)))], [campaigns]);
+  const channelOptions = useMemo(() => [...new Set(campaigns.map((campaign) => campaign.channel || "whatsapp"))], [campaigns]);
   const campaignPagination = paginate(filteredCampaigns, campaignPage, Number(campaignPageSize));
   const filteredBalanceTransactions = useMemo(() => {
     const query = balanceSearch.trim().toLowerCase();
@@ -361,7 +447,9 @@ export default function CampaignsView({
             audienceMode: "file",
             segmentId: "",
             linkTrackingEnabled: false,
-            destinationUrl: ""
+            destinationUrl: "",
+            description: campaign.description ?? "",
+            tags: (campaign.tags ?? []).join(", ")
           }
         : emptyForm
     );
@@ -399,7 +487,7 @@ export default function CampaignsView({
       await fetch(`/api/campaigns/${form.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name })
+        body: JSON.stringify({ name: form.name, description: form.description, tags: form.tags })
       });
       await onRefreshData();
       setSaving(false);
@@ -440,6 +528,8 @@ export default function CampaignsView({
       body.set("file", campaignFile);
     }
     if (headerMediaFile) body.set("headerMedia", headerMediaFile);
+    body.set("description", form.description);
+    body.set("tags", form.tags);
     body.set("linkTrackingEnabled", String(form.linkTrackingEnabled));
     if (form.linkTrackingEnabled) body.set("destinationUrl", form.destinationUrl);
 
@@ -459,9 +549,7 @@ export default function CampaignsView({
   }
 
   async function deleteCampaign(campaign: Campaign) {
-    if (!(await confirmDialog(t(`حذف حملة ${campaign.name}؟`, `Delete the "${campaign.name}" campaign?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    await fetch(`/api/campaigns/${campaign.id}`, { method: "DELETE" });
-    await onRefreshData();
+    await deleteCampaignsTyped([campaign]);
   }
 
   async function stopCampaign(campaign: Campaign) {
@@ -487,6 +575,93 @@ export default function CampaignsView({
       return;
     }
     await onRefreshData();
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  const pageIds = campaignPagination.items.map((campaign) => campaign.id);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+  const selectedCampaigns = campaigns.filter((campaign) => selectedIds.has(campaign.id));
+
+  async function patchCampaign(id: string, body: Record<string, unknown>) {
+    const response = await fetch(`/api/campaigns/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) notify(payload?.error || t("تعذر تنفيذ الإجراء", "Could not complete the action"), "error");
+    return response.ok;
+  }
+
+  async function archiveCampaigns(list: Campaign[], archived: boolean) {
+    const eligible = list.filter((campaign) => archived ? campaign.status !== "قيد الإرسال" : campaign.status === "مؤرشفة");
+    if (!eligible.length) {
+      notify(archived ? t("أوقف الحملة أولاً ثم أرشفها", "Stop the campaign first, then archive it") : t("لا توجد حملات مؤرشفة محددة", "No archived campaigns selected"), "info");
+      return;
+    }
+    setBulkBusy(true);
+    // Restoring puts a finished campaign back as finished, and an unfinished one as stopped.
+    for (const campaign of eligible) await patchCampaign(campaign.id, { status: archived ? "مؤرشفة" : statsOf(campaign).complete ? "الحملة أنجزت" : "ملغاة" });
+    setBulkBusy(false);
+    setSelectedIds(new Set());
+    await onRefreshData();
+    notify(archived ? t(`تمت أرشفة ${eligible.length} حملة`, `${eligible.length} campaign(s) archived`) : t(`تمت استعادة ${eligible.length} حملة`, `${eligible.length} campaign(s) restored`), "success");
+  }
+
+  async function deleteCampaignsTyped(list: Campaign[]) {
+    const deletable = list.filter((campaign) => campaign.status !== "قيد الإرسال");
+    if (!deletable.length) {
+      notify(t("لا يمكن حذف حملة قيد الإرسال. أوقفها أولاً.", "A campaign that is sending cannot be deleted. Stop it first."), "info");
+      return;
+    }
+    const single = deletable.length === 1;
+    const confirmWord = single ? deletable[0].name : t("حذف", "delete");
+    const accepted = await confirmDialog(
+      single
+        ? t(`سيُحذف التقرير وكل مستلمي حملة «${deletable[0].name}» نهائياً. يمكنك أرشفتها بدل الحذف.`, `The report and every recipient of “${deletable[0].name}” will be deleted for good. You can archive it instead.`)
+        : t(`سيُحذف ${deletable.length} حملة بكل مستلميها نهائياً. يمكنك أرشفتها بدل الحذف.`, `${deletable.length} campaigns and all their recipients will be deleted for good. You can archive them instead.`),
+      { tone: "danger", requireText: confirmWord, confirmLabel: t("حذف نهائي", "Delete forever"), cancelLabel: t("تراجع", "Cancel") }
+    );
+    if (!accepted) return;
+    setBulkBusy(true);
+    for (const campaign of deletable) await fetch(`/api/campaigns/${campaign.id}`, { method: "DELETE" });
+    setBulkBusy(false);
+    setSelectedIds(new Set());
+    await onRefreshData();
+  }
+
+  async function duplicateCampaign(campaign: Campaign) {
+    const response = await fetch(`/api/campaigns/${campaign.id}/duplicate`, { method: "POST" });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      notify(payload?.error || t("تعذر نسخ الحملة", "Could not duplicate the campaign"), "error");
+      return;
+    }
+    await onRefreshData();
+    notify(t("تم نسخ الحملة. راجعها ثم اضغط «إرسال الآن».", "Campaign duplicated. Review it, then press “Send now”."), "success");
+  }
+
+  async function resumeCampaign(campaign: Campaign) {
+    if (await patchCampaign(campaign.id, { status: "قيد الإرسال" })) await onRefreshData();
+  }
+
+  async function retryFailedRecipients(campaign: Campaign) {
+    const failed = statsOf(campaign).failed;
+    if (!(await confirmDialog(t(`إعادة الإرسال لـ ${failed.toLocaleString("en-US")} مستلم فشل إرسالهم؟ سيُخصم رصيد عن كل رسالة تصل.`, `Resend to the ${failed.toLocaleString("en-US")} recipients that failed? One credit is used per delivered message.`), { confirmLabel: t("إعادة الإرسال", "Resend"), cancelLabel: t("تراجع", "Cancel") }))) return;
+    if (await patchCampaign(campaign.id, { retryFailed: true })) await onRefreshData();
+  }
+
+  function exportCampaignsCsv(list: Campaign[]) {
+    const header = [t("الحملة", "Campaign"), t("الحالة", "Status"), t("القالب", "Template"), t("تاريخ الإرسال", "Sent at"), t("حجم الجمهور", "Audience"), t("المُرسلة", "Sent"), t("وصلت", "Delivered"), t("قُرئت", "Read"), t("ردّ", "Replied"), t("فشلت", "Failed"), t("ألغوا الاشتراك", "Opted out"), t("التكلفة (ريال)", "Cost (SAR)"), t("آخر تحديث", "Last update")];
+    const rows = list.map((campaign) => {
+      const stats = statsOf(campaign);
+      const when = parseStoredDate(campaign.sentAt) ?? parseStoredDate(campaign.scheduledAt);
+      return [campaign.name, campaignStatusLabel(campaign.status, t), campaign.templateName ?? "", when ? when.toISOString() : "", stats.total, stats.sent, stats.delivered, stats.read, stats.replied, stats.failed, stats.optedOut, sar(campaign.cost ?? 0), parseStoredDate(campaign.updatedAt)?.toISOString() ?? campaign.updatedAt];
+    });
+    downloadTextFile(`campaigns-${new Date().toISOString().slice(0, 10)}.csv`, buildCsv(header, rows));
   }
 
   async function createChargeRequest() {
@@ -599,37 +774,80 @@ export default function CampaignsView({
           <div className="campaign-board campaign-list-board">
             <div className="campaign-list-head"><div><h2>{t("كل الحملات", "All campaigns")}</h2><p>{t("تابع التنفيذ وافتح التقرير أو أوقف الحملة من نفس الصف.", "Track execution, open reports, or stop a campaign from the same row.")}</p></div><button className="reload" type="button" onClick={onRefreshData}>↻ {t("تحديث البيانات", "Refresh data")}</button></div>
             <div className="campaign-toolbar campaign-filterbar">
-              <input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); }} placeholder={t("ابحث باسم الحملة أو الحالة…", "Search name or status…")} />
-              <CustomSelect value={campaignStatusFilter} onChange={(value) => { setCampaignStatusFilter(value); setCampaignPage(1); }} options={[{value:"all",label:t("كل الحالات","All statuses")},{value:"قيد الإرسال",label:t("قيد الإرسال","Sending")},{value:"مجدولة",label:t("مجدولة","Scheduled")},{value:"الحملة أنجزت",label:t("مكتملة","Completed")},{value:"ملغاة",label:t("ملغاة","Cancelled")}]} />
+              <input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); }} placeholder={t("ابحث باسم الحملة أو الحالة…", "Search name or status…")} aria-label={t("بحث في الحملات", "Search campaigns")} />
+              <CustomSelect value={campaignStatusFilter} onChange={(value) => { setCampaignStatusFilter(value); setCampaignPage(1); }} options={[{value:"all",label:t("كل الحالات","All statuses")},{value:"قيد الإرسال",label:t("قيد الإرسال","Sending")},{value:"مجدولة",label:t("مجدولة","Scheduled")},{value:"الحملة أنجزت",label:t("مكتملة","Completed")},{value:"ملغاة",label:t("ملغاة","Cancelled")},{value:"مؤرشفة",label:t("مؤرشفة","Archived")}]} />
               <CustomSelect value={campaignSort} onChange={setCampaignSort} options={[{value:"latest",label:t("الأحدث أولاً","Latest first")},{value:"sent",label:t("الأكثر إرسالاً","Most sent")},{value:"progress",label:t("الأعلى تقدماً","Highest progress")},{value:"name",label:t("حسب الاسم","By name")}]} />
               <label className="entries">{t("عرض", "Show")} <CustomSelect className="page-size" value={campaignPageSize} onChange={(value) => { setCampaignPageSize(value); setCampaignPage(1); }} options={pageSizeOptions} /></label>
             </div>
+            <div className="campaign-toolbar campaign-filterbar campaign-filterbar-extra">
+              <label className="campaign-date-filter"><span>{t("من", "From")}</span><input type="date" value={dateFrom} max={dateTo || undefined} onChange={(event) => { setDateFrom(event.target.value); setCampaignPage(1); }} /></label>
+              <label className="campaign-date-filter"><span>{t("إلى", "To")}</span><input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => { setDateTo(event.target.value); setCampaignPage(1); }} /></label>
+              <CustomSelect value={channelFilter} onChange={(value) => { setChannelFilter(value); setCampaignPage(1); }} options={[{ value: "all", label: t("كل القنوات", "All channels") }, ...channelOptions.map((channel) => ({ value: channel, label: channelLabels[channel] ? t(channelLabels[channel][0], channelLabels[channel][1]) : channel }))]} />
+              <CustomSelect value={templateFilter} onChange={(value) => { setTemplateFilter(value); setCampaignPage(1); }} options={[{ value: "all", label: t("كل القوالب", "All templates") }, ...templateOptions.map((name) => ({ value: name, label: name }))]} />
+              {dateFrom || dateTo || channelFilter !== "all" || templateFilter !== "all" || kpiFilter !== "all" ? (
+                <button className="btn soft" type="button" onClick={() => { setDateFrom(""); setDateTo(""); setChannelFilter("all"); setTemplateFilter("all"); setKpiFilter("all"); setCampaignPage(1); }}>{t("مسح الفلاتر", "Clear filters")}</button>
+              ) : null}
+              <button className="btn soft" type="button" onClick={() => exportCampaignsCsv(filteredCampaigns)} disabled={!filteredCampaigns.length}>{t("تصدير CSV", "Export CSV")}</button>
+            </div>
+            {selectedCampaigns.length ? (
+              <div className="campaign-bulkbar" role="region" aria-label={t("إجراءات جماعية", "Bulk actions")}>
+                <b>{t(`${selectedCampaigns.length} محددة`, `${selectedCampaigns.length} selected`)}</b>
+                <button className="btn soft" type="button" disabled={bulkBusy} onClick={() => exportCampaignsCsv(selectedCampaigns)}>{t("تصدير", "Export")}</button>
+                {campaignStatusFilter === "مؤرشفة"
+                  ? <button className="btn soft" type="button" disabled={bulkBusy} onClick={() => archiveCampaigns(selectedCampaigns, false)}>{t("استعادة", "Restore")}</button>
+                  : <button className="btn soft" type="button" disabled={bulkBusy} onClick={() => archiveCampaigns(selectedCampaigns, true)}>{t("أرشفة", "Archive")}</button>}
+                <button className="btn danger" type="button" disabled={bulkBusy} onClick={() => deleteCampaignsTyped(selectedCampaigns)}>{t("حذف", "Delete")}</button>
+                <button className="btn soft" type="button" onClick={() => setSelectedIds(new Set())}>{t("إلغاء التحديد", "Clear selection")}</button>
+              </div>
+            ) : null}
             <div className="table-wrap">
-              <table className="mobile-card-table">
-                <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("الإرسال", "Sending")}</th><th>{t("التقدم", "Progress")}</th><th>{t("وصلت", "Delivered")}</th><th>{t("قُرئت", "Read")}</th><th>{t("ردّ", "Replied")}</th><th>{t("فشلت", "Failed")}</th><th>{t("التكلفة", "Cost")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th></tr></thead>
+              <table className="mobile-card-table campaigns-table">
+                <thead><tr>
+                  <th className="select-col"><input type="checkbox" aria-label={t("تحديد كل حملات الصفحة", "Select all campaigns on this page")} checked={allOnPageSelected} onChange={() => setSelectedIds((current) => { const next = new Set(current); if (allOnPageSelected) pageIds.forEach((id) => next.delete(id)); else pageIds.forEach((id) => next.add(id)); return next; })} /></th>
+                  <th>{t("الحملة", "Campaign")}</th><th>{t("القالب", "Template")}</th><th>{t("تاريخ الإرسال", "Sent")}</th><th>{t("الجمهور", "Audience")}</th><th>{t("الإرسال", "Sending")}</th><th>{t("التقدم", "Progress")}</th><th>{t("وصلت", "Delivered")}</th><th>{t("قُرئت", "Read")}</th><th>{t("ردّ", "Replied")}</th><th>{t("فشلت", "Failed")}</th><th>{t("التكلفة", "Cost")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th>
+                </tr></thead>
                 <tbody>
-                  {campaignPagination.items.map((campaign) => (
-                    <tr key={campaign.id}>
-                      <td data-label={t("الحملة", "Campaign")}><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <Image src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" width={42} height={42} unoptimized onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : firstChar(campaign.name.trim()) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}</span></div></td>
-                      <td data-label={t("الإرسال", "Sending")}><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small>{statsOf(campaign).pending > 0 ? <small className="campaign-cell-note campaign-cell-pending"> · {statsOf(campaign).pending.toLocaleString("en-US")} {t("بالانتظار", "waiting")}</small> : null}</td>
+                  {campaignPagination.items.map((campaign) => {
+                    const stats = statsOf(campaign);
+                    return (
+                    <tr key={campaign.id} className={selectedIds.has(campaign.id) ? "is-selected" : ""}>
+                      <td className="select-col"><input type="checkbox" aria-label={t(`تحديد ${campaign.name}`, `Select ${campaign.name}`)} checked={selectedIds.has(campaign.id)} onChange={() => toggleSelected(campaign.id)} /></td>
+                      <td data-label={t("الحملة", "Campaign")}><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <Image src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" width={42} height={42} unoptimized onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : firstChar(campaign.name.trim()) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}
+                        {campaign.description ? <small className="campaign-description">{campaign.description}</small> : null}
+                        {campaign.tags?.length ? <span className="campaign-tags">{campaign.tags.map((tag) => <em key={tag}>{tag}</em>)}</span> : null}</span></div></td>
+                      <td data-label={t("القالب", "Template")}><span className="campaign-template" title={campaign.templateName}>{campaign.templateName || "—"}</span></td>
+                      <td data-label={t("تاريخ الإرسال", "Sent")}><DateCell value={parseStoredDate(campaign.sentAt) ?? parseStoredDate(campaign.scheduledAt)} language={language === "en" ? "en" : "ar"} empty={t("لم تُرسل بعد", "Not sent yet")} /></td>
+                      <td data-label={t("الجمهور", "Audience")}>{stats.total.toLocaleString("en-US")}</td>
+                      <td data-label={t("الإرسال", "Sending")}><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small>{stats.pending > 0 ? <small className="campaign-cell-note campaign-cell-pending"> · {stats.pending.toLocaleString("en-US")} {t("بالانتظار", "waiting")}</small> : null}</td>
                       <td data-label={t("التقدم", "Progress")}><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
-                      <td data-label={t("وصلت", "Delivered")}>{statsOf(campaign).delivered.toLocaleString("en-US")}</td>
-                      <td data-label={t("قُرئت", "Read")}>{statsOf(campaign).read.toLocaleString("en-US")}</td>
-                      <td data-label={t("ردّ", "Replied")}>{statsOf(campaign).replied.toLocaleString("en-US")}</td>
-                      <td data-label={t("فشلت", "Failed")}>{(statsOf(campaign).failed + statsOf(campaign).optedOut).toLocaleString("en-US")}</td>
+                      <td data-label={t("وصلت", "Delivered")}>{stats.delivered.toLocaleString("en-US")}</td>
+                      <td data-label={t("قُرئت", "Read")}>{stats.read.toLocaleString("en-US")}</td>
+                      <td data-label={t("ردّ", "Replied")}>{stats.replied.toLocaleString("en-US")}</td>
+                      <td data-label={t("فشلت", "Failed")}>{(stats.failed + stats.optedOut).toLocaleString("en-US")}</td>
                       <td data-label={t("التكلفة", "Cost")}><bdi dir="ltr">{sar(campaign.cost ?? 0)}</bdi> {t("ريال", "SAR")}</td>
-                      <td data-label={t("الحالة", "Status")}><span className={campaign.status === "ملغاة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
-                      <td data-label={t("آخر تحديث", "Last update")}><span className="campaign-date">◴ {campaign.updatedAt}</span></td>
+                      <td data-label={t("الحالة", "Status")}><span className={campaign.status === "ملغاة" || campaign.status === "مؤرشفة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
+                      <td data-label={t("آخر تحديث", "Last update")}><DateCell value={parseStoredDate(campaign.updatedAt)} language={language === "en" ? "en" : "ar"} /></td>
                       <td data-label={t("الإجراءات", "Actions")} className="row-actions campaign-row-actions">
                         <button className="campaign-report" type="button" onClick={() => openReport(campaign)}>{t("التقرير", "Report")}</button>
                         {campaign.status === "مجدولة" && campaign.total > 0 ? <button className="btn primary" type="button" onClick={() => sendCampaignNow(campaign)}>{t("إرسال الآن", "Send now")}</button> : null}
                         {campaign.status === "قيد الإرسال" || campaign.status === "مجدولة" ? <button className="btn soft" type="button" onClick={() => stopCampaign(campaign)}>{t("إيقاف", "Stop")}</button> : null}
-                        <button className="btn soft" type="button" onClick={() => openForm(campaign)}>{t("تعديل", "Edit")}</button>
-                        <button className="btn danger" type="button" onClick={() => deleteCampaign(campaign)}>{t("حذف", "Delete")}</button>
+                        {campaign.status === "ملغاة" && stats.pending > 0 ? <button className="btn soft" type="button" onClick={() => resumeCampaign(campaign)}>{t("استئناف", "Resume")}</button> : null}
+                        <RowMenu
+                          label={t(`خيارات ${campaign.name}`, `Options for ${campaign.name}`)}
+                          items={[
+                            { key: "edit", label: t("تعديل الاسم والوصف", "Edit name and notes"), onSelect: () => openForm(campaign) },
+                            { key: "duplicate", label: t("نسخ الحملة", "Duplicate"), onSelect: () => duplicateCampaign(campaign) },
+                            { key: "retry", label: t("إعادة الإرسال للفاشلين فقط", "Resend to failed only"), onSelect: () => retryFailedRecipients(campaign), hidden: stats.failed === 0 || campaign.status === "قيد الإرسال" },
+                            { key: "export", label: t("تصدير المستلمين", "Export recipients"), onSelect: () => openReport(campaign) },
+                            { key: "archive", label: campaign.status === "مؤرشفة" ? t("استعادة من الأرشيف", "Restore from archive") : t("أرشفة", "Archive"), onSelect: () => archiveCampaigns([campaign], campaign.status !== "مؤرشفة"), hidden: campaign.status === "قيد الإرسال" },
+                            { key: "delete", label: t("حذف…", "Delete…"), onSelect: () => deleteCampaign(campaign), danger: true, hidden: campaign.status === "قيد الإرسال" }
+                          ]}
+                        />
                       </td>
                     </tr>
-                  ))}
-                  {!campaignPagination.items.length ? <tr><td colSpan={11}><div className="campaign-empty"><strong>{t("لا توجد حملات مطابقة", "No matching campaigns")}</strong><span>{t("غيّر البحث أو الحالة، أو أنشئ حملة جديدة.", "Adjust the filters or create a new campaign.")}</span></div></td></tr> : null}
+                    );
+                  })}
+                  {!campaignPagination.items.length ? <tr><td colSpan={15}><div className="campaign-empty"><strong>{t("لا توجد حملات مطابقة", "No matching campaigns")}</strong><span>{t("غيّر البحث أو الحالة، أو أنشئ حملة جديدة.", "Adjust the filters or create a new campaign.")}</span></div></td></tr> : null}
                 </tbody>
               </table>
             </div>
@@ -707,6 +925,8 @@ export default function CampaignsView({
             <div className="account-modal-body form-grid campaign-builder-fields">
               {!form.id ? <div className="campaign-warning">{t("الرجاء قبل إرسال أي حملة قم بإنشاء حملة تجريبية تحتوي على رقمك فقط، لتتأكد من الإرسال ووصول الرسالة دون أي مشكلة في الإرسال", "Before sending any campaign, please create a test campaign with just your own number to confirm the message sends and arrives without issues.")}</div> : null}
               <label><span>{t("اسم الحملة", "Campaign name")}</span><input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder={t("اسم الحملة", "Campaign name")} required /></label>
+              <label><span>{t("وصف (اختياري)", "Description (optional)")}</span><input value={form.description} maxLength={300} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder={t("ملاحظة تظهر تحت اسم الحملة", "A note shown under the campaign name")} /></label>
+              <label><span>{t("وسوم (اختياري)", "Tags (optional)")}</span><input value={form.tags} onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))} placeholder={t("مثال: رمضان، عملاء VIP", "e.g. Ramadan, VIP")} /></label>
               {!form.id ? (
                 <>
                   <label>

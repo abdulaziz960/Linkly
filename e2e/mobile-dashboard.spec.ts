@@ -28,6 +28,10 @@ test("dashboard fits mobile viewports and its drawer remains usable", async ({ p
   await page.locator('input[name="password"]').fill("Browser-only-Password-927!");
   await page.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
   await expect(page).toHaveURL(/dashboard/);
+  // The cookie notice can appear a moment after the page loads and would sit on top of what the test clicks.
+  const lateNotice = page.getByRole("dialog", { name: "إشعار الكوكيز" });
+  await lateNotice.waitFor({ state: "visible", timeout: 3000 }).catch(() => {});
+  if (await lateNotice.isVisible()) await lateNotice.getByRole("button", { name: "رفض", exact: true }).click();
 
   const captureDir = process.env.MOBILE_CAPTURE_DIR;
   if (captureDir) mkdirSync(captureDir, { recursive: true });

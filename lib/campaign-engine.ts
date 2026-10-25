@@ -10,6 +10,12 @@ import { formatRate } from "./campaign-metrics";
 
 export type ParsedRecipient = { phone: string; name: string };
 
+/** Tags typed as "vip, رمضان" become the stored comma-separated form: trimmed, unique, at most 8, 24 characters each. */
+export function parseCampaignTags(input: string): string {
+  const tags = input.split(/[,،]/).map((tag) => tag.trim().slice(0, 24)).filter(Boolean);
+  return [...new Set(tags)].slice(0, 8).join(",");
+}
+
 export const MAX_CAMPAIGN_RECIPIENTS = 10_000;
 export const MAX_CAMPAIGN_FILE_BYTES = 5 * 1024 * 1024;
 // WhatsApp's own template-media limits: 5MB for images, 16MB for video/documents.
@@ -348,6 +354,8 @@ export async function spawnCampaignOccurrence(tx: Prisma.TransactionClient, para
   recurrenceId?: string;
   linkTrackingEnabled?: boolean;
   destinationUrl?: string;
+  description?: string;
+  tags?: string;
 }): Promise<string> {
   const campaignId = `camp-${randomUUID()}`;
   await tx.campaign.create({
@@ -367,7 +375,9 @@ export async function spawnCampaignOccurrence(tx: Prisma.TransactionClient, para
       recurrenceId: params.recurrenceId || "",
       linkTrackingEnabled: params.linkTrackingEnabled ? 1 : 0,
       destinationUrl: params.destinationUrl || "",
-      updatedAt: new Date().toLocaleString("en-US")
+      description: params.description || "",
+      tags: params.tags || "",
+      updatedAt: new Date().toISOString()
     }
   });
   await tx.campaignRecipient.createMany({
@@ -561,7 +571,7 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5, opti
       if (remainingCount === 0) {
         await prisma.campaign.update({
           where: { id: campaign.id },
-          data: { status: "الحملة أنجزت", progress: recalcProgress(campaign.sent, campaign.total), updatedAt: new Date().toLocaleString("en-US") }
+          data: { status: "الحملة أنجزت", progress: recalcProgress(campaign.sent, campaign.total), updatedAt: new Date().toISOString() }
         });
       }
       continue;
@@ -577,7 +587,7 @@ export async function processCampaignBatch(tenantId: string, batchSize = 5, opti
         data: {
           progress: recalcProgress(updatedCampaign.sent, updatedCampaign.total),
           status: stillPending === 0 ? "الحملة أنجزت" : "قيد الإرسال",
-          updatedAt: new Date().toLocaleString("en-US")
+          updatedAt: new Date().toISOString()
         }
       });
     }

@@ -280,10 +280,18 @@ export type Campaign = {
   sent: number;
   total: number;
   progress: string;
-  status: "الحملة أنجزت" | "قيد الإرسال" | "مجدولة" | "ملغاة";
+  status: "الحملة أنجزت" | "قيد الإرسال" | "مجدولة" | "ملغاة" | "مؤرشفة";
   updatedAt: string;
   hasHeaderMedia?: boolean;
   recurrenceId?: string;
+  channel?: string;
+  templateName?: string;
+  /** ISO time a scheduled campaign is due. */
+  scheduledAt?: string;
+  /** When the first message of this campaign was sent. */
+  sentAt?: string;
+  description?: string;
+  tags?: string[];
   /** Real counts read from the recipient rows (lib/campaign-stats.ts). */
   stats?: CampaignStats;
   /** Riyals spent on the messages this campaign sent. */

@@ -277,6 +277,9 @@ model Campaign {
   // clicking it redirects to destinationUrl.
   linkTrackingEnabled Int    @default(0) @map("link_tracking_enabled")
   destinationUrl      String @default("") @map("destination_url")
+  // Optional notes shown under the campaign name: a description and comma-separated tags.
+  description  String @default("")
+  tags         String @default("")
   updatedAt    String @map("updated_at")
 
   @@index([tenantId, status])
