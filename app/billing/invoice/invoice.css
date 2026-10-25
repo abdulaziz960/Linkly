@@ -76,3 +76,4 @@
   .invoice-actions{display:none}
   .invoice-table tr,.invoice-totals{break-inside:avoid}
 }
+.invoice-seller small { display: block; margin-top: 2px; color: #64748b; font-size: 12px; font-weight: 600; }

@@ -9,6 +9,7 @@ import { paymentStatementDescriptor } from "../../../../lib/moyasar";
 import { getMoyasarPublishableKey } from "../../../../lib/moyasar-publishable";
 import MoyasarPayForm from "./MoyasarPayForm";
 import PayPromoBox from "../PayPromoBox";
+import PayTaxSummary from "../PayTaxSummary";
 import "../../billing.css";
 
 export const metadata = { title: { absolute: "إتمام الدفع | Linkly" } };
@@ -48,12 +49,13 @@ export default async function BillingPayPage({ params }: { params: Promise<{ pay
             <dl>
               <div><dt>سعر الباقة</dt><dd>{payment.listPrice.toLocaleString("en-US")} ر.س</dd></div>
               <div><dt>خصم الأيام المتبقية من باقتك الحالية</dt><dd>-{payment.prorationCreditAmount.toLocaleString("en-US")} ر.س</dd></div>
-              <div className="proration-final"><dt>المبلغ المطلوب</dt><dd>{payment.amount.toLocaleString("en-US")} ر.س</dd></div>
+              <div className="proration-final"><dt>المبلغ قبل الضريبة</dt><dd>{payment.amount.toLocaleString("en-US")} ر.س</dd></div>
             </dl>
           </div>
         ) : (
-          <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س</p>
+          <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س <small>(قبل الضريبة)</small></p>
         )}
+        <PayTaxSummary payment={payment} />
         <PayPromoBox
           endpoint="/api/billing/pay-promo"
           paymentId={payment.id}

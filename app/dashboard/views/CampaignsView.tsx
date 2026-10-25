@@ -851,6 +851,7 @@ export default function CampaignsView({
                 <div><span>{t("سعر الرسالة", "Price per message")}</span><b>{chargeTier ? formatCurrency(chargeTier.rate, language) : "-"}</b></div>
                 <div><span>{t("إجمالي الشحن", "Total top-up")}</span><b>{chargeTier ? formatCurrency(chargeTotal, language) : "-"}</b></div>
               </div>
+              <p style={{ color: "#d92d20", fontWeight: 800, fontSize: 13 }}>{t("الأسعار غير شاملة ضريبة القيمة المضافة (15%)، وتُضاف عند صفحة الدفع.", "Prices exclude VAT. 15% VAT is added on the payment page.")}</p>
               <p className="field-hint">{t('بالضغط على "إنشاء طلب الشحن" بتنفتح لك صفحة دفع آمنة من Moyasar لإتمام العملية ببطاقتك. الرصيد ينضاف تلقائيًا بعد نجاح الدفع.', 'Clicking "Create top-up request" opens a secure Moyasar payment page to complete the transaction with your card. The balance is added automatically once payment succeeds.')}</p>
               {chargeError ? <p className="form-error">{chargeError}</p> : null}
             </div>

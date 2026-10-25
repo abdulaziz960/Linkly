@@ -11,7 +11,7 @@ import s from "./page.module.css";
  *   be topped up (app/api/campaigns/balance).
  * - Meta fees: billed by Meta to the payment method on the business's own WhatsApp
  *   Business Account, never through Linkly (lib/whatsapp-billing.ts).
- * VAT is deliberately not stated here until the business confirms how it applies.
+ * Prices are without VAT (VatNote under the price lists); 15% is added at the payment page.
  */
 const notes = {
   ar: {
@@ -19,6 +19,7 @@ const notes = {
     items: [
       ["التجربة المجانية", "3 أيام تبدأ عند إنشاء الحساب، على الباقة التي تختارها (عدا «صمم باقتك»)، بدون بطاقة دفع. عند انتهائها تختار باقة وتدفع الاشتراك لمواصلة استخدام لوحة التحكم."],
       ["الرسائل التسويقية", "رصيد لرسائل الحملات التي ترسلها من لنكلي، ولا يُخصم منه الرد على محادثات العملاء. يُضاف مع كل دفعة اشتراك (رصيد 12 شهرًا مع الدفع السنوي). إذا نفد الرصيد يتوقف إرسال بقية الحملة حتى تشحن رصيدًا إضافيًا أو يتجدد اشتراكك."],
+      ["ضريبة القيمة المضافة", "الأسعار المعروضة غير شاملة ضريبة القيمة المضافة (15%)، وتُضاف عند صفحة الدفع على كل اشتراك وشحن رصيد، وتظهر في الفاتورة الضريبية برقمنا الضريبي."],
       ["رسوم Meta لواتساب", "رسوم رسائل القوالب التي تفرضها Meta، إن وجدت، غير مشمولة في الباقة، وتدفعها لـ Meta مباشرة عبر وسيلة الدفع في حساب واتساب للأعمال الخاص بك."],
       ["ربط القنوات وخدمة التجهيز", "نساعدك في ربط قنواتك بحساباتك الحالية ضمن اشتراكك. أما خدمة التجهيز الاختيارية (500 ريال مرة واحدة) فهي لمن ليس لديه حساب فيسبوك أو Meta للأعمال: ننشئ الحساب ونربط واتساب للأعمال بالكامل."]
     ]
@@ -28,6 +29,7 @@ const notes = {
     items: [
       ["Free trial", "3 days starting when you create your account, on the plan you pick (except “Build your plan”), with no card. When it ends, you choose a plan and pay to keep using the dashboard."],
       ["Marketing messages", "An allowance for the campaign messages you send from Linkly; replying to customer conversations never uses it. It is added with each subscription payment (12 months’ worth with yearly billing). If it runs out, the rest of a campaign stops sending until you top up or your subscription renews."],
+      ["VAT", "Displayed prices exclude VAT (15%). It is added on the payment page for every subscription and top-up, and shown on the tax invoice with our VAT number."],
       ["Meta fees for WhatsApp", "Template message fees charged by Meta, if any, are not included in the plan; you pay them to Meta directly through the payment method on your own WhatsApp Business Account."],
       ["Channel connection and setup service", "We help you connect your channels to your existing accounts as part of your subscription. The optional setup service (500 SAR one time) is for businesses without a Facebook or Meta Business account: we create the account and connect WhatsApp Business end to end."]
     ]

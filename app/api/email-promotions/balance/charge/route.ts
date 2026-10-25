@@ -1,3 +1,4 @@
+import { grossHalalasFromNetHalalas } from "../../../../../lib/vat";
 import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
 import { getCurrentUser } from "../../../../../lib/auth";
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
       tenantId: user.tenantId,
       messages: credits,
       amount,
-      amountHalalas,
+      amountHalalas: grossHalalasFromNetHalalas(amountHalalas),
       status: PAYMENT_STATUS.pending,
       createdAt: new Date().toISOString(),
       gateway: PAYMENT_GATEWAY.moyasar,

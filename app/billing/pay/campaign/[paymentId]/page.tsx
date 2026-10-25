@@ -9,6 +9,7 @@ import { getMoyasarPublishableKey } from "../../../../../lib/moyasar-publishable
 import { PAYMENT_STATUS } from "../../../../../lib/payment-status";
 import MoyasarPayForm from "../../[paymentId]/MoyasarPayForm";
 import PayPromoBox from "../../PayPromoBox";
+import PayTaxSummary from "../../PayTaxSummary";
 import { getPaymentPromoSummary } from "../../../../../lib/promo-codes";
 import "../../../billing.css";
 
@@ -41,7 +42,8 @@ export default async function CampaignPayPage({ params }: { params: Promise<{ pa
       <section>
         <Image src="/assets/linkly-logo.png" alt="" width={88} height={49} />
         <h1>إتمام الدفع</h1>
-        <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س</p>
+        <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س <small>(قبل الضريبة)</small></p>
+        <PayTaxSummary payment={payment} />
         <PayPromoBox
           endpoint="/api/campaigns/balance/promo"
           paymentId={payment.id}

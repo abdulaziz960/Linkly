@@ -1,3 +1,4 @@
+import { grossHalalas } from "./vat";
 import { isViewLockedForPlan } from "./plan-access";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { prisma } from "./prisma";
@@ -339,7 +340,8 @@ export async function applyConfirmedSubscriptionPayment(paymentId: string, detai
     });
     if (claimed.count !== 1) return null;
 
-    const amountSar = payment.amountHalalas > 0 ? Math.round(payment.amountHalalas / 100) : Math.round(payment.amount);
+    // The price without tax (a payment made before tax was added stores what was paid here, as before).
+    const amountSar = Math.round(payment.amount);
     const owner = await tx.userAccount.findFirst({
       where: { tenantId: payment.tenantId, role: "مالك الحساب" },
       orderBy: { createdAt: "asc" }
@@ -917,7 +919,7 @@ export async function attemptAutoRenewals(baseUrl: string) {
     const paymentId = `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}`;
     const billingCycle: BillingCycle = isBillingCycle(subscription.billingCycle) ? subscription.billingCycle : "شهري";
     const renewAmount = priceForCycle(plan.monthlyPrice, billingCycle);
-    const amountHalalas = renewAmount * 100;
+    const amountHalalas = grossHalalas(renewAmount);
     try {
       await prisma.subscriptionPayment.create({
         data: {

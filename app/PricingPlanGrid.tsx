@@ -1,5 +1,6 @@
 "use client";
 
+import VatNote from "./VatNote";
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { SELLABLE_BILLING_CYCLES, CYCLE_SLUGS, priceForCycle } from "../lib/billing-pricing";
@@ -146,5 +147,6 @@ export default function PricingPlanGrid({ plans, lang = "ar" }: { plans: readonl
         <Link className={`${featured ? s.primaryLarge : s.planButton} ${c.pgCta}`} href={p.custom ? (lang === "en" ? "/en/contact" : "/contact") : `/signup?plan=${encodeURIComponent(p.id)}${multiMonth ? `&billing=${CYCLE_SLUGS[billingCycle]}` : ""}`}>{p.cta}</Link>
       </article>;
     })}</div>
+    <VatNote lang={lang} />
   </>;
 }

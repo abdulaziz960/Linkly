@@ -7,6 +7,7 @@ import { expectedHalalas } from "../../../../../lib/subscriptions";
 import { paymentStatementDescriptor } from "../../../../../lib/moyasar";
 import { getMoyasarPublishableKey } from "../../../../../lib/moyasar-publishable";
 import { PAYMENT_STATUS } from "../../../../../lib/payment-status";
+import PayTaxSummary from "../../PayTaxSummary";
 import MoyasarPayForm from "../../[paymentId]/MoyasarPayForm";
 import "../../../billing.css";
 
@@ -31,7 +32,8 @@ export default async function EmailTopupPayPage({ params }: { params: Promise<{ 
       <section>
         <Image src="/assets/linkly-logo.png" alt="" width={88} height={49} />
         <h1>شراء رصيد البريد</h1>
-        <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س</p>
+        <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س <small>(قبل الضريبة)</small></p>
+        <PayTaxSummary payment={payment} />
         {publishableKey ? (
           <MoyasarPayForm
             key={payment.amountHalalas}

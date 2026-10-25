@@ -529,6 +529,7 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
                 <div><span>{t("سعر الرسالة", "Price per message")}</span><b>{creditPrice.perEmail.toFixed(3)} {t("ريال", "SAR")}</b></div>
                 <div><span>{t("الإجمالي", "Total")}</span><b>{creditPrice.total.toLocaleString("en-US")} {t("ريال", "SAR")}</b></div>
               </div>
+              <p style={{ color: "#d92d20", fontWeight: 800, fontSize: 13 }}>{t("الأسعار غير شاملة ضريبة القيمة المضافة (15%)، وتُضاف عند صفحة الدفع.", "Prices exclude VAT. 15% VAT is added on the payment page.")}</p>
               <p className="field-hint">{t("السعر يشمل رصيد رسائل الحملات البريدية فقط. رسائل النظام مثل التفعيل واستعادة كلمة المرور لا تخصم من هذا الرصيد.", "This price is for promotional email campaign credits only. System emails such as verification and password reset do not deduct from this balance.")}</p>
               {chargeError ? <p className="form-error">{chargeError}</p> : null}
             </div>

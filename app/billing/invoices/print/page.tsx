@@ -6,6 +6,7 @@ import { getTenantBranding } from "../../../../lib/tenant-branding";
 import InvoicePrintButton from "../../invoice/[id]/InvoicePrintButton";
 import { billingLabel } from "../../../../lib/billing-labels";
 import { planDisplayName } from "../../../../lib/plan-features";
+import { paymentTaxBreakdown, SELLER } from "../../../../lib/vat";
 import "../../invoice/invoice.css";
 
 export const metadata = { title: { absolute: "كشف الفواتير | Linkly" } };
@@ -39,7 +40,11 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
     return true;
   });
 
-  const totalPaid = invoices.filter((invoice) => invoice.status === "مكتمل").reduce((sum, invoice) => sum + invoice.amount, 0);
+  const money = (value: number) => value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const paidTax = invoices.filter((invoice) => invoice.status === "مكتمل").map((invoice) => paymentTaxBreakdown(invoice));
+  const totalNet = paidTax.reduce((sum, row) => sum + row.net, 0);
+  const totalVat = paidTax.reduce((sum, row) => sum + row.vat, 0);
+  const totalPaid = paidTax.reduce((sum, row) => sum + row.total, 0);
   // Reflect the actual coverage: an explicit from/to wins, otherwise fall
   // back to the earliest/latest invoice actually included rather than a
   // vague "all time" label.
@@ -82,6 +87,12 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
           </div>
         </div>
 
+        <div className="invoice-billed invoice-seller">
+          <span className="invoice-label">{bi("البائع", "Seller")}</span>
+          <b>{SELLER.name}</b>
+          <small>{bi("الرقم الضريبي", "VAT number")}: <span dir="ltr">{SELLER.vatNumber}</span></small>
+        </div>
+
         <div className="invoice-billed">
           <span className="invoice-label">{bi("صادر إلى", "Billed to")}</span>
           <b>{clientName}</b>
@@ -96,7 +107,9 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
                 <th>{bi("التاريخ", "Date")}</th>
                 <th>{bi("الوصف", "Description")}</th>
                 <th>{bi("الحالة", "Status")}</th>
-                <th className="num">{bi("المبلغ", "Amount")}</th>
+                <th className="num">{bi("قبل الضريبة", "Excl. VAT")}</th>
+                <th className="num">{bi("الضريبة 15%", "VAT 15%")}</th>
+                <th className="num">{bi("الإجمالي", "Total")}</th>
               </tr>
             </thead>
             <tbody>
@@ -107,7 +120,9 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
                     <b>{invoice.source === "اشتراك" ? en ? `Subscription - ${invoice.planName ? planDisplayName(invoice.planName, "en") : "plan"}` : `اشتراك - ${invoice.planName || "باقة"}` : en ? "Campaign message top-up" : "شحن رسائل حملات"}</b>
                   </td>
                   <td>{billingLabel(invoice.status, en ? "en" : "ar")}</td>
-                  <td className="num"><span dir="ltr">{invoice.amount.toLocaleString("en-US")}</span> {cur}</td>
+                  <td className="num"><span dir="ltr">{money(paymentTaxBreakdown(invoice).net)}</span> {cur}</td>
+                  <td className="num"><span dir="ltr">{money(paymentTaxBreakdown(invoice).vat)}</span> {cur}</td>
+                  <td className="num"><span dir="ltr">{money(paymentTaxBreakdown(invoice).total)}</span> {cur}</td>
                 </tr>
               ))}
             </tbody>
@@ -116,9 +131,17 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
 
         <div className="invoice-totals">
           <div className="invoice-totals-box">
+            <div>
+              <span>{bi("المجموع قبل الضريبة", "Subtotal (excl. VAT)")}</span>
+              <b><span dir="ltr">{money(totalNet)}</span> {cur}</b>
+            </div>
+            <div>
+              <span>{bi("ضريبة القيمة المضافة", "VAT")}</span>
+              <b><span dir="ltr">{money(totalVat)}</span> {cur}</b>
+            </div>
             <div className="invoice-total-paid">
-              <span>{bi("إجمالي المدفوع", "Total paid")}</span>
-              <b><span dir="ltr">{totalPaid.toLocaleString("en-US")}</span> {cur}</b>
+              <span>{bi("إجمالي المدفوع (شامل الضريبة)", "Total paid (incl. VAT)")}</span>
+              <b><span dir="ltr">{money(totalPaid)}</span> {cur}</b>
             </div>
           </div>
         </div>
