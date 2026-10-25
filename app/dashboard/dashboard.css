@@ -12277,3 +12277,6 @@ html[dir="ltr"] .notification-bell-panel {
 .conversation-tabs .conversation-more-menu button:hover, .conversation-tabs .conversation-more-menu button.active { background: var(--surface-soft, #f1f3f5); color: var(--text, inherit); }
 .conversation-tabs .conversation-more-menu button span { min-width: 0; height: auto; margin: 0; background: transparent; padding: 0; font-size: 14px; }
 .conversation-more-menu b { color: var(--muted); font-size: 13px; font-weight: 700; }
+
+.phone-call-link { color: var(--brand, #0f766e); font-weight: 800; text-decoration: none; }
+.phone-call-link:hover { text-decoration: underline; }
