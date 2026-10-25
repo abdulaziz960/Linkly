@@ -5,7 +5,7 @@ import { userHasViewPermission } from "../../../../lib/permissions-server";
 import { isTrustedOrigin } from "../../../../lib/origin-guard";
 import { consumeRateLimit, requestIdentifier } from "../../../../lib/rate-limit";
 import { logAdminAction, getTenantCompanyName } from "../../../../lib/subscriptions";
-import { displayNameProblem, fetchDisplayName, requestDisplayName } from "../../../../lib/whatsapp-display-name";
+import { displayNameProblem, fetchDisplayName, requestDisplayName, syncStoredDisplayName } from "../../../../lib/whatsapp-display-name";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -26,6 +26,8 @@ export async function GET() {
   if (!connection) return jsonError("اربط واتساب أولًا", 400);
   const result = await fetchDisplayName(connection.phoneNumberId, connection.accessToken);
   if (!result.ok) return jsonError(result.error, 502);
+  // Meta is the source of truth: the name saved on the connection follows it.
+  if (result.info.status === "approved") await syncStoredDisplayName(user.tenantId, result.info.verifiedName).catch(() => null);
   return jsonOk(result.info);
 }
 

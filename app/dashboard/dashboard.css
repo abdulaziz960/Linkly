@@ -10200,6 +10200,9 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 /* Arabic layout: the quick-links bar stays at the left end of the row, the countdown fills the rest. The countdown, renewal and WhatsApp-payment notices all sit in that one slot, side by side when more than one shows. */
 .dashboard-shell:not(.lang-en) .dashboard-top-banners{flex-direction:row-reverse}
 .dashboard-top-banners .dashboard-top-links{order:1}
+/* With no notice showing, the bar keeps its end of the row (left in Arabic, right in English) instead of the start of it. */
+.dashboard-shell:not(.lang-en) .dashboard-top-banners .dashboard-top-links{margin-right:auto}
+.dashboard-shell.lang-en .dashboard-top-banners .dashboard-top-links{margin-left:auto}
 
 .trial-countdown-banner{flex:1 1 0;min-width:0;align-self:center;display:flex;align-items:flex-start;justify-content:center;padding:8px 12px;background:transparent;direction:rtl;overflow-x:auto}
 .dashboard-shell.lang-en .trial-countdown-banner{direction:ltr}
