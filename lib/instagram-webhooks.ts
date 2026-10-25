@@ -4,7 +4,9 @@
 // without this call saves its token, but no message ever arrives.
 
 const GRAPH_VERSION = "v22.0";
-const FIELD_SETS = ["messages,messaging_postbacks,messaging_seen,comments", "messages,messaging_postbacks", "messages"];
+// Comments are tried before settling for messages alone; the fields the account ended up with are reported, so a missing
+// "comments" is visible instead of silent.
+const FIELD_SETS = ["messages,messaging_postbacks,comments", "messages,comments", "messages,messaging_postbacks", "messages"];
 
 export type InstagramSubscribeResult = { ok: true; fields: string } | { ok: false; error: string };
 
@@ -46,12 +48,13 @@ export async function getInstagramSubscriptions(instagramId: string, accessToken
  * Subscribes every connected Instagram account again (accounts connected before the subscription step existed receive
  * nothing until they are). Safe to run repeatedly - Meta treats it as an update - so a daily run also keeps them healed.
  */
-export async function resubscribeAllInstagramAccounts(): Promise<{ checked: number; subscribed: number; failed: Array<{ tenantId: string; error: string }> }> {
+export async function resubscribeAllInstagramAccounts(): Promise<{ checked: number; subscribed: number; failed: Array<{ tenantId: string; error: string }>; accounts: Array<{ tenantId: string; subscribedNow: string; current: string[]; commentsOn: boolean }> }> {
   const { prisma } = await import("./prisma");
   const { decryptSecret } = await import("./secret-storage");
   const rows = await prisma.integrationSetting.findMany({ where: { provider: "instagram", status: "connected", wabaId: { not: "" }, accessToken: { not: "" } }, select: { tenantId: true, wabaId: true, accessToken: true } });
   let subscribed = 0;
   const failed: Array<{ tenantId: string; error: string }> = [];
+  const accounts: Array<{ tenantId: string; subscribedNow: string; current: string[]; commentsOn: boolean }> = [];
   for (const row of rows) {
     let token = "";
     try {
@@ -61,8 +64,13 @@ export async function resubscribeAllInstagramAccounts(): Promise<{ checked: numb
       continue;
     }
     const result = await subscribeInstagramWebhooks(row.wabaId, token);
-    if (result.ok) subscribed += 1;
-    else failed.push({ tenantId: row.tenantId, error: result.error });
+    if (result.ok) {
+      subscribed += 1;
+      // What Meta now lists for the account (a field missing here is not switched on in the app dashboard).
+      const current = await getInstagramSubscriptions(row.wabaId, token);
+      const fields = current.ok ? current.fields : [];
+      accounts.push({ tenantId: row.tenantId, subscribedNow: result.fields, current: fields, commentsOn: fields.includes("comments") });
+    } else failed.push({ tenantId: row.tenantId, error: result.error });
   }
-  return { checked: rows.length, subscribed, failed };
+  return { checked: rows.length, subscribed, failed, accounts };
 }

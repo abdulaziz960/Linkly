@@ -29,14 +29,15 @@ describe("subscribing an Instagram account to the app's webhooks", () => {
     const calls: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: URL, init?: RequestInit) => { calls.push(`${init?.method} ${url.origin}${url.pathname}?${url.searchParams.get("subscribed_fields")}&t=${url.searchParams.get("access_token")}`); return ok(); }));
     const result = await subscribeInstagramWebhooks("1784140000", "igtoken");
-    expect(result).toEqual({ ok: true, fields: "messages,messaging_postbacks,messaging_seen,comments" });
-    expect(calls).toEqual(["POST https://graph.instagram.com/v22.0/1784140000/subscribed_apps?messages,messaging_postbacks,messaging_seen,comments&t=igtoken"]);
+    expect(result).toEqual({ ok: true, fields: "messages,messaging_postbacks,comments" });
+    expect(calls).toEqual(["POST https://graph.instagram.com/v22.0/1784140000/subscribed_apps?messages,messaging_postbacks,comments&t=igtoken"]);
   });
 
   it("falls back to fewer fields when the dashboard has not enabled them all, and reports the reason when none works", async () => {
     const { subscribeInstagramWebhooks } = await import("../lib/instagram-webhooks");
     let attempt = 0;
-    vi.stubGlobal("fetch", vi.fn(async () => (++attempt < 3 ? denied("field not enabled") : ok())));
+    vi.stubGlobal("fetch", vi.fn(async () => (++attempt < 4 ? denied("field not enabled") : ok())));
+    // messages alone is the last resort, and the result says so (comments are then not subscribed)
     expect(await subscribeInstagramWebhooks("1", "t")).toEqual({ ok: true, fields: "messages" });
 
     vi.stubGlobal("fetch", vi.fn(async () => denied("App is not live")));
@@ -53,10 +54,15 @@ describe("subscribing an Instagram account to the app's webhooks", () => {
     await prisma.integrationSetting.create({ data: { ...base, id: "ig-1", tenantId: "t-ig-1", status: "connected", wabaId: "111", accessToken: encryptSecret("tok-1") } });
     await prisma.integrationSetting.create({ data: { ...base, id: "ig-2", tenantId: "t-ig-2", status: "connected", wabaId: "222", accessToken: encryptSecret("tok-2") } });
     await prisma.integrationSetting.create({ data: { ...base, id: "ig-3", tenantId: "t-ig-3", status: "pending", wabaId: "", accessToken: "" } });
-    vi.stubGlobal("fetch", vi.fn(async (url: URL) => (url.pathname.includes("/222/") ? denied("expired token") : ok())));
+    vi.stubGlobal("fetch", vi.fn(async (url: URL, init?: RequestInit) => {
+      if (url.pathname.includes("/222/")) return denied("expired token");
+      if (init?.method === "POST") return ok();
+      return new Response(JSON.stringify({ data: [{ subscribed_fields: ["messages", "comments"] }] }), { status: 200 });
+    }));
     const result = await resubscribeAllInstagramAccounts();
     expect(result.checked).toBe(2);
     expect(result.subscribed).toBe(1);
     expect(result.failed).toEqual([{ tenantId: "t-ig-2", error: "expired token" }]);
+    expect(result.accounts).toEqual([{ tenantId: "t-ig-1", subscribedNow: "messages,messaging_postbacks,comments", current: ["messages", "comments"], commentsOn: true }]);
   });
 });

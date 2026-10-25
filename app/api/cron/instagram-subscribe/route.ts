@@ -9,5 +9,5 @@ export const maxDuration = 120;
 export async function GET(request: NextRequest) {
   if (!isCronRequestAuthorized(request)) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   const result = await resubscribeAllInstagramAccounts();
-  return NextResponse.json({ ok: true, checked: result.checked, subscribed: result.subscribed, failedCount: result.failed.length, failed: result.failed.slice(0, 20) });
+  return NextResponse.json({ ok: true, checked: result.checked, subscribed: result.subscribed, failedCount: result.failed.length, failed: result.failed.slice(0, 20), accounts: result.accounts.slice(0, 50) });
 }

@@ -271,7 +271,7 @@ export async function GET(request: NextRequest) {
 
     // Without subscribing the account to the app's webhooks no message ever arrives, so it is part of connecting.
     const subscribed = instagramSubscription;
-    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة إنستغرام بواسطة ${user.name}.${subscribed ? (subscribed.ok ? " فُعّل استقبال الرسائل." : ` تعذر تفعيل استقبال الرسائل: ${subscribed.error}`) : ""}`, subscribed && !subscribed.ok ? "تنبيه" : "معلومة", "التكاملات");
+    await logAdminAction(user.tenantId, await getTenantCompanyName(user.tenantId), `تم ربط قناة إنستغرام بواسطة ${user.name}.${subscribed ? (subscribed.ok ? ` فُعّل استقبال: ${subscribed.fields}${subscribed.fields.includes("comments") ? "" : " (بدون التعليقات: فعّل حقل comments في لوحة تطبيق Meta)"}.` : ` تعذر تفعيل استقبال الرسائل: ${subscribed.error}`) : ""}`, subscribed && (!subscribed.ok || !subscribed.fields.includes("comments")) ? "تنبيه" : "معلومة", "التكاملات");
 
     const response = closePopupAndRedirect(getAppOrigin(request), "/dashboard?meta=instagram-callback&view=settings");
     response.cookies.delete("audiencew_meta_state");
