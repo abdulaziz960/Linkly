@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { Fragment, FormEvent, useEffect, useState } from "react";
 import type { ApiKeySummary, WebhookDeliverySummary, WebhookSummary } from "../types";
 import { useLanguage } from "../i18n";
@@ -62,7 +64,7 @@ export default function DevelopersView() {
   }
 
   async function revokeKey(id: string) {
-    if (!window.confirm(t("إلغاء هذا المفتاح؟ لن يعمل بعد الآن.", "Revoke this key? It will stop working immediately."))) return;
+    if (!(await confirmDialog(t("إلغاء هذا المفتاح؟ لن يعمل بعد الآن.", "Revoke this key? It will stop working immediately."), { confirmLabel: t("إلغاء المفتاح", "Revoke key"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/developer/keys/${id}`, { method: "DELETE" });
     await loadAll();
   }
@@ -100,7 +102,7 @@ export default function DevelopersView() {
   }
 
   async function deleteWebhook(webhook: WebhookSummary) {
-    if (!window.confirm(t(`حذف الـ Webhook ${webhook.url}؟`, `Delete the webhook to ${webhook.url}?`))) return;
+    if (!(await confirmDialog(t(`حذف الـ Webhook ${webhook.url}؟`, `Delete the webhook to ${webhook.url}?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/developer/webhooks/${webhook.id}`, { method: "DELETE" });
     await loadAll();
   }

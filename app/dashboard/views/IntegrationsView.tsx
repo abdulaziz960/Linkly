@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import CustomSelect from "../../components/CustomSelect";
 import TikTokAdsSettings from "../components/TikTokAdsSettings";
 import MetaAdsSettings from "../components/MetaAdsSettings";
@@ -178,7 +180,7 @@ export default function IntegrationsView() {
   }
 
   async function disconnect(channel: LeadChannel) {
-    if (!window.confirm(t("فك الربط سيوقف استقبال العملاء من هذه المنصة حتى تربطها من جديد. هل تريد المتابعة؟", "Unlinking stops receiving customers from this platform until you connect it again. Continue?"))) return;
+    if (!(await confirmDialog(t("فك الربط سيوقف استقبال العملاء من هذه المنصة حتى تربطها من جديد. هل تريد المتابعة؟", "Unlinking stops receiving customers from this platform until you connect it again. Continue?"), { tone: "danger", confirmLabel: t("فك الربط", "Unlink"), cancelLabel: t("تراجع", "Cancel") }))) return;
     setSaving(true);
     try {
       const response = await fetch("/api/settings/integration/disconnect", {

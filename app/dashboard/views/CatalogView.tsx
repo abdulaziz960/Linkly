@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../i18n";
 import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
@@ -308,7 +310,7 @@ export default function CatalogView() {
   }
 
   async function removeCategory(name: string) {
-    if (!window.confirm(t(`حذف التصنيف «${name}»؟ ستصبح منتجاته بلا تصنيف.`, `Delete the category "${name}"? Its products will have no category.`))) return;
+    if (!(await confirmDialog(t(`حذف التصنيف «${name}»؟ ستصبح منتجاته بلا تصنيف.`, `Delete the category "${name}"? Its products will have no category.`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     const result = await api<string[]>(`/api/catalog/categories?name=${encodeURIComponent(name)}`, { method: "DELETE" });
     if (result.ok) {
       setCategories(result.data ?? []);
@@ -351,7 +353,7 @@ export default function CatalogView() {
     const message = all
       ? t(`سيتم حذف كل المنتجات (${count}) نهائيًا. هل أنت متأكد؟ (المنتجات المرتبطة بملف موقعك ستعود في المزامنة القادمة ما لم تزل رابط الملف)`, `All ${count} products will be permanently deleted. Are you sure? (Products from your website feed come back on the next sync unless you remove the feed URL)`)
       : t(`حذف ${count} منتج محدد نهائيًا؟`, `Permanently delete ${count} selected products?`);
-    if (!window.confirm(message)) return;
+    if (!(await confirmDialog(message, { cancelLabel: t("تراجع", "Cancel") }))) return;
     const result = await api<{ deleted: number }>("/api/catalog/products", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -367,7 +369,7 @@ export default function CatalogView() {
   }
 
   async function removeProduct(product: Product) {
-    if (!window.confirm(t(`حذف المنتج "${product.name}"؟`, `Delete "${product.name}"?`))) return;
+    if (!(await confirmDialog(t(`حذف المنتج "${product.name}"؟`, `Delete "${product.name}"?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await api(`/api/catalog/products/${product.id}`, { method: "DELETE" });
     await load();
   }
@@ -747,7 +749,7 @@ export default function CatalogView() {
                       </div>
                       <div className="pay-card-foot">
                         <button className="btn primary" type="button" disabled={!gatewayKey.trim()} onClick={async () => { if (await saveSettings({ gatewaySecretKey: gatewayKey.trim() }, t("تم حفظ مفتاح الدفع", "Payment key saved"))) setGatewayKey(""); }}>{t("حفظ المفتاح", "Save key")}</button>
-                        {settings?.hasGatewayKey ? <button className="btn danger" type="button" onClick={() => { if (window.confirm(t("حذف مفتاح الدفع وإيقاف الدفع؟", "Remove the payment key and turn payment off?"))) void saveSettings({ clearGatewayKey: true }, t("تم حذف المفتاح", "Key removed")); }}>{t("حذف المفتاح", "Remove key")}</button> : null}
+                        {settings?.hasGatewayKey ? <button className="btn danger" type="button" onClick={async () => { if (await confirmDialog(t("حذف مفتاح الدفع وإيقاف الدفع؟", "Remove the payment key and turn payment off?"), { confirmLabel: t("حذف المفتاح", "Remove key"), cancelLabel: t("تراجع", "Cancel") })) void saveSettings({ clearGatewayKey: true }, t("تم حذف المفتاح", "Key removed")); }}>{t("حذف المفتاح", "Remove key")}</button> : null}
                       </div>
                     </>
                   ) : (

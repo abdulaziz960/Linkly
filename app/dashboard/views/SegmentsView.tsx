@@ -402,7 +402,19 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
             <tbody>
               {filteredSegments.map((segment) => (
                 <Fragment key={segment.id}>
-                  <tr className="segment-row-clickable" onClick={() => toggleSegmentDetails(segment)}>
+                  <tr
+                    className="segment-row-clickable"
+                    tabIndex={0}
+                    aria-expanded={expandedSegmentId === segment.id}
+                    onClick={() => toggleSegmentDetails(segment)}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        toggleSegmentDetails(segment);
+                      }
+                    }}
+                  >
                     <td><b>{segment.name}</b> <span aria-hidden="true">{expandedSegmentId === segment.id ? "▲" : "▼"}</span></td>
                     <td>{criteriaSummary(segment)}</td>
                     <td>{segment.recipientCount.toLocaleString("en-US")}</td>

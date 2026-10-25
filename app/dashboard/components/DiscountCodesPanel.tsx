@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
@@ -104,7 +106,7 @@ export default function DiscountCodesPanel({ zidConnected = false }: { zidConnec
   }
 
   async function remove(discount: Discount) {
-    if (!window.confirm(t(`حذف الكود ${discount.code}؟`, `Delete the code ${discount.code}?`))) return;
+    if (!(await confirmDialog(t(`حذف الكود ${discount.code}؟`, `Delete the code ${discount.code}?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     const result = await api<{ deleted: boolean }>(`/api/catalog/discounts/${encodeURIComponent(discount.id)}`, { method: "DELETE" });
     if (!result.ok) setMessage({ type: "error", text: result.error || t("تعذر الحذف", "Could not delete") });
     await load();

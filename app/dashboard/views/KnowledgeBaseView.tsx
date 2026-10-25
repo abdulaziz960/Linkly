@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import type { KnowledgeBaseEntry } from "../types";
 import { useLanguage } from "../i18n";
@@ -95,7 +97,7 @@ export default function KnowledgeBaseView() {
   }
 
   async function deleteEntry(entry: KnowledgeBaseEntry) {
-    if (!window.confirm(t("حذف هذا العنصر من قاعدة المعرفة؟", "Delete this Knowledge Base entry?"))) return;
+    if (!(await confirmDialog(t("حذف هذا العنصر من قاعدة المعرفة؟", "Delete this Knowledge Base entry?"), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/knowledge-base/${entry.id}`, { method: "DELETE" });
     await loadEntries();
   }

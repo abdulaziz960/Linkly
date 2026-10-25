@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { AutomationRule, Employee, MessageTemplate, Tag, Team } from "../types";
 import { useLanguage } from "../i18n";
@@ -566,7 +568,7 @@ export default function AutomationsView({
   }
 
   async function deleteRule(rule: AutomationRule) {
-    if (!window.confirm(t(`حذف ${rule.name}؟`, `Delete ${rule.name}?`))) return;
+    if (!(await confirmDialog(t(`حذف ${rule.name}؟`, `Delete ${rule.name}?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     setFeedback(null);
     try {
       const response = await fetch(`/api/automations/${rule.id}`, { method: "DELETE" });

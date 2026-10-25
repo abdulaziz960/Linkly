@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { CATALOG_TEMPLATE_DEFAULT_BUTTON, CATALOG_TEMPLATE_PREFIX, isCatalogTemplateName } from "../../../lib/catalog-template-shared";
 import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
 import type { MessageTemplate } from "../types";
@@ -337,7 +339,7 @@ export default function TemplatesView({
   }
 
   async function deleteTemplate(template: MessageTemplate) {
-    if (!window.confirm(t(`حذف قالب ${template.name}؟`, `Delete the "${template.name}" template?`))) return;
+    if (!(await confirmDialog(t(`حذف قالب ${template.name}؟`, `Delete the "${template.name}" template?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/templates/${encodeURIComponent(template.name)}`, { method: "DELETE" });
     await onRefreshData();
   }
@@ -566,9 +568,9 @@ export default function TemplatesView({
                   <small className="field-hint">{t("خصص رسالتك بمتغيرات مثل {{1}} لزيادة معدل الرد.", "Personalize your message with variables like {{1}} to get more replies.")}</small>
                   <div className="template-body-field">
                     <div className="template-toolbar">
-                      <button type="button" title={t("عريض", "Bold")} onClick={() => wrapSelection(bodyRef, form.message, (value) => setForm((current) => ({ ...current, message: value })), "*")}>{BoldIcon}</button>
-                      <button type="button" title={t("مائل", "Italic")} onClick={() => wrapSelection(bodyRef, form.message, (value) => setForm((current) => ({ ...current, message: value })), "_")}>{ItalicIcon}</button>
-                      <button type="button" title={t("يتوسطه خط", "Strikethrough")} onClick={() => wrapSelection(bodyRef, form.message, (value) => setForm((current) => ({ ...current, message: value })), "~")}>{StrikeIcon}</button>
+                      <button type="button" aria-label={t("عريض", "Bold")} title={t("عريض", "Bold")} onClick={() => wrapSelection(bodyRef, form.message, (value) => setForm((current) => ({ ...current, message: value })), "*")}>{BoldIcon}</button>
+                      <button type="button" aria-label={t("مائل", "Italic")} title={t("مائل", "Italic")} onClick={() => wrapSelection(bodyRef, form.message, (value) => setForm((current) => ({ ...current, message: value })), "_")}>{ItalicIcon}</button>
+                      <button type="button" aria-label={t("يتوسطه خط", "Strikethrough")} title={t("يتوسطه خط", "Strikethrough")} onClick={() => wrapSelection(bodyRef, form.message, (value) => setForm((current) => ({ ...current, message: value })), "~")}>{StrikeIcon}</button>
                       <span className="template-toolbar-count">{form.message.length}/1024</span>
                     </div>
                     <textarea

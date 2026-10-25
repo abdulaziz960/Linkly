@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 
@@ -105,7 +107,7 @@ export default function ShippingPanel() {
   }
 
   async function remove(method: Method) {
-    if (!window.confirm(t(`حذف «${method.name}»؟`, `Delete “${method.name}”?`))) return;
+    if (!(await confirmDialog(t(`حذف «${method.name}»؟`, `Delete “${method.name}”?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     const result = await api<{ deleted: boolean }>(`/api/catalog/shipping/${encodeURIComponent(method.id)}`, { method: "DELETE" });
     if (!result.ok) setMessage({ type: "error", text: result.error || t("تعذر الحذف", "Could not delete") });
     await load();

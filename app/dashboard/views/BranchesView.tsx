@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import { downloadBranchTemplate, parseBranchFile } from "../branch-import";
@@ -136,7 +138,7 @@ export default function BranchesView() {
   }
 
   async function remove(branch: Branch) {
-    if (!window.confirm(t(`حذف الفرع "${branch.name}"؟`, `Delete "${branch.name}"?`))) return;
+    if (!(await confirmDialog(t(`حذف الفرع "${branch.name}"؟`, `Delete "${branch.name}"?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/branches/${branch.id}`, { method: "DELETE" });
     await load();
   }

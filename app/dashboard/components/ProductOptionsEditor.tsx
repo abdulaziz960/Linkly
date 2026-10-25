@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
@@ -60,7 +62,7 @@ export default function ProductOptionsEditor({ productId, productName, onClose }
   }
 
   async function remove(group: Group) {
-    if (!window.confirm(t(`حذف المجموعة «${group.name}»؟`, `Delete the group “${group.name}”?`))) return;
+    if (!(await confirmDialog(t(`حذف المجموعة «${group.name}»؟`, `Delete the group “${group.name}”?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/catalog/options/${encodeURIComponent(group.id)}`, { method: "DELETE" }).catch(() => null);
     await load();
   }

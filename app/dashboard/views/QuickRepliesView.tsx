@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { FormEvent, useMemo, useState } from "react";
 import type { QuickReply, Team } from "../types";
 import { useLanguage } from "../i18n";
@@ -61,7 +63,7 @@ export default function QuickRepliesView({
   }
 
   async function deleteReply(reply: QuickReply) {
-    if (!window.confirm(t(`حذف ${reply.shortcut}؟`, `Delete ${reply.shortcut}?`))) return;
+    if (!(await confirmDialog(t(`حذف ${reply.shortcut}؟`, `Delete ${reply.shortcut}?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/quick-replies/${reply.id}`, { method: "DELETE" });
     await onRefreshData();
   }

@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Team, WorkSchedule } from "../types";
 import { useLanguage } from "../i18n";
@@ -121,7 +123,7 @@ export default function WorkHoursView({
   }
 
   async function deleteSchedule(schedule: WorkSchedule) {
-    if (!window.confirm(t(`حذف جدول ${schedule.team}؟`, `Delete ${schedule.team}'s schedule?`))) return;
+    if (!(await confirmDialog(t(`حذف جدول ${schedule.team}؟`, `Delete ${schedule.team}'s schedule?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/work-hours/${schedule.id}`, { method: "DELETE" });
     await onRefreshData();
   }

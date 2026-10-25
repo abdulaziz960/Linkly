@@ -38,14 +38,14 @@
 .tutorials-hero-art { position: relative; isolation: isolate; overflow: hidden; min-height: 280px; padding: 32px; border-radius: 24px; background: #062725; border: 1px solid #104c49; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #fff; box-shadow: 0 18px 42px #0d2a2714; }
 .tutorials-hero-art::before { content: ""; position: absolute; z-index: -1; inset: 0; background: radial-gradient(ellipse at 0 100%, #178a8270, transparent 65%); }
 .tutorials-hero-art::after { content: ""; position: absolute; z-index: -1; width: 260px; height: 260px; border: 1px solid #78d8cf24; border-radius: 50%; top: -140px; right: -80px; box-shadow: 0 0 0 40px #78d8cf08, 0 0 0 80px #78d8cf06; }
-.tutorials-art-label { position: absolute; top: 22px; right: 25px; color: #afeae4; font-size: 11px; }
+.tutorials-art-label { position: absolute; top: 22px; right: 25px; color: #afeae4; font-size: 13px; }
 .tutorials-art-brand { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
 .tutorials-art-brand img { width: 90px; height: auto; }
 .tutorials-art-brand b { font-size: 43px; line-height: 1.2; letter-spacing: -1.5px; }
 .tutorials-hero-art > strong { font-size: 24px; margin-top: 10px; }
 .tutorials-art-description { font-size: 13px; color: #afeae4; }
 .tutorials-art-topics { display: flex; gap: 8px; margin-top: 8px; }
-.tutorials-art-topics span { font-size: 11px; padding: 4px 12px; border: 1px solid #78d8cf40; border-radius: 8px; color: #d6f5f1; background: #ffffff08; }
+.tutorials-art-topics span { font-size: 13px; padding: 4px 12px; border: 1px solid #78d8cf40; border-radius: 8px; color: #d6f5f1; background: #ffffff08; }
 .tutorials-mini-progress { display: flex; gap: 5px; margin-top: 10px; }
 .tutorials-mini-progress i { height: 3px; width: 32px; border-radius: 4px; background: #3abdb3; }
 .tutorials-mini-progress i:last-child { background: #3abdb340; }
@@ -70,7 +70,7 @@
 .tutorials-instructions li button span { display: grid; place-items: center; flex-shrink: 0; width: 27px; height: 27px; border-radius: 8px; background: var(--tutorial-soft); color: var(--tutorial-brand-hover); font-size: 12px; }
 .tutorials-instructions li.is-current button span { color: #fff; background: var(--tutorial-brand-hover); }
 .tutorials-instructions li p { margin: 6px 37px 0 0; color: var(--tutorial-muted); font-size: 13px; }
-.tutorials-instructions > small { display: block; margin-top: 12px; color: var(--tutorial-muted); font-size: 11px; }
+.tutorials-instructions > small { display: block; margin-top: 12px; color: var(--tutorial-muted); font-size: 13px; }
 .tutorials-code { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--tutorial-dark); color: #d6f5f1; padding: 18px; border-radius: 12px; font-size: 12px; text-align: left; }
 .tutorials-prerequisite { margin: 0; padding: 16px 20px; border: 1px solid #ead9ae; border-radius: 12px; background: #fffbf0; line-height: 1.9; color: #765820; font-size: 13px; }
 .tutorials-prerequisite strong { display: block; }
@@ -95,7 +95,7 @@
 .tutorials-card-art { position: relative; isolation: isolate; display: grid; place-items: center; width: 100%; aspect-ratio: 16/9; background: var(--tutorial-soft); }
 .tutorials-card-art > img { object-fit: cover; object-position: top; z-index: -2; }
 .tutorials-card-art::after { content: ""; position: absolute; z-index: -1; inset: 0; background: linear-gradient(#06272550, transparent 50%, #06272570); }
-.tutorials-card-art > span, .tutorials-card-art small { position: absolute; padding: 3px 8px; border-radius: 6px; font-size: 11px; background: #062725e6; color: #fff; }
+.tutorials-card-art > span, .tutorials-card-art small { position: absolute; padding: 3px 8px; border-radius: 6px; font-size: 13px; background: #062725e6; color: #fff; }
 .tutorials-card-art > span { top: 12px; right: 12px; }
 .tutorials-card-art small { bottom: 12px; left: 12px; }
 .tutorials-card-art i { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; border: 1px solid #ffffff90; background: #ffffffeb; box-shadow: 0 2px 12px #06272530; color: var(--tutorial-brand-hover); font-size: 21px; font-style: normal; }
@@ -120,13 +120,13 @@
   .tutorials-brand { gap: 8px; flex-wrap: wrap; max-width: 200px; min-width: 0; flex-shrink: 1; }
   .tutorials-brand img { width: 46px; }
   .tutorials-wordmark { font-size: 25px; }
-  .tutorials-brand-section { flex-basis: 100%; padding: 0; margin: -6px 0 0; border: 0; font-size: 11px; }
-  .tutorials-header nav a { padding: 8px 10px; font-size: 11px; white-space: nowrap; }
+  .tutorials-brand-section { flex-basis: 100%; padding: 0; margin: -6px 0 0; border: 0; font-size: 13px; }
+  .tutorials-header nav a { padding: 8px 10px; font-size: 13px; white-space: nowrap; }
   .tutorials-hero { grid-template-columns: 1fr; padding: 32px 0 20px; gap: 24px; }
   .tutorials-hero h1 { font-size: 42px; }
   .tutorials-hero p { font-size: 15px; }
   .tutorials-hero-art { display: none; }
-  .tutorials-summary { gap: 12px; flex-wrap: wrap; padding: 20px 0 26px; font-size: 11px; }
+  .tutorials-summary { gap: 12px; flex-wrap: wrap; padding: 20px 0 26px; font-size: 13px; }
   .tutorials-detail { padding: 16px; gap: 18px; }
   .tutorials-player-toolbar { align-items: start; flex-direction: column; gap: 10px; }
   .tutorials-player-toolbar strong { font-size: 16px; }
@@ -156,7 +156,7 @@ body:has(.tutorials-dialog[open]) { overflow: hidden; }
 .tutorials-instructions > p { margin: 10px 0 16px; }
 .tutorials-step-details { margin-bottom: 18px; border-block: 1px solid var(--tutorial-line); }
 .tutorials-step-details summary { padding: 12px 0; color: var(--tutorial-brand-hover); font-size: 14px; font-weight: 700; cursor: pointer; }
-.tutorials-step-details summary span { margin-inline-start: 8px; color: var(--tutorial-muted); font-size: 11px; font-weight: 400; }
+.tutorials-step-details summary span { margin-inline-start: 8px; color: var(--tutorial-muted); font-size: 13px; font-weight: 400; }
 .tutorials-card-copy > p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 @media (max-width: 850px) {
   .tutorials-detail { grid-template-columns: minmax(0, 1fr); }
@@ -167,5 +167,5 @@ body:has(.tutorials-dialog[open]) { overflow: hidden; }
   .tutorials-dialog-header h2 { font-size: 16px; }
   .tutorials-player-toolbar { flex-direction: row; align-items: center; flex-wrap: wrap; }
   .tutorials-player-toolbar button { padding: 8px 10px; font-size: 12px; }
-  .tutorials-video-note { font-size: 11px; }
+  .tutorials-video-note { font-size: 13px; }
 }

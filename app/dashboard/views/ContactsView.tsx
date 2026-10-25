@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import CustomSelect from "../../components/CustomSelect";
 import { FormEvent, useMemo, useState } from "react";
 import type { ConversationChannel, Customer } from "../types";
@@ -147,7 +149,7 @@ export default function ContactsView({
   }
 
   async function deleteCustomer(customer: Customer) {
-    if (!window.confirm(t(`حذف العميل ${customer.name}؟ سيتم حذف المحادثة المرتبطة به أيضًا.`, `Delete customer ${customer.name}? Their linked conversation will also be deleted.`))) return;
+    if (!(await confirmDialog(t(`حذف العميل ${customer.name}؟ سيتم حذف المحادثة المرتبطة به أيضًا.`, `Delete customer ${customer.name}? Their linked conversation will also be deleted.`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/customers/${customer.id}`, { method: "DELETE" });
     await onRefreshData();
   }

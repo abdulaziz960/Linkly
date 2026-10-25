@@ -1,5 +1,8 @@
 "use client";
 
+import { confirmDialog } from "../../lib/ui-dialogs";
+import DialogHost from "../components/DialogHost";
+
 import { planDisplayName } from "../../lib/plan-features";
 import InboxBackLink from "../dashboard/components/InboxBackLink";
 import Image from "next/image";
@@ -111,7 +114,7 @@ export default function BillingPageClient({
     : "";
 
   async function toggleCancel(action: "cancel" | "resume") {
-    if (action === "cancel" && !window.confirm(text.cancelConfirm)) return;
+    if (action === "cancel" && !(await confirmDialog(text.cancelConfirm, { tone: "danger" }))) return;
     setCancelLoading(true);
     setCancelError("");
     const response = await fetch("/api/billing/cancel", {
@@ -129,7 +132,7 @@ export default function BillingPageClient({
   }
 
   async function disableAutoRenew() {
-    if (!window.confirm(text.autoRenewDisableConfirm)) return;
+    if (!(await confirmDialog(text.autoRenewDisableConfirm))) return;
     setAutoRenewLoading(true);
     setAutoRenewError("");
     const response = await fetch("/api/billing/auto-renew", {
@@ -148,6 +151,7 @@ export default function BillingPageClient({
 
   return (
     <main className="billing-page" dir={lang === "ar" ? "rtl" : "ltr"}>
+      <DialogHost language={lang === "en" ? "en" : "ar"} />
       <header className="billing-header billing-main-header">
         <div className="billing-header-brand"><Image src={branding.logoDataUrl} alt={branding.name} width={64} height={35} unoptimized={branding.logoDataUrl.startsWith("data:")} /><b>{branding.name}</b></div>
         <div className="billing-lang-toggle">

@@ -1,6 +1,8 @@
 "use client";
 
 import HtmlLangSync from "../HtmlLangSync";
+import DialogHost from "../components/DialogHost";
+import { confirmDialog, notify } from "../../lib/ui-dialogs";
 import { FormEvent, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -996,13 +998,13 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       });
 
       if (!response.ok) {
-        window.alert(await readApiError(response, language));
+        notify(await readApiError(response, language), "error");
         return;
       }
 
       const payload = (await response.json()) as { ok: boolean; data?: Conversation; error?: string };
       if (!payload.ok || !payload.data) {
-        window.alert(payload.error || t("تعذر فتح محادثة العميل", "Could not open the customer conversation"));
+        notify(payload.error || t("تعذر فتح محادثة العميل", "Could not open the customer conversation"), "error");
         return;
       }
 
@@ -1055,13 +1057,13 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response, language));
+      notify(await readApiError(response, language), "error");
       return;
     }
 
     const payload = (await response.json()) as { ok: boolean; data?: Conversation; error?: string };
     if (!payload.ok || !payload.data) {
-      window.alert(payload.error || t("تعذر فتح محادثة العميل", "Could not open the customer conversation"));
+      notify(payload.error || t("تعذر فتح محادثة العميل", "Could not open the customer conversation"), "error");
       return;
     }
 
@@ -1107,7 +1109,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       body: JSON.stringify({ assignee, status })
     });
     if (!response.ok) {
-      window.alert(await readApiError(response, language));
+      notify(await readApiError(response, language), "error");
     }
     await loadDashboardData();
   }
@@ -1127,7 +1129,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response, language));
+      notify(await readApiError(response, language), "error");
     }
 
     await loadDashboardData();
@@ -1161,7 +1163,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     if (!conversationId || !canDeleteConversations) return;
     const conversation = conversations.find((item) => item.id === conversationId);
     if (!conversation) return;
-    if (!window.confirm(t(`حذف محادثة ${conversation.customer}؟ سيتم حذف الرسائل من صندوق المحادثات فقط.`, `Delete the conversation with ${conversation.customer}? This only removes the messages from the inbox.`))) return;
+    if (!(await confirmDialog(t(`حذف محادثة ${conversation.customer}؟ سيتم حذف الرسائل من صندوق المحادثات فقط.`, `Delete the conversation with ${conversation.customer}? This only removes the messages from the inbox.`), { confirmLabel: t("حذف", "Delete") }))) return;
 
     const deletedConversationId = conversation.id;
     const response = await fetch(`/api/conversations/${deletedConversationId}`, {
@@ -1169,7 +1171,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response, language));
+      notify(await readApiError(response, language), "error");
       return;
     }
 
@@ -1200,7 +1202,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response, language));
+      notify(await readApiError(response, language), "error");
     }
 
     await loadDashboardData();
@@ -1232,14 +1234,14 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       });
 
       if (!response.ok) {
-        window.alert(await readApiError(response, language));
+        notify(await readApiError(response, language), "error");
         return;
       }
 
       setMessage("");
       void loadDashboardData();
     } catch {
-      window.alert(language === "en" ? "Couldn't send the message. Check your connection and try again." : "تعذر إرسال الرسالة. تحقق من اتصالك وحاول مجددًا.");
+      notify(language === "en" ? "Couldn't send the message. Check your connection and try again." : "تعذر إرسال الرسالة. تحقق من اتصالك وحاول مجددًا.", "error");
     } finally {
       window.clearTimeout(timeoutId);
       sendingRef.current = false;
@@ -1255,7 +1257,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       approvedTemplates.find((item) => item.name === selectedTemplate) ??
       approvedTemplates[0];
     if (!template) {
-      window.alert(t("لا توجد قوالب تسويقية معتمدة متاحة للإرسال.", "No approved marketing templates are available to send."));
+      notify(t("لا توجد قوالب تسويقية معتمدة متاحة للإرسال.", "No approved marketing templates are available to send."), "info");
       return;
     }
 
@@ -1275,7 +1277,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
     if (!response.ok) {
       await loadDashboardData();
-      window.alert(await readApiError(response, language));
+      notify(await readApiError(response, language), "error");
       return;
     }
 
@@ -1303,7 +1305,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response, language));
+      notify(await readApiError(response, language), "error");
       return;
     }
 
@@ -1326,7 +1328,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     });
 
     if (!response.ok) {
-      window.alert(await readApiError(response, language));
+      notify(await readApiError(response, language), "error");
       return;
     }
 
@@ -1489,6 +1491,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
     <LanguageProvider language={language}>
     <PlanAccessProvider access={planAccess}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
+      {/* The app's confirmation dialog and toasts (lib/ui-dialogs.ts) - every view's confirm/notify lands here. */}
+      <DialogHost language={language === "en" ? "en" : "ar"} />
       {/* Modals and popovers render outside the shell, so the page itself must follow the language too. */}
       <HtmlLangSync lang={language} dir={language === "en" ? "ltr" : "rtl"} />
       <div className="dashboard-top-banners">
@@ -1780,8 +1784,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                       <button className="btn soft" type="button" onClick={() => setProfilePanel("billing")}>{t("الفواتير والاشتراك", "Billing & subscription")}</button>
                     ) : null}
                     <button className="btn soft" type="button" onClick={() => setProfilePanel("security")}>{t("الأمان", "Security")}</button>
-                    <button className="btn danger" type="button" onClick={() => {
-                      if (window.confirm(t("هل تريد تسجيل الخروج من لوحة Linkly؟", "Sign out of Linkly?"))) {
+                    <button className="btn danger" type="button" onClick={async () => {
+                      if (await confirmDialog(t("هل تريد تسجيل الخروج من لوحة Linkly؟", "Sign out of Linkly?"), { confirmLabel: t("تسجيل الخروج", "Sign out") })) {
                         setProfileOpen(false);
                         fetch("/api/auth/logout", { method: "POST" }).finally(() => {
                           router.replace("/login");

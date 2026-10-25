@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog, notify } from "../../../lib/ui-dialogs";
+
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import type { Campaign, MessageTemplate, Segment } from "../types";
@@ -413,17 +415,17 @@ export default function CampaignsView({
     if (form.recurring) await loadRecurrences();
     setSaving(false);
     setFormOpen(false);
-    if (payload?.data?.balanceWarning) window.alert(payload.data.balanceWarning);
+    if (payload?.data?.balanceWarning) notify(String(payload.data.balanceWarning), "info");
   }
 
   async function deleteCampaign(campaign: Campaign) {
-    if (!window.confirm(t(`حذف حملة ${campaign.name}؟`, `Delete the "${campaign.name}" campaign?`))) return;
+    if (!(await confirmDialog(t(`حذف حملة ${campaign.name}؟`, `Delete the "${campaign.name}" campaign?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/campaigns/${campaign.id}`, { method: "DELETE" });
     await onRefreshData();
   }
 
   async function stopCampaign(campaign: Campaign) {
-    if (!window.confirm(t(`إيقاف حملة ${campaign.name}؟ الأرقام اللي ما وصلها الإرسال بعد بتبقى موقوفة.`, `Stop the "${campaign.name}" campaign? Numbers that haven't been messaged yet will remain unsent.`))) return;
+    if (!(await confirmDialog(t(`إيقاف حملة ${campaign.name}؟ الأرقام اللي ما وصلها الإرسال بعد بتبقى موقوفة.`, `Stop the "${campaign.name}" campaign? Numbers that haven't been messaged yet will remain unsent.`), { confirmLabel: t("إيقاف", "Stop"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/campaigns/${campaign.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -433,7 +435,7 @@ export default function CampaignsView({
   }
 
   async function sendCampaignNow(campaign: Campaign) {
-    if (!window.confirm(t(`إرسال حملة ${campaign.name} الآن إلى ${campaign.total.toLocaleString("en-US")} مستلم؟`, `Send the "${campaign.name}" campaign now to ${campaign.total.toLocaleString("en-US")} recipient(s)?`))) return;
+    if (!(await confirmDialog(t(`إرسال حملة ${campaign.name} الآن إلى ${campaign.total.toLocaleString("en-US")} مستلم؟`, `Send the "${campaign.name}" campaign now to ${campaign.total.toLocaleString("en-US")} recipient(s)?`), { confirmLabel: t("إرسال الآن", "Send now"), cancelLabel: t("تراجع", "Cancel") }))) return;
     const response = await fetch(`/api/campaigns/${campaign.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -441,7 +443,7 @@ export default function CampaignsView({
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
-      window.alert(payload?.error || t("تعذر بدء إرسال الحملة", "Unable to start the campaign"));
+      notify(payload?.error || t("تعذر بدء إرسال الحملة", "Unable to start the campaign"), "error");
       return;
     }
     await onRefreshData();

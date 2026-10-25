@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 
@@ -59,7 +61,7 @@ export default function PaymentProvidersPanel({ canManage }: { canManage: boolea
   }
 
   async function remove(provider: "tabby" | "tamara") {
-    if (!window.confirm(provider === "tabby" ? t("حذف إعدادات تابي؟", "Remove the Tabby settings?") : t("حذف إعدادات تمارا؟", "Remove the Tamara settings?"))) return;
+    if (!(await confirmDialog(provider === "tabby" ? t("حذف إعدادات تابي؟", "Remove the Tabby settings?") : t("حذف إعدادات تمارا؟", "Remove the Tamara settings?"), { confirmLabel: t("حذف", "Remove"), cancelLabel: t("تراجع", "Cancel") }))) return;
     const result = await api<{ providers: Status[] }>(`/api/catalog/payment-providers?provider=${provider}`, { method: "DELETE" });
     if (result.ok && result.data) {
       setStatuses(result.data.providers);

@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import CustomSelect from "../../components/CustomSelect";
 import { useEffect, useState, type FormEvent } from "react";
 import { aiProviders, type AiSettingsPublic } from "../../../lib/ai-types";
@@ -106,7 +108,7 @@ export default function AiSettingsView() {
             </div>
           </div>
         )}
-        {settings.managedAvailable && settings.hasKey ? <button type="button" className="btn secondary" disabled={managedSaving || !settings.managedReady} onClick={() => { if (window.confirm(t("سيُحذف مفتاح المزود المحفوظ وتنتقل إلى المساعد المُدار. متابعة؟", "Remove your saved provider key and switch to managed AI?"))) void saveManaged(true); }}>{t("إزالة المفتاح والانتقال للمساعد المُدار", "Remove key and switch to managed AI")}</button> : null}
+        {settings.managedAvailable && settings.hasKey ? <button type="button" className="btn secondary" disabled={managedSaving || !settings.managedReady} onClick={async () => { if (await confirmDialog(t("سيُحذف مفتاح المزود المحفوظ وتنتقل إلى المساعد المُدار. متابعة؟", "Remove your saved provider key and switch to managed AI?"), { tone: "danger", cancelLabel: t("تراجع", "Cancel") })) void saveManaged(true); }}>{t("إزالة المفتاح والانتقال للمساعد المُدار", "Remove key and switch to managed AI")}</button> : null}
         <h3>{t("أو اربط مفتاحك الخاص (قد تُفرض رسوم من المزود)", "Or bring your own key (provider charges may apply)")}</h3>
         <form onSubmit={save} className="ai-settings-form">
           <label className="ai-settings-checkbox"><input type="checkbox" checked={settings.enabled} onChange={(event) => update({ enabled: event.target.checked })} />{t("تفعيل مساعد الموظف", "Enable Copilot")}</label>

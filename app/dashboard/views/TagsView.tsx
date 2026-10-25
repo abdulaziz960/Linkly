@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { FormEvent, useMemo, useState } from "react";
 import type { Conversation, Tag } from "../types";
 import { statusLabel } from "../utils/conversation";
@@ -85,7 +87,7 @@ export default function TagsView({
   }
 
   async function deleteTag(tag: Tag) {
-    if (!window.confirm(t(`حذف وسم ${tag.name}؟`, `Delete tag ${tag.name}?`))) return;
+    if (!(await confirmDialog(t(`حذف وسم ${tag.name}؟`, `Delete tag ${tag.name}?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/tags/${tag.id}`, { method: "DELETE" });
     await onRefreshData();
   }

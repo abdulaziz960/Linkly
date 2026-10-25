@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { Fragment, FormEvent, useMemo, useState } from "react";
 import type { Conversation, Employee, Team } from "../types";
 import { useLanguage } from "../i18n";
@@ -249,7 +251,7 @@ export default function EmployeesView({
           `Disable ${employee.name}'s account? They'll lose access immediately, but nothing is deleted - you can re-enable them any time.`
         )
       : t(`تفعيل حساب ${employee.name} من جديد؟`, `Re-enable ${employee.name}'s account?`);
-    if (!window.confirm(confirmMessage)) return;
+    if (!(await confirmDialog(confirmMessage, { cancelLabel: t("تراجع", "Cancel") }))) return;
 
     setListError("");
     setListNotice("");

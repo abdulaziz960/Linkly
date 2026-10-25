@@ -1,5 +1,7 @@
 "use client";
 
+import { notify } from "../../../lib/ui-dialogs";
+
 import AdSourceBanner from "../components/AdSourceBanner";
 import LeadStatusControl from "../components/LeadStatusControl";
 import ConversationStoreOrders from "../components/ConversationStoreOrders";
@@ -702,7 +704,7 @@ export default function InboxView({
 
     const dataUrl = await readFileAsDataUrl(file).catch(() => "");
     if (!dataUrl) {
-      window.alert(t("تعذر قراءة الصورة.", "Could not read the image."));
+      notify(t("تعذر قراءة الصورة.", "Could not read the image."), "error");
       event.target.value = "";
       return;
     }
@@ -722,7 +724,7 @@ export default function InboxView({
 
     const dataUrl = await readFileAsDataUrl(file).catch(() => "");
     if (!dataUrl) {
-      window.alert(t("تعذر قراءة المستند.", "Could not read the document."));
+      notify(t("تعذر قراءة المستند.", "Could not read the document."), "error");
       event.target.value = "";
       return;
     }
@@ -837,7 +839,7 @@ export default function InboxView({
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      window.alert(t("تسجيل الصوت غير مدعوم في هذا المتصفح.", "Audio recording is not supported in this browser."));
+      notify(t("تسجيل الصوت غير مدعوم في هذا المتصفح.", "Audio recording is not supported in this browser."), "error");
       return;
     }
 
@@ -846,7 +848,7 @@ export default function InboxView({
       const mimeType = getSupportedAudioMimeType();
       if (!mimeType) {
         stream.getTracks().forEach((track) => track.stop());
-        window.alert(t("المتصفح يسجل بصيغة غير مدعومة. جرّب تحديث المتصفح.", "Your browser recorded an unsupported format. Try updating your browser."));
+        notify(t("المتصفح يسجل بصيغة غير مدعومة. جرّب تحديث المتصفح.", "Your browser recorded an unsupported format. Try updating your browser."), "error");
         return;
       }
 
@@ -866,7 +868,7 @@ export default function InboxView({
         if (!audioBlob.size) return;
         const dataUrl = await readFileAsDataUrl(audioBlob).catch(() => "");
         if (!dataUrl) {
-          window.alert(t("تعذر تجهيز التسجيل الصوتي.", "Could not prepare the audio recording."));
+          notify(t("تعذر تجهيز التسجيل الصوتي.", "Could not prepare the audio recording."), "error");
           return;
         }
 
@@ -882,7 +884,7 @@ export default function InboxView({
       setIsRecording(true);
     } catch {
       setIsRecording(false);
-      window.alert(t("تعذر تشغيل الميكروفون. تأكد من السماح للمتصفح باستخدام الميكروفون.", "Could not access the microphone. Make sure the browser has microphone permission."));
+      notify(t("تعذر تشغيل الميكروفون. تأكد من السماح للمتصفح باستخدام الميكروفون.", "Could not access the microphone. Make sure the browser has microphone permission."), "error");
     }
   }
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "../../../lib/ui-dialogs";
+
 import { FormEvent, useMemo, useState } from "react";
 import type { Employee, Team } from "../types";
 import { useLanguage } from "../i18n";
@@ -107,7 +109,7 @@ export default function TeamsView({
   }
 
   async function deleteTeam(team: Team) {
-    if (!window.confirm(t(`حذف فريق ${team.name}؟`, `Delete team ${team.name}?`))) return;
+    if (!(await confirmDialog(t(`حذف فريق ${team.name}؟`, `Delete team ${team.name}?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/teams/${team.id}`, { method: "DELETE" });
     await onRefreshData();
   }

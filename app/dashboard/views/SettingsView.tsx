@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog, notify } from "../../../lib/ui-dialogs";
+
 import CustomSelect from "../../components/CustomSelect";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { IntegrationSettings } from "../types";
@@ -1163,19 +1165,19 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
       const configId = techProviderMetaConfigId;
 
       if (!appId) {
-        window.alert(t("تحتاج App ID من تطبيق Meta لتشغيل الربط المباشر. احفظه في إعدادات الاستضافة ثم حاول من جديد.", "You need an App ID from your Meta app to run the direct connection. Save it in your hosting settings, then try again."));
+        notify(t("تحتاج App ID من تطبيق Meta لتشغيل الربط المباشر. احفظه في إعدادات الاستضافة ثم حاول من جديد.", "You need an App ID from your Meta app to run the direct connection. Save it in your hosting settings, then try again."), "error");
         return false;
       }
 
       if (!configId) {
-        window.alert(t("تحتاج Configuration ID من Meta لتشغيل Embedded Signup وإنشاء/ربط حافظة الأعمال والرقم تلقائياً.", "You need a Configuration ID from Meta to run Embedded Signup and automatically create/link the business portfolio and number."));
+        notify(t("تحتاج Configuration ID من Meta لتشغيل Embedded Signup وإنشاء/ربط حافظة الأعمال والرقم تلقائياً.", "You need a Configuration ID from Meta to run Embedded Signup and automatically create/link the business portfolio and number."), "error");
         return false;
       }
 
       await loadFacebookSdk(appId);
       const w = window as FacebookWindow;
       if (!w.FB) {
-        window.alert(t("تعذر تحميل نافذة Meta. تأكد من اتصالك بالإنترنت وحاول من جديد.", "Couldn't load the Meta window. Check your internet connection and try again."));
+        notify(t("تعذر تحميل نافذة Meta. تأكد من اتصالك بالإنترنت وحاول من جديد.", "Couldn't load the Meta window. Check your internet connection and try again."), "error");
         return false;
       }
 
@@ -1192,7 +1194,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         signupState = "";
       }
       if (!signupState) {
-        window.alert(t("تعذر بدء طلب الربط الآمن. حاول من جديد.", "Couldn't start the secure connection request. Please try again."));
+        notify(t("تعذر بدء طلب الربط الآمن. حاول من جديد.", "Couldn't start the secure connection request. Please try again."), "error");
         return false;
       }
 
@@ -1259,10 +1261,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }
 
   async function enableXChat() {
-    const confirmed = window.confirm(t(
+    const confirmed = await confirmDialog(t(
       "سيتم إنشاء مفاتيح تشفير لحساب X هذا وتسجيلها عند X ليقرأ لنكلي المحادثات المشفّرة. قد تتأثر محادثات الحساب المشفّرة القديمة، وقد يطلب تطبيق X إعادة ضبطها. هل تريد المتابعة؟",
       "This creates chat encryption keys for this X account and registers them with X so Linkly can read encrypted conversations. The account's older encrypted conversations may be affected, and the X app may ask to reset them. Continue?"
-    ));
+    ), { cancelLabel: t("تراجع", "Cancel") });
     if (!confirmed) return;
     setXChatBusy(true);
     setSaveFeedback(null);
