@@ -16,6 +16,26 @@ select:focus-visible {
   outline-offset: 0;
 }
 
+/* Design tokens: the scale the dashboard's spacing, corners and text sizes come from. */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-1: 8px;
+  --radius-2: 10px;
+  --radius-3: 12px;
+  --radius-4: 14px;
+  --radius-5: 18px;
+  --radius-pill: 999px;
+  --text-sm: 13px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+}
+
 html,
 body {
   margin: 0;

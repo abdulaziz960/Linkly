@@ -1,5 +1,6 @@
 "use client";
 
+import { formatNumber } from "../../../lib/format";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
@@ -160,7 +161,7 @@ export default function SallaShipmentForm({ orderId, reference, onClose }: { ord
           {draft.packages.length ? (
             <div className="shipment-packages">
               {draft.packages.map((item, index) => (
-                <small key={`${item.name}-${index}`}>{item.name} × {item.quantity}{item.price ? ` · ${item.price.toLocaleString("en-US")}` : ""}</small>
+                <small key={`${item.name}-${index}`}>{item.name} × {item.quantity}{item.price ? ` · ${formatNumber(item.price)}` : ""}</small>
               ))}
             </div>
           ) : (

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatNumber } from "../../../lib/format";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../i18n";
 import { formatDateTime } from "../../../lib/time";
@@ -39,7 +40,7 @@ function engagementLabel(bucket: EngagementBucket | null, t: (ar: string, en: st
 // clearer there than a misleading "0" next to a "Clicked" row.
 function clickCountLabel(bucket: EngagementBucket | null, clickCount: number) {
   if (bucket !== "clicked" || clickCount <= 0) return "-";
-  return clickCount.toLocaleString("en-US");
+  return formatNumber(clickCount);
 }
 
 function reportRowStatusLabel(status: string, t: (ar: string, en: string) => string) {
@@ -147,19 +148,19 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
     <div className="campaign-report-body">
       <div className="campaign-engagement-tiles campaign-engagement-tiles-4">
         <button type="button" className={engagementFilter === "notReceived" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "notReceived" ? null : "notReceived"); setPage(1); }}>
-          <b>{engagementCounts.notReceived.toLocaleString("en-US")}</b>
+          <b>{formatNumber(engagementCounts.notReceived)}</b>
           <span>{t("لم يستلم الرسالة", "Didn't receive")}</span>
         </button>
         <button type="button" className={engagementFilter === "notOpened" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "notOpened" ? null : "notOpened"); setPage(1); }}>
-          <b>{engagementCounts.notOpened.toLocaleString("en-US")}</b>
+          <b>{formatNumber(engagementCounts.notOpened)}</b>
           <span>{t("ما فتحها", "Not opened")}</span>
         </button>
         <button type="button" className={engagementFilter === "opened" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "opened" ? null : "opened"); setPage(1); }}>
-          <b>{engagementCounts.opened.toLocaleString("en-US")}</b>
+          <b>{formatNumber(engagementCounts.opened)}</b>
           <span>{t("فتحها بدون ضغط", "Opened, no click")}</span>
         </button>
         <button type="button" className={engagementFilter === "clicked" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "clicked" ? null : "clicked"); setPage(1); }}>
-          <b>{engagementCounts.clicked.toLocaleString("en-US")}</b>
+          <b>{formatNumber(engagementCounts.clicked)}</b>
           <span>{t("تفاعل", "Clicked")}</span>
         </button>
       </div>

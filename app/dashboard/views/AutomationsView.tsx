@@ -2,6 +2,7 @@
 
 import PageHeader from "../components/PageHeader";
 import { confirmDialog } from "../../../lib/ui-dialogs";
+import { useUnsavedChanges } from "../use-unsaved-changes";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { AutomationRule, Employee, MessageTemplate, Tag, Team } from "../types";
@@ -185,6 +186,10 @@ export default function AutomationsView({
   }), []);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<AutomationForm>(emptyForm);
+  const { confirmClose: confirmCloseForm } = useUnsavedChanges(formOpen, form, t);
+  async function requestCloseForm() {
+    if (await confirmCloseForm()) setFormOpen(false);
+  }
   const [builderStep, setBuilderStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [mediaUploading, setMediaUploading] = useState<number | null>(null);
@@ -588,7 +593,7 @@ export default function AutomationsView({
     const condition = rule.conditions?.[0];
     const conditionText = condition ? `${staticLabel(condition.field, t)} ${staticLabel(condition.operator, t)} “${staticLabel(condition.value, t)}”` : t("بدون شروط إضافية", "No extra conditions");
     const action = rule.actions?.[0] || { type: rule.action, target: rule.target };
-    const target = action.target && action.target !== "لا يحتاج اختيار" ? ` ← ${staticLabel(action.target, t)}` : "";
+    const target = action.target && action.target !== "لا يحتاج اختيار" ? ` ${t("←", "→")} ${staticLabel(action.target, t)}` : "";
     return { conditionText, actionText: `${staticLabel(action.type, t)}${target}` };
   }
 
@@ -687,7 +692,7 @@ export default function AutomationsView({
             <button key={preset.id} type="button" className="automation-recipe-card" disabled={preset.available === false} onClick={() => openPreset(preset)}>
               <span aria-hidden="true">{preset.icon}</span>
               <div><b>{preset.title}</b><small>{preset.description}</small></div>
-              <em>{preset.available === false ? preset.requirement : `${t("استخدم القالب", "Use recipe")} ←`}</em>
+              <em>{preset.available === false ? preset.requirement : `${t("استخدم القالب", "Use recipe")} ${t("←", "→")}`}</em>
             </button>
           ))}
         </div>
@@ -729,9 +734,9 @@ export default function AutomationsView({
                 </div>
                 <div className="automation-flow-summary">
                   <div><small>{t("عندما", "When")}</small><b>{staticLabel(rule.trigger, t)}</b></div>
-                  <span aria-hidden="true">←</span>
+                  <span aria-hidden="true">{t("←", "→")}</span>
                   <div><small>{t("إذا", "If")}</small><b>{summary.conditionText}</b></div>
-                  <span aria-hidden="true">←</span>
+                  <span aria-hidden="true">{t("←", "→")}</span>
                   <div><small>{t("ينفّذ", "Then")}</small><b>{summary.actionText}</b></div>
                 </div>
                 <div className="automation-rule-foot">
@@ -752,10 +757,10 @@ export default function AutomationsView({
       </div>
 
       {formOpen ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
+        <div className="modal-backdrop" role="presentation" onClick={() => void requestCloseForm()}>
           <form className="account-modal form-modal automation-modal" role="dialog" aria-modal="true" aria-label={t("حفظ قاعدة أتمتة", "Save automation rule")} onSubmit={submitRule} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
-              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button>
+              <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => void requestCloseForm()}>×</button>
               <h2>{form.id ? t("تعديل قاعدة أتمتة", "Edit Automation Rule") : t("إضافة قاعدة أتمتة", "Add Automation Rule")}</h2>
             </header>
             <div className="automation-stepper" aria-label={t("مراحل إنشاء الأتمتة", "Automation setup steps")}>
@@ -900,9 +905,9 @@ export default function AutomationsView({
                     <div><small>{t("القاعدة", "Rule")}</small><b>{form.name}</b><p>{form.description || t("بدون وصف", "No description")}</p></div>
                     <div className="automation-review-flow">
                       <article><small>{t("عندما", "When")}</small><b>{staticLabel(form.trigger, t)}</b></article>
-                      <span>←</span>
+                      <span aria-hidden="true">{t("←", "→")}</span>
                       <article><small>{t("الشروط", "Conditions")}</small><b>{form.conditions.length ? (form.conditions.length === 1 ? t("شرط واحد", "1 condition") : t(`${form.conditions.length} شروط`, `${form.conditions.length} conditions`)) : t("كل الحالات", "All cases")}</b></article>
-                      <span>←</span>
+                      <span aria-hidden="true">{t("←", "→")}</span>
                       <article><small>{t("الإجراءات", "Actions")}</small><b>{form.actions.length === 1 ? t("إجراء واحد", "1 action") : t(`${form.actions.length} إجراءات`, `${form.actions.length} actions`)}</b></article>
                     </div>
                     <ul>{form.actions.map((action, index) => <li key={`${action.type}-${index}`}><span>{index + 1}</span>{staticLabel(action.type, t)}{action.target !== "لا يحتاج اختيار" ? ` — ${mediaActions[action.type] ? action.mediaName || "" : staticLabel(action.target, t)}` : ""}</li>)}</ul>

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatNumber } from "../../lib/format";
 import HtmlLangSync from "../HtmlLangSync";
 import DialogHost from "../components/DialogHost";
 import { confirmDialog, notify } from "../../lib/ui-dialogs";
@@ -12,6 +13,7 @@ import MobileTopbar from "./components/MobileTopbar";
 import PwaInstallCoachmark from "./components/PwaInstallCoachmark";
 import PwaInstallPopup from "./components/PwaInstallPopup";
 import DashboardTopActions from "./components/DashboardTopActions";
+import { DataLoadingProvider } from "./data-loading-context";
 import CompanyNameField from "./components/CompanyNameField";
 import { navItemLabelsEn, viewTitles } from "./data/navigation";
 import { DELETED_MESSAGE_TEXT, LanguageProvider } from "./i18n";
@@ -238,6 +240,8 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   const [menuOpen, setMenuOpen] = useState(false);
   // The desktop sidebar shows names by default; each person can fold it to icons, remembered per account.
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  // False until the first answer of the dashboard's data request (or a saved copy of it) is on screen.
+  const [dashboardDataLoaded, setDashboardDataLoaded] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   // The last inbox fingerprint seen (app/api/conversations/version).
   const inboxVersionRef = useRef("");
@@ -672,6 +676,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
       // Keep local fallback data visible if the API is temporarily unavailable.
     } finally {
       loadDashboardDataInFlightRef.current = false;
+      setDashboardDataLoaded(true);
     }
   }, []);
 
@@ -1507,6 +1512,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   return (
     <LanguageProvider language={language}>
     <PlanAccessProvider access={planAccess}>
+    <DataLoadingProvider loading={!dashboardDataLoaded && conversations.length === 0 && customers.length === 0}>
     <div className={`dashboard-shell ${menuOpen ? "menu-open" : ""}${sidebarExpanded ? " sidebar-expanded" : ""} lang-${language}`} dir={language === "en" ? "ltr" : "rtl"}>
       {/* The app's confirmation dialog and toasts (lib/ui-dialogs.ts) - every view's confirm/notify lands here. */}
       <DialogHost language={language === "en" ? "en" : "ar"} />
@@ -1664,14 +1670,14 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
       {profileOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setProfileOpen(false)}>
-          <section className="account-modal" role="dialog" aria-modal="true" aria-label={t("الملف الشخصي", "Profile")} onClick={(event) => event.stopPropagation()}>
+          <section className={`account-modal${profilePanel === "main" ? " profile-modal-compact" : ""}`} role="dialog" aria-modal="true" aria-label={t("الملف الشخصي", "Profile")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
               <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setProfileOpen(false)}>
                 ×
               </button>
               <h2>{profilePanel === "billing" && initialUser.role === "مالك الحساب" ? t("الفواتير والاشتراك", "Billing & subscription") : profilePanel === "security" ? t("الأمان", "Security") : t("الملف الشخصي", "Profile")}</h2>
             </header>
-            <div className="account-modal-body">
+            <div className={`account-modal-body${profilePanel === "main" ? " profile-compact" : ""}`}>
               {profilePanel === "main" ? (
                 <>
                   <div className="account-summary">
@@ -1779,7 +1785,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     <div><span>{t("الباقة الحالية", "Current plan")}</span><b>{subscription?.plan || t("لم يتم تحديد الباقة", "No plan selected")}</b></div>
                     <div><span>{t("حالة الاشتراك", "Subscription status")}</span><b>{billingLabel(subscription?.status, language)}</b></div>
                     <div><span>{t("تجديد الاشتراك", "Renewal")}</span><b>{billingLabel(subscription?.billingCycle, language)}{subscription?.renewalAt ? ` · ${formatDateTime(subscription.renewalAt, language)}` : ""}</b></div>
-                    {!planAccess.lockedViews.includes("campaigns") ? <div><span>{t("رصيد الحملات", "Campaign balance")}</span><b>{t(`${campaignBalance.toLocaleString("ar")} رسالة متاحة`, `${campaignBalance.toLocaleString("en-US")} messages available`)}</b></div> : null}
+                    {!planAccess.lockedViews.includes("campaigns") ? <div><span>{t("رصيد الحملات", "Campaign balance")}</span><b>{t(`${campaignBalance.toLocaleString("ar")} رسالة متاحة`, `${formatNumber(campaignBalance)} messages available`)}</b></div> : null}
                   </div>
                   <div className="invoice-list">
                     <h3>{t("الفواتير", "Invoices")}</h3>
@@ -1809,7 +1815,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                     {(invoiceFromDate || invoiceToDate) ? (
                       <p className="invoice-total-line">
                         {t("إجمالي الفواتير المدفوعة خلال الفترة:", "Total paid invoices in this period:")}{" "}
-                        <b>{t(`${filteredInvoicesTotal.toLocaleString("ar")} ر.س`, `${filteredInvoicesTotal.toLocaleString("en-US")} SAR`)}</b>
+                        <b>{t(`${filteredInvoicesTotal.toLocaleString("ar")} ر.س`, `${formatNumber(filteredInvoicesTotal)} SAR`)}</b>
                       </p>
                     ) : null}
                     {filteredInvoices.length === 0 ? (
@@ -1822,7 +1828,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                             <span>{formatDateTime(invoice.createdAt, language)}</span>
                           </div>
                           <div className="invoice-row-amount">
-                            <b>{t(`${invoice.amount.toLocaleString("ar")} ر.س`, `${invoice.amount.toLocaleString("en-US")} SAR`)}</b>
+                            <b>{t(`${invoice.amount.toLocaleString("ar")} ر.س`, `${formatNumber(invoice.amount)} SAR`)}</b>
                             <span className={`invoice-status ${invoice.status === "مكتمل" ? "paid" : "pending"}`}>{billingLabel(invoice.status, language)}</span>
                           </div>
                           <a className="invoice-print-link" href={`/billing/invoice/${invoice.id}${language === "en" ? "?lang=en" : ""}`} target="_blank" rel="noopener noreferrer">
@@ -1958,6 +1964,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
         </div>
       ) : null}
     </div>
+    </DataLoadingProvider>
     </PlanAccessProvider>
     </LanguageProvider>
   );

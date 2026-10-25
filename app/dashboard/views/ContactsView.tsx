@@ -1,6 +1,8 @@
 "use client";
 
 import { confirmDialog } from "../../../lib/ui-dialogs";
+import { useDataLoading } from "../data-loading-context";
+import { EmptyState, SkeletonTableRows } from "../components/StateBlocks";
 
 import CustomSelect from "../../components/CustomSelect";
 import { FormEvent, useMemo, useState } from "react";
@@ -108,6 +110,8 @@ export default function ContactsView({
       customer.tags.join(" ").toLowerCase().includes(query)
     ));
   }, [activeTab, customers, search]);
+
+  const dataLoading = useDataLoading();
 
   function openCreateForm() {
     setError("");
@@ -236,8 +240,15 @@ export default function ContactsView({
                   </td>
                 </tr>
               ))}
-              {!filteredCustomers.length ? (
-                <tr><td colSpan={4}>{t("لا يوجد عملاء مطابقون للبحث الحالي.", "No customers match the current search.")}</td></tr>
+              {!filteredCustomers.length && dataLoading ? <SkeletonTableRows columns={4} label={t("جارٍ تحميل العملاء", "Loading customers")} /> : null}
+              {!filteredCustomers.length && !dataLoading ? (
+                <tr><td colSpan={4}>{customers.length ? t("لا يوجد عملاء مطابقون للبحث الحالي.", "No customers match the current search.") : (
+                  <EmptyState
+                    title={t("لا يوجد عملاء بعد", "No customers yet")}
+                    description={t("يظهر هنا كل من يراسلك على قنواتك. يمكنك أيضاً إضافة عميل يدوياً لتبدأ محادثة معه.", "Everyone who messages you on your channels shows up here. You can also add a customer by hand to start a conversation.")}
+                    action={<button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة أول عميل", "Add your first customer")}</button>}
+                  />
+                )}</td></tr>
               ) : null}
             </tbody>
           </table>

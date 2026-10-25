@@ -1,3 +1,4 @@
+import { formatNumber } from "../../../../../lib/format";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import { getCurrentUser } from "../../../../../lib/auth";
@@ -27,14 +28,14 @@ export default async function EmailTopupPayPage({ params }: { params: Promise<{ 
   if (payment.status !== PAYMENT_STATUS.pending) redirect("/dashboard?view=emailPromotions&tab=balance");
 
   const publishableKey = getMoyasarPublishableKey();
-  const description = `شراء ${payment.messages.toLocaleString("en-US")} رصيد بريد تسويقي - Linkly`;
+  const description = `شراء ${formatNumber(payment.messages)} رصيد بريد تسويقي - Linkly`;
 
   return (
     <main className="test-checkout">
       <section>
         <Image src="/assets/linkly-logo.png" alt="" width={88} height={49} />
         <h1>شراء رصيد البريد</h1>
-        <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س <small>(قبل الضريبة)</small></p>
+        <p>{description} — {formatNumber(payment.amount)} ر.س <small>(قبل الضريبة)</small></p>
         <PayTaxSummary payment={payment} />
         <TaxProfileCard initial={await getTaxProfile(user.tenantId)} />
         {publishableKey ? (

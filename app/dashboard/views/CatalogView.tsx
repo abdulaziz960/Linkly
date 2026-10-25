@@ -640,7 +640,7 @@ export default function CatalogView() {
                       {order.discount ? <div><small>{t("كود الخصم", "Code")}: {order.discount.code} (-{order.discount.amount})</small></div> : null}
                       {order.branchName ? <div><small>{t("الفرع", "Branch")}: {order.branchName}</small></div> : null}
                       {order.pickup ? <div><small>{order.pickup.kind === "car" ? t("استلام من السيارة", "Car pickup") : t("استلام من المحل", "Store pickup")}{order.pickup.plate ? ` — ${t("اللوحة", "Plate")}: ${order.pickup.plate}` : ""}{order.pickup.carDetails ? ` — ${order.pickup.carDetails}` : ""}</small></div> : null}
-                      {order.shipping ? <div><small>{t("التوصيل", "Delivery")}: {order.shipping.methodName} → {order.shipping.city} ({order.shipping.fee > 0 ? `${order.shipping.fee} ${t("ر.س", "SAR")}` : t("مجاني", "free")})<br />{order.shipping.address}</small></div> : null}
+                      {order.shipping ? <div><small>{t("التوصيل", "Delivery")}: {order.shipping.methodName} {t("←", "→")} {order.shipping.city} ({order.shipping.fee > 0 ? `${order.shipping.fee} ${t("ر.س", "SAR")}` : t("مجاني", "free")})<br />{order.shipping.address}</small></div> : null}
                     </td>
                     <td data-label={t("المبلغ", "Amount")}>{order.total} {t("ر.س", "SAR")}</td>
                     <td data-label={t("الحالة", "Status")}>

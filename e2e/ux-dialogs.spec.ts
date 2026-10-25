@@ -48,3 +48,17 @@ test("keyboard focus is visible on form fields", async ({ page }) => {
   });
   expect(outline).toMatch(/solid 2px/);
 });
+
+test("the profile window fits on one screen and sign-out is in plain view", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 800 });
+  await signIn(page);
+  await page.getByRole("button", { name: "الملف الشخصي" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "الملف الشخصي" });
+  await expect(dialog).toBeVisible();
+  const signOut = dialog.getByRole("button", { name: "تسجيل الخروج", exact: true });
+  await expect(signOut).toBeInViewport({ ratio: 1 });
+  // Nothing inside the window needs scrolling.
+  const overflow = await dialog.locator(".account-modal-body").evaluate((element) => element.scrollHeight - element.clientHeight);
+  expect(overflow).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath("profile-window.png") });
+});

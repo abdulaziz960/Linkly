@@ -1,5 +1,6 @@
 "use client";
 
+import { formatNumber } from "../../../lib/format";
 import PageHeader from "../components/PageHeader";
 import { confirmDialog, notify } from "../../../lib/ui-dialogs";
 
@@ -10,6 +11,7 @@ import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import { formatDateTime, formatFullDateTime, formatRelativeTime, parseStoredDate } from "../../../lib/time";
 import { buildCsv } from "../../../lib/csv-export";
+import { useUnsavedChanges } from "../use-unsaved-changes";
 import CampaignEngagementReport from "../components/CampaignEngagementReport";
 import { firstChar } from "../../../lib/first-char";
 import { computeCampaignStats, formatRate, sumCampaignStats, type CampaignStats, type FailureReasonKey } from "../../../lib/campaign-metrics";
@@ -237,6 +239,10 @@ export default function CampaignsView({
   const [segments, setSegments] = useState<Segment[]>([]);
   const [campaignFile, setCampaignFile] = useState<File | null>(null);
   const [headerMediaFile, setHeaderMediaFile] = useState<File | null>(null);
+  const { confirmClose: confirmCloseForm } = useUnsavedChanges(formOpen, { form, file: campaignFile?.name ?? "", media: headerMediaFile?.name ?? "" }, t);
+  async function requestCloseForm() {
+    if (await confirmCloseForm()) setFormOpen(false);
+  }
   const [brokenThumbIds, setBrokenThumbIds] = useState<Set<string>>(new Set());
   const selectedTemplate = approvedTemplates.find((template) => template.name === form.templateName);
   const needsHeaderMedia = Boolean(selectedTemplate && ["IMAGE", "VIDEO"].includes(selectedTemplate.headerType || "NONE"));
@@ -590,11 +596,11 @@ export default function CampaignsView({
     const waiting = statsOf(campaign).pending || campaign.total;
     if (!balanceLoading && !balanceLoadError && balance < waiting) {
       const goOn = await confirmDialog(
-        t(`رصيدك (${balance.toLocaleString("en-US")} رسالة) لا يكفي لـ ${waiting.toLocaleString("en-US")} مستلم. سيتوقف الإرسال عند نفاد الرصيد وتبقى الأرقام الباقية بالانتظار. هل تريد الإرسال بالرصيد المتاح؟`, `Your balance (${balance.toLocaleString("en-US")} messages) does not cover ${waiting.toLocaleString("en-US")} recipients. Sending stops when it runs out and the rest wait. Send with the available balance?`),
+        t(`رصيدك (${formatNumber(balance)} رسالة) لا يكفي لـ ${formatNumber(waiting)} مستلم. سيتوقف الإرسال عند نفاد الرصيد وتبقى الأرقام الباقية بالانتظار. هل تريد الإرسال بالرصيد المتاح؟`, `Your balance (${formatNumber(balance)} messages) does not cover ${formatNumber(waiting)} recipients. Sending stops when it runs out and the rest wait. Send with the available balance?`),
         { tone: "danger", title: t("الرصيد لا يكفي", "Not enough balance"), confirmLabel: t("إرسال بالرصيد المتاح", "Send with available balance"), cancelLabel: t("تراجع", "Cancel") }
       );
       if (!goOn) return;
-    } else if (!(await confirmDialog(t(`إرسال حملة ${campaign.name} الآن إلى ${campaign.total.toLocaleString("en-US")} مستلم؟`, `Send the "${campaign.name}" campaign now to ${campaign.total.toLocaleString("en-US")} recipient(s)?`), { confirmLabel: t("إرسال الآن", "Send now"), cancelLabel: t("تراجع", "Cancel") }))) return;
+    } else if (!(await confirmDialog(t(`إرسال حملة ${campaign.name} الآن إلى ${formatNumber(campaign.total)} مستلم؟`, `Send the "${campaign.name}" campaign now to ${formatNumber(campaign.total)} recipient(s)?`), { confirmLabel: t("إرسال الآن", "Send now"), cancelLabel: t("تراجع", "Cancel") }))) return;
     const response = await fetch(`/api/campaigns/${campaign.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -691,7 +697,7 @@ export default function CampaignsView({
 
   async function retryFailedRecipients(campaign: Campaign) {
     const failed = statsOf(campaign).failed;
-    if (!(await confirmDialog(t(`إعادة الإرسال لـ ${failed.toLocaleString("en-US")} مستلم فشل إرسالهم؟ سيُخصم رصيد عن كل رسالة تصل.`, `Resend to the ${failed.toLocaleString("en-US")} recipients that failed? One credit is used per delivered message.`), { confirmLabel: t("إعادة الإرسال", "Resend"), cancelLabel: t("تراجع", "Cancel") }))) return;
+    if (!(await confirmDialog(t(`إعادة الإرسال لـ ${formatNumber(failed)} مستلم فشل إرسالهم؟ سيُخصم رصيد عن كل رسالة تصل.`, `Resend to the ${formatNumber(failed)} recipients that failed? One credit is used per delivered message.`), { confirmLabel: t("إعادة الإرسال", "Resend"), cancelLabel: t("تراجع", "Cancel") }))) return;
     if (await patchCampaign(campaign.id, { retryFailed: true })) await onRefreshData();
   }
 
@@ -781,7 +787,7 @@ export default function CampaignsView({
               <span>⛔</span>
               <div>
                 <strong>{t("رصيدك لا يكفي لكل الحملات المنتظرة", "Your balance does not cover every queued campaign")}</strong>
-                <p>{t(`بانتظار الإرسال ${queuedMessages.toLocaleString("en-US")} رسالة والرصيد ${balance.toLocaleString("en-US")}. ينقصك ${(queuedMessages - balance).toLocaleString("en-US")} رسالة.`, `${queuedMessages.toLocaleString("en-US")} messages are queued and the balance is ${balance.toLocaleString("en-US")}. You are short by ${(queuedMessages - balance).toLocaleString("en-US")}.`)}</p>
+                <p>{t(`بانتظار الإرسال ${formatNumber(queuedMessages)} رسالة والرصيد ${formatNumber(balance)}. ينقصك ${(queuedMessages - balance).toLocaleString("en-US")} رسالة.`, `${formatNumber(queuedMessages)} messages are queued and the balance is ${formatNumber(balance)}. You are short by ${(queuedMessages - balance).toLocaleString("en-US")}.`)}</p>
               </div>
               <button className="btn primary" type="button" onClick={() => openTopUp(queuedMessages - balance)}>{t("شحن الرصيد", "Top up balance")}</button>
             </div>
@@ -799,7 +805,7 @@ export default function CampaignsView({
                 </div>
               </a>
             </article>
-            <article><span>↗</span><div><b>{t("نسبة الإرسال", "Send rate")}</b><strong>{campaignOverview.sendRate}%</strong><small dir="ltr">{campaignOverview.sent.toLocaleString("en-US")} / {campaignOverview.recipients.toLocaleString("en-US")}</small></div></article>
+            <article><span>↗</span><div><b>{t("نسبة الإرسال", "Send rate")}</b><strong>{campaignOverview.sendRate}%</strong><small dir="ltr">{formatNumber(campaignOverview.sent)} / {formatNumber(campaignOverview.recipients)}</small></div></article>
           </section>
           {refreshState === "error" ? (
             <div className="balance-low-banner critical" role="alert">
@@ -811,8 +817,8 @@ export default function CampaignsView({
           {campaigns.length ? (<>
           <section className={`campaign-kpis${refreshState === "loading" ? " is-loading" : ""}`} aria-busy={refreshState === "loading"} aria-label={t("ملخص الحملات", "Campaign summary")}>
             {([
-              { key: "sent", label: t("تم إرسالها", "Sent"), value: campaignOverview.sent.toLocaleString("en-US"), note: t("رسالة عبر جميع الحملات", "messages across campaigns") },
-              { key: "pending", label: t("بانتظار الإرسال", "Pending"), value: campaignOverview.remaining.toLocaleString("en-US"), note: t("ما زال في الطابور", "still in the queue") },
+              { key: "sent", label: t("تم إرسالها", "Sent"), value: formatNumber(campaignOverview.sent), note: t("رسالة عبر جميع الحملات", "messages across campaigns") },
+              { key: "pending", label: t("بانتظار الإرسال", "Pending"), value: formatNumber(campaignOverview.remaining), note: t("ما زال في الطابور", "still in the queue") },
               { key: "completed", label: t("حملات مكتملة", "Completed"), value: String(campaignOverview.completed), note: t("أنهت عملية الإرسال", "finished sending") },
               { key: "active", label: t("نشطة أو مجدولة", "Active or scheduled"), value: String(campaignOverview.active), note: t("تحتاج متابعة تشغيلية", "need operational follow-up") }
             ] as Array<{ key: KpiFilter; label: string; value: string; note: string }>).map((card) => (
@@ -834,7 +840,7 @@ export default function CampaignsView({
             ] as Array<{ key: string; label: string; value: number; share: number; of: string }>).map((step) => (
               <article key={step.key} className={`funnel-${step.key}`}>
                 <span>{step.label}</span>
-                <strong>{step.value.toLocaleString("en-US")}</strong>
+                <strong>{formatNumber(step.value)}</strong>
                 <small><bdi dir="ltr">{step.share}%</bdi> {step.of}</small>
               </article>
             ))}
@@ -847,7 +853,7 @@ export default function CampaignsView({
           {campaignOverview.totals.failureReasons.length ? (
             <p className="campaign-failure-reasons">
               <b>{t("أسباب الفشل:", "Why messages failed:")}</b>{" "}
-              {campaignOverview.totals.failureReasons.map((reason) => `${t(failureReasonLabels[reason.key][0], failureReasonLabels[reason.key][1])} (${reason.count.toLocaleString("en-US")})`).join(" · ")}
+              {campaignOverview.totals.failureReasons.map((reason) => `${t(failureReasonLabels[reason.key][0], failureReasonLabels[reason.key][1])} (${formatNumber(reason.count)})`).join(" · ")}
             </p>
           ) : null}
           </>) : null}
@@ -961,12 +967,12 @@ export default function CampaignsView({
                         {campaign.tags?.length ? <span className="campaign-tags">{campaign.tags.map((tag) => <em key={tag}>{tag}</em>)}</span> : null}</span></div></td>
                       <td data-label={t("القالب", "Template")}><span className="campaign-template" title={campaign.templateName}>{campaign.templateName || "—"}</span></td>
                       <td data-label={t("تاريخ الإرسال", "Sent")}><DateCell value={parseStoredDate(campaign.sentAt) ?? parseStoredDate(campaign.scheduledAt)} language={language === "en" ? "en" : "ar"} empty={t("لم تُرسل بعد", "Not sent yet")} /></td>
-                      <td data-label={t("الجمهور", "Audience")}>{stats.total.toLocaleString("en-US")}</td>
-                      <td data-label={t("الإرسال", "Sending")}><b>{campaign.sent.toLocaleString("en-US")}</b><small className="campaign-cell-note"> {t("من", "of")} {campaign.total.toLocaleString("en-US")}</small>{stats.pending > 0 ? <small className="campaign-cell-note campaign-cell-pending"> · {stats.pending.toLocaleString("en-US")} {t("بالانتظار", "waiting")}</small> : null}</td>
+                      <td data-label={t("الجمهور", "Audience")}>{formatNumber(stats.total)}</td>
+                      <td data-label={t("الإرسال", "Sending")}><b>{formatNumber(campaign.sent)}</b><small className="campaign-cell-note"> {t("من", "of")} {formatNumber(campaign.total)}</small>{stats.pending > 0 ? <small className="campaign-cell-note campaign-cell-pending"> · {formatNumber(stats.pending)} {t("بالانتظار", "waiting")}</small> : null}</td>
                       <td data-label={t("التقدم", "Progress")}><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
-                      <td data-label={t("وصلت", "Delivered")}>{stats.delivered.toLocaleString("en-US")}</td>
-                      <td data-label={t("قُرئت", "Read")}>{stats.read.toLocaleString("en-US")}</td>
-                      <td data-label={t("ردّ", "Replied")}>{stats.replied.toLocaleString("en-US")}</td>
+                      <td data-label={t("وصلت", "Delivered")}>{formatNumber(stats.delivered)}</td>
+                      <td data-label={t("قُرئت", "Read")}>{formatNumber(stats.read)}</td>
+                      <td data-label={t("ردّ", "Replied")}>{formatNumber(stats.replied)}</td>
                       <td data-label={t("فشلت", "Failed")}>{(stats.failed + stats.optedOut).toLocaleString("en-US")}</td>
                       <td data-label={t("التكلفة", "Cost")}><bdi dir="ltr">{sar(campaign.cost ?? 0)}</bdi> {t("ريال", "SAR")}</td>
                       <td data-label={t("الحالة", "Status")}><span className={campaign.status === "ملغاة" || campaign.status === "مؤرشفة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
@@ -1012,7 +1018,7 @@ export default function CampaignsView({
                 <span>{critical ? "⛔" : "⚠️"}</span>
                 <div>
                   <strong>{t(`رصيدك منخفض — ${Math.round(percentRemaining)}% متبقٍ`, `Balance running low — ${Math.round(percentRemaining)}% remaining`)}</strong>
-                  <p>{t(`تبقّى لديك ${balance.toLocaleString("en-US")} رسالة فقط. اشحن الآن حتى لا تتوقف حملاتك القادمة.`, `Only ${balance.toLocaleString("en-US")} messages left. Top up now to avoid interrupting upcoming campaigns.`)}</p>
+                  <p>{t(`تبقّى لديك ${formatNumber(balance)} رسالة فقط. اشحن الآن حتى لا تتوقف حملاتك القادمة.`, `Only ${formatNumber(balance)} messages left. Top up now to avoid interrupting upcoming campaigns.`)}</p>
                 </div>
                 <button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>{t("شحن الآن", "Top up now")}</button>
               </div>
@@ -1020,10 +1026,10 @@ export default function CampaignsView({
           })()}
           <section className="campaign-balance-hero">
             <div><span>{t("رصيد الحملات", "CAMPAIGN BALANCE")}</span><h2>{t("تحكّم في رصيد الإرسال من مكان واحد", "Manage your sending balance in one place")}</h2><p>{t("اشحن الرصيد حسب احتياجك، ثم راقب كل عملية إضافة أو استخدام في السجل المالي أدناه.", "Top up as needed, then review every credit and usage entry in the ledger below.")}</p></div>
-            <div className="campaign-balance-total"><small>{t("الرصيد المتاح", "Available balance")}</small><strong aria-busy={balanceLoading}>{balanceLoading ? <span className="skeleton-number" role="status" aria-label={t("جارٍ التحميل", "Loading")} /> : balanceLoadError ? "—" : balance.toLocaleString("en-US")}</strong><span>{t("رسالة", "messages")}</span><button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>＋ {t("شحن الرصيد", "Top up balance")}</button></div>
+            <div className="campaign-balance-total"><small>{t("الرصيد المتاح", "Available balance")}</small><strong aria-busy={balanceLoading}>{balanceLoading ? <span className="skeleton-number" role="status" aria-label={t("جارٍ التحميل", "Loading")} /> : balanceLoadError ? "—" : formatNumber(balance)}</strong><span>{t("رسالة", "messages")}</span><button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>＋ {t("شحن الرصيد", "Top up balance")}</button></div>
           </section>
           <section className="balance-kpi-grid">
-            <article><span>{t("الاستخدام الكلي", "Total usage")}</span><strong>{campaignOverview.sent.toLocaleString("en-US")}</strong><small>{t("رسالة مستخدمة في الحملات", "messages used in campaigns")}</small></article>
+            <article><span>{t("الاستخدام الكلي", "Total usage")}</span><strong>{formatNumber(campaignOverview.sent)}</strong><small>{t("رسالة مستخدمة في الحملات", "messages used in campaigns")}</small></article>
             <article><span>{t("المعاملات المسجلة", "Recorded transactions")}</span><strong>{balanceLoading ? <span className="skeleton-number" role="status" aria-label={t("جارٍ التحميل", "Loading")} /> : balanceTransactions.length}</strong><small>{t("عمليات شحن واستخدام", "top-up and usage entries")}</small></article>
             <article className="balance-pricing-card"><span>{t("التسعير حسب الحجم", "Volume pricing")}</span><strong>{t("ابتداءً من 0.012 ريال", "From SAR 0.012")}</strong><button type="button" onClick={() => setPricingOpen(true)}>{t("عرض جدول الأسعار", "View pricing table")} ←</button></article>
           </section>
@@ -1078,9 +1084,9 @@ export default function CampaignsView({
       ) : null}
 
       {formOpen ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
+        <div className="modal-backdrop" role="presentation" onClick={() => void requestCloseForm()}>
           <form className="account-modal form-modal campaign-create-modal campaign-builder-modal" role="dialog" aria-modal="true" aria-label={t("حفظ حملة", "Save campaign")} onSubmit={submitCampaign} onClick={(event) => event.stopPropagation()}>
-            <header className="modal-head campaign-builder-head"><button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setFormOpen(false)}>×</button><div><span>{t("منشئ الحملات", "CAMPAIGN BUILDER")}</span><h2>{form.id ? t("تعديل اسم الحملة", "Edit campaign name") : t("إنشاء حملة جديدة", "Create a new campaign")}</h2></div></header>
+            <header className="modal-head campaign-builder-head"><button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => void requestCloseForm()}>×</button><div><span>{t("منشئ الحملات", "CAMPAIGN BUILDER")}</span><h2>{form.id ? t("تعديل اسم الحملة", "Edit campaign name") : t("إنشاء حملة جديدة", "Create a new campaign")}</h2></div></header>
             <div className="account-modal-body form-grid campaign-builder-fields">
               {!form.id ? <div className="campaign-warning">{t("الرجاء قبل إرسال أي حملة قم بإنشاء حملة تجريبية تحتوي على رقمك فقط، لتتأكد من الإرسال ووصول الرسالة دون أي مشكلة في الإرسال", "Before sending any campaign, please create a test campaign with just your own number to confirm the message sends and arrives without issues.")}</div> : null}
               <label><span>{t("اسم الحملة", "Campaign name")}</span><input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder={t("اسم الحملة", "Campaign name")} required /></label>
@@ -1160,7 +1166,7 @@ export default function CampaignsView({
                       ) : recipientPreview !== null ? (
                         <small className="field-hint">
                           {recipientPreview > 0
-                            ? t(`تم العثور على ${recipientPreview.toLocaleString("en-US")} رقم صحيح في الملف.`, `Found ${recipientPreview.toLocaleString("en-US")} valid numbers in the file.`)
+                            ? t(`تم العثور على ${formatNumber(recipientPreview)} رقم صحيح في الملف.`, `Found ${formatNumber(recipientPreview)} valid numbers in the file.`)
                             : t("ما لقينا أي أرقام صالحة في الملف. تأكد إن الأرقام بالعمود الأول.", "No valid numbers found in the file. Make sure numbers are in the first column.")}
                         </small>
                       ) : null}
@@ -1173,7 +1179,7 @@ export default function CampaignsView({
                         onChange={(value) => selectSegment(value)}
                         options={segments.map((segment) => ({
                           value: segment.id,
-                          label: `${segment.name} (${segment.recipientCount.toLocaleString("en-US")} ${t("عميل", "customers")})`
+                          label: `${segment.name} (${formatNumber(segment.recipientCount)} ${t("عميل", "customers")})`
                         }))}
                       />
                       {!segments.length ? (
@@ -1255,19 +1261,19 @@ export default function CampaignsView({
             <aside className="campaign-live-preview" aria-label={t("معاينة الحملة", "Campaign preview")}>
               <div className="campaign-preview-title"><span>{t("معاينة مباشرة", "Live preview")}</span><small>{t("شكل تقريبي للرسالة", "Approximate message appearance")}</small></div>
               <div className="campaign-phone"><div className="campaign-phone-bar"><span>{brandName}</span><i>•••</i></div><div className="campaign-phone-notice">{t("محادثة أعمال موثقة وآمنة", "Verified and secure business chat")}</div><div className="campaign-message-preview"><b>{form.name || t("اسم الحملة", "Campaign name")}</b><p>{approvedTemplates.find((template) => template.name === form.templateName)?.message || t("اختر قالباً معتمداً لتظهر معاينة نص الرسالة هنا.", "Choose an approved template to preview its message here.")}</p><time>3:34 PM</time></div></div>
-              <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{recipientPreview === null ? "—" : recipientPreview.toLocaleString("en-US")}</dd></div><div><dt>{t("طريقة الإرسال", "Delivery")}</dt><dd>{form.scheduled ? t("مجدولة", "Scheduled") : t("فوري", "Immediate")}</dd></div>{form.recurring ? <div><dt>{t("التكرار", "Repeats")}</dt><dd>{t(recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.ar || "", recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.en || "")}</dd></div> : null}</dl>
+              <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{recipientPreview === null ? "—" : formatNumber(recipientPreview)}</dd></div><div><dt>{t("طريقة الإرسال", "Delivery")}</dt><dd>{form.scheduled ? t("مجدولة", "Scheduled") : t("فوري", "Immediate")}</dd></div>{form.recurring ? <div><dt>{t("التكرار", "Repeats")}</dt><dd>{t(recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.ar || "", recurrenceIntervalOptions.find((option) => option.days === form.recurrenceIntervalDays)?.en || "")}</dd></div> : null}</dl>
             </aside>
             {!form.id && recipientPreview ? (
               <div className={`campaign-cost-estimate${!balanceLoading && !balanceLoadError && balance < recipientPreview ? " is-short" : ""}`} role={!balanceLoading && !balanceLoadError && balance < recipientPreview ? "alert" : "status"}>
                 <div>
                   <strong>{t("التكلفة المتوقعة", "Estimated cost")}: <bdi dir="ltr">{sar(recipientPreview * messageRate)}</bdi> {t("ريال", "SAR")}</strong>
-                  <small>{t(`${recipientPreview.toLocaleString("en-US")} رسالة × ${messageRate.toFixed(3)} ريال`, `${recipientPreview.toLocaleString("en-US")} messages × ${messageRate.toFixed(3)} SAR`)} · {balanceLoading ? t("جارٍ قراءة الرصيد…", "Reading your balance…") : balanceLoadError ? t("تعذر قراءة الرصيد", "Could not read your balance") : t(`رصيدك ${balance.toLocaleString("en-US")} رسالة`, `your balance is ${balance.toLocaleString("en-US")} messages`)}</small>
+                  <small>{t(`${formatNumber(recipientPreview)} رسالة × ${messageRate.toFixed(3)} ريال`, `${formatNumber(recipientPreview)} messages × ${messageRate.toFixed(3)} SAR`)} · {balanceLoading ? t("جارٍ قراءة الرصيد…", "Reading your balance…") : balanceLoadError ? t("تعذر قراءة الرصيد", "Could not read your balance") : t(`رصيدك ${formatNumber(balance)} رسالة`, `your balance is ${formatNumber(balance)} messages`)}</small>
                   {!balanceLoading && !balanceLoadError && balance < recipientPreview ? <p>{t(`رصيدك لا يكفي. ينقصك ${(recipientPreview - balance).toLocaleString("en-US")} رسالة، وسيتوقف الإرسال عند نفاد الرصيد.`, `Your balance is not enough: you are short by ${(recipientPreview - balance).toLocaleString("en-US")} messages and sending stops when it runs out.`)}</p> : null}
                 </div>
                 {!balanceLoading && !balanceLoadError && balance < recipientPreview ? <button className="btn primary" type="button" onClick={() => { setFormOpen(false); setActiveTab("balance"); openTopUp(recipientPreview - balance); }}>{t("شحن الرصيد", "Top up balance")}</button> : null}
               </div>
             ) : null}
-            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && (!approvedTemplates.length || (form.audienceMode === "file" ? !campaignFile : !form.segmentId) || !recipientPreview || (needsHeaderMedia && !templateHasSavedMedia && !headerMediaFile)))}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : form.recurring ? t("جدولة حملة متكررة", "Schedule recurring campaign") : form.scheduled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الحملة", "Send campaign")}</button></footer>
+            <footer className="modal-foot"><button className="btn soft" type="button" onClick={() => void requestCloseForm()}>{t("إلغاء", "Cancel")}</button><button className="btn primary" type="submit" disabled={saving || (!form.id && (!approvedTemplates.length || (form.audienceMode === "file" ? !campaignFile : !form.segmentId) || !recipientPreview || (needsHeaderMedia && !templateHasSavedMedia && !headerMediaFile)))}>{saving ? t("جاري الحفظ", "Saving") : form.id ? t("حفظ", "Save") : form.recurring ? t("جدولة حملة متكررة", "Schedule recurring campaign") : form.scheduled ? t("جدولة الحملة", "Schedule campaign") : t("إرسال الحملة", "Send campaign")}</button></footer>
           </form>
         </div>
       ) : null}
@@ -1295,7 +1301,7 @@ export default function CampaignsView({
             <div className="account-modal-body balance-modal-body">
               <div className="balance-selected-package">
                 <span>{t("الرصيد المطلوب", "Requested balance")}</span>
-                <b>{parsedChargeMessages.toLocaleString("en-US")} {t("رسالة", "messages")}</b>
+                <b>{formatNumber(parsedChargeMessages)} {t("رسالة", "messages")}</b>
                 <strong>{chargeTier ? t(`${formatCurrency(chargeTier.rate, "ar")} لكل رسالة`, `${formatCurrency(chargeTier.rate, "en")} per message`) : t("أدخل رسالة واحدة أو أكثر", "Enter 1 message or more")}</strong>
               </div>
               <label>
@@ -1311,7 +1317,7 @@ export default function CampaignsView({
               <div className="charge-presets" aria-label={t("اختيارات سريعة للشحن", "Quick top-up options")}>
                 {[100, 500, 1000, 5000, 10000, 25000, 50000, 100000].map((value) => (
                   <button key={value} type="button" onClick={() => setChargeMessages(String(value))}>
-                    {value.toLocaleString("en-US")} {t("رسالة", "messages")}
+                    {formatNumber(value)} {t("رسالة", "messages")}
                   </button>
                 ))}
               </div>

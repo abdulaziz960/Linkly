@@ -1,3 +1,4 @@
+import { formatNumber } from "../../../../lib/format";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../../../lib/auth";
@@ -159,7 +160,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
                 <b>{en ? itemLabelEn : itemLabelAr}</b>
                 {en ? null : <small>{itemLabelEn}</small>}
               </td>
-              <td className="num" dir="ltr">{qty.toLocaleString("en-US")}</td>
+              <td className="num" dir="ltr">{formatNumber(qty)}</td>
               <td className="num"><span dir="ltr">{amountText}</span> {cur}</td>
             </tr>
           </tbody>

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatNumber } from "../../../lib/format";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -49,9 +50,9 @@ export default function PayPromoBox({ endpoint, paymentId, appliedCode, subtotal
         <div className="pay-promo-applied">
           <p><b>كود الخصم: {appliedCode} ✓</b></p>
           <dl>
-            <div><dt>السعر قبل الخصم</dt><dd>{subtotal.toLocaleString("en-US")} ر.س</dd></div>
-            <div><dt>الخصم</dt><dd>-{discountAmount.toLocaleString("en-US")} ر.س</dd></div>
-            <div className="proration-final"><dt>المبلغ بعد الخصم (قبل الضريبة)</dt><dd>{total.toLocaleString("en-US")} ر.س</dd></div>
+            <div><dt>السعر قبل الخصم</dt><dd>{formatNumber(subtotal)} ر.س</dd></div>
+            <div><dt>الخصم</dt><dd>-{formatNumber(discountAmount)} ر.س</dd></div>
+            <div className="proration-final"><dt>المبلغ بعد الخصم (قبل الضريبة)</dt><dd>{formatNumber(total)} ر.س</dd></div>
           </dl>
           <button type="button" disabled={busy} onClick={() => void send("")}>إزالة الكود</button>
         </div>

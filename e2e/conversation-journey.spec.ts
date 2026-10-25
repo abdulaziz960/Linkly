@@ -62,12 +62,17 @@ test("WhatsApp CTA → signed inbound webhook → Inbox → AI draft → Pipelin
   await page.getByRole("tab", { name: "داخل المنصة" }).click();
   const card = page.locator('.pipeline-card').filter({ hasText: "عميل اختبار الرحلة" });
   await expect(card).toBeVisible();
+  // The board is wide and the card sits at its edge: bring it to the top-centre first, so the stage list opens fully inside
+  // the window and nothing has to scroll (a scroll closes the list) when an option is pressed.
+  const bringCardIntoView = () => card.evaluate((element) => element.scrollIntoView({ block: "start", inline: "center" }));
+  await bringCardIntoView();
   await card.getByRole("button", { name: "مرحلة الليد" }).click();
   await page.getByRole("option", { name: "عرض سعر / تمويل", exact: true }).click();
   await expect(card.getByRole("spinbutton", { name: "قيمة الوحدة" })).toBeVisible();
   await card.getByRole("spinbutton", { name: "قيمة الوحدة" }).fill("7200");
   await card.getByRole("spinbutton", { name: "قيمة الوحدة" }).blur();
   await expect(card.getByRole("status")).toContainText("تم حفظ القيمة");
+  await bringCardIntoView();
   await card.getByRole("button", { name: "مرحلة الليد" }).click();
   await page.getByRole("option", { name: "تم البيع", exact: true }).click();
   await expect(card.getByRole("status")).toContainText("تم حفظ المرحلة");

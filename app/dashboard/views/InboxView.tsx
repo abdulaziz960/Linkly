@@ -1,6 +1,8 @@
 "use client";
 
 import { notify } from "../../../lib/ui-dialogs";
+import { useDataLoading } from "../data-loading-context";
+import { EmptyState, SkeletonLines } from "../components/StateBlocks";
 
 import AdSourceBanner from "../components/AdSourceBanner";
 import LeadStatusControl from "../components/LeadStatusControl";
@@ -492,6 +494,7 @@ export default function InboxView({
     ? activeConversation.messages.find((item) => item.id === replyTargetId)
     : null;
   const activeAdvancedFilterCount = [selectedChannel !== "all", assigneeFilter !== "all", tagFilter !== "all", priorityFilter !== "all", dateFilter !== "all"].filter(Boolean).length;
+  const dataLoading = useDataLoading();
   const displayedConversations = useMemo(() => {
     const priorityRank: Record<InboxPriority, number> = { urgent: 3, high: 2, normal: 1 };
     const filtered = visibleConversations.filter((conversation) => {
@@ -1139,7 +1142,15 @@ export default function InboxView({
             </button>
             );
           })}
-          {!displayedConversations.length ? (
+          {!displayedConversations.length && dataLoading ? <SkeletonLines count={7} label={t("جارٍ تحميل المحادثات", "Loading conversations")} /> : null}
+          {!displayedConversations.length && !dataLoading && !visibleConversations.length && selectedChannel === "all" ? (
+            <EmptyState
+              title={t("لا توجد محادثات بعد", "No conversations yet")}
+              description={t("تصل هنا رسائل عملائك من واتساب وبقية القنوات. اربط قناة أو شارك رابط واتساب الخاص بك لتبدأ.", "Your customers' messages from WhatsApp and the other channels arrive here. Connect a channel or share your WhatsApp link to begin.")}
+              action={<a className="btn primary" href="/dashboard?view=settings">{t("ربط قناة", "Connect a channel")}</a>}
+            />
+          ) : null}
+          {!displayedConversations.length && !dataLoading && !(selectedChannel === "all" && !visibleConversations.length) ? (
             <div className="conversation-list-empty"><span aria-hidden="true">⌕</span><b>{t("لا توجد نتائج مطابقة", "No matching conversations")}</b><small>{t("غيّر كلمات البحث أو أعد تعيين الفلاتر.", "Change the search or reset filters.")}</small><button type="button" onClick={resetAdvancedFilters}>{t("إعادة تعيين الفلاتر", "Reset filters")}</button></div>
           ) : null}
           {displayedConversations.length > listLimit ? <button className="conversation-load-more" type="button" onClick={() => setListLimit((current) => current + 60)}>{t(`عرض 60 محادثة إضافية (${displayedConversations.length - listLimit} متبقية)`, `Load 60 more (${displayedConversations.length - listLimit} remaining)`)}</button> : null}

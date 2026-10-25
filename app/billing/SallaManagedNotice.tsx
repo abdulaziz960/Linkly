@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 /** A workspace subscribed through Salla's app store: plans, payment and cancelling all happen in the Salla dashboard. */
 export default function SallaManagedNotice({ branding, plan, renewalAt, active }: { branding: { name: string; logoDataUrl: string }; plan: string; renewalAt: string; active: boolean }) {
   const router = useRouter();
-  const until = renewalAt ? new Date(renewalAt).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" }) : "";
+  const until = renewalAt ? new Date(renewalAt).toLocaleDateString("ar-SA-u-ca-gregory-nu-latn", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Riyadh" }) : "";
   return (
     <main className="billing-page" dir="rtl">
       <header className="billing-header">

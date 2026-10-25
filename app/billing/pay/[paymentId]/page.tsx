@@ -1,3 +1,4 @@
+import { formatNumber } from "../../../../lib/format";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import { getCurrentUser } from "../../../../lib/auth";
@@ -49,13 +50,13 @@ export default async function BillingPayPage({ params }: { params: Promise<{ pay
           <div className="proration-breakdown">
             <p>{description}</p>
             <dl>
-              <div><dt>سعر الباقة</dt><dd>{payment.listPrice.toLocaleString("en-US")} ر.س</dd></div>
-              <div><dt>خصم الأيام المتبقية من باقتك الحالية</dt><dd>-{payment.prorationCreditAmount.toLocaleString("en-US")} ر.س</dd></div>
-              <div className="proration-final"><dt>المبلغ قبل الضريبة</dt><dd>{payment.amount.toLocaleString("en-US")} ر.س</dd></div>
+              <div><dt>سعر الباقة</dt><dd>{formatNumber(payment.listPrice)} ر.س</dd></div>
+              <div><dt>خصم الأيام المتبقية من باقتك الحالية</dt><dd>-{formatNumber(payment.prorationCreditAmount)} ر.س</dd></div>
+              <div className="proration-final"><dt>المبلغ قبل الضريبة</dt><dd>{formatNumber(payment.amount)} ر.س</dd></div>
             </dl>
           </div>
         ) : (
-          <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س <small>(قبل الضريبة)</small></p>
+          <p>{description} — {formatNumber(payment.amount)} ر.س <small>(قبل الضريبة)</small></p>
         )}
         <PayTaxSummary payment={payment} />
         <TaxProfileCard initial={await getTaxProfile(user.tenantId)} />

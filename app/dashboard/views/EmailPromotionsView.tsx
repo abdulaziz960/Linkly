@@ -1,5 +1,6 @@
 "use client";
 
+import { formatNumber } from "../../../lib/format";
 import PageHeader from "../components/PageHeader";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Conversation, Customer, EmailCampaignSummary, Tag } from "../types";
@@ -276,7 +277,7 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
   }
 
   function pricingRangeLabel(tier: (typeof emailPricingTiers)[number]) {
-    return `${tier.credits.toLocaleString("en-US")} ${t("إيميل", "emails")}`;
+    return `${formatNumber(tier.credits)} ${t("إيميل", "emails")}`;
   }
 
   return (
@@ -300,9 +301,9 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
       {activeView === "campaigns" ? (
         <>
       <section className="campaign-health-grid" aria-label={t("جاهزية البريد", "Email readiness")}>
-        <article className={emailBalance > 0 ? "is-ready" : "is-blocked"}><span>◉</span><div><b>{t("رصيد البريد", "Email balance")}</b><strong>{emailBalance.toLocaleString("en-US")} {t("رسالة", "emails")}</strong></div></article>
-        <article className={emailCustomers.length > 0 ? "is-ready" : "is-blocked"}><span>◇</span><div><b>{t("عملاء ببريد", "Customers with email")}</b><strong>{emailCustomers.length.toLocaleString("en-US")}</strong></div></article>
-        <article><span>↗</span><div><b>{t("معدل الفتح", "Open rate")}</b><strong>{totals.sent ? Math.round((totals.opens / totals.sent) * 100) : 0}%</strong><small>{totals.opens.toLocaleString("en-US")} / {totals.sent.toLocaleString("en-US")}</small></div></article>
+        <article className={emailBalance > 0 ? "is-ready" : "is-blocked"}><span>◉</span><div><b>{t("رصيد البريد", "Email balance")}</b><strong>{formatNumber(emailBalance)} {t("رسالة", "emails")}</strong></div></article>
+        <article className={emailCustomers.length > 0 ? "is-ready" : "is-blocked"}><span>◇</span><div><b>{t("عملاء ببريد", "Customers with email")}</b><strong>{formatNumber(emailCustomers.length)}</strong></div></article>
+        <article><span>↗</span><div><b>{t("معدل الفتح", "Open rate")}</b><strong>{totals.sent ? Math.round((totals.opens / totals.sent) * 100) : 0}%</strong><small>{formatNumber(totals.opens)} / {formatNumber(totals.sent)}</small></div></article>
       </section>
 
       <section className="campaign-kpis" aria-label={t("ملخص البريد", "Email summary")}>
@@ -403,7 +404,7 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
                 {form.ctaText ? <button type="button">{form.ctaText}</button> : null}
                 <small>{t("رابط إلغاء الاشتراك يضاف تلقائيًا", "Unsubscribe link is added automatically")}</small>
               </div>
-              <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{form.audienceMode === "file" ? t("ملف مرفوع", "Uploaded file") : form.audienceMode === "all" ? t("كل العملاء", "All customers") : t("تصفية مخصصة", "Custom filter")}</dd></div><div><dt>{t("المستلمين", "Recipients")}</dt><dd>{preview ? preview.count.toLocaleString("en-US") : "—"}</dd></div>{recipientFile ? <div><dt>{t("الملف", "File")}</dt><dd>{recipientFile.name}</dd></div> : null}</dl>
+              <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{form.audienceMode === "file" ? t("ملف مرفوع", "Uploaded file") : form.audienceMode === "all" ? t("كل العملاء", "All customers") : t("تصفية مخصصة", "Custom filter")}</dd></div><div><dt>{t("المستلمين", "Recipients")}</dt><dd>{preview ? formatNumber(preview.count) : "—"}</dd></div>{recipientFile ? <div><dt>{t("الملف", "File")}</dt><dd>{recipientFile.name}</dd></div> : null}</dl>
               <button className="btn soft email-preview-count" type="button" disabled={previewLoading || (form.audienceMode === "file" && !recipientFile)} onClick={loadPreview}>{previewLoading ? t("جاري الحساب...", "Counting...") : t("معاينة الجمهور", "Preview audience")}</button>
             </aside>
             <footer className="modal-foot email-builder-foot">
@@ -458,15 +459,15 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
             </div>
             <div className="campaign-balance-total">
               <small>{t("الرصيد المتاح", "Available balance")}</small>
-              <strong>{emailBalance.toLocaleString("en-US")}</strong>
+              <strong>{formatNumber(emailBalance)}</strong>
               <span>{t("إيميل", "emails")}</span>
               <button className="btn primary" type="button" onClick={() => setChargeOpen(true)}>＋ {t("شراء رصيد", "Buy credits")}</button>
             </div>
           </section>
 
           <section className="balance-kpi-grid">
-            <article><span>{t("الاستخدام الكلي", "Total usage")}</span><strong>{totals.sent.toLocaleString("en-US")}</strong><small>{t("إيميل مرسل من الحملات", "campaign emails sent")}</small></article>
-            <article><span>{t("المعاملات", "Transactions")}</span><strong>{transactions.length.toLocaleString("en-US")}</strong><small>{totalPurchasedCredits.toLocaleString("en-US")} {t("رصيد مضاف", "credits added")}</small></article>
+            <article><span>{t("الاستخدام الكلي", "Total usage")}</span><strong>{formatNumber(totals.sent)}</strong><small>{t("إيميل مرسل من الحملات", "campaign emails sent")}</small></article>
+            <article><span>{t("المعاملات", "Transactions")}</span><strong>{formatNumber(transactions.length)}</strong><small>{formatNumber(totalPurchasedCredits)} {t("رصيد مضاف", "credits added")}</small></article>
             <article className="balance-pricing-card"><span>{t("أسعار الرسايل", "Message prices")}</span><strong>{(emailPricingTiers[emailPricingTiers.length - 1].price / emailPricingTiers[emailPricingTiers.length - 1].credits).toFixed(3)} {t("ريال / رسالة", "SAR / message")}</strong><button type="button" onClick={() => setChargeOpen(true)}>{t("عرض الأسعار", "View prices")} ←</button></article>
           </section>
 
@@ -481,9 +482,9 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
                 <tbody>
                   {transactions.map((transaction) => (
                     <tr key={transaction.id}>
-                      <td>{new Date(transaction.completedAt || transaction.createdAt).toLocaleDateString("ar-SA")}</td>
-                      <td>{transaction.credits.toLocaleString("en-US")}</td>
-                      <td>{transaction.amount.toLocaleString("en-US")} {t("ريال", "SAR")}</td>
+                      <td>{new Date(transaction.completedAt || transaction.createdAt).toLocaleDateString("ar-SA-u-ca-gregory-nu-latn", { timeZone: "Asia/Riyadh" })}</td>
+                      <td>{formatNumber(transaction.credits)}</td>
+                      <td>{formatNumber(transaction.amount)} {t("ريال", "SAR")}</td>
                       <td>{(transaction.amount / Math.max(1, transaction.credits)).toFixed(3)} {t("ريال", "SAR")}</td>
                       <td><span className={transaction.status === "مكتمل" || transaction.status === "completed" ? "state ok" : transaction.status === "فشل" || transaction.status === "failed" ? "state off" : "state warn"}>{paymentStatusLabel(transaction.status, t)}</span></td>
                       <td>{transaction.paymentMethod || transaction.gatewayStatus || "—"}</td>
@@ -507,8 +508,8 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
             <div className="account-modal-body balance-modal-body">
               <div className="balance-selected-package">
                 <span>{t("الباقة المختارة", "Selected package")}</span>
-                <b>{parsedCreditsToAdd.toLocaleString("en-US")} {t("إيميل", "emails")}</b>
-                <strong>{creditPrice.total.toLocaleString("en-US")} {t("ريال", "SAR")} · {creditPrice.perEmail.toFixed(3)} {t("ريال للرسالة", "SAR/message")}</strong>
+                <b>{formatNumber(parsedCreditsToAdd)} {t("إيميل", "emails")}</b>
+                <strong>{formatNumber(creditPrice.total)} {t("ريال", "SAR")} · {creditPrice.perEmail.toFixed(3)} {t("ريال للرسالة", "SAR/message")}</strong>
               </div>
               <label className="email-custom-credits-field">
                 <span>{t("عدد مخصص", "Custom quantity")}</span>
@@ -518,8 +519,8 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
               <div className="email-package-grid" aria-label={t("باقات رصيد البريد", "Email credit packages")}>
                 {emailPricingTiers.map((tier) => (
                   <button key={tier.credits} className={creditPrice.tier.credits === tier.credits ? "email-package-card active" : "email-package-card"} type="button" onClick={() => setCreditsToAdd(String(tier.credits))}>
-                    <span>{tier.credits.toLocaleString("en-US")} {t("إيميل", "emails")}</span>
-                    <b>{tier.price.toLocaleString("en-US")} {t("ريال", "SAR")}</b>
+                    <span>{formatNumber(tier.credits)} {t("إيميل", "emails")}</span>
+                    <b>{formatNumber(tier.price)} {t("ريال", "SAR")}</b>
                     <small>{(tier.price / tier.credits).toFixed(3)} {t("ريال لكل رسالة", "SAR per message")}</small>
                   </button>
                 ))}
@@ -527,7 +528,7 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
               <div className="charge-calculator">
                 <div><span>{t("الرصيد", "Credits")}</span><b>{pricingRangeLabel(creditPrice.tier)}</b></div>
                 <div><span>{t("سعر الرسالة", "Price per message")}</span><b>{creditPrice.perEmail.toFixed(3)} {t("ريال", "SAR")}</b></div>
-                <div><span>{t("الإجمالي", "Total")}</span><b>{creditPrice.total.toLocaleString("en-US")} {t("ريال", "SAR")}</b></div>
+                <div><span>{t("الإجمالي", "Total")}</span><b>{formatNumber(creditPrice.total)} {t("ريال", "SAR")}</b></div>
               </div>
               <p style={{ color: "#d92d20", fontWeight: 800, fontSize: 13 }}>{t("الأسعار غير شاملة ضريبة القيمة المضافة (15%)، وتُضاف عند صفحة الدفع.", "Prices exclude VAT. 15% VAT is added on the payment page.")}</p>
               <p className="field-hint">{t("السعر يشمل رصيد رسائل الحملات البريدية فقط. رسائل النظام مثل التفعيل واستعادة كلمة المرور لا تخصم من هذا الرصيد.", "This price is for promotional email campaign credits only. System emails such as verification and password reset do not deduct from this balance.")}</p>

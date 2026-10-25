@@ -1,5 +1,6 @@
 "use client";
 
+import { formatNumber } from "../../../lib/format";
 import { Fragment, FormEvent, useEffect, useMemo, useState } from "react";
 import type { Campaign, Segment, Tag } from "../types";
 import { useLanguage } from "../i18n";
@@ -40,7 +41,7 @@ type SegmentRecipientDetail = { name: string; phone: string; campaignName: strin
 // misleading "0", matching CampaignEngagementReport's same convention.
 function clickCountLabel(bucket: EngagementBucket, clickCount: number) {
   if (bucket !== "clicked" || clickCount <= 0) return "-";
-  return clickCount.toLocaleString("en-US");
+  return formatNumber(clickCount);
 }
 
 function downloadBlob(content: BlobPart, type: string, name: string) {
@@ -263,7 +264,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
         ? campaigns.find((campaign) => campaign.id === segment.sourceCampaignId)?.name || t("حملة محذوفة", "Deleted campaign")
         : t("كل الحملات", "All campaigns");
       const range = segment.engagementDateFrom || segment.engagementDateTo
-        ? ` (${segment.engagementDateFrom || "…"} → ${segment.engagementDateTo || "…"})`
+        ? ` (${segment.engagementDateFrom || "…"} ${t("←", "→")} ${segment.engagementDateTo || "…"})`
         : "";
       const exactClicks = segment.engagementBucket === "clicked" && segment.engagementClickCount > 0
         ? ` - ${t(`نقر ${segment.engagementClickCount} مرة بالضبط`, `clicked exactly ${segment.engagementClickCount}x`)}`
@@ -374,7 +375,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
               <div key={campaign.id} className="campaign-engagement-card">
                 <button type="button" className="campaign-engagement-card-head" onClick={() => setExpandedCampaignId((current) => current === campaign.id ? null : campaign.id)}>
                   <span>{campaign.name}</span>
-                  <span className="campaign-engagement-card-meta">{campaign.updatedAt} · {campaign.sent.toLocaleString("en-US")}/{campaign.total.toLocaleString("en-US")}</span>
+                  <span className="campaign-engagement-card-meta">{campaign.updatedAt} · {formatNumber(campaign.sent)}/{formatNumber(campaign.total)}</span>
                   <span aria-hidden="true">{expandedCampaignId === campaign.id ? "▲" : "▼"}</span>
                 </button>
                 {expandedCampaignId === campaign.id ? <CampaignEngagementReport campaignId={campaign.id} campaignName={campaign.name} /> : null}
@@ -417,7 +418,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
                   >
                     <td><b>{segment.name}</b> <span aria-hidden="true">{expandedSegmentId === segment.id ? "▲" : "▼"}</span></td>
                     <td>{criteriaSummary(segment)}</td>
-                    <td>{segment.recipientCount.toLocaleString("en-US")}</td>
+                    <td>{formatNumber(segment.recipientCount)}</td>
                   </tr>
                   {expandedSegmentId === segment.id ? (
                     <tr>

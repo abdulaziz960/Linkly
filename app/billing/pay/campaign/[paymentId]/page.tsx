@@ -1,3 +1,4 @@
+import { formatNumber } from "../../../../../lib/format";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import { getCurrentUser } from "../../../../../lib/auth";
@@ -44,7 +45,7 @@ export default async function CampaignPayPage({ params }: { params: Promise<{ pa
       <section>
         <Image src="/assets/linkly-logo.png" alt="" width={88} height={49} />
         <h1>إتمام الدفع</h1>
-        <p>{description} — {payment.amount.toLocaleString("en-US")} ر.س <small>(قبل الضريبة)</small></p>
+        <p>{description} — {formatNumber(payment.amount)} ر.س <small>(قبل الضريبة)</small></p>
         <PayTaxSummary payment={payment} />
         <TaxProfileCard initial={await getTaxProfile(user.tenantId)} />
         <PayPromoBox

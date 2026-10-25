@@ -47,7 +47,7 @@ export default function DailyReportPanel() {
   const money = (value: number) => `${value.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${t("ر.س", "SAR")}`;
   const statusText = (status: string) => ({ paid: t("مدفوع", "Paid"), fulfilled: t("تم التسليم", "Fulfilled"), new: t("جديد - متابعة", "New - follow-up"), awaiting_payment: t("بانتظار الدفع", "Awaiting payment"), cancelled: t("ملغي", "Cancelled") } as Record<string, string>)[status] ?? status;
   const fulfillmentText = (key: string) => ({ delivery: t("توصيل", "Delivery"), store: t("استلام من المحل", "Store pickup"), car: t("استلام من السيارة", "Car pickup"), other: t("غير محدد", "Not set") } as Record<string, string>)[key] ?? key;
-  const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Riyadh" });
+  const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("ar-SA-u-ca-gregory-nu-latn", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Riyadh" });
 
   const load = useCallback(async () => {
     setError("");
@@ -104,7 +104,7 @@ export default function DailyReportPanel() {
   }
 
   const paymentText = (key: string) => ({ mada: t("مدى", "mada"), card: t("بطاقة", "Card"), applepay: "Apple Pay", stcpay: "STC Pay", samsungpay: "Samsung Pay", tabby: t("تابي", "Tabby"), tamara: t("تمارا", "Tamara"), zid: t("زد", "Zid"), cash: t("عند الاستلام", "On pickup"), unknown: t("غير مسجّلة", "Not recorded"), other: t("أخرى", "Other") } as Record<string, string>)[key] ?? key;
-  const dateTime = (iso: string) => new Date(iso).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Riyadh" });
+  const dateTime = (iso: string) => new Date(iso).toLocaleString("ar-SA-u-ca-gregory-nu-latn", { dateStyle: "short", timeStyle: "short", hourCycle: "h23", timeZone: "Asia/Riyadh" });
 
   function downloadCsv() {
     if (!report) return;
@@ -153,7 +153,7 @@ export default function DailyReportPanel() {
             <table className="daily-table"><tbody>
               {shifts.recent.slice(0, 5).map((shift) => (
                 <tr key={shift.id}>
-                  <td>{dateTime(shift.openedAt)} ← {dateTime(shift.closedAt)}<br /><small>{shift.closedBy}{shift.note ? ` · ${shift.note}` : ""}</small></td>
+                  <td>{dateTime(shift.openedAt)} {t("←", "→")} {dateTime(shift.closedAt)}<br /><small>{shift.closedBy}{shift.note ? ` · ${shift.note}` : ""}</small></td>
                   <td>{t("المتوقع", "Expected")} {money(shift.expectedCash)}</td>
                   <td>{t("المعدود", "Counted")} {money(shift.countedCash)}</td>
                   <td className={shift.difference < 0 ? "diff-short" : shift.difference > 0 ? "diff-over" : ""}>{shift.difference === 0 ? t("مطابق", "Matches") : `${shift.difference > 0 ? "+" : ""}${shift.difference}`}</td>

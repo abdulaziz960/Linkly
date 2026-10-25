@@ -1,5 +1,6 @@
 "use client";
 
+import { formatNumber } from "../../../lib/format";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
@@ -138,7 +139,7 @@ export default function SallaNewOrderForm({ onClose, onCreated }: { onClose: () 
           {results.map((product) => (
             <button type="button" key={product.id} onClick={() => addProduct(product)}>
               <span>{product.name}</span>
-              <small>{product.price ? `${product.price.toLocaleString("en-US")} ${product.currency}` : ""}</small>
+              <small>{product.price ? `${formatNumber(product.price)} ${product.currency}` : ""}</small>
             </button>
           ))}
         </div>
@@ -153,7 +154,7 @@ export default function SallaNewOrderForm({ onClose, onCreated }: { onClose: () 
               <button type="button" className="soft-action" onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}>{t("حذف", "Remove")}</button>
             </div>
           ))}
-          <small>{t("المجموع التقريبي قبل الضريبة والشحن:", "Approximate total before tax and shipping:")} {total.toLocaleString("en-US")}</small>
+          <small>{t("المجموع التقريبي قبل الضريبة والشحن:", "Approximate total before tax and shipping:")} {formatNumber(total)}</small>
         </div>
       ) : null}
 

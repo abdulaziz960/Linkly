@@ -58,3 +58,7 @@
 @media(max-width:900px){.journey-page{min-height:auto;align-items:stretch}.journey-card{position:static}}
 
 .journey-shell{background:linear-gradient(180deg,#f6fbfa,#eef7f5)}
+
+.journey-form .field-error { display: block; margin-top: 4px; color: #b42318; font-size: 14px; font-weight: 700; line-height: 1.6; }
+.journey-form .field-hint { display: block; margin-top: 4px; color: #55706c; font-size: 13px; font-weight: 600; }
+.journey-form input[aria-invalid="true"] { border-color: #b42318; box-shadow: 0 0 0 1px #b42318; }

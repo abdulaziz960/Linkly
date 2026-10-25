@@ -1,5 +1,6 @@
 "use client";
 
+import { formatNumber } from "../../../lib/format";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
@@ -92,7 +93,7 @@ export default function SallaOrdersPanel() {
             <div className="store-order-main">
               <b dir="ltr">#{order.reference}</b>
               <span>{order.customerName || t("عميل", "Customer")}{order.customerPhone ? ` · ${order.customerPhone}` : ""}</span>
-              <small>{order.total ? `${order.total.toLocaleString("en-US")} ${order.currency}` : ""}</small>
+              <small>{order.total ? `${formatNumber(order.total)} ${order.currency}` : ""}</small>
               {order.shippingCompany || order.trackingNumber ? <small className="store-order-ship">🚚 {order.shippingCompany}{order.trackingNumber ? ` · ${order.trackingNumber}` : ""}</small> : null}
             </div>
             <span className="store-order-status">{order.statusLabel || order.statusSlug}</span>

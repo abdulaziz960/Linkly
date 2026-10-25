@@ -351,7 +351,7 @@ export default function StoreSettings({ store, onSaved }: { store: "salla" | "zi
                 </button>
                 {syncNote ? <span className={`automation-feedback ${syncNote.ok ? "success" : "error"}`}>{syncNote.text}</span> : null}
               </div>
-              {productSync?.lastAt ? <span style={hint}>{t("آخر مزامنة:", "Last sync:")} {new Date(productSync.lastAt).toLocaleString("ar-SA")} — {productSync.message}</span> : null}
+              {productSync?.lastAt ? <span style={hint}>{t("آخر مزامنة:", "Last sync:")} {new Date(productSync.lastAt).toLocaleString("ar-SA-u-ca-gregory-nu-latn", { dateStyle: "medium", timeStyle: "short", hourCycle: "h23", timeZone: "Asia/Riyadh" })} — {productSync.message}</span> : null}
             </div>
           ) : null}
           <span style={hint}>{t("بعد الربط تصل أحداث الطلبات والسلات المتروكة تلقائيًا، وتُطبَّق الإعدادات في التبويبات الأخرى.", "After connecting, order and abandoned-cart events arrive automatically and the settings in the other tabs apply.")}</span>

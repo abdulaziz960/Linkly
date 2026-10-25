@@ -1,3 +1,4 @@
+import { formatNumber } from "../../../../lib/format";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../../../lib/auth";
@@ -83,7 +84,7 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
           </div>
           <div>
             <span className="invoice-label">{bi("عدد الفواتير", "Invoices")}</span>
-            <b dir="ltr">{invoices.length.toLocaleString("en-US")}</b>
+            <b dir="ltr">{formatNumber(invoices.length)}</b>
           </div>
         </div>
 

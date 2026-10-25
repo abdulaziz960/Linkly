@@ -1,6 +1,9 @@
 "use client";
 
 import { confirmDialog } from "../../../lib/ui-dialogs";
+import { useUnsavedChanges } from "../use-unsaved-changes";
+import { useDataLoading } from "../data-loading-context";
+import { EmptyState, SkeletonTableRows } from "../components/StateBlocks";
 
 import { CATALOG_TEMPLATE_DEFAULT_BUTTON, CATALOG_TEMPLATE_PREFIX, isCatalogTemplateName } from "../../../lib/catalog-template-shared";
 import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
@@ -108,6 +111,11 @@ export default function TemplatesView({
   );
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<TemplateFormState>(emptyForm);
+  const dataLoading = useDataLoading();
+  const { confirmClose: confirmCloseForm } = useUnsavedChanges(formOpen, form, t);
+  async function requestCloseForm() {
+    if (await confirmCloseForm()) setFormOpen(false);
+  }
   // A multi-card (carousel) template is built from these cards; the buttons layout is shared by every card.
   const [carouselMode, setCarouselMode] = useState(false);
   const [carouselCards, setCarouselCards] = useState<CarouselCardForm[]>(() => [newCarouselCard(), newCarouselCard()]);
@@ -367,6 +375,16 @@ export default function TemplatesView({
             <table className="mobile-card-table">
               <thead><tr><th>{t("القالب", "Template")}</th><th>{t("الفئة", "Category")}</th><th>{t("اللغة", "Language")}</th><th>{t("الحالة من Meta", "Meta status")}</th><th>{t("آخر مزامنة", "Last sync")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
               <tbody>
+                {!templates.length && dataLoading ? <SkeletonTableRows columns={6} label={t("جارٍ تحميل القوالب", "Loading templates")} /> : null}
+                {!templates.length && !dataLoading ? (
+                  <tr><td colSpan={6}>
+                    <EmptyState
+                      title={t("لا توجد قوالب", "No templates yet")}
+                      description={t("القالب رسالة معتمدة من Meta تستطيع إرسالها للعملاء خارج نافذة الـ 24 ساعة وفي الحملات. أنشئ قالباً وانتظر اعتماده.", "A template is a Meta-approved message you can send customers outside the 24-hour window and in campaigns. Create one and wait for its approval.")}
+                      action={<button className="btn primary" type="button" onClick={openCreateForm}>{t("أنشئ أول قالب", "Create your first template")}</button>}
+                    />
+                  </td></tr>
+                ) : null}
                 {templates.map((template) => (
                   <tr key={template.name}>
                     <td data-label={t("القالب", "Template")}>
@@ -395,11 +413,11 @@ export default function TemplatesView({
       </div>
 
       {formOpen ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
+        <div className="modal-backdrop" role="presentation" onClick={() => void requestCloseForm()}>
           <form className="account-modal template-modal" role="dialog" aria-modal="true" aria-label={t("حفظ قالب واتساب", "Save WhatsApp template")} onSubmit={submitTemplate} onClick={(event) => event.stopPropagation()}>
             <div className="template-topbar">
               <div className="template-topbar-title">
-                <button className="template-back" type="button" aria-label={t("رجوع", "Back")} onClick={() => setFormOpen(false)}>{t("→", "←")}</button>
+                <button className="template-back" type="button" aria-label={t("رجوع", "Back")} onClick={() => void requestCloseForm()}>{t("→", "←")}</button>
                 <h2>{form.editing ? t("تعديل القالب", "Edit template") : t("قالب جديد", "New template")}</h2>
               </div>
               <div className="template-topbar-actions">
@@ -767,7 +785,7 @@ export default function TemplatesView({
               </div>
             </div>
             <div className="template-modal-foot">
-              <button className="btn soft close-red" type="button" onClick={() => setFormOpen(false)}>{t("إلغاء", "Cancel")}</button>
+              <button className="btn soft close-red" type="button" onClick={() => void requestCloseForm()}>{t("إلغاء", "Cancel")}</button>
               <button className="btn primary" type="submit" disabled={saving}>{saving ? t("جاري الحفظ", "Saving") : form.editing ? t("حفظ", "Save") : t("إرسال إلى Meta", "Submit to Meta")}</button>
             </div>
           </form>
@@ -883,7 +901,7 @@ const ReplyArrowIcon = (
 );
 
 function TemplatePreview({ form, t, carouselCards }: { form: TemplateFormState; language: string; t: (ar: string, en: string) => string; carouselCards?: CarouselCardForm[] }) {
-  const now = new Intl.DateTimeFormat("ar-SA", { hour: "2-digit", minute: "2-digit", numberingSystem: "latn" }).format(new Date());
+  const now = new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Riyadh" }).format(new Date());
   return (
     <div className="template-phone-frame">
     <span className="template-phone-btn volume-up" />
