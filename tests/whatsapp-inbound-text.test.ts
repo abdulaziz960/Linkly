@@ -15,6 +15,8 @@ describe("what an inbound WhatsApp message shows", () => {
     expect(result.text).toContain("رسالة غير مدعومة من واتساب");
     expect(result.text).toContain("Message type is not supported");
     expect(result.text).toContain("رمز تحقق");
+    expect(result.text).toContain("البيانات كما وصلت من واتساب");
+    expect(result.text).toContain('"type":"unsupported"');
   });
 
   it("shows reactions and contact cards instead of a generic line", () => {
@@ -23,6 +25,12 @@ describe("what an inbound WhatsApp message shows", () => {
   });
 
   it("names an unknown type instead of the generic line", () => {
-    expect(describeWhatsAppMessage({ type: "order" })).toEqual({ text: "رسالة من نوع غير معروف (order) لا يمكن عرض محتواها", conversational: false });
+    const unknown = describeWhatsAppMessage({ from: "966500000000", id: "wamid.x", timestamp: "1", type: "order", order: { catalog_id: "c1", product_items: [] } });
+    expect(unknown.conversational).toBe(false);
+    expect(unknown.text).toContain("رسالة من نوع غير معروف (order)");
+    // what Meta sent is shown (so a code in an unexpected field can be read), without the sender, id and time
+    expect(unknown.text).toContain('"catalog_id":"c1"');
+    expect(unknown.text).not.toContain("wamid.x");
+    expect(unknown.text).not.toContain("966500000000");
   });
 });

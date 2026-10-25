@@ -7,6 +7,17 @@
 
 type Inbound = Record<string, any>;
 
+/**
+ * The message as Meta sent it, minus what is already shown (sender, ids, time), shortened. For a type that has no readable
+ * body this is the only way to see whether the content (a verification code, say) arrived in a field we do not parse.
+ */
+function rawDetails(message: Inbound): string {
+  const { from, id, timestamp, ...rest } = message;
+  void from; void id; void timestamp;
+  const json = JSON.stringify(rest);
+  return json && json !== "{}" ? `\n\nالبيانات كما وصلت من واتساب:\n${json.length > 700 ? `${json.slice(0, 700)}…` : json}` : "";
+}
+
 export function describeWhatsAppMessage(message: Inbound): { text: string; conversational: boolean } {
   if (message.text?.body) return { text: message.text.body, conversational: true };
   if (message.button?.text) return { text: message.button.text, conversational: true };
@@ -32,9 +43,9 @@ export function describeWhatsAppMessage(message: Inbound): { text: string; conve
   const reason = message.errors?.[0]?.title || message.errors?.[0]?.message || "";
   if (message.type === "unsupported" || message.errors?.length) {
     return {
-      text: `رسالة غير مدعومة من واتساب${reason ? ` (${reason})` : ""}. غالبًا رسالة من منصة أو نشاط تجاري (مثل رمز تحقق) لا يسلّم واتساب محتواها لواجهة الأعمال، فلا يمكن عرضها هنا.`,
+      text: `رسالة غير مدعومة من واتساب${reason ? ` (${reason})` : ""}. غالبًا رسالة من منصة أو نشاط تجاري (مثل رمز تحقق) لا يسلّم واتساب محتواها لواجهة الأعمال، فلا يمكن عرضها هنا.${rawDetails(message)}`,
       conversational: false
     };
   }
-  return { text: message.type ? `رسالة من نوع غير معروف (${message.type}) لا يمكن عرض محتواها` : "رسالة واردة من WhatsApp", conversational: !message.type };
+  return { text: message.type ? `رسالة من نوع غير معروف (${message.type}) لا يمكن عرض محتواها${rawDetails(message)}` : "رسالة واردة من WhatsApp", conversational: !message.type };
 }
