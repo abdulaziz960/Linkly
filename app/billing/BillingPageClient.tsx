@@ -8,6 +8,7 @@ import InboxBackLink from "../dashboard/components/InboxBackLink";
 import Image from "next/image";
 import { useState } from "react";
 import BillingClient from "./BillingClient";
+import TaxProfileCard from "./TaxProfileCard";
 import { useStoredLanguage } from "../useStoredLanguage";
 
 type Plan = { id: string; name: string; monthlyPrice: number; employeeLimit: number; allowedChannels: string; messageQuota: number };
@@ -87,7 +88,8 @@ export default function BillingPageClient({
   isTestMode,
   branding,
   shopifyPrices = null,
-  shopifyResult = ""
+  shopifyResult = "",
+  taxProfile = { vatNumber: "", address: "" }
 }: {
   plans: Plan[];
   subscription: Subscription;
@@ -96,6 +98,7 @@ export default function BillingPageClient({
   branding: { name: string; logoDataUrl: string };
   shopifyPrices?: Record<string, number> | null;
   shopifyResult?: string;
+  taxProfile?: { vatNumber: string; address: string };
 }) {
   const [lang, setLang] = useStoredLanguage("ar");
   const text = copy[lang];
@@ -200,6 +203,7 @@ export default function BillingPageClient({
       </section>
       {shopifyResult && shopifyResultText[lang][shopifyResult] ? <p className={shopifyResult === "paid" ? "billing-success" : "billing-error"} role="status">{shopifyResultText[lang][shopifyResult]}</p> : null}
       <BillingClient plans={plans} currentPlan={subscription?.plan || ""} currentSubscription={subscription} lang={lang} isTestMode={isTestMode} shopifyPrices={shopifyPrices} />
+      {shopifyPrices ? null : <TaxProfileCard initial={taxProfile} lang={lang} />}
     </main>
   );
 }

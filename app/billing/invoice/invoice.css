@@ -77,3 +77,5 @@
   .invoice-table tr,.invoice-totals{break-inside:avoid}
 }
 .invoice-seller small { display: block; margin-top: 2px; color: #64748b; font-size: 12px; font-weight: 600; }
+.invoice-qr { display: flex; justify-content: center; margin: 18px 0 6px; }
+.invoice-qr svg { width: 140px; height: 140px; }

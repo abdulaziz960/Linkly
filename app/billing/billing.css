@@ -570,3 +570,11 @@
   .billing-main-header .billing-back { grid-column: 2; grid-row: 1; font-size: 12px; }
   .billing-main-header .billing-lang-toggle { grid-column: 1 / -1; grid-row: 2; }
 }
+
+.tax-profile-card { max-width: 720px; margin: 24px auto; padding: 18px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; }
+.tax-profile-card h2 { margin: 0 0 6px; font-size: 18px; }
+.tax-profile-card p { margin: 0 0 12px; color: #64748b; font-size: 13px; }
+.tax-profile-card form { display: grid; gap: 10px; }
+.tax-profile-card label { display: grid; gap: 4px; font-size: 13px; font-weight: 700; }
+.tax-profile-card input { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; }
+.tax-profile-card button { justify-self: start; padding: 10px 18px; border: 0; border-radius: 10px; background: #0f766e; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
