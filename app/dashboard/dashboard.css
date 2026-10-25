@@ -3659,7 +3659,8 @@ body:has(.dashboard-shell)::-webkit-scrollbar {
 
 .profile-panel {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+  /* As many columns as the pane is wide enough for (one on a phone or a narrow chat pane), never squeezed below ~300px. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 16px;
   padding: 18px;
 }
@@ -12280,3 +12281,6 @@ html[dir="ltr"] .notification-bell-panel {
 
 .phone-call-link { color: var(--brand, #0f766e); font-weight: 800; text-decoration: none; }
 .phone-call-link:hover { text-decoration: underline; }
+
+/* A field whose content renders nothing (no store orders yet) leaves no empty box. */
+.profile-card dl > div:empty { display: none; }
