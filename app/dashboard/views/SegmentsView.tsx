@@ -313,7 +313,7 @@ export default function SegmentsView({ tags, channel = "whatsapp", section = "re
           {tab === "segments" ? <EmailSegmentsTab tags={tags} /> : null}
         </>
       ) : null}
-      {channel === "whatsapp" && tab === "report" ? <CampaignPerformanceReport campaigns={campaigns} /> : null}
+      {channel === "whatsapp" && tab === "report" ? <CampaignPerformanceReport campaigns={campaigns} onRefresh={loadCampaigns} /> : null}
       {channel === "whatsapp" && tab === "unsubscribed" ? <UnsubscribedList /> : null}
 
       {channel === "whatsapp" && tab === "audience" ? (

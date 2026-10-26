@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Campaign } from "../types";
 import { useLanguage } from "../i18n";
-import CustomSelect from "../../components/CustomSelect";
+import ReportFilters, { downloadReportExcel } from "./ReportFilters";
 import { DonutChart, LineChart } from "./MiniCharts";
 import { FAILURE_DETAIL, formatRate, type CampaignStats, type FailureReasonKey } from "../../../lib/campaign-metrics";
 
@@ -50,7 +50,7 @@ function buildRow(campaign: Campaign): Row | null {
 }
 
 /** Tab 1: the comprehensive campaign report - filters, KPIs, best/worst campaign, daily trend, error analysis, comparison table. */
-export default function CampaignPerformanceReport({ campaigns }: { campaigns: Campaign[] }) {
+export default function CampaignPerformanceReport({ campaigns, onRefresh }: { campaigns: Campaign[]; onRefresh?: () => void | Promise<void> }) {
   const { t } = useLanguage();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -76,7 +76,7 @@ export default function CampaignPerformanceReport({ campaigns }: { campaigns: Ca
   }), { sent: 0, notReceived: 0, notOpened: 0, openedNoAction: 0, interacted: 0, unsubscribed: 0, read: 0, cost: 0 }), [rows]);
 
   const ranked = [...rows].sort((a, b) => b.interactRate - a.interactRate || b.openRate - a.openRate);
-  const best = rows.length > 1 ? ranked[0] : null;
+  const best = rows.length ? ranked[0] : null;
   const worst = rows.length > 1 ? ranked[ranked.length - 1] : null;
 
   const trend = useMemo(() => {
@@ -102,14 +102,19 @@ export default function CampaignPerformanceReport({ campaigns }: { campaigns: Ca
 
   return (
     <div className="seg-tab-stack">
-      <div className="panel seg-filters">
-        <label>{t("الحملة", "Campaign")}
-          <CustomSelect value={campaignId} onChange={setCampaignId} options={[{ value: "", label: t("كل الحملات", "All campaigns") }, ...allRows.map((row) => ({ value: row.campaign.id, label: row.campaign.name }))]} />
-        </label>
-        <label>{t("من", "From")} <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label>
-        <label>{t("إلى", "To")} <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label>
-        <button className="btn soft" type="button" onClick={() => { setDateFrom(""); setDateTo(""); setCampaignId(""); }}>{t("مسح الفلاتر", "Clear filters")}</button>
-      </div>
+      <ReportFilters
+        campaigns={allRows.map((row) => ({ id: row.campaign.id, name: row.campaign.name }))}
+        campaignId={campaignId}
+        onCampaign={setCampaignId}
+        onRange={(from, to) => { setDateFrom(from); setDateTo(to); }}
+        onRefresh={onRefresh ?? (() => undefined)}
+        exportDisabled={!rows.length}
+        onExport={() => downloadReportExcel("campaign-report.xlsx", t("مقارنة الحملات", "Campaign comparison"), [
+          { header: t("الحملة", "Campaign"), key: "name", width: 28 }, { header: t("التاريخ", "Date"), key: "day" }, { header: t("مرسلة", "Sent"), key: "sent" },
+          { header: t("لم يستلم", "Not received"), key: "notReceived" }, { header: t("لم يفتح", "Not opened"), key: "notOpened" }, { header: t("فتحها بدون تفاعل", "Opened only"), key: "openedNoAction" },
+          { header: t("تفاعل", "Interacted"), key: "interacted" }, { header: t("ألغى الاشتراك", "Unsubscribed"), key: "unsubscribed" }, { header: t("نسبة الفتح %", "Open rate %"), key: "openRate" }, { header: t("نسبة التفاعل %", "Interaction rate %"), key: "interactRate" }
+        ], rows.map((row) => ({ name: row.campaign.name, day: row.day, sent: row.stats.sent, notReceived: row.notReceived, notOpened: row.notOpened, openedNoAction: row.openedNoAction, interacted: row.interacted, unsubscribed: row.unsubscribed, openRate: row.openRate, interactRate: row.interactRate })))}
+      />
 
       {!rows.length ? <div className="panel"><div className="panel-body"><p className="muted-copy">{t("لا توجد حملات مرسلة ضمن هذه الفلاتر.", "No sent campaigns match these filters.")}</p></div></div> : (
         <>
@@ -124,17 +129,26 @@ export default function CampaignPerformanceReport({ campaigns }: { campaigns: Ca
             <div className="seg-kpi"><span>{t("التكلفة (ر.س)", "Cost (SAR)")}</span><b>{totals.cost.toLocaleString("en-US", { maximumFractionDigits: 2 })}</b></div>
           </div>
 
-          {best && worst && best.campaign.id !== worst.campaign.id ? (
+          {best ? (
             <div className="seg-banners">
               <div className="seg-banner seg-banner-good">
-                <span>{t("أفضل حملة", "Best campaign")}</span>
+                <span>🏆 {t("أفضل أداء", "Best performance")}</span>
                 <b>{best.campaign.name}</b>
                 <small>{t(`تفاعل ${best.interactRate}% · فتح ${best.openRate}%`, `Interaction ${best.interactRate}% · open ${best.openRate}%`)}</small>
               </div>
               <div className="seg-banner seg-banner-warn">
-                <span>{t("أضعف حملة", "Weakest campaign")}</span>
-                <b>{worst.campaign.name}</b>
-                <small>{t(`تفاعل ${worst.interactRate}% · فتح ${worst.openRate}%`, `Interaction ${worst.interactRate}% · open ${worst.openRate}%`)}</small>
+                <span>⚠ {t("أضعف أداء", "Weakest performance")}</span>
+                {worst && worst.campaign.id !== best.campaign.id ? (
+                  <>
+                    <b>{worst.campaign.name}</b>
+                    <small>{t(`تفاعل ${worst.interactRate}% · فتح ${worst.openRate}%`, `Interaction ${worst.interactRate}% · open ${worst.openRate}%`)}</small>
+                  </>
+                ) : (
+                  <>
+                    <b>{t("لا توجد حملة للمقارنة بعد", "No campaign to compare yet")}</b>
+                    <small>{t("يظهر هنا أضعف أداء عند وجود حملتين مرسلتين على الأقل.", "The weakest performer shows here once two campaigns have been sent.")}</small>
+                  </>
+                )}
               </div>
             </div>
           ) : null}

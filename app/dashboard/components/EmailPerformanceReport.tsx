@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../i18n";
-import CustomSelect from "../../components/CustomSelect";
+import ReportFilters, { downloadReportExcel } from "./ReportFilters";
 import { DonutChart, LineChart } from "./MiniCharts";
 import { formatRate } from "../../../lib/campaign-metrics";
 
@@ -22,9 +22,18 @@ export default function EmailPerformanceReport() {
   const [dateTo, setDateTo] = useState("");
   const [campaignId, setCampaignId] = useState("");
 
-  useEffect(() => {
-    fetch("/api/segments/email-campaigns").then((response) => response.json().catch(() => null)).then((body) => setCampaigns(body?.ok ? body.data ?? [] : [])).catch(() => setCampaigns([])).finally(() => setLoading(false));
-  }, []);
+  async function load() {
+    try {
+      const response = await fetch("/api/segments/email-campaigns");
+      const body = await response.json().catch(() => null);
+      setCampaigns(response.ok && body?.ok ? body.data ?? [] : []);
+    } catch {
+      setCampaigns([]);
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, []);
 
   const all = useMemo(() => campaigns.filter((campaign) => sentStatuses.has(campaign.status) && campaign.analytics.sentCount > 0).map((campaign) => {
     const a = campaign.analytics;
@@ -39,7 +48,7 @@ export default function EmailPerformanceReport() {
   const rows = useMemo(() => all.filter((row) => (!campaignId || row.campaign.id === campaignId) && (!dateFrom || row.day >= dateFrom) && (!dateTo || row.day <= dateTo)), [all, campaignId, dateFrom, dateTo]);
   const totals = rows.reduce((acc, row) => ({ sent: acc.sent + row.a.sentCount, notReceived: acc.notReceived + row.notReceived, notOpened: acc.notOpened + row.notOpened, openedNoAction: acc.openedNoAction + row.openedNoAction, interacted: acc.interacted + row.interacted, unsubscribed: acc.unsubscribed + row.a.unsubscribeCount }), { sent: 0, notReceived: 0, notOpened: 0, openedNoAction: 0, interacted: 0, unsubscribed: 0 });
   const ranked = [...rows].sort((a, b) => b.interactRate - a.interactRate || b.openRate - a.openRate);
-  const best = rows.length > 1 ? ranked[0] : null;
+  const best = rows.length ? ranked[0] : null;
   const worst = rows.length > 1 ? ranked[ranked.length - 1] : null;
   const trend = useMemo(() => {
     const byDay = new Map<string, { sent: number; opened: number; clicked: number }>();
@@ -56,12 +65,19 @@ export default function EmailPerformanceReport() {
 
   return (
     <div className="seg-tab-stack">
-      <div className="panel seg-filters">
-        <label>{t("الحملة", "Campaign")}<CustomSelect value={campaignId} onChange={setCampaignId} options={[{ value: "", label: t("كل الحملات", "All campaigns") }, ...all.map((row) => ({ value: row.campaign.id, label: row.campaign.name }))]} /></label>
-        <label>{t("من", "From")} <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label>
-        <label>{t("إلى", "To")} <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label>
-        <button className="btn soft" type="button" onClick={() => { setDateFrom(""); setDateTo(""); setCampaignId(""); }}>{t("مسح الفلاتر", "Clear filters")}</button>
-      </div>
+      <ReportFilters
+        campaigns={all.map((row) => ({ id: row.campaign.id, name: row.campaign.name }))}
+        campaignId={campaignId}
+        onCampaign={setCampaignId}
+        onRange={(from, to) => { setDateFrom(from); setDateTo(to); }}
+        onRefresh={load}
+        exportDisabled={!rows.length}
+        onExport={() => downloadReportExcel("email-campaign-report.xlsx", t("مقارنة الحملات", "Campaign comparison"), [
+          { header: t("الحملة", "Campaign"), key: "name", width: 28 }, { header: t("التاريخ", "Date"), key: "day" }, { header: t("مرسلة", "Sent"), key: "sent" },
+          { header: t("لم يستلم", "Not received"), key: "notReceived" }, { header: t("لم يفتح", "Not opened"), key: "notOpened" }, { header: t("فتحها بدون تفاعل", "Opened only"), key: "openedNoAction" },
+          { header: t("تفاعل", "Interacted"), key: "interacted" }, { header: t("ألغى الاشتراك", "Unsubscribed"), key: "unsubscribed" }, { header: t("نسبة الفتح %", "Open rate %"), key: "openRate" }, { header: t("نسبة التفاعل %", "Interaction rate %"), key: "interactRate" }
+        ], rows.map((row) => ({ name: row.campaign.name, day: row.day, sent: row.a.sentCount, notReceived: row.notReceived, notOpened: row.notOpened, openedNoAction: row.openedNoAction, interacted: row.interacted, unsubscribed: row.a.unsubscribeCount, openRate: row.openRate, interactRate: row.interactRate })))}
+      />
       {!rows.length ? <div className="panel"><div className="panel-body"><p className="muted-copy">{loading ? t("جارٍ التحميل...", "Loading...") : t("لا توجد حملات بريدية مرسلة ضمن هذه الفلاتر.", "No sent email campaigns match these filters.")}</p></div></div> : (
         <>
           <div className="seg-kpis">
@@ -73,10 +89,27 @@ export default function EmailPerformanceReport() {
             <div className="seg-kpi seg-kpi-good"><span>{t("تفاعل (ضغط رابط)", "Interacted (click)")}</span><b>{num(totals.interacted)}</b><small>{pct(totals.interacted)}</small></div>
             <div className="seg-kpi seg-kpi-unsub"><span>{t("ألغى الاشتراك", "Unsubscribed")}</span><b>{num(totals.unsubscribed)}</b><small>{pct(totals.unsubscribed)}</small></div>
           </div>
-          {best && worst && best.campaign.id !== worst.campaign.id ? (
+          {best ? (
             <div className="seg-banners">
-              <div className="seg-banner seg-banner-good"><span>{t("أفضل حملة", "Best campaign")}</span><b>{best.campaign.name}</b><small>{t(`تفاعل ${best.interactRate}% · فتح ${best.openRate}%`, `Interaction ${best.interactRate}% · open ${best.openRate}%`)}</small></div>
-              <div className="seg-banner seg-banner-warn"><span>{t("أضعف حملة", "Weakest campaign")}</span><b>{worst.campaign.name}</b><small>{t(`تفاعل ${worst.interactRate}% · فتح ${worst.openRate}%`, `Interaction ${worst.interactRate}% · open ${worst.openRate}%`)}</small></div>
+              <div className="seg-banner seg-banner-good">
+                <span>🏆 {t("أفضل أداء", "Best performance")}</span>
+                <b>{best.campaign.name}</b>
+                <small>{t(`تفاعل ${best.interactRate}% · فتح ${best.openRate}%`, `Interaction ${best.interactRate}% · open ${best.openRate}%`)}</small>
+              </div>
+              <div className="seg-banner seg-banner-warn">
+                <span>⚠ {t("أضعف أداء", "Weakest performance")}</span>
+                {worst && worst.campaign.id !== best.campaign.id ? (
+                  <>
+                    <b>{worst.campaign.name}</b>
+                    <small>{t(`تفاعل ${worst.interactRate}% · فتح ${worst.openRate}%`, `Interaction ${worst.interactRate}% · open ${worst.openRate}%`)}</small>
+                  </>
+                ) : (
+                  <>
+                    <b>{t("لا توجد حملة للمقارنة بعد", "No campaign to compare yet")}</b>
+                    <small>{t("يظهر هنا أضعف أداء عند وجود حملتين مرسلتين على الأقل.", "The weakest performer shows here once two campaigns have been sent.")}</small>
+                  </>
+                )}
+              </div>
             </div>
           ) : null}
           <div className="seg-charts">

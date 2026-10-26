@@ -12804,3 +12804,15 @@ html[dir="ltr"] .notification-bell-panel {
   .camp-hero > * { max-width: 100%; min-width: 0; box-sizing: border-box; }
   .campaigns-page .camp-filterrow .campaign-date-filter input { width: 0; flex: 1 1 0; min-width: 0; }
 }
+
+/* Report page: filter bar and best / weakest banners as in the preview */
+.report-filters { align-items: flex-end; }
+.report-filters .rf-field { display: grid; gap: 4px; font-size: 12px; color: var(--text-secondary); min-width: 0; }
+.report-filters .rf-field .custom-select { flex: none; width: 190px; }
+.report-filters .rf-field input[type="date"] { width: 150px; }
+.seg-banner { color: #fff; padding: 18px 22px; }
+.seg-banner span, .seg-banner small { color: rgba(255, 255, 255, .92); }
+.seg-banner b { font-size: 18px; color: #fff; }
+.seg-banner-good { background: linear-gradient(120deg, #2e9e4f, #1f7a3a); }
+.seg-banner-warn { background: linear-gradient(120deg, #ff6a2b, #e5481a); }
+@media (max-width: 760px) { .report-filters .rf-field, .report-filters .rf-field .custom-select, .report-filters .rf-field input[type="date"] { width: 100%; flex: 1 1 100%; } .report-filters .btn { flex: 1 1 100%; } }
