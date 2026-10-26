@@ -669,10 +669,6 @@ export default function CampaignsView({
     if (payload?.data?.balanceWarning) notify(String(payload.data.balanceWarning), "info");
   }
 
-  async function deleteCampaign(campaign: Campaign) {
-    await deleteCampaignsTyped([campaign]);
-  }
-
   async function stopCampaign(campaign: Campaign) {
     if (!(await confirmDialog(t(`إيقاف حملة ${campaign.name}؟ الأرقام اللي ما وصلها الإرسال بعد بتبقى موقوفة.`, `Stop the "${campaign.name}" campaign? Numbers that haven't been messaged yet will remain unsent.`), { confirmLabel: t("إيقاف", "Stop"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/campaigns/${campaign.id}`, {
@@ -747,28 +743,6 @@ export default function CampaignsView({
     setSelectedIds(new Set());
     await onRefreshData();
     notify(archived ? t(`تمت أرشفة ${eligible.length} حملة`, `${eligible.length} campaign(s) archived`) : t(`تمت استعادة ${eligible.length} حملة`, `${eligible.length} campaign(s) restored`), "success");
-  }
-
-  async function deleteCampaignsTyped(list: Campaign[]) {
-    const deletable = list.filter((campaign) => campaign.status !== "قيد الإرسال");
-    if (!deletable.length) {
-      notify(t("لا يمكن حذف حملة قيد الإرسال. أوقفها أولاً.", "A campaign that is sending cannot be deleted. Stop it first."), "info");
-      return;
-    }
-    const single = deletable.length === 1;
-    const confirmWord = single ? deletable[0].name : t("حذف", "delete");
-    const accepted = await confirmDialog(
-      single
-        ? t(`سيُحذف التقرير وكل مستلمي حملة «${deletable[0].name}» نهائياً. يمكنك أرشفتها بدل الحذف.`, `The report and every recipient of “${deletable[0].name}” will be deleted for good. You can archive it instead.`)
-        : t(`سيُحذف ${deletable.length} حملة بكل مستلميها نهائياً. يمكنك أرشفتها بدل الحذف.`, `${deletable.length} campaigns and all their recipients will be deleted for good. You can archive them instead.`),
-      { tone: "danger", requireText: confirmWord, confirmLabel: t("حذف نهائي", "Delete forever"), cancelLabel: t("تراجع", "Cancel") }
-    );
-    if (!accepted) return;
-    setBulkBusy(true);
-    for (const campaign of deletable) await fetch(`/api/campaigns/${campaign.id}`, { method: "DELETE" });
-    setBulkBusy(false);
-    setSelectedIds(new Set());
-    await onRefreshData();
   }
 
   async function duplicateCampaign(campaign: Campaign) {
@@ -1054,7 +1028,6 @@ export default function CampaignsView({
                 {campaignStatusFilter === "مؤرشفة"
                   ? <button className="btn soft" type="button" disabled={bulkBusy} onClick={() => archiveCampaigns(selectedCampaigns, false)}>{t("استعادة", "Restore")}</button>
                   : <button className="btn soft" type="button" disabled={bulkBusy} onClick={() => archiveCampaigns(selectedCampaigns, true)}>{t("أرشفة", "Archive")}</button>}
-                <button className="btn danger" type="button" disabled={bulkBusy} onClick={() => deleteCampaignsTyped(selectedCampaigns)}>{t("حذف", "Delete")}</button>
                 <button className="btn soft" type="button" onClick={() => setSelectedIds(new Set())}>{t("إلغاء التحديد", "Clear selection")}</button>
               </div>
             ) : null}
@@ -1090,7 +1063,6 @@ export default function CampaignsView({
                             { key: "edit", label: t("تعديل الاسم والوصف", "Edit name and notes"), onSelect: () => openForm(campaign) },
                             { key: "retry", label: t("إعادة الإرسال للفاشلين فقط", "Resend to failed only"), onSelect: () => retryFailedRecipients(campaign), hidden: stats.failed === 0 || campaign.status === "قيد الإرسال" },
                             { key: "export", label: t("تصدير المستلمين", "Export recipients"), onSelect: () => openReport(campaign) },
-                            { key: "delete", label: t("حذف…", "Delete…"), onSelect: () => deleteCampaign(campaign), danger: true, hidden: campaign.status === "قيد الإرسال" }
                           ]}
                         />
                       </td>

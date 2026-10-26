@@ -1,11 +1,11 @@
 "use client";
 
-import { confirmDialog } from "../../../lib/ui-dialogs";
-
 import { FormEvent, useMemo, useState } from "react";
 import type { Conversation, Tag } from "../types";
 import { statusLabel } from "../utils/conversation";
 import { useLanguage } from "../i18n";
+import { EditIcon, ListIcon } from "../components/ActionIcons";
+import { BarList } from "../components/MiniCharts";
 
 type TagFormState = {
   id?: string;
@@ -31,7 +31,6 @@ export default function TagsView({
   const [form, setForm] = useState<TagFormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [filterOpen, setFilterOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
 
@@ -50,6 +49,12 @@ export default function TagsView({
 
   const getTagUsage = (tagName: string) =>
     conversations.filter((conversation) => conversation.tags.includes(tagName)).length;
+
+  const taggedConversations = conversations.filter((conversation) => conversation.tags.length).length;
+  const usageCounts = tags.map((tag) => ({ tag, usage: getTagUsage(tag.name) }));
+  const maxUsage = Math.max(0, ...usageCounts.map((item) => item.usage));
+  const topTag = maxUsage > 0 ? usageCounts.find((item) => item.usage === maxUsage)?.tag : undefined;
+  const usageBars = usageCounts.filter((item) => item.usage > 0).sort((a, b) => b.usage - a.usage).slice(0, 8).map((item) => ({ label: item.tag.name, value: item.usage }));
 
   function openCreateForm() {
     setError("");
@@ -86,58 +91,51 @@ export default function TagsView({
     setFormOpen(false);
   }
 
-  async function deleteTag(tag: Tag) {
-    if (!(await confirmDialog(t(`حذف وسم ${tag.name}؟`, `Delete tag ${tag.name}?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    await fetch(`/api/tags/${tag.id}`, { method: "DELETE" });
-    await onRefreshData();
-  }
-
   return (
     <section className="page-stack">
-      <div className="panel">
-        <div className="panel-head">
-          <h2>{t("إدارة الوسوم", "Manage Tags")}</h2>
-          <span />
-          <button className="btn soft" type="button" onClick={() => setFilterOpen((current) => !current)}>{t("تصفية", "Filter")}</button>
-          <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة وسم", "Add Tag")}</button>
+      <div className="camp-hero">
+        <div className="camp-hero-text">
+          <small>{t("الوسوم", "TAGS")}</small>
+          <h1>{t("إدارة الوسوم", "Manage Tags")}</h1>
+          <p>{t("الوسم يستخدم لتصنيف المحادثة حسب الحالة مثل شحن، شكوى، دفع، أو متابعة لاحقة. اضغط على أي وسم لعرض محادثاته.", "Tags categorize conversations, e.g. shipping, complaint, payment or follow-up. Select a tag to see its conversations.")}</p>
+          <div className="camp-hero-chips"><span>{tags.length.toLocaleString("en-US")} {t("وسم", "tags")}</span><span>{taggedConversations.toLocaleString("en-US")} {t("محادثة موسومة", "tagged conversations")}</span></div>
         </div>
-        <div className="panel-body table-wrap">
-          <p className="muted-copy">{t("الوسم يستخدم لتصنيف المحادثة حسب الحالة مثل شحن، شكوى، دفع، أو متابعة لاحقة.", "Tags are used to categorize conversations by status, such as shipping, complaint, payment, or follow-up.")}</p>
-          {filterOpen ? (
-            <div className="inline-filter">
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث باسم الوسم أو الوصف...", "Search by tag name or description...")} />
-              <button className="btn soft" type="button" onClick={() => setSearch("")}>{t("مسح", "Clear")}</button>
+        <label className="camp-hero-search"><span aria-hidden="true">🔍</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث باسم الوسم أو الوصف...", "Search by tag name or description...")} aria-label={t("بحث في الوسوم", "Search tags")} /></label>
+        <button className="camp-hero-new" type="button" onClick={openCreateForm}>＋ {t("إضافة وسم", "Add Tag")}</button>
+      </div>
+
+      <div className="seg-kpis">
+        <div className="seg-kpi seg-kpi-b"><span>{t("عدد الوسوم", "Tags")}</span><b>{tags.length.toLocaleString("en-US")}</b></div>
+        <div className="seg-kpi seg-kpi-good"><span>{t("محادثات موسومة", "Tagged conversations")}</span><b>{taggedConversations.toLocaleString("en-US")}</b><small>{conversations.length ? Math.round((taggedConversations / conversations.length) * 100) : 0}%</small></div>
+        <div className="seg-kpi seg-kpi-warn"><span>{t("وسوم غير مستخدمة", "Unused tags")}</span><b>{tags.filter((tag) => getTagUsage(tag.name) === 0).length.toLocaleString("en-US")}</b></div>
+        <div className="seg-kpi seg-kpi-unsub"><span>{t("أكثر وسم استخدامًا", "Most used tag")}</span><b className="seg-kpi-text">{topTag ? topTag.name : "-"}</b>{topTag ? <small>{getTagUsage(topTag.name).toLocaleString("en-US")} {t("محادثة", "conversations")}</small> : null}</div>
+      </div>
+
+      {tags.length && usageBars.length ? (
+        <div className="panel">
+          <div className="panel-head"><h2>{t("استخدام الوسوم", "Tag usage")}</h2></div>
+          <div className="panel-body"><BarList items={usageBars} /></div>
+        </div>
+      ) : null}
+
+      <div className="tag-cards">
+        {filteredTags.map((tag) => {
+          const usage = getTagUsage(tag.name);
+          return (
+            <div key={tag.id} className="tag-card" style={{ ["--tag" as string]: tag.color }}>
+              <button type="button" className="tag-card-main" onClick={() => setSelectedTag(tag)} aria-label={t(`عرض محادثات وسم ${tag.name}`, `View conversations of tag ${tag.name}`)}>
+                <span className="tag-card-top"><b>{tag.name}</b><em className="contact-tag">{usage.toLocaleString("en-US")} {t("محادثة", "conv.")}</em></span>
+                {tag.description ? <small>{tag.description}</small> : <small className="muted-copy">{t("بدون وصف", "No description")}</small>}
+                <span className="tag-card-bar"><i style={{ width: `${maxUsage ? (usage / maxUsage) * 100 : 0}%` }} /></span>
+              </button>
+              <span className="tag-card-actions">
+                <button className="campaign-icon-btn" type="button" title={t("عرض المحادثات", "View conversations")} aria-label={t("عرض المحادثات", "View conversations")} onClick={() => setSelectedTag(tag)}>{ListIcon}</button>
+                <button className="campaign-icon-btn" type="button" title={t("تعديل", "Edit")} aria-label={t("تعديل", "Edit")} onClick={() => openEditForm(tag)}>{EditIcon}</button>
+              </span>
             </div>
-          ) : null}
-          <table className="mobile-card-table">
-            <thead><tr><th>{t("الوسم", "Tag")}</th><th>{t("اللون", "Color")}</th><th>{t("الوصف", "Description")}</th><th>{t("الاستخدام", "Usage")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
-            <tbody>
-              {filteredTags.map((tag) => (
-                <tr key={tag.id}>
-                  <td><b>{tag.name}</b></td>
-                  <td data-label={t("اللون", "Color")}>
-                    <span
-                      className="tag-color-swatch"
-                      role="img"
-                      aria-label={t(`لون وسم ${tag.name}`, `Color of tag ${tag.name}`)}
-                      style={{ background: tag.color }}
-                    />
-                  </td>
-                  <td data-label={t("الوصف", "Description")}>{tag.description}</td>
-                  <td data-label={t("الاستخدام", "Usage")}>{getTagUsage(tag.name)} {t("محادثة", "conversation(s)")}</td>
-                  <td className="row-actions" data-label={t("إجراء", "Action")}>
-                    <button className="btn soft" type="button" onClick={() => setSelectedTag(tag)}>{t("عرض", "View")}</button>
-                    <button className="btn soft" type="button" onClick={() => openEditForm(tag)}>{t("تعديل", "Edit")}</button>
-                    <button className="btn danger" type="button" onClick={() => deleteTag(tag)}>{t("حذف", "Delete")}</button>
-                  </td>
-                </tr>
-              ))}
-              {!filteredTags.length ? (
-                <tr><td colSpan={5}>{tags.length ? t("لا توجد وسوم مطابقة للبحث.", "No tags match your search.") : t("لا توجد وسوم بعد، اضغط \"إضافة وسم\" لإنشاء أول وسم.", "No tags yet — click \"Add Tag\" to create your first one.")}</td></tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+          );
+        })}
+        {!filteredTags.length ? <p className="muted-copy">{tags.length ? t("لا توجد وسوم مطابقة للبحث.", "No tags match your search.") : t("لا توجد وسوم بعد، اضغط \"إضافة وسم\" لإنشاء أول وسم.", "No tags yet. Press \"Add Tag\" to create your first one.")}</p> : null}
       </div>
 
       {formOpen ? (

@@ -2,6 +2,7 @@
 
 import { formatNumber } from "../../../lib/format";
 import CustomSelect from "../../components/CustomSelect";
+import { SendIcon, StopIcon } from "../components/ActionIcons";
 import EmailInsights from "../components/EmailInsights";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Conversation, Customer, EmailCampaignSummary, Tag } from "../types";
@@ -513,9 +514,8 @@ export default function EmailPromotionsView({ customers, conversations, tags, hu
                 <td data-label={t("الحالة", "Status")}><span className={campaign.status === "failed" || campaign.status === "cancelled" ? "state off" : campaign.status === "scheduled" || campaign.status === "draft" ? "state warn" : "state ok"}><i className="camp-dot" />{statusLabel(campaign.status, t)}</span></td>
                 <td data-label={t("آخر تحديث", "Last update")}>{(campaign.updatedAt || "").slice(0, 16).replace("T", " ")}</td>
                 <td data-label={t("الإجراءات", "Actions")} className="row-actions campaign-row-actions">
-                  {campaign.status === "scheduled" || campaign.status === "draft" ? <button className="campaign-icon-btn" type="button" title={t("إرسال الآن", "Send now")} aria-label={t("إرسال الآن", "Send now")} onClick={() => campaignAction(campaign.id, "sending")}>➤</button> : null}
-                  {campaign.status === "scheduled" || campaign.status === "draft" ? <button className="campaign-icon-btn" type="button" title={t("إلغاء", "Cancel")} aria-label={t("إلغاء", "Cancel")} onClick={() => campaignAction(campaign.id, "cancelled")}>⏹</button> : null}
-                  {campaign.status !== "sending" ? <button className="campaign-icon-btn" type="button" title={t("حذف", "Delete")} aria-label={t("حذف", "Delete")} onClick={() => campaignAction(campaign.id, "delete")}>🗑</button> : null}
+                  {campaign.status === "scheduled" || campaign.status === "draft" ? <button className="campaign-icon-btn" type="button" title={t("إرسال الآن", "Send now")} aria-label={t("إرسال الآن", "Send now")} onClick={() => campaignAction(campaign.id, "sending")}>{SendIcon}</button> : null}
+                  {campaign.status === "scheduled" || campaign.status === "draft" ? <button className="campaign-icon-btn" type="button" title={t("إلغاء", "Cancel")} aria-label={t("إلغاء", "Cancel")} onClick={() => campaignAction(campaign.id, "cancelled")}>{StopIcon}</button> : null}
                 </td>
               </tr>
               );

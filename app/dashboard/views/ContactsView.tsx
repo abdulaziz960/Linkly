@@ -1,12 +1,13 @@
 "use client";
 
-import { confirmDialog } from "../../../lib/ui-dialogs";
 import { useDataLoading } from "../data-loading-context";
 import { EmptyState, SkeletonTableRows } from "../components/StateBlocks";
 
 import CustomSelect from "../../components/CustomSelect";
 import { FormEvent, useMemo, useState } from "react";
-import type { ConversationChannel, Customer } from "../types";
+import type { ConversationChannel, Customer, Tag } from "../types";
+import { ChatIcon, EditIcon, MergeIcon } from "../components/ActionIcons";
+import { BarList } from "../components/MiniCharts";
 import { ChannelIcon } from "./SettingsView";
 import { useLanguage } from "../i18n";
 import { channelNames } from "../../channel-names";
@@ -47,10 +48,12 @@ function getCustomerChannels(customer: Customer): ConversationChannel[] {
 
 export default function ContactsView({
   customers,
+  tagList = [],
   onOpenConversation,
   onRefreshData
 }: {
   customers: Customer[];
+  tagList?: Tag[];
   onOpenConversation: (conversationId: string) => void;
   onRefreshData: () => Promise<void>;
 }) {
@@ -66,6 +69,8 @@ export default function ContactsView({
   const [mergeError, setMergeError] = useState("");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<CustomerChannelTab>("whatsapp");
+  const [tagFilter, setTagFilter] = useState("");
+  const [page, setPage] = useState(1);
   const contactIdLabel = activeTab === "whatsapp"
     ? t("رقم الجوال", "Phone Number")
     : activeTab === "instagram"
@@ -101,7 +106,7 @@ export default function ContactsView({
 
   const filteredCustomers = useMemo(() => {
     const query = search.trim().toLowerCase();
-    const channelCustomers = customers.filter((customer) => getCustomerChannels(customer).includes(activeTab));
+    const channelCustomers = customers.filter((customer) => getCustomerChannels(customer).includes(activeTab) && (!tagFilter || customer.tags.includes(tagFilter)));
     if (!query) return channelCustomers;
 
     return channelCustomers.filter((customer) => (
@@ -109,9 +114,31 @@ export default function ContactsView({
       customer.phone.toLowerCase().includes(query) ||
       customer.tags.join(" ").toLowerCase().includes(query)
     ));
-  }, [activeTab, customers, search]);
+  }, [activeTab, customers, search, tagFilter]);
 
   const dataLoading = useDataLoading();
+  const pageSize = 25;
+  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = filteredCustomers.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const withTags = customers.filter((customer) => customer.tags.length).length;
+  const activePlatforms = customerTabs.filter((tab) => tabCounts[tab.key] > 0).length;
+  const tagColor = (name: string) => tagList.find((tag) => tag.name === name)?.color || "#178a82";
+  const avatarColors = ["#178a82", "#4a90d9", "#8e6bbf", "#c9831b", "#d9534f", "#2e9e6b"];
+  const avatarColor = (id: string) => avatarColors[[...id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % avatarColors.length];
+
+  async function exportCustomers() {
+    const ExcelJS = await import("exceljs");
+    const book = new ExcelJS.Workbook();
+    const sheet = book.addWorksheet(t("العملاء", "Customers"), { views: [{ rightToLeft: true }] });
+    sheet.columns = [{ header: t("الاسم", "Name"), key: "name", width: 28 }, { header: contactIdLabel, key: "phone", width: 24 }, { header: t("الوسوم", "Tags"), key: "tags", width: 32 }];
+    filteredCustomers.forEach((customer) => sheet.addRow({ name: customer.name, phone: customer.phone, tags: customer.tags.join("، ") }));
+    sheet.getRow(1).font = { bold: true };
+    const buffer = await book.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    const anchor = document.createElement("a");
+    anchor.href = url; anchor.download = "customers.xlsx"; anchor.click(); URL.revokeObjectURL(url);
+  }
 
   function openCreateForm() {
     setError("");
@@ -152,12 +179,6 @@ export default function ContactsView({
     setFormOpen(false);
   }
 
-  async function deleteCustomer(customer: Customer) {
-    if (!(await confirmDialog(t(`حذف العميل ${customer.name}؟ سيتم حذف المحادثة المرتبطة به أيضًا.`, `Delete customer ${customer.name}? Their linked conversation will also be deleted.`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    await fetch(`/api/customers/${customer.id}`, { method: "DELETE" });
-    await onRefreshData();
-  }
-
   function openMergeForm(customer: Customer) {
     setMergeError("");
     setMergeSourceId("");
@@ -190,62 +211,77 @@ export default function ContactsView({
 
   return (
     <section className="page-stack">
-      <div className="panel">
-        <div className="panel-head">
-          <h2>{t("العملاء", "Customers")}</h2>
-          <span />
-          <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة عميل", "Add Customer")}</button>
+      <div className="camp-hero">
+        <div className="camp-hero-text">
+          <small>{t("العملاء", "CUSTOMERS")}</small>
+          <h1>{t("العملاء", "Customers")}</h1>
+          <p>{t("اختر المنصة لعرض العملاء القادمين منها وإدارة بياناتهم ومحادثاتهم.", "Choose a platform to view customers coming from it and manage their data and conversations.")}</p>
+          <div className="camp-hero-chips"><span>{customers.length.toLocaleString("en-US")} {t("إجمالي العملاء", "customers")}</span><span>{t("المنصة", "Platform")}: {t(customerTabs.find((tab) => tab.key === activeTab)?.label[0] ?? "", customerTabs.find((tab) => tab.key === activeTab)?.label[1] ?? "")}</span></div>
         </div>
-        <div className="panel-body table-wrap">
-          <div className="contacts-summary">
-            <div>
-              <span>{t("إجمالي العملاء", "Total Customers")}</span>
-              <strong>{customers.length}</strong>
+        <label className="camp-hero-search"><span aria-hidden="true">🔍</span><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder={t("بحث باسم العميل، الرقم، أو الوسم...", "Search by customer name, number, or tag...")} aria-label={t("بحث في العملاء", "Search customers")} /></label>
+        <button className="camp-hero-new" type="button" onClick={openCreateForm}>＋ {t("إضافة عميل", "Add Customer")}</button>
+      </div>
+
+      <div className="seg-kpis">
+        <div className="seg-kpi seg-kpi-b"><span>{t("إجمالي العملاء", "Total customers")}</span><b>{customers.length.toLocaleString("en-US")}</b><small>{t("كل المنصات", "All platforms")}</small></div>
+        <div className="seg-kpi seg-kpi-good"><span>{t("لديهم وسوم", "With tags")}</span><b>{withTags.toLocaleString("en-US")}</b><small>{customers.length ? Math.round((withTags / customers.length) * 100) : 0}%</small></div>
+        <div className="seg-kpi seg-kpi-warn"><span>{t("بدون وسوم", "Without tags")}</span><b>{(customers.length - withTags).toLocaleString("en-US")}</b><small>{customers.length ? Math.round(((customers.length - withTags) / customers.length) * 100) : 0}%</small></div>
+        <div className="seg-kpi seg-kpi-unsub"><span>{t("منصات فعّالة", "Active platforms")}</span><b>{activePlatforms}</b><small>{t(`من ${customerTabs.length}`, `of ${customerTabs.length}`)}</small></div>
+      </div>
+
+      <div className="contacts-two">
+        <div className="panel">
+          <div className="panel-head"><h2>{t("العملاء حسب المنصة", "Customers by platform")}</h2></div>
+          <div className="panel-body">
+            <div className="contacts-channels" role="tablist" aria-label={t("تصنيف العملاء حسب القناة", "Filter customers by channel")}>
+              {customerTabs.map((tab) => (
+                <button key={tab.key} className={activeTab === tab.key ? "contacts-channel on" : "contacts-channel"} type="button" role="tab" aria-selected={activeTab === tab.key} onClick={() => { setActiveTab(tab.key); setPage(1); }}>
+                  <span className={`contact-channel-logo ${tab.key}`} aria-hidden="true"><ChannelIcon id={tab.key} /></span>
+                  <span className="contact-channel-copy"><b>{t(tab.label[0], tab.label[1])}</b><small>{t("عميل", "customer")}</small></span>
+                  <em>{tabCounts[tab.key]}</em>
+                </button>
+              ))}
             </div>
-            <p>{t("اختر المنصة لعرض العملاء القادمين منها وإدارة بياناتهم ومحادثاتهم.", "Choose a platform to view customers coming from it and manage their data and conversations.")}</p>
           </div>
-          <div className="section-tabs contacts-tabs" role="tablist" aria-label={t("تصنيف العملاء حسب القناة", "Filter customers by channel")}>
-            {customerTabs.map((tab) => (
-              <button
-                key={tab.key}
-                className={activeTab === tab.key ? "section-tab active" : "section-tab"}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === tab.key}
-                onClick={() => setActiveTab(tab.key)}
-              >
-                <span className={`contact-channel-logo ${tab.key}`} aria-hidden="true"><ChannelIcon id={tab.key} /></span>
-                <span className="contact-channel-copy"><b>{t(tab.label[0], tab.label[1])}</b><small>{t("عميل", "customer")}</small></span>
-                <strong>{tabCounts[tab.key]}</strong>
-              </button>
-            ))}
+        </div>
+        <div className="panel">
+          <div className="panel-head"><h2>{t("توزيع العملاء", "Distribution")}</h2></div>
+          <div className="panel-body">
+            {customers.length ? <BarList items={customerTabs.filter((tab) => tabCounts[tab.key] > 0).map((tab) => ({ label: t(tab.label[0], tab.label[1]), value: tabCounts[tab.key] })).sort((a, b) => b.value - a.value)} /> : <p className="muted-copy">{t("لا يوجد عملاء بعد.", "No customers yet.")}</p>}
           </div>
-          <div className="inline-filter">
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث باسم العميل، الرقم، أو الوسم...", "Search by customer name, number, or tag...")} />
-            <button className="btn soft" type="button" onClick={() => setSearch("")}>{t("مسح", "Clear")}</button>
-          </div>
-          <table className="mobile-card-table">
-            <thead><tr><th>{t("الاسم", "Name")}</th><th>{contactIdLabel}</th><th>{t("الوسوم", "Tags")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
+        </div>
+      </div>
+
+      <div className="panel contacts-table-card">
+        <div className="seg-toolbar">
+          <CustomSelect value={tagFilter} onChange={(value) => { setTagFilter(value); setPage(1); }} options={[{ value: "", label: t("كل الوسوم", "All tags") }, ...tagList.map((tag) => ({ value: tag.name, label: tag.name }))]} />
+          <button className="btn soft" type="button" onClick={() => { setSearch(""); setTagFilter(""); setPage(1); }}>{t("مسح", "Clear")}</button>
+          <button className="btn soft" type="button" onClick={exportCustomers} disabled={!filteredCustomers.length}>{t("تصدير Excel", "Export Excel")}</button>
+          <span className="seg-total-pill">{t("الإجمالي", "Total")}: <b>{filteredCustomers.length.toLocaleString("en-US")}</b></span>
+        </div>
+        <div className="table-wrap">
+          <table className="mobile-card-table camp-table">
+            <thead><tr><th>{t("العميل", "Customer")}</th><th>{contactIdLabel}</th><th>{t("المنصة", "Platform")}</th><th>{t("الوسوم", "Tags")}</th><th>{t("الإجراءات", "Actions")}</th></tr></thead>
             <tbody>
-              {filteredCustomers.map((customer) => (
+              {pageRows.map((customer) => (
                 <tr key={customer.id}>
-                  <td data-label={t("الاسم", "Name")}><b>{customer.name}</b></td>
-                  <td data-label={contactIdLabel} dir="ltr">{customer.phone}</td>
-                  <td data-label={t("الوسوم", "Tags")}>{customer.tags.length ? customer.tags.join(t("، ", ", ")) : "-"}</td>
-                  <td data-label={t("إجراء", "Action")} className="row-actions">
-                    <button className="btn soft" type="button" onClick={() => onOpenConversation(customer.id)}>{t("إرسال رسالة", "Send Message")}</button>
-                    <button className="btn soft" type="button" onClick={() => openEditForm(customer)}>{t("تعديل", "Edit")}</button>
-                    <button className="btn soft" type="button" onClick={() => openMergeForm(customer)} disabled={customers.length < 2}>{t("دمج", "Merge")}</button>
-                    <button className="btn danger" type="button" onClick={() => deleteCustomer(customer)}>{t("حذف", "Delete")}</button>
+                  <td data-label={t("العميل", "Customer")}><div className="contact-who"><span className="contact-avatar" style={{ background: avatarColor(customer.id) }}>{(customer.initial || customer.name.trim()[0] || "؟").toUpperCase()}</span><b>{customer.name}</b></div></td>
+                  <td data-label={contactIdLabel} dir="ltr" className="contact-phone">{customer.phone}</td>
+                  <td data-label={t("المنصة", "Platform")}><span className="contact-platform"><span className={`contact-channel-logo small ${activeTab}`} aria-hidden="true"><ChannelIcon id={activeTab} /></span>{t(customerTabs.find((tab) => tab.key === activeTab)?.label[0] ?? "", customerTabs.find((tab) => tab.key === activeTab)?.label[1] ?? "")}</span></td>
+                  <td data-label={t("الوسوم", "Tags")}>{customer.tags.length ? customer.tags.map((tag) => <span key={tag} className="contact-tag" style={{ ["--tag" as string]: tagColor(tag) }}>{tag}</span>) : "-"}</td>
+                  <td data-label={t("الإجراءات", "Actions")} className="row-actions campaign-row-actions">
+                    <button className="campaign-icon-btn" type="button" title={t("إرسال رسالة", "Send Message")} aria-label={t("إرسال رسالة", "Send Message")} onClick={() => onOpenConversation(customer.id)}>{ChatIcon}</button>
+                    <button className="campaign-icon-btn" type="button" title={t("تعديل", "Edit")} aria-label={t("تعديل", "Edit")} onClick={() => openEditForm(customer)}>{EditIcon}</button>
+                    <button className="campaign-icon-btn" type="button" title={t("دمج", "Merge")} aria-label={t("دمج", "Merge")} onClick={() => openMergeForm(customer)} disabled={customers.length < 2}>{MergeIcon}</button>
                   </td>
                 </tr>
               ))}
-              {!filteredCustomers.length && dataLoading ? <SkeletonTableRows columns={4} label={t("جارٍ تحميل العملاء", "Loading customers")} /> : null}
+              {!filteredCustomers.length && dataLoading ? <SkeletonTableRows columns={5} label={t("جارٍ تحميل العملاء", "Loading customers")} /> : null}
               {!filteredCustomers.length && !dataLoading ? (
-                <tr><td colSpan={4}>{customers.length ? t("لا يوجد عملاء مطابقون للبحث الحالي.", "No customers match the current search.") : (
+                <tr><td colSpan={5}>{customers.length ? t("لا يوجد عملاء مطابقون للبحث الحالي.", "No customers match the current search.") : (
                   <EmptyState
                     title={t("لا يوجد عملاء بعد", "No customers yet")}
-                    description={t("يظهر هنا كل من يراسلك على قنواتك. يمكنك أيضاً إضافة عميل يدوياً لتبدأ محادثة معه.", "Everyone who messages you on your channels shows up here. You can also add a customer by hand to start a conversation.")}
+                    description={t("يظهر هنا كل من يراسلك على قنواتك. يمكنك أيضاً إضافة عميل يدوياً لتبدأ محادثة معه.", "Everyone who messages you on your channels shows up here. You can also add a customer manually to start a conversation.")}
                     action={<button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة أول عميل", "Add your first customer")}</button>}
                   />
                 )}</td></tr>
@@ -253,6 +289,12 @@ export default function ContactsView({
             </tbody>
           </table>
         </div>
+        {totalPages > 1 ? (
+          <div className="contacts-pager">
+            <span>{t(`صفحة ${safePage} من ${totalPages}`, `Page ${safePage} of ${totalPages}`)}</span>
+            <span><button type="button" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>‹</button><button type="button" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>›</button></span>
+          </div>
+        ) : null}
       </div>
 
       {formOpen ? (

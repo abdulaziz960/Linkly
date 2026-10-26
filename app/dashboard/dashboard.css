@@ -12821,3 +12821,44 @@ html[dir="ltr"] .notification-bell-panel {
 
 /* Arabic: the icon sits on the right, before its word */
 .dashboard-shell:not(.lang-en) .dashboard-top-links .sidebar-billing-link.has-label { flex-direction: row-reverse; }
+
+/* Customers page - the approved preview */
+.contacts-two { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; align-items: start; }
+.contacts-channels { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.contacts-channel { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: #fff; font: inherit; text-align: start; cursor: pointer; transition: all .15s; }
+.contacts-channel:hover { background: var(--brand-50); transform: translateY(-2px); }
+.contacts-channel.on { border-color: #178a82; background: var(--brand-50); box-shadow: 0 4px 12px rgba(23, 138, 130, .2); }
+.contacts-channel .contact-channel-logo { width: 38px; height: 38px; border-radius: 11px; flex: none; }
+.contacts-channel .contact-channel-logo svg { width: 20px; height: 20px; }
+.contacts-channel .contact-channel-copy { display: grid; min-width: 0; }
+.contacts-channel .contact-channel-copy b { font-size: 13px; }
+.contacts-channel .contact-channel-copy small { color: var(--text-secondary); font-size: 11px; }
+.contacts-channel em { margin-inline-start: auto; font-style: normal; font-weight: 800; font-size: 13px; background: var(--neutral-100); border-radius: 999px; padding: 2px 10px; }
+.contacts-channel.on em { background: #178a82; color: #fff; }
+.contacts-table-card { overflow: hidden; }
+.contact-who { display: flex; align-items: center; gap: 12px; }
+.contact-avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; flex: none; }
+.contact-phone { text-align: end; }
+.contact-platform { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+.contact-channel-logo.small { width: 26px; height: 26px; border-radius: 8px; }
+.contact-channel-logo.small svg { width: 15px; height: 15px; }
+.contact-tag { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-inline-end: 4px; color: var(--tag); background: color-mix(in srgb, var(--tag) 14%, #fff); }
+.contacts-pager { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--text-secondary); }
+.contacts-pager button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: #fff; cursor: pointer; margin-inline-start: 6px; }
+.contacts-pager button:disabled { opacity: .4; cursor: default; }
+@media (max-width: 860px) { .contacts-two { grid-template-columns: 1fr; } }
+.contact-channel-logo svg { fill: currentColor; stroke: none; }
+.contact-channel-logo.instagram svg, .contact-channel-logo.email svg, .contact-channel-logo.website svg, .contact-channel-logo.sms svg, .contact-channel-logo.google_maps svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.contact-channel-logo.google_maps svg { fill: currentColor; stroke: none; }
+
+/* Tags page cards */
+.tag-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.tag-card { position: relative; display: grid; gap: 10px; padding: 16px; border: 1px solid var(--line); border-top: 4px solid var(--tag); border-radius: 18px; background: linear-gradient(170deg, #fff 50%, color-mix(in srgb, var(--tag) 8%, #fff)); transition: transform .18s, box-shadow .18s; animation: seg-rise .45s both; }
+.tag-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(15, 64, 61, .16); }
+.tag-card-main { display: grid; gap: 8px; border: 0; background: none; padding: 0; font: inherit; text-align: start; cursor: pointer; color: inherit; }
+.tag-card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tag-card-top b { font-size: 16px; }
+.tag-card-main small { color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+.tag-card-bar { display: block; height: 8px; border-radius: 999px; background: var(--neutral-100); overflow: hidden; }
+.tag-card-bar i { display: block; height: 100%; border-radius: 999px; background: var(--tag); transform-origin: right center; animation: seg-grow .8s both; }
+.tag-card-actions { display: flex; gap: 6px; justify-content: flex-end; }

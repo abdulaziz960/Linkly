@@ -30,7 +30,7 @@ test("campaigns overview shows the funnel and a real balance on both tabs", asyn
   await page.screenshot({ path: testInfo.outputPath("campaigns-balance.png") });
 });
 
-test("campaigns table: real numbers, notes, the row menu and a typed delete confirmation", async ({ page }, testInfo) => {
+test("campaigns table: real numbers, notes, the row menu and no delete in the row menu", async ({ page }, testInfo) => {
   await signIn(page);
   await page.goto("/dashboard?view=campaigns");
   const row = page.getByRole("row", { name: /حملة العرض الأخير/ });
@@ -49,18 +49,11 @@ test("campaigns table: real numbers, notes, the row menu and a typed delete conf
   await expect(page.getByRole("row", { name: /حملة العرض الأخير/ })).toHaveCount(0);
   await page.getByRole("region", { name: "ملخص الحملات" }).getByRole("button", { name: /بانتظار الإرسال/ }).click();
 
-  // Delete is inside the menu and needs the campaign's name typed.
+  // Campaigns cannot be deleted from the page any more: the row menu has no delete, the archive icon is the way out.
   await page.getByRole("row", { name: /حملة العرض الأخير/ }).getByRole("button", { name: /خيارات حملة العرض الأخير/ }).click();
-  await page.getByRole("menuitem", { name: /حذف/ }).click();
-  const dialog = page.getByRole("alertdialog");
-  const confirm = dialog.getByRole("button", { name: "حذف نهائي" });
-  await expect(confirm).toBeDisabled();
-  await dialog.getByRole("textbox").fill("حملة العرض الأخير");
-  await expect(confirm).toBeEnabled();
-  await page.screenshot({ path: testInfo.outputPath("campaigns-delete-confirm.png") });
+  await expect(page.getByRole("menuitem", { name: /حذف/ })).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
-  await expect(page.getByRole("row", { name: /حملة العرض الأخير/ })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("campaigns-row-menu.png") });
 
   // Archive moves it out of the default list.
   await page.getByRole("row", { name: /حملة العرض الأخير/ }).getByRole("button", { name: /خيارات حملة العرض الأخير/ }).click();
@@ -112,7 +105,7 @@ test("the row menu opens in full even when the table has a single row", async ({
   await expect(page.locator(".campaigns-table tbody tr")).toHaveCount(1);
   await page.getByRole("button", { name: /خيارات حملة قادمة/ }).click();
   const items = page.getByRole("menuitem");
-  expect(await items.count()).toBeGreaterThanOrEqual(3);
+  expect(await items.count()).toBeGreaterThanOrEqual(2);
   for (let index = 0; index < (await items.count()); index += 1) {
     const item = items.nth(index);
     await expect(item).toBeInViewport({ ratio: 1 });

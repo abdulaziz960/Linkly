@@ -248,11 +248,20 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
     );
   }
 
-  if (id === "gmail") {
+  if (id === "gmail" || id === "email") {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <rect x="3" y="5" width="18" height="14" rx="2.2" />
         <path d="m4.2 6.8 7.8 6.1 7.8-6.1" />
+      </svg>
+    );
+  }
+
+  if (id === "website") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3Z" />
       </svg>
     );
   }

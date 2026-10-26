@@ -134,7 +134,7 @@ export default function DashboardViewRouter({
         initialKey={view}
         ariaLabel={t("العملاء والعملاء المحتملون والوسوم", "Customers, leads and tags")}
         tabs={[
-          { viewKey: "contacts", label: t("العملاء", "Customers"), available: view === "contacts" || canViewContacts, content: <ContactsView customers={customers} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
+          { viewKey: "contacts", label: t("العملاء", "Customers"), available: view === "contacts" || canViewContacts, content: <ContactsView customers={customers} tagList={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
           { viewKey: "pipeline", label: t("العملاء المحتملون", "Leads"), available: view === "pipeline" || canViewPipeline, content: <PipelineView conversations={conversations} automationRules={automationRules} templates={templates} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> },
           { viewKey: "tags", label: t("الوسوم", "Tags"), available: view === "tags" || canViewTags, content: <TagsView conversations={conversations} tags={tags} onOpenConversation={onOpenConversation} onRefreshData={onRefreshData} /> }
         ]}

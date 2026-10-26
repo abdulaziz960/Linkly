@@ -1,9 +1,8 @@
 "use client";
 
-import { confirmDialog } from "../../../lib/ui-dialogs";
 import { useUnsavedChanges } from "../use-unsaved-changes";
 import { useDataLoading } from "../data-loading-context";
-import { EmptyState, SkeletonTableRows } from "../components/StateBlocks";
+import { EmptyState } from "../components/StateBlocks";
 
 import { CATALOG_TEMPLATE_DEFAULT_BUTTON, CATALOG_TEMPLATE_PREFIX, isCatalogTemplateName } from "../../../lib/catalog-template-shared";
 import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
@@ -368,12 +367,6 @@ export default function TemplatesView({
   const marketingCount = templates.filter((template) => categoryOf(template) === "MARKETING").length;
   const utilityCount = templates.filter((template) => categoryOf(template) === "UTILITY").length;
 
-  async function deleteTemplate(template: MessageTemplate) {
-    if (!(await confirmDialog(t(`حذف قالب ${template.name}؟`, `Delete the "${template.name}" template?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    await fetch(`/api/templates/${encodeURIComponent(template.name)}`, { method: "DELETE" });
-    await onRefreshData();
-  }
-
   return (
     <section className="page-stack">
       <div className="seg-kpis">
@@ -436,7 +429,6 @@ export default function TemplatesView({
                     <span className="template-card-meta">{categoryLabel(categoryOf(template))} · {template.language} · {template.syncedAt || "-"}</span>
                     <span className="row-actions">
                       <button className="btn soft" type="button" onClick={() => openEditForm(template)}>{t("عرض", "View")}</button>
-                      <button className="btn danger" type="button" onClick={() => deleteTemplate(template)}>{t("حذف", "Delete")}</button>
                     </span>
                   </footer>
                 </article>
@@ -469,7 +461,6 @@ export default function TemplatesView({
                 <h2>{form.editing ? t("تعديل القالب", "Edit template") : t("قالب جديد", "New template")}</h2>
               </div>
               <div className="template-topbar-actions">
-                {form.editing ? <button className="btn soft" type="button" onClick={() => deleteTemplate(form)}>{t("حذف القالب", "Delete template")}</button> : null}
               </div>
             </div>
             <div className="template-modal-body">

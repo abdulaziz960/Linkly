@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Tag } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
+import { EditIcon, UsersIcon } from "./ActionIcons";
 import { BarList } from "./MiniCharts";
 
 type Segment = {
@@ -69,13 +70,6 @@ export default function EmailSegmentsTab({ tags }: { tags: Tag[] }) {
     await load();
   }
 
-  async function remove(segment: Segment) {
-    if (!window.confirm(t(`حذف تقسيم ${segment.name}؟`, `Delete the "${segment.name}" segment?`))) return;
-    await fetch(`/api/segments/email/${segment.id}`, { method: "DELETE" });
-    if (openId === segment.id) setOpenId(null);
-    await load();
-  }
-
   async function toggleMembers(segment: Segment) {
     if (openId === segment.id) { setOpenId(null); return; }
     setOpenId(segment.id); setMembers([]); setMembersLoading(true);
@@ -132,9 +126,8 @@ export default function EmailSegmentsTab({ tags }: { tags: Tag[] }) {
             <div className="ft">
               <span>{(segment.updatedAt || "").slice(0, 10)}</span>
               <span>
-                <button className="ic" type="button" title={t("عرض العملاء", "View contacts")} onClick={() => toggleMembers(segment)}>👁</button>
-                <button className="ic" type="button" title={t("تعديل", "Edit")} onClick={() => { setError(""); setForm({ id: segment.id, name: segment.name, tagNames: segment.tagNames, inactiveDays: segment.inactiveDays ? String(segment.inactiveDays) : "", sourceCampaignId: segment.sourceCampaignId, engagementBucket: segment.engagementBucket, engagementDateFrom: segment.engagementDateFrom, engagementDateTo: segment.engagementDateTo }); }}>✎</button>
-                <button className="ic" type="button" title={t("حذف", "Delete")} onClick={() => remove(segment)}>🗑</button>
+                <button className="ic" type="button" title={t("عرض العملاء", "View contacts")} onClick={() => toggleMembers(segment)}>{UsersIcon}</button>
+                <button className="ic" type="button" title={t("تعديل", "Edit")} onClick={() => { setError(""); setForm({ id: segment.id, name: segment.name, tagNames: segment.tagNames, inactiveDays: segment.inactiveDays ? String(segment.inactiveDays) : "", sourceCampaignId: segment.sourceCampaignId, engagementBucket: segment.engagementBucket, engagementDateFrom: segment.engagementDateFrom, engagementDateTo: segment.engagementDateTo }); }}>{EditIcon}</button>
               </span>
             </div>
             {openId === segment.id ? (
