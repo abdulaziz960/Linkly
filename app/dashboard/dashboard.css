@@ -12790,3 +12790,8 @@ html[dir="ltr"] .notification-bell-panel {
   .dashboard-main :is(.pipeline-tabs, .reports-hub-tabs, .section-tabs:not(.contacts-tabs), .campaign-tabs:not(.contacts-tabs)) { display: flex; width: auto; max-width: 100%; overflow-x: auto; }
   .dashboard-main :is(.pipeline-tabs, .reports-hub-tabs, .section-tabs:not(.contacts-tabs), .campaign-tabs:not(.contacts-tabs)) :is(button, .section-tab) { flex: 0 0 auto; }
 }
+@media (max-width: 760px) {
+  .campaigns-page .camp-filterrow .campaign-date-filter, .seg-toolbar .entries { min-width: 0; max-width: 100%; }
+  .campaigns-page .camp-filterrow .campaign-date-filter input, .seg-toolbar input[type="date"], .seg-filters input[type="date"] { min-width: 0; width: 100%; max-width: 100%; flex: 1 1 0; }
+  .campaigns-page .camp-filterrow { max-width: calc(100% - 20px); box-sizing: border-box; }
+}
