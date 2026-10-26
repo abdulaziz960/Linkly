@@ -15,7 +15,8 @@ type FormState = {
   bodyHtml: string;
   ctaText: string;
   ctaUrl: string;
-  audienceMode: "all" | "tag" | "status" | "channel" | "custom" | "file";
+  audienceMode: "all" | "tag" | "status" | "channel" | "custom" | "file" | "segment";
+  segmentId: string;
   tagNames: string[];
   conversationStatus: string;
   channel: string;
@@ -32,6 +33,7 @@ const emptyForm: FormState = {
   ctaText: "",
   ctaUrl: "",
   audienceMode: "all",
+  segmentId: "",
   tagNames: [],
   conversationStatus: "assigned",
   channel: "email",
@@ -98,6 +100,7 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
     if (typeof window === "undefined") return "campaigns";
     return new URLSearchParams(window.location.search).get("tab") === "balance" ? "balance" : "campaigns";
   });
+  const [emailSegments, setEmailSegments] = useState<Array<{ id: string; name: string; recipientCount: number }>>([]);
   const [listSearch, setListSearch] = useState("");
   const [listFrom, setListFrom] = useState("");
   const [listTo, setListTo] = useState("");
@@ -115,6 +118,11 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
   const [chargeOpen, setChargeOpen] = useState(false);
   const [chargeSubmitting, setChargeSubmitting] = useState(false);
   const [chargeError, setChargeError] = useState("");
+
+  useEffect(() => {
+    if (!open || form.audienceMode !== "segment") return;
+    fetch("/api/segments/email").then((response) => response.json().catch(() => null)).then((body) => setEmailSegments(body?.ok ? body.data ?? [] : [])).catch(() => setEmailSegments([]));
+  }, [open, form.audienceMode]);
 
   const emailCustomers = useMemo(() => customers.filter((customer) => isEmail(customer.phone)), [customers]);
   const channelOptions = useMemo(() => Array.from(new Set(conversations.map((conversation) => conversation.channel))).sort(), [conversations]);
@@ -183,6 +191,7 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
     if (form.audienceMode === "status") return { mode: "status", conversationStatus: form.conversationStatus };
     if (form.audienceMode === "channel") return { mode: "channel", channel: form.channel };
     if (form.audienceMode === "custom") return { mode: "custom", customerIds: form.customerIds };
+    if (form.audienceMode === "segment") return { mode: "segment", segmentId: form.segmentId };
     return { mode: "all" };
   }
 
@@ -352,8 +361,18 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
                   <option value="status">{t("حسب حالة المحادثة", "By conversation status")}</option>
                   <option value="channel">{t("حسب المصدر/القناة", "By source/channel")}</option>
                   <option value="custom">{t("اختيار يدوي", "Custom selected customers")}</option>
+                  <option value="segment">{t("تقسيم محفوظ", "Saved segment")}</option>
                 </select>
               </label>
+              {form.audienceMode === "segment" ? (
+                <label><span>{t("التقسيم", "Segment")}</span>
+                  <select value={form.segmentId} onChange={(event) => { setForm({ ...form, segmentId: event.target.value }); setPreview(null); }}>
+                    <option value="">{t("اختر تقسيمًا...", "Choose a segment...")}</option>
+                    {emailSegments.map((segment) => <option key={segment.id} value={segment.id}>{segment.name} ({segment.recipientCount})</option>)}
+                  </select>
+                  {!emailSegments.length ? <small className="field-hint">{t("لا توجد تقسيمات بعد - أنشئها من تاب «تقسيم العملاء».", "No segments yet - create them in the Customer segments tab.")}</small> : null}
+                </label>
+              ) : null}
               {form.audienceMode === "file" ? (
                 <label className="email-file-field"><span>{t("ملف الإيميلات", "Email file")}</span><input type="file" accept=".csv,.xlsx,.xls" onChange={(event) => { setRecipientFile(event.target.files?.[0] || null); setPreview(null); }} /><small>{recipientFile ? recipientFile.name : t("يدعم Excel و CSV. يفضّل وجود عمود email وعمود name اختياري.", "Supports Excel and CSV. Recommended columns: email and optional name.")}</small></label>
               ) : null}
@@ -423,7 +442,7 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
                 {form.ctaText ? <button type="button">{form.ctaText}</button> : null}
                 <small>{t("رابط إلغاء الاشتراك يضاف تلقائيًا", "Unsubscribe link is added automatically")}</small>
               </div>
-              <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{form.audienceMode === "file" ? t("ملف مرفوع", "Uploaded file") : form.audienceMode === "all" ? t("كل العملاء", "All customers") : t("تصفية مخصصة", "Custom filter")}</dd></div><div><dt>{t("المستلمين", "Recipients")}</dt><dd>{preview ? formatNumber(preview.count) : "—"}</dd></div>{recipientFile ? <div><dt>{t("الملف", "File")}</dt><dd>{recipientFile.name}</dd></div> : null}</dl>
+              <dl><div><dt>{t("الجمهور", "Audience")}</dt><dd>{form.audienceMode === "file" ? t("ملف مرفوع", "Uploaded file") : form.audienceMode === "all" ? t("كل العملاء", "All customers") : form.audienceMode === "segment" ? t("تقسيم محفوظ", "Saved segment") : t("تصفية مخصصة", "Custom filter")}</dd></div><div><dt>{t("المستلمين", "Recipients")}</dt><dd>{preview ? formatNumber(preview.count) : "—"}</dd></div>{recipientFile ? <div><dt>{t("الملف", "File")}</dt><dd>{recipientFile.name}</dd></div> : null}</dl>
               <button className="btn soft email-preview-count" type="button" disabled={previewLoading || (form.audienceMode === "file" && !recipientFile)} onClick={loadPreview}>{previewLoading ? t("جاري الحساب...", "Counting...") : t("معاينة الجمهور", "Preview audience")}</button>
             </aside>
             <footer className="modal-foot email-builder-foot">

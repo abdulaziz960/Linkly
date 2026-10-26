@@ -4,6 +4,7 @@ import { formatNumber } from "../../../lib/format";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../i18n";
 import { formatDateTime } from "../../../lib/time";
+import { describeFailure } from "../../../lib/campaign-metrics";
 import { engagementBucketFor, type EngagementBucket } from "../../../lib/campaign-engagement";
 import { sanitizeCsvCell } from "../../../lib/csv-export";
 import CustomSelect from "../../components/CustomSelect";
@@ -209,7 +210,10 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
                     <td dir="ltr">{row.phone}</td>
                     <td>
                       <span className={row.status === "تم الإرسال" ? "state ok" : row.status === "قيد الإرسال" ? "state warn" : "state off"} title={row.error || undefined}>{reportRowStatusLabel(row.status, t)}</span>
-                      {row.error ? <small className="campaign-report-error">{row.error}</small> : null}
+                      {row.error || bucket === "notReceived" ? (() => {
+                        const why = describeFailure(row.error, row.phone);
+                        return <small className="campaign-report-error" title={row.error || undefined}>{t(why.text[0], why.text[1])}</small>;
+                      })() : null}
                     </td>
                     <td>{engagementLabel(bucket, t)}</td>
                     <td>

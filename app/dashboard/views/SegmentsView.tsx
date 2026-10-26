@@ -9,11 +9,12 @@ import CampaignEngagementReport from "../components/CampaignEngagementReport";
 import CampaignPerformanceReport from "../components/CampaignPerformanceReport";
 import EmailPerformanceReport from "../components/EmailPerformanceReport";
 import EmailAudienceOverview from "../components/EmailAudienceOverview";
+import EmailSegmentsTab from "../components/EmailSegmentsTab";
 import UnsubscribedList from "../components/UnsubscribedList";
 import { BarList, DonutChart } from "../components/MiniCharts";
 import type { EngagementBucket } from "../../../lib/campaign-engagement";
 
-type SegTab = "report" | "audience" | "segments" | "unsubscribed";
+export type SegTab = "report" | "audience" | "segments" | "unsubscribed";
 
 type EngagementBucketOrEmpty = "" | EngagementBucket;
 
@@ -60,7 +61,7 @@ function downloadBlob(content: BlobPart, type: string, name: string) {
   URL.revokeObjectURL(url);
 }
 
-export default function SegmentsView({ tags }: { tags: Tag[] }) {
+export default function SegmentsView({ tags, channel = "whatsapp", section = "report" }: { tags: Tag[]; channel?: "whatsapp" | "email"; section?: SegTab }) {
   const { t, language } = useLanguage();
   const [segments, setSegments] = useState<Segment[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -69,8 +70,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
   const [form, setForm] = useState<SegmentFormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<SegTab>("report");
-  const [channel, setChannel] = useState<"whatsapp" | "email">("whatsapp");
+  const tab = section;
   const [search, setSearch] = useState("");
   const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
 
@@ -305,31 +305,12 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
 
   return (
     <section className="page-stack segments-page">
-      <div className="section-tabs campaign-tabs segments-print-hide">
-        <button type="button" className={channel === "whatsapp" ? "section-tab active" : "section-tab"} onClick={() => { setChannel("whatsapp"); setTab("report"); }}>{t("حملات الواتساب", "WhatsApp campaigns")}</button>
-        <button type="button" className={channel === "email" ? "section-tab active" : "section-tab"} onClick={() => { setChannel("email"); setTab("report"); }}>{t("حملات النشرات البريدية", "Email newsletters")}</button>
-      </div>
-
-      <div className="seg-tabs segments-print-hide" role="tablist">
-        {((channel === "email" ? [
-          ["report", t("أداء الحملات - تقرير شامل", "Campaign performance report")],
-          ["audience", t("تصنيفات الجمهور حسب الحملات", "Audience by campaign")],
-          ["unsubscribed", t("ألغوا الاشتراك", "Unsubscribed")]
-        ] : [
-          ["report", t("أداء الحملات - تقرير شامل", "Campaign performance report")],
-          ["audience", t("تصنيفات الجمهور حسب الحملات", "Audience by campaign")],
-          ["segments", t("تقسيم العملاء", "Customer segments")],
-          ["unsubscribed", t("ألغوا الاشتراك", "Unsubscribed")]
-        ] ) as Array<[SegTab, string]>).map(([key, label]) => (
-          <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "seg-tab active" : "seg-tab"} onClick={() => setTab(key)}>{label}</button>
-        ))}
-      </div>
-
       {channel === "email" ? (
         <>
           {tab === "report" ? <EmailPerformanceReport /> : null}
           {tab === "audience" ? <EmailAudienceOverview /> : null}
           {tab === "unsubscribed" ? <UnsubscribedList channel="email" /> : null}
+          {tab === "segments" ? <EmailSegmentsTab tags={tags} /> : null}
         </>
       ) : null}
       {channel === "whatsapp" && tab === "report" ? <CampaignPerformanceReport campaigns={campaigns} /> : null}
@@ -460,7 +441,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
         </div>
         <div className="panel-body table-wrap">
           <p className="muted-copy">{t("أنشئ تقسيماً بناءً على الوسوم أو عدم التفاعل أو تفاعل الحملات، واستخدمه مباشرة كجمهور عند إنشاء حملة جديدة.", "Build a segment from tags, inactivity, or campaign engagement, and use it directly as a campaign's audience.")}</p>
-          <div className="inline-filter">
+          <div className="seg-toolbar">
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث باسم التقسيم...", "Search by segment name...")} />
             <button className="btn soft" type="button" onClick={() => setSearch("")}>{t("مسح", "Clear")}</button>
           </div>

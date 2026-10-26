@@ -1,12 +1,14 @@
 import { getTenantPlanName } from "../../../lib/plan-access-server";
 import { isRecurringCampaignAllowed } from "../../../lib/plan-access";
 import { getTenantGrants } from "../../../lib/plan-grants";
+import { analyzePastedNumbers } from "../../../lib/phone-validation";
 import { NextRequest } from "next/server";
 import { getCampaigns } from "../../../lib/database";
 import { getCurrentUser } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
 import {
   parseRecipientFile,
+  MAX_CAMPAIGN_RECIPIENTS,
   activateDueScheduledCampaigns,
   activateDueRecurringCampaigns,
   processCampaignBatch,
@@ -54,7 +56,9 @@ export async function POST(request: NextRequest) {
   const recurring = formData.get("recurring") === "true";
   const recurrenceIntervalDays = Number(formData.get("recurrenceIntervalDays") || 0);
   const recurrenceEndAt = String(formData.get("recurrenceEndAt") || "").trim();
-  const audienceMode = formData.get("audienceMode") === "segment" ? "segment" : "file";
+  const audienceModeRaw = formData.get("audienceMode");
+  const audienceMode = audienceModeRaw === "segment" ? "segment" : audienceModeRaw === "paste" ? "paste" : "file";
+  const pastedNumbers = String(formData.get("pastedNumbers") || "");
   const segmentId = String(formData.get("segmentId") || "").trim();
   const file = formData.get("file");
   const headerMediaFile = formData.get("headerMedia");
@@ -96,6 +100,9 @@ export async function POST(request: NextRequest) {
       "application/octet-stream"
     ]);
     if (file.type && !allowedMimeTypes.has(file.type)) return jsonError("نوع الملف غير مدعوم");
+  } else if (audienceMode === "paste") {
+    if (!pastedNumbers.trim()) return jsonError("الصق أرقام العملاء أولًا");
+    if (pastedNumbers.length > 2_000_000) return jsonError("النص الملصوق كبير جدًا");
   } else if (!segmentId) {
     return jsonError("اختر تقسيم جمهور لاستخدامه كجمهور الحملة");
   }
@@ -141,6 +148,9 @@ export async function POST(request: NextRequest) {
     if (!segment) return jsonError("التقسيم غير موجود", 404);
     recipients = await resolveSegmentRecipients(user.tenantId, segment);
     if (!recipients.length) return jsonError("ما فيه عملاء يطابقون هذا التقسيم حالياً.");
+  } else if (audienceMode === "paste") {
+    recipients = analyzePastedNumbers(pastedNumbers, MAX_CAMPAIGN_RECIPIENTS).valid;
+    if (!recipients.length) return jsonError("ما لقينا أي رقم صحيح في الأرقام الملصوقة. الرقم السعودي يكون بصيغة 9665XXXXXXXX أو 05XXXXXXXX.");
   } else {
     const buffer = Buffer.from(await (file as File).arrayBuffer());
     recipients = await parseRecipientFile(buffer, (file as File).name).catch(() => []);

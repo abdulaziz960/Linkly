@@ -3,7 +3,7 @@ import { graphFetch } from "./demo-mode";
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema, getIntegrationSettings } from "./database";
-import { normalizeWhatsAppPhone } from "./whatsapp-inbox";
+import { analyzeRows, type RecipientAnalysis } from "./phone-validation";
 import { recordWhatsAppSendOutcome, whatsappSendErrorCode } from "./whatsapp-billing";
 import type { Prisma } from "@prisma/client";
 import { formatRate } from "./campaign-metrics";
@@ -62,19 +62,12 @@ export function calculateChargeAmountHalalas(messages: number): number | null {
   return Math.round((messages * tier.halalasPerThousand) / 1000);
 }
 
-function looksLikePhone(value: string) {
-  const digits = value.replace(/[^\d]/g, "");
-  return digits.length >= 8;
-}
-
-function parseCsv(text: string): ParsedRecipient[] {
+function parseCsvRows(text: string): Array<{ line: number; phone: string; name: string }> {
   return text
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.split(",").map((cell) => cell.trim().replace(/^"|"$/g, "")))
-    .filter((cells) => looksLikePhone(cells[0] || ""))
-    .map((cells) => ({ phone: normalizeWhatsAppPhone(cells[0] || ""), name: cells[1] || "" }));
+    .map((line, index) => ({ line: index + 1, cells: line.trim().split(",").map((cell) => cell.trim().replace(/^"|"$/g, "")) }))
+    .filter(({ cells }) => cells.some(Boolean))
+    .map(({ line, cells }) => ({ line, phone: cells[0] || "", name: cells[1] || "" }));
 }
 
 function cellText(value: ExcelJS.CellValue) {
@@ -87,35 +80,28 @@ function cellText(value: ExcelJS.CellValue) {
   return String(value).trim();
 }
 
-async function parseSpreadsheet(buffer: Buffer): Promise<ParsedRecipient[]> {
+async function spreadsheetRows(buffer: Buffer): Promise<Array<{ line: number; phone: string; name: string }>> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
   const sheet = workbook.worksheets[0];
   if (!sheet) return [];
-
-  const rows: ParsedRecipient[] = [];
-  sheet.eachRow({ includeEmpty: false }, (row) => {
-    if (rows.length >= MAX_CAMPAIGN_RECIPIENTS) return;
-    const phone = cellText(row.getCell(1).value);
-    const name = cellText(row.getCell(2).value);
-    if (looksLikePhone(phone)) rows.push({ phone: normalizeWhatsAppPhone(phone), name });
+  const rows: Array<{ line: number; phone: string; name: string }> = [];
+  sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rows.length >= MAX_CAMPAIGN_RECIPIENTS * 2) return;
+    rows.push({ line: rowNumber, phone: cellText(row.getCell(1).value), name: cellText(row.getCell(2).value) });
   });
   return rows;
 }
 
-export async function parseRecipientFile(buffer: Buffer, filename: string): Promise<ParsedRecipient[]> {
+/** Reads an uploaded file and sorts its rows into numbers that can be messaged and numbers that cannot, with the reason. */
+export async function analyzeRecipientFile(buffer: Buffer, filename: string): Promise<RecipientAnalysis> {
   const isCsv = filename.toLowerCase().endsWith(".csv");
-  const parsed = isCsv ? parseCsv(buffer.toString("utf-8")) : await parseSpreadsheet(buffer);
+  const rows = isCsv ? parseCsvRows(buffer.toString("utf-8")) : await spreadsheetRows(buffer);
+  return analyzeRows(rows, MAX_CAMPAIGN_RECIPIENTS);
+}
 
-  const seen = new Set<string>();
-  const deduped: ParsedRecipient[] = [];
-  for (const recipient of parsed) {
-    if (!recipient.phone || seen.has(recipient.phone)) continue;
-    seen.add(recipient.phone);
-    deduped.push(recipient);
-    if (deduped.length >= MAX_CAMPAIGN_RECIPIENTS) break;
-  }
-  return deduped;
+export async function parseRecipientFile(buffer: Buffer, filename: string): Promise<ParsedRecipient[]> {
+  return (await analyzeRecipientFile(buffer, filename)).valid;
 }
 
 export async function getCampaignBalance(tenantId: string): Promise<number> {

@@ -1,3 +1,4 @@
+import { checkPhoneNumber, PHONE_REASON_LABELS } from "./phone-validation";
 /**
  * Campaign numbers in one place, so the page, the table, the report and the engine agree. Everything here is pure.
  *
@@ -90,6 +91,29 @@ export function classifyFailure(error: string): FailureReasonKey {
   if (/131050|stopped|blocked|opted|unsubscri|حظر|ألغى/i.test(text)) return "recipient_blocked";
   if (/reject|invalid|131008|131009|132\d{3}|unsupported|مرفوض/i.test(text)) return "rejected";
   return "other";
+}
+
+/** What to tell the customer-facing team about one number that did not get the message: plain words, [ar, en]. */
+export const FAILURE_DETAIL: Record<FailureReasonKey, [string, string]> = {
+  unregistered: ["الرقم ما عليه واتساب", "This number is not on WhatsApp"],
+  rejected: ["الرقم أو الرسالة غير صالحة (رفضها واتساب)", "WhatsApp rejected the number or message"],
+  outside_window: ["خارج نافذة 24 ساعة - يحتاج قالب معتمد", "Outside the 24-hour window - needs an approved template"],
+  insufficient_balance: ["الرصيد غير كافٍ وقت الإرسال", "Not enough balance at send time"],
+  meta_limit: ["واتساب منع الإرسال لهذا الرقم (حد الرسائل التسويقية)", "WhatsApp held the message (marketing limit)"],
+  recipient_blocked: ["الرقم لا يستقبل رسائل الأعمال (أوقفها أو حظر الرقم)", "The number does not receive business messages (turned off or blocked)"],
+  other: ["تعذر الإرسال لسبب آخر", "Could not be sent for another reason"]
+};
+
+/**
+ * One number's reason for not being messaged. The number itself is checked first (incomplete or too long is the
+ * most common cause and is certain), then what WhatsApp or the send reported.
+ */
+export function describeFailure(error: string, phone: string): { text: [string, string]; key: FailureReasonKey | "optedOut" | "badNumber" } {
+  const check = checkPhoneNumber(phone);
+  if (!check.ok) return { text: PHONE_REASON_LABELS[check.reason], key: "badNumber" };
+  if (error === OPT_OUT_ERROR) return { text: ["العميل ألغى اشتراكه من الرسائل التسويقية", "The customer unsubscribed from marketing messages"], key: "optedOut" };
+  const key = classifyFailure(error);
+  return { text: FAILURE_DETAIL[key], key };
 }
 
 export function groupFailureReasons(errors: Array<{ error: string; count: number }>): FailureReason[] {

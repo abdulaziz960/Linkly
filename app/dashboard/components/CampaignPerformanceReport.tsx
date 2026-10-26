@@ -5,17 +5,9 @@ import type { Campaign } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import { DonutChart, LineChart } from "./MiniCharts";
-import { formatRate, type CampaignStats, type FailureReasonKey } from "../../../lib/campaign-metrics";
+import { FAILURE_DETAIL, formatRate, type CampaignStats, type FailureReasonKey } from "../../../lib/campaign-metrics";
 
-const failureLabels: Record<FailureReasonKey, [string, string]> = {
-  unregistered: ["رقم غير مسجّل بواتساب", "Number not on WhatsApp"],
-  rejected: ["رسالة مرفوضة", "Message rejected"],
-  outside_window: ["خارج نافذة 24 ساعة", "Outside the 24-hour window"],
-  insufficient_balance: ["رصيد غير كافٍ", "Insufficient balance"],
-  meta_limit: ["حد الإرسال من واتساب", "WhatsApp sending limit"],
-  recipient_blocked: ["العميل أوقف رسائل الأعمال", "Customer turned off business messages"],
-  other: ["أسباب أخرى", "Other reasons"]
-};
+const failureLabels = FAILURE_DETAIL;
 const failureColors = ["#d9534f", "#f0ad4e", "#8e6bbf", "#4a90d9", "#e87ca0", "#5bb5a2", "#91a29e"];
 
 const launched = new Set(["قيد الإرسال", "الحملة أنجزت"]);

@@ -9,6 +9,8 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import type { Campaign, MessageTemplate, Segment } from "../types";
 import { useLanguage } from "../i18n";
+import NumbersReport, { type NumbersReportData } from "../components/NumbersReport";
+import { analyzePastedNumbers } from "../../../lib/phone-validation";
 import CustomSelect from "../../components/CustomSelect";
 import { formatDateTime, formatFullDateTime, formatRelativeTime, parseStoredDate } from "../../../lib/time";
 import { buildCsv } from "../../../lib/csv-export";
@@ -164,7 +166,7 @@ type CampaignForm = {
   recurring: boolean;
   recurrenceIntervalDays: number;
   recurrenceEndAt: string;
-  audienceMode: "file" | "segment";
+  audienceMode: "file" | "segment" | "paste";
   segmentId: string;
   linkTrackingEnabled: boolean;
   destinationUrl: string;
@@ -239,6 +241,10 @@ function transactionStatusLabel(status: string, t: (ar: string, en: string) => s
   return status;
 }
 
+const reportIcon = <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></svg>;
+const copyIcon = <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></svg>;
+const archiveIcon = <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="4" rx="1" /><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8M10 12h4" /></svg>;
+
 export default function CampaignsView({
   campaigns,
   templates,
@@ -297,6 +303,8 @@ export default function CampaignsView({
   const needsHeaderMedia = Boolean(selectedTemplate && ["IMAGE", "VIDEO"].includes(selectedTemplate.headerType || "NONE"));
   const templateHasSavedMedia = Boolean(selectedTemplate?.hasHeaderMediaSaved);
   const [recipientPreview, setRecipientPreview] = useState<number | null>(null);
+  const [numbersReport, setNumbersReport] = useState<NumbersReportData | null>(null);
+  const [pastedText, setPastedText] = useState("");
   const [recipientPreviewLoading, setRecipientPreviewLoading] = useState(false);
   const [recipientPreviewError, setRecipientPreviewError] = useState("");
   const [formError, setFormError] = useState("");
@@ -482,6 +490,7 @@ export default function CampaignsView({
 
   async function handleCampaignFileChange(file: File | null) {
     setCampaignFile(file);
+    setNumbersReport(null);
     setRecipientPreview(null);
     setRecipientPreviewError("");
     if (!file) return;
@@ -498,11 +507,22 @@ export default function CampaignsView({
       return;
     }
     setRecipientPreview(payload.data?.count ?? 0);
+    setNumbersReport({ count: payload.data?.count ?? 0, totalRows: payload.data?.totalRows ?? 0, duplicates: payload.data?.duplicates ?? 0, rejected: payload.data?.rejected ?? [], rejectedCount: payload.data?.rejectedCount ?? 0 });
+  }
+
+  function handlePastedChange(text: string) {
+    setPastedText(text);
+    if (!text.trim()) { setNumbersReport(null); setRecipientPreview(null); return; }
+    const analysis = analyzePastedNumbers(text);
+    setNumbersReport({ count: analysis.valid.length, totalRows: analysis.totalRows, duplicates: analysis.duplicates, rejected: analysis.rejected.slice(0, 300), rejectedCount: analysis.rejected.length });
+    setRecipientPreview(analysis.valid.length);
   }
 
   function openForm(campaign?: Campaign) {
     setFormError("");
     setCampaignFile(null);
+    setPastedText("");
+    setNumbersReport(null);
     setHeaderMediaFile(null);
     setRecipientPreview(campaign?.total ?? null);
     setRecipientPreviewError("");
@@ -538,11 +558,13 @@ export default function CampaignsView({
     setRecipientPreview(segment ? segment.recipientCount : null);
   }
 
-  function setAudienceMode(mode: "file" | "segment") {
-    setForm((current) => ({ ...current, audienceMode: mode, segmentId: mode === "file" ? "" : current.segmentId }));
+  function setAudienceMode(mode: "file" | "segment" | "paste") {
+    setForm((current) => ({ ...current, audienceMode: mode, segmentId: mode === "segment" ? current.segmentId : "" }));
     setRecipientPreviewError("");
-    if (mode === "file") {
-      setRecipientPreview(campaignFile ? recipientPreview : null);
+    if (mode === "paste") {
+      setRecipientPreview(pastedText.trim() ? analyzePastedNumbers(pastedText).valid.length : null);
+    } else if (mode === "file") {
+      setRecipientPreview(campaignFile ? numbersReport?.count ?? recipientPreview : null);
     } else {
       const segment = segments.find((item) => item.id === form.segmentId);
       setRecipientPreview(segment ? segment.recipientCount : null);
@@ -576,6 +598,12 @@ export default function CampaignsView({
       return;
     }
 
+    if (form.audienceMode === "paste" && !analyzePastedNumbers(pastedText).valid.length) {
+      setFormError(t("الصق أرقامًا صحيحة للعملاء - لا يوجد أي رقم معتمد.", "Paste valid customer numbers - there are no accepted numbers."));
+      setSaving(false);
+      return;
+    }
+
     if (form.audienceMode === "segment" && !form.segmentId) {
       setFormError(t("اختر تقسيم جمهور لاستخدامه كجمهور الحملة", "Choose a segment to use as the campaign's audience"));
       setSaving(false);
@@ -599,6 +627,8 @@ export default function CampaignsView({
     body.set("audienceMode", form.audienceMode);
     if (form.audienceMode === "segment") {
       body.set("segmentId", form.segmentId);
+    } else if (form.audienceMode === "paste") {
+      body.set("pastedNumbers", pastedText);
     } else if (campaignFile) {
       body.set("file", campaignFile);
     }
@@ -1000,7 +1030,7 @@ export default function CampaignsView({
               <table className="mobile-card-table campaigns-table">
                 <thead><tr>
                   <th className="select-col"><input type="checkbox" aria-label={t("تحديد كل حملات الصفحة", "Select all campaigns on this page")} checked={allOnPageSelected} onChange={() => setSelectedIds((current) => { const next = new Set(current); if (allOnPageSelected) pageIds.forEach((id) => next.delete(id)); else pageIds.forEach((id) => next.add(id)); return next; })} /></th>
-                  <th>{t("الحملة", "Campaign")}</th><th>{t("القالب", "Template")}</th><th>{t("تاريخ الإرسال", "Sent")}</th><th>{t("الجمهور", "Audience")}</th><th>{t("الإرسال", "Sending")}</th><th>{t("التقدم", "Progress")}</th><th>{t("وصلت", "Delivered")}</th><th>{t("قُرئت", "Read")}</th><th>{t("ردّ", "Replied")}</th><th>{t("فشلت", "Failed")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th>
+                  <th>{t("الحملة", "Campaign")}</th><th>{t("تم إرساله / الإجمالي", "Sent / total")}</th><th>{t("التقدم", "Progress")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th>
                 </tr></thead>
                 <tbody>
                   {campaignPagination.items.map((campaign) => {
@@ -1011,19 +1041,14 @@ export default function CampaignsView({
                       <td data-label={t("الحملة", "Campaign")}><div className="campaign-name"><span className="campaign-thumb">{campaign.hasHeaderMedia && !brokenThumbIds.has(campaign.id) ? <Image src={`/api/whatsapp/campaign-media/${campaign.id}`} alt="" width={42} height={42} unoptimized onError={() => setBrokenThumbIds((current) => new Set(current).add(campaign.id))} /> : firstChar(campaign.name.trim()) || "؟"}</span><span><b title={campaign.name}>{campaign.name}</b>{campaign.recurrenceId ? <em className="recurrence-badge" title={t("جزء من سلسلة متكررة", "Part of a recurring series")}>🔁</em> : null}
                         {campaign.description ? <small className="campaign-description">{campaign.description}</small> : null}
                         {campaign.tags?.length ? <span className="campaign-tags">{campaign.tags.map((tag) => <em key={tag}>{tag}</em>)}</span> : null}</span></div></td>
-                      <td data-label={t("القالب", "Template")}><span className="campaign-template" title={campaign.templateName}>{campaign.templateName || "—"}</span></td>
-                      <td data-label={t("تاريخ الإرسال", "Sent")}><DateCell value={parseStoredDate(campaign.sentAt) ?? parseStoredDate(campaign.scheduledAt)} language={language === "en" ? "en" : "ar"} empty={t("لم تُرسل بعد", "Not sent yet")} /></td>
-                      <td data-label={t("الجمهور", "Audience")}>{formatNumber(stats.total)}</td>
-                      <td data-label={t("الإرسال", "Sending")}><b>{formatNumber(campaign.sent)}</b><small className="campaign-cell-note"> {t("من", "of")} {formatNumber(campaign.total)}</small>{stats.pending > 0 ? <small className="campaign-cell-note campaign-cell-pending"> · {formatNumber(stats.pending)} {t("بالانتظار", "waiting")}</small> : null}</td>
+                      <td data-label={t("تم إرساله / الإجمالي", "Sent / total")}><b>{formatNumber(campaign.sent)}</b><small className="campaign-cell-note"> {t("من", "of")} {formatNumber(campaign.total)}</small>{stats.pending > 0 ? <small className="campaign-cell-note campaign-cell-pending"> · {formatNumber(stats.pending)} {t("بالانتظار", "waiting")}</small> : null}</td>
                       <td data-label={t("التقدم", "Progress")}><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
-                      <td data-label={t("وصلت", "Delivered")}>{formatNumber(stats.delivered)}</td>
-                      <td data-label={t("قُرئت", "Read")}>{formatNumber(stats.read)}</td>
-                      <td data-label={t("ردّ", "Replied")}>{formatNumber(stats.replied)}</td>
-                      <td data-label={t("فشلت", "Failed")}>{(stats.failed + stats.optedOut).toLocaleString("en-US")}</td>
                       <td data-label={t("الحالة", "Status")}><span className={campaign.status === "ملغاة" || campaign.status === "مؤرشفة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
                       <td data-label={t("آخر تحديث", "Last update")}><DateCell value={parseStoredDate(campaign.updatedAt)} language={language === "en" ? "en" : "ar"} /></td>
                       <td data-label={t("الإجراءات", "Actions")} className="row-actions campaign-row-actions">
-                        <button className="campaign-report" type="button" onClick={() => openReport(campaign)}>{t("التقرير", "Report")}</button>
+                        <button className="campaign-icon-btn" type="button" title={t("التقرير", "Report")} aria-label={t("التقرير", "Report")} onClick={() => openReport(campaign)}>{reportIcon}</button>
+                        <button className="campaign-icon-btn" type="button" title={t("نسخ الحملة", "Duplicate")} aria-label={t("نسخ الحملة", "Duplicate")} onClick={() => duplicateCampaign(campaign)}>{copyIcon}</button>
+                        {campaign.status === "قيد الإرسال" ? null : <button className="campaign-icon-btn" type="button" title={campaign.status === "مؤرشفة" ? t("استعادة من الأرشيف", "Restore from archive") : t("أرشفة", "Archive")} aria-label={campaign.status === "مؤرشفة" ? t("استعادة من الأرشيف", "Restore from archive") : t("أرشفة", "Archive")} onClick={() => archiveCampaigns([campaign], campaign.status !== "مؤرشفة")}>{archiveIcon}</button>}
                         {campaign.status === "مجدولة" && campaign.total > 0 ? <button className="btn primary" type="button" onClick={() => sendCampaignNow(campaign)}>{t("إرسال الآن", "Send now")}</button> : null}
                         {campaign.status === "قيد الإرسال" || campaign.status === "مجدولة" ? <button className="btn soft" type="button" onClick={() => stopCampaign(campaign)}>{t("إيقاف", "Stop")}</button> : null}
                         {campaign.status === "ملغاة" && stats.pending > 0 ? <button className="btn soft" type="button" onClick={() => resumeCampaign(campaign)}>{t("استئناف", "Resume")}</button> : null}
@@ -1031,10 +1056,8 @@ export default function CampaignsView({
                           label={t(`خيارات ${campaign.name}`, `Options for ${campaign.name}`)}
                           items={[
                             { key: "edit", label: t("تعديل الاسم والوصف", "Edit name and notes"), onSelect: () => openForm(campaign) },
-                            { key: "duplicate", label: t("نسخ الحملة", "Duplicate"), onSelect: () => duplicateCampaign(campaign) },
                             { key: "retry", label: t("إعادة الإرسال للفاشلين فقط", "Resend to failed only"), onSelect: () => retryFailedRecipients(campaign), hidden: stats.failed === 0 || campaign.status === "قيد الإرسال" },
                             { key: "export", label: t("تصدير المستلمين", "Export recipients"), onSelect: () => openReport(campaign) },
-                            { key: "archive", label: campaign.status === "مؤرشفة" ? t("استعادة من الأرشيف", "Restore from archive") : t("أرشفة", "Archive"), onSelect: () => archiveCampaigns([campaign], campaign.status !== "مؤرشفة"), hidden: campaign.status === "قيد الإرسال" },
                             { key: "delete", label: t("حذف…", "Delete…"), onSelect: () => deleteCampaign(campaign), danger: true, hidden: campaign.status === "قيد الإرسال" }
                           ]}
                         />
@@ -1042,7 +1065,7 @@ export default function CampaignsView({
                     </tr>
                     );
                   })}
-                  {!campaignPagination.items.length ? <tr><td colSpan={15}><div className="campaign-empty"><strong>{t("لا توجد حملات مطابقة", "No matching campaigns")}</strong><span>{t("غيّر البحث أو الحالة، أو أنشئ حملة جديدة.", "Adjust the filters or create a new campaign.")}</span></div></td></tr> : null}
+                  {!campaignPagination.items.length ? <tr><td colSpan={7}><div className="campaign-empty"><strong>{t("لا توجد حملات مطابقة", "No matching campaigns")}</strong><span>{t("غيّر البحث أو الحالة، أو أنشئ حملة جديدة.", "Adjust the filters or create a new campaign.")}</span></div></td></tr> : null}
                 </tbody>
               </table>
             </div>
@@ -1187,9 +1210,18 @@ export default function CampaignsView({
                     <span>{t("مصدر الجمهور", "Audience source")}</span>
                     <div className="section-tabs">
                       <button className={form.audienceMode === "file" ? "section-tab active" : "section-tab"} type="button" onClick={() => setAudienceMode("file")}>{t("📁 رفع ملف", "📁 Upload file")}</button>
+                      <button className={form.audienceMode === "paste" ? "section-tab active" : "section-tab"} type="button" onClick={() => setAudienceMode("paste")}>{t("📋 لصق الأرقام", "📋 Paste numbers")}</button>
                       <button className={form.audienceMode === "segment" ? "section-tab active" : "section-tab"} type="button" onClick={() => setAudienceMode("segment")}>{t("🎯 تقسيم جمهور", "🎯 Segment")}</button>
                     </div>
                   </label>
+                  {form.audienceMode === "paste" ? (
+                    <label>
+                      <span>{t("الصق أرقام العملاء", "Paste customer numbers")}</span>
+                      <textarea className="paste-box" value={pastedText} onChange={(event) => handlePastedChange(event.target.value)} placeholder={"9665XXXXXXXX\n05XXXXXXXX, اسم العميل\n+9665XXXXXXXX"} />
+                      <small className="field-hint">{t("رقم في كل سطر، أو عدة أرقام بينها فاصلة. يمكن كتابة الاسم بعد الرقم مفصولًا بفاصلة.", "One number per line, or several separated by commas. Add a name after the number, separated by a comma.")}</small>
+                      {numbersReport ? <NumbersReport report={numbersReport} source="paste" /> : null}
+                    </label>
+                  ) : null}
                   {form.audienceMode === "file" ? (
                     <label>
                       <span>{t("ملف اكسل أو CSV", "Excel or CSV file")}</span>
@@ -1208,7 +1240,7 @@ export default function CampaignsView({
                         <small className="field-hint">{t("جاري فحص الملف...", "Checking the file...")}</small>
                       ) : recipientPreviewError ? (
                         <p className="form-error">{recipientPreviewError}</p>
-                      ) : recipientPreview !== null ? (
+                      ) : numbersReport ? <NumbersReport report={numbersReport} source="file" /> : recipientPreview !== null ? (
                         <small className="field-hint">
                           {recipientPreview > 0
                             ? t(`تم العثور على ${formatNumber(recipientPreview)} رقم صحيح في الملف.`, `Found ${formatNumber(recipientPreview)} valid numbers in the file.`)
@@ -1216,7 +1248,8 @@ export default function CampaignsView({
                         </small>
                       ) : null}
                     </label>
-                  ) : (
+                  ) : null}
+                  {form.audienceMode === "segment" ? (
                     <label>
                       <span>{t("تقسيم العملاء", "Segment")}</span>
                       <CustomSelect
@@ -1231,7 +1264,7 @@ export default function CampaignsView({
                         <small className="field-hint">{t("ما فيه تقسيمات عملاء بعد - أنشئ واحداً من صفحة تقسيم العملاء.", "No segments yet - create one from the Customer Segments page.")}</small>
                       ) : null}
                     </label>
-                  )}
+                  ) : null}
                   <label className="schedule-toggle">
                     <span>{t("جدولة الحملة؟", "Schedule the campaign?")}</span>
                     <button

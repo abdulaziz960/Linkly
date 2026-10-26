@@ -225,7 +225,7 @@ export default function DashboardSidebar({
   // Four blocks, most-used first: daily work, marketing, automation and AI, then administration.
   const navigationGroups: Array<{ label: string; labelEn: string; keys: ViewKey[] }> = [
     { label: "العمل اليومي", labelEn: "Daily work", keys: ["inbox", "quickReplies", "contacts", "tags", "pipeline", "catalog", "branches"] },
-    { label: "التسويق", labelEn: "Marketing", keys: ["campaigns", "emailPromotions", "segments", "templates"] },
+    { label: "التسويق", labelEn: "Marketing", keys: ["campaigns", "emailPromotions", "templates"] },
     { label: "الأتمتة والذكاء", labelEn: "Automation & AI", keys: ["bot", "automations", "ai", "knowledgeBase"] },
     { label: "الإدارة", labelEn: "Administration", keys: ["reports", "operations", "settings", "integrations", "developers", "employees", "teams", "workHours", "branding"] }
   ];

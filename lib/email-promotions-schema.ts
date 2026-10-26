@@ -62,6 +62,20 @@ export async function ensureEmailPromotionsSchema() {
     )`);
     await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS email_marketing_opt_outs_tenant_id_email_key ON email_marketing_opt_outs(tenant_id, email)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS email_marketing_opt_outs_tenant_id_idx ON email_marketing_opt_outs(tenant_id)`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS email_segments (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      tag_names TEXT NOT NULL DEFAULT '[]',
+      inactive_days INTEGER NOT NULL DEFAULT 0,
+      source_campaign_id TEXT NOT NULL DEFAULT '',
+      engagement_bucket TEXT NOT NULL DEFAULT '',
+      date_from TEXT NOT NULL DEFAULT '',
+      date_to TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS email_segments_tenant_id_idx ON email_segments(tenant_id)`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS email_campaign_balances (
       tenant_id TEXT PRIMARY KEY,
       balance INTEGER NOT NULL DEFAULT 0,

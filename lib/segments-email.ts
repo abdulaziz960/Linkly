@@ -3,15 +3,8 @@ import { listEmailCampaigns } from "./email-promotions";
 import { ensureEmailPromotionsSchema } from "./email-promotions-schema";
 import type { EngagementBucket } from "./campaign-engagement";
 
-/** Where an email recipient ended up: opting out wins, then click, open, bounce; a still-pending row has no outcome yet. */
-export function emailEngagementBucket(row: { status: string; openCount: number; clickCount: number; openedAt?: string; clickedAt?: string; unsubscribedAt?: string }): EngagementBucket | null {
-  if (row.unsubscribedAt || row.status === "unsubscribed") return "unsubscribed";
-  if (row.clickCount > 0 || row.clickedAt) return "clicked";
-  if (row.openCount > 0 || row.openedAt) return "opened";
-  if (row.status === "failed" || row.status === "bounced") return "notReceived";
-  if (row.status === "pending") return null;
-  return "notOpened";
-}
+import { emailEngagementBucket } from "./email-segments";
+export { emailEngagementBucket };
 
 export type EmailEngagementRow = { name: string; email: string; campaignName: string; clickCount: number };
 export type EmailEngagementResult = { counts: Record<EngagementBucket, number>; rows: Record<EngagementBucket, EmailEngagementRow[]> };

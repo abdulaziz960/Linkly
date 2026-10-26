@@ -20,7 +20,7 @@ export type ViewTab = {
  * the same "upgrade your plan" message the sidebar entry used to. A tab the role may not see is hidden.
  * With a single visible tab there is no tab bar. `note` is shown under the bar when there is one.
  */
-export default function ViewTabs({ initialKey, ariaLabel, tabs, note }: { initialKey: ViewKey; ariaLabel: string; tabs: ViewTab[]; note?: ReactNode }) {
+export default function ViewTabs({ initialKey, ariaLabel, tabs, note, className = "" }: { initialKey: ViewKey; ariaLabel: string; tabs: ViewTab[]; note?: ReactNode; className?: string }) {
   const { isViewLocked, promptForView } = usePlanAccess();
   const available = tabs.filter((tab) => tab.available);
   const visible = tabs.filter((tab) => tab.available || isViewLocked(tab.viewKey));
@@ -52,7 +52,7 @@ export default function ViewTabs({ initialKey, ariaLabel, tabs, note }: { initia
   return (
     <>
       {showBar ? (
-        <div className="pipeline-tabs reports-hub-tabs" role="tablist" aria-label={ariaLabel}>
+        <div className={`pipeline-tabs reports-hub-tabs ${className}`.trim()} role="tablist" aria-label={ariaLabel}>
           {visible.map((tab) => (
             <button key={tab.viewKey} type="button" role="tab" aria-selected={tab.viewKey === active?.viewKey} onClick={() => choose(tab)}>
               {tab.label}

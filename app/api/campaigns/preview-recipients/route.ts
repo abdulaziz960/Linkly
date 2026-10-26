@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
-import { parseRecipientFile, MAX_CAMPAIGN_FILE_BYTES } from "../../../../lib/campaign-engine";
+import { analyzeRecipientFile, MAX_CAMPAIGN_FILE_BYTES } from "../../../../lib/campaign-engine";
 import { jsonError, jsonOk } from "../../_utils/json";
 
 export const runtime = "nodejs";
@@ -19,7 +19,16 @@ export async function POST(request: NextRequest) {
   if (file.size <= 0 || file.size > MAX_CAMPAIGN_FILE_BYTES) return jsonError("حجم الملف يجب ألا يتجاوز 5 ميجابايت");
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const recipients = await parseRecipientFile(buffer, file.name).catch(() => []);
+  const analysis = await analyzeRecipientFile(buffer, file.name).catch(() => null);
+  if (!analysis) return jsonError("تعذر قراءة الملف. تأكد أنه CSV أو XLSX سليم");
 
-  return jsonOk({ count: recipients.length });
+  return jsonOk({
+    count: analysis.valid.length,
+    totalRows: analysis.totalRows,
+    duplicates: analysis.duplicates,
+    rejectedCount: analysis.rejected.length,
+    // The first rows only: a file full of bad numbers would otherwise send thousands of lines back.
+    rejected: analysis.rejected.slice(0, 300),
+    sample: analysis.valid.slice(0, 5).map((recipient) => ({ phone: recipient.phone, name: recipient.name }))
+  });
 }

@@ -28,6 +28,7 @@ export function LineChart({ labels, series, height = 220 }: { labels: string[]; 
         {labels.map((label, index) => index % step === 0 ? <text key={label + index} x={x(index)} y={height - 8} textAnchor="middle" className="mini-chart-tick">{label}</text> : null)}
         {series.map((item) => (
           <g key={item.label}>
+            {item.values.length > 1 ? <polygon fill={item.color} opacity={0.08} points={`${x(0)},${y(0)} ${item.values.map((value, index) => `${x(index)},${y(value)}`).join(" ")} ${x(item.values.length - 1)},${y(0)}`} /> : null}
             <polyline fill="none" stroke={item.color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" points={item.values.map((value, index) => `${x(index)},${y(value)}`).join(" ")} />
             {item.values.map((value, index) => <circle key={index} cx={x(index)} cy={y(value)} r={3.5} fill={item.color}><title>{`${item.label} - ${labels[index]}: ${value.toLocaleString("en-US")}`}</title></circle>)}
           </g>
@@ -42,38 +43,29 @@ export function LineChart({ labels, series, height = 220 }: { labels: string[]; 
 
 export type DonutSlice = { label: string; value: number; color: string };
 
-/** Dependency-free SVG donut with a total in the middle and a legend underneath. */
+/** Distribution as one segmented bar plus a row per slice (bar, count, share) - lines instead of a circle. */
 export function DonutChart({ slices, centerLabel }: { slices: DonutSlice[]; centerLabel: string }) {
   const total = slices.reduce((sum, slice) => sum + slice.value, 0);
-  const radius = 54;
-  const circumference = 2 * Math.PI * radius;
-  let offset = 0;
   return (
-    <div className="mini-donut">
-      <svg viewBox="0 0 140 140" role="img" aria-label={centerLabel}>
-        <circle cx={70} cy={70} r={radius} fill="none" stroke="var(--line)" strokeWidth={18} />
-        {total > 0 ? slices.filter((slice) => slice.value > 0).map((slice) => {
-          const length = (slice.value / total) * circumference;
-          const circle = (
-            <circle key={slice.label} cx={70} cy={70} r={radius} fill="none" stroke={slice.color} strokeWidth={18}
-              strokeDasharray={`${length} ${circumference - length}`} strokeDashoffset={-offset} transform="rotate(-90 70 70)">
-              <title>{`${slice.label}: ${slice.value.toLocaleString("en-US")}`}</title>
-            </circle>
+    <div className="dist-chart">
+      <div className="dist-total"><b>{total.toLocaleString("en-US")}</b><span>{centerLabel}</span></div>
+      <div className="dist-stack" role="img" aria-label={centerLabel}>
+        {total > 0 ? slices.filter((slice) => slice.value > 0).map((slice) => (
+          <i key={slice.label} style={{ width: `${(slice.value / total) * 100}%`, background: slice.color }} title={`${slice.label}: ${slice.value.toLocaleString("en-US")}`} />
+        )) : null}
+      </div>
+      <ul className="dist-rows">
+        {slices.map((slice) => {
+          const share = total > 0 ? (slice.value / total) * 100 : 0;
+          return (
+            <li key={slice.label}>
+              <span className="dist-label"><i style={{ background: slice.color }} />{slice.label}</span>
+              <span className="dist-track"><i style={{ width: `${share}%`, background: slice.color }} /></span>
+              <b>{slice.value.toLocaleString("en-US")}</b>
+              <small>{Math.round(share)}%</small>
+            </li>
           );
-          offset += length;
-          return circle;
-        }) : null}
-        <text x={70} y={68} textAnchor="middle" className="mini-donut-total">{total.toLocaleString("en-US")}</text>
-        <text x={70} y={86} textAnchor="middle" className="mini-chart-tick">{centerLabel}</text>
-      </svg>
-      <ul className="mini-donut-legend">
-        {slices.map((slice) => (
-          <li key={slice.label}>
-            <i style={{ background: slice.color }} />
-            <span>{slice.label}</span>
-            <b>{slice.value.toLocaleString("en-US")}{total > 0 ? ` (${Math.round((slice.value / total) * 100)}%)` : ""}</b>
-          </li>
-        ))}
+        })}
       </ul>
     </div>
   );

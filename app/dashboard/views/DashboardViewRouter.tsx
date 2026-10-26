@@ -30,7 +30,7 @@ import OperationsView from "./OperationsView";
 import ReportsView from "./ReportsView";
 import AiSettingsView from "./AiSettingsView";
 import KnowledgeBaseView from "./KnowledgeBaseView";
-import SegmentsView from "./SegmentsView";
+import CampaignsHub from "../components/CampaignsHub";
 import SettingsView from "./SettingsView";
 import TagsView from "./TagsView";
 import BranchesView from "./BranchesView";
@@ -166,19 +166,19 @@ export default function DashboardViewRouter({
       />
     );
   }
-  if (view === "campaigns" || view === "emailPromotions") {
+  if (view === "campaigns" || view === "emailPromotions" || view === "segments") {
     return (
       <ViewTabs
-        initialKey={view}
+        initialKey={view === "segments" ? "campaigns" : view}
+        className="channel-switch"
         ariaLabel={t("الحملات والعروض البريدية", "Campaigns and email promotions")}
         tabs={[
-          { viewKey: "campaigns", label: t("حملات واتساب", "WhatsApp campaigns"), available: view === "campaigns" || canViewCampaigns, content: <CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} brandName={branding.name} onRefreshData={onRefreshData} /> },
-          { viewKey: "emailPromotions", label: t("العروض البريدية", "Email promotions"), available: view === "emailPromotions" || canViewEmailPromotions, content: <EmailPromotionsView customers={customers} conversations={conversations} tags={tags} /> }
+          { viewKey: "campaigns", label: t("حملات واتساب", "WhatsApp campaigns"), available: view === "campaigns" || view === "segments" || canViewCampaigns, content: <CampaignsHub channel="whatsapp" tags={tags} initialSection={view === "segments" ? "segments" : "list"} list={<CampaignsView campaigns={campaigns} templates={templates} whatsappConnected={whatsappConnected} brandName={branding.name} onRefreshData={onRefreshData} />} /> },
+          { viewKey: "emailPromotions", label: t("العروض البريدية", "Email promotions"), available: view === "emailPromotions" || canViewEmailPromotions, content: <CampaignsHub channel="email" tags={tags} list={<EmailPromotionsView customers={customers} conversations={conversations} tags={tags} />} /> }
         ]}
       />
     );
   }
-  if (view === "segments") return <SegmentsView tags={tags} />;
   if (view === "templates") return <TemplatesView templates={templates} whatsappConnected={whatsappConnected} onRefreshData={onRefreshData} />;
   if (view === "quickReplies") return <QuickRepliesView quickReplies={quickReplies} teams={teams} onRefreshData={onRefreshData} />;
   if (view === "teams" || view === "employees" || view === "workHours") {

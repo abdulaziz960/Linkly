@@ -30,3 +30,39 @@ describe("unsubscribe button", () => {
     expect(buildTemplateComponents({ ...data, category: "UTILITY", buttonType: "NONE" }).some((c) => c.type === "BUTTONS")).toBe(false);
   });
 });
+
+import { checkPhoneNumber, analyzePastedNumbers, analyzeRows } from "../lib/phone-validation";
+import { describeFailure } from "../lib/campaign-metrics";
+
+describe("phone validation", () => {
+  it("accepts Saudi local and international mobiles and normalises them", () => {
+    expect(checkPhoneNumber("0551234567")).toEqual({ ok: true, phone: "966551234567" });
+    expect(checkPhoneNumber("+966 55 123 4567")).toEqual({ ok: true, phone: "966551234567" });
+    expect(checkPhoneNumber("00971501234567")).toEqual({ ok: true, phone: "971501234567" });
+  });
+  it("explains why a number is rejected", () => {
+    expect(checkPhoneNumber("12345")).toEqual({ ok: false, reason: "too_short" });
+    expect(checkPhoneNumber("96655123456")).toEqual({ ok: false, reason: "saudi_incomplete" });
+    expect(checkPhoneNumber("96655123456789")).toEqual({ ok: false, reason: "saudi_extra" });
+    expect(checkPhoneNumber("966112345678")).toEqual({ ok: false, reason: "saudi_not_mobile" });
+    expect(checkPhoneNumber("1234567890123456")).toEqual({ ok: false, reason: "too_long" });
+    expect(checkPhoneNumber("abc")).toEqual({ ok: false, reason: "not_a_number" });
+  });
+  it("splits pasted numbers into accepted, rejected and duplicates", () => {
+    const result = analyzePastedNumbers("0551234567\n0551234567\n0559999999, سارة\n96655123\nxyz\n0501111111 0502222222");
+    expect(result.valid.map((row) => row.phone)).toEqual(["966551234567", "966559999999", "966501111111", "966502222222"]);
+    expect(result.valid[1].name).toBe("سارة");
+    expect(result.duplicates).toBe(1);
+    expect(result.rejected.map((row) => row.reason)).toEqual(["saudi_incomplete", "not_a_number"]);
+  });
+  it("skips a header row in a file but reports bad rows", () => {
+    const result = analyzeRows([{ line: 1, phone: "الجوال", name: "الاسم" }, { line: 2, phone: "0551234567", name: "" }, { line: 3, phone: "55", name: "" }]);
+    expect(result.valid).toHaveLength(1);
+    expect(result.rejected).toEqual([{ line: 3, raw: "55", name: "", reason: "too_short" }]);
+  });
+  it("describes why a number was not messaged", () => {
+    expect(describeFailure("", "96655123").key).toBe("badNumber");
+    expect(describeFailure("(#131026) Message undeliverable", "966551234567").key).toBe("unregistered");
+    expect(describeFailure("ألغى العميل اشتراكه من رسائل الحملات", "966551234567").key).toBe("optedOut");
+  });
+});

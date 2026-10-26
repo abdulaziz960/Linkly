@@ -6,7 +6,7 @@ import { emailHtmlToText, sanitizeEmailHtml } from "./email-html";
 
 export const EMAIL_CAMPAIGN_STATUSES = ["draft", "scheduled", "sending", "sent", "failed", "cancelled"] as const;
 export type EmailCampaignStatus = (typeof EMAIL_CAMPAIGN_STATUSES)[number];
-export type EmailAudienceMode = "all" | "tag" | "status" | "channel" | "custom" | "file";
+export type EmailAudienceMode = "all" | "tag" | "status" | "channel" | "custom" | "file" | "segment";
 
 export type EmailAudienceInput = {
   mode: EmailAudienceMode;
@@ -14,6 +14,7 @@ export type EmailAudienceInput = {
   conversationStatus?: string;
   channel?: string;
   customerIds?: string[];
+  segmentId?: string;
   fileName?: string;
 };
 
@@ -149,11 +150,12 @@ export function validateEmailCampaignInput(input: EmailCampaignCreateInput): str
       return "رابط الزر غير صحيح";
     }
   }
-  if (!["all", "tag", "status", "channel", "custom", "file"].includes(input.audience.mode)) return "اختيار الجمهور غير صحيح";
+  if (!["all", "tag", "status", "channel", "custom", "file", "segment"].includes(input.audience.mode)) return "اختيار الجمهور غير صحيح";
   if (input.audience.mode === "tag" && !input.audience.tagNames?.length) return "اختر وسم واحد على الأقل";
   if (input.audience.mode === "status" && !input.audience.conversationStatus) return "اختر حالة المحادثة";
   if (input.audience.mode === "channel" && !input.audience.channel) return "اختر مصدر العميل";
   if (input.audience.mode === "custom" && !input.audience.customerIds?.length) return "اختر عملاء للحملة";
+  if (input.audience.mode === "segment" && !input.audience.segmentId) return "اختر تقسيمًا محفوظًا";
   if (input.audience.mode === "file" && !input.fileRecipients?.length) return "ارفع ملف يحتوي على إيميلات صالحة";
   if (input.scheduledAt && Number.isNaN(Date.parse(input.scheduledAt))) return "وقت الجدولة غير صحيح";
   return null;
@@ -170,7 +172,15 @@ export async function resolveEmailRecipients(tenantId: string, audience: EmailAu
   const selectedIds = new Set(audience.customerIds || []);
   const tagNames = new Set((audience.tagNames || []).map((tag) => tag.trim()).filter(Boolean));
 
+  let segmentIds: Set<string> | null = null;
+  if (audience.mode === "segment") {
+    const { getEmailSegmentRow, resolveEmailSegmentMembers } = await import("./email-segments");
+    const segment = audience.segmentId ? await getEmailSegmentRow(tenantId, audience.segmentId) : null;
+    segmentIds = new Set(segment ? (await resolveEmailSegmentMembers(tenantId, segment)).map((member) => member.customerId) : []);
+  }
+
   const rows = customers.filter((customer) => {
+    if (segmentIds) return segmentIds.has(customer.id);
     if (audience.mode === "custom") return selectedIds.has(customer.id);
     if (audience.mode === "tag") return customer.conversations.some((conversation) => conversation.tags.some((tag) => tagNames.has(tag.tagName)));
     if (audience.mode === "status") return customer.conversations.some((conversation) => conversation.status === audience.conversationStatus);
