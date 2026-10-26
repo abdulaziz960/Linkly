@@ -58,6 +58,8 @@ export type CampaignStatsInput = {
   repliedCount?: number;
   /** Failed rows' stored error text (rows without a read proof), with how many rows carry it. */
   failureErrors?: Array<{ error: string; count: number }>;
+  /** The reason WhatsApp gave later for the accepted rows it then reported undeliverable, with how many rows carry it. */
+  deliveryFailureErrors?: Array<{ error: string; count: number }>;
 };
 
 export const STATUS_PENDING = "قيد الإرسال";
@@ -78,7 +80,7 @@ export function classifyFailure(error: string): FailureReasonKey {
   if (text === INSUFFICIENT_BALANCE_ERROR || /غير كاف|insufficient/i.test(text)) return "insufficient_balance";
   if (/131026|not (a )?whatsapp|undeliverable|not registered|غير مسجل/i.test(text)) return "unregistered";
   if (/131047|131051|24 hours|re-?engagement|outside.*window|خارج/i.test(text)) return "outside_window";
-  if (/131049|ecosystem|limit.*marketing|marketing.*limit|130429|rate/i.test(text)) return "meta_limit";
+  if (/131049|130472|ecosystem|healthy|limit.*marketing|marketing.*limit|130429|rate/i.test(text)) return "meta_limit";
   if (/131050|stopped|blocked|opted|unsubscri|حظر|ألغى/i.test(text)) return "recipient_blocked";
   if (/reject|invalid|131008|131009|132\d{3}|unsupported|مرفوض/i.test(text)) return "rejected";
   return "other";
@@ -110,13 +112,18 @@ export function computeCampaignStats(input: CampaignStatsInput): CampaignStats {
   const deliveredUnread = Math.min(acceptedUnread - failedAfterAccept, Math.max(0, input.deliveredCount ?? 0));
   const unconfirmed = acceptedUnread - failedAfterAccept - deliveredUnread;
 
-  const reasons = groupFailureReasons(failureErrors);
-  if (failedAfterAccept) {
-    const existing = reasons.find((reason) => reason.key === "recipient_blocked");
-    if (existing) existing.count += failedAfterAccept;
-    else reasons.push({ key: "recipient_blocked", count: failedAfterAccept });
-    reasons.sort((a, b) => b.count - a.count);
+  // Why they failed comes from what WhatsApp or the send itself said, never guessed: an undeliverable message the
+  // customer's settings caused and one WhatsApp held back are different things.
+  const reasonTotals = new Map<FailureReasonKey, number>();
+  for (const reason of groupFailureReasons(failureErrors)) reasonTotals.set(reason.key, (reasonTotals.get(reason.key) ?? 0) + reason.count);
+  let explained = 0;
+  for (const reason of groupFailureReasons(input.deliveryFailureErrors ?? [])) {
+    reasonTotals.set(reason.key, (reasonTotals.get(reason.key) ?? 0) + reason.count);
+    explained += reason.count;
   }
+  // Rows flagged undeliverable with no reason recorded at all.
+  if (failedAfterAccept > explained) reasonTotals.set("other", (reasonTotals.get("other") ?? 0) + (failedAfterAccept - explained));
+  const reasons = [...reasonTotals.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
 
   const rows = read + acceptedUnread + pending + failedRows;
   // The recipient rows are the truth. The stored audience size can be off (a counter that drifted, rows removed later).

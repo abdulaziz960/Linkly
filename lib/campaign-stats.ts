@@ -17,9 +17,10 @@ export async function loadCampaignStats(tenantId: string, campaigns: Array<{ id:
   // "Read" rows (a read receipt or a click) are counted first and separately; every other count leaves them out,
   // the same order of checks the campaign report uses, so the numbers on both always agree.
   const unread = { readAt: "", clickedAt: "" };
-  const [statusGroups, failureGroups, funnelRows, payments] = await Promise.all([
+  const [statusGroups, failureGroups, deliveryFailureGroups, funnelRows, payments] = await Promise.all([
     prisma.campaignRecipient.groupBy({ by: ["campaignId", "status"], where: { tenantId, ...unread }, _count: { _all: true } }),
     prisma.campaignRecipient.groupBy({ by: ["campaignId", "error"], where: { tenantId, status: "فشل الإرسال", ...unread }, _count: { _all: true } }),
+    prisma.campaignRecipient.groupBy({ by: ["campaignId", "deliveryError"], where: { tenantId, status: "تم الإرسال", deliveryFailed: 1, ...unread }, _count: { _all: true } }),
     prisma.$queryRaw<FunnelRow[]>`
       SELECT campaign_id,
         SUM(CASE WHEN read_at <> '' OR clicked_at <> '' THEN 1 ELSE 0 END) AS read_n,
@@ -42,6 +43,7 @@ export async function loadCampaignStats(tenantId: string, campaigns: Array<{ id:
       total: campaign.total,
       statusCounts: statusGroups.filter((group) => group.campaignId === campaign.id).map((group) => ({ status: group.status, count: group._count._all })),
       failureErrors: failureGroups.filter((group) => group.campaignId === campaign.id).map((group) => ({ error: group.error, count: group._count._all })),
+      deliveryFailureErrors: deliveryFailureGroups.filter((group) => group.campaignId === campaign.id).map((group) => ({ error: group.deliveryError, count: group._count._all })),
       readCount: Number(row?.read_n ?? 0),
       deliveredCount: Number(row?.delivered_n ?? 0),
       deliveryFailedCount: Number(row?.failed_after_n ?? 0),

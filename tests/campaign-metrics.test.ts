@@ -80,7 +80,22 @@ describe("campaign stats", () => {
     expect(stats.delivered).toBe(6);
     expect(stats.failed).toBe(4);
     expect(stats.unconfirmed).toBe(0);
-    expect(stats.failureReasons[0]).toEqual({ key: "recipient_blocked", count: 4 });
+    // No reason was recorded for them, so none is invented.
+    expect(stats.failureReasons[0]).toEqual({ key: "other", count: 4 });
+  });
+
+  it("explains accepted-then-undeliverable messages with the reason WhatsApp gave", () => {
+    const stats = computeCampaignStats({
+      total: 10,
+      statusCounts: [{ status: "تم الإرسال", count: 10 }],
+      deliveryFailedCount: 10,
+      deliveryFailureErrors: [
+        { error: "This message was not delivered to maintain healthy ecosystem engagement.", count: 7 },
+        { error: "(#131050) User has stopped marketing messages", count: 2 },
+        { error: "", count: 1 }
+      ]
+    });
+    expect(stats.failureReasons).toEqual([{ key: "meta_limit", count: 7 }, { key: "recipient_blocked", count: 2 }, { key: "other", count: 1 }]);
   });
 
   it("keeps opt-outs apart from failures", () => {

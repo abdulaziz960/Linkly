@@ -19,11 +19,11 @@ import { computeCampaignStats, formatRate, sumCampaignStats, type CampaignStats,
 type KpiFilter = "all" | "sent" | "pending" | "completed" | "active";
 
 const failureReasonLabels: Record<FailureReasonKey, [string, string]> = {
-  unregistered: ["رقم غير مسجّل بواتساب", "Number not on WhatsApp"],
+  unregistered: ["تعذّر التسليم (رقم غير مسجّل أو غير مفعّل)", "Undeliverable (number not on WhatsApp or inactive)"],
   rejected: ["رسالة مرفوضة", "Message rejected"],
   outside_window: ["خارج نافذة 24 ساعة", "Outside the 24-hour window"],
   insufficient_balance: ["رصيد غير كافٍ", "Insufficient balance"],
-  meta_limit: ["حد الإرسال من واتساب", "WhatsApp sending limit"],
+  meta_limit: ["واتساب منع الإرسال لهذا العميل (حد رسائل التسويق)", "WhatsApp held the message back (marketing-message limit)"],
   recipient_blocked: ["العميل أوقف رسائل الأعمال", "Customer turned off business messages"],
   other: ["أسباب أخرى", "Other reasons"]
 };
