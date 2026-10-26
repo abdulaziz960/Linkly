@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import "./cookie-consent.css";
+import "./cookie-consent.css";
 
 const CONSENT_STORAGE_KEY = "linkly-analytics-consent";
 /** First-party cookie with the same value: survives localStorage clears and is re-issued by the server (/api/consent). */
@@ -27,14 +29,16 @@ function loadAcceptedAnalytics() {
   trackingWindow.gtag = (...args: unknown[]) => { trackingWindow.dataLayer!.push(args); };
   // Consent must be in the data layer before the container starts evaluating tags.
   trackingWindow.gtag("consent", "default", {
-    ad_storage: "granted",
-    ad_user_data: "granted",
-    ad_personalization: "granted",
+    ad_storage: "denied",
+    ad_user_data: "denied",
+    ad_personalization: "denied",
     analytics_storage: "granted"
   });
   trackingWindow.dataLayer.push({ "gtm.start": Date.now(), event: "gtm.js" });
   const script = document.createElement("script");
   script.id = "linkly-gtm";
+  const nonce = document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce;
+  if (nonce) script.nonce = nonce;
   script.async = true;
   script.src = `https://www.googletagmanager.com/gtm.js?id=${GTM_CONTAINER_ID}`;
   document.head.appendChild(script);
@@ -43,13 +47,13 @@ function loadAcceptedAnalytics() {
 /** Tells Google Consent Mode about a later visitor choice. */
 function updateGoogleConsent(value: "accepted" | "rejected") {
   const state = value === "accepted" ? "granted" : "denied";
-  (window as TrackingWindow).gtag?.("consent", "update", { ad_storage: state, ad_user_data: state, ad_personalization: state, analytics_storage: state });
+  (window as TrackingWindow).gtag?.("consent", "update", { ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied", analytics_storage: state });
 }
 
 type Consent = "accepted" | "rejected" | null;
 
 /** Cookie name patterns set by GTM/GA once loaded (_ga, _ga_<container-id>, _gid, _gat, _gcl_au, _gcl_aw). */
-const ANALYTICS_COOKIE_PATTERNS = [/^_ga$/, /^_ga_/, /^_gid$/, /^_gat/, /^_gcl_/];
+const ANALYTICS_COOKIE_PATTERNS = [/^_ga$/, /^_ga_/, /^_gid$/, /^_gat/, /^_gcl_/, /^_clck$/, /^_clsk$/];
 
 /**
  * Deletes any GA/GTM cookies already set from an earlier "accepted" session.
@@ -107,7 +111,7 @@ function persistConsent(value: "accepted" | "rejected") {
 
 const copy = {
   ar: {
-    text: "نستخدم ملفات تعريف الارتباط (الكوكيز) لتحسين تجربتك على موقعنا وتحليل الاستخدام. بمتابعتك تصفح الموقع أو الضغط على \"قبول\"، أنت توافق على استخدامنا لها.",
+    text: "نستخدم الكوكيز الضرورية، والتحليلات فقط بعد موافقتك.",
     learnMore: "سياسة الخصوصية",
     reject: "رفض",
     accept: "قبول",
@@ -123,7 +127,7 @@ const copy = {
     close: "إغلاق"
   },
   en: {
-    text: "We use cookies to improve your experience on our site and analyze usage. By continuing to browse or clicking \"Accept\", you agree to our use of cookies.",
+    text: "We use essential cookies. Analytics load only if you accept.",
     learnMore: "Privacy Policy",
     reject: "Reject",
     accept: "Accept",
@@ -212,55 +216,16 @@ export default function CookieConsent() {
           role="dialog"
           aria-label={lang === "ar" ? "إشعار الكوكيز" : "Cookie notice"}
           dir={lang === "ar" ? "rtl" : "ltr"}
-          style={{
-            position: "fixed",
-            insetInline: 16,
-            top: pathname?.includes("/privacy") ? 16 : undefined,
-            bottom: pathname?.includes("/privacy") ? undefined : 16,
-            zIndex: 9999,
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 14,
-            maxWidth: 640,
-            margin: "0 auto",
-            padding: "16px 18px",
-            borderRadius: 16,
-            background: "#0f403d",
-            color: "#eefbf9",
-            boxShadow: "0 12px 32px rgba(6, 39, 36, 0.35)",
-            fontSize: 14,
-            lineHeight: 1.6
-          }}
+          className={`cookie-bar${pathname?.includes("/privacy") ? " cookie-bar-top" : ""}`}
         >
-          <p style={{ margin: 0, flex: "1 1 260px" }}>
+          <p>
             {text.text}{" "}
-            <Link href={lang === "en" ? "/en/privacy" : "/privacy"} style={{ color: "inherit", textDecoration: "underline", fontWeight: 700 }}>
-              {text.learnMore}
-            </Link>
+            <Link href={lang === "en" ? "/en/privacy" : "/privacy"}>{text.learnMore}</Link>
           </p>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(true)}
-              style={{ minHeight: 44, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "inherit", fontWeight: 700, cursor: "pointer" }}
-            >
-              {text.settingsTitle}
-            </button>
-            <button
-              type="button"
-              onClick={() => choose("rejected")}
-              style={{ minHeight: 44, padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "inherit", fontWeight: 700, cursor: "pointer" }}
-            >
-              {text.reject}
-            </button>
-            <button
-              type="button"
-              onClick={() => choose("accepted")}
-              style={{ minHeight: 44, padding: "8px 16px", borderRadius: 10, border: 0, background: "#106b65", color: "#fff", fontWeight: 700, cursor: "pointer" }}
-            >
-              {text.accept}
-            </button>
+          <div className="cookie-bar-actions">
+            <button type="button" className="cookie-bar-link" onClick={() => setSettingsOpen(true)}>{text.settingsTitle}</button>
+            <button type="button" className="cookie-bar-reject" onClick={() => choose("rejected")}>{text.reject}</button>
+            <button type="button" className="cookie-bar-accept" onClick={() => choose("accepted")}>{text.accept}</button>
           </div>
         </div>
       ) : null}
