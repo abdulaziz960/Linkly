@@ -57,6 +57,16 @@ describe("branch hours in the chat", () => {
     expect(String(sent[0].input.bodyText)).toContain("فرع المساء");
     expect((sent[0].input.rows as Array<{ id: string }>).map((row) => row.id)).toEqual(["br_hr-1"]);
 
+    // A customer who still taps the closed branch (an older list) is told it is closed, shown its hours, and served by the nearest open one.
+    const { handleCatalogReply } = await import("../lib/catalog-bot");
+    const { getBranchChoice } = await import("../lib/catalog-branches");
+    texts.length = 0;
+    await handleCatalogReply(c, { id: "br_hr-2", text: "فرع المساء" }, "");
+    expect(texts.join("\n")).toContain("فرع «فرع المساء» مغلق الآن (ساعات العمل: 6 م - 11 م)");
+    expect(texts.join("\n")).toContain("أقرب فرع مفتوح: *فرع النهار*");
+    expect((await getBranchChoice(tenantId, "conv-hours"))?.id).toBe("hr-1");
+    await prisma.$executeRaw`DELETE FROM catalog_branch_choice WHERE conversation_id = ${"conv-hours"}`;
+
     // 18:30 UTC = 21:30 in Riyadh, both open; 20:30 UTC = 23:30, both closed
     vi.setSystemTime(new Date(Date.UTC(2026, 0, 10, 15, 30)));
     const { clearBranchChoice } = await import("../lib/catalog-branches");

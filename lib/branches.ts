@@ -80,7 +80,7 @@ export function cleanBranchInput(raw: BranchInput): { ok: true; data: CleanBranc
     if (found) ({ latitude, longitude } = found);
   }
   if (latitude === null || longitude === null || !validCoordinates(latitude, longitude)) {
-    return { ok: false, error: "موقع الفرع غير صالح: أدخل خط العرض والطول أو الصق رابط الموقع من خرائط Google" };
+    return { ok: false, error: "تعذر قراءة موقع الفرع من الرابط. افتح الفرع في خرائط Google، اضغط مشاركة، وانسخ الرابط كاملًا والصقه هنا" };
   }
   if (mapUrl && !/^https?:\/\//i.test(mapUrl)) return { ok: false, error: "رابط الخريطة غير صالح" };
 

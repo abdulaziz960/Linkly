@@ -759,6 +759,20 @@ async function branchShortfalls(tenantId: string, branch: Branch, cart: Awaited<
   return shortfalls(lines, stock).map((entry) => entry.name);
 }
 
+/** The open branch closest to a given point (null when every branch is closed). */
+function nearestOpenBranch(branches: Branch[], latitude: number, longitude: number): { branch: Branch; km: number } | null {
+  return branches
+    .filter((branch) => isBranchOpen(branch.workingHours))
+    .map((branch) => ({ branch, km: distanceKm(latitude, longitude, branch.latitude, branch.longitude) }))
+    .sort((a, b) => a.km - b.km)[0] ?? null;
+}
+
+/** Said when the branch the customer wanted is closed: its hours, and the nearest open branch that serves them instead. */
+function closedBranchNotice(closed: Branch, alternative: Branch, km: number): string {
+  const hours = closed.workingHours.trim();
+  return `فرع «${closed.name}» مغلق الآن${hours ? ` (ساعات العمل: ${hours})` : ""}.\nأقرب فرع مفتوح: *${alternative.name}*${alternative.address ? ` - ${alternative.address}` : ""}${km > 0 ? `\nيبعد عن «${closed.name}» ${formatDistance(km)} تقريبًا` : ""}`;
+}
+
 async function askBranch(ctx: CatalogCtx, allBranches: Branch[], note: string, browse = false) {
   // Closed branches are left out of the list; the customer is told when they open.
   const branches = allBranches.filter((branch) => isBranchOpen(branch.workingHours));
@@ -803,9 +817,17 @@ async function continueNearestBranch(ctx: CatalogCtx, flow: CheckoutFlow, reply:
   }
   const { latitude, longitude } = reply.location;
   const best = open.map((branch) => ({ branch, km: distanceKm(latitude, longitude, branch.latitude, branch.longitude) })).sort((a, b) => a.km - b.km)[0];
+  // The closest branch of all may be shut: say so (with its hours) and send the customer to the closest open one.
+  const everyBranch = await listBranches(ctx.tenantId, { activeOnly: true });
+  const closest = everyBranch.map((branch) => ({ branch, km: distanceKm(latitude, longitude, branch.latitude, branch.longitude) })).sort((a, b) => a.km - b.km)[0];
+  const closestIsShut = Boolean(closest && closest.branch.id !== best.branch.id && !isBranchOpen(closest.branch.workingHours));
+  if (closestIsShut) {
+    const hours = closest.branch.workingHours.trim();
+    await ctx.sendText(`أقرب فرع لك «${closest.branch.name}» مغلق الآن${hours ? ` (ساعات العمل: ${hours})` : ""}.`);
+  }
   await setBranchChoice(ctx.tenantId, ctx.conversationId, best.branch.id);
   await clearCheckoutFlow(ctx.conversationId);
-  await ctx.sendText(`أقرب فرع لك: *${best.branch.name}*${best.branch.address ? ` - ${best.branch.address}` : ""}\nالمسافة التقريبية: ${formatDistance(best.km)}\nيمكنك تغيير الفرع في أي وقت من زر «تغيير الفرع».`);
+  await ctx.sendText(`${closestIsShut ? "أقرب فرع مفتوح" : "أقرب فرع"} لك: *${best.branch.name}*${best.branch.address ? ` - ${best.branch.address}` : ""}\nالمسافة التقريبية: ${formatDistance(best.km)}\nيمكنك تغيير الفرع في أي وقت من زر «تغيير الفرع».`);
   if (flow.data.browse) await sendCatalogMenu(ctx, "");
   else await checkoutCart(ctx);
   return true;
@@ -823,11 +845,21 @@ async function continueBrowseBranch(ctx: CatalogCtx, reply: { id?: string; text:
   const picked = id.startsWith(ID_BRANCH)
     ? branches.find((branch) => branch.id === id.slice(ID_BRANCH.length))
     : /^\d{1,2}$/.test(text) ? branches.filter((branch) => isBranchOpen(branch.workingHours))[Number(text) - 1] : branches.find((branch) => branch.name === text);
-  if (!picked || !isBranchOpen(picked.workingHours)) {
-    await askBranch(ctx, branches, picked ? `فرع «${picked.name}» مغلق الآن.` : "اختر فرعًا من القائمة.", true);
+  if (!picked) {
+    await askBranch(ctx, branches, "اختر فرعًا من القائمة.", true);
     return true;
   }
-  await setBranchChoice(ctx.tenantId, ctx.conversationId, picked.id);
+  let chosen = picked;
+  if (!isBranchOpen(picked.workingHours)) {
+    const alternative = nearestOpenBranch(branches, picked.latitude, picked.longitude);
+    if (!alternative) {
+      await askBranch(ctx, branches, "", true);
+      return true;
+    }
+    await ctx.sendText(closedBranchNotice(picked, alternative.branch, alternative.km));
+    chosen = alternative.branch;
+  }
+  await setBranchChoice(ctx.tenantId, ctx.conversationId, chosen.id);
   await clearCheckoutFlow(ctx.conversationId);
   await sendCatalogMenu(ctx, "");
   return true;
@@ -845,16 +877,28 @@ async function continueBranchFlow(ctx: CatalogCtx, reply: { id?: string; text: s
   const picked = id.startsWith(ID_BRANCH)
     ? branches.find((branch) => branch.id === id.slice(ID_BRANCH.length))
     : /^\d{1,2}$/.test(text) ? branches.filter((branch) => isBranchOpen(branch.workingHours))[Number(text) - 1] : branches.find((branch) => branch.name === text);
-  if (!picked || !isBranchOpen(picked.workingHours)) {
-    await askBranch(ctx, branches, picked ? `فرع «${picked.name}» مغلق الآن.` : "اختر فرعًا من القائمة.");
+  if (!picked) {
+    await askBranch(ctx, branches, "اختر فرعًا من القائمة.");
     return true;
   }
-  const missing = await branchShortfalls(ctx.tenantId, picked, cart);
+  let chosen = picked;
+  let closedNotice = "";
+  if (!isBranchOpen(picked.workingHours)) {
+    const alternative = nearestOpenBranch(branches, picked.latitude, picked.longitude);
+    if (!alternative) {
+      await askBranch(ctx, branches, "");
+      return true;
+    }
+    closedNotice = closedBranchNotice(picked, alternative.branch, alternative.km);
+    chosen = alternative.branch;
+  }
+  const missing = await branchShortfalls(ctx.tenantId, chosen, cart);
   if (missing.length) {
-    await askBranch(ctx, branches, `لا يتوفر في فرع «${picked.name}» بالكمية المطلوبة:\n${missing.map((name) => `• ${name}`).join("\n")}\nاختر فرعًا آخر، أو اكتب «إلغاء» لتعديل السلة.`);
+    await askBranch(ctx, branches, `${closedNotice ? `${closedNotice}\n\n` : ""}لا يتوفر في فرع «${chosen.name}» بالكمية المطلوبة:\n${missing.map((name) => `• ${name}`).join("\n")}\nاختر فرعًا آخر، أو اكتب «إلغاء» لتعديل السلة.`);
     return true;
   }
-  await setBranchChoice(ctx.tenantId, ctx.conversationId, picked.id);
+  if (closedNotice) await ctx.sendText(closedNotice);
+  await setBranchChoice(ctx.tenantId, ctx.conversationId, chosen.id);
   await clearCheckoutFlow(ctx.conversationId);
   await continueCheckoutAfterBranch(ctx, await resolveCart(ctx.tenantId, ctx.conversationId));
   return true;

@@ -30,7 +30,8 @@ export default function BranchesView() {
   const [form, setForm] = useState<BranchForm>(emptyForm);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [showCoords, setShowCoords] = useState(false);
+  // The link the branch was saved with: the location is read from the link again only when the link changes.
+  const [savedMapUrl, setSavedMapUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importReport, setImportReport] = useState<{ added: number; errors: string[] } | null>(null);
 
@@ -47,7 +48,7 @@ export default function BranchesView() {
 
   function openNew() {
     setForm(emptyForm);
-    setShowCoords(false);
+    setSavedMapUrl("");
     setFormError("");
     setFormOpen(true);
   }
@@ -64,7 +65,7 @@ export default function BranchesView() {
       longitude: String(branch.longitude),
       active: branch.active
     });
-    setShowCoords(true);
+    setSavedMapUrl(branch.mapUrl);
     setFormError("");
     setFormOpen(true);
   }
@@ -82,8 +83,10 @@ export default function BranchesView() {
         phone: form.phone,
         workingHours: form.workingHours,
         mapUrl: form.mapUrl,
-        latitude: form.latitude,
-        longitude: form.longitude,
+        // No coordinate fields in the form: the location comes from the Google Maps link. Saved coordinates are kept only
+        // while the link is the one they were read from; a new or changed link is read again by the server.
+        latitude: form.id && form.mapUrl.trim() === savedMapUrl.trim() ? form.latitude : "",
+        longitude: form.id && form.mapUrl.trim() === savedMapUrl.trim() ? form.longitude : "",
         active: form.active
       })
     });
@@ -240,17 +243,9 @@ export default function BranchesView() {
               </div>
               <label>
                 <span>{t("رابط الموقع من خرائط Google", "Google Maps link")}</span>
-                <input value={form.mapUrl} onChange={(event) => setForm({ ...form, mapUrl: event.target.value })} placeholder="https://maps.app.goo.gl/..." dir="ltr" />
+                <input value={form.mapUrl} onChange={(event) => setForm({ ...form, mapUrl: event.target.value })} placeholder="https://maps.app.goo.gl/..." dir="ltr" required />
                 <small className="field-hint">{t("افتح الفرع في خرائط Google ← مشاركة ← انسخ الرابط والصقه هنا، وسيُستخرج الموقع تلقائيًا.", "Open the branch in Google Maps → Share → copy the link and paste it here; the location is extracted automatically.")}</small>
               </label>
-              {showCoords ? (
-                <div className="split-fields">
-                  <label><span>{t("خط العرض", "Latitude")}</span><input value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} dir="ltr" inputMode="decimal" /></label>
-                  <label><span>{t("خط الطول", "Longitude")}</span><input value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} dir="ltr" inputMode="decimal" /></label>
-                </div>
-              ) : (
-                <button className="btn soft" type="button" onClick={() => setShowCoords(true)}>{t("أو أدخل الإحداثيات يدويًا", "Or enter coordinates manually")}</button>
-              )}
               <label className="automation-switch"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /><span>{form.active ? t("ظاهر للعملاء", "Visible to customers") : t("مخفي عن العملاء", "Hidden from customers")}</span></label>
               {formError ? <p className="form-error">{formError}</p> : null}
             </div>
