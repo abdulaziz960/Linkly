@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import "./cookie-consent.css";
-import "./cookie-consent.css";
 
 const CONSENT_STORAGE_KEY = "linkly-analytics-consent";
 /** First-party cookie with the same value: survives localStorage clears and is re-issued by the server (/api/consent). */
