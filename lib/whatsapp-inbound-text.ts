@@ -24,6 +24,7 @@ export function describeWhatsAppMessage(message: Inbound): { text: string; conve
   if (message.interactive?.button_reply?.title) return { text: message.interactive.button_reply.title, conversational: true };
   if (message.interactive?.list_reply?.title) return { text: message.interactive.list_reply.title, conversational: true };
   if (message.image?.caption) return { text: message.image.caption, conversational: true };
+  if (message.video?.caption) return { text: message.video.caption, conversational: true };
   if (message.document?.caption) return { text: message.document.caption, conversational: true };
   if (message.document?.filename) return { text: message.document.filename, conversational: true };
   if (message.document) return { text: "مستند وارد", conversational: true };

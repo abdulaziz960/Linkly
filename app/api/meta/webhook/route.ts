@@ -212,7 +212,7 @@ async function getInstagramMediaSource(media: Record<string, any> | undefined, a
 }
 
 async function getIncomingAttachment(message: Record<string, any>, accessToken: string) {
-  const media = message.audio || message.image || message.sticker || message.document;
+  const media = message.audio || message.image || message.video || message.sticker || message.document;
   const mediaId = media?.id;
   if (!mediaId || !accessToken) return undefined;
 
@@ -223,7 +223,7 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
   });
   const mediaPayload = await mediaResponse.json().catch(() => null);
   const mediaUrl = mediaPayload?.url;
-  let mimeType = String(mediaPayload?.mime_type || media?.mime_type || (message.audio ? "audio/ogg" : message.sticker ? "image/webp" : message.document ? "application/octet-stream" : "image/jpeg"))
+  let mimeType = String(mediaPayload?.mime_type || media?.mime_type || (message.audio ? "audio/ogg" : message.video ? "video/mp4" : message.sticker ? "image/webp" : message.document ? "application/octet-stream" : "image/jpeg"))
     .replace(/\s+/g, "");
   if (message.audio && mimeType === "audio/ogg") {
     mimeType = "audio/ogg;codecs=opus";
@@ -248,7 +248,9 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
     }
   }
 
-  const extension = mimeType.includes("ogg")
+  const extension = message.video
+    ? mimeType.includes("3gpp") ? "3gp" : mimeType.includes("webm") ? "webm" : "mp4"
+    : mimeType.includes("ogg")
     ? "ogg"
     : mimeType.includes("mpeg")
       ? "mp3"
@@ -263,9 +265,9 @@ async function getIncomingAttachment(message: Record<string, any>, accessToken: 
             : "jpg";
 
   return {
-    type: message.audio ? "audio" as const : message.sticker ? "sticker" as const : message.document ? "document" as const : "image" as const,
+    type: message.audio ? "audio" as const : message.video ? "video" as const : message.sticker ? "sticker" as const : message.document ? "document" as const : "image" as const,
     url: `data:${mimeType};base64,${buffer.toString("base64")}`,
-    name: message.document?.filename || `${message.audio ? "voice" : message.sticker ? "sticker" : "image"}-${mediaId}.${extension}`,
+    name: message.document?.filename || `${message.audio ? "voice" : message.video ? "video" : message.sticker ? "sticker" : "image"}-${mediaId}.${extension}`,
     mimeType,
     metaMediaId: mediaId
   };
@@ -507,7 +509,7 @@ export async function POST(request: NextRequest) {
         const text = getMessageText(message);
         // The file is downloaded from Meta (and a voice note converted) in parallel with everything else: the
         // message is stored and shown right away, and the file is attached to it when it arrives.
-        const hasMedia = Boolean(message.audio || message.image || message.sticker || message.document);
+        const hasMedia = Boolean(message.audio || message.image || message.video || message.sticker || message.document);
         const attachmentPromise = hasMedia
           ? getIncomingAttachment(message, whatsappAccount.accessToken).catch((error) => {
               console.error("Incoming media download failed", error);

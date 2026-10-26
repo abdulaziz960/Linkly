@@ -11,6 +11,7 @@ const DATA_URL = /^data:([^;,]*)(?:;[^,]*)?;base64,([\s\S]*)$/i;
 /** Types the browser may render inline. Everything else (html, svg, js, ...) is forced to download as opaque bytes. */
 const INLINE_TYPES = new Set([
   "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp",
+  "video/mp4", "video/3gpp", "video/webm", "video/quicktime",
   "audio/ogg", "audio/mpeg", "audio/mp3", "audio/mp4", "audio/aac", "audio/wav", "audio/webm", "audio/x-m4a", "audio/amr"
 ]);
 

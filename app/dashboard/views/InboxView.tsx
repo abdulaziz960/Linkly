@@ -328,7 +328,7 @@ export default function InboxView({
   const { t, language } = useLanguage();
   // The conversation's images and files, in order, for the media viewer (opened from any of them).
   const viewerItems = useMemo(() => activeConversation.messages
-    .filter((message) => message.attachment && message.attachment.type !== "audio" && !isDeletedMessageText(message.text))
+    .filter((message) => message.attachment && message.attachment.type !== "audio" && message.attachment.type !== "video" && !isDeletedMessageText(message.text))
     .map((message) => ({ id: message.id, url: message.attachment!.url, name: message.attachment!.name, type: message.attachment!.type as ViewerItem["type"], mimeType: message.attachment!.mimeType })), [activeConversation.messages]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const openViewer = (messageId: string) => setViewerIndex(Math.max(0, viewerItems.findIndex((entry) => entry.id === messageId)));
@@ -1353,6 +1353,13 @@ export default function InboxView({
                         <b>{item.attachment.name}</b>
                         <small>{t("فتح المستند", "Open document")}</small>
                       </a>
+                    ) : item.attachment.type === "video" ? (
+                      <>
+                        <video className="message-attachment-video" controls preload="metadata" playsInline src={item.attachment.url} />
+                        <a className="message-attachment-link" href={item.attachment.url} download={item.attachment.name}>
+                          {t("تنزيل الفيديو", "Download video")}
+                        </a>
+                      </>
                     ) : (
                       <>
                         <audio className="message-attachment-audio" controls>
@@ -1380,7 +1387,7 @@ export default function InboxView({
                   ) : null}
                   {item.attachment?.type === "audio" && !isDeletedMessageText(item.text) ? (
                     <span>{`${item.text}: ${item.attachment.name}`}</span>
-                  ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد" || item.text === "مستند" || item.text === item.attachment.name) ? null : (
+                  ) : item.attachment && (item.text === "صورة" || item.text === "ملصق وارد" || item.text === "فيديو وارد" || item.text === "مستند" || item.text === item.attachment.name) ? null : (
                     <span>{isDeletedMessageText(item.text) ? t("تم حذف هذه الرسالة", "This message was deleted") : <LinkifiedText text={formatEmailContent(item.text)} />}</span>
                   )}
                   {item.source && activeConversation.channel !== "email" && item.source.type !== "x_dm" ? (
