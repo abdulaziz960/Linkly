@@ -4,7 +4,8 @@ import { formatNumber } from "../../../lib/format";
 import PageHeader from "../components/PageHeader";
 import { confirmDialog, notify } from "../../../lib/ui-dialogs";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import type { Campaign, MessageTemplate, Segment } from "../types";
 import { useLanguage } from "../i18n";
@@ -64,38 +65,87 @@ function downloadTextFile(fileName: string, text: string) {
 
 type RowMenuItem = { key: string; label: string; onSelect: () => void; danger?: boolean; hidden?: boolean };
 
-/** The "⋯" menu of a table row: closes on Escape, on an outside click, and returns focus to its button. */
+/**
+ * The "⋯" menu of a table row. The list is drawn on the page itself (a portal, positioned from the button) rather than
+ * inside the table's scrolling box, so a table with one row cannot cut it off. It opens upward when there is no room
+ * below, closes on Escape, on an outside click, on scroll or resize, and returns focus to its button.
+ */
 function RowMenu({ label, items }: { label: string; items: RowMenuItem[] }) {
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; dir: "rtl" | "ltr" } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const visible = items.filter((item) => !item.hidden);
+
   useEffect(() => {
     if (!open) return;
+    function close() { setOpen(false); }
     function onDown(event: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || listRef.current?.contains(target)) return;
+      close();
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") { setOpen(false); buttonRef.current?.focus(); }
+      if (event.key === "Escape") { close(); buttonRef.current?.focus(); }
+    }
+    // Scrolling the box the button sits in moves the button away from the list, so the list closes; a scroll
+    // elsewhere (and the browser settling the page right after opening) leaves it be.
+    const openedAt = Date.now();
+    function onScroll(event: Event) {
+      if (Date.now() - openedAt < 250) return;
+      const target = event.target;
+      if (target === document || (target instanceof Node && target.contains(buttonRef.current))) close();
     }
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", onScroll, true);
+    };
   }, [open]);
-  const visible = items.filter((item) => !item.hidden);
+
+  // Placed after the list has been measured: right edge under the button's right edge, flipped upward at the screen's end.
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current || !listRef.current) return;
+    const button = buttonRef.current.getBoundingClientRect();
+    const list = listRef.current.getBoundingClientRect();
+    const margin = 8;
+    const below = button.bottom + 4;
+    const top = below + list.height + margin > window.innerHeight ? Math.max(margin, button.top - list.height - 4) : below;
+    const rtl = getComputedStyle(buttonRef.current).direction === "rtl";
+    const preferred = rtl ? button.right - list.width : button.left;
+    const left = Math.min(Math.max(margin, preferred), Math.max(margin, window.innerWidth - list.width - margin));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPosition({ top, left, dir: rtl ? "rtl" : "ltr" });
+  }, [open]);
+
   return (
-    <div className="row-menu" ref={wrapRef}>
-      <button ref={buttonRef} className="row-menu-trigger" type="button" aria-haspopup="menu" aria-expanded={open} aria-label={label} onClick={() => setOpen((current) => !current)}>⋯</button>
-      {open ? (
-        <div className="row-menu-list" role="menu" aria-label={label}>
-          {visible.map((item) => (
-            <button key={item.key} type="button" role="menuitem" className={item.danger ? "danger" : ""} onClick={() => { setOpen(false); item.onSelect(); }}>{item.label}</button>
-          ))}
-        </div>
-      ) : null}
+    <div className="row-menu">
+      <button ref={buttonRef} className="row-menu-trigger" type="button" aria-haspopup="menu" aria-expanded={open} aria-label={label} onClick={() => { setPosition(null); setOpen((current) => !current); }}>⋯</button>
+      {open && typeof document !== "undefined"
+        ? createPortal(
+          <div
+            ref={listRef}
+            className="row-menu-list"
+            role="menu"
+            aria-label={label}
+            dir={position?.dir}
+            style={{ top: position?.top ?? 0, left: position?.left ?? 0, visibility: position ? "visible" : "hidden" }}
+          >
+            {visible.map((item) => (
+              <button key={item.key} type="button" role="menuitem" className={item.danger ? "danger" : ""} onClick={() => { setOpen(false); item.onSelect(); }}>{item.label}</button>
+            ))}
+          </div>,
+          document.body
+        )
+        : null}
     </div>
   );
 }
-
 
 const pageSizeOptions = [
   { value: "10", label: "10" },

@@ -103,6 +103,29 @@ test("campaigns table becomes cards on a phone without sideways scrolling", asyn
   await page.screenshot({ path: testInfo.outputPath("campaigns-mobile.png") });
 });
 
+test("the row menu opens in full even when the table has a single row", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/dashboard?view=campaigns");
+  await page.getByPlaceholder("ابحث باسم الحملة أو الحالة…").fill("حملة قادمة");
+  await expect(page.locator(".campaigns-table tbody tr")).toHaveCount(1);
+  await page.getByRole("button", { name: /خيارات حملة قادمة/ }).click();
+  const items = page.getByRole("menuitem");
+  expect(await items.count()).toBeGreaterThanOrEqual(3);
+  for (let index = 0; index < (await items.count()); index += 1) {
+    const item = items.nth(index);
+    await expect(item).toBeInViewport({ ratio: 1 });
+    // Nothing (such as the table's own scroll box) covers the item: the page's own hit-test lands on it.
+    const covered = await item.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+      return !(top === element || element.contains(top));
+    });
+    expect(covered).toBe(false);
+  }
+  await page.keyboard.press("Escape");
+  await expect(items.first()).toBeHidden();
+});
+
 test("a workspace without campaigns sees how to start, not an empty table", async ({ page }, testInfo) => {
   await signIn(page);
   for (const id of ["browser-campaign-done", "browser-campaign-draft", "browser-campaign-upcoming"]) {

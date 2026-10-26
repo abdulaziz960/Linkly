@@ -12316,7 +12316,7 @@ html[dir="ltr"] .notification-bell-panel {
 .campaign-bulkbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 10px 0; padding: 10px 14px; border: 1px solid #9fc9c3; border-radius: var(--radius-3); background: #f0fdfa; }
 .row-menu { position: relative; display: inline-block; }
 .row-menu-trigger { width: 44px; height: 44px; border: 1px solid var(--line); border-radius: var(--radius-3); background: var(--surface); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; }
-.row-menu-list { position: absolute; z-index: 30; inset-inline-end: 0; top: calc(100% + 4px); display: grid; min-width: 220px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius-3); background: var(--surface); box-shadow: 0 14px 40px rgba(15, 23, 42, .18); }
+.row-menu-list { position: fixed; z-index: 2200; display: grid; min-width: 220px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius-3); background: var(--surface); box-shadow: 0 14px 40px rgba(15, 23, 42, .18); }
 .row-menu-list button { min-height: 44px; padding: 0 12px; border: 0; border-radius: var(--radius-1); background: transparent; color: var(--ink); font: inherit; font-weight: 700; text-align: start; cursor: pointer; }
 .row-menu-list button:hover { background: var(--surface-soft, #f1f5f4); }
 .row-menu-list button.danger { color: #b42318; }
@@ -12374,7 +12374,6 @@ html[dir="ltr"] .notification-bell-panel {
   .table-wrap .campaigns-table.mobile-card-table td[colspan] { display: block; }
   .campaign-list-board table { min-width: 0; }
   .campaign-list-board .progress-bar { width: 100%; }
-  .row-menu-list { inset-inline-end: auto; inset-inline-start: 0; }
 }
 
 /* Desktop sidebar: names visible by default, foldable to icons (per-account preference) */
@@ -12475,3 +12474,4 @@ html[dir="ltr"] .notification-bell-panel {
 
 .campaign-receipt-note { margin: 0; padding: 10px 14px; border: 1px solid #d9e6e3; border-radius: 12px; background: #f7fbfa; color: #3f5a56; font-size: 14px; line-height: 1.8; }
 .campaign-funnel .funnel-unconfirmed strong { color: #8a6a14; }
+
