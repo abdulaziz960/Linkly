@@ -33,6 +33,8 @@ export type SegmentRecord = {
   updatedAt: string;
 };
 
+const validEngagementBuckets = new Set(["notReceived", "notOpened", "opened", "clicked", "unsubscribed"]);
+
 function parseTagNames(value: string): string[] {
   try {
     const parsed = JSON.parse(value || "[]");
@@ -51,7 +53,7 @@ function toSegmentRecord(row: SegmentRow): SegmentRecord {
     tagNames: parseTagNames(row.tagNames),
     inactiveDays: row.inactiveDays,
     sourceCampaignId: row.sourceCampaignId,
-    engagementBucket: row.engagementBucket === "notReceived" || row.engagementBucket === "notOpened" || row.engagementBucket === "opened" || row.engagementBucket === "clicked" ? row.engagementBucket : "",
+    engagementBucket: validEngagementBuckets.has(row.engagementBucket) ? (row.engagementBucket as EngagementBucket) : "",
     engagementDateFrom: row.engagementDateFrom,
     engagementDateTo: row.engagementDateTo,
     engagementClickCount: row.engagementClickCount,
@@ -70,7 +72,6 @@ export async function getSegmentById(tenantId: string, id: string): Promise<Segm
   return row ? toSegmentRecord(row) : null;
 }
 
-const validEngagementBuckets = new Set(["notReceived", "notOpened", "opened", "clicked"]);
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 type EngagementFieldsInput = { sourceCampaignId?: string; engagementBucket?: string; engagementDateFrom?: string; engagementDateTo?: string; engagementClickCount?: number | string };
@@ -186,6 +187,28 @@ export function isCustomerInactive(mostRecentActivityAt: string, inactiveDays: n
   return mostRecentActivityAt < cutoff;
 }
 
+/**
+ * phone -> ISO time the customer opted out of marketing. A recipient counts as "unsubscribed" for a
+ * campaign when the opt-out happened at/after that campaign's send (an older opt-out would have
+ * stopped the send itself, so it can't be attributed to it).
+ */
+export async function loadOptOutMap(tenantId: string): Promise<Map<string, string>> {
+  const customers = await prisma.customer.findMany({ where: { tenantId, marketingOptOut: 1 }, select: { phone: true, marketingOptOutAt: true } });
+  const map = new Map<string, string>();
+  for (const customer of customers) {
+    const phone = normalizeWhatsAppPhone(customer.phone);
+    if (phone) map.set(phone, customer.marketingOptOutAt || "");
+  }
+  return map;
+}
+
+export function recipientUnsubscribed(optOuts: Map<string, string>, phone: string, sentAt: string): boolean {
+  const normalized = normalizeWhatsAppPhone(phone);
+  if (!normalized || !optOuts.has(normalized)) return false;
+  const optOutAt = optOuts.get(normalized) || "";
+  return !sentAt || !optOutAt || optOutAt >= sentAt;
+}
+
 /** sentAt is only ever set on a successfully-sent recipient row, as a plain ISO string - lexicographic comparison works fine for the range bounds. */
 function sentAtRangeWhere(dateFrom: string, dateTo: string) {
   if (!dateFrom && !dateTo) return {};
@@ -219,9 +242,10 @@ async function resolveCampaignEngagementMatches(tenantId: string, criteria: Segm
   const campaignIds = Array.from(new Set(recipients.map((recipient) => recipient.campaignId)));
   const campaignNames = new Map((await prisma.campaign.findMany({ where: { id: { in: campaignIds } }, select: { id: true, name: true } })).map((campaign) => [campaign.id, campaign.name]));
 
+  const optOuts = await loadOptOutMap(tenantId);
   const matches = new Map<string, { campaignName: string; clickCount: number }>();
   for (const recipient of recipients) {
-    if (engagementBucketFor(recipient) !== criteria.engagementBucket) continue;
+    if (engagementBucketFor({ ...recipient, unsubscribed: recipientUnsubscribed(optOuts, recipient.phone, recipient.sentAt) }) !== criteria.engagementBucket) continue;
     if (criteria.engagementClickCount > 0 && recipient.clickCount !== criteria.engagementClickCount) continue;
     const phone = normalizeWhatsAppPhone(recipient.phone);
     if (phone && !matches.has(phone)) matches.set(phone, { campaignName: campaignNames.get(recipient.campaignId) || "", clickCount: recipient.clickCount });
@@ -239,7 +263,7 @@ export type CrossCampaignEngagementResult = {
  * The all-customers, cross-campaign breakdown shown on the Segments page.
  * A customer can appear in several campaigns with different outcomes, so
  * each phone is counted once under its single best engagement
- * (clicked > opened > notOpened > notReceived) rather than once per
+ * (unsubscribed > clicked > opened > notOpened > notReceived) rather than once per
  * campaign - campaignName reflects whichever campaign produced that
  * winning engagement.
  */
@@ -249,10 +273,11 @@ export async function getCrossCampaignEngagement(tenantId: string, dateFrom: str
   });
   const campaignNames = new Map((await prisma.campaign.findMany({ where: { tenantId }, select: { id: true, name: true } })).map((campaign) => [campaign.id, campaign.name]));
 
-  const bucketRank: Record<EngagementBucket, number> = { clicked: 4, opened: 3, notOpened: 2, notReceived: 1 };
+  const bucketRank: Record<EngagementBucket, number> = { unsubscribed: 5, clicked: 4, opened: 3, notOpened: 2, notReceived: 1 };
+  const optOuts = await loadOptOutMap(tenantId);
   const bestByPhone = new Map<string, { bucket: EngagementBucket; name: string; campaignName: string; clickCount: number }>();
   for (const recipient of recipients) {
-    const bucket = engagementBucketFor(recipient);
+    const bucket = engagementBucketFor({ ...recipient, unsubscribed: recipientUnsubscribed(optOuts, recipient.phone, recipient.sentAt) });
     if (!bucket) continue;
     const phone = normalizeWhatsAppPhone(recipient.phone);
     if (!phone) continue;
@@ -262,8 +287,8 @@ export async function getCrossCampaignEngagement(tenantId: string, dateFrom: str
     }
   }
 
-  const counts: Record<EngagementBucket, number> = { notReceived: 0, notOpened: 0, opened: 0, clicked: 0 };
-  const rows: Record<EngagementBucket, CrossCampaignEngagementRow[]> = { notReceived: [], notOpened: [], opened: [], clicked: [] };
+  const counts: Record<EngagementBucket, number> = { notReceived: 0, notOpened: 0, opened: 0, clicked: 0, unsubscribed: 0 };
+  const rows: Record<EngagementBucket, CrossCampaignEngagementRow[]> = { notReceived: [], notOpened: [], opened: [], clicked: [], unsubscribed: [] };
   for (const [phone, { bucket, name, campaignName, clickCount }] of bestByPhone) {
     counts[bucket] += 1;
     rows[bucket].push({ name, phone, campaignName, clickCount });
@@ -307,4 +332,35 @@ export async function getSegmentRecipientDetails(tenantId: string, criteria: Seg
   }
 
   return recipients;
+}
+
+export type UnsubscribedCustomer = { name: string; phone: string; unsubscribedAt: string; campaignName: string };
+
+/** Everyone who opted out of marketing messages, newest first, optionally narrowed to an opt-out date range; campaignName is the last campaign sent to them before they left. */
+export async function getUnsubscribedCustomers(tenantId: string, dateFrom: string, dateTo: string): Promise<UnsubscribedCustomer[]> {
+  const customers = await prisma.customer.findMany({
+    where: {
+      tenantId,
+      marketingOptOut: 1,
+      ...(dateFrom || dateTo ? { marketingOptOutAt: { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: `${dateTo}T23:59:59.999Z` } : {}) } } : {})
+    },
+    select: { name: true, phone: true, marketingOptOutAt: true },
+    orderBy: { marketingOptOutAt: "desc" }
+  });
+  if (!customers.length) return [];
+  const recipients = await prisma.campaignRecipient.findMany({
+    where: { tenantId, sentAt: { not: "" } },
+    select: { phone: true, campaignId: true, sentAt: true },
+    orderBy: { sentAt: "desc" }
+  });
+  const campaignNames = new Map((await prisma.campaign.findMany({ where: { tenantId }, select: { id: true, name: true } })).map((campaign) => [campaign.id, campaign.name]));
+  const lastCampaignByPhone = new Map<string, string>();
+  for (const recipient of recipients) {
+    const phone = normalizeWhatsAppPhone(recipient.phone);
+    if (phone && !lastCampaignByPhone.has(phone)) lastCampaignByPhone.set(phone, campaignNames.get(recipient.campaignId) || "");
+  }
+  return customers.map((customer) => {
+    const phone = normalizeWhatsAppPhone(customer.phone) || customer.phone;
+    return { name: customer.name, phone, unsubscribedAt: customer.marketingOptOutAt, campaignName: lastCampaignByPhone.get(phone) || "" };
+  });
 }

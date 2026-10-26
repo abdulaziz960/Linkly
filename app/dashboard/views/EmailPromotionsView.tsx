@@ -2,6 +2,7 @@
 
 import { formatNumber } from "../../../lib/format";
 import PageHeader from "../components/PageHeader";
+import EmailInsights from "../components/EmailInsights";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Conversation, Customer, EmailCampaignSummary, Tag } from "../types";
 import { useLanguage } from "../i18n";
@@ -97,6 +98,9 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
     if (typeof window === "undefined") return "campaigns";
     return new URLSearchParams(window.location.search).get("tab") === "balance" ? "balance" : "campaigns";
   });
+  const [listSearch, setListSearch] = useState("");
+  const [listFrom, setListFrom] = useState("");
+  const [listTo, setListTo] = useState("");
   const [activeTab, setActiveTab] = useState<(typeof statusTabs)[number]>("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<"" | "draft" | "send" | "schedule">("");
@@ -114,7 +118,33 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
 
   const emailCustomers = useMemo(() => customers.filter((customer) => isEmail(customer.phone)), [customers]);
   const channelOptions = useMemo(() => Array.from(new Set(conversations.map((conversation) => conversation.channel))).sort(), [conversations]);
-  const visibleCampaigns = campaigns.filter((campaign) => activeTab === "all" || campaign.status === activeTab);
+  const visibleCampaigns = campaigns.filter((campaign) => {
+    if (activeTab !== "all" && campaign.status !== activeTab) return false;
+    const day = (campaign.scheduledAt || campaign.updatedAt || campaign.createdAt).slice(0, 10);
+    if (listFrom && day < listFrom) return false;
+    if (listTo && day > listTo) return false;
+    const query = listSearch.trim().toLowerCase();
+    return !query || campaign.name.toLowerCase().includes(query) || campaign.subject.toLowerCase().includes(query);
+  });
+
+  async function exportCampaigns() {
+    const ExcelJS = await import("exceljs");
+    const book = new ExcelJS.Workbook();
+    const sheet = book.addWorksheet(t("حملات البريد", "Email campaigns"), { views: [{ rightToLeft: true }] });
+    sheet.columns = [
+      { header: t("الحملة", "Campaign"), key: "name", width: 28 }, { header: t("العنوان", "Subject"), key: "subject", width: 32 },
+      { header: t("الحالة", "Status"), key: "status", width: 14 }, { header: t("المستلمين", "Recipients"), key: "recipients", width: 12 },
+      { header: t("مرسلة", "Sent"), key: "sent", width: 10 }, { header: t("وصلت", "Delivered"), key: "delivered", width: 10 },
+      { header: t("فتح", "Opens"), key: "opens", width: 10 }, { header: t("ضغط", "Clicks"), key: "clicks", width: 10 },
+      { header: t("ارتداد", "Bounces"), key: "bounces", width: 10 }, { header: t("إلغاء اشتراك", "Unsubscribes"), key: "unsubs", width: 14 }
+    ];
+    visibleCampaigns.forEach((campaign) => sheet.addRow({ name: campaign.name, subject: campaign.subject, status: statusLabel(campaign.status, t), recipients: campaign.analytics.totalRecipients, sent: campaign.analytics.sentCount, delivered: campaign.analytics.deliveredCount, opens: campaign.analytics.openCount, clicks: campaign.analytics.clickCount, bounces: campaign.analytics.bounceCount, unsubs: campaign.analytics.unsubscribeCount }));
+    sheet.getRow(1).font = { bold: true };
+    const buffer = await book.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    const anchor = document.createElement("a");
+    anchor.href = url; anchor.download = "email-campaigns.xlsx"; anchor.click(); URL.revokeObjectURL(url);
+  }
   const totals = useMemo(() => campaigns.reduce((sum, campaign) => ({
     recipients: sum.recipients + campaign.analytics.totalRecipients,
     sent: sum.sent + campaign.analytics.sentCount,
@@ -300,18 +330,7 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
 
       {activeView === "campaigns" ? (
         <>
-      <section className="campaign-health-grid" aria-label={t("جاهزية البريد", "Email readiness")}>
-        <article className={emailBalance > 0 ? "is-ready" : "is-blocked"}><span>◉</span><div><b>{t("رصيد البريد", "Email balance")}</b><strong>{formatNumber(emailBalance)} {t("رسالة", "emails")}</strong></div></article>
-        <article className={emailCustomers.length > 0 ? "is-ready" : "is-blocked"}><span>◇</span><div><b>{t("عملاء ببريد", "Customers with email")}</b><strong>{formatNumber(emailCustomers.length)}</strong></div></article>
-        <article><span>↗</span><div><b>{t("معدل الفتح", "Open rate")}</b><strong>{totals.sent ? Math.round((totals.opens / totals.sent) * 100) : 0}%</strong><small>{formatNumber(totals.opens)} / {formatNumber(totals.sent)}</small></div></article>
-      </section>
-
-      <section className="campaign-kpis" aria-label={t("ملخص البريد", "Email summary")}>
-        <article><span>{t("رصيد البريد", "Email balance")}</span><strong>{emailBalance}</strong></article>
-        <article><span>{t("إجمالي المستلمين", "Total recipients")}</span><strong>{totals.recipients}</strong></article>
-        <article><span>{t("المرسلة", "Sent")}</span><strong>{totals.sent}</strong></article>
-        <article><span>{t("الفتح", "Opens")}</span><strong>{totals.opens}</strong></article>
-      </section>
+      <EmailInsights campaigns={campaigns} balance={emailBalance} customersWithEmail={emailCustomers.length} />
 
       {open ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setOpen(false)}>
@@ -423,6 +442,14 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
 
       <div className="campaign-board campaign-list-board">
         <div className="campaign-list-head"><div><h2>{t("كل حملات البريد", "All email campaigns")}</h2><p>{t("تابع حالة الإرسال والأداء من نفس الجدول.", "Track send state and performance from one table.")}</p></div><button className="reload" type="button" onClick={loadCampaigns}>↻ {t("تحديث البيانات", "Refresh data")}</button></div>
+        <div className="seg-toolbar">
+          <input value={listSearch} onChange={(event) => setListSearch(event.target.value)} placeholder={t("ابحث باسم الحملة أو العنوان...", "Search by campaign or subject...")} />
+          <label className="entries">{t("من", "From")} <input type="date" value={listFrom} onChange={(event) => setListFrom(event.target.value)} /></label>
+          <label className="entries">{t("إلى", "To")} <input type="date" value={listTo} onChange={(event) => setListTo(event.target.value)} /></label>
+          <button className="btn soft" type="button" onClick={() => { setListSearch(""); setListFrom(""); setListTo(""); }}>{t("مسح", "Clear")}</button>
+          <button className="btn soft" type="button" onClick={exportCampaigns} disabled={!visibleCampaigns.length}>{t("تصدير Excel", "Export Excel")}</button>
+          <span className="seg-total-pill">{t("الإجمالي", "Total")}: <b>{visibleCampaigns.length.toLocaleString("en-US")}</b></span>
+        </div>
         <div className="table-wrap">
         <table className="mobile-card-table">
           <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("الحالة", "Status")}</th><th>{t("المستلمين", "Recipients")}</th><th>{t("إرسال/وصول", "Sent/Delivered")}</th><th>{t("فتح/ضغط", "Open/Click")}</th><th>{t("ارتداد/إلغاء", "Bounce/Unsubscribe")}</th><th>{t("إجراء", "Action")}</th></tr></thead>

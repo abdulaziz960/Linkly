@@ -12475,3 +12475,77 @@ html[dir="ltr"] .notification-bell-panel {
 .campaign-receipt-note { margin: 0; padding: 10px 14px; border: 1px solid #d9e6e3; border-radius: 12px; background: #f7fbfa; color: #3f5a56; font-size: 14px; line-height: 1.8; }
 .campaign-funnel .funnel-unconfirmed strong { color: #8a6a14; }
 
+/* Segments page tabs, report cards and mini charts */
+.campaign-engagement-tiles-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.seg-tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding: 0 4px; }
+.seg-tab { border: 0; background: none; font: inherit; padding: 12px 16px; cursor: pointer; color: var(--text-secondary); border-bottom: 3px solid transparent; font-weight: 600; }
+.seg-tab.active { color: var(--brand-600); border-bottom-color: var(--brand-500); }
+.seg-tab-stack { display: grid; gap: 16px; }
+.seg-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 14px 18px; }
+.seg-filters label { display: grid; gap: 4px; font-size: 13px; color: var(--text-secondary); min-width: 150px; }
+.seg-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.seg-kpi { display: grid; gap: 2px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); border-inline-start: 4px solid var(--neutral-300); }
+.seg-kpi span { font-size: 13px; color: var(--text-secondary); }
+.seg-kpi b { font-size: 24px; color: var(--ink); }
+.seg-kpi small { color: var(--text-secondary); }
+.seg-kpi-good { border-inline-start-color: #2e9e6b; }
+.seg-kpi-warn { border-inline-start-color: #f0ad4e; }
+.seg-kpi-bad { border-inline-start-color: #d9534f; }
+.seg-kpi-unsub { border-inline-start-color: #8e6bbf; }
+.seg-banners { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.seg-banner { display: grid; gap: 2px; padding: 14px 18px; border-radius: 14px; }
+.seg-banner span { font-size: 13px; font-weight: 700; }
+.seg-banner b { font-size: 18px; }
+.seg-banner-good { background: #e6f6ee; color: #14663f; border: 1px solid #b7e3cc; }
+.seg-banner-warn { background: #fff1e0; color: #8a4b08; border: 1px solid #f5d3a6; }
+.seg-charts { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
+.seg-rate { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--neutral-100); font-weight: 600; }
+.seg-rate-good { background: #e6f6ee; color: #14663f; }
+.seg-total-pill { background: var(--brand-50); color: var(--brand-700); padding: 4px 12px; border-radius: 999px; font-size: 13px; }
+.mini-chart svg { width: 100%; height: auto; display: block; }
+.mini-chart-grid { stroke: var(--line); stroke-width: 1; }
+.mini-chart-tick { font-size: 11px; fill: var(--text-secondary); }
+.mini-chart-legend { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; font-size: 13px; color: var(--text-secondary); }
+.mini-chart-legend i, .mini-donut-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: 6px; }
+.mini-donut { display: grid; gap: 12px; justify-items: center; }
+.mini-donut svg { width: 170px; height: 170px; }
+.mini-donut-total { font-size: 22px; font-weight: 700; fill: var(--ink); }
+.mini-donut-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; width: 100%; font-size: 13px; }
+.mini-donut-legend li { display: flex; align-items: center; gap: 4px; }
+.mini-donut-legend li span { flex: 1; }
+.mini-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.mini-bars li { display: grid; grid-template-columns: 130px 1fr 52px; gap: 10px; align-items: center; font-size: 13px; }
+.mini-bars div { height: 10px; background: var(--neutral-100); border-radius: 999px; overflow: hidden; }
+.mini-bars i { display: block; height: 100%; border-radius: 999px; }
+.seg-overview-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) {
+  .seg-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .seg-charts, .seg-overview-grid, .seg-banners { grid-template-columns: 1fr; }
+  .campaign-engagement-tiles-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Templates gallery */
+.template-gallery-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.template-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 14px; }
+.template-card { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); border-top: 4px solid var(--neutral-300); transition: box-shadow .15s, transform .15s; }
+.template-card:hover { box-shadow: 0 8px 24px rgba(15, 64, 61, .08); transform: translateY(-2px); }
+.template-card.is-approved { border-top-color: #2e9e6b; }
+.template-card.is-pending { border-top-color: #f0ad4e; }
+.template-card.is-rejected { border-top-color: #d9534f; }
+.template-card header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.template-card header b { overflow-wrap: anywhere; font-size: 14px; }
+.template-card-bubble { background: #e9f7ef; border-radius: 12px 12px 12px 2px; padding: 10px 12px; font-size: 13px; line-height: 1.7; display: grid; gap: 4px; max-height: 190px; overflow: hidden; }
+.template-card-bubble p { margin: 0; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.template-card-bubble small { color: var(--text-secondary); }
+.template-card-button { text-align: center; padding: 6px; border-top: 1px solid #cfe8da; color: #117d75; font-weight: 600; }
+.template-card footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.template-card-meta { font-size: 12px; color: var(--text-secondary); }
+@media (max-width: 1000px) { .template-gallery-layout { grid-template-columns: 1fr; } }
+.template-gallery-layout.has-side { grid-template-columns: minmax(0, 1fr) 280px; }
+.seg-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+.seg-toolbar > input:not([type="date"]) { flex: 1 1 220px; min-width: 0; }
+.seg-toolbar .entries { display: inline-flex; align-items: center; gap: 6px; }
+.seg-toolbar .btn { white-space: nowrap; }
+@media (max-width: 1000px) { .template-gallery-layout.has-side { grid-template-columns: 1fr; } }
+.mini-donut-legend { max-width: 340px; margin-inline: auto; }
+.seg-donut-panel { margin-bottom: 12px; }

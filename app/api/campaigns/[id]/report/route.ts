@@ -1,6 +1,7 @@
 import { getCurrentUser } from "../../../../../lib/auth";
 import { userHasViewPermission } from "../../../../../lib/permissions-server";
 import { prisma } from "../../../../../lib/prisma";
+import { loadOptOutMap, recipientUnsubscribed } from "../../../../../lib/segments";
 import { jsonError, jsonOk } from "../../../_utils/json";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -21,6 +22,8 @@ export async function GET(_request: Request, context: RouteContext) {
     orderBy: { createdAt: "asc" },
     take: 5000
   });
+
+  const optOuts = await loadOptOutMap(user.tenantId);
 
   // Batched in one query rather than per-recipient, then grouped in memory -
   // most recipients never clicked at all, so this is typically small even
@@ -46,6 +49,8 @@ export async function GET(_request: Request, context: RouteContext) {
       error: recipient.error || recipient.deliveryError,
       date: recipient.sentAt || recipient.createdAt,
       readAt: recipient.readAt,
+      repliedAt: recipient.repliedAt,
+      unsubscribed: recipientUnsubscribed(optOuts, recipient.phone, recipient.sentAt),
       clickedAt: recipient.clickedAt,
       clickCount: recipient.clickCount,
       // Empty for a click that happened before this log existed, even if

@@ -112,7 +112,7 @@ describe("Segment targeting by a past campaign's engagement", () => {
     // each customer down to their single best bucket.
     const { getCrossCampaignEngagement } = await import("../lib/segments");
     const overview = await getCrossCampaignEngagement(tenantId, "", "");
-    expect(overview.counts).toEqual({ notReceived: 1, notOpened: 1, opened: 1, clicked: 1 });
+    expect(overview.counts).toEqual({ notReceived: 1, notOpened: 1, opened: 1, clicked: 1, unsubscribed: 0 });
     expect(overview.rows.clicked.map((row) => row.phone)).toEqual(["966500000011"]);
     expect(overview.rows.opened.map((row) => row.phone)).toEqual(["966500000012"]);
     expect(overview.rows.notOpened.map((row) => row.phone)).toEqual(["966500000013"]);
@@ -125,11 +125,11 @@ describe("Segment targeting by a past campaign's engagement", () => {
 
     // A date range that includes this campaign's send date still finds them...
     const inRange = await getCrossCampaignEngagement(tenantId, "2026-09-12", "2026-09-12");
-    expect(inRange.counts).toEqual({ notReceived: 1, notOpened: 1, opened: 1, clicked: 1 });
+    expect(inRange.counts).toEqual({ notReceived: 1, notOpened: 1, opened: 1, clicked: 1, unsubscribed: 0 });
 
     // ...but a range that excludes it yields nothing.
     const outOfRange = await getCrossCampaignEngagement(tenantId, "2026-01-01", "2026-01-02");
-    expect(outOfRange.counts).toEqual({ notReceived: 0, notOpened: 0, opened: 0, clicked: 0 });
+    expect(outOfRange.counts).toEqual({ notReceived: 0, notOpened: 0, opened: 0, clicked: 0, unsubscribed: 0 });
   });
 });
 

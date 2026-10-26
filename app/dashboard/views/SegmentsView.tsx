@@ -6,7 +6,14 @@ import type { Campaign, Segment, Tag } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import CampaignEngagementReport from "../components/CampaignEngagementReport";
+import CampaignPerformanceReport from "../components/CampaignPerformanceReport";
+import EmailPerformanceReport from "../components/EmailPerformanceReport";
+import EmailAudienceOverview from "../components/EmailAudienceOverview";
+import UnsubscribedList from "../components/UnsubscribedList";
+import { BarList, DonutChart } from "../components/MiniCharts";
 import type { EngagementBucket } from "../../../lib/campaign-engagement";
+
+type SegTab = "report" | "audience" | "segments" | "unsubscribed";
 
 type EngagementBucketOrEmpty = "" | EngagementBucket;
 
@@ -62,6 +69,8 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
   const [form, setForm] = useState<SegmentFormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<SegTab>("report");
+  const [channel, setChannel] = useState<"whatsapp" | "email">("whatsapp");
   const [search, setSearch] = useState("");
   const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
 
@@ -241,7 +250,8 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
   }
 
   function engagementBucketLabel(bucket: EngagementBucketOrEmpty) {
-    if (bucket === "clicked") return t("تفاعل مع الحملة", "Clicked the campaign");
+    if (bucket === "unsubscribed") return t("ألغى الاشتراك", "Unsubscribed");
+    if (bucket === "clicked") return t("تفاعل مع الحملة (ضغط أو رد)", "Interacted with the campaign (click or reply)");
     if (bucket === "opened") return t("فتح الحملة بدون تفاعل", "Opened the campaign, no click");
     if (bucket === "notOpened") return t("لم يفتح الحملة", "Didn't open the campaign");
     if (bucket === "notReceived") return t("لم يستلم الرسالة", "Didn't receive the message");
@@ -249,9 +259,10 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
   }
 
   function shortBucketLabel(bucket: EngagementBucket) {
-    if (bucket === "clicked") return t("تفاعل", "Clicked");
-    if (bucket === "opened") return t("فتحها بدون ضغط", "Opened, no click");
-    if (bucket === "notOpened") return t("ما فتحها", "Not opened");
+    if (bucket === "unsubscribed") return t("ألغى الاشتراك", "Unsubscribed");
+    if (bucket === "clicked") return t("تفاعل", "Interacted");
+    if (bucket === "opened") return t("فتحها بدون تفاعل", "Opened, no interaction");
+    if (bucket === "notOpened") return t("لم يفتح الرسالة", "Didn't open");
     return t("لم يستلم الرسالة", "Didn't receive");
   }
 
@@ -294,30 +305,68 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
 
   return (
     <section className="page-stack segments-page">
-      <p className="segments-page-intro segments-print-hide">
-        {t(
-          "ثلاث خطوات: (١) شوف تصنيف عملائك تلقائيًا حسب تفاعلهم مع كل حملاتك، (٢) أو حسب حملة واحدة بالتحديد، (٣) ثم استخدم أي مجموعة محفوظة كجمهور جاهز عند إنشاء حملة جديدة.",
-          "Three steps: (1) see your customers classified automatically by engagement across all campaigns, (2) or by one specific campaign, (3) then use any saved group as a ready-made audience when creating a new campaign."
-        )}
-      </p>
+      <div className="section-tabs campaign-tabs segments-print-hide">
+        <button type="button" className={channel === "whatsapp" ? "section-tab active" : "section-tab"} onClick={() => { setChannel("whatsapp"); setTab("report"); }}>{t("حملات الواتساب", "WhatsApp campaigns")}</button>
+        <button type="button" className={channel === "email" ? "section-tab active" : "section-tab"} onClick={() => { setChannel("email"); setTab("report"); }}>{t("حملات النشرات البريدية", "Email newsletters")}</button>
+      </div>
 
+      <div className="seg-tabs segments-print-hide" role="tablist">
+        {((channel === "email" ? [
+          ["report", t("أداء الحملات - تقرير شامل", "Campaign performance report")],
+          ["audience", t("تصنيفات الجمهور حسب الحملات", "Audience by campaign")],
+          ["unsubscribed", t("ألغوا الاشتراك", "Unsubscribed")]
+        ] : [
+          ["report", t("أداء الحملات - تقرير شامل", "Campaign performance report")],
+          ["audience", t("تصنيفات الجمهور حسب الحملات", "Audience by campaign")],
+          ["segments", t("تقسيم العملاء", "Customer segments")],
+          ["unsubscribed", t("ألغوا الاشتراك", "Unsubscribed")]
+        ] ) as Array<[SegTab, string]>).map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "seg-tab active" : "seg-tab"} onClick={() => setTab(key)}>{label}</button>
+        ))}
+      </div>
+
+      {channel === "email" ? (
+        <>
+          {tab === "report" ? <EmailPerformanceReport /> : null}
+          {tab === "audience" ? <EmailAudienceOverview /> : null}
+          {tab === "unsubscribed" ? <UnsubscribedList channel="email" /> : null}
+        </>
+      ) : null}
+      {channel === "whatsapp" && tab === "report" ? <CampaignPerformanceReport campaigns={campaigns} /> : null}
+      {channel === "whatsapp" && tab === "unsubscribed" ? <UnsubscribedList /> : null}
+
+      {channel === "whatsapp" && tab === "audience" ? (
+        <div className="seg-tab-stack">
       <div className="panel">
         <div className="panel-head">
-          <h2><span className="segment-section-badge">{t("١", "1")}</span> {t("أداء الحملات - كل العملاء", "Campaign performance - all customers")} <span className="segment-section-tag">{t("تلقائي", "Automatic")}</span></h2>
+          <h2>{t("تصنيف كل العملاء حسب تفاعلهم", "All customers by engagement")}</h2>
         </div>
         <div className="panel-body">
           <p className="muted-copy">{t("تصنيف تلقائي لكل عملائك عبر جميع الحملات مجتمعة - إذا تفاعل عميل مع أكثر من حملة، تُحتسب أفضل حالة تفاعل له. حدد فترة زمنية لتضييق النتائج ثم احفظها كمجموعة باسم تختاره لاستخدامها لاحقًا بحملة جديدة.", "An automatic breakdown of every customer across all your campaigns combined - a customer active in more than one campaign counts under their single best engagement. Narrow by date range, then save the result as a named group to reuse in a new campaign.")}</p>
-          <div className="inline-filter segments-print-hide">
+          <div className="seg-toolbar segments-print-hide">
             <label className="entries">{t("من", "From")} <input type="date" value={overviewDateFrom} onChange={(event) => setOverviewDateFrom(event.target.value)} /></label>
             <label className="entries">{t("إلى", "To")} <input type="date" value={overviewDateTo} onChange={(event) => setOverviewDateTo(event.target.value)} /></label>
             <button className="btn primary" type="button" onClick={applyOverviewDates}>{t("تطبيق", "Apply")}</button>
             <button className="btn soft" type="button" onClick={clearOverviewDates}>{t("مسح", "Clear")}</button>
           </div>
+          {!overviewLoading && overview ? (
+            <div className="panel seg-donut-panel segments-print-hide">
+              <div className="panel-body">
+                <DonutChart centerLabel={t("عميل", "customers")} slices={[
+                  { label: t("تفاعل", "Interacted"), value: overview.counts.clicked, color: "#2e9e6b" },
+                  { label: t("فتحها بدون تفاعل", "Opened, no interaction"), value: overview.counts.opened, color: "#4a90d9" },
+                  { label: t("لم يفتح الرسالة", "Didn't open"), value: overview.counts.notOpened, color: "#f0ad4e" },
+                  { label: t("لم يستلم الرسالة", "Didn't receive"), value: overview.counts.notReceived, color: "#d9534f" },
+                  { label: t("ألغى الاشتراك", "Unsubscribed"), value: overview.counts.unsubscribed, color: "#8e6bbf" }
+                ]} />
+              </div>
+            </div>
+          ) : null}
           {overviewLoading ? <p className="muted-copy">{t("جارٍ التحميل...", "Loading...")}</p> : null}
           {!overviewLoading && overview ? (
             <>
-              <div className="campaign-engagement-tiles campaign-engagement-tiles-4 segments-print-hide">
-                {(["notReceived", "notOpened", "opened", "clicked"] as EngagementBucket[]).map((bucket) => (
+              <div className="campaign-engagement-tiles campaign-engagement-tiles-5 segments-print-hide">
+                {(["notReceived", "notOpened", "opened", "clicked", "unsubscribed"] as EngagementBucket[]).map((bucket) => (
                   <button
                     key={bucket}
                     type="button"
@@ -366,7 +415,7 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
 
       <div className="panel campaign-classification-panel">
         <div className="panel-head">
-          <h2><span className="segment-section-badge">{t("٢", "2")}</span> {t("تصنيف حسب الحملات", "Classification by campaign")} <span className="segment-section-tag">{t("تلقائي", "Automatic")}</span></h2>
+          <h2>{t("تصنيف حسب الحملات", "Classification by campaign")}</h2>
         </div>
         <div className="panel-body">
           <p className="muted-copy">{t("كل حملة أرسلتها تظهر هنا تلقائيًا مع تصنيف عملائها حسب تفاعلهم - اضغط على الحملة لعرض القوائم وإرسال رسالة مباشرة لأي عميل.", "Every campaign you've sent appears here automatically, with its recipients classified by engagement - click a campaign to see the lists and message any customer directly.")}</p>
@@ -386,9 +435,26 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
         </div>
       </div>
 
+        </div>
+      ) : null}
+
+      {channel === "whatsapp" && tab === "segments" ? (
+        <div className="seg-tab-stack">
+      <div className="seg-kpis">
+        <div className="seg-kpi"><span>{t("عدد التقسيمات", "Segments")}</span><b>{segments.length.toLocaleString("en-US")}</b></div>
+        <div className="seg-kpi"><span>{t("إجمالي العملاء المستهدفين", "Total targeted")}</span><b>{segments.reduce((sum, segment) => sum + segment.recipientCount, 0).toLocaleString("en-US")}</b></div>
+        <div className="seg-kpi seg-kpi-good"><span>{t("أكبر تقسيم", "Largest segment")}</span><b>{[...segments].sort((a, b) => b.recipientCount - a.recipientCount)[0]?.name || "-"}</b></div>
+        <div className="seg-kpi"><span>{t("تقسيمات بشرط حملات", "Campaign-based")}</span><b>{segments.filter((segment) => segment.engagementBucket).length.toLocaleString("en-US")}</b></div>
+      </div>
+      {segments.length ? (
+        <div className="panel">
+          <div className="panel-head"><h2>{t("حجم كل تقسيم", "Segment sizes")}</h2></div>
+          <div className="panel-body"><BarList items={[...segments].sort((a, b) => b.recipientCount - a.recipientCount).slice(0, 8).map((segment) => ({ label: segment.name, value: segment.recipientCount }))} /></div>
+        </div>
+      ) : null}
       <div className="panel segments-manual-panel">
         <div className="panel-head">
-          <h2><span className="segment-section-badge">{t("٣", "3")}</span> {t("المجموعات المحفوظة", "Saved groups")} <span className="segment-section-tag segment-section-tag-manual">{t("يدوي", "Manual")}</span></h2>
+          <h2>{t("المجموعات المحفوظة", "Saved groups")}</h2>
           <span />
           <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة تقسيم", "Add segment")}</button>
         </div>
@@ -455,6 +521,9 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
         </div>
       </div>
 
+        </div>
+      ) : null}
+
       {formOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setFormOpen(false)}>
           <form className="account-modal form-modal" role="dialog" aria-modal="true" aria-label={t("حفظ تقسيم", "Save segment")} onSubmit={submitSegment} onClick={(event) => event.stopPropagation()}>
@@ -506,8 +575,9 @@ export default function SegmentsView({ tags }: { tags: Tag[] }) {
                     { value: "", label: t("بدون شرط", "No condition") },
                     { value: "notReceived", label: t("لم يستلم الرسالة", "Didn't receive the message") },
                     { value: "notOpened", label: t("لم يفتح الرسالة", "Didn't open the message") },
-                    { value: "opened", label: t("فتحها بدون تفاعل", "Opened, no click") },
-                    { value: "clicked", label: t("تفاعل (ضغط الرابط أو الزر)", "Clicked (link or button)") }
+                    { value: "opened", label: t("فتحها بدون تفاعل", "Opened, no interaction") },
+                    { value: "clicked", label: t("تفاعل (ضغط زر/رابط أو أرسل رد)", "Interacted (click or reply)") },
+                    { value: "unsubscribed", label: t("ألغى الاشتراك", "Unsubscribed") }
                   ]}
                 />
               </label>

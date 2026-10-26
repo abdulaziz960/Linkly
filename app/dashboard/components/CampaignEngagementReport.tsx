@@ -21,6 +21,8 @@ type ReportRow = {
   error: string;
   date: string;
   readAt: string;
+  repliedAt?: string;
+  unsubscribed?: boolean;
   clickedAt: string;
   clickCount: number;
   clicks: string[];
@@ -28,7 +30,8 @@ type ReportRow = {
 };
 
 function engagementLabel(bucket: EngagementBucket | null, t: (ar: string, en: string) => string) {
-  if (bucket === "clicked") return t("تفاعل", "Clicked");
+  if (bucket === "unsubscribed") return t("ألغى الاشتراك", "Unsubscribed");
+  if (bucket === "clicked") return t("تفاعل", "Interacted");
   if (bucket === "opened") return t("فتحها بدون ضغط", "Opened, no click");
   if (bucket === "notOpened") return t("بلا إيصال قراءة", "No read receipt");
   if (bucket === "notReceived") return t("لم يستلم الرسالة", "Didn't receive the message");
@@ -109,7 +112,7 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
   }, [campaignId]);
 
   const engagementCounts = useMemo(() => {
-    const counts: Record<EngagementBucket, number> = { notReceived: 0, notOpened: 0, opened: 0, clicked: 0 };
+    const counts: Record<EngagementBucket, number> = { notReceived: 0, notOpened: 0, opened: 0, clicked: 0, unsubscribed: 0 };
     for (const row of rows) {
       const bucket = engagementBucketFor(row);
       if (bucket) counts[bucket] += 1;
@@ -146,7 +149,7 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
 
   return (
     <div className="campaign-report-body">
-      <div className="campaign-engagement-tiles campaign-engagement-tiles-4">
+      <div className="campaign-engagement-tiles campaign-engagement-tiles-5">
         <button type="button" className={engagementFilter === "notReceived" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "notReceived" ? null : "notReceived"); setPage(1); }}>
           <b>{formatNumber(engagementCounts.notReceived)}</b>
           <span>{t("لم يستلم الرسالة", "Didn't receive")}</span>
@@ -161,7 +164,11 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
         </button>
         <button type="button" className={engagementFilter === "clicked" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "clicked" ? null : "clicked"); setPage(1); }}>
           <b>{formatNumber(engagementCounts.clicked)}</b>
-          <span>{t("تفاعل", "Clicked")}</span>
+          <span>{t("تفاعل (نقر أو رد)", "Interacted (click or reply)")}</span>
+        </button>
+        <button type="button" className={engagementFilter === "unsubscribed" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "unsubscribed" ? null : "unsubscribed"); setPage(1); }}>
+          <b>{formatNumber(engagementCounts.unsubscribed)}</b>
+          <span>{t("ألغى الاشتراك", "Unsubscribed")}</span>
         </button>
       </div>
       <div className="campaign-toolbar report-toolbar">

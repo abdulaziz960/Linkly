@@ -102,6 +102,9 @@ function textExample(text: string, overrides?: Record<string, string>) {
   };
 }
 
+/** The quick-reply every marketing template carries so a customer can leave with one tap (see lib/marketing-optout.ts). */
+export const UNSUBSCRIBE_BUTTON_TEXT = "إلغاء الاشتراك";
+
 export function buildTemplateComponents(data: TemplateComponentData) {
   const components: Array<Record<string, unknown>> = [];
 
@@ -142,6 +145,7 @@ export function buildTemplateComponents(data: TemplateComponentData) {
     components.push({ type: "FOOTER", text: data.footer.trim() });
   }
 
+  const buttons: Array<Record<string, unknown>> = [];
   if (data.buttonType !== "NONE" && data.buttonText.trim()) {
     const button: Record<string, unknown> = { text: data.buttonText.trim() };
     if (data.buttonType === "PHONE") {
@@ -161,8 +165,13 @@ export function buildTemplateComponents(data: TemplateComponentData) {
     } else {
       button.type = "QUICK_REPLY";
     }
-    components.push({ type: "BUTTONS", buttons: [button] });
+    buttons.push(button);
   }
+  // Buttons are fixed in the approved template (they can't be added at send time), so the opt-out button is appended here, for marketing templates only.
+  if (String(data.category).toUpperCase() === "MARKETING" && !buttons.some((button) => button.text === UNSUBSCRIBE_BUTTON_TEXT)) {
+    buttons.push({ type: "QUICK_REPLY", text: UNSUBSCRIBE_BUTTON_TEXT });
+  }
+  if (buttons.length) components.push({ type: "BUTTONS", buttons });
 
   return components;
 }

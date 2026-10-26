@@ -10,6 +10,7 @@ import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
 import type { MessageTemplate } from "../types";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
+import { DonutChart } from "../components/MiniCharts";
 
 type TemplateFormState = {
   name: string;
@@ -208,6 +209,9 @@ export default function TemplatesView({
   }
 
   const visibleTemplates = whatsappConnected ? templates : [];
+  const [statusFilter, setStatusFilter] = useState<"all" | "معتمد" | "قيد المراجعة" | "مرفوض">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "MARKETING" | "UTILITY" | "AUTHENTICATION">("all");
+  const [listSearch, setListSearch] = useState("");
   const approvedCount = visibleTemplates.filter((template) => template.status === "معتمد").length;
   const pendingCount = visibleTemplates.filter((template) => template.status === "قيد المراجعة").length;
   const rejectedCount = visibleTemplates.filter((template) => template.status === "مرفوض").length;
@@ -346,6 +350,24 @@ export default function TemplatesView({
     }
   }
 
+  function categoryOf(template: MessageTemplate) {
+    return template.category || (template.type === "تسويق" ? "MARKETING" : "UTILITY");
+  }
+  function categoryLabel(category: string) {
+    if (category === "MARKETING") return t("تسويقي", "Marketing");
+    if (category === "UTILITY") return t("خدمي", "Utility");
+    if (category === "AUTHENTICATION") return t("تحقق", "Authentication");
+    return category;
+  }
+  const shownTemplates = templates.filter((template) => {
+    if (statusFilter !== "all" && template.status !== statusFilter) return false;
+    if (categoryFilter !== "all" && categoryOf(template) !== categoryFilter) return false;
+    const query = listSearch.trim().toLowerCase();
+    return !query || template.name.toLowerCase().includes(query) || template.message.toLowerCase().includes(query);
+  });
+  const marketingCount = templates.filter((template) => categoryOf(template) === "MARKETING").length;
+  const utilityCount = templates.filter((template) => categoryOf(template) === "UTILITY").length;
+
   async function deleteTemplate(template: MessageTemplate) {
     if (!(await confirmDialog(t(`حذف قالب ${template.name}؟`, `Delete the "${template.name}" template?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
     await fetch(`/api/templates/${encodeURIComponent(template.name)}`, { method: "DELETE" });
@@ -354,12 +376,14 @@ export default function TemplatesView({
 
   return (
     <section className="page-stack">
-      <div className="stats-grid">
-        <div className="stat"><span>{t("القوالب المعتمدة", "Approved templates")}</span><b>{approvedCount}</b><small>{t("جاهزة للإرسال", "Ready to send")}</small></div>
-        <div className="stat"><span>{t("بانتظار المراجعة", "Awaiting review")}</span><b>{pendingCount}</b><small>{t("لدى Meta", "With Meta")}</small></div>
-        <div className="stat"><span>{t("مرفوضة", "Rejected")}</span><b>{rejectedCount}</b><small>{t("تحتاج تعديل", "Needs changes")}</small></div>
+      <div className="seg-kpis">
+        <div className="seg-kpi"><span>{t("كل القوالب", "All templates")}</span><b>{templates.length}</b><small>{t(`${marketingCount} تسويقي · ${utilityCount} خدمي`, `${marketingCount} marketing · ${utilityCount} utility`)}</small></div>
+        <div className="seg-kpi seg-kpi-good"><span>{t("القوالب المعتمدة", "Approved templates")}</span><b>{approvedCount}</b><small>{t("جاهزة للإرسال", "Ready to send")}</small></div>
+        <div className="seg-kpi seg-kpi-warn"><span>{t("بانتظار المراجعة", "Awaiting review")}</span><b>{pendingCount}</b><small>{t("لدى Meta", "With Meta")}</small></div>
+        <div className="seg-kpi seg-kpi-bad"><span>{t("مرفوضة", "Rejected")}</span><b>{rejectedCount}</b><small>{t("تحتاج تعديل", "Needs changes")}</small></div>
       </div>
-      <div className="panel">
+      <div className={templates.length ? "template-gallery-layout has-side" : "template-gallery-layout"}>
+      <div className="panel template-gallery-main">
         <div className="panel-head">
           <h2>{t("قوالب واتساب", "WhatsApp Templates")}</h2>
           <span />
@@ -371,45 +395,69 @@ export default function TemplatesView({
         {!whatsappConnected ? (
           <p className="form-error">{t("اربط قناة واتساب من الإعدادات أولاً حتى تظهر القوالب.", "Connect a WhatsApp channel from Settings first for templates to show up.")}</p>
         ) : (
-          <div className="panel-body table-wrap">
-            <table className="mobile-card-table">
-              <thead><tr><th>{t("القالب", "Template")}</th><th>{t("الفئة", "Category")}</th><th>{t("اللغة", "Language")}</th><th>{t("الحالة من Meta", "Meta status")}</th><th>{t("آخر مزامنة", "Last sync")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
-              <tbody>
-                {!templates.length && dataLoading ? <SkeletonTableRows columns={6} label={t("جارٍ تحميل القوالب", "Loading templates")} /> : null}
-                {!templates.length && !dataLoading ? (
-                  <tr><td colSpan={6}>
-                    <EmptyState
-                      title={t("لا توجد قوالب", "No templates yet")}
-                      description={t("القالب رسالة معتمدة من Meta تستطيع إرسالها للعملاء خارج نافذة الـ 24 ساعة وفي الحملات. أنشئ قالباً وانتظر اعتماده.", "A template is a Meta-approved message you can send customers outside the 24-hour window and in campaigns. Create one and wait for its approval.")}
-                      action={<button className="btn primary" type="button" onClick={openCreateForm}>{t("أنشئ أول قالب", "Create your first template")}</button>}
-                    />
-                  </td></tr>
-                ) : null}
-                {templates.map((template) => (
-                  <tr key={template.name}>
-                    <td data-label={t("القالب", "Template")}>
-                      <b>{template.name}</b>
-                      <span className="table-subtitle" title={template.message}>{template.message}</span>
-                      {["IMAGE", "VIDEO", "DOCUMENT"].includes(template.headerType || "") && !template.hasHeaderMediaSaved ? (
-                        <button type="button" className="state warn template-media-missing" onClick={() => openEditForm(template)}>
-                          {t("⚠ الملف غير محفوظ للإرسال - اضغط لإضافته", "⚠ File not saved for sending - click to add it")}
-                        </button>
-                      ) : null}
-                    </td>
-                    <td data-label={t("الفئة", "Category")}>{template.category || (template.type === "تسويق" ? "MARKETING" : "UTILITY")}</td>
-                    <td data-label={t("اللغة", "Language")}>{template.language}</td>
-                    <td data-label={t("الحالة من Meta", "Meta status")}><span className={template.status === "معتمد" ? "state ok" : template.status === "مرفوض" ? "state off" : "state warn"}>{templateStatusLabel(template.status || "", t)}</span></td>
-                    <td data-label={t("آخر مزامنة", "Last sync")}>{template.syncedAt || "-"}</td>
-                    <td className="row-actions" data-label={t("إجراء", "Action")}>
+          <div className="panel-body">
+            <div className="section-tabs campaign-tabs">
+              {([["all", t("الكل", "All"), templates.length], ["معتمد", t("معتمد", "Approved"), approvedCount], ["قيد المراجعة", t("قيد المراجعة", "Pending"), pendingCount], ["مرفوض", t("مرفوض", "Rejected"), rejectedCount]] as Array<[typeof statusFilter, string, number]>).map(([key, label, count]) => (
+                <button key={key} type="button" className={statusFilter === key ? "section-tab active" : "section-tab"} onClick={() => setStatusFilter(key)}>{label} <span>{count}</span></button>
+              ))}
+            </div>
+            <div className="seg-toolbar">
+              <input value={listSearch} onChange={(event) => setListSearch(event.target.value)} placeholder={t("ابحث باسم القالب أو نصه...", "Search by template name or text...")} />
+              <CustomSelect value={categoryFilter} onChange={(value) => setCategoryFilter(value as typeof categoryFilter)} options={[{ value: "all", label: t("كل الفئات", "All categories") }, { value: "MARKETING", label: t("تسويقي", "Marketing") }, { value: "UTILITY", label: t("خدمي", "Utility") }, { value: "AUTHENTICATION", label: t("تحقق", "Authentication") }]} />
+              <span className="seg-total-pill">{t("الإجمالي", "Total")}: <b>{shownTemplates.length}</b></span>
+            </div>
+            {!templates.length && dataLoading ? <p className="muted-copy">{t("جارٍ تحميل القوالب", "Loading templates")}...</p> : null}
+            {!templates.length && !dataLoading ? (
+              <EmptyState
+                                    title={t("لا توجد قوالب", "No templates yet")}
+                                    description={t("القالب رسالة معتمدة من Meta تستطيع إرسالها للعملاء خارج نافذة الـ 24 ساعة وفي الحملات. أنشئ قالباً وانتظر اعتماده.", "A template is a Meta-approved message you can send customers outside the 24-hour window and in campaigns. Create one and wait for its approval.")}
+                                    action={<button className="btn primary" type="button" onClick={openCreateForm}>{t("أنشئ أول قالب", "Create your first template")}</button>}
+                                  />
+            ) : null}
+            <div className="template-card-grid">
+              {shownTemplates.map((template) => (
+                <article key={template.name} className={`template-card ${template.status === "معتمد" ? "is-approved" : template.status === "مرفوض" ? "is-rejected" : "is-pending"}`}>
+                  <header>
+                    <b dir="ltr">{template.name}</b>
+                    <span className={template.status === "معتمد" ? "state ok" : template.status === "مرفوض" ? "state off" : "state warn"}>{templateStatusLabel(template.status || "", t)}</span>
+                  </header>
+                  <div className="template-card-bubble">
+                    {template.headerText ? <strong>{template.headerText}</strong> : null}
+                    <p>{template.message}</p>
+                    {template.footer ? <small>{template.footer}</small> : null}
+                    {template.buttonType && template.buttonType !== "NONE" && template.buttonText ? <span className="template-card-button">{template.buttonText}</span> : null}
+                  </div>
+                  {["IMAGE", "VIDEO", "DOCUMENT"].includes(template.headerType || "") && !template.hasHeaderMediaSaved ? (
+                    <button type="button" className="state warn template-media-missing" onClick={() => openEditForm(template)}>
+                      {t("⚠ الملف غير محفوظ للإرسال - اضغط لإضافته", "⚠ File not saved for sending - click to add it")}
+                    </button>
+                  ) : null}
+                  <footer>
+                    <span className="template-card-meta">{categoryLabel(categoryOf(template))} · {template.language} · {template.syncedAt || "-"}</span>
+                    <span className="row-actions">
                       <button className="btn soft" type="button" onClick={() => openEditForm(template)}>{t("عرض", "View")}</button>
                       <button className="btn danger" type="button" onClick={() => deleteTemplate(template)}>{t("حذف", "Delete")}</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </span>
+                  </footer>
+                </article>
+              ))}
+              {!shownTemplates.length ? <p className="muted-copy">{t("لا توجد قوالب مطابقة.", "No matching templates.")}</p> : null}
+            </div>
           </div>
         )}
+      </div>
+      {templates.length ? (
+        <aside className="panel template-gallery-side">
+          <div className="panel-head"><h2>{t("حالة القوالب", "Template status")}</h2></div>
+          <div className="panel-body">
+            <DonutChart centerLabel={t("قالب", "templates")} slices={[
+              { label: t("معتمد", "Approved"), value: approvedCount, color: "#2e9e6b" },
+              { label: t("قيد المراجعة", "Pending"), value: pendingCount, color: "#f0ad4e" },
+              { label: t("مرفوض", "Rejected"), value: rejectedCount, color: "#d9534f" }
+            ]} />
+          </div>
+        </aside>
+      ) : null}
       </div>
 
       {formOpen ? (

@@ -5,7 +5,7 @@ import { sendWhatsAppTextMessage } from "./whatsapp-send";
 // ordinary customer message that happens to contain "stop" must never be
 // misread as an unsubscribe request. Arabic variants cover the common
 // spellings customers actually type, not just a literal transliteration.
-const optOutKeywords = new Set(["stop", "unsubscribe", "الغاء", "إلغاء", "ايقاف", "إيقاف", "توقف"]);
+const optOutKeywords = new Set(["stop", "unsubscribe", "الغاء", "إلغاء", "ايقاف", "إيقاف", "توقف", "الغاء الاشتراك", "إلغاء الاشتراك"]);
 const optInKeywords = new Set(["start", "subscribe", "اشتراك", "ابدأ", "ابدا"]);
 
 function normalize(text: string) {

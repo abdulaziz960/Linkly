@@ -32,6 +32,10 @@ export type CampaignStats = {
   replied: number;
   /** Accepted by WhatsApp with no delivered, read or failed receipt: most likely delivered, but not confirmed. */
   unconfirmed: number;
+  /** Clicked a link/button or wrote back (the "تفاعل" group). */
+  interacted: number;
+  /** Opted out after this campaign went out. */
+  unsubscribed: number;
   /** Failed at send time, plus accepted-then-undeliverable. Opt-outs are not counted here. */
   failed: number;
   optedOut: number;
@@ -53,6 +57,8 @@ export type CampaignStatsInput = {
   readCount?: number;
   /** Of the accepted rows with no read proof: how many have a delivered receipt, and how many were reported undeliverable. */
   deliveredCount?: number;
+  interactedCount?: number;
+  unsubscribedCount?: number;
   deliveryFailedCount?: number;
   /** Rows the customer replied to. */
   repliedCount?: number;
@@ -137,6 +143,8 @@ export function computeCampaignStats(input: CampaignStatsInput): CampaignStats {
     replied: Math.min(sent, Math.max(0, input.repliedCount ?? 0)),
     unconfirmed,
     failed: sendFailed + failedAfterAccept,
+    interacted: Math.min(sent, Math.max(Math.max(0, input.repliedCount ?? 0), input.interactedCount ?? 0)),
+    unsubscribed: Math.min(sent, Math.max(0, input.unsubscribedCount ?? 0)),
     optedOut,
     pending,
     sendRate: formatRate(sent, total),
@@ -155,11 +163,13 @@ export function sumCampaignStats(all: CampaignStats[]): CampaignStats {
       read: acc.read + stats.read,
       replied: acc.replied + stats.replied,
       unconfirmed: acc.unconfirmed + stats.unconfirmed,
+      interacted: acc.interacted + stats.interacted,
+      unsubscribed: acc.unsubscribed + stats.unsubscribed,
       failed: acc.failed + stats.failed,
       optedOut: acc.optedOut + stats.optedOut,
       pending: acc.pending + stats.pending
     }),
-    { total: 0, sent: 0, delivered: 0, read: 0, replied: 0, unconfirmed: 0, failed: 0, optedOut: 0, pending: 0 }
+    { total: 0, sent: 0, delivered: 0, read: 0, replied: 0, interacted: 0, unsubscribed: 0, unconfirmed: 0, failed: 0, optedOut: 0, pending: 0 }
   );
   const reasonTotals = new Map<FailureReasonKey, number>();
   for (const stats of all) for (const reason of stats.failureReasons) reasonTotals.set(reason.key, (reasonTotals.get(reason.key) ?? 0) + reason.count);

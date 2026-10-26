@@ -3,7 +3,7 @@
 // "opened"/"clicked" mean exactly the same thing everywhere. Pure and
 // I/O-free so it can be imported from a client component as well as
 // server-only code.
-export type EngagementBucket = "notReceived" | "notOpened" | "opened" | "clicked";
+export type EngagementBucket = "notReceived" | "notOpened" | "opened" | "clicked" | "unsubscribed";
 
 /**
  * "notReceived" covers two distinct failure points that both mean the
@@ -16,10 +16,13 @@ export type EngagementBucket = "notReceived" | "notOpened" | "opened" | "clicked
  * "جارٍ الإرسال") has no outcome yet, so it returns null rather than being
  * counted anywhere.
  */
-export function engagementBucketFor(recipient: { status: string; readAt: string; clickedAt: string; deliveryFailed?: number | boolean }): EngagementBucket | null {
+export function engagementBucketFor(recipient: { status: string; readAt: string; clickedAt: string; repliedAt?: string; deliveryFailed?: number | boolean; unsubscribed?: boolean }): EngagementBucket | null {
+  // "clicked" is the "تفاعل" bucket: a link/button click OR a written reply. Opting out wins over everything
+  // (set by the caller only when the customer unsubscribed after this send).
+  if (recipient.unsubscribed) return "unsubscribed";
   // A read receipt or a tracked click proves the customer got the message, whatever a failure flag says
   // (a late/contradictory "failed" status, or a send our side recorded as failed after Meta had accepted it).
-  if (recipient.clickedAt) return "clicked";
+  if (recipient.clickedAt || recipient.repliedAt) return "clicked";
   if (recipient.readAt) return "opened";
   if (recipient.status === "فشل الإرسال") return "notReceived";
   if (recipient.status !== "تم الإرسال") return null;
