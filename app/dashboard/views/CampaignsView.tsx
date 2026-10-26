@@ -832,7 +832,8 @@ export default function CampaignsView({
           <section className={`campaign-funnel${refreshState === "loading" ? " is-loading" : ""}`} aria-busy={refreshState === "loading"} aria-label={t("مسار الرسائل", "Message funnel")}>
             {([
               { key: "sent", label: t("المُرسلة", "Sent"), value: campaignOverview.totals.sent, share: formatRate(campaignOverview.totals.sent, campaignOverview.totals.total), of: t("من الجمهور", "of audience") },
-              { key: "delivered", label: t("وصلت", "Delivered"), value: campaignOverview.totals.delivered, share: formatRate(campaignOverview.totals.delivered, campaignOverview.totals.sent), of: t("من المُرسلة", "of sent") },
+              { key: "delivered", label: t("وصلت (مؤكدة)", "Delivered (confirmed)"), value: campaignOverview.totals.delivered, share: formatRate(campaignOverview.totals.delivered, campaignOverview.totals.sent), of: t("من المُرسلة", "of sent") },
+              { key: "unconfirmed", label: t("بلا إيصال", "No receipt"), value: campaignOverview.totals.unconfirmed, share: formatRate(campaignOverview.totals.unconfirmed, campaignOverview.totals.sent), of: t("من المُرسلة", "of sent") },
               { key: "read", label: t("قُرئت", "Read"), value: campaignOverview.totals.read, share: formatRate(campaignOverview.totals.read, campaignOverview.totals.sent), of: t("من المُرسلة", "of sent") },
               { key: "replied", label: t("ردّ العميل", "Replied"), value: campaignOverview.totals.replied, share: formatRate(campaignOverview.totals.replied, campaignOverview.totals.sent), of: t("من المُرسلة", "of sent") },
               { key: "failed", label: t("فشلت", "Failed"), value: campaignOverview.totals.failed, share: formatRate(campaignOverview.totals.failed, campaignOverview.totals.total), of: t("من الجمهور", "of audience") },
@@ -850,6 +851,11 @@ export default function CampaignsView({
               <small>{t("المُرسلة × سعر الرسالة", "sent × price per message")}</small>
             </article>
           </section>
+          {campaignOverview.totals.unconfirmed > 0 ? (
+            <p className="campaign-receipt-note">
+              {t(`${formatNumber(campaignOverview.totals.unconfirmed)} رسالة قبلها واتساب ولم يصلنا لها إيصال وصول ولا قراءة ولا فشل. غالبًا وصلت، لكن عملاء يوقفون إيصالات القراءة، وحملات سبقت تسجيل إيصالات الوصول لا تُظهر إلا من قرأ. المُرسلة = وصلت المؤكدة + بلا إيصال + فشلت بعد القبول.`, `${formatNumber(campaignOverview.totals.unconfirmed)} messages were accepted by WhatsApp with no delivered, read or failed receipt. Most likely they arrived, but some customers turn read receipts off, and campaigns older than delivery-receipt tracking only show who read. Sent = confirmed delivered + no receipt + failed after acceptance.`)}
+            </p>
+          ) : null}
           {campaignOverview.totals.failureReasons.length ? (
             <p className="campaign-failure-reasons">
               <b>{t("أسباب الفشل:", "Why messages failed:")}</b>{" "}

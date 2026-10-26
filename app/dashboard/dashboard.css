@@ -12472,3 +12472,6 @@ html[dir="ltr"] .notification-bell-panel {
   .profile-compact .account-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .profile-compact .company-name-field { grid-column: 1 / -1; }
+
+.campaign-receipt-note { margin: 0; padding: 10px 14px; border: 1px solid #d9e6e3; border-radius: 12px; background: #f7fbfa; color: #3f5a56; font-size: 14px; line-height: 1.8; }
+.campaign-funnel .funnel-unconfirmed strong { color: #8a6a14; }

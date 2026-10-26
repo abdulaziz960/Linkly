@@ -4,7 +4,7 @@ import { campaignCost, computeCampaignStats, effectiveMessageRate, type Campaign
 /** What one message costs when the workspace has no completed top-up yet: the standard small-volume price. */
 export const DEFAULT_MESSAGE_RATE = 0.03;
 
-type FunnelRow = { campaign_id: string; delivered: unknown; read: unknown; replied: unknown; delivery_failed: unknown; first_sent: string | null };
+type FunnelRow = { campaign_id: string; read_n: unknown; delivered_n: unknown; failed_after_n: unknown; replied_n: unknown; first_sent: string | null };
 
 /**
  * The real numbers of every campaign of a workspace, read from its recipient rows (not from the running counters
@@ -14,15 +14,18 @@ export async function loadCampaignStats(tenantId: string, campaigns: Array<{ id:
   const result = new Map<string, { stats: CampaignStats; cost: number; firstSentAt: string }>();
   if (!campaigns.length) return result;
 
+  // "Read" rows (a read receipt or a click) are counted first and separately; every other count leaves them out,
+  // the same order of checks the campaign report uses, so the numbers on both always agree.
+  const unread = { readAt: "", clickedAt: "" };
   const [statusGroups, failureGroups, funnelRows, payments] = await Promise.all([
-    prisma.campaignRecipient.groupBy({ by: ["campaignId", "status"], where: { tenantId }, _count: { _all: true } }),
-    prisma.campaignRecipient.groupBy({ by: ["campaignId", "error"], where: { tenantId, status: "فشل الإرسال" }, _count: { _all: true } }),
+    prisma.campaignRecipient.groupBy({ by: ["campaignId", "status"], where: { tenantId, ...unread }, _count: { _all: true } }),
+    prisma.campaignRecipient.groupBy({ by: ["campaignId", "error"], where: { tenantId, status: "فشل الإرسال", ...unread }, _count: { _all: true } }),
     prisma.$queryRaw<FunnelRow[]>`
       SELECT campaign_id,
-        SUM(CASE WHEN delivered_at <> '' THEN 1 ELSE 0 END) AS delivered,
-        SUM(CASE WHEN read_at <> '' THEN 1 ELSE 0 END) AS read,
-        SUM(CASE WHEN replied_at <> '' THEN 1 ELSE 0 END) AS replied,
-        SUM(CASE WHEN delivery_failed = 1 THEN 1 ELSE 0 END) AS delivery_failed,
+        SUM(CASE WHEN read_at <> '' OR clicked_at <> '' THEN 1 ELSE 0 END) AS read_n,
+        SUM(CASE WHEN read_at = '' AND clicked_at = '' AND status = 'تم الإرسال' AND delivery_failed = 0 AND delivered_at <> '' THEN 1 ELSE 0 END) AS delivered_n,
+        SUM(CASE WHEN read_at = '' AND clicked_at = '' AND status = 'تم الإرسال' AND delivery_failed = 1 THEN 1 ELSE 0 END) AS failed_after_n,
+        SUM(CASE WHEN replied_at <> '' THEN 1 ELSE 0 END) AS replied_n,
         MIN(CASE WHEN sent_at <> '' THEN sent_at END) AS first_sent
       FROM campaign_recipients
       WHERE tenant_id = ${tenantId}
@@ -39,10 +42,10 @@ export async function loadCampaignStats(tenantId: string, campaigns: Array<{ id:
       total: campaign.total,
       statusCounts: statusGroups.filter((group) => group.campaignId === campaign.id).map((group) => ({ status: group.status, count: group._count._all })),
       failureErrors: failureGroups.filter((group) => group.campaignId === campaign.id).map((group) => ({ error: group.error, count: group._count._all })),
-      deliveredCount: Number(row?.delivered ?? 0),
-      readCount: Number(row?.read ?? 0),
-      repliedCount: Number(row?.replied ?? 0),
-      deliveryFailedCount: Number(row?.delivery_failed ?? 0)
+      readCount: Number(row?.read_n ?? 0),
+      deliveredCount: Number(row?.delivered_n ?? 0),
+      deliveryFailedCount: Number(row?.failed_after_n ?? 0),
+      repliedCount: Number(row?.replied_n ?? 0)
     });
     result.set(campaign.id, { stats, cost: campaignCost(stats.sent, rate), firstSentAt: row?.first_sent ?? "" });
   }

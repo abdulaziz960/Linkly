@@ -30,7 +30,7 @@ type ReportRow = {
 function engagementLabel(bucket: EngagementBucket | null, t: (ar: string, en: string) => string) {
   if (bucket === "clicked") return t("تفاعل", "Clicked");
   if (bucket === "opened") return t("فتحها بدون ضغط", "Opened, no click");
-  if (bucket === "notOpened") return t("ما فتحها", "Not opened");
+  if (bucket === "notOpened") return t("بلا إيصال قراءة", "No read receipt");
   if (bucket === "notReceived") return t("لم يستلم الرسالة", "Didn't receive the message");
   return "-";
 }
@@ -153,7 +153,7 @@ export default function CampaignEngagementReport({ campaignId, campaignName }: {
         </button>
         <button type="button" className={engagementFilter === "notOpened" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "notOpened" ? null : "notOpened"); setPage(1); }}>
           <b>{formatNumber(engagementCounts.notOpened)}</b>
-          <span>{t("ما فتحها", "Not opened")}</span>
+          <span>{t("بلا إيصال قراءة", "No read receipt")}</span>
         </button>
         <button type="button" className={engagementFilter === "opened" ? "engagement-tile active" : "engagement-tile"} onClick={() => { setEngagementFilter((current) => current === "opened" ? null : "opened"); setPage(1); }}>
           <b>{formatNumber(engagementCounts.opened)}</b>

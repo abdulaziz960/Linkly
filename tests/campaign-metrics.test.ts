@@ -20,26 +20,44 @@ describe("send rate", () => {
 });
 
 describe("campaign stats", () => {
-  const completed = computeCampaignStats({
+  // The numbers of a real report: 2,774 recipients, 1,195 read, 439 not received, 1,140 with no receipt.
+  const report = computeCampaignStats({
     total: 2781,
-    statusCounts: [{ status: "تم الإرسال", count: 2774 }, { status: "فشل الإرسال", count: 7 }],
-    deliveredCount: 2600,
-    readCount: 1200,
-    repliedCount: 90,
-    failureErrors: [{ error: "(#131026) Message undeliverable", count: 5 }, { error: OPT_OUT_ERROR, count: 2 }]
+    readCount: 1195,
+    // rows with no read proof: 1,572 accepted (432 later undeliverable) and 7 that failed at send time
+    statusCounts: [{ status: "تم الإرسال", count: 1572 }, { status: "فشل الإرسال", count: 7 }],
+    deliveryFailedCount: 432,
+    deliveredCount: 0,
+    failureErrors: [{ error: "(#131026) Message undeliverable", count: 7 }]
   });
 
-  it("counts failed recipients as failed, not pending", () => {
-    expect(completed.pending).toBe(0);
-    expect(completed.failed).toBe(5);
-    expect(completed.optedOut).toBe(2);
-    expect(completed.sent).toBe(2774);
-    expect(completed.sent + completed.failed + completed.optedOut + completed.pending).toBe(2781);
-    expect(completed.sendRate).toBe(99.7);
+  it("splits the audience into places that add up, and agrees with the report", () => {
+    expect(report.total).toBe(2774);
+    expect(report.read).toBe(1195);
+    expect(report.failed).toBe(439);
+    expect(report.unconfirmed).toBe(1140);
+    expect(report.sent).toBe(2767);
+    expect(report.pending).toBe(0);
+    // read + failed + unconfirmed (+ delivered-unread) = every recipient
+    expect(report.read + report.failed + report.unconfirmed + report.optedOut + report.pending).toBe(report.total);
+  });
+
+  it("takes the audience from the recipient rows, not from a stored counter that drifted", () => {
+    expect(report.total).not.toBe(2781);
+    expect(computeCampaignStats({ total: 50, statusCounts: [] }).total).toBe(50);
+  });
+
+  it("counts a read recipient as received even when a failure was recorded", () => {
+    // The row carries a read receipt, so it is in readCount and nowhere else.
+    const stats = computeCampaignStats({ total: 3, readCount: 1, statusCounts: [{ status: "تم الإرسال", count: 2 }], deliveryFailedCount: 1 });
+    expect(stats.read).toBe(1);
+    expect(stats.failed).toBe(1);
+    expect(stats.unconfirmed).toBe(1);
+    expect(stats.sent).toBe(3);
   });
 
   it("is complete only when nothing is waiting", () => {
-    expect(completed.complete).toBe(true);
+    expect(report.complete).toBe(true);
     const running = computeCampaignStats({ total: 10, statusCounts: [{ status: "تم الإرسال", count: 6 }, { status: "قيد الإرسال", count: 3 }, { status: "جارٍ الإرسال", count: 1 }] });
     expect(running.pending).toBe(4);
     expect(running.complete).toBe(false);
@@ -47,33 +65,42 @@ describe("campaign stats", () => {
   });
 
   it("keeps the funnel ordered: sent >= delivered >= read >= replied", () => {
-    expect(completed.delivered).toBe(2600);
-    expect(completed.read).toBe(1200);
-    expect(completed.replied).toBe(90);
-    const odd = computeCampaignStats({ total: 10, statusCounts: [{ status: "تم الإرسال", count: 10 }], deliveredCount: 3, readCount: 5, deliveryFailedCount: 2 });
-    expect(odd.delivered).toBeGreaterThanOrEqual(odd.read);
-    expect(odd.failed).toBe(2);
+    const stats = computeCampaignStats({ total: 10, readCount: 3, statusCounts: [{ status: "تم الإرسال", count: 7 }], deliveredCount: 4, repliedCount: 2 });
+    expect(stats.sent).toBe(10);
+    expect(stats.delivered).toBe(7);
+    expect(stats.read).toBe(3);
+    expect(stats.replied).toBe(2);
+    expect(stats.unconfirmed).toBe(3);
+    expect(stats.sent).toBeGreaterThanOrEqual(stats.delivered);
+    expect(stats.delivered).toBeGreaterThanOrEqual(stats.read);
   });
 
   it("removes accepted-then-undeliverable messages from delivered and adds them to failed", () => {
-    const stats = computeCampaignStats({ total: 10, statusCounts: [{ status: "تم الإرسال", count: 10 }], deliveredCount: 10, deliveryFailedCount: 4 });
+    const stats = computeCampaignStats({ total: 10, statusCounts: [{ status: "تم الإرسال", count: 10 }], deliveredCount: 6, deliveryFailedCount: 4 });
     expect(stats.delivered).toBe(6);
     expect(stats.failed).toBe(4);
+    expect(stats.unconfirmed).toBe(0);
     expect(stats.failureReasons[0]).toEqual({ key: "recipient_blocked", count: 4 });
   });
 
+  it("keeps opt-outs apart from failures", () => {
+    const stats = computeCampaignStats({ total: 4, statusCounts: [{ status: "فشل الإرسال", count: 4 }], failureErrors: [{ error: OPT_OUT_ERROR, count: 3 }, { error: "(#131026) Message undeliverable", count: 1 }] });
+    expect(stats.optedOut).toBe(3);
+    expect(stats.failed).toBe(1);
+    expect(stats.failureReasons).toEqual([{ key: "unregistered", count: 1 }]);
+  });
+
   it("groups failure reasons", () => {
-    expect(completed.failureReasons).toEqual([{ key: "unregistered", count: 5 }]);
     expect(classifyFailure("الرصيد غير كافٍ")).toBe("insufficient_balance");
     expect(classifyFailure("(#131047) Re-engagement message")).toBe("outside_window");
     expect(classifyFailure("something odd")).toBe("other");
   });
 
   it("adds campaigns up for the page-level cards", () => {
-    const total = sumCampaignStats([completed, computeCampaignStats({ total: 10, statusCounts: [{ status: "تم الإرسال", count: 4 }, { status: "قيد الإرسال", count: 6 }] })]);
-    expect(total.total).toBe(2791);
-    expect(total.sent).toBe(2778);
+    const total = sumCampaignStats([report, computeCampaignStats({ total: 10, statusCounts: [{ status: "تم الإرسال", count: 4 }, { status: "قيد الإرسال", count: 6 }] })]);
+    expect(total.total).toBe(2784);
     expect(total.pending).toBe(6);
+    expect(total.unconfirmed).toBe(1144);
     expect(total.complete).toBe(false);
   });
 });

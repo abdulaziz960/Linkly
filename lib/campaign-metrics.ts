@@ -1,10 +1,14 @@
 /**
- * Campaign numbers in one place, so the page, the table and the engine agree. Everything here is pure.
+ * Campaign numbers in one place, so the page, the table, the report and the engine agree. Everything here is pure.
  *
- * A recipient is in exactly one of four states, and the four always add up to the audience:
- *   total = sent + failed + optedOut + pending
- * "failed" and "optedOut" are our own send-time outcomes; a message WhatsApp accepted ("sent") can still be
- * reported undeliverable later (deliveryFailed), which is counted separately and removes it from "delivered".
+ * Every recipient row lands in exactly one of these places, checked in this order (the same order the campaign report
+ * uses, see lib/campaign-engagement.ts), so the places always add up to the audience:
+ *   1. read       - a read receipt or a tracked click: proof the customer got the message, whatever else is recorded
+ *   2. failed     - we could not send it (or the customer opted out)
+ *   3. pending    - still waiting in the queue
+ *   4. accepted by WhatsApp and then one of: undeliverable later (failed), delivered (a delivered receipt),
+ *      or "unconfirmed" - no receipt either way. Older campaigns have many of these: delivered receipts were not
+ *      stored before the funnel was added, and customers who turn read receipts off never produce a read.
  * The funnel is  sent -> delivered -> read -> replied.
  */
 
@@ -22,9 +26,12 @@ export type CampaignStats = {
   total: number;
   /** Accepted by WhatsApp. */
   sent: number;
+  /** Confirmed by a delivered or read receipt. */
   delivered: number;
   read: number;
   replied: number;
+  /** Accepted by WhatsApp with no delivered, read or failed receipt: most likely delivered, but not confirmed. */
+  unconfirmed: number;
   /** Failed at send time, plus accepted-then-undeliverable. Opt-outs are not counted here. */
   failed: number;
   optedOut: number;
@@ -38,15 +45,18 @@ export type CampaignStats = {
 };
 
 export type CampaignStatsInput = {
+  /** The audience size stored on the campaign: only used when there are no recipient rows to count. */
   total: number;
-  /** Recipient rows per status. */
+  /** Recipient rows per status, NOT counting the rows that already proved receipt (read or clicked). */
   statusCounts: RecipientStatusCount[];
-  /** Of the sent rows: how many have a delivered / read / replied time, and how many were reported undeliverable later. */
-  deliveredCount?: number;
+  /** Rows with a read receipt or a click, whatever their status. */
   readCount?: number;
-  repliedCount?: number;
+  /** Of the accepted rows with no read proof: how many have a delivered receipt, and how many were reported undeliverable. */
+  deliveredCount?: number;
   deliveryFailedCount?: number;
-  /** Failed rows' stored error text, with how many rows carry it. */
+  /** Rows the customer replied to. */
+  repliedCount?: number;
+  /** Failed rows' stored error text (rows without a read proof), with how many rows carry it. */
   failureErrors?: Array<{ error: string; count: number }>;
 };
 
@@ -88,36 +98,38 @@ export function computeCampaignStats(input: CampaignStatsInput): CampaignStats {
   const byStatus = new Map<string, number>();
   for (const { status, count } of input.statusCounts) byStatus.set(status, (byStatus.get(status) ?? 0) + count);
 
-  const sent = byStatus.get(STATUS_SENT) ?? 0;
+  const read = Math.max(0, input.readCount ?? 0);
+  const acceptedUnread = byStatus.get(STATUS_SENT) ?? 0;
   const pending = (byStatus.get(STATUS_PENDING) ?? 0) + (byStatus.get(STATUS_SENDING) ?? 0);
   const failedRows = byStatus.get(STATUS_FAILED) ?? 0;
 
   const failureErrors = input.failureErrors ?? [];
   const optedOut = Math.min(failedRows, failureErrors.filter((item) => item.error === OPT_OUT_ERROR).reduce((sum, item) => sum + item.count, 0));
   const sendFailed = failedRows - optedOut;
-  const deliveryFailed = Math.min(sent, input.deliveryFailedCount ?? 0);
-
-  // Accepted-then-undeliverable messages are not delivered; a read or replied receipt implies delivery.
-  const read = Math.min(sent, input.readCount ?? 0);
-  const replied = Math.min(sent, input.repliedCount ?? 0);
-  const delivered = Math.max(read, Math.min(sent - deliveryFailed, input.deliveredCount ?? 0));
+  const failedAfterAccept = Math.min(acceptedUnread, Math.max(0, input.deliveryFailedCount ?? 0));
+  const deliveredUnread = Math.min(acceptedUnread - failedAfterAccept, Math.max(0, input.deliveredCount ?? 0));
+  const unconfirmed = acceptedUnread - failedAfterAccept - deliveredUnread;
 
   const reasons = groupFailureReasons(failureErrors);
-  if (deliveryFailed) {
+  if (failedAfterAccept) {
     const existing = reasons.find((reason) => reason.key === "recipient_blocked");
-    if (existing) existing.count += deliveryFailed;
-    else reasons.push({ key: "recipient_blocked", count: deliveryFailed });
+    if (existing) existing.count += failedAfterAccept;
+    else reasons.push({ key: "recipient_blocked", count: failedAfterAccept });
     reasons.sort((a, b) => b.count - a.count);
   }
 
-  const total = Math.max(input.total, sent + sendFailed + optedOut + pending);
+  const rows = read + acceptedUnread + pending + failedRows;
+  // The recipient rows are the truth. The stored audience size can be off (a counter that drifted, rows removed later).
+  const total = rows > 0 ? rows : Math.max(0, input.total);
+  const sent = read + acceptedUnread;
   return {
     total,
     sent,
-    delivered,
+    delivered: read + deliveredUnread,
     read,
-    replied,
-    failed: sendFailed + deliveryFailed,
+    replied: Math.min(sent, Math.max(0, input.repliedCount ?? 0)),
+    unconfirmed,
+    failed: sendFailed + failedAfterAccept,
     optedOut,
     pending,
     sendRate: formatRate(sent, total),
@@ -135,11 +147,12 @@ export function sumCampaignStats(all: CampaignStats[]): CampaignStats {
       delivered: acc.delivered + stats.delivered,
       read: acc.read + stats.read,
       replied: acc.replied + stats.replied,
+      unconfirmed: acc.unconfirmed + stats.unconfirmed,
       failed: acc.failed + stats.failed,
       optedOut: acc.optedOut + stats.optedOut,
       pending: acc.pending + stats.pending
     }),
-    { total: 0, sent: 0, delivered: 0, read: 0, replied: 0, failed: 0, optedOut: 0, pending: 0 }
+    { total: 0, sent: 0, delivered: 0, read: 0, replied: 0, unconfirmed: 0, failed: 0, optedOut: 0, pending: 0 }
   );
   const reasonTotals = new Map<FailureReasonKey, number>();
   for (const stats of all) for (const reason of stats.failureReasons) reasonTotals.set(reason.key, (reasonTotals.get(reason.key) ?? 0) + reason.count);

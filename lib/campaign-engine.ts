@@ -358,6 +358,10 @@ export async function spawnCampaignOccurrence(tx: Prisma.TransactionClient, para
   tags?: string;
 }): Promise<string> {
   const campaignId = `camp-${randomUUID()}`;
+  // One row per phone: a duplicate would share its id with the first and silently not be created, leaving the stored
+  // audience size higher than the recipients that exist.
+  const seenPhones = new Set<string>();
+  const recipients = params.recipients.filter((recipient) => (seenPhones.has(recipient.phone) ? false : (seenPhones.add(recipient.phone), true)));
   await tx.campaign.create({
     data: {
       id: campaignId,
@@ -369,7 +373,7 @@ export async function spawnCampaignOccurrence(tx: Prisma.TransactionClient, para
       scheduledAt: params.scheduledAt || "",
       headerMediaDataUrl: params.headerMediaDataUrl,
       sent: 0,
-      total: params.recipients.length,
+      total: recipients.length,
       progress: "0%",
       status: params.status,
       recurrenceId: params.recurrenceId || "",
@@ -381,7 +385,7 @@ export async function spawnCampaignOccurrence(tx: Prisma.TransactionClient, para
     }
   });
   await tx.campaignRecipient.createMany({
-    data: params.recipients.map((recipient) => ({
+    data: recipients.map((recipient) => ({
       id: `cr-${campaignId}-${recipient.phone}`,
       campaignId,
       tenantId: params.tenantId,
