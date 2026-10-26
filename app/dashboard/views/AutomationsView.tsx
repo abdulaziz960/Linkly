@@ -573,19 +573,6 @@ export default function AutomationsView({
     }
   }
 
-  async function deleteRule(rule: AutomationRule) {
-    if (!(await confirmDialog(t(`حذف ${rule.name}؟`, `Delete ${rule.name}?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    setFeedback(null);
-    try {
-      const response = await fetch(`/api/automations/${rule.id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error(t("تعذر حذف القاعدة.", "Could not delete the rule."));
-      await onRefreshData();
-      setFeedback({ type: "success", message: t("تم حذف القاعدة.", "Rule deleted.") });
-    } catch (error) {
-      setFeedback({ type: "error", message: error instanceof Error ? error.message : t("تعذر حذف القاعدة.", "Could not delete the rule.") });
-    }
-  }
-
   const enabledCount = automationRules.filter((rule) => rule.enabled).length;
   const totalActions = automationRules.reduce((total, rule) => total + Math.max(1, rule.actions?.length || 0), 0);
 
@@ -744,7 +731,6 @@ export default function AutomationsView({
                   <div>
                     <button type="button" onClick={() => openForm(rule)}>✎ {t("تعديل", "Edit")}</button>
                     <button type="button" onClick={() => openForm(rule, true)}>⧉ {t("نسخ", "Duplicate")}</button>
-                    <button className="danger" type="button" onClick={() => void deleteRule(rule)}>⌫ {t("حذف", "Delete")}</button>
                   </div>
                 </div>
               </article>
