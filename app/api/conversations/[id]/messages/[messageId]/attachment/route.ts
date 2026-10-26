@@ -11,7 +11,7 @@ type RouteContext = { params: Promise<{ id: string; messageId: string }> };
 
 const DELETED_MESSAGE_TEXT = "تم حذف هذه الرسالة";
 
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(_request: NextRequest, context: RouteContext) {
   const { id, messageId } = await context.params;
   const user = await getCurrentUser();
   if (!user) return jsonError("يلزم تسجيل الدخول", 401);
@@ -33,17 +33,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!parsed) return jsonError("المرفق غير موجود", 404);
 
   const mimeType = (message.attachmentMime || parsed.mimeType || "").toLowerCase();
-  const headers = attachmentResponseHeaders(mimeType, message.attachmentName || "attachment", parsed.bytes.length);
-  headers["Accept-Ranges"] = "bytes";
-  // Video players (Safari above all) ask for the file in byte ranges.
-  const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get("range") ?? "");
-  if (range && (range[1] || range[2])) {
-    const total = parsed.bytes.length;
-    const start = range[1] ? Number(range[1]) : Math.max(0, total - Number(range[2]));
-    const end = range[1] && range[2] ? Math.min(Number(range[2]), total - 1) : total - 1;
-    if (start >= total || start > end) return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${total}` } });
-    const slice = parsed.bytes.subarray(start, end + 1);
-    return new Response(new Uint8Array(slice), { status: 206, headers: { ...headers, "Content-Length": String(slice.length), "Content-Range": `bytes ${start}-${end}/${total}` } });
-  }
-  return new Response(new Uint8Array(parsed.bytes), { status: 200, headers });
+  return new Response(new Uint8Array(parsed.bytes), {
+    status: 200,
+    headers: attachmentResponseHeaders(mimeType, message.attachmentName || "attachment", parsed.bytes.length)
+  });
 }
