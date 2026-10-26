@@ -4,6 +4,7 @@ import { notify } from "../../../lib/ui-dialogs";
 import { useDataLoading } from "../data-loading-context";
 import { EmptyState, SkeletonLines } from "../components/StateBlocks";
 
+import { PageHero } from "../components/PageHero";
 import AdSourceBanner from "../components/AdSourceBanner";
 import LeadStatusControl from "../components/LeadStatusControl";
 import ConversationStoreOrders from "../components/ConversationStoreOrders";
@@ -75,6 +76,7 @@ type InboxViewProps = {
   onSendCommentReply: (messageId: string, text: string) => void | Promise<void>;
   onSendTemplate: (templateName?: string) => void | Promise<void>;
   onSetMobileChatOpen: (isOpen: boolean) => void;
+  onOpenByPhone?: (phone: string, name?: string) => void | Promise<void>;
 };
 
 function readFileAsDataUrl(file: File | Blob) {
@@ -291,6 +293,7 @@ export default function InboxView({
   chatPanel,
   composerMode,
   counts,
+  onOpenByPhone,
   filter,
   message,
   mobileChatOpen,
@@ -338,6 +341,17 @@ export default function InboxView({
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const emojiSearchInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [wide, setWide] = useState(false);
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newChatPhone, setNewChatPhone] = useState("");
+  const [newChatName, setNewChatName] = useState("");
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1280px)");
+    const sync = () => setWide(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -948,8 +962,142 @@ export default function InboxView({
     setCommentReplyText("");
   }
 
+  const profileBlock = hasActiveConversation ? (
+          <div className="profile-panel" style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", alignContent: "start" }}>
+    <div className="profile-card">
+      <h2>{t("بيانات العميل", "Customer details")}</h2>
+      {activeConversation.attrPageId ? <section aria-label={t("مصدر العميل", "Customer attribution")}>
+        <h3>{t("مصدر العميل", "Customer attribution")}</h3>
+        <dl>
+          {[
+            [t("الصفحة", "Page"), activeConversation.attrPageId],
+            [t("الرابط", "Link"), activeConversation.attrLinkId],
+            [t("الزر", "Button"), activeConversation.attrButtonId],
+            [t("المصدر", "Source"), activeConversation.attrUtmSource],
+            [t("الوسيط", "Medium"), activeConversation.attrUtmMedium],
+            [t("الحملة", "Campaign"), activeConversation.attrUtmCampaign],
+            [t("المحتوى", "Content"), activeConversation.attrUtmContent],
+            [t("المُحيل", "Referrer"), activeConversation.attrReferrer]
+          ].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd dir="auto">{value}</dd></div>)}
+        </dl>
+      </section> : null}
+      <dl>
+        <div>
+          <dt>{t("الاسم", "Name")}</dt>
+          <dd>{activeConversation.customer}</dd>
+        </div>
+        <div>
+          <dt>{t("القناة", "Channel")}</dt>
+          <dd>{getChannelLabel(activeConversation, language)}</dd>
+        </div>
+        <div>
+          <dt>
+            {activeConversation.channel === "whatsapp" || activeConversation.channel === "sms"
+              ? t("رقم الجوال", "Phone number")
+              : activeConversation.channel === "instagram"
+                ? t("معرّف إنستغرام", "Instagram ID")
+                : activeConversation.channel === "facebook"
+                  ? t("معرف فيسبوك", "Facebook ID")
+                  : activeConversation.channel === "telegram"
+                    ? t("معرف تيليجرام", "Telegram ID")
+                    : activeConversation.channel === "google_maps"
+                      ? t("معرّف تقييم جوجل", "Google Review ID")
+                      : activeConversation.channel === "email"
+                        ? t("البريد الإلكتروني", "Email")
+                        : activeConversation.channel === "website"
+                          ? t("معرّف الزائر", "Visitor ID")
+                          : activeConversation.channel === "tiktok"
+                            ? t("معرّف تيك توك", "TikTok ID")
+                            : activeConversation.channel === "x"
+                              ? t("معرّف إكس", "X ID")
+                              : activeConversation.channel === "youtube"
+                                ? t("معرّف قناة يوتيوب", "YouTube channel ID")
+                                : activeConversation.channel === "linkedin"
+                                  ? t("معرّف حساب لينكد إن", "LinkedIn member ID")
+                                  : activeConversation.channel === "snapchat"
+                                    ? t("معرّف نموذج سناب شات", "Snapchat lead form ID")
+                                    : t("المعرف", "ID")}
+          </dt>
+          <dd dir="ltr">{(() => {
+            // A phone number is a link: tapping it dials the number (WhatsApp and SMS contacts only).
+            const digits = String(activeConversation.phone || "").replace(/\D/g, "").replace(/^00/, "");
+            return (activeConversation.channel === "whatsapp" || activeConversation.channel === "sms") && digits.length >= 8 && digits.length <= 15
+              ? <a className="phone-call-link" href={`tel:+${digits}`} aria-label={t(`اتصال بالرقم ${activeConversation.phone}`, `Call ${activeConversation.phone}`)}>{activeConversation.phone}</a>
+              : activeConversation.phone;
+          })()}</dd>
+        </div>
+        {activeConversation.handle ? (
+          <div>
+            <dt>{t("اسم المستخدم", "Username")}</dt>
+            <dd dir="ltr">{activeConversation.handle}</dd>
+          </div>
+        ) : null}
+        {activeConversation.channel === "whatsapp" ? (
+          <div>
+            <ConversationStoreOrders conversationId={activeConversation.id} />
+          </div>
+        ) : null}
+        <div>
+          <dt>{t("حالة العميل المحتمل", "Lead status")}</dt>
+          <dd><LeadStatusControl conversationId={activeConversation.id} /></dd>
+        </div>
+        <div>
+          <dt>{t("الوسوم", "Tags")}</dt>
+          <dd className="profile-tags-field">
+            <CustomSelect
+              placeholder={availableTags.length ? t("اختر وسم", "Choose a tag") : t("لا توجد وسوم متاحة", "No tags available")}
+              disabled={!hasActiveConversation || !availableTags.length}
+              value=""
+              onChange={(value) => {
+                void handleAddTag(value);
+              }}
+              options={availableTags.map((tag) => ({ value: tag.name, label: tag.name }))}
+            />
+            <div className="profile-tag-list">
+              {activeConversation.tags.length ? (
+                activeConversation.tags.map((tagName) => (
+                  <button key={tagName} type="button" onClick={() => void handleRemoveTag(tagName)}>
+                    {tagName}
+                    <span aria-hidden="true">×</span>
+                  </button>
+                ))
+              ) : (
+                <span>{t("لا توجد وسوم", "No tags")}</span>
+              )}
+            </div>
+          </dd>
+        </div>
+      </dl>
+    </div>
+    <div className="profile-card">
+      <h2>{t("سجل العميل", "Customer history")}</h2>
+      <p><span>{t("المسؤول", "Assigned to")}</span><b>{activeConversation.assignee}</b></p>
+      <p><span>{t("آخر رسالة", "Last message")}</span><b className="profile-last">{isDeletedMessageText(activeConversation.lastMessage) ? t("تم حذف هذه الرسالة", "This message was deleted") : activeConversation.lastMessage}</b></p>
+    </div>
+  </div>
+  ) : null;
+
   return (
-    <section className={`inbox-grid ${mobileChatOpen ? "chat-open" : ""}`}>
+    <div className="inbox-page">
+    <PageHero
+      headingLevel="h2"
+      eyebrow={t("المحادثات", "Conversations")}
+      title={t("صندوق الوارد", "Inbox")}
+      description={t("كل رسائل عملائك من كل القنوات في مكان واحد، مع إسناد وتصعيد ومتابعة.", "All customer messages from every channel in one place, with assignment, escalation and follow-up.")}
+      chips={[t(`${counts.all} محادثة`, `${counts.all} conversations`), t(`${counts.escalated} تصعيد`, `${counts.escalated} escalated`), t(`${counts.unread} غير مقروءة`, `${counts.unread} unread`)]}
+      action={<><button className="camp-hero-new" type="button" onClick={() => setNewChatOpen(true)}>{t("＋ محادثة جديدة", "+ New conversation")}</button><label className="camp-hero-search"><input value={search} onChange={(event) => onChangeSearch(event.target.value)} placeholder={t("ابحث بالاسم أو الجوال أو نص الرسالة...", "Search name, phone or message...")} aria-label={t("بحث في المحادثات", "Search conversations")} /></label></>}
+    />
+    {newChatOpen ? (
+      <div className="inbox-newchat" role="dialog" aria-modal="true" aria-label={t("محادثة جديدة", "New conversation")} onClick={(event) => { if (event.target === event.currentTarget) setNewChatOpen(false); }}>
+        <form onSubmit={(event) => { event.preventDefault(); void onOpenByPhone?.(newChatPhone.trim(), newChatName.trim() || undefined); setNewChatOpen(false); setNewChatPhone(""); setNewChatName(""); }}>
+          <h2>{t("محادثة جديدة", "New conversation")}</h2>
+          <label>{t("رقم الجوال", "Phone number")}<input dir="ltr" required inputMode="tel" value={newChatPhone} onChange={(event) => setNewChatPhone(event.target.value)} placeholder="966501112233" /></label>
+          <label>{t("الاسم (اختياري)", "Name (optional)")}<input value={newChatName} onChange={(event) => setNewChatName(event.target.value)} /></label>
+          <div><button className="btn primary" type="submit" disabled={!newChatPhone.trim()}>{t("فتح المحادثة", "Open conversation")}</button><button className="btn secondary" type="button" onClick={() => setNewChatOpen(false)}>{t("إلغاء", "Cancel")}</button></div>
+        </form>
+      </div>
+    ) : null}
+    <section className={`inbox-grid ${mobileChatOpen ? "chat-open" : ""} ${wide && hasActiveConversation ? "has-side" : ""}`}>
       <aside className="conversation-column">
         <div className="column-head">
           <div className="inbox-title">
@@ -958,6 +1106,9 @@ export default function InboxView({
           </div>
         </div>
         <div className="conversation-tabs" role="tablist" aria-label={t("حالات المحادثات", "Conversation states")}>
+          {tabsMode !== "employee" ? (
+            <FilterButton active={filter === "all"} count={counts.all} label={t("الكل", "All")} onClick={() => onChangeFilter("all")} />
+          ) : null}
           <FilterButton
             active={filter === "mine"}
             count={counts.mine}
@@ -972,9 +1123,6 @@ export default function InboxView({
               onClick={() => onChangeFilter("escalated")}
               tone="danger"
             />
-          ) : null}
-          {tabsMode !== "employee" ? (
-            <FilterButton active={filter === "all"} count={counts.all} label={t("الكل", "All")} onClick={() => onChangeFilter("all")} />
           ) : null}
           <FilterButton
             active={filter === "unread"}
@@ -1111,18 +1259,14 @@ export default function InboxView({
                 onSetMobileChatOpen(true);
               }}
             >
-              <span className="avatar">{conversation.initial}</span>
+              <span className="avatar-wrap">
+                <span className="avatar">{conversation.initial}</span>
+                <em className={`channel-dot ${conversation.channel || "whatsapp"}`} title={getChannelLabel(conversation, language)}><ChannelIcon id={conversation.channel || "whatsapp"} /></em>
+              </span>
               <span className="conversation-copy">
-                <em className={`channel-badge ${conversation.channel || "whatsapp"}`} title={getChannelLabel(conversation, language)}>
-                  <ChannelIcon id={conversation.channel || "whatsapp"} />
-                  <span>{getChannelLabel(conversation, language)}</span>
-                </em>
-                {tabsMode !== "employee" && conversation.assignee && conversation.assignee !== "بدون موظف" ? (
-                  <span className="conversation-assignee-inline">{conversation.assignee}</span>
-                ) : null}
                 <span className="conversation-card-title"><b>{conversation.customer}</b></span>
                 <small title={previewWithDirection}>{previewWithDirection}</small>
-                <span className="conversation-card-foot"><em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : priority === "high" ? t("مرتفعة", "High") : t("عادية", "Normal")}</em></span>
+                {conversation.tags.length || priority !== "normal" ? <span className="conversation-card-foot">{priority !== "normal" ? <em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : t("مرتفعة", "High")}</em> : null}{conversation.tags.slice(0, 2).map((tag) => <em key={tag} className="tag-chip">{tag}</em>)}</span> : null}
               </span>
               <span className="conversation-meta">
                 {conversation.unread ? <strong>{conversation.unread}</strong> : null}
@@ -1137,7 +1281,6 @@ export default function InboxView({
                     {lastTimeLabel}
                   </time>
                 ) : null}
-                <em className={`status-pill ${conversation.status}`}>{statusLabel(conversation.status, language)}</em>
               </span>
             </button>
             );
@@ -1237,7 +1380,7 @@ export default function InboxView({
           <button className="mobile-back" type="button" onClick={() => onSetMobileChatOpen(false)}>
             {t("رجوع", "Back")}
           </button>
-          <span className="avatar">{activeConversation.initial}</span>
+          <span className="avatar-wrap"><span className="avatar">{activeConversation.initial}</span><em className={`channel-dot ${activeConversation.channel || "whatsapp"}`}><ChannelIcon id={activeConversation.channel || "whatsapp"} /></em></span>
            <button className="chat-customer" type="button" onClick={() => onChangeChatPanel("profile")}>
             <small className={`channel-badge ${activeConversation.channel || "whatsapp"}`}>
               <ChannelIcon id={activeConversation.channel || "whatsapp"} />
@@ -1247,39 +1390,41 @@ export default function InboxView({
              {activeConversation.handle ? <small className="chat-customer-handle" dir="ltr">{activeConversation.handle}</small> : null}
              <span className={`chat-status-label ${activeConversation.status}`}>{statusLabel(activeConversation.status, language)}</span>
            </button>
-          <label>
-            {t("مسند إلى", "Assigned to")}
-            {canChangeAssignee ? (
-              <CustomSelect
-                value={activeConversation.assignee}
-                onChange={onChangeAssignee}
-                options={assigneeOptions.map((member) => ({ value: member, label: member }))}
-              />
-            ) : (
-              <span className="readonly-assignee">{activeConversation.assignee}</span>
-            )}
-          </label>
-          <button
-            className={isClosed ? "btn soft" : "btn danger"}
-            disabled={!canToggleConversation}
-            title={!canToggleConversation ? t("فتح المحادثة متاح للمالك أو المشرف فقط", "Only the owner or a supervisor can reopen a conversation") : undefined}
-            type="button"
-            onClick={onCloseConversation}
-          >
-            {isClosed ? (canReopenConversation ? t("فتح المحادثة", "Reopen conversation") : t("مغلقة", "Closed")) : t("إغلاق", "Close")}
-          </button>
+          <div className="chat-head-actions">
+            <label className="assign-field">
+              {t("مسند إلى", "Assigned to")}
+              {canChangeAssignee ? (
+                <CustomSelect
+                  value={activeConversation.assignee}
+                  onChange={onChangeAssignee}
+                  options={assigneeOptions.map((member) => ({ value: member, label: member }))}
+                />
+              ) : (
+                <span className="readonly-assignee">{activeConversation.assignee}</span>
+              )}
+            </label>
+            <button
+              className={`chat-close-btn ${isClosed ? "btn soft" : "btn danger"}`}
+              disabled={!canToggleConversation}
+              title={!canToggleConversation ? t("فتح المحادثة متاح للمالك أو المشرف فقط", "Only the owner or a supervisor can reopen a conversation") : undefined}
+              type="button"
+              onClick={onCloseConversation}
+            >
+              {isClosed ? (canReopenConversation ? t("فتح المحادثة", "Reopen conversation") : t("مغلقة", "Closed")) : t("إغلاق", "Close")}
+            </button>
+          </div>
         </div>
 
-        <div className="chat-tabs">
+        {!wide ? <div className="chat-tabs">
           <button className={chatPanel === "chat" ? "active" : ""} type="button" onClick={() => onChangeChatPanel("chat")}>
             {t("المحادثة", "Conversation")}
           </button>
           <button className={chatPanel === "profile" ? "active" : ""} type="button" onClick={() => onChangeChatPanel("profile")}>
             {t("ملف العميل", "Customer profile")}
           </button>
-        </div>
+        </div> : null}
 
-        {chatPanel === "chat" ? (
+        {chatPanel === "chat" || wide ? (
           <div className="chat-panel">
             <AdSourceBanner conversationId={activeConversation.id} />
             <div className="messages" ref={messagesContainerRef}>
@@ -1733,122 +1878,40 @@ export default function InboxView({
             )}
           </div>
         ) : (
-          <div className="profile-panel" style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", alignContent: "start" }}>
-            <div className="profile-card">
-              <h2>{t("بيانات العميل", "Customer details")}</h2>
-              {activeConversation.attrPageId ? <section aria-label={t("مصدر العميل", "Customer attribution")}>
-                <h3>{t("مصدر العميل", "Customer attribution")}</h3>
-                <dl>
-                  {[
-                    [t("الصفحة", "Page"), activeConversation.attrPageId],
-                    [t("الرابط", "Link"), activeConversation.attrLinkId],
-                    [t("الزر", "Button"), activeConversation.attrButtonId],
-                    [t("المصدر", "Source"), activeConversation.attrUtmSource],
-                    [t("الوسيط", "Medium"), activeConversation.attrUtmMedium],
-                    [t("الحملة", "Campaign"), activeConversation.attrUtmCampaign],
-                    [t("المحتوى", "Content"), activeConversation.attrUtmContent],
-                    [t("المُحيل", "Referrer"), activeConversation.attrReferrer]
-                  ].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd dir="auto">{value}</dd></div>)}
-                </dl>
-              </section> : null}
-              <dl>
-                <div>
-                  <dt>{t("الاسم", "Name")}</dt>
-                  <dd>{activeConversation.customer}</dd>
-                </div>
-                <div>
-                  <dt>{t("القناة", "Channel")}</dt>
-                  <dd>{getChannelLabel(activeConversation, language)}</dd>
-                </div>
-                <div>
-                  <dt>
-                    {activeConversation.channel === "whatsapp" || activeConversation.channel === "sms"
-                      ? t("رقم الجوال", "Phone number")
-                      : activeConversation.channel === "instagram"
-                        ? t("معرّف إنستغرام", "Instagram ID")
-                        : activeConversation.channel === "facebook"
-                          ? t("معرف فيسبوك", "Facebook ID")
-                          : activeConversation.channel === "telegram"
-                            ? t("معرف تيليجرام", "Telegram ID")
-                            : activeConversation.channel === "google_maps"
-                              ? t("معرّف تقييم جوجل", "Google Review ID")
-                              : activeConversation.channel === "email"
-                                ? t("البريد الإلكتروني", "Email")
-                                : activeConversation.channel === "website"
-                                  ? t("معرّف الزائر", "Visitor ID")
-                                  : activeConversation.channel === "tiktok"
-                                    ? t("معرّف تيك توك", "TikTok ID")
-                                    : activeConversation.channel === "x"
-                                      ? t("معرّف إكس", "X ID")
-                                      : activeConversation.channel === "youtube"
-                                        ? t("معرّف قناة يوتيوب", "YouTube channel ID")
-                                        : activeConversation.channel === "linkedin"
-                                          ? t("معرّف حساب لينكد إن", "LinkedIn member ID")
-                                          : activeConversation.channel === "snapchat"
-                                            ? t("معرّف نموذج سناب شات", "Snapchat lead form ID")
-                                            : t("المعرف", "ID")}
-                  </dt>
-                  <dd dir="ltr">{(() => {
-                    // A phone number is a link: tapping it dials the number (WhatsApp and SMS contacts only).
-                    const digits = String(activeConversation.phone || "").replace(/\D/g, "").replace(/^00/, "");
-                    return (activeConversation.channel === "whatsapp" || activeConversation.channel === "sms") && digits.length >= 8 && digits.length <= 15
-                      ? <a className="phone-call-link" href={`tel:+${digits}`} aria-label={t(`اتصال بالرقم ${activeConversation.phone}`, `Call ${activeConversation.phone}`)}>{activeConversation.phone}</a>
-                      : activeConversation.phone;
-                  })()}</dd>
-                </div>
-                {activeConversation.handle ? (
-                  <div>
-                    <dt>{t("اسم المستخدم", "Username")}</dt>
-                    <dd dir="ltr">{activeConversation.handle}</dd>
-                  </div>
-                ) : null}
-                {activeConversation.channel === "whatsapp" ? (
-                  <div>
-                    <ConversationStoreOrders conversationId={activeConversation.id} />
-                  </div>
-                ) : null}
-                <div>
-                  <dt>{t("حالة العميل المحتمل", "Lead status")}</dt>
-                  <dd><LeadStatusControl conversationId={activeConversation.id} /></dd>
-                </div>
-                <div>
-                  <dt>{t("الوسوم", "Tags")}</dt>
-                  <dd className="profile-tags-field">
-                    <CustomSelect
-                      placeholder={availableTags.length ? t("اختر وسم", "Choose a tag") : t("لا توجد وسوم متاحة", "No tags available")}
-                      disabled={!hasActiveConversation || !availableTags.length}
-                      value=""
-                      onChange={(value) => {
-                        void handleAddTag(value);
-                      }}
-                      options={availableTags.map((tag) => ({ value: tag.name, label: tag.name }))}
-                    />
-                    <div className="profile-tag-list">
-                      {activeConversation.tags.length ? (
-                        activeConversation.tags.map((tagName) => (
-                          <button key={tagName} type="button" onClick={() => void handleRemoveTag(tagName)}>
-                            {tagName}
-                            <span aria-hidden="true">×</span>
-                          </button>
-                        ))
-                      ) : (
-                        <span>{t("لا توجد وسوم", "No tags")}</span>
-                      )}
-                    </div>
-                  </dd>
-                </div>
-              </dl>
-            </div>
-            <div className="profile-card">
-              <h2>{t("سجل العميل", "Customer history")}</h2>
-              <p>{t("آخر محادثة: ", "Last conversation: ")}{isDeletedMessageText(activeConversation.lastMessage) ? t("تم حذف هذه الرسالة", "This message was deleted") : activeConversation.lastMessage}</p>
-              <p>{t("الموظف المسؤول: ", "Assigned employee: ")}{activeConversation.assignee}</p>
-            </div>
-          </div>
+          profileBlock
         )}
           </>
         )}
       </section>
+      {wide && hasActiveConversation ? <aside className="inbox-side">
+        <div className="inbox-side-head"><span className="avatar">{activeConversation.initial}</span><b>{activeConversation.customer}</b><small className={`channel-pill ${activeConversation.channel || "whatsapp"}`}><i />{getChannelLabel(activeConversation, language)}</small></div>
+        <dl className="side-rows">
+          <div><dt>{t("الجوال", "Phone")}</dt><dd dir="ltr">{activeConversation.phone}</dd></div>
+          <div><dt>{t("المسؤول", "Assigned to")}</dt><dd>{activeConversation.assignee}</dd></div>
+          <div><dt>{t("الحالة", "Lead status")}</dt><dd><LeadStatusControl conversationId={activeConversation.id} /></dd></div>
+        </dl>
+        {activeConversation.attrPageId ? <section className="side-source" aria-label={t("مصدر العميل", "Customer attribution")}>
+          <h3 className="side-title">{t("مصدر العميل", "Customer attribution")}</h3>
+          <dl className="side-rows">
+            {[
+              [t("الصفحة", "Page"), activeConversation.attrPageId],
+              [t("الرابط", "Link"), activeConversation.attrLinkId],
+              [t("الزر", "Button"), activeConversation.attrButtonId],
+              [t("المصدر", "Source"), activeConversation.attrUtmSource],
+              [t("الوسيط", "Medium"), activeConversation.attrUtmMedium],
+              [t("الحملة", "Campaign"), activeConversation.attrUtmCampaign],
+              [t("المحتوى", "Content"), activeConversation.attrUtmContent],
+              [t("المُحيل", "Referrer"), activeConversation.attrReferrer]
+            ].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd dir="auto">{value}</dd></div>)}
+          </dl>
+        </section> : null}
+        <h3 className="side-title">{t("الوسوم", "Tags")}</h3>
+        <div className="side-tags">
+          {activeConversation.tags.map((tagName) => <button key={tagName} type="button" className="side-tag" title={t("إزالة الوسم", "Remove tag")} onClick={() => void handleRemoveTag(tagName)}>{tagName}</button>)}
+          {availableTags.length ? <CustomSelect placeholder={t("＋ وسم", "+ Tag")} value="" onChange={(value) => { void handleAddTag(value); }} options={availableTags.map((tag) => ({ value: tag.name, label: tag.name }))} /> : null}
+        </div>
+      </aside> : null}
     </section>
+    </div>
   );
 }

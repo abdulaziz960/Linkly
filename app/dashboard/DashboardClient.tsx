@@ -1582,6 +1582,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
         {!navRestored ? null : activeView === "inbox" ? (
           <InboxView
+            onOpenByPhone={handleOpenConversationByPhone}
             activeConversation={activeConversation}
             assigneeOptions={[...employees.map((employee) => employee.name), "بدون موظف"]}
             canChangeAssignee={canViewAllConversations}
