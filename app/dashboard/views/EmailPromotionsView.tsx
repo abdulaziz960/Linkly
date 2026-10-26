@@ -1,9 +1,9 @@
 "use client";
 
 import { formatNumber } from "../../../lib/format";
-import PageHeader from "../components/PageHeader";
+import CustomSelect from "../../components/CustomSelect";
 import EmailInsights from "../components/EmailInsights";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Conversation, Customer, EmailCampaignSummary, Tag } from "../types";
 import { useLanguage } from "../i18n";
 
@@ -66,6 +66,10 @@ function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+function statusColor(status: string) {
+  return ({ all: "#91a29e", draft: "#91a29e", scheduled: "#4a90d9", sending: "#f0ad4e", sent: "#2e9e6b", failed: "#d9534f", cancelled: "#d9534f" } as Record<string, string>)[status] || "#91a29e";
+}
+
 function statusLabel(status: string, t: (ar: string, en: string) => string) {
   if (status === "draft") return t("مسودة", "Draft");
   if (status === "scheduled") return t("مجدولة", "Scheduled");
@@ -89,7 +93,7 @@ function paymentStatusLabel(status: string, t: (ar: string, en: string) => strin
   return t("قيد الانتظار", "Pending");
 }
 
-export default function EmailPromotionsView({ customers, conversations, tags }: { customers: Customer[]; conversations: Conversation[]; tags: Tag[] }) {
+export default function EmailPromotionsView({ customers, conversations, tags, hubTabs }: { customers: Customer[]; conversations: Conversation[]; tags: Tag[]; hubTabs?: ReactNode }) {
   const { t } = useLanguage();
   const editorRef = useRef<HTMLDivElement>(null);
   const [campaigns, setCampaigns] = useState<EmailCampaignSummary[]>([]);
@@ -102,6 +106,7 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
   });
   const [emailSegments, setEmailSegments] = useState<Array<{ id: string; name: string; recipientCount: number }>>([]);
   const [listSearch, setListSearch] = useState("");
+  const [period, setPeriod] = useState("all");
   const [listFrom, setListFrom] = useState("");
   const [listTo, setListTo] = useState("");
   const [activeTab, setActiveTab] = useState<(typeof statusTabs)[number]>("all");
@@ -134,6 +139,19 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
     const query = listSearch.trim().toLowerCase();
     return !query || campaign.name.toLowerCase().includes(query) || campaign.subject.toLowerCase().includes(query);
   });
+
+  function applyEmailPeriod(value: string) {
+    setPeriod(value);
+    const now = new Date();
+    const iso = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    if (value === "all") { setListFrom(""); setListTo(""); return; }
+    const from = new Date(now);
+    if (value === "week") from.setDate(from.getDate() - 6);
+    if (value === "month") from.setDate(1);
+    if (value === "year") { from.setMonth(0); from.setDate(1); }
+    setListFrom(iso(from));
+    setListTo(iso(now));
+  }
 
   async function exportCampaigns() {
     const ExcelJS = await import("exceljs");
@@ -321,25 +339,36 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
 
   return (
     <section className="page-stack campaigns-page">
-      <PageHeader
-        variant="campaigns"
-        eyebrow={t("مركز البريد التسويقي", "EMAIL PROMOTION CENTER")}
-        title={t("عروض بريدية من ملف أو من عملاء المنصة", "Email promotions from files or platform customers")}
-        description={<p>{t("أنشئ حملات بريد تسويقية موجهة للعملاء الذين لديهم بريد صالح، مع تتبع الفتح والضغط وإلغاء الاشتراك.", "Create promotional email campaigns for customers with valid email addresses, including opens, clicks and unsubscribe tracking.")}</p>}
-        actions={<button className="btn primary campaign-create-cta" type="button" onClick={() => setOpen(true)}>＋ {t("حملة بريد جديدة", "New email campaign")}</button>}
-      />
+      <div className="camp-hero">
+        <div className="camp-hero-text">
+          <small>{t("مركز الحملات", "CAMPAIGN CENTER")}</small>
+          <h1>{t("حملات النشرات البريدية", "Email newsletters")}</h1>
+          <p>{t("أنشئ حملات بريد تسويقية موجهة للعملاء الذين لديهم بريد صالح، مع تتبع الفتح والضغط وإلغاء الاشتراك.", "Create promotional email campaigns for customers with valid email addresses, with open, click and unsubscribe tracking.")}</p>
+          <div className="camp-hero-chips">
+            <span>{campaigns.length.toLocaleString("en-US")} {t("إجمالي الحملات", "campaigns")}</span>
+            <span>{t("تصفية حسب الحالة", "Status filter")}: {activeTab === "all" ? t("الكل", "All") : statusLabel(activeTab, t)}</span>
+          </div>
+        </div>
+        <label className="camp-hero-search"><span aria-hidden="true">🔍</span><input value={listSearch} onChange={(event) => { setListSearch(event.target.value); setActiveView("campaigns"); }} placeholder={t("بحث باسم الحملة...", "Search campaigns...")} aria-label={t("بحث في الحملات", "Search campaigns")} /></label>
+        <CustomSelect className="camp-hero-period" value={period} onChange={applyEmailPeriod} options={[{ value: "all", label: t("كل الفترات", "All time") }, { value: "today", label: t("اليوم", "Today") }, { value: "week", label: t("آخر 7 أيام", "Last 7 days") }, { value: "month", label: t("هذا الشهر", "This month") }, { value: "year", label: t("هذه السنة", "This year") }]} />
+        <button className="camp-hero-new" type="button" onClick={() => setOpen(true)}>＋ {t("حملة بريد جديدة", "New email campaign")}</button>
+      </div>
+      {hubTabs}
 
       {feedback ? <p role="status" className="success-banner">{feedback}</p> : null}
       {error ? <p role="alert" className="error-banner">{error}</p> : null}
 
-      <div className="section-tabs campaign-tabs">
-        <button className={activeView === "campaigns" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveView("campaigns")}>{t("نظرة العروض", "Email overview")}</button>
-        <button className={activeView === "balance" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveView("balance")}>{t("الرصيد والشراء", "Balance & purchase")}</button>
+      <div className="camp-subtabs">
+        <button type="button" className={activeView === "campaigns" ? "on" : ""} onClick={() => setActiveView("campaigns")}>▣ {t("الحملات النشطة", "Active campaigns")}</button>
+        <button type="button" className={activeView === "balance" ? "on" : ""} onClick={() => setActiveView("balance")}>💳 {t("الرصيد والشراء", "Balance & purchase")}</button>
       </div>
 
       {activeView === "campaigns" ? (
         <>
-      <EmailInsights campaigns={campaigns} balance={emailBalance} customersWithEmail={emailCustomers.length} />
+      <details className="camp-summary">
+        <summary>{t("ملخص ومؤشرات الحملات", "Campaign summary and readiness")}</summary>
+        <EmailInsights campaigns={campaigns} balance={emailBalance} customersWithEmail={emailCustomers.length} />
+      </details>
 
       {open ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setOpen(false)}>
@@ -455,14 +484,13 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
         </div>
       ) : null}
 
-      <div className="section-tabs campaign-tabs">
-        {statusTabs.map((tab) => <button type="button" key={tab} className={activeTab === tab ? "section-tab active" : "section-tab"} onClick={() => setActiveTab(tab)}>{tab === "all" ? t("الكل", "All") : statusLabel(tab, t)} <span>{tab === "all" ? campaigns.length : campaigns.filter((campaign) => campaign.status === tab).length}</span></button>)}
+      <div className="camp-pills">
+        {statusTabs.map((tab) => <button type="button" key={tab} className={activeTab === tab ? "camp-pill on" : "camp-pill"} onClick={() => setActiveTab(tab)}><i style={{ background: statusColor(tab) }} />{tab === "all" ? t("الكل", "All") : statusLabel(tab, t)} <b>{tab === "all" ? campaigns.length : campaigns.filter((campaign) => campaign.status === tab).length}</b></button>)}
       </div>
 
       <div className="campaign-board campaign-list-board">
         <div className="campaign-list-head"><div><h2>{t("كل حملات البريد", "All email campaigns")}</h2><p>{t("تابع حالة الإرسال والأداء من نفس الجدول.", "Track send state and performance from one table.")}</p></div><button className="reload" type="button" onClick={loadCampaigns}>↻ {t("تحديث البيانات", "Refresh data")}</button></div>
         <div className="seg-toolbar">
-          <input value={listSearch} onChange={(event) => setListSearch(event.target.value)} placeholder={t("ابحث باسم الحملة أو العنوان...", "Search by campaign or subject...")} />
           <label className="entries">{t("من", "From")} <input type="date" value={listFrom} onChange={(event) => setListFrom(event.target.value)} /></label>
           <label className="entries">{t("إلى", "To")} <input type="date" value={listTo} onChange={(event) => setListTo(event.target.value)} /></label>
           <button className="btn soft" type="button" onClick={() => { setListSearch(""); setListFrom(""); setListTo(""); }}>{t("مسح", "Clear")}</button>
@@ -470,24 +498,28 @@ export default function EmailPromotionsView({ customers, conversations, tags }: 
           <span className="seg-total-pill">{t("الإجمالي", "Total")}: <b>{visibleCampaigns.length.toLocaleString("en-US")}</b></span>
         </div>
         <div className="table-wrap">
-        <table className="mobile-card-table">
-          <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("الحالة", "Status")}</th><th>{t("المستلمين", "Recipients")}</th><th>{t("إرسال/وصول", "Sent/Delivered")}</th><th>{t("فتح/ضغط", "Open/Click")}</th><th>{t("ارتداد/إلغاء", "Bounce/Unsubscribe")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
+        <table className="mobile-card-table camp-table">
+          <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("تم إرساله / الإجمالي", "Sent / total")}</th><th>{t("التقدم", "Progress")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th></tr></thead>
           <tbody>
-            {visibleCampaigns.map((campaign) => (
+            {visibleCampaigns.map((campaign) => {
+              const total = campaign.analytics.totalRecipients;
+              const sent = campaign.analytics.sentCount;
+              const progress = total > 0 ? Math.min(100, Math.floor((sent / total) * 1000) / 10) : 0;
+              return (
               <tr key={campaign.id}>
-                <td><strong>{campaign.name}</strong><br /><small>{campaign.subject}</small></td>
-                <td><span className={campaign.status === "failed" ? "state off" : campaign.status === "scheduled" ? "state warn" : "state ok"}>{statusLabel(campaign.status, t)}</span></td>
-                <td>{campaign.analytics.totalRecipients}</td>
-                <td>{campaign.analytics.sentCount} / {campaign.analytics.deliveredCount}</td>
-                <td>{campaign.analytics.openCount} / {campaign.analytics.clickCount}</td>
-                <td>{campaign.analytics.bounceCount} / {campaign.analytics.unsubscribeCount}</td>
-                <td>
-                  {campaign.status === "scheduled" || campaign.status === "draft" ? <button className="btn soft" type="button" onClick={() => campaignAction(campaign.id, "sending")}>{t("إرسال الآن", "Send now")}</button> : null}
-                  {campaign.status === "scheduled" || campaign.status === "draft" ? <button className="btn soft" type="button" onClick={() => campaignAction(campaign.id, "cancelled")}>{t("إلغاء", "Cancel")}</button> : null}
-                  {campaign.status !== "sending" ? <button className="btn danger" type="button" onClick={() => campaignAction(campaign.id, "delete")}>{t("حذف", "Delete")}</button> : null}
+                <td data-label={t("الحملة", "Campaign")}><div className="campaign-name"><span className="campaign-thumb">{(campaign.name.trim()[0] || "؟")}</span><span><b title={campaign.name}>{campaign.name}</b><small className="campaign-description">{campaign.subject}</small></span></div></td>
+                <td data-label={t("تم إرساله / الإجمالي", "Sent / total")}><b>{formatNumber(sent)}</b><small className="campaign-cell-note"> {t("من", "of")} {formatNumber(total)}</small></td>
+                <td data-label={t("التقدم", "Progress")}><div className="camp-progress"><div className="camp-bar"><i style={{ width: `${progress}%` }} /></div><span>{progress}%</span></div></td>
+                <td data-label={t("الحالة", "Status")}><span className={campaign.status === "failed" || campaign.status === "cancelled" ? "state off" : campaign.status === "scheduled" || campaign.status === "draft" ? "state warn" : "state ok"}><i className="camp-dot" />{statusLabel(campaign.status, t)}</span></td>
+                <td data-label={t("آخر تحديث", "Last update")}>{(campaign.updatedAt || "").slice(0, 16).replace("T", " ")}</td>
+                <td data-label={t("الإجراءات", "Actions")} className="row-actions campaign-row-actions">
+                  {campaign.status === "scheduled" || campaign.status === "draft" ? <button className="campaign-icon-btn" type="button" title={t("إرسال الآن", "Send now")} aria-label={t("إرسال الآن", "Send now")} onClick={() => campaignAction(campaign.id, "sending")}>➤</button> : null}
+                  {campaign.status === "scheduled" || campaign.status === "draft" ? <button className="campaign-icon-btn" type="button" title={t("إلغاء", "Cancel")} aria-label={t("إلغاء", "Cancel")} onClick={() => campaignAction(campaign.id, "cancelled")}>⏹</button> : null}
+                  {campaign.status !== "sending" ? <button className="campaign-icon-btn" type="button" title={t("حذف", "Delete")} aria-label={t("حذف", "Delete")} onClick={() => campaignAction(campaign.id, "delete")}>🗑</button> : null}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         {loading ? <p>{t("جاري تحميل الحملات...", "Loading campaigns...")}</p> : null}

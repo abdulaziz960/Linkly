@@ -12696,3 +12696,80 @@ html[dir="ltr"] .notification-bell-panel {
 .campaigns-hub > .hub-tabs { margin: 0 24px 14px !important; width: auto; }
 .dashboard-main .channel-switch { margin: 20px 24px 14px; }
 @media (max-width: 760px) { .campaigns-hub > .hub-tabs { margin-inline: 12px !important; } .dashboard-main .channel-switch { display: grid !important; grid-auto-flow: column; grid-auto-columns: 1fr; margin-inline: 12px; } }
+
+/* ===== WhatsApp campaigns page - the approved preview look ===== */
+.camp-hero { position: relative; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 22px 26px; border-radius: 20px; color: #fff; background: linear-gradient(120deg, #0f403d, #178a82); box-shadow: 0 10px 30px rgba(15, 64, 61, .22); animation: seg-rise .5s both; }
+.camp-hero::after { content: ""; position: absolute; left: -70px; top: -70px; width: 240px; height: 240px; border-radius: 50%; background: rgba(255, 255, 255, .09); pointer-events: none; }
+.camp-hero-text { flex: 1 1 280px; min-width: 0; position: relative; z-index: 1; }
+.camp-hero-text small { opacity: .75; letter-spacing: .06em; font-weight: 700; }
+.camp-hero-text h1 { margin: 2px 0 6px; font-size: 26px; color: #fff; }
+.camp-hero-text p { margin: 0 0 10px; opacity: .85; font-size: 14px; line-height: 1.7; max-width: 640px; }
+.camp-hero-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.camp-hero-chips span { background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .28); border-radius: 999px; padding: 4px 12px; font-size: 12px; }
+.camp-hero-search { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; flex: 2 1 220px; max-width: 420px; height: 46px; padding: 0 14px; border-radius: 12px; background: #fff; color: var(--text-secondary); }
+.camp-hero-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; color: var(--ink); }
+.camp-hero .camp-hero-period { position: relative; z-index: 1; flex: 0 0 160px; }
+.camp-hero .camp-hero-period button { height: 46px; border-radius: 12px; background: #fff; border: 0; color: var(--ink); }
+.camp-hero-new { position: relative; z-index: 1; height: 46px; padding: 0 22px; border: 0; border-radius: 12px; background: #fff; color: #0f403d; font: inherit; font-weight: 800; cursor: pointer; transition: transform .15s, box-shadow .15s; }
+.camp-hero-new:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0, 0, 0, .25); }
+
+.camp-subtabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.camp-subtabs button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; transition: all .15s; }
+.camp-subtabs button.on { border-color: #178a82; background: #eefbf9; color: #0f5f5a; font-weight: 700; }
+.camp-subtabs button:hover:not(.on) { background: var(--brand-50); }
+
+.camp-summary { border: 1px solid var(--line); border-radius: 16px; background: #fff; padding: 0 16px; }
+.camp-summary > summary { cursor: pointer; padding: 12px 0; font-weight: 700; color: var(--brand-700); list-style: none; }
+.camp-summary[open] { padding-bottom: 14px; }
+
+.camp-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+.camp-pill { display: inline-flex; align-items: center; gap: 7px; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; transition: all .15s; }
+.camp-pill i { width: 8px; height: 8px; border-radius: 50%; }
+.camp-pill b { font-weight: 800; color: var(--ink); }
+.camp-pill.on { border-color: #178a82; background: #eefbf9; color: #0f5f5a; font-weight: 700; }
+.camp-pill:hover:not(.on) { background: var(--brand-50); }
+
+.campaign-list-board { border: 1px solid var(--line) !important; border-radius: 18px !important; background: #fff; box-shadow: 0 1px 3px rgba(15, 64, 61, .08); overflow: hidden; animation: seg-rise .5s both; }
+.camp-table { width: 100%; border-collapse: collapse; }
+.camp-table thead th { background: #f7fafc; color: var(--text-secondary); font-size: 13px; font-weight: 600; text-align: start; padding: 14px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.camp-table tbody td { padding: 16px; font-size: 15px; border-top: 1px solid var(--line); vertical-align: middle; }
+.camp-table tbody tr { transition: background .15s; }
+.camp-table tbody tr:nth-child(even) { background: #fbfdfc; }
+.camp-table tbody tr:hover { background: var(--brand-50); }
+.camp-table .campaign-name b { font-size: 16px; }
+.camp-table .campaign-description, .camp-table .campaign-cell-note { color: var(--text-secondary); font-size: 13px; }
+.camp-progress { display: grid; gap: 6px; min-width: 150px; }
+.camp-bar { height: 8px; border-radius: 999px; background: #e6eef5; overflow: hidden; }
+.camp-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #2563eb, #2e9e6b); transform-origin: right center; animation: seg-grow .9s both; }
+.camp-progress span { font-size: 13px; color: var(--text-secondary); }
+.camp-table .state { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+.camp-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+@media (max-width: 760px) { .camp-hero { padding: 18px; } .camp-hero-text h1 { font-size: 22px; } .camp-hero-search, .camp-hero .camp-hero-period { flex: 1 1 100%; max-width: none; } .camp-hero-new { flex: 1 1 100%; } }
+.seg-toolbar .custom-select, .seg-filters .custom-select { flex: 0 1 190px; min-width: 150px; width: auto; }
+.seg-toolbar .custom-select-trigger, .seg-filters .custom-select-trigger { height: 40px; border-radius: 10px; }
+.seg-toolbar .custom-select.page-size { flex: 0 0 90px; min-width: 90px; }
+.camp-table .campaign-row-actions { justify-content: flex-start; }
+
+/* Campaign cards: same head, borders and rows as the approved preview */
+.campaigns-page .campaign-board { border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: 0 1px 3px rgba(15, 64, 61, .08); overflow: hidden; }
+.campaigns-page .campaign-list-head { padding: 18px 22px; border-bottom: 1px solid var(--line); background: #fff; }
+.campaigns-page .campaign-list-head h2 { font-size: 17px; font-weight: 800; }
+.campaigns-page .campaign-list-head p { color: var(--text-secondary); font-size: 13px; margin: 3px 0 0; }
+.campaigns-page .seg-toolbar.campaign-filterbar { display: flex; grid-template-columns: none; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; margin: 12px 16px 0; border-radius: 14px; }
+.campaigns-page .seg-toolbar.campaign-filterbar input { min-height: 40px; }
+.campaigns-page .campaign-filterbar-extra { margin-bottom: 4px; }
+.campaign-list-board .table-wrap { margin-top: 10px; }
+.campaign-list-board table.camp-table { min-width: 760px; }
+.campaign-list-board .camp-table th { background: #f7fafc; font-size: 13px; padding: 14px 16px; }
+.campaign-list-board .camp-table td { padding: 16px; }
+
+.upcoming-board .upcoming-list { list-style: none; margin: 0; padding: 6px 0; }
+.upcoming-board .upcoming-list li { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 16px 22px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: #fff; transition: background .15s; }
+.upcoming-board .upcoming-list li:first-child { border-top: 0; }
+.upcoming-board .upcoming-list li:nth-child(even) { background: #fbfdfc; }
+.upcoming-board .upcoming-list li:hover { background: var(--brand-50); }
+.upcoming-board .upcoming-list b { font-size: 16px; margin-inline-end: 8px; }
+.upcoming-board .upcoming-list small { display: block; color: var(--text-secondary); font-size: 13px; margin-top: 3px; }
+.upcoming-board .state { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.upcoming-board .upcoming-actions { display: flex; gap: 8px; }
+@media (max-width: 760px) { .upcoming-board .upcoming-list li { grid-template-columns: 1fr; } .campaigns-page .seg-toolbar.campaign-filterbar { margin-inline: 10px; } }

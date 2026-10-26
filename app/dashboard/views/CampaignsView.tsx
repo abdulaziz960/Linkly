@@ -1,10 +1,9 @@
 "use client";
 
 import { formatNumber } from "../../../lib/format";
-import PageHeader from "../components/PageHeader";
 import { confirmDialog, notify } from "../../../lib/ui-dialogs";
 
-import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import type { Campaign, MessageTemplate, Segment } from "../types";
@@ -250,12 +249,14 @@ export default function CampaignsView({
   templates,
   whatsappConnected,
   brandName,
+  hubTabs,
   onRefreshData
 }: {
   campaigns: Campaign[];
   templates: MessageTemplate[];
   whatsappConnected: boolean;
   brandName: string;
+  hubTabs?: ReactNode;
   onRefreshData: () => Promise<void>;
 }) {
   const { t, language } = useLanguage();
@@ -322,6 +323,8 @@ export default function CampaignsView({
   const [balanceLoading, setBalanceLoading] = useState(true);
   const [balanceLoadError, setBalanceLoadError] = useState("");
   const [campaignSearch, setCampaignSearch] = useState("");
+  const [periodFilter, setPeriodFilter] = useState("all");
+  const [scheduledView, setScheduledView] = useState(false);
   const [campaignStatusFilter, setCampaignStatusFilter] = useState("all");
   const [kpiFilter, setKpiFilter] = useState<KpiFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -487,6 +490,20 @@ export default function CampaignsView({
       active: campaigns.filter((campaign) => campaign.status === "قيد الإرسال" || campaign.status === "مجدولة").length
     };
   }, [campaigns]);
+
+  function applyPeriod(value: string) {
+    setPeriodFilter(value);
+    setCampaignPage(1);
+    const now = new Date();
+    const iso = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    if (value === "all") { setDateFrom(""); setDateTo(""); return; }
+    const from = new Date(now);
+    if (value === "week") from.setDate(from.getDate() - 6);
+    if (value === "month") from.setDate(1);
+    if (value === "year") { from.setMonth(0); from.setDate(1); }
+    setDateFrom(iso(from));
+    setDateTo(iso(now));
+  }
 
   async function handleCampaignFileChange(file: File | null) {
     setCampaignFile(file);
@@ -843,16 +860,26 @@ export default function CampaignsView({
 
   return (
     <section className="page-stack campaigns-page">
-      <PageHeader
-        variant="campaigns"
-        eyebrow={t("مركز الحملات", "CAMPAIGN CENTER")}
-        title={t("حملات أوضح، من التجهيز حتى الإرسال", "Clear campaigns from setup to delivery")}
-        description={<p>{t("أنشئ جمهورك، اختر القالب، راجع التفاصيل ثم تابع التنفيذ من مكان واحد.", "Build your audience, choose a template, review details, and track execution in one place.")}</p>}
-        actions={<button className="btn primary campaign-create-cta" type="button" onClick={() => openForm()}>＋ {t("حملة جديدة", "New campaign")}</button>}
-      />
-      <div className="section-tabs campaign-tabs">
-        <button className={activeTab === "campaigns" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("campaigns")}>{t("نظرة الحملات", "Campaign overview")}</button>
-        <button className={activeTab === "balance" ? "section-tab active" : "section-tab"} type="button" onClick={() => setActiveTab("balance")}>{t("الرصيد و الشحن", "Balance & Top-up")}</button>
+      <div className="camp-hero">
+        <div className="camp-hero-text">
+          <small>{t("مركز الحملات", "CAMPAIGN CENTER")}</small>
+          <h1>{t("حملات الواتساب", "WhatsApp campaigns")}</h1>
+          <p>{t("أنشئ جمهورك، اختر القالب، راجع التفاصيل ثم تابع التنفيذ من مكان واحد.", "Build your audience, choose a template, review details, and track execution in one place.")}</p>
+          <div className="camp-hero-chips">
+            <span>{formatNumber(campaigns.filter((campaign) => campaign.status !== "مؤرشفة").length)} {t("إجمالي الحملات", "campaigns")}</span>
+            <span>{t("تصفية حسب الحالة", "Status filter")}: {campaignStatusFilter === "all" ? t("الكل", "All") : campaignStatusLabel(campaignStatusFilter, t)}</span>
+          </div>
+        </div>
+        <label className="camp-hero-search"><span aria-hidden="true">🔍</span><input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); setActiveTab("campaigns"); }} placeholder={t("بحث باسم الحملة...", "Search campaigns...")} aria-label={t("بحث في الحملات", "Search campaigns")} /></label>
+        <CustomSelect className="camp-hero-period" value={periodFilter} onChange={applyPeriod} options={[{ value: "all", label: t("كل الفترات", "All time") }, { value: "today", label: t("اليوم", "Today") }, { value: "week", label: t("آخر 7 أيام", "Last 7 days") }, { value: "month", label: t("هذا الشهر", "This month") }, { value: "year", label: t("هذه السنة", "This year") }]} />
+        <button className="camp-hero-new" type="button" onClick={() => openForm()}>＋ {t("حملة جديدة", "New campaign")}</button>
+      </div>
+      {hubTabs}
+      <div className="camp-subtabs">
+        <button type="button" className={activeTab === "campaigns" && !scheduledView && campaignStatusFilter !== "مؤرشفة" ? "on" : ""} onClick={() => { setActiveTab("campaigns"); setScheduledView(false); if (campaignStatusFilter === "مؤرشفة") setCampaignStatusFilter("all"); setCampaignPage(1); }}>▣ {t("الحملات النشطة", "Active campaigns")}</button>
+        <button type="button" className={activeTab === "campaigns" && scheduledView ? "on" : ""} onClick={() => { setActiveTab("campaigns"); setScheduledView(true); }}>🗓 {t("المجدولة", "Scheduled")} <b>{formatNumber(upcomingCampaigns.length + recurrences.length)}</b></button>
+        <button type="button" className={activeTab === "campaigns" && !scheduledView && campaignStatusFilter === "مؤرشفة" ? "on" : ""} onClick={() => { setActiveTab("campaigns"); setScheduledView(false); setCampaignStatusFilter("مؤرشفة"); setCampaignPage(1); }}>🗄 {t("المؤرشفة", "Archived")}</button>
+        <button type="button" className={activeTab === "balance" ? "on" : ""} onClick={() => { setScheduledView(false); setActiveTab("balance"); }}>💳 {t("الرصيد و الشحن", "Balance & Top-up")}</button>
       </div>
 
       {activeTab === "campaigns" ? (
@@ -867,6 +894,8 @@ export default function CampaignsView({
               <button className="btn primary" type="button" onClick={() => openTopUp(queuedMessages - balance)}>{t("شحن الرصيد", "Top up balance")}</button>
             </div>
           ) : null}
+          {!scheduledView ? <details className="camp-summary">
+            <summary>{t("ملخص ومؤشرات الحملات", "Campaign summary and readiness")}</summary>
           <section className="campaign-health-grid" aria-label={t("جاهزية الحملات", "Campaign readiness")}>
             <article className={whatsappConnected ? "is-ready" : "is-blocked"}><span>◉</span><div><b>{t("قناة الإرسال", "Sending channel")}</b><strong>{whatsappConnected ? t("واتساب متصل", "WhatsApp connected") : t("تحتاج ربط", "Connection required")}</strong></div></article>
             <article className={approvedTemplates.length && !rejectedTemplates.length ? "is-ready" : "is-blocked"}>
@@ -933,7 +962,8 @@ export default function CampaignsView({
             </p>
           ) : null}
           </>) : null}
-          {recurrences.length ? (
+          </details> : null}
+          {scheduledView && recurrences.length ? (
             <div className="campaign-board recurrence-board">
               <div className="campaign-list-head"><div><h2>🔁 {t("الحملات المتكررة", "Recurring campaigns")}</h2><p>{t("سلاسل ترسل نفس الملف المرفوع تلقائيًا كل فترة.", "Series that automatically resend the uploaded file on a schedule.")}</p></div></div>
               <div className="recurrence-list">
@@ -957,16 +987,19 @@ export default function CampaignsView({
               </div>
             </div>
           ) : null}
-          {upcomingCampaigns.length ? (
+          {scheduledView && !upcomingCampaigns.length && !recurrences.length ? (
+            <div className="campaign-board upcoming-board"><div className="campaign-empty"><strong>{t("لا توجد حملات مجدولة", "No scheduled campaigns")}</strong><span>{t("عند جدولة حملة بموعد لاحق ستظهر هنا مع إمكانية تعديل الموعد أو الإلغاء.", "Campaigns you schedule for later appear here, where you can change the time or cancel.")}</span></div></div>
+          ) : null}
+          {scheduledView && upcomingCampaigns.length ? (
             <div className="campaign-board upcoming-board">
-              <div className="campaign-list-head"><div><h2>{t("الحملات المجدولة القادمة", "Upcoming scheduled campaigns")}</h2><p>{t("مرتبة بوقت الإرسال. عدّل الموعد أو ألغِ الحملة قبل أن تبدأ.", "Sorted by send time. Change the time or cancel a campaign before it starts.")}</p></div></div>
+              <div className="campaign-list-head"><div><h2>{t("الحملات المجدولة القادمة", "Upcoming scheduled campaigns")}</h2><p>{t("إجمالي المجدولة", "Total scheduled")} {formatNumber(upcomingCampaigns.length)} · {t("مرتبة بوقت الإرسال", "sorted by send time")}</p></div></div>
               <ul className="upcoming-list">
                 {upcomingCampaigns.map((campaign) => {
                   const when = parseStoredDate(campaign.scheduledAt);
                   return (
                     <li key={campaign.id}>
                       <div>
-                        <b>{campaign.name}</b>
+                        <b>{campaign.name}</b> <span className="state warn"><i className="camp-dot" />{t("مجدولة", "Scheduled")}</span>
                         <small>{campaign.templateName} · {statsOf(campaign).total.toLocaleString("en-US")} {t("مستلم", "recipients")}</small>
                       </div>
                       <div className="upcoming-when">
@@ -982,7 +1015,7 @@ export default function CampaignsView({
               </ul>
             </div>
           ) : null}
-          {!campaigns.length ? (
+          {scheduledView ? null : !campaigns.length ? (
             <div className="campaign-board campaign-onboarding">
               <h2>{t("ابدأ أول حملة واتساب", "Start your first WhatsApp campaign")}</h2>
               <p>{t("ثلاث خطوات فقط، وتصل رسالتك إلى جمهورك.", "Three steps and your message reaches your audience.")}</p>
@@ -997,15 +1030,21 @@ export default function CampaignsView({
               </div>
             </div>
           ) : (
+          <>
+      <div className="camp-pills">
+        {([["all", t("الكل", "All"), "#91a29e"], ["مجدولة", t("مجدولة", "Scheduled"), "#4a90d9"], ["قيد الإرسال", t("قيد الإرسال", "Sending"), "#f0ad4e"], ["الحملة أنجزت", t("منتهية", "Completed"), "#2e9e6b"], ["ملغاة", t("ملغاة", "Cancelled"), "#d9534f"]] as Array<[string, string, string]>).map(([value, label, color]) => (
+          <button key={value} type="button" className={campaignStatusFilter === value ? "camp-pill on" : "camp-pill"} onClick={() => { setCampaignStatusFilter(value); setCampaignPage(1); }}>
+            <i style={{ background: color }} />{label} <b>{formatNumber(campaigns.filter((campaign) => campaign.status !== "مؤرشفة" && (value === "all" || campaign.status === value)).length)}</b>
+          </button>
+        ))}
+      </div>
           <div className={`campaign-board campaign-list-board${refreshState === "loading" ? " is-loading" : ""}`} aria-busy={refreshState === "loading"}>
-            <div className="campaign-list-head"><div><h2>{t("كل الحملات", "All campaigns")}</h2><p>{t("تابع التنفيذ وافتح التقرير أو أوقف الحملة من نفس الصف.", "Track execution, open reports, or stop a campaign from the same row.")}</p></div><button className="reload" type="button" onClick={refreshCampaigns} disabled={refreshState === "loading"}>↻ {t("تحديث البيانات", "Refresh data")}</button></div>
-            <div className="campaign-toolbar campaign-filterbar">
-              <input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); }} placeholder={t("ابحث باسم الحملة أو الحالة…", "Search name or status…")} aria-label={t("بحث في الحملات", "Search campaigns")} />
-              <CustomSelect value={campaignStatusFilter} onChange={(value) => { setCampaignStatusFilter(value); setCampaignPage(1); }} options={[{value:"all",label:t("كل الحالات","All statuses")},{value:"قيد الإرسال",label:t("قيد الإرسال","Sending")},{value:"مجدولة",label:t("مجدولة","Scheduled")},{value:"الحملة أنجزت",label:t("مكتملة","Completed")},{value:"ملغاة",label:t("ملغاة","Cancelled")},{value:"مؤرشفة",label:t("مؤرشفة","Archived")}]} />
+            <div className="campaign-list-head"><div><h2>{t("الحملات", "Campaigns")}</h2><p>{t("إجمالي الحملات", "Total campaigns")} {formatNumber(filteredCampaigns.length)}</p></div><button className="reload" type="button" onClick={refreshCampaigns} disabled={refreshState === "loading"}>↻ {t("تحديث البيانات", "Refresh data")}</button></div>
+            <div className="seg-toolbar campaign-filterbar">
               <CustomSelect value={campaignSort} onChange={setCampaignSort} options={[{value:"latest",label:t("الأحدث أولاً","Latest first")},{value:"sent",label:t("الأكثر إرسالاً","Most sent")},{value:"progress",label:t("الأعلى تقدماً","Highest progress")},{value:"name",label:t("حسب الاسم","By name")}]} />
               <label className="entries">{t("عرض", "Show")} <CustomSelect className="page-size" value={campaignPageSize} onChange={(value) => { setCampaignPageSize(value); setCampaignPage(1); }} options={pageSizeOptions} /></label>
             </div>
-            <div className="campaign-toolbar campaign-filterbar campaign-filterbar-extra">
+            <div className="seg-toolbar campaign-filterbar campaign-filterbar-extra">
               <label className="campaign-date-filter"><span>{t("من", "From")}</span><input type="date" value={dateFrom} max={dateTo || undefined} onChange={(event) => { setDateFrom(event.target.value); setCampaignPage(1); }} /></label>
               <label className="campaign-date-filter"><span>{t("إلى", "To")}</span><input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => { setDateTo(event.target.value); setCampaignPage(1); }} /></label>
               <CustomSelect value={channelFilter} onChange={(value) => { setChannelFilter(value); setCampaignPage(1); }} options={[{ value: "all", label: t("كل القنوات", "All channels") }, ...channelOptions.map((channel) => ({ value: channel, label: channelLabels[channel] ? t(channelLabels[channel][0], channelLabels[channel][1]) : channel }))]} />
@@ -1027,7 +1066,7 @@ export default function CampaignsView({
               </div>
             ) : null}
             <div className="table-wrap">
-              <table className="mobile-card-table campaigns-table">
+              <table className="mobile-card-table campaigns-table camp-table">
                 <thead><tr>
                   <th className="select-col"><input type="checkbox" aria-label={t("تحديد كل حملات الصفحة", "Select all campaigns on this page")} checked={allOnPageSelected} onChange={() => setSelectedIds((current) => { const next = new Set(current); if (allOnPageSelected) pageIds.forEach((id) => next.delete(id)); else pageIds.forEach((id) => next.add(id)); return next; })} /></th>
                   <th>{t("الحملة", "Campaign")}</th><th>{t("تم إرساله / الإجمالي", "Sent / total")}</th><th>{t("التقدم", "Progress")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th>
@@ -1042,8 +1081,8 @@ export default function CampaignsView({
                         {campaign.description ? <small className="campaign-description">{campaign.description}</small> : null}
                         {campaign.tags?.length ? <span className="campaign-tags">{campaign.tags.map((tag) => <em key={tag}>{tag}</em>)}</span> : null}</span></div></td>
                       <td data-label={t("تم إرساله / الإجمالي", "Sent / total")}><b>{formatNumber(campaign.sent)}</b><small className="campaign-cell-note"> {t("من", "of")} {formatNumber(campaign.total)}</small>{stats.pending > 0 ? <small className="campaign-cell-note campaign-cell-pending"> · {formatNumber(stats.pending)} {t("بالانتظار", "waiting")}</small> : null}</td>
-                      <td data-label={t("التقدم", "Progress")}><div className="progress-bar"><span style={{ width: campaign.progress }}>{campaign.progress}</span></div></td>
-                      <td data-label={t("الحالة", "Status")}><span className={campaign.status === "ملغاة" || campaign.status === "مؤرشفة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}>{campaignStatusLabel(campaign.status, t)}</span></td>
+                      <td data-label={t("التقدم", "Progress")}><div className="camp-progress"><div className="camp-bar"><i style={{ width: campaign.progress }} /></div><span>{campaign.progress}</span></div></td>
+                      <td data-label={t("الحالة", "Status")}><span className={campaign.status === "ملغاة" || campaign.status === "مؤرشفة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}><i className="camp-dot" />{campaignStatusLabel(campaign.status, t)}</span></td>
                       <td data-label={t("آخر تحديث", "Last update")}><DateCell value={parseStoredDate(campaign.updatedAt)} language={language === "en" ? "en" : "ar"} /></td>
                       <td data-label={t("الإجراءات", "Actions")} className="row-actions campaign-row-actions">
                         <button className="campaign-icon-btn" type="button" title={t("التقرير", "Report")} aria-label={t("التقرير", "Report")} onClick={() => openReport(campaign)}>{reportIcon}</button>
@@ -1071,6 +1110,7 @@ export default function CampaignsView({
             </div>
             <Pagination currentPage={campaignPagination.page} totalPages={campaignPagination.totalPages} onPageChange={setCampaignPage} />
           </div>
+          </>
           )}
         </>
       ) : (
