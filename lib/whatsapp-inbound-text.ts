@@ -29,7 +29,7 @@ export function describeWhatsAppMessage(message: Inbound): { text: string; conve
   if (message.document) return { text: "مستند وارد", conversational: true };
   if (message.image) return { text: "صورة واردة", conversational: true };
   if (message.audio) return { text: "رسالة صوتية واردة", conversational: true };
-  if (message.video) return { text: "فيديو وارد", conversational: true };
+  if (message.video) return { text: "أرسل العميل فيديو (غير مدعوم هنا: نستقبل الصور والرسائل الصوتية فقط)", conversational: true };
   if (message.sticker) return { text: "ملصق وارد", conversational: true };
   if (message.location && Number.isFinite(Number(message.location.latitude)) && Number.isFinite(Number(message.location.longitude))) {
     const { latitude, longitude, name } = message.location;
