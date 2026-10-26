@@ -12964,3 +12964,15 @@ html[dir="ltr"] .notification-bell-panel {
 .reports-page .report-alert.danger > span { background: #d9534f; }
 .reports-page .report-alert.warn, .reports-page .report-alert.neutral { background: linear-gradient(135deg, #fffaf0, #ffeccc); border-color: #f2d49a; }
 .reports-page .report-alert > b { margin-inline-start: auto; color: var(--brand-600); white-space: nowrap; }
+
+/* Responsive fixes found by the all-screens audit */
+.panel-head .row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; max-width: 100%; }
+div:has(> .soft-action) { flex-wrap: wrap; }
+.campaigns-page .table-wrap, .contacts-table-card .table-wrap { overflow-x: auto; max-width: 100%; }
+/* Copyable code rows (lead links, webhook URLs) may scroll inside themselves but never push their row off a narrow screen */
+main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
+/* The Zapier setup rows stack (field name above its value) on narrow screens instead of squeezing the value to nothing */
+@media (max-width: 700px) {
+  .zap-cols { grid-template-columns: minmax(0, 1fr) !important; gap: 6px !important; }
+  .zap-cols.zap-head { display: none !important; }
+}

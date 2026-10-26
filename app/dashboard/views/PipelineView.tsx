@@ -205,7 +205,7 @@ function ZapRow({ field, value, hint, t, copyable = true, data = false }: { fiel
     <button type="button" className="soft-action" style={{ flexShrink: 0, minHeight: 30, padding: "0 10px", fontSize: 12.5 }} onClick={copy}>{copied ? "✓" : t("نسخ", "Copy")}</button>
   ) : null;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(170px, 0.8fr) minmax(0, 1.7fr)", gap: 16, alignItems: "center", padding: "12px 14px", borderTop: "1px solid var(--line, #e6eeec)" }}>
+    <div className="zap-cols" style={{ display: "grid", gridTemplateColumns: "minmax(170px, 0.8fr) minmax(0, 1.7fr)", gap: 16, alignItems: "center", padding: "12px 14px", borderTop: "1px solid var(--line, #e6eeec)" }}>
       {data ? (
         <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
           <code dir="ltr" style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 13, fontWeight: 800, padding: "6px 10px", borderRadius: 8, background: "var(--surface-soft, #f3f7f6)", border: "1px solid var(--line, #dfe7e5)", overflowX: "auto", whiteSpace: "nowrap" }}>{field}</code>
@@ -232,7 +232,7 @@ function ZapGroup({ title, columns, children }: { title: string; columns: [strin
   return (
     <div style={{ borderRadius: 12, border: "1px solid var(--line, #dfe7e5)", background: "var(--surface, #fff)", overflow: "hidden" }}>
       <div style={{ padding: "11px 14px", background: "#e8f3f1", fontWeight: 900, fontSize: 14, borderInlineStart: "4px solid #178a82" }}>{title}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(170px, 0.8fr) minmax(0, 1.7fr)", gap: 16, padding: "7px 14px", fontSize: 12, fontWeight: 800, opacity: 0.65, background: "var(--surface-soft, #f6faf9)" }}>
+      <div className="zap-cols zap-head" style={{ display: "grid", gridTemplateColumns: "minmax(170px, 0.8fr) minmax(0, 1.7fr)", gap: 16, padding: "7px 14px", fontSize: 12, fontWeight: 800, opacity: 0.65, background: "var(--surface-soft, #f6faf9)" }}>
         <span>{columns[0]}</span>
         <span>{columns[1]}</span>
       </div>
