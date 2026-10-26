@@ -12795,3 +12795,12 @@ html[dir="ltr"] .notification-bell-panel {
   .campaigns-page .camp-filterrow .campaign-date-filter input, .seg-toolbar input[type="date"], .seg-filters input[type="date"] { min-width: 0; width: 100%; max-width: 100%; flex: 1 1 0; }
   .campaigns-page .camp-filterrow { max-width: calc(100% - 20px); box-sizing: border-box; }
 }
+
+/* Inputs inside the new hero / filter row never set their own width: they fill what the row leaves, on any font or browser */
+.camp-hero-search { min-width: 0; box-sizing: border-box; overflow: hidden; }
+.camp-hero-search input { width: 0; flex: 1 1 0; min-width: 0; max-width: 100%; }
+.campaigns-page .camp-filterrow input[type="date"] { min-width: 0; box-sizing: border-box; }
+@media (max-width: 760px) {
+  .camp-hero > * { max-width: 100%; min-width: 0; box-sizing: border-box; }
+  .campaigns-page .camp-filterrow .campaign-date-filter input { width: 0; flex: 1 1 0; min-width: 0; }
+}
