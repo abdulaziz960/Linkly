@@ -350,7 +350,7 @@ export default function EmailPromotionsView({ customers, conversations, tags, hu
             <span>{t("تصفية حسب الحالة", "Status filter")}: {activeTab === "all" ? t("الكل", "All") : statusLabel(activeTab, t)}</span>
           </div>
         </div>
-        <label className="camp-hero-search"><span aria-hidden="true">🔍</span><input value={listSearch} onChange={(event) => { setListSearch(event.target.value); setActiveView("campaigns"); }} placeholder={t("بحث باسم الحملة...", "Search campaigns...")} aria-label={t("بحث في الحملات", "Search campaigns")} /></label>
+        <label className="camp-hero-search"><input value={listSearch} onChange={(event) => { setListSearch(event.target.value); setActiveView("campaigns"); }} placeholder={t("بحث باسم الحملة...", "Search campaigns...")} aria-label={t("بحث في الحملات", "Search campaigns")} /></label>
         <CustomSelect className="camp-hero-period" value={period} onChange={applyEmailPeriod} options={[{ value: "all", label: t("كل الفترات", "All time") }, { value: "today", label: t("اليوم", "Today") }, { value: "week", label: t("آخر 7 أيام", "Last 7 days") }, { value: "month", label: t("هذا الشهر", "This month") }, { value: "year", label: t("هذه السنة", "This year") }]} />
         <button className="camp-hero-new" type="button" onClick={() => setOpen(true)}>＋ {t("حملة بريد جديدة", "New email campaign")}</button>
       </div>

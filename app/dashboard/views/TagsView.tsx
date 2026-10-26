@@ -100,7 +100,7 @@ export default function TagsView({
           <p>{t("الوسم يستخدم لتصنيف المحادثة حسب الحالة مثل شحن، شكوى، دفع، أو متابعة لاحقة. اضغط على أي وسم لعرض محادثاته.", "Tags categorize conversations, e.g. shipping, complaint, payment or follow-up. Select a tag to see its conversations.")}</p>
           <div className="camp-hero-chips"><span>{tags.length.toLocaleString("en-US")} {t("وسم", "tags")}</span><span>{taggedConversations.toLocaleString("en-US")} {t("محادثة موسومة", "tagged conversations")}</span></div>
         </div>
-        <label className="camp-hero-search"><span aria-hidden="true">🔍</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث باسم الوسم أو الوصف...", "Search by tag name or description...")} aria-label={t("بحث في الوسوم", "Search tags")} /></label>
+        <label className="camp-hero-search"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث باسم الوسم أو الوصف...", "Search by tag name or description...")} aria-label={t("بحث في الوسوم", "Search tags")} /></label>
         <button className="camp-hero-new" type="button" aria-label={t("إضافة وسم", "Add Tag")} onClick={openCreateForm}>＋ {t("إضافة وسم", "Add Tag")}</button>
       </div>
 

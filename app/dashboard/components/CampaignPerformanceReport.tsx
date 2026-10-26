@@ -130,7 +130,7 @@ export default function CampaignPerformanceReport({ campaigns, onRefresh }: { ca
 
           <div className="seg-banners">
             <div className="seg-banner seg-banner-good">
-              <span>🏆 {t("أفضل أداء", "Best performance")}</span>
+              <span>{t("أفضل أداء", "Best performance")}</span>
               {best ? (
                 <>
                   <b>{best.campaign.name}</b>
@@ -144,7 +144,7 @@ export default function CampaignPerformanceReport({ campaigns, onRefresh }: { ca
               )}
             </div>
             <div className="seg-banner seg-banner-warn">
-              <span>⚠ {t("أضعف أداء", "Weakest performance")}</span>
+              <span>{t("أضعف أداء", "Weakest performance")}</span>
               {best && worst && worst.campaign.id !== best.campaign.id ? (
                 <>
                   <b>{worst.campaign.name}</b>
@@ -179,7 +179,7 @@ export default function CampaignPerformanceReport({ campaigns, onRefresh }: { ca
               <div className="panel-body">
                 {reasons.length ? (
                   <DonutChart centerLabel={t("فشل", "Failed")} slices={reasons.map(([key, value], index) => ({ label: t(failureLabels[key][0], failureLabels[key][1]), value, color: failureColors[index % failureColors.length] }))} />
-                ) : <p className="muted-copy">{t("لا توجد أخطاء إرسال 🎉", "No delivery errors 🎉")}</p>}
+                ) : <p className="muted-copy">{t("لا توجد أخطاء إرسال", "No delivery errors")}</p>}
               </div>
             </div>
           </div>

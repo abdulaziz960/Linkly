@@ -3,7 +3,7 @@
 import { confirmDialog } from "../../../lib/ui-dialogs";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { PageHero } from "../components/PageHero";
+import { KpiRow, PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
 import CustomSelect from "../../components/CustomSelect";
@@ -465,8 +465,13 @@ export default function CatalogView() {
         title={t("الكتالوج", "Catalog")}
         description={t("منتجاتك وأسعارها وطلباتها وأكواد الخصم، جاهزة للطلب عبر واتساب.", "Your products, prices, orders and discount codes, ready to order on WhatsApp.")}
         chips={[t(`${products.length} منتج`, `${products.length} products`), t(`${categories.length} تصنيف`, `${categories.length} categories`), t(`${orders.length} طلب`, `${orders.length} orders`)]}
-        action={<button className="camp-hero-new" type="button" onClick={() => { setTab("products"); openForm(); }}>＋ {t("إضافة منتج", "Add product")}</button>}
       />
+      <KpiRow items={[
+        { tone: "t", label: t("المنتجات", "Products"), value: products.length, note: t(`${products.filter((product) => product.active).length} ظاهرة للعملاء`, `${products.filter((product) => product.active).length} visible`) },
+        { tone: "o", label: t("نفد مخزونها", "Out of stock"), value: products.filter((product) => product.stock === 0).length, note: t("تحتاج تعبئة", "Need restocking") },
+        { tone: "p", label: t("التصنيفات", "Categories"), value: categories.length },
+        { tone: "g", label: t("الطلبات", "Orders"), value: orders.length }
+      ]} />
       <div className="section-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "products"} className={tab === "products" ? "section-tab active" : "section-tab"} onClick={() => setTab("products")}>{t("المنتجات", "Products")} <span>{products.length}</span></button>
         <button type="button" role="tab" aria-selected={tab === "categories"} className={tab === "categories" ? "section-tab active" : "section-tab"} onClick={() => setTab("categories")}>{t("التصنيفات", "Categories")} <span>{categories.length}</span></button>
@@ -507,7 +512,7 @@ export default function CatalogView() {
           </div>
           <div className="panel-body table-wrap">
             <p className="muted-copy">{t("تظهر المنتجات النشطة للعملاء عبر خطوة \"عرض الكتالوج\" في الرد الآلي. يمكنك إضافتها يدويًا، أو مزامنتها تلقائيًا من موقعك (تبويب الدفع والمزامنة).", "Active products are shown to customers through the \"Show catalog\" step of the auto-reply. Add them by hand, or sync them automatically from your website (Payment & sync tab).")}</p>
-            <input className="catalog-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث بالاسم أو التصنيف أو الرمز", "Search by name, category or SKU")} />
+            <div className="seg-toolbar"><input className="catalog-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ابحث بالاسم أو التصنيف أو الرمز", "Search by name, category or SKU")} /><span className="seg-total-pill">{t("الإجمالي", "Total")}: <b>{filteredProducts.length}</b></span></div>
             {notice ? <p className={`automation-feedback ${notice.type}`} role="status">{notice.message}</p> : null}
             {products.length > 0 ? (
               <div className="catalog-bulk-bar">
@@ -515,7 +520,7 @@ export default function CatalogView() {
                 <span className="catalog-bulk-count">{selected.size > 0 ? t(`${selected.size} محدد`, `${selected.size} selected`) : t(`${products.length} منتج`, `${products.length} products`)}</span>
               </div>
             ) : null}
-            <table className="mobile-card-table">
+            <table className="mobile-card-table camp-table">
               <thead><tr><th>{t("المنتج", "Product")}</th><th>{t("السعر", "Price")}</th><th>{t("التصنيف", "Category")}</th><th>{t("المخزون", "Stock")}</th><th>{t("المصدر", "Source")}</th><th>{t("الحالة", "Status")}</th><th>{t("إجراء", "Action")}</th></tr></thead>
               <tbody>
                 {filteredProducts.map((product) => (
@@ -523,7 +528,7 @@ export default function CatalogView() {
                     <td>
                       <span className="catalog-product-cell">
                         <input type="checkbox" aria-label={t("تحديد المنتج", "Select product")} checked={selected.has(product.id)} onChange={() => toggleSelected(product.id)} />
-                        {product.imageUrl ? <img src={product.imageUrl} alt="" width={40} height={40} className="catalog-thumb" /> : <span className="catalog-thumb catalog-thumb-empty" aria-hidden="true">▣</span>}
+                        {product.imageUrl ? <img src={product.imageUrl} alt="" width={40} height={40} className="catalog-thumb" /> : <span className="catalog-thumb catalog-thumb-empty" aria-hidden="true">{(product.name.trim()[0] || "؟")}</span>}
                         <b>{language === "en" && product.nameEn ? product.nameEn : product.name}</b>
                       </span>
                     </td>
@@ -531,7 +536,7 @@ export default function CatalogView() {
                     <td data-label={t("التصنيف", "Category")}>{product.category || "-"}</td>
                     <td data-label={t("المخزون", "Stock")}>{product.stock < 0 ? t("غير محدد", "Not tracked") : product.stock === 0 ? t("نفد", "Out of stock") : product.stock}</td>
                     <td data-label={t("المصدر", "Source")}>{product.source === "manual" ? t("يدوي", "Manual") : product.source === "feed" ? t("ملف الموقع", "Website feed") : "API"}</td>
-                    <td data-label={t("الحالة", "Status")}><span className={product.active ? "state ok" : "state muted"}>{product.active ? t("ظاهر", "Visible") : t("مخفي", "Hidden")}</span></td>
+                    <td data-label={t("الحالة", "Status")}><span className={product.active ? "state ok" : "state muted"}><i className="camp-dot" />{product.active ? t("ظاهر", "Visible") : t("مخفي", "Hidden")}</span></td>
                     <td className="row-actions" data-label={t("إجراء", "Action")}>
                       <button className="btn soft" type="button" onClick={() => openForm(product)}>{t("تعديل", "Edit")}</button>
                       <button className="btn soft" type="button" onClick={() => setOptionsFor({ id: product.id, name: product.name })}>{t("الخيارات", "Options")}</button>

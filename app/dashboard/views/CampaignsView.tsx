@@ -843,7 +843,7 @@ export default function CampaignsView({
             <span>{t("تصفية حسب الحالة", "Status filter")}: {campaignStatusFilter === "all" ? t("الكل", "All") : campaignStatusLabel(campaignStatusFilter, t)}</span>
           </div>
         </div>
-        <label className="camp-hero-search"><span aria-hidden="true">🔍</span><input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); setActiveTab("campaigns"); }} placeholder={t("بحث باسم الحملة...", "Search campaigns...")} aria-label={t("بحث في الحملات", "Search campaigns")} /></label>
+        <label className="camp-hero-search"><input value={campaignSearch} onChange={(event) => { setCampaignSearch(event.target.value); setCampaignPage(1); setActiveTab("campaigns"); }} placeholder={t("بحث باسم الحملة...", "Search campaigns...")} aria-label={t("بحث في الحملات", "Search campaigns")} /></label>
         <CustomSelect className="camp-hero-period" value={periodFilter} onChange={applyPeriod} options={[{ value: "all", label: t("كل الفترات", "All time") }, { value: "today", label: t("اليوم", "Today") }, { value: "week", label: t("آخر 7 أيام", "Last 7 days") }, { value: "month", label: t("هذا الشهر", "This month") }, { value: "year", label: t("هذه السنة", "This year") }]} />
         <button className="camp-hero-new" type="button" onClick={() => openForm()}>＋ {t("حملة جديدة", "New campaign")}</button>
       </div>
@@ -1215,7 +1215,7 @@ export default function CampaignsView({
                     <span>{t("مصدر الجمهور", "Audience source")}</span>
                     <div className="section-tabs">
                       <button className={form.audienceMode === "file" ? "section-tab active" : "section-tab"} type="button" onClick={() => setAudienceMode("file")}>{t("📁 رفع ملف", "📁 Upload file")}</button>
-                      <button className={form.audienceMode === "paste" ? "section-tab active" : "section-tab"} type="button" onClick={() => setAudienceMode("paste")}>{t("📋 لصق الأرقام", "📋 Paste numbers")}</button>
+                      <button className={form.audienceMode === "paste" ? "section-tab active" : "section-tab"} type="button" onClick={() => setAudienceMode("paste")}>{t("لصق الأرقام", "Paste numbers")}</button>
                       <button className={form.audienceMode === "segment" ? "section-tab active" : "section-tab"} type="button" onClick={() => setAudienceMode("segment")}>{t("🎯 تقسيم جمهور", "🎯 Segment")}</button>
                     </div>
                   </label>

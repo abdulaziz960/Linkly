@@ -8,6 +8,7 @@ import { aiProviders, type AiSettingsPublic } from "../../../lib/ai-types";
 import type { AiUsageSummary } from "../../../lib/ai-usage-summary";
 import { ECONOMY_MODEL } from "../../../lib/ai-economy";
 import { useLanguage } from "../i18n";
+import { KpiRow, PageHero } from "../components/PageHero";
 
 type Usage = { id: string; createdAt: string; provider: string; model: string; operation: string; status: string; inputTokens: number | null; outputTokens: number | null; estimatedCost: number | null };
 type Payload = { settings: AiSettingsPublic; dailyUsed: number; monthlyUsed: number; events: Usage[]; summary?: AiUsageSummary };
@@ -75,8 +76,15 @@ export default function AiSettingsView() {
     } catch (error) { setFeedback(error instanceof Error ? error.message : t("تعذر الحفظ", "Couldn't save")); }
     finally { setManagedSaving(false); }
   }
-  return <section className="panel ai-settings-view">
-    <div className="panel-head"><div><h2>{t("مساعد AI للموظف", "Employee AI Copilot")}</h2><p>{t("اقتراح رد، إعادة صياغة، تصحيح، ترجمة، تلخيص، تحليل المشاعر والخطوة التالية.", "Reply suggestions, rewriting, correction, translation, summaries, sentiment and next steps.")}</p></div></div>
+  return <section className="ai-settings-view">
+    <PageHero eyebrow={t("الذكاء الاصطناعي", "Artificial intelligence")} title={t("إعدادات المساعد", "Assistant settings")} description={t("اقتراح رد، إعادة صياغة، تصحيح، ترجمة، تلخيص، تحليل المشاعر والخطوة التالية.", "Reply suggestions, rewriting, correction, translation, summaries, sentiment and next steps.")} />
+    {data?.summary ? <KpiRow items={[
+      { tone: "t", label: t("طلبات آخر 30 يوماً", "Requests, 30 days"), value: data.summary.total },
+      { tone: "g", label: t("نسبة النجاح", "Success rate"), value: data.summary.successRate === null ? "—" : `${data.summary.successRate}%` },
+      { tone: "p", label: t("الاستخدام اليومي", "Used today"), value: data.dailyUsed, note: t(`الشهري ${data.monthlyUsed}`, `${data.monthlyUsed} this month`) },
+      { tone: "o", label: t("التكلفة التقديرية USD", "Estimated cost USD"), value: data.summary.costUsd.toFixed(4) }
+    ]} /> : null}
+    <div className="panel">
     <div className="panel-body">
       {feedback ? <p role="status">{feedback}</p> : null}
       {!settings || !data ? <p>{feedback ? "" : t("جارٍ التحميل…", "Loading…")}</p> : <>
@@ -84,11 +92,8 @@ export default function AiSettingsView() {
           <div className="ai-managed-panel">
             <div>
               <h3>{settings.managedLocal ? t("مساعد محلي — دون رسوم API", "Local Copilot — no API fees") : t("مساعد Linkly — Gemini Flash-Lite", "Linkly Copilot — Gemini Flash-Lite")}</h3>
-              {!settings.managedLocal ? <p>{t("اقتراحات للمراجعة فقط، دون إرسال تلقائي. يستخدم آخر 6 رسائل بسياق مختصر؛ التلخيص ليس لكامل المحادثة. يخضع لحصة باقتك وحد استخدام شهري مشترك للمنصة، دون انتقال تلقائي لنموذج أغلى.", "Review-only suggestions, never sent automatically. Uses abbreviated context from the last 6 messages; summaries do not cover the entire conversation. Subject to plan quotas and a shared platform monthly allowance, with no automatic switch to a pricier model.")}</p> : null}
-              <p className="ai-managed-note"><b>{t("لموظفيك فقط:", "For your employees only:")}</b> {t("المساعد المُدار يقترح الردود للموظف داخل صندوق الوارد. الرد التلقائي على العملاء (عقدة «رد AI تلقائي» في البوت) لا يعمل به، ويتطلب ربط مفتاحك الخاص من القسم أدناه.", "The managed assistant suggests replies to your employees inside the inbox. Automatic customer replies (the \"Automatic AI reply\" bot step) do not run on it and require your own API key, connected below.")}</p>
               <p>{t(`مشمول ضمن باقتك الحالية - بدون حاجة لمفتاح API خاص بك. الحد: ${settings.managedDailyLimit} يوميًا / ${settings.managedMonthlyLimit} شهريًا.`, `Included with your current plan - no API key of your own needed. Limit: ${settings.managedDailyLimit}/day, ${settings.managedMonthlyLimit}/month.`)}</p>
-              {settings.managedLocal ? <p>{t("يعمل عبر Ollama على خادم خاص. موارد التشغيل لها تكلفة؛ لا يوجد انتقال تلقائي لمزود مدفوع. الاقتراح للمراجعة ولا يُرسل تلقائياً، ولا يشغّل ردود البوت الآلية.", "Runs through Ollama on a private server. Hosting resources still have a cost; no automatic paid fallback. Suggestions require review and do not power automatic bot replies.")}</p> : null}
-              {!settings.managedReady ? <p className="ai-managed-warning">{t("لم تكتمل إعدادات خادم المساعد بعد. يلزم إعداد المزود من إدارة المنصة.", "The assistant server is not configured yet. Contact the platform administrator.")}</p> : <p>{t("إعداد الاتصال محفوظ؛ توفر الخادم والنموذج يُتحقق منه عند طلب الاقتراح.", "Connection configured; server and model availability is checked when a suggestion is requested.")}</p>}
+              {!settings.managedReady ? <p className="ai-managed-warning">{t("لم تكتمل إعدادات خادم المساعد بعد. تواصل مع إدارة المنصة.", "The assistant server is not configured yet. Contact the platform administrator.")}</p> : null}
             </div>
             <label className="check-row">
               <input
@@ -104,29 +109,28 @@ export default function AiSettingsView() {
           <div className="ai-managed-panel">
             <div>
               <h3>{t("مساعد AI مُدار من Linkly", "Linkly-managed AI Copilot")}</h3>
-              <p>{t("في باقتك يعمل المساعد بمفتاح API الخاص بك: اربطه من القسم أدناه وتُحسب تكلفة الاستخدام على حسابك لدى المزود. المساعد المُدار من لنكلي (بدون مفتاح) متاح بدءًا من باقة المؤسسات الصغيرة.", "On your plan the assistant runs with your own API key: connect it below and usage is billed to your account at the provider. The Linkly-managed assistant (no key needed) is available from the Small Enterprises plan.")}</p>
+              <p>{t("اربط مفتاح API الخاص بك من القسم أدناه. المساعد المُدار (بدون مفتاح) متاح من باقة المؤسسات الصغيرة.", "Connect your own API key below. The managed assistant (no key) starts at the Small Enterprises plan.")}</p>
             </div>
           </div>
         )}
         {settings.managedAvailable && settings.hasKey ? <button type="button" className="btn secondary" disabled={managedSaving || !settings.managedReady} onClick={async () => { if (await confirmDialog(t("سيُحذف مفتاح المزود المحفوظ وتنتقل إلى المساعد المُدار. متابعة؟", "Remove your saved provider key and switch to managed AI?"), { tone: "danger", cancelLabel: t("تراجع", "Cancel") })) void saveManaged(true); }}>{t("إزالة المفتاح والانتقال للمساعد المُدار", "Remove key and switch to managed AI")}</button> : null}
-        <h3>{t("أو اربط مفتاحك الخاص (قد تُفرض رسوم من المزود)", "Or bring your own key (provider charges may apply)")}</h3>
+        <h3>{t("مفتاحك الخاص", "Your own key")}</h3>
         <form onSubmit={save} className="ai-settings-form">
-          <label className="ai-settings-checkbox"><input type="checkbox" checked={settings.enabled} onChange={(event) => update({ enabled: event.target.checked })} />{t("تفعيل مساعد الموظف", "Enable Copilot")}</label>
-          <label>{t("المزود", "Provider")}<CustomSelect ariaLabel={t("المزود", "Provider")} value={settings.provider} onChange={(value) => { update({ provider: value as AiSettingsPublic["provider"], model: "", hasKey: false, inputRate: null, outputRate: null }); setApiKey(""); }} options={aiProviders.map((provider) => ({ value: provider, label: provider }))} /></label>
+          <label className="ai-settings-checkbox ai-enable-row"><input type="checkbox" checked={settings.enabled} onChange={(event) => update({ enabled: event.target.checked })} />{t("تفعيل مساعد الموظف", "Enable Copilot")}</label>
+                    <label>{t("المزود", "Provider")}<CustomSelect ariaLabel={t("المزود", "Provider")} value={settings.provider} onChange={(value) => { update({ provider: value as AiSettingsPublic["provider"], model: "", hasKey: false, inputRate: null, outputRate: null }); setApiKey(""); }} options={aiProviders.map((provider) => ({ value: provider, label: provider }))} /></label>
           <label>{t("معرّف الموديل", "Model ID")}<input required value={settings.model} maxLength={150} onChange={(event) => update({ model: event.target.value })} dir="ltr" /></label>
           <label>{t("مفتاح API", "API key")}<input type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={settings.hasKey ? t("محفوظ — اتركه فارغاً للاحتفاظ به", "Saved — leave blank to retain") : t("أدخل المفتاح", "Enter key")} /></label>
-          <p>{t("يُحفظ المفتاح مشفراً على الخادم ولا يُعرض بعد الحفظ. تغيير المزود يتطلب مفتاحاً جديداً.", "The key is encrypted on the server and never returned after saving. Switching providers requires a new key.")}</p>
           <label>{t("تعليمات أسلوب الرد", "Reply style guidance")}<textarea value={settings.prompt} maxLength={4000} onChange={(event) => update({ prompt: event.target.value })} /></label>
+          <details className="ai-advanced"><summary>{t("خيارات متقدمة: الحدود والتكلفة", "Advanced: limits and cost")}</summary><div className="ai-advanced-grid">
           <label>{t("الحد اليومي للطلبات", "Daily request limit")}<input type="number" min={0} max={100000} required value={settings.dailyLimit} onChange={(event) => update({ dailyLimit: Number(event.target.value) })} /></label>
           <label>{t("الحد الشهري للطلبات", "Monthly request limit")}<input type="number" min={0} max={1000000} required value={settings.monthlyLimit} onChange={(event) => update({ monthlyLimit: Number(event.target.value) })} /></label>
-          <p>{t(`الاستخدام اليومي: ${data.dailyUsed} · الشهري: ${data.monthlyUsed}. الحدود بتوقيت UTC وتشمل المحاولات الفاشلة.`, `Used today: ${data.dailyUsed} · This month: ${data.monthlyUsed}. UTC periods; failed attempts count.`)}</p>
           <label>{t("سعر مليون توكن إدخال (USD، اختياري)", "Input price per million tokens (USD, optional)")}<input type="number" min={0} max={100000} step="any" value={settings.inputRate ?? ""} onChange={(event) => update({ inputRate: event.target.value === "" ? null : Number(event.target.value) })} /></label>
           <label>{t("سعر مليون توكن إخراج (USD، اختياري)", "Output price per million tokens (USD, optional)")}<input type="number" min={0} max={100000} step="any" value={settings.outputRate ?? ""} onChange={(event) => update({ outputRate: event.target.value === "" ? null : Number(event.target.value) })} /></label>
-          <p>{t("التكلفة تقديرية حسب الأسعار المدخلة واستهلاك المزود؛ تظهر «غير متاح» عند غيابها. في Ollama المحلي، الصفر يعني رسوم API فقط ولا يشمل الخادم.", "Cost is estimated from your rates and provider usage; unavailable when either is missing. For local Ollama, zero means API fees only and excludes hosting.")}</p>
+          </div></details>
           <button className="btn primary" disabled={saving} type="submit">{saving ? t("جارٍ الحفظ…", "Saving…") : t("حفظ إعدادات AI", "Save AI settings")}</button>
         </form>
+        <details className="ai-advanced ai-usage"><summary>{t("سجل الاستخدام", "Usage log")}</summary>
         {data.summary ? <>
-          <h3>{t("جودة واستخدام AI — آخر 30 يوماً", "AI quality and usage — last 30 days")}</h3>
           <div className="table-wrap"><table className="report-table"><tbody>
             <tr><th>{t("إجمالي الطلبات", "Total requests")}</th><td>{data.summary.total}</td></tr>
             <tr><th>{t("نسبة النجاح", "Success rate")}</th><td>{data.summary.successRate === null ? t("غير متاح", "N/A") : `${data.summary.successRate}% (${data.summary.succeeded + data.summary.handoff} / ${data.summary.succeeded + data.summary.handoff + data.summary.failed})`}</td></tr>
@@ -138,8 +142,10 @@ export default function AiSettingsView() {
           </tbody></table></div>
         </> : null}
         <h3>{t("آخر 50 طلباً", "Latest 50 requests")}</h3>
-        <div className="table-wrap"><table className="report-table"><thead><tr>{[t("الوقت", "Time"), t("المزود", "Provider"), t("العملية", "Operation"), t("الحالة", "Status"), t("التكلفة التقديرية USD", "Estimated cost USD")].map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{data.events.map((entry) => <tr key={entry.id}><td>{entry.createdAt}</td><td>{entry.provider} / {entry.model}</td><td>{entry.operation}</td><td>{entry.status}</td><td>{entry.estimatedCost === null ? t("غير متاح", "N/A") : entry.estimatedCost.toFixed(6)}</td></tr>)}</tbody></table>{!data.events.length ? <p>{t("لا طلبات بعد. افتح محادثة وجرّب مساعد AI.", "No requests yet. Open a conversation and try Copilot.")}</p> : null}</div>
+        <div className="table-wrap"><table className="report-table"><thead><tr>{[t("الوقت", "Time"), t("المزود", "Provider"), t("العملية", "Operation"), t("الحالة", "Status"), t("التكلفة التقديرية USD", "Estimated cost USD")].map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{data.events.map((entry) => <tr key={entry.id}><td>{entry.createdAt}</td><td>{entry.provider} / {entry.model}</td><td>{entry.operation}</td><td>{entry.status}</td><td>{entry.estimatedCost === null ? t("غير متاح", "N/A") : entry.estimatedCost.toFixed(6)}</td></tr>)}</tbody></table>{!data.events.length ? <p>{t("لا طلبات بعد.", "No requests yet.")}</p> : null}</div>
+        </details>
       </>}
+    </div>
     </div>
   </section>;
 }

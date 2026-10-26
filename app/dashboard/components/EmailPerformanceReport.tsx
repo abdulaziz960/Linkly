@@ -90,7 +90,7 @@ export default function EmailPerformanceReport() {
           </div>
           <div className="seg-banners">
             <div className="seg-banner seg-banner-good">
-              <span>🏆 {t("أفضل أداء", "Best performance")}</span>
+              <span>{t("أفضل أداء", "Best performance")}</span>
               {best ? (
                 <>
                   <b>{best.campaign.name}</b>
@@ -104,7 +104,7 @@ export default function EmailPerformanceReport() {
               )}
             </div>
             <div className="seg-banner seg-banner-warn">
-              <span>⚠ {t("أضعف أداء", "Weakest performance")}</span>
+              <span>{t("أضعف أداء", "Weakest performance")}</span>
               {best && worst && worst.campaign.id !== best.campaign.id ? (
                 <>
                   <b>{worst.campaign.name}</b>

@@ -312,7 +312,7 @@ export default function EmployeesView({
         description={t("أضف فريقك وحدد دور كل موظف وصلاحياته وفريقه.", "Add your team and set each employee's role, permissions and team.")}
         chips={[t(`${employees.length} موظف`, `${employees.length} employees`), t(`${employees.filter((employee) => employee.status === "متصل").length} متصل`, `${employees.filter((employee) => employee.status === "متصل").length} online`)]}
       >
-        <label className="camp-hero-search"><span aria-hidden="true">🔍</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث بالاسم أو البريد...", "Search by name or email...")} aria-label={t("بحث", "Search")} /></label>
+        <label className="camp-hero-search"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث بالاسم أو البريد...", "Search by name or email...")} aria-label={t("بحث", "Search")} /></label>
         <button className="camp-hero-new camp-hero-ghost" type="button" onClick={exportEmployees}>{t("تصدير", "Export")}</button>
         <button className="camp-hero-new" type="button" onClick={openCreateForm}>＋ {t("إضافة موظف", "Add Employee")}</button>
       </PageHero>

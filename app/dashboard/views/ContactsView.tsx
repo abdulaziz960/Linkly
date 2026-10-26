@@ -218,7 +218,7 @@ export default function ContactsView({
           <p>{t("اختر المنصة لعرض العملاء القادمين منها وإدارة بياناتهم ومحادثاتهم.", "Choose a platform to view customers coming from it and manage their data and conversations.")}</p>
           <div className="camp-hero-chips"><span>{customers.length.toLocaleString("en-US")} {t("إجمالي العملاء", "customers")}</span><span>{t("المنصة", "Platform")}: {t(customerTabs.find((tab) => tab.key === activeTab)?.label[0] ?? "", customerTabs.find((tab) => tab.key === activeTab)?.label[1] ?? "")}</span></div>
         </div>
-        <label className="camp-hero-search"><span aria-hidden="true">🔍</span><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder={t("بحث باسم العميل، الرقم، أو الوسم...", "Search by customer name, number, or tag...")} aria-label={t("بحث في العملاء", "Search customers")} /></label>
+        <label className="camp-hero-search"><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder={t("بحث باسم العميل، الرقم، أو الوسم...", "Search by customer name, number, or tag...")} aria-label={t("بحث في العملاء", "Search customers")} /></label>
         <button className="camp-hero-new" type="button" aria-label={t("إضافة عميل", "Add Customer")} onClick={openCreateForm}>＋ {t("إضافة عميل", "Add Customer")}</button>
       </div>
 
