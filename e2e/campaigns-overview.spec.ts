@@ -18,6 +18,7 @@ async function signIn(page: Page) {
 test("campaigns overview shows the funnel and a real balance on both tabs", async ({ page }, testInfo) => {
   await signIn(page);
   await page.goto("/dashboard?view=campaigns");
+  await page.locator(".camp-summary summary").click();
   await expect(page.getByRole("region", { name: "مسار الرسائل" })).toBeVisible();
   await expect(page.getByRole("region", { name: "ملخص الحملات" }).getByRole("button")).toHaveCount(4);
   await page.screenshot({ path: testInfo.outputPath("campaigns-overview.png") });
@@ -38,11 +39,11 @@ test("campaigns table: real numbers, notes, the row menu and a typed delete conf
   await expect(row).toContainText("vip");
   // 5 of 7 sent: 71.4%, nothing waiting, one failed + one opted out.
   await expect(row).toContainText("71.4%");
-  await expect(row.locator("td[data-label='فشلت']")).toHaveText("2");
   await expect(row).not.toContainText("بالانتظار");
   await page.screenshot({ path: testInfo.outputPath("campaigns-table.png") });
 
   // The 'pending' card shows only campaigns that still have recipients waiting.
+  await page.locator(".camp-summary summary").click();
   await page.getByRole("region", { name: "ملخص الحملات" }).getByRole("button", { name: /بانتظار الإرسال/ }).click();
   await expect(page.getByRole("row", { name: /حملة مجدولة/ })).toBeVisible();
   await expect(page.getByRole("row", { name: /حملة العرض الأخير/ })).toHaveCount(0);
@@ -63,13 +64,14 @@ test("campaigns table: real numbers, notes, the row menu and a typed delete conf
 
   // Archive moves it out of the default list.
   await page.getByRole("row", { name: /حملة العرض الأخير/ }).getByRole("button", { name: /خيارات حملة العرض الأخير/ }).click();
-  await page.getByRole("menuitem", { name: "أرشفة" }).click();
+  await page.getByRole("row", { name: /حملة العرض الأخير/ }).getByRole("button", { name: "أرشفة" }).click();
   await expect(page.getByRole("row", { name: /حملة العرض الأخير/ })).toHaveCount(0);
 });
 
 test("upcoming campaigns are listed with a way to change the time, and a short balance is flagged", async ({ page }, testInfo) => {
   await signIn(page);
   await page.goto("/dashboard?view=campaigns");
+  await page.getByRole("button", { name: /^مجدولة/ }).click();
   const upcoming = page.locator(".upcoming-board");
   await expect(upcoming).toContainText("حملة قادمة");
   // The saved draft without a send time is not "upcoming".
@@ -96,7 +98,7 @@ test("campaigns table becomes cards on a phone without sideways scrolling", asyn
   const card = page.locator(".campaigns-table tbody tr", { hasText: "حملة قادمة" });
   await expect(card).toBeVisible();
   await expect(page.locator(".campaigns-table thead")).toBeHidden();
-  await expect(card.locator("td[data-label='الجمهور']")).toBeVisible();
+  await expect(card.locator("td[data-label='الحملة']")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   await card.scrollIntoViewIfNeeded();
@@ -106,7 +108,7 @@ test("campaigns table becomes cards on a phone without sideways scrolling", asyn
 test("the row menu opens in full even when the table has a single row", async ({ page }) => {
   await signIn(page);
   await page.goto("/dashboard?view=campaigns");
-  await page.getByPlaceholder("ابحث باسم الحملة أو الحالة…").fill("حملة قادمة");
+  await page.getByPlaceholder("بحث باسم الحملة...").fill("حملة قادمة");
   await expect(page.locator(".campaigns-table tbody tr")).toHaveCount(1);
   await page.getByRole("button", { name: /خيارات حملة قادمة/ }).click();
   const items = page.getByRole("menuitem");

@@ -12783,3 +12783,10 @@ html[dir="ltr"] .notification-bell-panel {
 .campaigns-page .camp-filterrow .custom-select.page-size { flex: 0 0 84px; min-width: 84px; }
 .campaigns-page .camp-filterrow .seg-total-pill { margin-inline-start: auto; }
 @media (max-width: 760px) { .campaigns-page .camp-filterrow { margin-inline: 10px; } .campaigns-page .camp-filterrow .custom-select, .campaigns-page .camp-filterrow .campaign-date-filter { flex: 1 1 100%; } .campaigns-page .camp-filterrow .campaign-date-filter input { flex: 1; width: auto; } }
+
+/* The shared tab bar never makes a page wider than the phone: it scrolls inside itself */
+.dashboard-main :is(.pipeline-tabs, .reports-hub-tabs, .section-tabs:not(.contacts-tabs), .campaign-tabs:not(.contacts-tabs)) { min-width: 0; box-sizing: border-box; }
+@media (max-width: 760px) {
+  .dashboard-main :is(.pipeline-tabs, .reports-hub-tabs, .section-tabs:not(.contacts-tabs), .campaign-tabs:not(.contacts-tabs)) { display: flex; width: auto; max-width: 100%; overflow-x: auto; }
+  .dashboard-main :is(.pipeline-tabs, .reports-hub-tabs, .section-tabs:not(.contacts-tabs), .campaign-tabs:not(.contacts-tabs)) :is(button, .section-tab) { flex: 0 0 auto; }
+}

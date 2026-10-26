@@ -77,7 +77,9 @@ test("every page header is the shared one with a single H1", async ({ page }) =>
   await signIn(page);
   for (const view of ["campaigns", "emailPromotions", "automations", "bot", "reports"]) {
     await page.goto(`/dashboard?view=${view}`);
-    await expect(page.locator("header.page-header")).toHaveCount(1);
+    // The campaign pages carry their own teal hero (with the single H1); every other page uses the shared header.
+    const ownHero = view === "campaigns" || view === "emailPromotions";
+    await expect(page.locator(ownHero ? ".camp-hero" : "header.page-header")).toHaveCount(1);
     await expect(page.locator("h1")).toHaveCount(1);
   }
 });
