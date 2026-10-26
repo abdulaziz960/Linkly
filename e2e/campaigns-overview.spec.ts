@@ -96,7 +96,7 @@ test("campaigns table becomes cards on a phone without sideways scrolling", asyn
   const card = page.locator(".campaigns-table tbody tr", { hasText: "حملة قادمة" });
   await expect(card).toBeVisible();
   await expect(page.locator(".campaigns-table thead")).toBeHidden();
-  await expect(card.locator("td[data-label='التكلفة']")).toBeVisible();
+  await expect(card.locator("td[data-label='الجمهور']")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   await card.scrollIntoViewIfNeeded();
