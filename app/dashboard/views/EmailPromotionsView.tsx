@@ -359,8 +359,8 @@ export default function EmailPromotionsView({ customers, conversations, tags, hu
       {error ? <p role="alert" className="error-banner">{error}</p> : null}
 
       <div className="camp-subtabs">
-        <button type="button" className={activeView === "campaigns" ? "on" : ""} onClick={() => setActiveView("campaigns")}>▣ {t("الحملات النشطة", "Active campaigns")}</button>
-        <button type="button" className={activeView === "balance" ? "on" : ""} onClick={() => setActiveView("balance")}>💳 {t("الرصيد والشراء", "Balance & purchase")}</button>
+        <button type="button" className={activeView === "campaigns" ? "on" : ""} onClick={() => setActiveView("campaigns")}>{t("نظرة الحملات", "Campaign overview")}</button>
+        <button type="button" className={activeView === "balance" ? "on" : ""} onClick={() => setActiveView("balance")}>{t("الرصيد و الشحن", "Balance & Top-up")}</button>
       </div>
 
       {activeView === "campaigns" ? (

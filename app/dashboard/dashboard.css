@@ -12773,3 +12773,13 @@ html[dir="ltr"] .notification-bell-panel {
 .upcoming-board .state { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
 .upcoming-board .upcoming-actions { display: flex; gap: 8px; }
 @media (max-width: 760px) { .upcoming-board .upcoming-list li { grid-template-columns: 1fr; } .campaigns-page .seg-toolbar.campaign-filterbar { margin-inline: 10px; } }
+
+/* One tidy filter row (as in the preview) */
+.campaigns-page .camp-filterrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 16px 6px; padding: 12px 14px; }
+.campaigns-page .camp-filterrow .campaign-date-filter { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--text-secondary); }
+.campaigns-page .camp-filterrow .campaign-date-filter input { width: 150px; }
+.campaigns-page .camp-filterrow .entries { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); }
+.campaigns-page .camp-filterrow .custom-select { flex: 0 1 170px; min-width: 130px; }
+.campaigns-page .camp-filterrow .custom-select.page-size { flex: 0 0 84px; min-width: 84px; }
+.campaigns-page .camp-filterrow .seg-total-pill { margin-inline-start: auto; }
+@media (max-width: 760px) { .campaigns-page .camp-filterrow { margin-inline: 10px; } .campaigns-page .camp-filterrow .custom-select, .campaigns-page .camp-filterrow .campaign-date-filter { flex: 1 1 100%; } .campaigns-page .camp-filterrow .campaign-date-filter input { flex: 1; width: auto; } }
