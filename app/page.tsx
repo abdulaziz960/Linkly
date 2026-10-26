@@ -22,7 +22,9 @@ import HowJourney from "./landing/HowJourney";
 import { planFeatures, getPlanDisplayItems } from "../lib/plan-features";
 import { getActivePlansForLanding } from "../lib/plans";
 import { getFaqs } from "../lib/faq-store";
-import { safeJsonLd } from "../lib/json-ld";
+import JsonLd from "./JsonLd";
+import { solutions, solutionPath } from "./../lib/solution-content";
+import { STORE_INTEGRATION_SUMMARY } from "./../lib/product-availability";
 // Shown on the landing metric ("5+ messaging platforms").
 const platformCount = 5;
 
@@ -76,8 +78,7 @@ const planCta: Record<string, string> = {
 
 function Check(){return <span className={s.check} aria-hidden="true">✓</span>}
 export default async function HomePage(){
-  const faqs = await getFaqs("ar");
-  const dbPlans = await getActivePlansForLanding();
+  const [faqs, dbPlans] = await Promise.all([getFaqs("ar"), getActivePlansForLanding()]);
   const plans = dbPlans.map((plan) => {
     const features = planFeatures[plan.name];
     return {
@@ -101,7 +102,7 @@ export default async function HomePage(){
     { "@type":"FAQPage", mainEntity:faqs.map(([q,a])=>({"@type":"Question",name:q,acceptedAnswer:{"@type":"Answer",text:a}})) }
   ]};
   return <div className={s.page}>
-  <script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(jsonLd)}}/>
+  <JsonLd data={jsonLd} />
   <ScrollReveal />
   <MobileCtaVisibility />
   <LandingNav />
@@ -110,7 +111,8 @@ export default async function HomePage(){
     <section className={s.trust}><b>مصممة لفرق خدمة العملاء والمبيعات</b><span><Check/> رد أسرع</span><span><Check/> مسؤول واضح</span><span><Check/> متابعة لا تضيع</span><span><Check/> صلاحيات للفريق</span></section>
     <section className={s.section} id="video"><Intro kicker="فيديو تعريفي" title="كل محادثاتك بمكان واحد" copy="تعرّف على لنكلي في فيديو قصير: قنواتك وفريقك ومحادثاتك في صندوق وارد واحد."/><HeroVideo/></section>
     <section className={`${s.section} ${s.product}`} id="product"><Intro kicker="المنتج" title="واجهة واحدة ترى فيها ما يحتاجه الفريق الآن" copy="من أول رسالة إلى الإغلاق، تبقى المحادثة والعميل والمسؤول والخطوة التالية في نفس السياق."/><ProductStory lang="ar" steps={productSteps}/></section>
-    <section className={`${s.section} ${s.channels} ${c.dotGrid}`}><Intro kicker="القنوات" title="كل قناة بطبيعتها. إدارة واحدة لفريقك." copy="فعّل القنوات التي يحتاجها نشاطك، واجعل الفريق يعمل من صندوق وارد واحد."/><ChannelHub lang="ar" descriptions={channelDescriptions}/><div className={s.integrationsNote}><p><b>تكاملات المتاجر:</b> سلة متاح في باقة المؤسسات الكبيرة و«صمم باقتك» (منتجات وطلبات وكوبونات). زد وشوبيفاي قريبًا.</p><p><b>قنوات أخرى حسب الباقة:</b> تعليقات يوتيوب ولينكدإن، نماذج العملاء المحتملين من ميتا وسناب شات، تقييمات بروفايل جوجل، رسائل X، والرسائل النصية (إرسال فقط). <a href="#compare">التفاصيل في مقارنة الباقات</a></p></div></section>
+    <section className={`${s.section} ${s.channels} ${c.dotGrid}`}><Intro kicker="القنوات" title="كل قناة بطبيعتها. إدارة واحدة لفريقك." copy="فعّل القنوات التي يحتاجها نشاطك، واجعل الفريق يعمل من صندوق وارد واحد."/><ChannelHub lang="ar" descriptions={channelDescriptions}/><div className={s.integrationsNote}><p><b>تكاملات المتاجر:</b> {STORE_INTEGRATION_SUMMARY.ar}</p><p><b>قنوات أخرى حسب الباقة:</b> تعليقات يوتيوب ولينكدإن، نماذج العملاء المحتملين من ميتا وسناب شات، تقييمات بروفايل جوجل، رسائل X، والرسائل النصية (إرسال فقط). <a href="#compare">التفاصيل في مقارنة الباقات</a></p></div></section>
+    <section className={s.section} id="guides"><Intro kicker="أدلة الاستخدام" title="اختر قناتك، وراجع متطلبات الربط والخطوات قبل بدء التجربة."/><div className={s.featureGrid}>{solutions.map((item) => <article key={item.slug}><h3><Link href={solutionPath(item.slug, "ar")}>{item.ar.title}</Link></h3><p>{item.ar.description}</p></article>)}</div></section>
     <section className={`${s.section} ${s.features}`} id="features"><Intro kicker="المميزات" title="كل ما يحتاجه فريقك لإدارة المحادثة بوضوح" copy="أدوات عملية مبنية حول سير العمل اليومي، لا قائمة طويلة من المزايا النظرية."/><div className={s.featureGrid}>{features.map(([t,c],i)=><article key={t} className={s.reveal} style={{transitionDelay:`${i*60}ms`}}><span>0{i+1}</span><h3>{t}</h3><p>{c}</p></article>)}</div><div className={s.inlineCta}><p><b>جاهز تجمع محادثات فريقك؟</b><span>ابدأ بحساب مجاني ثم جهّز قنواتك خطوة بخطوة.</span></p><Link className={s.primary} href="/signup" data-primary-cta="true">ابدأ تجربتك مجانًا</Link></div></section>
     <section className={`${s.section} ${c.howSection} ${c.dotGrid}`} id="how"><Intro kicker="طريقة العمل" title="ابدأ خلال أربع خطوات" copy="مسار واضح من إنشاء الحساب إلى أول محادثة يديرها فريقك."/><HowJourney lang="ar" steps={howSteps}/></section>
     <section className={`${s.section} ${s.useCases}`}><Intro kicker="حالات الاستخدام" title="من أول استفسار إلى عميل تمت خدمته"/><div>{[["↗","المبيعات","عميل يأتي من واتساب أو إنستقرام، يُسند لموظف مبيعات وتُحفظ خطوته التالية.","Lead ← تعيين ← متابعة"],["◎","خدمة العملاء","استفسار أو شكوى تدخل للصندوق وتنتقل للفريق الصحيح مع كامل السياق.","رسالة ← فريق ← حل"],["⌁","التشغيل والمتابعة","القواعد والردود السريعة وساعات العمل تقلل التأخير وتحافظ على تجربة ثابتة.","قاعدة ← إجراء ← قياس"]].map((x,i)=><article key={x[1]} className={s.reveal} style={{transitionDelay:`${i*80}ms`}}><i>{x[0]}</i><h3>{x[1]}</h3><p>{x[2]}</p><small dir="rtl">{x[3]}</small></article>)}</div></section>
@@ -123,7 +125,7 @@ export default async function HomePage(){
     <section className={`${s.section} ${s.faq}`} id="faq"><Intro kicker="الأسئلة الشائعة" title="إجابات واضحة قبل أن تبدأ"/><div>{faqs.map(([q,a],i)=><details key={q} open={i<2}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
     <section className={`${s.finalCta} ${s.revealFade}`}><div><span><T l="ar">ابدأ اليوم</T></span><h2><T l="ar">خل فريقك يركز على العميل، مو على التنقل بين التطبيقات.</T></h2><p><T l="ar">ابدأ تجربة Linkly مجانًا لمدة 3 أيام.</T></p></div><div><Link href="/signup" data-primary-cta="true"><T l="ar">ابدأ تجربتك مجانًا</T></Link><small><T l="ar">بدون بطاقة دفع</T></small></div></section>
   </main>
-  <footer className={s.footer}><div><section><Link className={s.brand} href="/"><Image src={logo} alt="" width={56} height={31}/><span>Linkly</span></Link><p>لنكلي منصة سعودية تجمع محادثات عملائك من واتساب وإنستغرام والبريد وتيليجرام وغيرها في صندوق وارد واحد، وتوزّعها على فريقك، وتصعّد المحادثات المتأخرة تلقائيًا، وترد عنك آليًا، وتدير حملاتك ومنتجاتك وفروعك وتقاريرك من مكان واحد.</p></section><nav><b>المنتج</b><a href="#features">المميزات</a><a href="#how">طريقة العمل</a><a href="#pricing">الأسعار</a><Link href="/faq">الأسئلة الشائعة</Link><Link href="/blog">المدونة</Link></nav><nav><b>الشركة</b><Link href="/privacy">الخصوصية</Link><Link href="/terms">شروط الاستخدام</Link><Link href="/data-deletion">حذف البيانات</Link><Link href="/contact">تواصل معنا</Link></nav></div><small>جميع الحقوق محفوظة لشركة الجمهور المخصص للدعاية والإعلان.　 Linkly © 2026</small></footer>
+  <footer className={s.footer}><div><section><Link className={s.brand} href="/"><Image src={logo} alt="" width={56} height={31}/><span>Linkly</span></Link><p>لنكلي منصة سعودية تجمع محادثات عملائك من واتساب وإنستغرام والبريد وتيليجرام وغيرها في صندوق وارد واحد، وتوزّعها على فريقك، وتصعّد المحادثات المتأخرة تلقائيًا، وترد عنك آليًا، وتدير حملاتك ومنتجاتك وفروعك وتقاريرك من مكان واحد.</p></section><nav><b>المنتج</b><a href="#features">المميزات</a><a href="#how">طريقة العمل</a><Link href="/pricing">الأسعار</Link><Link href="/faq">الأسئلة الشائعة</Link><Link href="/blog">المدونة</Link></nav><nav><b>الشركة</b><Link href="/privacy">الخصوصية</Link><Link href="/terms">شروط الاستخدام</Link><Link href="/data-deletion">حذف البيانات</Link><Link href="/contact">تواصل معنا</Link></nav></div><small>جميع الحقوق محفوظة لشركة الجمهور المخصص للدعاية والإعلان.　 Linkly © 2026</small></footer>
   <Link className={s.mobileCta} href="/signup">ابدأ تجربتك مجانًا</Link>
   </div>}
 

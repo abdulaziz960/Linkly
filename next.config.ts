@@ -1,30 +1,7 @@
 import type { NextConfig } from "next";
+import { contentSecurityPolicy } from "./lib/security-headers";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
-const isDevelopment = process.env.NODE_ENV === "development";
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} https://connect.facebook.net https://www.googletagmanager.com https://tagassistant.google.com https://cdn.moyasar.com https://www.clarity.ms https://*.clarity.ms`,
-  "style-src 'self' 'unsafe-inline' https://cdn.moyasar.com",
-  "img-src 'self' data: blob: https:",
-  "media-src 'self' data: blob: https:",
-  "font-src 'self' data:",
-  // api.moyasar.com: the embedded checkout form (app/billing/pay/[paymentId])
-  // posts card details there directly from the browser with the publishable
-  // key - never through our server. See lib/moyasar.ts's module comment.
-  // *.sentry.io / *.ingest.sentry.io: client-side error/performance events
-  // (instrumentation-client.ts) - a Sentry DSN only ever accepts events, so
-  // this is fine to leave open even before SENTRY_DSN is actually set.
-  // Clarity is configured in GTM and is loaded only after analytics consent.
-  // Microsoft rotates its collector subdomains and also uses c.bing.com.
-  "connect-src 'self' https://graph.facebook.com https://www.facebook.com https://connect.facebook.net https://www.googletagmanager.com https://tagassistant.google.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://stats.g.doubleclick.net https://api.moyasar.com https://*.sentry.io https://*.ingest.sentry.io https://www.clarity.ms https://*.clarity.ms https://c.bing.com",
-  "frame-src blob: https://www.facebook.com https://web.facebook.com https://business.facebook.com https://www.googletagmanager.com https://tagassistant.google.com",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  ...(isDevelopment ? [] : ["upgrade-insecure-requests"])
-].join("; ");
 
 const nextConfig: NextConfig = {
   // Produces a minimal self-contained .next/standalone/server.js + trimmed
@@ -33,6 +10,14 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   agentRules: false,
   poweredByHeader: false,
+  async redirects() {
+    return [{
+      source: "/:path*",
+      has: [{ type: "host", value: "www.linklysa.io" }],
+      destination: "https://linklysa.io/:path*",
+      permanent: true
+    }];
+  },
   images: {
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;"
@@ -42,7 +27,7 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: [
-          { key: "Content-Security-Policy", value: contentSecurityPolicy },
+          { key: "Content-Security-Policy", value: contentSecurityPolicy() },
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },

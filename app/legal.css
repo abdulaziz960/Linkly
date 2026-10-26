@@ -85,6 +85,12 @@
   font-weight: 800;
 }
 
+.solution-links { display: grid; gap: 12px; margin-block: 24px; }
+.solution-links a { display: block; padding: 16px; border: 1px solid #c9e1dc; border-radius: 12px; color: #106b65; font-weight: 700; text-decoration: none; line-height: 1.6; }
+.solution-links a:hover { background: #eef8f5; }
+.solution-links a:focus-visible, .legal-links a:focus-visible { outline: 3px solid #106b65; outline-offset: 3px; }
+.legal-contact h2 { margin-top: 0; }
+
 .legal-links-button {
   background: #fff;
   font: inherit;

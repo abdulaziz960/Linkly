@@ -147,7 +147,6 @@ function LiveInbox({ lang, focus, inView }: { lang: Lang; focus: number; inView:
             type="button"
             className={c.inboxRow}
             aria-pressed={index === active}
-            aria-label={`${item.customer}: ${item.text}`}
             onClick={() => {
               takeOver();
               setActive(index);

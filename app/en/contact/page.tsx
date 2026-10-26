@@ -3,6 +3,7 @@ import { applyPageSeo } from "../../../lib/page-seo";
 import Link from "next/link";
 import HtmlLangSync from "../../HtmlLangSync";
 import "../../legal.css";
+import ContactActions from "../../ContactActions";
 
 const baseMetadata: Metadata = {
   title: { absolute: "Contact us | Linkly" },
@@ -28,6 +29,7 @@ export default function ContactPageEn() {
         </Link>
         <h1>We'll help you set up your workspace and channels</h1>
         <p>For sales or technical support, reach out to the Linkly team — we'll reply during business hours.</p>
+        <ContactActions lang="en" />
 
         <h2>Email</h2>
         <p><a href="mailto:info@linklysa.io">info@linklysa.io</a></p>

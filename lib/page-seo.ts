@@ -98,7 +98,14 @@ export async function applyPageSeo(path: string, base: Metadata): Promise<Metada
       ...(ogTitle ? { title: ogTitle } : {}),
       ...(ogDescription ? { description: ogDescription } : {}),
       ...(ogImage ? { images: [{ url: ogImage }] } : {})
-    } as Metadata["openGraph"]
+    } as Metadata["openGraph"],
+    twitter: {
+      card: "summary_large_image",
+      ...(base.twitter ?? {}),
+      ...(ogTitle ? { title: ogTitle } : {}),
+      ...(ogDescription ? { description: ogDescription } : {}),
+      ...(ogImage ? { images: [ogImage] } : {})
+    } as Metadata["twitter"]
   };
 }
 

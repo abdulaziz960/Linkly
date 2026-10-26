@@ -29,13 +29,13 @@ function page(path: string, fields: Omit<PageSeoDefault, "canonicalUrl" | "ogIma
 export const DEFAULT_PAGE_SEO: Record<string, PageSeoDefault> = {
   "/": page("/", {
     metaTitle: "Linkly | صندوق موحّد لواتساب وإنستقرام وكل قنوات عملائك",
-    metaDescription: "منصة سعودية تجمع محادثات واتساب وإنستقرام وتيليجرام والبريد وتيك توك في صندوق واحد، مع توزيع المحادثات والأتمتة والتقارير. جرّب مجانًا 3 أيام.",
+    metaDescription: "منصة سعودية تجمع محادثات واتساب وإنستقرام وفيسبوك وتيليجرام والبريد في صندوق واحد، مع توزيع المحادثات والأتمتة والتقارير. جرّب مجانًا 3 أيام.",
     ogTitle: "Linkly | كل محادثات عملائك في مكان واحد",
     ogDescription: "صندوق وارد موحّد لفريقك: توزيع للمحادثات، ردود آلية، حملات وتقارير. ابدأ تجربتك المجانية الآن."
   }),
   "/en": page("/en", {
     metaTitle: "Linkly | One inbox for WhatsApp, Instagram and every channel",
-    metaDescription: "A Saudi platform that brings WhatsApp, Instagram, Telegram, email and TikTok chats into one shared inbox, with routing, automation and reports. Free 3-day trial.",
+    metaDescription: "Bring WhatsApp, Instagram, Facebook, Telegram and email into one shared inbox. Route conversations, automate replies and track your team. Free 3-day trial.",
     ogTitle: "Linkly | Every customer conversation in one place",
     ogDescription: "One shared inbox for your team: conversation routing, auto-replies, campaigns and reports. Start your free trial today."
   }),

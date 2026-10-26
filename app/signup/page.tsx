@@ -4,7 +4,10 @@ import { getActivePlans } from "../../lib/plans";
 import { isTrialEligiblePlan, pickTrialPlan } from "../../lib/trial-plan";
 import "./signup.css";
 
-export const metadata = { title: { absolute: "ابدأ تجربتك | Linkly" } };
+export const metadata = {
+  title: { absolute: "ابدأ تجربتك | Linkly" },
+  robots: { index: false, follow: true }
+};
 
 export const dynamic = "force-dynamic";
 

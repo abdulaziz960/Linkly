@@ -6,6 +6,7 @@ import logo from "../../public/assets/linkly-logo.png";
 import c from "./landing.module.css";
 import { ChannelGlyph, HUB_CHANNELS, channelColor, channelLabel, sampleMessages, type HubChannel, type Lang } from "./channelData";
 import { useInView, usePageVisible, useReducedMotion, useTimers } from "./motion";
+import { isMessagingPending } from "../../lib/product-availability";
 
 // Scene coordinates live in one 640x520 box shared by the SVG paths and the
 // absolutely positioned HTML nodes, so lines always meet their icons.
@@ -19,7 +20,8 @@ const NODES: Record<HubChannel, { x: number; y: number; tx: number; ty: number }
   telegram: { x: 580, y: 268, tx: 470, ty: 262 },
   tiktok: { x: 550, y: 420, tx: 470, ty: 346 }
 };
-const ORDER: HubChannel[] = ["whatsapp", "instagram", "telegram", "facebook", "tiktok", "email"];
+const AVAILABLE_CHANNELS = HUB_CHANNELS.filter((channel) => !isMessagingPending(channel));
+const ORDER: HubChannel[] = ["whatsapp", "instagram", "telegram", "facebook", "email"];
 const TRAVEL_MS = 1100;
 const CYCLE_MS = 2900;
 
@@ -119,7 +121,7 @@ export default function HeroScene({ lang }: { lang: Lang }) {
       <span className={c.demoBadge}>{lang === "ar" ? "عرض توضيحي" : "Interactive demo"}</span>
       <div className={c.stage}>
         <svg className={c.links} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" preserveAspectRatio="none">
-          {HUB_CHANNELS.map((channel) => (
+          {AVAILABLE_CHANNELS.map((channel) => (
             <path key={channel} d={curve(channel)} className={c.link} data-active={highlighted === channel || undefined} style={{ "--link": channelColor[channel] } as CSSProperties} />
           ))}
           {pulse && !reduced ? (
@@ -151,7 +153,7 @@ export default function HeroScene({ lang }: { lang: Lang }) {
           <footer className={c.panelFoot}><span className={c.liveDot} aria-hidden="true" />{t.routed}</footer>
         </div>
 
-        {HUB_CHANNELS.map((channel) => {
+        {AVAILABLE_CHANNELS.map((channel) => {
           const node = NODES[channel];
           const name = channelLabel(channel, lang);
           return (

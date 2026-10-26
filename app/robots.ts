@@ -4,12 +4,8 @@ const disallow = [
   "/api/",
   "/linkly-admin007/",
   "/dashboard/",
-  "/activate",
   "/billing/",
-  "/checkout/",
-  "/signup",
-  "/forgot-password",
-  "/login"
+  "/checkout/"
 ];
 
 export default function robots(): MetadataRoute.Robots {

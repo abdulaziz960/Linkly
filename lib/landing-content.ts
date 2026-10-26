@@ -19,11 +19,22 @@ export function slotId(lang: Lang, defaultText: string): string {
 
 const CACHE_MS = 30_000;
 let cache: { at: number; map: Map<string, string> } | null = null;
-export function clearLandingCache() { cache = null; }
+let pending: Promise<Map<string, string>> | null = null;
+let generation = 0;
+export function clearLandingCache() { cache = null; pending = null; generation++; }
 
 /** id -> override. Never throws: a database problem just shows the built-in texts. */
 export async function getLandingText(): Promise<Map<string, string>> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.map;
+  if (pending) return pending;
+  const version = generation;
+  const request = loadLandingText(version);
+  pending = request;
+  try { return await request; }
+  finally { if (pending === request) pending = null; }
+}
+
+async function loadLandingText(version: number): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   try {
     await ensureSchema();
@@ -31,8 +42,10 @@ export async function getLandingText(): Promise<Map<string, string>> {
   } catch (error) {
     console.error("Landing text read failed, using built-in texts", error);
     if (cache) return cache.map;
+    return map;
   }
-  cache = { at: Date.now(), map };
+  // An admin edit invalidates even an in-flight read; it must not restore stale text.
+  if (version === generation) cache = { at: Date.now(), map };
   return map;
 }
 

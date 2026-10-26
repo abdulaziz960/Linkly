@@ -34,7 +34,7 @@ export default function SiteFooter({ lang = "ar" }: { lang?: "ar" | "en" }) {
           <b>{text.product}</b>
           <a href={`${home}#features`}>{text.features}</a>
           <a href={`${home}#how`}>{text.how}</a>
-          <a href={`${home}#pricing`}>{text.pricing}</a>
+          <Link href={prefix("/pricing")}>{text.pricing}</Link>
           <Link href={prefix("/faq")}>{text.faq}</Link>
           <Link href={prefix("/blog")}>{text.blog}</Link>
         </nav>

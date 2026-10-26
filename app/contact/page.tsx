@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { applyPageSeo } from "../../lib/page-seo";
 import Link from "next/link";
 import "../legal.css";
+import ContactActions from "../ContactActions";
 
 const baseMetadata: Metadata = {
   title: "تواصل معنا",
-  description: "تواصل مع فريق Linkly للمبيعات والدعم وتجهيز قنوات خدمة العملاء.",
+  description: "تواصل مع فريق Linkly للمبيعات والدعم الفني وتجهيز قنوات واتساب وإنستغرام وفيسبوك وتيليجرام، واطلب عرضًا توضيحيًا أو ابدأ تجربتك المجانية.",
   alternates: { canonical: "/contact", languages: { "ar-SA": "/contact", en: "/en/contact" } }
 };
 
@@ -26,6 +27,7 @@ export default function ContactPage() {
         </Link>
         <h1>نساعدك في تجهيز مساحة عملك وقنواتك</h1>
         <p>للمبيعات أو الدعم الفني راسل فريق Linkly، وسنرد عليك خلال ساعات العمل.</p>
+        <ContactActions lang="ar" />
 
         <h2>البريد الإلكتروني</h2>
         <p><a href="mailto:info@linklysa.io">info@linklysa.io</a></p>

@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import CookieConsent from "./CookieConsent";
+import MarketingMetrics from "./MarketingMetrics";
 import "./globals.css";
 
 const appFont = localFont({
@@ -36,9 +37,8 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://linklysa.io"),
   other: { "facebook-domain-verification": "5zqlre1wi0at60zdrudd9mivjatjed" },
   title: { default: "Linkly — صندوق واحد لمحادثات عملائك", template: "%s | Linkly" },
-  description: "منصة سعودية تجمع محادثات واتساب وإنستغرام وتيليجرام والبريد وتيك توك في صندوق واحد لفريقك.",
+  description: "منصة سعودية تجمع محادثات واتساب وإنستغرام وفيسبوك وتيليجرام والبريد في صندوق واحد لفريقك.",
   applicationName: "Linkly",
-  alternates: { canonical: "/", languages: { "ar-SA": "/", "en": "/en" } },
   openGraph: {
     type: "website",
     locale: "ar_SA",
@@ -46,7 +46,6 @@ export const metadata: Metadata = {
     siteName: "Linkly",
     title: "Linkly — صندوق واحد لمحادثات عملائك",
     description: "اجمع قنوات خدمة العملاء في صندوق واحد واضح لفريقك.",
-    url: "/",
     images: [{ url: "/opengraph-image?v=3", width: 1200, height: 630, alt: "Linkly — صندوق موحد لمحادثات العملاء" }]
   },
   twitter: {
@@ -68,6 +67,7 @@ export default async function RootLayout({
       <body>
         {children}
         <CookieConsent />
+        <MarketingMetrics />
       </body>
     </html>
   );

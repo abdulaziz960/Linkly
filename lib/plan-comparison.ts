@@ -8,6 +8,7 @@ import { channelLabel, parseAllowedChannels, type ChannelKey } from "./channel-c
 import { isUnlimitedMessageQuota, messageQuotaLabel } from "./message-quota";
 import { BY_AGREEMENT, planFeatures, usersLabel } from "./plan-features";
 import type { ViewKey } from "../app/dashboard/types";
+import { PENDING_MESSAGING_CHANNELS } from "./product-availability";
 
 /** true = included, false = not included, string = included with this note (a limit, a lighter version...). */
 export type ComparisonCell = boolean | { ar: string; en: string };
@@ -57,7 +58,7 @@ export const CHANNEL_CAPABILITY: Partial<Record<ChannelKey, { ar: string; en: st
  * Business Messaging API needs partner approval (app/api/tiktok/webhook
  * answers 501 until then). Shown as "coming soon" instead of a check mark.
  */
-export const PENDING_CHANNELS: ChannelKey[] = ["tiktok"];
+export const PENDING_CHANNELS: ChannelKey[] = [...PENDING_MESSAGING_CHANNELS];
 const SOON = { ar: "قريبًا", en: "Coming soon" } as const;
 
 // The channels worth listing, in the order a customer cares about them (the website chat widget is on every plan, so it's not a row).

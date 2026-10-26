@@ -6,6 +6,7 @@ import logo from "../../public/assets/linkly-logo.png";
 import c from "./landing.module.css";
 import { ChannelGlyph, HUB_CHANNELS, channelColor, channelLabel, sampleMessages, type HubChannel, type Lang } from "./channelData";
 import { useInView, usePageVisible, useReducedMotion, useTimers } from "./motion";
+import { isMessagingPending } from "../../lib/product-availability";
 
 const SIZE = 520;
 const CENTER = SIZE / 2;
@@ -121,7 +122,7 @@ export default function ChannelHub({ lang, descriptions }: { lang: Lang; descrip
                 onKeyDown={onKeyDown}
               >
                 <ChannelGlyph channel={channel} />
-                <span>{channelLabel(channel, lang)}</span>
+                <span>{channelLabel(channel, lang)}{isMessagingPending(channel) ? (lang === "ar" ? " · قريبًا" : " · Coming soon") : ""}</span>
               </button>
             );
           })}
@@ -143,10 +144,10 @@ export default function ChannelHub({ lang, descriptions }: { lang: Lang; descrip
             <header>
               <span className={c.hubPanelIcon}><ChannelGlyph channel={channel} /></span>
               <h3>{channelLabel(channel, lang)}</h3>
-              {channel === "tiktok" ? <span className={c.soonTag}>{lang === "ar" ? "قريبًا" : "Coming soon"}</span> : null}
+              {isMessagingPending(channel) ? <span className={c.soonTag}>{lang === "ar" ? "قريبًا" : "Coming soon"}</span> : null}
             </header>
             <p>{descriptions[channel]}</p>
-            {active === channel ? (
+            {active === channel && !isMessagingPending(channel) ? (
               <div className={c.msgCard} data-delivered={delivered || undefined} aria-live="polite">
                 <small className={c.msgLabel}>{t.incoming}</small>
                 <div className={c.msgBody} key={pulseId}>

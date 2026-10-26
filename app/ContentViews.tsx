@@ -5,7 +5,8 @@ import type { FaqPair } from "../lib/faq-store";
 import type { PublicPost } from "../lib/blog-store";
 import { listCategories } from "../lib/blog-store";
 import type { ReactNode } from "react";
-import { safeJsonLd } from "../lib/json-ld";
+import JsonLd from "./JsonLd";
+import { ProductNextSteps, SolutionLinks } from "./SolutionView";
 
 type Lang = "ar" | "en";
 
@@ -21,7 +22,7 @@ export function FaqView({ lang, faqs }: { lang: Lang; faqs: FaqPair[] }) {
   };
   return (
     <ContentShell lang={lang}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <h1>{lang === "en" ? "Frequently asked questions" : "الأسئلة الشائعة"}</h1>
       {faqs.map(([q, a]) => (
         <section key={q}>
@@ -46,7 +47,7 @@ export function Breadcrumbs({ items, lang }: { items: Crumb[]; lang: Lang }) {
   };
   return (
     <nav className="crumbs" aria-label={lang === "en" ? "Breadcrumb" : "مسار التنقل"}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <ol>
         {items.map((item, index) => (
           <li key={`${item.name}-${index}`}>{item.path && index < items.length - 1 ? <Link href={item.path}>{item.name}</Link> : <span aria-current={index === items.length - 1 ? "page" : undefined}>{item.name}</span>}</li>
@@ -98,6 +99,7 @@ export function BlogIndexView({ lang, posts }: { lang: Lang; posts: PublicPost[]
       <Breadcrumbs lang={lang} items={[crumbRoot(lang)[0], { name: lang === "en" ? "Blog" : "المدونة" }]} />
       <h1>{lang === "en" ? "Linkly blog" : "مدونة Linkly"}</h1>
       <p>{lang === "en" ? "Practical guides for customer service and sales teams." : "أدلة عملية لفرق خدمة العملاء والمبيعات."}</p>
+      <SolutionLinks lang={lang} />
       {categories.length ? (
         <p className="post-meta">{categories.map((category) => <Link key={category.slug} href={`${blogBase(lang)}/category/${category.slug}`}>{category.name} ({category.count})</Link>)}</p>
       ) : null}
@@ -136,7 +138,7 @@ export function BlogPostView({ post, lang, related = [] }: { post: PublicPost; l
   const crumbs: Crumb[] = [...crumbRoot(lang), ...(post.category ? [{ name: post.category[lang], path: `${blogBase(lang)}/category/${post.category.slug}` }] : []), { name: content.title }];
   return (
     <ContentShell lang={lang}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <Breadcrumbs lang={lang} items={crumbs} />
       <article className="article-body">
         <h1>{content.title}</h1>
@@ -151,6 +153,8 @@ export function BlogPostView({ post, lang, related = [] }: { post: PublicPost; l
         ) : null}
         {content.blocks.map((block, index) => (block.type === "h2" ? <h2 key={index}>{block.text}</h2> : block.type === "h3" ? <h3 key={index}>{block.text}</h3> : <p key={index}>{withLinks(block.text)}</p>))}
       </article>
+      <ProductNextSteps lang={lang} />
+      <SolutionLinks lang={lang} />
       {related.length ? (
         <aside className="related-posts" aria-label={lang === "en" ? "Related articles" : "مقالات ذات صلة"}>
           <h2>{lang === "en" ? "Related articles" : "مقالات ذات صلة"}</h2>

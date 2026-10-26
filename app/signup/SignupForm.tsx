@@ -1,4 +1,5 @@
 "use client";
+import { trackMarketingEvent } from "../../lib/marketing-metrics";
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -141,6 +142,7 @@ export default function SignupForm({ lang = "ar", plans, defaultPlanId }: { lang
       return;
     }
     setLoading(true); setError("");
+    trackMarketingEvent("trial_form_submit");
     const response = await fetch("/api/trial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
       companyName: form.get("companyName"), businessType: form.get("businessType"), ownerName: form.get("ownerName"), ownerEmail: form.get("ownerEmail"), phone: form.get("phone"), vatNumber: form.get("vatNumber"), website: form.get("website"), termsAccepted, planId: form.get("planId")
     }) });
@@ -155,6 +157,7 @@ export default function SignupForm({ lang = "ar", plans, defaultPlanId }: { lang
       const serverMessage = payload.error || payload.message || "";
       return setError(lang === "en" && /[\u0600-\u06FF]/.test(serverMessage) ? "We couldn't create the account with these details. Please check them and try again." : serverMessage || text.genericError);
     }
+    trackMarketingEvent("trial_created");
     if (payload.data?.activationUrl) return router.push(payload.data.activationUrl.replace(location.origin, ""));
     const delivery = payload.data?.emailSent === false ? "failed" : "sent";
     router.push(`/signup/success?email=${encodeURIComponent(String(form.get("ownerEmail") || ""))}&delivery=${delivery}${lang === "en" ? "&lang=en" : ""}`);

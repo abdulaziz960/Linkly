@@ -1,6 +1,8 @@
 import Link from "next/link";
 import "../signup.css";
 
+export const metadata = { robots: { index: false, follow: true } };
+
 const copy = {
   ar: {
     kicker: "الخطوة 2 من 3 — تم إنشاء التجربة",

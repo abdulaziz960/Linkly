@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const landingCss = readFileSync(resolve("app/landing/landing.module.css"), "utf8");
-const config = readFileSync(resolve("next.config.ts"), "utf8");
+const config = readFileSync(resolve("lib/security-headers.ts"), "utf8");
 const layout = readFileSync(resolve("app/layout.tsx"), "utf8");
 
 function declarations(selector: string) {
