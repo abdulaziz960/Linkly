@@ -82,6 +82,7 @@ test("WhatsApp CTA → signed inbound webhook → Inbox → AI draft → Pipelin
   await expect(card.getByRole("spinbutton", { name: "قيمة الوحدة" })).toHaveValue("7200");
 
   await page.getByRole("navigation").getByRole("button", { name: "التقارير والعمليات", exact: true }).click();
+  await page.getByRole("tab", { name: "التحويلات", exact: true }).click();
   const revenue = page.locator(".panel-body").filter({ has: page.getByRole("heading", { name: "الإيراد حسب الرابط", exact: true }) });
   await expect(revenue).toContainText("hero-whatsapp");
   const conversions = page.locator(".panel").filter({ has: page.getByRole("heading", { name: "التحويلات", exact: true }) });

@@ -15,17 +15,17 @@ async function signIn(page: Page) {
   if (await lateNotice.isVisible()) await lateNotice.getByRole("button", { name: "رفض", exact: true }).click();
 }
 
-test("reports: numbers first, filters apply at once and are remembered", async ({ page }, testInfo) => {
+test("reports: filters first, they apply at once and are remembered", async ({ page }, testInfo) => {
   await signIn(page);
   await page.goto("/dashboard?view=reports");
   const page_ = page.locator(".reports-page");
   await expect(page_.getByRole("heading", { name: "الملخص التنفيذي" })).toBeVisible();
 
-  // The summary comes before the filters in the page (and so in the reading and tab order).
+  // The filters bar sits right under the page header, before the attention list and the summary.
   const order = await page_.evaluate((root) => {
     const summary = [...root.querySelectorAll("h2")].find((h) => h.textContent?.includes("الملخص التنفيذي"));
     const filters = root.querySelector(".reports-filters");
-    return summary && filters ? Boolean(summary.compareDocumentPosition(filters) & Node.DOCUMENT_POSITION_FOLLOWING) : false;
+    return summary && filters ? Boolean(filters.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING) : false;
   });
   expect(order).toBe(true);
   await expect(page_.getByRole("button", { name: "تطبيق الفلاتر" })).toHaveCount(0);
