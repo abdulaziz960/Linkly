@@ -12818,3 +12818,6 @@ html[dir="ltr"] .notification-bell-panel {
 @media (max-width: 760px) { .report-filters .rf-field, .report-filters .rf-field .custom-select, .report-filters .rf-field input[type="date"] { width: 100%; flex: 1 1 100%; } .report-filters .btn { flex: 1 1 100%; } }
 .seg-kpis > :nth-child(7):last-child { grid-column: span 2; }
 @media (max-width: 900px) { .seg-kpis > :nth-child(7):last-child { grid-column: span 2; } }
+
+/* Arabic: the icon sits on the right, before its word */
+.dashboard-shell:not(.lang-en) .dashboard-top-links .sidebar-billing-link.has-label { flex-direction: row-reverse; }
