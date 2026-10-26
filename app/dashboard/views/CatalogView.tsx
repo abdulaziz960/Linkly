@@ -3,6 +3,7 @@
 import { confirmDialog } from "../../../lib/ui-dialogs";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import CatalogIntegrationGuide from "./CatalogIntegrationGuide";
 import CustomSelect from "../../components/CustomSelect";
@@ -309,15 +310,6 @@ export default function CatalogView() {
     }
   }
 
-  async function removeCategory(name: string) {
-    if (!(await confirmDialog(t(`حذف التصنيف «${name}»؟ ستصبح منتجاته بلا تصنيف.`, `Delete the category "${name}"? Its products will have no category.`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    const result = await api<string[]>(`/api/catalog/categories?name=${encodeURIComponent(name)}`, { method: "DELETE" });
-    if (result.ok) {
-      setCategories(result.data ?? []);
-      await load();
-    }
-  }
-
   async function toggleActive(product: Product) {
     await api(`/api/catalog/products/${product.id}`, {
       method: "PATCH",
@@ -345,33 +337,6 @@ export default function CatalogView() {
       else filteredProducts.forEach((product) => next.add(product.id));
       return next;
     });
-  }
-
-  async function bulkDelete(all: boolean) {
-    const count = all ? products.length : selected.size;
-    if (!count) return;
-    const message = all
-      ? t(`سيتم حذف كل المنتجات (${count}) نهائيًا. هل أنت متأكد؟ (المنتجات المرتبطة بملف موقعك ستعود في المزامنة القادمة ما لم تزل رابط الملف)`, `All ${count} products will be permanently deleted. Are you sure? (Products from your website feed come back on the next sync unless you remove the feed URL)`)
-      : t(`حذف ${count} منتج محدد نهائيًا؟`, `Permanently delete ${count} selected products?`);
-    if (!(await confirmDialog(message, { cancelLabel: t("تراجع", "Cancel") }))) return;
-    const result = await api<{ deleted: number }>("/api/catalog/products", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(all ? { all: true } : { ids: Array.from(selected) })
-    });
-    if (!result.ok) {
-      setNotice({ type: "error", message: result.error || t("تعذر الحذف", "Could not delete") });
-      return;
-    }
-    setSelected(new Set());
-    setNotice({ type: "success", message: t(`تم حذف ${result.data?.deleted ?? count} منتج.`, `${result.data?.deleted ?? count} products deleted.`) });
-    await load();
-  }
-
-  async function removeProduct(product: Product) {
-    if (!(await confirmDialog(t(`حذف المنتج "${product.name}"؟`, `Delete "${product.name}"?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    await api(`/api/catalog/products/${product.id}`, { method: "DELETE" });
-    await load();
   }
 
   function openTracking(order: Order) {
@@ -495,21 +460,22 @@ export default function CatalogView() {
 
   return (
     <section className="page-stack">
-      <div className="panel">
-        <div className="panel-head">
-          <h2>{t("الكتالوج", "Catalog")}</h2>
-          <span />
-          <div className="row-actions">
-            <button className={tab === "products" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("products")}>{t("المنتجات", "Products")} ({products.length})</button>
-            <button className={tab === "categories" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("categories")}>{t("التصنيفات", "Categories")} ({categories.length})</button>
-            <button className={tab === "orders" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("orders")}>{t("الطلبات", "Orders")} ({orders.length})</button>
-            <button className={tab === "daily" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("daily")}>{t("إقفال اليوم", "Daily closing")}</button>
-            <button className={tab === "shipping" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("shipping")}>{t("الشحن", "Shipping")}</button>
-            <button className={tab === "discounts" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("discounts")}>{t("أكواد الخصم", "Discount codes")}</button>
-            <button className={tab === "loyalty" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("loyalty")}>{t("الولاء", "Loyalty")}</button>
-            <button className={tab === "settings" ? "btn primary" : "btn soft"} type="button" onClick={() => setTab("settings")}>{t("الدفع والمزامنة", "Payment & sync")}</button>
-          </div>
-        </div>
+      <PageHero
+        eyebrow={t("الكتالوج والفروع", "CATALOG & BRANCHES")}
+        title={t("الكتالوج", "Catalog")}
+        description={t("منتجاتك وأسعارها وطلباتها وأكواد الخصم، جاهزة للطلب عبر واتساب.", "Your products, prices, orders and discount codes, ready to order on WhatsApp.")}
+        chips={[t(`${products.length} منتج`, `${products.length} products`), t(`${categories.length} تصنيف`, `${categories.length} categories`), t(`${orders.length} طلب`, `${orders.length} orders`)]}
+        action={<button className="camp-hero-new" type="button" onClick={() => { setTab("products"); openForm(); }}>＋ {t("إضافة منتج", "Add product")}</button>}
+      />
+      <div className="section-tabs" role="tablist">
+        <button type="button" role="tab" aria-selected={tab === "products"} className={tab === "products" ? "section-tab active" : "section-tab"} onClick={() => setTab("products")}>{t("المنتجات", "Products")} <span>{products.length}</span></button>
+        <button type="button" role="tab" aria-selected={tab === "categories"} className={tab === "categories" ? "section-tab active" : "section-tab"} onClick={() => setTab("categories")}>{t("التصنيفات", "Categories")} <span>{categories.length}</span></button>
+        <button type="button" role="tab" aria-selected={tab === "orders"} className={tab === "orders" ? "section-tab active" : "section-tab"} onClick={() => setTab("orders")}>{t("الطلبات", "Orders")} <span>{orders.length}</span></button>
+        <button type="button" role="tab" aria-selected={tab === "daily"} className={tab === "daily" ? "section-tab active" : "section-tab"} onClick={() => setTab("daily")}>{t("إقفال اليوم", "Daily closing")}</button>
+        <button type="button" role="tab" aria-selected={tab === "shipping"} className={tab === "shipping" ? "section-tab active" : "section-tab"} onClick={() => setTab("shipping")}>{t("الشحن", "Shipping")}</button>
+        <button type="button" role="tab" aria-selected={tab === "discounts"} className={tab === "discounts" ? "section-tab active" : "section-tab"} onClick={() => setTab("discounts")}>{t("أكواد الخصم", "Discount codes")}</button>
+        <button type="button" role="tab" aria-selected={tab === "loyalty"} className={tab === "loyalty" ? "section-tab active" : "section-tab"} onClick={() => setTab("loyalty")}>{t("الولاء", "Loyalty")}</button>
+        <button type="button" role="tab" aria-selected={tab === "settings"} className={tab === "settings" ? "section-tab active" : "section-tab"} onClick={() => setTab("settings")}>{t("الدفع والمزامنة", "Payment & sync")}</button>
       </div>
 
       {tab === "products" ? (
@@ -547,8 +513,6 @@ export default function CatalogView() {
               <div className="catalog-bulk-bar">
                 <label className="catalog-bulk-check"><input type="checkbox" checked={allFilteredSelected} onChange={toggleAllFiltered} /><span>{t("تحديد الكل", "Select all")}</span></label>
                 <span className="catalog-bulk-count">{selected.size > 0 ? t(`${selected.size} محدد`, `${selected.size} selected`) : t(`${products.length} منتج`, `${products.length} products`)}</span>
-                <button className="btn danger" type="button" disabled={selected.size === 0} onClick={() => void bulkDelete(false)}>{t("حذف المحدد", "Delete selected")}</button>
-                <button className="btn soft" type="button" onClick={() => void bulkDelete(true)}>{t("حذف كل المنتجات", "Delete all products")}</button>
               </div>
             ) : null}
             <table className="mobile-card-table">
@@ -572,7 +536,6 @@ export default function CatalogView() {
                       <button className="btn soft" type="button" onClick={() => openForm(product)}>{t("تعديل", "Edit")}</button>
                       <button className="btn soft" type="button" onClick={() => setOptionsFor({ id: product.id, name: product.name })}>{t("الخيارات", "Options")}</button>
                       <button className="btn soft" type="button" onClick={() => toggleActive(product)}>{product.active ? t("إخفاء", "Hide") : t("إظهار", "Show")}</button>
-                      <button className="btn danger" type="button" onClick={() => removeProduct(product)}>{t("حذف", "Delete")}</button>
                     </td>
                   </tr>
                 ))}
@@ -607,7 +570,6 @@ export default function CatalogView() {
                         <strong>{name}</strong>
                         <small>{count} {t(count === 1 ? "منتج" : "منتجات", count === 1 ? "product" : "products")}</small>
                       </div>
-                      <button className="btn soft danger" type="button" onClick={() => void removeCategory(name)}>{t("حذف", "Delete")}</button>
                     </div>
                   );
                 })}

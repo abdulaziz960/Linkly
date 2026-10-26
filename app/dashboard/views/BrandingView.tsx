@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 
 const DEFAULT_BRANDING = { name: "Linkly", logoDataUrl: "/assets/linkly-logo.png", color: "#178a82" };
@@ -80,10 +81,15 @@ export default function BrandingView({ onRefreshData }: { onRefreshData: () => P
 
   return (
     <section className="page-stack">
+      <PageHero
+        eyebrow={t("الإعدادات والربط", "SETTINGS & CONNECTIONS")}
+        title={t("العلامة التجارية", "Branding")}
+        description={t("خصّص الاسم والشعار واللون اللي يظهر لفريقك ولعملائك بدل Linkly.", "Customise the name, logo and color your team and customers see instead of Linkly.")}
+        chips={[form.name || "Linkly", form.color || "#178a82"]}
+      />
+      <div className="brand-grid">
       <div className="panel">
-        <div className="panel-head">
-          <h2>{t("العلامة التجارية", "Branding")}</h2>
-        </div>
+        <div className="panel-head"><h2>{t("هوية العلامة التجارية", "Brand identity")}</h2></div>
         <div className="panel-body">
           <p className="muted-copy">{t("خصّص الاسم والشعار واللون اللي يظهر لفريقك ولعملائك بدل \"Linkly\" - بلوحة التحكم، صفحات الفواتير، الرسائل التلقائية، ورد البوت الآلي.", "Customize the name, logo, and color your team and customers see instead of \"Linkly\" - in the dashboard, billing pages, automated emails, and the bot's auto-reply.")}</p>
 
@@ -125,6 +131,22 @@ export default function BrandingView({ onRefreshData }: { onRefreshData: () => P
             </form>
           )}
         </div>
+      </div>
+      <div className="panel brand-preview-card">
+        <div className="panel-head"><h2>{t("معاينة مباشرة", "Live preview")}</h2></div>
+        <div className="panel-body">
+          <div className="brand-preview" style={{ ["--brand" as string]: /^#[0-9a-fA-F]{6}$/.test(form.color) ? form.color : "#178a82" }}>
+            <div className="brand-preview-side">
+              {form.logoDataUrl ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={form.logoDataUrl} alt="" /> : <span className="brand-preview-logo">{(form.name || "L")[0].toUpperCase()}</span>}
+              <b>{form.name || "Linkly"}</b>
+            </div>
+            <div className="brand-preview-body">
+              <span className="brand-preview-btn">{t("زر رئيسي", "Primary button")}</span>
+              <small>{t("هكذا يظهر اسمك ولونك في لوحة التحكم وصفحات الفواتير ورسائل البوت.", "This is how your name and color appear in the dashboard, invoices and bot messages.")}</small>
+            </div>
+          </div>
+        </div>
+      </div>
       </div>
     </section>
   );

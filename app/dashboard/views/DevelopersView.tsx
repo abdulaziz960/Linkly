@@ -4,6 +4,7 @@ import { confirmDialog } from "../../../lib/ui-dialogs";
 
 import { Fragment, FormEvent, useEffect, useState } from "react";
 import type { ApiKeySummary, WebhookDeliverySummary, WebhookSummary } from "../types";
+import { KpiRow, PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 
 const EVENT_OPTIONS: Array<{ value: string; ar: string; en: string }> = [
@@ -101,12 +102,6 @@ export default function DevelopersView() {
     await loadAll();
   }
 
-  async function deleteWebhook(webhook: WebhookSummary) {
-    if (!(await confirmDialog(t(`حذف الـ Webhook ${webhook.url}؟`, `Delete the webhook to ${webhook.url}?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    await fetch(`/api/developer/webhooks/${webhook.id}`, { method: "DELETE" });
-    await loadAll();
-  }
-
   async function toggleDeliveries(webhookId: string) {
     if (expandedWebhook === webhookId) {
       setExpandedWebhook("");
@@ -122,10 +117,19 @@ export default function DevelopersView() {
 
   return (
     <section className="page-stack">
+      <PageHero
+        eyebrow={t("الإعدادات والربط", "SETTINGS & CONNECTIONS")}
+        title={t("المطورون", "Developers")}
+        description={t("مفاتيح API وWebhooks وتوثيق الواجهة لربط لنكلي بأنظمتك.", "API keys, webhooks and API docs to connect Linkly to your systems.")}
+        chips={[t(`${apiKeys.length} مفتاح`, `${apiKeys.length} keys`), t(`${webhooks.length} Webhook`, `${webhooks.length} webhooks`)]}
+      />
+      <KpiRow items={[
+        { tone: "t", label: t("مفاتيح API", "API keys"), value: apiKeys.length },
+        { tone: "g", label: t("Webhooks", "Webhooks"), value: webhooks.length },
+        { tone: "p", label: t("آخر استخدام", "Last used"), value: apiKeys.map((key) => key.lastUsedAt).filter(Boolean).sort().slice(-1)[0] ? t("نشط", "Active") : t("—", "—") }
+      ]} />
       <div className="panel">
-        <div className="panel-head">
-          <h2>{t("مفاتيح API", "API keys")}</h2>
-        </div>
+        <div className="panel-head"><h2>{t("مفاتيح API", "API keys")}</h2></div>
         <div className="panel-body table-wrap">
           <p className="muted-copy">{t("استخدم مفتاح API لإنشاء محادثات وإرسال رسائل وإدارة العملاء برمجياً - راجع قسم التوثيق أدناه.", "Use an API key to create conversations, send messages, and manage customers programmatically - see the documentation section below.")}</p>
           <form className="inline-filter" onSubmit={createKey}>
@@ -202,7 +206,6 @@ export default function DevelopersView() {
                     <td className="row-actions" data-label={t("إجراء", "Action")}>
                       <button className="btn soft" type="button" onClick={() => toggleDeliveries(webhook.id)}>{t("السجل", "Log")}</button>
                       <button className="btn soft" type="button" onClick={() => toggleWebhookActive(webhook)}>{webhook.active ? t("إيقاف", "Pause") : t("تفعيل", "Resume")}</button>
-                      <button className="btn danger" type="button" onClick={() => deleteWebhook(webhook)}>{t("حذف", "Delete")}</button>
                     </td>
                   </tr>
                   {expandedWebhook === webhook.id ? (

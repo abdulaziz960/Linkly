@@ -7,6 +7,7 @@ import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, use
 import type { DragEndEvent } from "@dnd-kit/core";
 import type { AutomationRule, Conversation, MessageTemplate, PipelineStage } from "../types";
 import { pipelineStages, pipelineStagesWithDealValue } from "../types";
+import { PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import QuickWelcomeTemplate from "../components/QuickWelcomeTemplate";
 import CustomSelect from "../../components/CustomSelect";
@@ -307,11 +308,6 @@ function WaLinksTab({ t }: { t: (ar: string, en: string) => string }) {
     }
   }
 
-  async function remove(code: string) {
-    await fetch(`/api/wa-links/${code}`, { method: "DELETE" }).catch(() => null);
-    await load();
-  }
-
   async function copy(code: string) {
     await navigator.clipboard?.writeText(`${origin}/api/w/${code}`).catch(() => undefined);
     setCopied(code);
@@ -375,7 +371,6 @@ function WaLinksTab({ t }: { t: (ar: string, en: string) => string }) {
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <code dir="ltr" style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 13, padding: "6px 10px", borderRadius: 8, background: "var(--surface, #fff)", border: "1px solid var(--line, #dfe7e5)", overflowX: "auto", whiteSpace: "nowrap" }}>{`${origin}/api/w/${link.code}`}</code>
               <button type="button" className="soft-action" style={{ flexShrink: 0, minHeight: 34 }} onClick={() => void copy(link.code)}>{copied === link.code ? "✓" : t("نسخ", "Copy")}</button>
-              <button type="button" className="soft-action" style={{ flexShrink: 0, minHeight: 34 }} onClick={() => void remove(link.code)}>{t("حذف", "Delete")}</button>
             </div>
           </div>
         ))}
@@ -792,9 +787,13 @@ export default function PipelineView({ conversations, automationRules, templates
 
   return (
     <section className="pipeline-view">
+      <PageHero
+        eyebrow={t("العمل اليومي", "DAILY WORK")}
+        title={t("العملاء المحتملون", "Leads")}
+        description={t("استقبل الليدات من منصة خارجية أو تابع العملاء المحتملين داخل لنكلي حسب المرحلة.", "Receive leads from an external platform or track leads inside Linkly by stage.")}
+        chips={[t(`${conversations.length} ليد`, `${conversations.length} leads`), t(`${conversations.filter((conversation) => conversation.pipelineStage === "فاز").length} تم بيعها`, `${conversations.filter((conversation) => conversation.pipelineStage === "فاز").length} sold`)]}
+      />
       <div className="pipeline-head">
-        <h2>{t("العملاء المحتملون", "Leads")}</h2>
-        <p>{t("استقبل الليدات من منصة خارجية أو تابع العملاء المحتملين داخل لنكلي حسب المرحلة.", "Receive leads from an external platform or track leads inside Linkly by stage.")}</p>
         <div className="pipeline-tabs" role="tablist" aria-label={t("تبويبات العملاء المحتملين", "Leads tabs")}>
           <button type="button" role="tab" aria-selected={activeTab === "external"} onClick={() => setActiveTab("external")}>{t("ربط منصة خارجية", "External platform")}</button>
           <button type="button" role="tab" aria-selected={activeTab === "links"} onClick={() => setActiveTab("links")}>{t("روابط الإعلانات", "Ad links")}</button>

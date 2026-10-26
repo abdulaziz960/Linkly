@@ -3,6 +3,7 @@
 import { confirmDialog } from "../../../lib/ui-dialogs";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import { downloadBranchTemplate, parseBranchFile } from "../branch-import";
 
@@ -140,29 +141,26 @@ export default function BranchesView() {
     await load();
   }
 
-  async function remove(branch: Branch) {
-    if (!(await confirmDialog(t(`حذف الفرع "${branch.name}"؟`, `Delete "${branch.name}"?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    await fetch(`/api/branches/${branch.id}`, { method: "DELETE" });
-    await load();
-  }
-
   const mapHref = (branch: Branch) => branch.mapUrl || `https://www.google.com/maps/search/?api=1&query=${branch.latitude},${branch.longitude}`;
 
   return (
     <section className="page-stack">
-      <div className="panel">
-        <div className="panel-head">
-          <h2>{t("الفروع", "Branches")}</h2>
-          <span />
-          <div className="row-actions">
-            <button className="btn soft" type="button" onClick={() => void downloadBranchTemplate(language)}>{t("تنزيل نموذج Excel", "Download Excel template")}</button>
-            <label className="btn soft" style={{ cursor: importing ? "wait" : "pointer" }}>
-              {importing ? t("جاري الاستيراد...", "Importing...") : t("رفع ملف الفروع", "Upload branches file")}
-              <input type="file" accept=".xlsx,.csv" hidden disabled={importing} onChange={(event) => { void importFile(event.target.files?.[0]); event.target.value = ""; }} />
-            </label>
-            <button className="btn primary" type="button" onClick={openNew}>{t("+ إضافة فرع", "+ Add branch")}</button>
-          </div>
+      <PageHero
+        eyebrow={t("الكتالوج والفروع", "CATALOG & BRANCHES")}
+        title={t("الفروع", "Branches")}
+        description={t("فروعك وساعات عملها وموقع كل فرع، ليختار العميل الأقرب له.", "Your branches, their opening hours and locations, so customers can pick the nearest.")}
+        chips={[t(`${branches.length} فرع`, `${branches.length} branches`)]}
+      >
+        <div className="hero-actions-row">
+          <button className="camp-hero-new camp-hero-ghost" type="button" onClick={() => void downloadBranchTemplate(language)}>{t("تنزيل نموذج Excel", "Download Excel template")}</button>
+          <label className="camp-hero-new camp-hero-ghost" style={{ cursor: importing ? "wait" : "pointer", display: "inline-flex", alignItems: "center" }}>
+            {importing ? t("جاري الاستيراد...", "Importing...") : t("رفع ملف الفروع", "Upload branches file")}
+            <input type="file" accept=".xlsx,.csv" hidden disabled={importing} onChange={(event) => { void importFile(event.target.files?.[0]); event.target.value = ""; }} />
+          </label>
+          <button className="camp-hero-new" type="button" onClick={openNew}>＋ {t("إضافة فرع", "Add branch")}</button>
         </div>
+      </PageHero>
+      <div className="panel">
         <div className="panel-body">
           {importReport ? (
             <div className={importReport.errors.length ? "form-error" : "automation-feedback success"} role="status">
@@ -219,7 +217,6 @@ export default function BranchesView() {
                     <td className="row-actions" data-label={t("إجراء", "Action")}>
                       <button className="btn soft" type="button" onClick={() => openEdit(branch)}>{t("تعديل", "Edit")}</button>
                       <button className="btn soft" type="button" onClick={() => toggle(branch)}>{branch.active ? t("إخفاء", "Hide") : t("إظهار", "Show")}</button>
-                      <button className="btn danger" type="button" onClick={() => remove(branch)}>{t("حذف", "Delete")}</button>
                     </td>
                   </tr>
                 ))}

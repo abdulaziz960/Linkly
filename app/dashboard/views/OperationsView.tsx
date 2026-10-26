@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Conversation } from "../types";
+import { PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import { ACTIVE_WAIT_MAX_DAYS, countMessagesToday, getWaitingConversations, SLA_MINUTES } from "../../../lib/operations-metrics";
 
@@ -57,41 +58,37 @@ export default function OperationsView({ conversations, onOpenConversation, onRe
   }
 
   return (
-    <section className="page-stack operations-page">
-      <section className="panel">
-        <div className="panel-head">
-          <div>
-            <h2>{t("مركز العمليات", "Operations center")}</h2>
-            <p>{t("لقطة حية الآن - بدون فلتر تاريخ، تتحدث تلقائيًا كل 15 ثانية.", "A live snapshot right now - no date filter, updates automatically every 15 seconds.")}</p>
-          </div>
-          <button type="button" className="btn soft" disabled={refreshing} onClick={refreshNow}>
-            {refreshing ? t("جارٍ التحديث...", "Refreshing...") : t("تحديث البيانات الآن", "Refresh data now")}
-          </button>
-        </div>
-      </section>
+    <section className="page-stack operations-page reports-page">
+      <PageHero
+        eyebrow={t("الإدارة", "ADMINISTRATION")}
+        title={t("مركز العمليات", "Operations center")}
+        description={t("لقطة حية الآن - بدون فلتر تاريخ، تتحدث تلقائيًا كل 15 ثانية.", "A live snapshot right now - no date filter, updates automatically every 15 seconds.")}
+        chips={[t(`${waiting.length} بانتظار رد`, `${waiting.length} waiting`), t(`${breaching.length} تجاوزت SLA`, `${breaching.length} over SLA`)]}
+        action={<button type="button" className="camp-hero-new" disabled={refreshing} onClick={refreshNow}>{refreshing ? t("جارٍ التحديث...", "Refreshing...") : t("↻ تحديث الآن", "↻ Refresh now")}</button>}
+      />
 
       <div className="report-metrics">
-        <div className={`report-metric ${waiting.length ? "warn" : "good"}`}>
+        <div data-metric="reply" className={`report-metric ${waiting.length ? "warn" : "good"}`}>
           <strong>{waiting.length}</strong>
           <span>{t("بانتظار رد الآن", "Waiting for a reply right now")}</span>
           <em>{t(`محادثات مفتوحة آخر رسالة فيها من العميل خلال آخر ${ACTIVE_WAIT_MAX_DAYS} يوماً`, `Open conversations whose last message is from the customer within the last ${ACTIVE_WAIT_MAX_DAYS} days`)}</em>
         </div>
-        <div className={`report-metric ${breaching.length ? "danger" : "good"}`}>
+        <div data-metric="sla" className={`report-metric ${breaching.length ? "danger" : "good"}`}>
           <strong>{breaching.length}</strong>
           <span>{t("تتجاوز SLA الآن", "Breaching SLA right now")}</span>
           <em>{t(`انتظار أكثر من ${SLA_MINUTES} دقيقة`, `Waiting more than ${SLA_MINUTES} minutes`)}</em>
         </div>
-        <div className={`report-metric ${unassigned.length ? "danger" : "good"}`}>
+        <div data-metric="unassigned" className={`report-metric ${unassigned.length ? "danger" : "good"}`}>
           <strong>{unassigned.length}</strong>
           <span>{t("غير مسندة", "Unassigned")}</span>
           <em>{t("تحتاج توزيعاً على موظف", "Need to be assigned to an agent")}</em>
         </div>
-        <div className={`report-metric ${waiting[0] && waiting[0].minutes > SLA_MINUTES ? "danger" : "neutral"}`}>
+        <div data-metric="wait" className={`report-metric ${waiting[0] && waiting[0].minutes > SLA_MINUTES ? "danger" : "neutral"}`}>
           <strong>{waiting[0] ? formatDuration(waiting[0].minutes, t) : t("لا يوجد", "None")}</strong>
           <span>{t("أطول انتظار حالي", "Longest current wait")}</span>
           <em>{waiting[0]?.conversation.customer || ""}</em>
         </div>
-        <div className="report-metric neutral">
+        <div data-metric="total" className="report-metric neutral">
           <strong>{messagesToday}</strong>
           <span>{t("رسائل اليوم", "Messages today")}</span>
           <em>{t("واردة وصادرة، منذ منتصف الليل", "Inbound and outbound, since midnight")}</em>

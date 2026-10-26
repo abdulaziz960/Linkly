@@ -5,6 +5,7 @@ import { confirmDialog, notify } from "../../../lib/ui-dialogs";
 import CustomSelect from "../../components/CustomSelect";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { IntegrationSettings } from "../types";
+import { KpiRow, PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import { usePlanAccess } from "../plan-access-context";
 import WhatsAppDisplayName from "../components/WhatsAppDisplayName";
@@ -1793,14 +1794,19 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
 
   return (
     <section className="page-stack settings-page">
+      <PageHero
+        eyebrow={t("الإعدادات والربط", "SETTINGS & CONNECTIONS")}
+        title={t("القنوات", "Channels")}
+        description={t("اربط حساباتك على وسائل التواصل لإدارة رسائل العملاء من مكان واحد.", "Connect your social accounts to manage customer messages from one place.")}
+        chips={[t(`${channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && isChannelConnected(channel.id)).length} قناة متصلة`, `${channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && isChannelConnected(channel.id)).length} connected`), t(`${channels.length} قناة متاحة`, `${channels.length} channels`)]}
+      />
+      <KpiRow items={[
+        { tone: "g", label: t("متصلة", "Connected"), value: channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && isChannelConnected(channel.id)).length },
+        { tone: "t", label: t("جاهزة للربط", "Ready to connect"), value: channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && !isChannelConnected(channel.id) && !planLockedChannel(channel.id)).length },
+        { tone: "p", label: t("قريبًا", "Coming soon"), value: channels.filter((channel) => temporarilyLockedChannelIds.has(channel.id)).length },
+        { tone: "o", label: t("إجمالي القنوات", "All channels"), value: channels.length }
+      ]} />
       <div className="channels-overview">
-        <div className="channels-overview-head">
-          <div>
-            <h2>{t("القنوات", "Channels")}</h2>
-            <p>{t("اربط حساباتك على وسائل التواصل لإدارة رسائل العملاء من مكان واحد", "Connect your social accounts to manage customer messages from one place")}</p>
-          </div>
-        </div>
-
         <div className="channels-overview-grid">
           <div className="channel-connect-grid">
             {channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id)).map((channel) => {

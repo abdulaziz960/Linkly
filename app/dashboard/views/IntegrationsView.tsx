@@ -10,6 +10,7 @@ import SnapAdAccountPicker from "../components/SnapAdAccountPicker";
 import QuickWelcomeTemplate from "../components/QuickWelcomeTemplate";
 import StoreSettings from "../components/StoreSettings";
 import { useEffect, useState } from "react";
+import { PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import { usePlanAccess } from "../plan-access-context";
 import { ChannelIcon } from "./SettingsView";
@@ -239,13 +240,13 @@ export default function IntegrationsView() {
     <section className="page-stack settings-page">
       {adIntegrations ? (
       <>
-      <div className="channels-overview-head">
-        <div>
-          <h2>{t("التكاملات", "Integrations")}</h2>
-          {notice ? <div className={`automation-feedback ${notice.type}`} role="status" style={{ marginBottom: 12 }}>{notice.message}</div> : null}
-          <p>{t("اربط منصات الإعلانات لاستقبال العملاء المحتملين، وأرسل إليها نتائج المحادثات لتتحسن حملاتك.", "Connect your ad platforms to receive leads and send conversation outcomes back so your campaigns improve.")}</p>
-        </div>
-      </div>
+      <PageHero
+        eyebrow={t("الإعدادات والربط", "SETTINGS & CONNECTIONS")}
+        title={t("التكاملات", "Integrations")}
+        description={t("اربط منصات الإعلانات لاستقبال العملاء المحتملين، وأرسل إليها نتائج المحادثات لتتحسن حملاتك.", "Connect your ad platforms to receive leads and send them conversation results so your campaigns improve.")}
+        chips={[t(`${platforms.filter((platform) => settingsByChannel[leadChannelOf[platform.id]]?.status === "connected").length} منصة متصلة`, `${platforms.filter((platform) => settingsByChannel[leadChannelOf[platform.id]]?.status === "connected").length} connected`), t(`${platforms.filter((platform) => eventsEnabled[platform.id]).length} أحداث مفعّلة`, `${platforms.filter((platform) => eventsEnabled[platform.id]).length} events on`)]}
+      />
+      {notice ? <div className={`automation-feedback ${notice.type}`} role="status">{notice.message}</div> : null}
 
       <div className="channel-grid">
         {platforms.map((platform) => {

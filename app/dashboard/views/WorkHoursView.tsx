@@ -4,6 +4,7 @@ import { confirmDialog } from "../../../lib/ui-dialogs";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Team, WorkSchedule } from "../types";
+import { KpiRow, PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 
@@ -122,12 +123,6 @@ export default function WorkHoursView({
     setFormOpen(false);
   }
 
-  async function deleteSchedule(schedule: WorkSchedule) {
-    if (!(await confirmDialog(t(`حذف جدول ${schedule.team}؟`, `Delete ${schedule.team}'s schedule?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    await fetch(`/api/work-hours/${schedule.id}`, { method: "DELETE" });
-    await onRefreshData();
-  }
-
   function updateDays(days: string[]) {
     setForm((current) => ({ ...current, days: formatDays(days) }));
   }
@@ -191,8 +186,19 @@ export default function WorkHoursView({
 
   return (
     <section className="page-stack">
+      <PageHero
+        eyebrow={t("الموظفون والفرق", "TEAM")}
+        title={t("ساعات العمل", "Work Hours")}
+        description={t("حدد أوقات الدوام لتُرسل رسالة «خارج الدوام» تلقائيًا ولتُحسب مهلة الرد.", "Set working hours so the out-of-hours reply is sent automatically and reply times are measured correctly.")}
+        chips={[t(`${workSchedules.length} جدول`, `${workSchedules.length} schedules`), t(`${workSchedules.filter((schedule) => schedule.status === "نشط").length} نشط`, `${workSchedules.filter((schedule) => schedule.status === "نشط").length} active`)]}
+        action={<button className="camp-hero-new" type="button" onClick={() => openForm()}>＋ {t("إضافة جدول", "Add schedule")}</button>}
+      />
+      <KpiRow items={[
+        { tone: "t", label: t("الجداول", "Schedules"), value: workSchedules.length },
+        { tone: "g", label: t("نشطة", "Active"), value: workSchedules.filter((schedule) => schedule.status === "نشط").length },
+        { tone: "o", label: t("العطل مفعّلة", "Holidays on"), value: workSchedules.filter((schedule) => schedule.holidays === "مفعلة").length }
+      ]} />
       <div className="panel">
-        <div className="panel-head"><h2>{t("ساعات العمل", "Work Hours")}</h2><span /><button className="btn primary" type="button" onClick={() => openForm()}>{t("إضافة جدول", "Add schedule")}</button></div>
         <div className="panel-body table-wrap">
           <p className="muted-copy">{t('عند وجود جدول "نشط"، يرسل النظام تلقائيًا رد "خارج أوقات الدوام" لأول رسالة تصل من عميل خارج الأوقات المحددة (مرة واحدة يوميًا لكل محادثة). بدون أي جدول نشط، لا يوجد أي قيد على الاستقبال.', 'When there is an "active" schedule, the system automatically sends an "outside working hours" reply to the first message that arrives from a customer outside the set hours (once a day per conversation). Without any active schedule, there is no restriction on receiving messages.')}</p>
           <table className="mobile-card-table">
@@ -203,7 +209,7 @@ export default function WorkHoursView({
                   <td>{schedule.team}</td><td data-label={t("أيام العمل", "Working days")}>{formatDaysDisplay(schedule.days, t)}</td><td data-label={t("بداية الدوام", "Start time")}>{schedule.start}</td><td data-label={t("نهاية الدوام", "End time")}>{schedule.end}</td>
                   <td data-label={t("الحالة", "Status")}><span className={schedule.status === "نشط" ? "state ok" : "state muted"}>{schedule.status === "نشط" ? t("نشط", "Active") : t("متوقف", "Stopped")}</span></td>
                   <td data-label={t("العطل الرسمية", "Public holidays")}><span className={schedule.holidays === "مفعلة" ? "state ok" : "state muted"}>{schedule.holidays === "مفعلة" ? t("مفعلة", "Enabled") : t("غير مفعلة", "Disabled")}</span></td>
-                  <td className="row-actions" data-label={t("إجراء", "Action")}><button className="btn soft" type="button" onClick={() => openForm(schedule)}>{t("تعديل", "Edit")}</button><button className="btn danger" type="button" onClick={() => deleteSchedule(schedule)}>{t("حذف", "Delete")}</button></td>
+                  <td className="row-actions" data-label={t("إجراء", "Action")}><button className="btn soft" type="button" onClick={() => openForm(schedule)}>{t("تعديل", "Edit")}</button></td>
                 </tr>
               ))}
             </tbody>

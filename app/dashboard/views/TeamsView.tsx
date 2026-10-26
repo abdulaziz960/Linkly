@@ -4,6 +4,7 @@ import { confirmDialog } from "../../../lib/ui-dialogs";
 
 import { FormEvent, useMemo, useState } from "react";
 import type { Employee, Team } from "../types";
+import { KpiRow, PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import { billingLabel } from "../../../lib/billing-labels";
 import CustomSelect from "../../components/CustomSelect";
@@ -108,12 +109,6 @@ export default function TeamsView({
     setTeamFormOpen(false);
   }
 
-  async function deleteTeam(team: Team) {
-    if (!(await confirmDialog(t(`حذف فريق ${team.name}؟`, `Delete team ${team.name}?`), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    await fetch(`/api/teams/${team.id}`, { method: "DELETE" });
-    await onRefreshData();
-  }
-
   function getMemberNames(team: Team) {
     return team.memberIds
       .map((id) => employeeById.get(id))
@@ -122,12 +117,19 @@ export default function TeamsView({
 
   return (
     <section className="page-stack">
+      <PageHero
+        eyebrow={t("الموظفون والفرق", "TEAM")}
+        title={t("الفرق", "Teams")}
+        description={t("وزّع المحادثات على فرق متخصصة مثل الدعم والمبيعات والشحن والفواتير.", "Route conversations to specialised teams such as support, sales, shipping and billing.")}
+        chips={[t(`${teams.length} فريق`, `${teams.length} teams`)]}
+        action={<button className="camp-hero-new" type="button" onClick={openCreateTeamForm}>＋ {t("إضافة فريق", "Add Team")}</button>}
+      />
+      <KpiRow items={[
+        { tone: "t", label: t("عدد الفرق", "Teams"), value: teams.length },
+        { tone: "g", label: t("إجمالي الأعضاء", "Total members"), value: teams.reduce((sum, team) => sum + team.memberIds.length, 0) },
+        { tone: "o", label: t("فرق بلا مشرف", "Teams without a lead"), value: teams.filter((team) => !team.lead).length }
+      ]} />
       <div className="panel">
-        <div className="panel-head">
-          <h2>{t("الفرق", "Teams")}</h2>
-          <span />
-          <button className="btn primary" type="button" onClick={openCreateTeamForm}>{t("إضافة فريق", "Add Team")}</button>
-        </div>
         {(
           <div className="panel-body table-wrap">
             <p className="muted-copy">{t("استخدم الفرق لتنظيم الموظفين حسب مهامهم مثل الدعم، المبيعات، الشحن، والفواتير، وتحديد آلية توزيع المحادثات لكل فريق. المستخدمون وصلاحياتهم تُدار من صفحة «الموظفون والصلاحيات».", "Use teams to organize employees by function, such as support, sales, shipping, and billing, and to set the conversation routing method for each team. Users and their permissions are managed on the Employees & permissions page.")}</p>
@@ -143,7 +145,6 @@ export default function TeamsView({
                     <td className="row-actions" data-label={t("إجراء", "Action")}>
                       <button className="btn soft" type="button" onClick={() => setMembersOpen(team)}>{t("عرض", "View")}</button>
                       <button className="btn soft" type="button" onClick={() => openEditTeamForm(team)}>{t("تعديل", "Edit")}</button>
-                      <button className="btn danger" type="button" onClick={() => deleteTeam(team)}>{t("حذف", "Delete")}</button>
                     </td>
                   </tr>
                 ))}

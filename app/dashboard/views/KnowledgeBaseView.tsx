@@ -4,6 +4,7 @@ import { confirmDialog } from "../../../lib/ui-dialogs";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import type { KnowledgeBaseEntry } from "../types";
+import { KpiRow, PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 
 type EntryMode = "qa" | "text";
@@ -96,20 +97,21 @@ export default function KnowledgeBaseView() {
     setFormOpen(false);
   }
 
-  async function deleteEntry(entry: KnowledgeBaseEntry) {
-    if (!(await confirmDialog(t("حذف هذا العنصر من قاعدة المعرفة؟", "Delete this Knowledge Base entry?"), { confirmLabel: t("حذف", "Delete"), cancelLabel: t("تراجع", "Cancel") }))) return;
-    await fetch(`/api/knowledge-base/${entry.id}`, { method: "DELETE" });
-    await loadEntries();
-  }
-
   return (
     <section className="page-stack">
+      <PageHero
+        eyebrow={t("الأتمتة والذكاء", "AUTOMATION & AI")}
+        title={t("قاعدة المعرفة", "Knowledge Base")}
+        description={t("المساعد وخطوة «رد AI تلقائي» لا يجيبان إلا من قاعدة المعرفة، فأضف فيها أسئلتك وأجوبتك أولًا.", "The assistant and the auto AI reply answer only from the knowledge base, so add your questions and answers first.")}
+        chips={[t(`${entries.length} عنصر`, `${entries.length} entries`)]}
+        action={<button className="camp-hero-new" type="button" onClick={openCreateForm}>＋ {t("إضافة عنصر", "Add entry")}</button>}
+      />
+      <KpiRow items={[
+        { tone: "t", label: t("عناصر المعرفة", "Entries"), value: entries.length },
+        { tone: "g", label: t("أسئلة وأجوبة", "Q&A"), value: entries.filter((entry) => entry.question).length },
+        { tone: "p", label: t("نصوص ومستندات", "Texts & documents"), value: entries.filter((entry) => !entry.question).length }
+      ]} />
       <div className="panel">
-        <div className="panel-head">
-          <h2>{t("قاعدة المعرفة", "Knowledge Base")}</h2>
-          <span />
-          <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة عنصر", "Add entry")}</button>
-        </div>
         <div className="panel-body table-wrap">
           <p className="muted-copy">{t("أضف أسئلة شائعة وأجوبتها، أو الصق نصاً/ارفع ملف .txt - أضف خطوة \"رد من قاعدة المعرفة\" في الرد الآلي لتفعيلها. لا يدعم رفع ملفات PDF أو Word حالياً.", "Add FAQ questions and answers, or paste text / upload a .txt file - add a \"Knowledge Base reply\" step in the auto-reply builder to activate it. PDF and Word uploads aren't supported yet.")}</p>
           <div className="inline-filter">
@@ -125,7 +127,6 @@ export default function KnowledgeBaseView() {
                   <td className="truncate-cell" data-label={t("الإجابة", "Answer")}>{entry.answer}</td>
                   <td className="row-actions" data-label={t("إجراء", "Action")}>
                     <button className="btn soft" type="button" onClick={() => openEditForm(entry)}>{t("تعديل", "Edit")}</button>
-                    <button className="btn danger" type="button" onClick={() => deleteEntry(entry)}>{t("حذف", "Delete")}</button>
                   </td>
                 </tr>
               ))}

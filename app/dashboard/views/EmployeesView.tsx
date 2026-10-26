@@ -4,6 +4,7 @@ import { confirmDialog } from "../../../lib/ui-dialogs";
 
 import { Fragment, FormEvent, useMemo, useState } from "react";
 import type { Conversation, Employee, Team } from "../types";
+import { KpiRow, PageHero } from "../components/PageHero";
 import { useLanguage } from "../i18n";
 import CustomSelect from "../../components/CustomSelect";
 import { sanitizeCsvCell } from "../../../lib/csv-export";
@@ -305,16 +306,23 @@ export default function EmployeesView({
 
   return (
     <section className="page-stack">
+      <PageHero
+        eyebrow={t("الموظفون والفرق", "TEAM")}
+        title={t("الموظفون والصلاحيات", "Employees & permissions")}
+        description={t("أضف فريقك وحدد دور كل موظف وصلاحياته وفريقه.", "Add your team and set each employee's role, permissions and team.")}
+        chips={[t(`${employees.length} موظف`, `${employees.length} employees`), t(`${employees.filter((employee) => employee.status === "متصل").length} متصل`, `${employees.filter((employee) => employee.status === "متصل").length} online`)]}
+      >
+        <label className="camp-hero-search"><span aria-hidden="true">🔍</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث بالاسم أو البريد...", "Search by name or email...")} aria-label={t("بحث", "Search")} /></label>
+        <button className="camp-hero-new camp-hero-ghost" type="button" onClick={exportEmployees}>{t("تصدير", "Export")}</button>
+        <button className="camp-hero-new" type="button" onClick={openCreateForm}>＋ {t("إضافة موظف", "Add Employee")}</button>
+      </PageHero>
+      <KpiRow items={[
+        { tone: "t", label: t("إجمالي الموظفين", "Total employees"), value: employees.length },
+        { tone: "g", label: t("متصلون", "Online"), value: employees.filter((employee) => employee.status === "متصل").length },
+        { tone: "o", label: t("مشغولون", "Busy"), value: employees.filter((employee) => employee.status === "مشغول").length },
+        { tone: "p", label: t("بانتظار التفعيل", "Pending activation"), value: employees.filter((employee) => employee.pendingActivation).length }
+      ]} />
       <div className="panel">
-        <div className="panel-head">
-          <h2>{t("المستخدمون والموظفون", "Users & employees")}</h2>
-          <label className="user-search">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.5" /><path d="m16 16 4 4" /></svg>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("بحث بالاسم أو البريد...", "Search by name or email...")} aria-label={t("بحث", "Search")} />
-          </label>
-          <button className="btn soft" type="button" onClick={exportEmployees}>{t("تصدير", "Export")}</button>
-          <button className="btn primary" type="button" onClick={openCreateForm}>{t("إضافة موظف", "Add Employee")}</button>
-        </div>
         {listNotice ? <p className="form-success">{listNotice}</p> : null}
         {listError ? <p className="form-error">{listError}</p> : null}
         {!formOpen && activationUrl ? (
