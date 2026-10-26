@@ -12816,3 +12816,5 @@ html[dir="ltr"] .notification-bell-panel {
 .seg-banner-good { background: linear-gradient(120deg, #2e9e4f, #1f7a3a); }
 .seg-banner-warn { background: linear-gradient(120deg, #ff6a2b, #e5481a); }
 @media (max-width: 760px) { .report-filters .rf-field, .report-filters .rf-field .custom-select, .report-filters .rf-field input[type="date"] { width: 100%; flex: 1 1 100%; } .report-filters .btn { flex: 1 1 100%; } }
+.seg-kpis > :nth-child(7):last-child { grid-column: span 2; }
+@media (max-width: 900px) { .seg-kpis > :nth-child(7):last-child { grid-column: span 2; } }

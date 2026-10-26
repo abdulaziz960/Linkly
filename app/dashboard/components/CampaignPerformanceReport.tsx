@@ -116,8 +116,7 @@ export default function CampaignPerformanceReport({ campaigns, onRefresh }: { ca
         ], rows.map((row) => ({ name: row.campaign.name, day: row.day, sent: row.stats.sent, notReceived: row.notReceived, notOpened: row.notOpened, openedNoAction: row.openedNoAction, interacted: row.interacted, unsubscribed: row.unsubscribed, openRate: row.openRate, interactRate: row.interactRate })))}
       />
 
-      {!rows.length ? <div className="panel"><div className="panel-body"><p className="muted-copy">{t("لا توجد حملات مرسلة ضمن هذه الفلاتر.", "No sent campaigns match these filters.")}</p></div></div> : (
-        <>
+      <>
           <div className="seg-kpis">
             <div className="seg-kpi"><span>{t("الحملات", "Campaigns")}</span><b>{num(rows.length)}</b></div>
             <div className="seg-kpi"><span>{t("الرسائل المرسلة", "Messages sent")}</span><b>{num(totals.sent)}</b></div>
@@ -129,29 +128,36 @@ export default function CampaignPerformanceReport({ campaigns, onRefresh }: { ca
             <div className="seg-kpi"><span>{t("التكلفة (ر.س)", "Cost (SAR)")}</span><b>{totals.cost.toLocaleString("en-US", { maximumFractionDigits: 2 })}</b></div>
           </div>
 
-          {best ? (
-            <div className="seg-banners">
-              <div className="seg-banner seg-banner-good">
-                <span>🏆 {t("أفضل أداء", "Best performance")}</span>
-                <b>{best.campaign.name}</b>
-                <small>{t(`تفاعل ${best.interactRate}% · فتح ${best.openRate}%`, `Interaction ${best.interactRate}% · open ${best.openRate}%`)}</small>
-              </div>
-              <div className="seg-banner seg-banner-warn">
-                <span>⚠ {t("أضعف أداء", "Weakest performance")}</span>
-                {worst && worst.campaign.id !== best.campaign.id ? (
-                  <>
-                    <b>{worst.campaign.name}</b>
-                    <small>{t(`تفاعل ${worst.interactRate}% · فتح ${worst.openRate}%`, `Interaction ${worst.interactRate}% · open ${worst.openRate}%`)}</small>
-                  </>
-                ) : (
-                  <>
-                    <b>{t("لا توجد حملة للمقارنة بعد", "No campaign to compare yet")}</b>
-                    <small>{t("يظهر هنا أضعف أداء عند وجود حملتين مرسلتين على الأقل.", "The weakest performer shows here once two campaigns have been sent.")}</small>
-                  </>
-                )}
-              </div>
+          <div className="seg-banners">
+            <div className="seg-banner seg-banner-good">
+              <span>🏆 {t("أفضل أداء", "Best performance")}</span>
+              {best ? (
+                <>
+                  <b>{best.campaign.name}</b>
+                  <small>{t(`تفاعل ${best.interactRate}% · فتح ${best.openRate}%`, `Interaction ${best.interactRate}% · open ${best.openRate}%`)}</small>
+                </>
+              ) : (
+                <>
+                  <b>{t("لا توجد حملات مرسلة بعد", "No campaigns sent yet")}</b>
+                  <small>{t("يظهر هنا أفضل حملة بعد أول إرسال.", "Your best campaign shows here after the first send.")}</small>
+                </>
+              )}
             </div>
-          ) : null}
+            <div className="seg-banner seg-banner-warn">
+              <span>⚠ {t("أضعف أداء", "Weakest performance")}</span>
+              {best && worst && worst.campaign.id !== best.campaign.id ? (
+                <>
+                  <b>{worst.campaign.name}</b>
+                  <small>{t(`تفاعل ${worst.interactRate}% · فتح ${worst.openRate}%`, `Interaction ${worst.interactRate}% · open ${worst.openRate}%`)}</small>
+                </>
+              ) : (
+                <>
+                  <b>{t("لا توجد حملة للمقارنة بعد", "No campaign to compare yet")}</b>
+                  <small>{t("يظهر هنا أضعف أداء عند وجود حملتين مرسلتين على الأقل.", "The weakest performer shows here once two campaigns have been sent.")}</small>
+                </>
+              )}
+            </div>
+          </div>
 
           <div className="seg-charts">
             <div className="panel">
@@ -190,6 +196,7 @@ export default function CampaignPerformanceReport({ campaigns, onRefresh }: { ca
                   </tr>
                 </thead>
                 <tbody>
+                  {!rows.length ? <tr><td colSpan={10}>{t("سيظهر هنا أداء حملاتك بعد أول إرسال.", "Your campaigns' performance will show here after the first send.")}</td></tr> : null}
                   {rows.map((row) => (
                     <tr key={row.campaign.id}>
                       <td><b>{row.campaign.name}</b></td>
@@ -208,8 +215,7 @@ export default function CampaignPerformanceReport({ campaigns, onRefresh }: { ca
               </table>
             </div>
           </div>
-        </>
-      )}
+      </>
     </div>
   );
 }

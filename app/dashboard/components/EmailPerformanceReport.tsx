@@ -78,8 +78,7 @@ export default function EmailPerformanceReport() {
           { header: t("تفاعل", "Interacted"), key: "interacted" }, { header: t("ألغى الاشتراك", "Unsubscribed"), key: "unsubscribed" }, { header: t("نسبة الفتح %", "Open rate %"), key: "openRate" }, { header: t("نسبة التفاعل %", "Interaction rate %"), key: "interactRate" }
         ], rows.map((row) => ({ name: row.campaign.name, day: row.day, sent: row.a.sentCount, notReceived: row.notReceived, notOpened: row.notOpened, openedNoAction: row.openedNoAction, interacted: row.interacted, unsubscribed: row.a.unsubscribeCount, openRate: row.openRate, interactRate: row.interactRate })))}
       />
-      {!rows.length ? <div className="panel"><div className="panel-body"><p className="muted-copy">{loading ? t("جارٍ التحميل...", "Loading...") : t("لا توجد حملات بريدية مرسلة ضمن هذه الفلاتر.", "No sent email campaigns match these filters.")}</p></div></div> : (
-        <>
+      <>
           <div className="seg-kpis">
             <div className="seg-kpi"><span>{t("الحملات", "Campaigns")}</span><b>{num(rows.length)}</b></div>
             <div className="seg-kpi"><span>{t("الرسائل المرسلة", "Emails sent")}</span><b>{num(totals.sent)}</b></div>
@@ -89,29 +88,36 @@ export default function EmailPerformanceReport() {
             <div className="seg-kpi seg-kpi-good"><span>{t("تفاعل (ضغط رابط)", "Interacted (click)")}</span><b>{num(totals.interacted)}</b><small>{pct(totals.interacted)}</small></div>
             <div className="seg-kpi seg-kpi-unsub"><span>{t("ألغى الاشتراك", "Unsubscribed")}</span><b>{num(totals.unsubscribed)}</b><small>{pct(totals.unsubscribed)}</small></div>
           </div>
-          {best ? (
-            <div className="seg-banners">
-              <div className="seg-banner seg-banner-good">
-                <span>🏆 {t("أفضل أداء", "Best performance")}</span>
-                <b>{best.campaign.name}</b>
-                <small>{t(`تفاعل ${best.interactRate}% · فتح ${best.openRate}%`, `Interaction ${best.interactRate}% · open ${best.openRate}%`)}</small>
-              </div>
-              <div className="seg-banner seg-banner-warn">
-                <span>⚠ {t("أضعف أداء", "Weakest performance")}</span>
-                {worst && worst.campaign.id !== best.campaign.id ? (
-                  <>
-                    <b>{worst.campaign.name}</b>
-                    <small>{t(`تفاعل ${worst.interactRate}% · فتح ${worst.openRate}%`, `Interaction ${worst.interactRate}% · open ${worst.openRate}%`)}</small>
-                  </>
-                ) : (
-                  <>
-                    <b>{t("لا توجد حملة للمقارنة بعد", "No campaign to compare yet")}</b>
-                    <small>{t("يظهر هنا أضعف أداء عند وجود حملتين مرسلتين على الأقل.", "The weakest performer shows here once two campaigns have been sent.")}</small>
-                  </>
-                )}
-              </div>
+          <div className="seg-banners">
+            <div className="seg-banner seg-banner-good">
+              <span>🏆 {t("أفضل أداء", "Best performance")}</span>
+              {best ? (
+                <>
+                  <b>{best.campaign.name}</b>
+                  <small>{t(`تفاعل ${best.interactRate}% · فتح ${best.openRate}%`, `Interaction ${best.interactRate}% · open ${best.openRate}%`)}</small>
+                </>
+              ) : (
+                <>
+                  <b>{t("لا توجد حملات مرسلة بعد", "No campaigns sent yet")}</b>
+                  <small>{t("يظهر هنا أفضل حملة بعد أول إرسال.", "Your best campaign shows here after the first send.")}</small>
+                </>
+              )}
             </div>
-          ) : null}
+            <div className="seg-banner seg-banner-warn">
+              <span>⚠ {t("أضعف أداء", "Weakest performance")}</span>
+              {best && worst && worst.campaign.id !== best.campaign.id ? (
+                <>
+                  <b>{worst.campaign.name}</b>
+                  <small>{t(`تفاعل ${worst.interactRate}% · فتح ${worst.openRate}%`, `Interaction ${worst.interactRate}% · open ${worst.openRate}%`)}</small>
+                </>
+              ) : (
+                <>
+                  <b>{t("لا توجد حملة للمقارنة بعد", "No campaign to compare yet")}</b>
+                  <small>{t("يظهر هنا أضعف أداء عند وجود حملتين مرسلتين على الأقل.", "The weakest performer shows here once two campaigns have been sent.")}</small>
+                </>
+              )}
+            </div>
+          </div>
           <div className="seg-charts">
             <div className="panel">
               <div className="panel-head"><h2>{t("الاتجاه اليومي", "Daily trend")}</h2></div>
@@ -142,6 +148,7 @@ export default function EmailPerformanceReport() {
               <table>
                 <thead><tr><th>{t("الحملة", "Campaign")}</th><th>{t("التاريخ", "Date")}</th><th>{t("مرسلة", "Sent")}</th><th>{t("لم يستلم", "Not received")}</th><th>{t("لم يفتح", "Not opened")}</th><th>{t("فتحها بدون تفاعل", "Opened only")}</th><th>{t("تفاعل", "Interacted")}</th><th>{t("ألغى الاشتراك", "Unsub.")}</th><th>{t("نسبة الفتح", "Open rate")}</th><th>{t("نسبة التفاعل", "Interaction rate")}</th></tr></thead>
                 <tbody>
+                  {!rows.length ? <tr><td colSpan={10}>{loading ? t("جارٍ التحميل...", "Loading...") : t("سيظهر هنا أداء حملاتك بعد أول إرسال.", "Your campaigns' performance will show here after the first send.")}</td></tr> : null}
                   {rows.map((row) => (
                     <tr key={row.campaign.id}>
                       <td><b>{row.campaign.name}</b></td><td>{row.day}</td><td>{num(row.a.sentCount)}</td><td>{num(row.notReceived)}</td><td>{num(row.notOpened)}</td><td>{num(row.openedNoAction)}</td><td>{num(row.interacted)}</td><td>{num(row.a.unsubscribeCount)}</td>
@@ -152,8 +159,7 @@ export default function EmailPerformanceReport() {
               </table>
             </div>
           </div>
-        </>
-      )}
+      </>
     </div>
   );
 }
