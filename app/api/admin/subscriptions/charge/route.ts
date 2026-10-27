@@ -1,4 +1,4 @@
-import { grossHalalas } from "../../../../../lib/vat";
+import { chargeHalalas } from "../../../../../lib/charge-amount";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { requirePlatformAdmin } from "../../../../../lib/admin-auth";
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { tenantId?: string; amount?: number; gateway?: string } | null;
   const tenantId = body?.tenantId?.trim();
   const amount = Math.max(0, Math.round(Number(body?.amount) || 0));
-  // `amount` is the invoice value without tax; 15% VAT is added to what the client is asked to pay.
-  const amountHalalas = grossHalalas(amount);
+  // `amount` is the invoice value without tax; 15% VAT is added to what a new client is asked to pay.
+  const amountHalalas = tenantId ? await chargeHalalas(tenantId, amount) : 0;
   const gateway = body?.gateway === "stripe" ? PAYMENT_GATEWAY.stripe : PAYMENT_GATEWAY.moyasar;
 
   if (!tenantId) return NextResponse.json({ ok: false, error: "الحساب مطلوب" }, { status: 400 });

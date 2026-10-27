@@ -7,7 +7,7 @@ import { getTenantBranding } from "../../../../lib/tenant-branding";
 import InvoicePrintButton from "../../invoice/[id]/InvoicePrintButton";
 import { billingLabel } from "../../../../lib/billing-labels";
 import { planDisplayName } from "../../../../lib/plan-features";
-import { paymentTaxBreakdown, SELLER } from "../../../../lib/vat";
+import { paymentTaxBreakdown } from "../../../../lib/vat";
 import "../../invoice/invoice.css";
 
 export const metadata = { title: { absolute: "كشف الفواتير | Linkly" } };
@@ -41,6 +41,8 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
     return true;
   });
 
+  // VAT lines only appear when VAT was actually added to one of the payments in the statement.
+  const taxCustomer = invoices.some((invoice) => paymentTaxBreakdown(invoice).mode === "added");
   const money = (value: number) => value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const paidTax = invoices.filter((invoice) => invoice.status === "مكتمل").map((invoice) => paymentTaxBreakdown(invoice));
   const totalNet = paidTax.reduce((sum, row) => sum + row.net, 0);
@@ -90,8 +92,7 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
 
         <div className="invoice-billed invoice-seller">
           <span className="invoice-label">{bi("البائع", "Seller")}</span>
-          <b>{SELLER.name}</b>
-          <small>{bi("الرقم الضريبي", "VAT number")}: <span dir="ltr">{SELLER.vatNumber}</span></small>
+          <b>Linkly</b>
         </div>
 
         <div className="invoice-billed">
@@ -108,8 +109,8 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
                 <th>{bi("التاريخ", "Date")}</th>
                 <th>{bi("الوصف", "Description")}</th>
                 <th>{bi("الحالة", "Status")}</th>
-                <th className="num">{bi("قبل الضريبة", "Excl. VAT")}</th>
-                <th className="num">{bi("الضريبة 15%", "VAT 15%")}</th>
+                {taxCustomer ? <th className="num">{bi("قبل الضريبة", "Excl. VAT")}</th> : null}
+                {taxCustomer ? <th className="num">{bi("الضريبة 15%", "VAT 15%")}</th> : null}
                 <th className="num">{bi("الإجمالي", "Total")}</th>
               </tr>
             </thead>
@@ -121,8 +122,8 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
                     <b>{invoice.source === "اشتراك" ? en ? `Subscription - ${invoice.planName ? planDisplayName(invoice.planName, "en") : "plan"}` : `اشتراك - ${invoice.planName || "باقة"}` : en ? "Campaign message top-up" : "شحن رسائل حملات"}</b>
                   </td>
                   <td>{billingLabel(invoice.status, en ? "en" : "ar")}</td>
-                  <td className="num"><span dir="ltr">{money(paymentTaxBreakdown(invoice).net)}</span> {cur}</td>
-                  <td className="num"><span dir="ltr">{money(paymentTaxBreakdown(invoice).vat)}</span> {cur}</td>
+                  {taxCustomer ? <td className="num"><span dir="ltr">{money(paymentTaxBreakdown(invoice).net)}</span> {cur}</td> : null}
+                  {taxCustomer ? <td className="num"><span dir="ltr">{money(paymentTaxBreakdown(invoice).vat)}</span> {cur}</td> : null}
                   <td className="num"><span dir="ltr">{money(paymentTaxBreakdown(invoice).total)}</span> {cur}</td>
                 </tr>
               ))}
@@ -132,16 +133,20 @@ export default async function InvoicesStatementPage({ searchParams }: { searchPa
 
         <div className="invoice-totals">
           <div className="invoice-totals-box">
-            <div>
-              <span>{bi("المجموع قبل الضريبة", "Subtotal (excl. VAT)")}</span>
-              <b><span dir="ltr">{money(totalNet)}</span> {cur}</b>
-            </div>
-            <div>
-              <span>{bi("ضريبة القيمة المضافة", "VAT")}</span>
-              <b><span dir="ltr">{money(totalVat)}</span> {cur}</b>
-            </div>
+            {taxCustomer ? (
+              <div>
+                <span>{bi("المجموع قبل الضريبة", "Subtotal (excl. VAT)")}</span>
+                <b><span dir="ltr">{money(totalNet)}</span> {cur}</b>
+              </div>
+            ) : null}
+            {taxCustomer ? (
+              <div>
+                <span>{bi("ضريبة القيمة المضافة", "VAT")}</span>
+                <b><span dir="ltr">{money(totalVat)}</span> {cur}</b>
+              </div>
+            ) : null}
             <div className="invoice-total-paid">
-              <span>{bi("إجمالي المدفوع (شامل الضريبة)", "Total paid (incl. VAT)")}</span>
+              <span>{taxCustomer ? bi("إجمالي المدفوع (شامل الضريبة)", "Total paid (incl. VAT)") : bi("إجمالي المدفوع", "Total paid")}</span>
               <b><span dir="ltr">{money(totalPaid)}</span> {cur}</b>
             </div>
           </div>

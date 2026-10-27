@@ -1,4 +1,4 @@
-import { grossHalalas } from "./vat";
+import { chargeHalalas } from "./charge-amount";
 import { clearScheduledPlanIfPaid, getScheduledPlan } from "./scheduled-plan";
 import { isViewLockedForPlan } from "./plan-access";
 import { createHash, randomBytes, randomUUID } from "crypto";
@@ -924,7 +924,7 @@ export async function attemptAutoRenewals(baseUrl: string) {
     const paymentId = `sub-pay-autorenew-${subscription.tenantId}-${subscription.renewalAt}`;
     const billingCycle: BillingCycle = scheduled?.billingCycle ?? (isBillingCycle(subscription.billingCycle) ? subscription.billingCycle : "شهري");
     const renewAmount = priceForCycle(plan.monthlyPrice, billingCycle);
-    const amountHalalas = grossHalalas(renewAmount);
+    const amountHalalas = await chargeHalalas(subscription.tenantId, renewAmount);
     try {
       await prisma.subscriptionPayment.create({
         data: {
