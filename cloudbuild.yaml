@@ -51,20 +51,24 @@ steps:
         # expected-failure tests (it.fails) as failures.
         npm test
 
+  # The dependency layer (npm ci) only changes when package-lock.json does, so it is built as its own image and kept in the
+  # registry; the next build starts from it instead of reinstalling everything. A missing or stale cache only costs time
+  # (every cache step tolerates failure), never correctness.
   - id: build-image
     name: "gcr.io/cloud-builders/docker"
     waitFor: ["-"]
+    entrypoint: bash
+    env:
+      - "DOCKER_BUILDKIT=1"
     args:
-      - "build"
-      - "-t"
-      - "me-central2-docker.pkg.dev/$PROJECT_ID/linkly/app:$BUILD_ID"
-      - "--build-arg"
-      - "NEXT_PUBLIC_SALES_WHATSAPP_NUMBER=$_SALES_WHATSAPP_NUMBER"
-      - "--build-arg"
-      - "NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY=$_MOYASAR_PUBLISHABLE_KEY"
-      - "--build-arg"
-      - "NEXT_PUBLIC_SENTRY_DSN=$_SENTRY_DSN"
-      - "."
+      - "-c"
+      - |
+        set -uo pipefail
+        REPO="me-central2-docker.pkg.dev/$PROJECT_ID/linkly"
+        docker pull "$$REPO/deps-cache:latest" || echo "no dependency cache yet"
+        docker build --target deps --cache-from "$$REPO/deps-cache:latest" --build-arg BUILDKIT_INLINE_CACHE=1 -t "$$REPO/deps-cache:latest" . || echo "dependency cache build skipped"
+        docker build --cache-from "$$REPO/deps-cache:latest"           --build-arg "NEXT_PUBLIC_SALES_WHATSAPP_NUMBER=$_SALES_WHATSAPP_NUMBER"           --build-arg "NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY=$_MOYASAR_PUBLISHABLE_KEY"           --build-arg "NEXT_PUBLIC_SENTRY_DSN=$_SENTRY_DSN"           -t "$$REPO/app:$BUILD_ID" . || exit 1
+        docker push "$$REPO/deps-cache:latest" || echo "dependency cache not pushed"
 
   - id: push-image
     name: "gcr.io/cloud-builders/docker"
