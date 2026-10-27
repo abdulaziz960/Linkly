@@ -6,10 +6,8 @@ import { runInboundMessageAutomations } from "./automation-engine";
 import { restartBotFlowIfClosed } from "./conversation-lifecycle";
 
 /**
- * Storage helper for inbound SMS, ready to be called once the Unifonic
- * incoming-message webhook payload shape is confirmed against a real
- * account (their full webhook docs are behind a login) - see
- * app/api/sms/webhook/route.ts.
+ * Storage helper for inbound SMS, ready to be called once the SMS provider's incoming-message payload is confirmed
+ * against a real account - see app/api/sms/webhook/route.ts.
  */
 type StoreSmsMessageInput = {
   tenantId?: string;

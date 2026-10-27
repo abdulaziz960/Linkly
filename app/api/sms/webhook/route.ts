@@ -3,17 +3,11 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 /**
- * Placeholder endpoint for Unifonic's inbound SMS webhook (2-way SMS).
+ * Placeholder endpoint for inbound SMS (replies from customers). Taqnyat's published SMS API covers sending, delivery reports
+ * and balance; it documents no incoming-message feed, so nothing is parsed here until Taqnyat confirms how replies are delivered.
  *
- * Unifonic's full webhook payload reference is behind a login-gated docs
- * portal, so the exact field names for an incoming-message event aren't
- * confirmed yet - guessing them here would silently misparse real
- * messages instead of failing loudly.
- *
- * TODO once verified against a real Unifonic account: mirror
- * app/api/telegram/webhook - resolve tenantId from the `tenant` query
- * param and call storeSmsMessage() from lib/sms-inbox.ts with the
- * sender phone number and message body from the actual payload.
+ * TODO once Taqnyat confirms how replies are delivered: mirror app/api/telegram/webhook - resolve tenantId from the `tenant`
+ * query param and call storeSmsMessage() from lib/sms-inbox.ts with the sender phone number and message body from the real payload.
  */
 export async function POST() {
   return NextResponse.json({

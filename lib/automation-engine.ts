@@ -9,7 +9,7 @@ import { sendFacebookTextMessage } from "./facebook-send";
 import { sendXTextMessage } from "./x-send";
 import { sendWebsiteTextMessage } from "./website-send";
 import { sendEmailMessage } from "./email-channel";
-import { sendUnifonicSms } from "./sms-send";
+import { sendSms, smsCredentials } from "./sms-send";
 import { checkOffHoursAutoReply } from "./work-hours";
 import { logAssignmentMessage } from "./conversation-system-messages";
 import { triggerWebhookEvent } from "./webhooks";
@@ -181,11 +181,10 @@ async function sendChannelText(channel: string, args: { tenantId: string; conver
 
   if (channel === "sms") {
     const settings = await getIntegrationSettings("sms", args.tenantId);
-    const appSid = settings.appId?.trim();
-    const senderId = settings.phoneNumber?.trim();
-    if (!appSid || !senderId || !args.recipientId) return { ok: false, skipped: true };
+    const credentials = smsCredentials(settings);
+    if (!credentials || !args.recipientId) return { ok: false, skipped: true };
     try {
-      await sendUnifonicSms({ appSid, senderId, to: args.recipientId, text: args.text });
+      await sendSms({ ...credentials, to: args.recipientId, text: args.text });
     } catch (error) {
       console.error("Automation SMS send failed", error);
       return { ok: false, error: error instanceof Error ? error.message : "SMS_SEND_FAILED" };

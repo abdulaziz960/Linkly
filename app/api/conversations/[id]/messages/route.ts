@@ -12,7 +12,7 @@ import { outgoingEmailMessageId } from "../../../../../lib/email-inbox";
 import { replyToGoogleReview } from "../../../../../lib/google-business";
 import { postCommentReply as postYoutubeCommentReply } from "../../../../../lib/youtube";
 import { postCommentReply as postLinkedinCommentReply } from "../../../../../lib/linkedin";
-import { sendUnifonicSms } from "../../../../../lib/sms-send";
+import { sendSms, smsCredentials } from "../../../../../lib/sms-send";
 import { getTenantBranding } from "../../../../../lib/tenant-branding";
 import { prisma } from "../../../../../lib/prisma";
 import { formatMessageTime } from "../../../../../lib/time";
@@ -490,17 +490,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       if (attachment) return jsonError("إرسال المرفقات عبر SMS غير مدعوم، جرّب إرسال نص فقط.", 400);
 
       const smsSettings = await getIntegrationSettings("sms", user?.tenantId);
-      const appSid = smsSettings.appId?.trim();
-      const senderId = smsSettings.phoneNumber?.trim();
+      const credentials = smsCredentials(smsSettings);
       const to = conversation.customer.phone?.trim();
 
-      if (!appSid || !senderId) return jsonError("أكمل بيانات Unifonic (AppSid واسم المرسل) من صفحة الإعدادات قبل الإرسال");
+      if (!credentials) return jsonError("أكمل بيانات تقنيات (مفتاح API واسم المرسل) من صفحة الإعدادات قبل الإرسال");
       if (!to) return jsonError("رقم جوال العميل غير موجود في ملف المحادثة");
 
       try {
-        await sendUnifonicSms({ appSid, senderId, to, text });
+        await sendSms({ ...credentials, to, text });
       } catch (error) {
-        return jsonError(error instanceof Error ? error.message : "تعذر إرسال الرسالة عبر Unifonic", 502);
+        return jsonError(error instanceof Error ? error.message : "تعذر إرسال الرسالة عبر تقنيات", 502);
       }
 
       const message = await prisma.$transaction(async (tx) => {

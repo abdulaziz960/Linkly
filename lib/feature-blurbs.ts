@@ -91,7 +91,7 @@ export const CHANNEL_BLURBS: Partial<Record<ChannelKey, FeatureBlurb>> = {
   youtube: { ar: { text: "تابع تعليقات فيديوهاتك على يوتيوب وردّ عليها من لنكلي.", points: ["تعليقات الفيديوهات في صندوقك", "رد سريع"] }, en: { text: "Follow comments on your YouTube videos and reply from Linkly.", points: ["Video comments in your inbox", "Fast replies"] } },
   linkedin: { ar: { text: "تابع تعليقات منشورات صفحتك على لينكدإن وردّ عليها.", points: ["تعليقات الصفحة في صندوقك", "رد سريع"] }, en: { text: "Follow comments on your LinkedIn page posts and reply to them.", points: ["Page comments in your inbox", "Fast replies"] } },
   snapchat: { ar: { text: "استقبل عملاء إعلانات سناب شات المحتملين وابدأ التواصل معهم.", points: ["عملاء النماذج مباشرة", "متابعتهم من صندوقك"] }, en: { text: "Receive Snapchat lead-ad customers and start talking to them.", points: ["Form leads straight to you", "Follow up from your inbox"] } },
-  sms: { ar: { text: "أرسل واستقبل رسائل SMS مع عملائك عبر يونيفونك.", points: ["رسائل نصية في صندوقك", "للعملاء بدون واتساب"] }, en: { text: "Send and receive SMS with your customers through Unifonic.", points: ["Text messages in your inbox", "For customers without WhatsApp"] } },
+  sms: { ar: { text: "أرسل رسائل SMS لعملائك عبر تقنيات.", points: ["رسائل نصية في صندوقك", "للعملاء بدون واتساب"] }, en: { text: "Send SMS to your customers through Taqnyat.", points: ["Text messages in your inbox", "For customers without WhatsApp"] } },
   x: { ar: { text: "تابع رسائل إكس (تويتر) ومنشنات حسابك وردّ عليها.", points: ["الرسائل والمنشنات", "ردود عامة أو خاصة"] }, en: { text: "Follow your X (Twitter) DMs and mentions and reply to them.", points: ["DMs and mentions", "Public or private replies"] } }
 };
 

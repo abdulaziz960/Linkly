@@ -3589,7 +3589,7 @@ function getIntegrationProvider(channel: IntegrationChannel) {
   if (channel === "email") return "email";
   if (channel === "website") return "website";
   if (channel === "tiktok") return "tiktok";
-  if (channel === "sms") return "unifonic";
+  if (channel === "sms") return "taqnyat";
   if (channel === "youtube") return "youtube";
   if (channel === "linkedin") return "linkedin";
   if (channel === "snapchat") return "snapchat";

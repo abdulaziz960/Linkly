@@ -109,8 +109,8 @@ const tiktokRequiredConnectionFields: Array<{ field: IntegrationField; label: st
 ];
 
 const smsRequiredConnectionFields: Array<{ field: IntegrationField; label: string }> = [
-  { field: "appId", label: "AppSid" },
-  { field: "phoneNumber", label: "اسم/رقم المرسل (Sender ID)" }
+  { field: "accessToken", label: "مفتاح API (تقنيات)" },
+  { field: "phoneNumber", label: "اسم المرسل (Sender)" }
 ];
 
 function getIntegrationChannel(request: NextRequest): IntegrationChannel {
@@ -314,11 +314,16 @@ async function verifySmsConnection(
     };
   }
 
+  // The key is checked against Taqnyat itself (its balance call), so a wrong key is caught when it is saved, not at the first send.
+  const { getSmsAccount } = await import("../../../../lib/sms-send");
+  const account = await getSmsAccount(String(settings.accessToken).trim());
+  if (!account.ok) return { status: "pending", message: `غير مكتمل: ${account.error}`, missingFields: [] };
+
   return {
     status: "connected",
-    message: "متصل: تم حفظ بيانات Unifonic بنجاح",
+    message: account.balance === null ? "متصل: تم التحقق من مفتاح تقنيات" : `متصل: تم التحقق من مفتاح تقنيات. الرصيد ${account.balance} ${account.currency}`,
     missingFields: [],
-    verifiedName: settings.phoneNumber || "Unifonic SMS"
+    verifiedName: settings.phoneNumber || "Taqnyat SMS"
   };
 }
 
@@ -559,7 +564,7 @@ export async function PATCH(request: NextRequest) {
     data: {
       ...data,
       ...leadAdsEnabledUpdate,
-      provider: channel === "instagram" ? "instagram" : channel === "facebook" ? "facebook" : channel === "telegram" ? "telegram" : channel === "x" ? "x" : channel === "google_maps" ? "google_maps" : channel === "email" ? "email" : channel === "tiktok" ? "tiktok" : channel === "sms" ? "unifonic" : data.provider,
+      provider: channel === "instagram" ? "instagram" : channel === "facebook" ? "facebook" : channel === "telegram" ? "telegram" : channel === "x" ? "x" : channel === "google_maps" ? "google_maps" : channel === "email" ? "email" : channel === "tiktok" ? "tiktok" : channel === "sms" ? "taqnyat" : data.provider,
       status: connectionCheck.status,
       updatedAt: new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
         dateStyle: "medium",

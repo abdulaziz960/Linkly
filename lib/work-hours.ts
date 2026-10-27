@@ -7,7 +7,7 @@ import { sendFacebookTextMessage } from "./facebook-send";
 import { sendXTextMessage } from "./x-send";
 import { sendWebsiteTextMessage } from "./website-send";
 import { sendEmailMessage } from "./email-channel";
-import { sendUnifonicSms } from "./sms-send";
+import { sendSms, smsCredentials } from "./sms-send";
 import { getIntegrationSettings } from "./database";
 
 const OFF_HOURS_AUTHOR = "رد آلي - خارج أوقات الدوام";
@@ -110,10 +110,9 @@ async function sendOffHoursText(channel: string, tenantId: string, conversationI
 
   if (channel === "sms") {
     const settings = await getIntegrationSettings("sms", tenantId);
-    const appSid = settings.appId?.trim();
-    const senderId = settings.phoneNumber?.trim();
-    if (!appSid || !senderId || !recipientId) return { ok: false, skipped: true };
-    await sendUnifonicSms({ appSid, senderId, to: recipientId, text });
+    const credentials = smsCredentials(settings);
+    if (!credentials || !recipientId) return { ok: false, skipped: true };
+    await sendSms({ ...credentials, to: recipientId, text });
     await prisma.message.create({
       data: { id: `off-hours-${Date.now()}`, conversationId, direction: "out", text, time: formatMessageTime(), createdAt: new Date().toISOString(), author: OFF_HOURS_AUTHOR }
     });
