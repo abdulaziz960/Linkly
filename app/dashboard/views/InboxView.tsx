@@ -1725,6 +1725,7 @@ export default function InboxView({
                     hidden
                     onChange={handleDocumentChange}
                   />
+                  <div className="composer-tools" role="group" aria-label={t("أدوات الرد", "Reply tools")}>
                   <div className="emoji-picker-wrap" ref={emojiPickerRef}>
                     <button
                       className="attachment-button"
@@ -1849,6 +1850,7 @@ export default function InboxView({
                       {aiFeedback && aiFeedbackConversationId === activeConversation.id ? <p role="status" style={{ whiteSpace: "pre-wrap" }}>{aiFeedback}</p> : null}
                     </>
                   )}
+                  </div>
                   <div className="quick-reply-picker-wrap composer-message-wrap">
                     {shouldShowQuickReplySuggestions ? (
                       <div className="quick-reply-picker" role="menu" aria-label={t("الردود السريعة", "Quick replies")}>

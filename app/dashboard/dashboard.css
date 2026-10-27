@@ -13333,6 +13333,7 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
   .profile-hero { flex-direction: column; align-items: center; text-align: center; }
   .profile-hero-badges { justify-content: center; }
   .profile-hero-actions { width: 100%; }
+}
 
 /* tabs: never overflow their pill; the email icon is drawn with strokes */
 .inbox-page > .inbox-grid.has-side { grid-template-columns: 360px minmax(0, 1fr) 290px; }
@@ -13447,3 +13448,119 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 
 .message-day-chip { align-self: center; margin: 4px 0; }
 .message-day-chip span { display: inline-block; padding: 6px 16px; border-radius: 999px; background: #e6ecef; color: #51635e; font-size: 13px; font-weight: 700; }
+
+.composer-tools { display: contents; }
+
+/* Phone conversations: reserve the available height for messages, not wrapping tools. */
+@media (max-width: 720px) {
+  .dashboard-main:has(> .inbox-page) .mobile-topbar { flex-shrink: 0; }
+  .inbox-page .chat-column { min-height: 0; overflow: hidden; }
+  .inbox-page .chat-head { flex-shrink: 0; padding: 6px 10px; gap: 6px 8px; }
+  .inbox-page .chat-head > .mobile-back { height: 44px; }
+  .inbox-page .chat-head > .chat-customer b { font-size: 18px; }
+  .inbox-page .chat-head .chat-status-label { font-size: 12px; padding-inline: 8px; }
+  .inbox-page .chat-head .assign-field { font-size: 12px; gap: 6px; }
+  .inbox-page .chat-head .assign-field .custom-select,
+  .inbox-page .chat-head .assign-field .readonly-assignee { min-width: 0; }
+  .inbox-page .chat-head .chat-head-actions > .chat-close-btn { height: 44px; padding-inline: 12px; }
+  .inbox-page .chat-tabs { flex-shrink: 0; padding: 4px 10px; gap: 8px; }
+  .inbox-page .chat-tabs button { height: 44px; padding-inline: 12px; font-size: 14px; }
+  .inbox-page .messages { padding: 12px 10px; gap: 12px; scrollbar-gutter: auto; }
+  .inbox-page .message-bubble { max-width: calc(100% - 40px); padding: 10px 12px; font-size: 16px; line-height: 1.7; overflow-wrap: anywhere; }
+  .inbox-page .message-bubble.in { margin-inline-start: 36px; }
+  .inbox-page .message-bubble.out { margin-inline-end: 36px; }
+  .inbox-page .message-bubble.in::before,
+  .inbox-page .message-bubble.out::before { width: 28px; height: 28px; background-size: 18px; }
+  .inbox-page .message-bubble.in::before { inset-inline-start: -36px; }
+  .inbox-page .message-bubble.out::before { inset-inline-end: -36px; }
+  .inbox-page .composer-modes { flex-shrink: 0; margin-inline: 6px; padding: 0 10px; gap: 16px; }
+  .inbox-page .composer-modes button { height: 44px; font-size: 13px; }
+  .inbox-page form.composer { flex-shrink: 0; margin: 0 6px; padding: 6px 8px max(6px, env(safe-area-inset-bottom)); gap: 6px; }
+  .inbox-page form.composer .composer-message-wrap { flex: 1 1 0; order: -2; }
+  .inbox-page form.composer .composer-message-wrap textarea { height: 52px; min-height: 52px; max-height: 96px; font-size: 16px; padding: 10px; }
+  .inbox-page form.composer > .btn.primary { width: 60px; min-width: 60px; height: 52px; font-size: 13px; gap: 0; }
+  .inbox-page form.composer > .btn.primary::before { width: 20px; height: 20px; }
+  .inbox-page form.composer .composer-tools { display: flex; flex: 1 0 100%; min-width: 0; gap: 6px; align-items: center; overflow-x: auto; overscroll-behavior-x: contain; padding-block: 2px; }
+  .inbox-page form.composer .composer-tools > * { flex-shrink: 0; }
+  .inbox-page form.composer button.attachment-button,
+  .inbox-page form.composer .emoji-picker-wrap { width: 44px; height: 44px; min-height: 44px; }
+  .inbox-page form.composer .ai-tool-select { height: 44px; }
+  .inbox-page form.composer .ai-tool-select .custom-select-trigger { height: 44px; min-height: 44px; }
+  .inbox-page form.composer .ai-autodraft-toggle { flex: 0 0 auto; min-height: 44px; white-space: nowrap; }
+  .inbox-page .composer-tools .emoji-picker { position: fixed; inset-inline: 12px; top: auto; bottom: 180px; width: auto; max-height: min(320px, 45dvh); overflow-y: auto; z-index: 100; }
+  .inbox-page .composer-tools p[role="status"] { max-width: 220px; font-size: 12px; }
+}
+
+@media (max-width: 720px) {
+  .inbox-page .message-bubble p { font-size: 16px; line-height: 1.7; }
+}
+
+/* Match the phone assignment and AI selectors to the surrounding controls. */
+@media (max-width: 720px) {
+  .inbox-page .chat-head .assign-field .custom-select-trigger,
+  .inbox-page form.composer .ai-tool-select .custom-select-trigger {
+    min-height: 44px;
+    height: 44px;
+    padding: 0 12px;
+    border: 1px solid #e3eaed;
+    border-radius: 14px;
+    background: #fff;
+    color: #1f332e;
+    font-family: var(--font-app), sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgba(15, 31, 28, .06);
+  }
+  .inbox-page form.composer .ai-tool-select .custom-select-trigger { background: #f4f7f8; }
+  .inbox-page .chat-head .assign-field .custom-select-trigger:focus-visible,
+  .inbox-page form.composer .ai-tool-select .custom-select-trigger:focus-visible {
+    outline: 2px solid #0f766e;
+    outline-offset: 2px;
+  }
+}
+
+/* Keep reply tools in one row when the conversation shares a tablet viewport. */
+@media (min-width: 721px) and (max-width: 1279px) {
+  .inbox-page .chat-head { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px 10px; padding: 8px 12px; }
+  .inbox-page .chat-head > .chat-head-actions { grid-column: 1 / -1; margin: 0; justify-content: space-between; }
+  .inbox-page .chat-head .chat-customer { max-width: none; }
+  .inbox-page .chat-head .assign-field { flex: 1; min-width: 0; }
+  .inbox-page .chat-head .assign-field .custom-select { min-width: 0; max-width: 180px; }
+  .inbox-page form.composer .composer-message-wrap { order: -2; flex: 1 1 0; min-width: 0; }
+  .inbox-page form.composer > .btn.primary { order: -1; }
+  .inbox-page form.composer .composer-tools { display: flex; flex: 1 0 100%; min-width: 0; align-items: center; gap: 6px; overflow-x: auto; padding-block: 2px; }
+  .inbox-page form.composer .composer-tools > * { flex-shrink: 0; }
+  .inbox-page .composer-tools .emoji-picker { position: fixed; inset-inline-start: 16px; top: auto; bottom: 170px; max-height: min(320px, 45dvh); overflow-y: auto; z-index: 100; }
+}
+
+@media (min-width: 980px) and (max-width: 1279px) {
+  .inbox-page .chat-head { grid-template-columns: 44px minmax(0, 1fr) auto; }
+  .inbox-page .chat-head > .chat-head-actions { grid-column: auto; flex-wrap: nowrap; gap: 8px; }
+  .inbox-page .chat-head .assign-field { font-size: 12px; gap: 6px; }
+  .inbox-page .chat-head .assign-field .custom-select { width: 132px; }
+}
+
+@media (min-width: 1280px) {
+  .inbox-page > .inbox-grid.has-side { grid-template-columns: clamp(240px, 18vw, 320px) minmax(0, 1fr) clamp(200px, 14vw, 260px); }
+  .inbox-page > .camp-hero { padding-block: 12px; }
+  .inbox-page .chat-head { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px 10px; padding: 8px 12px; }
+  .inbox-page .chat-head .chat-customer { max-width: none; }
+  .inbox-page .chat-head > .chat-head-actions { grid-column: 1 / -1; margin: 0; justify-content: space-between; }
+  .inbox-page .chat-head .assign-field { min-width: 0; }
+  .inbox-page form.composer .composer-message-wrap { order: -2; flex: 1 1 0; min-width: 0; }
+  .inbox-page form.composer > .btn.primary { order: -1; }
+  .inbox-page form.composer .composer-tools { display: flex; flex: 1 0 100%; min-width: 0; align-items: center; gap: 6px; overflow-x: auto; padding-block: 2px; }
+  .inbox-page form.composer .composer-tools > * { flex-shrink: 0; }
+  .inbox-page .composer-tools .emoji-picker { position: fixed; inset-inline-start: 24px; top: auto; bottom: 170px; max-height: min(320px, 45dvh); overflow-y: auto; z-index: 100; }
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .inbox-page > .camp-hero .camp-hero-text > small,
+  .inbox-page > .camp-hero .camp-hero-text > p,
+  .inbox-page > .camp-hero .camp-hero-chips { display: none; }
+  .inbox-page > .camp-hero .camp-hero-text { flex: 1 1 180px; }
+  .inbox-page > .camp-hero .camp-hero-search { flex: 1 1 240px; }
+  .inbox-page > .camp-hero h2 { margin: 0; font-size: 22px; }
+}
+
+.inbox-page .conversation-tabs { flex-wrap: wrap; }
