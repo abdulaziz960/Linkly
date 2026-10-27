@@ -8,7 +8,8 @@ import { PageHero } from "../components/PageHero";
 import AdSourceBanner from "../components/AdSourceBanner";
 import LeadStatusControl from "../components/LeadStatusControl";
 import ConversationStoreOrders from "../components/ConversationStoreOrders";
-import { ChangeEvent, CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, CSSProperties, Fragment, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { messageDayLabel, riyadhDayKey } from "../../../lib/time";
 import FilterButton from "../components/FilterButton";
 import CustomSelect from "../../components/CustomSelect";
 import LinkifiedText from "../components/LinkifiedText";
@@ -1429,8 +1430,17 @@ export default function InboxView({
             <AdSourceBanner conversationId={activeConversation.id} />
             <div className="messages" ref={messagesContainerRef}>
               {viewerIndex !== null && viewerItems.length ? <MediaViewer items={viewerItems} startIndex={viewerIndex} language={language === "en" ? "en" : "ar"} onClose={() => setViewerIndex(null)} /> : null}
-              {activeConversation.messages.map((item) => (
-                item.source?.type === "system_assignment" || item.source?.type === "system_escalation" ? (
+              {activeConversation.messages.map((item, index, all) => (
+                <Fragment key={item.id}>
+                {(() => {
+                  // A small date chip above the first message of each day.
+                  const when = item.createdAt ? new Date(item.createdAt) : null;
+                  if (!when || Number.isNaN(when.getTime())) return null;
+                  const before = index > 0 && all[index - 1].createdAt ? new Date(all[index - 1].createdAt as string) : null;
+                  if (before && !Number.isNaN(before.getTime()) && riyadhDayKey(before) === riyadhDayKey(when)) return null;
+                  return <div className="message-day-chip"><span>{messageDayLabel(when, language === "en" ? "en" : "ar")}</span></div>;
+                })()}
+                {item.source?.type === "system_assignment" || item.source?.type === "system_escalation" ? (
                   <div className="message-system-line" key={item.id}>
                     <span>{item.text}</span>
                   </div>
@@ -1590,7 +1600,8 @@ export default function InboxView({
                     </small>
                   ) : null}
                 </div>
-                )
+                )}
+                </Fragment>
               ))}
             </div>
             {contextMessage ? (

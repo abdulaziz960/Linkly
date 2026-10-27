@@ -53,6 +53,20 @@ export function formatFullDateTime(date: Date, lang: "ar" | "en" = "ar") {
   }).format(date);
 }
 
+/** The Riyadh calendar day of a moment, "2026-10-26": messages of one day share it. */
+export function riyadhDayKey(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
+/** The chip above a day's messages: "اليوم – 26 أكتوبر 2026", "أمس – ..." or just the date. */
+export function messageDayLabel(date: Date, lang: "ar" | "en" = "ar", now = Date.now()) {
+  const text = new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "ar-SA-u-ca-gregory-nu-latn", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Riyadh", numberingSystem: "latn", calendar: "gregory" }).format(date);
+  const key = riyadhDayKey(date);
+  if (key === riyadhDayKey(new Date(now))) return `${lang === "en" ? "Today" : "اليوم"} – ${text}`;
+  if (key === riyadhDayKey(new Date(now - 86_400_000))) return `${lang === "en" ? "Yesterday" : "أمس"} – ${text}`;
+  return text;
+}
+
 /** "قبل ساعتين" / "2 hours ago" for the past, "بعد 3 أيام" / "in 3 days" for the future. */
 export function formatRelativeTime(date: Date, lang: "ar" | "en" = "ar", now = Date.now()) {
   const seconds = Math.round((date.getTime() - now) / 1000);
