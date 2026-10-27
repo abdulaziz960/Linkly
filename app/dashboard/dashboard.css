@@ -13367,3 +13367,29 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
   .inbox-page:has(.inbox-grid.chat-open) > .camp-hero { display: none; }
   .inbox-page .chat-head > .chat-head-actions { grid-column: 1 / -1; }
 }
+
+/* Inbox on a phone: a compact chat header (back, avatar and name on one row; assignee and close on the next), slimmer tabs, and a
+   composer whose text field sits beside Send with the tools below - so the messages keep most of the screen. */
+@media (max-width: 720px) {
+  .inbox-page .chat-head { grid-template-columns: auto 40px minmax(0, 1fr); gap: 6px 8px; padding: 8px 10px; align-items: center; }
+  .inbox-page .chat-head > .mobile-back { height: 40px; padding: 0 12px; margin: 0; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 13px; font-weight: 800; width: auto; }
+  .inbox-page .chat-head > .chat-customer { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; text-align: start; }
+  .inbox-page .chat-head > .chat-customer b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .inbox-page .chat-head > .chat-customer small { display: none; }
+  .inbox-page .chat-head > .chat-head-actions { display: flex; gap: 8px; align-items: center; grid-column: 1 / -1; width: auto; }
+  .inbox-page .chat-head .assign-field { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .inbox-page .chat-head .assign-field .custom-select { flex: 1; min-width: 0; }
+  .inbox-page .chat-head .chat-close-btn { flex: none; height: 40px; width: auto; padding: 0 14px; }
+  .inbox-page .chat-tabs { padding: 6px 10px; }
+  .inbox-page .chat-tabs button { height: 34px; padding: 0 14px; font-size: 13px; }
+  .inbox-page .composer-modes { padding: 6px 10px 0; }
+  .inbox-page .composer-modes button { height: 34px; padding: 0 14px; font-size: 13px; }
+  .inbox-page form.composer { padding: 8px 10px; gap: 6px; align-items: center; }
+  .inbox-page form.composer .composer-message-wrap { order: -2; flex: 1 1 calc(100% - 84px); min-width: 0; }
+  .inbox-page form.composer > .btn.primary { order: -1; flex: none; align-self: flex-end; height: 44px; }
+  .inbox-page form.composer button.attachment-button { width: 38px; min-width: 0; height: 38px; min-height: 0; padding: 0; flex: none; }
+  .inbox-page form.composer .emoji-picker-wrap { flex: none; width: 38px; height: 38px; }
+  .inbox-page form.composer .ai-tool-select { width: 104px; min-width: 0; height: 38px; min-height: 0; flex: none; }
+  .inbox-page form.composer .ai-tool-select .custom-select-trigger { min-height: 38px; height: 38px; padding: 0 8px; font-size: 12px; }
+  .inbox-page form.composer .ai-autodraft-toggle { flex: 1 1 auto; font-size: 12px; }
+}
