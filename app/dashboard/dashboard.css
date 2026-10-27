@@ -13285,3 +13285,51 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 .inbox-page .conversation-tabs > button span { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 99px; background: #eaf0f3; color: var(--ink); font-size: 11px; font-weight: 800; }
 .inbox-page .conversation-tabs > button.active span { background: #178a82; color: #fff; }
 .inbox-page .conversation-tabs > button.tone-danger span { background: #fde4e2; color: #b4372f; }
+
+/* ---------- Profile modal: branded header, cards and controls ---------- */
+.account-modal.profile-pro { width: min(820px, 96vw); overflow: hidden; border: 1px solid var(--brand-200); box-shadow: 0 24px 70px rgba(15, 95, 90, 0.22); }
+.profile-pro .modal-head { background: linear-gradient(135deg, var(--brand-900), var(--brand-600)); border-bottom: 0; color: #fff; }
+.profile-pro .modal-head h2 { color: #fff; }
+.profile-pro .modal-head .icon-btn-close { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.35); color: #fff; }
+.profile-pro .modal-head .icon-btn-close:hover { background: rgba(255, 255, 255, 0.26); }
+
+.profile-pro .account-modal-body.profile-compact { background: var(--surface-soft); gap: 12px 14px; padding: 16px 18px; }
+
+.profile-hero { grid-column: 1 / -1; position: relative; display: flex; align-items: center; gap: 18px; padding: 20px; border: 1px solid var(--brand-200); border-radius: 18px; background: radial-gradient(120% 140% at 100% 0%, var(--brand-100), var(--surface) 62%); overflow: hidden; }
+.profile-hero::after { content: ""; position: absolute; inset-inline-end: -40px; bottom: -60px; width: 180px; height: 180px; border-radius: 50%; background: var(--brand-300); opacity: 0.18; pointer-events: none; }
+.profile-hero-avatar { flex: none; display: grid; place-items: center; width: 96px; height: 96px; border-radius: 24px; background: linear-gradient(135deg, var(--brand-500), var(--brand-700)); color: #fff; font-size: 40px; font-weight: 800; box-shadow: 0 10px 26px rgba(15, 95, 90, 0.28); overflow: hidden; border: 3px solid var(--surface); }
+.profile-hero-avatar.has-logo { background: var(--surface); }
+.profile-hero-avatar img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+.profile-hero-text { min-width: 0; flex: 1; position: relative; z-index: 1; }
+.profile-hero-text h3 { margin: 0; font-size: 24px; line-height: 1.3; color: var(--brand-950); }
+.profile-hero-text p { margin: 2px 0 10px; color: var(--muted); font-weight: 600; overflow-wrap: anywhere; }
+.profile-hero-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.profile-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 800; }
+.profile-chip.role { background: var(--brand-900); color: #fff; }
+.profile-chip.status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.profile-chip.status.online { background: #dcfce7; color: #166534; }
+.profile-chip.status.busy { background: #fef3c7; color: #92400e; }
+.profile-chip.status.offline { background: #e5e7eb; color: #475569; }
+.profile-hero-actions { position: relative; z-index: 1; display: grid; gap: 8px; justify-items: stretch; min-width: 150px; }
+.profile-hero-actions small { color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
+.profile-hero-btn { min-height: 38px; padding: 0 14px; border: 1px solid var(--brand-500); border-radius: 12px; background: var(--brand-600); color: #fff; font: inherit; font-weight: 800; cursor: pointer; transition: background 0.15s, transform 0.15s; }
+.profile-hero-btn:hover { background: var(--brand-700); transform: translateY(-1px); }
+.profile-hero-btn.ghost { border-color: var(--line-strong); background: var(--surface); color: var(--text-secondary); }
+.profile-hero-btn.ghost:hover { background: var(--surface-hover); }
+
+.profile-pro .company-name-field, .profile-pro .status-picker, .profile-pro .theme-picker { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.profile-pro .account-info-grid > div { position: relative; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); border-inline-start: 4px solid var(--brand-400); }
+.profile-pro .account-info-grid > div > span { color: var(--muted); font-size: 12px; font-weight: 700; }
+.profile-pro .account-info-grid > div > b { color: var(--brand-950); overflow-wrap: anywhere; }
+.profile-pro .status-picker button.active.online { background: #16a34a; border-color: #16a34a; color: #fff; }
+.profile-pro .theme-picker-options button.active { background: var(--brand-600); border-color: var(--brand-600); color: #fff; }
+.profile-pro .profile-actions { border-top: 0; background: transparent; }
+.profile-pro .profile-actions .btn.soft { border: 1px solid var(--brand-200); background: var(--surface); color: var(--brand-800); }
+.profile-pro .profile-actions .btn.soft:hover { background: var(--brand-50); }
+.profile-pro .modal-actions, .profile-pro .modal-footer { background: var(--surface); }
+
+@media (max-width: 720px) {
+  .profile-hero { flex-direction: column; align-items: center; text-align: center; }
+  .profile-hero-badges { justify-content: center; }
+  .profile-hero-actions { width: 100%; }
+}

@@ -1671,7 +1671,7 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
 
       {profileOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setProfileOpen(false)}>
-          <section className={`account-modal${profilePanel === "main" ? " profile-modal-compact" : ""}`} role="dialog" aria-modal="true" aria-label={t("الملف الشخصي", "Profile")} onClick={(event) => event.stopPropagation()}>
+          <section className={`account-modal${profilePanel === "main" ? " profile-modal-compact profile-pro" : ""}`} role="dialog" aria-modal="true" aria-label={t("الملف الشخصي", "Profile")} onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
               <button className="icon-btn icon-btn-close" type="button" aria-label={t("إغلاق", "Close")} onClick={() => setProfileOpen(false)}>
                 ×
@@ -1681,22 +1681,19 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
             <div className={`account-modal-body${profilePanel === "main" ? " profile-compact" : ""}`}>
               {profilePanel === "main" ? (
                 <>
-                  <div className="account-summary">
-                      <span className={`account-avatar large ${draftProfileLogo ? "has-logo" : ""}`}>
-                        {draftProfileLogo ? <Image src={draftProfileLogo} alt={t("معاينة شعار الحساب", "Account logo preview")} width={58} height={58} unoptimized /> : accountInitial}
-                      </span>
-                      <div>
-                        <b>{initialUser.name}</b>
-                      <span>{billingLabel(initialUser.role, language)}</span>
-                      <em className={draftStatus === "متصل" ? "online" : draftStatus === "مشغول" ? "busy" : "offline"}>{statusLabel(draftStatus, t)}</em>
+                  <section className="profile-hero">
+                    <span className={`profile-hero-avatar ${draftProfileLogo ? "has-logo" : ""}`}>
+                      {draftProfileLogo ? <Image src={draftProfileLogo} alt={t("معاينة شعار الحساب", "Account logo preview")} width={96} height={96} unoptimized /> : accountInitial}
+                    </span>
+                    <div className="profile-hero-text">
+                      <h3>{initialUser.name}</h3>
+                      <p>{companyName}</p>
+                      <div className="profile-hero-badges">
+                        <span className="profile-chip role">{billingLabel(initialUser.role, language)}</span>
+                        <span className={`profile-chip status ${draftStatus === "متصل" ? "online" : draftStatus === "مشغول" ? "busy" : "offline"}`}>{statusLabel(draftStatus, t)}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="profile-logo-editor">
-                    <div>
-                      <b>{t("شعار الحساب", "Account logo")}</b>
-                      <span>{t("ارفع شعارًا بصيغة PNG أو JPG أو WebP. سيتم تحسينه تلقائيًا.", "Upload a PNG, JPG, or WebP logo. It will be optimized automatically.")}</span>
-                    </div>
-                    <div className="profile-logo-actions">
+                    <div className="profile-hero-actions">
                       <input
                         ref={profileLogoInputRef}
                         className="visually-hidden"
@@ -1704,10 +1701,11 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
                         accept="image/png,image/jpeg,image/webp"
                         onChange={(event) => void handleProfileLogoChange(event.target.files?.[0])}
                       />
-                      <button className="btn soft" type="button" onClick={() => profileLogoInputRef.current?.click()}>{t("رفع الشعار", "Upload logo")}</button>
-                      {draftProfileLogo ? <button className="btn soft" type="button" onClick={() => setDraftProfileLogo("")}>{t("حذف الشعار", "Remove logo")}</button> : null}
+                      <button className="profile-hero-btn" type="button" onClick={() => profileLogoInputRef.current?.click()}>{t("رفع الشعار", "Upload logo")}</button>
+                      {draftProfileLogo ? <button className="profile-hero-btn ghost" type="button" onClick={() => setDraftProfileLogo("")}>{t("حذف الشعار", "Remove logo")}</button> : null}
+                      <small>{t("PNG أو JPG أو WebP، ويُحسَّن تلقائيًا.", "PNG, JPG or WebP, optimized automatically.")}</small>
                     </div>
-                  </div>
+                  </section>
                   <CompanyNameField name={companyName} canEdit={initialUser.role === "مالك الحساب"} language={language} onSaved={(name) => { setCompanyName(name); setWorkspaces((list) => list.map((workspace) => workspace.active ? { ...workspace, companyName: name } : workspace)); }} />
                   <div className="account-info-grid">
                     <div><span>{t("البريد الإلكتروني", "Email")}</span><b>{initialUser.email}</b></div>
