@@ -13109,7 +13109,8 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
 @media (max-width: 760px) { .ai-advanced-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* Inbox page: hero above the three-column card, like the preview */
-.inbox-page { display: flex; flex-direction: column; gap: 14px; height: 100vh; padding: 0 24px 16px; box-sizing: border-box; }
+/* The page fills the content area (which sits below the top banners), so the inbox never makes the page itself scroll. */
+.inbox-page { display: flex; flex-direction: column; gap: 14px; height: 100%; max-height: 100%; padding: 0 24px 16px; box-sizing: border-box; overflow: hidden; }
 .inbox-page > .camp-hero { flex: none; padding: 18px 24px; min-height: 0; }
 .inbox-page > .camp-hero p { margin: 4px 0 0; }
 .inbox-page > .inbox-grid { flex: 1 1 auto; min-height: 0; height: auto; }
