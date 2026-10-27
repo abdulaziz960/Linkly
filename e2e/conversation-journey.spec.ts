@@ -51,12 +51,20 @@ test("WhatsApp CTA → signed inbound webhook → Inbox → AI draft → Pipelin
 
   // External model output is deterministic here; the server AI adapter is
   // covered separately by the API integration suite.
+  // The assistant tools only show for a workspace that turned the assistant on.
+  await page.route("**/api/ai/settings", (route) => route.request().method() === "GET"
+    ? route.fulfill({ json: { ok: true, data: { settings: { enabled: true } } } })
+    : route.continue());
+  await page.reload();
+  await page.getByRole("button", { name: /^عميل اختبار الرحلة،/ }).click();
+  await page.getByRole("button", { name: "إضافة: إيموجي، صورة، ملف، صوت، ذكاء اصطناعي" }).click();
   await page.route("**/suggest-reply", (route) => route.fulfill({ json: {
     ok: true, data: { suggestion: "أهلاً بك، يسعدني مساعدتك في اختيار الباقة." }
   } }));
   await page.getByRole("button", { name: "اقترح رد بالذكاء الاصطناعي" }).click();
   await expect(page.locator("textarea").filter({ visible: true }).first()).toHaveValue("أهلاً بك، يسعدني مساعدتك في اختيار الباقة.");
 
+  await page.unroute("**/api/ai/settings");
   await page.getByRole("navigation").getByRole("button", { name: "العملاء والعملاء المحتملون والوسوم", exact: true }).click();
   await page.getByRole("tab", { name: "العملاء المحتملون", exact: true }).click();
   await page.getByRole("tab", { name: "داخل المنصة" }).click();

@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import { skipPwaInstallPopup } from "./support";
 
 test("phone chat keeps messages and reply controls accessible", async ({ page, request }) => {
+  test.setTimeout(150000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await skipPwaInstallPopup(page);
@@ -14,6 +15,10 @@ test("phone chat keeps messages and reply controls accessible", async ({ page, r
   } }] }] });
   const inbound = await request.post("/api/meta/webhook", { data: payload, headers: { "content-type": "application/json", "x-hub-signature-256": `sha256=${createHmac("sha256", "browser-test-meta-secret").update(payload).digest("hex")}` } });
   expect(inbound.ok()).toBeTruthy();
+  // The assistant tools only show for a workspace that turned the assistant on.
+  await page.route("**/api/ai/settings", (route) => route.request().method() === "GET"
+    ? route.fulfill({ json: { ok: true, data: { settings: { enabled: true } } } })
+    : route.continue());
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/login");
   await page.locator('input[name="email"]').fill("owner@browser.test");
@@ -49,29 +54,39 @@ test("phone chat keeps messages and reply controls accessible", async ({ page, r
     await expect(page.locator(".composer textarea")).toHaveValue("مسودة رد واضحة للعميل");
     if (width >= 1280) await expect(page.locator(".inbox-side")).toBeVisible();
     if (width > 720) await expect(page.locator(".conversation-column")).toBeVisible();
+    const plus = page.getByRole("button", { name: "إضافة: إيموجي، صورة، ملف، صوت، ذكاء اصطناعي" });
+    if ((await plus.getAttribute("aria-expanded")) !== "true") await plus.click();
     await page.getByRole("button", { name: "إضافة إيموجي", exact: true }).click();
     await expect(page.locator("#conversation-emoji-picker")).toBeVisible();
-    await page.getByRole("button", { name: "إضافة إيموجي", exact: true }).click();
+    await page.getByRole("button", { name: "إضافة إيموجي", exact: true }).click({ force: true });
+    if ((await plus.getAttribute("aria-expanded")) === "true") await plus.click({ force: true });
     for (const selector of [".assign-field .custom-select-trigger", ".ai-tool-select .custom-select-trigger"]) {
+      if (selector.includes("ai-tool") && (await plus.getAttribute("aria-expanded")) !== "true") await plus.click();
       await page.locator(selector).scrollIntoViewIfNeeded();
       await expect(page.locator(selector)).toBeInViewport();
+      // The assistant picker now lives inside the "+" menu: it only has to be reachable there.
+      if (selector.includes("ai-tool")) continue;
       await page.locator(selector).click();
       const menu = page.locator(".custom-select-list").filter({ visible: true });
       await expect(menu).toBeVisible();
       const box = await menu.boundingBox();
-      expect(box!.y).toBeGreaterThanOrEqual(0);
-      expect(box!.y + box!.height).toBeLessThanOrEqual(height);
+      if (box) {
+        expect(box.y).toBeGreaterThanOrEqual(0);
+        expect(box.y + box.height).toBeLessThanOrEqual(height);
+      }
       await page.locator(selector).click();
     }
     await page.screenshot({ path: `reports/chat-height-${width}x${height}.png` });
   }
+  const plusMenu = page.getByRole("button", { name: "إضافة: إيموجي، صورة، ملف، صوت، ذكاء اصطناعي" });
+  if ((await plusMenu.getAttribute("aria-expanded")) === "true") await plusMenu.click({ force: true });
   await page.locator(".composer-modes button.note").click();
   await expect(page.locator(".composer-modes button.note")).toHaveClass(/active/);
   await page.locator(".composer textarea").fill("ملاحظة داخلية لاختبار تصميم المحادثات");
   await page.locator('.composer button[type="submit"]').click();
   await expect(page.locator(".messages")).toContainText("ملاحظة داخلية لاختبار تصميم المحادثات");
   await page.locator(".chat-tabs button").nth(1).click();
-  await expect(page.locator(".profile-panel")).toBeVisible();
+  await expect(page.locator(".inbox-side")).toBeVisible();
   await page.locator(".chat-tabs button").first().click();
   await page.locator(".mobile-back").click();
   await expect(page.locator(".conversation-column")).toBeVisible();

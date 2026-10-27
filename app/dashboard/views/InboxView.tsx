@@ -7,7 +7,6 @@ import { EmptyState, SkeletonLines } from "../components/StateBlocks";
 import { PageHero } from "../components/PageHero";
 import AdSourceBanner from "../components/AdSourceBanner";
 import LeadStatusControl from "../components/LeadStatusControl";
-import ConversationStoreOrders from "../components/ConversationStoreOrders";
 import { ChangeEvent, CSSProperties, Fragment, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { messageDayLabel, riyadhDayKey } from "../../../lib/time";
 import FilterButton from "../components/FilterButton";
@@ -32,6 +31,19 @@ import { isDeletedMessageText, useLanguage } from "../i18n";
 import { getChannelName } from "../../channel-names";
 import { aiOperations, type AiOperation } from "../../../lib/ai-types";
 import { isGoogleAiExcludedChannel } from "../../../lib/google-ai-channel";
+
+/** The small channel mark on an avatar; email is an orange outlined envelope drawn inline so no stylesheet can change it. */
+function ChannelDotIcon({ id }: { id: string }) {
+  if (id === "email" || id === "gmail") {
+    return (
+      <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="#e8710a" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2.2" />
+        <path d="m4.2 6.8 7.8 6.1 7.8-6.1" />
+      </svg>
+    );
+  }
+  return <ChannelIcon id={id as Parameters<typeof ChannelIcon>[0]["id"]} />;
+}
 
 type InboxViewProps = {
   activeConversation: Conversation;
@@ -343,9 +355,6 @@ export default function InboxView({
   const emojiSearchInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [wide, setWide] = useState(false);
-  const [newChatOpen, setNewChatOpen] = useState(false);
-  const [newChatPhone, setNewChatPhone] = useState("");
-  const [newChatName, setNewChatName] = useState("");
   useEffect(() => {
     const query = window.matchMedia("(min-width: 1280px)");
     const sync = () => setWide(query.matches);
@@ -353,6 +362,31 @@ export default function InboxView({
     query.addEventListener("change", sync);
     return () => query.removeEventListener("change", sync);
   }, []);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/ai/settings", { signal: controller.signal })
+      .then((response) => response.json())
+      .then((body) => { if (body?.ok) setAiEnabled(Boolean(body.data?.settings?.enabled)); })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+  const [plusOpen, setPlusOpen] = useState(false);
+  const plusRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!plusOpen) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      // Pickers (emoji, selects) can render outside the menu: clicking inside them must not close it.
+      if (target.closest?.(".custom-select-list, .emoji-picker")) return;
+      if (plusRef.current && !plusRef.current.contains(target)) setPlusOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [plusOpen]);
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newChatPhone, setNewChatPhone] = useState("");
+  const [newChatName, setNewChatName] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -963,119 +997,36 @@ export default function InboxView({
     setCommentReplyText("");
   }
 
-  const profileBlock = hasActiveConversation ? (
-          <div className="profile-panel" style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", alignContent: "start" }}>
-    <div className="profile-card">
-      <h2>{t("بيانات العميل", "Customer details")}</h2>
-      {activeConversation.attrPageId ? <section aria-label={t("مصدر العميل", "Customer attribution")}>
-        <h3>{t("مصدر العميل", "Customer attribution")}</h3>
-        <dl>
-          {[
-            [t("الصفحة", "Page"), activeConversation.attrPageId],
-            [t("الرابط", "Link"), activeConversation.attrLinkId],
-            [t("الزر", "Button"), activeConversation.attrButtonId],
-            [t("المصدر", "Source"), activeConversation.attrUtmSource],
-            [t("الوسيط", "Medium"), activeConversation.attrUtmMedium],
-            [t("الحملة", "Campaign"), activeConversation.attrUtmCampaign],
-            [t("المحتوى", "Content"), activeConversation.attrUtmContent],
-            [t("المُحيل", "Referrer"), activeConversation.attrReferrer]
-          ].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd dir="auto">{value}</dd></div>)}
+
+  const sideInner = hasActiveConversation ? (
+    <div className="inbox-side">
+        <div className="inbox-side-head"><span className="avatar">{activeConversation.initial}</span><b>{activeConversation.customer}</b><small className={`channel-pill ${activeConversation.channel || "whatsapp"}`}><i />{getChannelLabel(activeConversation, language)}</small></div>
+        <dl className="side-rows">
+          <div><dt>{t("الجوال", "Phone")}</dt><dd dir="ltr">{activeConversation.phone}</dd></div>
+          <div><dt>{t("المسؤول", "Assigned to")}</dt><dd>{activeConversation.assignee}</dd></div>
+          <div><dt>{t("الحالة", "Lead status")}</dt><dd><LeadStatusControl conversationId={activeConversation.id} /></dd></div>
         </dl>
-      </section> : null}
-      <dl>
-        <div>
-          <dt>{t("الاسم", "Name")}</dt>
-          <dd>{activeConversation.customer}</dd>
+        {activeConversation.attrPageId ? <section className="side-source" aria-label={t("مصدر العميل", "Customer attribution")}>
+          <h3 className="side-title">{t("مصدر العميل", "Customer attribution")}</h3>
+          <dl className="side-rows">
+            {[
+              [t("الصفحة", "Page"), activeConversation.attrPageId],
+              [t("الرابط", "Link"), activeConversation.attrLinkId],
+              [t("الزر", "Button"), activeConversation.attrButtonId],
+              [t("المصدر", "Source"), activeConversation.attrUtmSource],
+              [t("الوسيط", "Medium"), activeConversation.attrUtmMedium],
+              [t("الحملة", "Campaign"), activeConversation.attrUtmCampaign],
+              [t("المحتوى", "Content"), activeConversation.attrUtmContent],
+              [t("المُحيل", "Referrer"), activeConversation.attrReferrer]
+            ].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd dir="auto">{value}</dd></div>)}
+          </dl>
+        </section> : null}
+        <h3 className="side-title">{t("الوسوم", "Tags")}</h3>
+        <div className="side-tags">
+          {activeConversation.tags.map((tagName) => <button key={tagName} type="button" className="side-tag" title={t("إزالة الوسم", "Remove tag")} onClick={() => void handleRemoveTag(tagName)}>{tagName}</button>)}
+          {availableTags.length ? <CustomSelect placeholder={t("＋ وسم", "+ Tag")} value="" onChange={(value) => { void handleAddTag(value); }} options={availableTags.map((tag) => ({ value: tag.name, label: tag.name }))} /> : null}
         </div>
-        <div>
-          <dt>{t("القناة", "Channel")}</dt>
-          <dd>{getChannelLabel(activeConversation, language)}</dd>
-        </div>
-        <div>
-          <dt>
-            {activeConversation.channel === "whatsapp" || activeConversation.channel === "sms"
-              ? t("رقم الجوال", "Phone number")
-              : activeConversation.channel === "instagram"
-                ? t("معرّف إنستغرام", "Instagram ID")
-                : activeConversation.channel === "facebook"
-                  ? t("معرف فيسبوك", "Facebook ID")
-                  : activeConversation.channel === "telegram"
-                    ? t("معرف تيليجرام", "Telegram ID")
-                    : activeConversation.channel === "google_maps"
-                      ? t("معرّف تقييم جوجل", "Google Review ID")
-                      : activeConversation.channel === "email"
-                        ? t("البريد الإلكتروني", "Email")
-                        : activeConversation.channel === "website"
-                          ? t("معرّف الزائر", "Visitor ID")
-                          : activeConversation.channel === "tiktok"
-                            ? t("معرّف تيك توك", "TikTok ID")
-                            : activeConversation.channel === "x"
-                              ? t("معرّف إكس", "X ID")
-                              : activeConversation.channel === "youtube"
-                                ? t("معرّف قناة يوتيوب", "YouTube channel ID")
-                                : activeConversation.channel === "linkedin"
-                                  ? t("معرّف حساب لينكد إن", "LinkedIn member ID")
-                                  : activeConversation.channel === "snapchat"
-                                    ? t("معرّف نموذج سناب شات", "Snapchat lead form ID")
-                                    : t("المعرف", "ID")}
-          </dt>
-          <dd dir="ltr">{(() => {
-            // A phone number is a link: tapping it dials the number (WhatsApp and SMS contacts only).
-            const digits = String(activeConversation.phone || "").replace(/\D/g, "").replace(/^00/, "");
-            return (activeConversation.channel === "whatsapp" || activeConversation.channel === "sms") && digits.length >= 8 && digits.length <= 15
-              ? <a className="phone-call-link" href={`tel:+${digits}`} aria-label={t(`اتصال بالرقم ${activeConversation.phone}`, `Call ${activeConversation.phone}`)}>{activeConversation.phone}</a>
-              : activeConversation.phone;
-          })()}</dd>
-        </div>
-        {activeConversation.handle ? (
-          <div>
-            <dt>{t("اسم المستخدم", "Username")}</dt>
-            <dd dir="ltr">{activeConversation.handle}</dd>
-          </div>
-        ) : null}
-        {activeConversation.channel === "whatsapp" ? (
-          <div>
-            <ConversationStoreOrders conversationId={activeConversation.id} />
-          </div>
-        ) : null}
-        <div>
-          <dt>{t("حالة العميل المحتمل", "Lead status")}</dt>
-          <dd><LeadStatusControl conversationId={activeConversation.id} /></dd>
-        </div>
-        <div>
-          <dt>{t("الوسوم", "Tags")}</dt>
-          <dd className="profile-tags-field">
-            <CustomSelect
-              placeholder={availableTags.length ? t("اختر وسم", "Choose a tag") : t("لا توجد وسوم متاحة", "No tags available")}
-              disabled={!hasActiveConversation || !availableTags.length}
-              value=""
-              onChange={(value) => {
-                void handleAddTag(value);
-              }}
-              options={availableTags.map((tag) => ({ value: tag.name, label: tag.name }))}
-            />
-            <div className="profile-tag-list">
-              {activeConversation.tags.length ? (
-                activeConversation.tags.map((tagName) => (
-                  <button key={tagName} type="button" onClick={() => void handleRemoveTag(tagName)}>
-                    {tagName}
-                    <span aria-hidden="true">×</span>
-                  </button>
-                ))
-              ) : (
-                <span>{t("لا توجد وسوم", "No tags")}</span>
-              )}
-            </div>
-          </dd>
-        </div>
-      </dl>
-    </div>
-    <div className="profile-card">
-      <h2>{t("سجل العميل", "Customer history")}</h2>
-      <p><span>{t("المسؤول", "Assigned to")}</span><b>{activeConversation.assignee}</b></p>
-      <p><span>{t("آخر رسالة", "Last message")}</span><b className="profile-last">{isDeletedMessageText(activeConversation.lastMessage) ? t("تم حذف هذه الرسالة", "This message was deleted") : activeConversation.lastMessage}</b></p>
-    </div>
-  </div>
+      </div>
   ) : null;
 
   return (
@@ -1262,7 +1213,7 @@ export default function InboxView({
             >
               <span className="avatar-wrap">
                 <span className="avatar">{conversation.initial}</span>
-                <em className={`channel-dot ${conversation.channel || "whatsapp"}`} title={getChannelLabel(conversation, language)}><ChannelIcon id={conversation.channel || "whatsapp"} /></em>
+                <em className={`channel-dot ${conversation.channel || "whatsapp"}`} title={getChannelLabel(conversation, language)}><ChannelDotIcon id={conversation.channel || "whatsapp"} /></em>
               </span>
               <span className="conversation-copy">
                 <span className="conversation-card-title"><b>{conversation.customer}</b></span>
@@ -1381,7 +1332,7 @@ export default function InboxView({
           <button className="mobile-back" type="button" onClick={() => onSetMobileChatOpen(false)}>
             {t("رجوع", "Back")}
           </button>
-          <span className="avatar-wrap"><span className="avatar">{activeConversation.initial}</span><em className={`channel-dot ${activeConversation.channel || "whatsapp"}`}><ChannelIcon id={activeConversation.channel || "whatsapp"} /></em></span>
+          <span className="avatar-wrap"><span className="avatar">{activeConversation.initial}</span><em className={`channel-dot ${activeConversation.channel || "whatsapp"}`}><ChannelDotIcon id={activeConversation.channel || "whatsapp"} /></em></span>
            <button className="chat-customer" type="button" onClick={() => onChangeChatPanel("profile")}>
             <small className={`channel-badge ${activeConversation.channel || "whatsapp"}`}>
               <ChannelIcon id={activeConversation.channel || "whatsapp"} />
@@ -1725,7 +1676,11 @@ export default function InboxView({
                     hidden
                     onChange={handleDocumentChange}
                   />
-                  <div className="composer-tools" role="group" aria-label={t("أدوات الرد", "Reply tools")}>
+                  <div className="composer-plus" ref={plusRef}>
+                    <button className="plus-btn" type="button" aria-expanded={plusOpen} aria-label={t("إضافة: إيموجي، صورة، ملف، صوت، ذكاء اصطناعي", "Add: emoji, image, file, voice, AI")} title={t("إضافة", "Add")} disabled={isComposerDisabled} onClick={() => setPlusOpen((current) => !current)}>
+                      <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                    </button>
+                    {plusOpen ? <div className="plus-menu" role="group" aria-label={t("أدوات الرسالة", "Message tools")}>
                   <div className="emoji-picker-wrap" ref={emojiPickerRef}>
                     <button
                       className="attachment-button"
@@ -1824,7 +1779,7 @@ export default function InboxView({
                   </button>
                   {googleAiDisabled ? (
                     <span className="ai-channel-restriction">{t("الذكاء الاصطناعي غير متاح لمحادثات Google", "AI is unavailable for Google conversations")}</span>
-                  ) : (
+                  ) : !aiEnabled ? null : (
                     <>
                       <button
                         className="attachment-button ai-suggest-button"
@@ -1850,6 +1805,7 @@ export default function InboxView({
                       {aiFeedback && aiFeedbackConversationId === activeConversation.id ? <p role="status" style={{ whiteSpace: "pre-wrap" }}>{aiFeedback}</p> : null}
                     </>
                   )}
+                    </div> : null}
                   </div>
                   <div className="quick-reply-picker-wrap composer-message-wrap">
                     {shouldShowQuickReplySuggestions ? (
@@ -1891,39 +1847,12 @@ export default function InboxView({
             )}
           </div>
         ) : (
-          profileBlock
+          sideInner
         )}
           </>
         )}
       </section>
-      {wide && hasActiveConversation ? <aside className="inbox-side">
-        <div className="inbox-side-head"><span className="avatar">{activeConversation.initial}</span><b>{activeConversation.customer}</b><small className={`channel-pill ${activeConversation.channel || "whatsapp"}`}><i />{getChannelLabel(activeConversation, language)}</small></div>
-        <dl className="side-rows">
-          <div><dt>{t("الجوال", "Phone")}</dt><dd dir="ltr">{activeConversation.phone}</dd></div>
-          <div><dt>{t("المسؤول", "Assigned to")}</dt><dd>{activeConversation.assignee}</dd></div>
-          <div><dt>{t("الحالة", "Lead status")}</dt><dd><LeadStatusControl conversationId={activeConversation.id} /></dd></div>
-        </dl>
-        {activeConversation.attrPageId ? <section className="side-source" aria-label={t("مصدر العميل", "Customer attribution")}>
-          <h3 className="side-title">{t("مصدر العميل", "Customer attribution")}</h3>
-          <dl className="side-rows">
-            {[
-              [t("الصفحة", "Page"), activeConversation.attrPageId],
-              [t("الرابط", "Link"), activeConversation.attrLinkId],
-              [t("الزر", "Button"), activeConversation.attrButtonId],
-              [t("المصدر", "Source"), activeConversation.attrUtmSource],
-              [t("الوسيط", "Medium"), activeConversation.attrUtmMedium],
-              [t("الحملة", "Campaign"), activeConversation.attrUtmCampaign],
-              [t("المحتوى", "Content"), activeConversation.attrUtmContent],
-              [t("المُحيل", "Referrer"), activeConversation.attrReferrer]
-            ].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd dir="auto">{value}</dd></div>)}
-          </dl>
-        </section> : null}
-        <h3 className="side-title">{t("الوسوم", "Tags")}</h3>
-        <div className="side-tags">
-          {activeConversation.tags.map((tagName) => <button key={tagName} type="button" className="side-tag" title={t("إزالة الوسم", "Remove tag")} onClick={() => void handleRemoveTag(tagName)}>{tagName}</button>)}
-          {availableTags.length ? <CustomSelect placeholder={t("＋ وسم", "+ Tag")} value="" onChange={(value) => { void handleAddTag(value); }} options={availableTags.map((tag) => ({ value: tag.name, label: tag.name }))} /> : null}
-        </div>
-      </aside> : null}
+      {wide && hasActiveConversation ? sideInner : null}
     </section>
     </div>
   );

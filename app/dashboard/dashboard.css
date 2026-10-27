@@ -13628,3 +13628,135 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
   .inbox-page form.composer .ai-tool-select .custom-select-trigger { height: 36px; min-height: 36px; }
   .inbox-page .composer-modes button { height: 24px; }
 }
+
+
+
+/* Inbox on phones: no hero, the opened conversation gets the whole screen */
+@media (max-width: 900px) {
+  .dashboard-main .inbox-page > .camp-hero { display: none !important; }
+  .inbox-page { padding: 0; gap: 0; height: calc(100dvh - 58px); }
+  .inbox-page > .inbox-grid { border-radius: 0; border: 0; box-shadow: none; }
+  .dashboard-main .chat-head { flex-wrap: wrap; padding: 10px 12px; gap: 8px; }
+  .dashboard-main .chat-head .mobile-back { order: 0; padding: 0 12px; height: 36px; min-height: 0; border-radius: 10px; font-size: 13px; width: auto; }
+  .chat-head-actions { width: 100%; margin: 0; justify-content: space-between; gap: 8px; }
+  .chat-head-actions .assign-field { flex: 1; min-width: 0; }
+  .chat-head-actions .assign-field .custom-select, .chat-head-actions .assign-field .readonly-assignee { min-width: 0; width: 100%; }
+}
+@media (max-width: 900px) {
+  .dashboard-main .chat-head .mobile-back { flex: none; width: auto; min-width: 0; height: 36px; padding: 0 12px; border: 1px solid var(--line); background: #fff; border-radius: 10px; font-weight: 800; }
+  .dashboard-main .chat-head .avatar-wrap { flex: none; }
+  .dashboard-main .chat-head .chat-customer { flex: 1 1 0; min-width: 0; }
+  .dashboard-main .chat-head .chat-customer b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dashboard-main .chat-head .chat-status-label { white-space: nowrap; }
+}
+
+/* Conversation header on phones: back + avatar + name on one row, assignment and close under it */
+@media (max-width: 900px) {
+  .dashboard-main .chat-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr); grid-template-areas: "back avatar name" "actions actions actions"; align-items: center; gap: 10px 12px; padding: 12px 14px; }
+  .dashboard-main .chat-head .mobile-back { grid-area: back; width: 38px; height: 38px; padding: 0; border-radius: 50%; font-size: 0; display: grid; place-items: center; }
+  .dashboard-main .chat-head .mobile-back::before { content: ""; width: 9px; height: 9px; border-top: 2.5px solid var(--ink); border-inline-end: 2.5px solid var(--ink); transform: rotate(45deg); }
+  .dashboard-main .chat-head .avatar-wrap { grid-area: avatar; }
+  .dashboard-main .chat-head .chat-customer { grid-area: name; }
+  .dashboard-main .chat-head .chat-head-actions { grid-area: actions; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; width: 100%; padding-top: 10px; border-top: 1px dashed var(--line); }
+  .dashboard-main .chat-head .assign-field { display: grid; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+  .dashboard-main .chat-head .assign-field .custom-select, .dashboard-main .chat-head .assign-field .readonly-assignee { width: 100%; min-height: 40px; }
+  .dashboard-main .chat-head .chat-head-actions > .chat-close-btn { align-self: end; height: 40px; }
+}
+.channel-dot.email svg :is(rect, path), .channel-dot.gmail svg :is(rect, path) { fill: none; stroke: #c5372c; stroke-width: 2.2; }
+
+/* Phones: customer on the right, back at the far end; slim hero only on the list screen */
+@media (max-width: 900px) {
+  .dashboard-main .chat-head { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "avatar name back" "actions actions actions"; }
+  .dashboard-main .chat-head .mobile-back::before { transform: rotate(225deg); }
+  .dashboard-main .inbox-page:not(:has(.inbox-grid.chat-open)) > .camp-hero { display: flex !important; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 10px 0; padding: 10px 14px; border-radius: 16px; }
+  .inbox-page > .camp-hero .camp-hero-text { flex: 1 0 100%; display: flex; align-items: baseline; gap: 10px; }
+  .inbox-page > .camp-hero .camp-hero-text small, .inbox-page > .camp-hero .camp-hero-text p, .inbox-page > .camp-hero .camp-hero-chips { display: none; }
+  .inbox-page > .camp-hero .camp-hero-text h2 { margin: 0; font-size: 18px; }
+  .inbox-page > .camp-hero .camp-hero-search { flex: 1 1 0; max-width: none; height: 40px; }
+  .inbox-page > .camp-hero .camp-hero-new { flex: 0 0 auto; height: 40px; padding: 0 14px; font-size: 13px; }
+  .inbox-page { height: calc(100dvh - 58px); }
+}
+/* email channel: orange envelope outline, like the channel settings icon */
+.channel-dot.email, .channel-dot.gmail { background: #fff3e6; border-color: #f6c58f; }
+.channel-dot.email svg, .channel-dot.gmail svg, .channel-dot.email svg :is(rect, path), .channel-dot.gmail svg :is(rect, path) { fill: none; stroke: #e8710a; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Phones: assign + close side by side, close in red, back arrow points back (right in RTL) */
+@media (max-width: 900px) {
+  .dashboard-main .chat-head .chat-head-actions { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: flex-end; gap: 10px; }
+  .dashboard-main .chat-head .chat-head-actions .assign-field { flex: 1 1 0 !important; min-width: 0; }
+  .dashboard-main .chat-head .chat-head-actions > .chat-close-btn { flex: 0 0 auto !important; width: auto !important; min-width: 96px; }
+  .dashboard-main .chat-head .mobile-back { font-size: 0; }
+  .dashboard-main .chat-head .mobile-back::before { content: "→"; width: auto; height: auto; border: 0; transform: none; font-size: 22px; line-height: 1; color: var(--ink); }
+}
+.dashboard-main .chat-head .chat-close-btn.danger { background: #d9483e; border-color: #d9483e; color: #fff; }
+.dashboard-main .chat-head .chat-close-btn.danger:hover { background: #bf3a31; }
+@media (max-width: 900px) {
+  .dashboard-main .chat-head { grid-template-columns: auto auto minmax(0, 1fr); grid-template-areas: "back avatar name" "actions actions actions"; }
+}
+
+/* Inbox tabs with real counts (two digits): every count stays inside its own circle, the row wraps instead of overlapping */
+.inbox-page .conversation-tabs { flex-wrap: wrap; row-gap: 6px; }
+.inbox-page .conversation-tabs > button { display: inline-flex; align-items: center; width: auto; max-width: none; flex: 0 0 auto; padding: 0 8px; gap: 6px; text-indent: 0; }
+.inbox-page .conversation-tabs > button > span { position: static; margin: 0; transform: none; flex: none; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; line-height: 1; border-radius: 99px; }
+.inbox-page .conversation-tabs .conversation-more { flex: 0 0 auto; }
+/* Composer: calmer and shorter */
+.dashboard-main .chat-column .composer-modes { gap: 6px; padding: 8px 14px 0; }
+.dashboard-main .chat-column .composer-modes button { height: 34px; min-height: 0; padding: 0 14px; font-size: 13px; }
+.dashboard-main .chat-column .composer { margin: 8px 12px 12px; padding: 10px 12px; border-radius: 16px; }
+.dashboard-main .chat-column .composer textarea { min-height: 56px; }
+
+/* Conversation gets the height: slim header on one row, slimmer composer, slim hero on short screens */
+@media (min-width: 901px) {
+  .dashboard-main .chat-head { flex-wrap: nowrap; min-height: 0; padding: 8px 16px; gap: 10px; align-items: center; }
+  .dashboard-main .chat-head .chat-customer { flex: 0 1 auto; min-width: 0; gap: 2px; }
+  .dashboard-main .chat-head .chat-customer b { font-size: 16px; line-height: 1.3; }
+  .dashboard-main .chat-head .chat-head-actions { flex-wrap: nowrap; flex: 0 0 auto; }
+  .dashboard-main .chat-head .assign-field .custom-select, .dashboard-main .chat-head .assign-field .readonly-assignee { min-width: 130px; min-height: 38px; }
+  .dashboard-main .chat-head > .avatar-wrap, .dashboard-main .chat-head > .avatar-wrap .avatar { width: 40px; height: 40px; }
+  .dashboard-main .chat-head .chat-close-btn { height: 38px; padding: 0 16px; }
+  .dashboard-main .chat-column .composer-modes { padding: 6px 14px 0; }
+  .dashboard-main .chat-column .composer-modes button { height: 30px; font-size: 12.5px; }
+  .dashboard-main .chat-column .composer { margin: 6px 12px 8px; padding: 8px 10px; gap: 8px; }
+  .dashboard-main .chat-column .composer textarea { min-height: 44px; }
+  .dashboard-main .chat-column .messages { min-height: 0; flex: 1 1 auto; }
+}
+/* Composer: one "+" menu holds every tool; then the message box, then send */
+.dashboard-main .chat-column .composer { display: flex; flex-wrap: nowrap; align-items: center; gap: 10px; }
+.composer-plus { position: relative; flex: none; }
+.composer-plus .plus-btn { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: #f1f7f6; color: var(--brand-700); display: grid; place-items: center; cursor: pointer; }
+.composer-plus .plus-btn[aria-expanded="true"] { background: var(--brand-600, #178a82); color: #fff; }
+.composer-plus .plus-menu { position: absolute; inset-inline-start: 0; bottom: 54px; z-index: 40; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 330px; max-width: calc(100vw - 40px); padding: 12px; border-radius: 16px; background: #fff; border: 1px solid var(--line); box-shadow: 0 16px 40px rgba(15, 64, 61, .22); }
+.composer .composer-message-wrap { flex: 1 1 auto; min-width: 0; }
+.composer .composer-message-wrap textarea { width: 100%; }
+.dashboard-main .chat-column .composer > .btn.primary { order: 2; flex: none; }
+/* phones: a tighter conversation so the messages keep most of the screen */
+@media (max-width: 900px) {
+  .dashboard-main .chat-head .mobile-back::after { content: none; display: none; }
+  .dashboard-main .chat-head { padding: 6px 10px; gap: 6px 10px; }
+  .dashboard-main .chat-head .chat-head-actions { padding-top: 6px; gap: 8px; }
+  .dashboard-main .chat-head .assign-field { gap: 2px; font-size: 11px; }
+  .dashboard-main .chat-head .assign-field .custom-select, .dashboard-main .chat-head .assign-field .readonly-assignee, .dashboard-main .chat-head .chat-head-actions > .chat-close-btn { min-height: 34px; height: 34px; }
+  .dashboard-main .chat-tabs { padding: 4px 10px; gap: 6px; min-height: 0; }
+  .dashboard-main .chat-tabs button { height: 32px; min-height: 0; padding: 0 12px; font-size: 13px; }
+  .dashboard-main .chat-column .composer-modes { padding: 4px 10px 0; }
+  .dashboard-main .chat-column .composer-modes button { height: 28px; font-size: 12px; padding: 0 12px; }
+}
+/* the inbox runs to the very bottom of the page */
+@media (min-width: 901px) {
+  .inbox-page { height: calc(100dvh - 60px); padding-bottom: 0; }
+  .inbox-page > .inbox-grid { border-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; box-shadow: none; }
+}
+
+@media (min-width: 901px) and (max-height: 820px) {
+  .inbox-page { padding-top: 6px; gap: 8px; }
+  .inbox-page > .camp-hero { padding: 8px 18px; border-radius: 16px; }
+  .inbox-page > .camp-hero .camp-hero-text { display: flex; align-items: baseline; gap: 12px; }
+  .inbox-page > .camp-hero .camp-hero-text small, .inbox-page > .camp-hero .camp-hero-text p, .inbox-page > .camp-hero .camp-hero-chips { display: none; }
+  .inbox-page > .camp-hero .camp-hero-text h2 { margin: 0; font-size: 20px; }
+  .inbox-page > .camp-hero .camp-hero-search, .inbox-page > .camp-hero .camp-hero-new { height: 38px; }
+}
+
+/* composer order, right to left: the + menu, the message box, then send */
+.dashboard-main .chat-column .composer .composer-plus { order: 0; }
+.dashboard-main .chat-column .composer .composer-message-wrap { order: 1; }
+.dashboard-main .chat-column .composer > .btn.primary { order: 2; }
