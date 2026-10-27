@@ -10,7 +10,7 @@ test("phone chat keeps messages and reply controls accessible", async ({ page, r
   const payload = JSON.stringify({ object: "whatsapp_business_account", entry: [{ id: "browser-waba", changes: [{ field: "messages", value: {
     metadata: { phone_number_id: "browser-number-id" },
     contacts: [{ wa_id: "966555000088", profile: { name: "عميل تجربة الجوال" } }],
-    messages: [{ id: "mobile-layout-inbound", from: "966555000088", timestamp: String(Math.floor(Date.now() / 1000)), type: "text", text: { body: "مرحباً، أحتاج مساعدة في الطلب. Thank you for your help." } }]
+    messages: Array.from({ length: 20 }, (_, index) => ({ id: `mobile-layout-inbound-${index}`, from: "966555000088", timestamp: String(Math.floor(Date.now() / 1000) - 20 + index), type: "text", text: { body: `رسالة ${index + 1}: مرحباً، أحتاج مساعدة في الطلب. Thank you for your help.` } }))
   } }] }] });
   const inbound = await request.post("/api/meta/webhook", { data: payload, headers: { "content-type": "application/json", "x-hub-signature-256": `sha256=${createHmac("sha256", "browser-test-meta-secret").update(payload).digest("hex")}` } });
   expect(inbound.ok()).toBeTruthy();
@@ -23,15 +23,23 @@ test("phone chat keeps messages and reply controls accessible", async ({ page, r
   const cookies = page.getByRole("dialog", { name: "إشعار الكوكيز" });
   if (await cookies.isVisible()) await cookies.getByRole("button", { name: "رفض", exact: true }).click();
   await page.getByRole("button", { name: /^عميل تجربة الجوال،/ }).click();
-  for (const [width, height] of [[320,568], [360,800], [390,844], [430,932], [720,900], [768,1024], [1024,768], [1280,800], [1440,900], [1920,1080], [430,932]]) {
+  for (const [width, height] of [[1280,520], [1280,584], [1366,620], [1440,640], [320,568], [360,800], [390,844], [430,932], [720,900], [768,1024], [1024,768], [1280,800], [1440,900], [1920,1080], [430,932]]) {
     await page.setViewportSize({ width, height });
     await expect(page.locator(".composer textarea")).toBeVisible();
+    if (width >= 1280) await expect(page.locator(".inbox-side")).toBeVisible();
+    else await expect(page.locator(".inbox-side")).toHaveCount(0);
+    if (width > 720) {
+      await expect.poll(() => page.evaluate(() => document.querySelector(".messages")!.getBoundingClientRect().height / document.querySelector(".chat-column")!.getBoundingClientRect().height)).toBeGreaterThan(.5);
+    }
+    await page.locator(".message-bubble").last().scrollIntoViewIfNeeded();
+    await expect(page.locator(".message-bubble").last()).toBeInViewport();
     const metrics = await page.evaluate(() => {
       const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
-      return { messages: rect(".messages").height, composerBottom: rect("form.composer").bottom, viewport: innerHeight, width: document.documentElement.scrollWidth };
+      return { messages: rect(".messages").height, composerBottom: rect("form.composer").bottom, viewport: innerHeight, width: document.documentElement.scrollWidth, chatHeight: rect(".chat-column").height, head: rect(".chat-head").height, composer: rect("form.composer").height };
     });
     console.log("responsive", width, height, metrics);
     expect(metrics.messages).toBeGreaterThan(height * .3);
+    if (width > 720) expect(metrics.messages).toBeGreaterThan(metrics.chatHeight * .5);
     expect(metrics.composerBottom).toBeLessThanOrEqual(height + 1);
     expect(metrics.width).toBeLessThanOrEqual(width);
     const close = await page.locator(".chat-close-btn").boundingBox();
@@ -55,7 +63,7 @@ test("phone chat keeps messages and reply controls accessible", async ({ page, r
       expect(box!.y + box!.height).toBeLessThanOrEqual(height);
       await page.locator(selector).click();
     }
-    await page.screenshot({ path: `reports/mobile-inbox-${width}.png` });
+    await page.screenshot({ path: `reports/chat-height-${width}x${height}.png` });
   }
   await page.locator(".composer-modes button.note").click();
   await expect(page.locator(".composer-modes button.note")).toHaveClass(/active/);
