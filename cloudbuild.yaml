@@ -90,3 +90,6 @@ images:
 
 options:
   logging: CLOUD_LOGGING_ONLY
+  # The gate (npm ci, lint, typecheck, the whole unit suite) and the image build run side by side. On the default
+  # 1-2 vCPU machine they fought over the CPU and a release took ~20 minutes; 8 vCPUs run them in parallel.
+  machineType: E2_HIGHCPU_8
