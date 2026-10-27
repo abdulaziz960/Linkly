@@ -13332,4 +13332,15 @@ main :is(div, section):has(code[dir="ltr"]) { min-width: 0; max-width: 100%; }
   .profile-hero { flex-direction: column; align-items: center; text-align: center; }
   .profile-hero-badges { justify-content: center; }
   .profile-hero-actions { width: 100%; }
+
+/* tabs: never overflow their pill; the email icon is drawn with strokes */
+.inbox-page > .inbox-grid.has-side { grid-template-columns: 360px minmax(0, 1fr) 290px; }
+.inbox-page .conversation-tabs { gap: 4px; padding: 12px 10px 6px; }
+.inbox-page .conversation-tabs > button { flex: none; min-width: auto; padding: 0 8px 0 5px; gap: 5px; font-size: 12px; overflow: visible; }
+.inbox-page .conversation-tabs > button span { flex: none; position: static; min-width: 20px; height: 20px; padding: 0 4px; line-height: 20px; font-size: 11px; }
+.inbox-page .conversation-tabs .conversation-tabs-toggle { flex: none; width: 30px; height: 32px; }
+.channel-dot.email svg, .channel-dot.gmail svg { fill: none; stroke: #c5372c; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 720px) {
+  .inbox-page .conversation-tabs { flex-wrap: wrap; }
+  .inbox-page .conversation-tabs > button { flex: 0 1 auto; }
 }
