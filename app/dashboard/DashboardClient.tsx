@@ -11,7 +11,6 @@ import Link from "next/link";
 import DashboardSidebar from "./components/DashboardSidebar";
 import MobileTopbar from "./components/MobileTopbar";
 import PwaInstallCoachmark from "./components/PwaInstallCoachmark";
-import PwaInstallPopup from "./components/PwaInstallPopup";
 import DashboardTopActions from "./components/DashboardTopActions";
 import { DataLoadingProvider } from "./data-loading-context";
 import CompanyNameField from "./components/CompanyNameField";
@@ -1578,7 +1577,6 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
           onOpenNotification={inboxTabsMode !== "employee" ? handleOpenNotification : undefined}
         />
         <PwaInstallCoachmark />
-        <PwaInstallPopup />
 
         {!navRestored ? null : activeView === "inbox" ? (
           <InboxView
