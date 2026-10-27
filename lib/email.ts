@@ -127,6 +127,24 @@ export async function sendActivationEmail({ to, name, activationUrl, purpose = "
   };
 }
 
+/**
+ * Sent once to a merchant whose workspace was created by installing Linkly from Salla's app store. It follows the
+ * activation-link email and tells them what happens next; it never carries a link that signs anyone in.
+ */
+export async function sendSallaWelcomeEmail({ to, name, storeName, tenantId, trialDays }: { to: string; name: string; storeName: string; tenantId: string; trialDays: number }): Promise<boolean> {
+  const store = storeName.trim();
+  const steps = [
+    "أرسلنا لك رسالة منفصلة فيها رابط تفعيل حسابك. اضغط عليه واختر كلمة سر لتدخل إلى لوحة Linkly.",
+    "من «الإعدادات والربط» اربط رقم واتساب الأعمال الخاص بمتجرك لتصل رسائل عملائك إلى صندوق واحد.",
+    "ستظهر طلبات متجرك في سلة داخل المحادثات، ويمكنك تحديث حالتها وإنشاء الشحنات من نفس الشاشة.",
+    "فعّل رسائل السلات المتروكة وتحديثات الطلبات لتبدأ باستعادة مبيعاتك تلقائيًا."
+  ];
+  const note = `لديك تجربة مجانية لمدة ${trialDays} أيام، وبعدها يستمر الاشتراك عبر سلة. للمساعدة راسلنا على info@linklysa.io.`;
+  const text = `مرحباً ${name}\n\nتم تثبيت Linkly${store ? ` على متجر «${store}»` : ""} وتفعيل حسابك.\n\nكيف تبدأ:\n${steps.map((step, index) => `${index + 1}. ${step}`).join("\n")}\n\n${note}`;
+  const html = renderEmail({ brand: DEFAULT_EMAIL_BRANDING, heading: "أهلاً بك في Linkly", greetingName: name || undefined, paragraphs: [`تم تثبيت Linkly${store ? ` على متجر «${store}»` : ""} وتفعيل حسابك. هذه خطواتك الأولى:`, ...steps.map((step, index) => `${index + 1}. ${step}`)], note });
+  return sendEmail({ to, subject: "تم تفعيل Linkly على متجرك في سلة", text, html, idempotencyKey: `salla-welcome/${tenantId}` });
+}
+
 function twoFactorCodeEmailContent(name: string, code: string) {
   const text = `مرحباً ${name}\n\nرمز تسجيل الدخول الخاص بك في Linkly هو: ${code}\n\nصالح لمدة 10 دقائق. إذا لم تطلب تسجيل الدخول، تجاهل هذه الرسالة.`;
   const html = renderEmail({ brand: DEFAULT_EMAIL_BRANDING, heading: "رمز تسجيل الدخول", greetingName: name || undefined, paragraphs: ["استخدم الرمز التالي لإكمال تسجيل الدخول إلى Linkly."], code, note: "صالح لمدة 10 دقائق. إذا لم تطلب تسجيل الدخول، تجاهل هذه الرسالة ولن يتغير شيء." });

@@ -70,6 +70,13 @@ export async function installFromSalla(merchantId: string, auth: SallaAuthorizat
   await saveStoreTokens({ tenantId, store: "salla", ...auth, merchantId, merchantName: info.merchantName });
   await markSallaBilled(tenantId, merchantId);
   await replayQueuedSallaEvents(merchantId, tenantId);
+  // The activation link was sent with the workspace; this tells the merchant what to do next. A mail failure never fails the install.
+  try {
+    const { sendSallaWelcomeEmail } = await import("./email");
+    await sendSallaWelcomeEmail({ to: info.email, name: info.name || info.merchantName, storeName: info.merchantName, tenantId, trialDays: SALLA_TRIAL_DAYS });
+  } catch (error) {
+    console.error("Salla welcome email failed", error);
+  }
   return "created";
 }
 
