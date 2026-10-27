@@ -1,4 +1,4 @@
-export const aiProviders = ["gemini", "openai", "openrouter", "deepseek"] as const;
+export const aiProviders = ["gemini", "openai", "anthropic", "openrouter", "deepseek"] as const;
 export type AiProvider = typeof aiProviders[number];
 export const aiOperations = ["reply", "rewrite", "correct", "translate", "summarize", "sentiment", "next_step", "transcribe", "classify"] as const;
 export type AiOperation = typeof aiOperations[number];

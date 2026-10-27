@@ -80,6 +80,13 @@ describe("ai-provider", () => {
     expect(await generateAiText({ provider, model: "test-model", apiKey: "test-key" }, { messages: [{ direction: "in", text: "Hi" }], customerName: "Customer", language: "en" })).toEqual({ text: "Draft", inputTokens: 12, outputTokens: 4 });
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining(provider === "deepseek" ? "api.deepseek.com" : provider === "openrouter" ? "openrouter.ai" : "api.openai.com"), expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer test-key" }) }));
   });
+  it("uses the Claude Messages API with the workspace key and captures usage", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ content: [{ type: "text", text: "Draft" }], usage: { input_tokens: 15, output_tokens: 6 } })));
+    vi.stubGlobal("fetch", fetchMock);
+    const { generateAiText } = await import("../lib/ai-provider");
+    expect(await generateAiText({ provider: "anthropic", model: "claude-sonnet-5-5", apiKey: "sk-ant-test" }, { messages: [{ direction: "in", text: "Hi" }], customerName: "Customer", language: "en" })).toEqual({ text: "Draft", inputTokens: 15, outputTokens: 6 });
+    expect(fetchMock).toHaveBeenCalledWith("https://api.anthropic.com/v1/messages", expect.objectContaining({ headers: expect.objectContaining({ "x-api-key": "sk-ant-test", "anthropic-version": "2023-06-01" }) }));
+  });
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();

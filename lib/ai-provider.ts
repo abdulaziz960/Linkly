@@ -124,6 +124,24 @@ export async function generateAiText(connection: AiConnection, context: AiContex
       if (payload?.done !== true || typeof value !== "string" || !value.trim()) return null;
       return { text: value.trim(), inputTokens: tokenCount(payload.prompt_eval_count), outputTokens: tokenCount(payload.eval_count) };
     }
+    if (connection.provider === "anthropic") {
+      // Claude (Messages API), the workspace's own key.
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", redirect: "error", signal: AbortSignal.timeout(30000),
+        headers: { "Content-Type": "application/json", "x-api-key": connection.apiKey, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({ model: connection.model, max_tokens: 2048, system, messages: [{ role: "user", content: transcript }] })
+      });
+      if (!response.ok) {
+        console.error("AI provider request failed", { provider: connection.provider, status: response.status });
+        return null;
+      }
+      const payload = await response.json();
+      const value = Array.isArray(payload?.content)
+        ? payload.content.filter((part: { type?: string }) => part.type === "text").map((part: { text?: string }) => part.text || "").join("")
+        : null;
+      if (typeof value !== "string" || !value.trim()) return null;
+      return { text: value.trim(), inputTokens: tokenCount(payload?.usage?.input_tokens), outputTokens: tokenCount(payload?.usage?.output_tokens) };
+    }
     const gemini = connection.provider === "gemini";
     const response = await fetch(gemini
       ? `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(connection.model)}:generateContent`
