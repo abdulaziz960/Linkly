@@ -1218,7 +1218,10 @@ export default function InboxView({
               <span className="conversation-copy">
                 <span className="conversation-card-title"><b>{conversation.customer}</b></span>
                 <small title={previewWithDirection}>{previewWithDirection}</small>
-                {conversation.tags.length || priority !== "normal" ? <span className="conversation-card-foot">{priority !== "normal" ? <em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : t("مرتفعة", "High")}</em> : null}{conversation.tags.slice(0, 2).map((tag) => <em key={tag} className="tag-chip">{tag}</em>)}</span> : null}
+                {(() => {
+                  const assignedTo = tabsMode !== "employee" && conversation.assignee && conversation.assignee !== "بدون موظف" ? conversation.assignee : "";
+                  return conversation.tags.length || priority !== "normal" || assignedTo ? <span className="conversation-card-foot">{assignedTo ? <em className="assignee-chip" title={t("المسند إليه", "Assigned to")}>{assignedTo}</em> : null}{priority !== "normal" ? <em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : t("مرتفعة", "High")}</em> : null}{conversation.tags.slice(0, 2).map((tag) => <em key={tag} className="tag-chip">{tag}</em>)}</span> : null;
+                })()}
               </span>
               <span className="conversation-meta">
                 {conversation.unread ? <strong>{conversation.unread}</strong> : null}
