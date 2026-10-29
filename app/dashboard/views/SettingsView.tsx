@@ -327,7 +327,7 @@ export function ChannelIcon({ id }: { id: ChannelId }) {
 }
 
 export default function SettingsView({ onIntegrationChange }: SettingsViewProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { isChannelLocked, promptForChannel } = usePlanAccess();
   // "Check the connection": asks Meta why WhatsApp sending may be refused (see lib/whatsapp-diagnose.ts).
   const [growthGuideOpen, setGrowthGuideOpen] = useState(false);
@@ -407,6 +407,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   const [overviewStatuses, setOverviewStatuses] = useState<Partial<Record<ChannelId, IntegrationSettings>>>({});
   // Until the statuses arrive, a card can't say "Connect": a connected channel would briefly look disconnected.
   const [overviewLoaded, setOverviewLoaded] = useState(false);
+  const [overviewError, setOverviewError] = useState(false);
+  const [overviewRetry, setOverviewRetry] = useState(0);
+  const loadedChannelRef = useRef<ChannelId | null>(null);
+  const [settingsRetry, setSettingsRetry] = useState(0);
   const [emailStatusLoaded, setEmailStatusLoaded] = useState(false);
   const [wizardModalOpen, setWizardModalOpen] = useState(() => {
     // Popups fall back to a full-page redirect when window.opener isn't
@@ -493,21 +497,21 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }, [selectedChannel]);
 
   useEffect(() => {
-    if (isWhatsApp) {
+    if (isWhatsApp && wizardModalOpen) {
       void loadFacebookSdk(techProviderMetaAppId);
     }
-  }, [isWhatsApp, settings.appId]);
+  }, [isWhatsApp, settings.appId, wizardModalOpen]);
 
   useEffect(() => {
-    if (isWhatsApp && settings.status === "connected") {
+    if (isWhatsApp && settings.status === "connected" && wizardModalOpen) {
       void loadBusinessProfile();
       void loadNumberRegistration();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isWhatsApp, settings.status]);
+  }, [isWhatsApp, settings.status, wizardModalOpen]);
 
   useEffect(() => {
-    if (!isWhatsApp || settings.status !== "connected") return;
+    if (!isWhatsApp || settings.status !== "connected" || !wizardModalOpen) return;
     let cancelled = false;
     // Sync first so an account connected before this feature existed (or
     // whose local Template rows are stale) still picks up whatever's
@@ -528,7 +532,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     return () => {
       cancelled = true;
     };
-  }, [isWhatsApp, settings.status]);
+  }, [isWhatsApp, settings.status, wizardModalOpen]);
 
   useEffect(() => {
     // Fetch once on mount (not gated on isGmail) so the overview list shows
@@ -548,30 +552,31 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   useEffect(() => {
     let cancelled = false;
     const names = [...new Set(channels.map((channel) => apiChannel(channel.id)))];
-    fetch(`/api/settings/integration?channels=${names.join(",")}`)
-      .then((response) => (response.ok ? response.json() : null))
+    setOverviewError(false);
+    fetch(`/api/settings/integration?channels=${names.join(",")}&summary=1`, { cache: "no-store" })
+      .then((response) => { if (!response.ok) throw new Error("Channel overview unavailable"); return response.json(); })
       .then((data: { channels?: Record<string, IntegrationSettings> } | null) => {
         if (cancelled) return;
+        if (!data?.channels || names.some((name) => !data.channels?.[name])) throw new Error("Incomplete channel overview");
         const map: Partial<Record<ChannelId, IntegrationSettings>> = {};
         channels.forEach((channel) => {
           const settings = data?.channels?.[apiChannel(channel.id)];
           if (settings) map[channel.id] = settings;
         });
-        setOverviewStatuses((current) => ({ ...current, ...map }));
+        setOverviewStatuses((current) => ({ ...map, ...current }));
+        setOverviewLoaded(true);
       })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setOverviewLoaded(true);
-      });
+      .catch(() => { if (!cancelled) setOverviewError(true); });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [overviewRetry]);
 
   // Keep the overview row for the channel currently open in the wizard in
   // sync the moment it connects/disconnects, without waiting on a refetch.
   useEffect(() => {
+    if (loadedChannelRef.current !== selectedChannel) return;
     setOverviewStatuses((current) => ({ ...current, [selectedChannel]: settings }));
   }, [selectedChannel, settings]);
 
@@ -761,12 +766,18 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }, [isConnected, isEmail, isFacebook, isGmail, isGoogleMaps, isYoutube, isLinkedin, isSnapchat, isInstagram, isTelegram, isX, isTikTok, isSms, isWebsite, isZapier, wizardSteps, t]);
 
   useEffect(() => {
+    if (!wizardModalOpen) return;
+    let cancelled = false;
+    loadedChannelRef.current = null;
     const isFirstLoad = !hasSelectedChannelRef.current;
     hasSelectedChannelRef.current = true;
     setLoading(true);
-    fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`)
-      .then((response) => response.json())
+    fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`, { cache: "no-store" })
+      .then((response) => { if (!response.ok) throw new Error("Channel settings unavailable"); return response.json(); })
       .then((data: IntegrationSettings) => {
+        if (cancelled) return;
+        if (!data.status || !data.provider) throw new Error("Invalid channel settings");
+        loadedChannelRef.current = selectedChannel;
         setSettings(data);
         if (data.status === "connected") {
           setWizardStep(4);
@@ -775,11 +786,13 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         }
         onIntegrationChange?.(data);
       })
-      .finally(() => setLoading(false));
-  }, [onIntegrationChange, selectedChannel]);
+      .catch(() => { if (!cancelled) setSaveFeedback({ type: "error", text: language === "en" ? "Couldn't load channel settings. Try again." : "تعذر تحميل إعدادات القناة، حاول مرة أخرى" }); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [onIntegrationChange, selectedChannel, settingsRetry, language, wizardModalOpen]);
 
   useEffect(() => {
-    if (!botSupportedChannels.includes(selectedChannel)) {
+    if (!botSupportedChannels.includes(selectedChannel) || !wizardModalOpen) {
       setChannelBotEnabled(false);
       return;
     }
@@ -795,7 +808,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
     return () => {
       cancelled = true;
     };
-  }, [selectedChannel]);
+  }, [selectedChannel, wizardModalOpen]);
 
   async function toggleChannelBot(target?: boolean) {
     if (!botSupportedChannels.includes(selectedChannel)) return;
@@ -894,6 +907,10 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }
 
   async function persistSettings() {
+    if (loading || loadedChannelRef.current !== selectedChannel) {
+      setSaveFeedback({ type: "error", text: t("انتظر تحميل إعدادات القناة قبل الحفظ", "Wait for channel settings to load before saving") });
+      return;
+    }
     const response = await fetch(`/api/settings/integration?channel=${apiChannel(selectedChannel)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1388,6 +1405,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
   }
 
   function renderWizardContent() {
+    if (loading) return <p role="status">{t("جاري تحميل إعدادات القناة…", "Loading channel settings…")}</p>;
+    if (loadedChannelRef.current !== selectedChannel) return <div role="alert">{t("تعذر تحميل إعدادات القناة", "Couldn't load channel settings")} <button className="btn soft" type="button" onClick={() => setSettingsRetry((value) => value + 1)}>{t("إعادة المحاولة", "Retry")}</button></div>;
     if (isConnected) {
       return (
         <div className="meta-wizard-panel">
@@ -1798,15 +1817,16 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
         eyebrow={t("الإعدادات والربط", "SETTINGS & CONNECTIONS")}
         title={t("القنوات", "Channels")}
         description={t("اربط حساباتك على وسائل التواصل لإدارة رسائل العملاء من مكان واحد.", "Connect your social accounts to manage customer messages from one place.")}
-        chips={[t(`${channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && isChannelConnected(channel.id)).length} قناة متصلة`, `${channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && isChannelConnected(channel.id)).length} connected`), t(`${channels.length} قناة متاحة`, `${channels.length} channels`)]}
+        chips={[overviewLoaded ? t(`${channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && isChannelConnected(channel.id)).length} قناة متصلة`, `${channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && isChannelConnected(channel.id)).length} connected`) : t("جاري تحميل حالات القنوات", "Loading channel statuses"), t(`${channels.length} قناة متاحة`, `${channels.length} channels`)]}
       />
       <KpiRow items={[
-        { tone: "g", label: t("متصلة", "Connected"), value: channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && isChannelConnected(channel.id)).length },
-        { tone: "t", label: t("جاهزة للربط", "Ready to connect"), value: channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && !isChannelConnected(channel.id) && !planLockedChannel(channel.id)).length },
+        { tone: "g", label: t("متصلة", "Connected"), value: overviewLoaded ? channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && isChannelConnected(channel.id)).length : "—" },
+        { tone: "t", label: t("جاهزة للربط", "Ready to connect"), value: overviewLoaded ? channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id) && !isChannelConnected(channel.id) && !planLockedChannel(channel.id)).length : "—" },
         { tone: "p", label: t("قريبًا", "Coming soon"), value: channels.filter((channel) => temporarilyLockedChannelIds.has(channel.id)).length },
         { tone: "o", label: t("إجمالي القنوات", "All channels"), value: channels.length }
       ]} />
       <div className="channels-overview">
+        {overviewError ? <div className="field-hint" role="alert">{t("تعذر جلب حالات القنوات. لم يتم فصل أي قناة.", "Couldn't load channel statuses. No channel was disconnected.")} <button className="btn soft" type="button" onClick={() => setOverviewRetry((value) => value + 1)}>{t("إعادة المحاولة", "Retry")}</button></div> : null}
         <div className="channels-overview-grid">
           <div className="channel-connect-grid">
             {channels.filter((channel) => !temporarilyLockedChannelIds.has(channel.id)).map((channel) => {
@@ -1827,7 +1847,8 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                 );
               }
               const connected = isChannelConnected(channel.id);
-              const checking = channel.id === "gmail" ? !emailStatusLoaded : !overviewLoaded;
+              const unknown = !overviewStatuses[channel.id];
+              const checking = channel.id === "gmail" ? !emailStatusLoaded : unknown && !overviewLoaded;
               const handle = connected ? channelHandle(channel.id) : undefined;
               return (
                 <div className="channel-connect-card" key={channel.id}>
@@ -1838,7 +1859,7 @@ export default function SettingsView({ onIntegrationChange }: SettingsViewProps)
                   {handle ? <span className="channel-connect-handle" dir="ltr">{handle}</span> : <small>{channel.description}</small>}
                   <div className="channel-connect-actions">
                     <button type="button" className={checking ? "checking" : connected ? "connected" : ""} disabled={checking} aria-busy={checking || undefined} onClick={() => connected ? goToChannelSetup(channel.id) : connectChannel(channel.id)}>
-                      {checking ? t("جاري التحقق…", "Checking…") : connected ? t("متصل — إدارة", "Connected — manage") : t("ربط", "Connect")}
+                      {checking ? overviewError ? t("تعذر جلب الحالة", "Status unavailable") : t("جاري التحقق…", "Checking…") : connected ? t("متصل — إدارة", "Connected — manage") : t("ربط", "Connect")}
                     </button>
                     {channel.id === "whatsapp" && connected ? (
                       <button type="button" className="channel-diagnose-btn" onClick={() => void runWhatsAppDiagnose()}>{t("فحص الربط", "Check connection")}</button>

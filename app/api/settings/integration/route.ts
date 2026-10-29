@@ -472,6 +472,17 @@ export async function GET(request: NextRequest) {
   if (many) {
     // Only real channel names; anything else would silently fall back to WhatsApp in toIntegrationChannel.
     const requested = [...new Set(many.split(",").map((value) => value.trim()).filter((value) => value && toIntegrationChannel(value) === value))].slice(0, 20);
+    if (request.nextUrl.searchParams.get("summary") === "1") {
+      // Card statuses need no secret decryption, default-row creation or provider calls.
+      const providerFor = (name: string) => name === "whatsapp" ? "whatsapp_cloud" : name === "sms" ? "taqnyat" : name;
+      const rows = await prisma.integrationSetting.findMany({
+        where: { tenantId: user.tenantId, provider: { in: requested.map(providerFor) } },
+        select: { provider: true, status: true, businessName: true, wabaName: true, phoneNumber: true }
+      });
+      return NextResponse.json({ channels: Object.fromEntries(requested.map((name) => [name,
+        rows.find((row) => row.provider === providerFor(name)) ?? { provider: providerFor(name), status: name === "website" ? "connected" : "pending", businessName: "", wabaName: "", phoneNumber: "" }
+      ])) }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     const entries = await Promise.all(requested.map(async (name) => {
       const key = toIntegrationChannel(name);
       return [name, serializeSettings(await getIntegrationSettings(key, user.tenantId), key)] as const;

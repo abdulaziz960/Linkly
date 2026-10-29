@@ -51,4 +51,29 @@ describe("GET /api/settings/integration?channels=", () => {
     expect((await GET(new NextRequest("https://linklysa.io/api/settings/integration?channels=whatsapp"))).status).toBe(403);
     allowed = true;
   });
+
+  it("loads card statuses with one read, without creating rows or returning secrets", async () => {
+    const { prisma } = await import("../lib/prisma");
+    const { getIntegrationSettings } = await import("../lib/database");
+    for (const channel of ["website", "telegram"] as const) await getIntegrationSettings(channel, tenantId);
+    await prisma.integrationSetting.updateMany({ where: { tenantId, provider: "telegram" }, data: { status: "connected" } });
+    const { GET } = await import("../app/api/settings/integration/route");
+    const read = vi.spyOn(prisma.integrationSetting, "findMany");
+    const create = vi.spyOn(prisma.integrationSetting, "create");
+    const singleRead = vi.spyOn(prisma.integrationSetting, "findFirst");
+    const response = await GET(new NextRequest("https://linklysa.io/api/settings/integration?channels=instagram,telegram,website,sms&summary=1"));
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.channels.instagram.status).toBe("connected");
+    expect(body.channels.telegram.status).toBe("connected");
+    expect(body.channels.website.status).toBe("connected");
+    expect(body.channels.sms.status).toBe("pending");
+    expect(body.channels.instagram).not.toHaveProperty("accessToken");
+    expect(body.channels.website).not.toHaveProperty("verifyToken");
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(singleRead).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    vi.restoreAllMocks();
+  });
 });

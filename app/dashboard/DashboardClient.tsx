@@ -442,34 +442,18 @@ export default function DashboardClient({ initialUser, subscription, invoices, c
   }, []);
 
   useEffect(() => {
-    fetch("/api/settings/integration")
-      .then((response) => response.json())
-      .then((settings: IntegrationSettings) => setIntegrationStatus(settings.status))
-      .catch(() => setIntegrationStatus("pending"));
-    fetch("/api/settings/integration?channel=instagram")
-      .then((response) => response.json())
-      .then((settings: IntegrationSettings) => setInstagramStatus(settings.status))
-      .catch(() => setInstagramStatus("pending"));
-    fetch("/api/settings/integration?channel=facebook")
-      .then((response) => response.json())
-      .then((settings: IntegrationSettings) => setFacebookStatus(settings.status))
-      .catch(() => setFacebookStatus("pending"));
-    fetch("/api/settings/integration?channel=telegram")
-      .then((response) => response.json())
-      .then((settings: IntegrationSettings) => setTelegramStatus(settings.status))
-      .catch(() => setTelegramStatus("pending"));
-    fetch("/api/settings/integration?channel=x")
-      .then((response) => response.json())
-      .then((settings: IntegrationSettings) => setXStatus(settings.status))
-      .catch(() => setXStatus("pending"));
-    fetch("/api/settings/integration?channel=google_maps")
-      .then((response) => response.json())
-      .then((settings: IntegrationSettings) => setGoogleMapsStatus(settings.status))
-      .catch(() => setGoogleMapsStatus("pending"));
-    fetch("/api/settings/integration?channel=email")
-      .then((response) => response.json())
-      .then((settings: IntegrationSettings) => setEmailStatus(settings.status))
-      .catch(() => setEmailStatus("pending"));
+    fetch("/api/settings/integration?channels=whatsapp,instagram,facebook,telegram,x,google_maps,email&summary=1", { cache: "no-store" })
+      .then((response) => { if (!response.ok) throw new Error("Channel statuses unavailable"); return response.json(); })
+      .then((data: { channels: Record<string, Pick<IntegrationSettings, "status">> }) => {
+        setIntegrationStatus(data.channels.whatsapp?.status || "pending");
+        setInstagramStatus(data.channels.instagram?.status || "pending");
+        setFacebookStatus(data.channels.facebook?.status || "pending");
+        setTelegramStatus(data.channels.telegram?.status || "pending");
+        setXStatus(data.channels.x?.status || "pending");
+        setGoogleMapsStatus(data.channels.google_maps?.status || "pending");
+        setEmailStatus(data.channels.email?.status || "pending");
+      })
+      .catch(() => {});
     fetch("/api/whatsapp/payment-status")
       .then((response) => response.json())
       .then((data: { hasIssue?: boolean; payUrl?: string }) => {
