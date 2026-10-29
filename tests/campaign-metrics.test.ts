@@ -135,3 +135,15 @@ describe("cost", () => {
     expect(effectiveMessageRate([], 0.02)).toBe(0.02);
   });
 });
+
+
+describe("distinct provider failure reasons", () => {
+  it("keeps marketing limits, experiments, throughput and unsupported types separate", () => {
+    expect(classifyFailure("(#131049) healthy ecosystem")).toBe("meta_limit");
+    expect(classifyFailure("(#130429) rate limit")).toBe("rate_limit");
+    expect(classifyFailure("(#131056) too many messages")).toBe("rate_limit");
+    expect(classifyFailure("(#130472) experiment")).toBe("meta_experiment");
+    expect(classifyFailure("(#131051) unsupported message type")).toBe("rejected");
+    expect(classifyFailure("(#131047) outside window")).toBe("outside_window");
+  });
+});

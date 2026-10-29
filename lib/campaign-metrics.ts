@@ -19,7 +19,7 @@ export const INSUFFICIENT_BALANCE_ERROR = "الرصيد غير كافٍ";
 
 export type RecipientStatusCount = { status: string; count: number };
 
-export type FailureReasonKey = "unregistered" | "rejected" | "outside_window" | "insufficient_balance" | "meta_limit" | "recipient_blocked" | "other";
+export type FailureReasonKey = "unregistered" | "rejected" | "outside_window" | "insufficient_balance" | "meta_limit" | "rate_limit" | "meta_experiment" | "recipient_blocked" | "other";
 
 export type FailureReason = { key: FailureReasonKey; count: number };
 
@@ -85,9 +85,13 @@ export function classifyFailure(error: string): FailureReasonKey {
   const text = error.trim();
   if (!text) return "other";
   if (text === INSUFFICIENT_BALANCE_ERROR || /غير كاف|insufficient/i.test(text)) return "insufficient_balance";
+  if (/\b130429\b|\b131056\b/.test(text)) return "rate_limit";
+  if (/\b130472\b/.test(text)) return "meta_experiment";
+  if (/\b131051\b/.test(text)) return "rejected";
   if (/131026|not (a )?whatsapp|undeliverable|not registered|غير مسجل/i.test(text)) return "unregistered";
-  if (/131047|131051|24 hours|re-?engagement|outside.*window|خارج/i.test(text)) return "outside_window";
-  if (/131049|130472|ecosystem|healthy|limit.*marketing|marketing.*limit|130429|rate/i.test(text)) return "meta_limit";
+  if (/131047|24 hours|re-?engagement|outside.*window|خارج/i.test(text)) return "outside_window";
+  if (/131049|ecosystem|healthy|limit.*marketing|marketing.*limit/i.test(text)) return "meta_limit";
+  if (/rate.?limit|too many|throughput/i.test(text)) return "rate_limit";
   if (/131050|stopped|blocked|opted|unsubscri|حظر|ألغى/i.test(text)) return "recipient_blocked";
   if (/reject|invalid|131008|131009|132\d{3}|unsupported|مرفوض/i.test(text)) return "rejected";
   return "other";
@@ -100,6 +104,8 @@ export const FAILURE_DETAIL: Record<FailureReasonKey, [string, string]> = {
   outside_window: ["خارج نافذة 24 ساعة - يحتاج قالب معتمد", "Outside the 24-hour window - needs an approved template"],
   insufficient_balance: ["الرصيد غير كافٍ وقت الإرسال", "Not enough balance at send time"],
   meta_limit: ["واتساب منع الإرسال لهذا الرقم (حد الرسائل التسويقية)", "WhatsApp held the message (marketing limit)"],
+  rate_limit: ["تجاوز حد سرعة الإرسال؛ انتظر قبل إعادة المحاولة", "Sending rate exceeded; wait before retrying"],
+  meta_experiment: ["Meta أوقفت التسويق لهذا المستلم ضمن اختباراتها؛ تجنب تكرار المحاولة", "Meta withheld marketing for this recipient in an experiment; avoid repeated retries"],
   recipient_blocked: ["الرقم لا يستقبل رسائل الأعمال (أوقفها أو حظر الرقم)", "The number does not receive business messages (turned off or blocked)"],
   other: ["تعذر الإرسال لسبب آخر", "Could not be sent for another reason"]
 };
@@ -113,7 +119,9 @@ export function describeFailure(error: string, phone: string): { text: [string, 
   if (!check.ok) return { text: PHONE_REASON_LABELS[check.reason], key: "badNumber" };
   if (error === OPT_OUT_ERROR) return { text: ["العميل ألغى اشتراكه من الرسائل التسويقية", "The customer unsubscribed from marketing messages"], key: "optedOut" };
   const key = classifyFailure(error);
-  return { text: FAILURE_DETAIL[key], key };
+  const code = error.match(/\b(13\d{4})\b/)?.[1];
+  const detail = FAILURE_DETAIL[key];
+  return { text: code ? [`${detail[0]} (Meta #${code})`, `${detail[1]} (Meta #${code})`] : detail, key };
 }
 
 export function groupFailureReasons(errors: Array<{ error: string; count: number }>): FailureReason[] {
@@ -218,4 +226,20 @@ export function effectiveMessageRate(payments: Array<{ messages: number; amount:
 
 export function campaignCost(sent: number, rate: number): number {
   return Math.round(sent * rate * 100) / 100;
+}
+
+/** Completion is the end of processing, not proof that messages were sent or delivered. */
+export function campaignOutcomePresentation(status: string, stats: Pick<CampaignStats, "sent" | "failed" | "pending" | "optedOut">): { label: [string, string]; tone: "ok" | "warn" | "off" } {
+  if (status === "ملغاة") return { label: ["ملغاة", "Cancelled"], tone: "off" };
+  if (status === "مؤرشفة") return { label: ["مؤرشفة", "Archived"], tone: "off" };
+  if (status === "مجدولة") return { label: ["مجدولة", "Scheduled"], tone: "warn" };
+  if (status === "قيد الإرسال") return { label: ["قيد الإرسال", "Sending"], tone: "warn" };
+  if (status !== "الحملة أنجزت") return { label: [status, status], tone: "warn" };
+  if (stats.pending > 0) return { label: ["تحتاج مراجعة", "Needs review"], tone: "warn" };
+  if (stats.sent === 0) return stats.failed > 0
+    ? { label: ["فشل الإرسال", "Sending failed"], tone: "off" }
+    : { label: ["انتهت دون إرسال", "Finished without sending"], tone: "off" };
+  if (stats.failed > 0) return { label: ["انتهت مع إخفاقات", "Finished with failures"], tone: "warn" };
+  if (stats.optedOut > 0) return { label: ["انتهت مع مستلمين مستبعدين", "Finished with excluded recipients"], tone: "warn" };
+  return { label: ["انتهت المعالجة", "Processing finished"], tone: "ok" };
 }

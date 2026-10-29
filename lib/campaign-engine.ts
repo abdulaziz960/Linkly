@@ -1,3 +1,4 @@
+import { requiresCampaignLinkTracking } from "./campaign-validation";
 import ExcelJS from "exceljs";
 import { graphFetch } from "./demo-mode";
 import { randomUUID } from "crypto";
@@ -252,7 +253,7 @@ export async function sendWhatsAppTemplate(tenantId: string, to: string, templat
   // text. A template built this way is useless without a tracking code to
   // fill it, so treat that combination as a hard error rather than silently
   // sending a broken link.
-  const hasDynamicUrlButton = templateRecord.buttonType === "URL" && /\{\{\s*1\s*\}\}\s*$/.test(templateRecord.buttonUrl);
+  const hasDynamicUrlButton = requiresCampaignLinkTracking(templateRecord);
   if (hasDynamicUrlButton && !trackingCode) {
     return { ok: false as const, error: "هذا القالب يحتاج تفعيل تتبع الروابط لهذه الحملة - الزر يعتمد على رابط تتبع لكل عميل" };
   }

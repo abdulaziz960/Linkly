@@ -543,12 +543,17 @@ export async function POST(request: NextRequest) {
           await captureAdSource({ tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, message });
           // A message that came through one of the workspace's WhatsApp tracking links (Snapchat / TikTok / Google ads).
           await captureLinkAdSource({ tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId });
-          await handleMarketingOptOutKeyword({
+          const marketingCommandHandled = await handleMarketingOptOutKeyword({
             tenantId: whatsappAccount.tenantId,
             conversationId: stored.conversationId,
             phone: message.from,
             text
           });
+          if (marketingCommandHandled) {
+            await mediaTask;
+            savedMessages.push(message.id || message.from);
+            continue;
+          }
           // A tap on a catalog template's button opens the dashboard catalog directly.
           if (message.button?.text && await isCatalogTemplateButton(whatsappAccount.tenantId, message.button.text)) {
             await startTemplateCatalog("whatsapp", { tenantId: whatsappAccount.tenantId, conversationId: stored.conversationId, recipientId: message.from });

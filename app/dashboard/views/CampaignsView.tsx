@@ -1,5 +1,7 @@
 "use client";
 
+import { campaignLinkTrackingIssue, requiresCampaignLinkTracking } from "../../../lib/campaign-validation";
+
 import { formatNumber } from "../../../lib/format";
 import { confirmDialog, notify } from "../../../lib/ui-dialogs";
 
@@ -16,7 +18,7 @@ import { buildCsv } from "../../../lib/csv-export";
 import { useUnsavedChanges } from "../use-unsaved-changes";
 import CampaignEngagementReport from "../components/CampaignEngagementReport";
 import { firstChar } from "../../../lib/first-char";
-import { computeCampaignStats, formatRate, sumCampaignStats, type CampaignStats, type FailureReasonKey } from "../../../lib/campaign-metrics";
+import { campaignOutcomePresentation, computeCampaignStats, formatRate, sumCampaignStats, type CampaignStats, type FailureReasonKey } from "../../../lib/campaign-metrics";
 
 type KpiFilter = "all" | "sent" | "pending" | "completed" | "active";
 
@@ -26,6 +28,8 @@ const failureReasonLabels: Record<FailureReasonKey, [string, string]> = {
   outside_window: ["خارج نافذة 24 ساعة", "Outside the 24-hour window"],
   insufficient_balance: ["رصيد غير كافٍ", "Insufficient balance"],
   meta_limit: ["واتساب منع الإرسال لهذا العميل (حد رسائل التسويق)", "WhatsApp held the message back (marketing-message limit)"],
+  rate_limit: ["تجاوز حد سرعة الإرسال", "Sending rate exceeded"],
+  meta_experiment: ["قيود اختبار التسويق لدى Meta", "Meta marketing experiment"],
   recipient_blocked: ["العميل أوقف رسائل الأعمال", "Customer turned off business messages"],
   other: ["أسباب أخرى", "Other reasons"]
 };
@@ -224,8 +228,9 @@ function pricingRangeLabel(range: string, language: string) {
   return range.replace("إلى", "to");
 }
 
-function campaignStatusLabel(status: string, t: (ar: string, en: string) => string) {
-  if (status === "الحملة أنجزت") return t("الحملة أنجزت", "Completed");
+function campaignStatusLabel(status: string, t: (ar: string, en: string) => string, stats?: CampaignStats) {
+  if (stats) return t(...campaignOutcomePresentation(status, stats).label);
+  if (status === "الحملة أنجزت") return t("انتهت المعالجة", "Processing finished");
   if (status === "قيد الإرسال") return t("قيد الإرسال", "Sending");
   if (status === "مجدولة") return t("مجدولة", "Scheduled");
   if (status === "ملغاة") return t("ملغاة", "Cancelled");
@@ -608,6 +613,13 @@ export default function CampaignsView({
       return;
     }
 
+    const trackingIssue = campaignLinkTrackingIssue(selectedTemplate, { enabled: form.linkTrackingEnabled, destinationUrl: form.destinationUrl, recurring: form.recurring });
+    if (trackingIssue) {
+      setFormError(t(trackingIssue.ar, trackingIssue.en));
+      setSaving(false);
+      return;
+    }
+
     if (form.audienceMode === "file" && !campaignFile) {
       setFormError(t("ارفع ملف Excel أو CSV يحتوي على أرقام العملاء", "Upload an Excel or CSV file containing your customers' numbers"));
       setSaving(false);
@@ -771,7 +783,7 @@ export default function CampaignsView({
     const rows = list.map((campaign) => {
       const stats = statsOf(campaign);
       const when = parseStoredDate(campaign.sentAt) ?? parseStoredDate(campaign.scheduledAt);
-      return [campaign.name, campaignStatusLabel(campaign.status, t), campaign.templateName ?? "", when ? when.toISOString() : "", stats.total, stats.sent, stats.delivered, stats.read, stats.replied, stats.failed, stats.optedOut, parseStoredDate(campaign.updatedAt)?.toISOString() ?? campaign.updatedAt];
+      return [campaign.name, campaignStatusLabel(campaign.status, t, stats), campaign.templateName ?? "", when ? when.toISOString() : "", stats.total, stats.sent, stats.delivered, stats.read, stats.replied, stats.failed, stats.optedOut, parseStoredDate(campaign.updatedAt)?.toISOString() ?? campaign.updatedAt];
     });
     downloadTextFile(`campaigns-${new Date().toISOString().slice(0, 10)}.csv`, buildCsv(header, rows));
   }
@@ -894,7 +906,7 @@ export default function CampaignsView({
             {([
               { key: "sent", label: t("تم إرسالها", "Sent"), value: formatNumber(campaignOverview.sent), note: t("رسالة عبر جميع الحملات", "messages across campaigns") },
               { key: "pending", label: t("بانتظار الإرسال", "Pending"), value: formatNumber(campaignOverview.remaining), note: t("ما زال في الطابور", "still in the queue") },
-              { key: "completed", label: t("حملات مكتملة", "Completed"), value: String(campaignOverview.completed), note: t("أنهت عملية الإرسال", "finished sending") },
+              { key: "completed", label: t("حملات مكتملة", "Completed"), value: String(campaignOverview.completed), note: t("انتهت معالجة جمهورها", "finished processing their audience") },
               { key: "active", label: t("نشطة أو مجدولة", "Active or scheduled"), value: String(campaignOverview.active), note: t("تحتاج متابعة تشغيلية", "need operational follow-up") }
             ] as Array<{ key: KpiFilter; label: string; value: string; note: string }>).map((card) => (
               <article key={card.key} className={kpiFilter === card.key ? "is-active" : ""}>
@@ -1035,11 +1047,12 @@ export default function CampaignsView({
               <table className="mobile-card-table campaigns-table camp-table">
                 <thead><tr>
                   <th className="select-col"><input type="checkbox" aria-label={t("تحديد كل حملات الصفحة", "Select all campaigns on this page")} checked={allOnPageSelected} onChange={() => setSelectedIds((current) => { const next = new Set(current); if (allOnPageSelected) pageIds.forEach((id) => next.delete(id)); else pageIds.forEach((id) => next.add(id)); return next; })} /></th>
-                  <th>{t("الحملة", "Campaign")}</th><th>{t("تم إرساله / الإجمالي", "Sent / total")}</th><th>{t("التقدم", "Progress")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th>
+                  <th>{t("الحملة", "Campaign")}</th><th>{t("تم إرساله / الإجمالي", "Sent / total")}</th><th title={t("نسبة الإرسال إلى واتساب، ولا تعني تأكيد وصول الرسائل للعملاء", "Sending rate, not confirmation that messages reached customers")}>{t("نسبة الإرسال", "Send rate")}</th><th>{t("الحالة", "Status")}</th><th>{t("آخر تحديث", "Last update")}</th><th>{t("الإجراءات", "Actions")}</th>
                 </tr></thead>
                 <tbody>
                   {campaignPagination.items.map((campaign) => {
                     const stats = statsOf(campaign);
+                    const outcome = campaignOutcomePresentation(campaign.status, stats);
                     return (
                     <tr key={campaign.id} className={selectedIds.has(campaign.id) ? "is-selected" : ""}>
                       <td className="select-col"><input type="checkbox" aria-label={t(`تحديد ${campaign.name}`, `Select ${campaign.name}`)} checked={selectedIds.has(campaign.id)} onChange={() => toggleSelected(campaign.id)} /></td>
@@ -1047,8 +1060,8 @@ export default function CampaignsView({
                         {campaign.description ? <small className="campaign-description">{campaign.description}</small> : null}
                         {campaign.tags?.length ? <span className="campaign-tags">{campaign.tags.map((tag) => <em key={tag}>{tag}</em>)}</span> : null}</span></div></td>
                       <td data-label={t("تم إرساله / الإجمالي", "Sent / total")}><b>{formatNumber(campaign.sent)}</b><small className="campaign-cell-note"> {t("من", "of")} {formatNumber(campaign.total)}</small>{stats.pending > 0 ? <small className="campaign-cell-note campaign-cell-pending"> · {formatNumber(stats.pending)} {t("بالانتظار", "waiting")}</small> : null}</td>
-                      <td data-label={t("التقدم", "Progress")}><div className="camp-progress"><div className="camp-bar"><i style={{ width: campaign.progress }} /></div><span>{campaign.progress}</span></div></td>
-                      <td data-label={t("الحالة", "Status")}><span className={campaign.status === "ملغاة" || campaign.status === "مؤرشفة" ? "state off" : campaign.status === "مجدولة" ? "state warn" : "state ok"}><i className="camp-dot" />{campaignStatusLabel(campaign.status, t)}</span></td>
+                      <td data-label={t("نسبة الإرسال", "Send rate")}><div className="camp-progress"><div className="camp-bar"><i style={{ width: `${stats.sendRate}%` }} /></div><span>{stats.sendRate}%</span></div></td>
+                      <td data-label={t("الحالة", "Status")}><span className={`state ${outcome.tone}`}><i className="camp-dot" />{t(...outcome.label)}</span>{stats.failed > 0 ? <small className="campaign-cell-note"> · {formatNumber(stats.failed)} {t("تعذّر إرسالها أو تسليمها", "failed to send or deliver")}</small> : null}</td>
                       <td data-label={t("آخر تحديث", "Last update")}><DateCell value={parseStoredDate(campaign.updatedAt)} language={language === "en" ? "en" : "ar"} /></td>
                       <td data-label={t("الإجراءات", "Actions")} className="row-actions campaign-row-actions">
                         <button className="campaign-icon-btn" type="button" title={t("التقرير", "Report")} aria-label={t("التقرير", "Report")} onClick={() => openReport(campaign)}>{reportIcon}</button>
@@ -1304,6 +1317,7 @@ export default function CampaignsView({
                       <label><span>{t("تنتهي في (اختياري)", "Ends on (optional)")}</span><input type="date" value={form.recurrenceEndAt} onChange={(event) => setForm((current) => ({ ...current, recurrenceEndAt: event.target.value }))} /></label>
                     </>
                   ) : null}
+                  {requiresCampaignLinkTracking(selectedTemplate) ? <p className="campaign-warning" role="note">{t("زر هذا القالب يحتاج رابطًا خاصًا لكل عميل: فعّل تتبع الروابط وأدخل رابط الوجهة. هذا النوع غير متاح للحملات المتكررة حاليًا.", "This template button needs a per-customer link: enable link tracking and enter a destination URL. This template type does not support recurring campaigns yet.")}</p> : null}
                   {!form.recurring ? (
                     <>
                       <label className="schedule-toggle">

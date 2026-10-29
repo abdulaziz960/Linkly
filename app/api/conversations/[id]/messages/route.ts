@@ -335,13 +335,13 @@ async function sendTelegramTextMessage(botToken: string, chatId: string, text: s
   return payload.result;
 }
 
-async function findOrCreateConversation(id: string, tenantId: string, snapshot?: ConversationSnapshot) {
+async function findOrCreateConversation(id: string, tenantId: string, snapshot: ConversationSnapshot | undefined, access: { canAccess: (id: string) => Promise<boolean>; allowCreate: boolean }) {
   const existing = await prisma.conversation.findFirst({
     where: { id, tenantId },
     include: { customer: true }
   });
 
-  if (existing) return existing;
+  if (existing) return await access.canAccess(existing.id) ? existing : null;
 
   const phone = normalizeWhatsAppPhone(snapshot?.phone ?? getPhoneFromConversationId(id));
   if (!phone) return null;
@@ -354,13 +354,16 @@ async function findOrCreateConversation(id: string, tenantId: string, snapshot?:
       include: { customer: true }
     });
 
-    if (byCustomerPhone) return byCustomerPhone;
+    if (byCustomerPhone) return await access.canAccess(byCustomerPhone.id) ? byCustomerPhone : null;
   }
 
   const customerName = snapshot?.customer?.trim() || `عميل ${phone.slice(-4) || "واتساب"}`;
   const scopedPrefix = tenantId === "tenant-demo" ? "" : `${tenantId}-`;
   const customerId = existingCustomer?.id ?? `${scopedPrefix}wa-${phone}`;
   const conversationId = `${scopedPrefix}${id || snapshot?.id?.trim() || `conv-${phone}`}`;
+  const canonical = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, include: { customer: true } });
+  if (canonical) return await access.canAccess(canonical.id) ? canonical : null;
+  if (!access.allowCreate) return null;
   const initial = getFallbackInitial(customerName, phone, snapshot?.initial);
   const assignee = snapshot?.assignee?.trim() || "بدون موظف";
   const status = normalizeConversationStatus(snapshot?.status);
@@ -372,10 +375,8 @@ async function findOrCreateConversation(id: string, tenantId: string, snapshot?:
       create: { id: customerId, name: customerName, phone, initial, tenantId }
     });
 
-    return tx.conversation.upsert({
-      where: { id: conversationId },
-      update: { customerId, assignee, status },
-      create: {
+    return tx.conversation.create({
+      data: {
         id: conversationId,
         customerId,
         channel: "whatsapp",
@@ -429,12 +430,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!allowedMimeTypes.includes(mimeType)) return jsonError("نوع المرفق غير مدعوم");
   }
 
-  // An existing conversation that is not visible to this employee is off limits; only brand-new ones are created on the fly.
-  if (user.role !== "مالك الحساب" && (await prisma.conversation.findFirst({ where: { id, tenantId: user.tenantId }, select: { id: true } })) && !(await canAccessConversation(user, id))) {
-    return jsonError("المحادثة غير موجودة", 404);
-  }
-
-  const conversation = await findOrCreateConversation(id, user.tenantId, body.conversation);
+  const conversation = await findOrCreateConversation(id, user.tenantId, body.conversation, {
+    canAccess: (resolvedId) => user.role === "مالك الحساب" ? Promise.resolve(true) : canAccessConversation(user, resolvedId),
+    // A new conversation cannot contain a pre-existing reply target. Reject before creating anything.
+    allowCreate: !body.replyToMessageId && !body.replyToCommentId
+  });
 
   if (!conversation) return jsonError("المحادثة غير موجودة", 404);
 
@@ -443,10 +443,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ? await prisma.message.findFirst({
           where: {
             id: body.replyToMessageId,
+            conversationId: conversation.id,
             conversation: { tenantId: user.tenantId }
           }
         })
       : null;
+    if (body.replyToMessageId && !replyToMessage) return jsonError("الرسالة المرتبطة غير موجودة في هذه المحادثة", 404);
+    if (body.replyToCommentId) {
+      const comment = await prisma.message.findFirst({ where: { id: body.replyToCommentId, conversationId: conversation.id, conversation: { tenantId: user.tenantId } }, select: { id: true } });
+      if (!comment) return jsonError("التعليق غير موجود في هذه المحادثة", 404);
+    }
     const replyToData = replyToMessage
       ? {
           replyToMessageId: replyToMessage.id,
@@ -843,7 +849,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         const message = await prisma.$transaction(async (tx) => {
           const sourceMessage = await tx.message.findFirst({
-            where: { id: replyToCommentId, conversation: { tenantId: user.tenantId } }
+            where: { id: replyToCommentId, conversationId: conversation.id, conversation: { tenantId: user.tenantId } }
           });
           const created = await tx.message.create({
             data: {
@@ -926,7 +932,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       const message = await prisma.$transaction(async (tx) => {
         const sourceMessage = await tx.message.findFirst({
-          where: { id: replyToCommentId, conversation: { tenantId: user.tenantId } }
+          where: { id: replyToCommentId, conversationId: conversation.id, conversation: { tenantId: user.tenantId } }
         });
         const created = await tx.message.create({
           data: {
@@ -971,7 +977,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const cleanReplyToCommentId = replyToCommentId.replace(/^li-/, "");
 
       const sourceMessage = await prisma.message.findFirst({
-        where: { id: replyToCommentId, conversation: { tenantId: user.tenantId } }
+        where: { id: replyToCommentId, conversationId: conversation.id, conversation: { tenantId: user.tenantId } }
       });
       const postUrn = sourceMessage?.sourceId || "";
       if (!postUrn) return jsonError("تعذر تحديد المنشور المرتبط بهذا التعليق");

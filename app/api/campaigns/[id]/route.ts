@@ -1,3 +1,4 @@
+import { campaignLinkTrackingIssue } from "../../../../lib/campaign-validation";
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "../../../../lib/auth";
 import { userHasViewPermission } from "../../../../lib/permissions-server";
@@ -40,6 +41,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Resuming a stopped campaign, or sending only the recipients that failed: both put recipients back in the queue.
     const resuming = body.status === "قيد الإرسال" && !body.sendNow && !body.retryFailed;
     if (body.status === "مؤرشفة" && existing.status === "قيد الإرسال") return jsonError("أوقف الحملة أولاً ثم أرشفها");
+    if (body.sendNow || body.retryFailed || resuming) {
+      const template = await prisma.template.findFirst({ where: { tenantId: user.tenantId, name: existing.templateName, status: "معتمد" } });
+      if (!template) return jsonError("قالب الحملة غير موجود أو غير معتمد من Meta", 400);
+      const trackingIssue = campaignLinkTrackingIssue(template, { enabled: Boolean(existing.linkTrackingEnabled), destinationUrl: existing.destinationUrl });
+      if (trackingIssue) return jsonError(trackingIssue.ar, 400);
+    }
     if (body.retryFailed) {
       const approved = await prisma.template.findFirst({ where: { tenantId: user.tenantId, name: existing.templateName, status: "معتمد" } });
       if (!approved) return jsonError("قالب الحملة غير موجود أو غير معتمد من Meta", 400);

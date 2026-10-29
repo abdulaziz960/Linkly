@@ -1,3 +1,4 @@
+import { campaignLinkTrackingIssue } from "../../../lib/campaign-validation";
 import { getTenantPlanName } from "../../../lib/plan-access-server";
 import { isRecurringCampaignAllowed } from "../../../lib/plan-access";
 import { getTenantGrants } from "../../../lib/plan-grants";
@@ -110,6 +111,9 @@ export async function POST(request: NextRequest) {
   const template = await prisma.template.findFirst({ where: { name: templateName, tenantId: user.tenantId } });
   if (!template) return jsonError("القالب المختار غير موجود");
   if (template.status !== "معتمد") return jsonError("لازم يكون القالب معتمد من Meta قبل استخدامه بحملة");
+
+  const trackingIssue = campaignLinkTrackingIssue(template, { enabled: linkTrackingEnabled, destinationUrl, recurring });
+  if (trackingIssue) return jsonError(trackingIssue.ar);
 
   // The UI's own "connected" indicator is client-side cached state - a
   // campaign must never actually start unless the channel is connected

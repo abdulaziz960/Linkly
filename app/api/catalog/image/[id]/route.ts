@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
 import { ensureSchema } from "../../../../../lib/database";
 import { isPubliclyRoutableUrl } from "../../../../../lib/url-safety";
+import { safePublicFetch } from "../../../../../lib/safe-public-fetch";
 
 export const runtime = "nodejs";
 
@@ -26,9 +27,10 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
     let response: Response | null = null;
     for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
       if (!(await isPubliclyRoutableUrl(url))) return new NextResponse(null, { status: 404 });
-      response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(10000), headers: { "User-Agent": "LinklyCatalogImage/1.0" } });
+      response = await safePublicFetch(url, { redirect: "manual", signal: AbortSignal.timeout(10000), headers: { "User-Agent": "LinklyCatalogImage/1.0" } });
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get("location");
+        await response.body?.cancel();
         if (!location) return new NextResponse(null, { status: 502 });
         url = new URL(location, url).toString();
         response = null;
@@ -39,7 +41,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
     if (!response || !response.ok || !response.body) return new NextResponse(null, { status: 502 });
 
     const declared = Number(response.headers.get("content-length"));
-    if (Number.isFinite(declared) && declared > MAX_BYTES) return new NextResponse(null, { status: 413 });
+    if (Number.isFinite(declared) && declared > MAX_BYTES) { await response.body.cancel(); return new NextResponse(null, { status: 413 }); }
 
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];

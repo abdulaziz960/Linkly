@@ -16,20 +16,20 @@ function normalize(text: string) {
  * WhatsApp marketing-message opt-out/in via the customer's own reply.
  * lib/campaign-engine.ts skips any customer with marketingOptOut set before
  * sending a campaign template - this never affects one-to-one replies from
- * the inbox, only campaign sends. Called from the Meta webhook right after
- * an inbound WhatsApp message is stored, same as runWhatsAppBot.
+ * the inbox, only campaign sends. Returns true when the command was handled
+ * so the webhook does not also pass that same message to the bot.
  */
 export async function handleMarketingOptOutKeyword(input: { tenantId: string; conversationId: string; phone: string; text: string }) {
   const normalized = normalize(input.text);
   const isOptOut = optOutKeywords.has(normalized);
   const isOptIn = !isOptOut && optInKeywords.has(normalized);
-  if (!isOptOut && !isOptIn) return;
+  if (!isOptOut && !isOptIn) return false;
 
   // tenantId is currently always server-derived (from the receiving WABA),
   // never client input - scoping by it here anyway is defense-in-depth in
   // case a future caller ever passes it through less trustworthy data.
   const conversation = await prisma.conversation.findFirst({ where: { id: input.conversationId, tenantId: input.tenantId }, select: { customerId: true } });
-  if (!conversation) return;
+  if (!conversation) return false;
 
   await prisma.customer.updateMany({
     where: { id: conversation.customerId, tenantId: input.tenantId },
@@ -47,4 +47,5 @@ export async function handleMarketingOptOutKeyword(input: { tenantId: string; co
       : "تم تفعيل اشتراكك في رسائل الحملات التسويقية من جديد.",
     author: "Linkly"
   });
+  return true;
 }

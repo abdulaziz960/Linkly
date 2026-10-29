@@ -2,6 +2,7 @@ import { randomBytes, randomUUID, createHmac } from "crypto";
 import { prisma } from "./prisma";
 import { encryptSecret, decryptSecret } from "./secret-storage";
 import { isPubliclyRoutableUrl } from "./url-safety";
+import { safePublicFetch, UnsafePublicUrlError } from "./safe-public-fetch";
 
 export type WebhookEvent = "message.received" | "conversation.closed" | "lead.created";
 
@@ -115,7 +116,7 @@ async function attemptDelivery(
     return { httpStatus: 0, success: false, retryable: false };
   }
   try {
-    const response = await fetch(url, {
+    const response = await safePublicFetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -129,8 +130,10 @@ async function attemptDelivery(
       redirect: "manual",
       signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS)
     });
+    await response.body?.cancel();
     return { httpStatus: response.status, success: response.ok, retryable: !response.ok && isRetryableStatus(response.status) };
   } catch (error) {
+    if (error instanceof UnsafePublicUrlError) return { httpStatus: 0, success: false, retryable: false };
     console.error(`Webhook delivery failed for ${url}`, error);
     return { httpStatus: 0, success: false, retryable: true };
   }

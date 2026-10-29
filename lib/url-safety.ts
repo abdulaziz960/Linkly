@@ -23,6 +23,12 @@ function isPrivateIPv6(ip: string): boolean {
   if (normalized.startsWith("::ffff:")) {
     const mapped = normalized.split(":").pop() || "";
     if (mapped.includes(".")) return isPrivateIPv4(mapped);
+    const groups = normalized.slice(7).split(":");
+    if (groups.length === 2 && groups.every((group) => /^[0-9a-f]{1,4}$/.test(group))) {
+      const high = parseInt(groups[0], 16), low = parseInt(groups[1], 16);
+      return isPrivateIPv4(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`);
+    }
+    return true;
   }
   if (/^fe[89ab]/.test(normalized)) return true; // fe80::/10 link-local
   if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true; // fc00::/7 unique local
@@ -44,25 +50,30 @@ function isPrivateAddress(family: number, address: string): boolean {
  * (DNS rebinding), so a one-time check at creation is not enough on its own.
  */
 export async function isPubliclyRoutableUrl(rawUrl: string): Promise<boolean> {
+  return (await resolvePublicUrl(rawUrl)) !== null;
+}
+
+/** Resolve once; callers making a connection must pin it to these checked addresses. */
+export async function resolvePublicUrl(rawUrl: string): Promise<{ url: URL; addresses: Array<{ address: string; family: number }> } | null> {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
   } catch {
-    return false;
+    return null;
   }
-  if (!["http:", "https:"].includes(parsed.protocol)) return false;
+  if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) return null;
 
-  const hostname = parsed.hostname.toLowerCase();
-  if (BLOCKED_HOSTNAMES.has(hostname)) return false;
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (BLOCKED_HOSTNAMES.has(hostname)) return null;
 
   const literalFamily = isIP(hostname);
-  if (literalFamily) return !isPrivateAddress(literalFamily, hostname);
+  if (literalFamily) return isPrivateAddress(literalFamily, hostname) ? null : { url: parsed, addresses: [{ address: hostname, family: literalFamily }] };
 
   try {
     const records = await dns.lookup(hostname, { all: true, verbatim: true });
-    if (!records.length) return false;
-    return records.every((record) => !isPrivateAddress(record.family, record.address));
+    if (!records.length || records.some((record) => !isIP(record.address) || isPrivateAddress(record.family, record.address))) return null;
+    return { url: parsed, addresses: records };
   } catch {
-    return false;
+    return null;
   }
 }

@@ -43,7 +43,7 @@ export default function TaxProfileCard({ initial }: { initial: { vatNumber: stri
           <input value={address} onChange={(event) => setAddress(event.target.value)} maxLength={300} />
         </label>
         <button type="submit" disabled={busy}>{busy ? "جاري الحفظ..." : "حفظ"}</button>
-        <p>تظهر هذه البيانات في فواتيرك الضريبية، القديمة والجديدة.</p>
+        <p>احفظ بيانات منشأتك لاستخدامها في الفوترة.</p>
         {message ? <p className={message.ok ? "billing-success" : "billing-error"} role="status">{message.text}</p> : null}
       </form>
     </details>

@@ -8,6 +8,7 @@ import { PageHero } from "../components/PageHero";
 import AdSourceBanner from "../components/AdSourceBanner";
 import LeadStatusControl from "../components/LeadStatusControl";
 import { ChangeEvent, CSSProperties, Fragment, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { messageDayLabel, riyadhDayKey } from "../../../lib/time";
 import FilterButton from "../components/FilterButton";
 import CustomSelect from "../../components/CustomSelect";
@@ -433,7 +434,7 @@ export default function InboxView({
   const [recentEmojis, setRecentEmojis] = useState<string[]>([...emojiCategories[0].emojis]);
   const [conversationMenu, setConversationMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
   const conversationMenuRef = useRef<HTMLDivElement | null>(null);
-  const [messageMenu, setMessageMenu] = useState<{ messageId: string; x: number; y: number } | null>(null);
+  const [messageMenu, setMessageMenu] = useState<{ messageId: string; x: number; y: number; link?: string } | null>(null);
   const [replyTargetId, setReplyTargetId] = useState("");
   const [commentReplyTarget, setCommentReplyTarget] = useState<string>("");
   const [commentReplyText, setCommentReplyText] = useState("");
@@ -988,6 +989,16 @@ export default function InboxView({
     window.setTimeout(() => messageInputRef.current?.focus(), 0);
   }
 
+  async function copyMessageText(text: string) {
+    setMessageMenu(null);
+    try {
+      await navigator.clipboard.writeText(text);
+      notify(t("تم النسخ", "Copied"), "success");
+    } catch {
+      notify(t("تعذر النسخ، حدد النص وانسخه يدويًا", "Couldn't copy. Select the text and copy it manually."), "error");
+    }
+  }
+
   async function handleCommentReplySubmit(messageId: string) {
     const reply = commentReplyText.trim();
     if (!reply) return;
@@ -1218,7 +1229,10 @@ export default function InboxView({
               <span className="conversation-copy">
                 <span className="conversation-card-title"><b>{conversation.customer}</b></span>
                 <small title={previewWithDirection}>{previewWithDirection}</small>
-                {conversation.tags.length || priority !== "normal" ? <span className="conversation-card-foot">{priority !== "normal" ? <em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : t("مرتفعة", "High")}</em> : null}{conversation.tags.slice(0, 2).map((tag) => <em key={tag} className="tag-chip">{tag}</em>)}</span> : null}
+                {(() => {
+                  const assignedTo = tabsMode !== "employee" && conversation.assignee && conversation.assignee !== "بدون موظف" ? conversation.assignee : "";
+                  return conversation.tags.length || priority !== "normal" || assignedTo ? <span className="conversation-card-foot">{assignedTo ? <em className="assignee-chip" title={t("المسند إليه", "Assigned to")}>{assignedTo}</em> : null}{priority !== "normal" ? <em className={`priority-pill ${priority}`}>{priority === "urgent" ? t("عاجلة", "Urgent") : t("مرتفعة", "High")}</em> : null}{conversation.tags.slice(0, 2).map((tag) => <em key={tag} className="tag-chip">{tag}</em>)}</span> : null;
+                })()}
               </span>
               <span className="conversation-meta">
                 {conversation.unread ? <strong>{conversation.unread}</strong> : null}
@@ -1400,14 +1414,18 @@ export default function InboxView({
                   className={`message-bubble ${item.direction} channel-${activeConversation.channel || "whatsapp"}`}
                   key={item.id}
                   onContextMenu={(event) => {
+                    if (isDeletedMessageText(item.text)) return;
                     event.preventDefault();
+                    const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a.message-link")?.href : undefined;
                     setMessageMenu({
                       messageId: item.id,
                       x: Math.max(12, Math.min(event.clientX, window.innerWidth - 230)),
-                      y: Math.max(12, Math.min(event.clientY, window.innerHeight - 150))
+                      y: Math.max(12, Math.min(event.clientY, window.innerHeight - 160)),
+                      link
                     });
                   }}
                 >
+                  <div className="message-heading">
                   {item.direction !== "note" ? (
                     <span
                       className={`message-channel-mark ${activeConversation.channel || "whatsapp"}`}
@@ -1417,6 +1435,7 @@ export default function InboxView({
                       <span>{item.direction === "in" ? activeConversation.customer : item.author || currentUserName}</span>
                     </span>
                   ) : null}
+                  <div className="message-actions">
                   {!isDeletedMessageText(item.text) ? (
                     <button
                       className="message-reply-action"
@@ -1428,11 +1447,18 @@ export default function InboxView({
                       ↩
                     </button>
                   ) : null}
+                  {!isDeletedMessageText(item.text) && item.text.trim() ? (
+                    <button className="message-copy-action" type="button" aria-label={t("نسخ الرسالة", "Copy message")} title={t("نسخ الرسالة", "Copy message")} onClick={() => void copyMessageText(item.text)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V4H4v12h4" /></svg>
+                    </button>
+                  ) : null}
                   {item.direction === "out" &&
                   !isDeletedMessageText(item.text) &&
                   (canDeleteAnyMessage || item.author === currentUserName) ? (
                     <button className="message-delete" type="button" aria-label={t("حذف الرسالة", "Delete message")} title={t("حذف الرسالة", "Delete message")} onClick={() => onDeleteMessage(item.id)} />
                   ) : null}
+                  </div>
+                  </div>
                   {item.direction === "note" ? <b>{t("ملاحظة خاصة، ", "Private note, ")}{item.author || currentUserName}</b> : null}
                   {item.replyTo ? (
                     <span className="message-reply-preview">
@@ -1555,7 +1581,7 @@ export default function InboxView({
                 </Fragment>
               ))}
             </div>
-            {contextMessage ? (
+            {contextMessage && typeof document !== "undefined" ? createPortal(
               <div
                 className="message-context-menu"
                 style={{ left: messageMenu?.x, top: messageMenu?.y }}
@@ -1563,11 +1589,13 @@ export default function InboxView({
                 aria-label={t("خيارات الرسالة", "Message options")}
                 onClick={(event) => event.stopPropagation()}
               >
-                <button type="button" onClick={() => startMessageReply(contextMessage.id)}>
+                <button role="menuitem" type="button" onClick={() => startMessageReply(contextMessage.id)}>
                   {t("رد على الرسالة", "Reply to message")}
                 </button>
+                {contextMessage.text.trim() ? <button role="menuitem" type="button" onClick={() => void copyMessageText(contextMessage.text)}>{t("نسخ الرسالة", "Copy message")}</button> : null}
+                {messageMenu?.link ? <button role="menuitem" type="button" onClick={() => void copyMessageText(messageMenu.link!)}>{t("نسخ الرابط", "Copy link")}</button> : null}
               </div>
-            ) : null}
+            , document.body) : null}
             {activeConversation.windowExpired && composerMode !== "note" ? (
               <div className="window-notice">
                 <b>{t("انتهت نافذة الرد خلال 24 ساعة", "The 24-hour reply window has expired")}</b>

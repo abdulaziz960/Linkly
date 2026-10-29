@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { prisma } from "./prisma";
 import { ensureSchema } from "./database";
 import { isPubliclyRoutableUrl } from "./url-safety";
+import { safePublicFetch } from "./safe-public-fetch";
 import { cleanProductInput, parsePrice, upsertProductByExternalId, type CleanProductInput } from "./catalog";
 
 const MAX_FEED_BYTES = 8 * 1024 * 1024;
@@ -24,7 +25,7 @@ export async function fetchFeedText(rawUrl: string): Promise<string> {
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     if (!(await isPubliclyRoutableUrl(url))) throw new FeedError("رابط الملف غير مسموح (يجب أن يكون عنوانًا عامًا على الإنترنت)");
 
-    const response = await fetch(url, {
+    const response = await safePublicFetch(url, {
       redirect: "manual",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       headers: { Accept: "application/json, application/xml, text/xml, text/csv, text/plain, */*", "User-Agent": "LinklyCatalogSync/1.0" }
@@ -32,14 +33,15 @@ export async function fetchFeedText(rawUrl: string): Promise<string> {
 
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
+      await response.body?.cancel();
       if (!location) throw new FeedError("تعذر قراءة الملف: إعادة توجيه غير صالحة");
       url = new URL(location, url).toString();
       continue;
     }
-    if (!response.ok) throw new FeedError(`تعذر تحميل الملف (HTTP ${response.status})`);
+    if (!response.ok) { await response.body?.cancel(); throw new FeedError(`تعذر تحميل الملف (HTTP ${response.status})`); }
 
     const declared = Number(response.headers.get("content-length"));
-    if (Number.isFinite(declared) && declared > MAX_FEED_BYTES) throw new FeedError("حجم الملف أكبر من المسموح (8 ميجابايت)");
+    if (Number.isFinite(declared) && declared > MAX_FEED_BYTES) { await response.body?.cancel(); throw new FeedError("حجم الملف أكبر من المسموح (8 ميجابايت)"); }
 
     const reader = response.body?.getReader();
     if (!reader) throw new FeedError("الملف فارغ");

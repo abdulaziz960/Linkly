@@ -1,3 +1,4 @@
+vi.mock("../lib/safe-public-fetch", () => ({ safePublicFetch: (...args: Parameters<typeof fetch>) => fetch(...args), UnsafePublicUrlError: class extends Error {} }));
 import { existsSync, unlinkSync } from "fs";
 import { join } from "path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
